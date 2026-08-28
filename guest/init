@@ -1,0 +1,20 @@
+#!/bin/busybox sh
+
+/bin/busybox --install -s /bin
+mkdir -p /dev /proc /sys /tmp
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
+echo "CHILD_PROOF_BEGIN"
+echo "release=$(uname -r)"
+echo "cmdline=$(cat /proc/cmdline)"
+echo "online_cpus=$(cat /sys/devices/system/cpu/online)"
+echo "cpu_count=$(grep -c '^processor' /proc/cpuinfo)"
+echo "mem_total=$(awk '/MemTotal/ { print $2 " " $3 }' /proc/meminfo)"
+echo "pid1=$(readlink /proc/1/exe)"
+echo "CHILD_READY"
+
+while true; do
+    sleep 3600
+done
