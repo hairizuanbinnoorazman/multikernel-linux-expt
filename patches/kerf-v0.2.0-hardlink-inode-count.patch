@@ -1,0 +1,31 @@
+diff --git a/src/kerf/daxfs/mkdaxfs.py b/src/kerf/daxfs/mkdaxfs.py
+index 6994048..88a09d9 100644
+--- a/src/kerf/daxfs/mkdaxfs.py
++++ b/src/kerf/daxfs/mkdaxfs.py
+@@ -201,7 +201,7 @@ class DaxfsBuilder:
+ 
+     def calculate_offsets(self) -> None:
+         """Assign base-relative data offsets and compute the base size."""
+-        data_offset = self._align(len(self.files) * DAXFS_INODE_SIZE,
++        data_offset = self._align((self.next_ino - 1) * DAXFS_INODE_SIZE,
+                                   DAXFS_BLOCK_SIZE)
+ 
+         for e in self.files:
+@@ -251,7 +251,7 @@ class DaxfsBuilder:
+             remaining -= min(remaining, len(zero_chunk))
+ 
+         base_offset = DAXFS_BLOCK_SIZE
+-        base_data_offset = self._align(len(self.files) * DAXFS_INODE_SIZE,
++        base_data_offset = self._align((self.next_ino - 1) * DAXFS_INODE_SIZE,
+                                        DAXFS_BLOCK_SIZE)
+         overlay_offset = self._overlay_offset()
+         bucket_array = self._align(
+@@ -268,7 +268,7 @@ class DaxfsBuilder:
+             base_offset,
+             self.base_size,
+             0,                          # inode_offset (relative to base)
+-            len(self.files),
++            self.next_ino - 1,          # unique inodes; hardlinks share one
+             DAXFS_ROOT_INO,
+             base_data_offset,           # data_offset (relative to base)
+             overlay_offset,

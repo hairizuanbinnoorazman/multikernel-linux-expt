@@ -1,0 +1,19 @@
+diff --git a/src/kerf/daxfs/mkdaxfs.py b/src/kerf/daxfs/mkdaxfs.py
+index 1ac3fa0..5fa77b1 100644
+--- a/src/kerf/daxfs/mkdaxfs.py
++++ b/src/kerf/daxfs/mkdaxfs.py
+@@ -166,6 +166,14 @@ class DaxfsBuilder:
+             except (PermissionError, FileNotFoundError):
+                 continue
+ 
++            # DAXFS supports directories, regular files, and symlinks only.
++            # OCI root filesystems commonly contain device nodes under /dev;
++            # omit those because the spawn kernel mounts devtmpfs at boot.
++            mode = file_stat.st_mode
++            if not (stat_mod.S_ISDIR(mode) or stat_mod.S_ISREG(mode)
++                    or stat_mod.S_ISLNK(mode)):
++                continue
++
+             self._add_file(newrel, file_stat)
+ 
+             if entry.is_dir() and not entry.is_symlink():

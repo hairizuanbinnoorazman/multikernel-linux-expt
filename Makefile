@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-PROJECT ?= REDACTED_GCP_PROJECT_ID
+PROJECT ?= $(if $(MK_PROJECT),$(MK_PROJECT),$(shell ./scripts/detect-gcp-project.sh 2>/dev/null))
 ZONE ?= asia-southeast1-b
 INSTANCE ?= mklinux-lab
 MACHINE_TYPE ?= n2-standard-16
@@ -13,16 +13,27 @@ REMOTE_LAB ?= multikernel-linux-lab
 GCLOUD = gcloud compute
 SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 
-.PHONY: help check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
+.PHONY: help check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
 	ssh serial snapshot sync provision-kernel reboot verify-host install-kerf \
-	smoke-up smoke-status smoke-down collect-logs
+	smoke-up smoke-status smoke-down daxfs-build daxfs-up daxfs-status \
+	daxfs-down daxfs-dual-kernel-proof collect-logs
 
 help: ## Show available targets.
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-check-gcloud: ## Show the active account and selected project.
+check-project:
+	@test -n "$(PROJECT)" && test "$(PROJECT)" != "(unset)" || { \
+		echo 'Set MK_PROJECT or run: gcloud config set project PROJECT_ID' >&2; exit 1; \
+	}
+
+check-gcloud: check-project ## Show the active account and selected project.
 	gcloud auth list --filter=status:ACTIVE
 	gcloud projects describe $(PROJECT) --format='value(projectId,lifecycleState)'
+
+vm-create vm-describe vm-start vm-stop vm-delete ssh serial snapshot sync \
+	provision-kernel reboot verify-host install-kerf smoke-up smoke-status \
+	smoke-down daxfs-build daxfs-up daxfs-status daxfs-down \
+	daxfs-dual-kernel-proof collect-logs: check-project
 
 vm-create: ## Create the GCE laboratory VM (billable).
 	$(GCLOUD) instances create $(INSTANCE) \
@@ -65,9 +76,19 @@ snapshot: ## Snapshot the current boot disk as a recovery point.
 
 sync: ## Copy the verified remote scripts and child init into the VM.
 	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/guest ~/$(REMOTE_LAB)/scripts'
-	$(GCLOUD) scp guest/init $(INSTANCE):~/$(REMOTE_LAB)/guest/ \
+	$(GCLOUD) scp guest/init guest/daxfs-bootstrap-init guest/daxfs-proof.sh \
+		guest/docker-proof.sh \
+		$(INSTANCE):~/$(REMOTE_LAB)/guest/ \
 		--project=$(PROJECT) --zone=$(ZONE)
-	$(GCLOUD) scp scripts/*.sh $(INSTANCE):~/$(REMOTE_LAB)/scripts/ \
+	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/docker'
+	$(GCLOUD) scp docker/daxfs-proof.Dockerfile \
+		$(INSTANCE):~/$(REMOTE_LAB)/docker/ \
+		--project=$(PROJECT) --zone=$(ZONE)
+	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/patches'
+	$(GCLOUD) scp patches/*.patch $(INSTANCE):~/$(REMOTE_LAB)/patches/ \
+		--project=$(PROJECT) --zone=$(ZONE)
+	$(GCLOUD) scp scripts/*.sh scripts/*.py \
+		$(INSTANCE):~/$(REMOTE_LAB)/scripts/ \
 		--project=$(PROJECT) --zone=$(ZONE)
 	$(SSH) --command='chmod +x ~/$(REMOTE_LAB)/guest/init ~/$(REMOTE_LAB)/scripts/*.sh'
 
@@ -101,6 +122,21 @@ smoke-status: ## Prove host and both child statuses while the smoke test is up.
 
 smoke-down: sync ## Stop/delete both children and return the whole pool to the host.
 	$(SSH) --command='~/$(REMOTE_LAB)/scripts/smoke-down.sh'
+
+daxfs-build: sync ## Build pinned DAXFS, bootstrap/root trees, and proof Docker image.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/daxfs-build.sh'
+
+daxfs-up: sync ## Boot one verified DAXFS-root child; leaves it active.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/daxfs-up.sh'
+
+daxfs-status: sync ## Report host, pool, child, CPU, and DAXFS mount state.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/daxfs-status.sh'
+
+daxfs-down: sync ## Safely remove known DAXFS test children and release an empty pool.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/daxfs-down.sh'
+
+daxfs-dual-kernel-proof: sync ## Run the checked two-Docker-image/two-kernel proof.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/test-daxfs-dual-kernel.sh'
 
 collect-logs: ## Save serial output and a live host report under logs/.
 	mkdir -p logs

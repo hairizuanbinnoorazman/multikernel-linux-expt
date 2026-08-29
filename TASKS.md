@@ -1,6 +1,6 @@
 # Implementation tasks
 
-Last updated: 2026-08-28
+Last updated: 2026-08-29
 
 ## Live GCE proof
 
@@ -30,6 +30,53 @@ Last updated: 2026-08-28
 - [x] Create a root Makefile for VM creation, provisioning, verification,
   Multikernel smoke tests, log collection, and safe cleanup.
 - [x] Update `README.md` where live results differ from the research plan.
+
+## DAXFS and Docker-image experiment
+
+- [x] Audit all of `DAXFS-PLAN.md`, including every later experiment.
+- [x] Create and verify the pre-DAXFS recovery snapshot.
+- [x] Confirm the exact host kernel config, Multikernel DMA heap, DAXFS/Kerf
+  interfaces, revisions, module vermagic, Secure Boot, and lockdown state.
+- [x] Build pinned DAXFS and pass its full 20-test upstream host suite.
+- [x] Build and hash the minimal root, manifest, bootstrap initramfs, and static
+  format-8 DAXFS image.
+- [x] Audit the checksum manifest, fix its self-reference, and prove every
+  listed supported file from inside a fresh DAXFS-root child.
+- [x] Prove a child can mount DAXFS without changing root.
+- [x] Prove DAXFS as `/` in two complete clean lifecycle cycles.
+- [x] Exercise normal overlay mutations and read-only rejection.
+- [x] Prove mount validation rejects a deliberately corrupted image copy.
+- [x] Prove bounded overlay exhaustion returns `ENOSPC` and inspect utilization.
+- [x] Boot a Docker-derived BusyBox filesystem as a DAXFS child root.
+- [x] Record and implement the pinned-Kerf special-file and hardlink fixes
+  required for real OCI root filesystems.
+- [x] Prove two children can mount the same DAXFS image read-only.
+- [x] Execute two-child conflict-free and contended shared-write tests; record
+  the observed coherence failure rather than claiming a pass.
+- [x] Force-stop/restart a child and prove data remains while its DAXFS
+  allocation remains live.
+- [x] Run and retain the bounded host ext4/tmpfs/DAXFS cached-read
+  microbenchmark.
+- [ ] Directly compare performance with the existing child-initramfs baseline;
+  the retained host tmpfs measurement is a documented partial substitute.
+- [x] Build a distinct alternate kernel and matching DAXFS module/initramfs.
+- [x] Run two Docker-derived roots concurrently under two distinct kernel
+  binaries/releases and retain both console transcripts and Kerf state.
+- [x] Reconfirm the primary boot ID and services remain healthy while both run.
+- [x] Return all CPUs/memory, leaving no pool or instances.
+- [x] Add and live-test `daxfs-build`, `daxfs-up`, `daxfs-status`,
+  `daxfs-down`, and the dual-kernel proof target.
+- [x] Download the complete GCE evidence bundle and add an evidence index.
+- [x] Document the exact result, limitations, failures, fixes, and source-based
+  writable-coherence diagnosis in `DAXFS-IMPLEMENTATION.md`.
+- [x] Remove the final child and pool, capture the clean state, then delete the
+  GCE VM and auto-delete boot disk while retaining recovery snapshots and
+  local evidence.
+- [ ] Automate reconstruction of the alternate kernel, matching DAXFS module,
+  and initramfs; the current dual-kernel target expects deleted remote build
+  artifacts.
+- [ ] Validate creation of a fresh disk/VM from each retained snapshot before
+  treating either snapshot as a tested recovery workflow.
 
 ## Safety constraints
 

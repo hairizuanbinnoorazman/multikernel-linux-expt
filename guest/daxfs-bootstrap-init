@@ -1,0 +1,65 @@
+#!/bin/busybox sh
+
+set -u
+
+/bin/busybox --install -s /bin
+mkdir -p /dev /proc /sys /mnt/daxfs
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
+echo "DAXFS_BOOTSTRAP_BEGIN"
+echo "bootstrap_pid1=$(readlink /proc/1/exe)"
+echo "cmdline=$(cat /proc/cmdline)"
+
+rootflags=""
+phase="root"
+readonly=""
+for argument in $(cat /proc/cmdline); do
+    case "$argument" in
+        rootflags=*) rootflags=${argument#rootflags=} ;;
+        daxfs.phase=*) phase=${argument#daxfs.phase=} ;;
+        daxfs.ro=1) readonly="ro," ;;
+    esac
+done
+
+if [ -z "$rootflags" ]; then
+    echo "DAXFS_BOOTSTRAP_ERROR missing_rootflags"
+    exec sh
+fi
+
+if ! insmod /daxfs.ko; then
+    echo "DAXFS_BOOTSTRAP_ERROR insmod_failed"
+    dmesg | tail -80
+    exec sh
+fi
+
+echo "daxfs_filesystem=$(grep daxfs /proc/filesystems || true)"
+if ! mount -t daxfs -o "${readonly}${rootflags},validate" none /mnt/daxfs; then
+    echo "DAXFS_BOOTSTRAP_ERROR mount_failed"
+    dmesg | tail -80
+    exec sh
+fi
+
+echo "daxfs_mount=$(grep ' /mnt/daxfs ' /proc/mounts)"
+if [ -f /mnt/daxfs/DAXFS-MARKER ]; then
+    cat /mnt/daxfs/DAXFS-MARKER
+    sha256sum /mnt/daxfs/DAXFS-MARKER \
+        /mnt/daxfs/opt/proof/nested/payload.txt
+else
+    echo "daxfs_marker=not-present-in-this-rootfs"
+fi
+
+if [ "$phase" = "mount" ]; then
+    echo "DAXFS_MOUNT_READY"
+    while true; do sleep 3600; done
+fi
+
+mkdir -p /mnt/daxfs/dev /mnt/daxfs/proc /mnt/daxfs/sys
+mount --move /dev /mnt/daxfs/dev
+mount --move /proc /mnt/daxfs/proc
+mount --move /sys /mnt/daxfs/sys
+exec switch_root /mnt/daxfs /init
+
+echo "DAXFS_BOOTSTRAP_ERROR switch_root_returned"
+exec sh
