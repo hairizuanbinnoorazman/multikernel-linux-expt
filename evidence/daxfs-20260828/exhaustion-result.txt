@@ -1,0 +1,27 @@
+successful_4k_files=0
+first_failure_rc=1
+dd: failed to open '/tmp/tmp.AuwmmFmN8k/mnt/file-0': No space left on device
+Overlay Hash Table
+==================
+
+Header:
+  Magic:           0x6f766c79
+  Version:         2
+  Bucket count:    64
+  Bucket shift:    6
+  Bucket offset:   0x1000
+  Pool offset:     0x2000
+  Pool size:       64 bytes (0.00 MB)
+  Pool allocated:  64 bytes (0.00 MB)
+  Pool usage:      100.0%
+  Next inode:      3
+
+Bucket utilization:
+  Used:            2 / 64 (3.1%)
+  Free:            62
+
+Entry types:
+  Inodes:          2
+  Data pages:      0
+  Dirents:         0
+  Tombstones:      0

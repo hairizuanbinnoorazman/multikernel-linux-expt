@@ -10,31 +10,42 @@ The initial objective is deliberately narrow:
 > the child received the expected resources.
 
 Networking, persistent child storage, DAXFS, Docker images, accelerators, and
-device assignment are later experiments. They should not be part of the first
-bring-up.
+device assignment were deliberately excluded from the first bring-up. The
+complete DAXFS functional and Docker-image follow-up has now also been
+executed; see
+[`DAXFS-IMPLEMENTATION.md`](DAXFS-IMPLEMENTATION.md).
 
 The host and two-child proof described below was completed successfully on GCE
-on 2026-08-28. The VM still exists and is billable; child resources were
-returned to the primary kernel after the test.
+on 2026-08-28. Child resources were returned to the primary kernel before
+cleanup. The VM and its boot disk were later deleted; two recovery snapshots
+and the local evidence bundle remain. Snapshot storage may still incur charges.
 
 ## Status
 
 Research, implementation, and live account checks were performed on
-2026-08-28.
+2026-08-28. Resource cleanup was verified on 2026-08-29.
 
 | Item | Status |
 | --- | --- |
-| Google Cloud project | `REDACTED_GCP_PROJECT_ID` is active |
+| Google Cloud project | The project selected by `MK_PROJECT` or the active `gcloud` configuration is used |
 | Billing | Enabled |
 | Compute Engine API | Enabled |
 | Operator permissions | Project Owner |
-| Laboratory VM | `mklinux-lab`, running `7.0.0-mk2-gce-lab` |
+| Laboratory VM | Deleted after testing |
+| Boot disk | Deleted with the VM |
+| Retained snapshots | `mklinux-lab-stock-20260828` and `mklinux-lab-pre-daxfs-20260828-2030`, both `READY` at final check |
 | Primary-kernel GCE functions | SSH, guest agent, NIC, disk, metadata, and serial passed |
 | Concurrent child proof | Passed with two four-vCPU children |
+| DAXFS child root | Passed twice from clean pools |
+| Docker image as child root | Passed after two documented pinned-Kerf fixes |
+| Different kernel per Docker-derived workload | Passed concurrently with two distinct `vmlinux` files |
+| Shared read-only DAXFS | Passed with two children |
+| Shared writable DAXFS | Coherence failed; do not use as multi-writer storage |
 | Cleanup proof | Passed; all 16 vCPUs and host memory restored |
+| Final disposition | VM and 100 GB boot disk deleted; snapshots and local evidence retained |
 | Target region | `asia-southeast1` |
-| N2 vCPU quota | 200 available, 0 used |
-| General vCPU quota | 500 available, 0 used |
+| N2 vCPU quota at initial check | 200 available, 0 used |
+| General vCPU quota at initial check | 500 available, 0 used |
 | `n2-standard-16` | Available in `asia-southeast1-b` |
 | Ubuntu image | `ubuntu-2604-resolute-amd64-v20260821` |
 
@@ -42,11 +53,38 @@ The project's default VPC currently has ingress rules that expose SSH, RDP,
 HTTP, TCP port 3000, and ICMP to `0.0.0.0/0`. Tighten those rules or use an IAP
 access design before giving the test VM an external IP.
 
+## DAXFS and Docker-image outcome
+
+The live run confirmed the intended capability, with an important wording
+boundary: Docker supplied OCI filesystems, while Multikernel/Kerf supplied an
+independently selected kernel for each workload. Ordinary Docker/runc
+containers still share their Docker host kernel.
+
+| Capability | Result |
+| --- | --- |
+| Pinned DAXFS upstream suite | 20/20 passed |
+| DAXFS as a child root | Passed twice from clean pools; later full-manifest audit also passed |
+| Docker-derived DAXFS root | Passed after the two recorded pinned-Kerf fixes |
+| Two concurrent Docker-derived roots with distinct kernels | Passed with `7.0.0-mk2-gce-lab` and `7.0.0-mk2-gce-lab-alt` |
+| Shared read-only DAXFS | Passed with two children |
+| Shared writable DAXFS | Coherence failed; use read-only or a single writer at this revision |
+| Child restart | Data survived only while the shared-memory allocation remained live |
+| Corruption rejection and bounded exhaustion | Passed; exhaustion returned `ENOSPC` |
+| Performance comparison | Partial: host ext4/tmpfs/DAXFS cached reads were measured, but the planned child-initramfs baseline was not |
+| Final cleanup | All CPUs and memory returned, then the VM and boot disk were deleted |
+
+The complete matrix, exact hashes, physical allocation ledger, failures,
+patches, and interpretation are in
+[`DAXFS-IMPLEMENTATION.md`](DAXFS-IMPLEMENTATION.md). Raw transcripts are
+indexed under [`evidence/daxfs-20260828/`](evidence/daxfs-20260828/), including
+the [post-deletion GCE inventory](evidence/daxfs-20260828/resource-cleanup.txt).
+
 ## Reproduce the verified path
 
-The root `Makefile` wraps VM creation, source provisioning, host verification,
-the two-child smoke test, cleanup, and log collection. Review its variables and
-the network warning above before creating billable resources:
+No laboratory VM currently exists. The root `Makefile` wraps fresh VM
+creation, source provisioning, host verification, the two-child smoke test,
+cleanup, and log collection. Review its variables and the network warning
+above before creating billable resources:
 
 ```bash
 make help
@@ -60,6 +98,17 @@ make smoke-up
 make smoke-status
 make smoke-down
 ```
+
+The retained snapshots are recovery inputs, not a finalized DAXFS appliance.
+`mklinux-lab-stock-20260828` is the stock checkpoint;
+`mklinux-lab-pre-daxfs-20260828-2030` is the custom-primary-kernel checkpoint
+immediately before DAXFS work. The deleted boot disk contained the DAXFS and
+alternate-kernel source trees and compiled artifacts. A fresh run must rebuild
+those from the pinned revisions, checked patches, scripts, and recorded build
+procedure. In particular, the dual-kernel target currently consumes prebuilt
+primary/alternate artifacts; automating their reconstruction remains an open
+task. Restoring either snapshot as a new disk/VM was not exercised during this
+run, so verify that recovery workflow before relying on it.
 
 `make smoke-up` is intentionally specific to the verified
 `n2-standard-16` topology. It allocates physical APIC IDs 8-15, never APIC ID
@@ -75,7 +124,7 @@ mixing whatever happens to be on each repository's default branch.
 | --- | --- | --- |
 | Multikernel Linux | `v7.0-mk2` / `3bdd35b64413da0b4e089ce931bfc2e8b031cbf7` | 2026-08-25 |
 | Kerf | `v0.2.0` / `8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec` | 2026-08-25 |
-| DAXFS, optional | `11ab401585b79b4a7c9164019852e0219e197d13` | 2026-08-15 |
+| DAXFS, optional | `0.1.0` / `11ab401585b79b4a7c9164019852e0219e197d13`; formats superblock 8, overlay 2, page cache 2 | 2026-08-15 |
 
 `v7.0-mk2` moved memory-pool allocation into the kernel. It does **not** need
 the out-of-tree `lazy_cma` module. The public getting-started page still
@@ -109,9 +158,10 @@ Consequences on GCE:
 - Nested virtualization does not need to be enabled.
 - Bare-metal performance claims do not directly apply inside a GCE VM.
 
-The main compatibility question is whether GCE's virtual APIC accepts the CPU
-park and restart sequence used by Multikernel. The minimal child boot is
-designed to answer that question before more complex work begins.
+The live run confirmed that GCE's virtual APIC accepted the tested CPU park,
+child-start, stop, and resource-return sequences. That result applies to the
+tested `n2-standard-16` instance and pinned software revisions; stop/start,
+host maintenance, and live migration still need separate testing.
 
 ## Important findings from the source
 
@@ -185,10 +235,12 @@ Recommended first VM:
 | Serial-port logging | Enabled |
 | Nested virtualization | Disabled/not required |
 
-Set reusable shell variables before using the commands in this guide:
+Set reusable shell variables before using the commands in this guide. The
+project helper prefers an existing `MK_PROJECT` value and otherwise reads the
+active `gcloud` configuration:
 
 ```bash
-export MK_PROJECT="REDACTED_GCP_PROJECT_ID"
+export MK_PROJECT="$(./scripts/detect-gcp-project.sh)"
 export MK_ZONE="asia-southeast1-b"
 export MK_VM="mklinux-lab"
 ```
@@ -553,17 +605,35 @@ until logs have been collected.
 
 ## Experiments after the smoke test
 
-Proceed one variable at a time:
+The complete staged DAXFS functional experiment, including the plan's later
+Docker, shared-read, shared-write, restart, exhaustion, and dual-kernel tests,
+was executed on 2026-08-28. The performance category was exercised only as a
+host-side cached-read microbenchmark; the specifically planned child-initramfs
+comparison remains incomplete. See
+[`DAXFS-IMPLEMENTATION.md`](DAXFS-IMPLEMENTATION.md) for the result matrix and
+[`evidence/daxfs-20260828/`](evidence/daxfs-20260828/) for raw proof.
 
-1. Test AF_VSOCK between primary and child kernels.
-2. Build and validate DAXFS with a simple root directory.
-3. Boot a Docker image through Kerf and DAXFS.
-4. Add a host-side proxy to provide controlled external networking.
-5. Test two simultaneous child kernels.
-6. Benchmark ordinary Linux versus Multikernel on the same GCE machine type.
-7. Test stop/start and GCE host-maintenance behavior.
-8. Only then investigate virtual-device assignment.
-9. Capture a stopped, validated boot disk as a reusable GCE custom image.
+The result confirms different kernel binaries per Docker-derived workload.
+Docker supplies the OCI root filesystem; Kerf/DAXFS and Multikernel launch it
+under a selected child kernel. This is distinct from an ordinary Docker
+container, which shares the Docker host kernel.
+
+Remaining experiments are:
+
+1. Design and test explicit cross-kernel VFS cache invalidation before using
+   DAXFS with multiple writers.
+2. Resolve the pinned kernel's AF_VSOCK compile incompatibility, then test
+   AF_VSOCK between primary and child kernels.
+3. Add a host-side proxy to provide controlled external networking.
+4. Test stop/start and GCE host-maintenance behavior.
+5. Only then investigate virtual-device assignment.
+6. Capture a stopped, validated boot disk as a reusable GCE custom image.
+7. Directly compare DAXFS with the existing child-initramfs baseline.
+8. Automate reconstruction of the alternate kernel, matching DAXFS module,
+   and initramfs before rerunning the dual-kernel target on a fresh VM.
+
+The two-simultaneous-child lifecycle test formerly listed here has already
+passed and is recorded in `LEARNINGS.md` and `TASKS.md`.
 
 Do not treat a successful primary-kernel boot as proof that the Multikernel
 runtime works. The reusable image should be created only after the child smoke
@@ -571,7 +641,6 @@ test and resource-return path both pass.
 
 ## Open questions
 
-- Does GCE's virtual APIC permit Multikernel's CPU park/restart path?
 - Are APIC IDs stable across stop/start and different instances made from the
   same custom image?
 - What happens to active child kernels during GCE live migration?
@@ -581,8 +650,8 @@ test and resource-return path both pass.
 - What security boundary does the current implementation actually guarantee
   when all kernels share one outer GCE VM?
 
-These require measurement. The current project documentation and recent news
-coverage do not provide independent GCE validation.
+These require separate measurement; the completed run does not establish
+behavior outside the tested topology and lifecycle.
 
 ## References
 

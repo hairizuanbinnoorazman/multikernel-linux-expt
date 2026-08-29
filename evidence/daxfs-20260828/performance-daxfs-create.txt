@@ -1,0 +1,12 @@
+Scanning /tmp/tmp.4ZVxceic3B/source...
+Found 2 files
+Base image size: 268443648 bytes (256.01 MB)
+Total image size: 268447744 bytes (256.01 MB)
+Mode: static (read-only)
+Allocated 536870912 bytes from /dev/dma_heap/system, dma-buf fd=4
+Writing daxfs image...
+Image layout (static):
+  Superblock:    0x0 - 0x1000
+  Base image:    0x1000 - 0x10003000 (268443648 bytes)
+Mounting on /tmp/tmp.4ZVxceic3B/dax (read-only)...
+Done. Mounted daxfs on /tmp/tmp.4ZVxceic3B/dax

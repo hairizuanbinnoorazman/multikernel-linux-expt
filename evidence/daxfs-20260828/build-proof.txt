@@ -1,0 +1,8 @@
+DAXFS_COMMIT=11ab401585b79b4a7c9164019852e0219e197d13
+KERF_COMMIT=8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec
+KERNEL_RELEASE=7.0.0-mk2-gce-lab
+vermagic:       7.0.0-mk2-gce-lab SMP preempt mod_unload modversions 
+5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10  /home/YOUR_USER/src/linux/vmlinux
+8c2dc0c4a5218de1a60f9765c770c280957d69d72537b7b680d3ecf2b6566de4  /home/YOUR_USER/src/daxfs/daxfs/daxfs.ko
+48ae2478bc291cd53f3943e7e09187853977e559cb6b51e6747fc75f73c5c7c8  /home/YOUR_USER/multikernel-artifacts/daxfs-current/initramfs.cpio.gz
+docker_image_id=sha256:913d8ae6b717b08d7d813d5538f6d516332054b5a32fb79cd9f15cd9eece9874

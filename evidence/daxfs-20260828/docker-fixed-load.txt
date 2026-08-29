@@ -1,0 +1,19 @@
+Instance name: docker-busybox (ID: 30)
+Kernel image: /home/YOUR_USER/src/linux/vmlinux
+Initrd image: /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/daxfs-initramfs.cpio.gz
+Extracting Docker image: daxfs-proof:local
+Rootfs extracted to: /var/lib/kerf/rootfs/docker-busybox
+Image command: ['/docker-proof']
+Injected /init wrapper (entrypoint: /docker-proof)
+Creating daxfs image for instance docker-busybox...
+Daxfs image created at phys=0xd13414000, size=72851456
+Entrypoint: /docker-proof
+Multikernel mode enabled with ID: 30
+Flags: KEXEC_MULTIKERNEL=0x10, KEXEC_MK_ID(30)=0x3c0, combined=0x3d0
+Daxfs root: rootfstype=daxfs rootflags=phys=0xd13414000,size=72851456
+Entrypoint: kerf.entrypoint=/docker-proof
+Console: console=mktty0
+Command line: rdinit=/init daxfs.phase=root loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd13414000,size=72851456 init=/init kerf.entrypoint=/docker-proof console=mktty0
+Flags: 0x3d0
+Calling kexec_file_load syscall...
+✓ Kernel loaded successfully (result: 0)

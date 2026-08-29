@@ -1,0 +1,8 @@
+ALT_RELEASE=7.0.0-mk2-gce-lab-alt
+filename:       /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/daxfs-alt.ko
+vermagic:       7.0.0-mk2-gce-lab-alt SMP preempt mod_unload modversions 
+5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/vmlinux-primary
+b500e7cf43d56029066845654c953f35da532edf9664f57a251b37536e7fd658  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/vmlinux-alt
+8c2dc0c4a5218de1a60f9765c770c280957d69d72537b7b680d3ecf2b6566de4  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/daxfs-primary.ko
+46d6792209a0492e27b6a7d3506280b82dc0415942f72a8656cab33c72830d08  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/daxfs-alt.ko
+7525ee038366fc4227793d5574dc01c22b618b04a698269b799070b479afc4a0  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/initramfs-alt.cpio.gz

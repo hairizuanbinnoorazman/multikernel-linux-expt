@@ -1,0 +1,73 @@
+Script started on 2026-08-28 12:47:56+00:00 [COMMAND="/home/YOUR_USER/src/kerf/.venv/bin/kerf exec docker-busybox --console --verbose" <not executed on terminal>]
+Instance name: docker-busybox (ID: 30)
+Checking if kernel image is loaded for instance 'docker-busybox'...
+Status file: /sys/fs/multikernel/instances/docker-busybox/status
+Instance status: 'loaded'
+✓ Kernel image found for instance 'docker-busybox'
+Instance ID to boot: 30
+Using reboot syscall with command: 0x4d4b4c49
+Calling reboot syscall at TSC 77410776349323
+✓ Boot command executed successfully (result: 0)
+Connecting to console for instance 'docker-busybox' (ID: 30)...
+Escape sequence: Ctrl+] followed by . to detach
+
+[    0.000000] Linux version 7.0.0-mk2-gce-lab (YOUR_USER@mklinux-lab.asia-southeast1-b.c.REDACTED_GCP_PROJECT_ID.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
+[    0.000000] random: crng init done
+[    0.000000] KHO: disabling KHO revival
+[    0.020415] Kernel command line: rdinit=/init daxfs.phase=root loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd13414000,size=72851456 init=/init kerf.entrypoint=/docker-proof console=mktty0
+[    0.021626] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 67108864 bytes tlb structure
+[    0.021627] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 33554432 bytes tlb structure
+[    0.021629] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 16777216 bytes tlb structure
+[    0.021630] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 8388608 bytes tlb structure
+[    0.021631] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 4194304 bytes tlb structure
+[    0.021632] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 2097152 bytes tlb structure
+[    0.021633] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 1048576 bytes tlb structure
+[    0.021648] KHO: Failed to reserve lowmem scratch buffer
+[    0.021649] KHO: Failed to reserve scratch area, disabling kexec handover
+[    0.055203] audit: type=2000 audit(1787921276.976:1): state=initialized audit_enabled=0 res=1
+[    0.062239] SCSI subsystem initialized
+[    0.076262] VFS: Disk quotas dquot_6.6.0
+[    0.091720] software IO TLB: No low mem
+[    0.092109] Initialise system trusted keyrings
+[    0.092116] Key type blacklist registered
+[    0.092652] integrity: Platform Keyring initialized
+[    0.092656] integrity: Machine keyring initialized
+[    0.100780] Key type asymmetric registered
+[    0.100781] Asymmetric key parser 'x509' registered
+[    0.104400] Key type psk registered
+[    0.105835] Key type dns_resolver registered
+[    0.109433] Loading compiled-in X.509 certificates
+[    0.109919] Loaded X.509 cert '[REDACTED_BUILD_CERTIFICATE]'
+[    0.113001] Key type .fscrypt registered
+[    0.113006] Key type fscrypt-provisioning registered
+[    0.113049] Key type big_key registered
+[    0.113537] Key type encrypted registered
+[    0.113551] Loading compiled-in module X.509 certificates
+[    0.113959] Loaded X.509 cert '[REDACTED_BUILD_CERTIFICATE]'
+DAXFS_BOOTSTRAP_BEGIN
+bootstrap_pid1=/bin/busybox
+cmdline=rdinit=/init daxfs.phase=root loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd13414000,size=72851456 init=/init kerf.entrypoint=/docker-proof console=mktty0
+[    0.147967] daxfs: loading out-of-tree module taints kernel.
+[    0.147976] daxfs: module verification failed: signature and/or required key missing - tainting kernel
+daxfs_filesystem=nodev	daxfs
+daxfs_mount=none /mnt/daxfs daxfs rw,relatime,phys=0xd13414000,size=72851456,overlay 0 0
+daxfs_marker=not-present-in-this-rootfs
+[    0.155528] kerf-init: 
+[    0.155530] starting at TSC 77411642694492
+[    0.155537] 
+[    0.155590] kerf-init: 
+[    0.155591] entrypoint: '/docker-proof'
+[    0.155595] 
+[    0.155606] kerf-init: 
+[    0.155607] console: /dev/mktty0
+[    0.155610] 
+[    0.155617] kerf-init: 
+[    0.155618] executing: /docker-proof
+[    0.155622] 
+DOCKER_IMAGE_READY
+release=7.0.0-mk2-gce-lab
+pid1=/init
+self=/bin/readlink
+none / daxfs rw,relatime,phys=0xd13414000,size=72851456,overlay 0 0
+
+Script done on 2026-08-28 12:48:33+00:00 [COMMAND_EXIT_CODE="0"]

@@ -1,0 +1,17 @@
+2026-08-28T13:48:07Z
+host_release=7.0.0-mk2-gce-lab
+host_boot_id=483ddd87-fef5-440e-bf8d-5499a77938d9
+online_cpus=0-15
+offline_cpus=
+guest_agent=active
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+

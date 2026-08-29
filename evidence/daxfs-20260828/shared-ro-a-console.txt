@@ -1,0 +1,51 @@
+Script started on 2026-08-28 12:51:04+00:00 [COMMAND="/home/YOUR_USER/src/kerf/.venv/bin/kerf console shared-ro-a --verbose" <not executed on terminal>]
+Instance name: shared-ro-a (ID: 41)
+Instance status: active
+Connecting to console for instance 'shared-ro-a' (ID: 41)...
+Escape sequence: Ctrl+] followed by . to detach
+
+DAXFS_BOOTSTRAP_BEGIN
+bootstrap_pid1=/bin/busybox
+cmdline=rdinit=/init daxfs.phase=root daxfs.ro=1 daxfs.test=shared-ro daxfs.role=A loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0x7b241c000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0
+[    0.191533] daxfs: loading out-of-tree module taints kernel.
+[    0.191542] daxfs: module verification failed: signature and/or required key missing - tainting kernel
+daxfs_filesystem=nodev	daxfs
+daxfs_mount=none /mnt/daxfs daxfs ro,relatime,phys=0x7b241c000,size=70467584,overlay 0 0
+DAXFS_COMMIT=11ab401585b79b4a7c9164019852e0219e197d13
+BUILD_TIME=2026-08-28T12:36:12Z
+FIXED_TEST_STRING=multikernel-daxfs-root-proof-v1
+dbcc28fbdc195d4b855d6a3e87c1d21f11fdc6c8346ce861a6407ee18b75b7ba  /mnt/daxfs/DAXFS-MARKER
+314dd22185705bdae714cee804a178203aae47b63b617e22b07748523da09ebe  /mnt/daxfs/opt/proof/nested/payload.txt
+[    0.201850] kerf-init: 
+[    0.201853] starting at TSC 77936007978744
+[    0.201864] 
+[    0.201932] kerf-init: 
+[    0.201933] entrypoint: '/bin/daxfs-proof'
+[    0.201938] 
+[    0.201950] kerf-init: 
+[    0.201951] console: /dev/mktty0
+[    0.201955] 
+[    0.201964] kerf-init: 
+[    0.201965] executing: /bin/daxfs-proof
+[    0.201969] 
+DAXFS_ROOT_PROOF_BEGIN
+release=7.0.0-mk2-gce-lab
+cmdline=rdinit=/init daxfs.phase=root daxfs.ro=1 daxfs.test=shared-ro daxfs.role=A loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0x7b241c000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0
+online_cpus=0-3
+cpu_count=4
+mem_total=7158612 kB
+pid1=/init
+self=/bin/busybox
+root_mount=none / daxfs ro,relatime,phys=0x7b241c000,size=70467584,overlay 0 0
+initramfs_only_marker=absent
+DAXFS_COMMIT=11ab401585b79b4a7c9164019852e0219e197d13
+BUILD_TIME=2026-08-28T12:36:12Z
+FIXED_TEST_STRING=multikernel-daxfs-root-proof-v1
+dbcc28fbdc195d4b855d6a3e87c1d21f11fdc6c8346ce861a6407ee18b75b7ba  /DAXFS-MARKER
+314dd22185705bdae714cee804a178203aae47b63b617e22b07748523da09ebe  /opt/proof/nested/payload.txt
+/bin/daxfs-proof: line 36: can't create /read-only-write: Read-only file system
+SHARED_RO_WRITE_REJECTED=yes
+SHARED_RO_READY role=A
+DAXFS_ROOT_READY
+
+Script done on 2026-08-28 12:51:18+00:00 [COMMAND_EXIT_CODE="0"]

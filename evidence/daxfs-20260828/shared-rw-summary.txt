@@ -1,0 +1,40 @@
+release=7.0.0-mk2-gce-lab
+root_mount=none / daxfs rw,relatime,phys=0xd1341c000,size=70467584,overlay 0 0
+SHARED_RW_PEER_VISIBLE=no role=A peer=B
+SHARED_RW_CONTENDED role=A lines=200 sha256=c91e3b3a98b175ae7c80df5b59ce5a3657109f1106b73b868525dd7210076d22
+SHARED_RW_READY role=A
+DAXFS_ROOT_READY
+release=7.0.0-mk2-gce-lab
+root_mount=none / daxfs rw,relatime,phys=0xd1341c000,size=70467584,overlay 0 0
+SHARED_RW_PEER_VISIBLE=yes role=B peer=A
+SHARED_RW_CONTENDED role=B lines=100 sha256=48fce89ec094a5e20d6d3c5960645ba5a2a4d5294e205fe2c6d446ad8779f430
+SHARED_RW_READY role=B
+DAXFS_ROOT_READY
+host_shared_A=writer=A
+host_shared_B=writer=B
+host_contended_lines=200
+c91e3b3a98b175ae7c80df5b59ce5a3657109f1106b73b868525dd7210076d22  /var/lib/kerf/daxfs/shared-rw-a/contended.log
+Overlay Hash Table
+==================
+
+Header:
+  Magic:           0x6f766c79
+  Version:         2
+  Bucket count:    65536
+  Bucket shift:    16
+  Bucket offset:   0x1000
+  Pool offset:     0x101000
+  Pool size:       67108864 bytes (64.00 MB)
+  Pool allocated:  24576 bytes (0.02 MB)
+  Pool usage:      0.0%
+  Next inode:      25
+
+Bucket utilization:
+  Used:            10 / 65536 (0.0%)
+  Free:            65526
+
+Entry types:
+  Inodes:          3
+  Data pages:      3
+  Dirents:         3
+  Tombstones:      0

@@ -1,0 +1,9 @@
+Instance name: shared-rw-b (ID: 52)
+Checking status for instance 'shared-rw-b'...
+Status file: /sys/fs/multikernel/instances/shared-rw-b/status
+Instance status: 'active'
+✓ Instance 'shared-rw-b' is running
+Instance ID to shutdown: 52
+Using reboot syscall with command: 0x4d4b4c46 (force)
+Calling reboot syscall...
+✓ Shutdown command executed successfully (result: 0)

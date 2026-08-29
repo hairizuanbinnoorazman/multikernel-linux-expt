@@ -1,0 +1,17 @@
+Instance name: daxfs-root-1 (ID: 21)
+Kernel image: /home/YOUR_USER/src/linux/vmlinux
+Initrd image: /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/daxfs-initramfs.cpio.gz
+Injected /init wrapper (entrypoint: /bin/daxfs-proof)
+Using rootfs directory: /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs
+Creating daxfs image for instance daxfs-root-1...
+Daxfs image created at phys=0xd11414000, size=70467584
+Entrypoint: /bin/daxfs-proof
+Multikernel mode enabled with ID: 21
+Flags: KEXEC_MULTIKERNEL=0x10, KEXEC_MK_ID(21)=0x2a0, combined=0x2b0
+Daxfs root: rootfstype=daxfs rootflags=phys=0xd11414000,size=70467584
+Entrypoint: kerf.entrypoint=/bin/daxfs-proof
+Console: console=mktty0
+Command line: rdinit=/init daxfs.phase=root loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0xd11414000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0
+Flags: 0x2b0
+Calling kexec_file_load syscall...
+✓ Kernel loaded successfully (result: 0)

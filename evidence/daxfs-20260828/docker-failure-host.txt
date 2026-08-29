@@ -1,0 +1,144 @@
+
+================================================================================
+Baseline Hardware Resources
+================================================================================
+
+  CPUs:
+    Total:           15
+    Available:       4 cpus: [8, 10, 12, 14]
+
+  Memory:
+    Total:           12.00 GB (12884901888 bytes)
+
+  Memory Pool:
+    Chunk:           0xb93400000  12.00 GB node 0
+    Pool Allocated:  6.07 GB (6515326976 bytes)
+    Pool Available:  5.93 GB (6369574912 bytes)
+
+================================================================================
+Multikernel Instances
+================================================================================
+Total instances: 1
+Loaded kernels: 1
+
+
+================================================================================
+Instance: docker-busybox
+================================================================================
+  ID:              30
+  Status:          active
+
+  Kernel Image:
+    Mk Id           30
+    Type            multikernel
+    Start Address   0x000b93414000
+    Segments        4
+    Mode            file
+    Cmdline         "rdinit=/init daxfs.phase=root loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd13414000,size=72876032 init=/init kerf.entrypoint=/docker-proof console=mktty0"
+    Image           /home/YOUR_USER/src/linux/vmlinux
+    Format          vmlinux (ELF)
+    Version         7.0.0-mk2-gce-lab (YOUR_USER@mklinux-lab.asia-southeast1-b.c.REDACTED_GCP_PROJECT_ID.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) # SMP PREEMPT 
+    Initrd          /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/daxfs-initramfs.cpio.gz (gzip compressed)
+    Loaded At       2026-08-28T12:42:49+00:00
+
+  Rootfs:
+    Image           daxfs-proof:local
+    Entrypoint      /docker-proof
+    Daxfs           phys=0xd13414000, size=72876032
+
+  Device Tree:
+    /dts-v1/;
+    /docker-busybox {
+        compatible = "multikernel-v1";
+        id = <0x1e>;
+        resources {
+            memory-base = <0xb 0x93414000>;
+            memory-bytes = <0x1 0x80000000>;
+            cpus = <0x0 0x8 0x0 0xa 0x0 0xc 0x0 0xe>;
+        };
+    };
+
+[26683.254457] daxfs: loading out-of-tree module taints kernel.
+[26683.254463] daxfs: module verification failed: signature and/or required key missing - tainting kernel
+[26683.282230] WARNING: fs/exec.c:118 at path_noexec+0x46/0x50, CPU#4: mkdaxfs/9221
+[26683.282239] Modules linked in: daxfs(OE) binfmt_misc cfg80211 8021q garp mrp stp llc nls_iso8859_1 intel_rapl_msr intel_rapl_common intel_uncore_frequency_common skx_edac_common nfit ghash_clmulni_intel aesni_intel rapl psmouse input_leds pvpanic_mmio i2c_piix4 pvpanic i2c_smbus serio_raw mac_hid sch_fq_codel nvme_fabrics efi_pstore dm_multipath dmi_sysfs virtiofs vmw_vsock_virtio_transport vmw_vsock_virtio_transport_common virtio_rng autofs4
+[26683.282263] CPU: 4 UID: 0 PID: 9221 Comm: mkdaxfs Tainted: G           OE       7.0.0-mk2-gce-lab #1 PREEMPTLAZY 
+[26683.304736] daxfs: coherence backend = coherent
+[26683.304753] daxfs: mounted read-only
+[26683.375092] daxfs: coherence backend = coherent
+[26683.375224] daxfs: pcache initialized with 16 slots, backing=/tmp/daxfs_test.t6msiy/backing.img
+[26683.375227] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[26683.375235] daxfs: mounted read-write (overlay)
+[26683.482459] daxfs: coherence backend = coherent
+[26683.482465] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[26683.482473] daxfs: mounted read-write (overlay)
+[26683.541986] daxfs: coherence backend = coherent
+[26683.542119] daxfs: pcache initialized with 16 slots, backing=/tmp/daxfs_test.t6msiy/backing.img
+[26683.542122] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[26683.542136] daxfs: mounted read-write (overlay)
+[26987.233027] Overlay tx13: Creating instance 'daxfs-mount'
+[26987.233041] Successfully parsed instance 'daxfs-mount': 6442450944 bytes memory, 4 CPUs, 0 PCI devices, 0 platform devices
+[26987.233576] Transferred 0x180000000 bytes from root to instance 10 (daxfs-mount)
+[26987.233580] Transferred 4 CPUs from pool to instance 10 (daxfs-mount): 8,10,12,14
+[26987.233585] Generated instance DTB for 'daxfs-mount' (ID 10): 280 bytes
+[26987.233587] Overlay tx13: Instance 'daxfs-mount' created successfully
+[27007.991236] daxfs: coherence backend = coherent
+[27007.991241] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[27007.991257] daxfs: mounted read-write (overlay)
+[27008.151425] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init daxfs.phase=mount loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0xd10c14000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0 len=168 offset=4096
+[27009.817762] Generated instance DTB for 'daxfs-mount' (ID 10): 280 bytes
+[27041.839961] Generated instance DTB for 'daxfs-mount' (ID 10): 280 bytes
+[27041.839967] Generated instance DTB for 'daxfs-mount' (ID 10): 280 bytes
+[27059.058402] Instance 10 (daxfs-mount) halted, CPUs parking in pool
+[27059.364384] Overlay tx14: Removing instance 'daxfs-mount' (ID: 10)
+[27059.364388] Releasing multikernel instance 10 (daxfs-mount), returning resources to root
+[27059.364392] Returned 4 CPUs from instance 10 (daxfs-mount) to the pool: 8,10,12,14
+[27059.364395] Returning 0x180000000 bytes from instance 10 (daxfs-mount) back to multikernel pool
+[27059.365365] Overlay tx14: Instance 'daxfs-mount' removed successfully
+[27097.152735] Overlay tx16: Creating instance 'daxfs-root-1'
+[27097.152745] Successfully parsed instance 'daxfs-root-1': 6442450944 bytes memory, 4 CPUs, 0 PCI devices, 0 platform devices
+[27097.153303] Transferred 0x180000000 bytes from root to instance 21 (daxfs-root-1)
+[27097.153306] Transferred 4 CPUs from pool to instance 21 (daxfs-root-1): 8,10,12,14
+[27097.153310] Generated instance DTB for 'daxfs-root-1' (ID 21): 284 bytes
+[27097.153313] Overlay tx16: Instance 'daxfs-root-1' created successfully
+[27097.340329] daxfs: coherence backend = coherent
+[27097.340333] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[27097.340349] daxfs: mounted read-write (overlay)
+[27097.489527] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init daxfs.phase=root loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0xd11414000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0 len=167 offset=4096
+[27099.156692] Generated instance DTB for 'daxfs-root-1' (ID 21): 284 bytes
+[27131.193057] Instance 21 (daxfs-root-1) halted, CPUs parking in pool
+[27131.496610] Overlay tx17: Removing instance 'daxfs-root-1' (ID: 21)
+[27131.496614] Releasing multikernel instance 21 (daxfs-root-1), returning resources to root
+[27131.496617] Returned 4 CPUs from instance 21 (daxfs-root-1) to the pool: 8,10,12,14
+[27131.496620] Returning 0x180000000 bytes from instance 21 (daxfs-root-1) back to multikernel pool
+[27131.497698] Overlay tx17: Instance 'daxfs-root-1' removed successfully
+[27141.950275] Overlay tx19: Creating instance 'daxfs-root-2'
+[27141.950284] Successfully parsed instance 'daxfs-root-2': 6442450944 bytes memory, 4 CPUs, 0 PCI devices, 0 platform devices
+[27141.950853] Transferred 0x180000000 bytes from root to instance 22 (daxfs-root-2)
+[27141.950856] Transferred 4 CPUs from pool to instance 22 (daxfs-root-2): 8,10,12,14
+[27141.950864] Generated instance DTB for 'daxfs-root-2' (ID 22): 284 bytes
+[27141.950872] Overlay tx19: Instance 'daxfs-root-2' created successfully
+[27142.144575] daxfs: coherence backend = coherent
+[27142.144580] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[27142.144598] daxfs: mounted read-write (overlay)
+[27142.288813] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init daxfs.phase=root loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0xb92214000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0 len=167 offset=4096
+[27143.950964] Generated instance DTB for 'daxfs-root-2' (ID 22): 284 bytes
+[27175.988282] Instance 22 (daxfs-root-2) halted, CPUs parking in pool
+[27176.293192] Overlay tx20: Removing instance 'daxfs-root-2' (ID: 22)
+[27176.293197] Releasing multikernel instance 22 (daxfs-root-2), returning resources to root
+[27176.293200] Returned 4 CPUs from instance 22 (daxfs-root-2) to the pool: 8,10,12,14
+[27176.293203] Returning 0x180000000 bytes from instance 22 (daxfs-root-2) back to multikernel pool
+[27176.294183] Overlay tx20: Instance 'daxfs-root-2' removed successfully
+[27244.134196] Overlay tx22: Creating instance 'docker-busybox'
+[27244.134205] Successfully parsed instance 'docker-busybox': 6442450944 bytes memory, 4 CPUs, 0 PCI devices, 0 platform devices
+[27244.134748] Transferred 0x180000000 bytes from root to instance 30 (docker-busybox)
+[27244.134752] Transferred 4 CPUs from pool to instance 30 (docker-busybox): 8,10,12,14
+[27244.134756] Generated instance DTB for 'docker-busybox' (ID 30): 284 bytes
+[27244.134758] Overlay tx22: Instance 'docker-busybox' created successfully
+[27329.501470] daxfs: coherence backend = coherent
+[27329.501475] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[27329.501481] daxfs: mounted read-write (overlay)
+[27329.647399] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init daxfs.phase=root loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd13414000,size=72876032 init=/init kerf.entrypoint=/docker-proof console=mktty0 len=164 offset=4096
+[27331.309145] Generated instance DTB for 'docker-busybox' (ID 30): 284 bytes
+[27402.510992] Generated instance DTB for 'docker-busybox' (ID 30): 284 bytes
+[27402.510997] Generated instance DTB for 'docker-busybox' (ID 30): 284 bytes

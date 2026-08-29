@@ -1,0 +1,14 @@
+✓ Multikernel filesystem already mounted at /sys/fs/multikernel
+Memory: 20480 MB on node 0 (from CPUs 8-15)
+Parsed APIC ID specification: 8,10,12,14,9,11,13,15
+  Valid APIC IDs on system: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  Host-reserved APIC IDs: [0, 1, 2, 3, 4, 5, 6, 7]
+  Available APIC IDs: [8, 9, 10, 11, 12, 13, 14, 15]
+Requested pool memory:
+  node 0: 21474836480 bytes (20.00 GB)
+✓ Baseline validation passed
+
+Warnings:
+  ⚠ Hardware inventory: Total CPU count (16) exceeds system physical CPU count (1). This may indicate CPUs were hot-unplugged after baseline was created.
+  ⚠ Resource utilization: 8 CPUs (100.0% of memory pool) remain unallocated
+  ⚠ Resource utilization: 21474836480 bytes (100.0% of memory pool) remain unallocated

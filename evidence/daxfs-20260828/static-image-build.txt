@@ -1,0 +1,10 @@
+Scanning /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs...
+Found 21 files
+Base image size: 2301952 bytes (2.20 MB)
+Total image size: 2306048 bytes (2.20 MB)
+Mode: static (read-only)
+Writing to /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs-static.daxfs...
+Image layout (static):
+  Superblock:    0x0 - 0x1000
+  Base image:    0x1000 - 0x233000 (2301952 bytes)
+Done

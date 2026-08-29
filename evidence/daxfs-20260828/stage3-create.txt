@@ -1,0 +1,24 @@
+✓ Created instance 'daxfs-mount' (transaction 13)
+Traceback (most recent call last):
+  File "/home/YOUR_USER/src/kerf/.venv/bin/kerf", line 8, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/usr/lib/python3/dist-packages/click/core.py", line 1161, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/click/core.py", line 1082, in main
+    rv = self.invoke(ctx)
+  File "/usr/lib/python3/dist-packages/click/core.py", line 1697, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/click/core.py", line 1443, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/click/core.py", line 788, in invoke
+    return __callback(*args, **kwargs)
+  File "/usr/lib/python3/dist-packages/click/decorators.py", line 33, in new_func
+    return f(get_current_context(), *args, **kwargs)
+  File "/home/YOUR_USER/src/kerf/src/kerf/create/main.py", line 797, in create
+    instance = current.instances[name]
+               ~~~~~~~~~~~~~~~~~^^^^^^
+KeyError: 'daxfs-mount'

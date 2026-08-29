@@ -1,0 +1,10 @@
+Empty mode: overlay + pcache
+Overlay: 512 buckets, 1048576 byte pool (1.00 MB)
+Total size: 1064960 bytes (1.02 MB)
+Allocated 4194304 bytes from /dev/dma_heap/system, dma-buf fd=4
+Writing daxfs image...
+Image layout (empty mode):
+  Superblock:    0x0 - 0x1000
+  Overlay:       0x1000 - 0x104000 (1060864 bytes, 512 buckets, 1048576 pool)
+Mounting on /tmp/tmp.UiogvnFUnr/mnt (writable)...
+Done. Mounted daxfs on /tmp/tmp.UiogvnFUnr/mnt

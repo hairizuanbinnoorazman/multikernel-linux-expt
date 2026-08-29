@@ -1,0 +1,3 @@
+ext4: bytes=1342177280 bw_bytes_s=7848989941 runtime_ms=171
+tmpfs: bytes=1342177280 bw_bytes_s=7895160470 runtime_ms=170
+daxfs: bytes=1342177280 bw_bytes_s=9868950588 runtime_ms=136

@@ -1,0 +1,9 @@
+Instance name: shared-rw-b (ID: 52)
+Checking instance status for 'shared-rw-b'...
+Status file: /sys/fs/multikernel/instances/shared-rw-b/status
+Instance status: 'loaded' (OK to unload)
+Unloading kernel for instance 'shared-rw-b' (ID: 52)...
+Flags: KEXEC_FILE_UNLOAD=0x1, KEXEC_MULTIKERNEL=0x10, KEXEC_MK_ID(52)=0x680, combined=0x691
+Calling kexec_file_load syscall with KEXEC_FILE_UNLOAD flag...
+✓ Kernel unloaded successfully (result: 0)
+✓ Unmounted daxfs image for 'shared-rw-b'

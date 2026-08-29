@@ -1,0 +1,189 @@
+DAXFS Overlay & Page Cache Tests
+================================
+Test directory: /tmp/daxfs_test.QMQSCX
+
+Static Image Tests
+==================
+Running: Static image creation and mount
+Scanning /tmp/daxfs_test.QMQSCX/source...
+Found 6 files
+Base image size: 28672 bytes (0.03 MB)
+Total image size: 32768 bytes (0.03 MB)
+Mode: static (read-only)
+Allocated 134217728 bytes from /dev/dma_heap/system, dma-buf fd=4
+Writing daxfs image...
+Image layout (static):
+  Superblock:    0x0 - 0x1000
+  Base image:    0x1000 - 0x8000 (28672 bytes)
+Mounting on /tmp/daxfs_test.QMQSCX/mnt (read-only)...
+Done. Mounted daxfs on /tmp/daxfs_test.QMQSCX/mnt
+[0;32mPASS[0m: Static image creation and mount
+Running: Read files from static image
+[0;32mPASS[0m: Read files from static image
+Running: Static image is read-only
+/home/YOUR_USER/src/daxfs/tests/test_overlay.sh: line 220: /tmp/daxfs_test.QMQSCX/mnt/newfile.txt: Read-only file system
+/home/YOUR_USER/src/daxfs/tests/test_overlay.sh: line 225: /tmp/daxfs_test.QMQSCX/mnt/hello.txt: Read-only file system
+[0;32mPASS[0m: Static image is read-only
+
+DAXFS Split Mode Tests (overlay + page cache)
+==============================================
+Split source: /tmp/daxfs_test.QMQSCX/split_source
+Backing file: /tmp/daxfs_test.QMQSCX/backing.img
+Running: Split-mode image creation
+Scanning /tmp/daxfs_test.QMQSCX/split_source...
+Found 17 files
+Split mode: metadata+overlay+cache -> DAX, file data -> /tmp/daxfs_test.QMQSCX/backing.img
+Backing file size: 69632 bytes (0.07 MB)
+Base image size: 16384 bytes (0.02 MB, metadata only)
+Overlay: 65536 buckets, 67108864 byte pool (64.00 MB)
+Page cache: 16 slots (73728 bytes)
+Total DAX size: 68255744 bytes (65.09 MB)
+Allocated 134217728 bytes from /dev/dma_heap/system, dma-buf fd=4
+Writing daxfs image...
+Writing backing file to /tmp/daxfs_test.QMQSCX/backing.img...
+Image layout (split mode):
+  Superblock:    0x0 - 0x1000
+  Base image:    0x1000 - 0x5000 (16384 bytes, metadata only)
+  Overlay:       0x5000 - 0x4106000 (68161536 bytes, 65536 buckets, 67108864 pool)
+  Page cache:    0x4106000 - 0x4118000 (73728 bytes, 16 slots)
+Mounting on /tmp/daxfs_test.QMQSCX/mnt (writable, backing-store)...
+Done. Mounted daxfs on /tmp/daxfs_test.QMQSCX/mnt
+  Backing file size: 69632 bytes
+[0;32mPASS[0m: Split-mode image creation
+Running: Read files through page cache
+[0;32mPASS[0m: Read files through page cache
+Running: Multi-page file through page cache
+[0;32mPASS[0m: Multi-page file through page cache
+Running: Symlinks work with page cache
+[0;32mPASS[0m: Symlinks work with page cache
+
+Overlay Write Tests
+===================
+Running: Create new file via overlay
+[0;32mPASS[0m: Create new file via overlay
+Running: Modify existing file via overlay
+[0;32mPASS[0m: Modify existing file via overlay
+Running: mkdir via overlay
+[0;32mPASS[0m: mkdir via overlay
+Running: unlink via overlay (tombstone)
+[0;32mPASS[0m: unlink via overlay (tombstone)
+Running: rmdir via overlay
+[0;32mPASS[0m: rmdir via overlay
+Running: Create symlink via overlay
+[0;32mPASS[0m: Create symlink via overlay
+Running: Rename via overlay
+[0;32mPASS[0m: Rename via overlay
+Running: Truncate via overlay
+[0;32mPASS[0m: Truncate via overlay
+
+DAXFS Empty Mode Tests
+======================
+Running: Empty-mode image creation
+Empty mode: overlay + pcache
+Overlay: 65536 buckets, 67108864 byte pool (64.00 MB)
+Total size: 68165632 bytes (65.01 MB)
+Allocated 134217728 bytes from /dev/dma_heap/system, dma-buf fd=4
+Writing daxfs image...
+Image layout (empty mode):
+  Superblock:    0x0 - 0x1000
+  Overlay:       0x1000 - 0x4102000 (68161536 bytes, 65536 buckets, 67108864 pool)
+Mounting on /tmp/daxfs_test.QMQSCX/mnt (writable)...
+Done. Mounted daxfs on /tmp/daxfs_test.QMQSCX/mnt
+[0;32mPASS[0m: Empty-mode image creation
+Running: Write to empty filesystem
+[0;32mPASS[0m: Write to empty filesystem
+Running: Readdir on empty-mode filesystem
+[0;32mPASS[0m: Readdir on empty-mode filesystem
+
+DAXFS Inspect Tests
+===================
+Scanning /tmp/daxfs_test.QMQSCX/split_source...
+Found 17 files
+Split mode: metadata+overlay+cache -> DAX, file data -> /tmp/daxfs_test.QMQSCX/backing.img
+Backing file size: 69632 bytes (0.07 MB)
+Base image size: 16384 bytes (0.02 MB, metadata only)
+Overlay: 65536 buckets, 67108864 byte pool (64.00 MB)
+Page cache: 16 slots (73728 bytes)
+Total DAX size: 68255744 bytes (65.09 MB)
+Allocated 134217728 bytes from /dev/dma_heap/system, dma-buf fd=4
+Writing daxfs image...
+Writing backing file to /tmp/daxfs_test.QMQSCX/backing.img...
+Image layout (split mode):
+  Superblock:    0x0 - 0x1000
+  Base image:    0x1000 - 0x5000 (16384 bytes, metadata only)
+  Overlay:       0x5000 - 0x4106000 (68161536 bytes, 65536 buckets, 67108864 pool)
+  Page cache:    0x4106000 - 0x4118000 (73728 bytes, 16 slots)
+Mounting on /tmp/daxfs_test.QMQSCX/mnt (writable, backing-store)...
+Done. Mounted daxfs on /tmp/daxfs_test.QMQSCX/mnt
+Running: daxfs-inspect status
+  Status output:
+    DAXFS Memory Status
+    ===================
+    
+    Format:
+    Magic:           0x64617835
+    Version:         8
+    Block size:      4096
+    Total size:      68255744 bytes (65.09 MB)
+    
+    Base image:
+    Offset:          0x1000
+    Size:            16384 bytes (0.02 MB)
+    Inode count:     17
+    Root inode:      1
+    Inode offset:    0x0 (relative to base)
+    Data offset:     0x1000 (relative to base)
+    
+    Overlay:
+    Offset:          0x5000
+    Size:            68161536 bytes (65.00 MB)
+    Bucket count:    65536
+    Bucket shift:    16
+    Pool size:       67108864 bytes (64.00 MB)
+    Pool allocated:  8528 bytes (0.01 MB, 0.0%)
+    Next inode:      20
+    
+    Page cache:
+    Offset:          0x4106000
+    Size:            73728 bytes (0.07 MB)
+    Slots:           16
+    Hash shift:      4
+    Pending:         0
+    Slot states:     0 valid, 16 free, 0 pending
+    Occupancy:       0.0%
+    Evict hand:      0
+    Ref bits set:    0 / 0 valid
+[0;32mPASS[0m: daxfs-inspect status
+Running: daxfs-inspect overlay
+  Overlay output:
+    Overlay Hash Table
+    ==================
+    
+    Header:
+    Magic:           0x6f766c79
+    Version:         2
+    Bucket count:    65536
+    Bucket shift:    16
+    Bucket offset:   0x1000
+    Pool offset:     0x101000
+    Pool size:       67108864 bytes (64.00 MB)
+    Pool allocated:  8528 bytes (0.01 MB)
+    Pool usage:      0.0%
+    Next inode:      20
+    
+    Bucket utilization:
+    Used:            6 / 65536 (0.0%)
+    Free:            65530
+    
+    Entry types:
+    Inodes:          2
+    Data pages:      1
+    Dirents:         2
+    Tombstones:      0
+[0;32mPASS[0m: daxfs-inspect overlay
+
+================================
+Tests run:    20
+Tests passed: [0;32m20[0m
+Tests failed: [0;31m0[0m
+Cleaning up...

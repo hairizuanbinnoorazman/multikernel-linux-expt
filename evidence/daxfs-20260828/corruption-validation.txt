@@ -1,0 +1,2 @@
+corrupted copied root inode mode at 0x1004: 0x41fd -> 0
+CORRUPTED_IMAGE_REJECTED errno=22 message=Invalid argument

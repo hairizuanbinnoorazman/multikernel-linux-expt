@@ -1,0 +1,9 @@
+Instance name: shared-rw-b (ID: 52)
+Kernel image: /home/YOUR_USER/src/linux/vmlinux
+Initrd image: /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/daxfs-initramfs.cpio.gz
+Multikernel mode enabled with ID: 52
+Flags: KEXEC_MULTIKERNEL=0x10, KEXEC_MK_ID(52)=0x680, combined=0x690
+Command line: rdinit=/init daxfs.phase=root daxfs.test=shared-rw daxfs.role=B loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd1341c000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0
+Flags: 0x690
+Calling kexec_file_load syscall...
+✓ Kernel loaded successfully (result: 0)

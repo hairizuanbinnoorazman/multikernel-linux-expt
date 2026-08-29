@@ -1,0 +1,2 @@
+Memory: 12288 MB on node 0 (from CPUs 8,10,12,14)
+Baseline validation passed; would write the initial baseline (dry-run)

@@ -1,0 +1,3 @@
+created deterministic DAXFS root at /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs
+d5aa52a9638c05222dacf70081a7a2e678e9b431cc614c7c097fc298e395467e  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs/MANIFEST.metadata
+4b06f08dcf881354908ed2b65f41f738b8256f4e4fd42561f81682264e5b409f  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs/MANIFEST.sha256

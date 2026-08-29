@@ -1,0 +1,268 @@
+2026-08-28T13:32:00Z
+host_release=7.0.0-mk2-gce-lab
+host_boot_id=483ddd87-fef5-440e-bf8d-5499a77938d9
+online_cpus=0-15
+offline_cpus=
+guest_agent=active
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+relevant_dmesg_tail:
+[29358.613803] Multikernel hotplug: Physical CPU 15 not found in present CPUs
+[29358.623224] Multikernel hotplug: Successfully added CPU 15 (phys 15)
+[29358.904581] Multikernel pool: removed 0x0000000532400000-0x00000009323fffff (16384 MB)
+[29442.679497] daxfs: coherence backend = coherent
+[29442.679508] daxfs: mounted read-only
+[29442.748960] daxfs: coherence backend = coherent
+[29442.749113] daxfs: pcache initialized with 16 slots, backing=/tmp/daxfs_test.QMQSCX/backing.img
+[29442.749123] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[29442.749131] daxfs: mounted read-write (overlay)
+[29442.856082] daxfs: coherence backend = coherent
+[29442.856088] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[29442.856097] daxfs: mounted read-write (overlay)
+[29442.915608] daxfs: coherence backend = coherent
+[29442.915716] daxfs: pcache initialized with 16 slots, backing=/tmp/daxfs_test.QMQSCX/backing.img
+[29442.915719] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[29442.915728] daxfs: mounted read-write (overlay)
+[29630.483063] Baseline CPUs validated: 4 CPUs available for multikernel pool
+[29658.555789] Multikernel pool: added 0x0000000a1a800000 (12288 MB) on node 0
+[29658.555793] Moving 4 CPUs into the multikernel pool
+[29658.570967] Multikernel hotplug: Successfully removed CPU 4 (phys 8)
+[29658.580730] Multikernel hotplug: Successfully removed CPU 5 (phys 10)
+[29658.590733] Multikernel hotplug: Successfully removed CPU 6 (phys 12)
+[29658.599621] Multikernel hotplug: Successfully removed CPU 7 (phys 14)
+[29658.599623] Moved 4 CPUs into the multikernel pool
+[29658.599627] Multikernel baseline initialized successfully
+[29658.755781] Overlay tx47: Creating instance 'daxfs-demo'
+[29658.755791] Successfully parsed instance 'daxfs-demo': 6442450944 bytes memory, 4 CPUs, 0 PCI devices, 0 platform devices
+[29658.756330] Transferred 0x180000000 bytes from root to instance 51 (daxfs-demo)
+[29658.756334] Transferred 4 CPUs from pool to instance 51 (daxfs-demo): 8,10,12,14
+[29658.756338] Generated instance DTB for 'daxfs-demo' (ID 51): 280 bytes
+[29658.756340] Overlay tx47: Instance 'daxfs-demo' created successfully
+[29658.929750] multikernel heap: allocated 70467584 bytes at 0xb9a814000
+[29658.958877] daxfs: coherence backend = coherent
+[29658.958882] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[29658.958888] daxfs: mounted read-write (overlay)
+[29658.959280] kexec_file: kexec_file_load: multikernel load - flags=0x670, extracted mk_id=51
+[29658.959283] kexec_file: Associated kimage with multikernel instance 51
+[29658.959344] kexec_file: Allocated IPI ring buffer: phys=0x16d300000, size=263696 bytes (order 7)
+[29659.088273] kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+[29659.088278] kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+[29659.088281] kexec_file: Allocated 4096 bytes from multikernel pool at 0xa1a820000
+[29659.088282] kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8c8cfffbd000 bufsz=0x30 mem=0xa1a820000 memsz=0x1000
+[29659.088284] kexec-vmlinux: Loading ELF vmlinux (type=2)
+[29659.088287] kexec-vmlinux: multikernel: entry=0x3d5efd4
+[29659.088288] kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+[29659.088288] kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+[29659.088289] kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+[29659.088292] kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+[29659.088293] kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+[29659.088294] kexec_file: Allocated 8192 bytes from multikernel pool at 0xa1a814000
+[29659.088295] kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8c7ddf7ec000 bufsz=0x1480 mem=0xa1a814000 memsz=0x2000
+[29659.095964] kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+[29659.095969] kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+[29659.095979] kexec_file: Allocated 65011712 bytes from multikernel pool at 0xa1aa00000
+[29659.095981] kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd355ce400000 bufsz=0x3e00000 mem=0xa1aa00000 memsz=0x3e00000
+[29659.095984] kexec-vmlinux: Loading kernel segments to 0xa1aa00000 (buffer=ffffd355ce400000, size=0x3e00000)
+[29659.095986] kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+[29659.101401] kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+[29659.104513] kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0xa1aa00000 buf=ffffd355ce400000
+[29659.104515] kexec_file: kexec_locate_mem_hole: called for segment size=0x1cb000, mem=0x0, image_type=2
+[29659.104517] kexec_file: kexec_alloc_multikernel: called for segment size=0x1cb000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+[29659.104519] kexec_file: Allocated 1880064 bytes from multikernel pool at 0xa1a821000
+[29659.104521] kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd355c52c1000 bufsz=0x1ca7e7 mem=0xa1a821000 memsz=0x1cb000
+[29659.104523] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init daxfs.phase=root loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0xb9a814000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0 len=167 offset=4096
+[29659.104524] kexec-bzImage64: setup_cmdline: cmd_line_ptr=0x1a815000 ext=0xa (phys=0xa1a815000)
+[29659.104525] kexec-vmlinux: Multikernel: entry=0xa1d75efd4 boot_params=0xa1a814000
+[29659.104796] kexec_core: Loading multikernel segment: mem=0xa1a820000, memsz=0x1000, kbuf=0xffff8c8cfffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[29659.104801] kexec_core: Loading multikernel segment: mem=0xa1a814000, memsz=0x2000, kbuf=0xffff8c7ddf7ec000, buf=0x0000000000000000, bufsz=0x1480, file_mode=1
+[29659.104805] kexec_core: Loading multikernel segment: mem=0xa1aa00000, memsz=0x3e00000, kbuf=0xffffd355ce400000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[29659.114020] kexec_core: Loading multikernel segment: mem=0xa1a821000, memsz=0x1cb000, kbuf=0xffffd355c52c1000, buf=0x0000000000000000, bufsz=0x1ca7e7, file_mode=1
+[29660.768166] kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 4 CPUs assigned
+[29660.768172] kexec_core: Loading multikernel segment: mem=0xa1a820000, memsz=0x1000, kbuf=0xffff8c8cfffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[29660.768178] kexec_core: Loading multikernel segment: mem=0xa1a814000, memsz=0x2000, kbuf=0xffff8c7ddf7ec000, buf=0x0000000000000000, bufsz=0x1480, file_mode=1
+[29660.768181] kexec_core: Loading multikernel segment: mem=0xa1aa00000, memsz=0x3e00000, kbuf=0xffffd355ce400000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[29660.777859] kexec_core: Loading multikernel segment: mem=0xa1a821000, memsz=0x1cb000, kbuf=0xffffd355c52c1000, buf=0x0000000000000000, bufsz=0x1ca7e7, file_mode=1
+[29660.778146] Preserving multikernel DTB for instance 51
+[29660.778154] Generated instance DTB for 'daxfs-demo' (ID 51): 280 bytes
+[29660.778161] multikernel: added IPI buffer to manifest: phys=0x16d300000, pages=65 (263696 bytes)
+[29660.778163] multikernel: finalized manifest for instance 51 (size: 572 bytes)
+[29660.778164] kexec_core: Manifest finalized for multikernel instance
+[29660.779085] Multikernel instance 51 is now active
+[29692.806533] Generated instance DTB for 'daxfs-demo' (ID 51): 280 bytes
+[29692.806539] Generated instance DTB for 'daxfs-demo' (ID 51): 280 bytes
+[29720.603343] Generated instance DTB for 'daxfs-demo' (ID 51): 280 bytes
+[29720.603348] Generated instance DTB for 'daxfs-demo' (ID 51): 280 bytes
+[29744.664247] Force halting multikernel instance 51 via NMI
+[29744.664273] Instance 51 (daxfs-demo) halted, CPUs parking in pool
+[29744.814514] kexec_file: Unloading kernel from multikernel instance 51
+[29744.978989] Overlay tx48: Removing instance 'daxfs-demo' (ID: 51)
+[29744.978992] Releasing multikernel instance 51 (daxfs-demo), returning resources to root
+[29744.978996] Returned 4 CPUs from instance 51 (daxfs-demo) to the pool: 8,10,12,14
+[29744.978999] Returning 0x180000000 bytes from instance 51 (daxfs-demo) back to multikernel pool
+[29744.979900] Overlay tx48: Instance 'daxfs-demo' removed successfully
+[29745.135880] Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+[29745.135881] Multikernel hotplug: Physical CPU 8 not found in present CPUs
+[29745.154973] Multikernel hotplug: Successfully added CPU 4 (phys 8)
+[29745.154979] Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+[29745.154981] Multikernel hotplug: Physical CPU 10 not found in present CPUs
+[29745.169716] Multikernel hotplug: Successfully added CPU 5 (phys 10)
+[29745.169722] Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+[29745.169723] Multikernel hotplug: Physical CPU 12 not found in present CPUs
+[29745.179362] Multikernel hotplug: Successfully added CPU 6 (phys 12)
+[29745.179367] Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+[29745.179368] Multikernel hotplug: Physical CPU 14 not found in present CPUs
+[29745.189117] Multikernel hotplug: Successfully added CPU 7 (phys 14)
+[29745.402060] Multikernel pool: removed 0x0000000a1a800000-0x0000000d1a7fffff (12288 MB)
+[30186.954865] Baseline CPUs validated: 8 CPUs available for multikernel pool
+[30215.064465] Multikernel pool: added 0x0000000532400000 (16384 MB) on node 0
+[30215.064468] Moving 8 CPUs into the multikernel pool
+[30215.075819] Multikernel hotplug: Successfully removed CPU 4 (phys 8)
+[30215.086308] Multikernel hotplug: Successfully removed CPU 12 (phys 9)
+[30215.099468] Multikernel hotplug: Successfully removed CPU 5 (phys 10)
+[30215.109009] Multikernel hotplug: Successfully removed CPU 13 (phys 11)
+[30215.116389] Multikernel hotplug: Successfully removed CPU 6 (phys 12)
+[30215.125655] Multikernel hotplug: Successfully removed CPU 14 (phys 13)
+[30215.134499] Multikernel hotplug: Successfully removed CPU 7 (phys 14)
+[30215.142659] Multikernel hotplug: Successfully removed CPU 15 (phys 15)
+[30215.142660] Moved 8 CPUs into the multikernel pool
+[30215.142664] Multikernel baseline initialized successfully
+[30215.764941] multikernel heap: allocated 72851456 bytes at 0x8b2418000
+[30215.783876] daxfs: coherence backend = coherent
+[30215.783880] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[30215.783887] daxfs: mounted read-write (overlay)
+[30215.784358] kexec_file: kexec_file_load: multikernel load - flags=0x7b0, extracted mk_id=61
+[30215.784362] kexec_file: Associated kimage with multikernel instance 61
+[30215.784427] kexec_file: Allocated IPI ring buffer: phys=0x171600000, size=263696 bytes (order 7)
+[30215.920711] kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+[30215.920717] kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+[30215.920720] kexec_file: Allocated 4096 bytes from multikernel pool at 0x532420000
+[30215.920722] kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8c8cfffbd000 bufsz=0x30 mem=0x532420000 memsz=0x1000
+[30215.920724] kexec-vmlinux: Loading ELF vmlinux (type=2)
+[30215.920726] kexec-vmlinux: multikernel: entry=0x3d5efd4
+[30215.920727] kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+[30215.920728] kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+[30215.920729] kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+[30215.920732] kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+[30215.920734] kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+[30215.920735] kexec_file: Allocated 8192 bytes from multikernel pool at 0x532418000
+[30215.920736] kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8c7dc8b42000 bufsz=0x1470 mem=0x532418000 memsz=0x2000
+[30215.928186] kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+[30215.928190] kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+[30215.928217] kexec_file: Allocated 65011712 bytes from multikernel pool at 0x532600000
+[30215.928219] kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd355cda00000 bufsz=0x3e00000 mem=0x532600000 memsz=0x3e00000
+[30215.928222] kexec-vmlinux: Loading kernel segments to 0x532600000 (buffer=ffffd355cda00000, size=0x3e00000)
+[30215.928224] kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+[30215.933888] kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+[30215.937033] kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0x532600000 buf=ffffd355cda00000
+[30215.937036] kexec_file: kexec_locate_mem_hole: called for segment size=0x1cb000, mem=0x0, image_type=2
+[30215.937038] kexec_file: kexec_alloc_multikernel: called for segment size=0x1cb000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+[30215.937040] kexec_file: Allocated 1880064 bytes from multikernel pool at 0x532421000
+[30215.937041] kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd355c5171000 bufsz=0x1ca7dc mem=0x532421000 memsz=0x1cb000
+[30215.937043] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0x8b2418000,size=72851456 init=/init kerf.entrypoint=/docker-proof len=147 offset=4096
+[30215.937045] kexec-bzImage64: setup_cmdline: cmd_line_ptr=0x32419000 ext=0x5 (phys=0x532419000)
+[30215.937046] kexec-vmlinux: Multikernel: entry=0x53535efd4 boot_params=0x532418000
+[30215.937250] kexec_core: Loading multikernel segment: mem=0x532420000, memsz=0x1000, kbuf=0xffff8c8cfffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[30215.937255] kexec_core: Loading multikernel segment: mem=0x532418000, memsz=0x2000, kbuf=0xffff8c7dc8b42000, buf=0x0000000000000000, bufsz=0x1470, file_mode=1
+[30215.937260] kexec_core: Loading multikernel segment: mem=0x532600000, memsz=0x3e00000, kbuf=0xffffd355cda00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[30215.946678] kexec_core: Loading multikernel segment: mem=0x532421000, memsz=0x1cb000, kbuf=0xffffd355c5171000, buf=0x0000000000000000, bufsz=0x1ca7dc, file_mode=1
+[30217.721108] multikernel heap: allocated 72851456 bytes at 0x8b6992000
+[30217.739848] daxfs: coherence backend = coherent
+[30217.739852] daxfs: overlay initialized (65536 buckets, 67108864 pool bytes)
+[30217.739863] daxfs: mounted read-write (overlay)
+[30217.743034] kexec_file: kexec_file_load: multikernel load - flags=0x7d0, extracted mk_id=62
+[30217.743037] kexec_file: Associated kimage with multikernel instance 62
+[30217.743099] kexec_file: Allocated IPI ring buffer: phys=0x4d9580000, size=263696 bytes (order 7)
+[30220.098535] kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+[30220.098540] kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+[30220.098543] kexec_file: Allocated 4096 bytes from multikernel pool at 0x6f2420000
+[30220.098544] kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8c8cfffbd000 bufsz=0x30 mem=0x6f2420000 memsz=0x1000
+[30220.098547] kexec-vmlinux: Loading ELF vmlinux (type=2)
+[30220.098549] kexec-vmlinux: multikernel: entry=0x3d5efd4
+[30220.098550] kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+[30220.098551] kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+[30220.098552] kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+[30220.098554] kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+[30220.098555] kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+[30220.098557] kexec_file: Allocated 8192 bytes from multikernel pool at 0x6f2418000
+[30220.098558] kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8c7ddf7ee000 bufsz=0x1470 mem=0x6f2418000 memsz=0x2000
+[30220.106441] kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+[30220.106445] kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+[30220.106453] kexec_file: Allocated 65011712 bytes from multikernel pool at 0x6f2600000
+[30220.106454] kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd355d3e00000 bufsz=0x3e00000 mem=0x6f2600000 memsz=0x3e00000
+[30220.106456] kexec-vmlinux: Loading kernel segments to 0x6f2600000 (buffer=ffffd355d3e00000, size=0x3e00000)
+[30220.106458] kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+[30220.112178] kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+[30220.115372] kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0x6f2600000 buf=ffffd355d3e00000
+[30220.115375] kexec_file: kexec_locate_mem_hole: called for segment size=0x1cb000, mem=0x0, image_type=2
+[30220.115376] kexec_file: kexec_alloc_multikernel: called for segment size=0x1cb000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+[30220.115379] kexec_file: Allocated 1880064 bytes from multikernel pool at 0x6f2421000
+[30220.115380] kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd355c4f59000 bufsz=0x1ca3cd mem=0x6f2421000 memsz=0x1cb000
+[30220.115382] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0x8b6992000,size=72851456 init=/init kerf.entrypoint=/docker-proof len=147 offset=4096
+[30220.115383] kexec-bzImage64: setup_cmdline: cmd_line_ptr=0xf2419000 ext=0x6 (phys=0x6f2419000)
+[30220.115384] kexec-vmlinux: Multikernel: entry=0x6f535efd4 boot_params=0x6f2418000
+[30220.115572] kexec_core: Loading multikernel segment: mem=0x6f2420000, memsz=0x1000, kbuf=0xffff8c8cfffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[30220.115578] kexec_core: Loading multikernel segment: mem=0x6f2418000, memsz=0x2000, kbuf=0xffff8c7ddf7ee000, buf=0x0000000000000000, bufsz=0x1470, file_mode=1
+[30220.115580] kexec_core: Loading multikernel segment: mem=0x6f2600000, memsz=0x3e00000, kbuf=0xffffd355d3e00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[30220.125422] kexec_core: Loading multikernel segment: mem=0x6f2421000, memsz=0x1cb000, kbuf=0xffffd355c4f59000, buf=0x0000000000000000, bufsz=0x1ca3cd, file_mode=1
+[30221.795384] kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 4 CPUs assigned
+[30221.795389] kexec_core: Loading multikernel segment: mem=0x532420000, memsz=0x1000, kbuf=0xffff8c8cfffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[30221.795395] kexec_core: Loading multikernel segment: mem=0x532418000, memsz=0x2000, kbuf=0xffff8c7dc8b42000, buf=0x0000000000000000, bufsz=0x1470, file_mode=1
+[30221.795398] kexec_core: Loading multikernel segment: mem=0x532600000, memsz=0x3e00000, kbuf=0xffffd355cda00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[30221.805540] kexec_core: Loading multikernel segment: mem=0x532421000, memsz=0x1cb000, kbuf=0xffffd355c5171000, buf=0x0000000000000000, bufsz=0x1ca7dc, file_mode=1
+[30221.805843] Preserving multikernel DTB for instance 61
+[30221.805858] multikernel: added IPI buffer to manifest: phys=0x171600000, pages=65 (263696 bytes)
+[30221.805860] multikernel: finalized manifest for instance 61 (size: 630 bytes)
+[30221.805861] kexec_core: Manifest finalized for multikernel instance
+[30221.806701] Multikernel instance 61 is now active
+[30222.800605] kexec_core: multikernel kexec: using physical CPU 9 (logical 12), 4 CPUs assigned
+[30222.800610] kexec_core: Loading multikernel segment: mem=0x6f2420000, memsz=0x1000, kbuf=0xffff8c8cfffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[30222.800615] kexec_core: Loading multikernel segment: mem=0x6f2418000, memsz=0x2000, kbuf=0xffff8c7ddf7ee000, buf=0x0000000000000000, bufsz=0x1470, file_mode=1
+[30222.800619] kexec_core: Loading multikernel segment: mem=0x6f2600000, memsz=0x3e00000, kbuf=0xffffd355d3e00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[30222.810918] kexec_core: Loading multikernel segment: mem=0x6f2421000, memsz=0x1cb000, kbuf=0xffffd355c4f59000, buf=0x0000000000000000, bufsz=0x1ca3cd, file_mode=1
+[30222.811245] Preserving multikernel DTB for instance 62
+[30222.811261] multikernel: added IPI buffer to manifest: phys=0x4d9580000, pages=65 (263696 bytes)
+[30222.811262] multikernel: finalized manifest for instance 62 (size: 630 bytes)
+[30222.811263] kexec_core: Manifest finalized for multikernel instance
+[30222.811967] Multikernel instance 62 is now active
+[30262.351118] Force halting multikernel instance 62 via NMI
+[30262.496458] kexec_file: Unloading kernel from multikernel instance 62
+[30262.659794] Releasing multikernel instance 62 (docker-kernel-b), returning resources to root
+[30262.659800] Returning 0x1c0000000 bytes from instance 62 (docker-kernel-b) back to multikernel pool
+[30262.810771] Force halting multikernel instance 61 via NMI
+[30262.960498] kexec_file: Unloading kernel from multikernel instance 61
+[30263.123953] Releasing multikernel instance 61 (docker-kernel-a), returning resources to root
+[30263.123959] Returning 0x1c0000000 bytes from instance 61 (docker-kernel-a) back to multikernel pool
+[30263.275402] Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+[30263.275403] Multikernel hotplug: Physical CPU 8 not found in present CPUs
+[30263.302818] Multikernel hotplug: Successfully added CPU 4 (phys 8)
+[30263.302827] Multikernel hotplug: Adding CPU 9 (numa=-1, flags=0x0)
+[30263.302830] Multikernel hotplug: Physical CPU 9 not found in present CPUs
+[30263.317952] Multikernel hotplug: Successfully added CPU 12 (phys 9)
+[30263.317958] Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+[30263.317960] Multikernel hotplug: Physical CPU 10 not found in present CPUs
+[30263.328781] Multikernel hotplug: Successfully added CPU 5 (phys 10)
+[30263.328787] Multikernel hotplug: Adding CPU 11 (numa=-1, flags=0x0)
+[30263.328788] Multikernel hotplug: Physical CPU 11 not found in present CPUs
+[30263.338063] Multikernel hotplug: Successfully added CPU 13 (phys 11)
+[30263.338068] Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+[30263.338070] Multikernel hotplug: Physical CPU 12 not found in present CPUs
+[30263.348305] Multikernel hotplug: Successfully added CPU 6 (phys 12)
+[30263.348310] Multikernel hotplug: Adding CPU 13 (numa=-1, flags=0x0)
+[30263.348312] Multikernel hotplug: Physical CPU 13 not found in present CPUs
+[30263.357554] Multikernel hotplug: Successfully added CPU 14 (phys 13)
+[30263.357563] Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+[30263.357565] Multikernel hotplug: Physical CPU 14 not found in present CPUs
+[30263.367846] Multikernel hotplug: Successfully added CPU 7 (phys 14)
+[30263.367851] Multikernel hotplug: Adding CPU 15 (numa=-1, flags=0x0)
+[30263.367852] Multikernel hotplug: Physical CPU 15 not found in present CPUs
+[30263.377295] Multikernel hotplug: Successfully added CPU 15 (phys 15)
+[30263.640463] Multikernel pool: removed 0x0000000532400000-0x00000009323fffff (16384 MB)

@@ -1,0 +1,1 @@
+45e5a64a92cec4e6f0d1e9a340e102d692b0a3724c407b5b5e71d59283b05070  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs-static.daxfs

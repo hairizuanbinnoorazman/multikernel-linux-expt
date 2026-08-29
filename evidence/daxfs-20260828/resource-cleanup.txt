@@ -1,0 +1,29 @@
+GCE resource cleanup verification
+checked_utc=2026-08-29T04:18:13Z
+project=REDACTED_GCP_PROJECT_ID
+zone=asia-southeast1-b
+
+$ gcloud compute instances describe mklinux-lab \
+    --project=REDACTED_GCP_PROJECT_ID \
+    --zone=asia-southeast1-b --format='value(name,status)'
+exit_status=1
+result=NOT_FOUND
+resource=projects/REDACTED_GCP_PROJECT_ID/zones/asia-southeast1-b/instances/mklinux-lab
+
+$ gcloud compute disks describe mklinux-lab \
+    --project=REDACTED_GCP_PROJECT_ID \
+    --zone=asia-southeast1-b --format='value(name,status,sizeGb)'
+exit_status=1
+result=HTTP_404_NOT_FOUND
+resource=projects/REDACTED_GCP_PROJECT_ID/zones/asia-southeast1-b/disks/mklinux-lab
+
+$ gcloud compute snapshots list \
+    --project=REDACTED_GCP_PROJECT_ID \
+    --filter='name=(mklinux-lab-stock-20260828 mklinux-lab-pre-daxfs-20260828-2030)' \
+    --format='csv[no-heading](name,status,diskSizeGb,creationTimestamp)'
+exit_status=0
+mklinux-lab-pre-daxfs-20260828-2030,READY,100,2026-08-28T05:29:17.951-07:00
+mklinux-lab-stock-20260828,READY,100,2026-08-27T21:59:49.155-07:00
+
+Interpretation: the named VM and boot disk are absent. Both retained snapshots
+were READY at the verification time. Snapshot storage charges may continue.

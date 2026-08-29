@@ -1,0 +1,60 @@
+
+================================================================================
+Baseline Hardware Resources
+================================================================================
+
+  CPUs:
+    Total:           15
+    Available:       4 cpus: [8, 10, 12, 14]
+
+  Memory:
+    Total:           12.00 GB (12884901888 bytes)
+
+  Memory Pool:
+    Chunk:           0xb90c00000  12.00 GB node 0
+    Pool Allocated:  6.07 GB (6512918528 bytes)
+    Pool Available:  5.93 GB (6371983360 bytes)
+
+================================================================================
+Multikernel Instances
+================================================================================
+Total instances: 1
+Loaded kernels: 1
+
+
+================================================================================
+Instance: daxfs-mount
+================================================================================
+  ID:              10
+  Status:          active
+
+  Kernel Image:
+    Mk Id           10
+    Type            multikernel
+    Start Address   0x000b90c14000
+    Segments        4
+    Mode            file
+    Cmdline         "rdinit=/init daxfs.phase=mount loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0xd10c14000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0"
+    Image           /home/YOUR_USER/src/linux/vmlinux
+    Format          vmlinux (ELF)
+    Version         7.0.0-mk2-gce-lab (YOUR_USER@mklinux-lab.asia-southeast1-b.c.REDACTED_GCP_PROJECT_ID.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) # SMP PREEMPT 
+    Initrd          /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/daxfs-initramfs.cpio.gz (gzip compressed)
+    Loaded At       2026-08-28T12:37:27+00:00
+
+  Rootfs:
+    Source          /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs (directory)
+    Entrypoint      /bin/daxfs-proof
+    Daxfs           phys=0xd10c14000, size=70467584
+
+  Device Tree:
+    /dts-v1/;
+    /daxfs-mount {
+        compatible = "multikernel-v1";
+        id = <0xa>;
+        resources {
+            memory-base = <0xb 0x90c14000>;
+            memory-bytes = <0x1 0x80000000>;
+            cpus = <0x0 0x8 0x0 0xa 0x0 0xc 0x0 0xe>;
+        };
+    };
+

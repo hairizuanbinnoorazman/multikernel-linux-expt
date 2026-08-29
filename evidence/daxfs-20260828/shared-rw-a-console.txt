@@ -1,0 +1,84 @@
+Script started on 2026-08-28 12:55:42+00:00 [COMMAND="/home/YOUR_USER/src/kerf/.venv/bin/kerf console shared-rw-a --verbose" <not executed on terminal>]
+Instance name: shared-rw-a (ID: 51)
+Instance status: active
+Connecting to console for instance 'shared-rw-a' (ID: 51)...
+Escape sequence: Ctrl+] followed by . to detach
+
+[    0.000000] Linux version 7.0.0-mk2-gce-lab (YOUR_USER@mklinux-lab.asia-southeast1-b.c.REDACTED_GCP_PROJECT_ID.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
+[    0.000000] random: crng init done
+[    0.000000] KHO: disabling KHO revival
+[    0.024538] Kernel command line: rdinit=/init daxfs.phase=root daxfs.test=shared-rw daxfs.role=A loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd1341c000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0
+[    0.025890] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 67108864 bytes tlb structure
+[    0.025893] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 33554432 bytes tlb structure
+[    0.025894] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 16777216 bytes tlb structure
+[    0.025896] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 8388608 bytes tlb structure
+[    0.025898] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 4194304 bytes tlb structure
+[    0.025899] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 2097152 bytes tlb structure
+[    0.025901] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 1048576 bytes tlb structure
+[    0.025921] KHO: Failed to reserve lowmem scratch buffer
+[    0.025922] KHO: Failed to reserve scratch area, disabling kexec handover
+[    0.069106] audit: type=2000 audit(1787921742.252:1): state=initialized audit_enabled=0 res=1
+[    0.075333] SCSI subsystem initialized
+[    0.090399] VFS: Disk quotas dquot_6.6.0
+[    0.109529] software IO TLB: No low mem
+[    0.110103] Initialise system trusted keyrings
+[    0.110116] Key type blacklist registered
+[    0.110759] integrity: Platform Keyring initialized
+[    0.110762] integrity: Machine keyring initialized
+[    0.123144] Key type asymmetric registered
+[    0.123145] Asymmetric key parser 'x509' registered
+[    0.126935] Key type psk registered
+[    0.128777] Key type dns_resolver registered
+[    0.132812] Loading compiled-in X.509 certificates
+[    0.133398] Loaded X.509 cert '[REDACTED_BUILD_CERTIFICATE]'
+[    0.138249] Key type .fscrypt registered
+[    0.138254] Key type fscrypt-provisioning registered
+[    0.138310] Key type big_key registered
+[    0.138860] Key type encrypted registered
+[    0.138871] Loading compiled-in module X.509 certificates
+[    0.139354] Loaded X.509 cert '[REDACTED_BUILD_CERTIFICATE]'
+DAXFS_BOOTSTRAP_BEGIN
+bootstrap_pid1=/bin/busybox
+cmdline=rdinit=/init daxfs.phase=root daxfs.test=shared-rw daxfs.role=A loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd1341c000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0
+[    0.188124] daxfs: loading out-of-tree module taints kernel.
+[    0.188133] daxfs: module verification failed: signature and/or required key missing - tainting kernel
+daxfs_filesystem=nodev	daxfs
+daxfs_mount=none /mnt/daxfs daxfs rw,relatime,phys=0xd1341c000,size=70467584,overlay 0 0
+DAXFS_COMMIT=11ab401585b79b4a7c9164019852e0219e197d13
+BUILD_TIME=2026-08-28T12:36:12Z
+FIXED_TEST_STRING=multikernel-daxfs-root-proof-v1
+dbcc28fbdc195d4b855d6a3e87c1d21f11fdc6c8346ce861a6407ee18b75b7ba  /mnt/daxfs/DAXFS-MARKER
+314dd22185705bdae714cee804a178203aae47b63b617e22b07748523da09ebe  /mnt/daxfs/opt/proof/nested/payload.txt
+[    0.198553] kerf-init: 
+[    0.198556] starting at TSC 78714502890421
+[    0.198563] 
+[    0.198644] kerf-init: 
+[    0.198645] entrypoint: '/bin/daxfs-proof'
+[    0.198650] 
+[    0.198663] kerf-init: 
+[    0.198664] console: /dev/mktty0
+[    0.198668] 
+[    0.198676] kerf-init: 
+[    0.198677] executing: /bin/daxfs-proof
+[    0.198682] 
+DAXFS_ROOT_PROOF_BEGIN
+release=7.0.0-mk2-gce-lab
+cmdline=rdinit=/init daxfs.phase=root daxfs.test=shared-rw daxfs.role=A loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd1341c000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0
+online_cpus=0-3
+cpu_count=4
+mem_total=7158612 kB
+pid1=/init
+self=/bin/busybox
+root_mount=none / daxfs rw,relatime,phys=0xd1341c000,size=70467584,overlay 0 0
+initramfs_only_marker=absent
+DAXFS_COMMIT=11ab401585b79b4a7c9164019852e0219e197d13
+BUILD_TIME=2026-08-28T12:36:12Z
+FIXED_TEST_STRING=multikernel-daxfs-root-proof-v1
+dbcc28fbdc195d4b855d6a3e87c1d21f11fdc6c8346ce861a6407ee18b75b7ba  /DAXFS-MARKER
+314dd22185705bdae714cee804a178203aae47b63b617e22b07748523da09ebe  /opt/proof/nested/payload.txt
+SHARED_RW_PEER_VISIBLE=no role=A peer=B
+SHARED_RW_CONTENDED role=A lines=200 sha256=c91e3b3a98b175ae7c80df5b59ce5a3657109f1106b73b868525dd7210076d22
+SHARED_RW_READY role=A
+DAXFS_ROOT_READY
+
+Script done on 2026-08-28 12:56:09+00:00 [COMMAND_EXIT_CODE="0"]

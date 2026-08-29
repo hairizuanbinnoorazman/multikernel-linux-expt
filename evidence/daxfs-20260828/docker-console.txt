@@ -1,0 +1,143 @@
+Script started on 2026-08-28 12:42:49+00:00 [COMMAND="/home/YOUR_USER/src/kerf/.venv/bin/kerf exec docker-busybox --console --verbose" <not executed on terminal>]
+Instance name: docker-busybox (ID: 30)
+Checking if kernel image is loaded for instance 'docker-busybox'...
+Status file: /sys/fs/multikernel/instances/docker-busybox/status
+Instance status: 'loaded'
+✓ Kernel image found for instance 'docker-busybox'
+Instance ID to boot: 30
+Using reboot syscall with command: 0x4d4b4c49
+Calling reboot syscall at TSC 76550509111428
+✓ Boot command executed successfully (result: 0)
+Connecting to console for instance 'docker-busybox' (ID: 30)...
+Escape sequence: Ctrl+] followed by . to detach
+
+[    0.000000] Linux version 7.0.0-mk2-gce-lab (YOUR_USER@mklinux-lab.asia-southeast1-b.c.REDACTED_GCP_PROJECT_ID.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
+[    0.000000] random: crng init done
+[    0.000000] KHO: disabling KHO revival
+[    0.020527] Kernel command line: rdinit=/init daxfs.phase=root loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd13414000,size=72876032 init=/init kerf.entrypoint=/docker-proof console=mktty0
+[    0.021744] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 67108864 bytes tlb structure
+[    0.021746] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 33554432 bytes tlb structure
+[    0.021747] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 16777216 bytes tlb structure
+[    0.021748] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 8388608 bytes tlb structure
+[    0.021749] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 4194304 bytes tlb structure
+[    0.021750] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 2097152 bytes tlb structure
+[    0.021751] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 1048576 bytes tlb structure
+[    0.021766] KHO: Failed to reserve lowmem scratch buffer
+[    0.021767] KHO: Failed to reserve scratch area, disabling kexec handover
+[    0.055473] audit: type=2000 audit(1787920969.734:1): state=initialized audit_enabled=0 res=1
+[    0.061462] SCSI subsystem initialized
+[    0.074566] VFS: Disk quotas dquot_6.6.0
+[    0.090171] software IO TLB: No low mem
+[    0.090645] Initialise system trusted keyrings
+[    0.090657] Key type blacklist registered
+[    0.091208] integrity: Platform Keyring initialized
+[    0.091212] integrity: Machine keyring initialized
+[    0.099320] Key type asymmetric registered
+[    0.099321] Asymmetric key parser 'x509' registered
+[    0.103415] Key type psk registered
+[    0.104964] Key type dns_resolver registered
+[    0.109422] Loading compiled-in X.509 certificates
+[    0.109933] Loaded X.509 cert '[REDACTED_BUILD_CERTIFICATE]'
+[    0.112977] Key type .fscrypt registered
+[    0.112982] Key type fscrypt-provisioning registered
+[    0.113020] Key type big_key registered
+[    0.113486] Key type encrypted registered
+[    0.113498] Loading compiled-in module X.509 certificates
+[    0.113890] Loaded X.509 cert '[REDACTED_BUILD_CERTIFICATE]'
+DAXFS_BOOTSTRAP_BEGIN
+bootstrap_pid1=/bin/busybox
+cmdline=rdinit=/init daxfs.phase=root loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0xd13414000,size=72876032 init=/init kerf.entrypoint=/docker-proof console=mktty0
+[    0.147795] daxfs: loading out-of-tree module taints kernel.
+[    0.147805] daxfs: module verification failed: signature and/or required key missing - tainting kernel
+daxfs_filesystem=nodev	daxfs
+[    0.152222] daxfs: inode 41 has unsupported file type 00
+mount: mounting none on /mnt/daxfs failed: Invalid argument
+DAXFS_BOOTSTRAP_ERROR mount_failed
+[    0.091028] fuse: init (API version 7.45)
+[    0.091208] integrity: Platform Keyring initialized
+[    0.091212] integrity: Machine keyring initialized
+[    0.099320] Key type asymmetric registered
+[    0.099321] Asymmetric key parser 'x509' registered
+[    0.099340] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 242)
+[    0.099406] io scheduler mq-deadline registered
+[    0.101293] ledtrig-cpu: registered to indicate activity on CPUs
+[    0.101503] Serial: 8250/16550 driver, 32 ports, IRQ sharing enabled
+[    0.101519] Platform device 'serial8250' blocked by multikernel allowlist
+[    0.101556] Platform device 'kgdboc' blocked by multikernel allowlist
+[    0.101558] mktty: initializing spawn (instance 30)
+[    0.101592] printk: legacy console [mktty0] enabled
+[    0.101674] mktty: spawn ready (/dev/mktty0)
+[    0.101764] Linux agpgart interface v0.103
+[    0.103298] loop: module loaded
+[    0.103415] Key type psk registered
+[    0.103677] tun: Universal TUN/TAP device driver, 1.6
+[    0.103824] PPP generic driver version 2.4.2
+[    0.103941] mousedev: PS/2 mouse device common for all mice
+[    0.103996] i2c_dev: i2c /dev entries driver
+[    0.104012] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[    0.104023] device-mapper: uevent: version 1.0.3
+[    0.104062] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[    0.104065] intel_pstate: CPU model not supported
+[    0.104112] drop_monitor: Initializing network drop monitor service
+[    0.104634] NET: Registered PF_INET6 protocol family
+[    0.104893] Segment Routing with IPv6
+[    0.104899] In-situ OAM (IOAM) with IPv6
+[    0.104928] NET: Registered PF_PACKET protocol family
+[    0.104964] Key type dns_resolver registered
+[    0.104998] NET: Registered PF_VSOCK protocol family
+[    0.105669] resctrl: No MBM correction factor available
+[    0.105679] IPI shorthand broadcast: enabled
+[    0.107045] sched_clock: Marking stable (106003942, 254325)->(236591317, -130333050)
+[    0.107230] multikernel heap: registered /dev/dma_heap/multikernel
+[    0.107300] registered taskstats version 1
+[    0.109422] Loading compiled-in X.509 certificates
+[    0.109933] Loaded X.509 cert '[REDACTED_BUILD_CERTIFICATE]'
+[    0.111324] Freeing initrd memory: 1836K
+[    0.112891] Demotion targets for Node 0: null
+[    0.112977] Key type .fscrypt registered
+[    0.112982] Key type fscrypt-provisioning registered
+[    0.113020] Key type big_key registered
+[    0.113486] Key type encrypted registered
+[    0.113491] AppArmor: AppArmor sha256 policy hashing enabled
+[    0.113493] ima: No TPM chip found, activating TPM-bypass!
+[    0.113498] Loading compiled-in module X.509 certificates
+[    0.113890] Loaded X.509 cert '[REDACTED_BUILD_CERTIFICATE]'
+[    0.113895] ima: Allocated hash algorithm: sha256
+[    0.113909] ima: No architecture policies found
+[    0.113921] evm: Initialising EVM extended attributes:
+[    0.113922] evm: security.selinux
+[    0.113923] evm: security.SMACK64
+[    0.113924] evm: security.SMACK64EXEC
+[    0.113924] evm: security.SMACK64TRANSMUTE
+[    0.113925] evm: security.SMACK64MMAP
+[    0.113925] evm: security.apparmor
+[    0.113926] evm: security.ima
+[    0.113927] evm: security.capability
+[    0.113927] evm: HMAC attrs: 0x1
+[    0.114373] RAS: Correctable Errors collector initialized.
+[    0.114491] clk: Disabling unused clocks
+[    0.114493] PM: genpd: Disabling unused power domains
+[    0.130646] Freeing unused decrypted memory: 2028K
+[    0.131527] Freeing unused kernel image (initmem) memory: 5244K
+[    0.131550] Write protecting the kernel read-only data: 40960k
+[    0.131947] Freeing unused kernel image (text/rodata gap) memory: 720K
+[    0.132052] Freeing unused kernel image (rodata/data gap) memory: 204K
+[    0.143210] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[    0.143217] Run /init as init process
+[    0.143218]   with arguments:
+[    0.143219]     /init
+[    0.143220]   with environment:
+[    0.143221]     HOME=/
+[    0.143222]     TERM=linux
+[    0.147795] daxfs: loading out-of-tree module taints kernel.
+[    0.147805] daxfs: module verification failed: signature and/or required key missing - tainting kernel
+[    0.152203] daxfs: coherence backend = coherent
+[    0.152222] daxfs: inode 41 has unsupported file type 00
+
+
+BusyBox v1.37.0 (Ubuntu 1:1.37.0-7ubuntu1) built-in shell (ash)
+Enter 'help' for a list of built-in commands.
+
+sh: can't access tty; job control turned off
+~ # [6n
+Script done on 2026-08-28 12:43:26+00:00 [COMMAND_EXIT_CODE="0"]

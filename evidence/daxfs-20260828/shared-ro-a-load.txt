@@ -1,0 +1,17 @@
+Instance name: shared-ro-a (ID: 41)
+Kernel image: /home/YOUR_USER/src/linux/vmlinux
+Initrd image: /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/daxfs-initramfs.cpio.gz
+Injected /init wrapper (entrypoint: /bin/daxfs-proof)
+Using rootfs directory: /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/rootfs
+Creating daxfs image for instance shared-ro-a...
+Daxfs image created at phys=0x7b241c000, size=70467584
+Entrypoint: /bin/daxfs-proof
+Multikernel mode enabled with ID: 41
+Flags: KEXEC_MULTIKERNEL=0x10, KEXEC_MK_ID(41)=0x520, combined=0x530
+Daxfs root: rootfstype=daxfs rootflags=phys=0x7b241c000,size=70467584
+Entrypoint: kerf.entrypoint=/bin/daxfs-proof
+Console: console=mktty0
+Command line: rdinit=/init daxfs.phase=root daxfs.ro=1 daxfs.test=shared-ro daxfs.role=A loglevel=6 panic=-1 rootfstype=daxfs rootflags=phys=0x7b241c000,size=70467584 init=/init kerf.entrypoint=/bin/daxfs-proof console=mktty0
+Flags: 0x530
+Calling kexec_file_load syscall...
+✓ Kernel loaded successfully (result: 0)

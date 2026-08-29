@@ -1,0 +1,103 @@
+DUAL_KERNEL_DOCKER_PROOF=PASS
+host_release=7.0.0-mk2-gce-lab
+host_boot_id=483ddd87-fef5-440e-bf8d-5499a77938d9
+child_a_release=7.0.0-mk2-gce-lab
+child_b_release=7.0.0-mk2-gce-lab-alt
+5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/vmlinux-primary
+b500e7cf43d56029066845654c953f35da532edf9664f57a251b37536e7fd658  /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/vmlinux-alt
+
+================================================================================
+Baseline Hardware Resources
+================================================================================
+
+  CPUs:
+    Total:           16
+    Available:       8 cpus: [8, 10, 12, 14, 9, 11, 13, 15]
+
+  Memory:
+    Total:           16.00 GB (17179869184 bytes)
+
+  Memory Pool:
+    Chunk:           0x532400000  16.00 GB node 0
+    Pool Allocated:  14.14 GB (15178088448 bytes)
+    Pool Available:  1.86 GB (2001780736 bytes)
+
+================================================================================
+Multikernel Instances
+================================================================================
+Total instances: 2
+Loaded kernels: 2
+
+
+================================================================================
+Instance: docker-kernel-a
+================================================================================
+  ID:              61
+  Status:          active
+
+  Kernel Image:
+    Mk Id           61
+    Type            multikernel
+    Start Address   0x000532418000
+    Segments        4
+    Mode            file
+    Cmdline         "rdinit=/init console=mktty0 loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0x8b2418000,size=72851456 init=/init kerf.entrypoint=/docker-proof"
+    Image           /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/vmlinux-primary
+    Format          vmlinux (ELF)
+    Version         7.0.0-mk2-gce-lab (YOUR_USER@mklinux-lab.asia-southeast1-b.c.REDACTED_GCP_PROJECT_ID.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) # SMP PREEMPT 
+    Initrd          /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/initramfs-primary.cpio.gz (gzip compressed)
+    Loaded At       2026-08-28T13:30:55+00:00
+
+  Rootfs:
+    Image           daxfs-proof:local
+    Entrypoint      /docker-proof
+    Daxfs           phys=0x8b2418000, size=72851456
+
+  Device Tree:
+    /dts-v1/;
+    /docker-kernel-a {
+        compatible = "multikernel-v1";
+        id = <0x3d>;
+        resources {
+            memory-base = <0x5 0x32418000>;
+            memory-bytes = <0x1 0xc0000000>;
+            cpus = <0x0 0x8 0x0 0xa 0x0 0xc 0x0 0xe>;
+        };
+    };
+
+================================================================================
+Instance: docker-kernel-b
+================================================================================
+  ID:              62
+  Status:          active
+
+  Kernel Image:
+    Mk Id           62
+    Type            multikernel
+    Start Address   0x0006f2418000
+    Segments        4
+    Mode            file
+    Cmdline         "rdinit=/init console=mktty0 loglevel=7 panic=-1 rootfstype=daxfs rootflags=phys=0x8b6992000,size=72851456 init=/init kerf.entrypoint=/docker-proof"
+    Image           /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/vmlinux-alt
+    Format          vmlinux (ELF)
+    Version         7.0.0-mk2-gce-lab-alt (YOUR_USER@mklinux-lab.asia-southeast1-b.c.REDACTED_GCP_PROJECT_ID.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) # SMP PREEMPT 
+    Initrd          /home/YOUR_USER/multikernel-artifacts/daxfs-full-20260828/kernels/initramfs-alt.cpio.gz (gzip compressed)
+    Loaded At       2026-08-28T13:31:00+00:00
+
+  Rootfs:
+    Image           daxfs-proof:local
+    Entrypoint      /docker-proof
+    Daxfs           phys=0x8b6992000, size=72851456
+
+  Device Tree:
+    /dts-v1/;
+    /docker-kernel-b {
+        compatible = "multikernel-v1";
+        id = <0x3e>;
+        resources {
+            memory-base = <0x6 0xf2418000>;
+            memory-bytes = <0x1 0xc0000000>;
+            cpus = <0x0 0x9 0x0 0xb 0x0 0xd 0x0 0xf>;
+        };
+    };
+
