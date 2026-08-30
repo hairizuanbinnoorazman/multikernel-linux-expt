@@ -13,14 +13,18 @@ REMOTE_LAB ?= multikernel-linux-lab
 GCLOUD = gcloud compute
 SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 
-.PHONY: help check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
+.PHONY: help docs-check check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
 	ssh serial snapshot sync provision-kernel reboot verify-host install-kerf \
 	smoke-up smoke-status smoke-down daxfs-build daxfs-up daxfs-status \
 	daxfs-down daxfs-dual-kernel-proof collect-logs disk-roots-create \
-	disk-roots-audit ext4-bootstrap-no-disk ext4-dual-kernel-no-disk
+	disk-roots-audit ext4-bootstrap-no-disk ext4-dual-kernel-no-disk \
+	mediated-transport mediated-root-a mediated-dual-root
 
 help: ## Show available targets.
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+docs-check: ## Validate local Markdown links and required runtime-plan structure.
+	bash scripts/check-docs.sh
 
 check-project:
 	@test -n "$(PROJECT)" && test "$(PROJECT)" != "(unset)" || { \
@@ -76,8 +80,10 @@ snapshot: ## Snapshot the current boot disk as a recovery point.
 		--source-disk-zone=$(ZONE)
 
 sync: ## Copy the verified remote scripts and child init into the VM.
-	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/guest ~/$(REMOTE_LAB)/scripts'
+	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/guest ~/$(REMOTE_LAB)/scripts ~/$(REMOTE_LAB)/tools'
 	$(GCLOUD) scp guest/init guest/daxfs-bootstrap-init guest/ext4-bootstrap-init \
+		guest/mediated-transport-init guest/mediated-root-bootstrap-init \
+		guest/mediated-disk-root-init \
 		guest/daxfs-proof.sh \
 		guest/docker-proof.sh \
 		$(INSTANCE):~/$(REMOTE_LAB)/guest/ \
@@ -92,7 +98,9 @@ sync: ## Copy the verified remote scripts and child init into the VM.
 	$(GCLOUD) scp scripts/*.sh scripts/*.py \
 		$(INSTANCE):~/$(REMOTE_LAB)/scripts/ \
 		--project=$(PROJECT) --zone=$(ZONE)
-	$(SSH) --command='chmod +x ~/$(REMOTE_LAB)/guest/init ~/$(REMOTE_LAB)/scripts/*.sh'
+	$(GCLOUD) scp tools/*.c $(INSTANCE):~/$(REMOTE_LAB)/tools/ \
+		--project=$(PROJECT) --zone=$(ZONE)
+	$(SSH) --command='chmod +x ~/$(REMOTE_LAB)/guest/init ~/$(REMOTE_LAB)/guest/*-init ~/$(REMOTE_LAB)/scripts/*.sh'
 
 provision-kernel: sync ## Install dependencies, build, and install v7.0-mk2; does not reboot.
 	$(SSH) --command='~/$(REMOTE_LAB)/scripts/provision-kernel.sh'
@@ -160,3 +168,12 @@ ext4-bootstrap-no-disk: sync ## Prove the ext4 bootstrap safely rejects an absen
 
 ext4-dual-kernel-no-disk: sync ## Run distinct kernels concurrently; both safely reject absent roots.
 	$(SSH) --command='~/$(REMOTE_LAB)/scripts/test-ext4-dual-kernel-no-disk.sh'
+
+mediated-transport: sync ## Run the bounded no-device Multikernel VSOCK transport test.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/test-mediated-transport.sh'
+
+mediated-root-a: sync ## Run one primary-mediated child-A ext4-root persistence cycle.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/test-mediated-root-a.sh'
+
+mediated-dual-root: sync ## Run two isolated mediated ext4 roots under distinct kernels.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/test-mediated-dual-root.sh'

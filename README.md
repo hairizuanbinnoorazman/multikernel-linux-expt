@@ -1,7 +1,8 @@
 # Multikernel Linux 7.0 on Google Compute Engine
 
 This repository documents how to evaluate Multikernel Linux `v7.0-mk2` on a
-Google Compute Engine (GCE) virtual machine.
+Google Compute Engine (GCE) virtual machine and now serves as the foundation
+for a Multikernel-backed containerd/Kubernetes runtime.
 
 The initial objective is deliberately narrow:
 
@@ -23,6 +24,30 @@ ext4 experiment. After the run, the VM, boot disk, and two blank child disks
 were deleted. See [`EXT4-DISK-LEARNINGS.md`](EXT4-DISK-LEARNINGS.md).
 The complete pass/blocked matrix is in
 [`EXT4-DISK-EXECUTION.md`](EXT4-DISK-EXECUTION.md).
+The follow-up primary-mediated implementation passed its core two-child
+persistent-root objective; see
+[`EXT4-MEDIATED-IMPLEMENTATION.md`](EXT4-MEDIATED-IMPLEMENTATION.md).
+
+## Container-runtime direction
+
+The next objective is an opt-in container runtime in which one Multikernel
+child represents one pod sandbox. The runtime will be a new project around
+Kerf, not a Firecracker fork. The primary retains devices, storage, networking,
+and global resource policy; a small agent manages OCI processes inside each
+child.
+
+- [`docs/architecture/TARGET.md`](docs/architecture/TARGET.md) defines the
+  target architecture and trust boundary.
+- [`docs/plans/README.md`](docs/plans/README.md) links the ordered, gated plans
+  from host qualification through the final developer-preview build.
+- [`runtime/README.md`](runtime/README.md) defines the source-tree boundaries
+  before implementation begins.
+- [`docs/research/RELATED-WORK.md`](docs/research/RELATED-WORK.md) records the
+  GitHub audit that found no public Kerf-backed containerd runtime.
+
+The first release target is explicitly for trusted, single-tenant nodes.
+Multikernel sibling kernels must not be described as providing Firecracker's
+KVM/EPT security boundary without separate evidence.
 
 ## Status
 
@@ -35,9 +60,10 @@ Research, implementation, and live account checks were performed on
 | Billing | Enabled |
 | Compute Engine API | Enabled |
 | Operator permissions | Project Owner |
-| Laboratory VM | Restored and tested on 2026-08-30, then deleted |
-| Boot disk | Restored 100 GB `pd-balanced`; deleted with the VM |
-| ext4 child disks | Two blank 10 GB `pd-balanced` disks tested, then deleted |
+| Laboratory VM | `mklinux-mediated-20260830` is stopped after the mediated-root run |
+| Boot disk | Retained 100 GiB `pd-balanced`, auto-delete enabled if the stopped VM is deleted |
+| Mediated storage disk | Retained 20 GiB `pd-balanced`, auto-delete disabled; contains outer ext4 and two 4 GiB images |
+| Direct-device ext4 disks | Two blank 10 GiB probe disks were tested, then deleted |
 | Retained snapshots | `mklinux-lab-stock-20260828` and `mklinux-lab-pre-daxfs-20260828-2030`, both `READY` at final check |
 | Primary-kernel GCE functions | SSH, guest agent, NIC, disk, metadata, and serial passed |
 | Concurrent child proof | Passed with two four-vCPU children |
@@ -47,7 +73,7 @@ Research, implementation, and live account checks were performed on
 | Shared read-only DAXFS | Passed with two children |
 | Shared writable DAXFS | Coherence failed; do not use as multi-writer storage |
 | Cleanup proof | Passed; all 16 vCPUs and host memory restored |
-| Current disposition | No VM or disk remains; snapshots and local evidence retained |
+| Current disposition | Mediated VM stopped; its two disks and the earlier recovery snapshots remain billable |
 | Target region | `asia-southeast1` |
 | N2 vCPU quota at initial check | 200 available, 0 used |
 | General vCPU quota at initial check | 500 available, 0 used |

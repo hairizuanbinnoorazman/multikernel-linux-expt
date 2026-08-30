@@ -202,3 +202,27 @@ repair test, or snapshot clone was claimed or simulated.
   detached-worktree procedure recorded above.
 - Post-cleanup inventory contained no Compute Engine instance or disk. Only
   snapshot storage remains billable.
+
+## Primary-mediated follow-up
+
+Alternative approach 2 was implemented after the direct-device hard stop. It
+proved that the primary can retain the shared GCE controller and serve two
+separate image-backed ext4 roots to distinct child kernels through patched
+Multikernel AF_VSOCK plus a child-local loopback NBD adapter.
+
+The decisive dual run had both children active concurrently:
+
+- A: `7.0.0-mk2-gce-lab`, UUID `352be7e6-…`, counter 5;
+- B: `7.0.0-mk2-gce-lab-alt`, UUID `0fc9d98e-…`, counter 2; and
+- neither Kerf device tree contained a physical device.
+
+Child A later reached counter 7 across a GCE reset and stop/start. Both inner
+filesystems and the outer filesystem passed final offline checks. The VM is
+stopped and its boot and storage disks are retained.
+
+The run also established that the pinned VSOCK transport does not compile
+unchanged, Linux NBD rejects a direct AF_VSOCK socket, loop-device discard can
+undo file preallocation, forced child stop needs a bounded server timeout, and
+an interrupted write payload must be discarded rather than replayed. See
+[`EXT4-MEDIATED-IMPLEMENTATION.md`](EXT4-MEDIATED-IMPLEMENTATION.md) for exact
+fixes, hashes, remaining risks, and evidence links.

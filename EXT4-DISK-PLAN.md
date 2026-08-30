@@ -4,7 +4,7 @@ Last updated: 2026-08-30
 
 ## Status
 
-Executed as one continuous run on 2026-08-30. Every section was evaluated and
+The direct-device path was executed as one continuous run on 2026-08-30. Every section was evaluated and
 all independent prerequisites were run, including snapshot restore, the
 two-child regression, alternate-kernel rebuild, bounded absent-root behavior,
 and a C3/NVMe topology probe. Both N2/SCSI and C3/NVMe expose boot and child
@@ -13,6 +13,14 @@ functions. The dependent ext4 stages are therefore blocked. No filesystem was
 created and no device handoff was attempted. See
 [`EXT4-DISK-EXECUTION.md`](EXT4-DISK-EXECUTION.md) and
 [`EXT4-DISK-LEARNINGS.md`](EXT4-DISK-LEARNINGS.md).
+
+Alternative approach 2 was subsequently implemented and live-tested on a new
+GCE VM. Two different child kernels ran concurrently with separate persistent
+ext4 roots mediated by primary-owned image servers; reset and GCE stop/start
+persistence passed. See
+[`EXT4-MEDIATED-IMPLEMENTATION.md`](EXT4-MEDIATED-IMPLEMENTATION.md). The core
+functional objective passed, while the production-hardening items listed there
+remain open.
 
 ## Objective
 
@@ -369,6 +377,267 @@ After the manual one-child and two-child procedures each pass twice:
 - Final proof of no instances, empty pool, all expected host CPUs/memory,
   returned and unmounted disks, clean filesystem checks, guest agent/NIC/SSH
   health, and explicit disk retention/deletion disposition.
+
+## Alternative approach 2: primary-managed disk with mediated child storage
+
+This is a separate implementation path from the direct-device stages above.
+It is motivated by the observed GCE topology failure: the primary keeps the
+entire SCSI or NVMe PCI function permanently, mounts the persistent disk, and
+mediates child I/O through an explicit cross-kernel transport. No GCE storage
+controller, SCSI target/LUN, or NVMe namespace is added to a Multikernel device
+pool.
+
+This approach does **not** make a primary-kernel mount automatically visible
+inside a child. The primary and child have independent VFS instances, mount
+tables, inode/page caches, and block-device namespaces. A child can only mount
+storage supplied by a protocol or virtual-device endpoint that its own kernel
+can access.
+
+### Target architecture and ownership
+
+The preferred persistent-root layout is a file-backed virtual block device:
+
+```text
+GCE Persistent Disk
+└── primary kernel owns SCSI/NVMe controller
+    └── primary mounts host ext4 at /srv/multikernel-storage
+        ├── child-a/root.ext4 (fixed-size filesystem image)
+        │   └── primary block server -> inter-kernel transport -> child A /dev/mkblk0
+        └── child-b/root.ext4 (fixed-size filesystem image)
+            └── primary block server -> inter-kernel transport -> child B /dev/mkblk0
+
+child A: mounts its virtual block device as ext4 /
+child B: mounts its virtual block device as ext4 /
+```
+
+The outer ext4 filesystem is mounted only by the primary. Each inner ext4
+image is mounted only by its assigned child. While an image is exported, the
+primary may keep the outer filesystem mounted but must not mount, resize,
+copy, inspect with filesystem tools, or otherwise mutate that image. The block
+server is the sole primary-side opener allowed to write it.
+
+This retains durable GCE-backed storage and child-side ext4 semantics while
+removing physical-device DMA, interrupt, IOMMU, and PCI-handoff requirements.
+It introduces a different dependency: every child block I/O operation and
+recovery decision now depends on the primary-side server and the inter-kernel
+transport.
+
+An initial file-level export may be used as a transport proof:
+
+```text
+primary-mounted ext4 directory -> file protocol -> child /data
+```
+
+That proof is not equivalent to the target. In particular, a file-level
+export mounted by the child is not child-mounted ext4 even when its backing
+directory resides on primary ext4. It must not be reported as completing the
+child-ext4-root objective.
+
+### Required design decisions before implementation
+
+Record these choices rather than silently selecting whatever happens to boot:
+
+| Decision | Preferred starting point | Gate |
+| --- | --- | --- |
+| Inter-kernel transport | Multikernel AF_VSOCK if the pinned source can be built and shown reliable; otherwise a deliberately implemented shared-memory/IPI transport | Bidirectional integrity, disconnect, reconnect, backpressure, and bounded timeout tests pass without assigning a NIC |
+| First exported object | Disposable file tree mounted as child `/data` | Normal metadata and file operations persist on the primary disk |
+| Persistent root object | One preallocated ext4 image file per child | Exclusive open/lease and flush/barrier semantics are proven |
+| Block protocol | Reuse an audited NBD-compatible path if it accepts the selected transport; otherwise implement a minimal versioned request protocol and child block driver | Read, write, flush, discard policy, error propagation, and disconnect behavior are defined and tested |
+| Concurrency | One server/export/transport endpoint per child image | A child cannot name, enumerate, or access another child's export |
+| Primary failure policy | Child I/O fails or freezes only for a bounded interval, then enters an explicit failed state | No indefinite uninterruptible boot or silent write acknowledgement |
+| Child root bootstrap | Initramfs creates the transport and virtual block device, verifies the expected export identity and filesystem UUID, then mounts and `switch_root`s | Wrong, absent, duplicated, or stale export fails safely to MKTTY |
+
+Do not assume that an AF_VSOCK implementation in the source tree is usable as
+a storage transport. The pinned kernel's build compatibility and the live
+primary/child data path must be proven first. Likewise, do not assume an
+existing NBD userspace tool can consume an AF_VSOCK endpoint; verify its socket
+and kernel-ioctl behavior or provide a small, auditable adapter.
+
+### Safety and consistency invariants
+
+1. The GCE boot disk is never used for destructive storage tests. Use a newly
+   created, positively identified secondary disk and persistent by-id name.
+2. The primary permanently owns every GCE disk controller. Kerf pools contain
+   no storage PCI function for this approach.
+3. An inner image has one writer and one filesystem owner. It is never mounted
+   by the primary while exported or mounted by more than one child.
+4. Export identity is explicit and unguessable enough to prevent accidental
+   cross-attachment. Each export records child name, image path, image ID,
+   filesystem UUID, size, protocol version, and expected kernel hash.
+5. A server must acquire an exclusive image lock before acknowledging export
+   readiness. Startup refuses an existing lock unless recovery proves that no
+   live server or child still owns the image.
+6. A child write is not considered durable merely because it crossed shared
+   memory. The block path must implement flush/FUA semantics through the
+   primary server to the image file and underlying GCE disk. Unsupported
+   discard/write-zeroes operations must be rejected explicitly, not silently
+   acknowledged.
+7. Transport loss never causes the server to replay a non-idempotent write
+   without a request-generation/sequence rule. Short I/O and server errors are
+   returned to the child block layer.
+8. The outer primary filesystem must have sufficient reserved free space.
+   Prefer fully preallocated image files for the first run so an outer ENOSPC
+   cannot unexpectedly become an inner ext4 corruption event.
+9. Snapshots are taken only after each child is stopped, its virtual device is
+   disconnected, the server has flushed and closed the image, and the primary
+   has synced the outer filesystem. Crash-consistent online snapshots are a
+   later, separately specified experiment.
+10. DAXFS may bootstrap tools or provide read-only content, but it is not the
+    persistence layer for this approach. Copying a DAXFS allocation back to a
+    file at teardown is checkpointing, not live durable storage.
+
+### Approach 2 Stage A: restore baseline and attach host-owned storage
+
+- Restore or rebuild the pinned Multikernel primary and repeat the existing
+  no-device two-child regression.
+- Create one disposable GCE persistent disk with auto-delete disabled, attach
+  it to the primary, and run the existing by-id/size/serial/signature audit.
+- Confirm its controller is retained by the primary and omitted from all Kerf
+  reports and device pools.
+- With explicit first-format authorization, create one outer ext4 filesystem,
+  mount it at a fixed primary-only path, and record UUID, label, features,
+  mount options, capacity, and `fsck -fn` baseline.
+- Reboot the primary once and prove the disk is rediscovered and mounted by
+  UUID without starting any export automatically.
+
+Pass: primary persistence works independently and child creation never changes
+the GCE disk/controller ownership.
+
+### Approach 2 Stage B: prove the inter-kernel transport
+
+- Build the selected transport into both pinned child kernels or include its
+  complete audited module closure in the initramfs.
+- Run request/response tests across sizes around page, message, and ring
+  boundaries; include zero-length, fragmented, maximum-size, and deliberately
+  malformed messages.
+- Measure ordering and integrity with sequence numbers and hashes under
+  sustained bidirectional load.
+- Exercise child-before-server, server-before-child, clean disconnect, forced
+  child stop, forced server stop, primary-side timeout, endpoint reuse, and a
+  fresh child using the same logical export name but a new generation.
+- Verify that transport load does not damage MKTTY, CPU/memory return, SSH,
+  guest agent, metadata access, or the primary-mounted disk.
+
+Pass: all operations terminate within defined bounds, stale connections cannot
+impersonate a new generation, and no physical device has been assigned.
+
+### Approach 2 Stage C: file-level `/data` proof
+
+- Create separate primary directories for child A and child B on the outer
+  filesystem and populate distinct identity markers.
+- Export only A's directory to A. In the child, mount it at `/data`, verify the
+  expected export ID, and exercise create/read/write/fsync/rename/unlink,
+  directories, symlinks, permissions, timestamps, and large files.
+- Stop and recreate A, then reboot the primary and verify persisted hashes and
+  counters before re-exporting.
+- Repeat independently for B, then run both exports concurrently and prove
+  cross-isolation.
+- Record unsupported semantics such as xattrs, ACLs, file locking, hard links,
+  device nodes, mmap coherence, and atomic rename rather than assuming them.
+
+Pass: the proxy and transport provide durable isolated application data. This
+stage does not claim an ext4 child root.
+
+### Approach 2 Stage D: create and validate virtual block exports
+
+- Preallocate two fixed-size files on the outer filesystem. Record file IDs,
+  allocated extents/blocks, hashes of zeroed samples, and available outer
+  capacity before and after allocation.
+- Attach each image locally through a disposable primary-only loop device only
+  during preparation. Create inner ext4 with unique label/UUID, populate the
+  deterministic BusyBox root and manifest, cleanly unmount it, detach the loop
+  device, and sync the outer filesystem.
+- Start the block server for image A under an exclusive lock. Connect a test
+  client without mounting and verify capacity, sector sizes, read integrity,
+  bounded out-of-range failure, read-only mode, and disconnect.
+- In a disposable copy of the image, test writes plus flush/barrier behavior,
+  server termination during reads/writes/flush, child termination, duplicate
+  requests, partial transport messages, and reconnect generation handling.
+- After every fault, close the export before the primary uses `fsck -fn` on the
+  inner image. Never run filesystem checks against a live export.
+
+Pass: the virtual block device has defined durability and failure semantics,
+and fault tests do not corrupt the known-good source image or outer filesystem.
+
+### Approach 2 Stage E: one mediated persistent child root
+
+- Boot child A from a minimal initramfs with no storage PCI devices assigned.
+- Establish the expected transport endpoint and export generation, create the
+  virtual block device, verify its immutable image ID/capacity and expected
+  ext4 UUID, then mount it read-write.
+- Validate the root manifest and use `switch_root`; record kernel release,
+  root filesystem type, virtual block topology, PID 1, and mount options.
+- Write a monotonically increasing marker, call `fsync`/`sync`, and require a
+  successful protocol flush before treating the write as durable.
+- Stop the child cleanly, disconnect the virtual device, stop/close the server,
+  and verify the image read-only from the primary. Repeat after child recreate
+  and after a primary reboot.
+- Force-stop a child after a completed flush, and separately terminate the
+  server during active I/O using only a disposable image copy. Establish the
+  journal replay/fsck and export-recovery policy from the observed results.
+
+Pass: the child uses its selected kernel and an ext4 `/` backed durably by the
+primary-owned GCE disk, while the child sees no GCE SCSI/NVMe controller.
+
+### Approach 2 Stage F: two isolated concurrent roots
+
+- Give A and B distinct image files, server processes, endpoint IDs, export
+  generations, filesystem UUIDs, CPU sets, and child kernel hashes.
+- Start A and B sequentially, then repeat with concurrent connection/boot.
+- Run bounded independent I/O plus flush loops. Prove each child sees only its
+  own virtual block device, UUID, root marker, and server endpoint.
+- Stop/restart each child and server independently while the peer continues
+  operating. Confirm that a failure, timeout, queue saturation, or outer-space
+  limit on one export cannot block the other export or the primary boot disk.
+- Stop both cleanly, close both servers, sync the outer filesystem, and verify
+  both inner filesystems and persistence markers from the primary.
+
+Pass: both different child kernels run concurrently from separate persistent
+ext4 roots without physical storage assignment or cross-export visibility.
+
+### Approach 2 Stage G: persistence, recovery, and automation
+
+Run the direct-device Stage 7 persistence matrix with mediated equivalents,
+adding these cases:
+
+1. primary block-server restart while the child is stopped;
+2. stale export lock and stale generation recovery;
+3. transport disconnect with outstanding reads, writes, and flushes;
+4. outer filesystem full/high-water refusal before an inner write is accepted;
+5. one image damaged while the peer image and outer filesystem remain healthy;
+6. primary reboot with automatic export startup disabled until image checks and
+   explicit child association complete; and
+7. offline GCE disk snapshot/clone, followed by outer and inner filesystem
+   validation on a recovery VM.
+
+Only after the manual matrix passes should automation create/mount the outer
+filesystem, lock and export known image paths, boot children, or perform
+teardown. Separate cloud disk creation, destructive outer formatting, image
+creation/formatting, export start, child start, and deletion into different
+commands. Normal teardown must never delete the GCE disk or image files.
+
+### Approach 2 evidence and acceptance boundary
+
+In addition to the direct-device evidence list, retain:
+
+- transport source revision/configuration, endpoint IDs, negotiated protocol
+  version/features, export generations, queue limits, timeout policy, and
+  integrity/load results;
+- outer disk identity, filesystem UUID/features/mount options/free-space
+  history, image paths/inodes/allocated sizes, exclusive locks, and server
+  process/service identities;
+- block request traces or counters for reads, writes, flushes, retries,
+  duplicate rejection, errors, and disconnects, without recording payload
+  secrets;
+- child virtual-block identity/capacity/sector sizes, inner ext4 UUID/features,
+  bootstrap transcript, root manifest, and durability markers; and
+- proof that every Kerf pool/device tree omitted the GCE storage controller and
+  that the child exposed no physical SCSI/NVMe disk.
+
+Success for Approach 2 means durable, isolated child roots through a mediated
+virtual device. A successful `/data` proxy, DAXFS mount, memory-lifetime
+restart, or copy-at-shutdown checkpoint is useful evidence but does not alone
+satisfy that acceptance boundary.
 
 ## Later compatibility experiment: genuinely older kernels
 
