@@ -1,0 +1,12 @@
+e2fsck 1.47.2 (1-Jan-2025)
+Warning: skipping journal recovery because doing a read-only filesystem check.
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+Feature orphan_present is set but orphan file is clean.
+Clear? no
+
+mk-child-b-root: 304/262144 files (0.3% non-contiguous), 37751/1048576 blocks
+fsck_rc=0

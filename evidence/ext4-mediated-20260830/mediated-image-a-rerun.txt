@@ -1,0 +1,1 @@
+MEDIATED_IMAGE_REFUSED reason=image-exists

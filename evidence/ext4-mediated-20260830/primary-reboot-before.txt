@@ -1,0 +1,12 @@
+BOOT_ID_BEFORE=a704dfb8-6bc4-4938-b3d3-d9ae986a43e5
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+

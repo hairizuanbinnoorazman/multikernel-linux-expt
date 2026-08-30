@@ -1,0 +1,110 @@
+# Target Multikernel container-runtime architecture
+
+## Objective
+
+Expose Multikernel child kernels as OCI pod sandboxes through containerd and,
+eventually, Kubernetes. The primary kernel retains ownership of physical and
+cloud devices. Kerf allocates CPUs and memory and performs child-kernel
+lifecycle operations. Workload processes execute inside the child kernel.
+
+This is not a Firecracker derivative and it is not a KVM virtual machine.
+
+## Target topology
+
+```text
+kubelet
+  -> containerd CRI plugin
+    -> containerd-shim-multikernel-v2 (one per pod sandbox)
+      -> mkruntimed (one privileged node daemon)
+        -> Kerf and /sys/fs/multikernel
+          -> child kernel
+            -> mk-agent
+              -> pod containers
+
+primary-owned services
+  -> rootfs/image service -> Multikernel VSOCK -> child storage adapter
+  -> CNI/TUN service      -> Multikernel VSOCK -> child network adapter
+  -> log/exec/metrics     <-> Multikernel VSOCK <-> mk-agent
+```
+
+## Component boundaries
+
+### `containerd-shim-multikernel-v2`
+
+The shim implements containerd Runtime v2 task behavior. It must not directly
+hot-unplug CPUs, allocate Multikernel memory, or manipulate global Kerf state.
+It translates containerd requests into sandbox requests and preserves stdio,
+exit status, and task event semantics.
+
+### `mkruntimed`
+
+The daemon is the only runtime component permitted to mutate Kerf or
+`/sys/fs/multikernel`. It owns resource allocation, a durable operation
+journal, per-sandbox locks, reconciliation after restart, and cleanup. Its API
+must be versioned and usable without containerd so lower layers can be tested
+independently.
+
+### Kerf adapter
+
+The first adapter may invoke the pinned Kerf CLI with structured parsing and
+strict timeouts. The target is a stable machine-readable Kerf API. Container
+semantics must remain outside Kerf.
+
+### `mk-agent`
+
+The child agent receives authenticated, versioned requests over Multikernel
+AF_VSOCK. It creates namespaces and cgroups inside the child, mounts the OCI
+root filesystem, launches processes, forwards stdio and signals, reports exit
+status, and performs an orderly storage shutdown before child termination.
+
+### Storage and networking services
+
+The primary owns backing storage and the external NIC. Children receive only
+mediated endpoints. The initial root path may reuse the proven DAXFS or
+primary-mediated NBD mechanisms. The network path must use a primary-owned
+network namespace and a packet transport; the GCE NIC must never be assigned
+to a child.
+
+## Sandbox granularity
+
+One Multikernel child represents one Kubernetes pod sandbox. Multiple OCI
+containers may run inside that child through one agent. One child per
+container is allowed for direct containerd testing but is not the target
+density model.
+
+## Required lifecycle
+
+```text
+ABSENT
+  -> ALLOCATING
+  -> CREATED
+  -> LOADED
+  -> RUNNING
+  -> STOPPING
+  -> STOPPED
+  -> RELEASING
+  -> ABSENT
+```
+
+Every transition needs an idempotency key, timeout, observable result, and
+rollback rule. `ERROR` is an annotation on a durable last-known state, not a
+license to guess which resources are safe to release.
+
+## Initial trust boundary
+
+The first runtime is for trusted, single-tenant workloads. Multikernel does not
+provide KVM/EPT-style hardware isolation between sibling kernels. No document,
+API name, or benchmark may describe the MVP as a safe hostile multi-tenant
+sandbox. A stronger claim requires a separately reviewed threat model and
+negative isolation evidence.
+
+## Non-negotiable invariants
+
+- Never allocate APIC ID 0.
+- Keep management CPUs and sufficient memory in the primary.
+- Do not assign the primary boot disk, GCE NIC, or their shared controllers.
+- Give each writable filesystem exactly one child owner.
+- Authenticate sandbox identity, generation, and endpoint on every transport.
+- Persist enough state to reconcile after daemon, shim, agent, or child crash.
+- Prove resource return after every destructive or failure-injection test.
+- Preserve the stock recovery kernel and serial-console access in cloud tests.

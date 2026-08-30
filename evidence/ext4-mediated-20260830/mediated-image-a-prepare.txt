@@ -1,0 +1,15 @@
+Discarding device blocks:       0/1048576               done                            
+Creating filesystem with 1048576 4k blocks and 262144 inodes
+Filesystem UUID: 352be7e6-ef7c-44d2-9f42-fe84303cddf4
+Superblock backups stored on blocks: 
+	32768, 98304, 163840, 229376, 294912, 819200, 884736
+
+Allocating group tables:  0/32     done                            
+Writing inode tables:  0/32     done                            
+Creating journal (16384 blocks): done
+Writing superblocks and filesystem accounting information:  0/32     done
+
+MEDIATED_IMAGE_READY child=child-a image=/srv/multikernel-storage/child-a/root.ext4 image_id=image-child-a-v1 bytes=4294967296 uuid=352be7e6-ef7c-44d2-9f42-fe84303cddf4 label=mk-child-a-root
+inode=131074 size=4294967296 blocks=142072
+61867447481302dbd7a833e100a56078877a62d5d39f9750f8305d3ba3bc425f  /srv/multikernel-storage/child-a/root-manifest.txt
+79198f66e0df10c314d336d15a33fe29ed87731026acd8bcbd9820d1d2136d8f  /srv/multikernel-storage/child-a/root-content-sha256.txt

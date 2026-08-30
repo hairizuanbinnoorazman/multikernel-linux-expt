@@ -1,0 +1,56 @@
+MEDIATED_STORAGE_IDENTITY device=/dev/sdb serial=mk-mediated-storage bytes=21474836480
+Discarding device blocks:       0/5242880               done                            
+Creating filesystem with 5242880 4k blocks and 1310720 inodes
+Filesystem UUID: 507c0523-8e58-4ae3-9524-3b7513aad344
+Superblock backups stored on blocks: 
+	32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208, 
+	4096000
+
+Allocating group tables:   0/160       done                            
+Writing inode tables:   0/160       done                            
+Creating journal (32768 blocks): done
+Writing superblocks and filesystem accounting information:   0/160       done
+
+MEDIATED_STORAGE_READY device=/dev/sdb mount=/srv/multikernel-storage uuid=507c0523-8e58-4ae3-9524-3b7513aad344 label=mk-mediated-host
+TARGET                   SOURCE   FSTYPE OPTIONS
+/srv/multikernel-storage /dev/sdb ext4   rw,relatime
+tune2fs 1.47.2 (1-Jan-2025)
+Filesystem volume name:   mk-mediated-host
+Last mounted on:          <not available>
+Filesystem UUID:          507c0523-8e58-4ae3-9524-3b7513aad344
+Filesystem magic number:  0xEF53
+Filesystem revision #:    1 (dynamic)
+Filesystem features:      has_journal ext_attr resize_inode dir_index orphan_file filetype needs_recovery extent 64bit flex_bg metadata_csum_seed sparse_super large_file huge_file dir_nlink extra_isize metadata_csum orphan_present
+Filesystem flags:         signed_directory_hash 
+Default mount options:    user_xattr acl
+Filesystem state:         clean
+Errors behavior:          Continue
+Filesystem OS type:       Linux
+Inode count:              1310720
+Block count:              5242880
+Reserved block count:     262144
+Overhead clusters:        126316
+Free blocks:              5116046
+Free inodes:              1310708
+First block:              0
+Block size:               4096
+Fragment size:            4096
+Group descriptor size:    64
+Reserved GDT blocks:      1024
+Blocks per group:         32768
+Fragments per group:      32768
+Inodes per group:         8192
+Inode blocks per group:   512
+Flex block group size:    16
+Filesystem created:       Sun Aug 30 09:38:41 2026
+Last mount time:          Sun Aug 30 09:38:41 2026
+Last write time:          Sun Aug 30 09:38:41 2026
+Mount count:              1
+Maximum mount count:      -1
+Last checked:             Sun Aug 30 09:38:41 2026
+Check interval:           0 (<none>)
+Lifetime writes:          6246 kB
+Reserved blocks uid:      0 (user root)
+Reserved blocks gid:      0 (group root)
+First inode:              11
+Inode size:               256

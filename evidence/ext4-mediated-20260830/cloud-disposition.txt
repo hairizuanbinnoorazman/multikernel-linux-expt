@@ -1,0 +1,27 @@
+Captured: 2026-08-30 after final teardown
+Project: new-demo-project-462517
+Zone: asia-southeast1-b
+
+VM_STATUS=TERMINATED
+VM=mklinux-mediated-20260830
+MACHINE_TYPE=n2-standard-16
+
+DISK=mklinux-mediated-boot-20260830
+SIZE_GB=100
+TYPE=pd-balanced
+STATUS=READY
+ROLE=boot
+AUTO_DELETE=true
+ATTACHED_TO=mklinux-mediated-20260830
+
+DISK=mk-mediated-storage-20260830
+SIZE_GB=20
+TYPE=pd-balanced
+STATUS=READY
+ROLE=primary-managed-outer-ext4
+AUTO_DELETE=false
+ATTACHED_TO=mklinux-mediated-20260830
+
+The stopped VM incurs no vCPU/RAM runtime charge. Both disks and the retained
+earlier snapshots remain stored and can incur storage charges. No export
+server or child kernel runs while the VM is stopped.

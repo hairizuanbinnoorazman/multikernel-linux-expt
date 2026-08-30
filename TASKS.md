@@ -110,8 +110,43 @@ Last updated: 2026-08-30
 - [x] Verify final host health and blank disk state, then delete both probe VMs,
   all boot disks, and both disposable child disks; retain only recovery
   snapshots and local evidence.
-- [ ] Select and separately approve an alternate storage topology or primary-
-  mediated block transport before formatting or handing off either disk.
+- [x] Select and implement the primary-mediated block transport without
+  handing a GCE storage controller to a child.
+- [x] Prove one child mounts its image-backed ext4 filesystem as read-write `/`
+  and retains a counter across recreation, primary reset, and GCE stop/start.
+- [x] Prove two distinct kernels concurrently mount isolated ext4 roots with no
+  storage device in either Kerf device tree.
+- [x] Capture request/flush counters, partial-write disconnect behavior, final
+  filesystem checks, and stopped-VM resource disposition.
+- [ ] Implement a clean child-driven remount/disconnect/shutdown path.
+- [ ] Complete mediated ENOSPC, malformed-packet, server-failure, damaged-image,
+  stale-lock, sustained-load, and offline snapshot/clone recovery tests.
+
+## Multikernel container runtime
+
+The detailed exit criteria and ordering are in
+[`docs/plans/README.md`](docs/plans/README.md).
+
+- [x] Record the decision to build a new runtime around Kerf rather than fork
+  Firecracker.
+- [x] Define the target pod-sandbox architecture and component boundaries.
+- [x] Create gated plans for host qualification, control plane, agent, storage,
+  networking, containerd, Kubernetes, security, reliability, performance, and
+  release.
+- [x] Add a non-code runtime workspace that prevents accidental coupling
+  between the shim, Kerf adapter, agent, and device services.
+- [ ] G0: freeze the lifecycle, protocol, configuration, error, threat-model,
+  and evidence contracts.
+- [ ] G1: implement and pass read-only host qualification and isolation checks.
+- [ ] G2: implement the recoverable `mkruntimed` daemon and Kerf adapter.
+- [ ] G3: implement `mk-agent` and the OCI process lifecycle in one child.
+- [ ] G4: provide deterministic OCI images and safe single-owner storage.
+- [ ] G5: provide primary-mediated CNI-compatible networking.
+- [ ] G6: pass containerd Runtime v2 lifecycle tests through `ctr`.
+- [ ] G7: run a multi-container Kubernetes pod through `RuntimeClass`.
+- [ ] G8: pass the security, fuzzing, failure, and resource-leak matrix.
+- [ ] G9: publish reproducible performance and density comparisons.
+- [ ] G10: produce and validate the opt-in developer-preview release.
 
 ## Safety constraints
 

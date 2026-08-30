@@ -1,0 +1,24 @@
+#!/bin/busybox sh
+
+/bin/busybox --install -s /bin
+mkdir -p /dev /proc /sys /tmp
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
+echo "MEDIATED_TRANSPORT_CHILD_BEGIN release=$(uname -r)"
+insmod /lib/mk_transport.ko || {
+    echo "MEDIATED_TRANSPORT_FAIL reason=module-load"
+    exec sh
+}
+
+if /bin/mkvsock-probe client 0 4050; then
+    echo "MEDIATED_TRANSPORT_CHILD_PASS"
+else
+    echo "MEDIATED_TRANSPORT_FAIL reason=probe"
+fi
+
+echo "MEDIATED_TRANSPORT_DIAGNOSTIC_READY"
+while true; do
+    sleep 3600
+done

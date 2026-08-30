@@ -1,0 +1,3 @@
+MKNBD_SERVER_READY image=/srv/multikernel-storage/child-a/root.ext4 image_id=image-child-a-v1 generation=child-a-post-primary-reset size=4294967296 port=4061
+MKNBD_SERVER_CLIENT_ACCEPTED
+MKNBD_SERVER_CLOSED reads=341 read_bytes=3493888 writes=15 write_bytes=90112 flushes=2

@@ -71,3 +71,21 @@ but it is not yet a bit-for-bit reproducible artifact.
   `mklinux-lab-pre-daxfs-20260828-2030`: retained and `READY`.
 
 Only the retained snapshots can continue to incur experiment-related charges.
+
+## Alternative approach 2 execution
+
+The primary-mediated implementation was run later on 2026-08-30. Its core
+result is **pass**, with production hardening still incomplete.
+
+| Approach 2 stage | Result | Observed outcome |
+| --- | --- | --- |
+| A: primary-owned disk | Pass | New 20 GiB disk, guarded outer ext4 format, UUID mount, rerun refusal, reset and stop/start rediscovery passed. |
+| B: inter-kernel transport | Partial pass | Deterministic 1-byte through 1-MiB traffic passed. Pinned transport needed a build/safety patch; malformed raw-packet and saturation tests remain. |
+| C: file-level `/data` | Skipped | The implementation proceeded directly to the stronger block/root target. |
+| D: virtual block export | Functional pass | Exclusive image lock, identity/generation handshake, bounds, read/write/flush/FUA, full allocation, disconnect timeout, and partial-write discard passed. Broader fault injection remains. |
+| E: one persistent root | Pass | Child A mounted `/dev/nbd0` as rw ext4 `/`; counter advanced through repeated recreation, reset, and stop/start. |
+| F: concurrent roots | Pass | Two active children reported exact distinct releases, UUIDs, markers, and counters; Kerf device trees contained no devices. |
+| G: recovery/automation | Partial pass | Reset, GCE stop/start, forced disconnect, offline checks, and safe teardown passed. Clean child shutdown, ENOSPC, corruption, stale-lock, and snapshot/clone cases remain. |
+
+The complete implementation record and residual acceptance boundary are in
+[`EXT4-MEDIATED-IMPLEMENTATION.md`](EXT4-MEDIATED-IMPLEMENTATION.md).

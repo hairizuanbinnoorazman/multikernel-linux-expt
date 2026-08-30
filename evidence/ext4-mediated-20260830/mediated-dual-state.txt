@@ -1,0 +1,86 @@
+
+================================================================================
+Baseline Hardware Resources
+================================================================================
+
+  CPUs:
+    Total:           16
+    Available:       8 cpus: [8, 10, 12, 14, 9, 11, 13, 15]
+
+  Memory:
+    Total:           16.00 GB (17179869184 bytes)
+
+  Memory Pool:
+    Chunk:           0xbf9600000  16.00 GB node 0
+    Pool Allocated:  15.00 GB (16106127360 bytes)
+    Pool Available:  1.00 GB (1073741824 bytes)
+
+================================================================================
+Multikernel Instances
+================================================================================
+Total instances: 2
+Loaded kernels: 2
+
+
+================================================================================
+Instance: mediated-root-a
+================================================================================
+  ID:              3
+  Status:          active
+
+  Kernel Image:
+    Mk Id           3
+    Type            multikernel
+    Start Address   0x000bf9618000
+    Segments        4
+    Mode            file
+    Cmdline         "rdinit=/init console=mktty0 loglevel=6 panic=-1 mk.child=child-a mk.image_id=image-child-a-v1 mk.generation=dual-a-1 mk.root_uuid=352be7e6-ef7c-44d2-9f42-fe84303cddf4 mk.port=4061 mk.size=4294967296"
+    Image           /home/hairizuan-tw/src/linux/vmlinux
+    Format          vmlinux (ELF)
+    Version         7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.new-demo-project-462517.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) # SMP PREEMPT 
+    Initrd          /home/hairizuan-tw/multikernel-artifacts/mediated-root-a.cpio.gz (gzip compressed)
+    Loaded At       2026-08-30T10:07:17+00:00
+
+  Device Tree:
+    /dts-v1/;
+    /mediated-root-a {
+        compatible = "multikernel-v1";
+        id = <0x3>;
+        resources {
+            memory-base = <0xb 0xf9618000>;
+            memory-bytes = <0x2 0x0>;
+            cpus = <0x0 0x8 0x0 0xa 0x0 0xc 0x0 0xe>;
+        };
+    };
+
+================================================================================
+Instance: mediated-root-b
+================================================================================
+  ID:              4
+  Status:          active
+
+  Kernel Image:
+    Mk Id           4
+    Type            multikernel
+    Start Address   0x000df9618000
+    Segments        4
+    Mode            file
+    Cmdline         "rdinit=/init console=mktty0 loglevel=6 panic=-1 mk.child=child-b mk.image_id=image-child-b-v1 mk.generation=dual-b-1 mk.root_uuid=0fc9d98e-3902-44a1-b4be-7a648fd28e46 mk.port=4062 mk.size=4294967296"
+    Image           /home/hairizuan-tw/src/linux-alt-worktree/vmlinux
+    Format          vmlinux (ELF)
+    Version         7.0.0-mk2-gce-lab-alt (hairizuan-tw@mklinux-mediated-20260830) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) # SMP PREEMPT 
+    Initrd          /home/hairizuan-tw/multikernel-artifacts/mediated-root-b.cpio.gz (gzip compressed)
+    Loaded At       2026-08-30T10:07:19+00:00
+
+  Device Tree:
+    /dts-v1/;
+    /mediated-root-b {
+        compatible = "multikernel-v1";
+        id = <0x4>;
+        resources {
+            memory-base = <0xd 0xf9618000>;
+            memory-bytes = <0x1 0xc0000000>;
+            cpus = <0x0 0x9 0x0 0xb 0x0 0xd 0x0 0xf>;
+        };
+    };
+

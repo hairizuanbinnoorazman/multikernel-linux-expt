@@ -1,0 +1,28 @@
+#!/bin/busybox sh
+
+/bin/busybox --install -s /bin
+mkdir -p /run /var/lib/multikernel
+child=$(cat /etc/mk-child-id)
+counter_file=/var/lib/multikernel/persistence-counter
+counter=0
+[ ! -f "$counter_file" ] || counter=$(cat "$counter_file")
+counter=$((counter + 1))
+echo "$counter" >"$counter_file"
+sync
+
+echo "MEDIATED_ROOT_CHILD_BEGIN"
+echo "child=$child"
+echo "release=$(uname -r)"
+echo "root_device=$(awk '$2 == "/" {print $1}' /proc/mounts)"
+echo "root_fstype=$(awk '$2 == "/" {print $3}' /proc/mounts)"
+echo "root_options=$(awk '$2 == "/" {print $4}' /proc/mounts)"
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in mk.root_uuid=*) root_uuid=${arg#*=};; esac
+done
+echo "root_uuid=$root_uuid"
+echo "persistence_counter=$counter"
+echo "MEDIATED_ROOT_CHILD_READY"
+
+while true; do
+    sleep 3600
+done

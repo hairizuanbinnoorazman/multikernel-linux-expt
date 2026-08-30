@@ -1,0 +1,2 @@
+MKNBD_SERVER_READY image=/srv/multikernel-storage/child-a/root.ext4 image_id=image-child-a-v1 generation=child-a-cycle-2 size=4294967296 port=4061
+MKNBD_SERVER_CLIENT_ACCEPTED

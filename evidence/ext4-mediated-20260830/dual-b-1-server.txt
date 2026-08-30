@@ -1,0 +1,4 @@
+MKNBD_SERVER_READY image=/srv/multikernel-storage/child-b/root.ext4 image_id=image-child-b-v1 generation=dual-b-1 size=4294967296 port=4062
+MKNBD_SERVER_CLIENT_ACCEPTED
+MKNBD_SERVER_DISCONNECT_DURING_WRITE len=2097152 offset=27398144
+MKNBD_SERVER_CLOSED reads=335 read_bytes=3403776 writes=33 write_bytes=25350144 flushes=3

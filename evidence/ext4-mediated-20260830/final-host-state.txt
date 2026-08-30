@@ -1,0 +1,27 @@
+BOOT_ID=fe4f4ee2-0535-4bcf-a796-fca9bdfdfb1a
+Linux mklinux-mediated-20260830 7.0.0-mk2-gce-lab #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026 x86_64 GNU/Linux
+active
+0-15
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+NAME    PATH         SIZE TYPE FSTYPE   LABEL            UUID                                 MOUNTPOINTS                SERIAL
+loop0   /dev/loop0  66.8M loop squashfs                                                       /snap/core24/1643          
+loop1   /dev/loop1 352.3M loop squashfs                                                       /snap/google-cloud-cli/489 
+loop2   /dev/loop2  50.1M loop squashfs                                                       /snap/snapd/27710          
+sda     /dev/sda     100G disk                                                                                           persistent-disk-0
+├─sda1  /dev/sda1   98.9G part ext4     cloudimg-rootfs  a0b93594-3b3f-4b42-b062-c7d29f0f02dc /                          
+├─sda13 /dev/sda13  1023M part ext4     BOOT             6a33ce80-3f62-4348-9360-e4eb56054a31 /boot                      
+├─sda14 /dev/sda14     4M part                                                                                           
+└─sda15 /dev/sda15   106M part vfat     UEFI             D8C5-2B4F                            /boot/efi                  
+sdb     /dev/sdb      20G disk ext4     mk-mediated-host 507c0523-8e58-4ae3-9524-3b7513aad344 /srv/multikernel-storage   mk-mediated-storage
+TARGET                   SOURCE   FSTYPE OPTIONS
+/srv/multikernel-storage /dev/sdb ext4   rw,relatime
