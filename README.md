@@ -55,6 +55,14 @@ access design before giving the test VM an external IP.
 
 ## DAXFS and Docker-image outcome
 
+DAXFS is a **direct-access (DAX), shared-memory-backed filesystem**. In this
+experiment, Kerf serializes a directory or Docker/OCI root filesystem into a
+DAXFS image, Multikernel places that image in byte-addressable shared physical
+memory, and a child kernel mounts it directly, including as its `/` root. It is
+not a virtual block device or GCE Persistent Disk: its contents survive only
+while the shared-memory allocation remains live unless a separate persistence
+mechanism is provided.
+
 The live run confirmed the intended capability, with an important wording
 boundary: Docker supplied OCI filesystems, while Multikernel/Kerf supplied an
 independently selected kernel for each workload. Ordinary Docker/runc
