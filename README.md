@@ -17,8 +17,12 @@ executed; see
 
 The host and two-child proof described below was completed successfully on GCE
 on 2026-08-28. Child resources were returned to the primary kernel before
-cleanup. The VM and its boot disk were later deleted; two recovery snapshots
-and the local evidence bundle remain. Snapshot storage may still incur charges.
+cleanup. That VM and boot disk were deleted. On 2026-08-30, the pre-DAXFS
+snapshot was successfully restored as a new `mklinux-lab` for the persistent
+ext4 experiment. After the run, the VM, boot disk, and two blank child disks
+were deleted. See [`EXT4-DISK-LEARNINGS.md`](EXT4-DISK-LEARNINGS.md).
+The complete pass/blocked matrix is in
+[`EXT4-DISK-EXECUTION.md`](EXT4-DISK-EXECUTION.md).
 
 ## Status
 
@@ -31,8 +35,9 @@ Research, implementation, and live account checks were performed on
 | Billing | Enabled |
 | Compute Engine API | Enabled |
 | Operator permissions | Project Owner |
-| Laboratory VM | Deleted after testing |
-| Boot disk | Deleted with the VM |
+| Laboratory VM | Restored and tested on 2026-08-30, then deleted |
+| Boot disk | Restored 100 GB `pd-balanced`; deleted with the VM |
+| ext4 child disks | Two blank 10 GB `pd-balanced` disks tested, then deleted |
 | Retained snapshots | `mklinux-lab-stock-20260828` and `mklinux-lab-pre-daxfs-20260828-2030`, both `READY` at final check |
 | Primary-kernel GCE functions | SSH, guest agent, NIC, disk, metadata, and serial passed |
 | Concurrent child proof | Passed with two four-vCPU children |
@@ -42,7 +47,7 @@ Research, implementation, and live account checks were performed on
 | Shared read-only DAXFS | Passed with two children |
 | Shared writable DAXFS | Coherence failed; do not use as multi-writer storage |
 | Cleanup proof | Passed; all 16 vCPUs and host memory restored |
-| Final disposition | VM and 100 GB boot disk deleted; snapshots and local evidence retained |
+| Current disposition | No VM or disk remains; snapshots and local evidence retained |
 | Target region | `asia-southeast1` |
 | N2 vCPU quota at initial check | 200 available, 0 used |
 | General vCPU quota at initial check | 500 available, 0 used |
@@ -89,10 +94,10 @@ the [post-deletion GCE inventory](evidence/daxfs-20260828/resource-cleanup.txt).
 
 ## Reproduce the verified path
 
-No laboratory VM currently exists. The root `Makefile` wraps fresh VM
-creation, source provisioning, host verification, the two-child smoke test,
-cleanup, and log collection. Review its variables and the network warning
-above before creating billable resources:
+No laboratory VM currently exists. The root `Makefile` wraps fresh VM creation,
+source provisioning, host verification, the two-child smoke test, cleanup, log
+collection, and the ext4 disk topology audit. Review its variables and the
+network warning above before creating billable resources:
 
 ```bash
 make help
@@ -115,8 +120,8 @@ alternate-kernel source trees and compiled artifacts. A fresh run must rebuild
 those from the pinned revisions, checked patches, scripts, and recorded build
 procedure. In particular, the dual-kernel target currently consumes prebuilt
 primary/alternate artifacts; automating their reconstruction remains an open
-task. Restoring either snapshot as a new disk/VM was not exercised during this
-run, so verify that recovery workflow before relying on it.
+task. Restoring `mklinux-lab-pre-daxfs-20260828-2030` as a new disk/VM passed on
+2026-08-30. The stock snapshot restore path remains untested.
 
 `make smoke-up` is intentionally specific to the verified
 `n2-standard-16` topology. It allocates physical APIC IDs 8-15, never APIC ID

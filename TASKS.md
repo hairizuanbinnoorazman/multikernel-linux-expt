@@ -1,6 +1,6 @@
 # Implementation tasks
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 
 ## Live GCE proof
 
@@ -77,6 +77,41 @@ Last updated: 2026-08-29
   artifacts.
 - [ ] Validate creation of a fresh disk/VM from each retained snapshot before
   treating either snapshot as a tested recovery workflow.
+
+## Persistent ext4 child-root experiment
+
+- [x] Review `EXT4-DISK-PLAN.md` and retain its controller-granularity hard
+  gate.
+- [x] Restore `mklinux-lab-pre-daxfs-20260828-2030` into a fresh boot disk and
+  `n2-standard-16` VM.
+- [x] Verify the restored custom kernel, vCPUs, memory, root filesystem, guest
+  agent, Kerf installation, and exact source commits.
+- [x] Create two blank 10 GiB `pd-balanced` child disks with retention enabled.
+- [x] Attach only child A and positively map its Google by-id name, serial,
+  size, SCSI target, sysfs ancestry, PCI function, and signatures.
+- [x] Inspect pinned Kerf and Multikernel device allocation semantics and run a
+  non-applying Kerf PCI-device report.
+- [x] Stop at Stage 1 after proving the child and boot disk share allocatable
+  PCI function `0000:00:03.0`.
+- [x] Add and live-test idempotent cloud provisioning and the read-only
+  topology gate.
+- [x] Record results and resource disposition in `EXT4-DISK-LEARNINGS.md` and
+  `evidence/ext4-disk-20260830/README.md`.
+- [x] Run the restored two-child no-device regression and return all resources.
+- [x] Probe C3/NVMe and record that both namespaces still share one allocatable
+  PCI function; delete the temporary probe VM and boot disk.
+- [x] Rebuild and boot `7.0.0-mk2-gce-lab-alt` from a detached pinned
+  worktree without disturbing the primary artifact.
+- [x] Implement and live-test bounded absent-root bootstrap behavior on both
+  kernels.
+- [x] Run both distinct kernels concurrently with separate absent UUIDs and
+  verify isolation, safe refusal, host health, and cleanup.
+- [x] Add the full continuous execution matrix in `EXT4-DISK-EXECUTION.md`.
+- [x] Verify final host health and blank disk state, then delete both probe VMs,
+  all boot disks, and both disposable child disks; retain only recovery
+  snapshots and local evidence.
+- [ ] Select and separately approve an alternate storage topology or primary-
+  mediated block transport before formatting or handing off either disk.
 
 ## Safety constraints
 

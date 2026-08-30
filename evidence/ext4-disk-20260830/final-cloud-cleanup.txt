@@ -1,0 +1,20 @@
+Cleanup verified: 2026-08-30
+Project: new-demo-project-462517
+Region/zone used: asia-southeast1 / asia-southeast1-b
+
+Deleted resources:
+- instance mklinux-ext4-nvme and its auto-delete boot disk
+- instance mklinux-lab and its auto-delete boot disk
+- disk child-a-root (blank; no filesystem signatures)
+- disk child-b-root (blank; never formatted)
+
+Post-cleanup Compute Engine instances: none
+Post-cleanup Compute Engine disks: none
+
+Retained snapshots:
+- mklinux-lab-pre-daxfs-20260828-2030  READY  100 GB
+- mklinux-lab-stock-20260828           READY  100 GB
+
+The deleted blank child disks had no snapshots and are not recoverable. The
+retained snapshots predate the ext4 experiment and do not contain the rebuilt
+alternate-kernel worktree.

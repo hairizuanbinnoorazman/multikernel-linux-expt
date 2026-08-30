@@ -1,0 +1,67 @@
+#!/bin/busybox sh
+
+/bin/busybox --install -s /bin
+mkdir -p /dev /proc /sys /newroot
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
+echo EXT4_BOOTSTRAP_BEGIN
+echo "release=$(uname -r)"
+echo "cmdline=$(cat /proc/cmdline)"
+
+root_uuid=
+for argument in $(cat /proc/cmdline); do
+    case "$argument" in
+        mk.root_uuid=*) root_uuid=${argument#mk.root_uuid=} ;;
+    esac
+done
+
+fail() {
+    echo "EXT4_BOOTSTRAP_FAIL reason=$1"
+    echo EXT4_DIAGNOSTIC_READY
+    while true; do
+        sleep 3600
+    done
+}
+
+test -n "$root_uuid" || fail missing-root-uuid
+
+root_device=
+attempt=0
+while test "$attempt" -lt 10; do
+    matches=
+    for candidate in /dev/sd* /dev/nvme*n* /dev/vd*; do
+        test -b "$candidate" || continue
+        candidate_uuid=$(blkid -s UUID -o value "$candidate" 2>/dev/null || true)
+        test "$candidate_uuid" = "$root_uuid" || continue
+        matches="$matches $candidate"
+    done
+    set -- $matches
+    if test "$#" -gt 1; then
+        fail ambiguous-root-uuid
+    fi
+    if test "$#" -eq 1; then
+        root_device=$1
+        break
+    fi
+    attempt=$((attempt + 1))
+    sleep 1
+done
+
+test -n "$root_device" || fail root-not-found
+
+echo "root_device=$root_device"
+echo "fsck=skipped-no-e2fsck-in-bootstrap"
+mount -t ext4 -o rw "$root_device" /newroot || fail mount-failed
+
+actual_uuid=$(blkid -s UUID -o value "$root_device" 2>/dev/null || true)
+test "$actual_uuid" = "$root_uuid" || fail uuid-changed
+test -f /newroot/etc/mk-child-id || fail identity-marker-missing
+test -x /newroot/init || fail disk-init-missing
+
+echo "root_uuid=$actual_uuid"
+echo "child_id=$(cat /newroot/etc/mk-child-id)"
+echo EXT4_BOOTSTRAP_SWITCH_ROOT
+exec switch_root /newroot /init
+fail switch-root-returned

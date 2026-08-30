@@ -16,7 +16,8 @@ SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 .PHONY: help check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
 	ssh serial snapshot sync provision-kernel reboot verify-host install-kerf \
 	smoke-up smoke-status smoke-down daxfs-build daxfs-up daxfs-status \
-	daxfs-down daxfs-dual-kernel-proof collect-logs
+	daxfs-down daxfs-dual-kernel-proof collect-logs disk-roots-create \
+	disk-roots-audit ext4-bootstrap-no-disk ext4-dual-kernel-no-disk
 
 help: ## Show available targets.
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -76,7 +77,8 @@ snapshot: ## Snapshot the current boot disk as a recovery point.
 
 sync: ## Copy the verified remote scripts and child init into the VM.
 	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/guest ~/$(REMOTE_LAB)/scripts'
-	$(GCLOUD) scp guest/init guest/daxfs-bootstrap-init guest/daxfs-proof.sh \
+	$(GCLOUD) scp guest/init guest/daxfs-bootstrap-init guest/ext4-bootstrap-init \
+		guest/daxfs-proof.sh \
 		guest/docker-proof.sh \
 		$(INSTANCE):~/$(REMOTE_LAB)/guest/ \
 		--project=$(PROJECT) --zone=$(ZONE)
@@ -144,3 +146,17 @@ collect-logs: ## Save serial output and a live host report under logs/.
 		--project=$(PROJECT) --zone=$(ZONE) --port=1 >logs/serial.txt
 	$(SSH) --command='uname -a; cat /proc/kimage; sudo dmesg; \
 		sudo ~/src/kerf/.venv/bin/kerf show' >logs/host.txt
+
+disk-roots-create: check-project ## Create/restore the VM and blank ext4 experiment disks; attach only A.
+	MK_PROJECT=$(PROJECT) MK_ZONE=$(ZONE) MK_VM=$(INSTANCE) \
+		./scripts/disk-roots-create.sh
+
+disk-roots-audit: sync ## Read-only disk identity/topology gate; exit 2 means hard stop.
+	$(SSH) --command='sudo ~/$(REMOTE_LAB)/scripts/disk-roots-audit.sh \
+		/dev/disk/by-id/google-mk-child-a-root'
+
+ext4-bootstrap-no-disk: sync ## Prove the ext4 bootstrap safely rejects an absent root UUID.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/test-ext4-bootstrap-no-disk.sh'
+
+ext4-dual-kernel-no-disk: sync ## Run distinct kernels concurrently; both safely reject absent roots.
+	$(SSH) --command='~/$(REMOTE_LAB)/scripts/test-ext4-dual-kernel-no-disk.sh'
