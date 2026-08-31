@@ -1,0 +1,14 @@
+created /tmp/runtime-g1-crash.cpio.gz
+1321ed3565e58f623b9cbac5fc845fb62a2c656709bae1ef43dbb1943d15d7fa  /tmp/runtime-g1-crash.cpio.gz
+-rw-rw-r-- 1 hairizuan-tw hairizuan-tw 1.1M Aug 31 07:27 /tmp/runtime-g1-crash.cpio.gz
+Memory: 8192 MB on node 0 (from CPUs 8,10,12,14)
+✓ Baseline applied to kernel successfully
+✓ Created instance 'runtime-g1-crash' (transaction 5)
+✓ Kernel loaded successfully
+Unloading kernel for instance 'runtime-g1-crash' (ID: 21)...
+✓ Kernel unloaded successfully
+✓ Deleted instance 'runtime-g1-crash' (transaction 6)
+  CPUs to host: 8, 10, 12, 14
+  Memory to host: 0xdf9600000 (8192 MB)
+✓ Pool updated (transaction 7)
+RUNTIME_G1_CRASH_RECLAIM_PASS

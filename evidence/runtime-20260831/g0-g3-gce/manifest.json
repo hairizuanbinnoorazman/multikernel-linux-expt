@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "gate": "G3",
+  "run_id": "g0-g3-gce",
+  "result": "pass",
+  "started_at": "2026-08-31T07:18:00Z",
+  "ended_at": "2026-08-31T07:48:00Z",
+  "repository": {"base_commit": "059e612", "dirty_during_run": true},
+  "components": {
+    "kernel_commit": "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7",
+    "kerf": "v0.2.0",
+    "mk_host_check_sha256": "c05ed465398c720a77b966d7844b769923061e3097d8861324167d465708b706",
+    "mkruntimed_sha256": "bc50aefdf7536dae769dedb0eed1bdabfe749af6e764a766bd0bacb6c4eb4a52",
+    "mk_agent_sha256": "75d30d24dcf27efbba9c4722d1aadb8d1ff3082eb77a5e1ce4c9aad55c2b13f7",
+    "mk_agentctl_sha256": "522ef7989aa09fa5e40e9b2864e0d19555e146bf0c6b924c3e3adc43a6f79546"
+  },
+  "host": {"project": "new-demo-project-462517", "zone": "asia-southeast1-b", "machine_type": "n2-standard-16", "instance": "mklinux-runtime-g0-g3"},
+  "commands": [
+    {"name": "local-go-test", "result": "pass"},
+    {"name": "g1-host-check", "result": "pass", "output": "g1-host-report.json"},
+    {"name": "g1-crash-reclaim", "result": "pass", "output": "g1-crash-reclaim.log"},
+    {"name": "g2-restart-reconcile", "result": "pass", "output": "g2-control-plane.log"},
+    {"name": "g3-oci-lifecycle", "result": "pass", "output": "g3-lifecycle.json"}
+  ],
+  "assertions": [
+    {"name": "host-qualified", "passed": true},
+    {"name": "child-crash-reclaimed", "passed": true},
+    {"name": "daemon-restart-reconciled", "passed": true},
+    {"name": "oci-exit-stdio-kernel", "passed": true},
+    {"name": "final-no-pool-or-instance", "passed": true}
+  ],
+  "limitations": ["trusted single-tenant only", "direct Go AF_VSOCK prohibited", "G3 supports a minimal fail-closed OCI subset"],
+  "cleanup": {"instance_deleted": true, "boot_disk_deleted": true, "new_billable_resources_remaining": false}
+}

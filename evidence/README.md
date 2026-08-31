@@ -7,6 +7,9 @@
 - [`ext4-mediated-20260830/`](ext4-mediated-20260830/README.md): transport,
   persistent roots, reset/stop-start, dual kernels, filesystem checks, and
   resource disposition.
+- [`runtime-20260831/`](runtime-20260831/README.md): G0-G3 contracts, host
+  qualification, recoverable daemon, OCI agent, compatibility failures, and
+  final cloud cleanup.
 
 Evidence captures historical state and may contain terminal formatting such as
 CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely

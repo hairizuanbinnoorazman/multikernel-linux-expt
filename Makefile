@@ -13,7 +13,7 @@ REMOTE_LAB ?= multikernel-linux-lab
 GCLOUD = gcloud compute
 SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 
-.PHONY: help docs-check check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
+.PHONY: help docs-check runtime-test runtime-build check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
 	ssh serial snapshot sync provision-kernel reboot verify-host install-kerf \
 	smoke-up smoke-status smoke-down daxfs-build daxfs-up daxfs-status \
 	daxfs-down daxfs-dual-kernel-proof collect-logs disk-roots-create \
@@ -25,6 +25,16 @@ help: ## Show available targets.
 
 docs-check: ## Validate local Markdown links and required runtime-plan structure.
 	bash scripts/check-docs.sh
+
+runtime-test: ## Run unprivileged G0-G3 unit and contract tests.
+	cd runtime && GOCACHE=/tmp/mk-go-cache go test ./...
+
+runtime-build: ## Build static G0-G3 runtime binaries locally.
+	mkdir -p runtime/bin
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-host-check ./cmd/mk-host-check
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mkruntimed ./cmd/mkruntimed
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-agent ./cmd/mk-agent
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-agentctl ./cmd/mk-agentctl
 
 check-project:
 	@test -n "$(PROJECT)" && test "$(PROJECT)" != "(unset)" || { \

@@ -1,0 +1,15 @@
+Linux mklinux-runtime-g0-g3 7.0.0-mk2-gce-lab #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026 x86_64 GNU/Linux
+boot_id=444e6e73-e5e1-4844-9b2f-97b3e9e58cb3
+online_cpus=0-15
+active
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
