@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -12,6 +11,8 @@ import (
 	"io"
 	"net"
 	"sync"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
 type Envelope struct {
@@ -70,9 +71,7 @@ func (s *Server) verify(e Envelope) error {
 	return nil
 }
 func decode(b []byte, v any) error {
-	d := json.NewDecoder(bytes.NewReader(b))
-	d.DisallowUnknownFields()
-	return d.Decode(v)
+	return protocol.StrictDecode(b, v)
 }
 func (s *Server) Dispatch(e Envelope) Reply {
 	r := Reply{Version: 1, Sequence: e.Sequence}
@@ -82,7 +81,7 @@ func (s *Server) Dispatch(e Envelope) Reply {
 	}
 	switch e.Method {
 	case "Capabilities":
-		r.Body = map[string]any{"protocol": 1, "oci_features": []string{"argv", "environment", "cwd", "uid", "gid", "supplementary-groups", "signals", "split-stdio", "exit-code"}}
+		r.Body = map[string]any{"protocol": 1, "oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code"}}
 	case "CreateProcess":
 		var q struct{ ID, Bundle string }
 		if x := decode(e.Body, &q); x != nil {

@@ -3,20 +3,47 @@
   "$id": "https://multikernel.example/schemas/evidence-manifest-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "gate", "run_id", "result", "started_at", "repository", "commands", "assertions", "cleanup"],
+  "required": ["schema_version", "gate", "run_id", "result", "started_at", "ended_at", "repository", "components", "host", "commands", "assertions", "limitations", "cleanup"],
   "properties": {
     "schema_version": {"const": 1},
-    "gate": {"enum": ["G0", "G1", "G2", "G3"]},
+    "gate": {"type": "string", "pattern": "^G(?:[0-9]|10)$"},
     "run_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
-    "result": {"enum": ["pass", "fail", "blocked"]},
+    "result": {"enum": ["pass", "fail", "blocked", "partial", "provisional"]},
     "started_at": {"type": "string", "format": "date-time"},
     "ended_at": {"type": "string", "format": "date-time"},
-    "repository": {"type": "object"},
-    "components": {"type": "object"},
-    "host": {"type": "object"},
-    "commands": {"type": "array", "items": {"type": "object"}},
-    "assertions": {"type": "array", "items": {"type": "object"}},
-    "limitations": {"type": "array", "items": {"type": "string"}},
-    "cleanup": {"type": "object"}
+    "repository": {"$ref": "#/$defs/repository"},
+    "components": {"type": "array", "items": {"$ref": "#/$defs/component"}, "uniqueItems": true},
+    "host": {"$ref": "#/$defs/host"},
+    "commands": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/command"}},
+    "assertions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/assertion"}},
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 2048}},
+    "cleanup": {"$ref": "#/$defs/cleanup"}
+  },
+  "$defs": {
+    "repository": {
+      "type": "object", "additionalProperties": false, "required": ["commit", "dirty"],
+      "properties": {"commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"}, "dirty": {"type": "boolean"}, "diff_output": {"$ref": "#/$defs/relativePath"}}
+    },
+    "component": {
+      "type": "object", "additionalProperties": false, "required": ["name", "version", "sha256"],
+      "properties": {"name": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,62}$"}, "version": {"type": "string", "minLength": 1, "maxLength": 256}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+    },
+    "host": {
+      "type": "object", "additionalProperties": false, "required": ["provider", "machine_type", "boot_id"],
+      "properties": {"provider": {"enum": ["local", "gce"]}, "project": {"type": "string", "minLength": 1, "maxLength": 256}, "zone": {"type": "string", "minLength": 1, "maxLength": 128}, "instance": {"type": "string", "minLength": 1, "maxLength": 256}, "machine_type": {"type": "string", "minLength": 1, "maxLength": 128}, "boot_id": {"type": "string", "pattern": "^[a-f0-9-]{36}$"}}
+    },
+    "command": {
+      "type": "object", "additionalProperties": false, "required": ["id", "argv", "exit_status", "output_path"],
+      "properties": {"id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}, "argv": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "exit_status": {"type": "integer", "minimum": 0, "maximum": 255}, "output_path": {"$ref": "#/$defs/relativePath"}}
+    },
+    "assertion": {
+      "type": "object", "additionalProperties": false, "required": ["id", "passed", "evidence_paths"],
+      "properties": {"id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}, "passed": {"type": "boolean"}, "evidence_paths": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/relativePath"}}}
+    },
+    "cleanup": {
+      "type": "object", "additionalProperties": false, "required": ["completed", "resources_before", "resources_after", "retained_resources", "operator_acknowledged"],
+      "properties": {"completed": {"type": "boolean"}, "resources_before": {"$ref": "#/$defs/relativePath"}, "resources_after": {"$ref": "#/$defs/relativePath"}, "retained_resources": {"type": "array", "items": {"type": "string", "minLength": 1}}, "operator_acknowledged": {"type": "boolean"}}
+    },
+    "relativePath": {"type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"}
   }
 }

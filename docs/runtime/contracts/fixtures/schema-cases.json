@@ -1,0 +1,17 @@
+[
+  {"schema": "host-config-v1.schema.json", "fixture": "host-config.valid.json", "valid": true},
+  {"schema": "host-config-v1.schema.json", "fixture": "host-config.unknown-field.invalid.json", "valid": false},
+  {"schema": "host-config-v1.schema.json", "fixture": "host-config.relative-path.invalid.json", "valid": false},
+  {"schema": "host-config-v1.schema.json", "fixture": "host-config.unsafe-path.invalid.json", "valid": false},
+  {"schema": "host-config-v1.schema.json", "fixture": "host-config.overflow.invalid.json", "valid": false},
+  {"schema": "sandbox-config-v1.schema.json", "fixture": "sandbox-config.valid.json", "valid": true},
+  {"schema": "sandbox-config-v1.schema.json", "fixture": "sandbox-config.invalid-label.json", "valid": false},
+  {"schema": "kernel-manifest-v1.schema.json", "fixture": "kernel-manifest.valid.json", "valid": true},
+  {"schema": "kernel-manifest-v1.schema.json", "fixture": "kernel-manifest.bad-digest.invalid.json", "valid": false},
+  {"schema": "kernel-manifest-v1.schema.json", "fixture": "kernel-manifest.missing-pins.invalid.json", "valid": false},
+  {"schema": "daemon-protocol-v1.schema.json", "fixture": "daemon-request.valid.json", "valid": true},
+  {"schema": "daemon-protocol-v1.schema.json", "fixture": "daemon-request.duplicate.invalid.json", "valid": false},
+  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-request.valid.json", "valid": true},
+  {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.valid.json", "valid": true},
+  {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.missing-exit.invalid.json", "valid": false}
+]

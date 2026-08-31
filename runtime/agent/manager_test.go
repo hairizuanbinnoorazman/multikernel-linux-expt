@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -73,12 +74,37 @@ func TestUnsupportedFailsClosed(t *testing.T) {
 		t.Fatal("unsupported mount accepted")
 	}
 }
+
+func TestWaitRejectsUnstartedProcess(t *testing.T) {
+	m := NewManager(true)
+	b := bundle(t, []string{"/probe"}, "")
+	if err := m.Create("p1", b); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Wait("p1"); err == nil || !strings.Contains(err.Error(), "not started") {
+		t.Fatalf("Wait() error = %v, want not-started error", err)
+	}
+}
 func TestAuthenticationAndReplay(t *testing.T) {
 	s := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001, Token: []byte("01234567890123456789012345678901")}
 	e := Envelope{Version: 1, SandboxID: s.SandboxID, Generation: s.Generation, Endpoint: s.Endpoint, Sequence: 1, Method: "Capabilities"}
 	Sign(&e, s.Token)
-	if r := s.Dispatch(e); r.Error != "" {
+	r := s.Dispatch(e)
+	if r.Error != "" {
 		t.Fatal(r.Error)
+	}
+	capabilities, ok := r.Body.(map[string]any)
+	if !ok {
+		t.Fatalf("capabilities body type = %T", r.Body)
+	}
+	features, ok := capabilities["oci_features"].([]string)
+	if !ok {
+		t.Fatalf("oci_features type = %T", capabilities["oci_features"])
+	}
+	for _, feature := range features {
+		if feature == "uid" || feature == "gid" || feature == "supplementary-groups" || feature == "signals" {
+			t.Fatalf("unproved feature %q advertised", feature)
+		}
 	}
 	if r := s.Dispatch(e); r.Error != "replayed sequence" {
 		t.Fatalf("replay result: %+v", r)

@@ -269,6 +269,10 @@ func (m *Manager) Wait(id string) (ProcessState, error) {
 		m.mu.Unlock()
 		return ProcessState{}, errors.New("process not found")
 	}
+	if p.state.Status == "CREATED" {
+		m.mu.Unlock()
+		return ProcessState{}, errors.New("process is not started")
+	}
 	done := p.done
 	m.mu.Unlock()
 	<-done

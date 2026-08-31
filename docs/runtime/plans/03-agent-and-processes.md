@@ -57,3 +57,11 @@ and advanced hooks, but it must report the omission.
 Pass when a directly supplied OCI bundle runs as a managed process in one
 child, lifecycle and stdio semantics are deterministic, unsupported OCI fields
 fail closed, and orderly agent shutdown returns control to the daemon.
+
+The 2026-08-31 run is a provisional direct-bundle milestone, not closure of
+this gate. The minimum implementation and test lists above remain normative;
+in particular `ExecProcess`, independent bounded stdio streaming, configured
+namespaces/capabilities/rlimits/cgroups, tested signal semantics, and verified
+quiescence must land before G3 is checked in the master plan. The narrower
+frozen G3 OCI policy describes which inputs the provisional implementation is
+allowed to accept or must reject; it does not waive this plan's exit criteria.

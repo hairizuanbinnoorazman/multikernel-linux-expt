@@ -3,12 +3,21 @@
   "$id": "https://multikernel.example/schemas/kernel-manifest-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "name", "architecture", "kernel_release", "kernel", "initramfs", "agent", "protocol", "required_config", "oci_features"],
+  "required": ["schema_version", "name", "architecture", "kernel_release", "compatibility", "kernel", "initramfs", "agent", "protocol", "required_config", "oci_features"],
   "properties": {
     "schema_version": {"const": 1},
     "name": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,62}$"},
     "architecture": {"const": "amd64"},
     "kernel_release": {"type": "string", "minLength": 1, "maxLength": 128},
+    "compatibility": {
+      "type": "object", "additionalProperties": false,
+      "required": ["multikernel_revision", "kerf_version", "kerf_revision"],
+      "properties": {
+        "multikernel_revision": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "kerf_version": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "kerf_revision": {"type": "string", "pattern": "^[a-f0-9]{40}$"}
+      }
+    },
     "kernel": {"$ref": "#/$defs/artifact"},
     "initramfs": {"$ref": "#/$defs/artifact"},
     "agent": {"$ref": "#/$defs/artifact"},
