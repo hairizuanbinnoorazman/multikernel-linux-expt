@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -62,18 +61,6 @@ func (s *Server) Close() error {
 	}
 	return s.listener.Close()
 }
-func strict(data []byte, v any) error {
-	d := json.NewDecoder(bytes.NewReader(data))
-	d.DisallowUnknownFields()
-	if e := d.Decode(v); e != nil {
-		return e
-	}
-	var x any
-	if e := d.Decode(&x); e != io.EOF {
-		return errors.New("multiple JSON values")
-	}
-	return nil
-}
 func (s *Server) handle(ctx context.Context, c net.Conn) {
 	defer c.Close()
 	data, e := io.ReadAll(io.LimitReader(c, int64(s.MaxFrame+1)))
@@ -85,7 +72,7 @@ func (s *Server) handle(ctx context.Context, c net.Conn) {
 		resp.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "frame too large"}
 	} else {
 		var req protocol.Request
-		if e = strict(data, &req); e != nil {
+		if e = protocol.StrictDecode(data, &req); e != nil {
 			resp.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: e.Error()}
 		} else {
 			resp = s.Dispatch(ctx, req)
@@ -112,7 +99,7 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		}
 	case "CreateSandbox":
 		var c protocol.SandboxConfig
-		if e := strict(r.Body, &c); e != nil {
+		if e := protocol.StrictDecode(r.Body, &c); e != nil {
 			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: e.Error()}
 			break
 		}

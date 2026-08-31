@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multikernel.example/schemas/agent-protocol-v1.schema.json",
+  "oneOf": [{"$ref": "#/$defs/request"}, {"$ref": "#/$defs/reply"}],
+  "$defs": {
+    "request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "sandbox_id", "generation", "endpoint", "sequence", "method", "mac"],
+      "properties": {
+        "version": {"const": 1}, "sandbox_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$"},
+        "generation": {"type": "string", "pattern": "^[a-f0-9]{32}$"}, "endpoint": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+        "sequence": {"type": "integer", "minimum": 1},
+        "method": {"enum": ["Capabilities", "CreateProcess", "StartProcess", "ExecProcess", "SignalProcess", "WaitProcess", "DeleteProcess", "Shutdown"]},
+        "body": {"type": "object"}, "mac": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "reply": {
+      "type": "object", "additionalProperties": false, "required": ["version", "sequence"],
+      "properties": {"version": {"const": 1}, "sequence": {"type": "integer", "minimum": 0}, "body": {}, "error": {"$ref": "daemon-protocol-v1.schema.json#/$defs/error"}},
+      "oneOf": [{"required": ["body"], "not": {"required": ["error"]}}, {"required": ["error"], "not": {"required": ["body"]}}]
+    }
+  }
+}

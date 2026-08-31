@@ -4,3 +4,6 @@
 - [`01-g1-host-and-isolation.md`](01-g1-host-and-isolation.md)
 - [`02-g2-control-plane.md`](02-g2-control-plane.md)
 - [`03-g3-agent-and-processes.md`](03-g3-agent-and-processes.md)
+- [`g0-g3-remediation-checklist.md`](g0-g3-remediation-checklist.md): audit
+  findings and handoff checklist required before treating all four gates as
+  fully closed.

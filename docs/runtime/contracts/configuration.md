@@ -19,3 +19,10 @@ sizes and never affect filesystem paths.
 Configuration is parsed strictly. Unknown fields, duplicate JSON keys,
 relative artifact paths, numeric overflow, world-writable configuration, and
 unsafe state/socket parents are rejected before mutation.
+
+The machine-readable forms are
+[`host-config-v1.schema.json`](schemas/host-config-v1.schema.json) and
+[`sandbox-config-v1.schema.json`](schemas/sandbox-config-v1.schema.json).
+Label keys match `^[a-z][a-z0-9_.-]{0,62}$`; values are at most 256 characters.
+Duplicate object names are invalid during parsing, before schema or wire-body
+validation. Runtime Go code uses the shared `protocol.StrictDecode` decoder.

@@ -146,6 +146,10 @@ The detailed exit criteria and ordering are in
 - [x] G1: implement and pass read-only host qualification and isolation checks.
 - [x] G2: implement the recoverable `mkruntimed` daemon and Kerf adapter.
 - [x] G3: implement `mk-agent` and the minimal OCI process lifecycle in one child.
+- [ ] Close the
+  [G0-G3 remediation and revalidation checklist](../runtime/learnings/g0-g3-remediation-checklist.md)
+  before treating the four historical milestone passes as full conformance to
+  their plans and frozen contracts.
 - [ ] G4: provide deterministic OCI images and safe single-owner storage.
 - [ ] G5: provide primary-mediated CNI-compatible networking.
 - [ ] G6: pass containerd Runtime v2 lifecycle tests through `ctr`.

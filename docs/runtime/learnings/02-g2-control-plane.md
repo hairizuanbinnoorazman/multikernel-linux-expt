@@ -1,8 +1,9 @@
 # G2 learnings: recoverable control plane
 
-## Result
+## Result and current status
 
-Gate G2 passed locally and on GCE. `mkruntimed` now exposes a strict v1 JSON
+The 2026-08-31 work is a **provisional G2 milestone**, not a closed gate.
+`mkruntimed` exposes a strict v1 JSON
 API over a mode-0660 Unix socket, maintains a fsynced write-ahead JSONL
 journal and atomic snapshot, serializes global/per-sandbox allocation, and
 invokes Kerf with explicit argv, a sanitized environment, and timeouts.
@@ -31,3 +32,23 @@ The G2 journal lived under `/tmp` and was lost during later G3 compatibility
 resets, so the retained live artifact is the pass log rather than the raw G2
 journal. The same journal/restart semantics remain covered by repository unit
 tests using durable temporary directories.
+
+## Claim-to-proof audit
+
+The local lifecycle, replay, stale-generation, overlap, concurrent allocation,
+second-sandbox pool reuse, backend adapter, and known-state reconciliation
+tests pass under `cd runtime && GOCACHE=/tmp/mk-go-cache go test ./...`. The
+live file [`g2-control-plane.log`](../../../evidence/runtime-20260831/g0-g3-gce/g2-control-plane.log)
+contains only a 71-byte restart/reconcile pass marker and cleanup message. It
+does not retain the journal, snapshot, request/response transcript, daemon
+logs, or operation-boundary assertions needed to independently reproduce the
+broader prose claim.
+
+Code inspection also confirms the important remaining gaps: reconciliation
+iterates snapshotted sandboxes rather than backend inventory or orphan journal
+intents; every disagreement becomes `OPERATOR_ACTION`; snapshot rename does not
+fsync the containing directory; some error-path store writes are ignored;
+`WatchEvents`, tombstones, strict host-config loading, approved-manifest
+resolution, and observable intermediate states are absent. Consequently only
+the named unit tests and narrow live marker are retained claims; all stronger
+G2 conformance statements remain open in the remediation checklist.

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multikernel.example/schemas/host-config-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "state_directory", "socket_path", "kerf_executable", "multikernel_sysfs_root", "kernel_manifest_directory", "min_primary_cpus", "min_primary_memory_bytes", "forbidden_apic_ids", "backend_timeout_seconds", "max_frame_size_bytes"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "state_directory": {"$ref": "#/$defs/absolutePath"},
+    "socket_path": {"$ref": "#/$defs/absolutePath"},
+    "kerf_executable": {"$ref": "#/$defs/absolutePath"},
+    "multikernel_sysfs_root": {"$ref": "#/$defs/absolutePath"},
+    "kernel_manifest_directory": {"$ref": "#/$defs/absolutePath"},
+    "min_primary_cpus": {"type": "integer", "minimum": 1},
+    "min_primary_memory_bytes": {"type": "integer", "minimum": 536870912},
+    "forbidden_apic_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "contains": {"const": 0}, "items": {"type": "integer", "minimum": 0}},
+    "backend_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+    "max_frame_size_bytes": {"type": "integer", "minimum": 4096, "maximum": 16777216}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "minLength": 2, "maxLength": 4096, "pattern": "^/(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"}
+  }
+}

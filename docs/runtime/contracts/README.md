@@ -16,9 +16,13 @@ The normative documents are:
 - [`protocol-v1.md`](protocol-v1.md): daemon and agent wire envelopes; and
 - [`evidence.md`](evidence.md): evidence manifest and cloud resource ledgers.
 
-Machine-readable JSON Schemas live in [`schemas/`](schemas/). Version 1 is
-strict: unknown fields are rejected unless a schema explicitly permits them.
-Breaking changes require a new protocol or schema major version.
+Machine-readable JSON Schemas for host and sandbox configuration, approved
+kernel manifests, daemon and agent envelopes, and evidence manifests live in
+[`schemas/`](schemas/). Positive and negative fixtures live in
+[`fixtures/`](fixtures/). `make docs-check` validates every schema and fixture,
+including strict parse-time duplicate-name rejection. Version 1 is strict:
+unknown fields are rejected unless a schema explicitly permits them. Breaking
+changes require a new protocol or schema major version.
 
 ## Frozen MVP boundary
 

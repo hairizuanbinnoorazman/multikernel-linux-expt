@@ -21,3 +21,10 @@ and `WatchEvents`. Agent methods are `Capabilities`, `CreateProcess`,
 Minor additive evolution requires an advertised capability and optional field
 defined by the schema. A peer that cannot safely ignore an addition rejects
 it as `UNSUPPORTED`. Major-version mismatch is always rejected.
+
+The machine-readable envelope schemas are
+[`daemon-protocol-v1.schema.json`](schemas/daemon-protocol-v1.schema.json) and
+[`agent-protocol-v1.schema.json`](schemas/agent-protocol-v1.schema.json).
+Method-body semantics remain normative in this document and the Go protocol
+types. Duplicate object names are rejected by the shared strict decoder before
+an envelope or body is dispatched.
