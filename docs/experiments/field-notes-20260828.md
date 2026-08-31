@@ -1,4 +1,4 @@
-# Learnings
+# GCE bring-up and DAXFS field notes
 
 This is a chronological laboratory log for the Multikernel Linux 7.0 GCE
 bring-up. It distinguishes observed results from assumptions and records
@@ -338,10 +338,11 @@ The later DAXFS work, stop, and permanent deletion are recorded below.
 
 ## 2026-08-28: complete DAXFS and per-workload-kernel proof
 
-Every functional stage and later functional experiment in `DAXFS-PLAN.md` was
+Every functional stage and later functional experiment in the
+[DAXFS plan](daxfs/plan.md) was
 executed. The performance category used a documented host-side substitute
 rather than the specifically planned child-initramfs baseline.
-`DAXFS-IMPLEMENTATION.md` is the concise result matrix; this section preserves
+The [DAXFS report](daxfs/report.md) is the concise result matrix; this section preserves
 the chronological failures and corrections.
 
 ### Baseline, recovery, and exact build
@@ -556,7 +557,7 @@ inventory showed no matching instance or disk. Snapshots
 `mklinux-lab-pre-daxfs-20260828-2030` remained `READY`, and the checked local
 scripts, patches, documentation, and evidence were retained. Snapshot storage
 may continue to incur charges. The timestamped post-deletion inventory is
-[`resource-cleanup.txt`](evidence/daxfs-20260828/resource-cleanup.txt).
+[`resource-cleanup.txt`](../../evidence/daxfs-20260828/resource-cleanup.txt).
 
 Deleting the boot disk removed the active copies of the remote Linux, Kerf,
 and DAXFS workspaces and the compiled DAXFS proof artifacts. The pre-DAXFS

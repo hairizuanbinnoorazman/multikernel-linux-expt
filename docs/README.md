@@ -6,32 +6,33 @@ This repository has two connected purposes:
 2. develop a containerd/Kubernetes runtime that uses a Multikernel child as a
    pod sandbox.
 
-## Runtime design
+## Guides
 
-- [`architecture/TARGET.md`](architecture/TARGET.md) defines the target system,
-  trust boundary, component ownership, and lifecycle.
-- [`decisions/0001-build-a-new-runtime.md`](decisions/0001-build-a-new-runtime.md)
-  records why the project will not fork Firecracker.
-- [`research/RELATED-WORK.md`](research/RELATED-WORK.md) records the public
-  projects checked before selecting this direction.
-- [`plans/README.md`](plans/README.md) is the ordered implementation and test
-  roadmap.
+- [`guides/gce-lab-runbook.md`](guides/gce-lab-runbook.md) contains the complete
+  GCE build, bring-up, recovery, and cleanup procedure formerly embedded in the
+  root README.
 
 ## Completed experiments
 
-The existing top-level documents remain in place so their links, hashes, and
-evidence references do not change:
+[`experiments/README.md`](experiments/README.md) is the experiment index. It
+groups plans, reports, execution matrices, field notes, and raw evidence by
+storage and lifecycle theme.
 
-- [`../LEARNINGS.md`](../LEARNINGS.md): primary-kernel and child bring-up.
-- [`../DAXFS-PLAN.md`](../DAXFS-PLAN.md) and
-  [`../DAXFS-IMPLEMENTATION.md`](../DAXFS-IMPLEMENTATION.md): DAXFS and
-  Docker-derived child roots.
-- [`../EXT4-DISK-PLAN.md`](../EXT4-DISK-PLAN.md),
-  [`../EXT4-DISK-EXECUTION.md`](../EXT4-DISK-EXECUTION.md), and
-  [`../EXT4-DISK-LEARNINGS.md`](../EXT4-DISK-LEARNINGS.md): direct-device
-  feasibility and rejection.
-- [`../EXT4-MEDIATED-IMPLEMENTATION.md`](../EXT4-MEDIATED-IMPLEMENTATION.md):
-  primary-managed persistent ext4 roots.
+## Runtime development
+
+- [`runtime/architecture.md`](runtime/architecture.md) defines the target
+  system, trust boundary, component ownership, and lifecycle.
+- [`runtime/decisions/0001-build-a-new-runtime.md`](runtime/decisions/0001-build-a-new-runtime.md)
+  records why the project will not fork Firecracker.
+- [`runtime/research/RELATED-WORK.md`](runtime/research/RELATED-WORK.md) records
+  the public projects checked before selecting this direction.
+- [`runtime/plans/README.md`](runtime/plans/README.md) is the ordered
+  implementation and test roadmap.
+
+## Project tracking
+
+- [`project/TASKS.md`](project/TASKS.md) preserves completed experiment tasks
+  and tracks runtime gates G0 through G10.
 
 New runtime evidence should be stored under `evidence/runtime-YYYYMMDD/` with
 an index describing the source revision, environment, command, result, and

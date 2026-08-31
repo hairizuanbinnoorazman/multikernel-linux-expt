@@ -3,11 +3,12 @@
 Tested: 2026-08-28  
 Infrastructure cleanup verified: 2026-08-29  
 Environment: `mklinux-lab`, `n2-standard-16`, `asia-southeast1-b`  
-Evidence: [`evidence/daxfs-20260828/`](evidence/daxfs-20260828/)
+Evidence: [`evidence/daxfs-20260828/`](../../../evidence/daxfs-20260828/)
 
 ## Result
 
-Every functional stage and later functional experiment in `DAXFS-PLAN.md` was
+Every functional stage and later functional experiment in the
+[DAXFS plan](plan.md) was
 run on the live GCE VM. The planned performance category was also exercised,
 but its direct child-initramfs comparison remains a documented partial
 substitution. The central result is:
@@ -55,7 +56,7 @@ installed as a GRUB recovery entry.
 After the final audit run, `daxfs-demo` was halted, unloaded, and deleted; the
 12 GB pool was returned; CPUs `0-15` were online; and Kerf showed no pool,
 instances, or `/proc/kimage` entries. The final state is retained in
-[`pre-stop-clean-state.txt`](evidence/daxfs-20260828/pre-stop-clean-state.txt).
+[`pre-stop-clean-state.txt`](../../../evidence/daxfs-20260828/pre-stop-clean-state.txt).
 The VM was first stopped and then permanently deleted with its auto-delete
 100 GB boot disk after the evidence was copied. GCE showed no matching VM or
 disk afterward. Both snapshots and the local repository/evidence bundle were
@@ -64,7 +65,7 @@ trees and post-snapshot DAXFS/alternate-kernel artifacts are no longer
 directly available and must be rebuilt for a fresh run. The pre-DAXFS snapshot
 may contain the earlier primary-kernel/Kerf workspace, but restoration and its
 contents were not live-tested. The post-deletion inventory is retained in
-[`resource-cleanup.txt`](evidence/daxfs-20260828/resource-cleanup.txt).
+[`resource-cleanup.txt`](../../../evidence/daxfs-20260828/resource-cleanup.txt).
 
 ## Full test matrix
 
@@ -72,19 +73,19 @@ contents were not live-tested. The post-deletion inventory is retained in
 | --- | --- | --- |
 | Compatibility and baseline | Pass | Host boot ID `483ddd87-fef5-440e-bf8d-5499a77938d9`; 16 CPUs; about 62 GiB; guest agent, NIC, disk, metadata, and SSH healthy. `CONFIG_FS_DAX`, `CONFIG_DAX`, `CONFIG_ZONE_DEVICE`, `CONFIG_MULTIKERNEL`, `CONFIG_MKTTY`, and `CONFIG_KEXEC_FILE` enabled. `/dev/dma_heap/multikernel` present; no `/dev/pmem*` expected. |
 | Exact module/tool build | Pass | DAXFS module vermagic is `7.0.0-mk2-gce-lab SMP preempt mod_unload modversions`; SHA-256 `8c2dc0c4a5218de1a60f9765c770c280957d69d72537b7b680d3ecf2b6566de4`. Secure Boot and lockdown did not block it; the unsigned out-of-tree module produced the expected taint. |
-| Upstream host suite | Pass | All 20 static, split/page-cache, overlay mutation, empty-mode, and inspector tests passed. See [`upstream-test-overlay.txt`](evidence/daxfs-20260828/upstream-test-overlay.txt). |
+| Upstream host suite | Pass | All 20 static, split/page-cache, overlay mutation, empty-mode, and inspector tests passed. See [`upstream-test-overlay.txt`](../../../evidence/daxfs-20260828/upstream-test-overlay.txt). |
 | Deterministic root/image | Pass after audit correction | Static image was 2,306,048 bytes, format 8, SHA-256 `45e5a64a92cec4e6f0d1e9a340e102d692b0a3724c407b5b5e71d59283b05070`. The original checksum manifest accidentally included itself; the audited builder now excludes the checksum file and verifies every listed file before packaging. |
-| Child mount without root switch | Pass for marker/payload; full-manifest proof added later | Child mounted region `0xd10c14000`, size 70,467,584, matched marker and payload hashes, and emitted `DAXFS_MOUNT_READY`. See [`stage3-console.txt`](evidence/daxfs-20260828/stage3-console.txt). The later audited root run verified every supported file and emitted `DAXFS_MANIFEST_READY`. |
-| DAXFS child root, two clean cycles | Pass | Both cycles showed PID 1 `/init`, `/` as DAXFS, the initramfs-only marker absent, and `DAXFS_ROOT_READY`. Physical regions differed (`0xd11414000`, `0xb92214000`), proving the address was rediscovered. See the [cycle 1](evidence/daxfs-20260828/stage4-cycle1-console.txt) and [cycle 2](evidence/daxfs-20260828/stage4-cycle2-console.txt) consoles. |
+| Child mount without root switch | Pass for marker/payload; full-manifest proof added later | Child mounted region `0xd10c14000`, size 70,467,584, matched marker and payload hashes, and emitted `DAXFS_MOUNT_READY`. See [`stage3-console.txt`](../../../evidence/daxfs-20260828/stage3-console.txt). The later audited root run verified every supported file and emitted `DAXFS_MANIFEST_READY`. |
+| DAXFS child root, two clean cycles | Pass | Both cycles showed PID 1 `/init`, `/` as DAXFS, the initramfs-only marker absent, and `DAXFS_ROOT_READY`. Physical regions differed (`0xd11414000`, `0xb92214000`), proving the address was rediscovered. See the [cycle 1](../../../evidence/daxfs-20260828/stage4-cycle1-console.txt) and [cycle 2](../../../evidence/daxfs-20260828/stage4-cycle2-console.txt) consoles. |
 | Static/read-only and normal overlay operations | Pass | Regular/empty/nested files, hashes, metadata, large reads, write rejection, create, overwrite, append, truncate, rename, unlink, mkdir/rmdir, and symlink behavior passed. |
-| Corrupted image validation | Pass | A copied root inode mode was changed at offset `0x1004`; the validated mount rejected it with `EINVAL`. See [`corruption-validation.txt`](evidence/daxfs-20260828/corruption-validation.txt). |
-| Overlay exhaustion | Pass | A 1 MiB pool accepted 128 4 KiB files, then returned `ENOSPC`; inspector reported 100% allocation. See [`exhaustion-result-1m.txt`](evidence/daxfs-20260828/exhaustion-result-1m.txt). |
+| Corrupted image validation | Pass | A copied root inode mode was changed at offset `0x1004`; the validated mount rejected it with `EINVAL`. See [`corruption-validation.txt`](../../../evidence/daxfs-20260828/corruption-validation.txt). |
+| Overlay exhaustion | Pass | A 1 MiB pool accepted 128 4 KiB files, then returned `ENOSPC`; inspector reported 100% allocation. See [`exhaustion-result-1m.txt`](../../../evidence/daxfs-20260828/exhaustion-result-1m.txt). |
 | Docker image as DAXFS root | Pass after explicit Kerf fixes | BusyBox image ID `sha256:913d8ae6b717b08d7d813d5538f6d516332054b5a32fb79cd9f15cd9eece9874`; child emitted `DOCKER_IMAGE_READY` and showed DAXFS at `/`. |
-| Two children, same read-only DAXFS | Pass | Both mounted physical region `0x7b241c000`, matched hashes, rejected writes, and emitted `SHARED_RO_READY`. See the [A](evidence/daxfs-20260828/shared-ro-a-console.txt) and [B](evidence/daxfs-20260828/shared-ro-b-console-boot-attached.txt) consoles. |
-| Two children, same writable DAXFS | **Coherence fail** | A failed to observe B's conflict-free create after first caching a negative lookup; A/B reported 200/100 lines and different hashes for a contended file. Host later saw both independent names and A's 200-line version. See [`shared-rw-summary.txt`](evidence/daxfs-20260828/shared-rw-summary.txt). |
-| Forced child stop and restart | Pass within live allocation | Reloaded B with the same physical region; it read both A and B markers and emitted `DAXFS_RESTART_READY`. See [`restart-console.txt`](evidence/daxfs-20260828/restart-console.txt). This proves allocation-lifetime retention, not durable persistence. |
+| Two children, same read-only DAXFS | Pass | Both mounted physical region `0x7b241c000`, matched hashes, rejected writes, and emitted `SHARED_RO_READY`. See the [A](../../../evidence/daxfs-20260828/shared-ro-a-console.txt) and [B](../../../evidence/daxfs-20260828/shared-ro-b-console-boot-attached.txt) consoles. |
+| Two children, same writable DAXFS | **Coherence fail** | A failed to observe B's conflict-free create after first caching a negative lookup; A/B reported 200/100 lines and different hashes for a contended file. Host later saw both independent names and A's 200-line version. See [`shared-rw-summary.txt`](../../../evidence/daxfs-20260828/shared-rw-summary.txt). |
+| Forced child stop and restart | Pass within live allocation | Reloaded B with the same physical region; it read both A and B markers and emitted `DAXFS_RESTART_READY`. See [`restart-console.txt`](../../../evidence/daxfs-20260828/restart-console.txt). This proves allocation-lifetime retention, not durable persistence. |
 | Bounded performance observation | Partial substitution, no general claim | Five host-side cached sequential reads of a 256 MiB file: ext4 7.85 GB/s, tmpfs 7.90 GB/s, DAXFS 9.87 GB/s. The specifically planned existing child-initramfs baseline was not directly measured; tmpfs was used as the memory-filesystem baseline. Raw fio JSON is retained. |
-| Different kernel per Docker-derived workload | **Pass** | Two active children simultaneously reported `7.0.0-mk2-gce-lab` and `7.0.0-mk2-gce-lab-alt`, with distinct kernel hashes and distinct DAXFS roots. See [`dual-kernel-summary.txt`](evidence/daxfs-20260828/dual-kernel-summary.txt). |
+| Different kernel per Docker-derived workload | **Pass** | Two active children simultaneously reported `7.0.0-mk2-gce-lab` and `7.0.0-mk2-gce-lab-alt`, with distinct kernel hashes and distinct DAXFS roots. See [`dual-kernel-summary.txt`](../../../evidence/daxfs-20260828/dual-kernel-summary.txt). |
 | Automation and cleanup | Pass | `make daxfs-build`, `daxfs-up`, `daxfs-status`, and `daxfs-down` were executed live. Final state: CPUs `0-15`, no pool, no instances, guest agent active. |
 
 ## Artifact ledger
@@ -174,10 +175,10 @@ only 40 unique inodes—405 entries were hardlink aliases—because BusyBox
 applets are hardlinks. Two separately
 documented fixes were needed:
 
-1. [`kerf-v0.2.0-skip-special-files.patch`](patches/kerf-v0.2.0-skip-special-files.patch)
+1. [`kerf-v0.2.0-skip-special-files.patch`](../../../patches/kerf-v0.2.0-skip-special-files.patch)
    omits device nodes, FIFOs, and sockets. DAXFS supports directories, regular
    files, and symlinks; the child mounts devtmpfs at boot.
-2. [`kerf-v0.2.0-hardlink-inode-count.patch`](patches/kerf-v0.2.0-hardlink-inode-count.patch)
+2. [`kerf-v0.2.0-hardlink-inode-count.patch`](../../../patches/kerf-v0.2.0-hardlink-inode-count.patch)
    sizes and reports the inode table by unique allocated inode count rather
    than directory-entry count. Without it, the serialized image contains
    phantom zero-mode inodes.
@@ -276,14 +277,14 @@ remain local.
 
 The checked bootstrap and proof pieces are:
 
-- [`guest/daxfs-bootstrap-init`](guest/daxfs-bootstrap-init)
-- [`guest/daxfs-proof.sh`](guest/daxfs-proof.sh)
-- [`guest/docker-proof.sh`](guest/docker-proof.sh)
-- [`scripts/daxfs-build.sh`](scripts/daxfs-build.sh)
-- [`scripts/daxfs-up.sh`](scripts/daxfs-up.sh)
-- [`scripts/daxfs-status.sh`](scripts/daxfs-status.sh)
-- [`scripts/daxfs-down.sh`](scripts/daxfs-down.sh)
-- [`scripts/test-daxfs-dual-kernel.sh`](scripts/test-daxfs-dual-kernel.sh)
+- [`guest/daxfs-bootstrap-init`](../../../guest/daxfs-bootstrap-init)
+- [`guest/daxfs-proof.sh`](../../../guest/daxfs-proof.sh)
+- [`guest/docker-proof.sh`](../../../guest/docker-proof.sh)
+- [`scripts/daxfs-build.sh`](../../../scripts/daxfs-build.sh)
+- [`scripts/daxfs-up.sh`](../../../scripts/daxfs-up.sh)
+- [`scripts/daxfs-status.sh`](../../../scripts/daxfs-status.sh)
+- [`scripts/daxfs-down.sh`](../../../scripts/daxfs-down.sh)
+- [`scripts/test-daxfs-dual-kernel.sh`](../../../scripts/test-daxfs-dual-kernel.sh)
 
 ## Primary-source references
 

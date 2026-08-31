@@ -21,7 +21,7 @@ alternate-kernel artifacts do not remain as directly usable files.
 
 The complete implementation, pass/fail matrix, exact hashes, discovered
 limitations, compatibility patches, and evidence index are in
-[`DAXFS-IMPLEMENTATION.md`](DAXFS-IMPLEMENTATION.md). The headline findings
+[the implementation report](report.md). The headline findings
 are:
 
 - Two Docker-derived DAXFS-root workloads ran concurrently with distinct
@@ -246,8 +246,10 @@ After the manual procedure passes twice:
 - Make `daxfs-down` tolerate partially created instances and always report
   remaining instances, pool memory, and offline CPUs.
 - Record exact commands, hashes, resource assignments, observed addresses,
-  output markers, failures, and corrections in `LEARNINGS.md`.
-- Update `TASKS.md` only with tests that were actually completed.
+  output markers, failures, and corrections in the
+  [chronological field notes](../field-notes-20260828.md).
+- Update the [project task ledger](../../project/TASKS.md) only with tests that
+  were actually completed.
 
 ## Expected problems and responses
 
@@ -317,8 +319,10 @@ a child safe.
 
 ## Source notes
 
-- The repository's existing bring-up and recovery record is in `README.md`,
-  `LEARNINGS.md`, and `TASKS.md`.
+- The repository's existing bring-up and recovery record is in the
+  [GCE runbook](../../guides/gce-lab-runbook.md),
+  [field notes](../field-notes-20260828.md), and
+  [task ledger](../../project/TASKS.md).
 - Pinned DAXFS source and documentation:
   <https://github.com/multikernel/daxfs/tree/11ab401585b79b4a7c9164019852e0219e197d13>
 - Pinned Kerf source:

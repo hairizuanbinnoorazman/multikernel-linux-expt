@@ -1,6 +1,6 @@
 # Implementation tasks
 
-Last updated: 2026-08-30
+Last updated: 2026-08-31
 
 ## Live GCE proof
 
@@ -25,15 +25,18 @@ Last updated: 2026-08-30
 
 ## Reproducibility
 
-- [x] Record every material observation and correction in `LEARNINGS.md`.
+- [x] Record every material observation and correction in the
+  [field notes](../experiments/field-notes-20260828.md).
 - [x] Add scripts only where they make a verified manual procedure repeatable.
 - [x] Create a root Makefile for VM creation, provisioning, verification,
   Multikernel smoke tests, log collection, and safe cleanup.
-- [x] Update `README.md` where live results differ from the research plan.
+- [x] Update the [GCE runbook](../guides/gce-lab-runbook.md) where live results
+  differ from the research plan.
 
 ## DAXFS and Docker-image experiment
 
-- [x] Audit all of `DAXFS-PLAN.md`, including every later experiment.
+- [x] Audit the complete [DAXFS plan](../experiments/daxfs/plan.md), including
+  every later experiment.
 - [x] Create and verify the pre-DAXFS recovery snapshot.
 - [x] Confirm the exact host kernel config, Multikernel DMA heap, DAXFS/Kerf
   interfaces, revisions, module vermagic, Secure Boot, and lockdown state.
@@ -68,7 +71,8 @@ Last updated: 2026-08-30
   `daxfs-down`, and the dual-kernel proof target.
 - [x] Download the complete GCE evidence bundle and add an evidence index.
 - [x] Document the exact result, limitations, failures, fixes, and source-based
-  writable-coherence diagnosis in `DAXFS-IMPLEMENTATION.md`.
+  writable-coherence diagnosis in the
+  [DAXFS report](../experiments/daxfs/report.md).
 - [x] Remove the final child and pool, capture the clean state, then delete the
   GCE VM and auto-delete boot disk while retaining recovery snapshots and
   local evidence.
@@ -80,8 +84,8 @@ Last updated: 2026-08-30
 
 ## Persistent ext4 child-root experiment
 
-- [x] Review `EXT4-DISK-PLAN.md` and retain its controller-granularity hard
-  gate.
+- [x] Review the [direct ext4 plan](../experiments/ext4-direct/plan.md) and
+  retain its controller-granularity hard gate.
 - [x] Restore `mklinux-lab-pre-daxfs-20260828-2030` into a fresh boot disk and
   `n2-standard-16` VM.
 - [x] Verify the restored custom kernel, vCPUs, memory, root filesystem, guest
@@ -95,7 +99,8 @@ Last updated: 2026-08-30
   PCI function `0000:00:03.0`.
 - [x] Add and live-test idempotent cloud provisioning and the read-only
   topology gate.
-- [x] Record results and resource disposition in `EXT4-DISK-LEARNINGS.md` and
+- [x] Record results and resource disposition in the
+  [direct ext4 learnings](../experiments/ext4-direct/learnings.md) and
   `evidence/ext4-disk-20260830/README.md`.
 - [x] Run the restored two-child no-device regression and return all resources.
 - [x] Probe C3/NVMe and record that both namespaces still share one allocatable
@@ -106,7 +111,8 @@ Last updated: 2026-08-30
   kernels.
 - [x] Run both distinct kernels concurrently with separate absent UUIDs and
   verify isolation, safe refusal, host health, and cleanup.
-- [x] Add the full continuous execution matrix in `EXT4-DISK-EXECUTION.md`.
+- [x] Add the full continuous
+  [execution matrix](../experiments/ext4-direct/execution.md).
 - [x] Verify final host health and blank disk state, then delete both probe VMs,
   all boot disks, and both disposable child disks; retain only recovery
   snapshots and local evidence.
@@ -125,7 +131,7 @@ Last updated: 2026-08-30
 ## Multikernel container runtime
 
 The detailed exit criteria and ordering are in
-[`docs/plans/README.md`](docs/plans/README.md).
+[`../runtime/plans/README.md`](../runtime/plans/README.md).
 
 - [x] Record the decision to build a new runtime around Kerf rather than fork
   Firecracker.

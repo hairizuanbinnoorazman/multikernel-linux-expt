@@ -11,14 +11,14 @@ and a C3/NVMe topology probe. Both N2/SCSI and C3/NVMe expose boot and child
 disks through one PCI function, while pinned Kerf/Multikernel allocates PCI
 functions. The dependent ext4 stages are therefore blocked. No filesystem was
 created and no device handoff was attempted. See
-[`EXT4-DISK-EXECUTION.md`](EXT4-DISK-EXECUTION.md) and
-[`EXT4-DISK-LEARNINGS.md`](EXT4-DISK-LEARNINGS.md).
+[the execution matrix](execution.md) and
+[experiment learnings](learnings.md).
 
 Alternative approach 2 was subsequently implemented and live-tested on a new
 GCE VM. Two different child kernels ran concurrently with separate persistent
 ext4 roots mediated by primary-owned image servers; reset and GCE stop/start
 persistence passed. See
-[`EXT4-MEDIATED-IMPLEMENTATION.md`](EXT4-MEDIATED-IMPLEMENTATION.md). The core
+[the mediated ext4 report](../ext4-mediated/report.md). The core
 functional objective passed, while the production-hardening items listed there
 remain open.
 
@@ -330,7 +330,9 @@ After the manual one-child and two-child procedures each pass twice:
 - Preserve raw commands, kernel and root manifests, cloud inventory, device
   tree dumps, controller topology, MKTTY transcripts, dmesg, filesystem checks,
   and cleanup proof under a timestamped evidence directory.
-- Update `LEARNINGS.md`, `TASKS.md`, and `README.md` with observed results, not
+- Update the [experiment learnings](learnings.md),
+  [project task ledger](../../project/TASKS.md), and
+  [GCE runbook](../../guides/gce-lab-runbook.md) with observed results, not
   planned claims.
 - Stop/delete all children and release the pool. Return disks to the primary,
   mount them read-only for final verification, unmount, and snapshot if they
@@ -654,8 +656,8 @@ be attributed to kernel compatibility rather than filesystem preparation.
 
 ## References
 
-- Existing no-device runbook: [`README.md`](README.md)
-- Existing DAXFS experiment: [`DAXFS-PLAN.md`](DAXFS-PLAN.md)
+- Existing no-device runbook: [GCE laboratory guide](../../guides/gce-lab-runbook.md)
+- Existing DAXFS experiment: [DAXFS plan](../daxfs/plan.md)
 - Pinned Kerf source: <https://github.com/multikernel/kerf/tree/8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec>
 - GCE Persistent Disk interfaces: <https://docs.cloud.google.com/compute/docs/disks/persistent-disks>
 - GCE persistent device names: <https://docs.cloud.google.com/compute/docs/disks/set-persistent-device-name-in-linux-vm>

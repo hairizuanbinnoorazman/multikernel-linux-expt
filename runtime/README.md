@@ -1,11 +1,11 @@
 # Runtime workspace
 
 This directory is reserved for the Multikernel container runtime described in
-[`../docs/architecture/TARGET.md`](../docs/architecture/TARGET.md). It does not
+[`../docs/runtime/architecture.md`](../docs/runtime/architecture.md). It does not
 yet contain a runtime implementation.
 
 The first code should be added only as the corresponding contracts in
-[`../docs/plans/`](../docs/plans/README.md) are accepted.
+[`../docs/runtime/plans/`](../docs/runtime/plans/README.md) are accepted.
 
 ## Intended layout
 
