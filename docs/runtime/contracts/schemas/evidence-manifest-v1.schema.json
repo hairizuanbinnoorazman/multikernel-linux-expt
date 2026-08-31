@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multikernel.example/schemas/evidence-manifest-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "gate", "run_id", "result", "started_at", "repository", "commands", "assertions", "cleanup"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "gate": {"enum": ["G0", "G1", "G2", "G3"]},
+    "run_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+    "result": {"enum": ["pass", "fail", "blocked"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": "string", "format": "date-time"},
+    "repository": {"type": "object"},
+    "components": {"type": "object"},
+    "host": {"type": "object"},
+    "commands": {"type": "array", "items": {"type": "object"}},
+    "assertions": {"type": "array", "items": {"type": "object"}},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "cleanup": {"type": "object"}
+  }
+}

@@ -141,11 +141,11 @@ The detailed exit criteria and ordering are in
   release.
 - [x] Add a non-code runtime workspace that prevents accidental coupling
   between the shim, Kerf adapter, agent, and device services.
-- [ ] G0: freeze the lifecycle, protocol, configuration, error, threat-model,
+- [x] G0: freeze the lifecycle, protocol, configuration, error, threat-model,
   and evidence contracts.
-- [ ] G1: implement and pass read-only host qualification and isolation checks.
-- [ ] G2: implement the recoverable `mkruntimed` daemon and Kerf adapter.
-- [ ] G3: implement `mk-agent` and the OCI process lifecycle in one child.
+- [x] G1: implement and pass read-only host qualification and isolation checks.
+- [x] G2: implement the recoverable `mkruntimed` daemon and Kerf adapter.
+- [x] G3: implement `mk-agent` and the minimal OCI process lifecycle in one child.
 - [ ] G4: provide deterministic OCI images and safe single-owner storage.
 - [ ] G5: provide primary-mediated CNI-compatible networking.
 - [ ] G6: pass containerd Runtime v2 lifecycle tests through `ctr`.

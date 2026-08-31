@@ -1,0 +1,8 @@
+#!/bin/busybox sh
+/bin/busybox --install -s /bin
+mkdir -p /dev /proc /sys
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+echo RUNTIME_G1_INTENTIONAL_INIT_EXIT
+exit 71

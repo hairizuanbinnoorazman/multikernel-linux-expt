@@ -1,0 +1,37 @@
+#!/bin/busybox sh
+set -eu
+/bin/busybox --install -s /bin
+mkdir -p /dev /proc /sys /sys/fs/cgroup /tmp
+mount -t devtmpfs devtmpfs /dev || true
+mount -t proc proc /proc || true
+mount -t sysfs sysfs /sys || true
+mount -t cgroup2 none /sys/fs/cgroup || true
+if [ -f /mk_transport.ko ]; then
+	insmod /mk_transport.ko
+fi
+
+sandbox_id=
+generation=
+token=
+port=
+for arg in $(cat /proc/cmdline); do
+	case "$arg" in
+		mk.sandbox_id=*) sandbox_id=${arg#*=} ;;
+		mk.generation=*) generation=${arg#*=} ;;
+		mk.token=*) token=${arg#*=} ;;
+		mk.agent_port=*) port=${arg#*=} ;;
+	esac
+done
+
+if [ -z "$sandbox_id" ] || [ -z "$generation" ] || [ -z "$token" ] || [ -z "$port" ]; then
+	echo MK_AGENT_BOOT_CONFIG_MISSING
+	exec sh -c 'while true; do sleep 3600; done'
+fi
+
+echo "MK_AGENT_START sandbox=$sandbox_id generation=$generation port=$port"
+/mk-agent --sandbox-id="$sandbox_id" --generation="$generation" \
+	--token-hex="$token" --port="$port" --unix-socket=/tmp/mk-agent.sock &
+agent_pid=$!
+/mkvsock-relay client 0 "$port" /tmp/mk-agent.sock
+wait "$agent_pid"
+poweroff -f

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multikernel.example/schemas/kernel-manifest-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "architecture", "kernel_release", "kernel", "initramfs", "agent", "protocol", "required_config", "oci_features"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "name": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,62}$"},
+    "architecture": {"const": "amd64"},
+    "kernel_release": {"type": "string", "minLength": 1, "maxLength": 128},
+    "kernel": {"$ref": "#/$defs/artifact"},
+    "initramfs": {"$ref": "#/$defs/artifact"},
+    "agent": {"$ref": "#/$defs/artifact"},
+    "protocol": {"type": "object", "required": ["min", "max"], "properties": {"min": {"type": "integer", "minimum": 1}, "max": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
+    "required_config": {"type": "array", "items": {"type": "string", "pattern": "^CONFIG_[A-Z0-9_]+=[ym]$"}, "uniqueItems": true},
+    "modules": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+    "oci_features": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "pattern": "^/"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+    }
+  }
+}

@@ -19,10 +19,10 @@ tasks remain in [`../../project/TASKS.md`](../../project/TASKS.md).
 
 | Status | Gate | Work | Required outcome | Plan |
 | --- | --- | --- | --- | --- |
-| [ ] | G0 | Freeze scope and contracts | Ownership, lifecycle, protocol, errors, kernel policy, and evidence rules are reviewable | [`00-scope-and-contracts.md`](00-scope-and-contracts.md) |
-| [ ] | G1 | Qualify the host | Required host features pass and the actual isolation boundary is documented | [`01-host-and-isolation.md`](01-host-and-isolation.md) |
-| [ ] | G2 | Build the control plane | `mkruntimed` and its Kerf adapter recover state and return resources safely | [`02-control-plane.md`](02-control-plane.md) |
-| [ ] | G3 | Build the child agent | One OCI bundle runs through `mk-agent` with correct process and shutdown semantics | [`03-agent-and-processes.md`](03-agent-and-processes.md) |
+| [x] | G0 | Freeze scope and contracts | Ownership, lifecycle, protocol, errors, kernel policy, and evidence rules are reviewable | [`00-scope-and-contracts.md`](00-scope-and-contracts.md) |
+| [x] | G1 | Qualify the host | Required host features pass and the actual isolation boundary is documented | [`01-host-and-isolation.md`](01-host-and-isolation.md) |
+| [x] | G2 | Build the control plane | `mkruntimed` and its Kerf adapter recover state and return resources safely | [`02-control-plane.md`](02-control-plane.md) |
+| [x] | G3 | Build the child agent | One OCI bundle runs through `mk-agent` with correct process and shutdown semantics | [`03-agent-and-processes.md`](03-agent-and-processes.md) |
 | [ ] | G4 | Provide images and storage | OCI roots are deterministic, writable state has one owner, and teardown is clean | [`04-images-and-storage.md`](04-images-and-storage.md) |
 | [ ] | G5 | Provide networking | Primary-mediated networking works through normal CNI operations | [`05-networking.md`](05-networking.md) |
 | [ ] | G6 | Integrate containerd | An unmodified OCI bundle can be managed through containerd and `ctr` | [`06-containerd-shim.md`](06-containerd-shim.md) |
