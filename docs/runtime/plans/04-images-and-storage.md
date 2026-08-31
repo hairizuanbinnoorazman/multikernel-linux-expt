@@ -9,11 +9,17 @@ the primary's ownership of all cloud storage controllers.
 
 ### A. Deterministic image input
 
-- Accept an unpacked OCI bundle from containerd.
+- Accept the OCI bundle and snapshot/rootfs mounts prepared by containerd.
+- Leave registry access, image pulling, content verification, layer unpacking,
+  and snapshot ownership with containerd; do not implement a second image
+  acquisition path in the Multikernel runtime.
 - Generate and verify a manifest before boot.
 - Reject unsupported file types, unsafe paths, device nodes, and inconsistent
   hardlinks unless explicitly handled.
-- Include `mk-agent` without mutating the caller's snapshot.
+- Keep `mk-agent`, transport modules, and bootstrap utilities in the
+  runtime-owned initramfs without mutating the caller's snapshot.
+- Verify image and child-kernel architecture compatibility before allocating
+  the sandbox. Record any kernel feature assumptions required by the bundle.
 
 ### B. Single-sandbox root
 
@@ -36,6 +42,8 @@ ext4 image to multiple children.
 
 - Whiteouts, opaque directories, hardlinks, symlinks, sparse files, xattrs,
   permissions, timestamps, and large trees.
+- Preservation of a containerd-unpacked BusyBox root without treating it as a
+  bootable ISO, disk installer, or source of the child kernel.
 - Read-only image rejection of writes.
 - Writable layer persistence only where configured.
 - Full disk, inode exhaustion, malformed image, wrong UUID, wrong generation,
@@ -54,6 +62,7 @@ result.
 
 ## Gate G4
 
-Pass when an OCI root is reproducible, writable state has one clear owner,
-normal teardown leaves a clean filesystem, failure cases do not cross exports,
-and all storage devices remain owned by the primary.
+Pass when containerd-prepared OCI content becomes a reproducible child root,
+writable state has one clear owner, runtime bootstrap files remain outside the
+OCI snapshot, normal teardown leaves a clean filesystem, failure cases do not
+cross exports, and all storage devices remain owned by the primary.
