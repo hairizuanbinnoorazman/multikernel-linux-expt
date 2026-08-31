@@ -19,6 +19,9 @@ service surface:
 The shim must remain unprivileged except for access to the daemon socket. It
 must never execute Kerf directly. Containerd namespace and sandbox identifiers
 must map deterministically to internal IDs without becoming trusted paths.
+Containerd remains responsible for pulling images, applying OCI layers, and
+preparing snapshot/rootfs mounts; the shim passes those inputs and `config.json`
+through the runtime contracts instead of building a guest OS or boot image.
 
 ## Tests
 
@@ -32,6 +35,11 @@ must map deterministically to internal IDs without becoming trusted paths.
 - Unsupported OCI configuration fails before resource allocation where
   possible and always cleans up if allocation already occurred.
 - Two concurrent sandboxes using disjoint child resources.
+- Pull a stock `linux/amd64` BusyBox image with containerd, then use the
+  Multikernel Runtime v2 shim to run `/bin/echo`, `/bin/sh`, and a nonzero-exit
+  command from that image.
+- Prove the BusyBox executable and libraries come from the OCI root while the
+  reported kernel release comes from the selected runtime kernel manifest.
 
 ## Packaging
 
@@ -46,3 +54,8 @@ Pass when an unmodified OCI bundle can be launched through `ctr`, inspected,
 executed into, signaled, waited on, and deleted; containerd or shim restart is
 recoverable; and final CPU, memory, storage, network, and process cleanup is
 proven.
+
+After G6 passes with standalone containerd, register the same shim as an
+alternative Docker Engine runtime and repeat create, run, exec, signal, wait,
+remove, daemon-restart, and cleanup checks. Docker compatibility is a follow-up
+acceptance layer; it does not introduce an ISO or a second child OS build.

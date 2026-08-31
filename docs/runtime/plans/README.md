@@ -7,21 +7,29 @@ to a containerd and Kubernetes runtime. Each plan has a hard exit gate. Work
 may be prototyped ahead of a gate, but later stages cannot be declared complete
 until all earlier gates pass.
 
-## Ordered plans
+This directory is the working folder for the next implementation steps. Start
+with this file, then follow the numbered plan for the first unchecked gate.
 
-| Order | Plan | Outcome | Gate |
-| ---: | --- | --- | --- |
-| 0 | [`00-scope-and-contracts.md`](00-scope-and-contracts.md) | Frozen MVP semantics and evidence rules | G0 |
-| 1 | [`01-host-and-isolation.md`](01-host-and-isolation.md) | Qualified host and honest isolation boundary | G1 |
-| 2 | [`02-control-plane.md`](02-control-plane.md) | Recoverable daemon and Kerf adapter | G2 |
-| 3 | [`03-agent-and-processes.md`](03-agent-and-processes.md) | OCI process lifecycle inside one child | G3 |
-| 4 | [`04-images-and-storage.md`](04-images-and-storage.md) | Deterministic OCI roots and safe teardown | G4 |
-| 5 | [`05-networking.md`](05-networking.md) | CNI-compatible mediated networking | G5 |
-| 6 | [`06-containerd-shim.md`](06-containerd-shim.md) | `ctr` and containerd Runtime v2 operation | G6 |
-| 7 | [`07-kubernetes.md`](07-kubernetes.md) | Kubernetes pod through `RuntimeClass` | G7 |
-| 8 | [`08-security-and-reliability.md`](08-security-and-reliability.md) | Failure matrix and bounded security claim | G8 |
-| 9 | [`09-performance-and-density.md`](09-performance-and-density.md) | Decision-quality comparative measurements | G9 |
-| 10 | [`10-final-build-and-release.md`](10-final-build-and-release.md) | Reproducible preview release | G10 |
+## Master gate checklist
+
+This is the canonical section-level checklist for the runtime. Change a gate
+to `[x]` only when the `Gate` section in its linked plan passes; partial
+experiments and prototype code do not complete a gate. Detailed experiment
+tasks remain in [`../../project/TASKS.md`](../../project/TASKS.md).
+
+| Status | Gate | Work | Required outcome | Plan |
+| --- | --- | --- | --- | --- |
+| [ ] | G0 | Freeze scope and contracts | Ownership, lifecycle, protocol, errors, kernel policy, and evidence rules are reviewable | [`00-scope-and-contracts.md`](00-scope-and-contracts.md) |
+| [ ] | G1 | Qualify the host | Required host features pass and the actual isolation boundary is documented | [`01-host-and-isolation.md`](01-host-and-isolation.md) |
+| [ ] | G2 | Build the control plane | `mkruntimed` and its Kerf adapter recover state and return resources safely | [`02-control-plane.md`](02-control-plane.md) |
+| [ ] | G3 | Build the child agent | One OCI bundle runs through `mk-agent` with correct process and shutdown semantics | [`03-agent-and-processes.md`](03-agent-and-processes.md) |
+| [ ] | G4 | Provide images and storage | OCI roots are deterministic, writable state has one owner, and teardown is clean | [`04-images-and-storage.md`](04-images-and-storage.md) |
+| [ ] | G5 | Provide networking | Primary-mediated networking works through normal CNI operations | [`05-networking.md`](05-networking.md) |
+| [ ] | G6 | Integrate containerd | An unmodified OCI bundle can be managed through containerd and `ctr` | [`06-containerd-shim.md`](06-containerd-shim.md) |
+| [ ] | G7 | Integrate Kubernetes | A multi-container pod runs through a Multikernel `RuntimeClass` | [`07-kubernetes.md`](07-kubernetes.md) |
+| [ ] | G8 | Harden security and reliability | Security, fault-injection, restart, and resource-leak tests pass | [`08-security-and-reliability.md`](08-security-and-reliability.md) |
+| [ ] | G9 | Measure performance and density | Reproducible comparisons and raw evidence support runtime decisions | [`09-performance-and-density.md`](09-performance-and-density.md) |
+| [ ] | G10 | Build the preview release | A reproducible, opt-in developer preview passes fresh-host validation | [`10-final-build-and-release.md`](10-final-build-and-release.md) |
 
 ## Cross-plan rules
 
@@ -41,6 +49,12 @@ The first useful MVP ends at G6: a trusted workload can be launched from an OCI
 bundle using containerd, with no direct device assignment and with reliable
 cleanup. Kubernetes, stronger failure handling, and performance work are
 subsequent gates rather than requirements for the first executable proof.
+
+The first end-to-end workload should use a stock `linux/amd64` BusyBox OCI
+image. Containerd pulls and unpacks the image; the Multikernel runtime consumes
+the resulting OCI configuration and root filesystem. A separate Docker Engine
+compatibility test follows the containerd/`ctr` proof and uses the same Runtime
+v2 shim.
 
 ## Final-build boundary
 

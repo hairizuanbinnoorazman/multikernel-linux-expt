@@ -9,6 +9,37 @@ lifecycle operations. Workload processes execute inside the child kernel.
 
 This is not a Firecracker derivative and it is not a KVM virtual machine.
 
+## Boot and image ownership
+
+A Multikernel child does not boot an ISO, firmware image, bootloader, or guest
+distribution installer. Kerf loads three runtime-owned inputs directly into
+the CPUs and memory allocated to the child:
+
+- an approved Linux `vmlinux` selected from the runtime's kernel manifest;
+- a small bootstrap initramfs containing `mk-agent`, transport modules, and
+  only the tools needed to reach the sandbox root; and
+- a generated kernel command line containing authenticated sandbox and
+  endpoint identity.
+
+The OCI image supplies the workload userspace: executables, libraries,
+configuration files, filesystem metadata, and image execution defaults. It
+does not normally supply the child kernel, bootloader, or bootstrap initramfs.
+Containerd owns image acquisition and unpacking and supplies the OCI bundle and
+snapshot/rootfs mounts. The Multikernel runtime must not become another image
+registry client or layer downloader.
+
+The bootstrap mounts the supplied root through the selected DAXFS or mediated
+ext4 mechanism, verifies its identity, and hands process management to
+`mk-agent`. Runtime bootstrap files stay outside the caller's OCI snapshot.
+An OCI image must match the child kernel architecture, and configuration that
+requires an unsupported kernel or OCI feature must fail before the workload is
+started.
+
+The normal policy is a small, pinned set of trusted child kernels, not a newly
+built kernel for each container image. An explicitly selected alternate kernel
+is allowed only when its architecture, modules, initramfs, features, hashes,
+and compatibility have been qualified together.
+
 ## Target topology
 
 ```text
