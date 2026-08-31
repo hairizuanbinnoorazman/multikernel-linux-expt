@@ -3,7 +3,7 @@
 Execution date: 2026-08-30
 
 This is the continuous execution record for every section of
-[`EXT4-DISK-PLAN.md`](EXT4-DISK-PLAN.md). The run did not pause between stages;
+[the direct ext4 plan](plan.md). The run did not pause between stages;
 the stage labels below identify dependency and outcome only. A blocked result
 means the action was reviewed but could not be performed without violating the
 plan's explicit boot-disk safety boundary.
@@ -88,4 +88,4 @@ result is **pass**, with production hardening still incomplete.
 | G: recovery/automation | Partial pass | Reset, GCE stop/start, forced disconnect, offline checks, and safe teardown passed. Clean child shutdown, ENOSPC, corruption, stale-lock, and snapshot/clone cases remain. |
 
 The complete implementation record and residual acceptance boundary are in
-[`EXT4-MEDIATED-IMPLEMENTATION.md`](EXT4-MEDIATED-IMPLEMENTATION.md).
+[the mediated ext4 report](../ext4-mediated/report.md).

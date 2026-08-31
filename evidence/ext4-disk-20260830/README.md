@@ -1,8 +1,8 @@
 # ext4 disk experiment evidence index — 2026-08-30
 
 The observed execution record is consolidated in
-[`EXT4-DISK-EXECUTION.md`](../../EXT4-DISK-EXECUTION.md) and
-[`EXT4-DISK-LEARNINGS.md`](../../EXT4-DISK-LEARNINGS.md). The decisive evidence
+[the execution matrix](../../docs/experiments/ext4-direct/execution.md) and
+[experiment learnings](../../docs/experiments/ext4-direct/learnings.md). The decisive evidence
 was gathered with read-only commands and is summarized here for quick audit.
 
 | Gate | Evidence | Result |

@@ -4,7 +4,8 @@ Execution date: 2026-08-30
 
 ## Result
 
-Alternative approach 2 in [`EXT4-DISK-PLAN.md`](EXT4-DISK-PLAN.md) passed its
+Alternative approach 2 in the
+[direct ext4 plan](../ext4-direct/plan.md) passed its
 decisive functional test on a new GCE VM. The primary retained the shared GCE
 virtio-SCSI controller and mounted one 20 GiB Persistent Disk as outer ext4.
 Two fixed-size image files on that filesystem were exported through separate
@@ -50,16 +51,17 @@ Child B advanced from 1 to 2 across the repeated dual run.
 | Primary transport module | SHA-256 `f7bcaf7f…b23495f` |
 | Alternate transport module | SHA-256 `2c746e01…c12fae` |
 
-The VM is stopped (`TERMINATED`) after final filesystem checks. Both disks
-remain attached and therefore continue to incur storage charges. The storage
-disk and image files were deliberately not deleted by normal teardown.
+At evidence capture, the VM was stopped (`TERMINATED`) and both disks remained
+attached. The VM was subsequently deleted: its 100 GiB auto-delete boot disk
+was removed, while the detached 20 GiB storage disk and image files were
+deliberately retained and remain billable.
 
 ## Transport and block design
 
 The pinned tree contains `CONFIG_MULTIKERNEL_VSOCKETS`, but it was disabled in
 the saved config and did not compile when first enabled. The callback type of
 `stream_allow` was stale relative to the same pinned kernel. The checked patch
-[`linux-v7.0-mk2-vsock-build-safety.patch`](patches/linux-v7.0-mk2-vsock-build-safety.patch)
+[`linux-v7.0-mk2-vsock-build-safety.patch`](../../../patches/linux-v7.0-mk2-vsock-build-safety.patch)
 fixes that build break and rejects inconsistent receive lengths before an skb
 is queued.
 
@@ -158,4 +160,4 @@ primary retained every GCE controller. The following plan items remain open:
   design.
 
 Raw evidence is indexed in
-[`evidence/ext4-mediated-20260830/README.md`](evidence/ext4-mediated-20260830/README.md).
+[`evidence/ext4-mediated-20260830/README.md`](../../../evidence/ext4-mediated-20260830/README.md).

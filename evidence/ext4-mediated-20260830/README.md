@@ -1,7 +1,8 @@
 # Primary-mediated ext4 evidence index
 
 This directory contains raw transcripts from the 2026-08-30 GCE run of
-Alternative approach 2 in `EXT4-DISK-PLAN.md`.
+Alternative approach 2 in the
+[direct ext4 plan](../../docs/experiments/ext4-direct/plan.md).
 
 Key files:
 
@@ -25,7 +26,11 @@ Key files:
 - `child-a-final-fsck.txt`, `child-b-final-fsck.txt`,
   `outer-final-fsck.txt`, and `final-host-state.txt`: final filesystem,
   resource-return, disk identity, CPU, and host-health proof.
-- `cloud-disposition.txt`: stopped VM and retained billable disk state.
+- `cloud-disposition.txt`: stopped-VM and attached-disk state captured at the
+  end of the live test.
+
+After evidence capture, the VM and its auto-delete boot disk were deleted. The
+20 GiB mediated-storage disk remains retained and billable.
 
 The earlier failed transcripts are retained intentionally. They show that each
 unsafe or unsupported assumption failed before an incorrect filesystem mount

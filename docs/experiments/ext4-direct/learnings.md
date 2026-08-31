@@ -1,7 +1,7 @@
 # Persistent ext4 child-root experiment learnings
 
 This log records observed results from the 2026-08-30 execution of
-[`EXT4-DISK-PLAN.md`](EXT4-DISK-PLAN.md). Planned behavior is not presented as
+[the direct ext4 plan](plan.md). Planned behavior is not presented as
 completed behavior.
 
 ## Result
@@ -117,7 +117,7 @@ not a retry of this pinned baseline.
 The follow-up run evaluated the rest of the document without waiting between
 stages. Dependent actions remained subject to the original hard safety gates.
 The complete pass/blocked matrix is in
-[`EXT4-DISK-EXECUTION.md`](EXT4-DISK-EXECUTION.md).
+[the direct ext4 execution matrix](execution.md).
 
 ### Alternate C3/NVMe topology
 
@@ -217,12 +217,13 @@ The decisive dual run had both children active concurrently:
 - neither Kerf device tree contained a physical device.
 
 Child A later reached counter 7 across a GCE reset and stop/start. Both inner
-filesystems and the outer filesystem passed final offline checks. The VM is
-stopped and its boot and storage disks are retained.
+filesystems and the outer filesystem passed final offline checks. The VM was
+later deleted with its auto-delete boot disk; the detached 20 GiB mediated
+storage disk remains retained.
 
 The run also established that the pinned VSOCK transport does not compile
 unchanged, Linux NBD rejects a direct AF_VSOCK socket, loop-device discard can
 undo file preallocation, forced child stop needs a bounded server timeout, and
 an interrupted write payload must be discarded rather than replayed. See
-[`EXT4-MEDIATED-IMPLEMENTATION.md`](EXT4-MEDIATED-IMPLEMENTATION.md) for exact
+[the mediated ext4 report](../ext4-mediated/report.md) for exact
 fixes, hashes, remaining risks, and evidence links.

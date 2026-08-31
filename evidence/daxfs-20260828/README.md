@@ -1,7 +1,8 @@
 # DAXFS GCE evidence index
 
 These files were captured from `mklinux-lab` on 2026-08-28. The concise result
-and interpretation are in [`../../DAXFS-IMPLEMENTATION.md`](../../DAXFS-IMPLEMENTATION.md).
+and interpretation are in the
+[DAXFS report](../../docs/experiments/daxfs/report.md).
 
 Key proof files:
 

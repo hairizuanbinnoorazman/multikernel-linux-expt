@@ -3,10 +3,13 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 required_paths=(
-  docs/architecture/TARGET.md
-  docs/decisions/0001-build-a-new-runtime.md
-  docs/plans/README.md
-  docs/plans/10-final-build-and-release.md
+  README.md
+  docs/experiments/README.md
+  docs/guides/gce-lab-runbook.md
+  docs/runtime/architecture.md
+  docs/runtime/decisions/0001-build-a-new-runtime.md
+  docs/runtime/plans/README.md
+  docs/runtime/plans/10-final-build-and-release.md
   runtime/README.md
 )
 
@@ -33,8 +36,11 @@ while IFS= read -r markdown_file; do
       printf 'broken local link: %s -> %s\n' "$markdown_file" "$target" >&2
       status=1
     fi
-  done < <(sed -nE 's/.*\]\(([^ )]+)( "[^"]*")?\).*/\1/p' "$repo_root/$markdown_file")
-done < <(cd "$repo_root" && rg --files -g '*.md' -g '!evidence/**' | sort)
+  done < <(
+    grep -oE '\]\([^ )]+' "$repo_root/$markdown_file" \
+      | sed -E 's/^\]\(//'
+  )
+done < <(cd "$repo_root" && rg --files -g '*.md' | sort)
 
 if (( status != 0 )); then
   exit "$status"
