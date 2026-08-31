@@ -14,6 +14,14 @@ storage, Kerf, transport, or isolation findings. The open work is primarily
 contract enforcement, untested behavior, over-broad pass wording, and incomplete
 evidence.
 
+Follow-up audit: 2026-08-31, against repository commit `e99a6bf`. All four
+learning documents were compared again with the current implementation, tests,
+and retained evidence. The complete local verification command was rerun and
+passed. This review split mixed items so their completed portions can be closed,
+corrected two over-broad unit-test classifications in the learnings, and added
+explicit work for secret-safe errors and the plan-required G3 containment
+features.
+
 ## Rules for closing an item
 
 - [x] Do not close a code item without a focused automated test. (Applied in
@@ -38,6 +46,9 @@ evidence.
   of those features to fail closed.
 - [x] Change the G3 learning's “tested subset” wording to distinguish live
   tested, unit tested, implemented but untested, rejected, and not implemented.
+- [x] Correct learning claims that exceeded the focused tests: G1's current
+  suite does not directly test duplicate/offline APIC rejection, and G3's
+  authentication test does not exercise wrong identity fields.
 - [ ] Reissue the final G0-G3 summary only after every retained pass claim maps
   to an explicit test and evidence assertion.
 
@@ -153,12 +164,18 @@ evidence.
   availability before mutation.
 - [ ] Require every sandbox CPU to be a member of the configured Kerf pool and
   account for the pool's usable memory/slack before invoking Kerf.
-- [ ] Reject duplicate JSON fields. Keep unknown-field, trailing-value, frame
-  bound, and numeric-overflow rejection covered by tests.
+- [x] Reject duplicate JSON fields in daemon envelopes and method bodies through
+  the shared strict decoder; its top-level and nested duplicate behavior has a
+  focused automated test.
+- [ ] Add focused daemon wire tests for unknown fields, trailing values, frame
+  bounds, and numeric overflow; these paths are not covered merely by the shared
+  decoder test.
 - [ ] Return `BACKEND_TIMEOUT` for actual timeouts rather than mapping every
   backend error to `BACKEND_FAILURE`.
 - [ ] Populate stable operation IDs on mutation errors as required by the error
   contract.
+- [ ] Sanitize daemon and agent errors and add focused tests proving that
+  backend output, host paths, tokens, and other secrets cannot cross either API.
 - [ ] Make intermediate `STOPPING` and `RELEASING` state semantics observable,
   or revise the documented state machine.
 - [ ] Verify socket owner/group, safe socket parent, peer authorization, journal
@@ -168,8 +185,9 @@ evidence.
 
 - [ ] Expand fake-Kerf coverage to every nonzero exit, timeout, malformed or
   truncated observation, and committed-then-failed operation—not only create.
-- [ ] Test deterministic duplicate create/start/stop/delete behavior, including
-  terminal-state retries with new valid idempotency keys.
+- [x] Test exact duplicate `CreateSandbox` replay with the same idempotency key.
+- [ ] Expand deterministic duplicate coverage to start, stop, and delete, and
+  test terminal-state retries with new valid idempotency keys.
 - [ ] Test two disjoint live sandboxes through the daemon.
 - [ ] Test client/shim disappearance while a child continues running.
 - [ ] Test child/backend failure during load, boot/start, and stop.
@@ -200,13 +218,18 @@ evidence.
 
 - [x] Maintain the required feature matrix with separate `live-tested`,
   `unit-tested`, `implemented-unproven`, `rejected`, and `not-tested` states.
+- [ ] Implement and test the plan-required namespaces, capability application,
+  rlimits, and cgroups, or revise the plan and frozen contract together with a
+  recorded rationale. Fail-closed rejection in the provisional OCI subset does
+  not satisfy this G3 exit criterion.
 - [ ] Report actual agent and child-kernel capabilities; the current
   `Capabilities` response reports only protocol and OCI feature names.
 - [x] Do not advertise UID/GID, supplementary groups, or signals as tested until
   their nontrivial live cases pass.
 - [ ] Validate supported OCI version and executable/image architecture before
   process start.
-- [ ] Add fail-closed tests for every declared unsupported field: mounts, hooks,
+- [x] Test fail-closed rejection of unsupported mounts.
+- [ ] Add fail-closed tests for every other declared unsupported field: hooks,
   capabilities, namespaces, resources/cgroups, seccomp, masked/read-only paths,
   read-only root, `noNewPrivileges`, rlimits, hostname, and terminal mode.
 - [ ] Decide whether annotations and empty-but-present unsupported objects are
