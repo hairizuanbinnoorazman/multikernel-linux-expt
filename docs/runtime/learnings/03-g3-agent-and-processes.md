@@ -48,7 +48,7 @@ and the indexed child console.
 | Feature | Status | Proof or limitation |
 | --- | --- | --- |
 | Create/start/wait/delete one process; split stdout/stderr; exit 23; child kernel release | `live-tested` | `g3-lifecycle.json` records every response and exact output; `runtime-g3-console.log` records the selected child kernel and assigned CPU/memory view. |
-| Authentication identity, HMAC, and replay rejection | `unit-tested`; happy path live | `agent.TestAuthenticationAndReplay`; live lifecycle succeeded with one authenticated session. |
+| Authentication identity, HMAC, and replay rejection | HMAC/replay `unit-tested`; identity mismatch `implemented-unproven`; happy path live | `agent.TestAuthenticationAndReplay` covers a valid identity, invalid MAC, and replay, but not wrong sandbox ID, generation, or endpoint. The live lifecycle succeeded with one authenticated session. |
 | Exact argv, environment, cwd, UID/GID plumbing | `unit-tested` or implemented-unproven live | `agent.TestLifecycle` exercises argv/environment and current UID/GID locally. The retained live result does not expose its config, so non-default cwd and non-root identity are not live-proven. |
 | Supplementary groups and signal delivery | `implemented-unproven` | Code passes groups and accepts signals, but neither non-empty groups nor delivery is proved by retained live evidence. Advertising them in the historical `Capabilities` reply was over-broad; the current response omits UID, GID, groups, and signals until their nontrivial live cases pass, enforced by `agent.TestAuthenticationAndReplay`. |
 | Wait before start | `unit-tested rejected` | `agent.TestWaitRejectsUnstartedProcess` proves an unstarted process returns an error instead of blocking forever. |
