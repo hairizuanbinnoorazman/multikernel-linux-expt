@@ -8,6 +8,9 @@ primary-mediated TUN networking, and the containerd Runtime v2 shim also passed
 the G4-G6 happy-path proof through both `ctr` and Docker. The broader gate
 failure/recovery matrices remain open.
 
+Terminal execution and Runtime v2 resize are implemented and locally tested;
+their updated client paths still require disposable-host revalidation.
+
 ## Intended layout
 
 ```text
@@ -55,6 +58,7 @@ GOCACHE=/tmp/mk-go-cache go test ./...
 GOCACHE=/tmp/mk-go-cache go vet ./...
 CGO_ENABLED=0 go build ./cmd/mk-agent
 sudo ../scripts/test-runtime-g4-g6.sh # qualified, configured GCE host only
+sudo ../scripts/test-runtime-g4-g6-feature-matrix.sh # disposable GCE host only
 ```
 
 The GCE scripts are explicit, billable tests under `../scripts/test-runtime-g*.sh`.

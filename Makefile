@@ -13,7 +13,7 @@ REMOTE_LAB ?= multikernel-linux-lab
 GCLOUD = gcloud compute
 SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 
-.PHONY: help docs-check runtime-test runtime-build runtime-g4-g6-test check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
+.PHONY: help docs-check runtime-test runtime-build runtime-g4-g6-test runtime-g4-g6-matrix check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
 	ssh serial snapshot sync provision-kernel reboot verify-host install-kerf \
 	smoke-up smoke-status smoke-down daxfs-build daxfs-up daxfs-status \
 	daxfs-down daxfs-dual-kernel-proof collect-logs disk-roots-create \
@@ -39,6 +39,9 @@ runtime-build: ## Build static runtime binaries locally.
 
 runtime-g4-g6-test: ## Run privileged ctr/Docker per-kernel proof on a configured host.
 	bash scripts/test-runtime-g4-g6.sh
+
+runtime-g4-g6-matrix: ## Run the full shared ctr/Docker G4-G6 feature matrix.
+	bash scripts/test-runtime-g4-g6-feature-matrix.sh
 
 check-project:
 	@test -n "$(PROJECT)" && test "$(PROJECT)" != "(unset)" || { \

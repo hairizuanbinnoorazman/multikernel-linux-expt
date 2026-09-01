@@ -42,6 +42,9 @@ const runtimeName = "io.containerd.multikernel.v2"
 
 type process struct {
 	id, stdin, stdout, stderr string
+	terminal                  bool
+	width, height             uint32
+	sizeSet                   bool
 	status                    tasktypes.Status
 	exit                      uint32
 	exited                    time.Time
@@ -276,8 +279,8 @@ func (s *service) publish(ctx context.Context, topic string, event any) error {
 }
 
 func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (*taskapi.CreateTaskResponse, error) {
-	if r.ID != s.id || r.Bundle == "" || r.Terminal {
-		return nil, fmt.Errorf("%w: invalid task or terminal mode", errdefs.ErrInvalidArgument)
+	if r.ID != s.id || r.Bundle == "" {
+		return nil, fmt.Errorf("%w: invalid task", errdefs.ErrInvalidArgument)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -339,7 +342,7 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (*ta
 	b, _ := json.Marshal(p)
 	_ = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), b, 0600)
 	s.bundle = r.Bundle
-	s.processes[""] = &process{id: "", stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	s.processes[""] = &process{id: "", stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	pid := uint32(os.Getpid())
 	if err = s.publish(ctx, ctruntime.TaskCreateEventTopic, &eventstypes.TaskCreate{ContainerID: s.id, Bundle: r.Bundle, Rootfs: r.Rootfs, Pid: pid}); err != nil {
 		return nil, err
@@ -581,7 +584,13 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 	if processID == "" {
 		processID = "init"
 	}
-	if err := s.agent.Call("StartProcess", map[string]string{"ID": processID}, nil); err != nil {
+	startRequest := map[string]any{"id": processID}
+	if p.terminal && p.sizeSet {
+		startRequest["width"] = p.width
+		startRequest["height"] = p.height
+		startRequest["initial_size"] = true
+	}
+	if err := s.agent.Call("StartProcess", startRequest, nil); err != nil {
 		s.mu.Unlock()
 		return nil, err
 	}
@@ -695,7 +704,7 @@ func processSpec(p *specs.Process) agent.ProcessSpec {
 }
 
 func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emptypb.Empty, error) {
-	if r.ExecID == "" || r.Terminal || s.agent == nil {
+	if r.ExecID == "" || s.agent == nil {
 		return nil, errdefs.ErrInvalidArgument
 	}
 	v, err := typeurl.UnmarshalAny(r.Spec)
@@ -711,7 +720,7 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 		s.mu.Unlock()
 		return nil, errdefs.ErrAlreadyExists
 	}
-	p := &process{id: r.ExecID, stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	p := &process{id: r.ExecID, stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	s.processes[r.ExecID] = p
 	s.mu.Unlock()
 	if err = s.agent.Call("ExecProcess", map[string]any{"id": r.ExecID, "root": "/bundle/rootfs", "spec": processSpec(spec)}, nil); err != nil {
@@ -772,8 +781,38 @@ func (s *service) Shutdown(context.Context, *taskapi.ShutdownRequest) (*emptypb.
 	go s.shutdown()
 	return &emptypb.Empty{}, nil
 }
-func (s *service) ResizePty(context.Context, *taskapi.ResizePtyRequest) (*emptypb.Empty, error) {
-	return nil, errdefs.ErrNotImplemented
+func (s *service) ResizePty(_ context.Context, r *taskapi.ResizePtyRequest) (*emptypb.Empty, error) {
+	if r.Width > 65535 || r.Height > 65535 {
+		return nil, fmt.Errorf("%w: terminal dimensions exceed the Linux PTY limit", errdefs.ErrInvalidArgument)
+	}
+	s.mu.Lock()
+	p, ok := s.processes[r.ExecID]
+	if !ok {
+		s.mu.Unlock()
+		return nil, errdefs.ErrNotFound
+	}
+	if !p.terminal {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	p.width, p.height, p.sizeSet = r.Width, r.Height, true
+	if p.status == tasktypes.Status_CREATED {
+		s.mu.Unlock()
+		return &emptypb.Empty{}, nil
+	}
+	if p.status != tasktypes.Status_RUNNING || s.agent == nil {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	s.mu.Unlock()
+	id := r.ExecID
+	if id == "" {
+		id = "init"
+	}
+	if err := s.agent.Call("ResizeProcess", map[string]any{"id": id, "width": r.Width, "height": r.Height}, nil); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 func (s *service) Pause(context.Context, *taskapi.PauseRequest) (*emptypb.Empty, error) {
 	return nil, errdefs.ErrNotImplemented
