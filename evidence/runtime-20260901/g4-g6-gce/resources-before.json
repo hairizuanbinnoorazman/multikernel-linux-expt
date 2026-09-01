@@ -1,0 +1,11 @@
+{
+  "creationTimestamp": "2026-08-31T08:40:40.472-07:00",
+  "labels": {
+    "autodelete": "true",
+    "purpose": "multikernel-g6-test"
+  },
+  "machineType": "https://www.googleapis.com/compute/v1/projects/${MK_PROJECT}/zones/asia-southeast1-b/machineTypes/n2-standard-16",
+  "name": "mklinux-g6-20260831",
+  "status": "RUNNING",
+  "zone": "https://www.googleapis.com/compute/v1/projects/${MK_PROJECT}/zones/asia-southeast1-b"
+}

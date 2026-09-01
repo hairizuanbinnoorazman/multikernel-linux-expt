@@ -3,7 +3,7 @@ Booting instance 'mediated-root-a' (ID: 3)...
 Connecting to console for instance 'mediated-root-a' (ID: 3)...
 Escape sequence: Ctrl+] followed by . to detach
 
-[    0.000000] Linux version 7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.new-demo-project-462517.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
+[    0.000000] Linux version 7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.${MK_PROJECT}.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
 [    0.000000] random: crng init done
 [    0.000000] KHO: disabling KHO revival
 [    0.018001] Kernel command line: rdinit=/init console=mktty0 loglevel=6 panic=-1 mk.child=child-a mk.image_id=image-child-a-v1 mk.generation=child-a-cycle-1d mk.root_uuid=352be7e6-ef7c-44d2-9f42-fe84303cddf4 mk.port=4061 mk.size=4294967296

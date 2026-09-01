@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "gate": "G6",
+  "run_id": "g4-g6-gce-mvp",
+  "result": "provisional",
+  "started_at": "2026-09-01T01:09:00Z",
+  "ended_at": "2026-09-01T01:15:00Z",
+  "repository": {
+    "commit": "708115b4e70e8be21cc9b2ea4da957eed9690dfe",
+    "dirty": true
+  },
+  "components": [
+    {
+      "name": "mkruntimed",
+      "version": "g4-g6-mvp",
+      "sha256": "5e1167e80ac3664d6d7cceb00090202ed9dfc810dafcefd6ada1fa4019da10b7"
+    },
+    {
+      "name": "containerd-shim-multikernel-v2",
+      "version": "g4-g6-mvp",
+      "sha256": "b041023ea71bc9473f370ca06409bb2ccdb391236b52644b8f19b9e9dfaec822"
+    },
+    {
+      "name": "mk-agent",
+      "version": "g4-g6-mvp",
+      "sha256": "0c90acf6b4e9ba3c5cf1ce0554a3bbd87e43c6af2ea89a1512532e0a75334b63"
+    },
+    {
+      "name": "test-runtime-g4-g6",
+      "version": "g4-g6-mvp",
+      "sha256": "6dab0692bdaa077503618b08527a1d569334503465e85652808aeeaafc95e4e6"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-g6-20260831",
+    "machine_type": "n2-standard-16",
+    "boot_id": "069e5c26-99ef-44ac-acbd-1db527a7fb74"
+  },
+  "commands": [
+    {
+      "id": "clean-pool-proof",
+      "argv": ["scripts/test-runtime-g4-g6.sh"],
+      "exit_status": 0,
+      "output_path": "g4-g6-proof-clean-pool.log"
+    },
+    {
+      "id": "name-reuse-proof",
+      "argv": ["scripts/test-runtime-g4-g6.sh"],
+      "exit_status": 0,
+      "output_path": "g4-g6-proof-repeat.log"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "distinct-child-kernels",
+      "passed": true,
+      "evidence_paths": ["g4-g6-proof-clean-pool.log", "g4-g6-proof-repeat.log"]
+    },
+    {
+      "id": "ctr-docker-lifecycle",
+      "passed": true,
+      "evidence_paths": ["g4-g6-proof-clean-pool.log", "g4-g6-proof-repeat.log"]
+    },
+    {
+      "id": "mediated-network-and-isolation",
+      "passed": true,
+      "evidence_paths": ["g4-g6-proof-clean-pool.log", "g4-g6-proof-repeat.log"]
+    },
+    {
+      "id": "runtime-resource-cleanup",
+      "passed": true,
+      "evidence_paths": ["g4-g6-environment.log"]
+    }
+  ],
+  "limitations": [
+    "The complete G4 metadata, malformed-image, quota, persistence, and recovery matrix remains open.",
+    "The G5 static mediated link has not yet been exposed through CNI ADD, CHECK, and DEL.",
+    "Docker must use --network none because the Multikernel runtime owns child networking.",
+    "G6 terminal resize and containerd or shim restart recovery remain open."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "resources-before.json",
+    "resources_after": "resources-after.json",
+    "retained_resources": [
+      "pre-existing disk mk-mediated-storage-20260830",
+      "pre-existing snapshots instance-20250614-0-asia-southeast1-a-20250614065141-36viryag, mklinux-lab-pre-daxfs-20260828-2030, and mklinux-lab-stock-20260828"
+    ],
+    "operator_acknowledged": true
+  }
+}

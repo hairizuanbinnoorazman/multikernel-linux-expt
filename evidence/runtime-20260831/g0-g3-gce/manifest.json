@@ -14,7 +14,7 @@
     "mk_agent_sha256": "75d30d24dcf27efbba9c4722d1aadb8d1ff3082eb77a5e1ce4c9aad55c2b13f7",
     "mk_agentctl_sha256": "522ef7989aa09fa5e40e9b2864e0d19555e146bf0c6b924c3e3adc43a6f79546"
   },
-  "host": {"project": "new-demo-project-462517", "zone": "asia-southeast1-b", "machine_type": "n2-standard-16", "instance": "mklinux-runtime-g0-g3"},
+  "host": {"project": "${MK_PROJECT}", "zone": "asia-southeast1-b", "machine_type": "n2-standard-16", "instance": "mklinux-runtime-g0-g3"},
   "commands": [
     {"name": "local-go-test", "result": "pass"},
     {"name": "g1-host-check", "result": "pass", "output": "g1-host-report.json"},

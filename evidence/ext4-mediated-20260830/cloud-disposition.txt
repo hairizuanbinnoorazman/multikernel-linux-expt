@@ -1,5 +1,5 @@
 Captured: 2026-08-30 after final teardown
-Project: new-demo-project-462517
+Project: ${MK_PROJECT}
 Zone: asia-southeast1-b
 
 VM_STATUS=TERMINATED

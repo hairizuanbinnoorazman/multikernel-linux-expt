@@ -36,7 +36,7 @@ Child B advanced from 1 to 2 across the repeated dual run.
 
 | Item | Value |
 | --- | --- |
-| Project / zone | `new-demo-project-462517` / `asia-southeast1-b` |
+| Project / zone | `${MK_PROJECT}` / `asia-southeast1-b` |
 | VM | `mklinux-mediated-20260830`, `n2-standard-16` |
 | Boot source | `mklinux-lab-pre-daxfs-20260828-2030` snapshot |
 | Boot disk | `mklinux-mediated-boot-20260830`, 100 GiB `pd-balanced`, auto-delete enabled |

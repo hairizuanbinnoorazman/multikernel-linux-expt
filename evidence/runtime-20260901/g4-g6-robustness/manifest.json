@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "gate": "G6",
+  "run_id": "g4-g6-gce-robustness-20260901",
+  "result": "provisional",
+  "started_at": "2026-09-01T01:25:42Z",
+  "ended_at": "2026-09-01T01:47:00Z",
+  "repository": {
+    "commit": "708115b4e70e8be21cc9b2ea4da957eed9690dfe",
+    "dirty": true
+  },
+  "components": [
+    {
+      "name": "containerd-shim-multikernel-v2",
+      "version": "robustness-follow-up",
+      "sha256": "e8faa717a42be633d91ba18c23df5a6b5b58e3045abd187f6d88853c792aa226"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-gates-20260901",
+    "machine_type": "n2-standard-16",
+    "boot_id": "2b4363d9-91b4-42a6-9f86-4a206810dcb6"
+  },
+  "commands": [
+    {"id": "containerd-restart", "argv": ["systemctl", "restart", "containerd"], "exit_status": 0, "output_path": "README.md"},
+    {"id": "mkruntimed-restart", "argv": ["systemctl", "restart", "mkruntimed"], "exit_status": 0, "output_path": "README.md"},
+    {"id": "shim-kill", "argv": ["kill", "-KILL", "23004"], "exit_status": 0, "output_path": "README.md"},
+    {"id": "enospc-injection", "argv": ["ctr", "run", "mk-enospc"], "exit_status": 1, "output_path": "README.md"},
+    {"id": "terminal-create", "argv": ["ctr", "run", "--tty", "mk-terminal-resize"], "exit_status": 2, "output_path": "README.md"}
+  ],
+  "assertions": [
+    {"id": "containerd-reconnect", "passed": true, "evidence_paths": ["README.md"]},
+    {"id": "daemon-reconnect", "passed": true, "evidence_paths": ["README.md"]},
+    {"id": "shim-safe-reclaim", "passed": true, "evidence_paths": ["README.md"]},
+    {"id": "enospc-rollback", "passed": true, "evidence_paths": ["README.md"]},
+    {"id": "shim-task-preservation", "passed": false, "evidence_paths": ["README.md"]},
+    {"id": "terminal-resize", "passed": false, "evidence_paths": ["README.md"]},
+    {"id": "cni-add-check-del", "passed": false, "evidence_paths": ["README.md"]}
+  ],
+  "limitations": [
+    "Forced shim death safely reclaims resources but does not preserve the running task.",
+    "Terminal mode and ResizePty remain unsupported.",
+    "CNI ADD, CHECK, and DEL remain unimplemented.",
+    "Only an injected builder ENOSPC point was tested; the full G4 storage matrix remains open."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "README.md",
+    "resources_after": "README.md",
+    "retained_resources": ["pre-existing snapshots and disks listed by the prior G4-G6 evidence"],
+    "operator_acknowledged": true
+  }
+}

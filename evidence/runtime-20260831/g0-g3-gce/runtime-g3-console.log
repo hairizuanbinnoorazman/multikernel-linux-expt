@@ -4,7 +4,7 @@ Connecting to console for instance 'runtime-g3' (ID: 23)...
 Escape sequence: Ctrl+] followed by . to detach
 
 [    0.000000] platform-quirks: hardware_subarch=5 (MULTIKERNEL=5)
-[    0.000000] Linux version 7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.new-demo-project-462517.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
+[    0.000000] Linux version 7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.${MK_PROJECT}.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
 [    0.000000] Command line: rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=runtime-g3 mk.generation=0123456789abcdef0123456789abcdef mk.token=[REDACTED_TEST_TOKEN] mk.agent_port=7103
 [    0.000000] KERNEL supported cpus:
 [    0.000000]   Intel GenuineIntel

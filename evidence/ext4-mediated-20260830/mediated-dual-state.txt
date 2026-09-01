@@ -37,7 +37,7 @@ Instance: mediated-root-a
     Cmdline         "rdinit=/init console=mktty0 loglevel=6 panic=-1 mk.child=child-a mk.image_id=image-child-a-v1 mk.generation=dual-a-1 mk.root_uuid=352be7e6-ef7c-44d2-9f42-fe84303cddf4 mk.port=4061 mk.size=4294967296"
     Image           /home/hairizuan-tw/src/linux/vmlinux
     Format          vmlinux (ELF)
-    Version         7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.new-demo-project-462517.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) # SMP PREEMPT 
+    Version         7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.${MK_PROJECT}.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) # SMP PREEMPT
     Initrd          /home/hairizuan-tw/multikernel-artifacts/mediated-root-a.cpio.gz (gzip compressed)
     Loaded At       2026-08-30T10:07:17+00:00
 

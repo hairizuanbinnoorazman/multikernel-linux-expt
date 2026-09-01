@@ -14,3 +14,16 @@
 Evidence captures historical state and may contain terminal formatting such as
 CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely
 to satisfy whitespace tooling.
+
+Cloud identity fields are sanitized before commit. `${MK_PROJECT}` and
+`${GCE_SERVICE_ACCOUNT}` preserve the field's meaning without publishing the
+operator's project or attached identity. To render a private working copy with
+locally configured values, use `envsubst` without overwriting retained evidence:
+
+```bash
+export MK_PROJECT=$(gcloud config get-value project)
+export GCE_SERVICE_ACCOUNT=$(gcloud compute instances describe "$MK_VM" \
+  --zone="$MK_ZONE" --format='value(serviceAccounts[0].email)')
+envsubst < evidence/runtime-20260901/g4-g6-gce/manifest.json \
+  >/tmp/g4-g6-manifest.local.json
+```

@@ -1,0 +1,43 @@
+2026-09-01T01:11:52Z
+ACCOUNT_PROJECT_ZONE
+${GCE_SERVICE_ACCOUNT}
+${MK_PROJECT}
+asia-southeast1-b
+HOST
+Linux mklinux-g6-20260831 7.0.0-mk2-gce-lab #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026 x86_64 GNU/Linux
+069e5c26-99ef-44ac-acbd-1db527a7fb74
+0-15
+VERSIONS
+kerf, version 0.2.0
+containerd github.com/containerd/containerd/v2 2.2.2 
+Client:
+  Version:  2.2.2
+  Revision: 
+  Go version: go1.24.13
+
+Server:
+  Version:  2.2.2
+  Revision: 
+  UUID: 71756327-8135-43d3-bfa1-48a24c8d662c
+29.1.3 29.1.3
+go version go1.26.0 linux/amd64
+REVISIONS
+3bdd35b64413da0b4e089ce931bfc2e8b031cbf7
+8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec
+HASHES
+5e1167e80ac3664d6d7cceb00090202ed9dfc810dafcefd6ada1fa4019da10b7  /usr/local/sbin/mkruntimed
+b041023ea71bc9473f370ca06409bb2ccdb391236b52644b8f19b9e9dfaec822  /usr/local/bin/containerd-shim-multikernel-v2
+0c90acf6b4e9ba3c5cf1ce0554a3bbd87e43c6af2ea89a1512532e0a75334b63  /usr/local/libexec/multikernel/mk-agent
+bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2  /usr/local/libexec/multikernel/mk_transport.ko
+49f286c67c820f4aee72f96eb70f1a840ec0b14a389ab37d9a4c786d7c203008  /usr/local/libexec/multikernel/build-runtime-container-initramfs.sh
+SERVICES
+active
+active
+active
+FINAL_INSTANCES
+FINAL_CONTAINERD
+CONTAINER    IMAGE    RUNTIME    
+TASK    PID    STATUS    
+FINAL_DOCKER
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+FINAL_NETWORK

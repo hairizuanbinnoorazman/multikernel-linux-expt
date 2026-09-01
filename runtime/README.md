@@ -1,10 +1,12 @@
 # Runtime workspace
 
-This directory contains the G0-G3 Multikernel runtime implementation described
+This directory contains the G0-G6 Multikernel runtime MVP described
 in [`../docs/runtime/architecture.md`](../docs/runtime/architecture.md). Host
 qualification, the recoverable Kerf control plane, and the minimal child OCI
-agent passed locally and on GCE. Storage, networking, and containerd integration
-remain G4-G6 work.
+agent passed locally and on GCE. A private OCI-root initramfs, authenticated
+primary-mediated TUN networking, and the containerd Runtime v2 shim also passed
+the G4-G6 happy-path proof through both `ctr` and Docker. The broader gate
+failure/recovery matrices remain open.
 
 ## Intended layout
 
@@ -52,6 +54,7 @@ packages.
 GOCACHE=/tmp/mk-go-cache go test ./...
 GOCACHE=/tmp/mk-go-cache go vet ./...
 CGO_ENABLED=0 go build ./cmd/mk-agent
+sudo ../scripts/test-runtime-g4-g6.sh # qualified, configured GCE host only
 ```
 
 The GCE scripts are explicit, billable tests under `../scripts/test-runtime-g*.sh`.

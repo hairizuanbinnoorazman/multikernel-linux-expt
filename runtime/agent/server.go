@@ -89,6 +89,17 @@ func (s *Server) Dispatch(e Envelope) Reply {
 		} else if x = s.Manager.Create(q.ID, q.Bundle); x != nil {
 			r.Error = x.Error()
 		}
+	case "ExecProcess":
+		var q struct {
+			ID   string      `json:"id"`
+			Root string      `json:"root"`
+			Spec ProcessSpec `json:"spec"`
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if x = s.Manager.Exec(q.ID, q.Root, q.Spec); x != nil {
+			r.Error = x.Error()
+		}
 	case "StartProcess":
 		var q struct{ ID string }
 		if x := decode(e.Body, &q); x != nil {
@@ -114,6 +125,41 @@ func (s *Server) Dispatch(e Envelope) Reply {
 		} else {
 			r.Body = st
 		}
+	case "StateProcess":
+		var q struct {
+			ID string `json:"id"`
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if st, x := s.Manager.State(q.ID); x != nil {
+			r.Error = x.Error()
+		} else {
+			r.Body = st
+		}
+	case "ConfigureNetwork":
+		var q struct {
+			Name, Address, Gateway string
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if x = s.Manager.ConfigureNetwork(q.Name, q.Address, q.Gateway); x != nil {
+			r.Error = x.Error()
+		}
+	case "ExchangeNetwork":
+		var q struct {
+			Packet []byte `json:"packet,omitempty"`
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if packet, x := s.Manager.ExchangeNetwork(q.Packet); x != nil {
+			r.Error = x.Error()
+		} else {
+			r.Body = map[string][]byte{"packet": packet}
+		}
+	case "CloseNetwork":
+		if x := s.Manager.CloseNetwork(); x != nil {
+			r.Error = x.Error()
+		}
 	case "DeleteProcess":
 		var q struct{ ID string }
 		if x := decode(e.Body, &q); x != nil {
@@ -122,7 +168,11 @@ func (s *Server) Dispatch(e Envelope) Reply {
 			r.Error = x.Error()
 		}
 	case "Shutdown":
-		r.Body = map[string]string{"status": "quiesced"}
+		if !s.Manager.Quiescent() {
+			r.Error = "managed processes are still running"
+		} else {
+			r.Body = map[string]string{"status": "quiesced"}
+		}
 	default:
 		r.Error = "unsupported method"
 	}

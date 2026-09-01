@@ -2,7 +2,7 @@
 
 ## Run identity
 
-- Project: `new-demo-project-462517`
+- Project: `${MK_PROJECT}`
 - Instance: `mklinux-runtime-g0-g3`
 - Zone/type: `asia-southeast1-b`, `n2-standard-16`
 - Boot source: `mklinux-lab-pre-daxfs-20260828-2030`

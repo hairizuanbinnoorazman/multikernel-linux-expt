@@ -1,5 +1,5 @@
 Cleanup verified: 2026-08-30
-Project: new-demo-project-462517
+Project: ${MK_PROJECT}
 Region/zone used: asia-southeast1 / asia-southeast1-b
 
 Deleted resources:
