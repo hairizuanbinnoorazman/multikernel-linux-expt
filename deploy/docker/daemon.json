@@ -1,0 +1,7 @@
+{
+  "runtimes": {
+    "io.containerd.multikernel.v2": {
+      "runtimeType": "io.containerd.multikernel.v2"
+    }
+  }
+}

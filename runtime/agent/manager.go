@@ -13,6 +13,9 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 type User struct {
@@ -74,6 +77,7 @@ type process struct {
 type Manager struct {
 	mu        sync.Mutex
 	processes map[string]*process
+	network   *os.File
 	NoChroot  bool
 }
 
@@ -174,6 +178,28 @@ func (m *Manager) Create(id, bundle string) error {
 	m.processes[id] = &process{spec: c.Process, root: root, done: make(chan struct{}), state: ProcessState{ID: id, Status: "CREATED"}}
 	return nil
 }
+
+// Exec creates an additional process in an existing container root. The caller
+// supplies the already validated root because exec requests carry an OCI
+// process, not a second OCI bundle.
+func (m *Manager) Exec(id, root string, spec ProcessSpec) error {
+	if !validProcessID(id) {
+		return errors.New("invalid process ID")
+	}
+	if !filepath.IsAbs(root) {
+		return errors.New("root must be absolute")
+	}
+	if len(spec.Args) == 0 || spec.Terminal || spec.NoNewPrivileges || len(spec.Rlimits) > 0 || len(spec.Capabilities) > 0 {
+		return errors.New("unsupported exec process configuration")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.processes[id]; ok {
+		return errors.New("process exists")
+	}
+	m.processes[id] = &process{spec: spec, root: root, done: make(chan struct{}), state: ProcessState{ID: id, Status: "CREATED"}}
+	return nil
+}
 func envList(v []string) error {
 	for _, x := range v {
 		p := strings.IndexByte(x, '=')
@@ -240,7 +266,11 @@ func (m *Manager) wait(p *process) {
 	if e != nil {
 		var x *exec.ExitError
 		if errors.As(e, &x) {
-			code = x.ExitCode()
+			if status, ok := x.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+				code = 128 + int(status.Signal())
+			} else {
+				code = x.ExitCode()
+			}
 		} else {
 			code = 255
 		}
@@ -260,7 +290,18 @@ func (m *Manager) Signal(id string, sig syscall.Signal) error {
 	if !ok || p.cmd == nil || p.state.Status != "RUNNING" {
 		return errors.New("process is not running")
 	}
-	return p.cmd.Process.Signal(sig)
+	return syscall.Kill(-p.cmd.Process.Pid, sig)
+}
+
+func (m *Manager) Quiescent() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, p := range m.processes {
+		if p.state.Status == "RUNNING" {
+			return false
+		}
+	}
+	return true
 }
 func (m *Manager) Wait(id string) (ProcessState, error) {
 	m.mu.Lock()
@@ -304,6 +345,104 @@ func (m *Manager) Delete(id string) error {
 	}
 	delete(m.processes, id)
 	return nil
+}
+
+const (
+	tunSetIFF = 0x400454ca
+	iffTun    = 0x0001
+	iffNoPI   = 0x1000
+)
+
+// ConfigureNetwork creates the child side of the primary-mediated point to
+// point link. Packets share the authenticated agent channel because the
+// pinned Multikernel VSOCK transport cannot sustain a second stream.
+func (m *Manager) ConfigureNetwork(name, address, gateway string) error {
+	if name == "" || address == "" || gateway == "" {
+		return errors.New("network name, address, and gateway are required")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.network != nil {
+		return errors.New("network is already configured")
+	}
+	f, err := os.OpenFile("/dev/net/tun", os.O_RDWR|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return err
+	}
+	request, err := unix.NewIfreq(name)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	request.SetUint16(iffTun | iffNoPI)
+	if err = unix.IoctlIfreq(int(f.Fd()), tunSetIFF, request); err != nil {
+		f.Close()
+		return err
+	}
+	commands := [][]string{
+		{"address", "add", address, "dev", name},
+		{"link", "set", name, "mtu", "1400", "up"},
+		{"route", "add", "default", "via", gateway, "dev", name},
+	}
+	for _, args := range commands {
+		if output, commandErr := exec.Command("/bin/ip", args...).CombinedOutput(); commandErr != nil {
+			f.Close()
+			return fmt.Errorf("ip %s: %w: %s", strings.Join(args, " "), commandErr, strings.TrimSpace(string(output)))
+		}
+	}
+	if err = os.Remove("/bundle/rootfs/etc/resolv.conf"); err != nil && !errors.Is(err, os.ErrNotExist) {
+		f.Close()
+		return err
+	}
+	if err = os.WriteFile("/bundle/rootfs/etc/resolv.conf", []byte("nameserver 8.8.8.8\n"), 0644); err != nil {
+		f.Close()
+		return err
+	}
+	m.network = f
+	return nil
+}
+
+// ExchangeNetwork injects at most one primary packet and returns at most one
+// child packet. The short deadline keeps lifecycle RPCs responsive.
+func (m *Manager) ExchangeNetwork(packet []byte) ([]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.network == nil {
+		return nil, errors.New("network is not configured")
+	}
+	if len(packet) > 65535 {
+		return nil, errors.New("network packet is too large")
+	}
+	if len(packet) != 0 {
+		if _, err := unix.Write(int(m.network.Fd()), packet); err != nil {
+			return nil, err
+		}
+	}
+	out := make([]byte, 65535)
+	for deadline := time.Now().Add(2 * time.Millisecond); ; {
+		n, err := unix.Read(int(m.network.Fd()), out)
+		if err == nil {
+			return out[:n], nil
+		}
+		if !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
+			return nil, err
+		}
+		if time.Now().After(deadline) {
+			return nil, nil
+		}
+		time.Sleep(100 * time.Microsecond)
+	}
+}
+
+func (m *Manager) CloseNetwork() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.network == nil {
+		return nil
+	}
+	err := m.network.Close()
+	m.network = nil
+	return err
 }
 func SignalNumber(s string) (syscall.Signal, error) {
 	if n, e := strconv.Atoi(s); e == nil && n > 0 && n < 65 {

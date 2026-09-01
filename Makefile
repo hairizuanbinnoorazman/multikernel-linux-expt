@@ -13,7 +13,7 @@ REMOTE_LAB ?= multikernel-linux-lab
 GCLOUD = gcloud compute
 SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 
-.PHONY: help docs-check runtime-test runtime-build check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
+.PHONY: help docs-check runtime-test runtime-build runtime-g4-g6-test check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
 	ssh serial snapshot sync provision-kernel reboot verify-host install-kerf \
 	smoke-up smoke-status smoke-down daxfs-build daxfs-up daxfs-status \
 	daxfs-down daxfs-dual-kernel-proof collect-logs disk-roots-create \
@@ -26,15 +26,19 @@ help: ## Show available targets.
 docs-check: ## Validate local Markdown links and required runtime-plan structure.
 	bash scripts/check-docs.sh
 
-runtime-test: ## Run unprivileged G0-G3 unit and contract tests.
+runtime-test: ## Run unprivileged runtime unit and contract tests.
 	cd runtime && GOCACHE=/tmp/mk-go-cache go test ./...
 
-runtime-build: ## Build static G0-G3 runtime binaries locally.
+runtime-build: ## Build static runtime binaries locally.
 	mkdir -p runtime/bin
 	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-host-check ./cmd/mk-host-check
 	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mkruntimed ./cmd/mkruntimed
 	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-agent ./cmd/mk-agent
 	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-agentctl ./cmd/mk-agentctl
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/containerd-shim-multikernel-v2 ./cmd/containerd-shim-multikernel-v2
+
+runtime-g4-g6-test: ## Run privileged ctr/Docker per-kernel proof on a configured host.
+	bash scripts/test-runtime-g4-g6.sh
 
 check-project:
 	@test -n "$(PROJECT)" && test "$(PROJECT)" != "(unset)" || { \
@@ -91,7 +95,7 @@ snapshot: ## Snapshot the current boot disk as a recovery point.
 
 sync: ## Copy the verified remote scripts and child init into the VM.
 	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/guest ~/$(REMOTE_LAB)/scripts ~/$(REMOTE_LAB)/tools'
-	$(GCLOUD) scp guest/init guest/daxfs-bootstrap-init guest/ext4-bootstrap-init \
+	$(GCLOUD) scp guest/init guest/mk-agent-init guest/daxfs-bootstrap-init guest/ext4-bootstrap-init \
 		guest/mediated-transport-init guest/mediated-root-bootstrap-init \
 		guest/mediated-disk-root-init \
 		guest/daxfs-proof.sh \

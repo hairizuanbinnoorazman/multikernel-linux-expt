@@ -2,8 +2,8 @@
 
 This repository validates Multikernel Linux on Google Compute Engine and uses
 those results as the foundation for a Kerf-backed containerd/Kubernetes
-runtime. The current runtime tree contains design contracts and staged plans;
-the runtime itself has not yet been implemented.
+runtime. The runtime tree now contains a live-tested MVP control plane, child
+agent, primary-mediated network, and containerd Runtime v2 shim.
 
 ## What has been proven
 
@@ -13,7 +13,7 @@ the runtime itself has not yet been implemented.
 | DAXFS roots | DAXFS and Docker-derived roots passed; shared writable coherence failed | [DAXFS report](docs/experiments/daxfs/report.md) |
 | Direct ext4 devices | Rejected because child and boot disks share one allocatable controller | [Direct ext4 experiment](docs/experiments/ext4-direct/README.md) |
 | Mediated ext4 roots | Two isolated persistent child roots passed while the primary retained every controller | [Mediated ext4 report](docs/experiments/ext4-mediated/report.md) |
-| Container runtime | Architecture and G0–G10 roadmap defined; implementation pending | [Runtime roadmap](docs/runtime/plans/README.md) |
+| Container runtime | G4-G6 MVP path passed concurrently through `ctr` and Docker with one child kernel per container; full gate matrices remain open | [G4-G6 MVP report](docs/runtime/learnings/04-g4-g6-mvp.md) |
 
 The final experimental VM and its auto-delete boot disk were deleted. No GCE
 instances remain. The 20 GiB mediated-storage disk was intentionally retained
@@ -47,7 +47,7 @@ docs/
 ├── guides/        reproducible operational procedures
 ├── project/       task and project tracking
 └── runtime/       architecture, decisions, research, and future plans
-runtime/           future daemon, shim, agent, protocol, and test packages
+runtime/           daemon, Runtime v2 shim, child agent, protocol, and tests
 scripts/           verified host and GCE experiment automation
 guest/             child init and proof programs
 tools/             Multikernel VSOCK/NBD helpers

@@ -93,6 +93,22 @@ func (c *CLI) Create(ctx context.Context, s protocol.Sandbox) error {
 	return err
 }
 func (c *CLI) Load(ctx context.Context, s protocol.Sandbox, kernel, initrd, cmdline string) error {
+	runtimeDir := filepath.Join(s.Config.Bundle, ".multikernel")
+	if b, err := os.ReadFile(filepath.Join(runtimeDir, "initramfs.path")); err == nil {
+		candidate := strings.TrimSpace(string(b))
+		if !filepath.IsAbs(candidate) {
+			return errors.New("runtime initramfs path must be absolute")
+		}
+		initrd = candidate
+	}
+	if b, err := os.ReadFile(filepath.Join(runtimeDir, "token")); err == nil {
+		token := strings.TrimSpace(string(b))
+		if len(token) != 64 {
+			return errors.New("invalid runtime agent token")
+		}
+		cmdline += " mk.sandbox_id=" + s.ID + " mk.generation=" + s.Generation +
+			" mk.token=" + token + " mk.agent_port=" + strconv.FormatUint(uint64(s.Config.AgentPort), 10)
+	}
 	return c.run(ctx, "load", s.ID, "--kernel="+kernel, "--initrd="+initrd, "--cmdline="+cmdline, "--verbose")
 }
 func (c *CLI) Start(ctx context.Context, s protocol.Sandbox) error {

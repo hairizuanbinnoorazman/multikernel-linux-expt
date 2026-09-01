@@ -151,8 +151,20 @@ The detailed exit criteria and ordering are in
   before treating the four historical milestone passes as full conformance to
   their plans and frozen contracts.
 - [ ] G4: provide deterministic OCI images and safe single-owner storage.
+  - [x] MVP: consume containerd/Docker-prepared BusyBox roots without mutating
+    their snapshots, create a private per-sandbox initramfs, and prove cleanup.
 - [ ] G5: provide primary-mediated CNI-compatible networking.
+  - [x] MVP: provide isolated static `/30` TUN links, primary NAT, DNS and
+    outbound HTTP without assigning the GCE NIC to a child.
+  - [ ] Add normal CNI `ADD`, `CHECK`, and `DEL` operations.
 - [ ] G6: pass containerd Runtime v2 lifecycle tests through `ctr`.
+  - [x] MVP: pass concurrent `ctr` and Docker create/start/exec/signal/wait/
+    delete with distinct child-kernel boot IDs and leak-free teardown.
+  - [x] Preserve the running child and boot identity across containerd and
+    `mkruntimed` restarts.
+  - [x] Reclaim the child, TUN, and iptables state after forced shim death.
+  - [ ] Preserve/reconnect the running task after forced shim death.
+  - [ ] Implement terminal mode and terminal resize.
 - [ ] G7: run a multi-container Kubernetes pod through `RuntimeClass`.
 - [ ] G8: pass the security, fuzzing, failure, and resource-leak matrix.
 - [ ] G9: publish reproducible performance and density comparisons.

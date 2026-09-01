@@ -6,6 +6,10 @@ mount -t devtmpfs devtmpfs /dev || true
 mount -t proc proc /proc || true
 mount -t sysfs sysfs /sys || true
 mount -t cgroup2 none /sys/fs/cgroup || true
+mkdir -p /bundle/rootfs/dev /bundle/rootfs/proc /bundle/rootfs/sys /bundle/rootfs/tmp
+mount --bind /dev /bundle/rootfs/dev || true
+mount --bind /proc /bundle/rootfs/proc || true
+mount --bind /sys /bundle/rootfs/sys || true
 if [ -f /mk_transport.ko ]; then
 	insmod /mk_transport.ko
 fi
@@ -34,4 +38,9 @@ echo "MK_AGENT_START sandbox=$sandbox_id generation=$generation port=$port"
 agent_pid=$!
 /mkvsock-relay client 0 "$port" /tmp/mk-agent.sock
 wait "$agent_pid"
-poweroff -f
+# The pinned Multikernel child must not invoke the platform poweroff path: on
+# the tested GCE host that can reset the primary kernel as well. Once the
+# authenticated agent session is quiescent, remain idle until mkruntimed uses
+# Kerf's child-scoped stop/delete sequence.
+echo MK_AGENT_QUIESCED
+exec sh -c 'while true; do sleep 3600; done'

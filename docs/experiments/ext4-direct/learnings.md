@@ -26,7 +26,7 @@ controller that also owns the live boot disk. It was not attempted.
 
 ## Cloud resources created
 
-- Project: `new-demo-project-462517`.
+- Project: `${MK_PROJECT}`.
 - Zone: `asia-southeast1-b`.
 - Instance: `mklinux-lab`, `n2-standard-16`, restored from snapshot
   `mklinux-lab-pre-daxfs-20260828-2030`.

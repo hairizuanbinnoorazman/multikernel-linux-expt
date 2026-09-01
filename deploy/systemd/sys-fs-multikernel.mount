@@ -1,0 +1,11 @@
+[Unit]
+Description=Multikernel control filesystem
+Before=mkruntimed.service
+
+[Mount]
+What=none
+Where=/sys/fs/multikernel
+Type=multikernel
+
+[Install]
+WantedBy=multi-user.target

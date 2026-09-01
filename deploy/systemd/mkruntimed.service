@@ -1,0 +1,18 @@
+[Unit]
+Description=Multikernel container runtime control plane
+Requires=sys-fs-multikernel.mount
+After=local-fs.target sys-fs-multikernel.mount
+Before=containerd.service docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/multikernel/runtime.env
+ExecStartPre=/sbin/modprobe vsock
+ExecStartPre=-/sbin/insmod /usr/local/libexec/multikernel/mk_transport.ko
+ExecStartPre=/usr/bin/test -d /sys/module/mk_transport
+ExecStart=/usr/local/sbin/mkruntimed --socket=/run/mkruntimed.sock --state-dir=/var/lib/mkruntime --kerf=${MKRUNTIME_KERF} --backend-timeout=${MKRUNTIME_BACKEND_TIMEOUT} --pool-cpus=${MKRUNTIME_POOL_CPUS} --pool-memory=${MKRUNTIME_POOL_MEMORY} --kernel=${MKRUNTIME_KERNEL} "--cmdline=${MKRUNTIME_CMDLINE}"
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target

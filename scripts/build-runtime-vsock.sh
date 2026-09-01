@@ -13,7 +13,12 @@ elif ! git apply --reverse --check "$patch" 2>/dev/null; then
 	exit 1
 fi
 scripts/config --module MULTIKERNEL_VSOCKETS
-make olddefconfig
-make -j"$(nproc)" net/vmw_vsock/mk_transport.ko
+# Applying the pinned out-of-tree safety patch makes the source worktree dirty.
+# Do not let CONFIG_LOCALVERSION_AUTO append "-dirty" and produce a module
+# that the already-running, otherwise identical kernel refuses to load.
+scripts/config --disable LOCALVERSION_AUTO
+make LOCALVERSION= olddefconfig
+make LOCALVERSION= -j"$(nproc)" net/vmw_vsock/mk_transport.ko
+test "$(make LOCALVERSION= -s kernelrelease)" = "$(uname -r)"
 modinfo net/vmw_vsock/mk_transport.ko | grep -E '^(filename|vermagic):'
 sha256sum net/vmw_vsock/mk_transport.ko
