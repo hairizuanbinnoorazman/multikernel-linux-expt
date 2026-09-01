@@ -1,6 +1,6 @@
 # Implementation tasks
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
 
 ## Live GCE proof
 
@@ -163,8 +163,14 @@ The detailed exit criteria and ordering are in
   - [x] Preserve the running child and boot identity across containerd and
     `mkruntimed` restarts.
   - [x] Reclaim the child, TUN, and iptables state after forced shim death.
+  - [x] Pass and retain a command-by-command shared `ctr`/Docker feature
+    matrix covering every currently supported lifecycle, root, network,
+    restart, name-reuse, and cleanup path.
   - [ ] Preserve/reconnect the running task after forced shim death.
-  - [ ] Implement terminal mode and terminal resize.
+  - [x] Implement child PTY terminal mode and Task v2 terminal resize, including
+    resize requests received before process start.
+  - [ ] Revalidate terminal mode and resize through `ctr` and Docker on a
+    disposable qualified Multikernel host.
 - [ ] G7: run a multi-container Kubernetes pod through `RuntimeClass`.
 - [ ] G8: pass the security, fuzzing, failure, and resource-leak matrix.
 - [ ] G9: publish reproducible performance and density comparisons.

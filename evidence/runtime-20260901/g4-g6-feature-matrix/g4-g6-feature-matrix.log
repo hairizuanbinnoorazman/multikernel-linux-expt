@@ -1,0 +1,17 @@
+FEATURE_MATRIX_PASS feature=image-pull-and-inspect ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=split-create-and-start ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=state-and-inspect ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=exec-and-distinct-kernel-identity ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=exec-stdout-and-stderr ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=private-writable-root ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=primary-mediated-network ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=cross-sandbox-network-isolation ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=runtime-daemon-restart-continuity ctr=PASS docker=PASS
+FEATURE_MATRIX_UNSUPPORTED feature=pause-resume ctr=REJECTED docker=REJECTED
+FEATURE_MATRIX_PASS feature=signal-and-exit-observation ctr=PASS docker=PASS
+time="2026-09-01T12:30:22Z" level=warning msg="task mk-matrix-ctr exit with non-zero exit code 42"
+FEATURE_MATRIX_PASS feature=delete-and-resource-cleanup ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=foreground-wait-stdio-and-nonzero-exit ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=name-reuse ctr=PASS docker=PASS
+FEATURE_MATRIX_UNSUPPORTED feature=terminal-and-resize ctr=REJECTED docker=REJECTED
+G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS

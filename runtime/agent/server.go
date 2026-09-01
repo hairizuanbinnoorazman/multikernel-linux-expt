@@ -81,7 +81,7 @@ func (s *Server) Dispatch(e Envelope) Reply {
 	}
 	switch e.Method {
 	case "Capabilities":
-		r.Body = map[string]any{"protocol": 1, "oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code"}}
+		r.Body = map[string]any{"protocol": 1, "oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "terminal", "terminal-resize"}}
 	case "CreateProcess":
 		var q struct{ ID, Bundle string }
 		if x := decode(e.Body, &q); x != nil {
@@ -101,10 +101,15 @@ func (s *Server) Dispatch(e Envelope) Reply {
 			r.Error = x.Error()
 		}
 	case "StartProcess":
-		var q struct{ ID string }
+		var q struct {
+			ID          string `json:"id"`
+			Width       uint32 `json:"width,omitempty"`
+			Height      uint32 `json:"height,omitempty"`
+			InitialSize bool   `json:"initial_size,omitempty"`
+		}
 		if x := decode(e.Body, &q); x != nil {
 			r.Error = x.Error()
-		} else if x = s.Manager.Start(q.ID); x != nil {
+		} else if x = s.Manager.StartWithSize(q.ID, q.Width, q.Height, q.InitialSize); x != nil {
 			r.Error = x.Error()
 		}
 	case "SignalProcess":
@@ -114,6 +119,17 @@ func (s *Server) Dispatch(e Envelope) Reply {
 		} else if sig, x := SignalNumber(q.Signal); x != nil {
 			r.Error = x.Error()
 		} else if x = s.Manager.Signal(q.ID, sig); x != nil {
+			r.Error = x.Error()
+		}
+	case "ResizeProcess":
+		var q struct {
+			ID     string `json:"id"`
+			Width  uint32 `json:"width"`
+			Height uint32 `json:"height"`
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if x = s.Manager.Resize(q.ID, q.Width, q.Height); x != nil {
 			r.Error = x.Error()
 		}
 	case "WaitProcess":

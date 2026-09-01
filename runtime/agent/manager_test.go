@@ -2,10 +2,14 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func bundle(t *testing.T, args []string, extra string) string {
@@ -34,9 +38,49 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("MK_AGENT_HELPER") != "1" {
 		return
 	}
+	if os.Getenv("MK_AGENT_TERMINAL_HELPER") == "1" {
+		time.Sleep(100 * time.Millisecond)
+		ws, err := unix.IoctlGetWinsize(int(os.Stdin.Fd()), unix.TIOCGWINSZ)
+		if err != nil {
+			os.Exit(99)
+		}
+		fmt.Printf("terminal-size=%dx%d", ws.Col, ws.Row)
+		return
+	}
 	os.Stdout.WriteString("stdout-ok")
 	os.Stderr.WriteString("stderr-ok")
 	os.Exit(17)
+}
+
+func TestTerminalAndResize(t *testing.T) {
+	m := NewManager(true)
+	b := bundle(t, []string{"/probe", "-test.run=TestHelperProcess"}, "")
+	c, _, err := LoadBundle(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Process.Terminal = true
+	c.Process.Env = []string{"MK_AGENT_HELPER=1", "MK_AGENT_TERMINAL_HELPER=1"}
+	raw, _ := json.Marshal(c)
+	if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Create("tty", b); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.StartWithSize("tty", 80, 24, true); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Resize("tty", 91, 37); err != nil {
+		t.Fatal(err)
+	}
+	state, err := m.Wait("tty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.ExitCode != 0 || !strings.Contains(state.Stdout, "terminal-size=91x37") || state.Stderr != "" {
+		t.Fatalf("terminal state: %+v", state)
+	}
 }
 func TestLifecycle(t *testing.T) {
 	m := NewManager(true)

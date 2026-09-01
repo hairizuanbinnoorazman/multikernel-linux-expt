@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/containerd/console"
 	"golang.org/x/sys/unix"
 )
 
@@ -70,7 +71,9 @@ type process struct {
 	spec           ProcessSpec
 	root           string
 	cmd            *exec.Cmd
+	terminal       console.Console
 	stdout, stderr bytes.Buffer
+	outputDone     chan struct{}
 	done           chan struct{}
 	state          ProcessState
 }
@@ -112,9 +115,6 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 	}
 	if len(c.Process.Args) == 0 {
 		return c, "", errors.New("process.args is required")
-	}
-	if c.Process.Terminal {
-		return c, "", errors.New("terminal is unsupported")
 	}
 	if c.Process.NoNewPrivileges {
 		return c, "", errors.New("noNewPrivileges is not implemented")
@@ -189,7 +189,7 @@ func (m *Manager) Exec(id, root string, spec ProcessSpec) error {
 	if !filepath.IsAbs(root) {
 		return errors.New("root must be absolute")
 	}
-	if len(spec.Args) == 0 || spec.Terminal || spec.NoNewPrivileges || len(spec.Rlimits) > 0 || len(spec.Capabilities) > 0 {
+	if len(spec.Args) == 0 || spec.NoNewPrivileges || len(spec.Rlimits) > 0 || len(spec.Capabilities) > 0 {
 		return errors.New("unsupported exec process configuration")
 	}
 	m.mu.Lock()
@@ -211,6 +211,13 @@ func envList(v []string) error {
 }
 func gids(v []uint32) []uint32 { r := make([]uint32, len(v)); copy(r, v); return r }
 func (m *Manager) Start(id string) error {
+	return m.StartWithSize(id, 0, 0, false)
+}
+
+func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) error {
+	if width > 65535 || height > 65535 {
+		return errors.New("terminal dimensions exceed the Linux PTY limit")
+	}
 	m.mu.Lock()
 	p, ok := m.processes[id]
 	if !ok {
@@ -237,8 +244,6 @@ func (m *Manager) Start(id string) error {
 	cmd := exec.Command(exe, p.spec.Args[1:]...)
 	cmd.Env = append([]string(nil), p.spec.Env...)
 	cmd.Dir = p.spec.Cwd
-	cmd.Stdout = &p.stdout
-	cmd.Stderr = &p.stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if !m.NoChroot {
 		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: p.spec.User.UID, Gid: p.spec.User.GID, Groups: gids(p.spec.User.AdditionalGids), NoSetGroups: false}
@@ -249,9 +254,62 @@ func (m *Manager) Start(id string) error {
 			cmd.Dir = filepath.Join(p.root, p.spec.Cwd)
 		}
 	}
+	var slave *os.File
+	if p.spec.Terminal {
+		var slavePath string
+		var err error
+		p.terminal, slavePath, err = console.NewPty()
+		if err != nil {
+			m.mu.Unlock()
+			return err
+		}
+		slave, err = os.OpenFile(slavePath, os.O_RDWR, 0)
+		if err != nil {
+			p.terminal.Close()
+			p.terminal = nil
+			m.mu.Unlock()
+			return err
+		}
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
+		cmd.SysProcAttr.Setpgid = false
+		cmd.SysProcAttr.Setsid = true
+		cmd.SysProcAttr.Setctty = true
+		cmd.SysProcAttr.Ctty = 0
+		p.outputDone = make(chan struct{})
+		if sizeSet {
+			if err = p.terminal.Resize(console.WinSize{Width: uint16(width), Height: uint16(height)}); err != nil {
+				slave.Close()
+				p.terminal.Close()
+				p.terminal = nil
+				m.mu.Unlock()
+				return err
+			}
+		}
+	} else {
+		if sizeSet {
+			m.mu.Unlock()
+			return errors.New("cannot size a process without a terminal")
+		}
+		cmd.Stdout = &p.stdout
+		cmd.Stderr = &p.stderr
+	}
 	if e := cmd.Start(); e != nil {
+		if slave != nil {
+			slave.Close()
+		}
+		if p.terminal != nil {
+			p.terminal.Close()
+			p.terminal = nil
+		}
 		m.mu.Unlock()
 		return e
+	}
+	if slave != nil {
+		slave.Close()
+		go func() {
+			_, _ = io.Copy(&p.stdout, p.terminal)
+			close(p.outputDone)
+		}()
 	}
 	p.cmd = cmd
 	p.state.Status = "RUNNING"
@@ -262,6 +320,9 @@ func (m *Manager) Start(id string) error {
 }
 func (m *Manager) wait(p *process) {
 	e := p.cmd.Wait()
+	if p.outputDone != nil {
+		<-p.outputDone
+	}
 	code := 0
 	if e != nil {
 		var x *exec.ExitError
@@ -276,12 +337,32 @@ func (m *Manager) wait(p *process) {
 		}
 	}
 	m.mu.Lock()
+	if p.terminal != nil {
+		_ = p.terminal.Close()
+	}
 	p.state.Status = "STOPPED"
 	p.state.ExitCode = code
 	p.state.Stdout = p.stdout.String()
 	p.state.Stderr = p.stderr.String()
+	p.terminal = nil
 	close(p.done)
 	m.mu.Unlock()
+}
+
+func (m *Manager) Resize(id string, width, height uint32) error {
+	if width > 65535 || height > 65535 {
+		return errors.New("terminal dimensions exceed the Linux PTY limit")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p, ok := m.processes[id]
+	if !ok || p.state.Status != "RUNNING" {
+		return errors.New("process is not running")
+	}
+	if p.terminal == nil {
+		return errors.New("process has no terminal")
+	}
+	return p.terminal.Resize(console.WinSize{Width: uint16(width), Height: uint16(height)})
 }
 func (m *Manager) Signal(id string, sig syscall.Signal) error {
 	m.mu.Lock()

@@ -35,8 +35,9 @@ explicit image pulls now cover these conditions.
 
 ## Remaining formal failures
 
-- Terminal task creation is rejected before child allocation. Consequently
-  terminal resize cannot yet be exercised and remains unsupported.
+- On the robustness-test build, terminal task creation was rejected before
+  child allocation. Consequently terminal resize could not be exercised in
+  that retained live run.
 - Forced shim death now has bounded, leak-free safe reclaim, but the running
   task is not reconstructed or reconnected. Safe reclaim is not equivalent to
   the G6 reconnect requirement.
@@ -49,3 +50,51 @@ explicit image pulls now cover these conditions.
 The final inventory contained no Multikernel instances, containerd tasks or
 containers, Docker containers, `mkn*` links, Multikernel NAT/forwarding rules,
 or temporary systemd environment overrides.
+
+## Shared `ctr` and Docker feature matrix
+
+On 2026-09-01, a new disposable `n2-standard-16` instance,
+`mklinux-g4-g6-matrix-20260901`, was restored from the qualified pre-DAXFS
+snapshot and rebuilt from repository commit
+`5e9fe33b7d54273c987fd21673f34ccde2121018` plus the working-tree matrix
+harness. The host qualification report passed before the runtime was used.
+
+The executable matrix then passed through both clients:
+
+- image pull/inspection, combined foreground run, and split create/start;
+- state inspection, exec, stdout/stderr, blocking wait, and nonzero exit;
+- TERM, exit observation, deletion, full resource return, and two clean
+  same-name reuse cycles;
+- distinct child-kernel identity, private writable roots, outbound DNS/HTTP,
+  and bidirectional sibling-link isolation; and
+- `mkruntimed` restart while both clients' workloads remained live, preserving
+  both child boot IDs.
+
+Terminal/resize and pause/resume were also invoked through both clients and
+rejected while leaving no resources behind. Those are confirmed unsupported
+paths, not passes. Task `Stats`, `Update`, and `Checkpoint`, guest stdin/attach,
+faithful guest PIDs, full OCI controls, CNI, and shim-crash task reconnection
+remain unimplemented or partial. Containerd 2.2.2 does not expose a standalone
+`ctr tasks wait`; the blocking `ctr run` path exercised Task `Wait`, while
+Docker was additionally checked with `docker wait`.
+
+The exact command mapping is kept in the [top-level feature matrix](../../../README.md#g4-g6-ctr-and-docker-feature-matrix).
+Raw proof, component hashes, image digest, qualified-host report, and the final
+clean inventory are indexed in the
+[feature-matrix evidence](../../../evidence/runtime-20260901/g4-g6-feature-matrix/README.md).
+This expands the proved G4-G6 surface but does not close the full gates.
+
+## Post-matrix terminal implementation
+
+After the disposable matrix host was deleted, the child agent gained a real
+PTY path for init and exec processes and a validated `ResizeProcess` operation.
+The Runtime v2 shim now accepts terminal tasks, forwards `ResizePty`, and
+retains an initial window size sent before process start. Terminal execution,
+combined terminal output, live resize, invalid-size rejection, and pre-start
+resize retention pass local unit tests and the Go race detector.
+
+This is implemented-but-not-live-revalidated status. The retained GCE
+transcript correctly records rejection by the older build, while the evolving
+feature-matrix harness now expects successful terminal execution on its next
+qualified disposable-host run. Guest stdin/attach remains separate and is
+still unimplemented.

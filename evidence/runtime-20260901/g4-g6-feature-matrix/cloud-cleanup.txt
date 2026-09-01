@@ -1,0 +1,13 @@
+2026-09-01
+
+Before deletion:
+NAME                           STATUS   SOURCE                          BOOT  AUTO_DELETE
+mklinux-g4-g6-matrix-20260901  RUNNING  mklinux-g4-g6-matrix-20260901  True  True
+
+Deletion result:
+Deleted instance mklinux-g4-g6-matrix-20260901 in asia-southeast1-b.
+
+Post-deletion inventory:
+- Compute Engine instances: none
+- Compute Engine disks: mk-mediated-storage-20260830 only (pre-existing retained disk)
+- Disposable disk mklinux-g4-g6-matrix-20260901: absent

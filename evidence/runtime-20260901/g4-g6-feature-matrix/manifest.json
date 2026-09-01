@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "gate": "G6",
+  "run_id": "g4-g6-ctr-docker-feature-matrix-20260901",
+  "result": "provisional",
+  "started_at": "2026-09-01T12:30:00Z",
+  "ended_at": "2026-09-01T12:31:48Z",
+  "repository": {
+    "commit": "5e9fe33b7d54273c987fd21673f34ccde2121018",
+    "dirty": true
+  },
+  "components": [
+    {
+      "name": "mkruntimed",
+      "version": "g4-g6-feature-matrix",
+      "sha256": "7eb7aeb6cf68de7bffb060b4fd57d55abf50e64ce64bfd10e8d3abe7b37b84c9"
+    },
+    {
+      "name": "containerd-shim-multikernel-v2",
+      "version": "g4-g6-feature-matrix",
+      "sha256": "e8faa717a42be633d91ba18c23df5a6b5b58e3045abd187f6d88853c792aa226"
+    },
+    {
+      "name": "mk-agent",
+      "version": "g4-g6-feature-matrix",
+      "sha256": "cf3593cb911c452def4929315ed2aae205607e69b9ccbb003940711a282bbda8"
+    },
+    {
+      "name": "test-runtime-g4-g6-feature-matrix",
+      "version": "g4-g6-feature-matrix",
+      "sha256": "1728fbc911f0c049e0361c041fc73d3c5cf43dbcab936ed5c1e8001cf88b0ac5"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-g4-g6-matrix-20260901",
+    "machine_type": "n2-standard-16",
+    "boot_id": "${HOST_BOOT_ID}"
+  },
+  "commands": [
+    {
+      "id": "shared-feature-matrix",
+      "argv": ["scripts/test-runtime-g4-g6-feature-matrix.sh"],
+      "exit_status": 0,
+      "output_path": "g4-g6-feature-matrix.log"
+    }
+  ],
+  "assertions": [
+    {"id": "image-pull-and-inspect", "passed": true, "evidence_paths": ["g4-g6-feature-matrix.log"]},
+    {"id": "create-start-state-exec-stdio-wait", "passed": true, "evidence_paths": ["g4-g6-feature-matrix.log"]},
+    {"id": "signals-exit-delete-name-reuse", "passed": true, "evidence_paths": ["g4-g6-feature-matrix.log"]},
+    {"id": "private-root-and-distinct-kernels", "passed": true, "evidence_paths": ["g4-g6-feature-matrix.log"]},
+    {"id": "mediated-network-and-isolation", "passed": true, "evidence_paths": ["g4-g6-feature-matrix.log"]},
+    {"id": "daemon-restart-continuity", "passed": true, "evidence_paths": ["g4-g6-feature-matrix.log"]},
+    {"id": "terminal-resize-supported", "passed": false, "evidence_paths": ["g4-g6-feature-matrix.log"]},
+    {"id": "pause-resume-supported", "passed": false, "evidence_paths": ["g4-g6-feature-matrix.log"]},
+    {"id": "final-resource-cleanup", "passed": true, "evidence_paths": ["g4-g6-feature-matrix-environment.log"]}
+  ],
+  "limitations": [
+    "Terminal mode and ResizePty are unsupported.",
+    "Pause, Resume, Stats, Update, and Checkpoint are unsupported.",
+    "Guest stdin/attach and faithful guest PID reporting are not implemented.",
+    "Forced shim death safely reclaims resources but does not reconnect the running task.",
+    "CNI ADD, CHECK, and DEL and the full G4 storage matrix remain open."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "g4-g6-host-report.json",
+    "resources_after": "cloud-cleanup.txt",
+    "retained_resources": ["pre-existing snapshots and disks only"],
+    "operator_acknowledged": true
+  }
+}
