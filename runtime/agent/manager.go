@@ -72,11 +72,46 @@ type process struct {
 	root           string
 	cmd            *exec.Cmd
 	terminal       console.Console
-	stdout, stderr bytes.Buffer
+	stdin          io.WriteCloser
+	inputMu        sync.Mutex
+	stdinClosed    bool
+	stdout, stderr lockedBuffer
 	outputDone     chan struct{}
 	done           chan struct{}
 	state          ProcessState
 }
+
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.b.Write(p)
+}
+
+func (b *lockedBuffer) slice(offset, limit uint64) ([]byte, uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if offset >= uint64(b.b.Len()) {
+		return nil, uint64(b.b.Len())
+	}
+	end := uint64(b.b.Len())
+	if limit > 0 && end-offset > limit {
+		end = offset + limit
+	}
+	data := append([]byte(nil), b.b.Bytes()[offset:end]...)
+	return data, end
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.b.String()
+}
+
 type Manager struct {
 	mu        sync.Mutex
 	processes map[string]*process
@@ -255,9 +290,9 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 		}
 	}
 	var slave *os.File
+	var err error
 	if p.spec.Terminal {
 		var slavePath string
-		var err error
 		p.terminal, slavePath, err = console.NewPty()
 		if err != nil {
 			m.mu.Unlock()
@@ -290,6 +325,11 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 			m.mu.Unlock()
 			return errors.New("cannot size a process without a terminal")
 		}
+		p.stdin, err = cmd.StdinPipe()
+		if err != nil {
+			m.mu.Unlock()
+			return err
+		}
 		cmd.Stdout = &p.stdout
 		cmd.Stderr = &p.stderr
 	}
@@ -306,6 +346,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	}
 	if slave != nil {
 		slave.Close()
+		p.stdin = p.terminal
 		go func() {
 			_, _ = io.Copy(&p.stdout, p.terminal)
 			close(p.outputDone)
@@ -337,6 +378,14 @@ func (m *Manager) wait(p *process) {
 		}
 	}
 	m.mu.Lock()
+	p.inputMu.Lock()
+	if !p.stdinClosed {
+		p.stdinClosed = true
+		if p.stdin != nil && !p.spec.Terminal {
+			_ = p.stdin.Close()
+		}
+	}
+	p.inputMu.Unlock()
 	if p.terminal != nil {
 		_ = p.terminal.Close()
 	}
@@ -347,6 +396,79 @@ func (m *Manager) wait(p *process) {
 	p.terminal = nil
 	close(p.done)
 	m.mu.Unlock()
+}
+
+func (m *Manager) Write(id string, data []byte) error {
+	if len(data) > 64<<10 {
+		return errors.New("stdin chunk exceeds 64 KiB")
+	}
+	m.mu.Lock()
+	p, ok := m.processes[id]
+	running := ok && p.state.Status == "RUNNING"
+	m.mu.Unlock()
+	if !running {
+		return errors.New("process is not running")
+	}
+	p.inputMu.Lock()
+	defer p.inputMu.Unlock()
+	if p.stdinClosed || p.stdin == nil {
+		return errors.New("process stdin is closed")
+	}
+	_, err := p.stdin.Write(data)
+	return err
+}
+
+func (m *Manager) CloseStdin(id string) error {
+	m.mu.Lock()
+	p, ok := m.processes[id]
+	if !ok {
+		m.mu.Unlock()
+		return errors.New("process not found")
+	}
+	running := p.state.Status == "RUNNING"
+	m.mu.Unlock()
+	if !running {
+		p.inputMu.Lock()
+		closed := p.stdinClosed
+		p.inputMu.Unlock()
+		if closed {
+			return nil
+		}
+		return errors.New("process is not running")
+	}
+	p.inputMu.Lock()
+	defer p.inputMu.Unlock()
+	if p.stdinClosed {
+		return nil
+	}
+	p.stdinClosed = true
+	if p.stdin == nil {
+		return nil
+	}
+	if p.spec.Terminal {
+		// A PTY has no half-close. In canonical mode, EOT supplies the same
+		// EOF indication without closing the output side of the console.
+		_, err := p.stdin.Write([]byte{4})
+		return err
+	}
+	return p.stdin.Close()
+}
+
+func (m *Manager) ReadOutput(id string, stdoutOffset, stderrOffset, limit uint64) ([]byte, []byte, uint64, uint64, string, error) {
+	if limit == 0 || limit > 64<<10 {
+		return nil, nil, 0, 0, "", errors.New("output read limit must be between 1 and 64 KiB")
+	}
+	m.mu.Lock()
+	p, ok := m.processes[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, nil, 0, 0, "", errors.New("process not found")
+	}
+	status := p.state.Status
+	m.mu.Unlock()
+	stdout, nextStdout := p.stdout.slice(stdoutOffset, limit)
+	stderr, nextStderr := p.stderr.slice(stderrOffset, limit)
+	return stdout, stderr, nextStdout, nextStderr, status, nil
 }
 
 func (m *Manager) Resize(id string, width, height uint32) error {

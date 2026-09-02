@@ -8,8 +8,9 @@ primary-mediated TUN networking, and the containerd Runtime v2 shim also passed
 the G4-G6 happy-path proof through both `ctr` and Docker. The broader gate
 failure/recovery matrices remain open.
 
-Terminal execution and Runtime v2 resize are implemented and locally tested;
-their updated client paths still require disposable-host revalidation.
+Guest stdin, detach/reattach, terminal execution, and Runtime v2 resize are
+implemented and passed through both `ctr` and Docker on a qualified disposable
+GCE host. Their FIFO/PTY paths also pass local unit tests and the race detector.
 
 ## Intended layout
 

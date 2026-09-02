@@ -39,7 +39,7 @@ else
 fi
 test -d "$source_root"
 cp -a "$source_root/." "$work/bundle/rootfs/"
-jq '{ociVersion:(.ociVersion // "1.1.0"), process:{terminal:false,user:(.process.user // {uid:0,gid:0}),args:.process.args,env:(.process.env // []),cwd:(.process.cwd // "/")},root:{path:"rootfs"}}' \
+jq '{ociVersion:(.ociVersion // "1.1.0"), process:{terminal:(.process.terminal // false),user:(.process.user // {uid:0,gid:0}),args:.process.args,env:(.process.env // []),cwd:(.process.cwd // "/")},root:{path:"rootfs"}}' \
 	"$bundle/config.json" >"$work/bundle/config.json"
 
 (cd "$work" && find . -xdev -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 >"$output"

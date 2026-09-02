@@ -27,6 +27,7 @@ import (
 	"github.com/containerd/containerd/namespaces"
 	ctruntime "github.com/containerd/containerd/runtime"
 	"github.com/containerd/containerd/runtime/v2/shim"
+	"github.com/containerd/fifo"
 	"github.com/containerd/typeurl/v2"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -41,14 +42,18 @@ import (
 const runtimeName = "io.containerd.multikernel.v2"
 
 type process struct {
-	id, stdin, stdout, stderr string
-	terminal                  bool
-	width, height             uint32
-	sizeSet                   bool
-	status                    tasktypes.Status
-	exit                      uint32
-	exited                    time.Time
-	done                      chan struct{}
+	id, stdin, stdout, stderr  string
+	terminal                   bool
+	width, height              uint32
+	sizeSet                    bool
+	status                     tasktypes.Status
+	exit                       uint32
+	exited                     time.Time
+	done                       chan struct{}
+	stdinReader                io.ReadWriteCloser
+	stdoutWriter, stderrWriter io.WriteCloser
+	stdoutGuard, stderrGuard   io.Closer
+	stdinClosed                bool
 }
 
 type service struct {
@@ -590,7 +595,12 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		startRequest["height"] = p.height
 		startRequest["initial_size"] = true
 	}
+	if err := s.openProcessIO(ctx, p); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	if err := s.agent.Call("StartProcess", startRequest, nil); err != nil {
+		closeProcessIO(p)
 		s.mu.Unlock()
 		return nil, err
 	}
@@ -608,27 +618,167 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		return nil, err
 	}
 	s.mu.Unlock()
+	go s.pumpStdin(processID, p)
 	go s.waitProcess(processID, r.ExecID, p)
 	return &taskapi.StartResponse{Pid: pid}, nil
 }
 
+func openOutput(ctx context.Context, path string) (io.WriteCloser, io.Closer, error) {
+	if path == "" {
+		return nil, nil, nil
+	}
+	isFIFO, err := fifo.IsFifo(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !isFIFO {
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+		return f, nil, err
+	}
+	// O_RDWR opens synchronously and keeps a read endpoint present even when
+	// the creating client detaches before another client attaches.
+	guard, err := fifo.OpenFifo(context.Background(), path, syscall.O_RDWR, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	w, err := fifo.OpenFifo(ctx, path, syscall.O_WRONLY, 0)
+	if err != nil {
+		guard.Close()
+		return nil, nil, err
+	}
+	// A later containerd attach can reopen the same FIFO and consume buffered
+	// and future guest output; this guard never reads from the FIFO.
+	return w, guard, nil
+}
+
+func (s *service) openProcessIO(ctx context.Context, p *process) (err error) {
+	p.stdoutWriter, p.stdoutGuard, err = openOutput(ctx, p.stdout)
+	if err != nil {
+		return fmt.Errorf("open stdout: %w", err)
+	}
+	if !p.terminal {
+		p.stderrWriter, p.stderrGuard, err = openOutput(ctx, p.stderr)
+		if err != nil {
+			closeProcessIO(p)
+			return fmt.Errorf("open stderr: %w", err)
+		}
+	}
+	if p.stdin != "" {
+		p.stdinReader, err = fifo.OpenFifo(context.Background(), p.stdin, syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
+		if err != nil {
+			closeProcessIO(p)
+			return fmt.Errorf("open stdin: %w", err)
+		}
+	}
+	return nil
+}
+
+func closeProcessIO(p *process) {
+	if p.stdinReader != nil {
+		_ = p.stdinReader.Close()
+		p.stdinReader = nil
+	}
+	if p.stdoutWriter != nil {
+		_ = p.stdoutWriter.Close()
+		p.stdoutWriter = nil
+	}
+	if p.stderrWriter != nil {
+		_ = p.stderrWriter.Close()
+		p.stderrWriter = nil
+	}
+	if p.stdoutGuard != nil {
+		_ = p.stdoutGuard.Close()
+		p.stdoutGuard = nil
+	}
+	if p.stderrGuard != nil {
+		_ = p.stderrGuard.Close()
+		p.stderrGuard = nil
+	}
+}
+
+func (s *service) pumpStdin(agentID string, p *process) {
+	reader := p.stdinReader
+	if reader == nil {
+		return
+	}
+	buffer := make([]byte, 32<<10)
+	for {
+		n, err := reader.Read(buffer)
+		if n > 0 {
+			s.mu.Lock()
+			stopped := p.status != tasktypes.Status_RUNNING
+			s.mu.Unlock()
+			if stopped {
+				return
+			}
+			if callErr := s.agent.Call("WriteProcess", map[string]any{"id": agentID, "data": append([]byte(nil), buffer[:n]...)}, nil); callErr != nil {
+				fmt.Fprintf(os.Stderr, "multikernel stdin: %v\n", callErr)
+				return
+			}
+		}
+		if err != nil && !errors.Is(err, io.EOF) {
+			return
+		}
+		if n == 0 {
+			s.mu.Lock()
+			closeRequested := p.stdinClosed
+			s.mu.Unlock()
+			if closeRequested {
+				if callErr := s.agent.Call("CloseProcessStdin", map[string]string{"id": agentID}, nil); callErr != nil {
+					fmt.Fprintf(os.Stderr, "multikernel close stdin: %v\n", callErr)
+				}
+				return
+			}
+			// FIFO EOF can also mean that an attaching client disconnected.
+			// Keep the guest side open until CloseIO explicitly requests EOF.
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}
+
 func (s *service) waitProcess(agentID, execID string, p *process) {
 	var state agent.ProcessState
+	var stdoutOffset, stderrOffset uint64
 	var err error
 	for {
-		err = s.agent.Call("StateProcess", map[string]string{"ID": agentID}, &state)
-		if err != nil || state.Status == "STOPPED" {
+		var output struct {
+			Stdout       []byte `json:"stdout"`
+			Stderr       []byte `json:"stderr"`
+			StdoutOffset uint64 `json:"stdout_offset"`
+			StderrOffset uint64 `json:"stderr_offset"`
+			Status       string `json:"status"`
+		}
+		err = s.agent.Call("ReadProcessOutput", map[string]any{
+			"id": agentID, "stdout_offset": stdoutOffset, "stderr_offset": stderrOffset, "limit": uint64(32 << 10),
+		}, &output)
+		if err != nil {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		stdoutOffset, stderrOffset = output.StdoutOffset, output.StderrOffset
+		if p.stdoutWriter != nil && len(output.Stdout) > 0 {
+			if _, writeErr := p.stdoutWriter.Write(output.Stdout); writeErr != nil {
+				fmt.Fprintf(os.Stderr, "multikernel stdout: %v\n", writeErr)
+			}
+		}
+		if p.stderrWriter != nil && len(output.Stderr) > 0 {
+			if _, writeErr := p.stderrWriter.Write(output.Stderr); writeErr != nil {
+				fmt.Fprintf(os.Stderr, "multikernel stderr: %v\n", writeErr)
+			}
+		}
+		if output.Status == "STOPPED" && len(output.Stdout) == 0 && len(output.Stderr) == 0 {
+			err = s.agent.Call("StateProcess", map[string]string{"ID": agentID}, &state)
+			break
+		}
+		if len(output.Stdout) == 0 && len(output.Stderr) == 0 {
+			time.Sleep(20 * time.Millisecond)
+		}
 	}
+	closeProcessIO(p)
 	now := time.Now().UTC()
 	exit := uint32(255)
 	if err == nil {
 		exit = uint32(state.ExitCode)
 	}
-	writeFIFO(p.stdout, state.Stdout)
-	writeFIFO(p.stderr, state.Stderr)
 	s.mu.Lock()
 	p.status, p.exit, p.exited = tasktypes.Status_STOPPED, exit, now
 	close(p.done)
@@ -639,19 +789,6 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		eventID = s.id
 	}
 	_ = s.publisher.Publish(ctx, ctruntime.TaskExitEventTopic, &eventstypes.TaskExit{ContainerID: s.id, ID: eventID, Pid: uint32(os.Getpid()), ExitStatus: exit, ExitedAt: timestamppb.New(now)})
-}
-
-func writeFIFO(path, value string) {
-	if path == "" {
-		return
-	}
-	// Detached tasks may have no FIFO reader. Never let missing stdio peers
-	// block exit observation and resource cleanup.
-	f, err := os.OpenFile(path, os.O_WRONLY|syscall.O_NONBLOCK, 0)
-	if err == nil {
-		_, _ = io.WriteString(f, value)
-		_ = f.Close()
-	}
 }
 
 func (s *service) State(_ context.Context, r *taskapi.StateRequest) (*taskapi.StateResponse, error) {
@@ -823,7 +960,38 @@ func (s *service) Resume(context.Context, *taskapi.ResumeRequest) (*emptypb.Empt
 func (s *service) Checkpoint(context.Context, *taskapi.CheckpointTaskRequest) (*emptypb.Empty, error) {
 	return nil, errdefs.ErrNotImplemented
 }
-func (s *service) CloseIO(context.Context, *taskapi.CloseIORequest) (*emptypb.Empty, error) {
+func (s *service) CloseIO(_ context.Context, r *taskapi.CloseIORequest) (*emptypb.Empty, error) {
+	if !r.Stdin {
+		return &emptypb.Empty{}, nil
+	}
+	s.mu.Lock()
+	p, ok := s.processes[r.ExecID]
+	if !ok {
+		s.mu.Unlock()
+		return nil, errdefs.ErrNotFound
+	}
+	if p.stdinClosed {
+		s.mu.Unlock()
+		return &emptypb.Empty{}, nil
+	}
+	p.stdinClosed = true
+	hasReader := p.stdinReader != nil
+	s.mu.Unlock()
+	id := r.ExecID
+	if id == "" {
+		id = "init"
+	}
+	if hasReader {
+		// The pump must forward bytes already buffered in the FIFO before it
+		// closes guest stdin. It observes stdinClosed after reaching FIFO EOF.
+		return &emptypb.Empty{}, nil
+	}
+	if s.agent == nil {
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	if err := s.agent.Call("CloseProcessStdin", map[string]string{"id": id}, nil); err != nil {
+		return nil, err
+	}
 	return &emptypb.Empty{}, nil
 }
 func (s *service) Update(context.Context, *taskapi.UpdateTaskRequest) (*emptypb.Empty, error) {

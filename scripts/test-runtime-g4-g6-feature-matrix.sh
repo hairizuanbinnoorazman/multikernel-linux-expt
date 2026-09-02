@@ -9,18 +9,24 @@ image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}
 runtime=${MK_RUNTIME:-io.containerd.multikernel.v2}
 ctr_id=mk-matrix-ctr
 docker_name=mk-matrix-docker
+ctr_attach_id=mk-matrix-ctr-attach
+docker_attach_name=mk-matrix-docker-attach
 
 cleanup() {
 	(
 	set +e
 	sudo docker rm -f "$docker_name" >/dev/null 2>&1
+	sudo docker rm -f "$docker_attach_name" >/dev/null 2>&1
 	sudo ctr tasks kill --signal SIGKILL "$ctr_id" >/dev/null 2>&1
+	sudo ctr tasks kill --signal SIGKILL "$ctr_attach_id" >/dev/null 2>&1
 	for _ in $(seq 1 100); do
 		[[ $(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $3}') != RUNNING ]] && break
 		sleep .1
 	done
 	sudo ctr tasks rm -f "$ctr_id" >/dev/null 2>&1
 	sudo ctr containers rm "$ctr_id" >/dev/null 2>&1
+	sudo ctr tasks rm -f "$ctr_attach_id" >/dev/null 2>&1
+	sudo ctr containers rm "$ctr_attach_id" >/dev/null 2>&1
 	true
 	)
 }
@@ -214,13 +220,54 @@ done
 row foreground-wait-stdio-and-nonzero-exit
 row name-reuse
 
-ctr_tty=$(sudo ctr run --tty --runtime "$runtime" "$image" "$ctr_id" \
-	/bin/sh -c 'test -t 0; test -t 1; echo ctr-terminal-ok')
-docker_tty=$(sudo docker run --tty --runtime "$runtime" --network none \
-	--name "$docker_name" "$image" \
-	/bin/sh -c 'test -t 0; test -t 1; echo docker-terminal-ok')
+# Stdin is carried to the already-running guest process rather than being
+# consumed by the primary-host shim. Exercise the ordinary foreground path
+# independently from reattachment so either regression is visible.
+ctr_stdin=$(printf 'ctr-stdin\n' | sudo ctr run --runtime "$runtime" "$image" "$ctr_id" \
+	/bin/sh -c 'read line; echo guest-$line')
+docker_stdin=$(printf 'docker-stdin\n' | sudo docker run --interactive \
+	--runtime "$runtime" --network none --name "$docker_name" "$image" \
+	/bin/sh -c 'read line; echo guest-$line')
+printf '%s\n' "$ctr_stdin" | grep -Fxq guest-ctr-stdin
+printf '%s\n' "$docker_stdin" | grep -Fxq guest-docker-stdin
+sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
+sudo ctr containers rm "$ctr_id"
+sudo docker rm "$docker_name" >/dev/null
+wait_for_clean_host
+row guest-stdin
+
+# Detach the creating clients, then reopen the task's existing FIFO set and
+# drive the guest through that attachment. The process exits only after the
+# newly attached client supplies its line, proving that attach is live I/O.
+sudo ctr run --detach --runtime "$runtime" "$image" "$ctr_attach_id" \
+	/bin/sh -c 'read line; echo ctr-attached-$line'
+sudo docker run --detach --interactive --runtime "$runtime" --network none \
+	--name "$docker_attach_name" "$image" \
+	/bin/sh -c 'read line; echo docker-attached-$line' >/dev/null
+ctr_attached=$(printf 'stdin\n' | sudo ctr tasks attach "$ctr_attach_id")
+# Docker detaches as soon as the attaching client's stdin reaches EOF. Keep
+# that stream open briefly so the same attachment can receive the guest reply.
+docker_attached=$({ printf 'stdin\n'; sleep 2; } | sudo docker attach "$docker_attach_name")
+printf '%s\n' "$ctr_attached" | grep -Fxq ctr-attached-stdin
+printf '%s\n' "$docker_attached" | grep -Fxq docker-attached-stdin
+sudo ctr tasks rm "$ctr_attach_id" >/dev/null 2>&1 || true
+sudo ctr containers rm "$ctr_attach_id"
+sudo docker rm "$docker_attach_name" >/dev/null
+wait_for_clean_host
+row guest-attach
+
+# ctr deliberately connects a terminal task to /dev/tty, which bypasses shell
+# command substitution. Give each client a nested controlling PTY and capture
+# that PTY's transcript. A nonzero stty size proves live ResizePty delivery,
+# not only successful terminal allocation.
+ctr_tty=$(script -q -e -c \
+	"stty rows 37 cols 91; sudo ctr run --tty --runtime '$runtime' '$image' '$ctr_id' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo ctr-terminal-ok'" /dev/null)
+docker_tty=$(script -q -e -c \
+	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --network none --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq ctr-terminal-ok
 printf '%s\n' "$docker_tty" | tr -d '\r' | grep -Fxq docker-terminal-ok
+printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq '37 91'
+printf '%s\n' "$docker_tty" | tr -d '\r' | grep -Fxq '37 91'
 sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_id"
 sudo docker rm "$docker_name" >/dev/null

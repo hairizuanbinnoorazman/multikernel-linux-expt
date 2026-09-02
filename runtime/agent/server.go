@@ -81,7 +81,7 @@ func (s *Server) Dispatch(e Envelope) Reply {
 	}
 	switch e.Method {
 	case "Capabilities":
-		r.Body = map[string]any{"protocol": 1, "oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "terminal", "terminal-resize"}}
+		r.Body = map[string]any{"protocol": 1, "oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize"}}
 	case "CreateProcess":
 		var q struct{ ID, Bundle string }
 		if x := decode(e.Body, &q); x != nil {
@@ -131,6 +131,39 @@ func (s *Server) Dispatch(e Envelope) Reply {
 			r.Error = x.Error()
 		} else if x = s.Manager.Resize(q.ID, q.Width, q.Height); x != nil {
 			r.Error = x.Error()
+		}
+	case "WriteProcess":
+		var q struct {
+			ID   string `json:"id"`
+			Data []byte `json:"data"`
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if x = s.Manager.Write(q.ID, q.Data); x != nil {
+			r.Error = x.Error()
+		}
+	case "CloseProcessStdin":
+		var q struct {
+			ID string `json:"id"`
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if x = s.Manager.CloseStdin(q.ID); x != nil {
+			r.Error = x.Error()
+		}
+	case "ReadProcessOutput":
+		var q struct {
+			ID           string `json:"id"`
+			StdoutOffset uint64 `json:"stdout_offset"`
+			StderrOffset uint64 `json:"stderr_offset"`
+			Limit        uint64 `json:"limit"`
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if stdout, stderr, nextStdout, nextStderr, status, x := s.Manager.ReadOutput(q.ID, q.StdoutOffset, q.StderrOffset, q.Limit); x != nil {
+			r.Error = x.Error()
+		} else {
+			r.Body = map[string]any{"stdout": stdout, "stderr": stderr, "stdout_offset": nextStdout, "stderr_offset": nextStderr, "status": status}
 		}
 	case "WaitProcess":
 		var q struct{ ID string }

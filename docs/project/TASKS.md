@@ -169,7 +169,9 @@ The detailed exit criteria and ordering are in
   - [ ] Preserve/reconnect the running task after forced shim death.
   - [x] Implement child PTY terminal mode and Task v2 terminal resize, including
     resize requests received before process start.
-  - [ ] Revalidate terminal mode and resize through `ctr` and Docker on a
+  - [x] Implement and live-test guest stdin, `CloseIO`, and detach/reattach
+    through both `ctr` and Docker.
+  - [x] Revalidate terminal mode and resize through `ctr` and Docker on a
     disposable qualified Multikernel host.
 - [ ] G7: run a multi-container Kubernetes pod through `RuntimeClass`.
 - [ ] G8: pass the security, fuzzing, failure, and resource-leak matrix.
