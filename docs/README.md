@@ -28,8 +28,8 @@ storage and lifecycle theme.
   the public projects checked before selecting this direction.
 - [`runtime/plans/README.md`](runtime/plans/README.md) is the ordered
   implementation and test roadmap.
-- [`runtime/learnings/`](runtime/learnings/) records the G0-G3 implementation
-  and live compatibility results.
+- [`runtime/learnings/`](runtime/learnings/) records the G0-G6 implementation,
+  live compatibility results, and remediation checklists.
 
 ## Project tracking
 

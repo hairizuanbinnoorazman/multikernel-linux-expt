@@ -62,3 +62,7 @@ Two consecutive clean-pool runs passed:
   cancellation, and FIFO edge-case tests. A later follow-up passed containerd
   and daemon restart reconnect plus leak-free shim-crash reclaim; see
   [`05-g4-g6-robustness.md`](05-g4-g6-robustness.md).
+
+The full implementation and replacement-instance evidence handoff is tracked
+in the
+[`G4-G6 remediation checklist`](g4-g6-remediation-checklist.md).

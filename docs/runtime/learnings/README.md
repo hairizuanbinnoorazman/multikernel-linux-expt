@@ -12,3 +12,6 @@
 - [`g0-g3-remediation-checklist.md`](g0-g3-remediation-checklist.md): audit
   findings and handoff checklist required before treating all four gates as
   fully closed.
+- [`g4-g6-remediation-checklist.md`](g4-g6-remediation-checklist.md): complete
+  implementation, test, replacement-instance, and evidence repair required
+  before treating the G4-G6 MVP claims as full gate passes.

@@ -1,0 +1,385 @@
+# G4-G6 remediation and live-evidence checklist
+
+Audit date: 2026-09-02
+
+This is the implementation and evidence handoff for gates G4, G5, and G6. The
+existing GCE runs demonstrate a useful executable MVP, but they do not close
+the normative gates. A checked MVP item is not a full-gate pass, and a feature
+must not be described as live-proved unless retained output from the instance
+shows the assertion or a retained, hashed test harness makes the assertion and
+the transcript records its successful exit.
+
+The audit compared the G4-G6 plans, current runtime and guest implementation,
+unit tests, live harnesses, evidence manifests, and every retained G4-G6 file.
+The current local documentation checks and Go race suite pass. The work below
+is what remains after those local passes.
+
+## Current verdict
+
+| Gate | Demonstrated boundary | Why the gate remains open |
+| --- | --- | --- |
+| G4 | Containerd- and Docker-prepared BusyBox roots are copied into private per-sandbox initramfs artifacts; two sandbox-private writes and clean teardown passed. | Snapshot non-mutation and reproducibility were not measured; manifest validation, metadata fidelity, ownership modes, quotas, persistence, corruption, recovery, and the storage failure matrix remain incomplete. |
+| G5 | Two static `/30` TUN links, primary NAT, outbound HTTP with name resolution, sibling-link isolation, and final link/rule cleanup passed. | There is no CNI binary or normal `ADD`/`CHECK`/`DEL`; `mknetd`, MTU negotiation, counters, backpressure policy, reconnect, load/fault coverage, and policy-bypass testing remain incomplete. |
+| G6 | Core Task v2 lifecycle, concurrent `ctr`/Docker use, exec, stdio, nonzero exits, signals, name reuse, daemon restart, stdin/attach, PTY, live resize, and normal cleanup passed in narrow runs. | Shim task reconnection, Docker daemon restart, event ordering, cancellation/deadlines, FIFO failures, faithful PIDs, several Task methods, broad OCI support, and evidence-grade restart/failure reruns remain incomplete. |
+
+The canonical gate rows in [`../plans/README.md`](../plans/README.md) and
+[`../../project/TASKS.md`](../../project/TASKS.md) must remain unchecked until
+the corresponding unchecked work in this document is either completed or the
+normative plan is revised with an explicit rationale.
+
+## Retained instance runs and evidence quality
+
+### `mklinux-g6-20260831`: executable MVP
+
+- Retained files:
+  [`g4-g6-proof-clean-pool.log`](../../../evidence/runtime-20260901/g4-g6-gce/g4-g6-proof-clean-pool.log),
+  [`g4-g6-proof-repeat.log`](../../../evidence/runtime-20260901/g4-g6-gce/g4-g6-proof-repeat.log),
+  [`g4-g6-environment.log`](../../../evidence/runtime-20260901/g4-g6-gce/g4-g6-environment.log),
+  and [`manifest.json`](../../../evidence/runtime-20260901/g4-g6-gce/manifest.json).
+- Useful live evidence: two distinct child boot IDs, two static addresses,
+  outbound-network pass markers, bidirectional sibling isolation, exec through
+  both clients, signal/exit handling, two successful clean-pool runs, installed
+  component hashes, and empty final runtime/container/network inventories.
+- Evidence limitations: the proof log is concise and does not retain expanded
+  commands, child kernel release output, DNS answers, HTTP response details, or
+  the exact final cleanup commands. It does not hash the caller snapshots
+  before and after the run.
+
+### `mklinux-gates-20260901`: robustness observations
+
+- Retained files: only
+  [`README.md`](../../../evidence/runtime-20260901/g4-g6-robustness/README.md)
+  and [`manifest.json`](../../../evidence/runtime-20260901/g4-g6-robustness/manifest.json).
+- Recorded observations: containerd restart continuity, `mkruntimed` restart
+  continuity, injected builder ENOSPC rollback, forced-shim-death reclaim, and
+  terminal rejection on the then-current build.
+- Evidence limitation: there is no raw box transcript. Every command and
+  assertion in the manifest points back to the narrative `README.md`. There is
+  no retained boot-ID before/after output, process/service journal, Kerf or pool
+  inventory, TUN/iptables inventory, injected error output with surrounding
+  state, or final cleanup transcript.
+- Classification: these are retained operator observations. They are useful
+  leads for a replacement test but are not evidence-contract-quality live
+  proof. In particular, they are insufficient by themselves to close the
+  checked containerd-restart, shim-reclaim, or ENOSPC claims.
+
+### `mklinux-g4-g6-matrix-20260901`: shared feature matrix
+
+- Retained files are indexed in
+  [`g4-g6-feature-matrix/README.md`](../../../evidence/runtime-20260901/g4-g6-feature-matrix/README.md).
+- Useful live evidence: a hashed harness completed with exit status 0 and pass
+  rows for image inspection, create/start/state/exec/stdio/wait, nonzero exit,
+  signals, deletion, two name-reuse cycles, private roots, static networking,
+  isolation, `mkruntimed` restart, and cleanup. Terminal and pause/resume were
+  correctly recorded as rejected rather than passed.
+- Evidence limitations: the retained transcript contains feature-row markers,
+  not the expanded commands and observed values. The manifest contains a
+  redacted `${HOST_BOOT_ID}` that does not satisfy the current evidence schema.
+  The repository was dirty and no diff artifact was retained.
+
+### `mklinux-g4-g6-io-20260901`: guest I/O and PTY rerun
+
+- Retained files are indexed in
+  [`g4-g6-io-live/README.md`](../../../evidence/runtime-20260902/g4-g6-io-live/README.md).
+- Useful live evidence: the hashed current harness completed with exit status
+  0 after asserting foreground stdin, detach/reattach, terminal allocation, and
+  a `91` by `37` live resize through both clients. The environment log records
+  installed hashes and empty final inventories; cloud cleanup is retained.
+- Evidence limitations: the transcript retains the pass rows but not the
+  asserted guest output such as `37 91`. The manifest omits the schema-required
+  component `version` fields and uses `${HOST_BOOT_ID}`, which is invalid under
+  the current boot-ID pattern. It labels the combined run `gate: G6` and
+  `result: pass` even though the G6 gate remains provisional; the result needs
+  an explicitly scoped meaning or should be `provisional`. The repository was
+  dirty and no diff artifact was retained.
+
+## Rules for closing remediation work
+
+- [ ] A code item has focused automated tests, including failure behavior and
+  cleanup where applicable.
+- [ ] A live item has raw immutable instance output, a schema-valid manifest,
+  an explicit assertion, and the exact retained artifact path.
+- [ ] A summary marker is accompanied by the observed values needed to audit
+  it; do not retain only `PASS` when boot IDs, hashes, addresses, exit codes,
+  mount state, or resource inventories are the actual assertion.
+- [ ] Every live run records the clean starting state, repository commit and
+  dirty diff, installed component hashes, qualified host report, command exit
+  status, failure diagnostics, final host state, and cloud resource cleanup.
+- [ ] Expected rejection is labelled `unsupported` or `rejected`, never
+  `passed`, and is followed by proof that no resources were allocated or left.
+- [ ] Sanitized committed evidence remains schema-valid. Either retain a
+  non-identifying valid run identity or revise the evidence schema and contract
+  together to represent redacted values explicitly.
+- [ ] Each manifest result is scoped to its actual run. A feature-matrix pass
+  must not look like closure of the entire gate.
+
+## G4: OCI images and storage
+
+### Implementation still required
+
+- [ ] Generate a deterministic image/root manifest and verify it before any
+  sandbox allocation. Record the manifest digest separately from the source
+  OCI image digest and generated initramfs digest.
+- [ ] Make initramfs generation reproducible, not merely sorted with a
+  timestamp-free gzip header. Normalize or deliberately preserve and manifest
+  cpio metadata, including runtime-file mtimes, uid/gid, modes, xattrs,
+  hardlinks, symlinks, sparse extents, and device policy; prove two builds from
+  identical inputs have the same digest.
+- [ ] Reject unsafe paths, traversal, escaping symlinks, unsupported file
+  types, device nodes, inconsistent hardlinks, malformed metadata, and input
+  mutation during the copy/build window.
+- [ ] Validate OCI image architecture against the selected child-kernel
+  manifest before allocation and record required kernel features.
+- [ ] Preserve the caller snapshot as containerd-owned input. Mount it with the
+  least privileges needed, handle every unmount failure, and prove the runtime
+  cannot write through an absolute or relative `root.path`.
+- [ ] Define and enforce single-owner writable-root identity, generation,
+  duplicate-attach prevention, and stale-lock handling rather than relying
+  only on one private initramfs per current shim.
+- [ ] Decide the supported writable-state model. Implement private writable
+  layers, read-only bind inputs, persistence/volumes, ownership mapping, and
+  propagation semantics, or narrow the G4 plan explicitly if some are outside
+  the intended runtime.
+- [ ] Add capacity accounting, block/inode quotas, a high-water refusal policy,
+  and bounded behavior for host and initramfs ENOSPC.
+- [ ] Implement the storage teardown and recovery sequence appropriate to the
+  selected persistent backend: quiesce processes, remount read-only, flush,
+  disconnect, sync, offline-check, and preserve a diagnosable state on failure.
+- [ ] Resolve partial-artifact cleanup. Failed `Create` must remove token,
+  initramfs, recovery, mount, and runtime-directory state as well as avoiding a
+  Kerf allocation.
+
+### Automated tests still required
+
+- [ ] Manifest generation and digest reproducibility across two builds.
+- [ ] Whiteouts, opaque directories, hardlinks, symlinks, sparse files, xattrs,
+  modes, uid/gid, timestamps, large trees, and every rejected file type/path.
+- [ ] Relative and absolute OCI root paths, hostile symlinks, concurrent source
+  changes, wrong architecture, malformed OCI JSON, and unsupported OCI fields.
+- [ ] Read-only input rejection, private-write isolation, configured
+  persistence, and proof that unconfigured writes do not persist.
+- [ ] Block and inode exhaustion, high-water refusal, wrong UUID/generation,
+  stale lock, duplicate attach, interrupted copy, and builder failure at every
+  allocation boundary.
+- [ ] Server loss during read, write, and flush; primary daemon restart;
+  primary host reset where durability is claimed; corrupted image; clean and
+  dirty recovery; snapshot/clone recovery using disposable copies.
+- [ ] Cross-sandbox attempts to mount or address another sandbox's export.
+
+### Replacement instance evidence required
+
+- [ ] Record exact OCI index and selected `linux/amd64` manifest digests,
+  containerd snapshot identity, source-root mount table, and before/after
+  metadata or Merkle digests proving the caller snapshot was unchanged.
+- [ ] Record two initramfs builds from the same input with identical manifests
+  and digests, plus a changed-input negative control with a different digest.
+- [ ] Prove `/bin/busybox` and any dynamic libraries are from the OCI root while
+  `mk-agent`, bootstrap tools, and the transport module are outside it; retain
+  hashes and mount/inode provenance from inside the child.
+- [ ] Record backing allocation, owner sandbox and generation, quota/high-water
+  state, mount table, request/flush counters where relevant, teardown order,
+  offline filesystem result, and before/after proof that every cloud storage
+  device and allocatable storage controller remained owned by the primary.
+- [ ] Retain raw output for every injected failure and an immediate post-failure
+  inventory showing no child, mount, TUN, iptables rule, partial artifact, or
+  ownership leak.
+
+## G5: primary-mediated networking
+
+### Implementation still required
+
+- [ ] Implement the planned primary networking service boundary (`mknetd`) or
+  revise the architecture and ownership documents to justify networking inside
+  each shim. Define restart and ownership transfer independently of client
+  lifetime.
+- [ ] Implement a CNI binary and versioned configuration supporting normal
+  `ADD`, `CHECK`, and idempotent `DEL`, including partial-`ADD` rollback and
+  stale namespace cleanup.
+- [ ] Consume the CNI-created primary namespace and endpoint rather than
+  requiring Docker `--network none` plus a runtime-private static link as the
+  final design.
+- [ ] Authenticate and generation-bind every network endpoint and recovery
+  record. Reject stale sandbox identity, address reuse, and cross-generation
+  reconnect.
+- [ ] Replace fixed MTU/address/DNS assumptions with validated configuration,
+  MTU negotiation, collision-free allocation, explicit link state, and
+  bounded frame sizes.
+- [ ] Add bounded queues, backpressure, packet/drop/error counters, disconnect
+  detection, reconnect policy, and slow/unresponsive guest handling. The
+  current polling exchange loop is not the complete planned data plane.
+- [ ] Define firewall and network-policy ownership and install rules that
+  cannot be bypassed by spoofed source addresses, alternate routes, malformed
+  packets, or sibling traffic.
+- [ ] Restore the guest's configured DNS state cleanly on teardown and avoid
+  hard-coding a public resolver as the only supported policy.
+
+### Automated and live tests still required
+
+- [ ] Explicit child-to-primary, outbound TCP, outbound UDP, DNS query/answer,
+  and return-traffic assertions; retain destination and response details.
+- [ ] Two sandboxes with overlapping internal names but distinct network
+  identity, plus positive allowed routing and negative default isolation.
+- [ ] MTU boundaries, fragmentation, checksums, malformed/oversized frames,
+  loss, reordering, burst traffic, sustained load, and slow readers.
+- [ ] Agent transport disconnect/reconnect, child restart, networking-service
+  restart, `mkruntimed` restart, shim death, and primary restart.
+- [ ] CNI failure after every partial `ADD` boundary, repeated `CHECK`, repeated
+  `DEL`, stale namespace/link/rule cleanup, and name/address reuse.
+- [ ] Source spoofing, route injection, metadata-address access policy,
+  forwarding-rule bypass, and sibling-link policy bypass.
+- [ ] Before/during/after checks for primary SSH, metadata access, guest agent,
+  default route, NIC PCI ownership, and boot-disk/NIC controller ownership.
+
+### Replacement instance evidence required
+
+- [ ] Retain CNI stdin/config, command argv, stdout/stderr, exit status, primary
+  namespace/link/route/rule state, child interface state, negotiated MTU, and
+  packet counters for each `ADD`, `CHECK`, and `DEL`.
+- [ ] Retain successful DNS, TCP, and UDP exchanges plus failed bidirectional
+  sibling attempts. A bare `network-ok` or failed `ping` marker is insufficient
+  for the final gate.
+- [ ] Retain pre-run and post-run NIC/controller ancestry and final empty
+  namespace, TUN/TAP, route, iptables/nftables, process, and recovery-record
+  inventories.
+
+## G6: containerd Runtime v2 shim
+
+### Implementation still required
+
+- [ ] Preserve and reconnect a running task after forced shim death. Safe
+  reclaim is a useful fallback but is not the plan's reconnect requirement.
+- [ ] Define ownership transfer for containerd restart, shim restart, daemon
+  restart, and shutdown. Reconstruct process state, stdio endpoints, exit
+  status, and event delivery without changing the child boot identity.
+- [ ] Implement faithful guest PID reporting or define a versioned virtual PID
+  mapping. The current `Pids`, `State`, and events report the host shim PID.
+- [ ] Implement and test Task `Stats`, `Update`, and `Checkpoint`, or revise the
+  advertised G6 surface and plan explicitly. Keep `Pause`/`Resume` as explicit
+  unsupported methods until implemented and tested.
+- [ ] Complete lifecycle event publication and ordering, including exactly-once
+  or documented replay semantics across restart, exec events, exit/delete
+  races, and publication failure.
+- [ ] Harden FIFO handling for peer disappearance, attach/detach churn, blocked
+  writers, slow/unread output, output pressure, `CloseIO` races, and shim
+  restart. Bound retained output and goroutine/process lifetime.
+- [ ] Enforce context cancellation and deadlines through rootfs mount,
+  initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
+  teardown without leaking resources.
+- [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
+  process, and runtime paths before allocation; protect against symlink/path
+  races and hostile mount inputs.
+- [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
+  capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
+  read-only-root, hostname, and path control fail-closed with focused tests and
+  truthful capability reporting.
+- [ ] Complete packaging: versioned binaries, explicit containerd and Docker
+  configuration fragments, service dependencies, fresh-host installation,
+  upgrade/rollback behavior, and no default-runtime mutation.
+
+### Automated tests still required
+
+- [ ] A fake-daemon Task v2 suite for every method, state transition, duplicate
+  request, invalid transition, event, exit code, and cleanup path.
+- [ ] Event ordering and publication failure for create/start/exec/exit/delete,
+  including containerd disconnect and restart.
+- [ ] Context cancellation and deadline expiry at every blocking boundary.
+- [ ] FIFO writer/reader disappearance, no initial peer, late attach, repeated
+  attach, output backpressure, terminal and non-terminal `CloseIO`, resize
+  before start and during exec, invalid resize, and teardown while attached.
+- [ ] Unsupported OCI configuration before allocation and after each possible
+  partial allocation, proving fail-closed cleanup.
+- [ ] Two or more concurrent sandboxes under churn with disjoint CPUs, memory,
+  generations, roots, agent endpoints, networks, and recovery records.
+- [ ] Containerd restart, Docker daemon restart, `mkruntimed` restart, clean shim
+  restart, forced shim death with reconnect, and forced shim death with bounded
+  fallback reclaim.
+- [ ] Init and exec signal delivery, ignored `SIGTERM`, `SIGKILL`, nonzero exit,
+  descendant cleanup, wait/delete races, and same-name reuse after every
+  failure mode.
+
+### Replacement instance evidence required
+
+- [ ] Re-run the complete shared `ctr`/Docker matrix while retaining expanded
+  commands and observed boot IDs, kernel release, image/binary provenance,
+  stdout/stderr, stdin/attach output, terminal size, signals, exit statuses,
+  names/generations, and cleanup inventories.
+- [ ] Retain a containerd-restart transcript with service PID/boot identity,
+  task state, child boot ID, exec before and after, stdio continuity, events,
+  and final deletion. Repeat separately for Docker daemon restart.
+- [ ] Retain an `mkruntimed`-restart transcript with journal/snapshot/recovery
+  state and child identity before and after; do not rely only on a pass marker.
+- [ ] Retain forced-shim-death transcripts for both required outcomes: task
+  reconstruction/reconnect and bounded safe reclaim when reconnect is
+  deliberately made impossible. Include killed PID, service journals, recovery
+  record, task/client behavior, child state, and final resources.
+- [ ] Retain exact Task v2 event order and timestamps for init and exec
+  processes, including nonzero and signaled exits.
+- [ ] Prove final return of CPUs, memory, Kerf instances/pool, rootfs mounts,
+  initramfs/runtime artifacts, agent/relay/shim processes, FIFOs, TUN links,
+  routes/firewall rules, containerd tasks/containers, and Docker containers.
+
+## Cross-cutting evidence and tooling repair
+
+- [ ] Extend `make docs-check` or a dedicated evidence target to validate every
+  committed `evidence/runtime-*/**/manifest.json`, not only schema fixtures.
+- [ ] Repair the 2026-09-01 feature-matrix and 2026-09-02 guest-I/O manifests,
+  or preserve them as explicitly non-conforming historical manifests with a
+  machine-readable explanation. Do not silently rewrite raw transcripts.
+- [ ] Add required component versions, valid/redaction-aware host identities,
+  exact command output paths, and `repository.diff_output` whenever `dirty` is
+  true.
+- [ ] Use separate schema-valid manifests or explicitly scoped run identifiers
+  for G4, G5, and G6 assertions. A manifest labelled only `G6` must not be the
+  sole index for G4/G5 claims.
+- [ ] Capture structured `resources-before.json` and `resources-after.json`
+  covering instances, disks, snapshots, addresses, firewall rules, and every
+  billable or retained resource. Narrative cloud-cleanup text is supplementary,
+  not a substitute for the contract ledger.
+- [ ] Make the live harness tee safe expanded commands and assertion values to
+  the retained transcript while continuing to redact credentials and tokens.
+  Preserve command exit status even when an expected negative test fails.
+- [ ] Capture relevant `journalctl` output for containerd, Docker,
+  `mkruntimed`, shim, relay/network service, guest agent, and kernel/serial logs
+  around every restart and fault injection.
+- [ ] Record the exact working-tree patch or test-harness artifact used by a
+  dirty run so installed binary hashes can be reproduced from source.
+- [ ] Add a final evidence audit that checks referenced files exist, hashes the
+  retained bundle, verifies assertions point to raw output rather than a
+  narrative index, and rejects `result: pass` when required gate assertions are
+  absent or failed.
+
+## Required replacement-run sequence
+
+Use a fresh disposable qualified instance and stop on the first unexplained
+failure. Capture evidence before repair, rebuild, reboot, or deletion.
+
+1. Record cloud resources, source commit/diff, host qualification, boot ID,
+   kernel/Kerf versions, installed hashes, services, CPU/memory/pool state,
+   mounts, devices, networking, and empty runtime inventories.
+2. Run the G4 deterministic-root, snapshot-immutability, ownership, quota,
+   failure, persistence, and recovery matrix with raw output.
+3. Run the G5 CNI lifecycle, traffic, isolation, MTU/load/fault, reconnect,
+   policy, and primary-health matrix with raw output.
+4. Run the G6 shared lifecycle and I/O matrix, then isolated containerd,
+   Docker, daemon, and shim restart/crash cases with raw output and events.
+5. Run every expected rejection from clean state and record both the error and
+   the immediate no-allocation/no-leak inventory.
+6. Run the full local/race verification suite on the exact source revision
+   installed on the instance.
+7. Record final host health and empty CPU/memory/pool/storage/network/process/
+   container inventories, then delete the instance and auto-delete disk.
+8. Validate all manifests and links locally before describing any item as
+   closed. Publish a final claim-to-assertion-to-file matrix for G4, G5, and G6.
+
+## Gate closure
+
+- [ ] G4 may close only after every G4 plan requirement has implementation,
+  automated coverage, and replacement-instance evidence, or an approved plan
+  revision explicitly removes it.
+- [ ] G5 may close only after normal CNI operations, isolation, cleanup,
+  controller ownership, and the network fault matrix pass with raw evidence.
+- [ ] G6 may close only after the agreed Task v2 surface, restart/reconnect,
+  event, stdio, cancellation, concurrency, and cleanup matrices pass with raw
+  evidence.
+- [ ] Reissue the G4-G6 summary and update checked project tasks only after each
+  claim maps to a schema-valid assertion and actual retained instance output.

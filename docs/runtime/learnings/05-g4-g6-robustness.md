@@ -118,3 +118,7 @@ This closes the earlier implemented-but-not-live-revalidated terminal status
 and the guest stdin/attach implementation gap. It does not close pause/resume,
 `Stats`, `Update`, `Checkpoint`, faithful guest PIDs, CNI, the full G4 storage
 matrix, or shim-crash task reconnection.
+
+The evidence audit, unresolved implementation work, and required replacement
+GCE runs are tracked in the
+[`G4-G6 remediation checklist`](g4-g6-remediation-checklist.md).
