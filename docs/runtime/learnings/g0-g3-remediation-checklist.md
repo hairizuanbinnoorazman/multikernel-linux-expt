@@ -22,6 +22,16 @@ corrected two over-broad unit-test classifications in the learnings, and added
 explicit work for secret-safe errors and the plan-required G3 containment
 features.
 
+Synchronization audit: 2026-09-02. The remediation findings were folded back
+into learnings `00` through `03` and compared with the later G4-G6
+implementation. Later work added exec, stdin/attach, PTYs, resize, process-group
+signals, incremental output reads, and a real running-process shutdown check.
+Those additions do not close G3: focused failure coverage, bounded retention,
+containment controls, reconnect, structured errors, and agent-driven
+quiescence/poweroff remain open. The audit also found contract drift: the agent
+method schema and kernel/image policy lag the new methods, while the G6 OCI
+adapter can discard unsupported fields instead of failing closed.
+
 ## Rules for closing an item
 
 - [x] Do not close a code item without a focused automated test. (Applied in
@@ -71,6 +81,14 @@ features.
 - [x] Add the documented label-key bounds/pattern to the sandbox schema.
 - [x] Define whether duplicate JSON object names are invalid at schema parsing
   time, wire parsing time, or both, and provide one shared strict decoder.
+- [ ] Reconcile post-G3 protocol evolution with frozen v1. The current agent
+  implements state, stdin/output, terminal resize, and network methods absent
+  from the agent schema, and the kernel/image policy still describes terminal
+  I/O as rejected. Revise/version schema, policy, fixtures, and implementation
+  together rather than documenting the mismatch as conformance.
+- [ ] Restore end-to-end fail-closed OCI handling or explicitly revise the
+  contract. The G6 initramfs builder and exec translation currently discard
+  unsupported caller fields before the agent can reject them.
 
 ### Contract validation
 
@@ -199,8 +217,10 @@ features.
 
 ### Process semantics
 
-- [ ] Implement `ExecProcess`, or remove it from the G3 protocol/gate and assign
-  it explicitly to a later gate.
+- [ ] Add focused `ExecProcess` lifecycle, invalid-spec, duplicate, failure,
+  cleanup, concurrency, and signal/wait tests. Exec was implemented and
+  exercised through both G6 clients after the historical G3 run, but it does
+  not yet satisfy the G3 automated-test matrix.
 - [ ] Replace wait-time in-memory stdout/stderr accumulation with bounded,
   independent streaming and backpressure. The current implementation does not
   satisfy the plan's streaming requirement and can create oversized replies.
@@ -231,7 +251,10 @@ features.
 - [x] Test fail-closed rejection of unsupported mounts.
 - [ ] Add fail-closed tests for every other declared unsupported field: hooks,
   capabilities, namespaces, resources/cgroups, seccomp, masked/read-only paths,
-  read-only root, `noNewPrivileges`, rlimits, hostname, and terminal mode.
+  read-only root, `noNewPrivileges`, rlimits, and hostname. Terminal mode is now
+  implemented; retain its positive and invalid-size tests separately. Also test
+  rejection before and after the G6 adapter so unsupported fields cannot be
+  silently stripped.
 - [ ] Decide whether annotations and empty-but-present unsupported objects are
   accepted, ignored, or rejected, then test the chosen semantics.
 - [ ] Securely resolve the bundle/root path without caller-controlled symlink or
@@ -239,10 +262,10 @@ features.
 
 ### Agent protocol and shutdown
 
-- [ ] Make `Shutdown` perform and verify real quiescence before reporting
-  `quiesced`; do not return a constant success response.
-- [ ] Reject shutdown while managed processes remain live, or define and test a
-  deterministic stop/kill policy for them.
+- [ ] Add focused tests for the implemented `Shutdown` behavior: it rejects
+  while a managed process remains live and reports `quiesced` only after the
+  manager is no longer running a process. Define and test lifecycle/race and
+  deterministic stop/kill behavior rather than relying on code inspection.
 - [ ] Ensure shutdown explicitly ends the agent session and powers off the child
   without depending on the controller closing the connection as an implicit
   command.
@@ -287,8 +310,11 @@ features.
 - [ ] Run the corrected G1, G2, and G3 live matrix on a disposable qualified GCE
   host and prove final CPU, memory, pool, instance, disk, address, and guest-agent
   state.
-- [ ] Update `00` through `03` learnings with the final demonstrated boundary,
-  link every material claim to retained evidence, and only then close this audit.
+- [x] Update `00` through `03` learnings with the currently demonstrated
+  boundary, remediation findings, later implementation changes, and retained
+  evidence limitations. This documentation synchronization does not close the
+  audit or any gate; replacement evidence and the unchecked implementation/test
+  work above remain required.
 
 ## Known-consistent findings to preserve
 

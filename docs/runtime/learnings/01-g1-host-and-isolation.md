@@ -50,3 +50,23 @@ pool/device/stale-resource details, controller ancestry, serial recovery, or a
 complete online/offline/topology assessment. The combined manifest is labelled
 G3 and lacks a G1 assertion for child CPU/memory visibility. Those checklist
 items therefore remain open despite the useful raw observations above.
+
+## Current implementation audit
+
+The remediation findings still match the current host checker:
+
+- primary CPU headroom uses the number of parsed CPU records rather than an
+  explicit count of online CPUs;
+- unknown Kerf, Secure Boot, lockdown, kexec, and guest-agent states do not all
+  fail closed;
+- physical/core/NUMA zero values can disappear from JSON through `omitempty`;
+- pool state, `/proc/kimage`, device ownership, stale resources, SMT policy,
+  contiguous-memory readiness, controller ancestry, and serial recovery are
+  not reported; and
+- `ValidateRequestedAPICs` rejects APIC 0, duplicates, offline IDs, and
+  headroom violations, but the daemon allocation path does not consume a live
+  qualified report or enforce that validation.
+
+Therefore G1 currently demonstrates a useful read-only host snapshot and two
+narrow live lifecycle observations. It does not yet establish deterministic
+dangerous-allocation rejection or the plan's complete isolation matrix.

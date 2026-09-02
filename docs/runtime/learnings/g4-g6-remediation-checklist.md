@@ -20,7 +20,7 @@ is what remains after those local passes.
 | --- | --- | --- |
 | G4 | Containerd- and Docker-prepared BusyBox roots are copied into private per-sandbox initramfs artifacts; two sandbox-private writes and clean teardown passed. | Snapshot non-mutation and reproducibility were not measured; manifest validation, metadata fidelity, ownership modes, quotas, persistence, corruption, recovery, and the storage failure matrix remain incomplete. |
 | G5 | Two static `/30` TUN links, primary NAT, outbound HTTP with name resolution, sibling-link isolation, and final link/rule cleanup passed. | There is no CNI binary or normal `ADD`/`CHECK`/`DEL`; `mknetd`, MTU negotiation, counters, backpressure policy, reconnect, load/fault coverage, and policy-bypass testing remain incomplete. |
-| G6 | Core Task v2 lifecycle, concurrent `ctr`/Docker use, exec, stdio, nonzero exits, signals, name reuse, daemon restart, stdin/attach, PTY, live resize, and normal cleanup passed in narrow runs. | Shim task reconnection, Docker daemon restart, event ordering, cancellation/deadlines, FIFO failures, faithful PIDs, several Task methods, broad OCI support, and evidence-grade restart/failure reruns remain incomplete. |
+| G6 | Core Task v2 lifecycle, concurrent `ctr`/Docker use, exec, stdio, nonzero exits, signals, name reuse, `mkruntimed` restart, stdin/attach, PTY, initial terminal-size propagation, and normal cleanup passed in narrow runs. | Post-start live-resize evidence, containerd/shim task reconnection, Docker daemon restart, event ordering, cancellation/deadlines, FIFO failures, faithful PIDs, several Task methods, broad OCI support, and evidence-grade restart/failure reruns remain incomplete. |
 
 The canonical gate rows in [`../plans/README.md`](../plans/README.md) and
 [`../../project/TASKS.md`](../../project/TASKS.md) must remain unchecked until
@@ -83,8 +83,9 @@ normative plan is revised with an explicit rationale.
   [`g4-g6-io-live/README.md`](../../../evidence/runtime-20260902/g4-g6-io-live/README.md).
 - Useful live evidence: the hashed current harness completed with exit status
   0 after asserting foreground stdin, detach/reattach, terminal allocation, and
-  a `91` by `37` live resize through both clients. The environment log records
-  installed hashes and empty final inventories; cloud cleanup is retained.
+  initial `91` by `37` size propagation through both clients. The environment
+  log records installed hashes and empty final inventories; cloud cleanup is
+  retained.
 - Evidence limitations: the transcript retains the pass rows but not the
   asserted guest output such as `37 91`. The manifest omits the schema-required
   component `version` fields and uses `${HOST_BOOT_ID}`, which is invalid under
@@ -303,6 +304,9 @@ normative plan is revised with an explicit rationale.
   commands and observed boot IDs, kernel release, image/binary provenance,
   stdout/stderr, stdin/attach output, terminal size, signals, exit statuses,
   names/generations, and cleanup inventories.
+- [ ] Change each terminal size after the guest process is confirmed running
+  and retain the before/after values. The 2026-09-02 run proves PTY operation
+  and initial-size propagation, not a deliberate post-start live resize.
 - [ ] Retain a containerd-restart transcript with service PID/boot identity,
   task state, child boot ID, exec before and after, stdio continuity, events,
   and final deletion. Repeat separately for Docker daemon restart.

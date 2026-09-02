@@ -52,3 +52,22 @@ fsync the containing directory; some error-path store writes are ignored;
 resolution, and observable intermediate states are absent. Consequently only
 the named unit tests and narrow live marker are retained claims; all stronger
 G2 conformance statements remain open in the remediation checklist.
+
+The second synchronization pass also confirmed that backend timeouts are still
+reported generically as `BACKEND_FAILURE`, mutation errors do not reliably
+carry stable operation IDs, backend/path details can cross the API in raw error
+strings, and socket/state ownership and safe-parent checks are incomplete.
+Create validates a small sandbox subset, but not the approved kernel manifest,
+bundle/path trust, label and key bounds, live APIC eligibility, configured Kerf
+pool membership, or usable pool memory. These are current implementation gaps,
+not only missing historical evidence.
+
+## Current audited verdict
+
+G2 supports the happy-path lifecycle, exact create replay, generation checks,
+basic overlap prevention, a fsynced intent journal, atomic snapshot replacement,
+and conservative known-sandbox reconciliation. It remains open because orphan
+external resources and pre-snapshot crash windows can be missed, failure
+classification and persistence are incomplete, the event/config/manifest
+contracts are not enforced, and the retained GCE log cannot independently
+audit the restart sequence.

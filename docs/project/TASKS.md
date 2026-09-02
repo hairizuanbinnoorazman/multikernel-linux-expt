@@ -1,6 +1,6 @@
 # Implementation tasks
 
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 
 ## Live GCE proof
 
@@ -141,28 +141,39 @@ The detailed exit criteria and ordering are in
   release.
 - [x] Add a non-code runtime workspace that prevents accidental coupling
   between the shim, Kerf adapter, agent, and device services.
-- [x] G0: freeze the lifecycle, protocol, configuration, error, threat-model,
-  and evidence contracts.
-- [x] G1: implement and pass read-only host qualification and isolation checks.
-- [x] G2: implement the recoverable `mkruntimed` daemon and Kerf adapter.
-- [x] G3: implement `mk-agent` and the minimal OCI process lifecycle in one child.
+- [x] G0 milestone: publish the initial lifecycle, protocol, configuration,
+  error, threat-model, and evidence contracts; later protocol/OCI drift remains
+  open in remediation.
+- [x] G1 milestone: run the narrow read-only host report and crash/reclaim proof;
+  full qualification and isolation-plan coverage remains open.
+- [x] G2 milestone: implement and exercise the happy-path `mkruntimed` daemon
+  and Kerf adapter; full crash-window reconciliation remains open.
+- [x] G3 milestone: run one minimal direct OCI process lifecycle through
+  `mk-agent`; full process, containment, shutdown, and protocol semantics remain
+  open.
 - [ ] Close the
   [G0-G3 remediation and revalidation checklist](../runtime/learnings/g0-g3-remediation-checklist.md)
   before treating the four historical milestone passes as full conformance to
   their plans and frozen contracts.
 - [ ] G4: provide deterministic OCI images and safe single-owner storage.
-  - [x] MVP: consume containerd/Docker-prepared BusyBox roots without mutating
-    their snapshots, create a private per-sandbox initramfs, and prove cleanup.
+  - [x] MVP: consume containerd/Docker-prepared BusyBox roots, create a private
+    per-sandbox initramfs, and prove narrow write isolation and cleanup.
+  - [ ] Prove caller snapshot immutability with before/after metadata or Merkle
+    digests; the current copy path does not itself establish this claim.
 - [ ] G5: provide primary-mediated CNI-compatible networking.
   - [x] MVP: provide isolated static `/30` TUN links, primary NAT, DNS and
     outbound HTTP without assigning the GCE NIC to a child.
   - [ ] Add normal CNI `ADD`, `CHECK`, and `DEL` operations.
 - [ ] G6: pass containerd Runtime v2 lifecycle tests through `ctr`.
   - [x] MVP: pass concurrent `ctr` and Docker create/start/exec/signal/wait/
-    delete with distinct child-kernel boot IDs and leak-free teardown.
-  - [x] Preserve the running child and boot identity across containerd and
-    `mkruntimed` restarts.
-  - [x] Reclaim the child, TUN, and iptables state after forced shim death.
+    delete with distinct child-kernel boot IDs and narrow tested-resource
+    teardown.
+  - [ ] Retain evidence-grade containerd restart/reconnect proof; the historical
+    result is an operator observation without raw output.
+  - [x] Preserve running child boot identities across an `mkruntimed` restart in
+    the hashed shared-client harness.
+  - [ ] Retain evidence-grade forced-shim reclaim proof; the historical result
+    is an operator observation and running-task reconnect is absent.
   - [x] Pass and retain a command-by-command shared `ctr`/Docker feature
     matrix covering every currently supported lifecycle, root, network,
     restart, name-reuse, and cleanup path.
@@ -171,8 +182,10 @@ The detailed exit criteria and ordering are in
     resize requests received before process start.
   - [x] Implement and live-test guest stdin, `CloseIO`, and detach/reattach
     through both `ctr` and Docker.
-  - [x] Revalidate terminal mode and resize through `ctr` and Docker on a
-    disposable qualified Multikernel host.
+  - [x] Revalidate terminal mode and initial-size propagation through `ctr` and
+    Docker on a disposable qualified Multikernel host.
+  - [ ] Revalidate a deliberate post-start terminal resize through both clients
+    and retain the before/after guest sizes.
 - [ ] Close the
   [G4-G6 remediation and live-evidence checklist](../runtime/learnings/g4-g6-remediation-checklist.md)
   before treating the checked MVP and feature rows as full G4, G5, or G6 gate
