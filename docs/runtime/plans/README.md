@@ -23,9 +23,9 @@ tasks remain in [`../../project/TASKS.md`](../../project/TASKS.md).
 | [ ] provisional | G1 | Qualify the host | Required host features pass and the actual isolation boundary is documented | [`01-host-and-isolation.md`](01-host-and-isolation.md) |
 | [ ] provisional | G2 | Build the control plane | `mkruntimed` and its Kerf adapter recover state and return resources safely | [`02-control-plane.md`](02-control-plane.md) |
 | [ ] provisional | G3 | Build the child agent | One OCI bundle runs through `mk-agent` with correct process and shutdown semantics | [`03-agent-and-processes.md`](03-agent-and-processes.md) |
-| [ ] | G4 | Provide images and storage | OCI roots are deterministic, writable state has one owner, and teardown is clean | [`04-images-and-storage.md`](04-images-and-storage.md) |
-| [ ] | G5 | Provide networking | Primary-mediated networking works through normal CNI operations | [`05-networking.md`](05-networking.md) |
-| [ ] | G6 | Integrate containerd | An unmodified OCI bundle can be managed through containerd and `ctr` | [`06-containerd-shim.md`](06-containerd-shim.md) |
+| [ ] provisional | G4 | Provide images and storage | OCI roots are deterministic, writable state has one owner, and teardown is clean | [`04-images-and-storage.md`](04-images-and-storage.md) |
+| [ ] provisional | G5 | Provide networking | Primary-mediated networking works through normal CNI operations | [`05-networking.md`](05-networking.md) |
+| [ ] provisional | G6 | Integrate containerd | An unmodified OCI bundle can be managed through containerd and `ctr` | [`06-containerd-shim.md`](06-containerd-shim.md) |
 | [ ] | G7 | Integrate Kubernetes | A multi-container pod runs through a Multikernel `RuntimeClass` | [`07-kubernetes.md`](07-kubernetes.md) |
 | [ ] | G8 | Harden security and reliability | Security, fault-injection, restart, and resource-leak tests pass | [`08-security-and-reliability.md`](08-security-and-reliability.md) |
 | [ ] | G9 | Measure performance and density | Reproducible comparisons and raw evidence support runtime decisions | [`09-performance-and-density.md`](09-performance-and-density.md) |

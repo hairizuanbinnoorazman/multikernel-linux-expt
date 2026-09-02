@@ -173,6 +173,10 @@ The detailed exit criteria and ordering are in
     through both `ctr` and Docker.
   - [x] Revalidate terminal mode and resize through `ctr` and Docker on a
     disposable qualified Multikernel host.
+- [ ] Close the
+  [G4-G6 remediation and live-evidence checklist](../runtime/learnings/g4-g6-remediation-checklist.md)
+  before treating the checked MVP and feature rows as full G4, G5, or G6 gate
+  conformance.
 - [ ] G7: run a multi-container Kubernetes pod through `RuntimeClass`.
 - [ ] G8: pass the security, fuzzing, failure, and resource-leak matrix.
 - [ ] G9: publish reproducible performance and density comparisons.
