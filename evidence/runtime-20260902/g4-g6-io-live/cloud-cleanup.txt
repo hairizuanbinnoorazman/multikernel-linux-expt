@@ -1,0 +1,12 @@
+2026-09-02
+
+Before deletion:
+NAME                       STATUS   MACHINE_TYPE    SOURCE                         BOOT    AUTO_DELETE
+mklinux-g4-g6-io-20260901  RUNNING  n2-standard-16  ['mklinux-g4-g6-io-20260901']  [True]  [True]
+
+Deletion result:
+Deleted instance mklinux-g4-g6-io-20260901 in asia-southeast1-b.
+
+Post-deletion inventory:
+- Disposable instance mklinux-g4-g6-io-20260901: absent
+- Disposable disk mklinux-g4-g6-io-20260901: absent

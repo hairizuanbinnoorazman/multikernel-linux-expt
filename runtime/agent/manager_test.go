@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,9 +48,71 @@ func TestHelperProcess(t *testing.T) {
 		fmt.Printf("terminal-size=%dx%d", ws.Col, ws.Row)
 		return
 	}
+	if os.Getenv("MK_AGENT_STDIN_HELPER") == "1" {
+		fmt.Print("stdin-ready\n")
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			os.Exit(98)
+		}
+		fmt.Printf("stdin=%s", data)
+		return
+	}
 	os.Stdout.WriteString("stdout-ok")
 	os.Stderr.WriteString("stderr-ok")
 	os.Exit(17)
+}
+
+func TestStdinAndIncrementalOutput(t *testing.T) {
+	m := NewManager(true)
+	b := bundle(t, []string{"/probe", "-test.run=TestHelperProcess"}, "")
+	c, _, err := LoadBundle(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Process.Env = []string{"MK_AGENT_HELPER=1", "MK_AGENT_STDIN_HELPER=1"}
+	raw, _ := json.Marshal(c)
+	if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Create("stdin", b); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Start("stdin"); err != nil {
+		t.Fatal(err)
+	}
+	var stdout []byte
+	var stdoutOffset uint64
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+		var chunk []byte
+		chunk, _, stdoutOffset, _, _, err = m.ReadOutput("stdin", stdoutOffset, 0, 64<<10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stdout = append(stdout, chunk...)
+		if strings.Contains(string(stdout), "stdin-ready") {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if !strings.Contains(string(stdout), "stdin-ready") {
+		t.Fatalf("live stdout = %q", stdout)
+	}
+	if err = m.Write("stdin", []byte("guest-input")); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.CloseStdin("stdin"); err != nil {
+		t.Fatal(err)
+	}
+	state, err := m.Wait("stdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.ExitCode != 0 || !strings.Contains(state.Stdout, "stdin=guest-input") {
+		t.Fatalf("stdin state: %+v", state)
+	}
+	if err = m.Write("stdin", []byte("late")); err == nil {
+		t.Fatal("write after exit unexpectedly succeeded")
+	}
 }
 
 func TestTerminalAndResize(t *testing.T) {

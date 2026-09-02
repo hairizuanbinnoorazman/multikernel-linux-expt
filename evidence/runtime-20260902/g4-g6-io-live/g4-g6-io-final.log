@@ -1,0 +1,22 @@
+Script started on 2026-09-02 01:50:07+00:00 [COMMAND="${REPOSITORY_ROOT}/scripts/test-runtime-g4-g6-feature-matrix.sh" <not executed on terminal>]
+^@FEATURE_MATRIX_PASS feature=image-pull-and-inspect ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=split-create-and-start ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=state-and-inspect ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=exec-and-distinct-kernel-identity ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=exec-stdout-and-stderr ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=private-writable-root ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=primary-mediated-network ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=cross-sandbox-network-isolation ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=runtime-daemon-restart-continuity ctr=PASS docker=PASS
+FEATURE_MATRIX_UNSUPPORTED feature=pause-resume ctr=REJECTED docker=REJECTED
+FEATURE_MATRIX_PASS feature=signal-and-exit-observation ctr=PASS docker=PASS
+[33mWARN[0m[0001] task mk-matrix-ctr exit with non-zero exit code 42 
+FEATURE_MATRIX_PASS feature=delete-and-resource-cleanup ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=foreground-wait-stdio-and-nonzero-exit ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=name-reuse ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=guest-stdin ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=guest-attach ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=terminal-mode ctr=PASS docker=PASS
+G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS
+
+Script done on 2026-09-02 01:52:52+00:00 [COMMAND_EXIT_CODE="0"]

@@ -12,6 +12,8 @@
   final cloud cleanup.
 - [`runtime-20260901/`](runtime-20260901/README.md): G4-G6 MVP, robustness,
   full shared `ctr`/Docker feature matrix, and final cloud cleanup.
+- [`runtime-20260902/`](runtime-20260902/README.md): live guest stdin,
+  detach/reattach, terminal/resize revalidation, and final cloud cleanup.
 
 Evidence captures historical state and may contain terminal formatting such as
 CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely

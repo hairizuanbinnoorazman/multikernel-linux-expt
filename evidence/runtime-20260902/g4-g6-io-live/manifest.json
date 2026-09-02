@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "gate": "G6",
+  "run_id": "g4-g6-guest-io-live-20260902",
+  "result": "pass",
+  "started_at": "2026-09-02T01:50:07Z",
+  "ended_at": "2026-09-02T01:53:57Z",
+  "repository": {
+    "commit": "600d721c757b56d12eb778214442dde6d18152bb",
+    "dirty": true
+  },
+  "components": [
+    {
+      "name": "containerd-shim-multikernel-v2",
+      "sha256": "63d4f4a189ca0e2b335f8e7db8a8a2a7d99a144a9cc926dcb36c50c655d47aad"
+    },
+    {
+      "name": "mk-agent",
+      "sha256": "12780225f892d2a5f764ab1f031b82413202b7df74a6d3e7ab69f9fa1a28b751"
+    },
+    {
+      "name": "test-runtime-g4-g6-feature-matrix.sh",
+      "sha256": "aaa1daad2d00b988d5e15ef61d8708020fc1fb1202d8d04a1cae8c2e9b11427f"
+    },
+    {
+      "name": "build-runtime-container-initramfs.sh",
+      "sha256": "b033be028d47d5921eeae2ec9dfc9894ff219eeae96cf5912cd1273366c85451"
+    },
+    {
+      "name": "mk-agent-init",
+      "sha256": "0d6bc72017b998a26ac53ae44f98b460e4478fffedfa3899fdeffbaf619af6d9"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-g4-g6-io-20260901",
+    "machine_type": "n2-standard-16",
+    "boot_id": "${HOST_BOOT_ID}"
+  },
+  "commands": [
+    {
+      "id": "shared-feature-matrix",
+      "argv": ["scripts/test-runtime-g4-g6-feature-matrix.sh"],
+      "exit_status": 0,
+      "output_path": "g4-g6-io-final.log"
+    }
+  ],
+  "assertions": [
+    {"id": "host-qualified", "passed": true, "evidence_paths": ["g4-g6-io-host-report.json"]},
+    {"id": "shared-feature-matrix", "passed": true, "evidence_paths": ["g4-g6-io-final.log"]},
+    {"id": "guest-stdin", "passed": true, "evidence_paths": ["g4-g6-io-final.log"]},
+    {"id": "guest-detach-reattach", "passed": true, "evidence_paths": ["g4-g6-io-final.log"]},
+    {"id": "terminal-and-live-resize", "passed": true, "evidence_paths": ["g4-g6-io-final.log"]},
+    {"id": "final-resource-cleanup", "passed": true, "evidence_paths": ["g4-g6-io-environment.log"]},
+    {"id": "cloud-resource-cleanup", "passed": true, "evidence_paths": ["cloud-cleanup.txt"]}
+  ],
+  "limitations": [
+    "Pause, Resume, Stats, Update, and Checkpoint are unsupported.",
+    "Faithful guest PID reporting is not implemented.",
+    "Forced shim death safely reclaims resources but does not reconnect the running task.",
+    "CNI ADD, CHECK, and DEL and the full G4 storage matrix remain open."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "g4-g6-io-host-report.json",
+    "resources_after": "cloud-cleanup.txt",
+    "retained_resources": ["pre-existing snapshots and disks only"],
+    "operator_acknowledged": true
+  }
+}

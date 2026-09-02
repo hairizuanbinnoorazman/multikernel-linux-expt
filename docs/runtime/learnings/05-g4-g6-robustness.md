@@ -93,8 +93,28 @@ retains an initial window size sent before process start. Terminal execution,
 combined terminal output, live resize, invalid-size rejection, and pre-start
 resize retention pass local unit tests and the Go race detector.
 
-This is implemented-but-not-live-revalidated status. The retained GCE
-transcript correctly records rejection by the older build, while the evolving
-feature-matrix harness now expects successful terminal execution on its next
-qualified disposable-host run. Guest stdin/attach remains separate and is
-still unimplemented.
+## Guest I/O and terminal live revalidation
+
+On 2026-09-02, disposable instance `mklinux-g4-g6-io-20260901` was restored
+from the qualified snapshot and ran the updated shared matrix to completion.
+Both `ctr` and Docker passed foreground guest stdin, detach followed by live
+reattachment, terminal execution, and a live resize to 91 columns by 37 rows.
+
+The run exposed and fixed two fresh-host-only gaps before the retained pass:
+
+- Task `CloseIO` could overtake bytes already buffered in the stdin FIFO. The
+  shim now drains those bytes before delivering guest EOF.
+- The guest initramfs mounted `devtmpfs` but not `devpts`, so accepting
+  `terminal=true` still left PTY allocation unusable. The guest now mounts
+  `devpts` before binding `/dev` into the OCI root, and the private OCI config
+  preserves the caller's terminal bit.
+
+The final qualified-host report passed, the matrix ended with
+`G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS`, all child/container/network inventories
+were empty, and the disposable VM and auto-delete disk were removed. Raw proof
+is indexed in the [2026-09-02 guest-I/O evidence](../../../evidence/runtime-20260902/g4-g6-io-live/README.md).
+
+This closes the earlier implemented-but-not-live-revalidated terminal status
+and the guest stdin/attach implementation gap. It does not close pause/resume,
+`Stats`, `Update`, `Checkpoint`, faithful guest PIDs, CNI, the full G4 storage
+matrix, or shim-crash task reconnection.

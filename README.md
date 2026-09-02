@@ -18,8 +18,8 @@ agent, primary-mediated network, and containerd Runtime v2 shim.
 ## G4-G6 `ctr` and Docker feature matrix
 
 Except where a historical proof is named, `Passed` means the operation was
-exercised through both clients on disposable GCE instance
-`mklinux-g4-g6-matrix-20260901`. `Partial` and `Not implemented` are not
+exercised through both clients on disposable GCE instances, most recently
+`mklinux-g4-g6-io-20260901`. `Partial` and `Not implemented` are not
 release claims. Docker commands require `--runtime
 io.containerd.multikernel.v2 --network none` because the runtime, rather than
 Docker's bridge, owns the child link.
@@ -31,7 +31,7 @@ Docker's bridge, owns the child link.
 | Split create and start | `containers create`, `tasks start` | `docker create`, `docker start` | Passed |
 | State inspection | `ctr tasks list` | `docker inspect` | Passed |
 | Additional process | `ctr task exec` | `docker exec` | Passed |
-| Stdout and stderr | foreground run and exec FIFOs | foreground run and exec | Passed; output is buffered until process exit |
+| Stdout and stderr | foreground run and exec FIFOs | foreground run and exec | Passed; output streams while the process is live |
 | Wait and nonzero exit | blocking `ctr run` (containerd 2.2.2 has no standalone `tasks wait`) | blocking `docker run`, `docker wait`, exit inspection | Passed |
 | TERM and exit observation | `ctr tasks kill`, task state | `docker kill`, `docker wait` | Passed |
 | KILL and exit 137 | `ctr tasks kill --signal SIGKILL` | `docker kill --signal KILL` | Passed in the earlier [MVP proof](docs/runtime/learnings/04-g4-g6-mvp.md) |
@@ -44,8 +44,8 @@ Docker's bridge, owns the child link.
 | Client daemon restart | system containerd restart passed historically | Docker daemon restart not proved | Partial |
 | Forced shim death | safe leak-free reclaim proved | not separately proved through Docker | Partial; running task reconnect is not implemented |
 | Process list | Task `Pids` reports the shim PID | Docker metadata can consume it | Partial; guest PID fidelity is not implemented |
-| Stdin/attach and `CloseIO` | no guest stdin pump | no guest stdin pump | Not implemented |
-| Terminal and resize | `--tty`, `ResizePty` | `--tty`, resize | Implemented after the retained GCE run; PTY execution and resize pass local unit/race tests, live client revalidation pending |
+| Stdin/attach and `CloseIO` | foreground stdin and `tasks attach` | foreground stdin and `docker attach` | Passed; FIFO bytes drain before guest EOF |
+| Terminal and resize | `--tty`, `ResizePty` | `--tty`, resize | Passed; both guests observed the live 91×37 PTY size |
 | Pause and resume | `tasks pause/resume` | `docker pause/unpause` | Not implemented; live rejection proved for both |
 | Metrics/stats | Task `Stats` | `docker stats` | Not implemented |
 | Runtime resource update | Task `Update` | `docker update` | Not implemented |
@@ -55,7 +55,7 @@ Docker's bridge, owns the child link.
 
 The repeatable test is
 [`scripts/test-runtime-g4-g6-feature-matrix.sh`](scripts/test-runtime-g4-g6-feature-matrix.sh),
-with the [GCE transcript and final clean inventory](evidence/runtime-20260901/g4-g6-feature-matrix/README.md).
+with the [latest GCE transcript and final clean inventory](evidence/runtime-20260902/g4-g6-io-live/README.md).
 The G4-G6 gates remain provisional; see the
 [robustness learnings](docs/runtime/learnings/05-g4-g6-robustness.md).
 

@@ -1,8 +1,10 @@
 #!/bin/busybox sh
 set -eu
 /bin/busybox --install -s /bin
-mkdir -p /dev /proc /sys /sys/fs/cgroup /tmp
+mkdir -p /dev /dev/pts /proc /sys /sys/fs/cgroup /tmp
 mount -t devtmpfs devtmpfs /dev || true
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts -o mode=620,ptmxmode=666
 mount -t proc proc /proc || true
 mount -t sysfs sysfs /sys || true
 mount -t cgroup2 none /sys/fs/cgroup || true
