@@ -41,16 +41,16 @@ Docker's bridge, owns the child link.
 | Outbound DNS/HTTP | child `mkn0` through primary NAT | child `mkn0` through primary NAT | Passed |
 | Cross-sandbox network isolation | sibling `/30` unreachable | sibling `/30` unreachable | Passed |
 | `mkruntimed` restart | running task retained its boot ID | running container retained its boot ID | Passed concurrently |
-| Client daemon restart | system containerd restart passed historically | Docker daemon restart not proved | Partial |
-| Forced shim death | safe leak-free reclaim proved | not separately proved through Docker | Partial; running task reconnect is not implemented |
+| Client daemon restart | system containerd restart retained as an operator observation | Docker daemon restart not proved | Partial; raw restart evidence is absent |
+| Forced shim death | safe reclaim retained as an operator observation | not separately proved through Docker | Partial; raw evidence and running-task reconnect are absent |
 | Process list | Task `Pids` reports the shim PID | Docker metadata can consume it | Partial; guest PID fidelity is not implemented |
 | Stdin/attach and `CloseIO` | foreground stdin and `tasks attach` | foreground stdin and `docker attach` | Passed; FIFO bytes drain before guest EOF |
-| Terminal and resize | `--tty`, `ResizePty` | `--tty`, resize | Passed; both guests observed the live 91×37 PTY size |
+| Terminal and resize | `--tty`, `ResizePty` | `--tty`, resize | Partial; PTYs and initial 91×37 propagation passed live, while deliberate post-start resize has only local agent coverage |
 | Pause and resume | `tasks pause/resume` | `docker pause/unpause` | Not implemented; live rejection proved for both |
 | Metrics/stats | Task `Stats` | `docker stats` | Not implemented |
 | Runtime resource update | Task `Update` | `docker update` | Not implemented |
 | Checkpoint/restore | Task `Checkpoint` | Docker checkpoint | Not implemented |
-| Full OCI controls | capabilities, seccomp, namespaces, mounts, hooks, rlimits, read-only root | equivalent Docker flags | Not implemented; unsupported configuration fails closed |
+| Full OCI controls | capabilities, seccomp, namespaces, mounts, hooks, rlimits, read-only root | equivalent Docker flags | Not implemented; the current adapter can silently discard unsupported fields, so end-to-end fail-closed handling remains open |
 | CNI `ADD`/`CHECK`/`DEL` | no CNI adapter | no CNI adapter | Not implemented; static mediated networking only |
 
 The repeatable test is

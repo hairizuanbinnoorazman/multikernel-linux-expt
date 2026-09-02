@@ -53,12 +53,31 @@ and the indexed child console.
 | Supplementary groups and signal delivery | `implemented-unproven` | Code passes groups and accepts signals, but neither non-empty groups nor delivery is proved by retained live evidence. Advertising them in the historical `Capabilities` reply was over-broad; the current response omits UID, GID, groups, and signals until their nontrivial live cases pass, enforced by `agent.TestAuthenticationAndReplay`. |
 | Wait before start | `unit-tested rejected` | `agent.TestWaitRejectsUnstartedProcess` proves an unstarted process returns an error instead of blocking forever. |
 | Unsupported mounts | `unit-tested rejected` | `agent.TestUnsupportedFailsClosed`. |
-| Hooks, capabilities, namespaces/resources, seccomp, masked/read-only paths, read-only root, `noNewPrivileges`, rlimits, hostname, terminal | `implemented rejection; not fully tested` | `LoadBundle` rejects non-empty values, but the required field-by-field test matrix is absent. |
-| `ExecProcess`, bounded streaming/backpressure, process/output retention limits, reconnect, structured agent errors, reply integrity | `not implemented` | No implementation or test exists. |
-| Real quiescence, session termination, filesystem flush/poweroff | `not implemented` | `Shutdown` returns a constant `quiesced` body; the controller closing the transport drives the historical shutdown. |
+| Hooks, capabilities, namespaces/resources, seccomp, masked/read-only paths, read-only root, `noNewPrivileges`, rlimits, and hostname | direct-agent rejection implemented; not fully tested | `LoadBundle` rejects non-empty values, but the required field-by-field test matrix is absent. The later G6 builder can discard these fields before `LoadBundle`, so fail-closed behavior is not true end to end. |
+| `ExecProcess` | implemented later; G6 live-tested, focused G3 unit coverage incomplete | The later shared `ctr`/Docker matrix exercises exec through the shim and agent, but the historical G3 run did not and the agent suite lacks a focused exec lifecycle/failure matrix. |
+| Terminal and resize | implemented later; unit-tested; PTY and initial size live-tested | Local agent tests exercise post-start resize. The retained G6 live harness proves PTY operation and initial-size propagation, not a deliberate post-start size change. |
+| Stdin, `CloseProcessStdin`, incremental output, and attach | implemented later; unit- and G6 live-tested narrowly | Requests are chunk-bounded, but complete process output remains in unbounded in-memory buffers and slow-reader/backpressure behavior is open. |
+| Process/output retention limits, reconnect, structured agent errors, reply integrity | `not implemented` | No complete implementation or test exists. |
+| Quiescence check, session termination, filesystem flush/poweroff | quiescence rejection implemented; shutdown incomplete | `Shutdown` now rejects while a managed process is running and reports `quiesced` only after processes stop. It still does not terminate the agent session, perform storage quiescence, or power off independently; the controller closes the historical transport. |
 
 The plan's full minimum implementation remains the G3 exit criterion. The
 frozen policy's smaller accepted/rejected OCI set governs the provisional
 prototype and does not waive namespaces, capabilities, rlimits, cgroups,
-`ExecProcess`, independent bounded stdio, tested signals, or verified clean
+independent bounded stdio, complete exec/signal semantics, or verified clean
 quiescence required by the plan.
+
+## Current audited verdict
+
+Later G4-G6 work materially expanded the agent beyond the 2026-08-31 direct
+bundle milestone: exec, process state, process-group signals, stdin/EOF,
+incremental reads, attach support, PTYs, resize, and static network transport
+now exist. Those additions do not retroactively strengthen the historical G3
+manifest, and several are covered only by narrow unit or shared-client tests.
+
+G3 remains open because configured namespaces, capabilities, rlimits, cgroups,
+architecture validation, bounded output/backpressure, complete failure/race
+coverage, reply integrity, reconnect, structured secret-safe errors, and
+agent-driven filesystem quiescence/poweroff remain absent. The current agent
+protocol schema and frozen kernel/image policy also lag the added methods and
+terminal capability, while the G6 OCI adapter violates the frozen fail-closed
+rule by discarding unsupported fields.

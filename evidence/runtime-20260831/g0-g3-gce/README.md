@@ -9,7 +9,10 @@
 - Source revision before changes: `059e612`
 - Kernel: Multikernel `3bdd35b64413da0b4e089ce931bfc2e8b031cbf7`
 - Kerf: `v0.2.0`
-- Result: G0, G1, G2, and the minimal G3 gate passed
+- Historical result label: G0, G1, G2, and the minimal G3 milestones passed
+- Current audit classification: provisional narrow milestones, not normative
+  gate closure; see the
+  [G0-G3 remediation checklist](../../../docs/runtime/learnings/g0-g3-remediation-checklist.md)
 
 ## Files
 
@@ -29,6 +32,12 @@ The disposable fixed G3 authentication fixture was redacted from the two
 kernel-command-line records in `runtime-g3-console.log`. The downloaded source
 archive was removed after extraction because it retained the unredacted copy;
 all indexed evidence files remain available.
+
+The combined manifest is historical and does not conform to the current strict
+evidence schema. It labels the combined run only as G3, does not provide
+separate per-gate assertions and structured resource ledgers, and cannot close
+G0, G1, G2, or G3 under the current evidence contract. The G2 log is a short
+pass marker rather than the raw journal/restart transcript.
 
 ## Resource ledger
 

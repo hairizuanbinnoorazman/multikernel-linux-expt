@@ -60,8 +60,12 @@ fail closed, and orderly agent shutdown returns control to the daemon.
 
 The 2026-08-31 run is a provisional direct-bundle milestone, not closure of
 this gate. The minimum implementation and test lists above remain normative;
-in particular `ExecProcess`, independent bounded stdio streaming, configured
-namespaces/capabilities/rlimits/cgroups, tested signal semantics, and verified
-quiescence must land before G3 is checked in the master plan. The narrower
-frozen G3 OCI policy describes which inputs the provisional implementation is
-allowed to accept or must reject; it does not waive this plan's exit criteria.
+later work implemented `ExecProcess`, stdin/attach, PTYs, resize, and a running-
+process shutdown check, but focused failure coverage remains incomplete. In
+particular independent bounded stdio streaming, configured namespaces/
+capabilities/rlimits/cgroups, complete exec and signal semantics, and verified
+agent-driven quiescence/poweroff must land before G3 is checked in the master
+plan. The narrower frozen G3 OCI policy describes which inputs the provisional
+implementation is allowed to accept or must reject; it does not waive this
+plan's exit criteria. The policy and protocol schemas must also be versioned or
+updated with the later method and terminal evolution.

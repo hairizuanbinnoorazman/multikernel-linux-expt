@@ -6,8 +6,10 @@ The executable path from a stock BusyBox OCI image to a dedicated
 Multikernel child passed on the disposable GCE instance
 `mklinux-g6-20260831`. `ctr` and Docker ran concurrently through
 `io.containerd.multikernel.v2`; their containers reported different child
-kernel boot IDs and the selected `7.0.0-mk2-gce-lab` release. The primary boot
-ID remained unchanged.
+kernel boot IDs, and the primary boot ID remained unchanged. The retained
+child output did not record `uname -r`, so the selected
+`7.0.0-mk2-gce-lab` child release is expected from the configured kernel
+manifest but is not independently established by this run.
 
 This is an MVP milestone, not closure of every acceptance item in the G4-G6
 plans. The master gate rows remain unchecked until their complete storage,
@@ -17,7 +19,10 @@ CNI, failure, and restart matrices pass.
 
 - Containerd or Docker remains responsible for pulling and unpacking the OCI
   image. The shim mounts the prepared root and builds a private, sorted,
-  timestamp-free-gzip initramfs without modifying the caller's snapshot.
+  timestamp-free-gzip initramfs. The builder reads and copies the prepared
+  root, but the run did not retain before/after snapshot digests or mount
+  provenance. Snapshot non-mutation and reproducibility therefore remain
+  remediation items rather than proved properties.
 - Every Task v2 `Create` allocates a disjoint CPU pair and 3 GiB from
   `mkruntimed`, boots a child, authenticates its agent, and exposes the basic
   `Create`, `Start`, `State`, `Wait`, `Kill`, `Delete`, and `Exec` lifecycle.
@@ -44,7 +49,9 @@ distinct child boot IDs and disjoint addresses, performs outbound DNS/HTTP,
 rejects direct cross-sandbox traffic, executes a second process in each,
 sends SIGKILL, checks Docker's exit status, removes both containers, and
 asserts that no Kerf instance, TUN, iptables rule, containerd task, or Docker
-container remains.
+container remains. It does not verify the `ctr` SIGKILL exit code, caller
+snapshot immutability, rootfs mounts and artifacts, relay/shim/FIFO cleanup,
+or the complete CPU, memory, storage, and recovery-record inventory.
 
 Two consecutive clean-pool runs passed:
 
@@ -52,15 +59,24 @@ Two consecutive clean-pool runs passed:
 - [`g4-g6-proof-repeat.log`](../../../evidence/runtime-20260901/g4-g6-gce/g4-g6-proof-repeat.log)
 - [`g4-g6-environment.log`](../../../evidence/runtime-20260901/g4-g6-gce/g4-g6-environment.log)
 
+These files support the narrow executable-MVP assertions. They retain observed
+boot IDs and addresses, but not child kernel releases, expanded commands, DNS
+answers, HTTP responses, live network rules, or source-snapshot digests. The
+manifest is schema-valid, but the run used a dirty repository without a
+retained diff and indexes G4/G5 assertions under `gate: G6`.
+
 ## Remaining full-gate work
 
 - G4: the complete metadata, malformed-image, quota/ENOSPC, persistence,
   failure, and recovery matrix.
 - G5: a normal CNI `ADD`/`CHECK`/`DEL` adapter, MTU/load/fault tests, and
   network-policy bypass tests.
-- G6: terminal resize, shim crash task preservation/reconnect, event ordering,
-  cancellation, and FIFO edge-case tests. A later follow-up passed containerd
-  and daemon restart reconnect plus leak-free shim-crash reclaim; see
+- G6: shim crash task preservation/reconnect, event ordering, cancellation,
+  faithful PID reporting, OCI fail-closed validation, and FIFO edge-case
+  tests. A later follow-up added PTYs, stdin/attach, and resize support and
+  exercised initial terminal-size propagation live. Containerd restart and
+  shim-reclaim results remain retained operator observations rather than
+  evidence-contract-quality proof; see
   [`05-g4-g6-robustness.md`](05-g4-g6-robustness.md).
 
 The full implementation and replacement-instance evidence handoff is tracked

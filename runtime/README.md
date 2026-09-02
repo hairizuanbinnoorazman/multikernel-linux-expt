@@ -2,15 +2,24 @@
 
 This directory contains the G0-G6 Multikernel runtime MVP described
 in [`../docs/runtime/architecture.md`](../docs/runtime/architecture.md). Host
-qualification, the recoverable Kerf control plane, and the minimal child OCI
-agent passed locally and on GCE. A private OCI-root initramfs, authenticated
+qualification, the Kerf control-plane happy path, and the minimal child OCI
+agent reached provisional local and GCE milestones. A private OCI-root initramfs, authenticated
 primary-mediated TUN networking, and the containerd Runtime v2 shim also passed
 the G4-G6 happy-path proof through both `ctr` and Docker. The broader gate
 failure/recovery matrices remain open.
 
 Guest stdin, detach/reattach, terminal execution, and Runtime v2 resize are
-implemented and passed through both `ctr` and Docker on a qualified disposable
-GCE host. Their FIFO/PTY paths also pass local unit tests and the race detector.
+implemented. Stdin/attach, PTY execution, and initial terminal-size propagation
+passed through both `ctr` and Docker on a qualified disposable GCE host; a
+deliberate post-start resize has local agent coverage but still needs live
+revalidation. The FIFO/PTY paths also pass the current local unit suite and race
+detector, with broader backpressure/failure coverage still open.
+
+None of G0 through G6 is a closed normative gate. See the
+[G0-G3](../docs/runtime/learnings/g0-g3-remediation-checklist.md) and
+[G4-G6](../docs/runtime/learnings/g4-g6-remediation-checklist.md) remediation
+audits for the demonstrated boundary and remaining contract, implementation,
+test, and evidence work.
 
 ## Intended layout
 

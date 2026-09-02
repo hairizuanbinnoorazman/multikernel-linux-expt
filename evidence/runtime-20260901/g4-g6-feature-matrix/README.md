@@ -11,8 +11,9 @@ The host qualification report passed on `7.0.0-mk2-gce-lab`. Containerd
 Evidence:
 
 - [`g4-g6-feature-matrix.log`](g4-g6-feature-matrix.log) is the successful
-  command-by-command transcript. It contains 13 shared pass rows, two explicit
-  unsupported rows, and the terminal `G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS`.
+  marker transcript. It contains 13 shared pass rows, two explicit unsupported
+  rows, and the terminal `G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS`; expanded
+  commands and observed assertion values were not retained.
 - [`g4-g6-feature-matrix-environment.log`](g4-g6-feature-matrix-environment.log)
   records client/server versions, pinned source revisions, installed component
   hashes, image digest, five active services, all 16 CPUs returned, and empty
@@ -22,6 +23,11 @@ Evidence:
 - [`cloud-cleanup.txt`](cloud-cleanup.txt) records deletion of the disposable
   instance and auto-delete boot disk and the final absence check.
 - [`manifest.json`](manifest.json) maps assertions to those raw files.
+
+The manifest is a non-conforming historical index because its redacted boot ID
+does not satisfy the current schema, the run was dirty without a retained diff,
+and its G6 label also indexes G4/G5 assertions. The pass rows remain useful when
+read with the retained harness hash, but are not full-gate evidence.
 
 The pass covers the currently supported shared client surface. It does not
 turn expected TTY/resize or pause/resume rejection into support, and it does

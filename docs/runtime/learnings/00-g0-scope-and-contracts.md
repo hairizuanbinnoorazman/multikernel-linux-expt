@@ -17,10 +17,12 @@ convenience.
 
 The frozen MVP uses a runtime-owned kernel/initramfs/agent and a
 containerd-owned OCI bundle/rootfs. It is `linux/amd64`, trusted-workload only,
-and fail-closed for OCI fields not in the advertised feature set. Sandbox
-identity is `(id, random generation)` and every mutation has an idempotency
-key. Error, ownership, lifecycle, configuration, authentication, kernel
-selection, and cloud evidence rules are explicit.
+and requires fail-closed handling for OCI fields not in the advertised feature
+set. Sandbox identity is `(id, random generation)` and every mutation has an
+idempotency key. Error, ownership, lifecycle, configuration, authentication,
+kernel selection, and cloud evidence rules are explicit. Later G4-G6 code does
+not yet satisfy every one of those rules: the image builder and exec translation
+can discard unsupported OCI fields before the agent validates them.
 
 ## License audit
 
@@ -77,6 +79,29 @@ condition for that gate.
 | Host and sandbox configuration | G0 schema; G1/G2 enforcement | Schema complete; root ownership, safe parents, and daemon loading remain open. |
 | Daemon/agent wire envelopes and method set | G0 schema; G2/G3 implementation; G6 evolution | Envelope schemas complete; method semantics and missing methods remain open. |
 | Evidence manifest, resource ledgers, and redaction | Every gate; G10 release audit | Schema complete; historical G0-G3 evidence is non-conforming and replacement runs remain open. |
+
+## Contract drift found by the 2026-09-02 synchronization audit
+
+The schema work completed the original G0 artifact set, but later runtime work
+evolved beyond parts of frozen v1 without updating the contracts together:
+
+- the current agent implements stdin, attach-oriented output reads, terminal
+  resize, process state, and static-network methods that are not represented in
+  the v1 agent-protocol schema's method enum;
+- the kernel/image policy still lists `terminal=false` as the G3 boundary even
+  though terminal support was subsequently implemented and live-tested for
+  initial-size propagation;
+- the G6 image builder and exec adapter select a supported OCI subset instead
+  of rejecting every unsupported caller field, contrary to the fail-closed
+  contract; and
+- `make docs-check` validates schema fixtures but not every committed evidence
+  manifest, so non-conforming historical manifests remain undetected by the
+  default target.
+
+These are open G0/G3/G6 contract-evolution items. Closing them requires either
+a compatible schema/policy revision with tests and migration notes or code that
+conforms to the existing v1 contracts; documentation alone must not normalize
+the mismatch.
 
 ## Key learning
 
