@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "sequence": 11,
+  "sandboxes": {
+    "runtime-g2": {
+      "id": "runtime-g2",
+      "generation": "d1e27715aa7e11f226839ad452352766",
+      "state": "RUNNING",
+      "config": {
+        "schema_version": 1,
+        "id": "runtime-g2",
+        "cpus": [
+          8,
+          10
+        ],
+        "memory_bytes": 4294967296,
+        "kernel_manifest": "gce-mk2",
+        "bundle": "/tmp/runtime-g2-bundle",
+        "agent_port": 7102,
+        "child_cid": 22
+      },
+      "created_at": "2026-09-03T02:14:35.31798092Z",
+      "updated_at": "2026-09-03T02:14:39.406195714Z"
+    },
+    "runtime-g2-b": {
+      "id": "runtime-g2-b",
+      "generation": "d72e52230df700cff61346614c930d1e",
+      "state": "RUNNING",
+      "config": {
+        "schema_version": 1,
+        "id": "runtime-g2-b",
+        "cpus": [
+          12,
+          14
+        ],
+        "memory_bytes": 4294967296,
+        "kernel_manifest": "gce-mk2",
+        "bundle": "/tmp/runtime-g2-b-bundle",
+        "agent_port": 7104,
+        "child_cid": 24
+      },
+      "created_at": "2026-09-03T02:14:39.455991426Z",
+      "updated_at": "2026-09-03T02:14:41.719232152Z"
+    }
+  },
+  "results": {
+    "g2-create": {
+      "fingerprint": "0aeecfed0e216ad35334986d2f12204bd2b7600e96d5969fab74983614fd9ad5",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "d1e27715aa7e11f226839ad452352766",
+          "state": "CREATED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T02:14:35.31798092Z",
+          "updated_at": "2026-09-03T02:14:37.321613615Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-load": {
+      "fingerprint": "c4e20b281c263ec734f6c89ebc4727cbbd89524623168f364cc7335238c68bfc",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "d1e27715aa7e11f226839ad452352766",
+          "state": "LOADED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T02:14:35.31798092Z",
+          "updated_at": "2026-09-03T02:14:39.197341704Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-start": {
+      "fingerprint": "850cc39cede9cb3d49d6d736cfa1c4e48d9f0d16769d3cdd380b3e0d0a8c758d",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "d1e27715aa7e11f226839ad452352766",
+          "state": "RUNNING",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T02:14:35.31798092Z",
+          "updated_at": "2026-09-03T02:14:39.406195714Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2b-create": {
+      "fingerprint": "c0de1f53b2b64f6d69303240bdcc041c2a905be6dec15e7a9af0b6e54b2a58c7",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2-b",
+          "generation": "d72e52230df700cff61346614c930d1e",
+          "state": "CREATED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2-b",
+            "cpus": [
+              12,
+              14
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-b-bundle",
+            "agent_port": 7104,
+            "child_cid": 24
+          },
+          "created_at": "2026-09-03T02:14:39.455991426Z",
+          "updated_at": "2026-09-03T02:14:39.639232454Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2b-load": {
+      "fingerprint": "1624c95a584616cd96ce1d9d72499888a6a3d812ce69ef1de743b0a250dafc00",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2-b",
+          "generation": "d72e52230df700cff61346614c930d1e",
+          "state": "LOADED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2-b",
+            "cpus": [
+              12,
+              14
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-b-bundle",
+            "agent_port": 7104,
+            "child_cid": 24
+          },
+          "created_at": "2026-09-03T02:14:39.455991426Z",
+          "updated_at": "2026-09-03T02:14:41.505315901Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2b-start": {
+      "fingerprint": "668411360d6b72a62a7ddbc5831650707b0e42b7ea183be041f128b8b060c660",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2-b",
+          "generation": "d72e52230df700cff61346614c930d1e",
+          "state": "RUNNING",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2-b",
+            "cpus": [
+              12,
+              14
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-b-bundle",
+            "agent_port": 7104,
+            "child_cid": 24
+          },
+          "created_at": "2026-09-03T02:14:39.455991426Z",
+          "updated_at": "2026-09-03T02:14:41.719232152Z"
+        },
+        "replayed": false
+      }
+    }
+  }
+}

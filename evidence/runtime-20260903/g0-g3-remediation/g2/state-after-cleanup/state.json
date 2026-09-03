@@ -1,0 +1,267 @@
+{
+  "version": 1,
+  "sequence": 19,
+  "sandboxes": {},
+  "results": {
+    "g2-create": {
+      "fingerprint": "0aeecfed0e216ad35334986d2f12204bd2b7600e96d5969fab74983614fd9ad5",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "bfe008c606976d6b4c95af09cc9f06e5",
+          "state": "CREATED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:59:55.678199342Z",
+          "updated_at": "2026-09-03T01:59:58.013698099Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-delete": {
+      "fingerprint": "b439ff0d8d9998f78bd33375f92f7bcab4a8798358d82ed3967564ca9029dea1",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "bfe008c606976d6b4c95af09cc9f06e5",
+          "state": "ABSENT",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:59:55.678199342Z",
+          "updated_at": "2026-09-03T02:00:03.145213019Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-load": {
+      "fingerprint": "2ded9a01c83be69365981ff190f5b7fc0c754942895ab5679ada4335d3bb0317",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "bfe008c606976d6b4c95af09cc9f06e5",
+          "state": "LOADED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:59:55.678199342Z",
+          "updated_at": "2026-09-03T01:59:59.873438297Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-start": {
+      "fingerprint": "56af3113b24069a87d919b4e0e86f44916e3632bc2d3596477bbe29732897cfc",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "bfe008c606976d6b4c95af09cc9f06e5",
+          "state": "RUNNING",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:59:55.678199342Z",
+          "updated_at": "2026-09-03T02:00:00.079000426Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-stop": {
+      "fingerprint": "585ef0a81afcb2ccd75c8caa245f4305a6f1feaf4b7989fc72e700ca8cdc3873",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "bfe008c606976d6b4c95af09cc9f06e5",
+          "state": "STOPPED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:59:55.678199342Z",
+          "updated_at": "2026-09-03T02:00:02.794269649Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2b-create": {
+      "fingerprint": "c0de1f53b2b64f6d69303240bdcc041c2a905be6dec15e7a9af0b6e54b2a58c7",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2-b",
+          "generation": "bddb73b74be813ee6c8228c3615f176f",
+          "state": "CREATED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2-b",
+            "cpus": [
+              12,
+              14
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-b-bundle",
+            "agent_port": 7104,
+            "child_cid": 24
+          },
+          "created_at": "2026-09-03T02:00:00.128762969Z",
+          "updated_at": "2026-09-03T02:00:00.305008948Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2b-delete": {
+      "fingerprint": "06ead4c4f2f2d53a299232dd7b9e8b1f8ad214616e1604e934167aa017ade46b",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2-b",
+          "generation": "bddb73b74be813ee6c8228c3615f176f",
+          "state": "ABSENT",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2-b",
+            "cpus": [
+              12,
+              14
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-b-bundle",
+            "agent_port": 7104,
+            "child_cid": 24
+          },
+          "created_at": "2026-09-03T02:00:00.128762969Z",
+          "updated_at": "2026-09-03T02:00:04.093473677Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2b-load": {
+      "fingerprint": "5cfd0ca87651d74e14b88d35e00e6d42028733420a17f8f24f8d615ec2a84a62",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2-b",
+          "generation": "bddb73b74be813ee6c8228c3615f176f",
+          "state": "LOADED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2-b",
+            "cpus": [
+              12,
+              14
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-b-bundle",
+            "agent_port": 7104,
+            "child_cid": 24
+          },
+          "created_at": "2026-09-03T02:00:00.128762969Z",
+          "updated_at": "2026-09-03T02:00:02.260044665Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2b-start": {
+      "fingerprint": "227bba564cb11033e6eaa5263f583a5227cc1cd0b525607de17026104433ddd5",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2-b",
+          "generation": "bddb73b74be813ee6c8228c3615f176f",
+          "state": "RUNNING",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2-b",
+            "cpus": [
+              12,
+              14
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-b-bundle",
+            "agent_port": 7104,
+            "child_cid": 24
+          },
+          "created_at": "2026-09-03T02:00:00.128762969Z",
+          "updated_at": "2026-09-03T02:00:02.463484356Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2b-stop": {
+      "fingerprint": "235e9858e40dfb7bc01cd25c9015084ac098b85ae60b4666923882ea356dc0b4",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2-b",
+          "generation": "bddb73b74be813ee6c8228c3615f176f",
+          "state": "STOPPED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2-b",
+            "cpus": [
+              12,
+              14
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-b-bundle",
+            "agent_port": 7104,
+            "child_cid": 24
+          },
+          "created_at": "2026-09-03T02:00:00.128762969Z",
+          "updated_at": "2026-09-03T02:00:03.337975321Z"
+        },
+        "replayed": false
+      }
+    }
+  }
+}

@@ -1,0 +1,325 @@
+Booting instance 'runtime-g3' (ID: 23)...
+✓ Boot command executed successfully
+Connecting to console for instance 'runtime-g3' (ID: 23)...
+Escape sequence: Ctrl+] followed by . to detach
+
+[    0.000000] platform-quirks: hardware_subarch=5 (MULTIKERNEL=5)
+[    0.000000] Linux version 7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.[REDACTED_GCP_PROJECT].internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
+[    0.000000] Command line: rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=runtime-g3 mk.generation=c6afa80fd8b4bc7e33b8e731e96cc3b8 mk.token=[REDACTED_TEST_TOKEN] mk.agent_port=7103
+[    0.000000] KERNEL supported cpus:
+[    0.000000]   Intel GenuineIntel
+[    0.000000]   AMD AuthenticAMD
+[    0.000000]   Hygon HygonGenuine
+[    0.000000]   Centaur CentaurHauls
+[    0.000000]   zhaoxin   Shanghai  
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] MULTIKERNEL: [mem 0x0000000000000000-0x0000000000000fff]  device reserved
+[    0.000000] MULTIKERNEL: [gap 0x0000000000001000-0x0000000df960ffff]
+[    0.000000] MULTIKERNEL: [mem 0x0000000df9610000-0x0000000ef960ffff]  System RAM
+[    0.000000] random: crng init done
+[    0.000000] multikernel: processing manifest at 0x12919f000 (size: 4096)
+[    0.000000] multikernel: manifest accepted
+[    0.000000] KHO: disabling KHO revival
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] APIC: Static calls initialized
+[    0.000000] DMI not present or invalid.
+[    0.000000] Hypervisor detected: KVM
+[    0.000000] last_pfn = 0x0 max_arch_pfn = 0x400000000
+[    0.000000] kvm-clock: Using msrs 4b564d01 and 4b564d00
+[    0.000001] kvm-clock: using sched offset of 1603129023178 cycles
+[    0.000002] clocksource: kvm-clock: mask: 0xffffffffffffffff max_cycles: 0x1cd42e4dffb, max_idle_ns: 881590591483 ns
+[    0.000005] tsc: Detected 2799.998 MHz processor
+[    0.000020] last_pfn = 0xef9610 max_arch_pfn = 0x400000000
+[    0.000066] MTRR map: 3 entries (2 fixed + 1 variable; max 18), built from 8 variable MTRRs
+[    0.000069] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.000123] x2apic: enabled by BIOS, switching to x2apic ops
+[    0.000126] last_pfn = 0x0 max_arch_pfn = 0x400000000
+[    0.010683] Using GB pages for direct mapping
+[    0.010748] RAMDISK: [mem 0xdfd600000-0xdfdb3afff]
+[    0.010803] NUMA turned off
+[    0.010804] Faking a node at [mem 0x0000000000000000-0x0000000ef960ffff]
+[    0.010814] NODE_DATA(0) allocated [mem 0xef95e5280-0xef960ffff]
+[    0.011361] APIC: Switched APIC routing to: physical x2apic
+[    0.011367] APIC: wakeup_secondary_cpu_64() replaced with multikernel_wakeup_cpu()
+[    0.011375] CPU topo: Max. logical packages:   1
+[    0.011376] CPU topo: Max. logical nodes:      1
+[    0.011377] CPU topo: Num. nodes per package:  1
+[    0.011379] CPU topo: Max. logical dies:       1
+[    0.011379] CPU topo: Max. dies per package:   1
+[    0.011382] CPU topo: Max. threads per core:   1
+[    0.011383] CPU topo: Num. cores per package:     4
+[    0.011383] CPU topo: Num. threads per package:   4
+[    0.011384] CPU topo: Allowing 4 present CPUs plus 0 hotplug CPUs
+[    0.011399] PM: hibernation: Registered nosave memory: [mem 0x00000000-0xdf960ffff]
+[    0.011400] [gap 0x00001000-0xffffffff] available for PCI devices
+[    0.011402] Booting paravirtualized kernel on KVM
+[    0.011403] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns
+[    0.011421] Zone ranges:
+[    0.011421]   DMA      empty
+[    0.011422]   DMA32    empty
+[    0.011423]   Normal   [mem 0x0000000df9610000-0x0000000ef960ffff]
+[    0.011424]   Device   empty
+[    0.011425] Movable zone start for each node
+[    0.011428] Early memory node ranges
+[    0.011428]   node   0: [mem 0x0000000df9610000-0x0000000ef960ffff]
+[    0.011430] Initmem setup node 0 [mem 0x0000000df9610000-0x0000000ef960ffff]
+[    0.017574] On node 0, zone Normal: 5648 pages in unavailable ranges
+[    0.017790] On node 0, zone Normal: 27120 pages in unavailable ranges
+[    0.017802] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:4 nr_cpu_ids:4 nr_node_ids:1
+[    0.018063] percpu: Embedded 85 pages/cpu s225280 r8192 d114688 u524288
+[    0.018088] kvm-guest: PV spinlocks enabled
+[    0.018091] PV qspinlock hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    0.018094] Kernel command line: rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=runtime-g3 mk.generation=c6afa80fd8b4bc7e33b8e731e96cc3b8 mk.token=[REDACTED_TEST_TOKEN] mk.agent_port=7103
+[    0.018172] printk: log buffer data + meta data: 262144 + 1114112 = 1376256 bytes
+[    0.018550] Dentry cache hash table entries: 524288 (order: 10, 4194304 bytes, linear)
+[    0.018754] Inode-cache hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[    0.018823] software IO TLB: area num 4.
+[    0.018825] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 67108864 bytes tlb structure
+[    0.018827] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 33554432 bytes tlb structure
+[    0.018828] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 16777216 bytes tlb structure
+[    0.018829] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 8388608 bytes tlb structure
+[    0.018830] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 4194304 bytes tlb structure
+[    0.018831] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 2097152 bytes tlb structure
+[    0.018832] software IO TLB: swiotlb_memblock_alloc: Failed to allocate 1048576 bytes tlb structure
+[    0.018834] Fallback order for Node 0: 0 
+[    0.018836] Built 1 zonelists, mobility grouping on.  Total pages: 1048576
+[    0.018837] Policy zone: Normal
+[    0.018845] mem auto-init: stack:all(zero), heap alloc:on, heap free:off
+[    0.018848] KHO: Failed to reserve lowmem scratch buffer
+[    0.018848] KHO: Failed to reserve scratch area, disabling kexec handover
+[    0.027826] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+[    0.037738] ftrace: allocating 61363 entries in 240 pages
+[    0.037740] ftrace: allocated 240 pages with 4 groups
+[    0.037920] rcu: Hierarchical RCU implementation.
+[    0.037922] rcu: 	RCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=4.
+[    0.037923] 	Trampoline variant of Tasks RCU enabled.
+[    0.037924] 	Rude variant of Tasks RCU enabled.
+[    0.037924] 	Tracing variant of Tasks RCU enabled.
+[    0.037925] rcu: RCU calculated value of scheduler-enlistment delay is 100 jiffies.
+[    0.037925] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
+[    0.037934] RCU Tasks: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    0.037936] RCU Tasks Rude: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    0.042443] NR_IRQS: 524544, nr_irqs: 80, preallocated irqs: 16
+[    0.042711] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.042796] Console: colour dummy device 80x25
+[    0.042817] APIC: Switch to symmetric I/O mode setup
+[    0.042958] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x285c3ee517e, max_idle_ns: 440795257231 ns
+[    0.042963] Calibrating delay loop (skipped) preset value.. 5599.99 BogoMIPS (lpj=2799998)
+[    0.043344] Last level iTLB entries: 4KB 64, 2MB 8, 4MB 8
+[    0.043346] Last level dTLB entries: 4KB 64, 2MB 32, 4MB 32, 1GB 4
+[    0.043361] mitigations: Enabled attack vectors: user_kernel, user_user, guest_host, guest_guest, SMT mitigations: auto
+[    0.043364] Speculative Store Bypass: Mitigation: Speculative Store Bypass disabled via prctl
+[    0.043365] Spectre V2 : Mitigation: Enhanced / Automatic IBRS
+[    0.043365] RETBleed: Mitigation: Enhanced IBRS
+[    0.043366] ITS: Mitigation: Aligned branch/return thunks
+[    0.043366] TAA: Vulnerable: Clear CPU buffers attempted, no microcode
+[    0.043367] MMIO Stale Data: Vulnerable: Clear CPU buffers attempted, no microcode
+[    0.043367] Spectre V1 : Mitigation: usercopy/swapgs barriers and __user pointer sanitization
+[    0.043368] Spectre V2 : Spectre v2 / PBRSB-eIBRS: Retire a single CALL on VMEXIT
+[    0.043369] Spectre V2 : mitigation: Enabling conditional Indirect Branch Prediction Barrier
+[    0.043375] active return thunk: its_return_thunk
+[    0.043379] Spectre V2 : Spectre BHI mitigation: SW BHB clearing on syscall and VM exit
+[    0.043411] x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'
+[    0.043412] x86/fpu: Supporting XSAVE feature 0x002: 'SSE registers'
+[    0.043412] x86/fpu: Supporting XSAVE feature 0x004: 'AVX registers'
+[    0.043413] x86/fpu: Supporting XSAVE feature 0x020: 'AVX-512 opmask'
+[    0.043413] x86/fpu: Supporting XSAVE feature 0x040: 'AVX-512 Hi256'
+[    0.043414] x86/fpu: Supporting XSAVE feature 0x080: 'AVX-512 ZMM_Hi256'
+[    0.043415] x86/fpu: xstate_offset[2]:  576, xstate_sizes[2]:  256
+[    0.043416] x86/fpu: xstate_offset[5]:  832, xstate_sizes[5]:   64
+[    0.043417] x86/fpu: xstate_offset[6]:  896, xstate_sizes[6]:  512
+[    0.043417] x86/fpu: xstate_offset[7]: 1408, xstate_sizes[7]: 1024
+[    0.043418] x86/fpu: Enabled xstate features 0xe7, context size is 2432 bytes, using 'compacted' format.
+[    0.043961] Freeing SMP alternatives memory: 56K
+[    0.043961] pid_max: default: 32768 minimum: 301
+[    0.043961] landlock: Up and running.
+[    0.043961] Yama: becoming mindful.
+[    0.043961] AppArmor: AppArmor initialized
+[    0.043961] Mount-cache hash table entries: 8192 (order: 4, 65536 bytes, linear)
+[    0.043961] Mountpoint-cache hash table entries: 8192 (order: 4, 65536 bytes, linear)
+[    0.043961] VFS: Finished mounting rootfs on nullfs
+[    0.043961] smpboot: CPU0: Intel(R) Xeon(R) CPU @ 2.80GHz (family: 0x6, model: 0x55, stepping: 0x7)
+[    0.043961] Performance Events: unsupported CPU family 6 model 85 no PMU driver, software events only.
+[    0.043961] signal: max sigframe size: 3632
+[    0.043961] rcu: Hierarchical SRCU implementation.
+[    0.043961] rcu: 	Max phase no-delay instances is 400.
+[    0.043961] Restoring multikernel DTB from manifest (phys: 0x12919f000)
+[    0.043961] Found preserved multikernel DTB (264 bytes)
+[    0.043961] DTB contains instance ID 23, name 'runtime-g3'
+[    0.043961] Successfully parsed memory size: 4294967296 bytes (4096 MB)
+[    0.043961] Successfully parsed 2 physical CPUs: 8,10
+[    0.043961] Successfully parsed multikernel device tree with 4294967296 bytes memory, 2 CPUs, 0 PCI devices, and 0 platform devices
+[    0.043961] Before restriction: cpu_possible=0-3, cpu_present=0-3
+[    0.043961] After restriction: cpu_possible=0-3, cpu_present=0-1
+[    0.043961] Restored IPI buffer for root instance: phys=0x19b600000, virt=ffffc90000100000, pages=65, size=266240
+[    0.043961] Restored host IPI buffer: phys=0x101180000, virt=ffffc90000180000, pages=65
+[    0.043961] Registered host instance (ID 0) for spawn→host communication
+[    0.043961] Successfully restored multikernel root instance 23 ('runtime-g3') from manifest (264 bytes)
+[    0.043961] Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[    0.044792] NMI watchdog: Perf NMI watchdog permanently disabled
+[    0.044842] smp: Bringing up secondary CPUs ...
+[    0.044970] smpboot: x86: Booting SMP configuration:
+[    0.044971] .... node  #0, CPUs:      #1
+[    0.044993] smp: Brought up 1 node, 2 CPUs
+[    0.044993] smpboot: Total of 2 processors activated (11199.99 BogoMIPS)
+[    0.045153] Memory: 4045900K/4194304K available (23852K kernel code, 5008K rwdata, 16180K rodata, 5244K init, 5848K bss, 138316K reserved, 0K cma-reserved)
+[    0.045968] devtmpfs: initialized
+[    0.046025] x86/mm: Memory block size: 128MB
+[    0.046449] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1911260446275000 ns
+[    0.046449] posixtimers hash table entries: 2048 (order: 3, 32768 bytes, linear)
+[    0.046449] futex hash table entries: 1024 (65536 bytes on 1 NUMA nodes, total 64 KiB, linear).
+[    0.047358] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.047529] DMA: preallocated 512 KiB GFP_KERNEL pool for atomic allocations
+[    0.047540] audit: initializing netlink subsys (disabled)
+[    0.047549] audit: type=2000 audit(1788400947.838:1): state=initialized audit_enabled=0 res=1
+[    0.047549] thermal_sys: Registered thermal governor 'fair_share'
+[    0.047549] thermal_sys: Registered thermal governor 'bang_bang'
+[    0.047549] thermal_sys: Registered thermal governor 'step_wise'
+[    0.047549] thermal_sys: Registered thermal governor 'user_space'
+[    0.047549] thermal_sys: Registered thermal governor 'power_allocator'
+[    0.047549] cpuidle: using governor ladder
+[    0.047549] cpuidle: using governor menu
+[    0.047549] PCI: Using configuration type 1 for base access
+[    0.047969] Multikernel NMI stop handler registered
+[    0.047969] Multikernel messaging system initialized
+[    0.047969] Initializing multikernel hotplug subsystem
+[    0.047970] Multikernel hotplug subsystem initialized
+[    0.047974] Initializing multikernel overlay subsystem
+[    0.047975] Multikernel overlay subsystem initialized
+[    0.047976] Multikernel filesystem initialized. Mount with: mount -t multikernel none /sys/fs/multikernel
+[    0.047976] Multikernel support initialized
+[    0.048013] kprobes: kprobe jump-optimization is enabled. All kprobes are optimized if possible.
+[    0.050983] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[    0.050985] HugeTLB: 16380 KiB vmemmap can be freed for a 1.00 GiB page
+[    0.050987] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[    0.050987] HugeTLB: 28 KiB vmemmap can be freed for a 2.00 MiB page
+[    0.057203] ACPI: Interpreter disabled.
+[    0.057256] iommu: Default domain type: Translated
+[    0.057257] iommu: DMA domain TLB invalidation policy: lazy mode
+[    0.058104] SCSI subsystem initialized
+[    0.058157] usbcore: registered new interface driver usbfs
+[    0.058168] usbcore: registered new interface driver hub
+[    0.058171] usbcore: registered new device driver usb
+[    0.058186] pps_core: LinuxPPS API ver. 1 registered
+[    0.058187] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.058188] PTP clock support registered
+[    0.058297] EDAC MC: Ver: 3.0.0
+[    0.058582] NetLabel: Initializing
+[    0.058583] NetLabel:  domain hash size = 128
+[    0.058584] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[    0.058598] NetLabel:  unlabeled traffic allowed by default
+[    0.058639] mctp: management component transport protocol core
+[    0.058639] NET: Registered PF_MCTP protocol family
+[    0.058650] PCI: Probing PCI hardware
+[    0.058674] PCI host bridge to bus 0000:00
+[    0.058676] pci_bus 0000:00: root bus resource [io  0x0000-0xffff]
+[    0.058678] pci_bus 0000:00: root bus resource [mem 0x00000000-0x3fffffffffff]
+[    0.058679] pci_bus 0000:00: No busn resource found for root bus, will use [bus 00-ff]
+[    0.074211] pci_bus 0000:00: busn_res: [bus 00-ff] end is updated to 00
+[    0.074218] e820: register RAM buffer resource [mem 0xef9610000-0xefbffffff]
+[    0.074252] vgaarb: loaded
+[    0.074348] clocksource: Switched to clocksource kvm-clock
+[    0.074837] VFS: Disk quotas dquot_6.6.0
+[    0.074837] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[    0.074961] AppArmor: AppArmor Filesystem Enabled
+[    0.074961] pnp: PnP ACPI: disabled
+[    0.075592] NET: Registered PF_INET protocol family
+[    0.075672] IP idents hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.088445] tcp_listen_portaddr_hash hash table entries: 2048 (order: 3, 32768 bytes, linear)
+[    0.088478] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.088508] TCP established hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[    0.088598] TCP bind hash table entries: 32768 (order: 8, 1048576 bytes, linear)
+[    0.088651] TCP: Hash tables configured (established 32768 bind 32768)
+[    0.088696] MPTCP token hash table entries: 4096 (order: 5, 98304 bytes, linear)
+[    0.088717] UDP hash table entries: 2048 (order: 5, 131072 bytes, linear)
+[    0.088732] UDP-Lite hash table entries: 2048 (order: 5, 131072 bytes, linear)
+[    0.088776] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.088792] NET: Registered PF_XDP protocol family
+[    0.088798] pci_bus 0000:00: resource 4 [io  0x0000-0xffff]
+[    0.088800] pci_bus 0000:00: resource 5 [mem 0x00000000-0x3fffffffffff]
+[    0.088803] PCI: CLS 0 bytes, default 64
+[    0.088873] PCI-DMA: Using software bounce buffering for IO (SWIOTLB)
+[    0.088874] software IO TLB: No low mem
+[    0.088928] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x285c3ee517e, max_idle_ns: 440795257231 ns
+[    0.088942] clocksource: Switched to clocksource tsc
+[    0.088953] Platform device 'pcspkr' blocked by multikernel allowlist
+[    0.088959] Trying to unpack rootfs image as initramfs...
+[    0.089283] Initialise system trusted keyrings
+[    0.089292] Key type blacklist registered
+[    0.089328] workingset: timestamp_bits=36 max_order=20 bucket_order=0
+[    0.089541] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.089617] fuse: init (API version 7.45)
+[    0.089720] integrity: Platform Keyring initialized
+[    0.089722] integrity: Machine keyring initialized
+[    0.097824] Key type asymmetric registered
+[    0.097825] Asymmetric key parser 'x509' registered
+[    0.097841] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 242)
+[    0.097882] io scheduler mq-deadline registered
+[    0.099261] ledtrig-cpu: registered to indicate activity on CPUs
+[    0.099422] Serial: 8250/16550 driver, 32 ports, IRQ sharing enabled
+[    0.099434] Platform device 'serial8250' blocked by multikernel allowlist
+[    0.099468] Platform device 'kgdboc' blocked by multikernel allowlist
+[    0.099471] mktty: initializing spawn (instance 23)
+[    0.099498] printk: legacy console [mktty0] enabled
+[    0.100058] mktty: spawn ready (/dev/mktty0)
+[    0.100133] Linux agpgart interface v0.103
+[    0.101092] loop: module loaded
+[    0.101213] Key type psk registered
+[    0.101434] tun: Universal TUN/TAP device driver, 1.6
+[    0.101506] PPP generic driver version 2.4.2
+[    0.101612] mousedev: PS/2 mouse device common for all mice
+[    0.101649] i2c_dev: i2c /dev entries driver
+[    0.101662] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[    0.101673] device-mapper: uevent: version 1.0.3
+[    0.101698] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[    0.101704] intel_pstate: CPU model not supported
+[    0.101736] drop_monitor: Initializing network drop monitor service
+[    0.101947] NET: Registered PF_INET6 protocol family
+[    0.102131] Segment Routing with IPv6
+[    0.102142] In-situ OAM (IOAM) with IPv6
+[    0.102173] NET: Registered PF_PACKET protocol family
+[    0.102206] Key type dns_resolver registered
+[    0.102252] NET: Registered PF_VSOCK protocol family
+[    0.103474] resctrl: No MBM correction factor available
+[    0.103490] IPI shorthand broadcast: enabled
+[    0.104890] sched_clock: Marking stable (104003496, 242853)->(235273693, -131027344)
+[    0.105007] multikernel heap: registered /dev/dma_heap/multikernel
+[    0.105045] registered taskstats version 1
+[    0.107394] Loading compiled-in X.509 certificates
+[    0.109656] Loaded X.509 cert 'Build time autogenerated kernel key: d8b765dd3cc8d0f42aad135a5cd9987f8a7efbfe'
+[    0.112655] Demotion targets for Node 0: null
+[    0.113308] Key type .fscrypt registered
+[    0.113314] Key type fscrypt-provisioning registered
+[    0.113365] Key type big_key registered
+[    0.137574] Freeing initrd memory: 5356K
+[    0.138030] Key type encrypted registered
+[    0.138039] AppArmor: AppArmor sha256 policy hashing enabled
+[    0.138045] ima: No TPM chip found, activating TPM-bypass!
+[    0.138052] Loading compiled-in module X.509 certificates
+[    0.138479] Loaded X.509 cert 'Build time autogenerated kernel key: d8b765dd3cc8d0f42aad135a5cd9987f8a7efbfe'
+[    0.138484] ima: Allocated hash algorithm: sha256
+[    0.138497] ima: No architecture policies found
+[    0.138514] evm: Initialising EVM extended attributes:
+[    0.138518] evm: security.selinux
+[    0.138526] evm: security.SMACK64
+[    0.138528] evm: security.SMACK64EXEC
+[    0.138531] evm: security.SMACK64TRANSMUTE
+[    0.138534] evm: security.SMACK64MMAP
+[    0.138537] evm: security.apparmor
+[    0.138540] evm: security.ima
+[    0.138543] evm: security.capability
+[    0.138546] evm: HMAC attrs: 0x1
+[    0.138972] RAS: Correctable Errors collector initialized.
+[    0.139113] clk: Disabling unused clocks
+[    0.139119] PM: genpd: Disabling unused power domains
+[    0.155347] Freeing unused decrypted memory: 2028K
+[    0.156204] Freeing unused kernel image (initmem) memory: 5244K
+[    0.156236] Write protecting the kernel read-only data: 40960k
+[    0.156557] Freeing unused kernel image (text/rodata gap) memory: 720K
+[    0.156636] Freeing unused kernel image (rodata/data gap) memory: 204K
+[    0.167717] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[    0.167726] Run /init as init process
+[    0.175131] mk_transport: module verification failed: signature and/or required key missing - tainting kernel
+[    0.175391] Multikernel vsock transport registered
+MK_AGENT_START sandbox=runtime-g3 generation=c6afa80fd8b4bc7e33b8e731e96cc3b8 port=7103
+MK_AGENT_QUIESCED

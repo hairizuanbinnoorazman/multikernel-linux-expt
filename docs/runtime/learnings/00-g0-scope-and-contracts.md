@@ -41,9 +41,19 @@ counted as completed by G0.
 The following commands were rerun from the repository root in this remediation
 session:
 
+The complete local command was rerun again on 2026-09-03 against commit
+`4cfca4e` plus the documented dirty evidence-harness changes. Schema fixtures,
+documentation links, the Go race suite, `go vet`, and shell syntax all passed.
+The replacement [G0 manifest](../../../evidence/runtime-20260903/g0-g3-proof/manifest-g0.json)
+is schema-valid and deliberately remains `provisional`. The continuing
+[G0 remediation manifest](../../../evidence/runtime-20260903/g0-g3-remediation/manifest-g0.json)
+indexes the synchronized agent schema/reply policy and the expanded 20-case
+fixture plus full race/vet/docs/shell verification; the end-to-end G6
+fail-closed adapter gap below remains unchanged.
+
 | Command | Result | What it proves |
 | --- | --- | --- |
-| `python3 scripts/check-runtime-schemas.py` | `PASS (6 schemas, 15 cases)` | Every schema is a valid Draft 2020-12 schema; positive fixtures pass; unknown fields, duplicate fields, overflow, relative/unsafe paths, malformed digests, missing pins, invalid labels, and missing evidence exit status fail. |
+| `python3 scripts/check-runtime-schemas.py` | `PASS (6 schemas, 20 cases)` | Every schema is a valid Draft 2020-12 schema; positive fixtures pass; unknown fields/methods, duplicate fields, overflow, relative/unsafe paths, malformed digests, missing pins, invalid labels, invalid reply authentication fields, and missing evidence exit status fail. |
 | `make docs-check` | `PASS` | Repository verification now includes schema fixtures as well as required paths and local links. |
 | `cd runtime && GOCACHE=/tmp/mk-go-cache go test ./...` | `PASS` | All runtime packages pass, including `protocol.TestStrictDecode` for unknown fields, nested/top-level duplicates, and trailing values. |
 | `make docs-check && (cd runtime && GOCACHE=/tmp/mk-go-cache go test -race ./... && GOCACHE=/tmp/mk-go-cache go vet ./...) && while ...; do bash -n "$script"; done` | `PASS` | One invocation passed schema/link checks, the full Go race suite, `go vet`, and syntax checks for every Bash/sh-shebang file under `scripts/` and `guest/`. |
@@ -64,33 +74,28 @@ condition for that gate.
 
 | Contract section | Implementing gate(s) | Status after this session |
 | --- | --- | --- |
-| Lifecycle identity and idempotency | G2, G6 | Partial; core generation/replay exists, validation and tombstones remain open. |
+| Lifecycle identity and idempotency | G2, G6 | Partial; generation, bounded key validation, exact mutation replay, and documented absent-delete semantics exist. Broader client integration remains open. |
 | Lifecycle states, journaling, reconciliation, and locks | G2, G8 | Partial; crash windows and documented intermediate states remain open. |
-| Error taxonomy and secret-safe errors | G2, G3, G8 | Partial; operation IDs, timeout classification, agent structured errors, and redaction tests remain open. |
+| Error taxonomy and secret-safe errors | G2, G3, G8 | Partial; stable operation IDs, backend-timeout classification, structured agent errors, and focused leakage/redaction tests exist. The full live negative matrix remains open. |
 | Ownership table: containerd/shim inputs | G6 | Future gate. |
 | Ownership table: daemon/Kerf resources and protected host devices | G1, G2, G8 | Partial; allocation-path controller enforcement remains open. |
 | Ownership table: agent/process/cgroups | G3, G8 | Partial; full process semantics and limits remain open. |
 | Ownership table: writable roots/storage | G4 | Future gate. |
-| Ownership table: cloud ledgers | Every live gate, audited again at G10 | Open for replacement G0-G3 evidence. |
+| Ownership table: cloud ledgers | Every live gate, audited again at G10 | Replacement proof and continuing remediation have before/after cleanup ledgers; both disposable VMs and their auto-delete disks are gone. |
 | Threat statement and isolation boundary | G1, G8 | Partial; pinned-source audit and resource matrix remain open. |
-| Agent authentication/session binding | G3, G8 | Partial; fresh randomness, reconnect, reply integrity, and live negative matrix remain open. |
-| Kernel/image ownership and approved-manifest validation | G2, G3, G4, G6 | Schema complete; production manifest resolution and architecture checks remain open. |
+| Agent authentication/session binding | G3, G8 | Partial; fresh randomness, request HMAC/sequence checks, and reply version/sequence binding exist. Reconnect and the live negative matrix remain open. |
+| Kernel/image ownership and approved-manifest validation | G2, G3, G4, G6 | Schema and direct-agent OCI/executable architecture checks are complete; production manifest resolution remains open. |
 | OCI supported/rejected fields | G3, G6, G8 | Partial; see the G3 feature matrix and open fail-closed tests. |
 | Host and sandbox configuration | G0 schema; G1/G2 enforcement | Schema complete; root ownership, safe parents, and daemon loading remain open. |
-| Daemon/agent wire envelopes and method set | G0 schema; G2/G3 implementation; G6 evolution | Envelope schemas complete; method semantics and missing methods remain open. |
-| Evidence manifest, resource ledgers, and redaction | Every gate; G10 release audit | Schema complete; historical G0-G3 evidence is non-conforming and replacement runs remain open. |
+| Daemon/agent wire envelopes and method set | G0 schema; G2/G3 implementation; G6 evolution | Schemas cover the implemented v1 method set and structured replies; remaining method semantics are gate work. |
+| Evidence manifest, resource ledgers, and redaction | Every gate; G10 release audit | Schema-valid replacement manifests and an indexed continuing-remediation set exist; release-wide audit remains open. |
 
 ## Contract drift found by the 2026-09-02 synchronization audit
 
-The schema work completed the original G0 artifact set, but later runtime work
-evolved beyond parts of frozen v1 without updating the contracts together:
+The schema and policy were synchronized with the implemented v1 state,
+stdin/output, terminal-resize, network, and structured-reply behavior. Two
+important cross-gate issues remain:
 
-- the current agent implements stdin, attach-oriented output reads, terminal
-  resize, process state, and static-network methods that are not represented in
-  the v1 agent-protocol schema's method enum;
-- the kernel/image policy still lists `terminal=false` as the G3 boundary even
-  though terminal support was subsequently implemented and live-tested for
-  initial-size propagation;
 - the G6 image builder and exec adapter select a supported OCI subset instead
   of rejecting every unsupported caller field, contrary to the fail-closed
   contract; and
@@ -98,7 +103,7 @@ evolved beyond parts of frozen v1 without updating the contracts together:
   manifest, so non-conforming historical manifests remain undetected by the
   default target.
 
-These are open G0/G3/G6 contract-evolution items. Closing them requires either
+These are open G0/G6 contract-evolution items. Closing them requires either
 a compatible schema/policy revision with tests and migration notes or code that
 conforms to the existing v1 contracts; documentation alone must not normalize
 the mismatch.

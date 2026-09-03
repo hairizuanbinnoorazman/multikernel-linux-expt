@@ -1,0 +1,30 @@
+2026-09-03T01:24:02Z
+Linux mklinux-g0-g3-proof-20260903 7.0.0-mk2-gce-lab #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026 x86_64 GNU/Linux
+3a34a74b-a9e1-4ad4-a58c-4432a71f8281
+cpu-before=0-15
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+cp: cannot stat '/home/hairizuan-tw/multikernel-linux-lab/guest/runtime-crash-init': No such file or directory
+Pool is already empty; nothing to do
+cpu-after=0-15
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+active

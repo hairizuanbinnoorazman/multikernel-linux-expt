@@ -1,0 +1,42 @@
+2026-09-03T01:24:38Z
+Linux mklinux-g0-g3-proof-20260903 7.0.0-mk2-gce-lab #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026 x86_64 GNU/Linux
+3a34a74b-a9e1-4ad4-a58c-4432a71f8281
+cpu-before=0-15
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+created /tmp/runtime-g1-crash.cpio.gz
+62d8dfcdc5a26b89de966a267533ec97d3ee1c12ad1413c799eddeb3347d3886  /tmp/runtime-g1-crash.cpio.gz
+-rw-rw-r-- 1 hairizuan-tw hairizuan-tw 1.1M Sep  3 01:24 /tmp/runtime-g1-crash.cpio.gz
+Memory: 8192 MB on node 0 (from CPUs 8,10,12,14)
+✓ Baseline applied to kernel successfully
+✓ Created instance 'runtime-g1-crash' (transaction 2)
+✓ Kernel loaded successfully
+Unloading kernel for instance 'runtime-g1-crash' (ID: 21)...
+✓ Kernel unloaded successfully
+✓ Deleted instance 'runtime-g1-crash' (transaction 3)
+  CPUs to host: 8, 10, 12, 14
+  Memory to host: 0xdf9600000 (8192 MB)
+✓ Pool updated (transaction 4)
+RUNTIME_G1_CRASH_RECLAIM_PASS
+cpu-after=0-15
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+active

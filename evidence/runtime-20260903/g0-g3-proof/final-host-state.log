@@ -1,0 +1,25 @@
+2026-09-03T01:26:39Z
+Linux mklinux-g0-g3-proof-20260903 7.0.0-mk2-gce-lab #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026 x86_64 GNU/Linux
+3a34a74b-a9e1-4ad4-a58c-4432a71f8281
+online_cpus=0-15
+MemTotal:       65836296 kB
+MemAvailable:   64545852 kB
+active
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+/sys/fs/multikernel is a mountpoint
+total 0
+drwxr-xr-x 2 root root 0 Sep  3 01:26 .
+dr-xr-xr-x 4 root root 0 Sep  3 01:26 ..
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+ens4             UP             10.148.0.42/32 metric 100 

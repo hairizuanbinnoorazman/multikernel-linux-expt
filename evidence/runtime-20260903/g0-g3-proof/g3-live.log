@@ -1,0 +1,34 @@
+2026-09-03T01:25:23Z
+cpu-before=0-15
+14b32492bc4da579a17d05ded47fc8bb774b35817e5030ce2a832f7ac84f6bbe  /tmp/runtime-g3-agent.cpio.gz
+Memory: 8192 MB on node 0 (from CPUs 8,10,12,14)
+✓ Baseline applied to kernel successfully
+✓ Created instance 'runtime-g3' (transaction 8)
+✓ Kernel loaded successfully
+Shutting down instance 'runtime-g3' (ID: 23) (force)...
+✓ Shutdown command executed successfully
+Unloading kernel for instance 'runtime-g3' (ID: 23)...
+✓ Kernel unloaded successfully
+✓ Deleted instance 'runtime-g3' (transaction 9)
+  CPUs to host: 8, 10, 12, 14
+  Memory to host: 0xdf9600000 (8192 MB)
+✓ Pool updated (transaction 10)
+RUNTIME_G3_OCI_LIFECYCLE_PASS
+cpu-after=0-15
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+active
+bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2  /home/hairizuan-tw/src/linux/net/vmw_vsock/mk_transport.ko
+console.log 21968 bytes
+control.err 0 bytes
+lifecycle.json 532 bytes
+relay.log 0 bytes

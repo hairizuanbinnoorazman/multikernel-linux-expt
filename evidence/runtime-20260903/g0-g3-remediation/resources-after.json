@@ -1,0 +1,13 @@
+{
+  "captured_at": "2026-09-03T02:22:00Z",
+  "project": "[REDACTED_GCP_PROJECT]",
+  "zone": "asia-southeast1-b",
+  "target": "mklinux-g0-g3-remediation-20260903",
+  "instances": [],
+  "disks": [],
+  "named_static_addresses": [],
+  "cleanup": {
+    "completed": true,
+    "observation": "The instance was already absent when the requested delete began; follow-up GCE inventories confirmed the instance, auto-delete boot disk, and any same-named static address were absent."
+  }
+}

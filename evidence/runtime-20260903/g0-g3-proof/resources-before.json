@@ -1,0 +1,30 @@
+{
+  "captured_at": "2026-09-03T01:18:00Z",
+  "project": "${MK_PROJECT}",
+  "instances": [],
+  "addresses": [],
+  "disks": [
+    {
+      "name": "mk-mediated-storage-20260830",
+      "zone": "asia-southeast1-b",
+      "type": "pd-balanced",
+      "size_gb": 20,
+      "state": "READY",
+      "purpose": "pre-existing mediated-storage experiment artifact",
+      "retention": "retained; not attached or modified by this run"
+    }
+  ],
+  "snapshots_used_or_retained": [
+    {"name": "mklinux-lab-pre-daxfs-20260828-2030", "state": "READY", "size_gb": 100, "purpose": "source snapshot for this run"},
+    {"name": "mklinux-lab-stock-20260828", "state": "READY", "size_gb": 100, "purpose": "pre-existing recovery snapshot; not modified"}
+  ],
+  "planned_resources": [
+    {
+      "name": "mklinux-g0-g3-proof-20260903",
+      "type": "n2-standard-16 instance plus 100 GiB pd-balanced boot disk",
+      "zone": "asia-southeast1-b",
+      "labels": {"purpose": "multikernel-g0-g3-proof"},
+      "auto_delete": true
+    }
+  ]
+}

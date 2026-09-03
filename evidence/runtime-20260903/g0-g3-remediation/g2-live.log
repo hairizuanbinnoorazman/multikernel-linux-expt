@@ -1,0 +1,3 @@
+/home/hairizuan-tw/test-runtime-g2.sh: line 83:  5682 Killed                     sudo "$runtime" --socket="$socket" --state-dir="$state" --kerf="$kerf" --pool-cpus=8,10,12,14 --pool-memory="$pool_memory" --kernel="$kernel" --initrd="$initrd" --cmdline='rdinit=/init console=mktty0 panic=-1' >> "$daemon_log" 2>&1
+RUNTIME_G2_RESTART_RECONCILE_PASS
+Pool is already empty; nothing to do

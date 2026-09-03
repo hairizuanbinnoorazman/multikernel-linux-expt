@@ -82,6 +82,10 @@ func (s *Server) handle(ctx context.Context, c net.Conn) {
 }
 func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Response {
 	out := protocol.Response{Version: 1, RequestID: r.RequestID}
+	if !validRequestID(r.RequestID) {
+		out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "request ID must be 1-128 printable ASCII bytes"}
+		return out
+	}
 	if r.Version != 1 {
 		out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "protocol version must be 1"}
 		return out
@@ -116,4 +120,16 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "unknown method"}
 	}
 	return out
+}
+
+func validRequestID(value string) bool {
+	if len(value) < 1 || len(value) > 128 {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < 0x20 || value[i] > 0x7e {
+			return false
+		}
+	}
+	return true
 }

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "gate": "G1",
+  "run_id": "g1-host-crash-proof-20260903",
+  "result": "provisional",
+  "started_at": "2026-09-03T01:24:02Z",
+  "ended_at": "2026-09-03T01:24:50Z",
+  "repository": {"commit": "4cfca4ef1874d8f358bd1f57fbf6c3e59febd5f5", "dirty": true},
+  "components": [
+    {"name": "mk-host-check", "version": "repository 4cfca4e", "sha256": "19ad96ba47861687c1c3c74dde90314023e56b62f96077f49d3e31a89ab998eb"},
+    {"name": "test-runtime-g1", "version": "repository 4cfca4e", "sha256": "d72b9371c2d1d59afd5b6b17c16cbdce51bb41d6637518349da7d78d35b9130f"},
+    {"name": "linux-vmlinux", "version": "7.0.0-mk2-gce-lab", "sha256": "5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10"}
+  ],
+  "host": {"provider": "gce", "project": "${MK_PROJECT}", "zone": "asia-southeast1-b", "instance": "mklinux-g0-g3-proof-20260903", "machine_type": "n2-standard-16", "boot_id": "3a34a74b-a9e1-4ad4-a58c-4432a71f8281"},
+  "commands": [
+    {"id": "host-qualification", "argv": ["mk-host-check", "--kerf", "kerf-v0.2.0"], "exit_status": 0, "output_path": "g1-host-report.json"},
+    {"id": "missing-asset-attempt", "argv": ["scripts/test-runtime-g1.sh"], "exit_status": 1, "output_path": "g1-attempt1-missing-asset.log"},
+    {"id": "child-crash-reclaim", "argv": ["scripts/test-runtime-g1.sh"], "exit_status": 0, "output_path": "g1-live.log"}
+  ],
+  "assertions": [
+    {"id": "narrow-host-report-qualified", "passed": true, "evidence_paths": ["g1-host-report.json"]},
+    {"id": "intentional-child-crash-reclaimed", "passed": true, "evidence_paths": ["g1-live.log"]},
+    {"id": "host-services-and-resources-restored", "passed": true, "evidence_paths": ["g1-live.log", "final-host-state.log"]},
+    {"id": "sync-harness-defect-reproduced", "passed": true, "evidence_paths": ["g1-attempt1-missing-asset.log"]}
+  ],
+  "limitations": [
+    "The host report still omits contiguous-allocation readiness, full pool/device/controller ancestry, serial-recovery readiness, and a complete topology assessment.",
+    "This is a trusted-workload resource lifecycle result, not hostile-kernel isolation proof."
+  ],
+  "cleanup": {"completed": true, "resources_before": "resources-before.json", "resources_after": "resources-after.json", "retained_resources": ["Only pre-existing disk and snapshots listed in resources-after.json"], "operator_acknowledged": true}
+}

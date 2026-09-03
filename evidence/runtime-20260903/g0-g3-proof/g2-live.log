@@ -1,0 +1,28 @@
+2026-09-03T01:25:00Z
+cpu-before=0-15
+/home/hairizuan-tw/multikernel-linux-lab/scripts/test-runtime-g2.sh: line 72:  5495 Killed                     sudo "$runtime" --socket="$socket" --state-dir="$state" --kerf="$kerf" --pool-cpus=8,10,12,14 --pool-memory=8GB --kernel="$kernel" --initrd="$initrd" --cmdline='rdinit=/init console=mktty0 panic=-1' >> "$daemon_log" 2>&1
+RUNTIME_G2_RESTART_RECONCILE_PASS
+Pool is already empty; nothing to do
+cpu-after=0-15
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+active
+g2-create.json 428 bytes
+g2-delete.json 426 bytes
+g2-load.json 427 bytes
+g2-start.json 428 bytes
+g2-stop.json 428 bytes
+mkruntimed-g2.log 0 bytes
+state-after-cleanup/journal.jsonl 3470 bytes
+state-after-cleanup/state.json 4041 bytes
+state-after-sigkill/journal.jsonl 2083 bytes
+state-after-sigkill/state.json 3008 bytes

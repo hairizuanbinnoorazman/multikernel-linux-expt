@@ -1,0 +1,14 @@
+2026-09-03T01:57:26Z
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; x=json.load(sys.stdin); assert not x.get("error"), x; print(x["body"]["sandbox"]["generation"])
+                                                    ^^^^^^^^^^^^^^^^^^
+AssertionError: {'version': 1, 'request_id': '1b', 'body': {'sandbox': {'id': '', 'generation': '', 'state': '', 'config': {'schema_version': 0, 'id': '', 'cpus': None, 'memory_bytes': 0, 'kernel_manifest': '', 'bundle': '', 'agent_port': 0, 'child_cid': 0}, 'created_at': '0001-01-01T00:00:00Z', 'updated_at': '0001-01-01T00:00:00Z'}, 'replayed': False}, 'error': {'code': 'BACKEND_FAILURE', 'message': 'backend operation failed', 'operation_id': '425ac6d39c7e7551f886cc9ec5d53b6f', 'retryable': True}}
+Shutting down instance 'runtime-g2' (ID: 22) (force)...
+✓ Shutdown command executed successfully
+Unloading kernel for instance 'runtime-g2' (ID: 22)...
+✓ Kernel unloaded successfully
+✓ Deleted instance 'runtime-g2' (transaction 7)
+  CPUs to host: 8, 10, 12, 14
+  Memory to host: 0xdf9600000 (8192 MB)
+✓ Pool updated (transaction 8)

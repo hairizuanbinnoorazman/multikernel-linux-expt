@@ -1,0 +1,18 @@
+#
+# No change to .config
+#
+  SYNC    include/config/auto.conf
+  UPD     include/generated/compile.h
+  DESCEND objtool
+  DESCEND bpf/resolve_btfids
+  INSTALL libsubcmd_headers
+  CALL    scripts/checksyscalls.sh
+  INSTALL libsubcmd_headers
+  CC [M]  net/vmw_vsock/mk_transport.o
+  MODPOST Module.symvers
+  CC [M]  net/vmw_vsock/mk_transport.mod.o
+  LD [M]  net/vmw_vsock/mk_transport.ko
+  BTF [M] net/vmw_vsock/mk_transport.ko
+filename:       /home/hairizuan-tw/src/linux/net/vmw_vsock/mk_transport.ko
+vermagic:       7.0.0-mk2-gce-lab SMP preempt mod_unload modversions 
+bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2  net/vmw_vsock/mk_transport.ko

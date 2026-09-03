@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-03T01:24:02.509820734Z",
+  "qualified": true,
+  "architecture": "amd64",
+  "kernel_release": "7.0.0-mk2-gce-lab",
+  "kernel_config": {
+    "CONFIG_KEXEC_CORE": "y",
+    "CONFIG_KEXEC_FILE": "y",
+    "CONFIG_MKTTY": "y",
+    "CONFIG_MULTIKERNEL": "y"
+  },
+  "multikernel_fs": true,
+  "kerf_version": "kerf, version 0.2.0",
+  "cpus": [
+    {
+      "logical": 0,
+      "apic": 0,
+      "online": true
+    },
+    {
+      "logical": 1,
+      "apic": 2,
+      "core_id": 1,
+      "online": true
+    },
+    {
+      "logical": 2,
+      "apic": 4,
+      "core_id": 2,
+      "online": true
+    },
+    {
+      "logical": 3,
+      "apic": 6,
+      "core_id": 3,
+      "online": true
+    },
+    {
+      "logical": 4,
+      "apic": 8,
+      "core_id": 4,
+      "online": true
+    },
+    {
+      "logical": 5,
+      "apic": 10,
+      "core_id": 5,
+      "online": true
+    },
+    {
+      "logical": 6,
+      "apic": 12,
+      "core_id": 6,
+      "online": true
+    },
+    {
+      "logical": 7,
+      "apic": 14,
+      "core_id": 7,
+      "online": true
+    },
+    {
+      "logical": 8,
+      "apic": 1,
+      "online": true
+    },
+    {
+      "logical": 9,
+      "apic": 3,
+      "core_id": 1,
+      "online": true
+    },
+    {
+      "logical": 10,
+      "apic": 5,
+      "core_id": 2,
+      "online": true
+    },
+    {
+      "logical": 11,
+      "apic": 7,
+      "core_id": 3,
+      "online": true
+    },
+    {
+      "logical": 12,
+      "apic": 9,
+      "core_id": 4,
+      "online": true
+    },
+    {
+      "logical": 13,
+      "apic": 11,
+      "core_id": 5,
+      "online": true
+    },
+    {
+      "logical": 14,
+      "apic": 13,
+      "core_id": 6,
+      "online": true
+    },
+    {
+      "logical": 15,
+      "apic": 15,
+      "core_id": 7,
+      "online": true
+    }
+  ],
+  "online_cpus": "0-15",
+  "memory_bytes": 67416367104,
+  "lockdown": "[none] integrity confidentiality",
+  "secure_boot": "disabled",
+  "kexec_loaded": "0",
+  "guest_agent": "active",
+  "instances": null,
+  "pci_classes": {
+    "0000:00:00.0": "0x060000",
+    "0000:00:01.0": "0x060100",
+    "0000:00:01.3": "0x068000",
+    "0000:00:03.0": "0x000000",
+    "0000:00:04.0": "0x020000",
+    "0000:00:05.0": "0x00ff00"
+  },
+  "findings": null
+}

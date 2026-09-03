@@ -1,0 +1,14 @@
+6ac83fead32f04cbf654fc598d7bd902365eacfe82a063b92b8e4aef1f225861  /tmp/runtime-g3-agent.cpio.gz
+Memory: 8192 MB on node 0 (from CPUs 8,10,12,14)
+✓ Baseline applied to kernel successfully
+✓ Created instance 'runtime-g3' (transaction 17)
+✓ Kernel loaded successfully
+Shutting down instance 'runtime-g3' (ID: 23) (force)...
+✓ Shutdown command executed successfully
+Unloading kernel for instance 'runtime-g3' (ID: 23)...
+✓ Kernel unloaded successfully
+✓ Deleted instance 'runtime-g3' (transaction 18)
+  CPUs to host: 8, 10, 12, 14
+  Memory to host: 0xdf9600000 (8192 MB)
+✓ Pool updated (transaction 19)
+RUNTIME_G3_OCI_LIFECYCLE_PASS

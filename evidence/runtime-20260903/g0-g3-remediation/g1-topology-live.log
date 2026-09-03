@@ -1,0 +1,1 @@
+G1_ZERO_TOPOLOGY_FIELDS_PASS {'logical': 0, 'apic': 0, 'physical_id': 0, 'core_id': 0, 'numa_node': 0, 'online': True}

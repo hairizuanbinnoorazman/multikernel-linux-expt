@@ -1,0 +1,9 @@
+started_at=2026-09-03T01:29:04Z
+bash scripts/check-docs.sh
+documentation structure and local links: PASS
+runtime schema fixtures: PASS (6 schemas, 15 cases)
+go test -race ./...: PASS (all runtime packages)
+go vet ./...: PASS
+bash -n scripts/*.sh guest/*.sh: PASS
+COMPLETE_LOCAL_G0_G3_VERIFICATION_PASS
+ended_at=2026-09-03T01:29:05Z

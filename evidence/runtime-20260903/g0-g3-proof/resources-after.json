@@ -1,0 +1,22 @@
+{
+  "captured_at": "2026-09-03T01:28:43Z",
+  "project": "${MK_PROJECT}",
+  "instances": [],
+  "addresses": [],
+  "run_resources": [
+    {"name": "mklinux-g0-g3-proof-20260903", "type": "instance", "final_state": "ABSENT"},
+    {"name": "mklinux-g0-g3-proof-20260903", "type": "100 GiB pd-balanced boot disk", "final_state": "ABSENT", "deletion_policy": "auto-delete with instance"},
+    {"address": "ephemeral external IPv4", "type": "address", "final_state": "ABSENT"}
+  ],
+  "retained_resources": [
+    {"name": "mk-mediated-storage-20260830", "type": "20 GiB pd-balanced disk", "state": "READY", "reason": "pre-existing artifact; not modified"},
+    {"name": "mklinux-lab-pre-daxfs-20260828-2030", "type": "100 GiB snapshot", "state": "READY", "reason": "pre-existing source snapshot"},
+    {"name": "mklinux-lab-stock-20260828", "type": "100 GiB snapshot", "state": "READY", "reason": "pre-existing recovery snapshot"}
+  ],
+  "verification": [
+    "gcloud compute instances list returned no rows",
+    "gcloud compute disks list returned only mk-mediated-storage-20260830",
+    "gcloud compute addresses list returned no rows",
+    "both named pre-existing snapshots remained READY"
+  ]
+}

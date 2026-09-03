@@ -1,0 +1,30 @@
+{
+  "Capabilities": {
+    "oci_features": [
+      "argv",
+      "environment",
+      "cwd",
+      "split-stdio",
+      "exit-code",
+      "stdin",
+      "attach",
+      "terminal",
+      "terminal-resize"
+    ],
+    "protocol": 1
+  },
+  "CreateProcess": null,
+  "DeleteProcess": null,
+  "Shutdown": {
+    "status": "quiesced"
+  },
+  "StartProcess": null,
+  "WaitProcess": {
+    "exit_code": 23,
+    "id": "p1",
+    "pid": 103,
+    "status": "STOPPED",
+    "stderr": "OCI_STDERR",
+    "stdout": "OCI_STDOUT7.0.0-mk2-gce-lab\n"
+  }
+}

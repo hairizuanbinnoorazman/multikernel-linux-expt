@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "sequence": 9,
+  "sandboxes": {},
+  "results": {
+    "g2-create": {
+      "fingerprint": "0aeecfed0e216ad35334986d2f12204bd2b7600e96d5969fab74983614fd9ad5",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "6fb1f308d22a560f31bf623d3745ae1e",
+          "state": "CREATED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:25:00.712393859Z",
+          "updated_at": "2026-09-03T01:25:02.059109592Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-delete": {
+      "fingerprint": "f6ab67521527835c8a1076ca70da0a90edafdd3f7c20f5de6fa75d9749cafb5f",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "6fb1f308d22a560f31bf623d3745ae1e",
+          "state": "ABSENT",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:25:00.712393859Z",
+          "updated_at": "2026-09-03T01:25:05.10071891Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-load": {
+      "fingerprint": "cf1925107c390db1754e5c9223dac9e3152f8eb9c2d7742763fe73110e6957c4",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "6fb1f308d22a560f31bf623d3745ae1e",
+          "state": "LOADED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:25:00.712393859Z",
+          "updated_at": "2026-09-03T01:25:03.900662463Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-start": {
+      "fingerprint": "084ca02e8e1ed824e36bd77a5ec4accc5a421df817d5e73219e2f4f703af5d10",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "6fb1f308d22a560f31bf623d3745ae1e",
+          "state": "RUNNING",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:25:00.712393859Z",
+          "updated_at": "2026-09-03T01:25:04.099208704Z"
+        },
+        "replayed": false
+      }
+    },
+    "g2-stop": {
+      "fingerprint": "95dae3bee3e3068578e4cba6a32dc0d0af92375580cb3b8e79453d76283a3c5c",
+      "result": {
+        "sandbox": {
+          "id": "runtime-g2",
+          "generation": "6fb1f308d22a560f31bf623d3745ae1e",
+          "state": "STOPPED",
+          "config": {
+            "schema_version": 1,
+            "id": "runtime-g2",
+            "cpus": [
+              8,
+              10
+            ],
+            "memory_bytes": 4294967296,
+            "kernel_manifest": "gce-mk2",
+            "bundle": "/tmp/runtime-g2-bundle",
+            "agent_port": 7102,
+            "child_cid": 22
+          },
+          "created_at": "2026-09-03T01:25:00.712393859Z",
+          "updated_at": "2026-09-03T01:25:04.423346368Z"
+        },
+        "replayed": false
+      }
+    }
+  }
+}

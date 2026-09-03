@@ -1,0 +1,21 @@
+{
+  "captured_at": "2026-09-03T02:15:32Z",
+  "instance": {
+    "name": "mklinux-g0-g3-remediation-20260903",
+    "project": "[REDACTED_GCP_PROJECT]",
+    "zone": "asia-southeast1-b",
+    "machine_type": "n2-standard-16",
+    "status": "RUNNING",
+    "internal_ip": "10.148.0.43",
+    "external_ip": "136.110.58.32",
+    "boot_disk_auto_delete": true,
+    "label": "purpose=multikernel-g0-g3-remediation"
+  },
+  "guest_after_scenarios": {
+    "online_cpus": "0-15",
+    "multikernel_instances": [],
+    "mkruntimed_processes": [],
+    "google_guest_agent": "active"
+  },
+  "retention": "Instance and boot disk deliberately retained running at the user's request; do not treat this as final cloud cleanup."
+}

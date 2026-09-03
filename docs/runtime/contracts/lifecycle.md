@@ -41,8 +41,11 @@ on the last durable state, not a separate state.
 
 - Create on an existing ID returns it only when generation and request match.
 - Load/Start/Stop at the requested terminal state succeeds without mutation.
-- Delete of an absent sandbox succeeds only for a known tombstone or a request
-  that never owned resources; unknown external resources are never deleted.
+- Delete of an absent sandbox succeeds only by exact replay of its durably
+  recorded delete result. A new delete key for an absent ID returns `NOT_FOUND`;
+  the runtime does not retain a separate unbounded tombstone namespace.
+  Unknown external resources are never deleted. This v1 choice keeps absent
+  identity bounded while preserving retry safety through idempotent replay.
 - One global allocation lock prevents overlapping CPU, memory, port, or image
   assignments. One per-sandbox lock serializes its transitions.
 

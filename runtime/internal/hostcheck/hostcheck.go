@@ -31,9 +31,9 @@ type Options struct {
 type CPU struct {
 	Logical  int  `json:"logical"`
 	APIC     int  `json:"apic"`
-	Physical int  `json:"physical_id,omitempty"`
-	Core     int  `json:"core_id,omitempty"`
-	NUMA     int  `json:"numa_node,omitempty"`
+	Physical int  `json:"physical_id"`
+	Core     int  `json:"core_id"`
+	NUMA     int  `json:"numa_node"`
 	Online   bool `json:"online"`
 }
 
@@ -105,6 +105,18 @@ func Check(ctx context.Context, o Options) Report {
 	r.SecureBoot = secureBoot(o.Root)
 	r.MultikernelFS = dirExists(path(o.Root, "/sys/fs/multikernel"))
 	r.CPUs = parseCPUs(read(o.Root, "/proc/cpuinfo"), r.OnlineCPUs, o.Root)
+	logicalIDs := map[int]bool{}
+	apicIDs := map[int]bool{}
+	for _, cpu := range r.CPUs {
+		if logicalIDs[cpu.Logical] {
+			r.add("CPU_LOGICAL_DUPLICATE", "error", fmt.Sprintf("logical CPU %d is reported more than once", cpu.Logical))
+		}
+		if apicIDs[cpu.APIC] {
+			r.add("CPU_APIC_DUPLICATE", "error", fmt.Sprintf("APIC ID %d is reported more than once", cpu.APIC))
+		}
+		logicalIDs[cpu.Logical] = true
+		apicIDs[cpu.APIC] = true
+	}
 	r.Instances = directoryNames(path(o.Root, "/sys/fs/multikernel/instances"))
 	r.PCIClasses = pciClasses(o.Root)
 	r.KernelConfig = kernelConfig(o.Root, r.KernelRelease)
@@ -137,7 +149,13 @@ func Check(ctx context.Context, o Options) Report {
 	if !r.MultikernelFS {
 		r.add("MULTIKERNEL_FS_MISSING", "error", "/sys/fs/multikernel is unavailable")
 	}
-	if len(r.CPUs) < o.MinPrimaryCPUs {
+	onlineCPUCount := 0
+	for _, cpu := range r.CPUs {
+		if cpu.Online {
+			onlineCPUCount++
+		}
+	}
+	if onlineCPUCount < o.MinPrimaryCPUs {
 		r.add("PRIMARY_CPU_HEADROOM", "error", fmt.Sprintf("need at least %d online primary CPUs", o.MinPrimaryCPUs))
 	}
 	if r.MemoryBytes < o.MinPrimaryMemByte {

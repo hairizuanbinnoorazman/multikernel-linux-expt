@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "gate": "G0",
+  "run_id": "g0-contract-remediation-20260903",
+  "result": "provisional",
+  "started_at": "2026-09-03T02:04:00Z",
+  "ended_at": "2026-09-03T02:06:00Z",
+  "repository": {"commit": "4cfca4ef1874d8f358bd1f57fbf6c3e59febd5f5", "dirty": true},
+  "components": [
+    {"name": "agent-protocol-v1-schema", "version": "repository 4cfca4e plus protocol synchronization", "sha256": "582e48f44bd1dc0e1b1de87fcebd8366debd68ec4cc8b6551f5257d281375ee3"},
+    {"name": "protocol-v1", "version": "repository 4cfca4e plus reply policy", "sha256": "5ddd111f7ac90e2f5b26708f15c999770065be9e765d4c86fca4994840318f58"},
+    {"name": "kernel-and-image-policy", "version": "repository 4cfca4e plus terminal and architecture synchronization", "sha256": "40ee9a7273fe57ac2ff0522c39b219b12468272dcf9ebde615dab5476564d8e9"},
+    {"name": "check-runtime-schemas", "version": "repository 4cfca4e", "sha256": "00961d758e8288c78bf75d113326c050753f247052e5454c85ccaa4689d51e64"}
+  ],
+  "host": {"provider": "gce", "project": "[REDACTED_GCP_PROJECT]", "zone": "asia-southeast1-b", "instance": "mklinux-g0-g3-remediation-20260903", "machine_type": "n2-standard-16", "boot_id": "a0649bbe-06e5-4f61-ba93-36b473cf0b69"},
+  "commands": [
+    {"id": "complete-local-validation", "argv": ["make", "docs-check", "and", "go-test-race", "and", "go-vet", "and", "shell-syntax", "and", "git-diff-check"], "exit_status": 0, "output_path": "local-validation.log"}
+  ],
+  "assertions": [
+    {"id": "schemas-and-fixtures-pass", "passed": true, "evidence_paths": ["local-validation.log"]},
+    {"id": "race-suite-and-vet-pass", "passed": true, "evidence_paths": ["local-validation.log"]},
+    {"id": "docs-links-and-shell-syntax-pass", "passed": true, "evidence_paths": ["local-validation.log"]},
+    {"id": "per-gate-manifests-schema-valid", "passed": true, "evidence_paths": ["local-validation.log", "manifest-g1.json", "manifest-g2.json", "manifest-g3.json"]}
+  ],
+  "limitations": [
+    "End-to-end fail-closed handling after the G6 OCI adapter and default validation of every committed historical manifest remain open."
+  ],
+  "cleanup": {"completed": true, "resources_before": "resources-before.json", "resources_after": "resources-after.json", "retained_resources": [], "operator_acknowledged": true}
+}

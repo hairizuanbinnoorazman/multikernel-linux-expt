@@ -1,0 +1,9 @@
+2026-09-03 G0-G3 remediation local validation
+PASS make docs-check
+PASS documentation structure and local links
+PASS runtime schema fixtures (6 schemas, 20 cases)
+PASS cd runtime && GOCACHE=/tmp/mk-go-cache go test -race ./...
+PASS cd runtime && GOCACHE=/tmp/mk-go-cache go vet ./...
+PASS bash -n for every Bash/sh-shebang file under scripts/ and guest/
+PASS git diff --check
+PASS evidence-manifest-v1 validation and path existence for manifest-g0.json through manifest-g3.json
