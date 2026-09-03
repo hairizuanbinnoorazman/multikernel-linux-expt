@@ -1,12 +1,16 @@
 package agent
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -37,6 +41,38 @@ func bundle(t *testing.T, args []string, extra string) string {
 func mustJSON(v any) string { b, _ := json.Marshal(v); return string(b) }
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("MK_AGENT_HELPER") != "1" {
+		return
+	}
+	if os.Getenv("MK_AGENT_SIGNAL_CHILD") == "1" {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGTERM)
+		if err := os.WriteFile(os.Getenv("MK_AGENT_SIGNAL_MARKER"), []byte("child-ready\n"), 0644); err != nil {
+			os.Exit(97)
+		}
+		<-ch
+		if err := os.WriteFile(os.Getenv("MK_AGENT_SIGNAL_MARKER"), []byte("child-received-sigterm\n"), 0644); err != nil {
+			os.Exit(94)
+		}
+		return
+	}
+	if os.Getenv("MK_AGENT_SIGNAL_HELPER") == "1" {
+		executable, err := os.Executable()
+		if err != nil {
+			os.Exit(95)
+		}
+		child := exec.Command(executable, "-test.run=TestHelperProcess")
+		child.Env = []string{"MK_AGENT_HELPER=1", "MK_AGENT_SIGNAL_CHILD=1", "MK_AGENT_SIGNAL_MARKER=" + os.Getenv("MK_AGENT_SIGNAL_MARKER")}
+		if err := child.Start(); err != nil {
+			os.Exit(96)
+		}
+		for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+			if data, readErr := os.ReadFile(os.Getenv("MK_AGENT_SIGNAL_MARKER")); readErr == nil && string(data) == "child-ready\n" {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+		fmt.Printf("signal-ready child=%d\n", child.Process.Pid)
+		_ = child.Wait()
 		return
 	}
 	if os.Getenv("MK_AGENT_TERMINAL_HELPER") == "1" {
@@ -145,6 +181,100 @@ func TestTerminalAndResize(t *testing.T) {
 		t.Fatalf("terminal state: %+v", state)
 	}
 }
+
+func TestInvalidTerminalSizesFailClosed(t *testing.T) {
+	m := NewManager(true)
+	if err := m.StartWithSize("missing", 65536, 24, true); err == nil || !strings.Contains(err.Error(), "PTY limit") {
+		t.Fatalf("oversized initial terminal error = %v", err)
+	}
+	if err := m.Resize("missing", 80, 65536); err == nil || !strings.Contains(err.Error(), "PTY limit") {
+		t.Fatalf("oversized resize error = %v", err)
+	}
+	b := bundle(t, []string{"/probe"}, "")
+	if err := m.Create("notty", b); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.StartWithSize("notty", 80, 24, true); err == nil || !strings.Contains(err.Error(), "without a terminal") {
+		t.Fatalf("non-terminal initial size error = %v", err)
+	}
+}
+
+func TestSignalReachesContainerProcessGroup(t *testing.T) {
+	m := NewManager(true)
+	b := bundle(t, []string{"/probe", "-test.run=TestHelperProcess"}, "")
+	c, _, err := LoadBundle(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(t.TempDir(), "signal-marker")
+	c.Process.Env = []string{"MK_AGENT_HELPER=1", "MK_AGENT_SIGNAL_HELPER=1", "MK_AGENT_SIGNAL_MARKER=" + marker}
+	raw, _ := json.Marshal(c)
+	if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Create("signal", b); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Start("signal"); err != nil {
+		t.Fatal(err)
+	}
+	ready := false
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+		state, stateErr := m.State("signal")
+		if stateErr != nil {
+			t.Fatal(stateErr)
+		}
+		if strings.Contains(state.Stdout, "signal-ready") {
+			ready = true
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if !ready {
+		state, _ := m.State("signal")
+		t.Fatalf("signal helper did not become ready: %+v", state)
+	}
+	if err = m.Signal("signal", syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	state, err := m.Wait("signal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.ExitCode != 128+int(syscall.SIGTERM) {
+		t.Fatalf("exit code = %d, want signal exit", state.ExitCode)
+	}
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+		if data, readErr := os.ReadFile(marker); readErr == nil {
+			if string(data) != "child-received-sigterm\n" {
+				t.Fatalf("marker = %q", data)
+			}
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("descendant did not observe process-group SIGTERM")
+}
+
+func TestProcessAndOutputRetentionBounds(t *testing.T) {
+	var output lockedBuffer
+	payload := make([]byte, maxOutputBytes+1)
+	if n, err := output.Write(payload); err != nil || n != len(payload) {
+		t.Fatalf("Write() = %d, %v", n, err)
+	}
+	if len(output.String()) != maxOutputBytes || !output.Truncated() {
+		t.Fatalf("retained=%d truncated=%v", len(output.String()), output.Truncated())
+	}
+
+	m := NewManager(true)
+	for i := 0; i < maxProcesses; i++ {
+		id := fmt.Sprintf("p-%d", i)
+		m.processes[id] = &process{state: ProcessState{ID: id, Status: "STOPPED"}}
+	}
+	if err := m.Create("over-limit", bundle(t, []string{"/probe"}, "")); err == nil || !strings.Contains(err.Error(), "retention limit") {
+		t.Fatalf("Create() error = %v, want retention limit", err)
+	}
+}
 func TestLifecycle(t *testing.T) {
 	m := NewManager(true)
 	b := bundle(t, []string{"/probe", "-test.run=TestHelperProcess"}, "")
@@ -175,10 +305,54 @@ func TestLifecycle(t *testing.T) {
 	}
 }
 func TestUnsupportedFailsClosed(t *testing.T) {
-	m := NewManager(true)
-	b := bundle(t, []string{"/probe"}, `,"mounts":[{}]`)
-	if e := m.Create("p1", b); e == nil {
-		t.Fatal("unsupported mount accepted")
+	tests := []struct {
+		name   string
+		mutate func(map[string]any)
+		want   string
+	}{
+		{"mounts", func(c map[string]any) { c["mounts"] = []any{map[string]any{}} }, "mounts and hooks"},
+		{"hooks", func(c map[string]any) { c["hooks"] = map[string]any{"prestart": []any{}} }, "mounts and hooks"},
+		{"capabilities", func(c map[string]any) {
+			c["process"].(map[string]any)["capabilities"] = map[string]any{"bounding": []any{"CAP_CHOWN"}}
+		}, "capabilities"},
+		{"namespaces", func(c map[string]any) {
+			c["linux"] = map[string]any{"namespaces": []any{map[string]any{"type": "pid"}}}
+		}, "namespaces/resources/seccomp/path controls"},
+		{"resources", func(c map[string]any) { c["linux"] = map[string]any{"resources": map[string]any{}} }, "namespaces/resources/seccomp/path controls"},
+		{"seccomp", func(c map[string]any) { c["linux"] = map[string]any{"seccomp": map[string]any{}} }, "namespaces/resources/seccomp/path controls"},
+		{"masked paths", func(c map[string]any) { c["linux"] = map[string]any{"maskedPaths": []any{"/proc/kcore"}} }, "namespaces/resources/seccomp/path controls"},
+		{"readonly paths", func(c map[string]any) { c["linux"] = map[string]any{"readonlyPaths": []any{"/proc/sys"}} }, "namespaces/resources/seccomp/path controls"},
+		{"read-only root", func(c map[string]any) { c["root"].(map[string]any)["readonly"] = true }, "read-only root"},
+		{"no new privileges", func(c map[string]any) { c["process"].(map[string]any)["noNewPrivileges"] = true }, "noNewPrivileges"},
+		{"rlimits", func(c map[string]any) {
+			c["process"].(map[string]any)["rlimits"] = []any{map[string]any{"type": "RLIMIT_NOFILE", "hard": 64, "soft": 64}}
+		}, "rlimits"},
+		{"hostname", func(c map[string]any) { c["hostname"] = "sandbox" }, "hostname"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			m := NewManager(true)
+			b := bundle(t, []string{"/probe"}, "")
+			raw, err := os.ReadFile(filepath.Join(b, "config.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var config map[string]any
+			if err = json.Unmarshal(raw, &config); err != nil {
+				t.Fatal(err)
+			}
+			test.mutate(config)
+			raw, err = json.Marshal(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err = m.Create("p1", b); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Create() error = %v, want rejection containing %q", err, test.want)
+			}
+		})
 	}
 }
 
@@ -190,6 +364,49 @@ func TestWaitRejectsUnstartedProcess(t *testing.T) {
 	}
 	if _, err := m.Wait("p1"); err == nil || !strings.Contains(err.Error(), "not started") {
 		t.Fatalf("Wait() error = %v, want not-started error", err)
+	}
+}
+
+func TestUnsupportedOCIVersionFailsBeforeCreate(t *testing.T) {
+	b := bundle(t, []string{"/probe"}, "")
+	raw, err := os.ReadFile(filepath.Join(b, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err = json.Unmarshal(raw, &config); err != nil {
+		t.Fatal(err)
+	}
+	config["ociVersion"] = "9.9.9"
+	raw, _ = json.Marshal(config)
+	if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = NewManager(true).Create("p1", b); err == nil || !strings.Contains(err.Error(), "unsupported OCI version") {
+		t.Fatalf("Create() error = %v, want unsupported OCI version", err)
+	}
+}
+
+func TestWrongExecutableArchitectureFailsBeforeStart(t *testing.T) {
+	m := NewManager(true)
+	b := bundle(t, []string{"/probe"}, "")
+	probe := filepath.Join(b, "rootfs", "probe")
+	raw, err := os.ReadFile(probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) < 20 || string(raw[:4]) != "\x7fELF" {
+		t.Fatal("test executable is not ELF")
+	}
+	binary.LittleEndian.PutUint16(raw[18:20], uint16(40)) // EM_ARM
+	if err = os.WriteFile(probe, raw, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Create("p1", b); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Start("p1"); err == nil || !strings.Contains(err.Error(), "architecture is not linux/amd64") {
+		t.Fatalf("Start() error = %v, want architecture rejection", err)
 	}
 }
 func TestAuthenticationAndReplay(t *testing.T) {
@@ -220,5 +437,45 @@ func TestAuthenticationAndReplay(t *testing.T) {
 	e.MAC = "00"
 	if r := s.Dispatch(e); r.Error != "invalid authentication" {
 		t.Fatalf("auth result: %+v", r)
+	}
+}
+
+func TestShutdownRequiresQuiescence(t *testing.T) {
+	m := NewManager(true)
+	b := bundle(t, []string{"/probe", "-test.run=TestHelperProcess"}, "")
+	c, _, err := LoadBundle(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Process.Env = []string{"MK_AGENT_HELPER=1", "MK_AGENT_STDIN_HELPER=1"}
+	raw, _ := json.Marshal(c)
+	if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Create("running", b); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Start("running"); err != nil {
+		t.Fatal(err)
+	}
+
+	server := &Server{Manager: m, SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001, Token: []byte("01234567890123456789012345678901")}
+	request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation, Endpoint: server.Endpoint, Sequence: 1, Method: "Shutdown"}
+	Sign(&request, server.Token)
+	if reply := server.Dispatch(request); !strings.Contains(reply.Error, "still running") {
+		t.Fatalf("running Shutdown reply = %+v", reply)
+	}
+	if err = m.CloseStdin("running"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.Wait("running"); err != nil {
+		t.Fatal(err)
+	}
+	request.Sequence++
+	Sign(&request, server.Token)
+	reply := server.Dispatch(request)
+	body, ok := reply.Body.(map[string]string)
+	if reply.Error != "" || !ok || body["status"] != "quiesced" {
+		t.Fatalf("quiescent Shutdown reply = %+v", reply)
 	}
 }

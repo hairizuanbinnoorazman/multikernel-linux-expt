@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"debug/elf"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -60,12 +61,14 @@ type OCIConfig struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 type ProcessState struct {
-	ID       string `json:"id"`
-	Status   string `json:"status"`
-	PID      int    `json:"pid,omitempty"`
-	ExitCode int    `json:"exit_code,omitempty"`
-	Stdout   string `json:"stdout,omitempty"`
-	Stderr   string `json:"stderr,omitempty"`
+	ID              string `json:"id"`
+	Status          string `json:"status"`
+	PID             int    `json:"pid,omitempty"`
+	ExitCode        int    `json:"exit_code,omitempty"`
+	Stdout          string `json:"stdout,omitempty"`
+	Stderr          string `json:"stderr,omitempty"`
+	StdoutTruncated bool   `json:"stdout_truncated,omitempty"`
+	StderrTruncated bool   `json:"stderr_truncated,omitempty"`
 }
 type process struct {
 	spec           ProcessSpec
@@ -82,14 +85,31 @@ type process struct {
 }
 
 type lockedBuffer struct {
-	mu sync.Mutex
-	b  bytes.Buffer
+	mu        sync.Mutex
+	b         bytes.Buffer
+	truncated bool
 }
+
+const (
+	maxProcesses   = 1024
+	maxOutputBytes = 4 << 20
+)
 
 func (b *lockedBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.b.Write(p)
+	accepted := maxOutputBytes - b.b.Len()
+	if accepted <= 0 {
+		b.truncated = true
+		return len(p), nil
+	}
+	if accepted < len(p) {
+		_, _ = b.b.Write(p[:accepted])
+		b.truncated = true
+		return len(p), nil
+	}
+	_, _ = b.b.Write(p)
+	return len(p), nil
 }
 
 func (b *lockedBuffer) slice(offset, limit uint64) ([]byte, uint64) {
@@ -110,6 +130,12 @@ func (b *lockedBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.b.String()
+}
+
+func (b *lockedBuffer) Truncated() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.truncated
 }
 
 type Manager struct {
@@ -147,6 +173,9 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 	var c OCIConfig
 	if e := strictJSON(filepath.Join(bundle, "config.json"), &c); e != nil {
 		return c, "", e
+	}
+	if c.OCIVersion != "1.1.0" {
+		return c, "", fmt.Errorf("unsupported OCI version %q", c.OCIVersion)
 	}
 	if len(c.Process.Args) == 0 {
 		return c, "", errors.New("process.args is required")
@@ -210,6 +239,9 @@ func (m *Manager) Create(id, bundle string) error {
 	if _, ok := m.processes[id]; ok {
 		return errors.New("process exists")
 	}
+	if len(m.processes) >= maxProcesses {
+		return errors.New("process retention limit reached")
+	}
 	m.processes[id] = &process{spec: c.Process, root: root, done: make(chan struct{}), state: ProcessState{ID: id, Status: "CREATED"}}
 	return nil
 }
@@ -231,6 +263,9 @@ func (m *Manager) Exec(id, root string, spec ProcessSpec) error {
 	defer m.mu.Unlock()
 	if _, ok := m.processes[id]; ok {
 		return errors.New("process exists")
+	}
+	if len(m.processes) >= maxProcesses {
+		return errors.New("process retention limit reached")
 	}
 	m.processes[id] = &process{spec: spec, root: root, done: make(chan struct{}), state: ProcessState{ID: id, Status: "CREATED"}}
 	return nil
@@ -275,6 +310,10 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	if !strings.HasPrefix(exe, "/") {
 		m.mu.Unlock()
 		return errors.New("argv[0] must be absolute")
+	}
+	if e := validateExecutableArchitecture(filepath.Join(p.root, exe)); e != nil {
+		m.mu.Unlock()
+		return e
 	}
 	cmd := exec.Command(exe, p.spec.Args[1:]...)
 	cmd.Env = append([]string(nil), p.spec.Env...)
@@ -359,6 +398,22 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	go m.wait(p)
 	return nil
 }
+
+func validateExecutableArchitecture(path string) error {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return errors.New("executable is not a regular file")
+	}
+	binary, err := elf.Open(path)
+	if err != nil {
+		return errors.New("executable is not a supported ELF image")
+	}
+	defer binary.Close()
+	if binary.FileHeader.Class != elf.ELFCLASS64 || binary.FileHeader.Machine != elf.EM_X86_64 {
+		return fmt.Errorf("executable architecture is not linux/amd64: class=%s machine=%s", binary.FileHeader.Class, binary.FileHeader.Machine)
+	}
+	return nil
+}
 func (m *Manager) wait(p *process) {
 	e := p.cmd.Wait()
 	if p.outputDone != nil {
@@ -393,6 +448,8 @@ func (m *Manager) wait(p *process) {
 	p.state.ExitCode = code
 	p.state.Stdout = p.stdout.String()
 	p.state.Stderr = p.stderr.String()
+	p.state.StdoutTruncated = p.stdout.Truncated()
+	p.state.StderrTruncated = p.stderr.Truncated()
 	p.terminal = nil
 	close(p.done)
 	m.mu.Unlock()
@@ -534,6 +591,8 @@ func (m *Manager) State(id string) (ProcessState, error) {
 	x := p.state
 	x.Stdout = p.stdout.String()
 	x.Stderr = p.stderr.String()
+	x.StdoutTruncated = p.stdout.Truncated()
+	x.StderrTruncated = p.stderr.Truncated()
 	return x, nil
 }
 func (m *Manager) Delete(id string) error {

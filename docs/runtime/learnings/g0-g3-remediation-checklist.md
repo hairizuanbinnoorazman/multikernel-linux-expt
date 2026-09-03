@@ -24,13 +24,31 @@ features.
 
 Synchronization audit: 2026-09-02. The remediation findings were folded back
 into learnings `00` through `03` and compared with the later G4-G6
-implementation. Later work added exec, stdin/attach, PTYs, resize, process-group
-signals, incremental output reads, and a real running-process shutdown check.
-Those additions do not close G3: focused failure coverage, bounded retention,
-containment controls, reconnect, structured errors, and agent-driven
-quiescence/poweroff remain open. The audit also found contract drift: the agent
-method schema and kernel/image policy lag the new methods, while the G6 OCI
-adapter can discard unsupported fields instead of failing closed.
+implementation. Later work added exec, stdin/attach, PTYs, resize,
+process-group signals, incremental output reads, and a real running-process
+shutdown check. The next remediation pass added bounded retention,
+field-by-field direct-agent rejection, structured secret-safe errors, and reply
+binding, and synchronized the agent schema/policy. G3 still lacks full
+failure/race coverage, containment controls, reconnect, independent
+streaming/backpressure, and agent-driven quiescence/poweroff. The G6 OCI adapter
+can also discard unsupported fields instead of failing closed.
+
+Replacement evidence run: 2026-09-03. A disposable `n2-standard-16` restored
+from the known custom-kernel snapshot reran the current narrow G1 crash, G2
+daemon-restart, and G3 direct-bundle lifecycle paths. The run retained separate
+schema-valid manifests, durable G2 state, fresh and capture-redacted G3
+credentials, final host resource return, and post-deletion cloud inventories.
+See the [claim-to-proof index](../../../evidence/runtime-20260903/g0-g3-proof/README.md).
+These closures repair the named evidence/run rows below; they do not close the
+remaining implementation or fault-matrix requirements.
+
+Continuing remediation run: 2026-09-03. A replacement disposable instance
+proved zero-valued G1 topology serialization, two live disjoint G2 sandboxes
+across daemon `SIGKILL`, and an exact-token G3 evidence-redaction check. It also
+retained a failed exact-capacity G2 attempt that demonstrates the need for
+usable pool-memory slack. The [continuing evidence index](../../../evidence/runtime-20260903/g0-g3-remediation/README.md)
+records the final empty instance, auto-delete disk, and named-address
+inventories after termination.
 
 ## Rules for closing an item
 
@@ -59,7 +77,7 @@ adapter can discard unsupported fields instead of failing closed.
 - [x] Correct learning claims that exceeded the focused tests: G1's current
   suite does not directly test duplicate/offline APIC rejection, and G3's
   authentication test does not exercise wrong identity fields.
-- [ ] Reissue the final G0-G3 summary only after every retained pass claim maps
+- [x] Reissue the final G0-G3 summary only after every retained pass claim maps
   to an explicit test and evidence assertion.
 
 ## G0: contracts and schemas
@@ -81,11 +99,9 @@ adapter can discard unsupported fields instead of failing closed.
 - [x] Add the documented label-key bounds/pattern to the sandbox schema.
 - [x] Define whether duplicate JSON object names are invalid at schema parsing
   time, wire parsing time, or both, and provide one shared strict decoder.
-- [ ] Reconcile post-G3 protocol evolution with frozen v1. The current agent
-  implements state, stdin/output, terminal resize, and network methods absent
-  from the agent schema, and the kernel/image policy still describes terminal
-  I/O as rejected. Revise/version schema, policy, fixtures, and implementation
-  together rather than documenting the mismatch as conformance.
+- [x] Reconcile post-G3 protocol evolution with frozen v1. The agent schema,
+  protocol text, kernel/image policy, and fixtures now cover the implemented
+  state, stdin/output, terminal-resize, and network method set.
 - [ ] Restore end-to-end fail-closed OCI handling or explicitly revise the
   contract. The G6 initramfs builder and exec translation currently discard
   unsupported caller fields before the agent can reject them.
@@ -119,10 +135,10 @@ adapter can discard unsupported fields instead of failing closed.
 - [ ] Fail closed when the Kerf version, Secure Boot state, lockdown state,
   kexec readiness, or required recovery signal is unknown or incompatible.
 - [ ] Check serial-console/recovery readiness explicitly.
-- [ ] Count online CPUs for primary headroom; reject duplicate logical/APIC
+- [x] Count online CPUs for primary headroom; reject duplicate logical/APIC
   mappings and report offline CPUs accurately.
 - [ ] Define and enforce the SMT-sibling allocation policy.
-- [ ] Preserve zero-valued physical/core/NUMA topology IDs in JSON rather than
+- [x] Preserve zero-valued physical/core/NUMA topology IDs in JSON rather than
   losing them through `omitempty`, and test NUMA mapping where available.
 - [ ] Validate requested APIC IDs against the live report in the actual daemon
   allocation path, including online status and retained primary headroom.
@@ -161,12 +177,13 @@ adapter can discard unsupported fields instead of failing closed.
   `loaded` as unexplained disagreement.
 - [ ] Decide and implement resume-versus-operator-action behavior for each
   incomplete transition rather than marking all disagreement generically.
-- [ ] Check and propagate failures while recording error completion and error
+- [x] Check and propagate failures while recording error completion and error
   state; several store errors are currently ignored on the failure path.
 - [ ] Fsync the state directory after atomic snapshot rename if durability across
   host failure is claimed.
-- [ ] Implement known tombstones, or revise the lifecycle contract that says a
-  known absent delete can succeed.
+- [x] Implement known tombstones, or revise the lifecycle contract that says a
+  known absent delete can succeed. V1 now specifies exact recorded-delete replay
+  and `NOT_FOUND` for a new key instead of a separate unbounded tombstone set.
 
 ### API and contract enforcement
 
@@ -177,23 +194,32 @@ adapter can discard unsupported fields instead of failing closed.
   ownership, architecture, release, hashes, required config, modules, protocol,
   and OCI features before allocation. Remove the current fixed arbitrary
   `--kernel`/`--initrd` bypass from the production path.
-- [ ] Validate bundle path, manifest name, label keys/values, idempotency-key
-  length/printability, request IDs, live CPU eligibility/headroom, and memory
-  availability before mutation.
-- [ ] Require every sandbox CPU to be a member of the configured Kerf pool and
-  account for the pool's usable memory/slack before invoking Kerf.
+- [x] Validate bundle path, manifest name, label keys/values, idempotency-key
+  length/printability, and request IDs before mutation.
+- [ ] Validate live CPU eligibility/headroom and memory availability before
+  mutation.
+- [x] Require every sandbox CPU to be a member of the configured Kerf pool
+  before invoking Kerf.
+- [x] Account for the configured pool's usable memory and slack before invoking
+  Kerf. `mkruntimed` parses the pool quantity, reserves an explicit 1 GB margin
+  by default, sums non-absent allocations under the global lock, and returns
+  `RESOURCE_EXHAUSTED` before the backend; focused tests and an 8 GB
+  negative/12 GB positive live pair cover the behavior.
 - [x] Reject duplicate JSON fields in daemon envelopes and method bodies through
   the shared strict decoder; its top-level and nested duplicate behavior has a
   focused automated test.
-- [ ] Add focused daemon wire tests for unknown fields, trailing values, frame
+- [x] Add focused daemon wire tests for unknown fields, trailing values, frame
   bounds, and numeric overflow; these paths are not covered merely by the shared
   decoder test.
-- [ ] Return `BACKEND_TIMEOUT` for actual timeouts rather than mapping every
+- [x] Return `BACKEND_TIMEOUT` for actual timeouts rather than mapping every
   backend error to `BACKEND_FAILURE`.
-- [ ] Populate stable operation IDs on mutation errors as required by the error
+- [x] Populate stable operation IDs on mutation errors as required by the error
   contract.
-- [ ] Sanitize daemon and agent errors and add focused tests proving that
-  backend output, host paths, tokens, and other secrets cannot cross either API.
+- [x] Sanitize daemon backend/state errors and add focused tests proving that
+  backend output, host paths, tokens, and named secret values cannot cross the
+  daemon API.
+- [x] Replace raw agent error strings with structured, secret-safe errors and
+  add the corresponding leakage tests.
 - [ ] Make intermediate `STOPPING` and `RELEASING` state semantics observable,
   or revise the documented state machine.
 - [ ] Verify socket owner/group, safe socket parent, peer authorization, journal
@@ -204,12 +230,16 @@ adapter can discard unsupported fields instead of failing closed.
 - [ ] Expand fake-Kerf coverage to every nonzero exit, timeout, malformed or
   truncated observation, and committed-then-failed operation—not only create.
 - [x] Test exact duplicate `CreateSandbox` replay with the same idempotency key.
-- [ ] Expand deterministic duplicate coverage to start, stop, and delete, and
-  test terminal-state retries with new valid idempotency keys.
-- [ ] Test two disjoint live sandboxes through the daemon.
+- [x] Expand deterministic duplicate coverage to start, stop, and delete, and
+  test terminal-state retries with new valid idempotency keys. Delete uses the
+  separately documented exact recorded-result replay rule once absent.
+- [x] Test two disjoint live sandboxes through the daemon. The 2026-09-03
+  remediation run retained both `RUNNING` records across daemon `SIGKILL` and
+  recovered/stopped/deleted both after restart; its failed 8 GiB attempt also
+  demonstrates why usable pool slack remains a separate open admission item.
 - [ ] Test client/shim disappearance while a child continues running.
 - [ ] Test child/backend failure during load, boot/start, and stop.
-- [ ] Re-run daemon recovery with state in a durable non-`/tmp` location and
+- [x] Re-run daemon recovery with state in a durable non-`/tmp` location and
   retain the journal/snapshot. If host-reset durability is claimed, test a host
   reset as a separate case from daemon `SIGKILL`.
 
@@ -224,7 +254,7 @@ adapter can discard unsupported fields instead of failing closed.
 - [ ] Replace wait-time in-memory stdout/stderr accumulation with bounded,
   independent streaming and backpressure. The current implementation does not
   satisfy the plan's streaming requirement and can create oversized replies.
-- [ ] Define signal scope and signal the container process group when required;
+- [x] Define signal scope and signal the container process group when required;
   test delivery rather than only advertising `signals`.
 - [ ] Test non-root UID/GID and non-empty supplementary groups in the live child.
 - [ ] Test exact argv without shell interpretation, environment, non-default
@@ -232,7 +262,7 @@ adapter can discard unsupported fields instead of failing closed.
 - [ ] Test PID 1 exit 0, nonzero exit, crash, ignored `SIGTERM`, forced kill, and
   complete descendant cleanup.
 - [x] Make `WaitProcess` reject an unstarted process instead of waiting forever.
-- [ ] Bound process count, output, and retained stopped-process state.
+- [x] Bound process count, output, and retained stopped-process state.
 
 ### OCI and capability truthfulness
 
@@ -246,15 +276,17 @@ adapter can discard unsupported fields instead of failing closed.
   `Capabilities` response reports only protocol and OCI feature names.
 - [x] Do not advertise UID/GID, supplementary groups, or signals as tested until
   their nontrivial live cases pass.
-- [ ] Validate supported OCI version and executable/image architecture before
+- [x] Validate supported OCI version and executable/image architecture before
   process start.
 - [x] Test fail-closed rejection of unsupported mounts.
-- [ ] Add fail-closed tests for every other declared unsupported field: hooks,
+- [x] Add direct-agent fail-closed tests for every other declared unsupported
+  field: hooks,
   capabilities, namespaces, resources/cgroups, seccomp, masked/read-only paths,
   read-only root, `noNewPrivileges`, rlimits, and hostname. Terminal mode is now
-  implemented; retain its positive and invalid-size tests separately. Also test
-  rejection before and after the G6 adapter so unsupported fields cannot be
-  silently stripped.
+  implemented; retain its positive tests separately.
+- [x] Add invalid initial terminal-size, resize, and non-terminal size tests.
+- [ ] Test unsupported-field rejection after the G6 adapter so caller fields
+  cannot be silently stripped before reaching the agent.
 - [ ] Decide whether annotations and empty-but-present unsupported objects are
   accepted, ignored, or rejected, then test the chosen semantics.
 - [ ] Securely resolve the bundle/root path without caller-controlled symlink or
@@ -262,24 +294,25 @@ adapter can discard unsupported fields instead of failing closed.
 
 ### Agent protocol and shutdown
 
-- [ ] Add focused tests for the implemented `Shutdown` behavior: it rejects
+- [x] Add focused tests for the implemented `Shutdown` behavior: it rejects
   while a managed process remains live and reports `quiesced` only after the
-  manager is no longer running a process. Define and test lifecycle/race and
-  deterministic stop/kill behavior rather than relying on code inspection.
+  manager is no longer running a process.
+- [ ] Define and test shutdown lifecycle races and deterministic stop/kill
+  behavior.
 - [ ] Ensure shutdown explicitly ends the agent session and powers off the child
   without depending on the controller closing the connection as an implicit
   command.
 - [ ] Integrate the earlier mediated-ext4 clean sequence when storage lands:
   remount read-only, flush, disconnect NBD, sync server, then power off.
-- [ ] Generate a fresh random 256-bit token and random generation for every live
-  run; the retained G3 script uses fixed fixtures.
+- [x] Generate a fresh random 256-bit token and random generation for every live
+  run; capture redacts the token on both success and failure paths.
 - [x] Reject duplicate fields and trailing JSON values in agent envelopes and
   method bodies.
-- [ ] On an oversized or truncated frame, close or fully drain the connection so
+- [x] On an oversized or truncated frame, close or fully drain the connection so
   the stream cannot become desynchronized; add malformed-frame tests.
-- [ ] Define whether replies require authentication/integrity protection and
+- [x] Define whether replies require authentication/integrity protection and
   update the protocol contract and implementation consistently.
-- [ ] Return the frozen structured error codes from the agent API rather than
+- [x] Return the frozen structured error codes from the agent API rather than
   unclassified error strings.
 - [ ] Test wrong sandbox ID, stale generation, wrong endpoint, wrong protocol,
   invalid MAC, replay, out-of-order/concurrent sequences, oversized frames, and
@@ -291,23 +324,23 @@ adapter can discard unsupported fields instead of failing closed.
 
 ## Evidence repair and final revalidation
 
-- [ ] Create a separate schema-valid manifest for each gate rather than one
+- [x] Create a separate schema-valid manifest for each gate rather than one
   combined manifest labelled only `G3`.
-- [ ] Add `resources-before.json` and `resources-after.json` for every cloud run,
+- [x] Add `resources-before.json` and `resources-after.json` for every cloud run,
   including retained resources and operator acknowledgment.
-- [ ] Record exact command lines or safe command identifiers, exit statuses,
+- [x] Record exact command lines or safe command identifiers, exit statuses,
   output paths, repository commit/dirty state, component hashes, assertions,
   limitations, and cleanup in each manifest.
-- [ ] Retain raw G2 journal/snapshot and meaningful command output; the current
-  71-byte pass-marker log is insufficient for the evidence contract.
+- [x] Retain raw G2 journal/snapshot and meaningful command output; the
+  replacement run retains API responses plus state at daemon death and cleanup.
 - [x] Retain raw evidence for the failed direct-Go AF_VSOCK attempts and two
   primary resets, or downgrade those statements to unretained observations.
-- [ ] Ensure redaction is performed during capture and validate that manifests,
+- [x] Ensure redaction is performed during capture and validate that manifests,
   logs, console output, process listings, and kernel command-line evidence do
   not expose tokens or credentials.
 - [x] Run the complete local suite, schema tests, race tests, shell syntax checks,
   documentation link checks, and static analysis from one recorded command.
-- [ ] Run the corrected G1, G2, and G3 live matrix on a disposable qualified GCE
+- [x] Run the corrected G1, G2, and G3 live matrix on a disposable qualified GCE
   host and prove final CPU, memory, pool, instance, disk, address, and guest-agent
   state.
 - [x] Update `00` through `03` learnings with the currently demonstrated
@@ -315,6 +348,22 @@ adapter can discard unsupported fields instead of failing closed.
   evidence limitations. This documentation synchronization does not close the
   audit or any gate; replacement evidence and the unchecked implementation/test
   work above remain required.
+
+## Impact on full `ctr` and Docker support
+
+This checklist currently has 45 unchecked rows. They must not be added directly
+to the 85 unchecked G4-G6 rows: host allocation enforcement, recovery,
+protocol evolution, agent lifecycle, OCI validation, shutdown, and evidence
+repair are foundational parts of the same full-runtime workstreams. The
+[G4-G6 rough calculation](g4-g6-remediation-checklist.md#rough-remaining-work-calculation)
+includes the relevant G0-G3 effort under OCI/agent work and foundational
+control-plane, rollback, and cleanup hardening.
+
+The largest upstream schedule risks are orphan/pre-snapshot recovery in G2,
+live allocation enforcement from G1, protocol and fail-closed contract drift
+from G0, and bounded process I/O plus verified shutdown/reconnect from G3. A
+G4-G6 implementation cannot be called fully supported merely by bypassing
+these open foundational requirements.
 
 ## Known-consistent findings to preserve
 

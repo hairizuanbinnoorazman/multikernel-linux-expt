@@ -19,9 +19,17 @@ separate approved manifest; workload requests may choose a manifest name, not
 an arbitrary kernel path.
 
 Required OCI fields not listed as supported are rejected before allocation.
-For G3, supported process fields are argv, environment, cwd, UID/GID,
-supplementary groups, terminal=false, and explicit signals.
-Namespaces, mounts, cgroups, capabilities, masked/read-only paths,
-`noNewPrivileges`, terminal I/O, and seccomp remain fail-closed until their
-implementation and tests land. Wrong architecture always fails before the
-process starts.
+For the provisional G3 implementation, accepted process fields are argv,
+environment, cwd, UID/GID, supplementary groups, terminal mode, stdin,
+incremental split output, terminal resize, and explicit process-group signals.
+The agent advertises only the subset with focused positive coverage; UID/GID,
+supplementary groups, and signals remain implemented-unproven and are not
+advertised as supported until their nontrivial live cases pass. Per-request
+stdin and output chunks are bounded, but aggregate output retention remains an
+open G3 requirement.
+
+Namespaces, mounts, cgroups/resources, capabilities, hooks, rlimits,
+masked/read-only paths, read-only roots, `noNewPrivileges`, hostname, and
+seccomp remain fail-closed. Static primary-mediated network methods are part of
+the additive v1 agent protocol used by G5; they do not broaden the G3 OCI field
+set. Wrong architecture always fails before the process starts.

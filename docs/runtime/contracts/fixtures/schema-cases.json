@@ -12,6 +12,11 @@
   {"schema": "daemon-protocol-v1.schema.json", "fixture": "daemon-request.valid.json", "valid": true},
   {"schema": "daemon-protocol-v1.schema.json", "fixture": "daemon-request.duplicate.invalid.json", "valid": false},
   {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-request.valid.json", "valid": true},
+  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-request-extended.valid.json", "valid": true},
+  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-request-method.invalid.json", "valid": false},
+  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-reply.valid.json", "valid": true},
+  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-reply-error.valid.json", "valid": true},
+  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-reply-mac.invalid.json", "valid": false},
   {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.valid.json", "valid": true},
   {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.missing-exit.invalid.json", "valid": false}
 ]

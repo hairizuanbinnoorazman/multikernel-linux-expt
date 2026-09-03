@@ -65,6 +65,12 @@ func (c *Client) Call(method string, request, response any) error {
 	if err = json.Unmarshal(replyBytes, &reply); err != nil {
 		return err
 	}
+	if reply.Version != 1 {
+		return errors.New("agent response protocol version mismatch")
+	}
+	if reply.Sequence != c.sequence {
+		return errors.New("agent response sequence mismatch")
+	}
 	if reply.Error != "" {
 		return errors.New(reply.Error)
 	}

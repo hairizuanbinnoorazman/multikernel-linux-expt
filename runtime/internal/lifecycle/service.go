@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"sync"
@@ -19,18 +20,33 @@ import (
 )
 
 var idRE = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
+var manifestRE = regexp.MustCompile(`^[a-z][a-z0-9.-]{0,62}$`)
+var labelKeyRE = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,62}$`)
 
 type Artifacts struct{ Kernel, Initrd, Cmdline string }
 type Service struct {
-	store     *statepkg.Store
-	backend   kerf.Backend
-	artifacts Artifacts
-	global    sync.Mutex
-	locks     sync.Map
+	store             *statepkg.Store
+	backend           kerf.Backend
+	artifacts         Artifacts
+	poolCPUs          map[int]bool
+	poolMemoryBytes   uint64
+	poolMemoryReserve uint64
+	global            sync.Mutex
+	locks             sync.Map
 }
 
 func New(st *statepkg.Store, b kerf.Backend, a Artifacts) *Service {
 	return &Service{store: st, backend: b, artifacts: a}
+}
+func (s *Service) SetPoolCPUs(cpus []int) {
+	s.poolCPUs = make(map[int]bool, len(cpus))
+	for _, cpu := range cpus {
+		s.poolCPUs[cpu] = true
+	}
+}
+func (s *Service) SetPoolMemory(total, reserve uint64) {
+	s.poolMemoryBytes = total
+	s.poolMemoryReserve = reserve
 }
 func (s *Service) lock(id string) func() {
 	v, _ := s.locks.LoadOrStore(id, &sync.Mutex{})
@@ -56,9 +72,14 @@ func fingerprint(method string, v any) string {
 func apierr(code, msg string, retry bool) *protocol.Error {
 	return &protocol.Error{Code: code, Message: msg, Retryable: retry}
 }
+func operationError(code, msg string, retry bool, operationID string) *protocol.Error {
+	err := apierr(code, msg, retry)
+	err.OperationID = operationID
+	return err
+}
 func (s *Service) replay(key, fp string) (protocol.MutationResult, *protocol.Error, bool) {
-	if key == "" {
-		return protocol.MutationResult{}, apierr("INVALID_ARGUMENT", "idempotency key is required", false), true
+	if !printableASCII(key, 1, 128) {
+		return protocol.MutationResult{}, apierr("INVALID_ARGUMENT", "idempotency key must be 1-128 printable ASCII bytes", false), true
 	}
 	if old, ok := s.store.Result(key); ok {
 		if old.Fingerprint != fp {
@@ -70,6 +91,18 @@ func (s *Service) replay(key, fp string) (protocol.MutationResult, *protocol.Err
 	}
 	return protocol.MutationResult{}, nil, false
 }
+
+func printableASCII(value string, min, max int) bool {
+	if len(value) < min || len(value) > max {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < 0x20 || value[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
 func (s *Service) mutate(ctx context.Context, method, key, fp string, sb protocol.Sandbox, fn func(*protocol.Sandbox) error) (protocol.MutationResult, *protocol.Error) {
 	if r, e, ok := s.replay(key, fp); ok {
 		return r, e
@@ -77,28 +110,40 @@ func (s *Service) mutate(ctx context.Context, method, key, fp string, sb protoco
 	op, _ := generation()
 	intent := statepkg.JournalEntry{OperationID: op, IdempotencyKey: key, Fingerprint: fp, SandboxID: sb.ID, Generation: sb.Generation, Method: method, Phase: "intent", State: sb.State}
 	if e := s.store.Append(intent); e != nil {
-		return protocol.MutationResult{}, apierr("INTERNAL", e.Error(), true)
+		return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
 	}
 	if e := fn(&sb); e != nil {
-		pe := apierr("BACKEND_FAILURE", e.Error(), true)
+		code := "BACKEND_FAILURE"
+		if errors.Is(e, context.DeadlineExceeded) {
+			code = "BACKEND_TIMEOUT"
+		}
+		message := "backend operation failed"
+		if code == "BACKEND_TIMEOUT" {
+			message = "backend operation timed out"
+		}
+		pe := operationError(code, message, true, op)
 		intent.Phase = "complete"
 		intent.Error = pe
-		s.store.Append(intent)
+		if appendErr := s.store.Append(intent); appendErr != nil {
+			return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
+		}
 		sb.Error = pe
 		sb.UpdatedAt = time.Now().UTC()
-		s.store.SetSandbox(sb)
+		if stateErr := s.store.SetSandbox(sb); stateErr != nil {
+			return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
+		}
 		return protocol.MutationResult{}, pe
 	}
 	sb.Error = nil
 	sb.UpdatedAt = time.Now().UTC()
 	result := protocol.MutationResult{Sandbox: sb}
 	if e := s.store.Commit(sb, key, fp, result); e != nil {
-		return protocol.MutationResult{}, apierr("INTERNAL", e.Error(), true)
+		return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
 	}
 	intent.Phase = "complete"
 	intent.State = sb.State
 	if e := s.store.Append(intent); e != nil {
-		return protocol.MutationResult{}, apierr("INTERNAL", e.Error(), true)
+		return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
 	}
 	return result, nil
 }
@@ -126,6 +171,20 @@ func validateConfig(c protocol.SandboxConfig) error {
 	if c.MemoryBytes < 512<<20 {
 		return errors.New("memory must be at least 512 MiB")
 	}
+	if !manifestRE.MatchString(c.KernelManifest) {
+		return errors.New("invalid kernel manifest name")
+	}
+	if !filepath.IsAbs(c.Bundle) {
+		return errors.New("bundle path must be absolute")
+	}
+	if len(c.Labels) > 32 {
+		return errors.New("at most 32 labels are allowed")
+	}
+	for key, value := range c.Labels {
+		if !labelKeyRE.MatchString(key) || len(value) > 256 {
+			return errors.New("invalid label key or value")
+		}
+	}
 	if c.AgentPort < 1024 {
 		return errors.New("agent port must be at least 1024")
 	}
@@ -151,6 +210,13 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 	if e := validateConfig(c); e != nil {
 		return protocol.MutationResult{}, apierr("INVALID_ARGUMENT", e.Error(), false)
 	}
+	if len(s.poolCPUs) != 0 {
+		for _, cpu := range c.CPUs {
+			if !s.poolCPUs[cpu] {
+				return protocol.MutationResult{}, apierr("INVALID_ARGUMENT", fmt.Sprintf("APIC ID %d is outside the configured Kerf pool", cpu), false)
+			}
+		}
+	}
 	fp := fingerprint("CreateSandbox", c)
 	if r, e, ok := s.replay(key, fp); ok {
 		return r, e
@@ -164,6 +230,26 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 	for _, x := range s.store.Snapshot().Sandboxes {
 		if overlap(c, x.Config) {
 			return protocol.MutationResult{}, apierr("RESOURCE_EXHAUSTED", "CPU, port, or writable bundle overlaps another sandbox", false)
+		}
+	}
+	if s.poolMemoryBytes != 0 {
+		var usable uint64
+		if s.poolMemoryReserve < s.poolMemoryBytes {
+			usable = s.poolMemoryBytes - s.poolMemoryReserve
+		}
+		var allocated uint64
+		for _, x := range s.store.Snapshot().Sandboxes {
+			if x.State == "ABSENT" {
+				continue
+			}
+			if x.Config.MemoryBytes > usable-allocated {
+				allocated = usable
+				break
+			}
+			allocated += x.Config.MemoryBytes
+		}
+		if c.MemoryBytes > usable-allocated {
+			return protocol.MutationResult{}, apierr("RESOURCE_EXHAUSTED", "sandbox memory exceeds configured usable Kerf pool memory", false)
 		}
 	}
 	g, e := generation()
@@ -233,6 +319,10 @@ func (s *Service) Delete(ctx context.Context, id, gen, key string) (protocol.Mut
 	s.global.Lock()
 	defer s.global.Unlock()
 	defer s.lock(id)()
+	fp := fingerprint("DeleteSandbox", struct{ ID, Gen string }{id, gen})
+	if r, e, ok := s.replay(key, fp); ok {
+		return r, e
+	}
 	sb, ok := s.store.Sandbox(id)
 	if !ok {
 		return protocol.MutationResult{}, apierr("NOT_FOUND", "sandbox not found", false)
@@ -240,7 +330,6 @@ func (s *Service) Delete(ctx context.Context, id, gen, key string) (protocol.Mut
 	if sb.Generation != gen {
 		return protocol.MutationResult{}, apierr("STALE_GENERATION", "generation does not match", false)
 	}
-	fp := fingerprint("DeleteSandbox", struct{ ID, Gen string }{id, gen})
 	return s.mutate(ctx, "DeleteSandbox", key, fp, sb, func(current *protocol.Sandbox) error {
 		if current.State == "RUNNING" {
 			if e := s.backend.Stop(ctx, *current); e != nil {

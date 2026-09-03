@@ -26,12 +26,28 @@ Two live corrections were required:
 1. Kerf accepts a bare integer for byte quantities, not a `B` suffix.
 2. Kerf v0.2.0 can create the exact requested instance and subsequently exit
    nonzero with `KeyError`. The adapter now accepts that outcome only after a
-   positive observation of the exact sysfs instance; absence remains failure.
+positive observation of the exact sysfs instance; absence remains failure.
 
-The G2 journal lived under `/tmp` and was lost during later G3 compatibility
-resets, so the retained live artifact is the pass log rather than the raw G2
-journal. The same journal/restart semantics remain covered by repository unit
-tests using durable temporary directories.
+## Replacement live evidence (2026-09-03)
+
+The daemon `SIGKILL` scenario reproduced with state under
+`/var/lib/multikernel-proof-g2` instead of `/tmp`. The replacement harness
+retained all five API responses and copied the journal/snapshot immediately
+after daemon death and after restart-driven stop/delete. At death the snapshot
+records sandbox state `RUNNING` with six complete journal records; after
+recovery it records `ABSENT` with ten intent/complete records. CPUs, memory,
+pool, and instance state returned cleanly. The [G2 manifest](../../../evidence/runtime-20260903/g0-g3-proof/manifest-g2.json)
+closes the missing durable-artifact rerun, not the orphan, operation-boundary,
+or host-reset gaps described below.
+
+A continuing remediation run then exercised two disjoint children through the
+daemon. Both were `RUNNING` when the daemon was killed with `SIGKILL`; the
+retained snapshot/journal contains both records, and a restarted daemon stopped
+and deleted both before returning CPUs `0-15`. The first attempt used an 8 GiB
+pool for two 4 GiB requests and correctly failed the second allocation; that
+failed transcript is retained separately. A 12 GiB pool passed, demonstrating
+that configured capacity must include allocator slack rather than merely equal
+the sum of guest requests. See the current [remediation evidence](../../../evidence/runtime-20260903/g0-g3-remediation/README.md).
 
 ## Claim-to-proof audit
 
@@ -44,30 +60,33 @@ does not retain the journal, snapshot, request/response transcript, daemon
 logs, or operation-boundary assertions needed to independently reproduce the
 broader prose claim.
 
-Code inspection also confirms the important remaining gaps: reconciliation
+Code inspection confirms the important remaining gaps: reconciliation
 iterates snapshotted sandboxes rather than backend inventory or orphan journal
 intents; every disagreement becomes `OPERATOR_ACTION`; snapshot rename does not
-fsync the containing directory; some error-path store writes are ignored;
-`WatchEvents`, tombstones, strict host-config loading, approved-manifest
+fsync the containing directory; `WatchEvents`, strict host-config loading, approved-manifest
 resolution, and observable intermediate states are absent. Consequently only
 the named unit tests and narrow live marker are retained claims; all stronger
 G2 conformance statements remain open in the remediation checklist.
 
-The second synchronization pass also confirmed that backend timeouts are still
-reported generically as `BACKEND_FAILURE`, mutation errors do not reliably
-carry stable operation IDs, backend/path details can cross the API in raw error
-strings, and socket/state ownership and safe-parent checks are incomplete.
-Create validates a small sandbox subset, but not the approved kernel manifest,
-bundle/path trust, label and key bounds, live APIC eligibility, configured Kerf
-pool membership, or usable pool memory. These are current implementation gaps,
-not only missing historical evidence.
+The second synchronization pass added focused daemon-wire rejection tests,
+`BACKEND_TIMEOUT`, stable mutation operation IDs, checked error-state
+persistence, secret-safe backend/state errors, static bundle/manifest/label/key
+validation, exact terminal delete replay, and configured Kerf-pool CPU
+membership enforcement. Socket/state ownership and safe-parent checks remain
+incomplete. Approved-manifest resolution and live APIC eligibility are still
+absent. Pool memory is now parsed, an explicit 1 GB allocator reserve is
+subtracted, and non-absent allocations are summed under the allocation lock
+before Kerf is called. A corrected live pair proves an 8 GB pool returns
+`RESOURCE_EXHAUSTED` before the backend while 12 GB admits the two 4 GiB
+children. The harness also now records the real privileged daemon PID; this
+found and removed an orphan daemon from the earlier attempt, whose cleanup
+claim has been superseded by the corrected run.
 
 ## Current audited verdict
 
-G2 supports the happy-path lifecycle, exact create replay, generation checks,
+G2 supports the happy-path lifecycle, exact mutation replay, generation checks,
 basic overlap prevention, a fsynced intent journal, atomic snapshot replacement,
-and conservative known-sandbox reconciliation. It remains open because orphan
-external resources and pre-snapshot crash windows can be missed, failure
-classification and persistence are incomplete, the event/config/manifest
-contracts are not enforced, and the retained GCE log cannot independently
-audit the restart sequence.
+configured-pool CPU enforcement, classified secret-safe errors, and
+conservative known-sandbox reconciliation. It remains open because orphan
+external resources and pre-snapshot crash windows can be missed, directory
+fsync is absent, and the event/config/manifest contracts are not fully enforced.

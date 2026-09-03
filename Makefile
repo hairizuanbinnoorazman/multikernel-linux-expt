@@ -98,7 +98,7 @@ snapshot: ## Snapshot the current boot disk as a recovery point.
 
 sync: ## Copy the verified remote scripts and child init into the VM.
 	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/guest ~/$(REMOTE_LAB)/scripts ~/$(REMOTE_LAB)/tools'
-	$(GCLOUD) scp guest/init guest/mk-agent-init guest/daxfs-bootstrap-init guest/ext4-bootstrap-init \
+	$(GCLOUD) scp guest/init guest/mk-agent-init guest/runtime-crash-init guest/daxfs-bootstrap-init guest/ext4-bootstrap-init \
 		guest/mediated-transport-init guest/mediated-root-bootstrap-init \
 		guest/mediated-disk-root-init \
 		guest/daxfs-proof.sh \

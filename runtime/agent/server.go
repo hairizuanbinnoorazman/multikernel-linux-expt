@@ -8,8 +8,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -28,9 +30,66 @@ type Envelope struct {
 type Reply struct {
 	Version  int    `json:"version"`
 	Sequence uint64 `json:"sequence"`
-	Body     any    `json:"body,omitempty"`
-	Error    string `json:"error,omitempty"`
+	Body     any    `json:"-"`
+	Error    string `json:"-"`
 }
+
+func (r Reply) MarshalJSON() ([]byte, error) {
+	type wireReply struct {
+		Version  int             `json:"version"`
+		Sequence uint64          `json:"sequence"`
+		Body     any             `json:"body,omitempty"`
+		Error    *protocol.Error `json:"error,omitempty"`
+	}
+	wire := wireReply{Version: r.Version, Sequence: r.Sequence, Body: r.Body}
+	if r.Error != "" {
+		wire.Body = nil
+		wire.Error = safeAgentError(r.Sequence, r.Error)
+	} else if wire.Body == nil {
+		wire.Body = map[string]any{}
+	}
+	return json.Marshal(wire)
+}
+
+func (r *Reply) UnmarshalJSON(data []byte) error {
+	type wireReply struct {
+		Version  int             `json:"version"`
+		Sequence uint64          `json:"sequence"`
+		Body     any             `json:"body,omitempty"`
+		Error    *protocol.Error `json:"error,omitempty"`
+	}
+	var wire wireReply
+	if err := protocol.StrictDecode(data, &wire); err != nil {
+		return err
+	}
+	r.Version, r.Sequence, r.Body = wire.Version, wire.Sequence, wire.Body
+	if wire.Error != nil {
+		r.Error = wire.Error.Code + ": " + wire.Error.Message
+	}
+	return nil
+}
+
+func safeAgentError(sequence uint64, raw string) *protocol.Error {
+	code, message := "INTERNAL", "agent operation failed"
+	switch {
+	case strings.Contains(raw, "frame too large"):
+		code, message = "INVALID_ARGUMENT", "agent frame is too large"
+	case strings.Contains(raw, "authentication"), strings.Contains(raw, "identity"), strings.Contains(raw, "replayed sequence"):
+		code, message = "UNAUTHENTICATED", "agent authentication failed"
+	case strings.Contains(raw, "unsupported"), strings.Contains(raw, "not implemented"):
+		code, message = "UNSUPPORTED", "agent operation is unsupported"
+	case strings.Contains(raw, "not found"):
+		code, message = "NOT_FOUND", "managed process was not found"
+	case strings.Contains(raw, "exists"):
+		code, message = "ALREADY_EXISTS", "managed process already exists"
+	case strings.Contains(raw, "not running"), strings.Contains(raw, "not started"), strings.Contains(raw, "still running"), strings.Contains(raw, "not created"), strings.Contains(raw, "stdin is closed"):
+		code, message = "FAILED_PRECONDITION", "managed process is in the wrong state"
+	case strings.Contains(raw, "invalid"), strings.Contains(raw, "must"), strings.Contains(raw, "required"), strings.Contains(raw, "exceed"), strings.Contains(raw, "limit"), strings.Contains(raw, "absolute"), strings.Contains(raw, "multiple JSON"), strings.Contains(raw, "unknown field"):
+		code, message = "INVALID_ARGUMENT", "invalid agent request"
+	}
+	return &protocol.Error{Code: code, Message: message, OperationID: fmt.Sprintf("agent-%d", sequence), Retryable: false}
+}
+
 type Server struct {
 	Manager               *Manager
 	SandboxID, Generation string
@@ -254,8 +313,10 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 		size := binary.BigEndian.Uint32(header[:])
 		var env Envelope
 		reply := Reply{Version: 1}
+		closeAfterReply := false
 		if size > 1<<20 {
 			reply.Error = "frame too large"
+			closeAfterReply = true
 		} else {
 			b := make([]byte, size)
 			if _, e := io.ReadFull(c, b); e != nil {
@@ -277,6 +338,9 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 		}
 		if _, e = c.Write(b); e != nil {
 			return e
+		}
+		if closeAfterReply {
+			return nil
 		}
 	}
 }

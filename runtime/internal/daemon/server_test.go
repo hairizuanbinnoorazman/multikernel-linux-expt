@@ -1,0 +1,66 @@
+package daemon
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+)
+
+type memoryConn struct {
+	input  *bytes.Reader
+	output bytes.Buffer
+}
+
+func newMemoryConn(input string) *memoryConn {
+	return &memoryConn{input: bytes.NewReader([]byte(input))}
+}
+func (c *memoryConn) Read(p []byte) (int, error)       { return c.input.Read(p) }
+func (c *memoryConn) Write(p []byte) (int, error)      { return c.output.Write(p) }
+func (c *memoryConn) Close() error                     { return nil }
+func (c *memoryConn) LocalAddr() net.Addr              { return memoryAddr("local") }
+func (c *memoryConn) RemoteAddr() net.Addr             { return memoryAddr("remote") }
+func (c *memoryConn) SetDeadline(time.Time) error      { return nil }
+func (c *memoryConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *memoryConn) SetWriteDeadline(time.Time) error { return nil }
+
+type memoryAddr string
+
+func (a memoryAddr) Network() string { return "memory" }
+func (a memoryAddr) String() string  { return string(a) }
+
+func TestDaemonWireRejectsInvalidRequests(t *testing.T) {
+	tests := []struct {
+		name     string
+		payload  string
+		maxFrame int
+		want     string
+	}{
+		{"unknown envelope field", `{"version":1,"request_id":"1","method":"NodeInfo","extra":true}`, 1024, "unknown field"},
+		{"trailing value", `{"version":1,"request_id":"1","method":"NodeInfo"}{}`, 1024, "multiple JSON values"},
+		{"unknown method body field", `{"version":1,"request_id":"1","method":"CreateSandbox","body":{"schema_version":1,"id":"box","cpus":[2],"memory_bytes":4096,"kernel_manifest":"mk","bundle":"/bundle","agent_port":7001,"child_cid":3,"extra":true}}`, 1024, "unknown field"},
+		{"numeric overflow", `{"version":1,"request_id":"1","method":"CreateSandbox","body":{"schema_version":1,"id":"box","cpus":[2],"memory_bytes":18446744073709551616,"kernel_manifest":"mk","bundle":"/bundle","agent_port":7001,"child_cid":3}}`, 1024, "cannot unmarshal number"},
+		{"frame bound", strings.Repeat("x", 65), 64, "frame too large"},
+		{"empty request ID", `{"version":1,"request_id":"","method":"NodeInfo"}`, 1024, "request ID"},
+		{"non-printable request ID", "{\"version\":1,\"request_id\":\"bad\\nrequest\",\"method\":\"NodeInfo\"}", 1024, "request ID"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn := newMemoryConn(test.payload)
+			server := &Server{MaxFrame: test.maxFrame}
+			server.handle(context.Background(), conn)
+			var response protocol.Response
+			if err := json.Unmarshal(conn.output.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+			if response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" || !strings.Contains(response.Error.Message, test.want) {
+				t.Fatalf("response = %+v, want INVALID_ARGUMENT containing %q", response, test.want)
+			}
+		})
+	}
+}

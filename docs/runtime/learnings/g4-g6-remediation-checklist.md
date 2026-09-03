@@ -352,6 +352,91 @@ normative plan is revised with an explicit rationale.
   narrative index, and rejects `result: pass` when required gate assertions are
   absent or failed.
 
+## Full `ctr` and Docker support work breakdown
+
+The remaining work can be summarized into eight delivery workstreams. This is
+the practical route from the current executable MVP to a supportable trusted-
+node `ctr` and Docker runtime; it does not include Kubernetes, hostile multi-
+tenant isolation, performance qualification, or general production release.
+
+1. **Lifecycle and restart correctness:** preserve or reconstruct tasks across
+   containerd, Docker, shim, and `mkruntimed` restarts; recover process state,
+   stdio, exit status, and events; handle every lifecycle race and deadline.
+2. **OCI validation and containment:** reject unsupported input before
+   allocation, secure bundle/rootfs paths, validate architecture and kernel
+   compatibility, and implement or explicitly exclude the agreed namespaces,
+   capabilities, seccomp, mounts, hooks, rlimits, cgroups, hostname, and read-
+   only-root surface.
+3. **Task v2 completeness:** implement or formally exclude pause/resume,
+   stats, update, and checkpoint; provide faithful PID semantics, event
+   ordering/replay, and complete init/exec signal, wait, and delete behavior.
+4. **Robust stdio and terminals:** bound output retention, implement
+   backpressure and slow/absent-peer behavior, survive attach churn, preserve
+   I/O across restart, and live-test a deliberate post-start resize.
+5. **Deterministic image and storage support:** verify manifests, reproduce
+   initramfs output and metadata, prove input snapshot immutability, define
+   writable/persistent volume ownership, enforce quotas, and recover cleanly
+   from interruption, exhaustion, corruption, and server loss.
+6. **CNI networking:** replace the private static-link integration with normal
+   `ADD`/`CHECK`/idempotent `DEL`, primary service ownership, negotiated
+   configuration, bounded queues and counters, reconnect, policy enforcement,
+   load/fault coverage, and complete cleanup.
+7. **Control-plane and cleanup hardening:** close the G0-G3 crash windows and
+   contract drift needed by G4-G6, propagate cleanup failures, detect orphans,
+   persist recovery state, and make cancellation and rollback reliable at every
+   allocation boundary.
+8. **Packaging and release evidence:** version binaries and configuration,
+   validate fresh installation and upgrade/rollback, retain exact source and
+   structured resource ledgers, and pass the complete shared and isolated fault
+   matrices with schema-valid evidence.
+
+### Rough remaining-work calculation
+
+The checklist currently contains 85 unchecked G4-G6 rows. The upstream G0-G3
+checklist contains another 45 unchecked rows, but many are prerequisites or
+test/evidence forms of the same work above; adding the two counts would greatly
+overstate the number of independent features.
+
+The estimate below assumes an engineer already familiar with Go, containerd
+Runtime v2, Linux storage/networking, and this Multikernel/Kerf environment. It
+includes implementation, focused automated tests, and the corresponding live
+fault run, but excludes Kubernetes, performance work, multi-tenant hardening,
+and time waiting for upstream kernel or Kerf changes.
+
+| Workstream | Rough person-weeks remaining |
+| --- | ---: |
+| Lifecycle, restart, and task reconstruction | 6-10 |
+| OCI validation and agreed containment controls | 8-14 |
+| Remaining Task v2 methods, events, and PID semantics | 4-7 |
+| Stdio, attach, terminal, and backpressure hardening | 4-7 |
+| Deterministic roots, writable storage, quotas, and recovery | 10-18 |
+| CNI service, policy, reconnect, and network fault matrix | 10-16 |
+| Foundational control-plane, rollback, and cleanup hardening | 5-9 |
+| Packaging, fresh-host validation, and evidence repair | 4-7 |
+| **Base total** | **51-88 person-weeks** |
+
+Allowing roughly 20-25% integration and disposable-host debugging contingency
+gives a planning range of approximately **60-110 person-weeks**. In calendar
+terms, that is roughly:
+
+- one experienced engineer: **14-25 months**;
+- two engineers with storage/network and shim work split: **8-14 months**; or
+- three engineers with clear ownership and shared integration support:
+  **6-10 months**.
+
+These ranges are intentionally broad. Shim reconnection, storage recovery, CNI
+fault handling, or an upstream Multikernel/Kerf defect can dominate the
+schedule. Explicitly narrowing supported OCI, persistence, or Task v2 methods
+through an approved plan/contract revision would reduce it.
+
+As a rough maturity measure, about **60% of the ordinary happy-path client
+feature rows** have a passing or narrowly passing implementation, but only
+about **25-35% of full support readiness** is complete after weighting restart,
+failure safety, storage, CNI, containment, packaging, and auditable evidence.
+The practical remaining fraction is therefore approximately **65-75%**. This
+is a planning judgment, not a mechanically derived gate score; unchecked rows
+are deliberately not treated as equal-sized units.
+
 ## Required replacement-run sequence
 
 Use a fresh disposable qualified instance and stop on the first unexplained
