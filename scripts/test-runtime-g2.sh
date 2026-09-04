@@ -4,12 +4,14 @@ runtime=${MKRUNTIMED:-"$HOME/mkruntimed"}
 kerf=${KERF:-"$HOME/src/kerf/.venv/bin/kerf"}
 kernel=${KERNEL:-"$HOME/src/linux/vmlinux"}
 initrd=${INITRD:-"$HOME/multikernel-artifacts/child-initramfs.cpio.gz"}
-socket=/tmp/mkruntimed-g2.sock
-state=${STATE_DIR:-/tmp/mkruntimed-g2-state}
+host_config=${HOST_CONFIG:-/etc/mkruntime/g2.json}
+socket=$(sudo python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["socket_path"])' "$host_config")
+state=$(sudo python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["state_directory"])' "$host_config")
 evidence=${EVIDENCE_DIR:-/tmp/runtime-g2-evidence}
 daemon_log=${DAEMON_LOG:-$evidence/mkruntimed-g2.log}
 pool_memory=${POOL_MEMORY:-12GB}
 expected_second_create_error=${EXPECT_SECOND_CREATE_ERROR:-}
+fault_control=${FAULT_CONTROL:-}
 pid_file=/tmp/mkruntimed-g2.pid
 pid=
 supervisor_pid=
@@ -38,12 +40,32 @@ while True:
 print(data.decode(), end="")
 PY
 }
+inject_backend_failure() {
+	local operation=$1
+	[[ -n $fault_control ]] || return 1
+	printf '%s\n' "$operation" | sudo tee "$fault_control" >/dev/null
+}
+assert_error_state() {
+	local response=$1 expected_state=$2
+	python3 - "$response" "$expected_state" <<'PY'
+import json, sys
+x = json.load(open(sys.argv[1]))
+assert x.get("error", {}).get("code") == "BACKEND_FAILURE", x
+assert x.get("error", {}).get("operation_id"), x
+PY
+	state_response=$(request "{\"version\":1,\"request_id\":\"state-$expected_state\",\"method\":\"SandboxState\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\"}")
+	STATE_RESPONSE="$state_response" EXPECTED_STATE="$expected_state" python3 - <<'PY'
+import json, os
+x = json.loads(os.environ["STATE_RESPONSE"])
+assert x["body"]["state"] == os.environ["EXPECTED_STATE"], x
+assert x["body"].get("error", {}).get("code") == "BACKEND_FAILURE", x
+PY
+}
 start_daemon() {
 	sudo rm -f "$pid_file"
 	sudo sh -c 'pid_file=$1; shift; echo "$$" >"$pid_file"; exec "$@"' sh "$pid_file" \
-		"$runtime" --socket="$socket" --state-dir="$state" \
-		--kerf="$kerf" --pool-cpus=8,10,12,14 --pool-memory="$pool_memory" \
-		--kernel="$kernel" --initrd="$initrd" \
+		"$runtime" --config="$host_config" \
+		--pool-cpus=8,9,10,11,12,13,14,15 --pool-memory="$pool_memory" \
 		--cmdline='rdinit=/init console=mktty0 panic=-1' >>"$daemon_log" 2>&1 &
 	supervisor_pid=$!
 	for _ in $(seq 1 50); do
@@ -78,11 +100,30 @@ start_daemon
 create=$(request '{"version":1,"request_id":"1","method":"CreateSandbox","idempotency_key":"g2-create","body":{"schema_version":1,"id":"runtime-g2","cpus":[8,10],"memory_bytes":4294967296,"kernel_manifest":"gce-mk2","bundle":"/tmp/runtime-g2-bundle","agent_port":7102,"child_cid":22}}')
 printf '%s\n' "$create" >"$evidence/g2-create.json"
 generation=$(python3 -c 'import json,sys; x=json.load(sys.stdin); assert not x.get("error"), x; print(x["body"]["sandbox"]["generation"])' <<<"$create")
+if [[ -n $fault_control ]]; then
+	inject_backend_failure load
+	request "{\"version\":1,\"request_id\":\"2-fail\",\"method\":\"LoadSandbox\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\",\"idempotency_key\":\"g2-load-failure\"}" >"$evidence/g2-load-failure.json"
+	assert_error_state "$evidence/g2-load-failure.json" CREATED
+	case "$(cat /sys/fs/multikernel/instances/runtime-g2/status)" in
+		created|ready) ;;
+		*) exit 1 ;;
+	esac
+fi
 request "{\"version\":1,\"request_id\":\"2\",\"method\":\"LoadSandbox\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\",\"idempotency_key\":\"g2-load\"}" >"$evidence/g2-load.json"
 python3 -c 'import json,sys; x=json.load(open(sys.argv[1])); assert not x.get("error"), x' "$evidence/g2-load.json"
+if [[ -n $fault_control ]]; then
+	inject_backend_failure exec
+	request "{\"version\":1,\"request_id\":\"3-fail\",\"method\":\"StartSandbox\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\",\"idempotency_key\":\"g2-start-failure\"}" >"$evidence/g2-start-failure.json"
+	assert_error_state "$evidence/g2-start-failure.json" LOADED
+	test "$(cat /sys/fs/multikernel/instances/runtime-g2/status)" = loaded
+fi
 request "{\"version\":1,\"request_id\":\"3\",\"method\":\"StartSandbox\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\",\"idempotency_key\":\"g2-start\"}" >"$evidence/g2-start.json"
 python3 -c 'import json,sys; x=json.load(open(sys.argv[1])); assert not x.get("error"), x' "$evidence/g2-start.json"
 test "$(cat /sys/fs/multikernel/instances/runtime-g2/status)" = active
+request "{\"version\":1,\"request_id\":\"client-gone\",\"method\":\"SandboxState\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\"}" >"$evidence/g2-client-disappearance.json"
+sleep 1
+test "$(cat /sys/fs/multikernel/instances/runtime-g2/status)" = active
+printf '%s\n' 'one-shot client exited; child remained active' >"$evidence/g2-client-disappearance.txt"
 create_b=$(request '{"version":1,"request_id":"1b","method":"CreateSandbox","idempotency_key":"g2b-create","body":{"schema_version":1,"id":"runtime-g2-b","cpus":[12,14],"memory_bytes":4294967296,"kernel_manifest":"gce-mk2","bundle":"/tmp/runtime-g2-b-bundle","agent_port":7104,"child_cid":24}}')
 printf '%s\n' "$create_b" >"$evidence/g2b-create.json"
 if [[ -n $expected_second_create_error ]]; then
@@ -107,6 +148,12 @@ supervisor_pid=
 retain_state state-after-sigkill
 sudo rm -f "$socket"
 start_daemon
+if [[ -n $fault_control ]]; then
+	inject_backend_failure kill
+	request "{\"version\":1,\"request_id\":\"4-fail\",\"method\":\"StopSandbox\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\",\"idempotency_key\":\"g2-stop-failure\"}" >"$evidence/g2-stop-failure.json"
+	assert_error_state "$evidence/g2-stop-failure.json" RUNNING
+	test "$(cat /sys/fs/multikernel/instances/runtime-g2/status)" = active
+fi
 request "{\"version\":1,\"request_id\":\"4\",\"method\":\"StopSandbox\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\",\"idempotency_key\":\"g2-stop\"}" >"$evidence/g2-stop.json"
 python3 -c 'import json,sys; x=json.load(open(sys.argv[1])); assert not x.get("error"), x' "$evidence/g2-stop.json"
 request "{\"version\":1,\"request_id\":\"5\",\"method\":\"DeleteSandbox\",\"sandbox_id\":\"runtime-g2\",\"generation\":\"$generation\",\"idempotency_key\":\"g2-delete\"}" >"$evidence/g2-delete.json"

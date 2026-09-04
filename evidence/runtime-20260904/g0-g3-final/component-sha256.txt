@@ -1,0 +1,11 @@
+ca23bf1f7cd444e715432f3e9b309d570c48c76ea5a340c4cc5882aa79679f69  /opt/mkruntime/bin/mk-host-check
+318f2da90d8901dec2379278a5d379b09293538355f11c09968db0dcfd274fec  /opt/mkruntime/bin/mkruntimed
+81790a169fdaa3148f9031ef56ed54c33028a56e7b47c54aae79d62d1807f1fd  /opt/mkruntime/bin/mk-agent
+bec40c7a8af94ad73651023f66c3740cbee22c1996056dc5aada9275a635a5f3  /opt/mkruntime/bin/mk-agentctl
+30e443db56d50931cfe15576404b3b618aa910bf1853f26587be214db6fbd2cc  /opt/mkruntime/bin/mkvsock-relay
+d37ce85953655cc1f4e6639e103d611e1e9923f6fafbfd5708374c7ce97f2a82  /opt/mkruntime/bin/kerf-real
+24267ab5db9191f9452955d760a2ddef92b1a8027285d0de1b9be53faba9e3ce  /opt/mkruntime/bin/kerf-fault-wrapper
+5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10  /opt/mkruntime/artifacts/vmlinux
+487127ea26e4ce4a23cb91bdaaf8bb3229c2aa3146e8d0235785252baa3261ef  /opt/mkruntime/artifacts/child-initramfs.cpio.gz
+f7a61b040e35d4579d3526122d5803e46a20da2d9b527c7c9c043177b6d9c458  /opt/mkruntime/artifacts/config-7.0.0-mk2-gce-lab
+0afd678b4335ee82aab7a26fc8cdcc9608337b00d8e88107f23255cf061ed5cd  /opt/mkruntime/artifacts/mk_transport.ko

@@ -8,16 +8,19 @@ import (
 	"net"
 	"os"
 	"sync"
+	"syscall"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+	"golang.org/x/sys/unix"
 )
 
 type Server struct {
-	Service  *lifecycle.Service
-	MaxFrame int
-	mu       sync.Mutex
-	listener net.Listener
+	Service    *lifecycle.Service
+	MaxFrame   int
+	AllowedUID uint32
+	mu         sync.Mutex
+	listener   net.Listener
 }
 
 func (s *Server) Listen(ctx context.Context, path string) error {
@@ -38,6 +41,16 @@ func (s *Server) Listen(ctx context.Context, path string) error {
 		l.Close()
 		return e
 	}
+	info, e := os.Lstat(path)
+	if e != nil {
+		l.Close()
+		return e
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat.Uid != s.AllowedUID || info.Mode().Perm() != 0660 {
+		l.Close()
+		return errors.New("Unix socket ownership or mode does not match policy")
+	}
 	s.mu.Lock()
 	s.listener = l
 	s.mu.Unlock()
@@ -50,8 +63,41 @@ func (s *Server) Listen(ctx context.Context, path string) error {
 			}
 			return e
 		}
+		if e = authorizePeer(c, s.AllowedUID); e != nil {
+			c.Close()
+			continue
+		}
 		go s.handle(ctx, c)
 	}
+}
+
+func authorizePeer(connection net.Conn, allowedUID uint32) error {
+	unixConnection, ok := connection.(*net.UnixConn)
+	if !ok {
+		return errors.New("peer is not a Unix-domain connection")
+	}
+	raw, err := unixConnection.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var credential *unix.Ucred
+	var socketErr error
+	if err = raw.Control(func(fd uintptr) {
+		credential, socketErr = unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
+	}); err != nil {
+		return err
+	}
+	if socketErr != nil {
+		return socketErr
+	}
+	if !credentialAuthorized(credential, allowedUID) {
+		return errors.New("Unix peer is not authorized")
+	}
+	return nil
+}
+
+func credentialAuthorized(credential *unix.Ucred, allowedUID uint32) bool {
+	return credential != nil && credential.Uid == allowedUID
 }
 func (s *Server) Close() error {
 	s.mu.Lock()
@@ -101,6 +147,15 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		} else {
 			out.Error = &protocol.Error{Code: "NOT_FOUND", Message: "sandbox not found"}
 		}
+	case "WatchEvents":
+		var query protocol.EventQuery
+		if len(r.Body) != 0 {
+			if e := protocol.StrictDecode(r.Body, &query); e != nil {
+				out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: e.Error()}
+				break
+			}
+		}
+		out.Body, out.Error = s.Service.Events(query.AfterSequence, query.Limit)
 	case "CreateSandbox":
 		var c protocol.SandboxConfig
 		if e := protocol.StrictDecode(r.Body, &c); e != nil {

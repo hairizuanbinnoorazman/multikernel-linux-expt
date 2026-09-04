@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,15 +25,41 @@ var manifestRE = regexp.MustCompile(`^[a-z][a-z0-9.-]{0,62}$`)
 var labelKeyRE = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,62}$`)
 
 type Artifacts struct{ Kernel, Initrd, Cmdline string }
+type ArtifactResolver interface {
+	Resolve(string) (Artifacts, error)
+}
 type Service struct {
 	store             *statepkg.Store
 	backend           kerf.Backend
 	artifacts         Artifacts
+	resolver          ArtifactResolver
 	poolCPUs          map[int]bool
 	poolMemoryBytes   uint64
 	poolMemoryReserve uint64
 	global            sync.Mutex
 	locks             sync.Map
+	fault             func(string) error
+}
+
+func (s *Service) SetArtifactResolver(resolver ArtifactResolver) { s.resolver = resolver }
+func (s *Service) SetFaultInjector(injector func(string) error)  { s.fault = injector }
+func (s *Service) checkpoint(point string) error {
+	if s.fault == nil {
+		return nil
+	}
+	return s.fault(point)
+}
+func (s *Service) artifactsFor(manifest string) (Artifacts, error) {
+	artifacts := s.artifacts
+	if s.resolver == nil {
+		return artifacts, nil
+	}
+	resolved, err := s.resolver.Resolve(manifest)
+	if err != nil {
+		return Artifacts{}, err
+	}
+	resolved.Cmdline = artifacts.Cmdline
+	return resolved, nil
 }
 
 func New(st *statepkg.Store, b kerf.Backend, a Artifacts) *Service {
@@ -108,9 +135,18 @@ func (s *Service) mutate(ctx context.Context, method, key, fp string, sb protoco
 		return r, e
 	}
 	op, _ := generation()
-	intent := statepkg.JournalEntry{OperationID: op, IdempotencyKey: key, Fingerprint: fp, SandboxID: sb.ID, Generation: sb.Generation, Method: method, Phase: "intent", State: sb.State}
+	intent := statepkg.JournalEntry{OperationID: op, IdempotencyKey: key, Fingerprint: fp, SandboxID: sb.ID, Generation: sb.Generation, Method: method, Phase: "intent", State: sb.State, Sandbox: &sb}
+	if e := s.checkpoint("before-intent"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash before intent", true, op)
+	}
 	if e := s.store.Append(intent); e != nil {
 		return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
+	}
+	if e := s.checkpoint("after-intent"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash after intent", true, op)
+	}
+	if e := s.checkpoint("before-external-mutation"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash before external mutation", true, op)
 	}
 	if e := fn(&sb); e != nil {
 		code := "BACKEND_FAILURE"
@@ -122,30 +158,92 @@ func (s *Service) mutate(ctx context.Context, method, key, fp string, sb protoco
 			message = "backend operation timed out"
 		}
 		pe := operationError(code, message, true, op)
+		actual := ""
+		if observed, observeErr := s.backend.Observe(ctx, sb.ID); observeErr == nil {
+			actual = observed
+			sb.State = failureState(method, actual, sb.State)
+		}
+		intent.Phase = "complete"
+		intent.Error = pe
+		intent.State = sb.State
+		if appendErr := s.store.Append(intent); appendErr != nil {
+			return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
+		}
+		sb.Error = pe
+		sb.UpdatedAt = time.Now().UTC()
+		var stateErr error
+		if method == "CreateSandbox" && actual == "ABSENT" {
+			stateErr = s.store.RemoveSandbox(sb.ID)
+		} else {
+			stateErr = s.store.SetSandbox(sb)
+		}
+		if stateErr != nil {
+			return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
+		}
+		return protocol.MutationResult{}, pe
+	}
+	if e := s.checkpoint("after-external-mutation"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash after external mutation", true, op)
+	}
+	actual, observeErr := s.backend.Observe(ctx, sb.ID)
+	if observeErr != nil || !stateMatches(sb.State, actual) {
+		pe := operationError("BACKEND_FAILURE", "backend state did not confirm operation", true, op)
 		intent.Phase = "complete"
 		intent.Error = pe
 		if appendErr := s.store.Append(intent); appendErr != nil {
 			return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
 		}
 		sb.Error = pe
-		sb.UpdatedAt = time.Now().UTC()
 		if stateErr := s.store.SetSandbox(sb); stateErr != nil {
 			return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
 		}
 		return protocol.MutationResult{}, pe
 	}
+	if e := s.checkpoint("after-observation"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash after observation", true, op)
+	}
 	sb.Error = nil
 	sb.UpdatedAt = time.Now().UTC()
 	result := protocol.MutationResult{Sandbox: sb}
+	if e := s.checkpoint("before-snapshot"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash before snapshot", true, op)
+	}
 	if e := s.store.Commit(sb, key, fp, result); e != nil {
 		return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
 	}
+	if e := s.checkpoint("after-snapshot"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash after snapshot", true, op)
+	}
 	intent.Phase = "complete"
 	intent.State = sb.State
+	if e := s.checkpoint("before-completion"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash before completion", true, op)
+	}
 	if e := s.store.Append(intent); e != nil {
 		return protocol.MutationResult{}, operationError("INTERNAL", "state persistence failed", true, op)
 	}
+	if e := s.checkpoint("after-completion"); e != nil {
+		return protocol.MutationResult{}, operationError("INTERNAL", "injected crash after completion", true, op)
+	}
 	return result, nil
+}
+
+func failureState(method, actual, fallback string) string {
+	switch actual {
+	case "ABSENT", "CREATED", "RUNNING":
+		return actual
+	case "LOADED":
+		if method == "StopSandbox" || method == "DeleteSandbox" {
+			return "STOPPED"
+		}
+		return "LOADED"
+	default:
+		return fallback
+	}
+}
+
+func stateMatches(durable, actual string) bool {
+	return durable == actual || durable == "STOPPED" && actual == "LOADED"
 }
 
 func validateConfig(c protocol.SandboxConfig) error {
@@ -217,6 +315,11 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 			}
 		}
 	}
+	if s.resolver != nil {
+		if _, err := s.artifactsFor(c.KernelManifest); err != nil {
+			return protocol.MutationResult{}, apierr("FAILED_PRECONDITION", "approved kernel manifest validation failed", false)
+		}
+	}
 	fp := fingerprint("CreateSandbox", c)
 	if r, e, ok := s.replay(key, fp); ok {
 		return r, e
@@ -258,8 +361,12 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 	}
 	now := time.Now().UTC()
 	sb := protocol.Sandbox{ID: c.ID, Generation: g, State: "ALLOCATING", Config: c, CreatedAt: now, UpdatedAt: now}
+	firstSandbox := len(s.store.Snapshot().Sandboxes) == 0
 	return s.mutate(ctx, "CreateSandbox", key, fp, sb, func(current *protocol.Sandbox) error {
-		if len(s.store.Snapshot().Sandboxes) == 0 {
+		if e := s.store.SetSandbox(*current); e != nil {
+			return e
+		}
+		if firstSandbox {
 			if e := s.backend.EnsurePool(ctx); e != nil {
 				return e
 			}
@@ -271,7 +378,7 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 		return nil
 	})
 }
-func (s *Service) transition(ctx context.Context, id, gen, key, method string, from []string, to string, fn func(protocol.Sandbox) error) (protocol.MutationResult, *protocol.Error) {
+func (s *Service) transition(ctx context.Context, id, gen, key, method string, from []string, intermediate, to string, fn func(protocol.Sandbox) error) (protocol.MutationResult, *protocol.Error) {
 	defer s.lock(id)()
 	sb, ok := s.store.Sandbox(id)
 	if !ok {
@@ -297,6 +404,12 @@ func (s *Service) transition(ctx context.Context, id, gen, key, method string, f
 		return protocol.MutationResult{}, apierr("FAILED_PRECONDITION", "invalid state "+sb.State, false)
 	}
 	return s.mutate(ctx, method, key, fp, sb, func(current *protocol.Sandbox) error {
+		if intermediate != "" {
+			current.State = intermediate
+			if e := s.store.SetSandbox(*current); e != nil {
+				return e
+			}
+		}
 		if e := fn(*current); e != nil {
 			return e
 		}
@@ -305,15 +418,19 @@ func (s *Service) transition(ctx context.Context, id, gen, key, method string, f
 	})
 }
 func (s *Service) Load(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
-	return s.transition(ctx, id, gen, key, "LoadSandbox", []string{"CREATED"}, "LOADED", func(x protocol.Sandbox) error {
-		return s.backend.Load(ctx, x, s.artifacts.Kernel, s.artifacts.Initrd, s.artifacts.Cmdline)
+	return s.transition(ctx, id, gen, key, "LoadSandbox", []string{"CREATED"}, "", "LOADED", func(x protocol.Sandbox) error {
+		artifacts, err := s.artifactsFor(x.Config.KernelManifest)
+		if err != nil {
+			return err
+		}
+		return s.backend.Load(ctx, x, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline)
 	})
 }
 func (s *Service) Start(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
-	return s.transition(ctx, id, gen, key, "StartSandbox", []string{"LOADED", "STOPPED"}, "RUNNING", func(x protocol.Sandbox) error { return s.backend.Start(ctx, x) })
+	return s.transition(ctx, id, gen, key, "StartSandbox", []string{"LOADED", "STOPPED"}, "", "RUNNING", func(x protocol.Sandbox) error { return s.backend.Start(ctx, x) })
 }
 func (s *Service) Stop(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
-	return s.transition(ctx, id, gen, key, "StopSandbox", []string{"RUNNING"}, "STOPPED", func(x protocol.Sandbox) error { return s.backend.Stop(ctx, x) })
+	return s.transition(ctx, id, gen, key, "StopSandbox", []string{"RUNNING"}, "STOPPING", "STOPPED", func(x protocol.Sandbox) error { return s.backend.Stop(ctx, x) })
 }
 func (s *Service) Delete(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
 	s.global.Lock()
@@ -331,7 +448,12 @@ func (s *Service) Delete(ctx context.Context, id, gen, key string) (protocol.Mut
 		return protocol.MutationResult{}, apierr("STALE_GENERATION", "generation does not match", false)
 	}
 	return s.mutate(ctx, "DeleteSandbox", key, fp, sb, func(current *protocol.Sandbox) error {
-		if current.State == "RUNNING" {
+		wasRunning := current.State == "RUNNING"
+		current.State = "RELEASING"
+		if e := s.store.SetSandbox(*current); e != nil {
+			return e
+		}
+		if wasRunning {
 			if e := s.backend.Stop(ctx, *current); e != nil {
 				return e
 			}
@@ -356,6 +478,29 @@ func (s *Service) List() []protocol.Sandbox {
 	sort.Slice(r, func(i, j int) bool { return r[i].ID < r[j].ID })
 	return r
 }
+func (s *Service) Events(after uint64, limit uint32) ([]protocol.Event, *protocol.Error) {
+	if limit == 0 {
+		limit = 128
+	}
+	if limit > 1024 {
+		return nil, apierr("INVALID_ARGUMENT", "event limit must be at most 1024", false)
+	}
+	entries, err := s.store.JournalEntries()
+	if err != nil {
+		return nil, apierr("INTERNAL", "event journal is unavailable", true)
+	}
+	events := make([]protocol.Event, 0)
+	for _, entry := range entries {
+		if entry.Phase != "complete" || entry.Sequence <= after {
+			continue
+		}
+		events = append(events, protocol.Event{Version: 1, Sequence: entry.Sequence, At: entry.At, SandboxID: entry.SandboxID, Generation: entry.Generation, Method: entry.Method, State: entry.State, Error: entry.Error})
+		if uint32(len(events)) == limit {
+			break
+		}
+	}
+	return events, nil
+}
 func (s *Service) Reconcile(ctx context.Context) error {
 	es, e := s.store.JournalEntries()
 	if e != nil {
@@ -365,13 +510,38 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	pending := map[string]bool{}
 	for _, x := range incomplete {
 		pending[x.SandboxID] = true
+		if e = s.reconcileIncomplete(ctx, x); e != nil {
+			return e
+		}
+	}
+	if inventory, ok := s.backend.(kerf.InventoryBackend); ok {
+		instances, inventoryErr := inventory.ListInstances(ctx)
+		if inventoryErr != nil {
+			return inventoryErr
+		}
+		known := map[string]bool{}
+		for _, sandbox := range s.List() {
+			known[sandbox.ID] = true
+		}
+		var unknown []string
+		for _, instance := range instances {
+			if !known[instance] {
+				unknown = append(unknown, instance)
+			}
+		}
+		if len(unknown) != 0 {
+			return fmt.Errorf("OPERATOR_ACTION: unknown backend instances: %s", strings.Join(unknown, ","))
+		}
 	}
 	for _, sb := range s.List() {
 		actual, e := s.backend.Observe(ctx, sb.ID)
 		if e != nil {
 			return e
 		}
-		if actual != sb.State || pending[sb.ID] {
+		if sb.State == "STOPPED" && actual == "LOADED" {
+			continue
+		}
+		if actual != sb.State && !pending[sb.ID] {
 			sb.Error = apierr("OPERATOR_ACTION", fmt.Sprintf("journal=%s backend=%s incomplete=%t", sb.State, actual, pending[sb.ID]), false)
 			if e = s.store.SetSandbox(sb); e != nil {
 				return e
@@ -379,4 +549,106 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (s *Service) reconcileIncomplete(ctx context.Context, intent statepkg.JournalEntry) error {
+	if intent.Sandbox == nil {
+		return fmt.Errorf("OPERATOR_ACTION: incomplete %s intent %s has no recoverable sandbox", intent.Method, intent.OperationID)
+	}
+	sandbox := *intent.Sandbox
+	actual, err := s.backend.Observe(ctx, sandbox.ID)
+	if err != nil {
+		return err
+	}
+	complete := intent
+	complete.Phase = "complete"
+	finish := func(state string) error {
+		sandbox.State = state
+		sandbox.Error = nil
+		result := protocol.MutationResult{Sandbox: sandbox}
+		if err := s.store.Commit(sandbox, intent.IdempotencyKey, intent.Fingerprint, result); err != nil {
+			return err
+		}
+		complete.State = state
+		return s.store.Append(complete)
+	}
+	fail := func(cause error) error {
+		sandbox.Error = apierr("OPERATOR_ACTION", "incomplete operation could not be reconciled safely", false)
+		if setErr := s.store.SetSandbox(sandbox); setErr != nil {
+			return setErr
+		}
+		complete.Error = sandbox.Error
+		complete.State = sandbox.State
+		if appendErr := s.store.Append(complete); appendErr != nil {
+			return appendErr
+		}
+		return fmt.Errorf("OPERATOR_ACTION: reconcile %s: %w", intent.Method, cause)
+	}
+	switch intent.Method {
+	case "CreateSandbox":
+		if actual == "ABSENT" {
+			if err = s.backend.EnsurePool(ctx); err == nil {
+				err = s.backend.Create(ctx, sandbox)
+			}
+		}
+		if err == nil {
+			actual, err = s.backend.Observe(ctx, sandbox.ID)
+		}
+		if err == nil && actual == "CREATED" {
+			return finish("CREATED")
+		}
+	case "LoadSandbox":
+		if actual == "CREATED" {
+			var artifacts Artifacts
+			artifacts, err = s.artifactsFor(sandbox.Config.KernelManifest)
+			if err == nil {
+				err = s.backend.Load(ctx, sandbox, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline)
+			}
+		}
+		if err == nil {
+			actual, err = s.backend.Observe(ctx, sandbox.ID)
+		}
+		if err == nil && actual == "LOADED" {
+			return finish("LOADED")
+		}
+	case "StartSandbox":
+		if actual == "LOADED" || actual == "STOPPED" {
+			err = s.backend.Start(ctx, sandbox)
+		}
+		if err == nil {
+			actual, err = s.backend.Observe(ctx, sandbox.ID)
+		}
+		if err == nil && actual == "RUNNING" {
+			return finish("RUNNING")
+		}
+	case "StopSandbox":
+		if actual == "RUNNING" {
+			err = s.backend.Stop(ctx, sandbox)
+		}
+		if err == nil {
+			actual, err = s.backend.Observe(ctx, sandbox.ID)
+		}
+		if err == nil && (actual == "LOADED" || actual == "STOPPED") {
+			return finish("STOPPED")
+		}
+	case "DeleteSandbox":
+		if actual == "RUNNING" {
+			err = s.backend.Stop(ctx, sandbox)
+		}
+		if err == nil && actual != "ABSENT" {
+			err = s.backend.Delete(ctx, sandbox)
+		}
+		if err == nil {
+			actual, err = s.backend.Observe(ctx, sandbox.ID)
+		}
+		if err == nil && actual == "ABSENT" {
+			return finish("ABSENT")
+		}
+	default:
+		err = fmt.Errorf("unknown method %s", intent.Method)
+	}
+	if err == nil {
+		err = fmt.Errorf("unexpected backend state %s", actual)
+	}
+	return fail(err)
 }

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "gate": "G3",
+  "run_id": "g3-final-20260904",
+  "result": "pass",
+  "started_at": "2026-09-04T08:41:00Z",
+  "ended_at": "2026-09-04T08:43:45Z",
+  "repository": {"commit": "44af8655fcce18a3434e480c5cc634fee46925d4", "dirty": true},
+  "components": [
+    {"name": "mk-agent", "version": "dirty workspace 44af865", "sha256": "81790a169fdaa3148f9031ef56ed54c33028a56e7b47c54aae79d62d1807f1fd"},
+    {"name": "mk-agentctl", "version": "dirty workspace 44af865 plus owned-relay termination", "sha256": "bec40c7a8af94ad73651023f66c3740cbee22c1996056dc5aada9275a635a5f3"},
+    {"name": "mkvsock-relay", "version": "dirty workspace 44af865", "sha256": "30e443db56d50931cfe15576404b3b618aa910bf1853f26587be214db6fbd2cc"},
+    {"name": "mk-transport", "version": "7.0.0-mk2-gce-lab", "sha256": "0afd678b4335ee82aab7a26fc8cdcc9608337b00d8e88107f23255cf061ed5cd"}
+  ],
+  "host": {"provider": "gce", "project": "[REDACTED_GCP_PROJECT]", "zone": "asia-southeast1-b", "instance": "mklinux-g0-g3-final-20260904", "machine_type": "n2-standard-16", "boot_id": "024071bc-68b1-4c8a-829b-f9572f4988d6"},
+  "commands": [
+    {"id": "authenticated-oci-and-negative-transport-matrix", "argv": ["env", "MK_RELAY=/opt/mkruntime/bin/mkvsock-relay", "EVIDENCE_DIR=g0-g3-final-evidence/g3", "scripts/test-runtime-g3.sh"], "exit_status": 0, "output_path": "g3/live.log"},
+    {"id": "exact-generated-token-check", "argv": ["check", "exact-generated-token-absent-from-all-g3-evidence"], "exit_status": 0, "output_path": "g3/token-redaction-check.txt"}
+  ],
+  "assertions": [
+    {"id": "nonroot-identity-groups-exact-input-and-exit", "passed": true, "evidence_paths": ["g3/lifecycle.json"]},
+    {"id": "live-authentication-and-framing-negative-matrix", "passed": true, "evidence_paths": ["g3/lifecycle.json", "g3/control.err"]},
+    {"id": "oversized-frame-closes-session", "passed": true, "evidence_paths": ["g3/lifecycle.json"]},
+    {"id": "relay-loss-reconnect-preserves-process-and-sequence", "passed": true, "evidence_paths": ["g3/lifecycle.json", "g3/relay.log"]},
+    {"id": "measured-child-and-agent-capabilities", "passed": true, "evidence_paths": ["g3/lifecycle.json", "g3/console.log"]},
+    {"id": "shutdown-reply-session-end-and-child-poweroff", "passed": true, "evidence_paths": ["g3/lifecycle.json", "g3/shutdown-poweroff.txt", "g3/live.log"]},
+    {"id": "fresh-token-absent-after-cleanup", "passed": true, "evidence_paths": ["g3/token-redaction-check.txt", "redaction.log", "g3/console.log", "g3/control.err", "g3/relay.log", "primary-dmesg-final.log"]},
+    {"id": "host-resources-and-agent-returned", "passed": true, "evidence_paths": ["g3/cpu-online-after.txt", "g3/guest-agent-after.txt", "g3/kerf-after.txt", "final-host-state.log"]}
+  ],
+  "limitations": ["This is the direct-bundle G3 boundary; production namespace, capability, rlimit, cgroup, storage, networking, and containerd integration remain later-gate work.", "The child kernel and agent run privileged inside the trusted-workload boundary; no hostile multi-tenant claim is made."],
+  "cleanup": {"completed": true, "resources_before": "resources-before.json", "resources_after": "resources-after.json", "retained_resources": [], "operator_acknowledged": true}
+}

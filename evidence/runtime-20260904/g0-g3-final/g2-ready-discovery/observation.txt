@@ -1,0 +1,3 @@
+create_exit=1
+raw_status=ready
+runtime_mapping=CREATED

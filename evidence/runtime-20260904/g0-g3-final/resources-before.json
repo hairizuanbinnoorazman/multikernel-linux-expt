@@ -1,0 +1,33 @@
+{
+  "captured_at": "2026-09-04T09:33:04+08:00",
+  "project": "[REDACTED_GCP_PROJECT]",
+  "zone": "asia-southeast1-b",
+  "instances": [
+    {
+      "name": "mklinux-g0-g3-final-20260904",
+      "id": "2964426352443761517",
+      "status": "RUNNING",
+      "machine_type": "n2-standard-16",
+      "cpu_platform": "Intel Cascade Lake",
+      "boot_disk": "mklinux-g0-g3-final-20260904",
+      "boot_disk_auto_delete": true,
+      "secure_boot": false
+    }
+  ],
+  "pre_existing_disks": [
+    {
+      "name": "mk-mediated-storage-20260830",
+      "zone": "asia-southeast1-b",
+      "size_gb": 20,
+      "status": "READY",
+      "attached": false
+    }
+  ],
+  "pre_existing_snapshots": [
+    "instance-20250614-0-asia-southeast1-a-20250614065141-36viryag",
+    "mklinux-lab-pre-daxfs-20260828-2030",
+    "mklinux-lab-stock-20260828"
+  ],
+  "addresses": [],
+  "source_snapshot": "mklinux-lab-pre-daxfs-20260828-2030"
+}

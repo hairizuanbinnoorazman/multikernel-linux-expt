@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "state_directory": "/var/lib/mkruntime-g2",
+  "socket_path": "/run/mkruntimed-g2.sock",
+  "kerf_executable": "/opt/mkruntime/bin/kerf-fault-wrapper",
+  "multikernel_sysfs_root": "/sys/fs/multikernel",
+  "kernel_manifest_directory": "/etc/mkruntime/kernels",
+  "min_primary_cpus": 4,
+  "min_primary_memory_bytes": 8589934592,
+  "forbidden_apic_ids": [
+    0
+  ],
+  "backend_timeout_seconds": 30,
+  "max_frame_size_bytes": 1048576
+}

@@ -36,13 +36,13 @@ type ProcessSpec struct {
 	Args            []string            `json:"args"`
 	Env             []string            `json:"env,omitempty"`
 	Cwd             string              `json:"cwd"`
-	NoNewPrivileges bool                `json:"noNewPrivileges,omitempty"`
+	NoNewPrivileges *bool               `json:"noNewPrivileges,omitempty"`
 	Rlimits         []Rlimit            `json:"rlimits,omitempty"`
 	Capabilities    map[string][]string `json:"capabilities,omitempty"`
 }
 type Root struct {
 	Path     string `json:"path"`
-	Readonly bool   `json:"readonly,omitempty"`
+	Readonly *bool  `json:"readonly,omitempty"`
 }
 type OCIConfig struct {
 	OCIVersion string                     `json:"ociVersion"`
@@ -82,11 +82,14 @@ type process struct {
 	outputDone     chan struct{}
 	done           chan struct{}
 	state          ProcessState
+	waited         bool
 }
 
 type lockedBuffer struct {
 	mu        sync.Mutex
 	b         bytes.Buffer
+	base      uint64
+	space     chan struct{}
 	truncated bool
 }
 
@@ -96,33 +99,68 @@ const (
 )
 
 func (b *lockedBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	accepted := maxOutputBytes - b.b.Len()
-	if accepted <= 0 {
-		b.truncated = true
-		return len(p), nil
+	total := len(p)
+	timer := time.NewTimer(100 * time.Millisecond)
+	defer timer.Stop()
+	for len(p) > 0 {
+		b.mu.Lock()
+		if b.space == nil {
+			b.space = make(chan struct{})
+		}
+		available := maxOutputBytes - b.b.Len()
+		if available > 0 {
+			if available > len(p) {
+				available = len(p)
+			}
+			_, _ = b.b.Write(p[:available])
+			p = p[available:]
+			b.mu.Unlock()
+			continue
+		}
+		space := b.space
+		b.mu.Unlock()
+		select {
+		case <-space:
+		case <-timer.C:
+			b.mu.Lock()
+			b.truncated = true
+			b.mu.Unlock()
+			return total, nil
+		}
 	}
-	if accepted < len(p) {
-		_, _ = b.b.Write(p[:accepted])
-		b.truncated = true
-		return len(p), nil
-	}
-	_, _ = b.b.Write(p)
-	return len(p), nil
+	return total, nil
 }
 
 func (b *lockedBuffer) slice(offset, limit uint64) ([]byte, uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if offset >= uint64(b.b.Len()) {
-		return nil, uint64(b.b.Len())
+	if offset > b.base {
+		discard := offset - b.base
+		if discard > uint64(b.b.Len()) {
+			discard = uint64(b.b.Len())
+		}
+		if discard > 0 {
+			b.b.Next(int(discard))
+			b.base += discard
+			if b.space != nil {
+				close(b.space)
+				b.space = make(chan struct{})
+			}
+		}
 	}
-	end := uint64(b.b.Len())
+	if offset < b.base {
+		offset = b.base
+	}
+	end := b.base + uint64(b.b.Len())
+	if offset >= end {
+		return nil, end
+	}
 	if limit > 0 && end-offset > limit {
 		end = offset + limit
 	}
-	data := append([]byte(nil), b.b.Bytes()[offset:end]...)
+	startIndex := offset - b.base
+	endIndex := end - b.base
+	data := append([]byte(nil), b.b.Bytes()[startIndex:endIndex]...)
 	return data, end
 }
 
@@ -170,8 +208,15 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 	if !filepath.IsAbs(bundle) {
 		return OCIConfig{}, "", errors.New("bundle must be absolute")
 	}
+	if e := secureDirectory(bundle); e != nil {
+		return OCIConfig{}, "", e
+	}
 	var c OCIConfig
-	if e := strictJSON(filepath.Join(bundle, "config.json"), &c); e != nil {
+	configPath := filepath.Join(bundle, "config.json")
+	if info, e := os.Lstat(configPath); e != nil || !info.Mode().IsRegular() {
+		return c, "", errors.New("config.json must be a regular file without symlinks")
+	}
+	if e := strictJSON(configPath, &c); e != nil {
 		return c, "", e
 	}
 	if c.OCIVersion != "1.1.0" {
@@ -180,40 +225,60 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 	if len(c.Process.Args) == 0 {
 		return c, "", errors.New("process.args is required")
 	}
-	if c.Process.NoNewPrivileges {
+	if c.Process.NoNewPrivileges != nil {
 		return c, "", errors.New("noNewPrivileges is not implemented")
 	}
-	if len(c.Process.Rlimits) > 0 {
+	if c.Process.Rlimits != nil {
 		return c, "", errors.New("rlimits are not implemented")
 	}
-	if c.Root.Readonly {
+	if c.Root.Readonly != nil {
 		return c, "", errors.New("read-only root is not implemented")
 	}
 	if c.Hostname != "" {
 		return c, "", errors.New("hostname is not implemented")
 	}
-	if len(c.Process.Capabilities) > 0 {
+	if c.Process.Capabilities != nil {
 		return c, "", errors.New("capabilities are not implemented")
 	}
-	if len(c.Mounts) > 0 || len(c.Hooks) > 0 {
+	if c.Mounts != nil || c.Hooks != nil {
 		return c, "", errors.New("mounts and hooks are not implemented")
 	}
-	if c.Linux != nil && (len(c.Linux.Namespaces) > 0 || len(c.Linux.Resources) > 0 || len(c.Linux.Seccomp) > 0 || len(c.Linux.MaskedPaths) > 0 || len(c.Linux.ReadonlyPaths) > 0) {
+	if c.Linux != nil {
 		return c, "", errors.New("Linux namespaces/resources/seccomp/path controls are not implemented")
 	}
-	root := c.Root.Path
-	if !filepath.IsAbs(root) {
-		root = filepath.Join(bundle, root)
+	if c.Annotations != nil {
+		return c, "", errors.New("annotations are not implemented")
 	}
-	root, e := filepath.Abs(root)
-	if e != nil {
+	root := c.Root.Path
+	if filepath.IsAbs(root) || root == "" || filepath.Clean(root) != root || root == ".." || strings.HasPrefix(root, "../") {
+		return c, "", errors.New("root.path must be a safe bundle-relative directory")
+	}
+	root = filepath.Join(bundle, root)
+	if e := secureDirectory(root); e != nil {
 		return c, "", e
 	}
-	st, e := os.Stat(root)
-	if e != nil || !st.IsDir() {
-		return c, "", errors.New("root.path is not a directory")
-	}
 	return c, root, nil
+}
+
+func secureDirectory(directory string) error {
+	if !filepath.IsAbs(directory) {
+		return errors.New("directory must be absolute")
+	}
+	current := string(filepath.Separator)
+	for _, component := range strings.Split(strings.TrimPrefix(filepath.Clean(directory), string(filepath.Separator)), string(filepath.Separator)) {
+		if component == "" {
+			continue
+		}
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return errors.New("root path component is unavailable")
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return errors.New("root path must contain only real directories")
+		}
+	}
+	return nil
 }
 func validProcessID(id string) bool {
 	if id == "" || len(id) > 64 {
@@ -246,21 +311,25 @@ func (m *Manager) Create(id, bundle string) error {
 	return nil
 }
 
-// Exec creates an additional process in an existing container root. The caller
-// supplies the already validated root because exec requests carry an OCI
-// process, not a second OCI bundle.
-func (m *Manager) Exec(id, root string, spec ProcessSpec) error {
+// Exec creates an additional process in the validated root of an existing
+// parent process. Protocol callers cannot select a new host path.
+func (m *Manager) Exec(id, parentID string, spec ProcessSpec) error {
 	if !validProcessID(id) {
 		return errors.New("invalid process ID")
 	}
-	if !filepath.IsAbs(root) {
-		return errors.New("root must be absolute")
-	}
-	if len(spec.Args) == 0 || spec.NoNewPrivileges || len(spec.Rlimits) > 0 || len(spec.Capabilities) > 0 {
+	if len(spec.Args) == 0 || spec.NoNewPrivileges != nil || spec.Rlimits != nil || spec.Capabilities != nil {
 		return errors.New("unsupported exec process configuration")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	parent, ok := m.processes[parentID]
+	if !ok {
+		return errors.New("parent process not found")
+	}
+	root := parent.root
+	if err := secureDirectory(root); err != nil {
+		return err
+	}
 	if _, ok := m.processes[id]; ok {
 		return errors.New("process exists")
 	}
@@ -373,6 +442,13 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 		cmd.Stderr = &p.stderr
 	}
 	if e := cmd.Start(); e != nil {
+		p.inputMu.Lock()
+		if p.stdin != nil {
+			_ = p.stdin.Close()
+			p.stdin = nil
+		}
+		p.stdinClosed = false
+		p.inputMu.Unlock()
 		if slave != nil {
 			slave.Close()
 		}
@@ -579,6 +655,7 @@ func (m *Manager) Wait(id string) (ProcessState, error) {
 	<-done
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	p.waited = true
 	return p.state, nil
 }
 func (m *Manager) State(id string) (ProcessState, error) {
@@ -604,6 +681,9 @@ func (m *Manager) Delete(id string) error {
 	}
 	if p.state.Status == "RUNNING" {
 		return errors.New("process is running")
+	}
+	if p.state.Status == "STOPPED" && !p.waited {
+		return errors.New("process exit has not been waited")
 	}
 	delete(m.processes, id)
 	return nil

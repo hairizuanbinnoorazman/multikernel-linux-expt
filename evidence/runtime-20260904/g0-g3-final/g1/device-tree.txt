@@ -1,0 +1,21 @@
+/sys/class/block/loop1 -> ../../devices/virtual/block/loop1
+/sys/class/block/sda14 -> ../../devices/pci0000:00/0000:00:03.0/virtio0/host0/target0:0:1/0:0:1:0/block/sda/sda14
+/sys/class/block/loop6 -> ../../devices/virtual/block/loop6
+/sys/class/block/loop4 -> ../../devices/virtual/block/loop4
+/sys/class/block/loop2 -> ../../devices/virtual/block/loop2
+/sys/class/block/loop0 -> ../../devices/virtual/block/loop0
+/sys/class/block/sda15 -> ../../devices/pci0000:00/0000:00:03.0/virtio0/host0/target0:0:1/0:0:1:0/block/sda/sda15
+/sys/class/block/sda1 -> ../../devices/pci0000:00/0000:00:03.0/virtio0/host0/target0:0:1/0:0:1:0/block/sda/sda1
+/sys/class/block/loop7 -> ../../devices/virtual/block/loop7
+/sys/class/block/sda13 -> ../../devices/pci0000:00/0000:00:03.0/virtio0/host0/target0:0:1/0:0:1:0/block/sda/sda13
+/sys/class/block/sda -> ../../devices/pci0000:00/0000:00:03.0/virtio0/host0/target0:0:1/0:0:1:0/block/sda
+/sys/class/block/loop5 -> ../../devices/virtual/block/loop5
+/sys/class/block/loop3 -> ../../devices/virtual/block/loop3
+/sys/class/net/ens4 -> ../../devices/pci0000:00/0000:00:04.0/virtio1/net/ens4
+/sys/class/net/lo -> ../../devices/virtual/net/lo
+-[0000:00]-+-00.0  Intel Corporation 440FX - 82441FX PMC [Natoma] [8086:1237]
+           +-01.0  Intel Corporation 82371AB/EB/MB PIIX4 ISA [8086:7110]
+           +-01.3  Intel Corporation 82371AB/EB/MB PIIX4 ACPI [8086:7113]
+           +-03.0  Red Hat, Inc. Virtio SCSI [1af4:1004]
+           +-04.0  Red Hat, Inc. Virtio network device [1af4:1000]
+           \-05.0  Red Hat, Inc. Virtio RNG [1af4:1005]

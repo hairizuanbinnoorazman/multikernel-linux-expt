@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -9,13 +10,46 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
 )
+
+func validatePoolReport(report hostcheck.Report, ids, forbidden []int, minPrimaryCPUs int, poolMemory, minPrimaryMemory uint64) error {
+	if !report.Qualified {
+		return fmt.Errorf("host qualification failed: %+v", report.Findings)
+	}
+	if err := hostcheck.ValidateRequestedAPICs(report, ids, minPrimaryCPUs); err != nil {
+		return err
+	}
+	blocked := map[int]bool{}
+	for _, id := range forbidden {
+		blocked[id] = true
+	}
+	for _, id := range ids {
+		if blocked[id] {
+			return fmt.Errorf("APIC ID %d is forbidden by host policy", id)
+		}
+	}
+	if poolMemory > report.MemoryBytes || report.MemoryBytes-poolMemory < minPrimaryMemory {
+		return errors.New("pool memory violates primary memory headroom")
+	}
+	return nil
+}
+
+func hasLiveSandboxes(snapshot state.Snapshot) bool {
+	for _, sandbox := range snapshot.Sandboxes {
+		if sandbox.State != "ABSENT" {
+			return true
+		}
+	}
+	return false
+}
 
 func cpus(s string) ([]int, error) {
 	if s == "" {
@@ -57,20 +91,20 @@ func memoryBytes(value string) (uint64, error) {
 	return n, nil
 }
 func main() {
-	var socket, dir, kpath, sysfs, pool, poolmem, poolmemreserve, kernel, initrd, cmdline string
-	var timeout time.Duration
-	flag.StringVar(&socket, "socket", "/run/mkruntimed.sock", "Unix API socket")
-	flag.StringVar(&dir, "state-dir", "/var/lib/mkruntime", "durable state directory")
-	flag.StringVar(&kpath, "kerf", "kerf", "Kerf executable")
-	flag.StringVar(&sysfs, "multikernel-root", "/sys/fs/multikernel", "Multikernel sysfs root")
+	var configPath, pool, poolmem, poolmemreserve, cmdline string
+	flag.StringVar(&configPath, "config", "/etc/mkruntime/config.json", "strict root-owned host configuration")
 	flag.StringVar(&pool, "pool-cpus", "", "comma-separated pool APIC IDs")
 	flag.StringVar(&poolmem, "pool-memory", "16GB", "Kerf pool memory")
 	flag.StringVar(&poolmemreserve, "pool-memory-reserve", "1GB", "memory retained as Kerf allocator slack")
-	flag.StringVar(&kernel, "kernel", "", "approved vmlinux path")
-	flag.StringVar(&initrd, "initrd", "", "approved initramfs path")
 	flag.StringVar(&cmdline, "cmdline", "rdinit=/mk-agent console=mktty0 panic=-1", "child command line")
-	flag.DurationVar(&timeout, "backend-timeout", 30*time.Second, "Kerf timeout")
 	flag.Parse()
+	hostConfig, e := hostconfig.Load(configPath)
+	if e != nil {
+		fmt.Fprintln(os.Stderr, "host configuration:", e)
+		os.Exit(2)
+	}
+	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
+	timeout := hostConfig.BackendTimeout()
 	ids, e := cpus(pool)
 	if e != nil || len(ids) == 0 {
 		fmt.Fprintln(os.Stderr, "--pool-cpus is required and must be comma-separated integers")
@@ -98,8 +132,25 @@ func main() {
 		os.Exit(1)
 	}
 	defer st.Close()
+	if !hasLiveSandboxes(st.Snapshot()) {
+		hostOptions := hostcheck.DefaultOptions()
+		hostOptions.Kerf = kpath
+		hostOptions.MinPrimaryCPUs = 1
+		hostOptions.MinPrimaryMemByte = 1
+		hostOptions.Timeout = timeout
+		hostOptions.ProbeCPUs = ids
+		hostOptions.ProbeMemory = poolmem
+		report := hostcheck.Check(context.Background(), hostOptions)
+		if e = validatePoolReport(report, ids, hostConfig.ForbiddenAPICIDs, hostConfig.MinPrimaryCPUs, poolBytes, hostConfig.MinPrimaryMemoryBytes); e != nil {
+			encoded, _ := hostcheck.Encode(report)
+			_, _ = os.Stderr.Write(encoded)
+			fmt.Fprintln(os.Stderr, "host allocation policy:", e)
+			os.Exit(1)
+		}
+	}
 	b := &kerf.CLI{Path: kpath, Sysfs: sysfs, PoolCPUs: ids, PoolMemory: poolmem, Timeout: timeout}
-	svc := lifecycle.New(st, b, lifecycle.Artifacts{Kernel: kernel, Initrd: initrd, Cmdline: cmdline})
+	svc := lifecycle.New(st, b, lifecycle.Artifacts{Cmdline: cmdline})
+	svc.SetArtifactResolver(kernelmanifest.Resolver{Directory: hostConfig.KernelManifestDirectory, RequiredUID: 0})
 	svc.SetPoolCPUs(ids)
 	svc.SetPoolMemory(poolBytes, reserveBytes)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -108,7 +159,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "reconcile:", e)
 		os.Exit(1)
 	}
-	srv := &daemon.Server{Service: svc}
+	srv := &daemon.Server{Service: svc, MaxFrame: hostConfig.MaxFrameSizeBytes}
 	if e = srv.Listen(ctx, socket); e != nil {
 		fmt.Fprintln(os.Stderr, e)
 		os.Exit(1)

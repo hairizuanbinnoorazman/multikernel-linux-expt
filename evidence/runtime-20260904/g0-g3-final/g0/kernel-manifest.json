@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "name": "gce-mk2",
+  "architecture": "amd64",
+  "kernel_release": "7.0.0-mk2-gce-lab",
+  "compatibility": {
+    "multikernel_revision": "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7",
+    "kerf_version": "v0.2.0",
+    "kerf_revision": "8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec"
+  },
+  "kernel": {
+    "path": "/opt/mkruntime/artifacts/vmlinux",
+    "sha256": "5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10"
+  },
+  "initramfs": {
+    "path": "/opt/mkruntime/artifacts/child-initramfs.cpio.gz",
+    "sha256": "487127ea26e4ce4a23cb91bdaaf8bb3229c2aa3146e8d0235785252baa3261ef"
+  },
+  "agent": {
+    "path": "/opt/mkruntime/bin/mk-agent",
+    "sha256": "81790a169fdaa3148f9031ef56ed54c33028a56e7b47c54aae79d62d1807f1fd"
+  },
+  "relay": {
+    "path": "/opt/mkruntime/bin/mkvsock-relay",
+    "sha256": "30e443db56d50931cfe15576404b3b618aa910bf1853f26587be214db6fbd2cc"
+  },
+  "transport": {
+    "module": {
+      "path": "/opt/mkruntime/artifacts/mk_transport.ko",
+      "sha256": "0afd678b4335ee82aab7a26fc8cdcc9608337b00d8e88107f23255cf061ed5cd"
+    },
+    "module_name": "mk_transport",
+    "socket_option": 9,
+    "transport_id": 1,
+    "primary_role": "server",
+    "child_role": "client"
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "required_config": [
+    "CONFIG_MULTIKERNEL=y",
+    "CONFIG_MKTTY=y",
+    "CONFIG_KEXEC=y"
+  ],
+  "oci_features": [
+    "argv",
+    "env",
+    "cwd",
+    "user",
+    "additional_gids",
+    "terminal",
+    "stdin",
+    "split_output",
+    "signals",
+    "exec"
+  ]
+}

@@ -2,7 +2,9 @@
 
 ## Result and current status
 
-The 2026-08-31 work is a **provisional G2 milestone**, not a closed gate.
+The 2026-08-31 work remains a **provisional historical G2 milestone**. The
+2026-09-04 failure, admission, recovery, and post-deletion cloud evidence closes
+G2.
 `mkruntimed` exposes a strict v1 JSON
 API over a mode-0660 Unix socket, maintains a fsynced write-ahead JSONL
 journal and atomic snapshot, serializes global/per-sandbox allocation, and
@@ -27,6 +29,10 @@ Two live corrections were required:
 2. Kerf v0.2.0 can create the exact requested instance and subsequently exit
    nonzero with `KeyError`. The adapter now accepts that outcome only after a
 positive observation of the exact sysfs instance; absence remains failure.
+3. The pinned 7.0 host exposes a newly created instance as sysfs status `ready`,
+   while earlier fixtures assumed `created`. Both raw values now map to the one
+   runtime state `CREATED`; the live failing transcript and isolated probe are
+   retained as regression evidence.
 
 ## Replacement live evidence (2026-09-03)
 
@@ -60,21 +66,29 @@ does not retain the journal, snapshot, request/response transcript, daemon
 logs, or operation-boundary assertions needed to independently reproduce the
 broader prose claim.
 
-Code inspection confirms the important remaining gaps: reconciliation
-iterates snapshotted sandboxes rather than backend inventory or orphan journal
-intents; every disagreement becomes `OPERATOR_ACTION`; snapshot rename does not
-fsync the containing directory; `WatchEvents`, strict host-config loading, approved-manifest
-resolution, and observable intermediate states are absent. Consequently only
-the named unit tests and narrow live marker are retained claims; all stronger
-G2 conformance statements remain open in the remediation checklist.
+The implementation audit found and closed the earlier reconciliation gaps. The
+remediation persists complete sandboxes in intents, resumes
+create/load/start/stop/delete from observed backend state, detects unknown
+backend instances, treats durable `STOPPED` as compatible with Kerf `loaded`,
+and returns `OPERATOR_ACTION` when safe recovery cannot be established.
+Snapshot rename now fsyncs the containing directory. A 45-case crash matrix
+exercises five mutations at nine journal/backend/observation/snapshot/completion
+boundaries. `WatchEvents` is a bounded
+durable sequence-cursor stream, strict root-owned host configuration supplies
+paths/timeouts/frame limits, and `ALLOCATING`, `STOPPING`, and `RELEASING` are
+persisted before external mutation. Approved-manifest resolution now verifies
+strict identity, pinned revisions, ownership/mode/type, all hashes, amd64 ELF
+artifacts, kernel config, modules, protocol range, and OCI features before
+allocation; arbitrary kernel/initramfs flags are removed.
 
 The second synchronization pass added focused daemon-wire rejection tests,
 `BACKEND_TIMEOUT`, stable mutation operation IDs, checked error-state
 persistence, secret-safe backend/state errors, static bundle/manifest/label/key
 validation, exact terminal delete replay, and configured Kerf-pool CPU
-membership enforcement. Socket/state ownership and safe-parent checks remain
-incomplete. Approved-manifest resolution and live APIC eligibility are still
-absent. Pool memory is now parsed, an explicit 1 GB allocator reserve is
+membership enforcement. Socket/state ownership, safe-parent checks, and
+approved-manifest resolution are now enforced and focused-tested. The manifest
+also pins the C relay and exact transport identity/direction. Pool memory is
+parsed, an explicit 1 GB allocator reserve is
 subtracted, and non-absent allocations are summed under the allocation lock
 before Kerf is called. A corrected live pair proves an 8 GB pool returns
 `RESOURCE_EXHAUSTED` before the backend while 12 GB admits the two 4 GiB
@@ -82,11 +96,30 @@ children. The harness also now records the real privileged daemon PID; this
 found and removed an orphan daemon from the earlier attempt, whose cleanup
 claim has been superseded by the corrected run.
 
+The 2026-09-04 failure-path pass observes Kerf after every failed mutation and
+restores a known retryable durable state. Load, start, and stop retries have
+focused coverage; an uncommitted failed create is removed from the snapshot so
+it cannot block a later create, while its operation ID and error remain in the
+journal. The new live harness injects one-shot pre-commit Kerf failures for
+load, boot/start, and stop and explicitly proves a one-shot client may disappear
+while the child remains active.
+
 ## Current audited verdict
 
 G2 supports the happy-path lifecycle, exact mutation replay, generation checks,
-basic overlap prevention, a fsynced intent journal, atomic snapshot replacement,
-configured-pool CPU enforcement, classified secret-safe errors, and
-conservative known-sandbox reconciliation. It remains open because orphan
-external resources and pre-snapshot crash windows can be missed, directory
-fsync is absent, and the event/config/manifest contracts are not fully enforced.
+basic overlap prevention, a fsynced intent journal and directory-durable atomic
+snapshot replacement, configured-pool CPU enforcement, classified secret-safe
+errors, durable events, strict host configuration, and transition-specific
+restart recovery.
+
+The 2026-09-04 run found that this exact pinned sysfs reports a new
+instance as `ready`, not the fixture vocabulary `created`. The adapter now maps
+both to runtime `CREATED`, with focused coverage. After redeployment, live
+failure injection restored and retried `CREATED`, `LOADED`, and `RUNNING` for
+load/start/stop respectively; a one-shot client exited while the child stayed
+active; two children survived daemon `SIGKILL`; and an 8 GB pool rejected the
+second 4 GiB request with `RESOURCE_EXHAUSTED` before backend creation. The
+downloaded [G2 manifest and raw evidence](../../../evidence/runtime-20260904/g0-g3-final/README.md)
+retain the API responses, raw `ready` observation, journal/snapshot at daemon
+death and cleanup, and final resource return. This closes G2's documented
+daemon-SIGKILL boundary. Host power-loss campaigns remain later hardening work.

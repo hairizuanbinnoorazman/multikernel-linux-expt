@@ -1,0 +1,1 @@
+one-shot client exited; child remained active

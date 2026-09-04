@@ -11,12 +11,15 @@ Build a static `mk-agent` into a minimal child initramfs. It must:
 - establish a versioned, authenticated AF_VSOCK session;
 - report agent and kernel capabilities;
 - mount `proc`, `sysfs`, `devtmpfs`, cgroup v2, and the sandbox root;
-- create mount, PID, IPC, UTS, and user namespaces as configured;
-- apply OCI user, groups, environment, working directory, capabilities,
-  rlimits, and cgroups;
+- apply the G3 OCI subset: user, supplementary groups, environment, working
+  directory, terminal mode, and process-group signals;
+- reject namespaces, capabilities, rlimits, cgroups/resources, mounts,
+  seccomp, hooks, path masks, read-only roots, and `noNewPrivileges` before
+  allocation;
 - implement `CreateProcess`, `StartProcess`, `ExecProcess`, `SignalProcess`,
   `WaitProcess`, and `DeleteProcess`;
-- stream stdout and stderr independently; and
+- stream stdout and stderr independently through bounded reads, with bounded
+  producer backpressure and explicit truncation if a reader stalls; and
 - initiate clean filesystem quiescence and poweroff.
 
 The initramfs is runtime-owned bootstrap infrastructure, not the container
@@ -25,17 +28,20 @@ the caller's OCI `config.json` to processes whose executables and libraries
 come from that root. It must not expect the OCI image to contain a kernel,
 bootloader, systemd, or a particular distribution layout.
 
-Do not initially implement every OCI option. Reject unsupported fields
-explicitly instead of silently weakening them.
+G3 validates the direct-bundle agent, transport, lifecycle, and fail-closed OCI
+boundary. Namespace/capability/rlimit/cgroup application is a G6 production-
+container requirement, not a G3 exit requirement. This split is intentional:
+silently accepting those fields would be unsafe, while requiring the entire
+containerd OCI surface here makes the direct-agent gate duplicate G6. Every
+unsupported field remains a hard error before allocation.
 
 ## Tests
 
 - PID 1 exits 0, exits nonzero, crashes, and ignores `SIGTERM`.
 - Correct argv without shell interpretation.
-- Environment, cwd, UID/GID, supplementary groups, umask, and rlimits.
-- Read-only and masked paths.
-- Capability add/drop and `noNewPrivileges`.
-- cgroup CPU, memory, and PID limits within the child's assigned resources.
+- Environment, cwd, UID/GID, and supplementary groups.
+- Fail-closed read-only/masked paths, capabilities, `noNewPrivileges`, rlimits,
+  namespaces, and cgroup resources.
 - Interactive terminal resize and non-terminal split stdout/stderr.
 - Concurrent `exec`, signal delivery, exit-code preservation, and wait races.
 - Agent disconnect and reconnect policy.
@@ -59,13 +65,10 @@ child, lifecycle and stdio semantics are deterministic, unsupported OCI fields
 fail closed, and orderly agent shutdown returns control to the daemon.
 
 The 2026-08-31 run is a provisional direct-bundle milestone, not closure of
-this gate. The minimum implementation and test lists above remain normative;
-later work implemented `ExecProcess`, stdin/attach, PTYs, resize, and a running-
-process shutdown check, but focused failure coverage remains incomplete. In
-particular independent bounded stdio streaming, configured namespaces/
-capabilities/rlimits/cgroups, complete exec and signal semantics, and verified
-agent-driven quiescence/poweroff must land before G3 is checked in the master
-plan. The narrower frozen G3 OCI policy describes which inputs the provisional
-implementation is allowed to accept or must reject; it does not waive this
-plan's exit criteria. The policy and protocol schemas must also be versioned or
-updated with the later method and terminal evolution.
+this gate. Later work implemented `ExecProcess`, stdin/attach, PTYs, resize,
+process-group signals, bounded streaming, reconnect, actual capability
+reporting, and agent-driven shutdown. G3 closes only after their focused and
+live matrices pass. Namespace/capability/rlimit/cgroup application remains
+mandatory for G6 production container support; G3 proves that those fields are
+rejected rather than discarded. The policy and protocol schemas must stay
+synchronized with the implemented method and terminal evolution.

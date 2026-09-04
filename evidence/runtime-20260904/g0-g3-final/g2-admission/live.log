@@ -1,0 +1,9 @@
+RUNTIME_G2_POOL_MEMORY_PREFLIGHT_PASS
+Shutting down instance 'runtime-g2' (ID: 22) (force)...
+✓ Shutdown command executed successfully
+Unloading kernel for instance 'runtime-g2' (ID: 22)...
+✓ Kernel unloaded successfully
+✓ Deleted instance 'runtime-g2' (transaction 14)
+  CPUs to host: 8, 9, 10, 11, 12, 13, 14, 15
+  Memory to host: 0xcdb000000 (8192 MB)
+✓ Pool updated (transaction 15)

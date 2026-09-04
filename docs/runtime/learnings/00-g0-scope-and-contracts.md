@@ -2,13 +2,17 @@
 
 ## Result and current status
 
-The 2026-08-31 work is retained as a **provisional G0 milestone**, not a closed
-gate. The v1 contract set is under
+The 2026-08-31 work remains a **provisional historical G0 milestone**. The
+2026-09-04 implementation and evidence pass closes G0, including the
+post-deletion cloud ledger. The v1 contract set is under
 [`../contracts/`](../contracts/README.md), with strict schemas for sandbox
 and host configuration, approved kernel artifacts, daemon and agent envelopes,
 and evidence manifests. The 2026-08-31 remediation added the missing schema
-coverage and executable fixtures, but G0 remains provisional until its open
-implementation mappings and replacement per-gate evidence are complete.
+coverage and executable fixtures. The 2026-09-04 implementation pass completes
+the G0 contract mappings, strict OCI boundary, approved bootstrap manifest, and
+transport qualification. The schema-valid
+[final G0 manifest](../../../evidence/runtime-20260904/g0-g3-final/manifest-g0.json)
+supersedes the historical manifest without rewriting its result.
 
 Go was selected for `mk-host-check`, `mkruntimed`, and `mk-agent`. Existing C
 transport code remains appropriate at the AF_VSOCK boundary; the G3 run later
@@ -20,9 +24,10 @@ containerd-owned OCI bundle/rootfs. It is `linux/amd64`, trusted-workload only,
 and requires fail-closed handling for OCI fields not in the advertised feature
 set. Sandbox identity is `(id, random generation)` and every mutation has an
 idempotency key. Error, ownership, lifecycle, configuration, authentication,
-kernel selection, and cloud evidence rules are explicit. Later G4-G6 code does
-not yet satisfy every one of those rules: the image builder and exec translation
-can discard unsupported OCI fields before the agent validates them.
+kernel selection, and cloud evidence rules are explicit. The later G4-G6
+field-loss defect has now been removed: bundle input is validated before
+allocation and exec input is validated before translation, so neither adapter
+can silently discard unsupported OCI controls.
 
 ## License audit
 
@@ -48,8 +53,14 @@ The replacement [G0 manifest](../../../evidence/runtime-20260903/g0-g3-proof/man
 is schema-valid and deliberately remains `provisional`. The continuing
 [G0 remediation manifest](../../../evidence/runtime-20260903/g0-g3-remediation/manifest-g0.json)
 indexes the synchronized agent schema/reply policy and the expanded 20-case
-fixture plus full race/vet/docs/shell verification; the end-to-end G6
-fail-closed adapter gap below remains unchanged.
+fixture plus full race/vet/docs/shell verification. The later strict 25-case
+OCI validation and approved-bootstrap validator close the adapter and artifact
+qualification gaps locally.
+
+The 2026-09-04 final run retained the exact approved host/kernel manifests,
+component hashes, pinned Multikernel and Kerf commits, transport patch, module
+name/vermagic, and complete local validation transcript in the
+[final evidence index](../../../evidence/runtime-20260904/g0-g3-final/README.md).
 
 | Command | Result | What it proves |
 | --- | --- | --- |
@@ -74,39 +85,38 @@ condition for that gate.
 
 | Contract section | Implementing gate(s) | Status after this session |
 | --- | --- | --- |
-| Lifecycle identity and idempotency | G2, G6 | Partial; generation, bounded key validation, exact mutation replay, and documented absent-delete semantics exist. Broader client integration remains open. |
-| Lifecycle states, journaling, reconciliation, and locks | G2, G8 | Partial; crash windows and documented intermediate states remain open. |
-| Error taxonomy and secret-safe errors | G2, G3, G8 | Partial; stable operation IDs, backend-timeout classification, structured agent errors, and focused leakage/redaction tests exist. The full live negative matrix remains open. |
+| Lifecycle identity and idempotency | G2, G6 | G2 contract implemented; generation, validation, exact replay, and absent-delete semantics have focused coverage. Broader clients remain G6 work. |
+| Lifecycle states, journaling, reconciliation, and locks | G2, G8 | G2 contract implemented with full intent/checkpoint reconciliation; hostile fault campaigns remain G8 work. |
+| Error taxonomy and secret-safe errors | G2, G3, G8 | G0-G3 boundary complete: stable operation IDs, backend-timeout classification, structured agent errors, focused leakage tests, and the safe live negative matrix pass. Broader hostile campaigns remain G8 work. |
 | Ownership table: containerd/shim inputs | G6 | Future gate. |
-| Ownership table: daemon/Kerf resources and protected host devices | G1, G2, G8 | Partial; allocation-path controller enforcement remains open. |
-| Ownership table: agent/process/cgroups | G3, G8 | Partial; full process semantics and limits remain open. |
+| Ownership table: daemon/Kerf resources and protected host devices | G1, G2, G8 | G1/G2 boundary implemented; device allocation is absent and strict configuration prohibits protected-controller input. Adversarial proof remains G8 work. |
+| Ownership table: agent/process/cgroups | G3, G8 | G3 process ownership/limits implemented; OCI cgroup application remains explicitly mandatory at G6. |
 | Ownership table: writable roots/storage | G4 | Future gate. |
 | Ownership table: cloud ledgers | Every live gate, audited again at G10 | Replacement proof and continuing remediation have before/after cleanup ledgers; both disposable VMs and their auto-delete disks are gone. |
-| Threat statement and isolation boundary | G1, G8 | Partial; pinned-source audit and resource matrix remain open. |
-| Agent authentication/session binding | G3, G8 | Partial; fresh randomness, request HMAC/sequence checks, and reply version/sequence binding exist. Reconnect and the live negative matrix remain open. |
-| Kernel/image ownership and approved-manifest validation | G2, G3, G4, G6 | Schema and direct-agent OCI/executable architecture checks are complete; production manifest resolution remains open. |
-| OCI supported/rejected fields | G3, G6, G8 | Partial; see the G3 feature matrix and open fail-closed tests. |
-| Host and sandbox configuration | G0 schema; G1/G2 enforcement | Schema complete; root ownership, safe parents, and daemon loading remain open. |
+| Threat statement and isolation boundary | G1, G8 | G1 pinned-source audit and resource matrix complete; hostile-workload hardening remains G8. |
+| Agent authentication/session binding | G3, G8 | G3 implementation, focused tests, and the safe live negative/reconnect matrix pass; adversarial campaigns remain G8 work. |
+| Kernel/image ownership and approved-manifest validation | G2, G3, G4, G6 | Strict production manifest resolution verifies artifacts, versions, relay, module, and exact transport roles before allocation. Image-root production work remains G4/G6. |
+| OCI supported/rejected fields | G3, G6, G8 | G3 direct-agent and adapter boundaries fail closed with a 25-case matrix; expanded production support remains G6. |
+| Host and sandbox configuration | G0 schema; G1/G2 enforcement | Strict root ownership, safe parents, daemon loading, socket/state permissions, and field bounds are implemented. |
 | Daemon/agent wire envelopes and method set | G0 schema; G2/G3 implementation; G6 evolution | Schemas cover the implemented v1 method set and structured replies; remaining method semantics are gate work. |
-| Evidence manifest, resource ledgers, and redaction | Every gate; G10 release audit | Schema-valid replacement manifests and an indexed continuing-remediation set exist; release-wide audit remains open. |
+| Evidence manifest, resource ledgers, and redaction | Every gate; G10 release audit | Separate schema-valid G0-G3 manifests, indexed raw evidence, checksums, cloud ledgers, and exact-token redaction proof exist; release-wide audit remains open. |
 
 ## Contract drift found by the 2026-09-02 synchronization audit
 
 The schema and policy were synchronized with the implemented v1 state,
-stdin/output, terminal-resize, network, and structured-reply behavior. Two
-important cross-gate issues remain:
+stdin/output, terminal-resize, network, and structured-reply behavior. The
+first cross-gate issue found by that audit is now resolved:
 
-- the G6 image builder and exec adapter select a supported OCI subset instead
-  of rejecting every unsupported caller field, contrary to the fail-closed
-  contract; and
-- `make docs-check` validates schema fixtures but not every committed evidence
+- the G6 image builder performs strict 25-case subset validation before
+  allocation and rewrites only `root.path`; the exec adapter has a focused
+  unsupported-process matrix; and
+- `make docs-check` runs those OCI validation tests in addition to schema
+  fixtures, but it still does not validate every committed evidence
   manifest, so non-conforming historical manifests remain undetected by the
   default target.
 
-These are open G0/G6 contract-evolution items. Closing them requires either
-a compatible schema/policy revision with tests and migration notes or code that
-conforms to the existing v1 contracts; documentation alone must not normalize
-the mismatch.
+Historical manifest migration remains release-audit work; it does not change
+the frozen G0 evidence schema or the now-enforced OCI policy.
 
 ## Key learning
 

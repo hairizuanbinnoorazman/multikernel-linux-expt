@@ -1,0 +1,19 @@
+captured_utc=2026-09-04T08:43:58Z
+mklinux-g0-g3-final-20260904
+boot_id=024071bc-68b1-4c8a-829b-f9572f4988d6
+Linux mklinux-g0-g3-final-20260904 7.0.0-mk2-gce-lab #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026 x86_64 GNU/Linux
+go version go1.26.0 linux/amd64
+multikernel_commit=3bdd35b64413da0b4e089ce931bfc2e8b031cbf7
+kerf_commit=8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec
+upload_archive_sha256=d28d6f71d0039788509bf91aa20fe4ba0cf2278e0493d68296831e4feac0bec4
+uploaded_mk_agentctl_source_sha256=39f84a11051cce7fce16a0426de3582f8fbe57396bcdf8520e97ff65bb39f1e2
+filename:       /opt/mkruntime/artifacts/mk_transport.ko
+alias:          net-pf-40
+description:    Multikernel transport for vsock
+author:         Cong Wang <cwang@multikernel.io>
+license:        GPL
+srcversion:     65C55BB38C669FF94A4B772
+depends:        
+name:           mk_transport
+retpoline:      Y
+vermagic:       7.0.0-mk2-gce-lab SMP preempt mod_unload modversions 

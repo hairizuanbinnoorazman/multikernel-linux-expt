@@ -1,0 +1,1296 @@
+[    0.000000] platform-quirks: hardware_subarch=0 (MULTIKERNEL=5)
+[    0.000000] Linux version 7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.new-demo-project-462517.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
+[    0.000000] Command line: BOOT_IMAGE=/vmlinuz-7.0.0-mk2-gce-lab root=PARTUUID=de3e49f7-3634-41c4-a969-734d88fa51a0 ro console=ttyS0,115200 panic=-1
+[    0.000000] KERNEL supported cpus:
+[    0.000000]   Intel GenuineIntel
+[    0.000000]   AMD AuthenticAMD
+[    0.000000]   Hygon HygonGenuine
+[    0.000000]   Centaur CentaurHauls
+[    0.000000]   zhaoxin   Shanghai  
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x0000000000000fff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x0000000000001000-0x0000000000054fff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x0000000000055000-0x000000000005ffff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x0000000000060000-0x0000000000097fff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x0000000000098000-0x000000000009ffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000000a0000-0x00000000000fffff]
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000bd29bfff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x00000000bd29c000-0x00000000bd2a9fff]  ACPI data
+[    0.000000] BIOS-e820: [mem 0x00000000bd2aa000-0x00000000bf8ecfff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x00000000bf8ed000-0x00000000bfb6cfff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x00000000bfb6d000-0x00000000bfb7efff]  ACPI data
+[    0.000000] BIOS-e820: [mem 0x00000000bfb7f000-0x00000000bfbfefff]  ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000bfbff000-0x00000000bffdffff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x00000000bffe0000-0x00000000bfffffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000c0000000-0x00000000ffffffff]
+[    0.000000] BIOS-e820: [mem 0x0000000100000000-0x000000103fffffff]  System RAM
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] APIC: Static calls initialized
+[    0.000000] efi: EFI v2.7 by EDK II
+[    0.000000] efi: TPMFinalLog=0xbfbf7000 ACPI=0xbfb7e000 ACPI 2.0=0xbfb7e014 SMBIOS=0xbf9ca000 MEMATTR=0xbd2aa018 MOKvar=0xbf9c8000 RNG=0xbfb73018 TPMEventLog=0xbd29c018 
+[    0.000000] random: crng init done
+[    0.000000] SMBIOS 2.4 present.
+[    0.000000] DMI: Google Google Compute Engine/Google Compute Engine, BIOS Google 08/05/2026
+[    0.000000] DMI: Memory slots populated: 4/4
+[    0.000000] Hypervisor detected: KVM
+[    0.000000] last_pfn = 0xbffe0 max_arch_pfn = 0x400000000
+[    0.000000] kvm-clock: Using msrs 4b564d01 and 4b564d00
+[    0.000001] kvm-clock: using sched offset of 8825062526 cycles
+[    0.000003] clocksource: kvm-clock: mask: 0xffffffffffffffff max_cycles: 0x1cd42e4dffb, max_idle_ns: 881590591483 ns
+[    0.000006] tsc: Detected 2799.998 MHz processor
+[    0.000019] e820: update [mem 0x00000000-0x00000fff] System RAM ==> device reserved
+[    0.000021] e820: remove [mem 0x000a0000-0x000fffff] System RAM
+[    0.000027] last_pfn = 0x1040000 max_arch_pfn = 0x400000000
+[    0.000084] MTRR map: 3 entries (2 fixed + 1 variable; max 18), built from 8 variable MTRRs
+[    0.000088] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.000156] last_pfn = 0xbffe0 max_arch_pfn = 0x400000000
+[    0.010764] Using GB pages for direct mapping
+[    0.010896] Secure boot disabled
+[    0.010899] ACPI: Early table checksum verification disabled
+[    0.010901] ACPI: RSDP 0x00000000BFB7E014 000024 (v02 Google)
+[    0.010905] ACPI: XSDT 0x00000000BFB7D0E8 00005C (v01 Google GOOGFACP 00000001      01000013)
+[    0.010910] ACPI: FACP 0x00000000BFB78000 0000F4 (v02 Google GOOGFACP 00000001 GOOG 00000001)
+[    0.010915] ACPI: DSDT 0x00000000BFB79000 001A93 (v01 Google GOOGDSDT 00000001 GOOG 00000001)
+[    0.010918] ACPI: FACS 0x00000000BFBF2000 000040
+[    0.010920] ACPI: SSDT 0x00000000BFB7C000 000316 (v02 GOOGLE Tpm2Tabl 00001000 INTL 20250807)
+[    0.010923] ACPI: TPM2 0x00000000BFB7B000 000034 (v04 GOOGLE          00000001 GOOG 00000001)
+[    0.010926] ACPI: SRAT 0x00000000BFB77000 0001A8 (v03 Google GOOGSRAT 00000001 GOOG 00000001)
+[    0.010929] ACPI: APIC 0x00000000BFB76000 0000E6 (v05 Google GOOGAPIC 00000001 GOOG 00000001)
+[    0.010932] ACPI: SSDT 0x00000000BFB75000 000ECE (v01 Google GOOGSSDT 00000001 GOOG 00000001)
+[    0.010934] ACPI: WAET 0x00000000BFB74000 000028 (v01 Google GOOGWAET 00000001 GOOG 00000001)
+[    0.010936] ACPI: Reserving FACP table memory at [mem 0xbfb78000-0xbfb780f3]
+[    0.010937] ACPI: Reserving DSDT table memory at [mem 0xbfb79000-0xbfb7aa92]
+[    0.010938] ACPI: Reserving FACS table memory at [mem 0xbfbf2000-0xbfbf203f]
+[    0.010938] ACPI: Reserving SSDT table memory at [mem 0xbfb7c000-0xbfb7c315]
+[    0.010939] ACPI: Reserving TPM2 table memory at [mem 0xbfb7b000-0xbfb7b033]
+[    0.010940] ACPI: Reserving SRAT table memory at [mem 0xbfb77000-0xbfb771a7]
+[    0.010940] ACPI: Reserving APIC table memory at [mem 0xbfb76000-0xbfb760e5]
+[    0.010941] ACPI: Reserving SSDT table memory at [mem 0xbfb75000-0xbfb75ecd]
+[    0.010941] ACPI: Reserving WAET table memory at [mem 0xbfb74000-0xbfb74027]
+[    0.011022] ACPI: SRAT: Node 0 PXM 0 [mem 0x00000000-0x0009ffff]
+[    0.011024] ACPI: SRAT: Node 0 PXM 0 [mem 0x00100000-0xbfffffff]
+[    0.011025] ACPI: SRAT: Node 0 PXM 0 [mem 0x100000000-0x103fffffff]
+[    0.011028] NUMA: Node 0 [mem 0x00001000-0x0009ffff] + [mem 0x00100000-0xbfffffff] -> [mem 0x00001000-0xbfffffff]
+[    0.011030] NUMA: Node 0 [mem 0x00001000-0xbfffffff] + [mem 0x100000000-0x103fffffff] -> [mem 0x00001000-0x103fffffff]
+[    0.011040] NODE_DATA(0) allocated [mem 0x103ffd5280-0x103fffffff]
+[    0.011880] ACPI: PM-Timer IO Port: 0xb008
+[    0.011900] ACPI: LAPIC_NMI (acpi_id[0xff] dfl dfl lint[0x1])
+[    0.011964] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23
+[    0.011967] ACPI: INT_SRC_OVR (bus 0 bus_irq 5 global_irq 5 high level)
+[    0.011968] ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+[    0.011969] ACPI: INT_SRC_OVR (bus 0 bus_irq 10 global_irq 10 high level)
+[    0.011970] ACPI: INT_SRC_OVR (bus 0 bus_irq 11 global_irq 11 high level)
+[    0.011974] ACPI: Using ACPI (MADT) for SMP configuration information
+[    0.011977] CPU topo: Max. logical packages:   1
+[    0.011978] CPU topo: Max. logical nodes:      1
+[    0.011978] CPU topo: Num. nodes per package:  1
+[    0.011981] CPU topo: Max. logical dies:       1
+[    0.011981] CPU topo: Max. dies per package:   1
+[    0.011984] CPU topo: Max. threads per core:   2
+[    0.011985] CPU topo: Num. cores per package:     8
+[    0.011986] CPU topo: Num. threads per package:  16
+[    0.011986] CPU topo: Allowing 16 present CPUs plus 0 hotplug CPUs
+[    0.012010] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]
+[    0.012012] PM: hibernation: Registered nosave memory: [mem 0x00055000-0x0005ffff]
+[    0.012013] PM: hibernation: Registered nosave memory: [mem 0x00098000-0x000fffff]
+[    0.012014] PM: hibernation: Registered nosave memory: [mem 0xbd29c000-0xbd2a9fff]
+[    0.012015] PM: hibernation: Registered nosave memory: [mem 0xbf8ed000-0xbfbfefff]
+[    0.012016] PM: hibernation: Registered nosave memory: [mem 0xbffe0000-0xffffffff]
+[    0.012017] [gap 0xc0000000-0xffffffff] available for PCI devices
+[    0.012019] Booting paravirtualized kernel on KVM
+[    0.012020] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns
+[    0.012090] Zone ranges:
+[    0.012091]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]
+[    0.012092]   DMA32    [mem 0x0000000001000000-0x00000000ffffffff]
+[    0.012093]   Normal   [mem 0x0000000100000000-0x000000103fffffff]
+[    0.012095]   Device   empty
+[    0.012095] Movable zone start for each node
+[    0.012098] Early memory node ranges
+[    0.012099]   node   0: [mem 0x0000000000001000-0x0000000000054fff]
+[    0.012100]   node   0: [mem 0x0000000000060000-0x0000000000097fff]
+[    0.012101]   node   0: [mem 0x0000000000100000-0x00000000bd29bfff]
+[    0.012101]   node   0: [mem 0x00000000bd2aa000-0x00000000bf8ecfff]
+[    0.012102]   node   0: [mem 0x00000000bfbff000-0x00000000bffdffff]
+[    0.012103]   node   0: [mem 0x0000000100000000-0x000000103fffffff]
+[    0.012107] Initmem setup node 0 [mem 0x0000000000001000-0x000000103fffffff]
+[    0.012376] On node 0, zone DMA: 1 pages in unavailable ranges
+[    0.012379] On node 0, zone DMA: 11 pages in unavailable ranges
+[    0.012404] On node 0, zone DMA: 104 pages in unavailable ranges
+[    0.021247] On node 0, zone DMA32: 14 pages in unavailable ranges
+[    0.021254] On node 0, zone DMA32: 786 pages in unavailable ranges
+[    0.211463] On node 0, zone Normal: 32 pages in unavailable ranges
+[    0.211482] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:16 nr_cpu_ids:16 nr_node_ids:1
+[    0.213175] percpu: Embedded 85 pages/cpu s225280 r8192 d114688 u524288
+[    0.213183] pcpu-alloc: s225280 r8192 d114688 u524288 alloc=1*2097152
+[    0.213186] pcpu-alloc: [0] 00 01 02 03 [0] 04 05 06 07 
+[    0.213190] pcpu-alloc: [0] 08 09 10 11 [0] 12 13 14 15 
+[    0.213219] kvm-guest: PV spinlocks enabled
+[    0.213221] PV qspinlock hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    0.213224] Kernel command line: BOOT_IMAGE=/vmlinuz-7.0.0-mk2-gce-lab root=PARTUUID=de3e49f7-3634-41c4-a969-734d88fa51a0 ro console=ttyS0,115200 panic=-1
+[    0.213264] printk: log buffer data + meta data: 262144 + 1114112 = 1376256 bytes
+[    0.225202] Dentry cache hash table entries: 8388608 (order: 14, 67108864 bytes, linear)
+[    0.231101] Inode-cache hash table entries: 4194304 (order: 13, 33554432 bytes, linear)
+[    0.231397] software IO TLB: area num 16.
+[    0.243937] Fallback order for Node 0: 0 
+[    0.243945] Built 1 zonelists, mobility grouping on.  Total pages: 16776268
+[    0.243946] Policy zone: Normal
+[    0.243957] mem auto-init: stack:all(zero), heap alloc:on, heap free:off
+[    0.374116] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=16, Nodes=1
+[    0.384338] ftrace: allocating 61363 entries in 240 pages
+[    0.384342] ftrace: allocated 240 pages with 4 groups
+[    0.384900] rcu: Hierarchical RCU implementation.
+[    0.384901] rcu: 	RCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=16.
+[    0.384903] 	Trampoline variant of Tasks RCU enabled.
+[    0.384904] 	Rude variant of Tasks RCU enabled.
+[    0.384904] 	Tracing variant of Tasks RCU enabled.
+[    0.384905] rcu: RCU calculated value of scheduler-enlistment delay is 100 jiffies.
+[    0.384905] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=16
+[    0.384922] RCU Tasks: Setting shift to 4 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=16.
+[    0.384925] RCU Tasks Rude: Setting shift to 4 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=16.
+[    0.389728] NR_IRQS: 524544, nr_irqs: 552, preallocated irqs: 16
+[    0.390001] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.390100] Console: colour dummy device 80x25
+[    0.390155] printk: legacy console [ttyS0] enabled
+[    0.551622] ACPI: Core revision 20251212
+[    0.552425] APIC: Switch to symmetric I/O mode setup
+[    0.553820] x2apic enabled
+[    0.557270] APIC: Switched APIC routing to: physical x2apic
+[    0.562956] ..TIMER: vector=0x30 apic1=0 pin1=0 apic2=-1 pin2=-1
+[    0.564298] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x285c3ee517e, max_idle_ns: 440795257231 ns
+[    0.566066] Calibrating delay loop (skipped) preset value.. 5599.99 BogoMIPS (lpj=2799998)
+[    0.567546] Last level iTLB entries: 4KB 64, 2MB 8, 4MB 8
+[    0.568064] Last level dTLB entries: 4KB 64, 2MB 32, 4MB 32, 1GB 4
+[    0.569089] mitigations: Enabled attack vectors: user_kernel, user_user, guest_host, guest_guest, SMT mitigations: auto
+[    0.570069] Speculative Store Bypass: Mitigation: Speculative Store Bypass disabled via prctl
+[    0.571066] Spectre V2 : Mitigation: Enhanced / Automatic IBRS
+[    0.572064] RETBleed: Mitigation: Enhanced IBRS
+[    0.572798] ITS: Mitigation: Aligned branch/return thunks
+[    0.573064] TAA: Vulnerable: Clear CPU buffers attempted, no microcode
+[    0.574064] MMIO Stale Data: Vulnerable: Clear CPU buffers attempted, no microcode
+[    0.575065] Spectre V1 : Mitigation: usercopy/swapgs barriers and __user pointer sanitization
+[    0.576069] Spectre V2 : Spectre v2 / PBRSB-eIBRS: Retire a single CALL on VMEXIT
+[    0.577068] Spectre V2 : mitigation: Enabling conditional Indirect Branch Prediction Barrier
+[    0.578070] active return thunk: its_return_thunk
+[    0.579064] Spectre V2 : Spectre BHI mitigation: SW BHB clearing on syscall and VM exit
+[    0.580095] x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'
+[    0.581065] x86/fpu: Supporting XSAVE feature 0x002: 'SSE registers'
+[    0.582064] x86/fpu: Supporting XSAVE feature 0x004: 'AVX registers'
+[    0.583064] x86/fpu: Supporting XSAVE feature 0x020: 'AVX-512 opmask'
+[    0.584064] x86/fpu: Supporting XSAVE feature 0x040: 'AVX-512 Hi256'
+[    0.585067] x86/fpu: Supporting XSAVE feature 0x080: 'AVX-512 ZMM_Hi256'
+[    0.586064] x86/fpu: xstate_offset[2]:  576, xstate_sizes[2]:  256
+[    0.587064] x86/fpu: xstate_offset[5]:  832, xstate_sizes[5]:   64
+[    0.588064] x86/fpu: xstate_offset[6]:  896, xstate_sizes[6]:  512
+[    0.589065] x86/fpu: xstate_offset[7]: 1408, xstate_sizes[7]: 1024
+[    0.590065] x86/fpu: Enabled xstate features 0xe7, context size is 2432 bytes, using 'compacted' format.
+[    0.624132] Freeing SMP alternatives memory: 56K
+[    0.624929] pid_max: default: 32768 minimum: 301
+[    0.625228] landlock: Up and running.
+[    0.626064] Yama: becoming mindful.
+[    0.627178] AppArmor: AppArmor initialized
+[    0.628582] Mount-cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.630137] Mountpoint-cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.631179] VFS: Finished mounting rootfs on nullfs
+[    0.735339] smpboot: CPU0: Intel(R) Xeon(R) CPU @ 2.80GHz (family: 0x6, model: 0x55, stepping: 0x7)
+[    0.736322] Performance Events: unsupported CPU family 6 model 85 no PMU driver, software events only.
+[    0.737129] signal: max sigframe size: 3632
+[    0.738121] rcu: Hierarchical SRCU implementation.
+[    0.739066] rcu: 	Max phase no-delay instances is 400.
+[    0.740128] No manifest available for multikernel DTB restoration
+[    0.741127] Allocated IPI buffer for instance 0: phys=0x101180000, virt=ffff8c5e01180000, pages=65
+[    0.742070] Root instance initialized with CPUs (physical): 0
+[    0.743064] Initialized root instance (id=0, name='/')
+[    0.744067] Timer migration: 2 hierarchy levels; 8 children per group; 2 crossnode level
+[    0.747169] NMI watchdog: Perf NMI watchdog permanently disabled
+[    0.748545] smp: Bringing up secondary CPUs ...
+[    0.749207] smpboot: x86: Booting SMP configuration:
+[    0.750071] .... node  #0, CPUs:        #1  #2  #3  #4  #5  #6  #7  #8  #9 #10 #11 #12 #13 #14 #15
+[    0.758256] TAA CPU bug present and SMT on, data leak possible. See https://www.kernel.org/doc/html/latest/admin-guide/hw-vuln/tsx_async_abort.html for more details.
+[    0.760065] MMIO Stale Data CPU bug present and SMT on, data leak possible. See https://www.kernel.org/doc/html/latest/admin-guide/hw-vuln/processor_mmio_stale_data.html for more details.
+[    0.765155] smp: Brought up 1 node, 16 CPUs
+[    0.766065] smpboot: Total of 16 processors activated (89599.93 BogoMIPS)
+[    0.768210] Memory: 60972060K/67105072K available (23852K kernel code, 5008K rwdata, 16180K rodata, 5244K init, 5848K bss, 6112092K reserved, 0K cma-reserved)
+[    0.771365] devtmpfs: initialized
+[    0.772151] x86/mm: Memory block size: 1024MB
+[    0.774455] ACPI: PM: Registering ACPI NVS region [mem 0xbfb7f000-0xbfbfefff] (524288 bytes)
+[    0.776123] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1911260446275000 ns
+[    0.777387] posixtimers hash table entries: 8192 (order: 5, 131072 bytes, linear)
+[    0.778112] futex hash table entries: 4096 (262144 bytes on 1 NUMA nodes, total 256 KiB, linear).
+[    0.779378] PM: RTC time: 08:36:32, date: 2026-09-04
+[    0.781469] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.783645] DMA: preallocated 4096 KiB GFP_KERNEL pool for atomic allocations
+[    0.784842] DMA: preallocated 4096 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[    0.785704] DMA: preallocated 4096 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+[    0.786086] audit: initializing netlink subsys (disabled)
+[    0.787124] audit: type=2000 audit(1788510992.702:1): state=initialized audit_enabled=0 res=1
+[    0.787227] thermal_sys: Registered thermal governor 'fair_share'
+[    0.788065] thermal_sys: Registered thermal governor 'bang_bang'
+[    0.789067] thermal_sys: Registered thermal governor 'step_wise'
+[    0.790065] thermal_sys: Registered thermal governor 'user_space'
+[    0.791065] thermal_sys: Registered thermal governor 'power_allocator'
+[    0.792089] cpuidle: using governor ladder
+[    0.794072] cpuidle: using governor menu
+[    0.797116] efi: Freeing EFI boot services memory: 57152K
+[    0.798068] acpiphp: ACPI Hot Plug PCI Controller Driver version: 0.5
+[    0.799280] PCI: Using configuration type 1 for base access
+[    0.801074] Multikernel NMI stop handler registered
+[    0.801883] Multikernel messaging system initialized
+[    0.802067] Initializing multikernel hotplug subsystem
+[    0.803068] Multikernel hotplug subsystem initialized
+[    0.804075] Initializing multikernel overlay subsystem
+[    0.805069] Multikernel overlay subsystem initialized
+[    0.806064] Multikernel filesystem initialized. Mount with: mount -t multikernel none /sys/fs/multikernel
+[    0.807064] Multikernel support initialized
+[    0.808149] kprobes: kprobe jump-optimization is enabled. All kprobes are optimized if possible.
+[    0.810203] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[    0.811065] HugeTLB: 16380 KiB vmemmap can be freed for a 1.00 GiB page
+[    0.812067] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[    0.813064] HugeTLB: 28 KiB vmemmap can be freed for a 2.00 MiB page
+[    0.817491] ACPI: Added _OSI(Module Device)
+[    0.818072] ACPI: Added _OSI(Processor Device)
+[    0.819064] ACPI: Added _OSI(Processor Aggregator Device)
+[    0.821426] ACPI: 3 ACPI AML tables successfully acquired and loaded
+[    0.823467] ACPI: \_SB_: platform _OSC: OS support mask [006e7eff]
+[    0.824659] ACPI: Interpreter enabled
+[    0.825076] ACPI: PM: (supports S0 S3 S4 S5)
+[    0.826064] ACPI: Using IOAPIC for interrupt routing
+[    0.827193] PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+[    0.828064] PCI: Ignoring E820 reservations for host bridge windows
+[    0.829262] ACPI: Enabled 16 GPEs in block 00 to 0F
+[    0.833407] ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-ff])
+[    0.834069] acpi PNP0A03:00: _OSC: OS supports [ASPM ClockPM Segments MSI EDR HPX-Type3]
+[    0.835064] acpi PNP0A03:00: _OSC: not requesting OS control; OS requires [ExtendedConfig ASPM ClockPM MSI]
+[    0.836069] acpi PNP0A03:00: _OSC: platform retains control of PCIe features (AE_ERROR)
+[    0.837074] acpi PNP0A03:00: fail to add MMCONFIG information, can't access extended configuration space under this bridge
+[    0.839439] PCI host bridge to bus 0000:00
+[    0.840067] pci_bus 0000:00: root bus resource [io  0x0000-0x0cf7 window]
+[    0.841065] pci_bus 0000:00: root bus resource [io  0x0d00-0xffff window]
+[    0.842066] pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000bffff window]
+[    0.843064] pci_bus 0000:00: root bus resource [mem 0xc0000000-0xfebfefff window]
+[    0.844065] pci_bus 0000:00: root bus resource [bus 00-ff]
+[    0.845066] pci 0000:00:00.0: [8086:1237] type 00 class 0x060000 conventional PCI endpoint
+[    0.846570] pci 0000:00:01.0: [8086:7110] type 00 class 0x060100 conventional PCI endpoint
+[    0.848121] pci 0000:00:01.3: [8086:7113] type 00 class 0x068000 conventional PCI endpoint
+[    0.851166] pci 0000:00:01.3: quirk: [io  0xb000-0xb03f] claimed by PIIX4 ACPI
+[    0.853294] pci 0000:00:03.0: [1af4:1004] type 00 class 0x000000 conventional PCI endpoint
+[    0.857092] pci 0000:00:03.0: BAR 0 [io  0xc040-0xc07f]
+[    0.858075] pci 0000:00:03.0: BAR 1 [mem 0xc0001000-0xc000107f]
+[    0.859483] pci 0000:00:04.0: [1af4:1000] type 00 class 0x020000 conventional PCI endpoint
+[    0.862089] pci 0000:00:04.0: BAR 0 [io  0xc000-0xc03f]
+[    0.863074] pci 0000:00:04.0: BAR 1 [mem 0xc0000000-0xc00003ff]
+[    0.864484] pci 0000:00:05.0: [1af4:1005] type 00 class 0x00ff00 conventional PCI endpoint
+[    0.867085] pci 0000:00:05.0: BAR 0 [io  0xc080-0xc09f]
+[    0.868074] pci 0000:00:05.0: BAR 1 [mem 0xc0002000-0xc000203f]
+[    0.881349] ACPI: PCI: Interrupt link LNKA configured for IRQ 10
+[    0.883154] ACPI: PCI: Interrupt link LNKB configured for IRQ 10
+[    0.885174] ACPI: PCI: Interrupt link LNKC configured for IRQ 11
+[    0.887163] ACPI: PCI: Interrupt link LNKD configured for IRQ 11
+[    0.889095] ACPI: PCI: Interrupt link LNKS configured for IRQ 9
+[    0.891510] iommu: Default domain type: Translated
+[    0.892065] iommu: DMA domain TLB invalidation policy: lazy mode
+[    0.896235] SCSI subsystem initialized
+[    0.897077] libata version 3.00 loaded.
+[    0.897102] ACPI: bus type USB registered
+[    0.897780] usbcore: registered new interface driver usbfs
+[    0.898072] usbcore: registered new interface driver hub
+[    0.899091] usbcore: registered new device driver usb
+[    0.900093] pps_core: LinuxPPS API ver. 1 registered
+[    0.901064] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.902068] PTP clock support registered
+[    0.904083] EDAC MC: Ver: 3.0.0
+[    0.905069] efivars: Registered efivars operations
+[    0.906452] NetLabel: Initializing
+[    0.907065] NetLabel:  domain hash size = 128
+[    0.908064] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[    0.909077] NetLabel:  unlabeled traffic allowed by default
+[    0.910107] mctp: management component transport protocol core
+[    0.911070] NET: Registered PF_MCTP protocol family
+[    0.912079] PCI: Using ACPI for IRQ routing
+[    0.913066] PCI: pci_cache_line_size set to 64 bytes
+[    0.913170] e820: register RAM buffer resource [mem 0x00055000-0x0005ffff]
+[    0.914065] e820: register RAM buffer resource [mem 0x00098000-0x0009ffff]
+[    0.915068] e820: register RAM buffer resource [mem 0xbd29c000-0xbfffffff]
+[    0.916067] e820: register RAM buffer resource [mem 0xbf8ed000-0xbfffffff]
+[    0.917064] e820: register RAM buffer resource [mem 0xbffe0000-0xbfffffff]
+[    0.918136] vgaarb: loaded
+[    0.928519] clocksource: Switched to clocksource kvm-clock
+[    0.929300] VFS: Disk quotas dquot_6.6.0
+[    0.930329] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[    0.931905] AppArmor: AppArmor Filesystem Enabled
+[    0.932965] pnp: PnP ACPI init
+[    0.934040] pnp: PnP ACPI: found 7 devices
+[    0.941015] clocksource: acpi_pm: mask: 0xffffff max_cycles: 0xffffff, max_idle_ns: 2085701024 ns
+[    0.943198] NET: Registered PF_INET protocol family
+[    0.944810] IP idents hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[    0.962120] tcp_listen_portaddr_hash hash table entries: 32768 (order: 7, 524288 bytes, linear)
+[    0.963727] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.965888] TCP established hash table entries: 524288 (order: 10, 4194304 bytes, linear)
+[    0.968095] TCP bind hash table entries: 65536 (order: 9, 2097152 bytes, linear)
+[    0.969513] TCP: Hash tables configured (established 524288 bind 65536)
+[    0.971234] MPTCP token hash table entries: 65536 (order: 9, 1572864 bytes, linear)
+[    0.973218] UDP hash table entries: 32768 (order: 9, 2097152 bytes, linear)
+[    0.975019] UDP-Lite hash table entries: 32768 (order: 9, 2097152 bytes, linear)
+[    0.976942] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.978030] NET: Registered PF_XDP protocol family
+[    0.978992] pci_bus 0000:00: resource 4 [io  0x0000-0x0cf7 window]
+[    0.980169] pci_bus 0000:00: resource 5 [io  0x0d00-0xffff window]
+[    0.981249] pci_bus 0000:00: resource 6 [mem 0x000a0000-0x000bffff window]
+[    0.982664] pci_bus 0000:00: resource 7 [mem 0xc0000000-0xfebfefff window]
+[    0.984175] pci 0000:00:00.0: Limiting direct PCI/PCI transfers
+[    0.985237] PCI: CLS 0 bytes, default 64
+[    0.986124] PCI-DMA: Using software bounce buffering for IO (SWIOTLB)
+[    0.987246] software IO TLB: mapped [mem 0x00000000b7f7f000-0x00000000bbf7f000] (64MB)
+[    0.988646] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x285c3ee517e, max_idle_ns: 440795257231 ns
+[    0.990325] clocksource: Switched to clocksource tsc
+[    0.991738] Initialise system trusted keyrings
+[    0.992566] Key type blacklist registered
+[    0.993419] workingset: timestamp_bits=36 max_order=24 bucket_order=0
+[    0.995446] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.996777] fuse: init (API version 7.45)
+[    0.997805] integrity: Platform Keyring initialized
+[    0.998723] integrity: Machine keyring initialized
+[    1.007959] Key type asymmetric registered
+[    1.008813] Asymmetric key parser 'x509' registered
+[    1.009718] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 242)
+[    1.011171] io scheduler mq-deadline registered
+[    1.012995] ledtrig-cpu: registered to indicate activity on CPUs
+[    1.014248] input: Power Button as /devices/platform/LNXPWRBN:00/input/input0
+[    1.015561] ACPI: button: Power Button [PWRF]
+[    1.016556] input: Sleep Button as /devices/platform/LNXSLPBN:00/input/input1
+[    1.017967] ACPI: button: Sleep Button [SLPF]
+[    1.023219] ACPI: \_SB_.LNKC: Enabled at IRQ 11
+[    1.024115] virtio-pci 0000:00:03.0: virtio_pci: leaving for legacy driver
+[    1.031633] ACPI: \_SB_.LNKD: Enabled at IRQ 10
+[    1.032538] virtio-pci 0000:00:04.0: virtio_pci: leaving for legacy driver
+[    1.040602] ACPI: \_SB_.LNKA: Enabled at IRQ 10
+[    1.041491] virtio-pci 0000:00:05.0: virtio_pci: leaving for legacy driver
+[    1.046583] Serial: 8250/16550 driver, 32 ports, IRQ sharing enabled
+[    1.069815] 00:03: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A
+[    1.093589] 00:04: ttyS1 at I/O 0x2f8 (irq = 3, base_baud = 115200) is a 16550A
+[    1.116662] 00:05: ttyS2 at I/O 0x3e8 (irq = 6, base_baud = 115200) is a 16550A
+[    1.139977] 00:06: ttyS3 at I/O 0x2e8 (irq = 7, base_baud = 115200) is a 16550A
+[    1.142733] mktty: initializing host driver (PTY-style)
+[    1.143692] mktty: host ready - open /dev/mktty, write instance ID, then read/write
+[    1.145387] Linux agpgart interface v0.103
+[    1.147269] tpm_tis MSFT0101:00: 2.0 TPM (device-id 0x9009, rev-id 0)
+[    1.156207] ACPI: bus type drm_connector registered
+[    1.160773] loop: module loaded
+[    1.164003] virtio_scsi virtio0: 1/0/0 default/read/poll queues
+[    1.175728] scsi host0: Virtio SCSI HBA
+[    1.176566] blk-mq: reduced tag depth to 10240
+[    1.181839] Key type psk registered
+[    1.182134] scsi 0:0:1:0: Direct-Access     Google   PersistentDisk   1    PQ: 0 ANSI: 6
+[    1.183468] tun: Universal TUN/TAP device driver, 1.6
+[    1.306936] sd 0:0:1:0: Attached scsi generic sg0 type 0
+[    1.307018] sd 0:0:1:0: [sda] 209715200 512-byte logical blocks: (107 GB/100 GiB)
+[    1.338438] sd 0:0:1:0: [sda] 4096-byte physical blocks
+[    1.339434] sd 0:0:1:0: [sda] Write Protect is off
+[    1.360173] sd 0:0:1:0: [sda] Mode Sense: 1f 00 00 08
+[    1.360280] sd 0:0:1:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[    1.362196] PPP generic driver version 2.4.2
+[    1.363069] i8042: PNP: PS/2 Controller [PNP0303:KBD,PNP0f13:MOU] at 0x60,0x64 irq 1,12
+[    1.364798] i8042: Warning: Keylock active
+[    1.367445] serio: i8042 KBD port at 0x60,0x64 irq 1
+[    1.368453] serio: i8042 AUX port at 0x60,0x64 irq 12
+[    1.369619] mousedev: PS/2 mouse device common for all mice
+[    1.370775] rtc_cmos 00:00: RTC can wake from S4
+[    1.372697] rtc_cmos 00:00: registered as rtc0
+[    1.373349] rtc_cmos 00:00: setting system clock to 2026-09-04T08:36:33 UTC (1788510993)
+[    1.374967] rtc_cmos 00:00: alarms up to one day, 114 bytes nvram
+[    1.376102] i2c_dev: i2c /dev entries driver
+[    1.376624] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[    1.378364] device-mapper: uevent: version 1.0.3
+[    1.379370] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[    1.380755] intel_pstate: CPU model not supported
+[    1.381524] drop_monitor: Initializing network drop monitor service
+[    1.383412] NET: Registered PF_INET6 protocol family
+[    1.383753]  sda: sda1 sda13 sda14 sda15
+[    1.384899] Segment Routing with IPv6
+[    1.385370] sd 0:0:1:0: [sda] Attached SCSI disk
+[    1.385805] In-situ OAM (IOAM) with IPv6
+[    1.387418] NET: Registered PF_PACKET protocol family
+[    1.388439] Key type dns_resolver registered
+[    1.389161] NET: Registered PF_VSOCK protocol family
+[    1.392097] resctrl: No MBM correction factor available
+[    1.392933] IPI shorthand broadcast: enabled
+[    1.395049] sched_clock: Marking stable (1223003662, 171052727)->(1446942832, -52886443)
+[    1.397094] multikernel heap: registered /dev/dma_heap/multikernel
+[    1.398355] registered taskstats version 1
+[    1.399988] Loading compiled-in X.509 certificates
+[    1.401627] Loaded X.509 cert 'Build time autogenerated kernel key: d8b765dd3cc8d0f42aad135a5cd9987f8a7efbfe'
+[    1.406549] Demotion targets for Node 0: null
+[    1.407397] Key type .fscrypt registered
+[    1.408162] Key type fscrypt-provisioning registered
+[    1.408747] Key type big_key registered
+[    1.409416] Key type trusted registered
+[    1.411485] Key type encrypted registered
+[    1.412222] AppArmor: AppArmor sha256 policy hashing enabled
+[    1.413131] Loading compiled-in module X.509 certificates
+[    1.414749] Loaded X.509 cert 'Build time autogenerated kernel key: d8b765dd3cc8d0f42aad135a5cd9987f8a7efbfe'
+[    1.416451] ima: Allocated hash algorithm: sha256
+[    1.437609] ima: No architecture policies found
+[    1.438721] evm: Initialising EVM extended attributes:
+[    1.439349] evm: security.selinux
+[    1.439768] evm: security.SMACK64
+[    1.440544] evm: security.SMACK64EXEC
+[    1.441125] evm: security.SMACK64TRANSMUTE
+[    1.442209] evm: security.SMACK64MMAP
+[    1.442772] evm: security.apparmor
+[    1.443201] evm: security.ima
+[    1.443703] evm: security.capability
+[    1.444512] evm: HMAC attrs: 0x1
+[    1.445384] integrity: Loading X.509 certificate: UEFI:db
+[    1.446531] integrity: Loaded X.509 cert 'Microsoft Corporation UEFI CA 2011: 13adbf4309bd82709c8cd54f316ed522988a1bd4'
+[    1.448367] integrity: Loading X.509 certificate: UEFI:db
+[    1.449249] integrity: Loaded X.509 cert 'Microsoft Windows Production PCA 2011: a92902398e16c49778cd90f99e4f9ae17c55af53'
+[    1.451086] integrity: Loading X.509 certificate: UEFI:db
+[    1.452077] integrity: Loaded X.509 cert 'Microsoft Corporation: Windows UEFI CA 2023: aefc5fbbbe055d8f8daa585473499417ab5a5272'
+[    1.453895] integrity: Loading X.509 certificate: UEFI:db
+[    1.454567] integrity: Loaded X.509 cert 'Microsoft UEFI CA 2023: 81aa6b3244c935bce0d6628af39827421e32497d'
+[    1.457470] PM:   Magic number: 10:745:623
+[    1.459343] RAS: Correctable Errors collector initialized.
+[    1.460615] clk: Disabling unused clocks
+[    1.461440] PM: genpd: Disabling unused power domains
+[    1.577495] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input2
+[    1.579027] md: Waiting for all devices to be available before autodetect
+[    1.579990] md: If you don't use raid, use raid=noautodetect
+[    1.580834] md: Autodetecting RAID arrays.
+[    1.581403] md: autorun ...
+[    1.581799] md: ... autorun DONE.
+[    1.637766] EXT4-fs (sda1): orphan cleanup on readonly fs
+[    1.638730] EXT4-fs (sda1): mounted filesystem a0b93594-3b3f-4b42-b062-c7d29f0f02dc ro with ordered data mode. Quota mode: none.
+[    1.640332] VFS: Mounted root (ext4 filesystem) readonly on device 8:1.
+[    1.641645] devtmpfs: mounted
+[    1.642220] VFS: Pivoted into new rootfs
+[    1.659175] Freeing unused decrypted memory: 2028K
+[    1.660889] Freeing unused kernel image (initmem) memory: 5244K
+[    1.661761] Write protecting the kernel read-only data: 40960k
+[    1.663082] Freeing unused kernel image (text/rodata gap) memory: 720K
+[    1.664151] Freeing unused kernel image (rodata/data gap) memory: 204K
+[    1.676472] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[    1.677382] Run /sbin/init as init process
+[    1.677968]   with arguments:
+[    1.677970]     /sbin/init
+[    1.677971]   with environment:
+[    1.677972]     HOME=/
+[    1.677973]     TERM=linux
+[    2.211504] systemd[1]: Inserted module 'autofs4'
+[    2.715147] systemd[1]: systemd 259.5-0ubuntu3.4 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +IPE +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +KMOD +LIBCRYPTSETUP +LIBCRYPTSETUP_PLUGINS +LIBFDISK +PCRE2 +PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD +BPF_FRAMEWORK +BTF -XKBCOMMON -UTMP +SYSVINIT +LIBARCHIVE)
+[    2.719888] systemd[1]: Detected virtualization google.
+[    2.720660] systemd[1]: Detected architecture x86-64.
+[    2.731710] systemd[1]: No hostname configured, using default hostname.
+[    2.732682] systemd[1]: Hostname set to <localhost>.
+[    2.788547] systemd[1]: bpf-restrict-fs: BPF LSM hook not enabled in the kernel, BPF LSM not supported.
+[    2.948208] systemd[1]: /usr/lib/systemd/system/system-xfs_scrub.slice:15: Support for option CPUAccounting= has been removed and it is ignored
+[    3.003742] systemd[1]: /usr/lib/systemd/system/xfs_scrub_all.service:26: Support for option CPUAccounting= has been removed and it is ignored
+[    3.133948] systemd[1]: Queued start job for default target graphical.target.
+[    3.144441] systemd[1]: Created slice system-modprobe.slice - Slice /system/modprobe.
+[    3.147606] systemd[1]: Created slice system-serial\x2dgetty.slice - Slice /system/serial-getty.
+[    3.152566] systemd[1]: Created slice system-systemd\x2dfsck.slice - Slice /system/systemd-fsck.
+[    3.157924] systemd[1]: Created slice system-xfs_scrub.slice - xfs_scrub background service slice.
+[    3.162383] systemd[1]: Created slice user.slice - User and Session Slice.
+[    3.166178] systemd[1]: Started systemd-ask-password-wall.path - Forward Password Requests to Wall Directory Watch.
+[    3.170402] systemd[1]: Set up automount proc-sys-fs-binfmt_misc.automount - Arbitrary Executable File Formats File System Automount Point.
+[    3.175172] systemd[1]: Expecting device dev-disk-by\x2dlabel-BOOT.device - /dev/disk/by-label/BOOT...
+[    3.179158] systemd[1]: Expecting device dev-disk-by\x2dlabel-UEFI.device - /dev/disk/by-label/UEFI...
+[    3.183150] systemd[1]: Expecting device dev-ttyS0.device - /dev/ttyS0...
+[    3.187163] systemd[1]: Reached target imports.target - Image Downloads.
+[    3.191175] systemd[1]: Reached target integritysetup.target - Local Integrity Protected Volumes.
+[    3.195195] systemd[1]: Reached target slices.target - Slice Units.
+[    3.199148] systemd[1]: Reached target snapd.mounts-pre.target - Mounting snaps.
+[    3.203152] systemd[1]: Reached target swap.target - Swaps.
+[    3.206145] systemd[1]: Reached target time-set.target - System Time Set.
+[    3.210211] systemd[1]: Reached target veritysetup.target - Local Verity Protected Volumes.
+[    3.214239] systemd[1]: Listening on dm-event.socket - Device-mapper event daemon FIFOs.
+[    3.218280] systemd[1]: Listening on lvm2-lvmpolld.socket - LVM2 poll daemon socket.
+[    3.222263] systemd[1]: Listening on syslog.socket - Syslog Socket.
+[    3.227354] systemd[1]: Listening on systemd-ask-password.socket - Query the User Interactively for a Password.
+[    3.233045] systemd[1]: Listening on systemd-creds.socket - Credential Encryption/Decryption.
+[    3.238270] systemd[1]: Listening on systemd-factory-reset.socket - Factory Reset Management.
+[    3.242249] systemd[1]: Listening on systemd-journald-dev-log.socket - Journal Socket (/dev/log).
+[    3.246198] systemd[1]: Listening on systemd-journald.socket - Journal Sockets.
+[    3.251595] systemd[1]: Listening on systemd-mute-console.socket - Console Output Muting Service Socket.
+[    3.256302] systemd[1]: Listening on systemd-networkd-varlink.socket - Network Management Varlink Socket.
+[    3.260258] systemd[1]: Listening on systemd-networkd.socket - Network Management Netlink Socket.
+[    3.264147] systemd[1]: systemd-pcrextend.socket - TPM PCR Measurements skipped, unmet condition check ConditionSecurity=measured-uki
+[    3.265789] systemd[1]: systemd-pcrlock.socket - Make TPM PCR Policy skipped, unmet condition check ConditionSecurity=measured-uki
+[    3.267447] systemd[1]: Listening on systemd-resolved-monitor.socket - Resolve Monitor Varlink Socket.
+[    3.272184] systemd[1]: Listening on systemd-resolved-varlink.socket - Resolve Service Varlink Socket.
+[    3.277266] systemd[1]: Listening on systemd-udevd-control.socket - udev Control Socket.
+[    3.281175] systemd[1]: Listening on systemd-udevd-kernel.socket - udev Kernel Socket.
+[    3.285221] systemd[1]: Listening on systemd-udevd-varlink.socket - udev Varlink Socket.
+[    3.290588] systemd[1]: Mounting dev-hugepages.mount - Huge Pages File System...
+[    3.294831] systemd[1]: Mounting dev-mqueue.mount - POSIX Message Queue File System...
+[    3.302708] systemd[1]: Mounting sys-kernel-debug.mount - Kernel Debug File System...
+[    3.307868] systemd[1]: Mounting sys-kernel-tracing.mount - Kernel Trace File System...
+[    3.313370] systemd[1]: Mounting tmp.mount - Temporary Directory /tmp...
+[    3.318795] systemd[1]: Starting systemd-journald.service - Journal Service...
+[    3.323081] systemd[1]: Starting keyboard-setup.service - Set the console keyboard layout...
+[    3.327955] systemd[1]: Starting kmod-static-nodes.service - Create List of Static Device Nodes...
+[    3.333085] systemd[1]: Starting lvm2-monitor.service - Monitoring of LVM2 mirrors, snapshots etc. using dmeventd or progress polling...
+[    3.336378] systemd[1]: modprobe@configfs.service - Load Kernel Module configfs skipped, unmet condition check ConditionKernelModuleLoaded=!configfs
+[    3.338803] systemd-journald[227]: Collecting audit messages is disabled.
+[    3.338870] systemd[1]: Mounting sys-kernel-config.mount - Kernel Configuration File System...
+[    3.342189] systemd[1]: Starting modprobe@dm_multipath.service - Load Kernel Module dm_multipath...
+[    3.345225] systemd[1]: modprobe@drm.service - Load Kernel Module drm skipped, unmet condition check ConditionKernelModuleLoaded=!drm
+[    3.348087] systemd[1]: Starting modprobe@efi_pstore.service - Load Kernel Module efi_pstore...
+[    3.352146] systemd[1]: modprobe@fuse.service - Load Kernel Module fuse skipped, unmet condition check ConditionKernelModuleLoaded=!fuse
+[    3.354547] systemd[1]: Mounting sys-fs-fuse-connections.mount - FUSE Control File System...
+[    3.359075] systemd[1]: Starting modprobe@nvme_fabrics.service - Load Kernel Module nvme_fabrics...
+[    3.363173] systemd[1]: netplan-ovs-cleanup.service - OpenVSwitch configuration for cleanup skipped, unmet condition check ConditionFileIsExecutable=/usr/bin/ovs-vsctl
+[    3.363210] pstore: Using crash dump compression: deflate
+[    3.366193] systemd[1]: Starting systemd-fsck-root.service - File System Check on Root Device...
+[    3.370157] systemd[1]: systemd-hibernate-clear.service - Clear Stale Hibernate Storage Info skipped, unmet condition check ConditionPathExists=/sys/firmware/efi/efivars/HibernateLocation-8cf2644b-4b0b-428f-9387-6d876050dc67
+[    3.370973] pstore: Registered efi_pstore as persistent store backend
+[    3.375073] systemd[1]: Starting systemd-modules-load.service - Load Kernel Modules...
+[    3.379154] systemd[1]: systemd-pcrmachine.service - TPM PCR Machine ID Measurement skipped, unmet condition check ConditionSecurity=measured-uki
+[    3.380968] systemd[1]: systemd-pcrproduct.service - TPM NvPCR Product ID Measurement skipped, unmet condition check ConditionSecurity=measured-uki
+[    3.382832] systemd[1]: systemd-tpm2-setup-early.service - Early TPM SRK Setup skipped, unmet condition check ConditionSecurity=measured-uki
+[    3.385485] systemd[1]: Starting systemd-udev-load-credentials.service - Load udev Rules from Credentials...
+[    3.387930] systemd[1]: Starting systemd-udev-trigger.service - Coldplug All udev Devices...
+[    3.391350] systemd[1]: Started systemd-journald.service - Journal Service.
+[    3.492669] EXT4-fs (sda1): re-mounted a0b93594-3b3f-4b42-b062-c7d29f0f02dc r/w.
+[    3.524590] systemd-journald[227]: Received client request to flush runtime journal.
+[    3.684228] virtio_net virtio1 ens4: renamed from eth0
+[    3.729398] piix4_smbus 0000:00:01.3: SMBus base address uninitialized - upgrade BIOS or use force_addr=0xaddr
+[    3.749963] RAPL PMU: API unit is 2^-32 Joules, 0 fixed counters, 10737418240 ms ovfl timer
+[    4.386383] input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input4
+[    4.411877] loop0: detected capacity change from 0 to 136816
+[    4.415852] loop1: detected capacity change from 0 to 721528
+[    4.420934] loop2: detected capacity change from 0 to 102608
+[    4.423841] EXT4-fs (sda13): mounted filesystem 6a33ce80-3f62-4348-9360-e4eb56054a31 r/w with ordered data mode. Quota mode: none.
+[    4.529142] audit: type=1400 audit(1788510996.654:2): apparmor="STATUS" operation="profile_load" profile="unconfined" name="brave" pid=480 comm="apparmor_parser"
+[    4.529162] audit: type=1400 audit(1788510996.654:3): apparmor="STATUS" operation="profile_load" profile="unconfined" name="ch-checkns" pid=484 comm="apparmor_parser"
+[    4.529201] audit: type=1400 audit(1788510996.654:4): apparmor="STATUS" operation="profile_load" profile="unconfined" name="Discord" pid=471 comm="apparmor_parser"
+[    4.529246] audit: type=1400 audit(1788510996.654:5): apparmor="STATUS" operation="profile_load" profile="unconfined" name="balena-etcher" pid=477 comm="apparmor_parser"
+[    4.529277] audit: type=1400 audit(1788510996.654:6): apparmor="STATUS" operation="profile_load" profile="unconfined" name="buildah" pid=481 comm="apparmor_parser"
+[    4.529317] audit: type=1400 audit(1788510996.654:7): apparmor="STATUS" operation="profile_load" profile="unconfined" name=4D6F6E676F444220436F6D70617373 pid=472 comm="apparmor_parser"
+[    4.529357] audit: type=1400 audit(1788510996.654:8): apparmor="STATUS" operation="profile_load" profile="unconfined" name="QtWebEngineProcess" pid=473 comm="apparmor_parser"
+[    4.529402] audit: type=1400 audit(1788510996.654:9): apparmor="STATUS" operation="profile_load" profile="unconfined" name="1password" pid=470 comm="apparmor_parser"
+[    4.529432] audit: type=1400 audit(1788510996.654:10): apparmor="STATUS" operation="profile_load" profile="unconfined" name="ch-run" pid=485 comm="apparmor_parser"
+[    4.729320] 8021q: 802.1Q VLAN Support v1.8
+[    4.874928] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    4.875249] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    4.875377] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    4.875458] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[    4.875463] cfg80211: failed to load regulatory.db
+[    8.936805] kauditd_printk_skb: 177 callbacks suppressed
+[    8.936809] audit: type=1400 audit(1788511001.061:188): apparmor="STATUS" operation="profile_replace" info="same as current profile, skipping" profile="unconfined" name="rsyslogd" pid=790 comm="apparmor_parser"
+[    8.992874] audit: type=1400 audit(1788511001.117:189): apparmor="DENIED" operation="sendmsg" class="file" profile="systemd-detect-virt" name="/att/systemd-detect-virt/run/systemd/journal/socket" pid=857 comm="systemd-detect-" requested_mask="w" denied_mask="w" fsuid=0 ouid=0
+[    8.992938] audit: type=1400 audit(1788511001.117:190): apparmor="DENIED" operation="capable" class="cap" profile="systemd-detect-virt" pid=857 comm="systemd-detect-" capability=38  capname="perfmon"
+[    8.992993] audit: type=1400 audit(1788511001.117:191): apparmor="DENIED" operation="sendmsg" class="file" profile="systemd-detect-virt" name="/att/systemd-detect-virt/run/systemd/notify" pid=857 comm="systemd-detect-" requested_mask="w" denied_mask="w" fsuid=0 ouid=0
+[    9.251548] loop3: detected capacity change from 0 to 8
+[    9.376169] audit: type=1400 audit(1788511001.502:192): apparmor="STATUS" operation="profile_replace" info="same as current profile, skipping" profile="unconfined" name="/usr/lib/snapd/snap-confine" pid=945 comm="apparmor_parser"
+[   25.896258] fbcon: Taking over console
+[   58.880135] Generated instance DTB for '' (ID 0): 183 bytes
+[   80.304038] mk_transport: loading out-of-tree module taints kernel.
+[   80.304045] mk_transport: module verification failed: signature and/or required key missing - tainting kernel
+[   80.307396] Multikernel vsock transport registered
+[   82.001414] Generated instance DTB for '' (ID 0): 183 bytes
+[   82.003132] Loading host kernel device tree configuration (262 bytes at offset 0)
+[   82.003144] Baseline CPU pool: 4 CPUs requested: 8,10,12,14
+[   82.003147] Baseline CPUs validated: 4 CPUs available for multikernel pool
+[   83.729211] mk_spawn: host pool park area at 0x0000000df960b000 (slot 0x0000000df960e000)
+[   83.729220] Multikernel pool: added 0x0000000df9600000 (8192 MB) on node 0
+[   83.729223] Moving 4 CPUs into the multikernel pool
+[   83.743404] smpboot: CPU 4 is now offline
+[   83.743977] Multikernel hotplug: Successfully removed CPU 4 (phys 8)
+[   83.757302] smpboot: CPU 5 is now offline
+[   83.758019] Multikernel hotplug: Successfully removed CPU 5 (phys 10)
+[   83.767117] smpboot: CPU 6 is now offline
+[   83.767609] Multikernel hotplug: Successfully removed CPU 6 (phys 12)
+[   83.775587] smpboot: CPU 7 is now offline
+[   83.776210] Multikernel hotplug: Successfully removed CPU 7 (phys 14)
+[   83.776213] Moved 4 CPUs into the multikernel pool
+[   83.776215] Multikernel baseline initialized successfully
+[   83.776218] Successfully stored host kernel device tree configuration
+[   83.944553] Generated instance DTB for '' (ID 0): 387 bytes
+[   83.945560] Applying overlay transaction 2 (target=/instances, resources=unknown)
+[   83.945568] Overlay tx2: Creating instance 'runtime-g3'
+[   83.945571] Successfully parsed memory size: 4294967296 bytes (4096 MB)
+[   83.945574] Successfully parsed 2 physical CPUs: 8,10
+[   83.945576] Successfully parsed instance 'runtime-g3': 4294967296 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+[   83.945953] Created instance pool 23: 1 chunks, total size=4294967296 bytes
+[   83.945957] Transferred 0x100000000 bytes from root to instance 23 (runtime-g3)
+[   83.945958] Created instance pool 23: 1 chunks, total size=4294967296 bytes
+[   83.945960] Transferred 2 CPUs from pool to instance 23 (runtime-g3): 8,10
+[   83.945965] Generated instance DTB for 'runtime-g3' (ID 23): 264 bytes
+[   83.945967] Overlay tx2: Instance 'runtime-g3' created successfully
+[   83.945972] Overlay transaction 2 applied successfully
+[   84.112997] kexec_file: kexec_file_load: multikernel load - flags=0x2f0, extracted mk_id=23
+[   84.113001] kexec_file: Associated kimage with multikernel instance 23
+[   84.113063] kexec_file: Allocated IPI ring buffer: phys=0x10e480000, size=263696 bytes (order 7)
+[   87.012475] kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+[   87.012481] kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+[   87.012484] kexec_file: Allocated 4096 bytes from multikernel pool at 0xdf9610000
+[   87.012485] kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8c6d3ffbd000 bufsz=0x30 mem=0xdf9610000 memsz=0x1000
+[   87.012488] kexec-vmlinux: Loading ELF vmlinux (type=2)
+[   87.012490] kexec-vmlinux: multikernel: entry=0x3d5efd4
+[   87.012491] kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+[   87.012491] kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+[   87.012492] kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+[   87.012495] kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+[   87.012496] kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+[   87.012497] kexec_file: Allocated 8192 bytes from multikernel pool at 0xdf9611000
+[   87.012498] kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8c5e01a88000 bufsz=0x14a0 mem=0xdf9611000 memsz=0x2000
+[   87.025846] kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+[   87.025853] kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+[   87.025863] kexec_file: Allocated 65011712 bytes from multikernel pool at 0xdf9800000
+[   87.025865] kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd39ae2200000 bufsz=0x3e00000 mem=0xdf9800000 memsz=0x3e00000
+[   87.025868] kexec-vmlinux: Loading kernel segments to 0xdf9800000 (buffer=ffffd39ae2200000, size=0x3e00000)
+[   87.025869] kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+[   87.031956] kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+[   87.035262] kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0xdf9800000 buf=ffffd39ae2200000
+[   87.035266] kexec_file: kexec_locate_mem_hole: called for segment size=0x542000, mem=0x0, image_type=2
+[   87.035267] kexec_file: kexec_alloc_multikernel: called for segment size=0x542000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+[   87.035271] kexec_file: Allocated 5513216 bytes from multikernel pool at 0xdfd600000
+[   87.035272] kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd39ae1b93000 bufsz=0x5410b9 mem=0xdfd600000 memsz=0x542000
+[   87.035274] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=runtime-g3 mk.generation=f706184e16327d02eb6115d56020e2dd mk.token=[REDACTED] mk.agent_port=7103 len=202 offset=4096
+[   87.035275] kexec-bzImage64: setup_cmdline: cmd_line_ptr=0xf9612000 ext=0xd (phys=0xdf9612000)
+[   87.035276] kexec-vmlinux: Multikernel: entry=0xdfc55efd4 boot_params=0xdf9611000
+[   87.035280] mk_e820: instance 23: 4096 MB RAM in 1 regions
+[   87.035443] kexec_core: Loading multikernel segment: mem=0xdf9610000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[   87.035447] kexec_core: Loading multikernel segment: mem=0xdf9611000, memsz=0x2000, kbuf=0xffff8c5e01a88000, buf=0x0000000000000000, bufsz=0x14a0, file_mode=1
+[   87.035452] kexec_core: Loading multikernel segment: mem=0xdf9800000, memsz=0x3e00000, kbuf=0xffffd39ae2200000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[   87.046055] kexec_core: Loading multikernel segment: mem=0xdfd600000, memsz=0x542000, kbuf=0xffffd39ae1b93000, buf=0x0000000000000000, bufsz=0x5410b9, file_mode=1
+[   88.782743] kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 2 CPUs assigned
+[   88.782757] kexec_core: Loading multikernel segment: mem=0xdf9610000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[   88.782763] kexec_core: Loading multikernel segment: mem=0xdf9611000, memsz=0x2000, kbuf=0xffff8c5e01a88000, buf=0x0000000000000000, bufsz=0x14a0, file_mode=1
+[   88.782766] kexec_core: Loading multikernel segment: mem=0xdf9800000, memsz=0x3e00000, kbuf=0xffffd39ae2200000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[   88.793072] kexec_core: Loading multikernel segment: mem=0xdfd600000, memsz=0x542000, kbuf=0xffffd39ae1b93000, buf=0x0000000000000000, bufsz=0x5410b9, file_mode=1
+[   88.793936] Preserving multikernel DTB for instance 23
+[   88.793944] Generated instance DTB for 'runtime-g3' (ID 23): 264 bytes
+[   88.793953] Preserved DTB for instance 23 (264 bytes)
+[   88.793954] Preserving host IPI buffer: phys=0x101180000, pages=65
+[   88.793956] Added host IPI buffer to manifest
+[   88.793957] multikernel: added IPI buffer to manifest: phys=0x10e480000, pages=65 (263696 bytes)
+[   88.793959] multikernel: finalized manifest for instance 23 (size: 594 bytes)
+[   88.793960] kexec_core: Manifest finalized for multikernel instance
+[   88.794227] mk_e820: instance 23: 4096 MB RAM in 1 regions
+[   88.794499] Multikernel instance 23 is now active
+[   88.794701] mktty: fd connected to instance 23
+[   91.244175] Instance 23 (runtime-g3) halted, CPUs parking in pool
+[   91.411783] kexec_file: Unloading kernel from multikernel instance 23
+[   91.591434] Applying overlay transaction 3 (target=/instances, resources=unknown)
+[   91.591444] Overlay tx3: Removing instance 'runtime-g3' (ID: 23)
+[   91.591448] Releasing multikernel instance 23 (runtime-g3), returning resources to root
+[   91.591450] Returned 2 CPUs from instance 23 (runtime-g3) to the pool: 8,10
+[   91.591453] Returning 0x100000000 bytes from instance 23 (runtime-g3) back to multikernel pool
+[   91.592140] Overlay tx3: Instance 'runtime-g3' removed successfully
+[   91.592145] Overlay transaction 3 applied successfully
+[   91.759345] Generated instance DTB for '' (ID 0): 387 bytes
+[   91.760126] Applying overlay transaction 4 (target=/resources, resources=unknown)
+[   91.760139] Overlay tx4: -cpu 8 numa=-1 from /resources
+[   91.760142] Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+[   91.760145] Multikernel hotplug: Physical CPU 8 not found in present CPUs
+[   91.775961] smpboot: Booting Node 0 Processor 4 APIC 0x8
+[   91.777799] Multikernel hotplug: Successfully added CPU 4 (phys 8)
+[   91.777806] Overlay tx4: -cpu 10 numa=-1 from /resources
+[   91.777809] Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+[   91.777811] Multikernel hotplug: Physical CPU 10 not found in present CPUs
+[   91.785341] smpboot: Booting Node 0 Processor 5 APIC 0xa
+[   91.787007] Multikernel hotplug: Successfully added CPU 5 (phys 10)
+[   91.787014] Overlay tx4: -cpu 12 numa=-1 from /resources
+[   91.787016] Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+[   91.787018] Multikernel hotplug: Physical CPU 12 not found in present CPUs
+[   91.795164] smpboot: Booting Node 0 Processor 6 APIC 0xc
+[   91.796879] Multikernel hotplug: Successfully added CPU 6 (phys 12)
+[   91.796886] Overlay tx4: -cpu 14 numa=-1 from /resources
+[   91.796888] Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+[   91.796890] Multikernel hotplug: Physical CPU 14 not found in present CPUs
+[   91.804974] smpboot: Booting Node 0 Processor 7 APIC 0xe
+[   91.806752] Multikernel hotplug: Successfully added CPU 7 (phys 14)
+[   91.806760] Overlay tx4: -memory 0xdf9600000-0xff95fffff (8192 MB) from /resources
+[   91.806829] mk_spawn: released the host pool park area
+[   91.948629] Multikernel pool: removed 0x0000000df9600000-0x0000000ff95fffff (8192 MB)
+[   91.948645] Overlay transaction 4 applied successfully
+[   92.497932] Generated instance DTB for '' (ID 0): 158 bytes
+[  127.404023] Generated instance DTB for '' (ID 0): 158 bytes
+[  159.705419] Generated instance DTB for '' (ID 0): 158 bytes
+[  160.028947] Generated instance DTB for '' (ID 0): 158 bytes
+[  160.180988] Generated instance DTB for '' (ID 0): 158 bytes
+[  160.355183] Generated instance DTB for '' (ID 0): 158 bytes
+[  160.827718] Generated instance DTB for '' (ID 0): 158 bytes
+[  160.829470] Loading host kernel device tree configuration (262 bytes at offset 0)
+[  160.829486] Baseline CPU pool: 4 CPUs requested: 8,10,12,14
+[  160.829511] Baseline CPUs validated: 4 CPUs available for multikernel pool
+[  164.954827] mk_spawn: host pool park area at 0x0000000cddc0b000 (slot 0x0000000cddc0e000)
+[  164.954836] Multikernel pool: added 0x0000000cddc00000 (8192 MB) on node 0
+[  164.954840] Moving 4 CPUs into the multikernel pool
+[  164.968667] smpboot: CPU 4 is now offline
+[  164.969116] Multikernel hotplug: Successfully removed CPU 4 (phys 8)
+[  164.979761] smpboot: CPU 5 is now offline
+[  164.980376] Multikernel hotplug: Successfully removed CPU 5 (phys 10)
+[  164.986536] IRQ fixup: irq 42 move in progress, old vector 37
+[  164.987866] smpboot: CPU 6 is now offline
+[  164.988233] Multikernel hotplug: Successfully removed CPU 6 (phys 12)
+[  164.996749] smpboot: CPU 7 is now offline
+[  164.997082] Multikernel hotplug: Successfully removed CPU 7 (phys 14)
+[  164.997085] Moved 4 CPUs into the multikernel pool
+[  164.997087] Replacing existing DTB (262 bytes) with baseline DTB
+[  164.997089] Multikernel baseline initialized successfully
+[  164.997092] Successfully stored host kernel device tree configuration
+[  165.157143] Generated instance DTB for '' (ID 0): 387 bytes
+[  165.158113] Applying overlay transaction 5 (target=/instances, resources=unknown)
+[  165.158122] Overlay tx5: Creating instance 'runtime-g1-crash'
+[  165.158125] Successfully parsed memory size: 4294967296 bytes (4096 MB)
+[  165.158128] Successfully parsed 2 physical CPUs: 8,10
+[  165.158130] Successfully parsed instance 'runtime-g1-crash': 4294967296 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+[  165.158504] Created instance pool 21: 1 chunks, total size=4294967296 bytes
+[  165.158513] Transferred 0x100000000 bytes from root to instance 21 (runtime-g1-crash)
+[  165.158515] Created instance pool 21: 1 chunks, total size=4294967296 bytes
+[  165.158517] Transferred 2 CPUs from pool to instance 21 (runtime-g1-crash): 8,10
+[  165.158521] Generated instance DTB for 'runtime-g1-crash' (ID 21): 272 bytes
+[  165.158523] Overlay tx5: Instance 'runtime-g1-crash' created successfully
+[  165.158528] Overlay transaction 5 applied successfully
+[  165.320620] kexec_file: kexec_file_load: multikernel load - flags=0x2b0, extracted mk_id=21
+[  165.320625] kexec_file: Associated kimage with multikernel instance 21
+[  165.320691] kexec_file: Allocated IPI ring buffer: phys=0x10e500000, size=263696 bytes (order 7)
+[  165.465000] kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+[  165.465006] kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+[  165.465009] kexec_file: Allocated 4096 bytes from multikernel pool at 0xcddc10000
+[  165.465011] kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8c6d3ffbd000 bufsz=0x30 mem=0xcddc10000 memsz=0x1000
+[  165.465013] kexec-vmlinux: Loading ELF vmlinux (type=2)
+[  165.465015] kexec-vmlinux: multikernel: entry=0x3d5efd4
+[  165.465016] kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+[  165.465017] kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+[  165.465018] kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+[  165.465027] kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+[  165.465029] kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+[  165.465030] kexec_file: Allocated 8192 bytes from multikernel pool at 0xcddc11000
+[  165.465031] kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8c5e07250000 bufsz=0x1400 mem=0xcddc11000 memsz=0x2000
+[  165.472748] kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+[  165.472754] kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+[  165.472762] kexec_file: Allocated 65011712 bytes from multikernel pool at 0xcdde00000
+[  165.472764] kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd39ae1c00000 bufsz=0x3e00000 mem=0xcdde00000 memsz=0x3e00000
+[  165.472765] kexec-vmlinux: Loading kernel segments to 0xcdde00000 (buffer=ffffd39ae1c00000, size=0x3e00000)
+[  165.472767] kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+[  165.478727] kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+[  165.482017] kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0xcdde00000 buf=ffffd39ae1c00000
+[  165.482020] kexec_file: kexec_locate_mem_hole: called for segment size=0x116000, mem=0x0, image_type=2
+[  165.482021] kexec_file: kexec_alloc_multikernel: called for segment size=0x116000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+[  165.482024] kexec_file: Allocated 1138688 bytes from multikernel pool at 0xcddc13000
+[  165.482025] kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd39ac2c25000 bufsz=0x115f0b mem=0xcddc13000 memsz=0x116000
+[  165.482027] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 panic=-1 len=37 offset=4096
+[  165.482028] kexec-bzImage64: setup_cmdline: cmd_line_ptr=0xddc12000 ext=0xc (phys=0xcddc12000)
+[  165.482029] kexec-vmlinux: Multikernel: entry=0xce0b5efd4 boot_params=0xcddc11000
+[  165.482032] mk_e820: instance 21: 4096 MB RAM in 1 regions
+[  165.482209] kexec_core: Loading multikernel segment: mem=0xcddc10000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[  165.482214] kexec_core: Loading multikernel segment: mem=0xcddc11000, memsz=0x2000, kbuf=0xffff8c5e07250000, buf=0x0000000000000000, bufsz=0x1400, file_mode=1
+[  165.482219] kexec_core: Loading multikernel segment: mem=0xcdde00000, memsz=0x3e00000, kbuf=0xffffd39ae1c00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[  165.492847] kexec_core: Loading multikernel segment: mem=0xcddc13000, memsz=0x116000, kbuf=0xffffd39ac2c25000, buf=0x0000000000000000, bufsz=0x115f0b, file_mode=1
+[  167.155218] kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 2 CPUs assigned
+[  167.155223] kexec_core: Loading multikernel segment: mem=0xcddc10000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[  167.155230] kexec_core: Loading multikernel segment: mem=0xcddc11000, memsz=0x2000, kbuf=0xffff8c5e07250000, buf=0x0000000000000000, bufsz=0x1400, file_mode=1
+[  167.155234] kexec_core: Loading multikernel segment: mem=0xcdde00000, memsz=0x3e00000, kbuf=0xffffd39ae1c00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[  167.166271] kexec_core: Loading multikernel segment: mem=0xcddc13000, memsz=0x116000, kbuf=0xffffd39ac2c25000, buf=0x0000000000000000, bufsz=0x115f0b, file_mode=1
+[  167.166486] Preserving multikernel DTB for instance 21
+[  167.166493] Generated instance DTB for 'runtime-g1-crash' (ID 21): 272 bytes
+[  167.166499] Preserved DTB for instance 21 (272 bytes)
+[  167.166500] Preserving host IPI buffer: phys=0x101180000, pages=65
+[  167.166502] Added host IPI buffer to manifest
+[  167.166502] multikernel: added IPI buffer to manifest: phys=0x10e500000, pages=65 (263696 bytes)
+[  167.166504] multikernel: finalized manifest for instance 21 (size: 602 bytes)
+[  167.166505] kexec_core: Manifest finalized for multikernel instance
+[  167.166758] mk_e820: instance 21: 4096 MB RAM in 1 regions
+[  167.167012] Multikernel instance 21 is now active
+[  167.167215] mktty: fd connected to instance 21
+[  167.463051] CPU 8: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463051] CPU 0: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463060] CPU 14: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463064] CPU 10: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463073] CPU 9: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463073] CPU 1: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463074] CPU 15: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463078] CPU 2: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463080] CPU 11: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463086] CPU 3: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463086] CPU 12: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463090] CPU 13: Ignoring REBOOT_VECTOR from other kernel instance (stopping_cpu=-1)
+[  167.463197] Instance 21 (runtime-g1-crash) halted, CPUs parking in pool
+[  168.680736] kexec_file: Unloading kernel from multikernel instance 21
+[  168.853551] Applying overlay transaction 6 (target=/instances, resources=unknown)
+[  168.853561] Overlay tx6: Removing instance 'runtime-g1-crash' (ID: 21)
+[  168.853566] Releasing multikernel instance 21 (runtime-g1-crash), returning resources to root
+[  168.853568] Returned 2 CPUs from instance 21 (runtime-g1-crash) to the pool: 8,10
+[  168.853571] Returning 0x100000000 bytes from instance 21 (runtime-g1-crash) back to multikernel pool
+[  168.854160] Overlay tx6: Instance 'runtime-g1-crash' removed successfully
+[  168.854162] Overlay transaction 6 applied successfully
+[  169.013841] Generated instance DTB for '' (ID 0): 387 bytes
+[  169.014637] Applying overlay transaction 7 (target=/resources, resources=unknown)
+[  169.014650] Overlay tx7: -cpu 8 numa=-1 from /resources
+[  169.014653] Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+[  169.014656] Multikernel hotplug: Physical CPU 8 not found in present CPUs
+[  169.035511] smpboot: Booting Node 0 Processor 4 APIC 0x8
+[  169.037169] Multikernel hotplug: Successfully added CPU 4 (phys 8)
+[  169.037175] Overlay tx7: -cpu 10 numa=-1 from /resources
+[  169.037178] Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+[  169.037180] Multikernel hotplug: Physical CPU 10 not found in present CPUs
+[  169.045253] smpboot: Booting Node 0 Processor 5 APIC 0xa
+[  169.046915] Multikernel hotplug: Successfully added CPU 5 (phys 10)
+[  169.046919] Overlay tx7: -cpu 12 numa=-1 from /resources
+[  169.046921] Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+[  169.046923] Multikernel hotplug: Physical CPU 12 not found in present CPUs
+[  169.055037] smpboot: Booting Node 0 Processor 6 APIC 0xc
+[  169.056735] Multikernel hotplug: Successfully added CPU 6 (phys 12)
+[  169.056741] Overlay tx7: -cpu 14 numa=-1 from /resources
+[  169.056743] Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+[  169.056745] Multikernel hotplug: Physical CPU 14 not found in present CPUs
+[  169.064821] smpboot: Booting Node 0 Processor 7 APIC 0xe
+[  169.066558] Multikernel hotplug: Successfully added CPU 7 (phys 14)
+[  169.066568] Overlay tx7: -memory 0xcddc00000-0xeddbfffff (8192 MB) from /resources
+[  169.066675] mk_spawn: released the host pool park area
+[  169.210457] Multikernel pool: removed 0x0000000cddc00000-0x0000000eddbfffff (8192 MB)
+[  169.210472] Overlay transaction 7 applied successfully
+[  169.371896] Generated instance DTB for '' (ID 0): 158 bytes
+[  194.468327] Generated instance DTB for '' (ID 0): 158 bytes
+[  194.624954] Generated instance DTB for '' (ID 0): 158 bytes
+[  196.282814] Generated instance DTB for '' (ID 0): 158 bytes
+[  196.284592] Loading host kernel device tree configuration (294 bytes at offset 0)
+[  196.284608] Baseline CPU pool: 8 CPUs requested: 8,9,10,11,12,13,14,15
+[  196.284612] Baseline CPUs validated: 8 CPUs available for multikernel pool
+[  202.971552] mk_spawn: host pool park area at 0x0000000bdc00f000 (slot 0x0000000bdc012000)
+[  202.971560] Multikernel pool: added 0x0000000bdc000000 (12288 MB) on node 0
+[  202.971564] Moving 8 CPUs into the multikernel pool
+[  202.983795] IRQ fixup: irq 38 move in progress, old vector 34
+[  202.985131] smpboot: CPU 4 is now offline
+[  202.985512] Multikernel hotplug: Successfully removed CPU 4 (phys 8)
+[  202.998032] IRQ fixup: irq 54 move in progress, old vector 34
+[  202.999358] smpboot: CPU 12 is now offline
+[  203.000050] Multikernel hotplug: Successfully removed CPU 12 (phys 9)
+[  203.009629] IRQ fixup: irq 40 move in progress, old vector 39
+[  203.011034] smpboot: CPU 5 is now offline
+[  203.011445] Multikernel hotplug: Successfully removed CPU 5 (phys 10)
+[  203.021587] smpboot: CPU 13 is now offline
+[  203.022111] Multikernel hotplug: Successfully removed CPU 13 (phys 11)
+[  203.030180] smpboot: CPU 6 is now offline
+[  203.030473] Multikernel hotplug: Successfully removed CPU 6 (phys 12)
+[  203.040395] smpboot: CPU 14 is now offline
+[  203.040877] Multikernel hotplug: Successfully removed CPU 14 (phys 13)
+[  203.054924] smpboot: CPU 7 is now offline
+[  203.055215] Multikernel hotplug: Successfully removed CPU 7 (phys 14)
+[  203.063990] smpboot: CPU 15 is now offline
+[  203.064746] Multikernel hotplug: Successfully removed CPU 15 (phys 15)
+[  203.064749] Moved 8 CPUs into the multikernel pool
+[  203.064750] Replacing existing DTB (262 bytes) with baseline DTB
+[  203.064752] Multikernel baseline initialized successfully
+[  203.064754] Successfully stored host kernel device tree configuration
+[  203.221778] Generated instance DTB for '' (ID 0): 451 bytes
+[  203.222687] Applying overlay transaction 8 (target=/instances, resources=unknown)
+[  203.222694] Overlay tx8: Creating instance 'runtime-g2'
+[  203.222701] Successfully parsed memory size: 4294967296 bytes (4096 MB)
+[  203.222704] Successfully parsed 2 physical CPUs: 8,10
+[  203.222706] Successfully parsed instance 'runtime-g2': 4294967296 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+[  203.223078] Created instance pool 22: 1 chunks, total size=4294967296 bytes
+[  203.223081] Transferred 0x100000000 bytes from root to instance 22 (runtime-g2)
+[  203.223083] Created instance pool 22: 1 chunks, total size=4294967296 bytes
+[  203.223085] Transferred 2 CPUs from pool to instance 22 (runtime-g2): 8,10
+[  203.223090] Generated instance DTB for 'runtime-g2' (ID 22): 264 bytes
+[  203.223092] Overlay tx8: Instance 'runtime-g2' created successfully
+[  203.223096] Overlay transaction 8 applied successfully
+[  203.223433] Generated instance DTB for '' (ID 0): 435 bytes
+[  206.724517] kexec_file: kexec_file_load: multikernel load - flags=0x2d0, extracted mk_id=22
+[  206.724522] kexec_file: Associated kimage with multikernel instance 22
+[  206.724585] kexec_file: Allocated IPI ring buffer: phys=0x10e500000, size=263696 bytes (order 7)
+[  206.859793] kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+[  206.859799] kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+[  206.859801] kexec_file: Allocated 4096 bytes from multikernel pool at 0xbdc020000
+[  206.859803] kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8c6d3ffbd000 bufsz=0x30 mem=0xbdc020000 memsz=0x1000
+[  206.859805] kexec-vmlinux: Loading ELF vmlinux (type=2)
+[  206.859807] kexec-vmlinux: multikernel: entry=0x3d5efd4
+[  206.859808] kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+[  206.859809] kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+[  206.859810] kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+[  206.859812] kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+[  206.859814] kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+[  206.859815] kexec_file: Allocated 8192 bytes from multikernel pool at 0xbdc014000
+[  206.859816] kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8c5e07250000 bufsz=0x1400 mem=0xbdc014000 memsz=0x2000
+[  206.867537] kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+[  206.867542] kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+[  206.867549] kexec_file: Allocated 65011712 bytes from multikernel pool at 0xbdc200000
+[  206.867550] kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd39ae1c00000 bufsz=0x3e00000 mem=0xbdc200000 memsz=0x3e00000
+[  206.867552] kexec-vmlinux: Loading kernel segments to 0xbdc200000 (buffer=ffffd39ae1c00000, size=0x3e00000)
+[  206.867553] kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+[  206.873385] kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+[  206.876568] kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0xbdc200000 buf=ffffd39ae1c00000
+[  206.876572] kexec_file: kexec_locate_mem_hole: called for segment size=0x116000, mem=0x0, image_type=2
+[  206.876573] kexec_file: kexec_alloc_multikernel: called for segment size=0x116000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+[  206.876576] kexec_file: Allocated 1138688 bytes from multikernel pool at 0xbdc021000
+[  206.876577] kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd39ac2e4d000 bufsz=0x115f17 mem=0xbdc021000 memsz=0x116000
+[  206.876578] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 panic=-1 len=37 offset=4096
+[  206.876580] kexec-bzImage64: setup_cmdline: cmd_line_ptr=0xdc015000 ext=0xb (phys=0xbdc015000)
+[  206.876581] kexec-vmlinux: Multikernel: entry=0xbdef5efd4 boot_params=0xbdc014000
+[  206.876584] mk_e820: instance 22: 4096 MB RAM in 1 regions
+[  206.876855] kexec_core: Loading multikernel segment: mem=0xbdc020000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[  206.876859] kexec_core: Loading multikernel segment: mem=0xbdc014000, memsz=0x2000, kbuf=0xffff8c5e07250000, buf=0x0000000000000000, bufsz=0x1400, file_mode=1
+[  206.876862] kexec_core: Loading multikernel segment: mem=0xbdc200000, memsz=0x3e00000, kbuf=0xffffd39ae1c00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[  206.887218] kexec_core: Loading multikernel segment: mem=0xbdc021000, memsz=0x116000, kbuf=0xffffd39ac2e4d000, buf=0x0000000000000000, bufsz=0x115f17, file_mode=1
+[  208.691191] kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 2 CPUs assigned
+[  208.691196] kexec_core: Loading multikernel segment: mem=0xbdc020000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[  208.691202] kexec_core: Loading multikernel segment: mem=0xbdc014000, memsz=0x2000, kbuf=0xffff8c5e07250000, buf=0x0000000000000000, bufsz=0x1400, file_mode=1
+[  208.691206] kexec_core: Loading multikernel segment: mem=0xbdc200000, memsz=0x3e00000, kbuf=0xffffd39ae1c00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[  208.701958] kexec_core: Loading multikernel segment: mem=0xbdc021000, memsz=0x116000, kbuf=0xffffd39ac2e4d000, buf=0x0000000000000000, bufsz=0x115f17, file_mode=1
+[  208.702144] Preserving multikernel DTB for instance 22
+[  208.702153] Generated instance DTB for 'runtime-g2' (ID 22): 264 bytes
+[  208.702157] Preserved DTB for instance 22 (264 bytes)
+[  208.702158] Preserving host IPI buffer: phys=0x101180000, pages=65
+[  208.702160] Added host IPI buffer to manifest
+[  208.702161] multikernel: added IPI buffer to manifest: phys=0x10e500000, pages=65 (263696 bytes)
+[  208.702163] multikernel: finalized manifest for instance 22 (size: 626 bytes)
+[  208.702164] kexec_core: Manifest finalized for multikernel instance
+[  208.702447] mk_e820: instance 22: 4096 MB RAM in 1 regions
+[  208.702674] Multikernel instance 22 is now active
+[  211.381535] Generated instance DTB for '' (ID 0): 435 bytes
+[  211.382494] Applying overlay transaction 9 (target=/instances, resources=unknown)
+[  211.382501] Overlay tx9: Creating instance 'runtime-g2-b'
+[  211.382504] Successfully parsed memory size: 4294967296 bytes (4096 MB)
+[  211.382507] Successfully parsed 2 physical CPUs: 12,14
+[  211.382509] Successfully parsed instance 'runtime-g2-b': 4294967296 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+[  211.382880] Created instance pool 24: 1 chunks, total size=4294967296 bytes
+[  211.382884] Transferred 0x100000000 bytes from root to instance 24 (runtime-g2-b)
+[  211.382886] Created instance pool 24: 1 chunks, total size=4294967296 bytes
+[  211.382889] Transferred 2 CPUs from pool to instance 24 (runtime-g2-b): 12,14
+[  211.382893] Generated instance DTB for 'runtime-g2-b' (ID 24): 268 bytes
+[  211.382895] Overlay tx9: Instance 'runtime-g2-b' created successfully
+[  211.382900] Overlay transaction 9 applied successfully
+[  211.383302] Generated instance DTB for '' (ID 0): 419 bytes
+[  213.094051] kexec_file: kexec_file_load: multikernel load - flags=0x310, extracted mk_id=24
+[  213.094057] kexec_file: Associated kimage with multikernel instance 24
+[  213.094157] kexec_file: Allocated IPI ring buffer: phys=0x123600000, size=263696 bytes (order 7)
+[  213.271405] kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+[  213.271412] kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+[  213.271415] kexec_file: Allocated 4096 bytes from multikernel pool at 0xcdc020000
+[  213.271417] kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8c6d3ffbd000 bufsz=0x30 mem=0xcdc020000 memsz=0x1000
+[  213.271419] kexec-vmlinux: Loading ELF vmlinux (type=2)
+[  213.271421] kexec-vmlinux: multikernel: entry=0x3d5efd4
+[  213.271422] kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+[  213.271423] kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+[  213.271424] kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+[  213.271434] kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+[  213.271435] kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+[  213.271437] kexec_file: Allocated 8192 bytes from multikernel pool at 0xcdc016000
+[  213.271438] kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8c5e0d794000 bufsz=0x1400 mem=0xcdc016000 memsz=0x2000
+[  213.284257] kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+[  213.284263] kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+[  213.284270] kexec_file: Allocated 65011712 bytes from multikernel pool at 0xcdc200000
+[  213.284272] kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd39b04600000 bufsz=0x3e00000 mem=0xcdc200000 memsz=0x3e00000
+[  213.284273] kexec-vmlinux: Loading kernel segments to 0xcdc200000 (buffer=ffffd39b04600000, size=0x3e00000)
+[  213.284275] kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+[  213.290259] kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+[  213.293466] kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0xcdc200000 buf=ffffd39b04600000
+[  213.293471] kexec_file: kexec_locate_mem_hole: called for segment size=0x116000, mem=0x0, image_type=2
+[  213.293473] kexec_file: kexec_alloc_multikernel: called for segment size=0x116000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+[  213.293475] kexec_file: Allocated 1138688 bytes from multikernel pool at 0xcdc021000
+[  213.293476] kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd39b04499000 bufsz=0x115f17 mem=0xcdc021000 memsz=0x116000
+[  213.293478] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 panic=-1 len=37 offset=4096
+[  213.293479] kexec-bzImage64: setup_cmdline: cmd_line_ptr=0xdc017000 ext=0xc (phys=0xcdc017000)
+[  213.293481] kexec-vmlinux: Multikernel: entry=0xcdef5efd4 boot_params=0xcdc016000
+[  213.293483] mk_e820: instance 24: 4096 MB RAM in 1 regions
+[  213.293642] kexec_core: Loading multikernel segment: mem=0xcdc020000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[  213.293646] kexec_core: Loading multikernel segment: mem=0xcdc016000, memsz=0x2000, kbuf=0xffff8c5e0d794000, buf=0x0000000000000000, bufsz=0x1400, file_mode=1
+[  213.293649] kexec_core: Loading multikernel segment: mem=0xcdc200000, memsz=0x3e00000, kbuf=0xffffd39b04600000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[  213.303868] kexec_core: Loading multikernel segment: mem=0xcdc021000, memsz=0x116000, kbuf=0xffffd39b04499000, buf=0x0000000000000000, bufsz=0x115f17, file_mode=1
+[  215.043051] kexec_core: multikernel kexec: using physical CPU 12 (logical 6), 2 CPUs assigned
+[  215.043056] kexec_core: Loading multikernel segment: mem=0xcdc020000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[  215.043062] kexec_core: Loading multikernel segment: mem=0xcdc016000, memsz=0x2000, kbuf=0xffff8c5e0d794000, buf=0x0000000000000000, bufsz=0x1400, file_mode=1
+[  215.043065] kexec_core: Loading multikernel segment: mem=0xcdc200000, memsz=0x3e00000, kbuf=0xffffd39b04600000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[  215.053274] kexec_core: Loading multikernel segment: mem=0xcdc021000, memsz=0x116000, kbuf=0xffffd39b04499000, buf=0x0000000000000000, bufsz=0x115f17, file_mode=1
+[  215.053462] Preserving multikernel DTB for instance 24
+[  215.053471] Generated instance DTB for 'runtime-g2-b' (ID 24): 268 bytes
+[  215.053476] Preserved DTB for instance 24 (268 bytes)
+[  215.053477] Preserving host IPI buffer: phys=0x101180000, pages=65
+[  215.053479] Added host IPI buffer to manifest
+[  215.053480] multikernel: added IPI buffer to manifest: phys=0x123600000, pages=65 (263696 bytes)
+[  215.053482] multikernel: finalized manifest for instance 24 (size: 630 bytes)
+[  215.053483] kexec_core: Manifest finalized for multikernel instance
+[  215.053806] mk_e820: instance 24: 4096 MB RAM in 1 regions
+[  215.054048] Multikernel instance 24 is now active
+[  215.524614] Force halting multikernel instance 22 via NMI
+[  215.524626] Sent NMI to 2 CPUs in instance 22
+[  215.524627] Instance 22 (runtime-g2) halted, CPUs parking in pool
+[  215.729617] kexec_file: Unloading kernel from multikernel instance 22
+[  215.903902] Applying overlay transaction 10 (target=/instances, resources=unknown)
+[  215.903913] Overlay tx10: Removing instance 'runtime-g2' (ID: 22)
+[  215.903918] Releasing multikernel instance 22 (runtime-g2), returning resources to root
+[  215.903921] Returned 2 CPUs from instance 22 (runtime-g2) to the pool: 8,10
+[  215.903924] Returning 0x100000000 bytes from instance 22 (runtime-g2) back to multikernel pool
+[  215.904660] Overlay tx10: Instance 'runtime-g2' removed successfully
+[  215.904664] Overlay transaction 10 applied successfully
+[  216.112203] Force halting multikernel instance 24 via NMI
+[  216.112216] Sent NMI to 2 CPUs in instance 24
+[  216.112217] Instance 24 (runtime-g2-b) halted, CPUs parking in pool
+[  216.322043] kexec_file: Unloading kernel from multikernel instance 24
+[  216.495304] Applying overlay transaction 11 (target=/instances, resources=unknown)
+[  216.495315] Overlay tx11: Removing instance 'runtime-g2-b' (ID: 24)
+[  216.495320] Releasing multikernel instance 24 (runtime-g2-b), returning resources to root
+[  216.495323] Returned 2 CPUs from instance 24 (runtime-g2-b) to the pool: 12,14
+[  216.495326] Returning 0x100000000 bytes from instance 24 (runtime-g2-b) back to multikernel pool
+[  216.495898] Overlay tx11: Instance 'runtime-g2-b' removed successfully
+[  216.495900] Overlay transaction 11 applied successfully
+[  216.656794] Generated instance DTB for '' (ID 0): 451 bytes
+[  216.657556] Applying overlay transaction 12 (target=/resources, resources=unknown)
+[  216.657569] Overlay tx12: -cpu 8 numa=-1 from /resources
+[  216.657572] Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+[  216.657575] Multikernel hotplug: Physical CPU 8 not found in present CPUs
+[  216.673363] smpboot: Booting Node 0 Processor 4 APIC 0x8
+[  216.675183] Multikernel hotplug: Successfully added CPU 4 (phys 8)
+[  216.675190] Overlay tx12: -cpu 9 numa=-1 from /resources
+[  216.675193] Multikernel hotplug: Adding CPU 9 (numa=-1, flags=0x0)
+[  216.675194] Multikernel hotplug: Physical CPU 9 not found in present CPUs
+[  216.682490] smpboot: Booting Node 0 Processor 12 APIC 0x9
+[  216.683993] Multikernel hotplug: Successfully added CPU 12 (phys 9)
+[  216.684000] Overlay tx12: -cpu 10 numa=-1 from /resources
+[  216.684002] Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+[  216.684004] Multikernel hotplug: Physical CPU 10 not found in present CPUs
+[  216.692289] smpboot: Booting Node 0 Processor 5 APIC 0xa
+[  216.694030] Multikernel hotplug: Successfully added CPU 5 (phys 10)
+[  216.694037] Overlay tx12: -cpu 11 numa=-1 from /resources
+[  216.694040] Multikernel hotplug: Adding CPU 11 (numa=-1, flags=0x0)
+[  216.694041] Multikernel hotplug: Physical CPU 11 not found in present CPUs
+[  216.702070] smpboot: Booting Node 0 Processor 13 APIC 0xb
+[  216.703579] Multikernel hotplug: Successfully added CPU 13 (phys 11)
+[  216.703584] Overlay tx12: -cpu 12 numa=-1 from /resources
+[  216.703587] Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+[  216.703588] Multikernel hotplug: Physical CPU 12 not found in present CPUs
+[  216.711873] smpboot: Booting Node 0 Processor 6 APIC 0xc
+[  216.713692] Multikernel hotplug: Successfully added CPU 6 (phys 12)
+[  216.713698] Overlay tx12: -cpu 13 numa=-1 from /resources
+[  216.713699] Multikernel hotplug: Adding CPU 13 (numa=-1, flags=0x0)
+[  216.713700] Multikernel hotplug: Physical CPU 13 not found in present CPUs
+[  216.721667] smpboot: Booting Node 0 Processor 14 APIC 0xd
+[  216.723364] Multikernel hotplug: Successfully added CPU 14 (phys 13)
+[  216.723370] Overlay tx12: -cpu 14 numa=-1 from /resources
+[  216.723372] Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+[  216.723373] Multikernel hotplug: Physical CPU 14 not found in present CPUs
+[  216.731535] smpboot: Booting Node 0 Processor 7 APIC 0xe
+[  216.733432] Multikernel hotplug: Successfully added CPU 7 (phys 14)
+[  216.733436] Overlay tx12: -cpu 15 numa=-1 from /resources
+[  216.733438] Multikernel hotplug: Adding CPU 15 (numa=-1, flags=0x0)
+[  216.733439] Multikernel hotplug: Physical CPU 15 not found in present CPUs
+[  216.741263] smpboot: Booting Node 0 Processor 15 APIC 0xf
+[  216.743067] Multikernel hotplug: Successfully added CPU 15 (phys 15)
+[  216.743075] Overlay tx12: -memory 0xbdc000000-0xedbffffff (12288 MB) from /resources
+[  216.743234] mk_spawn: released the host pool park area
+[  216.955767] Multikernel pool: removed 0x0000000bdc000000-0x0000000edbffffff (12288 MB)
+[  216.955784] Overlay transaction 12 applied successfully
+[  217.173764] Generated instance DTB for '' (ID 0): 158 bytes
+[  217.581251] Generated instance DTB for '' (ID 0): 158 bytes
+[  217.738690] Generated instance DTB for '' (ID 0): 158 bytes
+[  219.398528] Generated instance DTB for '' (ID 0): 158 bytes
+[  219.400322] Loading host kernel device tree configuration (294 bytes at offset 0)
+[  219.400339] Baseline CPU pool: 8 CPUs requested: 8,9,10,11,12,13,14,15
+[  219.400343] Baseline CPUs validated: 8 CPUs available for multikernel pool
+[  223.224820] mk_spawn: host pool park area at 0x0000000cdb00b000 (slot 0x0000000cdb00e000)
+[  223.224828] Multikernel pool: added 0x0000000cdb000000 (8192 MB) on node 0
+[  223.224831] Moving 8 CPUs into the multikernel pool
+[  223.234233] smpboot: CPU 4 is now offline
+[  223.234558] Multikernel hotplug: Successfully removed CPU 4 (phys 8)
+[  223.244124] smpboot: CPU 12 is now offline
+[  223.244554] Multikernel hotplug: Successfully removed CPU 12 (phys 9)
+[  223.252027] smpboot: CPU 5 is now offline
+[  223.252406] Multikernel hotplug: Successfully removed CPU 5 (phys 10)
+[  223.261078] smpboot: CPU 13 is now offline
+[  223.261441] Multikernel hotplug: Successfully removed CPU 13 (phys 11)
+[  223.269940] smpboot: CPU 6 is now offline
+[  223.270265] Multikernel hotplug: Successfully removed CPU 6 (phys 12)
+[  223.277988] smpboot: CPU 14 is now offline
+[  223.278387] Multikernel hotplug: Successfully removed CPU 14 (phys 13)
+[  223.291940] smpboot: CPU 7 is now offline
+[  223.292240] Multikernel hotplug: Successfully removed CPU 7 (phys 14)
+[  223.301317] smpboot: CPU 15 is now offline
+[  223.301632] Multikernel hotplug: Successfully removed CPU 15 (phys 15)
+[  223.301635] Moved 8 CPUs into the multikernel pool
+[  223.301636] Replacing existing DTB (294 bytes) with baseline DTB
+[  223.301638] Multikernel baseline initialized successfully
+[  223.301640] Successfully stored host kernel device tree configuration
+[  223.461381] Generated instance DTB for '' (ID 0): 451 bytes
+[  223.462291] Applying overlay transaction 13 (target=/instances, resources=unknown)
+[  223.462300] Overlay tx13: Creating instance 'runtime-g2'
+[  223.462310] Successfully parsed memory size: 4294967296 bytes (4096 MB)
+[  223.462314] Successfully parsed 2 physical CPUs: 8,10
+[  223.462317] Successfully parsed instance 'runtime-g2': 4294967296 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+[  223.462681] Created instance pool 22: 1 chunks, total size=4294967296 bytes
+[  223.462685] Transferred 0x100000000 bytes from root to instance 22 (runtime-g2)
+[  223.462686] Created instance pool 22: 1 chunks, total size=4294967296 bytes
+[  223.462689] Transferred 2 CPUs from pool to instance 22 (runtime-g2): 8,10
+[  223.462694] Generated instance DTB for 'runtime-g2' (ID 22): 264 bytes
+[  223.462695] Overlay tx13: Instance 'runtime-g2' created successfully
+[  223.462700] Overlay transaction 13 applied successfully
+[  223.463089] Generated instance DTB for '' (ID 0): 435 bytes
+[  225.171021] kexec_file: kexec_file_load: multikernel load - flags=0x2d0, extracted mk_id=22
+[  225.171026] kexec_file: Associated kimage with multikernel instance 22
+[  225.171099] kexec_file: Allocated IPI ring buffer: phys=0x107180000, size=263696 bytes (order 7)
+[  225.307735] kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+[  225.307741] kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+[  225.307744] kexec_file: Allocated 4096 bytes from multikernel pool at 0xcdb010000
+[  225.307745] kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8c6d3ffbd000 bufsz=0x30 mem=0xcdb010000 memsz=0x1000
+[  225.307747] kexec-vmlinux: Loading ELF vmlinux (type=2)
+[  225.307750] kexec-vmlinux: multikernel: entry=0x3d5efd4
+[  225.307751] kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+[  225.307752] kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+[  225.307753] kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+[  225.307755] kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+[  225.307756] kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+[  225.307757] kexec_file: Allocated 8192 bytes from multikernel pool at 0xcdb011000
+[  225.307758] kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8c5e0d794000 bufsz=0x1400 mem=0xcdb011000 memsz=0x2000
+[  225.315195] kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+[  225.315200] kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+[  225.315206] kexec_file: Allocated 65011712 bytes from multikernel pool at 0xcdb200000
+[  225.315207] kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd39ae1c00000 bufsz=0x3e00000 mem=0xcdb200000 memsz=0x3e00000
+[  225.315209] kexec-vmlinux: Loading kernel segments to 0xcdb200000 (buffer=ffffd39ae1c00000, size=0x3e00000)
+[  225.315210] kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+[  225.320987] kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+[  225.324165] kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0xcdb200000 buf=ffffd39ae1c00000
+[  225.324169] kexec_file: kexec_locate_mem_hole: called for segment size=0x116000, mem=0x0, image_type=2
+[  225.324170] kexec_file: kexec_alloc_multikernel: called for segment size=0x116000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+[  225.324173] kexec_file: Allocated 1138688 bytes from multikernel pool at 0xcdb013000
+[  225.324174] kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd39ac2e6b000 bufsz=0x115f17 mem=0xcdb013000 memsz=0x116000
+[  225.324175] kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 panic=-1 len=37 offset=4096
+[  225.324177] kexec-bzImage64: setup_cmdline: cmd_line_ptr=0xdb012000 ext=0xc (phys=0xcdb012000)
+[  225.324178] kexec-vmlinux: Multikernel: entry=0xcddf5efd4 boot_params=0xcdb011000
+[  225.324181] mk_e820: instance 22: 4096 MB RAM in 1 regions
+[  225.324354] kexec_core: Loading multikernel segment: mem=0xcdb010000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[  225.324359] kexec_core: Loading multikernel segment: mem=0xcdb011000, memsz=0x2000, kbuf=0xffff8c5e0d794000, buf=0x0000000000000000, bufsz=0x1400, file_mode=1
+[  225.324363] kexec_core: Loading multikernel segment: mem=0xcdb200000, memsz=0x3e00000, kbuf=0xffffd39ae1c00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[  225.334479] kexec_core: Loading multikernel segment: mem=0xcdb013000, memsz=0x116000, kbuf=0xffffd39ac2e6b000, buf=0x0000000000000000, bufsz=0x115f17, file_mode=1
+[  227.035894] kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 2 CPUs assigned
+[  227.035899] kexec_core: Loading multikernel segment: mem=0xcdb010000, memsz=0x1000, kbuf=0xffff8c6d3ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+[  227.035905] kexec_core: Loading multikernel segment: mem=0xcdb011000, memsz=0x2000, kbuf=0xffff8c5e0d794000, buf=0x0000000000000000, bufsz=0x1400, file_mode=1
+[  227.035909] kexec_core: Loading multikernel segment: mem=0xcdb200000, memsz=0x3e00000, kbuf=0xffffd39ae1c00000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+[  227.046584] kexec_core: Loading multikernel segment: mem=0xcdb013000, memsz=0x116000, kbuf=0xffffd39ac2e6b000, buf=0x0000000000000000, bufsz=0x115f17, file_mode=1
+[  227.046776] Preserving multikernel DTB for instance 22
+[  227.046784] Generated instance DTB for 'runtime-g2' (ID 22): 264 bytes
+[  227.046790] Preserved DTB for instance 22 (264 bytes)
+[  227.046791] Preserving host IPI buffer: phys=0x101180000, pages=65
+[  227.046793] Added host IPI buffer to manifest
+[  227.046794] multikernel: added IPI buffer to manifest: phys=0x107180000, pages=65 (263696 bytes)
+[  227.046796] multikernel: finalized manifest for instance 22 (size: 626 bytes)
+[  227.046797] kexec_core: Manifest finalized for multikernel instance
+[  227.047131] mk_e820: instance 22: 4096 MB RAM in 1 regions
+[  227.047376] Multikernel instance 22 is now active
+[  229.760549] Force halting multikernel instance 22 via NMI
+[  229.760570] Sent NMI to 2 CPUs in instance 22
+[  229.760571] Instance 22 (runtime-g2) halted, CPUs parking in pool
+[  229.927031] kexec_file: Unloading kernel from multikernel instance 22
+[  230.104225] Applying overlay transaction 14 (target=/instances, resources=unknown)
+[  230.104236] Overlay tx14: Removing instance 'runtime-g2' (ID: 22)
+[  230.104240] Releasing multikernel instance 22 (runtime-g2), returning resources to root
+[  230.104243] Returned 2 CPUs from instance 22 (runtime-g2) to the pool: 8,10
+[  230.104246] Returning 0x100000000 bytes from instance 22 (runtime-g2) back to multikernel pool
+[  230.104842] Overlay tx14: Instance 'runtime-g2' removed successfully
+[  230.104845] Overlay transaction 14 applied successfully
+[  230.268552] Generated instance DTB for '' (ID 0): 451 bytes
+[  230.269304] Applying overlay transaction 15 (target=/resources, resources=unknown)
+[  230.269317] Overlay tx15: -cpu 8 numa=-1 from /resources
+[  230.269320] Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+[  230.269323] Multikernel hotplug: Physical CPU 8 not found in present CPUs
+[  230.290175] smpboot: Booting Node 0 Processor 4 APIC 0x8
+[  230.292024] Multikernel hotplug: Successfully added CPU 4 (phys 8)
+[  230.292030] Overlay tx15: -cpu 9 numa=-1 from /resources
+[  230.292033] Multikernel hotplug: Adding CPU 9 (numa=-1, flags=0x0)
+[  230.292034] Multikernel hotplug: Physical CPU 9 not found in present CPUs
+[  230.299887] smpboot: Booting Node 0 Processor 12 APIC 0x9
+[  230.301497] Multikernel hotplug: Successfully added CPU 12 (phys 9)
+[  230.301503] Overlay tx15: -cpu 10 numa=-1 from /resources
+[  230.301506] Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+[  230.301508] Multikernel hotplug: Physical CPU 10 not found in present CPUs
+[  230.309689] smpboot: Booting Node 0 Processor 5 APIC 0xa
+[  230.311447] Multikernel hotplug: Successfully added CPU 5 (phys 10)
+[  230.311451] Overlay tx15: -cpu 11 numa=-1 from /resources
+[  230.311453] Multikernel hotplug: Adding CPU 11 (numa=-1, flags=0x0)
+[  230.311454] Multikernel hotplug: Physical CPU 11 not found in present CPUs
+[  230.319472] smpboot: Booting Node 0 Processor 13 APIC 0xb
+[  230.321007] Multikernel hotplug: Successfully added CPU 13 (phys 11)
+[  230.321015] Overlay tx15: -cpu 12 numa=-1 from /resources
+[  230.321018] Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+[  230.321020] Multikernel hotplug: Physical CPU 12 not found in present CPUs
+[  230.329276] smpboot: Booting Node 0 Processor 6 APIC 0xc
+[  230.331120] Multikernel hotplug: Successfully added CPU 6 (phys 12)
+[  230.331128] Overlay tx15: -cpu 13 numa=-1 from /resources
+[  230.331131] Multikernel hotplug: Adding CPU 13 (numa=-1, flags=0x0)
+[  230.331133] Multikernel hotplug: Physical CPU 13 not found in present CPUs
+[  230.339090] smpboot: Booting Node 0 Processor 14 APIC 0xd
+[  230.340711] Multikernel hotplug: Successfully added CPU 14 (phys 13)
+[  230.340719] Overlay tx15: -cpu 14 numa=-1 from /resources
+[  230.340722] Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+[  230.340724] Multikernel hotplug: Physical CPU 14 not found in present CPUs
+[  230.348879] smpboot: Booting Node 0 Processor 7 APIC 0xe
+[  230.350699] Multikernel hotplug: Successfully added CPU 7 (phys 14)
+[  230.350707] Overlay tx15: -cpu 15 numa=-1 from /resources
+[  230.350710] Multikernel hotplug: Adding CPU 15 (numa=-1, flags=0x0)
+[  230.350712] Multikernel hotplug: Physical CPU 15 not found in present CPUs
+[  230.358691] smpboot: Booting Node 0 Processor 15 APIC 0xf
+[  230.360482] Multikernel hotplug: Successfully added CPU 15 (phys 15)
+[  230.360493] Overlay tx15: -memory 0xcdb000000-0xedaffffff (8192 MB) from /resources
+[  230.360583] mk_spawn: released the host pool park area
+[  230.503484] Multikernel pool: removed 0x0000000cdb000000-0x0000000edaffffff (8192 MB)
+[  230.503502] Overlay transaction 15 applied successfully
+[  230.667433] Generated instance DTB for '' (ID 0): 158 bytes
+[  256.999561] Generated instance DTB for '' (ID 0): 158 bytes
+[  257.001329] Loading host kernel device tree configuration (262 bytes at offset 0)
+[  257.001346] Baseline CPU pool: 4 CPUs requested: 8,10,12,14
+[  257.001350] Baseline CPUs validated: 4 CPUs available for multikernel pool
+[  260.784814] mk_spawn: host pool park area at 0x0000000cdb00b000 (slot 0x0000000cdb00e000)
+[  260.784823] Multikernel pool: added 0x0000000cdb000000 (8192 MB) on node 0
+[  260.784826] Moving 4 CPUs into the multikernel pool
+[  260.794705] smpboot: CPU 4 is now offline
+[  260.795039] Multikernel hotplug: Successfully removed CPU 4 (phys 8)
+[  260.803753] smpboot: CPU 5 is now offline
+[  260.804226] Multikernel hotplug: Successfully removed CPU 5 (phys 10)
+[  260.815653] IRQ fixup: irq 42 move in progress, old vector 37
+[  260.816967] smpboot: CPU 6 is now offline
+[  260.817403] Multikernel hotplug: Successfully removed CPU 6 (phys 12)
+[  260.825723] smpboot: CPU 7 is now offline
+[  260.825935] Multikernel hotplug: Successfully removed CPU 7 (phys 14)
+[  260.825938] Moved 4 CPUs into the multikernel pool
+[  260.825939] Replacing existing DTB (294 bytes) with baseline DTB
+[  260.825941] Multikernel baseline initialized successfully
+[  260.825944] Successfully stored host kernel device tree configuration
+[  260.984131] Generated instance DTB for '' (ID 0): 387 bytes
+[  260.985060] Applying overlay transaction 16 (target=/instances, resources=unknown)
+[  260.985067] Overlay tx16: Creating instance 'g2-ready-proof'
+[  260.985071] Successfully parsed memory size: 4294967296 bytes (4096 MB)
+[  260.985073] Successfully parsed 2 physical CPUs: 8,10
+[  260.985076] Successfully parsed instance 'g2-ready-proof': 4294967296 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+[  260.985424] Created instance pool 29: 1 chunks, total size=4294967296 bytes
+[  260.985427] Transferred 0x100000000 bytes from root to instance 29 (g2-ready-proof)
+[  260.985428] Created instance pool 29: 1 chunks, total size=4294967296 bytes
+[  260.985431] Transferred 2 CPUs from pool to instance 29 (g2-ready-proof): 8,10
+[  260.985435] Generated instance DTB for 'g2-ready-proof' (ID 29): 268 bytes
+[  260.985437] Overlay tx16: Instance 'g2-ready-proof' created successfully
+[  260.985441] Overlay transaction 16 applied successfully
+[  260.985834] Generated instance DTB for '' (ID 0): 371 bytes
+[  261.202277] Applying overlay transaction 17 (target=/instances, resources=unknown)
+[  261.202287] Overlay tx17: Removing instance 'g2-ready-proof' (ID: 29)
+[  261.202291] Releasing multikernel instance 29 (g2-ready-proof), returning resources to root
+[  261.202294] Returned 2 CPUs from instance 29 (g2-ready-proof) to the pool: 8,10
+[  261.202297] Returning 0x100000000 bytes from instance 29 (g2-ready-proof) back to multikernel pool
+[  261.202659] Overlay tx17: Instance 'g2-ready-proof' removed successfully
+[  261.202660] Overlay transaction 17 applied successfully
+[  261.366317] Generated instance DTB for '' (ID 0): 387 bytes
+[  261.367093] Applying overlay transaction 18 (target=/resources, resources=unknown)
+[  261.367102] Overlay tx18: -cpu 8 numa=-1 from /resources
+[  261.367105] Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+[  261.367107] Multikernel hotplug: Physical CPU 8 not found in present CPUs
+[  261.387796] smpboot: Booting Node 0 Processor 4 APIC 0x8
+[  261.389565] Multikernel hotplug: Successfully added CPU 4 (phys 8)
+[  261.389574] Overlay tx18: -cpu 10 numa=-1 from /resources
+[  261.389577] Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+[  261.389581] Multikernel hotplug: Physical CPU 10 not found in present CPUs
+[  261.397673] smpboot: Booting Node 0 Processor 5 APIC 0xa
+[  261.399399] Multikernel hotplug: Successfully added CPU 5 (phys 10)
+[  261.399404] Overlay tx18: -cpu 12 numa=-1 from /resources
+[  261.399407] Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+[  261.399409] Multikernel hotplug: Physical CPU 12 not found in present CPUs
+[  261.407522] smpboot: Booting Node 0 Processor 6 APIC 0xc
+[  261.409296] Multikernel hotplug: Successfully added CPU 6 (phys 12)
+[  261.409301] Overlay tx18: -cpu 14 numa=-1 from /resources
+[  261.409304] Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+[  261.409305] Multikernel hotplug: Physical CPU 14 not found in present CPUs
+[  261.417342] smpboot: Booting Node 0 Processor 7 APIC 0xe
+[  261.419174] Multikernel hotplug: Successfully added CPU 7 (phys 14)
+[  261.419182] Overlay tx18: -memory 0xcdb000000-0xedaffffff (8192 MB) from /resources
+[  261.419291] mk_spawn: released the host pool park area
+[  261.560128] Multikernel pool: removed 0x0000000cdb000000-0x0000000edaffffff (8192 MB)
+[  261.560143] Overlay transaction 18 applied successfully
+[  475.608659] Generated instance DTB for '' (ID 0): 158 bytes

@@ -1,0 +1,18 @@
+online=0-15
+offline=
+guest_agent=active
+kerf_show_begin
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+kerf_show_end
+instances_begin
+instances_end

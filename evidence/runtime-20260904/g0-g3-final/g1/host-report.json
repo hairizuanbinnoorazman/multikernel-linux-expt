@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-04T08:39:11.879894057Z",
+  "qualified": true,
+  "architecture": "amd64",
+  "kernel_release": "7.0.0-mk2-gce-lab",
+  "kernel_config": {
+    "CONFIG_KEXEC_CORE": "y",
+    "CONFIG_KEXEC_FILE": "y",
+    "CONFIG_MKTTY": "y",
+    "CONFIG_MULTIKERNEL": "y"
+  },
+  "multikernel_fs": true,
+  "kerf_version": "kerf, version 0.2.0",
+  "cpus": [
+    {
+      "logical": 0,
+      "apic": 0,
+      "physical_id": 0,
+      "core_id": 0,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 1,
+      "apic": 2,
+      "physical_id": 0,
+      "core_id": 1,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 2,
+      "apic": 4,
+      "physical_id": 0,
+      "core_id": 2,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 3,
+      "apic": 6,
+      "physical_id": 0,
+      "core_id": 3,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 4,
+      "apic": 8,
+      "physical_id": 0,
+      "core_id": 4,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 5,
+      "apic": 10,
+      "physical_id": 0,
+      "core_id": 5,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 6,
+      "apic": 12,
+      "physical_id": 0,
+      "core_id": 6,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 7,
+      "apic": 14,
+      "physical_id": 0,
+      "core_id": 7,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 8,
+      "apic": 1,
+      "physical_id": 0,
+      "core_id": 0,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 9,
+      "apic": 3,
+      "physical_id": 0,
+      "core_id": 1,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 10,
+      "apic": 5,
+      "physical_id": 0,
+      "core_id": 2,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 11,
+      "apic": 7,
+      "physical_id": 0,
+      "core_id": 3,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 12,
+      "apic": 9,
+      "physical_id": 0,
+      "core_id": 4,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 13,
+      "apic": 11,
+      "physical_id": 0,
+      "core_id": 5,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 14,
+      "apic": 13,
+      "physical_id": 0,
+      "core_id": 6,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 15,
+      "apic": 15,
+      "physical_id": 0,
+      "core_id": 7,
+      "numa_node": 0,
+      "online": true
+    }
+  ],
+  "smt_policy": "whole-core",
+  "online_cpus": "0-15",
+  "offline_cpus": "",
+  "memory_bytes": 67416383488,
+  "contiguous_allocation": "ready",
+  "contiguous_probe": "Memory: 8192 MB on node 0 (from CPUs 8,10,12,14)\nBaseline validation passed; would write the initial baseline (dry-run)",
+  "lockdown": "[none] integrity confidentiality",
+  "secure_boot": "disabled",
+  "kexec_loaded": "0",
+  "guest_agent": "active",
+  "serial_console": "available",
+  "kerf_state": "No memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------",
+  "pool_configured": false,
+  "kimage_state": "MK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------",
+  "instances": null,
+  "instance_state": [],
+  "assigned_devices": null,
+  "stale_resources": null,
+  "pci_classes": {
+    "0000:00:00.0": "0x060000",
+    "0000:00:01.0": "0x060100",
+    "0000:00:01.3": "0x068000",
+    "0000:00:03.0": "0x000000",
+    "0000:00:04.0": "0x020000",
+    "0000:00:05.0": "0x00ff00"
+  },
+  "protected_devices": [
+    {
+      "kind": "boot-disk",
+      "device": "8:1",
+      "pci_function": "0000:00:03.0",
+      "pci_ancestry": [
+        "0000:00:03.0"
+      ]
+    },
+    {
+      "kind": "primary-nic",
+      "device": "ens4",
+      "pci_function": "0000:00:04.0",
+      "pci_ancestry": [
+        "0000:00:04.0"
+      ]
+    }
+  ],
+  "forbidden_pci_functions": [
+    "0000:00:03.0",
+    "0000:00:04.0"
+  ],
+  "findings": null
+}

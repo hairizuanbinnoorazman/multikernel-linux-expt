@@ -1,0 +1,66 @@
+{
+  "AuthenticationMatrix": {
+    "invalid_mac": "UNAUTHENTICATED: agent authentication failed",
+    "malformed_message": "INTERNAL: agent operation failed",
+    "out_of_order": "UNAUTHENTICATED: agent authentication failed",
+    "replay": "UNAUTHENTICATED: agent authentication failed",
+    "stale_generation": "UNAUTHENTICATED: agent authentication failed",
+    "wrong_endpoint": "UNAUTHENTICATED: agent authentication failed",
+    "wrong_protocol": "UNSUPPORTED: agent operation is unsupported",
+    "wrong_sandbox": "UNAUTHENTICATED: agent authentication failed"
+  },
+  "Capabilities": {
+    "agent": {
+      "bounding_capabilities": "000001ffffffffff",
+      "effective_capabilities": "000001ffffffffff",
+      "gid": 0,
+      "no_new_privileges": "0",
+      "uid": 0
+    },
+    "kernel": {
+      "architecture": "amd64",
+      "cgroup_v2": true,
+      "mk_transport": true,
+      "multikernel": true,
+      "namespaces": [
+        "cgroup",
+        "ipc",
+        "mnt",
+        "net",
+        "pid",
+        "time",
+        "user",
+        "uts"
+      ],
+      "release": "7.0.0-mk2-gce-lab"
+    },
+    "oci_features": [
+      "argv",
+      "environment",
+      "cwd",
+      "split-stdio",
+      "exit-code",
+      "stdin",
+      "attach",
+      "terminal",
+      "terminal-resize"
+    ],
+    "protocol": 1
+  },
+  "CreateProcess": {},
+  "DeleteProcess": {},
+  "OversizedFrame": "rejected-and-session-closed",
+  "Reconnect": "transport-disconnect-preserved-process-and-sequence",
+  "Shutdown": {
+    "status": "quiesced"
+  },
+  "StartProcess": {},
+  "WaitProcess": {
+    "exit_code": 23,
+    "id": "p1",
+    "pid": 101,
+    "status": "STOPPED",
+    "stderr": "OCI_STDERR",
+    "stdout": "OCI_STDOUT uid=1234 gid=2345 groups=2345 3456 cwd=/work env=literal value;$() kernel=7.0.0-mk2-gce-lab"
+  }
+}

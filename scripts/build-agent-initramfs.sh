@@ -10,7 +10,8 @@ busybox=${BUSYBOX:-$(command -v busybox)}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-mkdir -p "$work"/{bin,dev,proc,sys,tmp,bundle/rootfs/bin}
+mkdir -p "$work"/{bin,dev,proc,sys,tmp,bundle/rootfs/bin,bundle/rootfs/work}
+chmod 0777 "$work/bundle/rootfs/work"
 install -m 0755 "$busybox" "$work/bin/busybox"
 install -m 0755 "$busybox" "$work/bundle/rootfs/bin/busybox"
 install -m 0755 "$agent" "$work/mk-agent"
@@ -25,10 +26,10 @@ cat >"$work/bundle/config.json" <<'EOF'
 {
   "ociVersion": "1.1.0",
   "process": {
-    "user": {"uid": 0, "gid": 0},
-    "args": ["/bin/busybox", "sh", "-c", "printf OCI_STDOUT; printf OCI_STDERR >&2; uname -r; exit 23"],
-    "env": ["PATH=/bin"],
-    "cwd": "/"
+    "user": {"uid": 1234, "gid": 2345, "additionalGids": [3456]},
+    "args": ["/bin/busybox", "sh", "-c", "printf 'OCI_STDOUT uid=%s gid=%s groups=%s cwd=%s env=%s kernel=%s' \"$(id -u)\" \"$(id -g)\" \"$(id -G)\" \"$PWD\" \"$G3_EXACT_ENV\" \"$(uname -r)\"; printf OCI_STDERR >&2; exit 23"],
+    "env": ["PATH=/bin", "G3_EXACT_ENV=literal value;$()"],
+    "cwd": "/work"
   },
   "root": {"path": "rootfs"}
 }

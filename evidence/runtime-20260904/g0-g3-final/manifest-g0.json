@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "gate": "G0",
+  "run_id": "g0-final-20260904",
+  "result": "pass",
+  "started_at": "2026-09-04T08:20:00Z",
+  "ended_at": "2026-09-04T08:45:00Z",
+  "repository": {"commit": "44af8655fcce18a3434e480c5cc634fee46925d4", "dirty": true},
+  "components": [
+    {"name": "evidence-manifest-v1-schema", "version": "dirty workspace 44af865", "sha256": "f5b31fc270f0f9c833fc5795714f3db0504cee1f74172138b9df22e75549fc13"},
+    {"name": "kernel-manifest-v1-schema", "version": "dirty workspace 44af865", "sha256": "4687c4d1ce402bfc94be6b071cc2d23c8da5eca05c873bf36799408539bfc186"},
+    {"name": "host-config-v1-schema", "version": "dirty workspace 44af865", "sha256": "b418b6496e5dc04bea5ac658914591cfc23344c480218b113bc45c5f9ce416bd"},
+    {"name": "mk-transport", "version": "7.0.0-mk2-gce-lab", "sha256": "0afd678b4335ee82aab7a26fc8cdcc9608337b00d8e88107f23255cf061ed5cd"}
+  ],
+  "host": {"provider": "gce", "project": "[REDACTED_GCP_PROJECT]", "zone": "asia-southeast1-b", "instance": "mklinux-g0-g3-final-20260904", "machine_type": "n2-standard-16", "boot_id": "024071bc-68b1-4c8a-829b-f9572f4988d6"},
+  "commands": [
+    {"id": "strict-bootstrap-validation", "argv": ["python3", "scripts/validate-runtime-bootstrap.py", "--host-config", "/etc/mkruntime/g2.json"], "exit_status": 0, "output_path": "local-validation.log"},
+    {"id": "complete-local-validation", "argv": ["make", "docs-check", "then", "go-test-race", "go-vet", "shell-syntax", "git-diff-check"], "exit_status": 0, "output_path": "local-validation.log"}
+  ],
+  "assertions": [
+    {"id": "pinned-upstreams-and-kernel-retained", "passed": true, "evidence_paths": ["provenance.log", "component-sha256.txt"]},
+    {"id": "approved-manifests-retained", "passed": true, "evidence_paths": ["g0/kernel-manifest.json", "g0/g2-config.json", "kernel-manifest.json", "host-config.json"]},
+    {"id": "transport-build-safety-and-identity-retained", "passed": true, "evidence_paths": ["g0/linux-v7.0-mk2-vsock-build-safety.patch", "g0/transport-patch-sha256.txt", "provenance.log"]},
+    {"id": "schemas-tests-race-vet-docs-and-shell-pass", "passed": true, "evidence_paths": ["local-validation.log"]}
+  ],
+  "limitations": [
+    "The boundary is linux/amd64 and trusted single-tenant workloads; this evidence does not claim hostile-kernel isolation or production readiness.",
+    "G4 storage, G5 networking, G6 containerd integration, and later gates are not implied by this result."
+  ],
+  "cleanup": {"completed": true, "resources_before": "resources-before.json", "resources_after": "resources-after.json", "retained_resources": [], "operator_acknowledged": true}
+}

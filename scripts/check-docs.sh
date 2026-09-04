@@ -48,3 +48,5 @@ fi
 
 printf 'documentation structure and local links: PASS\n'
 python3 "$repo_root/scripts/check-runtime-schemas.py"
+python3 "$repo_root/scripts/test-runtime-oci-validation.py"
+python3 "$repo_root/scripts/test-runtime-bootstrap-validation.py"

@@ -1,0 +1,16 @@
+instance=mklinux-g0-g3-final-20260904
+zone=asia-southeast1-b
+machine_type=n2-standard-16
+cpu_platform=Intel Cascade Lake
+boot_id=057be312-a6fa-454a-a145-665be789f3fd
+kernel=7.0.0-mk2-gce-lab
+architecture=x86_64
+online_cpus=0-15
+proc_kimage=present
+google_guest_agent=active
+kerf=0.2.0
+multikernel_commit=3bdd35b64413da0b4e089ce931bfc2e8b031cbf7
+kerf_commit=8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec
+secure_boot=false
+workspace_archive_sha256=d28d6f71d0039788509bf91aa20fe4ba0cf2278e0493d68296831e4feac0bec4
+workspace_upload=pending-explicit-user-approval

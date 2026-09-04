@@ -4,5 +4,8 @@ mkdir -p /dev /proc /sys
 mount -t devtmpfs devtmpfs /dev
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
+echo "RUNTIME_G1_CHILD_CPU_ONLINE=$(cat /sys/devices/system/cpu/online)"
+echo "RUNTIME_G1_CHILD_APICS=$(awk -F: '/^apicid/{gsub(/[[:space:]]/, "", $2); values=values (values ? "," : "") $2} END{print values}' /proc/cpuinfo)"
+echo "RUNTIME_G1_CHILD_MEMTOTAL_KB=$(awk '/^MemTotal:/{print $2}' /proc/meminfo)"
 echo RUNTIME_G1_INTENTIONAL_INIT_EXIT
 exit 71

@@ -1,0 +1,15 @@
+{
+  "cpuPlatform": "Intel Cascade Lake",
+  "creationTimestamp": "2026-09-03T18:23:14.441-07:00",
+  "id": "2964426352443761517",
+  "machineType": "n2-standard-16",
+  "name": "mklinux-g0-g3-final-20260904",
+  "project": "[REDACTED_GCP_PROJECT]",
+  "zone": "asia-southeast1-b",
+  "shieldedInstanceConfig": {
+    "enableIntegrityMonitoring": true,
+    "enableSecureBoot": false,
+    "enableVtpm": true
+  },
+  "status": "RUNNING"
+}

@@ -2,16 +2,16 @@
 set -eu
 /bin/busybox --install -s /bin
 mkdir -p /dev /dev/pts /proc /sys /sys/fs/cgroup /tmp
-mount -t devtmpfs devtmpfs /dev || true
+mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts -o mode=620,ptmxmode=666
-mount -t proc proc /proc || true
-mount -t sysfs sysfs /sys || true
-mount -t cgroup2 none /sys/fs/cgroup || true
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t cgroup2 none /sys/fs/cgroup
 mkdir -p /bundle/rootfs/dev /bundle/rootfs/proc /bundle/rootfs/sys /bundle/rootfs/tmp
-mount --bind /dev /bundle/rootfs/dev || true
-mount --bind /proc /bundle/rootfs/proc || true
-mount --bind /sys /bundle/rootfs/sys || true
+mount --bind /dev /bundle/rootfs/dev
+mount --bind /proc /bundle/rootfs/proc
+mount --bind /sys /bundle/rootfs/sys
 if [ -f /mk_transport.ko ]; then
 	insmod /mk_transport.ko
 fi
@@ -38,11 +38,15 @@ echo "MK_AGENT_START sandbox=$sandbox_id generation=$generation port=$port"
 /mk-agent --sandbox-id="$sandbox_id" --generation="$generation" \
 	--token-hex="$token" --port="$port" --unix-socket=/tmp/mk-agent.sock &
 agent_pid=$!
-/mkvsock-relay client 0 "$port" /tmp/mk-agent.sock
-wait "$agent_pid"
-# The pinned Multikernel child must not invoke the platform poweroff path: on
-# the tested GCE host that can reset the primary kernel as well. Once the
-# authenticated agent session is quiescent, remain idle until mkruntimed uses
-# Kerf's child-scoped stop/delete sequence.
-echo MK_AGENT_QUIESCED
+while kill -0 "$agent_pid" 2>/dev/null; do
+	/mkvsock-relay client 0 "$port" /tmp/mk-agent.sock || true
+	kill -0 "$agent_pid" 2>/dev/null || break
+	sleep 1
+done
+wait "$agent_pid" || true
+# At pinned commit 3bdd35b6, a spawn kernel replaces machine poweroff/restart
+# with mk_halt_to_pool(). A successful authenticated Shutdown therefore never
+# returns here: it syncs, notifies the primary, and parks only this child's CPUs.
+# Remain recoverable if the agent exits without completing that path.
+echo MK_AGENT_EXITED_WITHOUT_POWEROFF
 exec sh -c 'while true; do sleep 3600; done'

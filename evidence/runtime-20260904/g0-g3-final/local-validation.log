@@ -1,0 +1,17 @@
+captured_at=2026-09-04T16:51:43+08:00
+command=make docs-check; cd runtime && go test -race ./...; go vet ./...; shell syntax for scripts/ and guest/; git diff --check
+bash scripts/check-docs.sh
+documentation structure and local links: PASS
+runtime schema fixtures: PASS (6 schemas, 20 cases)
+runtime OCI fail-closed validation: PASS (25 cases)
+runtime bootstrap validation: PASS (approved hashes, ownership, transport ID and direction)
+go test -race ./...: PASS (agent, shim, mk-agentctl, mkruntimed, daemon, hostcheck, hostconfig, kerf, kernelmanifest, lifecycle, state, protocol)
+go vet ./...: PASS
+scripts/ and guest/ shell syntax: PASS
+git diff --check: PASS
+COMPLETE_LOCAL_VALIDATION_PASS
+post_documentation_sync_at=2026-09-04T16:58:02+08:00
+post_documentation_sync=docs-check PASS; git diff --check PASS; checklist 108/108 PASS
+final_validation_at=2026-09-04T17:02:55+08:00
+final_validation=docs-check PASS; go test -race ./... PASS; go vet ./... PASS; shell syntax PASS; git diff --check PASS
+FINAL_COMPLETE_LOCAL_VALIDATION_PASS

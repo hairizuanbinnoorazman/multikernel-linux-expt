@@ -10,11 +10,18 @@ import (
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+	"golang.org/x/sys/unix"
 )
 
 type memoryConn struct {
 	input  *bytes.Reader
 	output bytes.Buffer
+}
+
+func TestUnixPeerAuthorization(t *testing.T) {
+	if !credentialAuthorized(&unix.Ucred{Uid: 1234}, 1234) || credentialAuthorized(&unix.Ucred{Uid: 1234}, 4321) || credentialAuthorized(nil, 1234) {
+		t.Fatal("credential policy mismatch")
+	}
 }
 
 func newMemoryConn(input string) *memoryConn {

@@ -1,0 +1,12 @@
+captured_at=2026-09-04T17:07:15+08:00
+reason=pre-commit secret scan found the generated G3 credential in primary-kernel kexec command-line traces
+transformation=replace each whitespace-delimited mk.token value with [REDACTED]
+occurrences=5
+files=4
+file=g1/primary-dmesg-before.log
+file=g1/primary-dmesg-after.log
+file=g3/console.log
+file=primary-dmesg-final.log
+remote_checksum_ledger=remote-evidence-sha256.txt
+sanitized_checksum_ledger=evidence-sha256.txt
+result=PASS

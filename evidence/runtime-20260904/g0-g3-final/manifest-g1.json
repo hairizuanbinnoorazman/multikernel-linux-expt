@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "gate": "G1",
+  "run_id": "g1-final-20260904",
+  "result": "pass",
+  "started_at": "2026-09-04T08:39:11Z",
+  "ended_at": "2026-09-04T08:39:47Z",
+  "repository": {"commit": "44af8655fcce18a3434e480c5cc634fee46925d4", "dirty": true},
+  "components": [
+    {"name": "mk-host-check", "version": "dirty workspace 44af865", "sha256": "ca23bf1f7cd444e715432f3e9b309d570c48c76ea5a340c4cc5882aa79679f69"},
+    {"name": "vmlinux", "version": "7.0.0-mk2-gce-lab", "sha256": "5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10"},
+    {"name": "runtime-crash-initramfs", "version": "dirty workspace 44af865", "sha256": "487127ea26e4ce4a23cb91bdaaf8bb3229c2aa3146e8d0235785252baa3261ef"}
+  ],
+  "host": {"provider": "gce", "project": "[REDACTED_GCP_PROJECT]", "zone": "asia-southeast1-b", "instance": "mklinux-g0-g3-final-20260904", "machine_type": "n2-standard-16", "boot_id": "024071bc-68b1-4c8a-829b-f9572f4988d6"},
+  "commands": [{"id": "qualified-host-and-crash-reclaim", "argv": ["env", "EVIDENCE_DIR=g0-g3-final-evidence/g1", "scripts/test-runtime-g1.sh"], "exit_status": 0, "output_path": "g1/live.log"}],
+  "assertions": [
+    {"id": "host-qualified-with-protected-topology", "passed": true, "evidence_paths": ["g1/host-report.json", "g1/device-tree.txt", "g1/apic-map.txt"]},
+    {"id": "child-assigned-cpu-and-memory-view", "passed": true, "evidence_paths": ["g1/live.log", "g1/primary-dmesg-after.log"]},
+    {"id": "intentional-child-init-exit-reclaimed", "passed": true, "evidence_paths": ["g1/live.log", "g1/kerf-after.txt"]},
+    {"id": "full-g1-evidence-set-retained", "passed": true, "evidence_paths": ["g1/host-report.json", "g1/kerf-before.txt", "g1/kerf-after.txt", "g1/device-tree.txt", "g1/apic-map.txt", "g1/primary-dmesg-before.log", "g1/primary-dmesg-after.log", "g1/boot-id.txt", "instance-describe.json"]},
+    {"id": "host-resources-and-agent-returned", "passed": true, "evidence_paths": ["g1/cpu-online-after.txt", "g1/guest-agent-after.txt", "final-host-state.log"]}
+  ],
+  "limitations": ["This proves resource assignment and reclamation for a trusted child kernel, not hostile ring-0 isolation.", "No physical device was assigned; boot-disk and NIC controller handoff remains prohibited."],
+  "cleanup": {"completed": true, "resources_before": "resources-before.json", "resources_after": "resources-after.json", "retained_resources": [], "operator_acknowledged": true}
+}

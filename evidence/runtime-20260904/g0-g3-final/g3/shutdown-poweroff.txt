@@ -1,0 +1,1 @@
+Shutdown reply completed; child powered off and returned to Kerf loaded state

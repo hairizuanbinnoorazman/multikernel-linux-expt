@@ -3,7 +3,7 @@
   "$id": "https://multikernel.example/schemas/kernel-manifest-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "name", "architecture", "kernel_release", "compatibility", "kernel", "initramfs", "agent", "protocol", "required_config", "oci_features"],
+  "required": ["schema_version", "name", "architecture", "kernel_release", "compatibility", "kernel", "initramfs", "agent", "relay", "transport", "protocol", "required_config", "oci_features"],
   "properties": {
     "schema_version": {"const": 1},
     "name": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,62}$"},
@@ -21,6 +21,19 @@
     "kernel": {"$ref": "#/$defs/artifact"},
     "initramfs": {"$ref": "#/$defs/artifact"},
     "agent": {"$ref": "#/$defs/artifact"},
+    "relay": {"$ref": "#/$defs/artifact"},
+    "transport": {
+      "type": "object", "additionalProperties": false,
+      "required": ["module", "module_name", "socket_option", "transport_id", "primary_role", "child_role"],
+      "properties": {
+        "module": {"$ref": "#/$defs/artifact"},
+        "module_name": {"const": "mk_transport"},
+        "socket_option": {"const": 9},
+        "transport_id": {"const": 1},
+        "primary_role": {"const": "server"},
+        "child_role": {"const": "client"}
+      }
+    },
     "protocol": {"type": "object", "required": ["min", "max"], "properties": {"min": {"type": "integer", "minimum": 1}, "max": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
     "required_config": {"type": "array", "items": {"type": "string", "pattern": "^CONFIG_[A-Z0-9_]+=[ym]$"}, "uniqueItems": true},
     "modules": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},

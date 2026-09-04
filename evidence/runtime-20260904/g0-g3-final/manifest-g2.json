@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "gate": "G2",
+  "run_id": "g2-final-20260904",
+  "result": "pass",
+  "started_at": "2026-09-04T08:39:48Z",
+  "ended_at": "2026-09-04T08:43:30Z",
+  "repository": {"commit": "44af8655fcce18a3434e480c5cc634fee46925d4", "dirty": true},
+  "components": [
+    {"name": "mkruntimed", "version": "dirty workspace 44af865 plus ready-state mapping", "sha256": "318f2da90d8901dec2379278a5d379b09293538355f11c09968db0dcfd274fec"},
+    {"name": "kerf-fault-wrapper", "version": "dirty workspace 44af865", "sha256": "24267ab5db9191f9452955d760a2ddef92b1a8027285d0de1b9be53faba9e3ce"},
+    {"name": "kerf-real", "version": "0.2.0", "sha256": "d37ce85953655cc1f4e6639e103d611e1e9923f6fafbfd5708374c7ce97f2a82"}
+  ],
+  "host": {"provider": "gce", "project": "[REDACTED_GCP_PROJECT]", "zone": "asia-southeast1-b", "instance": "mklinux-g0-g3-final-20260904", "machine_type": "n2-standard-16", "boot_id": "024071bc-68b1-4c8a-829b-f9572f4988d6"},
+  "commands": [
+    {"id": "failure-disappearance-and-restart-matrix", "argv": ["env", "EVIDENCE_DIR=g0-g3-final-evidence/g2", "scripts/test-runtime-g2.sh"], "exit_status": 0, "output_path": "g2/live.log"},
+    {"id": "memory-admission-negative", "argv": ["env", "EXPECT_SECOND_CREATE_ERROR=RESOURCE_EXHAUSTED", "EVIDENCE_DIR=g0-g3-final-evidence/g2-admission", "scripts/test-runtime-g2.sh"], "exit_status": 0, "output_path": "g2-admission/live.log"},
+    {"id": "pinned-ready-state-observation", "argv": ["observe", "kerf-sysfs-status-and-runtime-mapping"], "exit_status": 0, "output_path": "g2-ready-discovery/observation.txt"}
+  ],
+  "assertions": [
+    {"id": "live-cpu-and-memory-admission-precedes-mutation", "passed": true, "evidence_paths": ["g2-admission/g2b-create.json", "g2-admission/live.log", "g1/host-report.json"]},
+    {"id": "client-disappearance-preserves-running-child", "passed": true, "evidence_paths": ["g2/g2-client-disappearance.json", "g2/g2-client-disappearance.txt"]},
+    {"id": "backend-load-start-stop-failures-classified-and-retryable", "passed": true, "evidence_paths": ["g2/g2-load-failure.json", "g2/g2-start-failure.json", "g2/g2-stop-failure.json", "g2/state-after-cleanup/journal.jsonl"]},
+    {"id": "two-running-sandboxes-survive-daemon-sigkill", "passed": true, "evidence_paths": ["g2/g2-start.json", "g2/g2b-start.json", "g2/state-after-sigkill/state.json", "g2/state-after-sigkill/journal.jsonl"]},
+    {"id": "restart-reconciles-stops-and-deletes-both", "passed": true, "evidence_paths": ["g2/live.log", "g2/state-after-cleanup/state.json", "g2/state-after-cleanup/journal.jsonl"]},
+    {"id": "pinned-ready-status-maps-to-created", "passed": true, "evidence_paths": ["g2-ready-discovery/observation.txt", "g2-ready-discovery/create.log", "g2-ready-discovery/delete.log"]},
+    {"id": "host-resources-and-agent-returned", "passed": true, "evidence_paths": ["g2/cpu-online-after.txt", "g2/guest-agent-after.txt", "g2/kerf-after.txt", "final-host-state.log"]}
+  ],
+  "limitations": ["The durability claim covers daemon SIGKILL with state on the boot disk, not a host power-loss campaign.", "The live injected backend failures are one-shot precommit failures; the focused local checkpoint matrix covers the remaining journal boundaries."],
+  "cleanup": {"completed": true, "resources_before": "resources-before.json", "resources_after": "resources-after.json", "retained_resources": [], "operator_acknowledged": true}
+}

@@ -1,0 +1,27 @@
+{
+  "captured_at": "2026-09-04T17:01:36+08:00",
+  "project": "[REDACTED_GCP_PROJECT]",
+  "zone": "asia-southeast1-b",
+  "deleted_test_resources": [
+    "gce-instance:mklinux-g0-g3-final-20260904",
+    "gce-disk:mklinux-g0-g3-final-20260904"
+  ],
+  "instances": [],
+  "pre_existing_disks": [
+    {
+      "name": "mk-mediated-storage-20260830",
+      "zone": "asia-southeast1-b",
+      "size_gb": 20,
+      "status": "READY",
+      "attached": false
+    }
+  ],
+  "pre_existing_snapshots": [
+    {"name": "instance-20250614-0-asia-southeast1-a-20250614065141-36viryag", "size_gb": 10, "status": "READY"},
+    {"name": "mklinux-lab-pre-daxfs-20260828-2030", "size_gb": 100, "status": "READY"},
+    {"name": "mklinux-lab-stock-20260828", "size_gb": 100, "status": "READY"}
+  ],
+  "addresses": [],
+  "test_boot_disk_auto_deleted": true,
+  "operator_acknowledged": true
+}

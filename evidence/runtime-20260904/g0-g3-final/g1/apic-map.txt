@@ -1,0 +1,82 @@
+processor	: 0
+physical id	: 0
+core id		: 0
+apicid		: 0
+processor	: 1
+physical id	: 0
+core id		: 1
+apicid		: 2
+processor	: 2
+physical id	: 0
+core id		: 2
+apicid		: 4
+processor	: 3
+physical id	: 0
+core id		: 3
+apicid		: 6
+processor	: 4
+physical id	: 0
+core id		: 4
+apicid		: 8
+processor	: 5
+physical id	: 0
+core id		: 5
+apicid		: 10
+processor	: 6
+physical id	: 0
+core id		: 6
+apicid		: 12
+processor	: 7
+physical id	: 0
+core id		: 7
+apicid		: 14
+processor	: 8
+physical id	: 0
+core id		: 0
+apicid		: 1
+processor	: 9
+physical id	: 0
+core id		: 1
+apicid		: 3
+processor	: 10
+physical id	: 0
+core id		: 2
+apicid		: 5
+processor	: 11
+physical id	: 0
+core id		: 3
+apicid		: 7
+processor	: 12
+physical id	: 0
+core id		: 4
+apicid		: 9
+processor	: 13
+physical id	: 0
+core id		: 5
+apicid		: 11
+processor	: 14
+physical id	: 0
+core id		: 6
+apicid		: 13
+processor	: 15
+physical id	: 0
+core id		: 7
+apicid		: 15
+
+CPU ONLINE CORE SOCKET NODE
+  0    yes    0      0    0
+  1    yes    1      0    0
+  2    yes    2      0    0
+  3    yes    3      0    0
+  4    yes    4      0    0
+  5    yes    5      0    0
+  6    yes    6      0    0
+  7    yes    7      0    0
+  8    yes    0      0    0
+  9    yes    1      0    0
+ 10    yes    2      0    0
+ 11    yes    3      0    0
+ 12    yes    4      0    0
+ 13    yes    5      0    0
+ 14    yes    6      0    0
+ 15    yes    7      0    0
