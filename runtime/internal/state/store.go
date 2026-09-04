@@ -14,17 +14,18 @@ import (
 )
 
 type JournalEntry struct {
-	Sequence       uint64          `json:"sequence"`
-	At             time.Time       `json:"at"`
-	OperationID    string          `json:"operation_id"`
-	IdempotencyKey string          `json:"idempotency_key"`
-	Fingerprint    string          `json:"fingerprint"`
-	SandboxID      string          `json:"sandbox_id"`
-	Generation     string          `json:"generation,omitempty"`
-	Method         string          `json:"method"`
-	Phase          string          `json:"phase"`
-	State          string          `json:"state,omitempty"`
-	Error          *protocol.Error `json:"error,omitempty"`
+	Sequence       uint64            `json:"sequence"`
+	At             time.Time         `json:"at"`
+	OperationID    string            `json:"operation_id"`
+	IdempotencyKey string            `json:"idempotency_key"`
+	Fingerprint    string            `json:"fingerprint"`
+	SandboxID      string            `json:"sandbox_id"`
+	Generation     string            `json:"generation,omitempty"`
+	Method         string            `json:"method"`
+	Phase          string            `json:"phase"`
+	State          string            `json:"state,omitempty"`
+	Error          *protocol.Error   `json:"error,omitempty"`
+	Sandbox        *protocol.Sandbox `json:"sandbox,omitempty"`
 }
 type IdempotentResult struct {
 	Fingerprint string                  `json:"fingerprint"`
@@ -41,6 +42,7 @@ type Store struct {
 	dir     string
 	journal *os.File
 	data    Snapshot
+	syncDir func(string) error
 }
 
 func (s *Store) JournalEntries() ([]JournalEntry, error) { return ReadJournal(s.dir) }
@@ -52,7 +54,7 @@ func Open(dir string) (*Store, error) {
 	if err := os.Chmod(dir, 0700); err != nil {
 		return nil, err
 	}
-	s := &Store{dir: dir, data: Snapshot{Version: 1, Sandboxes: map[string]protocol.Sandbox{}, Results: map[string]IdempotentResult{}}}
+	s := &Store{dir: dir, data: Snapshot{Version: 1, Sandboxes: map[string]protocol.Sandbox{}, Results: map[string]IdempotentResult{}}, syncDir: syncDirectory}
 	if b, e := os.ReadFile(filepath.Join(dir, "state.json")); e == nil {
 		if e = json.Unmarshal(b, &s.data); e != nil {
 			return nil, fmt.Errorf("decode state: %w", e)
@@ -115,6 +117,13 @@ func (s *Store) SetSandbox(sb protocol.Sandbox) error {
 	s.data.Sandboxes[sb.ID] = sb
 	return s.persistLocked()
 }
+
+func (s *Store) RemoveSandbox(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.data.Sandboxes, id)
+	return s.persistLocked()
+}
 func (s *Store) Result(key string) (IdempotentResult, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -145,7 +154,19 @@ func (s *Store) persistLocked() error {
 		return e
 	}
 	f.Close()
-	return os.Rename(tmp, filepath.Join(s.dir, "state.json"))
+	if e = os.Rename(tmp, filepath.Join(s.dir, "state.json")); e != nil {
+		return e
+	}
+	return s.syncDir(s.dir)
+}
+
+func syncDirectory(path string) error {
+	directory, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer directory.Close()
+	return directory.Sync()
 }
 func ReadJournal(dir string) ([]JournalEntry, error) {
 	f, e := os.Open(filepath.Join(dir, "journal.jsonl"))

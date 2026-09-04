@@ -18,8 +18,10 @@ type Client struct {
 	sequence              uint64
 }
 
+var dialAgent = net.Dial
+
 func Dial(path, sandboxID, generation string, endpoint uint32, token []byte) (*Client, error) {
-	c, err := net.Dial("unix", path)
+	c, err := dialAgent("unix", path)
 	if err != nil {
 		return nil, err
 	}
@@ -27,6 +29,24 @@ func Dial(path, sandboxID, generation string, endpoint uint32, token []byte) (*C
 }
 
 func (c *Client) Close() error { return c.conn.Close() }
+
+// Reconnect replaces a failed transport while preserving the authenticated
+// sequence. The server retains its last accepted sequence, so restarting at
+// one would correctly be rejected as replay.
+func (c *Client) Reconnect(path string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	conn, err := dialAgent("unix", path)
+	if err != nil {
+		return err
+	}
+	old := c.conn
+	c.conn = conn
+	if old != nil {
+		_ = old.Close()
+	}
+	return nil
+}
 
 func (c *Client) Call(method string, request, response any) error {
 	c.mu.Lock()

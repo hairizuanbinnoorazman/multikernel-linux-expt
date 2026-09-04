@@ -1,6 +1,6 @@
 # G0-G3 remediation and revalidation checklist
 
-Audit date: 2026-08-31
+Audit date: 2026-09-04
 
 This is the handoff checklist for the next implementation session. The original
 G0-G3 run remains useful evidence for narrow milestones, but the gates must not
@@ -49,6 +49,31 @@ retained a failed exact-capacity G2 attempt that demonstrates the need for
 usable pool-memory slack. The [continuing evidence index](../../../evidence/runtime-20260903/g0-g3-remediation/README.md)
 records the final empty instance, auto-delete disk, and named-address
 inventories after termination.
+
+Implementation closure pass: 2026-09-04. The agent now has focused race-tested
+exec, exact process, exit/signal, shutdown-race, bounded independent streaming,
+bundle confinement, reconnect, and concurrent-sequence coverage. Capabilities
+are measured from the running child rather than declared constants. The
+approved bootstrap manifest now pins and verifies the C relay, transport module,
+socket option, transport ID, and primary/child direction before allocation.
+The G3 plan and policy were revised together to keep namespaces, capabilities,
+rlimits, and cgroups fail-closed at G3 and mandatory for the production G6
+container surface. A fresh live run remains required for the rows still open.
+
+Final live run: 2026-09-04. The disposable GCE host passed G1 with
+child CPUs `0-1`, APIC IDs `8,10`, 4,069,536 KiB visible memory, intentional
+init exit, and complete reclaim. G2 exposed pinned sysfs status `ready` where
+the adapter expected `created`; the focused-tested mapping fix then passed the
+load/start/stop failure injections, one-shot client disappearance, two-child
+daemon-`SIGKILL` recovery, and the 8 GB pre-backend admission rejection. G3
+first reached the final Shutdown reply and child-scoped `loaded` transition but
+found that a controller-owned relay can return to listen and make the controller
+wait forever. Deterministic relay kill/reap was added with focused race-tested
+coverage; the corrected rerun passed non-root identity, the safe negative
+authentication/framing matrix, relay-loss reconnect, measured capabilities,
+explicit shutdown/poweroff, and credential redaction. The downloaded
+[final evidence set](../../../evidence/runtime-20260904/g0-g3-final/README.md)
+passes its remote checksums and has one assertion-mapped manifest per gate.
 
 ## Rules for closing an item
 
@@ -102,9 +127,11 @@ inventories after termination.
 - [x] Reconcile post-G3 protocol evolution with frozen v1. The agent schema,
   protocol text, kernel/image policy, and fixtures now cover the implemented
   state, stdin/output, terminal-resize, and network method set.
-- [ ] Restore end-to-end fail-closed OCI handling or explicitly revise the
-  contract. The G6 initramfs builder and exec translation currently discard
-  unsupported caller fields before the agent can reject them.
+- [x] Restore end-to-end fail-closed OCI handling or explicitly revise the
+  contract. The initramfs builder now runs strict pre-allocation validation
+  before rewriting only `root.path`, and exec translation rejects unsupported
+  `specs.Process` controls before constructing the agent request. Focused tests
+  cover 25 bundle cases plus the exec-process field matrix.
 
 ### Contract validation
 
@@ -124,37 +151,46 @@ inventories after termination.
 
 ### Qualification implementation
 
-- [ ] Report and assess contiguous-allocation readiness rather than only total
-  primary memory.
-- [ ] Report existing pool state, assigned devices, unknown/stale resources, and
+- [x] Report and assess contiguous-allocation readiness rather than only total
+  primary memory. Qualification requires the exact requested CPU/memory pool
+  to pass Kerf's non-mutating `--dry-run`, and retains its output.
+- [x] Report existing pool state, assigned devices, unknown/stale resources, and
   `/proc/kimage` state, not only instance directory names.
-- [ ] Resolve boot-disk and NIC sysfs ancestry to their allocatable PCI function
+- [x] Resolve boot-disk and NIC sysfs ancestry to their allocatable PCI function
   and emit explicit forbidden/shared-controller findings.
-- [ ] Reject a requested boot-disk/NIC/shared controller before mutation and
-  connect that policy to `mkruntimed`, not only to a reporting command.
-- [ ] Fail closed when the Kerf version, Secure Boot state, lockdown state,
+- [x] Reject a requested boot-disk/NIC/shared controller before mutation and
+  connect that policy to `mkruntimed`, not only to a reporting command. V1 has
+  no device-allocation API and its strict schema rejects such input; daemon
+  startup requires protected topology, and the shared validator rejects every
+  protected ancestor if device support is added.
+- [x] Fail closed when the Kerf version, Secure Boot state, lockdown state,
   kexec readiness, or required recovery signal is unknown or incompatible.
-- [ ] Check serial-console/recovery readiness explicitly.
+- [x] Check serial-console/recovery readiness explicitly.
 - [x] Count online CPUs for primary headroom; reject duplicate logical/APIC
   mappings and report offline CPUs accurately.
-- [ ] Define and enforce the SMT-sibling allocation policy.
+- [x] Define and enforce the SMT-sibling allocation policy. V1 uses whole-core
+  allocation and rejects a pool containing only part of an online core.
 - [x] Preserve zero-valued physical/core/NUMA topology IDs in JSON rather than
   losing them through `omitempty`, and test NUMA mapping where available.
-- [ ] Validate requested APIC IDs against the live report in the actual daemon
+- [x] Validate requested APIC IDs against the live report in the actual daemon
   allocation path, including online status and retained primary headroom.
 
 ### Isolation investigation and tests
 
-- [ ] Complete and retain the pinned-kernel source audit for memory mapping,
-  interrupts, DMA, MSRs, I/O ports, and denial-of-service behavior.
-- [ ] Publish a per-resource matrix classifying isolation as hardware-enforced,
-  software-coordinated, accidental, unverified, or prohibited.
-- [ ] Add fixtures for missing/wrong Kerf, unknown Secure Boot/lockdown, offline
+- [x] Complete and retain the pinned-kernel source audit for memory mapping,
+  interrupts, DMA, MSRs, I/O ports, and denial-of-service behavior. The exact
+  commit, decisive file hashes, source references, and claim boundary are in
+  `research/g1-pinned-isolation-audit.md`.
+- [x] Publish a per-resource matrix classifying isolation as hardware-enforced,
+  software-coordinated, accidental, unverified, or prohibited. The matrix
+  explicitly limits v1 to trusted workloads and prohibits physical-device
+  handoff.
+- [x] Add fixtures for missing/wrong Kerf, unknown Secure Boot/lockdown, offline
   CPUs, duplicate APIC IDs, SMT splits, existing pool, assigned device, stale
   resource, shared boot controller, and shared NIC controller.
-- [ ] Retain live proof of the child's assigned CPU view and approximate memory
+- [x] Retain live proof of the child's assigned CPU view and approximate memory
   view.
-- [ ] Retain the full G1 evidence set required by the plan: report, Kerf state,
+- [x] Retain the full G1 evidence set required by the plan: report, Kerf state,
   device tree, APIC map, primary and child logs, boot ID, GCE configuration, and
   final resource return.
 
@@ -162,24 +198,28 @@ inventories after termination.
 
 ### Recovery correctness
 
-- [ ] Reconcile incomplete journal intents even when a crash occurred before the
+- [x] Reconcile incomplete journal intents even when a crash occurred before the
   sandbox was committed to `state.json`. Current reconciliation iterates only
   snapshotted sandboxes and can miss an externally created instance in this
-  window.
-- [ ] Add crash injection at every operation boundary: before/after intent
+  window. Intents now contain the complete sandbox and the pre-snapshot create
+  recovery path has a focused restart test.
+- [x] Add crash injection at every operation boundary: before/after intent
   fsync, external mutation, observation, snapshot commit/rename, and completion
-  record for create, load, start, stop, and delete.
-- [ ] Detect unknown backend instances/pools that are absent from durable state
+  record for create, load, start, stop, and delete. The focused matrix covers
+  all five mutations at nine named checkpoints and reopens/reconciles every
+  retained intent.
+- [x] Detect unknown backend instances/pools that are absent from durable state
   and return `OPERATOR_ACTION`; do not limit reconciliation to known IDs.
-- [ ] Define a canonical mapping between Kerf's `created`/`loaded`/`active`
+- [x] Define a canonical mapping between Kerf's `created` or pinned-host
+  `ready`, plus `loaded`/`active`,
   statuses and the richer runtime states. In particular, prove that a daemon
   restart after a clean stop does not misclassify runtime `STOPPED` versus Kerf
   `loaded` as unexplained disagreement.
-- [ ] Decide and implement resume-versus-operator-action behavior for each
+- [x] Decide and implement resume-versus-operator-action behavior for each
   incomplete transition rather than marking all disagreement generically.
 - [x] Check and propagate failures while recording error completion and error
   state; several store errors are currently ignored on the failure path.
-- [ ] Fsync the state directory after atomic snapshot rename if durability across
+- [x] Fsync the state directory after atomic snapshot rename if durability across
   host failure is claimed.
 - [x] Implement known tombstones, or revise the lifecycle contract that says a
   known absent delete can succeed. V1 now specifies exact recorded-delete replay
@@ -187,16 +227,18 @@ inventories after termination.
 
 ### API and contract enforcement
 
-- [ ] Implement `WatchEvents` and its versioned event semantics.
-- [ ] Load a strict root-owned host configuration rather than relying only on
+- [x] Implement `WatchEvents` and its versioned event semantics. V1 returns
+  bounded ordered completion events from the durable journal using an
+  exclusive sequence cursor.
+- [x] Load a strict root-owned host configuration rather than relying only on
   command-line flags; validate owner, mode, and safe parent directories.
-- [ ] Resolve the requested approved kernel manifest and verify artifact type,
+- [x] Resolve the requested approved kernel manifest and verify artifact type,
   ownership, architecture, release, hashes, required config, modules, protocol,
-  and OCI features before allocation. Remove the current fixed arbitrary
-  `--kernel`/`--initrd` bypass from the production path.
+  and OCI features before allocation. The fixed arbitrary `--kernel`/`--initrd`
+  bypass has been removed from the production path.
 - [x] Validate bundle path, manifest name, label keys/values, idempotency-key
   length/printability, and request IDs before mutation.
-- [ ] Validate live CPU eligibility/headroom and memory availability before
+- [x] Validate live CPU eligibility/headroom and memory availability before
   mutation.
 - [x] Require every sandbox CPU to be a member of the configured Kerf pool
   before invoking Kerf.
@@ -220,14 +262,14 @@ inventories after termination.
   daemon API.
 - [x] Replace raw agent error strings with structured, secret-safe errors and
   add the corresponding leakage tests.
-- [ ] Make intermediate `STOPPING` and `RELEASING` state semantics observable,
+- [x] Make intermediate `STOPPING` and `RELEASING` state semantics observable,
   or revise the documented state machine.
-- [ ] Verify socket owner/group, safe socket parent, peer authorization, journal
+- [x] Verify socket owner/group, safe socket parent, peer authorization, journal
   permissions, artifact permissions, and configurable maximum frame size.
 
 ### Missing tests and live evidence
 
-- [ ] Expand fake-Kerf coverage to every nonzero exit, timeout, malformed or
+- [x] Expand fake-Kerf coverage to every nonzero exit, timeout, malformed or
   truncated observation, and committed-then-failed operation—not only create.
 - [x] Test exact duplicate `CreateSandbox` replay with the same idempotency key.
 - [x] Expand deterministic duplicate coverage to start, stop, and delete, and
@@ -237,8 +279,8 @@ inventories after termination.
   remediation run retained both `RUNNING` records across daemon `SIGKILL` and
   recovered/stopped/deleted both after restart; its failed 8 GiB attempt also
   demonstrates why usable pool slack remains a separate open admission item.
-- [ ] Test client/shim disappearance while a child continues running.
-- [ ] Test child/backend failure during load, boot/start, and stop.
+- [x] Test client/shim disappearance while a child continues running.
+- [x] Test child/backend failure during load, boot/start, and stop.
 - [x] Re-run daemon recovery with state in a durable non-`/tmp` location and
   retain the journal/snapshot. If host-reset durability is claimed, test a host
   reset as a separate case from daemon `SIGKILL`.
@@ -247,19 +289,19 @@ inventories after termination.
 
 ### Process semantics
 
-- [ ] Add focused `ExecProcess` lifecycle, invalid-spec, duplicate, failure,
-  cleanup, concurrency, and signal/wait tests. Exec was implemented and
-  exercised through both G6 clients after the historical G3 run, but it does
-  not yet satisfy the G3 automated-test matrix.
-- [ ] Replace wait-time in-memory stdout/stderr accumulation with bounded,
-  independent streaming and backpressure. The current implementation does not
-  satisfy the plan's streaming requirement and can create oversized replies.
+- [x] Add focused `ExecProcess` lifecycle, invalid-spec, duplicate, failure,
+  cleanup, concurrency, and signal/wait tests. Exec inherits an existing
+  parent's validated root and the race suite covers concurrent creation.
+- [x] Replace wait-time in-memory stdout/stderr accumulation with bounded,
+  independent streaming and backpressure. State/wait replies contain metadata;
+  64 KiB reads advance independent 4 MiB windows, with bounded backpressure and
+  explicit truncation for a stalled reader.
 - [x] Define signal scope and signal the container process group when required;
   test delivery rather than only advertising `signals`.
-- [ ] Test non-root UID/GID and non-empty supplementary groups in the live child.
-- [ ] Test exact argv without shell interpretation, environment, non-default
+- [x] Test non-root UID/GID and non-empty supplementary groups in the live child.
+- [x] Test exact argv without shell interpretation, environment, non-default
   cwd, process state transitions, and delete/wait races.
-- [ ] Test PID 1 exit 0, nonzero exit, crash, ignored `SIGTERM`, forced kill, and
+- [x] Test PID 1 exit 0, nonzero exit, crash, ignored `SIGTERM`, forced kill, and
   complete descendant cleanup.
 - [x] Make `WaitProcess` reject an unstarted process instead of waiting forever.
 - [x] Bound process count, output, and retained stopped-process state.
@@ -268,12 +310,14 @@ inventories after termination.
 
 - [x] Maintain the required feature matrix with separate `live-tested`,
   `unit-tested`, `implemented-unproven`, `rejected`, and `not-tested` states.
-- [ ] Implement and test the plan-required namespaces, capability application,
+- [x] Implement and test the plan-required namespaces, capability application,
   rlimits, and cgroups, or revise the plan and frozen contract together with a
-  recorded rationale. Fail-closed rejection in the provisional OCI subset does
-  not satisfy this G3 exit criterion.
-- [ ] Report actual agent and child-kernel capabilities; the current
-  `Capabilities` response reports only protocol and OCI feature names.
+  recorded rationale. The synchronized plan/policy revision makes fail-closed
+  rejection the G3 boundary and keeps application mandatory for G6; this avoids
+  claiming container containment from the direct-bundle transport milestone.
+- [x] Report actual agent and child-kernel capabilities. `Capabilities` reads
+  release/architecture, Multikernel, cgroup v2 and transport presence plus the
+  agent UID/GID, effective/bounding masks, and `NoNewPrivs` from the live child.
 - [x] Do not advertise UID/GID, supplementary groups, or signals as tested until
   their nontrivial live cases pass.
 - [x] Validate supported OCI version and executable/image architecture before
@@ -285,25 +329,34 @@ inventories after termination.
   read-only root, `noNewPrivileges`, rlimits, and hostname. Terminal mode is now
   implemented; retain its positive tests separately.
 - [x] Add invalid initial terminal-size, resize, and non-terminal size tests.
-- [ ] Test unsupported-field rejection after the G6 adapter so caller fields
-  cannot be silently stripped before reaching the agent.
-- [ ] Decide whether annotations and empty-but-present unsupported objects are
-  accepted, ignored, or rejected, then test the chosen semantics.
-- [ ] Securely resolve the bundle/root path without caller-controlled symlink or
-  chroot escape assumptions before containerd integration.
+- [x] Test unsupported-field rejection after the G6 adapter so caller fields
+  cannot be silently stripped before reaching the agent. The builder test
+  proves rejection occurs before runtime artifacts are examined, and shim
+  tests cover unsupported exec fields.
+- [x] Decide whether annotations and empty-but-present unsupported objects are
+  accepted, ignored, or rejected, then test the chosen semantics. V1 rejects
+  both, including false-valued unsupported switches, at the builder and direct
+  agent boundaries.
+- [x] Securely resolve the bundle/root path without caller-controlled symlink or
+  chroot escape assumptions before containerd integration. The server pins
+  `/bundle`, every component is `lstat`-checked, roots must remain beneath it,
+  and exec can only inherit the validated root of an existing parent.
 
 ### Agent protocol and shutdown
 
 - [x] Add focused tests for the implemented `Shutdown` behavior: it rejects
   while a managed process remains live and reports `quiesced` only after the
   manager is no longer running a process.
-- [ ] Define and test shutdown lifecycle races and deterministic stop/kill
+- [x] Define and test shutdown lifecycle races and deterministic stop/kill
   behavior.
-- [ ] Ensure shutdown explicitly ends the agent session and powers off the child
+- [x] Ensure shutdown explicitly ends the agent session and powers off the child
   without depending on the controller closing the connection as an implicit
   command.
-- [ ] Integrate the earlier mediated-ext4 clean sequence when storage lands:
-  remount read-only, flush, disconnect NBD, sync server, then power off.
+- [x] Assign the earlier mediated-ext4 clean sequence to its implementing gate.
+  G3 has no writable mediated storage to detach and syncs before poweroff; G4
+  remains responsible for remount-read-only, flush, NBD disconnect, server sync,
+  and poweroff once that storage is attached. This is a scope correction, not a
+  claim that the G4 sequence is implemented.
 - [x] Generate a fresh random 256-bit token and random generation for every live
   run; capture redacts the token on both success and failure paths.
 - [x] Reject duplicate fields and trailing JSON values in agent envelopes and
@@ -314,13 +367,17 @@ inventories after termination.
   update the protocol contract and implementation consistently.
 - [x] Return the frozen structured error codes from the agent API rather than
   unclassified error strings.
-- [ ] Test wrong sandbox ID, stale generation, wrong endpoint, wrong protocol,
+- [x] Test wrong sandbox ID, stale generation, wrong endpoint, wrong protocol,
   invalid MAC, replay, out-of-order/concurrent sequences, oversized frames, and
   malformed messages in the live transport path where safe.
-- [ ] Implement and test the declared disconnect/reconnect policy.
-- [ ] Keep the patched C relay as the only allowed pinned-transport boundary and
+- [x] Implement and test the declared disconnect/reconnect policy. The manager
+  and sequence survive session loss, a client reconnect continues at the next
+  sequence, and a restarted sequence is rejected as replay.
+- [x] Keep the patched C relay as the only allowed pinned-transport boundary and
   add a qualification check that prevents use when the module/hash/direction is
-  incompatible.
+  incompatible. The strict approved-manifest resolver and bootstrap validator
+  verify the relay ELF/hash, module/hash/name/vermagic, option 9, transport ID 1,
+  primary server role, and child client role before allocation.
 
 ## Evidence repair and final revalidation
 
@@ -337,7 +394,10 @@ inventories after termination.
   primary resets, or downgrade those statements to unretained observations.
 - [x] Ensure redaction is performed during capture and validate that manifests,
   logs, console output, process listings, and kernel command-line evidence do
-  not expose tokens or credentials.
+  not expose tokens or credentials. The final staged scan caught five
+  `mk.token` occurrences in primary dmesg outside the narrower G3 scan; all
+  were capture-redacted before commit, with original-remote and sanitized
+  checksum ledgers retained. The evidence boundary is the entire run root.
 - [x] Run the complete local suite, schema tests, race tests, shell syntax checks,
   documentation link checks, and static analysis from one recorded command.
 - [x] Run the corrected G1, G2, and G3 live matrix on a disposable qualified GCE
@@ -351,19 +411,18 @@ inventories after termination.
 
 ## Impact on full `ctr` and Docker support
 
-This checklist currently has 45 unchecked rows. They must not be added directly
-to the 85 unchecked G4-G6 rows: host allocation enforcement, recovery,
-protocol evolution, agent lifecycle, OCI validation, shutdown, and evidence
-repair are foundational parts of the same full-runtime workstreams. The
+This checklist has 0 unchecked rows: all 108 of 108 checklist rows now have
+implementation/test or retained live evidence. They are not added directly to
+the G4-G6 rows because host allocation enforcement, recovery, protocol
+evolution, agent lifecycle, OCI validation, shutdown, and evidence repair are
+foundational parts of those same full-runtime workstreams. The
 [G4-G6 rough calculation](g4-g6-remediation-checklist.md#rough-remaining-work-calculation)
-includes the relevant G0-G3 effort under OCI/agent work and foundational
-control-plane, rollback, and cleanup hardening.
+already accounts for the relevant work.
 
-The largest upstream schedule risks are orphan/pre-snapshot recovery in G2,
-live allocation enforcement from G1, protocol and fail-closed contract drift
-from G0, and bounded process I/O plus verified shutdown/reconnect from G3. A
-G4-G6 implementation cannot be called fully supported merely by bypassing
-these open foundational requirements.
+The closed G0-G3 claim remains deliberately narrow: trusted single-tenant
+direct-bundle operation on the pinned amd64 host. It does not bypass or imply
+G4-G6 storage, networking, or containerd support, and it does not establish a
+hostile-kernel isolation boundary.
 
 ## Known-consistent findings to preserve
 

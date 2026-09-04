@@ -11,11 +11,16 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
+
+var ErrShutdownRequested = errors.New("agent shutdown requested")
 
 type Envelope struct {
 	Version    int             `json:"version"`
@@ -93,6 +98,7 @@ func safeAgentError(sequence uint64, raw string) *protocol.Error {
 type Server struct {
 	Manager               *Manager
 	SandboxID, Generation string
+	Bundle                string
 	Endpoint              uint32
 	Token                 []byte
 	mu                    sync.Mutex
@@ -132,6 +138,55 @@ func (s *Server) verify(e Envelope) error {
 func decode(b []byte, v any) error {
 	return protocol.StrictDecode(b, v)
 }
+
+func capabilityReport() map[string]any {
+	read := func(path string) string {
+		value, err := os.ReadFile(path)
+		if err != nil {
+			return "unknown"
+		}
+		return strings.TrimSpace(string(value))
+	}
+	status := map[string]string{"CapEff": "unknown", "CapBnd": "unknown", "NoNewPrivs": "unknown"}
+	for _, line := range strings.Split(read("/proc/self/status"), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 {
+			if _, ok := status[strings.TrimSuffix(fields[0], ":")]; ok {
+				status[strings.TrimSuffix(fields[0], ":")] = fields[1]
+			}
+		}
+	}
+	namespaces := make([]string, 0, 8)
+	for _, name := range []string{"cgroup", "ipc", "mnt", "net", "pid", "time", "user", "uts"} {
+		if _, err := os.Lstat("/proc/self/ns/" + name); err == nil {
+			namespaces = append(namespaces, name)
+		}
+	}
+	sort.Strings(namespaces)
+	exists := func(path string) bool {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+	return map[string]any{
+		"protocol":     1,
+		"oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize"},
+		"kernel": map[string]any{
+			"architecture": runtime.GOARCH,
+			"release":      read("/proc/sys/kernel/osrelease"),
+			"multikernel":  exists("/sys/fs/multikernel"),
+			"cgroup_v2":    exists("/sys/fs/cgroup/cgroup.controllers"),
+			"mk_transport": exists("/sys/module/mk_transport"),
+			"namespaces":   namespaces,
+		},
+		"agent": map[string]any{
+			"uid":                    os.Getuid(),
+			"gid":                    os.Getgid(),
+			"effective_capabilities": status["CapEff"],
+			"bounding_capabilities":  status["CapBnd"],
+			"no_new_privileges":      status["NoNewPrivs"],
+		},
+	}
+}
 func (s *Server) Dispatch(e Envelope) Reply {
 	r := Reply{Version: 1, Sequence: e.Sequence}
 	if x := s.verify(e); x != nil {
@@ -140,23 +195,25 @@ func (s *Server) Dispatch(e Envelope) Reply {
 	}
 	switch e.Method {
 	case "Capabilities":
-		r.Body = map[string]any{"protocol": 1, "oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize"}}
+		r.Body = capabilityReport()
 	case "CreateProcess":
 		var q struct{ ID, Bundle string }
 		if x := decode(e.Body, &q); x != nil {
 			r.Error = x.Error()
+		} else if s.Bundle != "" && q.Bundle != s.Bundle {
+			r.Error = "bundle path does not match the runtime-owned bundle"
 		} else if x = s.Manager.Create(q.ID, q.Bundle); x != nil {
 			r.Error = x.Error()
 		}
 	case "ExecProcess":
 		var q struct {
-			ID   string      `json:"id"`
-			Root string      `json:"root"`
-			Spec ProcessSpec `json:"spec"`
+			ID       string      `json:"id"`
+			ParentID string      `json:"parent_id"`
+			Spec     ProcessSpec `json:"spec"`
 		}
 		if x := decode(e.Body, &q); x != nil {
 			r.Error = x.Error()
-		} else if x = s.Manager.Exec(q.ID, q.Root, q.Spec); x != nil {
+		} else if x = s.Manager.Exec(q.ID, q.ParentID, q.Spec); x != nil {
 			r.Error = x.Error()
 		}
 	case "StartProcess":
@@ -222,7 +279,8 @@ func (s *Server) Dispatch(e Envelope) Reply {
 		} else if stdout, stderr, nextStdout, nextStderr, status, x := s.Manager.ReadOutput(q.ID, q.StdoutOffset, q.StderrOffset, q.Limit); x != nil {
 			r.Error = x.Error()
 		} else {
-			r.Body = map[string]any{"stdout": stdout, "stderr": stderr, "stdout_offset": nextStdout, "stderr_offset": nextStderr, "status": status}
+			state, _ := s.Manager.State(q.ID)
+			r.Body = map[string]any{"stdout": stdout, "stderr": stderr, "stdout_offset": nextStdout, "stderr_offset": nextStderr, "status": status, "stdout_truncated": state.StdoutTruncated, "stderr_truncated": state.StderrTruncated}
 		}
 	case "WaitProcess":
 		var q struct{ ID string }
@@ -231,6 +289,8 @@ func (s *Server) Dispatch(e Envelope) Reply {
 		} else if st, x := s.Manager.Wait(q.ID); x != nil {
 			r.Error = x.Error()
 		} else {
+			st.Stdout = ""
+			st.Stderr = ""
 			r.Body = st
 		}
 	case "StateProcess":
@@ -242,6 +302,8 @@ func (s *Server) Dispatch(e Envelope) Reply {
 		} else if st, x := s.Manager.State(q.ID); x != nil {
 			r.Error = x.Error()
 		} else {
+			st.Stdout = ""
+			st.Stderr = ""
 			r.Body = st
 		}
 	case "ConfigureNetwork":
@@ -296,7 +358,13 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 			}
 			return e
 		}
-		go func() { defer c.Close(); s.ServeConn(ctx, c) }()
+		e = s.ServeConn(ctx, c)
+		_ = c.Close()
+		if errors.Is(e, ErrShutdownRequested) {
+			return e
+		}
+		// A malformed or disconnected session is isolated to that connection.
+		// The manager and authenticated sequence remain live for reconnect.
 	}
 }
 
@@ -338,6 +406,9 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 		}
 		if _, e = c.Write(b); e != nil {
 			return e
+		}
+		if env.Method == "Shutdown" && reply.Error == "" {
+			return ErrShutdownRequested
 		}
 		if closeAfterReply {
 			return nil

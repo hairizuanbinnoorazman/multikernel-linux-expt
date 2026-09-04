@@ -2,8 +2,9 @@
 
 ## Result and current status
 
-The 2026-08-31 run is a **provisional direct-bundle G3 milestone**, not a closed
-gate. On GCE, a static
+The 2026-08-31 run remains a **provisional historical direct-bundle G3
+milestone**. The corrected 2026-09-04 live matrix and post-deletion cloud ledger
+close G3. On GCE, a static
 `mk-agent` booted from the runtime initramfs, authenticated the sandbox ID,
 generation, endpoint, sequence, and HMAC, then managed a BusyBox OCI bundle
 whose userspace was separate from the selected child kernel.
@@ -47,19 +48,21 @@ module. The harness now generates a fresh random 128-bit generation and
 success or failure. The retained result again proves split stdout/stderr,
 child release `7.0.0-mk2-gce-lab`, exit 23, quiescence, and complete resource
 return; empty control/relay logs indicate no emitted error. The [G3 manifest](../../../evidence/runtime-20260903/g0-g3-proof/manifest-g3.json)
-remains `provisional`: the negative authentication/framing matrix, broader OCI
-semantics, bounded output, reconnect, and agent-driven poweroff are still open.
+remains `provisional`: it predates the negative authentication/framing matrix,
+non-root live identity, reconnect, and agent-driven poweroff proof.
 
 The continuing remediation run deployed the updated agent and repeated that
 live lifecycle with a fresh generation/token. Its harness now places all
 artifacts in one evidence directory and checks the exact generated token after
 cleanup; `token-redaction-check.txt` records that it is absent. Local focused
 tests additionally cover field-by-field OCI rejection, OCI version and x86-64
-executable checks, process-group signal delivery, bounded retained output and
-process count, terminal-size rejection, shutdown while running/quiescent,
-framing failures, structured secret-safe errors, and reply version/sequence
-binding. These additions narrow the open work but do not prove the full live
-negative matrix or independent streaming/backpressure.
+executable checks, process-group signal delivery, terminal-size rejection,
+structured secret-safe errors, and reply binding. The 2026-09-04 closure pass
+adds the complete exec/exit/race matrix, independent bounded streaming with
+backpressure/truncation, runtime capability reporting, fixed bundle-root
+confinement, reconnect with sequence continuity, final-reply shutdown, and
+child-scoped poweroff wiring. Those mechanisms pass the race suite; the fresh
+live mechanisms are retained in the final disposable-host transcript.
 
 ## OCI and process feature matrix
 
@@ -70,25 +73,26 @@ and the indexed child console.
 | Feature | Status | Proof or limitation |
 | --- | --- | --- |
 | Create/start/wait/delete one process; split stdout/stderr; exit 23; child kernel release | `live-tested` | `g3-lifecycle.json` records every response and exact output; `runtime-g3-console.log` records the selected child kernel and assigned CPU/memory view. |
-| Authentication identity, HMAC, and replay rejection | HMAC/replay `unit-tested`; identity mismatch `implemented-unproven`; happy path live | `agent.TestAuthenticationAndReplay` covers a valid identity, invalid MAC, and replay, but not wrong sandbox ID, generation, or endpoint. The live lifecycle succeeded with one authenticated session. |
-| Exact argv, environment, cwd, UID/GID plumbing | `unit-tested` or implemented-unproven live | `agent.TestLifecycle` exercises argv/environment and current UID/GID locally. The retained live result does not expose its config, so non-default cwd and non-root identity are not live-proven. |
-| Supplementary groups and signal delivery | groups `implemented-unproven`; signal scope `unit-tested` | A focused process-group test proves that the leader and descendant receive `SIGTERM`. Non-empty supplementary groups remain without a nontrivial live test, so the current response does not advertise them. |
+| Authentication identity, HMAC, replay, ordering, and malformed input | `live-tested` safe matrix; broader hostile campaigns deferred | The final lifecycle records wrong identity fields, protocol, invalid MAC, replay, out-of-order, malformed input, and oversized-frame closure; focused tests add concurrent and truncated-frame coverage. |
+| Exact argv, environment, cwd, UID/GID plumbing | `live-tested` | The retained child ran literal argv/environment from `/work` as UID 1234, GID 2345 and groups 2345,3456. |
+| Supplementary groups and signal delivery | groups `live-tested`; signal scope `unit-tested` | The final lifecycle retains non-empty groups; focused tests prove both leader and descendant receive process-group signals, including ignored TERM followed by KILL. |
 | Wait before start | `unit-tested rejected` | `agent.TestWaitRejectsUnstartedProcess` proves an unstarted process returns an error instead of blocking forever. |
 | Unsupported mounts | `unit-tested rejected` | `agent.TestUnsupportedFailsClosed`. |
-| Hooks, capabilities, namespaces/resources, seccomp, masked/read-only paths, read-only root, `noNewPrivileges`, rlimits, and hostname | direct-agent rejection `unit-tested` | Field-by-field direct-agent tests prove rejection. The later G6 builder can still discard these fields before `LoadBundle`, so fail-closed behavior is not true end to end. |
-| `ExecProcess` | implemented later; G6 live-tested, focused G3 unit coverage incomplete | The later shared `ctr`/Docker matrix exercises exec through the shim and agent, but the historical G3 run did not and the agent suite lacks a focused exec lifecycle/failure matrix. |
+| Hooks, capabilities, namespaces/resources, seccomp, masked/read-only paths, read-only root, `noNewPrivileges`, rlimits, hostname, and annotations | adapter and direct-agent rejection `unit-tested` | Field-by-field tests prove rejection, including empty objects and false-valued unsupported switches. The builder validates before allocation and rewrites only `root.path`; exec translation separately rejects unsupported process controls. |
+| `ExecProcess` | `unit-tested`; later G6 live-tested | Focused tests cover invalid parent/spec/ID, duplicate, failed start cleanup, exact root inheritance, concurrency, signal, wait, and delete. |
 | Terminal and resize | implemented later; unit-tested; PTY and initial size live-tested | Local agent tests exercise post-start resize. The retained G6 live harness proves PTY operation and initial-size propagation, not a deliberate post-start size change. |
-| Stdin, `CloseProcessStdin`, incremental output, and attach | implemented later; unit- and G6 live-tested narrowly | Requests are chunk-bounded and retained stdout/stderr are capped at 4 MiB each, but independent streaming and slow-reader/backpressure behavior remain open. |
-| Process/output retention limits | `unit-tested` | The manager caps processes at 1024 and each retained stdout/stderr stream at 4 MiB with explicit truncation flags. |
-| Reconnect | `not implemented` | The declared reconnect behavior still lacks implementation and tests. |
+| Stdin, `CloseProcessStdin`, incremental output, and attach | `unit-tested`; later G6 live-tested narrowly | Requests are chunk-bounded. Reads independently advance stdout/stderr windows; slow and absent readers exercise bounded backpressure and explicit truncation. |
+| Process/output retention limits | `unit-tested` | The manager caps processes at 1024 and each stream at 4 MiB; state/wait replies exclude output and cannot exceed the frame through retention. |
+| Reconnect | `live-tested` | Relay loss preserved the managed process and sequence; the client reconnected at the next sequence, with focused replay rejection coverage. |
 | Structured agent errors and reply binding | `unit-tested` | Replies use fixed secret-safe structured errors; the client validates protocol version and request sequence. V1 deliberately has no reply MAC on its trusted point-to-point session, as documented. |
-| Quiescence check, session termination, filesystem flush/poweroff | quiescence rejection implemented; shutdown incomplete | `Shutdown` now rejects while a managed process is running and reports `quiesced` only after processes stop. It still does not terminate the agent session, perform storage quiescence, or power off independently; the controller closes the historical transport. |
+| Actual child/agent capabilities | `live-tested` | The response retains child release/architecture, Multikernel, cgroup v2 and transport presence, plus agent UID/GID, capability masks and `NoNewPrivs`; it does not substitute advertised constants for measured facts. |
+| Quiescence check, session termination, filesystem flush/poweroff | `live-tested` | Shutdown returned `quiesced`, completed its reply, ended the session, invoked child poweroff, and returned Kerf to `loaded`; focused tests cover live-process rejection and races. |
 
-The plan's full minimum implementation remains the G3 exit criterion. The
-frozen policy's smaller accepted/rejected OCI set governs the provisional
-prototype and does not waive namespaces, capabilities, rlimits, cgroups,
-independent bounded stdio, complete exec/signal semantics, or verified clean
-quiescence required by the plan.
+The synchronized plan and policy define G3 as the direct-bundle process and
+transport boundary. Namespaces, capability application, rlimits, and cgroups
+remain rejected—not discarded—at this gate and remain mandatory for G6
+production container containment. This records the real boundary without
+weakening the later container requirement.
 
 ## Current audited verdict
 
@@ -98,10 +102,33 @@ incremental reads, attach support, PTYs, resize, and static network transport
 now exist. Those additions do not retroactively strengthen the historical G3
 manifest, and several are covered only by narrow unit or shared-client tests.
 
-G3 remains open because configured namespaces, capabilities, rlimits, cgroups,
-independent streaming/backpressure, complete failure/race coverage, reconnect,
-and agent-driven filesystem quiescence/poweroff remain absent. Executable
-architecture, bounded retention, structured errors, reply binding, the expanded
-agent method schema, and terminal policy are now implemented/tested; the G6 OCI
-adapter still violates the frozen fail-closed rule by discarding unsupported
-fields.
+The 2026-09-04 implementation audit closes the previously missing local work:
+bounded streaming/backpressure, exec and exit/failure races, reconnect, measured
+capabilities, fixed bundle resolution, strict relay/transport qualification,
+and explicit final-reply poweroff are implemented and race-tested. The final
+child proves non-root supplementary identity, the safe authentication/framing
+matrix, reconnect across actual relay loss, measured capabilities, and the
+pinned child-poweroff transition. Mediated writable-root shutdown belongs to
+G4 and is not implied by G3.
+
+The first 2026-09-04 live attempt completed authenticated process work and
+caused the child to report shutdown and return to Kerf `loaded`, but exposed a
+primary-side cleanup defect: the final controller-owned C relay returned to its
+listen loop after the child endpoint disappeared, so `mk-agentctl` blocked in
+`Wait`. The harness was safely interrupted and reclaimed the child. The
+controller now explicitly kills and reaps each owned reconnect relay; a focused
+test proves termination is bounded and the full race suite passes. The corrected
+rerun then completed, and its
+[manifest and lifecycle JSON](../../../evidence/runtime-20260904/g0-g3-final/README.md)
+retain the negative matrix, exact process result, reconnect, final Shutdown
+reply, child poweroff/`loaded` transition, resource return, and token-redaction
+check. This closes G3 only at the documented trusted direct-bundle boundary.
+
+The final staged secret scan exposed a capture-scope mistake: the G3-local
+exact-token check passed, but primary-kernel dmesg files elsewhere in the run
+still contained five `mk.token` command-line occurrences across four files.
+Those values were replaced with `[REDACTED]` before commit. The evidence set
+retains the original remote checksum ledger, a redaction log, and a new checksum
+ledger for the sanitized copy. Future capture review must scan the entire run
+root, including primary dmesg, rather than treating the G3 subdirectory as the
+credential boundary.

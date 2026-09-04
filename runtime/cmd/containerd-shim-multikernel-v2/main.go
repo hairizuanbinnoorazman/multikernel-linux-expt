@@ -840,6 +840,19 @@ func processSpec(p *specs.Process) agent.ProcessSpec {
 	return agent.ProcessSpec{Terminal: p.Terminal, User: agent.User{UID: p.User.UID, GID: p.User.GID, AdditionalGids: gids}, Args: p.Args, Env: p.Env, Cwd: p.Cwd}
 }
 
+func validateExecProcess(p *specs.Process) error {
+	if p == nil || len(p.Args) == 0 || p.Cwd == "" || !filepath.IsAbs(p.Cwd) {
+		return fmt.Errorf("%w: exec args and absolute cwd are required", errdefs.ErrInvalidArgument)
+	}
+	if p.ConsoleSize != nil || p.CommandLine != "" || p.Capabilities != nil ||
+		p.Rlimits != nil || p.NoNewPrivileges || p.ApparmorProfile != "" ||
+		p.OOMScoreAdj != nil || p.Scheduler != nil || p.SelinuxLabel != "" ||
+		p.IOPriority != nil || p.User.Umask != nil || p.User.Username != "" {
+		return fmt.Errorf("%w: unsupported exec process field", errdefs.ErrNotImplemented)
+	}
+	return nil
+}
+
 func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emptypb.Empty, error) {
 	if r.ExecID == "" || s.agent == nil {
 		return nil, errdefs.ErrInvalidArgument
@@ -852,6 +865,9 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 	if !ok {
 		return nil, errdefs.ErrInvalidArgument
 	}
+	if err = validateExecProcess(spec); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	if _, exists := s.processes[r.ExecID]; exists {
 		s.mu.Unlock()
@@ -860,7 +876,7 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 	p := &process{id: r.ExecID, stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	s.processes[r.ExecID] = p
 	s.mu.Unlock()
-	if err = s.agent.Call("ExecProcess", map[string]any{"id": r.ExecID, "root": "/bundle/rootfs", "spec": processSpec(spec)}, nil); err != nil {
+	if err = s.agent.Call("ExecProcess", map[string]any{"id": r.ExecID, "parent_id": "init", "spec": processSpec(spec)}, nil); err != nil {
 		return nil, err
 	}
 	if err = s.publish(ctx, ctruntime.TaskExecAddedEventTopic, &eventstypes.TaskExecAdded{ContainerID: s.id, ExecID: r.ExecID}); err != nil {

@@ -3,13 +3,16 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	"golang.org/x/sys/unix"
 )
 
 func main() {
@@ -30,7 +33,7 @@ func main() {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	s := &agent.Server{Manager: agent.NewManager(noChroot), SandboxID: id, Generation: gen, Endpoint: uint32(port), Token: key}
+	s := &agent.Server{Manager: agent.NewManager(noChroot), SandboxID: id, Generation: gen, Bundle: "/bundle", Endpoint: uint32(port), Token: key}
 	if unixSocket == "" {
 		fmt.Fprintln(os.Stderr, "--unix-socket is required; direct Go AF_VSOCK is prohibited")
 		os.Exit(2)
@@ -42,13 +45,16 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
-	conn, e := listener.Accept()
-	if e != nil {
-		fmt.Fprintln(os.Stderr, e)
-		os.Exit(1)
+	e = s.Serve(ctx, listener)
+	if errors.Is(e, agent.ErrShutdownRequested) {
+		syscall.Sync()
+		if e = unix.Reboot(unix.LINUX_REBOOT_CMD_POWER_OFF); e != nil {
+			fmt.Fprintln(os.Stderr, "poweroff:", e)
+			os.Exit(1)
+		}
+		return
 	}
-	defer conn.Close()
-	if e = s.ServeConn(ctx, conn); e != nil {
+	if e != nil {
 		fmt.Fprintln(os.Stderr, e)
 		os.Exit(1)
 	}

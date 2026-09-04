@@ -29,6 +29,12 @@ set +e
 sudo timeout 20s script -qefc "$kerf exec $name --console" /dev/null >"$log" 2>&1
 set -e
 grep -q RUNTIME_G1_INTENTIONAL_INIT_EXIT "$log"
+grep -q '^RUNTIME_G1_CHILD_CPU_ONLINE=0-1' "$log"
+grep -q '^RUNTIME_G1_CHILD_APICS=8,10' "$log"
+child_memory_kb=$(sed -n 's/^RUNTIME_G1_CHILD_MEMTOTAL_KB=//p' "$log" | tail -1 | tr -d '\r')
+[[ $child_memory_kb =~ ^[0-9]+$ ]]
+(( child_memory_kb >= 3500000 && child_memory_kb <= 4500000 ))
+cat "$log"
 systemctl is-active --quiet google-guest-agent
 test "$(cat /sys/fs/multikernel/instances/$name/status)" = loaded
 cleanup

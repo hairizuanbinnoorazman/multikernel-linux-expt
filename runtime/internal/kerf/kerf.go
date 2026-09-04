@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -23,6 +25,9 @@ type Backend interface {
 	Stop(context.Context, protocol.Sandbox) error
 	Delete(context.Context, protocol.Sandbox) error
 	ReleasePool(context.Context) error
+}
+type InventoryBackend interface {
+	ListInstances(context.Context) ([]string, error)
 }
 type CLI struct {
 	Path       string
@@ -43,6 +48,14 @@ func (c *CLI) run(ctx context.Context, args ...string) error {
 	defer cancel()
 	cmd := exec.CommandContext(x, c.Path, args...)
 	cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+	cmd.WaitDelay = time.Second
 	b, e := cmd.CombinedOutput()
 	if x.Err() != nil {
 		return fmt.Errorf("kerf timeout: %w", x.Err())
@@ -71,13 +84,32 @@ func (c *CLI) Observe(_ context.Context, id string) (string, error) {
 		return "", e
 	}
 	switch strings.TrimSpace(string(b)) {
+	case "created", "ready":
+		return "CREATED", nil
 	case "active":
 		return "RUNNING", nil
 	case "loaded":
 		return "LOADED", nil
 	default:
-		return "CREATED", nil
+		return "", fmt.Errorf("unrecognized Kerf instance status %q", strings.TrimSpace(string(b)))
 	}
+}
+func (c *CLI) ListInstances(_ context.Context) ([]string, error) {
+	entries, err := os.ReadDir(filepath.Join(c.Sysfs, "instances"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	instances := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			instances = append(instances, entry.Name())
+		}
+	}
+	sort.Strings(instances)
+	return instances, nil
 }
 func (c *CLI) Create(ctx context.Context, s protocol.Sandbox) error {
 	err := c.run(ctx, "create", s.ID, "--id="+strconv.FormatUint(uint64(s.Config.ChildCID), 10), "--cpus="+ints(s.Config.CPUs), "--memory="+fmt.Sprintf("%d", s.Config.MemoryBytes), "--verbose")
@@ -109,13 +141,16 @@ func (c *CLI) Load(ctx context.Context, s protocol.Sandbox, kernel, initrd, cmdl
 		cmdline += " mk.sandbox_id=" + s.ID + " mk.generation=" + s.Generation +
 			" mk.token=" + token + " mk.agent_port=" + strconv.FormatUint(uint64(s.Config.AgentPort), 10)
 	}
-	return c.run(ctx, "load", s.ID, "--kernel="+kernel, "--initrd="+initrd, "--cmdline="+cmdline, "--verbose")
+	err := c.run(ctx, "load", s.ID, "--kernel="+kernel, "--initrd="+initrd, "--cmdline="+cmdline, "--verbose")
+	return c.acceptObserved(ctx, s.ID, "LOADED", err)
 }
 func (c *CLI) Start(ctx context.Context, s protocol.Sandbox) error {
-	return c.run(ctx, "exec", s.ID, "--verbose")
+	err := c.run(ctx, "exec", s.ID, "--verbose")
+	return c.acceptObserved(ctx, s.ID, "RUNNING", err)
 }
 func (c *CLI) Stop(ctx context.Context, s protocol.Sandbox) error {
-	return c.run(ctx, "kill", s.ID, "--force", "--verbose")
+	err := c.run(ctx, "kill", s.ID, "--force", "--verbose")
+	return c.acceptObserved(ctx, s.ID, "LOADED", err)
 }
 func (c *CLI) Delete(ctx context.Context, s protocol.Sandbox) error {
 	state, e := c.Observe(ctx, s.ID)
@@ -128,9 +163,21 @@ func (c *CLI) Delete(ctx context.Context, s protocol.Sandbox) error {
 		}
 	}
 	if state != "ABSENT" {
-		return c.run(ctx, "delete", s.ID, "--verbose")
+		err := c.run(ctx, "delete", s.ID, "--verbose")
+		return c.acceptObserved(ctx, s.ID, "ABSENT", err)
 	}
 	return nil
+}
+
+func (c *CLI) acceptObserved(ctx context.Context, id, expected string, commandErr error) error {
+	if commandErr == nil {
+		return nil
+	}
+	observed, observeErr := c.Observe(ctx, id)
+	if observeErr == nil && observed == expected {
+		return nil
+	}
+	return commandErr
 }
 func (c *CLI) ReleasePool(ctx context.Context) error {
 	return c.run(ctx, "init", "--cpus=none", "--memory=none", "--devices=none", "--verbose")

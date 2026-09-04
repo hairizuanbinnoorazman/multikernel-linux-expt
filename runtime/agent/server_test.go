@@ -7,6 +7,10 @@ import (
 	"encoding/json"
 	"io"
 	"net"
+	"os"
+	"runtime"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -125,5 +129,129 @@ func TestAgentWireErrorsAreStructuredAndSecretSafe(t *testing.T) {
 	}
 	if wire.Error.Code != "INTERNAL" || wire.Error.OperationID != "agent-7" || wire.Error.Message != "agent operation failed" {
 		t.Fatalf("wire error = %+v", wire.Error)
+	}
+}
+
+func TestStateReplyExcludesRetainedOutputAndReadIsBounded(t *testing.T) {
+	manager := NewManager(true)
+	done := make(chan struct{})
+	close(done)
+	process := &process{done: done, waited: true, state: ProcessState{ID: "large", Status: "STOPPED", ExitCode: 0}}
+	payload := bytes.Repeat([]byte("x"), 2<<20)
+	if _, err := process.stdout.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := process.stderr.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	process.state.Stdout = process.stdout.String()
+	process.state.Stderr = process.stderr.String()
+	manager.processes["large"] = process
+	server := &Server{Manager: manager, SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001, Token: []byte("01234567890123456789012345678901")}
+
+	request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation, Endpoint: server.Endpoint, Sequence: 1, Method: "StateProcess", Body: json.RawMessage(`{"id":"large"}`)}
+	Sign(&request, server.Token)
+	reply := server.Dispatch(request)
+	wire, err := json.Marshal(reply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wire) >= 1<<20 || bytes.Contains(wire, bytes.Repeat([]byte("x"), 1024)) {
+		t.Fatalf("state reply retained process output: size=%d", len(wire))
+	}
+
+	request.Sequence++
+	request.Method = "ReadProcessOutput"
+	request.Body = json.RawMessage(`{"id":"large","stdout_offset":0,"stderr_offset":0,"limit":65536}`)
+	Sign(&request, server.Token)
+	reply = server.Dispatch(request)
+	wire, err = json.Marshal(reply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wire) >= 1<<20 {
+		t.Fatalf("bounded output reply size=%d", len(wire))
+	}
+	body, ok := reply.Body.(map[string]any)
+	if !ok || len(body["stdout"].([]byte)) != 65536 || len(body["stderr"].([]byte)) != 65536 {
+		t.Fatalf("bounded split output body=%#v", reply.Body)
+	}
+}
+
+func TestConcurrentSequencesAreSerializedAndOutOfOrderRejected(t *testing.T) {
+	server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001, Token: []byte("01234567890123456789012345678901")}
+	start := make(chan struct{})
+	replies := make(chan Reply, 100)
+	var group sync.WaitGroup
+	for sequence := uint64(1); sequence <= 100; sequence++ {
+		group.Add(1)
+		go func(sequence uint64) {
+			defer group.Done()
+			<-start
+			request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation, Endpoint: server.Endpoint, Sequence: sequence, Method: "Capabilities"}
+			Sign(&request, server.Token)
+			replies <- server.Dispatch(request)
+		}(sequence)
+	}
+	close(start)
+	group.Wait()
+	close(replies)
+	successes := 0
+	for reply := range replies {
+		if reply.Error == "" {
+			successes++
+		} else if !strings.Contains(reply.Error, "replayed sequence") {
+			t.Fatalf("concurrent reply = %+v", reply)
+		}
+	}
+	if successes == 0 || server.last != 100 {
+		t.Fatalf("successful sequences=%d last=%d", successes, server.last)
+	}
+	late := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation, Endpoint: server.Endpoint, Sequence: 99, Method: "Capabilities"}
+	Sign(&late, server.Token)
+	if reply := server.Dispatch(late); !strings.Contains(reply.Error, "replayed sequence") {
+		t.Fatalf("late sequence reply = %+v", reply)
+	}
+}
+
+func TestServerEnforcesRuntimeOwnedBundle(t *testing.T) {
+	server := &Server{
+		Manager: NewManager(true), SandboxID: "box",
+		Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001,
+		Token: []byte("01234567890123456789012345678901"), Bundle: "/bundle",
+	}
+	request := Envelope{
+		Version: 1, SandboxID: server.SandboxID, Generation: server.Generation,
+		Endpoint: server.Endpoint, Sequence: 1, Method: "CreateProcess",
+		Body: json.RawMessage(`{"id":"init","bundle":"/attacker-controlled"}`),
+	}
+	Sign(&request, server.Token)
+	if reply := server.Dispatch(request); !strings.Contains(reply.Error, "runtime-owned bundle") {
+		t.Fatalf("CreateProcess reply = %+v", reply)
+	}
+
+	request.Sequence++
+	request.Method = "ExecProcess"
+	request.Body = json.RawMessage(`{"id":"exec","parent_id":"missing","spec":{"args":["/bin/true"],"cwd":"/"}}`)
+	Sign(&request, server.Token)
+	if reply := server.Dispatch(request); !strings.Contains(reply.Error, "parent process") {
+		t.Fatalf("ExecProcess reply = %+v", reply)
+	}
+}
+
+func TestCapabilitiesReportRuntimeFacts(t *testing.T) {
+	report := capabilityReport()
+	kernel, ok := report["kernel"].(map[string]any)
+	if !ok || kernel["architecture"] != runtime.GOARCH || kernel["release"] == "" {
+		t.Fatalf("kernel capabilities = %#v", report["kernel"])
+	}
+	agentFacts, ok := report["agent"].(map[string]any)
+	if !ok || agentFacts["uid"] != os.Getuid() || agentFacts["gid"] != os.Getgid() {
+		t.Fatalf("agent capabilities = %#v", report["agent"])
+	}
+	for _, field := range []string{"effective_capabilities", "bounding_capabilities", "no_new_privileges"} {
+		if value, exists := agentFacts[field]; !exists || value == "" {
+			t.Fatalf("agent capability %s = %#v", field, value)
+		}
 	}
 }

@@ -20,6 +20,155 @@ type fake struct {
 	onCall  func()
 }
 
+type failingResolver struct{ calls int }
+
+func (r *failingResolver) Resolve(string) (Artifacts, error) {
+	r.calls++
+	return Artifacts{}, errors.New("invalid manifest")
+}
+
+func TestCrashInjectionAtEveryOperationBoundary(t *testing.T) {
+	points := []string{"before-intent", "after-intent", "before-external-mutation", "after-external-mutation", "after-observation", "before-snapshot", "after-snapshot", "before-completion", "after-completion"}
+	methods := []struct {
+		name, initial, terminal string
+		invoke                  func(*Service, protocol.Sandbox) *protocol.Error
+	}{
+		{"create", "ABSENT", "CREATED", func(service *Service, _ protocol.Sandbox) *protocol.Error {
+			_, err := service.Create(context.Background(), config("box-a", 8, 7001), "create")
+			return err
+		}},
+		{"load", "CREATED", "LOADED", func(service *Service, sandbox protocol.Sandbox) *protocol.Error {
+			_, err := service.Load(context.Background(), sandbox.ID, sandbox.Generation, "load")
+			return err
+		}},
+		{"start", "LOADED", "RUNNING", func(service *Service, sandbox protocol.Sandbox) *protocol.Error {
+			_, err := service.Start(context.Background(), sandbox.ID, sandbox.Generation, "start")
+			return err
+		}},
+		{"stop", "RUNNING", "STOPPED", func(service *Service, sandbox protocol.Sandbox) *protocol.Error {
+			_, err := service.Stop(context.Background(), sandbox.ID, sandbox.Generation, "stop")
+			return err
+		}},
+		{"delete", "STOPPED", "ABSENT", func(service *Service, sandbox protocol.Sandbox) *protocol.Error {
+			_, err := service.Delete(context.Background(), sandbox.ID, sandbox.Generation, "delete")
+			return err
+		}},
+	}
+	for _, method := range methods {
+		for _, point := range points {
+			t.Run(method.name+"/"+point, func(t *testing.T) {
+				store, err := state.Open(t.TempDir())
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer store.Close()
+				backend := &fake{states: map[string]string{}}
+				sandbox := protocol.Sandbox{ID: "box-a", Generation: "0123456789abcdef0123456789abcdef", State: method.initial, Config: config("box-a", 8, 7001)}
+				if method.initial != "ABSENT" {
+					if err = store.SetSandbox(sandbox); err != nil {
+						t.Fatal(err)
+					}
+					backend.states[sandbox.ID] = method.initial
+				}
+				service := New(store, backend, Artifacts{})
+				injected := false
+				service.SetFaultInjector(func(observed string) error {
+					if observed == point && !injected {
+						injected = true
+						return errors.New("injected crash")
+					}
+					return nil
+				})
+				if apiErr := method.invoke(service, sandbox); apiErr == nil || apiErr.Code != "INTERNAL" {
+					t.Fatalf("injected operation error = %+v", apiErr)
+				}
+				if !injected {
+					t.Fatalf("checkpoint %s was not reached", point)
+				}
+				service.SetFaultInjector(nil)
+				if point == "before-intent" {
+					if incomplete := state.Incomplete(mustJournal(t, store)); len(incomplete) != 0 {
+						t.Fatalf("unexpected intent: %+v", incomplete)
+					}
+					return
+				}
+				if err = service.Reconcile(context.Background()); err != nil {
+					t.Fatal(err)
+				}
+				recovered, exists := service.Get("box-a")
+				if method.terminal == "ABSENT" {
+					if exists {
+						t.Fatalf("deleted sandbox remains: %+v", recovered)
+					}
+				} else if !exists || recovered.State != method.terminal || recovered.Error != nil {
+					t.Fatalf("recovered = %+v, %v; want %s", recovered, exists, method.terminal)
+				}
+				if incomplete := state.Incomplete(mustJournal(t, store)); len(incomplete) != 0 {
+					t.Fatalf("incomplete intents remain: %+v", incomplete)
+				}
+			})
+		}
+	}
+}
+
+func TestManifestIsResolvedBeforeBackendMutation(t *testing.T) {
+	service, store, backend := setup(t)
+	defer store.Close()
+	resolver := &failingResolver{}
+	service.SetArtifactResolver(resolver)
+	if _, apiErr := service.Create(context.Background(), config("box-a", 8, 7001), "create"); apiErr == nil || apiErr.Code != "FAILED_PRECONDITION" {
+		t.Fatalf("Create() error = %+v", apiErr)
+	}
+	if resolver.calls != 1 || len(backend.calls) != 0 {
+		t.Fatalf("resolver calls=%d backend calls=%v", resolver.calls, backend.calls)
+	}
+}
+
+func TestBackendFailuresRestoreObservedRetryableState(t *testing.T) {
+	service, store, backend := setup(t)
+	defer store.Close()
+	created, apiErr := service.Create(context.Background(), config("box-a", 8, 7001), "create")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	sandbox := created.Sandbox
+	for _, test := range []struct {
+		name        string
+		backendCall string
+		state       string
+		invoke      func(string) *protocol.Error
+	}{
+		{"load", "load", "CREATED", func(key string) *protocol.Error {
+			_, err := service.Load(context.Background(), sandbox.ID, sandbox.Generation, key)
+			return err
+		}},
+		{"start", "start", "LOADED", func(key string) *protocol.Error {
+			_, err := service.Start(context.Background(), sandbox.ID, sandbox.Generation, key)
+			return err
+		}},
+		{"stop", "stop", "RUNNING", func(key string) *protocol.Error {
+			_, err := service.Stop(context.Background(), sandbox.ID, sandbox.Generation, key)
+			return err
+		}},
+	} {
+		backend.fail = test.backendCall
+		backend.failErr = errors.New("injected backend failure")
+		if err := test.invoke(test.name + "-failure"); err == nil || err.Code != "BACKEND_FAILURE" {
+			t.Fatalf("%s error = %+v", test.name, err)
+		}
+		got, ok := service.Get(sandbox.ID)
+		if !ok || got.State != test.state || got.Error == nil {
+			t.Fatalf("%s failed state = %+v, exists=%v; want %s with error", test.name, got, ok, test.state)
+		}
+		backend.fail = ""
+		backend.failErr = nil
+		if err := test.invoke(test.name + "-retry"); err != nil {
+			t.Fatalf("%s retry: %+v", test.name, err)
+		}
+		sandbox, _ = service.Get(sandbox.ID)
+	}
+}
+
 func (f *fake) call(n, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -48,9 +197,8 @@ func TestBackendTimeoutHasStableOperationID(t *testing.T) {
 	if len(apiErr.OperationID) != 32 {
 		t.Fatalf("operation ID = %q, want 32 hex characters", apiErr.OperationID)
 	}
-	stored, ok := s.Get("box-a")
-	if !ok || stored.Error == nil || stored.Error.OperationID != apiErr.OperationID {
-		t.Fatalf("stored error = %+v, want operation ID %q", stored.Error, apiErr.OperationID)
+	if stored, ok := s.Get("box-a"); ok {
+		t.Fatalf("failed uncommitted create left a blocking sandbox record: %+v", stored)
 	}
 	entries, err := st.JournalEntries()
 	if err != nil {
@@ -59,6 +207,11 @@ func TestBackendTimeoutHasStableOperationID(t *testing.T) {
 	last := entries[len(entries)-1]
 	if last.Phase != "complete" || last.Error == nil || last.Error.OperationID != apiErr.OperationID {
 		t.Fatalf("completion entry = %+v", last)
+	}
+	backend.fail = ""
+	backend.failErr = nil
+	if result, retryErr := s.Create(context.Background(), config("box-a", 8, 7001), "retry-create"); retryErr != nil || result.Sandbox.State != "CREATED" {
+		t.Fatalf("Create() retry = %+v, %+v", result, retryErr)
 	}
 }
 
@@ -98,6 +251,15 @@ func (f *fake) Observe(c context.Context, id string) (string, error) {
 		return x, nil
 	}
 	return "ABSENT", nil
+}
+func (f *fake) ListInstances(context.Context) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	instances := make([]string, 0, len(f.states))
+	for id := range f.states {
+		instances = append(instances, id)
+	}
+	return instances, nil
 }
 func (f *fake) Create(c context.Context, s protocol.Sandbox) error {
 	if e := f.call("create", s.ID); e != nil {
@@ -218,6 +380,25 @@ func TestLifecycleAndReplay(t *testing.T) {
 		if remaining != 0 {
 			t.Fatalf("backend call %s count mismatch: remaining=%d calls=%v", call, remaining, f.calls)
 		}
+	}
+}
+
+func TestVersionedResumableEvents(t *testing.T) {
+	service, store, _ := setup(t)
+	defer store.Close()
+	if _, apiErr := service.Create(context.Background(), config("box-a", 8, 7001), "create"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	events, apiErr := service.Events(0, 1)
+	if apiErr != nil || len(events) != 1 || events[0].Version != 1 || events[0].Method != "CreateSandbox" || events[0].State != "CREATED" {
+		t.Fatalf("events = %+v, error = %+v", events, apiErr)
+	}
+	resumed, apiErr := service.Events(events[0].Sequence, 128)
+	if apiErr != nil || len(resumed) != 0 {
+		t.Fatalf("resumed events = %+v, error = %+v", resumed, apiErr)
+	}
+	if _, apiErr = service.Events(0, 1025); apiErr == nil || apiErr.Code != "INVALID_ARGUMENT" {
+		t.Fatalf("oversized event limit error = %+v", apiErr)
 	}
 }
 func TestStaleAndOverlap(t *testing.T) {
@@ -358,6 +539,73 @@ func TestSecondSandboxDoesNotReinitializePool(t *testing.T) {
 		t.Fatalf("pool initialized %d times", poolCalls)
 	}
 }
+
+func TestIntermediateStatesAreDurableAndObservable(t *testing.T) {
+	t.Run("allocating", func(t *testing.T) {
+		s, st, backend := setup(t)
+		defer st.Close()
+		entered, release := make(chan struct{}), make(chan struct{})
+		var once sync.Once
+		backend.onCall = func() { once.Do(func() { close(entered); <-release }) }
+		done := make(chan *protocol.Error, 1)
+		go func() {
+			_, apiErr := s.Create(context.Background(), config("box-a", 8, 7001), "create")
+			done <- apiErr
+		}()
+		<-entered
+		if sandbox, ok := s.Get("box-a"); !ok || sandbox.State != "ALLOCATING" {
+			t.Fatalf("state during create = %+v, %v", sandbox, ok)
+		}
+		close(release)
+		if apiErr := <-done; apiErr != nil {
+			t.Fatal(apiErr)
+		}
+	})
+
+	t.Run("stopping-and-releasing", func(t *testing.T) {
+		s, st, backend := setup(t)
+		defer st.Close()
+		result, apiErr := s.Create(context.Background(), config("box-a", 8, 7001), "create")
+		if apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		if _, apiErr = s.Load(context.Background(), "box-a", result.Sandbox.Generation, "load"); apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		if _, apiErr = s.Start(context.Background(), "box-a", result.Sandbox.Generation, "start"); apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		for _, transition := range []struct {
+			name, state string
+			call        func() *protocol.Error
+		}{
+			{"stop", "STOPPING", func() *protocol.Error {
+				_, err := s.Stop(context.Background(), "box-a", result.Sandbox.Generation, "stop")
+				return err
+			}},
+			{"delete", "RELEASING", func() *protocol.Error {
+				_, err := s.Delete(context.Background(), "box-a", result.Sandbox.Generation, "delete")
+				return err
+			}},
+		} {
+			entered, release := make(chan struct{}), make(chan struct{})
+			var once sync.Once
+			backend.onCall = func() { once.Do(func() { close(entered); <-release }) }
+			done := make(chan *protocol.Error, 1)
+			go func() { done <- transition.call() }()
+			<-entered
+			if sandbox, ok := s.Get("box-a"); !ok || sandbox.State != transition.state {
+				t.Fatalf("state during %s = %+v, %v", transition.name, sandbox, ok)
+			}
+			close(release)
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+			backend.onCall = nil
+		}
+	})
+}
+
 func TestRestartReconciliation(t *testing.T) {
 	dir := t.TempDir()
 	st, e := state.Open(dir)
@@ -385,4 +633,121 @@ func TestRestartReconciliation(t *testing.T) {
 	if x.Error == nil || x.Error.Code != "OPERATOR_ACTION" {
 		t.Fatalf("missing reconciliation error: %+v", x)
 	}
+}
+
+func TestReconcileCreateIntentBeforeSnapshot(t *testing.T) {
+	st, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	backend := &fake{states: map[string]string{}}
+	sandbox := protocol.Sandbox{ID: "box-a", Generation: "0123456789abcdef0123456789abcdef", State: "ALLOCATING", Config: config("box-a", 8, 7001)}
+	intent := state.JournalEntry{OperationID: "operation", IdempotencyKey: "create", Fingerprint: "fingerprint", SandboxID: sandbox.ID, Generation: sandbox.Generation, Method: "CreateSandbox", Phase: "intent", State: sandbox.State, Sandbox: &sandbox}
+	if err = st.Append(intent); err != nil {
+		t.Fatal(err)
+	}
+	service := New(st, backend, Artifacts{})
+	if err = service.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	recovered, ok := service.Get("box-a")
+	if !ok || recovered.State != "CREATED" || recovered.Error != nil {
+		t.Fatalf("recovered sandbox = %+v, %v", recovered, ok)
+	}
+	result, ok := st.Result("create")
+	if !ok || result.Result.Sandbox.State != "CREATED" {
+		t.Fatalf("recovered replay result = %+v, %v", result, ok)
+	}
+	if incomplete := state.Incomplete(mustJournal(t, st)); len(incomplete) != 0 {
+		t.Fatalf("incomplete intents remain: %+v", incomplete)
+	}
+}
+
+func TestReconcileResumesEveryIncompleteTransition(t *testing.T) {
+	tests := []struct {
+		method, durable, actual, want string
+	}{
+		{"LoadSandbox", "CREATED", "CREATED", "LOADED"},
+		{"StartSandbox", "LOADED", "LOADED", "RUNNING"},
+		{"StopSandbox", "RUNNING", "RUNNING", "STOPPED"},
+		{"DeleteSandbox", "STOPPED", "STOPPED", "ABSENT"},
+	}
+	for _, test := range tests {
+		t.Run(test.method, func(t *testing.T) {
+			st, err := state.Open(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer st.Close()
+			sandbox := protocol.Sandbox{ID: "box-a", Generation: "0123456789abcdef0123456789abcdef", State: test.durable, Config: config("box-a", 8, 7001)}
+			if err = st.SetSandbox(sandbox); err != nil {
+				t.Fatal(err)
+			}
+			intent := state.JournalEntry{OperationID: "operation", IdempotencyKey: test.method, Fingerprint: "fingerprint", SandboxID: sandbox.ID, Generation: sandbox.Generation, Method: test.method, Phase: "intent", State: sandbox.State, Sandbox: &sandbox}
+			if err = st.Append(intent); err != nil {
+				t.Fatal(err)
+			}
+			backend := &fake{states: map[string]string{"box-a": test.actual}}
+			service := New(st, backend, Artifacts{})
+			if err = service.Reconcile(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			recovered, exists := service.Get("box-a")
+			if test.want == "ABSENT" {
+				if exists {
+					t.Fatalf("deleted sandbox remains: %+v", recovered)
+				}
+			} else if !exists || recovered.State != test.want || recovered.Error != nil {
+				t.Fatalf("recovered sandbox = %+v, %v; want %s", recovered, exists, test.want)
+			}
+			result, ok := st.Result(test.method)
+			if !ok || result.Result.Sandbox.State != test.want {
+				t.Fatalf("replay result = %+v, %v; want %s", result, ok, test.want)
+			}
+		})
+	}
+}
+
+func TestReconcileRejectsUnknownBackendInstance(t *testing.T) {
+	service, st, backend := setup(t)
+	defer st.Close()
+	backend.states["operator-owned"] = "RUNNING"
+	if err := service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "OPERATOR_ACTION") {
+		t.Fatalf("Reconcile() error = %v, want OPERATOR_ACTION", err)
+	}
+}
+
+func TestStoppedMapsToKerfLoadedOnRestart(t *testing.T) {
+	service, st, backend := setup(t)
+	defer st.Close()
+	result, apiErr := service.Create(context.Background(), config("box-a", 8, 7001), "create")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if _, apiErr = service.Load(context.Background(), "box-a", result.Sandbox.Generation, "load"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if _, apiErr = service.Start(context.Background(), "box-a", result.Sandbox.Generation, "start"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if _, apiErr = service.Stop(context.Background(), "box-a", result.Sandbox.Generation, "stop"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	backend.states["box-a"] = "LOADED"
+	if err := service.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if sandbox, _ := service.Get("box-a"); sandbox.Error != nil || sandbox.State != "STOPPED" {
+		t.Fatalf("stopped sandbox reconciliation = %+v", sandbox)
+	}
+}
+
+func mustJournal(t *testing.T, store *state.Store) []state.JournalEntry {
+	t.Helper()
+	entries, err := store.JournalEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return entries
 }

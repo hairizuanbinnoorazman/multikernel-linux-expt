@@ -28,6 +28,27 @@ and `WatchEvents`. Agent methods are `Capabilities`, `CreateProcess`,
 `DeleteProcess`, `ConfigureNetwork`, `ExchangeNetwork`, `CloseNetwork`, and
 `Shutdown`. Stdin writes and output reads are limited to 64 KiB per request;
 network exchange carries at most one 65,535-byte packet in each direction.
+`ExecProcess` names an existing parent process and inherits its already
+validated container root; it cannot supply an arbitrary root path. Process
+state and wait replies contain metadata only. Output is retrieved through
+independent offset-based `ReadProcessOutput` chunks, so retained output cannot
+make a state reply exceed the frame limit. Each stream retains at most 4 MiB,
+briefly backpressures a full buffer, and then marks explicit truncation rather
+than blocking a child indefinitely when its controller disappears.
+
+An agent transport disconnect leaves managed processes and the last accepted
+sequence intact. The same authenticated controller may reconnect and continue
+with the next sequence; restarting at sequence one is rejected as replay. A
+successful quiescent `Shutdown` reply is the final reply on the session. The
+agent then syncs and invokes child poweroff; the pinned Multikernel spawn-kernel
+machine operations convert that action into a child-scoped notification and
+CPU park, not a platform reset.
+
+`WatchEvents` is a resumable bounded event stream: its body contains an
+exclusive `after_sequence` cursor and optional `limit` (default 128, maximum
+1024). The response contains ordered version-1 completion events from the
+durable journal. A client repeats the call with the last observed sequence;
+restarts therefore neither invent events nor require an in-memory subscriber.
 
 Minor additive evolution requires an advertised capability and optional field
 defined by the schema. A peer that cannot safely ignore an addition rejects

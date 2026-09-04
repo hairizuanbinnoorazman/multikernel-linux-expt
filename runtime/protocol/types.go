@@ -54,3 +54,17 @@ type MutationResult struct {
 	Sandbox  Sandbox `json:"sandbox"`
 	Replayed bool    `json:"replayed"`
 }
+type EventQuery struct {
+	AfterSequence uint64 `json:"after_sequence"`
+	Limit         uint32 `json:"limit,omitempty"`
+}
+type Event struct {
+	Version    int       `json:"version"`
+	Sequence   uint64    `json:"sequence"`
+	At         time.Time `json:"at"`
+	SandboxID  string    `json:"sandbox_id"`
+	Generation string    `json:"generation,omitempty"`
+	Method     string    `json:"method"`
+	State      string    `json:"state,omitempty"`
+	Error      *Error    `json:"error,omitempty"`
+}

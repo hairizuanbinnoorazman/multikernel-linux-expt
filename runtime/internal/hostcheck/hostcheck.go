@@ -11,12 +11,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
+
+var pciBDF = regexp.MustCompile(`^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7]$`)
 
 const SchemaVersion = 1
 
@@ -26,6 +32,8 @@ type Options struct {
 	MinPrimaryCPUs    int
 	MinPrimaryMemByte uint64
 	Timeout           time.Duration
+	ProbeCPUs         []int
+	ProbeMemory       string
 }
 
 type CPU struct {
@@ -43,25 +51,51 @@ type Finding struct {
 	Message  string `json:"message"`
 }
 
+type Instance struct {
+	Name    string   `json:"name"`
+	Status  string   `json:"status"`
+	Devices []string `json:"devices"`
+}
+
+type ProtectedDevice struct {
+	Kind        string   `json:"kind"`
+	Device      string   `json:"device"`
+	PCIFunction string   `json:"pci_function"`
+	Ancestry    []string `json:"pci_ancestry"`
+}
+
 type Report struct {
-	SchemaVersion int               `json:"schema_version"`
-	GeneratedAt   time.Time         `json:"generated_at"`
-	Qualified     bool              `json:"qualified"`
-	Architecture  string            `json:"architecture"`
-	KernelRelease string            `json:"kernel_release"`
-	KernelConfig  map[string]string `json:"kernel_config"`
-	MultikernelFS bool              `json:"multikernel_fs"`
-	KerfVersion   string            `json:"kerf_version,omitempty"`
-	CPUs          []CPU             `json:"cpus"`
-	OnlineCPUs    string            `json:"online_cpus"`
-	MemoryBytes   uint64            `json:"memory_bytes"`
-	Lockdown      string            `json:"lockdown"`
-	SecureBoot    string            `json:"secure_boot"`
-	KexecLoaded   string            `json:"kexec_loaded"`
-	GuestAgent    string            `json:"guest_agent"`
-	Instances     []string          `json:"instances"`
-	PCIClasses    map[string]string `json:"pci_classes"`
-	Findings      []Finding         `json:"findings"`
+	SchemaVersion         int               `json:"schema_version"`
+	GeneratedAt           time.Time         `json:"generated_at"`
+	Qualified             bool              `json:"qualified"`
+	Architecture          string            `json:"architecture"`
+	KernelRelease         string            `json:"kernel_release"`
+	KernelConfig          map[string]string `json:"kernel_config"`
+	MultikernelFS         bool              `json:"multikernel_fs"`
+	KerfVersion           string            `json:"kerf_version,omitempty"`
+	CPUs                  []CPU             `json:"cpus"`
+	SMTPolicy             string            `json:"smt_policy"`
+	OnlineCPUs            string            `json:"online_cpus"`
+	OfflineCPUs           string            `json:"offline_cpus"`
+	MemoryBytes           uint64            `json:"memory_bytes"`
+	ContiguousAllocation  string            `json:"contiguous_allocation"`
+	ContiguousProbe       string            `json:"contiguous_probe,omitempty"`
+	Lockdown              string            `json:"lockdown"`
+	SecureBoot            string            `json:"secure_boot"`
+	KexecLoaded           string            `json:"kexec_loaded"`
+	GuestAgent            string            `json:"guest_agent"`
+	SerialConsole         string            `json:"serial_console"`
+	KerfState             string            `json:"kerf_state"`
+	PoolConfigured        bool              `json:"pool_configured"`
+	KimageState           string            `json:"kimage_state"`
+	Instances             []string          `json:"instances"`
+	InstanceState         []Instance        `json:"instance_state"`
+	AssignedDevices       []string          `json:"assigned_devices"`
+	StaleResources        []string          `json:"stale_resources"`
+	PCIClasses            map[string]string `json:"pci_classes"`
+	ProtectedDevices      []ProtectedDevice `json:"protected_devices"`
+	ForbiddenPCIFunctions []string          `json:"forbidden_pci_functions"`
+	Findings              []Finding         `json:"findings"`
 }
 
 func DefaultOptions() Options {
@@ -96,13 +130,15 @@ func Check(ctx context.Context, o Options) Report {
 	if o.Timeout == 0 {
 		o.Timeout = 5 * time.Second
 	}
-	r := Report{SchemaVersion: SchemaVersion, GeneratedAt: time.Now().UTC(), Architecture: runtime.GOARCH, KernelConfig: map[string]string{}, PCIClasses: map[string]string{}}
+	r := Report{SchemaVersion: SchemaVersion, GeneratedAt: time.Now().UTC(), Architecture: runtime.GOARCH, KernelConfig: map[string]string{}, PCIClasses: map[string]string{}, SMTPolicy: "whole-core"}
 	r.KernelRelease = read(o.Root, "/proc/sys/kernel/osrelease")
 	r.OnlineCPUs = read(o.Root, "/sys/devices/system/cpu/online")
+	r.OfflineCPUs = read(o.Root, "/sys/devices/system/cpu/offline")
 	r.MemoryBytes = memBytes(read(o.Root, "/proc/meminfo"))
 	r.Lockdown = valueOrUnknown(read(o.Root, "/sys/kernel/security/lockdown"))
 	r.KexecLoaded = valueOrUnknown(read(o.Root, "/sys/kernel/kexec_loaded"))
 	r.SecureBoot = secureBoot(o.Root)
+	r.SerialConsole = serialConsole(o.Root)
 	r.MultikernelFS = dirExists(path(o.Root, "/sys/fs/multikernel"))
 	r.CPUs = parseCPUs(read(o.Root, "/proc/cpuinfo"), r.OnlineCPUs, o.Root)
 	logicalIDs := map[int]bool{}
@@ -118,7 +154,10 @@ func Check(ctx context.Context, o Options) Report {
 		apicIDs[cpu.APIC] = true
 	}
 	r.Instances = directoryNames(path(o.Root, "/sys/fs/multikernel/instances"))
+	r.InstanceState, r.AssignedDevices = instanceState(o.Root, r.Instances)
+	r.KimageState = valueOrUnknown(read(o.Root, "/proc/kimage"))
 	r.PCIClasses = pciClasses(o.Root)
+	r.ProtectedDevices, r.ForbiddenPCIFunctions = protectedDevices(o.Root)
 	r.KernelConfig = kernelConfig(o.Root, r.KernelRelease)
 	r.GuestAgent = guestAgent(o.Root)
 	if o.Root == "/" && o.Kerf != "" {
@@ -127,6 +166,46 @@ func Check(ctx context.Context, o Options) Report {
 		out, err := exec.CommandContext(cctx, o.Kerf, "--version").CombinedOutput()
 		if err == nil {
 			r.KerfVersion = strings.TrimSpace(string(out))
+		}
+		showctx, showcancel := context.WithTimeout(ctx, o.Timeout)
+		defer showcancel()
+		out, err = exec.CommandContext(showctx, o.Kerf, "show").CombinedOutput()
+		if err == nil {
+			r.KerfState = strings.TrimSpace(string(out))
+		}
+		if len(o.ProbeCPUs) != 0 && o.ProbeMemory != "" {
+			probectx, probecancel := context.WithTimeout(ctx, o.Timeout)
+			defer probecancel()
+			args := []string{"init", "--cpus=" + intList(o.ProbeCPUs), "--memory=" + o.ProbeMemory, "--devices=none", "--dry-run"}
+			out, err = exec.CommandContext(probectx, o.Kerf, args...).CombinedOutput()
+			r.ContiguousProbe = strings.TrimSpace(string(out))
+			if err == nil {
+				r.ContiguousAllocation = "ready"
+			} else {
+				r.ContiguousAllocation = "unavailable"
+			}
+		}
+	} else {
+		r.KerfVersion = read(o.Root, "/run/kerf-version")
+		r.KerfState = read(o.Root, "/run/kerf-show")
+		r.ContiguousAllocation = read(o.Root, "/run/kerf-dry-run.status")
+		r.ContiguousProbe = read(o.Root, "/run/kerf-dry-run.output")
+	}
+	if r.ContiguousAllocation == "" {
+		r.ContiguousAllocation = "unprobed"
+	}
+	r.KerfState = valueOrUnknown(r.KerfState)
+	r.PoolConfigured = r.KerfState != "unknown" && !strings.Contains(r.KerfState, "No memory pool configured")
+	if r.PoolConfigured && len(r.Instances) == 0 {
+		r.StaleResources = append(r.StaleResources, "configured Kerf pool has no matching instance")
+	}
+	for _, id := range kimageIDs(r.KimageState) {
+		found := false
+		for _, instance := range r.Instances {
+			found = found || id == instance
+		}
+		if !found {
+			r.StaleResources = append(r.StaleResources, "unmatched /proc/kimage entry "+id)
 		}
 	}
 	required := []string{"CONFIG_MULTIKERNEL", "CONFIG_KEXEC_CORE", "CONFIG_KEXEC_FILE", "CONFIG_MKTTY"}
@@ -149,6 +228,15 @@ func Check(ctx context.Context, o Options) Report {
 	if !r.MultikernelFS {
 		r.add("MULTIKERNEL_FS_MISSING", "error", "/sys/fs/multikernel is unavailable")
 	}
+	if !strings.Contains(r.KerfVersion, "0.2.0") {
+		r.add("KERF_VERSION", "error", "Kerf 0.2.0 is required and must be observable")
+	}
+	if r.KerfState == "unknown" {
+		r.add("KERF_STATE_UNKNOWN", "error", "Kerf pool and instance state is unavailable")
+	}
+	if r.ContiguousAllocation != "ready" {
+		r.add("CONTIGUOUS_ALLOCATION", "error", "requested Kerf pool must pass a read-only dry-run")
+	}
 	onlineCPUCount := 0
 	for _, cpu := range r.CPUs {
 		if cpu.Online {
@@ -169,11 +257,29 @@ func Check(ctx context.Context, o Options) Report {
 	if len(r.Instances) != 0 {
 		r.add("EXISTING_INSTANCES", "error", "existing Multikernel instances require operator reconciliation")
 	}
+	if len(r.StaleResources) != 0 {
+		r.add("STALE_RESOURCES", "error", strings.Join(r.StaleResources, "; "))
+	}
+	if len(r.ProtectedDevices) < 2 {
+		r.add("PROTECTED_DEVICE_TOPOLOGY", "error", "boot-disk and primary-NIC PCI ancestry must both be resolved")
+	}
 	if r.GuestAgent != "active" {
-		r.add("GUEST_AGENT", "warning", "Google guest agent is not confirmed active")
+		r.add("GUEST_AGENT", "error", "Google guest agent is not confirmed active")
 	}
 	if r.SecureBoot == "enabled" {
 		r.add("SECURE_BOOT", "error", "unsigned child loading is incompatible with Secure Boot")
+	}
+	if r.SecureBoot == "unknown" {
+		r.add("SECURE_BOOT_UNKNOWN", "error", "Secure Boot state is unknown")
+	}
+	if r.Lockdown == "unknown" || !strings.Contains(r.Lockdown, "[none]") {
+		r.add("LOCKDOWN", "error", "kernel lockdown must be observably inactive")
+	}
+	if r.KexecLoaded == "unknown" {
+		r.add("KEXEC_STATE_UNKNOWN", "error", "kexec readiness state is unknown")
+	}
+	if r.SerialConsole != "available" {
+		r.add("SERIAL_RECOVERY", "error", "serial-console recovery is not confirmed available")
 	}
 	r.Qualified = true
 	for _, f := range r.Findings {
@@ -192,6 +298,14 @@ func valueOrUnknown(v string) string {
 		return "unknown"
 	}
 	return v
+}
+
+func intList(values []int) string {
+	parts := make([]string, len(values))
+	for index, value := range values {
+		parts[index] = strconv.Itoa(value)
+	}
+	return strings.Join(parts, ",")
 }
 func dirExists(p string) bool { s, err := os.Stat(p); return err == nil && s.IsDir() }
 
@@ -288,6 +402,11 @@ func kernelConfig(root, release string) map[string]string {
 }
 
 func secureBoot(root string) string {
+	if root != "/" {
+		if status := read(root, "/run/secure-boot.status"); status != "" {
+			return status
+		}
+	}
 	files, _ := filepath.Glob(path(root, "/sys/firmware/efi/efivars/SecureBoot-*"))
 	if len(files) == 0 {
 		return "unknown"
@@ -300,6 +419,50 @@ func secureBoot(root string) string {
 		return "enabled"
 	}
 	return "disabled"
+}
+
+func serialConsole(root string) string {
+	if root != "/" {
+		return valueOrUnknown(read(root, "/run/serial-console.status"))
+	}
+	for _, device := range []string{"/dev/ttyS0", "/dev/ttyAMA0"} {
+		if info, err := os.Stat(device); err == nil && info.Mode()&os.ModeCharDevice != 0 {
+			return "available"
+		}
+	}
+	return "unknown"
+}
+
+func instanceState(root string, names []string) ([]Instance, []string) {
+	instances := make([]Instance, 0, len(names))
+	var assigned []string
+	for _, name := range names {
+		base := path(root, "/sys/fs/multikernel/instances/"+name)
+		instance := Instance{Name: name, Status: valueOrUnknown(read(root, "/sys/fs/multikernel/instances/"+name+"/status"))}
+		for _, directory := range []string{"devices", "device"} {
+			entries, _ := os.ReadDir(filepath.Join(base, directory))
+			for _, entry := range entries {
+				instance.Devices = append(instance.Devices, entry.Name())
+				assigned = append(assigned, name+":"+entry.Name())
+			}
+		}
+		sort.Strings(instance.Devices)
+		instances = append(instances, instance)
+	}
+	sort.Strings(assigned)
+	return instances, assigned
+}
+
+func kimageIDs(raw string) []string {
+	var ids []string
+	for _, line := range strings.Split(raw, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || fields[0] == "MK_ID" || strings.HasPrefix(fields[0], "-") || strings.HasPrefix(fields[0], "=") {
+			continue
+		}
+		ids = append(ids, fields[0])
+	}
+	return ids
 }
 
 func guestAgent(root string) string {
@@ -324,6 +487,72 @@ func pciClasses(root string) map[string]string {
 		}
 	}
 	return r
+}
+
+func sysfsPCIAncestry(link string) ([]string, string) {
+	target, err := filepath.EvalSymlinks(link)
+	if err != nil {
+		return nil, ""
+	}
+	var ancestry []string
+	for _, component := range strings.Split(filepath.Clean(target), string(filepath.Separator)) {
+		if pciBDF.MatchString(component) {
+			ancestry = append(ancestry, strings.ToLower(component))
+		}
+	}
+	if len(ancestry) == 0 {
+		return nil, ""
+	}
+	return ancestry, ancestry[len(ancestry)-1]
+}
+
+func rootDevice(root string) string {
+	if root != "/" {
+		return read(root, "/run/root-device")
+	}
+	var stat syscall.Stat_t
+	if err := syscall.Stat("/", &stat); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d:%d", unix.Major(uint64(stat.Dev)), unix.Minor(uint64(stat.Dev)))
+}
+
+func defaultInterface(root string) string {
+	for _, line := range strings.Split(read(root, "/proc/net/route"), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[1] == "00000000" {
+			return fields[0]
+		}
+	}
+	return ""
+}
+
+func protectedDevices(root string) ([]ProtectedDevice, []string) {
+	var devices []ProtectedDevice
+	if device := rootDevice(root); device != "" {
+		ancestry, function := sysfsPCIAncestry(path(root, "/sys/dev/block/"+device))
+		if function != "" {
+			devices = append(devices, ProtectedDevice{Kind: "boot-disk", Device: device, PCIFunction: function, Ancestry: ancestry})
+		}
+	}
+	if device := defaultInterface(root); device != "" {
+		ancestry, function := sysfsPCIAncestry(path(root, "/sys/class/net/"+device+"/device"))
+		if function != "" {
+			devices = append(devices, ProtectedDevice{Kind: "primary-nic", Device: device, PCIFunction: function, Ancestry: ancestry})
+		}
+	}
+	set := map[string]bool{}
+	for _, device := range devices {
+		for _, function := range device.Ancestry {
+			set[function] = true
+		}
+	}
+	forbidden := make([]string, 0, len(set))
+	for function := range set {
+		forbidden = append(forbidden, function)
+	}
+	sort.Strings(forbidden)
+	return devices, forbidden
 }
 
 func Encode(r Report) ([]byte, error) {
@@ -352,6 +581,45 @@ func ValidateRequestedAPICs(r Report, ids []int, minPrimary int) error {
 	}
 	if len(online)-len(ids) < minPrimary {
 		return errors.New("allocation violates primary CPU headroom")
+	}
+	type core struct{ physical, id int }
+	selected := map[int]bool{}
+	for _, id := range ids {
+		selected[id] = true
+	}
+	cores := map[core][]int{}
+	for _, cpu := range r.CPUs {
+		if cpu.Online {
+			key := core{cpu.Physical, cpu.Core}
+			cores[key] = append(cores[key], cpu.APIC)
+		}
+	}
+	for key, siblings := range cores {
+		count := 0
+		for _, sibling := range siblings {
+			if selected[sibling] {
+				count++
+			}
+		}
+		if count != 0 && count != len(siblings) {
+			return fmt.Errorf("allocation splits SMT siblings on physical package %d core %d", key.physical, key.id)
+		}
+	}
+	return nil
+}
+
+func ValidateRequestedPCIFunctions(r Report, functions []string) error {
+	forbidden := map[string]bool{}
+	for _, function := range r.ForbiddenPCIFunctions {
+		forbidden[strings.ToLower(function)] = true
+	}
+	for _, function := range functions {
+		if !pciBDF.MatchString(function) {
+			return fmt.Errorf("invalid PCI function %q", function)
+		}
+		if forbidden[strings.ToLower(function)] {
+			return fmt.Errorf("PCI function %s is protected by boot-disk or primary-NIC ancestry", function)
+		}
 	}
 	return nil
 }
