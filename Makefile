@@ -35,6 +35,8 @@ runtime-build: ## Build static runtime binaries locally.
 	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mkruntimed ./cmd/mkruntimed
 	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-agent ./cmd/mk-agent
 	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-agentctl ./cmd/mk-agentctl
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mknetd ./cmd/mknetd
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-cni ./cmd/mk-cni
 	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/containerd-shim-multikernel-v2 ./cmd/containerd-shim-multikernel-v2
 
 runtime-g4-g6-test: ## Run privileged ctr/Docker per-kernel proof on a configured host.

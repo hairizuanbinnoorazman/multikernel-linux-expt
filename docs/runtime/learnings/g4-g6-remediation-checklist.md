@@ -192,30 +192,40 @@ normative plan is revised with an explicit rationale.
 
 ### Implementation still required
 
-- [ ] Implement the planned primary networking service boundary (`mknetd`) or
+- [x] Implement the planned primary networking service boundary (`mknetd`) or
   revise the architecture and ownership documents to justify networking inside
-  each shim. Define restart and ownership transfer independently of client
-  lifetime.
-- [ ] Implement a CNI binary and versioned configuration supporting normal
+  each shim. `mknetd` now owns durable endpoint allocation, Linux resources,
+  restart reconciliation, and an authenticated root-only Unix API independently
+  of shim lifetime; replacement-instance proof remains below.
+- [x] Implement a CNI binary and versioned configuration supporting normal
   `ADD`, `CHECK`, and idempotent `DEL`, including partial-`ADD` rollback and
-  stale namespace cleanup.
-- [ ] Consume the CNI-created primary namespace and endpoint rather than
+  stale namespace cleanup. `mk-cni` implements CNI 1.0.0, a durable generation
+  cache, strict input, rollback, and stale-generation rejection.
+- [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
-  final design.
-- [ ] Authenticate and generation-bind every network endpoint and recovery
+  final design. The shim now invokes CNI for the OCI namespace and opens that
+  namespace's existing TUN; the previous fixed shim link/rules were removed.
+- [x] Authenticate and generation-bind every network endpoint and recovery
   record. Reject stale sandbox identity, address reuse, and cross-generation
-  reconnect.
-- [ ] Replace fixed MTU/address/DNS assumptions with validated configuration,
+  reconnect. Peer credentials, endpoint generations, sandbox generations, and
+  monotonic counter reports are checked together.
+- [x] Replace fixed MTU/address/DNS assumptions with validated configuration,
   MTU negotiation, collision-free allocation, explicit link state, and
-  bounded frame sizes.
-- [ ] Add bounded queues, backpressure, packet/drop/error counters, disconnect
+  bounded frame sizes. The configured RFC1918 pool allocates collision-free
+  `/30`s and the agent rejects frames above the negotiated MTU.
+- [x] Add bounded queues, backpressure, packet/drop/error counters, disconnect
   detection, reconnect policy, and slow/unresponsive guest handling. The
-  current polling exchange loop is not the complete planned data plane.
-- [ ] Define firewall and network-policy ownership and install rules that
+  data plane is single-frame/single-flight, uses a 250 ms exchange deadline,
+  reconnects the authenticated agent sequence, and durably reports monotonic
+  packet/drop/error counters and link state.
+- [x] Define firewall and network-policy ownership and install rules that
   cannot be bypassed by spoofed source addresses, alternate routes, malformed
-  packets, or sibling traffic.
-- [ ] Restore the guest's configured DNS state cleanly on teardown and avoid
-  hard-coding a public resolver as the only supported policy.
+  packets, or sibling traffic. Per-generation primary chains enforce source,
+  metadata, sibling, return-traffic, egress, and default-drop policy.
+- [x] Restore the guest's configured DNS state cleanly on teardown and avoid
+  hard-coding a public resolver as the only supported policy. DNS is validated
+  node configuration; regular-file, symlink, and absent states have restoration
+  tests.
 
 ### Automated and live tests still required
 

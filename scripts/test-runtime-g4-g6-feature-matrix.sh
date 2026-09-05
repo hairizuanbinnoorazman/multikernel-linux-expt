@@ -40,9 +40,9 @@ trap cleanup EXIT
 wait_for_clean_host() {
 	for _ in $(seq 1 180); do
 		if test -z "$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit)" &&
-		   test -z "$(ip -o link show | awk -F': ' '$2 ~ /^mkn[0-9]+$/ {print $2}')" &&
-		   ! sudo iptables -t nat -S POSTROUTING | grep -q '172\.30\.' &&
-		   ! sudo iptables -S FORWARD | grep -q 'mkn[0-9]'; then
+		   test -z "$(ip -o link show | awk -F': ' '$2 ~ /^mkv[0-9a-f]+$/ {print $2}')" &&
+		   ! sudo iptables -t nat -S POSTROUTING | grep -q '172\.31\.' &&
+		   ! sudo iptables -S | grep -q '^\(-N\|-A\) MK-'; then
 			return 0
 		fi
 		sleep .5
@@ -74,7 +74,7 @@ test "$(id -u)" -ne 0 || {
 	echo 'run as an ordinary sudo-capable user' >&2
 	exit 1
 }
-for service in mkruntimed containerd docker; do
+for service in mkruntimed mknetd containerd docker; do
 	test "$(systemctl is-active "$service")" = active
 done
 mountpoint -q /sys/fs/multikernel
@@ -95,7 +95,7 @@ row image-pull-and-inspect
 sudo ctr containers create --runtime "$runtime" "$image" "$ctr_id" /bin/sh -c \
 	'trap "exit 42" TERM; while :; do sleep 1; done'
 sudo ctr tasks start --detach "$ctr_id"
-sudo docker create --runtime "$runtime" --network none --name "$docker_name" \
+sudo docker create --runtime "$runtime" --name "$docker_name" \
 	"$image" /bin/sh -c 'trap "exit 42" TERM; while :; do sleep 1; done' >/dev/null
 sudo docker start "$docker_name" >/dev/null
 wait_for_state ctr RUNNING
@@ -142,19 +142,22 @@ ctr_network=$(sudo ctr task exec --exec-id matrix-ctr-network "$ctr_id" /bin/sh 
 	'ip -4 address show dev mkn0; wget -T 15 -qO- http://example.com >/dev/null; echo network-ok')
 docker_network=$(sudo docker exec "$docker_name" /bin/sh -c \
 	'ip -4 address show dev mkn0; wget -T 15 -qO- http://example.com >/dev/null; echo network-ok')
-printf '%s\n' "$ctr_network" | grep -q '172\.30\.30\.2/30'
-printf '%s\n' "$docker_network" | grep -q '172\.30\.31\.2/30'
 printf '%s\n' "$ctr_network" | grep -q network-ok
 printf '%s\n' "$docker_network" | grep -q network-ok
+ctr_ip=$(printf '%s\n' "$ctr_network" | awk '/inet / {sub("/.*", "", $2); print $2; exit}')
+docker_ip=$(printf '%s\n' "$docker_network" | awk '/inet / {sub("/.*", "", $2); print $2; exit}')
+test -n "$ctr_ip"
+test -n "$docker_ip"
+test "$ctr_ip" != "$docker_ip"
 row primary-mediated-network
 
 if sudo ctr task exec --exec-id matrix-ctr-cross "$ctr_id" \
-	/bin/ping -c 1 -W 2 172.30.31.2 >/dev/null 2>&1; then
+	/bin/ping -c 1 -W 2 "$docker_ip" >/dev/null 2>&1; then
 	echo 'ctr child reached the Docker child link' >&2
 	exit 1
 fi
 if sudo docker exec "$docker_name" \
-	/bin/ping -c 1 -W 2 172.30.30.2 >/dev/null 2>&1; then
+	/bin/ping -c 1 -W 2 "$ctr_ip" >/dev/null 2>&1; then
 	echo 'Docker child reached the ctr child link' >&2
 	exit 1
 fi
@@ -201,7 +204,7 @@ for cycle in 1 2; do
 	ctr_output=$(sudo ctr run --runtime "$runtime" "$image" "$ctr_id" \
 		/bin/sh -c "echo ctr-cycle-$cycle; echo ctr-error-$cycle >&2; exit 17" 2>&1)
 	ctr_rc=$?
-	docker_output=$(sudo docker run --runtime "$runtime" --network none \
+	docker_output=$(sudo docker run --runtime "$runtime" \
 		--name "$docker_name" "$image" /bin/sh -c \
 		"echo docker-cycle-$cycle; echo docker-error-$cycle >&2; exit 17" 2>&1)
 	docker_rc=$?
@@ -228,7 +231,7 @@ row name-reuse
 ctr_stdin=$(printf 'ctr-stdin\n' | sudo ctr run --runtime "$runtime" "$image" "$ctr_id" \
 	/bin/sh -c 'read line; echo guest-$line')
 docker_stdin=$(printf 'docker-stdin\n' | sudo docker run --interactive \
-	--runtime "$runtime" --network none --name "$docker_name" "$image" \
+	--runtime "$runtime" --name "$docker_name" "$image" \
 	/bin/sh -c 'read line; echo guest-$line')
 printf '%s\n' "$ctr_stdin" | grep -Fxq guest-ctr-stdin
 printf '%s\n' "$docker_stdin" | grep -Fxq guest-docker-stdin
@@ -243,7 +246,7 @@ row guest-stdin
 # newly attached client supplies its line, proving that attach is live I/O.
 sudo ctr run --detach --runtime "$runtime" "$image" "$ctr_attach_id" \
 	/bin/sh -c 'read line; echo ctr-attached-$line'
-sudo docker run --detach --interactive --runtime "$runtime" --network none \
+sudo docker run --detach --interactive --runtime "$runtime" \
 	--name "$docker_attach_name" "$image" \
 	/bin/sh -c 'read line; echo docker-attached-$line' >/dev/null
 ctr_attached=$(printf 'stdin\n' | sudo ctr tasks attach "$ctr_attach_id")
@@ -265,7 +268,7 @@ row guest-attach
 ctr_tty=$(script -q -e -c \
 	"stty rows 37 cols 91; sudo ctr run --tty --runtime '$runtime' '$image' '$ctr_id' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo ctr-terminal-ok'" /dev/null)
 docker_tty=$(script -q -e -c \
-	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --network none --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
+	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq ctr-terminal-ok
 printf '%s\n' "$docker_tty" | tr -d '\r' | grep -Fxq docker-terminal-ok
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq '37 91'
@@ -286,7 +289,7 @@ sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_id"
 wait_for_clean_host
 "$(dirname "$0")/test-runtime-live-resize.py" -- \
-	sudo docker run --tty --runtime "$runtime" --network none --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
+	sudo docker run --tty --runtime "$runtime" --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
 row post-start-terminal-resize

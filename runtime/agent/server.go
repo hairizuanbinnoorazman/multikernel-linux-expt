@@ -316,12 +316,10 @@ func (s *Server) Dispatch(e Envelope) Reply {
 			r.Body = stats
 		}
 	case "ConfigureNetwork":
-		var q struct {
-			Name, Address, Gateway string
-		}
+		var q NetworkConfig
 		if x := decode(e.Body, &q); x != nil {
 			r.Error = x.Error()
-		} else if x = s.Manager.ConfigureNetwork(q.Name, q.Address, q.Gateway); x != nil {
+		} else if x = s.Manager.ConfigureNetwork(q); x != nil {
 			r.Error = x.Error()
 		}
 	case "ExchangeNetwork":

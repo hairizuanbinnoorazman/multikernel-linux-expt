@@ -58,6 +58,15 @@ primary-owned services
   -> log/exec/metrics     <-> Multikernel VSOCK <-> mk-agent
 ```
 
+`mknetd` is the sole owner of endpoint allocation, primary veth/TUN topology,
+routes, NAT, and per-generation firewall chains. The Runtime v2 shim invokes
+CNI `ADD`/`CHECK`/`DEL`, generation-binds the resulting endpoint to its
+`mkruntimed` sandbox, and pumps one negotiated-MTU frame at a time over the
+authenticated agent session. Neither the child nor the shim moves or opens the
+GCE NIC. Durable endpoint and counter state lets `mknetd` reconcile independently
+of a client restart, while the shim recovery record binds the same endpoint and
+sandbox generations before reopening the CNI-namespace TUN.
+
 ## Component boundaries
 
 ### `containerd-shim-multikernel-v2`

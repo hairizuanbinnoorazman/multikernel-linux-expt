@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -934,5 +935,44 @@ func TestProcessGroupStatsAreBoundedToObservedGroup(t *testing.T) {
 	}
 	if ticks := clockTicks(); ticks == 0 {
 		t.Fatal("clock tick discovery returned zero")
+	}
+}
+
+func TestDNSReplacementRestoresRegularSymlinkAndAbsentState(t *testing.T) {
+	for name, setup := range map[string]func(string) error{
+		"regular": func(path string) error { return os.WriteFile(path, []byte("nameserver 10.0.0.1\n"), 0600) },
+		"symlink": func(path string) error { return os.Symlink("../run/resolv.conf", path) },
+		"absent":  func(string) error { return nil },
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "resolv.conf")
+			if err := setup(path); err != nil {
+				t.Fatal(err)
+			}
+			original, symlink, mode, existed, err := replaceDNS(path, []string{"192.0.2.53", "2001:db8::53"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if data, err := os.ReadFile(path); err != nil || string(data) != "nameserver 192.0.2.53\nnameserver 2001:db8::53\n" {
+				t.Fatalf("generated DNS=%q error=%v", data, err)
+			}
+			if err = restoreDNS(path, original, symlink, mode, existed); err != nil {
+				t.Fatal(err)
+			}
+			switch name {
+			case "regular":
+				if data, _ := os.ReadFile(path); string(data) != "nameserver 10.0.0.1\n" {
+					t.Fatalf("restored DNS=%q", data)
+				}
+			case "symlink":
+				if target, _ := os.Readlink(path); target != "../run/resolv.conf" {
+					t.Fatalf("restored symlink=%q", target)
+				}
+			case "absent":
+				if _, err = os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("generated DNS remains: %v", err)
+				}
+			}
+		})
 	}
 }

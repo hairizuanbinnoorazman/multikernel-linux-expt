@@ -26,3 +26,11 @@ The machine-readable forms are
 Label keys match `^[a-z][a-z0-9_.-]{0,62}$`; values are at most 256 characters.
 Duplicate object names are invalid during parsing, before schema or wire-body
 validation. Runtime Go code uses the shared `protocol.StrictDecode` decoder.
+
+The primary network service has separate root-owned configuration: an explicit
+egress interface, canonical RFC1918 `/16` through `/30` allocation pool,
+validated MTU, bounded DNS lists, state directory, Unix socket, and authorized
+UID. The CNI 1.0.0 configuration selects that socket and an absolute private
+generation-cache directory. The shim may select test paths with
+`MK_NETWORK_SOCKET`, `MK_CNI_BINARY`, and `MK_CNI_CONFIG`; endpoint policy still
+comes only from `mknetd`.
