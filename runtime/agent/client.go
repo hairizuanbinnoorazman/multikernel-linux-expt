@@ -1,13 +1,17 @@
 package agent
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"sync"
+	"time"
 )
+
+var initialSequence = func() uint64 { return uint64(time.Now().UnixNano()) }
 
 type Client struct {
 	conn                  net.Conn
@@ -16,6 +20,7 @@ type Client struct {
 	endpoint              uint32
 	mu                    sync.Mutex
 	sequence              uint64
+	Timeout               time.Duration
 }
 
 var dialAgent = net.Dial
@@ -25,7 +30,7 @@ func Dial(path, sandboxID, generation string, endpoint uint32, token []byte) (*C
 	if err != nil {
 		return nil, err
 	}
-	return &Client{conn: c, token: token, sandboxID: sandboxID, generation: generation, endpoint: endpoint}, nil
+	return &Client{conn: c, token: token, sandboxID: sandboxID, generation: generation, endpoint: endpoint, sequence: initialSequence()}, nil
 }
 
 func (c *Client) Close() error { return c.conn.Close() }
@@ -49,8 +54,37 @@ func (c *Client) Reconnect(path string) error {
 }
 
 func (c *Client) Call(method string, request, response any) error {
+	return c.CallContext(context.Background(), method, request, response)
+}
+
+func (c *Client) CallContext(ctx context.Context, method string, request, response any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	timeout := c.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	deadline := time.Now().Add(timeout)
+	if contextDeadline, ok := ctx.Deadline(); ok && contextDeadline.Before(deadline) {
+		deadline = contextDeadline
+	}
+	if err := c.conn.SetDeadline(deadline); err != nil {
+		return err
+	}
+	cancelDone := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		_ = c.conn.SetDeadline(time.Now())
+		close(cancelDone)
+	})
+	defer func() {
+		if !stop() {
+			<-cancelDone
+		}
+		_ = c.conn.SetDeadline(time.Time{})
+	}()
 	c.sequence++
 	body, err := json.Marshal(request)
 	if err != nil {
@@ -65,12 +99,21 @@ func (c *Client) Call(method string, request, response any) error {
 	var header [4]byte
 	binary.BigEndian.PutUint32(header[:], uint32(len(payload)))
 	if _, err = c.conn.Write(header[:]); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		return err
 	}
 	if _, err = c.conn.Write(payload); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		return err
 	}
 	if _, err = io.ReadFull(c.conn, header[:]); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		return err
 	}
 	size := binary.BigEndian.Uint32(header[:])
@@ -79,6 +122,9 @@ func (c *Client) Call(method string, request, response any) error {
 	}
 	replyBytes := make([]byte, size)
 	if _, err = io.ReadFull(c.conn, replyBytes); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		return err
 	}
 	var reply Reply

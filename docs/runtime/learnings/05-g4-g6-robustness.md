@@ -214,3 +214,32 @@ gate pass.
 The evidence audit, unresolved implementation work, and required replacement
 GCE runs are tracked in the
 [`G4-G6 remediation checklist`](g4-g6-remediation-checklist.md).
+
+## Remediation implementation after the audit
+
+Work begun on 2026-09-05 is locally verified but is not yet disposable-host
+proof. The runtime now builds deterministic newc initramfs artifacts with a
+separate canonical root manifest, detects source mutation, validates canonical
+relative roots and allowlisted absolute roots, rejects escaping symlinks,
+unsupported file types, and xattrs that it cannot faithfully reproduce, and
+applies payload, inode, and host-free-space admission limits before sandbox
+allocation. Focused tests include identical-build and changed-input controls,
+archive extraction, hardlinks, symlinks, modes, unsafe roots, FIFOs, xattrs,
+and capacity refusal.
+
+The shim now removes partial Create artifacts and allocated sandboxes on later
+failure, gives agent RPCs bounded deadlines with context cancellation, removes
+failed Exec entries, and reports a versioned guest-PID mapping. Guest
+process-group statistics, pause, and resume are implemented through the Task
+v2 API. A versioned atomic recovery record captures sandbox/network ownership,
+process/FIFO/terminal state, guest PIDs, exits, and output offsets. A supervised
+worker and reconstruction code path have been added for signaled shim-worker
+death; that path remains unproved until focused fault tests and the raw GCE
+restart transcripts required by the checklist pass.
+
+`make docs-check` now validates every committed runtime manifest and every
+referenced evidence path. All 17 historical runtime manifests have immutable
+hash-pinned nonconformance classifications in
+`evidence/runtime-manifest-exceptions.json`; this prevents their earlier
+schema, dirty-source, narrative-only, or cleanup-ledger deficiencies from
+being mistaken for final gate evidence.

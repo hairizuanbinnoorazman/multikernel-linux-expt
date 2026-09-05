@@ -306,6 +306,15 @@ func (s *Server) Dispatch(e Envelope) Reply {
 			st.Stderr = ""
 			r.Body = st
 		}
+	case "StatsProcess":
+		var q struct{ ID string }
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if stats, x := s.Manager.Stats(q.ID); x != nil {
+			r.Error = x.Error()
+		} else {
+			r.Body = stats
+		}
 	case "ConfigureNetwork":
 		var q struct {
 			Name, Address, Gateway string

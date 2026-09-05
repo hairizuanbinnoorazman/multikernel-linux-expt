@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"debug/elf"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -69,6 +71,12 @@ type ProcessState struct {
 	Stderr          string `json:"stderr,omitempty"`
 	StdoutTruncated bool   `json:"stdout_truncated,omitempty"`
 	StderrTruncated bool   `json:"stderr_truncated,omitempty"`
+}
+type ProcessStats struct {
+	CPUUserNS   uint64 `json:"cpu_user_ns"`
+	CPUSystemNS uint64 `json:"cpu_system_ns"`
+	RSSBytes    uint64 `json:"rss_bytes"`
+	PIDs        uint64 `json:"pids"`
 }
 type process struct {
 	spec           ProcessSpec
@@ -671,6 +679,93 @@ func (m *Manager) State(id string) (ProcessState, error) {
 	x.StdoutTruncated = p.stdout.Truncated()
 	x.StderrTruncated = p.stderr.Truncated()
 	return x, nil
+}
+
+type procStat struct {
+	pgrp, userTicks, systemTicks, rssPages uint64
+}
+
+func readProcStat(path string) (procStat, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return procStat{}, err
+	}
+	end := strings.LastIndexByte(string(data), ')')
+	if end < 0 || end+2 >= len(data) {
+		return procStat{}, errors.New("malformed proc stat")
+	}
+	fields := strings.Fields(string(data[end+2:]))
+	if len(fields) <= 21 {
+		return procStat{}, errors.New("short proc stat")
+	}
+	parse := func(index int) (uint64, error) { return strconv.ParseUint(fields[index], 10, 64) }
+	pgrp, err := parse(2)
+	if err != nil {
+		return procStat{}, err
+	}
+	user, err := parse(11)
+	if err != nil {
+		return procStat{}, err
+	}
+	system, err := parse(12)
+	if err != nil {
+		return procStat{}, err
+	}
+	rss, err := parse(21)
+	if err != nil {
+		return procStat{}, err
+	}
+	return procStat{pgrp: pgrp, userTicks: user, systemTicks: system, rssPages: rss}, nil
+}
+
+func clockTicks() uint64 {
+	data, err := os.ReadFile("/proc/self/auxv")
+	if err == nil {
+		for len(data) >= 16 {
+			key := binary.LittleEndian.Uint64(data[:8])
+			value := binary.LittleEndian.Uint64(data[8:16])
+			if key == 17 && value > 0 { // AT_CLKTCK
+				return value
+			}
+			data = data[16:]
+		}
+	}
+	return 100
+}
+
+func (m *Manager) Stats(id string) (ProcessStats, error) {
+	m.mu.Lock()
+	p, ok := m.processes[id]
+	if !ok || p.state.PID <= 0 {
+		m.mu.Unlock()
+		return ProcessStats{}, errors.New("running process not found")
+	}
+	group := uint64(p.state.PID)
+	m.mu.Unlock()
+	paths, err := filepath.Glob("/proc/[0-9]*/stat")
+	if err != nil {
+		return ProcessStats{}, err
+	}
+	sort.Strings(paths)
+	var result ProcessStats
+	pageSize := uint64(os.Getpagesize())
+	for _, path := range paths {
+		stat, readErr := readProcStat(path)
+		if readErr != nil || stat.pgrp != group {
+			continue
+		}
+		result.CPUUserNS += stat.userTicks
+		result.CPUSystemNS += stat.systemTicks
+		result.RSSBytes += stat.rssPages * pageSize
+		result.PIDs++
+	}
+	if result.PIDs == 0 {
+		return ProcessStats{}, errors.New("process group is no longer present")
+	}
+	ticks := clockTicks()
+	result.CPUUserNS = result.CPUUserNS * uint64(time.Second) / ticks
+	result.CPUSystemNS = result.CPUSystemNS * uint64(time.Second) / ticks
+	return result, nil
 }
 func (m *Manager) Delete(id string) error {
 	m.mu.Lock()

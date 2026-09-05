@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ ${MK_EVIDENCE_XTRACE:-1} = 1 ]]; then
+	PS4='+${BASH_SOURCE}:${LINENO}: '
+	set -x
+fi
+
 # Privileged GCE integration proof for the G4-G6 MVP path. Run on a qualified
 # Multikernel host after mkruntimed, the Runtime v2 shim, and Docker are active.
 image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+if [[ ${MK_EVIDENCE_XTRACE:-1} = 1 ]]; then
+	PS4='+${BASH_SOURCE}:${LINENO}: '
+	set -x
+fi
+
 # Live G6 recovery audit. Run only on a disposable, otherwise idle qualified
 # host. Cases use distinct names and always attempt bounded cleanup so one
 # recovery failure does not hide the remaining results.
@@ -84,18 +89,25 @@ daemon_restart() {
 
 shim_crash_reconnect() {
 	start_task || return
-	local before shim_pid status=
+	local before supervisor_pid worker_pid replacement_pid= status=
 	before=$(child_boot before-shim-crash) || return
-	shim_pid=$(sudo ctr tasks list | awk -v id="$id" '$1==id {print $2}')
-	[[ -n $shim_pid ]] || return
-	sudo kill -KILL "$shim_pid" || return
+	supervisor_pid=$(sudo ctr tasks list | awk -v id="$id" '$1==id {print $2}')
+	[[ -n $supervisor_pid ]] || return
+	worker_pid=$(sudo cat "/proc/$supervisor_pid/cwd/.multikernel-worker.pid") || return
+	echo "SHIM_CRASH_BEFORE id=$id boot_id=$before supervisor_pid=$supervisor_pid worker_pid=$worker_pid status=RUNNING"
+	sudo kill -KILL "$worker_pid" || return
 	for _ in $(seq 1 40); do
+		replacement_pid=$(sudo cat "/proc/$supervisor_pid/cwd/.multikernel-worker.pid" 2>/dev/null || true)
 		status=$(sudo ctr tasks list | awk -v id="$id" '$1==id {print $3}')
-		[[ $status = RUNNING ]] && break
+		[[ $status = RUNNING && -n $replacement_pid && $replacement_pid != "$worker_pid" ]] && break
 		sleep .25
 	done
 	[[ $status = RUNNING ]] || return 1
-	[[ $(child_boot after-shim-crash) = "$before" ]]
+	[[ -n $replacement_pid && $replacement_pid != "$worker_pid" ]] || return 1
+	local after
+	after=$(child_boot after-shim-crash) || return
+	echo "SHIM_CRASH_AFTER id=$id boot_id=$after supervisor_pid=$supervisor_pid old_worker_pid=$worker_pid replacement_worker_pid=$replacement_pid status=$status"
+	[[ $after = "$before" ]]
 }
 
 if [[ $(id -u) -eq 0 ]]; then
