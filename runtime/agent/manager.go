@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -185,10 +186,16 @@ func (b *lockedBuffer) Truncated() bool {
 }
 
 type Manager struct {
-	mu        sync.Mutex
-	processes map[string]*process
-	network   *os.File
-	NoChroot  bool
+	mu          sync.Mutex
+	processes   map[string]*process
+	network     *os.File
+	networkName string
+	networkMTU  int
+	dnsOriginal []byte
+	dnsSymlink  string
+	dnsMode     os.FileMode
+	dnsExisted  bool
+	NoChroot    bool
 }
 
 func NewManager(noChroot bool) *Manager {
@@ -793,9 +800,72 @@ const (
 // ConfigureNetwork creates the child side of the primary-mediated point to
 // point link. Packets share the authenticated agent channel because the
 // pinned Multikernel VSOCK transport cannot sustain a second stream.
-func (m *Manager) ConfigureNetwork(name, address, gateway string) error {
-	if name == "" || address == "" || gateway == "" {
-		return errors.New("network name, address, and gateway are required")
+type NetworkConfig struct {
+	Name        string   `json:"name"`
+	Address     string   `json:"address"`
+	Gateway     string   `json:"gateway"`
+	MTU         int      `json:"mtu"`
+	Nameservers []string `json:"nameservers,omitempty"`
+}
+
+func replaceDNS(path string, nameservers []string) (original []byte, symlink string, mode os.FileMode, existed bool, retErr error) {
+	if info, err := os.Lstat(path); err == nil {
+		existed, mode = true, info.Mode().Perm()
+		switch {
+		case info.Mode().IsRegular():
+			original, retErr = os.ReadFile(path)
+		case info.Mode()&os.ModeSymlink != 0:
+			symlink, retErr = os.Readlink(path)
+		default:
+			retErr = errors.New("resolv.conf must be a regular file or symlink")
+		}
+		if retErr != nil {
+			return
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		retErr = err
+		return
+	}
+	if retErr = os.Remove(path); retErr != nil && !errors.Is(retErr, os.ErrNotExist) {
+		return
+	}
+	var resolv strings.Builder
+	for _, server := range nameservers {
+		fmt.Fprintf(&resolv, "nameserver %s\n", server)
+	}
+	retErr = os.WriteFile(path, []byte(resolv.String()), 0644)
+	return
+}
+
+func restoreDNS(path string, original []byte, symlink string, mode os.FileMode, existed bool) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if !existed {
+		return nil
+	}
+	if symlink != "" {
+		return os.Symlink(symlink, path)
+	}
+	return os.WriteFile(path, original, mode)
+}
+
+func (m *Manager) ConfigureNetwork(config NetworkConfig) error {
+	if config.Name == "" || len(config.Name) > 15 || config.Address == "" || config.Gateway == "" || config.MTU < 576 || config.MTU > 65515 {
+		return errors.New("valid network name, address, gateway, and MTU are required")
+	}
+	ip, subnet, err := net.ParseCIDR(config.Address)
+	if err != nil || ip.To4() == nil {
+		return errors.New("network address must be IPv4 CIDR")
+	}
+	gateway := net.ParseIP(config.Gateway)
+	if gateway == nil || !subnet.Contains(gateway) || gateway.Equal(ip) {
+		return errors.New("network gateway must be a distinct address in the endpoint subnet")
+	}
+	for _, server := range config.Nameservers {
+		if net.ParseIP(server) == nil {
+			return errors.New("network DNS server is not an IP address")
+		}
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -806,7 +876,7 @@ func (m *Manager) ConfigureNetwork(name, address, gateway string) error {
 	if err != nil {
 		return err
 	}
-	request, err := unix.NewIfreq(name)
+	request, err := unix.NewIfreq(config.Name)
 	if err != nil {
 		f.Close()
 		return err
@@ -817,25 +887,27 @@ func (m *Manager) ConfigureNetwork(name, address, gateway string) error {
 		return err
 	}
 	commands := [][]string{
-		{"address", "add", address, "dev", name},
-		{"link", "set", name, "mtu", "1400", "up"},
-		{"route", "add", "default", "via", gateway, "dev", name},
+		{"address", "add", config.Address, "dev", config.Name},
+		{"link", "set", config.Name, "mtu", strconv.Itoa(config.MTU), "up"},
+		{"route", "add", "default", "via", config.Gateway, "dev", config.Name},
 	}
 	for _, args := range commands {
 		if output, commandErr := exec.Command("/bin/ip", args...).CombinedOutput(); commandErr != nil {
 			f.Close()
+			_, _ = exec.Command("/bin/ip", "link", "delete", config.Name).CombinedOutput()
 			return fmt.Errorf("ip %s: %w: %s", strings.Join(args, " "), commandErr, strings.TrimSpace(string(output)))
 		}
 	}
-	if err = os.Remove("/bundle/rootfs/etc/resolv.conf"); err != nil && !errors.Is(err, os.ErrNotExist) {
+	dnsPath := "/bundle/rootfs/etc/resolv.conf"
+	m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, err = replaceDNS(dnsPath, config.Nameservers)
+	if err != nil {
 		f.Close()
-		return err
-	}
-	if err = os.WriteFile("/bundle/rootfs/etc/resolv.conf", []byte("nameserver 8.8.8.8\n"), 0644); err != nil {
-		f.Close()
+		_, _ = exec.Command("/bin/ip", "link", "delete", config.Name).CombinedOutput()
 		return err
 	}
 	m.network = f
+	m.networkName = config.Name
+	m.networkMTU = config.MTU
 	return nil
 }
 
@@ -847,7 +919,7 @@ func (m *Manager) ExchangeNetwork(packet []byte) ([]byte, error) {
 	if m.network == nil {
 		return nil, errors.New("network is not configured")
 	}
-	if len(packet) > 65535 {
+	if len(packet) > m.networkMTU {
 		return nil, errors.New("network packet is too large")
 	}
 	if len(packet) != 0 {
@@ -874,12 +946,24 @@ func (m *Manager) ExchangeNetwork(packet []byte) ([]byte, error) {
 func (m *Manager) CloseNetwork() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.network == nil {
-		return nil
+	var failures []error
+	if m.network != nil {
+		failures = append(failures, m.network.Close())
+		m.network = nil
 	}
-	err := m.network.Close()
-	m.network = nil
-	return err
+	if m.networkName != "" {
+		if output, err := exec.Command("/bin/ip", "link", "delete", m.networkName).CombinedOutput(); err != nil {
+			failures = append(failures, fmt.Errorf("delete child network: %w: %s", err, strings.TrimSpace(string(output))))
+		}
+		m.networkName = ""
+		m.networkMTU = 0
+	}
+	dnsPath := "/bundle/rootfs/etc/resolv.conf"
+	if err := restoreDNS(dnsPath, m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted); err != nil {
+		failures = append(failures, fmt.Errorf("restore DNS: %w", err))
+	}
+	m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted = nil, "", 0, false
+	return errors.Join(failures...)
 }
 func SignalNumber(s string) (syscall.Signal, error) {
 	if n, e := strconv.Atoi(s); e == nil && n > 0 && n < 65 {

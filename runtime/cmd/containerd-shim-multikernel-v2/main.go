@@ -3,8 +3,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -19,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -42,6 +45,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
+	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -70,6 +74,7 @@ type agentClient interface {
 	Call(string, any, any) error
 	CallContext(context.Context, string, any, any) error
 	Close() error
+	Reconnect(string) error
 }
 
 type service struct {
@@ -86,9 +91,16 @@ type service struct {
 	netDevice             *os.File
 	netDone               chan struct{}
 	netWG                 sync.WaitGroup
-	netIf                 string
-	netSubnet             string
-	netEgress             string
+	netEndpoint           mknetwork.Endpoint
+	netClient             mknetwork.Client
+	netRXPackets          atomic.Uint64
+	netTXPackets          atomic.Uint64
+	netRXDrops            atomic.Uint64
+	netTXDrops            atomic.Uint64
+	netErrors             atomic.Uint64
+	netNS                 string
+	cniManaged            bool
+	cniCreatedNS          bool
 	processes             map[string]*process
 }
 
@@ -112,7 +124,8 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 		return nil, err
 	}
 	s := &service{id: id, namespace: ns, bundle: bundle, publisher: publisher, shutdown: shutdown,
-		daemon: daemon.Client{Path: getenv("MK_DAEMON_SOCKET", "/run/mkruntimed.sock")}, processes: map[string]*process{}}
+		daemon:    daemon.Client{Path: getenv("MK_DAEMON_SOCKET", "/run/mkruntimed.sock")},
+		netClient: mknetwork.Client{Path: getenv("MK_NETWORK_SOCKET", "/run/mknetd.sock")}, processes: map[string]*process{}}
 	if err = s.recoverExisting(ctx); err != nil {
 		return nil, err
 	}
@@ -212,9 +225,10 @@ type persisted struct {
 	PID           uint32             `json:"pid,omitempty"`
 	Exit          uint32             `json:"exit"`
 	Exited        time.Time          `json:"exited"`
-	NetIf         string             `json:"net_if,omitempty"`
-	NetSubnet     string             `json:"net_subnet,omitempty"`
-	NetEgress     string             `json:"net_egress,omitempty"`
+	Network       mknetwork.Endpoint `json:"network"`
+	NetNS         string             `json:"netns,omitempty"`
+	CNIManaged    bool               `json:"cni_managed,omitempty"`
+	CNICreatedNS  bool               `json:"cni_created_namespace,omitempty"`
 	Processes     []persistedProcess `json:"processes,omitempty"`
 }
 
@@ -244,8 +258,11 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 	if b, err := os.ReadFile(filepath.Join(".multikernel", "sandbox.json")); err == nil {
 		_ = json.Unmarshal(b, &p)
 	}
-	s.netIf, s.netSubnet, s.netEgress = p.NetIf, p.NetSubnet, p.NetEgress
+	s.netEndpoint = p.Network
+	s.netNS, s.cniManaged, s.cniCreatedNS = p.NetNS, p.CNIManaged, p.CNICreatedNS
 	_ = s.stopNetwork()
+	_ = s.unbindNetwork(ctx)
+	_ = s.cleanupCNI(ctx)
 	if p.ID != "" {
 		_, _ = daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil)
 		_, _ = daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil)
@@ -268,8 +285,9 @@ func (s *service) persistRecovery() error {
 	if s.sandbox.ID == "" {
 		return nil
 	}
+	network := s.networkReport("READY")
 	p := persisted{SchemaVersion: 1, ID: s.sandbox.ID, Generation: s.sandbox.Generation,
-		NetIf: s.netIf, NetSubnet: s.netSubnet, NetEgress: s.netEgress}
+		Network: network, NetNS: s.netNS, CNIManaged: s.cniManaged, CNICreatedNS: s.cniCreatedNS}
 	for _, process := range s.processes {
 		if process.id == "" {
 			p.PID, p.Exit, p.Exited = process.pid, process.exit, process.exited
@@ -288,6 +306,29 @@ func (s *service) persistRecovery() error {
 		return err
 	}
 	return atomicWriteFile(filepath.Join(s.bundle, ".multikernel", "sandbox.json"), b, 0600)
+}
+
+func (s *service) networkReport(state string) mknetwork.Endpoint {
+	endpoint := s.netEndpoint
+	endpoint.State = state
+	endpoint.RXPackets = s.netRXPackets.Load()
+	endpoint.TXPackets = s.netTXPackets.Load()
+	endpoint.RXDrops = s.netRXDrops.Load()
+	endpoint.TXDrops = s.netTXDrops.Load()
+	endpoint.Errors = s.netErrors.Load()
+	return endpoint
+}
+
+func (s *service) reportNetwork(state string) error {
+	endpoint := s.networkReport(state)
+	if endpoint.Generation == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-report-" + endpoint.Generation[:12], Method: "REPORT", Endpoint: &endpoint}
+	_, err := s.netClient.Call(ctx, request)
+	return err
 }
 
 func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) {
@@ -361,7 +402,27 @@ func (s *service) recoverExisting(ctx context.Context) error {
 	if err != nil || len(s.token) != 32 {
 		return errors.New("recovery token is malformed")
 	}
-	s.netIf, s.netSubnet, s.netEgress = recovery.NetIf, recovery.NetSubnet, recovery.NetEgress
+	s.netEndpoint = recovery.Network
+	s.netNS, s.cniManaged, s.cniCreatedNS = recovery.NetNS, recovery.CNIManaged, recovery.CNICreatedNS
+	if !s.cniManaged || s.netNS == "" {
+		return errors.New("persisted recovery state has no managed CNI namespace")
+	}
+	if err = s.runCNI(ctx, "CHECK"); err != nil {
+		return fmt.Errorf("recover CNI CHECK: %w", err)
+	}
+	if s.netEndpoint.SandboxID != s.sandbox.ID || s.netEndpoint.SandboxGeneration != s.sandbox.Generation {
+		return errors.New("persisted network binding does not match the sandbox generation")
+	}
+	bound, bindErr := s.bindNetwork(ctx, s.netEndpoint.NetNS, s.netEndpoint.Generation)
+	if bindErr != nil {
+		return fmt.Errorf("recover CNI endpoint binding: %w", bindErr)
+	}
+	s.netEndpoint = bound
+	s.netRXPackets.Store(bound.RXPackets)
+	s.netTXPackets.Store(bound.TXPackets)
+	s.netRXDrops.Store(bound.RXDrops)
+	s.netTXDrops.Store(bound.TXDrops)
+	s.netErrors.Store(bound.Errors)
 	s.relaySocket = relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
 	_ = os.Remove(s.relaySocket)
 	s.relay = exec.Command(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), "server", strconv.Itoa(int(s.sandbox.Config.AgentPort)), s.relaySocket)
@@ -448,8 +509,8 @@ func (s *service) recoverExisting(ctx context.Context) error {
 		}
 		running = append(running, recoveredProcess{agentID: agentID, process: p})
 	}
-	if s.netIf != "" {
-		s.netDevice, err = openTUN(s.netIf)
+	if s.netEndpoint.Generation != "" {
+		s.netDevice, err = mknetwork.OpenTUN(s.netEndpoint)
 		if err != nil {
 			return fmt.Errorf("reopen recovered TUN: %w", err)
 		}
@@ -553,6 +614,12 @@ func (s *service) publish(ctx context.Context, topic string, event any) error {
 
 func (s *service) rollbackCreate(ctx context.Context, root, runtimeDir string) error {
 	var failures []error
+	if err := s.unbindNetwork(ctx); err != nil {
+		failures = append(failures, err)
+	}
+	if err := s.cleanupCNI(ctx); err != nil {
+		failures = append(failures, err)
+	}
 	if s.sandbox.ID != "" {
 		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-create-rollback-delete-"+s.sandbox.Generation, nil); err != nil {
 			failures = append(failures, fmt.Errorf("delete allocated sandbox: %w", err))
@@ -568,6 +635,158 @@ func (s *service) rollbackCreate(ctx context.Context, root, runtimeDir string) e
 	s.token = nil
 	delete(s.processes, "")
 	return errors.Join(failures...)
+}
+
+func bundleNetworkNamespace(bundle string) (string, error) {
+	path := filepath.Join(bundle, "config.json")
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return "", errors.New("OCI config.json must be a regular file without symlinks")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	var spec specs.Spec
+	if err = protocol.StrictDecode(data, &spec); err != nil {
+		return "", fmt.Errorf("decode OCI config for network ownership: %w", err)
+	}
+	if spec.Linux == nil {
+		return "", errors.New("OCI Linux configuration is required")
+	}
+	var result string
+	count := 0
+	for _, namespace := range spec.Linux.Namespaces {
+		if namespace.Type != specs.NetworkNamespace {
+			continue
+		}
+		count++
+		if count > 1 {
+			return "", errors.New("OCI config contains multiple network namespaces")
+		}
+		result = namespace.Path
+	}
+	if count != 1 {
+		return "", errors.New("OCI config must contain exactly one network namespace")
+	}
+	if result != "" && (!filepath.IsAbs(result) || filepath.Clean(result) != result) {
+		return "", errors.New("OCI network namespace path must be absolute and canonical")
+	}
+	return result, nil
+}
+
+type cniTranscript struct {
+	Version   int      `json:"version"`
+	Command   string   `json:"command"`
+	Argv      []string `json:"argv"`
+	Stdin     string   `json:"stdin"`
+	Stdout    string   `json:"stdout"`
+	Stderr    string   `json:"stderr"`
+	ExitCode  int      `json:"exit_code"`
+	NetNS     string   `json:"netns"`
+	IfName    string   `json:"if_name"`
+	Container string   `json:"container_id"`
+}
+
+func (s *service) runCNI(ctx context.Context, method string) error {
+	configurationPath := getenv("MK_CNI_CONFIG", "/etc/cni/net.d/10-multikernel.conf")
+	configuration, err := os.ReadFile(configurationPath)
+	if err != nil {
+		return err
+	}
+	binary := getenv("MK_CNI_BINARY", "/opt/cni/bin/multikernel")
+	command := exec.CommandContext(ctx, binary)
+	command.Stdin = bytes.NewReader(configuration)
+	command.Env = append(os.Environ(), "CNI_COMMAND="+method, "CNI_CONTAINERID="+s.id, "CNI_NETNS="+s.netNS, "CNI_IFNAME=mktun0", "CNI_ARGS=", "CNI_PATH="+filepath.Dir(binary))
+	var stdout, stderr bytes.Buffer
+	command.Stdout, command.Stderr = &stdout, &stderr
+	runErr := command.Run()
+	exitCode := 0
+	if runErr != nil {
+		exitCode = -1
+		var exitErr *exec.ExitError
+		if errors.As(runErr, &exitErr) {
+			exitCode = exitErr.ExitCode()
+		}
+	}
+	record := cniTranscript{Version: 1, Command: method, Argv: []string{binary}, Stdin: string(configuration), Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: exitCode, NetNS: s.netNS, IfName: "mktun0", Container: s.id}
+	data, marshalErr := json.Marshal(record)
+	recordErr := marshalErr
+	if marshalErr == nil {
+		recordErr = atomicWriteFile(filepath.Join(s.bundle, ".multikernel", "cni-"+strings.ToLower(method)+".json"), data, 0600)
+	}
+	if runErr != nil {
+		runErr = fmt.Errorf("CNI %s: %w: %s", method, runErr, strings.TrimSpace(stderr.String()))
+	} else if method == "ADD" {
+		s.cniManaged = true
+	} else if method == "DEL" {
+		s.cniManaged = false
+	}
+	return errors.Join(runErr, recordErr)
+}
+
+func (s *service) prepareCNI(ctx context.Context) error {
+	if s.netNS == "" {
+		digest := sha256.Sum256([]byte(s.namespace + "\x00" + s.id))
+		name := "mk-" + hex.EncodeToString(digest[:6])
+		s.netNS = filepath.Join("/run/netns", name)
+		if output, err := exec.CommandContext(ctx, "/usr/sbin/ip", "netns", "add", name).CombinedOutput(); err != nil {
+			return fmt.Errorf("create primary CNI namespace: %w: %s", err, strings.TrimSpace(string(output)))
+		}
+		s.cniCreatedNS = true
+	}
+	if err := s.runCNI(ctx, "ADD"); err != nil {
+		_ = s.cleanupCNI(context.WithoutCancel(ctx))
+		return err
+	}
+	return nil
+}
+
+func (s *service) cleanupCNI(ctx context.Context) error {
+	var failures []error
+	if s.cniManaged {
+		if err := s.runCNI(ctx, "DEL"); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	if s.cniCreatedNS && !s.cniManaged {
+		name := filepath.Base(s.netNS)
+		if output, err := exec.CommandContext(ctx, "/usr/sbin/ip", "netns", "delete", name).CombinedOutput(); err != nil {
+			failures = append(failures, fmt.Errorf("delete primary CNI namespace: %w: %s", err, strings.TrimSpace(string(output))))
+		} else {
+			s.cniCreatedNS = false
+			s.netNS = ""
+		}
+	}
+	return errors.Join(failures...)
+}
+
+func (s *service) bindNetwork(ctx context.Context, netns, endpointGeneration string) (mknetwork.Endpoint, error) {
+	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-bind-" + s.sandbox.Generation[:16], Method: "BIND", Endpoint: &mknetwork.Endpoint{
+		NetNS: netns, Generation: endpointGeneration, SandboxID: s.sandbox.ID, SandboxGeneration: s.sandbox.Generation,
+	}}
+	response, err := s.netClient.Call(ctx, request)
+	if err != nil {
+		return mknetwork.Endpoint{}, err
+	}
+	if response.Endpoint == nil {
+		return mknetwork.Endpoint{}, errors.New("mknetd BIND returned no endpoint")
+	}
+	return *response.Endpoint, nil
+}
+
+func (s *service) unbindNetwork(ctx context.Context) error {
+	if s.netEndpoint.SandboxID == "" {
+		return nil
+	}
+	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-unbind-" + s.netEndpoint.SandboxGeneration[:16], Method: "UNBIND", Endpoint: &mknetwork.Endpoint{
+		SandboxID: s.netEndpoint.SandboxID, SandboxGeneration: s.netEndpoint.SandboxGeneration,
+	}}
+	_, err := s.netClient.Call(ctx, request)
+	if err == nil {
+		s.netEndpoint = mknetwork.Endpoint{}
+	}
+	return err
 }
 
 func readOnlyRootfsMounts(input []*types.Mount) ([]mount.Mount, error) {
@@ -606,6 +825,10 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if len(s.processes) != 0 {
 		return nil, errdefs.ErrAlreadyExists
 	}
+	netns, err := bundleNetworkNamespace(r.Bundle)
+	if err != nil {
+		return nil, err
+	}
 	root := filepath.Join(r.Bundle, "rootfs")
 	if err := os.MkdirAll(root, 0711); err != nil {
 		return nil, err
@@ -628,6 +851,10 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	}()
 	if err := os.MkdirAll(runtimeDir, 0700); err != nil {
 		return nil, err
+	}
+	s.netNS = netns
+	if err = s.prepareCNI(ctx); err != nil {
+		return nil, fmt.Errorf("prepare CNI endpoint: %w", err)
 	}
 	token, tokenHex, err := randomToken()
 	if err != nil {
@@ -668,6 +895,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if _, err = daemon.Mutation(ctx, s.daemon, "LoadSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-load-"+s.sandbox.Generation, nil); err != nil {
 		return nil, err
 	}
+	if s.netEndpoint, err = s.bindNetwork(ctx, netns, ""); err != nil {
+		return nil, fmt.Errorf("bind CNI endpoint: %w", err)
+	}
 	s.bundle = r.Bundle
 	s.processes[""] = &process{id: "", stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	if err = s.persistRecovery(); err != nil {
@@ -688,7 +918,12 @@ func (s *service) connectAgent(ctx context.Context) error {
 	sock := relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
 	s.relaySocket = sock
 	_ = os.Remove(sock)
-	if err := s.startNetwork(ctx); err != nil {
+	if s.netEndpoint.Generation == "" {
+		return errors.New("CNI endpoint is not bound")
+	}
+	var err error
+	s.netDevice, err = mknetwork.OpenTUN(s.netEndpoint)
+	if err != nil {
 		return err
 	}
 	if err := s.persistRecovery(); err != nil {
@@ -709,10 +944,9 @@ func (s *service) connectAgent(ctx context.Context) error {
 		client, err := agent.Dial(sock, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
 		if err == nil {
 			s.agent = client
-			slot := int(s.sandbox.Config.AgentPort) - 7200
-			third := strconv.Itoa(30 + slot)
-			if err = s.agent.CallContext(ctx, "ConfigureNetwork", map[string]string{
-				"Name": "mkn0", "Address": "172.30." + third + ".2/30", "Gateway": "172.30." + third + ".1",
+			if err = s.agent.CallContext(ctx, "ConfigureNetwork", agent.NetworkConfig{
+				Name: "mkn0", Address: s.netEndpoint.Address, Gateway: s.netEndpoint.Gateway,
+				MTU: s.netEndpoint.MTU, Nameservers: s.netEndpoint.DNS.Nameservers,
 			}, nil); err != nil {
 				_ = s.agent.Close()
 				s.agent = nil
@@ -728,102 +962,13 @@ func (s *service) connectAgent(ctx context.Context) error {
 	return errors.New("timed out connecting to child agent")
 }
 
-func command(ctx context.Context, name string, args ...string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(string(output)))
-	}
-	return nil
-}
-
-const (
-	tunSetIFF = 0x400454ca
-	iffTun    = 0x0001
-	iffNoPI   = 0x1000
-)
-
-func openTUN(name string) (*os.File, error) {
-	f, err := os.OpenFile("/dev/net/tun", os.O_RDWR|syscall.O_NONBLOCK, 0)
-	if err != nil {
-		return nil, err
-	}
-	request, err := unix.NewIfreq(name)
-	if err != nil {
-		f.Close()
-		return nil, err
-	}
-	request.SetUint16(iffTun | iffNoPI)
-	if err = unix.IoctlIfreq(int(f.Fd()), tunSetIFF, request); err != nil {
-		f.Close()
-		return nil, err
-	}
-	return f, nil
-}
-
-func (s *service) startNetwork(ctx context.Context) error {
-	slot := int(s.sandbox.Config.AgentPort) - 7200
-	if slot < 0 || slot >= 64 {
-		return errors.New("agent port has no network allocation")
-	}
-	s.netIf = "mkn" + strconv.Itoa(slot)
-	third := strconv.Itoa(30 + slot)
-	s.netSubnet = "172.30." + third + ".0/30"
-	if err := command(ctx, "/usr/sbin/ip", "tuntap", "add", "dev", s.netIf, "mode", "tun"); err != nil {
-		return err
-	}
-	if err := command(ctx, "/usr/sbin/ip", "address", "add", "172.30."+third+".1/30", "dev", s.netIf); err != nil {
-		_ = s.stopNetwork()
-		return err
-	}
-	if err := command(ctx, "/usr/sbin/ip", "link", "set", s.netIf, "up"); err != nil {
-		_ = s.stopNetwork()
-		return err
-	}
-	if err := command(ctx, "/usr/sbin/ip", "link", "set", s.netIf, "mtu", "1400"); err != nil {
-		_ = s.stopNetwork()
-		return err
-	}
-	route, err := exec.CommandContext(ctx, "/usr/sbin/ip", "route", "show", "default").Output()
-	if err != nil {
-		_ = s.stopNetwork()
-		return err
-	}
-	fields := strings.Fields(string(route))
-	for i, field := range fields {
-		if field == "dev" && i+1 < len(fields) {
-			s.netEgress = fields[i+1]
-			break
-		}
-	}
-	if s.netEgress == "" {
-		_ = s.stopNetwork()
-		return errors.New("default egress interface not found")
-	}
-	rules := [][]string{
-		{"-w", "-t", "nat", "-A", "POSTROUTING", "-s", s.netSubnet, "-o", s.netEgress, "-j", "MASQUERADE"},
-		{"-w", "-A", "FORWARD", "-i", s.netIf, "-o", s.netEgress, "-j", "ACCEPT"},
-		{"-w", "-A", "FORWARD", "-i", s.netEgress, "-o", s.netIf, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"},
-	}
-	for _, rule := range rules {
-		if err := command(ctx, "/usr/sbin/iptables", rule...); err != nil {
-			_ = s.stopNetwork()
-			return err
-		}
-	}
-	s.netDevice, err = openTUN(s.netIf)
-	if err != nil {
-		_ = s.stopNetwork()
-		return err
-	}
-	return nil
-}
-
 func (s *service) startNetworkPump() {
 	s.netDone = make(chan struct{})
 	s.netWG.Add(1)
 	go func() {
 		defer s.netWG.Done()
-		buffer := make([]byte, 65535)
+		buffer := make([]byte, s.netEndpoint.MTU+1)
+		lastReported := s.netRXPackets.Load() + s.netTXPackets.Load()
 		for {
 			select {
 			case <-s.netDone:
@@ -833,23 +978,65 @@ func (s *service) startNetworkPump() {
 			var packet []byte
 			n, err := unix.Read(int(s.netDevice.Fd()), buffer)
 			if err == nil && n > 0 {
+				if n > s.netEndpoint.MTU {
+					s.netRXDrops.Add(1)
+					continue
+				}
 				packet = append([]byte(nil), buffer[:n]...)
 			} else if err != nil && !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
+				s.netErrors.Add(1)
+				_ = s.reportNetwork("DEGRADED")
 				fmt.Fprintf(os.Stderr, "multikernel network: host TUN read: %v\n", err)
 				return
 			}
 			var response struct {
 				Packet []byte `json:"packet"`
 			}
-			if err = s.agent.Call("ExchangeNetwork", map[string][]byte{"packet": packet}, &response); err != nil {
-				fmt.Fprintf(os.Stderr, "multikernel network: exchange: %v\n", err)
-				return
+			exchangeCtx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+			err = s.agent.CallContext(exchangeCtx, "ExchangeNetwork", map[string][]byte{"packet": packet}, &response)
+			cancel()
+			if err != nil {
+				s.netErrors.Add(1)
+				if len(packet) > 0 {
+					s.netRXDrops.Add(1)
+				}
+				_ = s.reportNetwork("DISCONNECTED")
+				for {
+					select {
+					case <-s.netDone:
+						return
+					case <-time.After(100 * time.Millisecond):
+					}
+					if reconnectErr := s.agent.Reconnect(s.relaySocket); reconnectErr == nil {
+						_ = s.reportNetwork("READY")
+						break
+					}
+				}
+				continue
+			}
+			if len(packet) > 0 {
+				s.netRXPackets.Add(1)
 			}
 			if len(response.Packet) > 0 {
-				if _, err = unix.Write(int(s.netDevice.Fd()), response.Packet); err != nil && !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
+				if len(response.Packet) > s.netEndpoint.MTU {
+					s.netTXDrops.Add(1)
+					continue
+				}
+				if _, err = unix.Write(int(s.netDevice.Fd()), response.Packet); err == nil {
+					s.netTXPackets.Add(1)
+				} else if errors.Is(err, syscall.EAGAIN) || errors.Is(err, syscall.EWOULDBLOCK) {
+					s.netTXDrops.Add(1)
+				} else {
+					s.netErrors.Add(1)
+					_ = s.reportNetwork("DEGRADED")
 					fmt.Fprintf(os.Stderr, "multikernel network: host TUN write: %v\n", err)
 					return
 				}
+			}
+			total := s.netRXPackets.Load() + s.netTXPackets.Load()
+			if total-lastReported >= 256 {
+				_ = s.reportNetwork("READY")
+				lastReported = total
 			}
 			if len(packet) == 0 && len(response.Packet) == 0 {
 				time.Sleep(2 * time.Millisecond)
@@ -876,23 +1063,9 @@ func (s *service) stopNetwork() error {
 		}
 		s.netDevice = nil
 	}
-	if s.netIf == "" {
-		return errors.Join(failures...)
+	if err := s.reportNetwork("READY"); err != nil {
+		failures = append(failures, fmt.Errorf("persist network counters: %w", err))
 	}
-	rules := [][]string{
-		{"-w", "-t", "nat", "-D", "POSTROUTING", "-s", s.netSubnet, "-o", s.netEgress, "-j", "MASQUERADE"},
-		{"-w", "-D", "FORWARD", "-i", s.netIf, "-o", s.netEgress, "-j", "ACCEPT"},
-		{"-w", "-D", "FORWARD", "-i", s.netEgress, "-o", s.netIf, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"},
-	}
-	for _, rule := range rules {
-		if err := command(context.Background(), "/usr/sbin/iptables", rule...); err != nil {
-			failures = append(failures, fmt.Errorf("remove network rule: %w", err))
-		}
-	}
-	if err := command(context.Background(), "/usr/sbin/ip", "link", "delete", s.netIf); err != nil {
-		failures = append(failures, fmt.Errorf("delete TUN link: %w", err))
-	}
-	s.netIf = ""
 	return errors.Join(failures...)
 }
 
@@ -1290,6 +1463,12 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 			if err := s.agent.Close(); err != nil {
 				failures = append(failures, fmt.Errorf("close guest agent: %w", err))
 			}
+		}
+		if err := s.unbindNetwork(ctx); err != nil {
+			failures = append(failures, fmt.Errorf("unbind CNI endpoint: %w", err))
+		}
+		if err := s.cleanupCNI(ctx); err != nil {
+			failures = append(failures, fmt.Errorf("delete CNI endpoint: %w", err))
 		}
 		if _, err := daemon.Mutation(ctx, s.daemon, "StopSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-stop-"+s.sandbox.Generation, nil); err != nil {
 			failures = append(failures, fmt.Errorf("stop sandbox: %w", err))

@@ -243,3 +243,19 @@ hash-pinned nonconformance classifications in
 `evidence/runtime-manifest-exceptions.json`; this prevents their earlier
 schema, dirty-source, narrative-only, or cleanup-ledger deficiencies from
 being mistaken for final gate evidence.
+
+The same remediation branch now contains a locally race-tested G5 replacement
+for the static shim-owned link. `mknetd` durably allocates collision-free
+primary endpoints and owns their routes, NAT, and per-generation firewall
+chains. The CNI 1.0.0 adapter caches endpoint generations for stale-safe
+`ADD`/`CHECK`/`DEL`; the shim invokes it for the OCI network namespace, binds
+the result to the exact sandbox generation, and reopens that namespace's TUN
+after worker reconstruction. The packet path is negotiated-MTU bounded and
+single-flight, detects a 250 ms stalled exchange, reconnects without resetting
+the authenticated sequence, and reports monotonic packet/drop/error counters.
+DNS configuration and regular-file/symlink/absent restoration are tested.
+Linux command-order tests inject failure at every partial-`ADD` boundary and
+assert reverse cleanup, source-spoof, sibling, metadata, and default-drop
+rules. These are implementation observations from the local test suite, not
+G5 gate evidence: privileged namespace traffic, policy bypass, restart/load,
+and final cleanup still require the disposable-instance matrix and raw bundle.

@@ -28,6 +28,8 @@ runtime/
 ├── cmd/
 │   ├── mk-host-check/
 │   ├── mkruntimed/
+│   ├── mknetd/
+│   ├── mk-cni/
 │   └── containerd-shim-multikernel-v2/
 ├── agent/                 process manager and authenticated control service
 ├── protocol/
@@ -43,7 +45,8 @@ runtime/
 ## Dependency direction
 
 ```text
-containerd shim -> daemon client -> versioned protocol
+containerd shim -> daemon client -> versioned lifecycle protocol
+containerd shim -> CNI/mknetd -> generation-bound primary TUN endpoint
 mkruntimed       -> lifecycle/state -> Kerf/storage/network adapters
 mk-agent         -> agent protocol  -> child-local process manager
 ```

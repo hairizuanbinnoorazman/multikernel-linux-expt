@@ -9,6 +9,7 @@
 | Child kernel, initramfs, `mk-agent` | runtime/operator | Selected only from approved manifest |
 | Container process, namespaces, child cgroups | `mk-agent` | Daemon sends authenticated requests |
 | OCI root contents | containerd snapshot owner | Agent does not mutate runtime bootstrap |
+| CNI allocation, primary namespace endpoint, routes, firewall, counters | `mknetd` | Shim generation-binds and pumps bounded frames; child receives only a TUN |
 | Writable root/volume | exactly one sandbox | Primary service retains backing-device ownership |
 | GCE boot disk, NIC, shared controllers | primary kernel | Never assign to a child |
 | Cloud VM, disk, snapshot lifecycle | operator/test harness | Every run records before/after ledger |
@@ -33,3 +34,9 @@ protocol major version, endpoint, and a random 256-bit token stored in a
 root-only state directory and injected through runtime-owned bootstrap data.
 It prevents accidental/stale peers; it does not defend against a compromised
 primary or child kernel that can read shared memory.
+
+`mknetd` accepts CNI and shim requests only from the configured UID over a Unix
+socket verified with `SO_PEERCRED`. Its durable record binds CNI identity,
+network namespace, endpoint generation, sandbox ID, and sandbox generation.
+Generationless deletion of a live allocation and cross-generation bind,
+counter, reconnect, or delete requests fail closed.

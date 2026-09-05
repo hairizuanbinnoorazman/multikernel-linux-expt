@@ -27,7 +27,7 @@ trap cleanup EXIT
 cleanup
 
 test "$(id -u)" -ne 0 || { echo 'run as an ordinary sudo-capable user' >&2; exit 1; }
-for service in mkruntimed containerd docker; do
+for service in mkruntimed mknetd containerd docker; do
 	test "$(systemctl is-active "$service")" = active
 done
 mountpoint -q /sys/fs/multikernel || {
@@ -54,9 +54,7 @@ echo "RUNTIME=$runtime"
 # two boot IDs and addresses prove distinct kernels and disjoint network links.
 sudo ctr run -d --runtime "$runtime" "$image" "$ctr_id" /bin/sleep 300
 test "$(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $3}')" = RUNNING
-# Docker must not also attach its bridge veth to the shim process: networking
-# is supplied by the Multikernel child link itself.
-docker_id=$(sudo docker run -d --runtime "$runtime" --network none --name "$docker_name" "$image" /bin/sleep 300)
+docker_id=$(sudo docker run -d --runtime "$runtime" --name "$docker_name" "$image" /bin/sleep 300)
 for _ in $(seq 1 100); do
 	docker_status=$(sudo docker inspect --format '{{.State.Status}}' "$docker_name")
 	[[ $docker_status = running ]] && break
@@ -78,11 +76,14 @@ docker_boot=$(printf '%s\n' "$docker_state" | head -n1)
 test "$ctr_boot" != "$docker_boot"
 test "$ctr_boot" != "$host_boot"
 test "$docker_boot" != "$host_boot"
-printf '%s\n' "$ctr_state" | grep -q '172\.30\.30\.2/30'
-printf '%s\n' "$docker_state" | grep -q '172\.30\.31\.2/30'
+ctr_ip=$(printf '%s\n' "$ctr_state" | awk '/inet / {sub("/.*", "", $2); print $2; exit}')
+docker_ip=$(printf '%s\n' "$docker_state" | awk '/inet / {sub("/.*", "", $2); print $2; exit}')
+test -n "$ctr_ip"
+test -n "$docker_ip"
+test "$ctr_ip" != "$docker_ip"
 
 # Neither sandbox may route directly into its sibling's point-to-point link.
-if sudo ctr task exec --exec-id ctr-isolation "$ctr_id" /bin/ping -c 1 -W 2 172.30.31.2 >/dev/null 2>&1; then
+if sudo ctr task exec --exec-id ctr-isolation "$ctr_id" /bin/ping -c 1 -W 2 "$docker_ip" >/dev/null 2>&1; then
 	echo 'cross-sandbox packet unexpectedly succeeded' >&2
 	exit 1
 fi
@@ -112,9 +113,9 @@ for _ in $(seq 1 100); do
 done
 test -z "$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit)"
 test "$(cat /proc/sys/kernel/random/boot_id)" = "$host_boot"
-test -z "$(ip -o link show | awk -F': ' '$2 ~ /^mkn[0-9]+$/ {print $2}')"
-! sudo iptables -t nat -S POSTROUTING | grep -q '172\.30\.'
-! sudo iptables -S FORWARD | grep -q 'mkn[0-9]'
+test -z "$(ip -o link show | awk -F': ' '$2 ~ /^mkv[0-9a-f]+$/ {print $2}')"
+! sudo iptables -t nat -S POSTROUTING | grep -q '172\.31\.'
+! sudo iptables -S | grep -q '^\(-N\|-A\) MK-'
 test -z "$(sudo ctr containers list -q)"
 test -z "$(sudo ctr tasks list -q)"
 test -z "$(sudo docker ps -aq --filter name="^/${docker_name}$")"

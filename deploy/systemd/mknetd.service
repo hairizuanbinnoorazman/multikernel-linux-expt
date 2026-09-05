@@ -1,0 +1,15 @@
+[Unit]
+Description=Multikernel primary-owned CNI control plane
+Wants=network-online.target
+After=network-online.target
+Before=containerd.service docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/multikernel/runtime.env
+ExecStart=/usr/local/sbin/mknetd --socket=/run/mknetd.sock --state-dir=/var/lib/mknetd --subnet=${MKNETWORK_SUBNET} --egress=${MKNETWORK_EGRESS} --mtu=${MKNETWORK_MTU} --allowed-uid=0 "--dns=${MKNETWORK_DNS}"
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target
