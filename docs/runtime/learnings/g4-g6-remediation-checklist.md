@@ -203,8 +203,11 @@ normative plan is revised with an explicit rationale.
   cache, strict input, rollback, and stale-generation rejection.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
-  final design. The shim now invokes CNI for the OCI namespace and opens that
-  namespace's existing TUN; the previous fixed shim link/rules were removed.
+  final design. An external CNI caller can create the OCI namespace endpoint;
+  `mknetd` binds it to the exact sandbox generation. Standalone `ctr` uses a
+  runtime-owned generation-named namespace through the same endpoint contract.
+  The shim requests an already-open descriptor and performs no namespace or
+  link operations; the previous fixed shim link/rules were removed.
 - [x] Authenticate and generation-bind every network endpoint and recovery
   record. Reject stale sandbox identity, address reuse, and cross-generation
   reconnect. Peer credentials, endpoint generations, sandbox generations, and

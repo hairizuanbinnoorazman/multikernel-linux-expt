@@ -122,6 +122,30 @@ func netnsTarget(path string) (string, error) {
 	return "", errors.New("network namespace must be /proc/PID/ns/net or /run/netns/NAME")
 }
 
+func (b LinuxBackend) CreateNamespace(ctx context.Context, generation string) (string, error) {
+	if !endpointGeneration.MatchString(generation) {
+		return "", errors.New("invalid namespace generation")
+	}
+	b = b.defaults()
+	name := "mk-" + generation[:12]
+	if err := b.Runner.Run(ctx, b.IP, "netns", "add", name); err != nil {
+		return "", err
+	}
+	return filepath.Join("/run/netns", name), nil
+}
+
+func (b LinuxBackend) DeleteNamespace(ctx context.Context, path string) error {
+	b = b.defaults()
+	target, err := netnsTarget(path)
+	if err != nil || procNetNS.MatchString(path) {
+		return errors.New("only a named managed namespace can be deleted")
+	}
+	if err = b.Runner.Run(ctx, b.IP, "netns", "delete", target); err != nil && !resourceAbsent(err) {
+		return err
+	}
+	return nil
+}
+
 func (b LinuxBackend) Add(ctx context.Context, endpoint Endpoint) error {
 	b = b.defaults()
 	if b.Egress == "" {

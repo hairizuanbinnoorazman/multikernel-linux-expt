@@ -16,6 +16,8 @@ type Endpoint struct {
 	NetworkName       string    `json:"network_name"`
 	IfName            string    `json:"if_name"`
 	NetNS             string    `json:"netns"`
+	Owner             string    `json:"owner"`
+	ManagedNamespace  bool      `json:"managed_namespace,omitempty"`
 	SandboxID         string    `json:"sandbox_id,omitempty"`
 	SandboxGeneration string    `json:"sandbox_generation,omitempty"`
 	Generation        string    `json:"generation"`

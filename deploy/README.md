@@ -23,9 +23,12 @@ sudo systemctl restart containerd docker
 
 Install `runtime/bin/mknetd` as `/usr/local/sbin/mknetd`, and adapt
 `MKNETWORK_EGRESS` and `MKNETWORK_DNS` to the qualified host before starting
-the service. The shim invokes CNI `ADD`, `CHECK`, and `DEL` for its OCI network
-namespace and retains a structured transcript in the bundle's `.multikernel`
-directory.
+the service. Containerd or another orchestrator may invoke CNI `ADD`, `CHECK`,
+and `DEL`; `mknetd` binds that exact endpoint to the sandbox generation. For a
+standalone `ctr` task without a CNI-created namespace, `mknetd` creates and
+owns a generation-named namespace through the same endpoint contract. The
+unprivileged shim only requests `PROVISION`, receives the TUN descriptor with
+`ATTACH`, and requests `RELEASE` over the authenticated daemon socket.
 
 Set `MK_PROJECT` in the operator environment for GCE commands. Authentication
 comes from `gcloud` or the VM's attached identity and is never stored here.

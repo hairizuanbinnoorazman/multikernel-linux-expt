@@ -3,10 +3,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -98,9 +96,6 @@ type service struct {
 	netRXDrops            atomic.Uint64
 	netTXDrops            atomic.Uint64
 	netErrors             atomic.Uint64
-	netNS                 string
-	cniManaged            bool
-	cniCreatedNS          bool
 	processes             map[string]*process
 }
 
@@ -226,9 +221,6 @@ type persisted struct {
 	Exit          uint32             `json:"exit"`
 	Exited        time.Time          `json:"exited"`
 	Network       mknetwork.Endpoint `json:"network"`
-	NetNS         string             `json:"netns,omitempty"`
-	CNIManaged    bool               `json:"cni_managed,omitempty"`
-	CNICreatedNS  bool               `json:"cni_created_namespace,omitempty"`
 	Processes     []persistedProcess `json:"processes,omitempty"`
 }
 
@@ -259,10 +251,8 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 		_ = json.Unmarshal(b, &p)
 	}
 	s.netEndpoint = p.Network
-	s.netNS, s.cniManaged, s.cniCreatedNS = p.NetNS, p.CNIManaged, p.CNICreatedNS
 	_ = s.stopNetwork()
-	_ = s.unbindNetwork(ctx)
-	_ = s.cleanupCNI(ctx)
+	_ = s.releaseNetwork(ctx)
 	if p.ID != "" {
 		_, _ = daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil)
 		_, _ = daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil)
@@ -286,8 +276,7 @@ func (s *service) persistRecovery() error {
 		return nil
 	}
 	network := s.networkReport("READY")
-	p := persisted{SchemaVersion: 1, ID: s.sandbox.ID, Generation: s.sandbox.Generation,
-		Network: network, NetNS: s.netNS, CNIManaged: s.cniManaged, CNICreatedNS: s.cniCreatedNS}
+	p := persisted{SchemaVersion: 1, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network}
 	for _, process := range s.processes {
 		if process.id == "" {
 			p.PID, p.Exit, p.Exited = process.pid, process.exit, process.exited
@@ -403,21 +392,15 @@ func (s *service) recoverExisting(ctx context.Context) error {
 		return errors.New("recovery token is malformed")
 	}
 	s.netEndpoint = recovery.Network
-	s.netNS, s.cniManaged, s.cniCreatedNS = recovery.NetNS, recovery.CNIManaged, recovery.CNICreatedNS
-	if !s.cniManaged || s.netNS == "" {
-		return errors.New("persisted recovery state has no managed CNI namespace")
-	}
-	if err = s.runCNI(ctx, "CHECK"); err != nil {
-		return fmt.Errorf("recover CNI CHECK: %w", err)
-	}
 	if s.netEndpoint.SandboxID != s.sandbox.ID || s.netEndpoint.SandboxGeneration != s.sandbox.Generation {
 		return errors.New("persisted network binding does not match the sandbox generation")
 	}
-	bound, bindErr := s.bindNetwork(ctx, s.netEndpoint.NetNS, s.netEndpoint.Generation)
+	bound, device, bindErr := s.attachNetwork(ctx, s.netEndpoint.NetNS, s.netEndpoint.Generation)
 	if bindErr != nil {
 		return fmt.Errorf("recover CNI endpoint binding: %w", bindErr)
 	}
 	s.netEndpoint = bound
+	s.netDevice = device
 	s.netRXPackets.Store(bound.RXPackets)
 	s.netTXPackets.Store(bound.TXPackets)
 	s.netRXDrops.Store(bound.RXDrops)
@@ -510,10 +493,6 @@ func (s *service) recoverExisting(ctx context.Context) error {
 		running = append(running, recoveredProcess{agentID: agentID, process: p})
 	}
 	if s.netEndpoint.Generation != "" {
-		s.netDevice, err = mknetwork.OpenTUN(s.netEndpoint)
-		if err != nil {
-			return fmt.Errorf("reopen recovered TUN: %w", err)
-		}
 		s.startNetworkPump()
 	}
 	for _, item := range running {
@@ -614,10 +593,7 @@ func (s *service) publish(ctx context.Context, topic string, event any) error {
 
 func (s *service) rollbackCreate(ctx context.Context, root, runtimeDir string) error {
 	var failures []error
-	if err := s.unbindNetwork(ctx); err != nil {
-		failures = append(failures, err)
-	}
-	if err := s.cleanupCNI(ctx); err != nil {
+	if err := s.releaseNetwork(ctx); err != nil {
 		failures = append(failures, err)
 	}
 	if s.sandbox.ID != "" {
@@ -675,111 +651,44 @@ func bundleNetworkNamespace(bundle string) (string, error) {
 	return result, nil
 }
 
-type cniTranscript struct {
-	Version   int      `json:"version"`
-	Command   string   `json:"command"`
-	Argv      []string `json:"argv"`
-	Stdin     string   `json:"stdin"`
-	Stdout    string   `json:"stdout"`
-	Stderr    string   `json:"stderr"`
-	ExitCode  int      `json:"exit_code"`
-	NetNS     string   `json:"netns"`
-	IfName    string   `json:"if_name"`
-	Container string   `json:"container_id"`
-}
-
-func (s *service) runCNI(ctx context.Context, method string) error {
-	configurationPath := getenv("MK_CNI_CONFIG", "/etc/cni/net.d/10-multikernel.conf")
-	configuration, err := os.ReadFile(configurationPath)
-	if err != nil {
-		return err
-	}
-	binary := getenv("MK_CNI_BINARY", "/opt/cni/bin/multikernel")
-	command := exec.CommandContext(ctx, binary)
-	command.Stdin = bytes.NewReader(configuration)
-	command.Env = append(os.Environ(), "CNI_COMMAND="+method, "CNI_CONTAINERID="+s.id, "CNI_NETNS="+s.netNS, "CNI_IFNAME=mktun0", "CNI_ARGS=", "CNI_PATH="+filepath.Dir(binary))
-	var stdout, stderr bytes.Buffer
-	command.Stdout, command.Stderr = &stdout, &stderr
-	runErr := command.Run()
-	exitCode := 0
-	if runErr != nil {
-		exitCode = -1
-		var exitErr *exec.ExitError
-		if errors.As(runErr, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		}
-	}
-	record := cniTranscript{Version: 1, Command: method, Argv: []string{binary}, Stdin: string(configuration), Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: exitCode, NetNS: s.netNS, IfName: "mktun0", Container: s.id}
-	data, marshalErr := json.Marshal(record)
-	recordErr := marshalErr
-	if marshalErr == nil {
-		recordErr = atomicWriteFile(filepath.Join(s.bundle, ".multikernel", "cni-"+strings.ToLower(method)+".json"), data, 0600)
-	}
-	if runErr != nil {
-		runErr = fmt.Errorf("CNI %s: %w: %s", method, runErr, strings.TrimSpace(stderr.String()))
-	} else if method == "ADD" {
-		s.cniManaged = true
-	} else if method == "DEL" {
-		s.cniManaged = false
-	}
-	return errors.Join(runErr, recordErr)
-}
-
-func (s *service) prepareCNI(ctx context.Context) error {
-	if s.netNS == "" {
-		digest := sha256.Sum256([]byte(s.namespace + "\x00" + s.id))
-		name := "mk-" + hex.EncodeToString(digest[:6])
-		s.netNS = filepath.Join("/run/netns", name)
-		if output, err := exec.CommandContext(ctx, "/usr/sbin/ip", "netns", "add", name).CombinedOutput(); err != nil {
-			return fmt.Errorf("create primary CNI namespace: %w: %s", err, strings.TrimSpace(string(output)))
-		}
-		s.cniCreatedNS = true
-	}
-	if err := s.runCNI(ctx, "ADD"); err != nil {
-		_ = s.cleanupCNI(context.WithoutCancel(ctx))
-		return err
-	}
-	return nil
-}
-
-func (s *service) cleanupCNI(ctx context.Context) error {
-	var failures []error
-	if s.cniManaged {
-		if err := s.runCNI(ctx, "DEL"); err != nil {
-			failures = append(failures, err)
-		}
-	}
-	if s.cniCreatedNS && !s.cniManaged {
-		name := filepath.Base(s.netNS)
-		if output, err := exec.CommandContext(ctx, "/usr/sbin/ip", "netns", "delete", name).CombinedOutput(); err != nil {
-			failures = append(failures, fmt.Errorf("delete primary CNI namespace: %w: %s", err, strings.TrimSpace(string(output))))
-		} else {
-			s.cniCreatedNS = false
-			s.netNS = ""
-		}
-	}
-	return errors.Join(failures...)
-}
-
-func (s *service) bindNetwork(ctx context.Context, netns, endpointGeneration string) (mknetwork.Endpoint, error) {
-	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-bind-" + s.sandbox.Generation[:16], Method: "BIND", Endpoint: &mknetwork.Endpoint{
-		NetNS: netns, Generation: endpointGeneration, SandboxID: s.sandbox.ID, SandboxGeneration: s.sandbox.Generation,
+func (s *service) provisionNetwork(ctx context.Context, netns string) error {
+	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-provision-" + s.sandbox.Generation[:16], Method: "PROVISION", Endpoint: &mknetwork.Endpoint{
+		ContainerID: s.id, NetworkName: "multikernel", IfName: "mktun0", NetNS: netns,
+		SandboxID: s.sandbox.ID, SandboxGeneration: s.sandbox.Generation,
 	}}
 	response, err := s.netClient.Call(ctx, request)
 	if err != nil {
-		return mknetwork.Endpoint{}, err
+		return err
 	}
 	if response.Endpoint == nil {
-		return mknetwork.Endpoint{}, errors.New("mknetd BIND returned no endpoint")
+		return errors.New("mknetd PROVISION returned no endpoint")
 	}
-	return *response.Endpoint, nil
+	s.netEndpoint = *response.Endpoint
+	return nil
 }
 
-func (s *service) unbindNetwork(ctx context.Context) error {
+func (s *service) attachNetwork(ctx context.Context, netns, endpointGeneration string) (mknetwork.Endpoint, *os.File, error) {
+	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-attach-" + s.sandbox.Generation[:16], Method: "ATTACH", Endpoint: &mknetwork.Endpoint{
+		NetNS: netns, Generation: endpointGeneration, SandboxID: s.sandbox.ID, SandboxGeneration: s.sandbox.Generation,
+	}}
+	response, descriptor, err := s.netClient.Attach(ctx, request)
+	if err != nil {
+		return mknetwork.Endpoint{}, nil, err
+	}
+	if response.Endpoint == nil || descriptor == nil {
+		if descriptor != nil {
+			_ = descriptor.Close()
+		}
+		return mknetwork.Endpoint{}, nil, errors.New("mknetd ATTACH returned no endpoint descriptor")
+	}
+	return *response.Endpoint, descriptor, nil
+}
+
+func (s *service) releaseNetwork(ctx context.Context) error {
 	if s.netEndpoint.SandboxID == "" {
 		return nil
 	}
-	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-unbind-" + s.netEndpoint.SandboxGeneration[:16], Method: "UNBIND", Endpoint: &mknetwork.Endpoint{
+	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-release-" + s.netEndpoint.SandboxGeneration[:16], Method: "RELEASE", Endpoint: &mknetwork.Endpoint{
 		SandboxID: s.netEndpoint.SandboxID, SandboxGeneration: s.netEndpoint.SandboxGeneration,
 	}}
 	_, err := s.netClient.Call(ctx, request)
@@ -852,10 +761,6 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err := os.MkdirAll(runtimeDir, 0700); err != nil {
 		return nil, err
 	}
-	s.netNS = netns
-	if err = s.prepareCNI(ctx); err != nil {
-		return nil, fmt.Errorf("prepare CNI endpoint: %w", err)
-	}
 	token, tokenHex, err := randomToken()
 	if err != nil {
 		return nil, err
@@ -895,8 +800,8 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if _, err = daemon.Mutation(ctx, s.daemon, "LoadSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-load-"+s.sandbox.Generation, nil); err != nil {
 		return nil, err
 	}
-	if s.netEndpoint, err = s.bindNetwork(ctx, netns, ""); err != nil {
-		return nil, fmt.Errorf("bind CNI endpoint: %w", err)
+	if err = s.provisionNetwork(ctx, netns); err != nil {
+		return nil, fmt.Errorf("provision primary network endpoint: %w", err)
 	}
 	s.bundle = r.Bundle
 	s.processes[""] = &process{id: "", stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
@@ -921,11 +826,11 @@ func (s *service) connectAgent(ctx context.Context) error {
 	if s.netEndpoint.Generation == "" {
 		return errors.New("CNI endpoint is not bound")
 	}
-	var err error
-	s.netDevice, err = mknetwork.OpenTUN(s.netEndpoint)
+	endpoint, device, err := s.attachNetwork(ctx, s.netEndpoint.NetNS, s.netEndpoint.Generation)
 	if err != nil {
 		return err
 	}
+	s.netEndpoint, s.netDevice = endpoint, device
 	if err := s.persistRecovery(); err != nil {
 		_ = s.stopNetwork()
 		return fmt.Errorf("persist network recovery state: %w", err)
@@ -1464,11 +1369,8 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 				failures = append(failures, fmt.Errorf("close guest agent: %w", err))
 			}
 		}
-		if err := s.unbindNetwork(ctx); err != nil {
-			failures = append(failures, fmt.Errorf("unbind CNI endpoint: %w", err))
-		}
-		if err := s.cleanupCNI(ctx); err != nil {
-			failures = append(failures, fmt.Errorf("delete CNI endpoint: %w", err))
+		if err := s.releaseNetwork(ctx); err != nil {
+			failures = append(failures, fmt.Errorf("release primary network endpoint: %w", err))
 		}
 		if _, err := daemon.Mutation(ctx, s.daemon, "StopSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-stop-"+s.sandbox.Generation, nil); err != nil {
 			failures = append(failures, fmt.Errorf("stop sandbox: %w", err))

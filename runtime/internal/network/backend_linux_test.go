@@ -151,6 +151,21 @@ func TestResourceAbsentOnlyAcceptsKnownCommandDiagnostics(t *testing.T) {
 	}
 }
 
+func TestManagedNamespaceLifecycleIsGenerationNamed(t *testing.T) {
+	runner := &recordingRunner{}
+	backend := LinuxBackend{Runner: runner, IP: "ip"}
+	path, err := backend.CreateNamespace(context.Background(), "0123456789abcdef0123456789abcdef")
+	if err != nil || path != "/run/netns/mk-0123456789ab" {
+		t.Fatalf("path=%q error=%v", path, err)
+	}
+	if err = backend.DeleteNamespace(context.Background(), path); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(runner.calls, "\n") != "ip netns add mk-0123456789ab\nip netns delete mk-0123456789ab" {
+		t.Fatalf("namespace calls=%v", runner.calls)
+	}
+}
+
 func TestNetnsTargetAcceptsOnlySupportedCanonicalForms(t *testing.T) {
 	for input, expected := range map[string]string{
 		"/proc/42/ns/net":        "42",

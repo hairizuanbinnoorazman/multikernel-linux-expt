@@ -105,6 +105,14 @@ def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
         key: "h" + hashlib.sha256("\0".join(paths).encode()).hexdigest()[:16]
         for key, paths in hardlink_groups.items()
     }
+    # A link outside the admitted root would make the manifest an incomplete
+    # description of the inode's ownership and content identity.
+    for key, paths in hardlink_groups.items():
+        observed = next(info.st_nlink for _, _, info in raw if (info.st_dev, info.st_ino) == key)
+        if observed != len(paths):
+            raise RootFSError(
+                f"hardlink group crosses the root boundary: {paths[0]} has {observed} links, {len(paths)} admitted"
+            )
 
     entries: list[Entry] = []
     contents: dict[str, bytes] = {}
@@ -131,6 +139,13 @@ def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
             )
         elif stat.S_ISLNK(info.st_mode):
             target = os.readlink(path)
+            # readlink has no descriptor form in pathlib; bind the observed
+            # target to the lstat identity on both sides of the read.
+            after = path.stat(follow_symlinks=False)
+            if (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid, info.st_mtime_ns, info.st_ctime_ns) != (
+                after.st_dev, after.st_ino, after.st_mode, after.st_uid, after.st_gid, after.st_mtime_ns, after.st_ctime_ns
+            ):
+                raise RootFSError(f"input symlink mutated while reading: {relative}")
             if not _safe_target(relative, target):
                 raise RootFSError(f"escaping symlink: {relative} -> {target}")
             encoded = os.fsencode(target)
@@ -227,6 +242,13 @@ def atomic_write(path: Path, write) -> None:
             os.fsync(stream.fileno())
         os.chmod(temporary, 0o600)
         os.replace(temporary, path)
+        # Persist the rename as well as the file data so a completed build
+        # cannot disappear after a primary reset.
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
     except BaseException:
         try:
             os.unlink(temporary)
@@ -252,9 +274,8 @@ def main() -> int:
     if args.max_inodes and len(entries) > args.max_inodes:
         raise RootFSError(f"entry count {len(entries)} exceeds limit {args.max_inodes}")
     encoded_manifest = manifest(entries)
-    atomic_write(args.manifest, lambda stream: stream.write(encoded_manifest))
-
     if args.manifest_only:
+        atomic_write(args.manifest, lambda stream: stream.write(encoded_manifest))
         print(json.dumps({
             "manifest_sha256": hashlib.sha256(encoded_manifest).hexdigest(),
             "entries": len(entries),
@@ -268,6 +289,9 @@ def main() -> int:
             f"high-water refusal: available {available}, worst-case archive {worst_case_archive}, "
             f"required reserve {args.min_free_bytes}"
         )
+    # All admission checks precede both outputs. A refused build therefore does
+    # not leave a plausible manifest without its corresponding archive.
+    atomic_write(args.manifest, lambda stream: stream.write(encoded_manifest))
 
     def archive(stream: BinaryIO) -> None:
         with gzip.GzipFile(filename="", mode="wb", fileobj=stream, compresslevel=9, mtime=0) as compressed:

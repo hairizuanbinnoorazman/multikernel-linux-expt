@@ -248,9 +248,11 @@ The same remediation branch now contains a locally race-tested G5 replacement
 for the static shim-owned link. `mknetd` durably allocates collision-free
 primary endpoints and owns their routes, NAT, and per-generation firewall
 chains. The CNI 1.0.0 adapter caches endpoint generations for stale-safe
-`ADD`/`CHECK`/`DEL`; the shim invokes it for the OCI network namespace, binds
-the result to the exact sandbox generation, and reopens that namespace's TUN
-after worker reconstruction. The packet path is negotiated-MTU bounded and
+`ADD`/`CHECK`/`DEL`; external CNI endpoints and runtime-owned standalone
+namespaces share the same generation-bound `mknetd` contract. The unprivileged
+shim receives an already-open TUN descriptor and requests a fresh descriptor
+after worker reconstruction without performing namespace operations. The
+packet path is negotiated-MTU bounded and
 single-flight, detects a 250 ms stalled exchange, reconnects without resetting
 the authenticated sequence, and reports monotonic packet/drop/error counters.
 DNS configuration and regular-file/symlink/absent restoration are tested.

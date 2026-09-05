@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import stat
 import subprocess
 import tempfile
@@ -12,6 +13,7 @@ import unittest
 
 
 SCRIPT = Path(__file__).with_name("build-runtime-rootfs.py")
+VERIFIER = Path(__file__).with_name("verify-runtime-rootfs.py")
 
 
 class RootFSBuildTests(unittest.TestCase):
@@ -49,6 +51,10 @@ class RootFSBuildTests(unittest.TestCase):
         self.assertEqual(third.returncode, 0, third.stderr)
         self.assertNotEqual(hashlib.sha256(archive_a.read_bytes()).digest(), hashlib.sha256(archive_c.read_bytes()).digest())
         self.assertNotEqual(manifest_a.read_bytes(), manifest_c.read_bytes())
+        verification = subprocess.run([str(VERIFIER), str(archive_a), str(manifest_a)], text=True, capture_output=True)
+        self.assertEqual(verification.returncode, 0, verification.stderr)
+        verified = json.loads(verification.stdout)
+        self.assertEqual(verified["archive_sha256"], hashlib.sha256(archive_a.read_bytes()).hexdigest())
 
     def test_archive_has_normalized_mtime(self):
         (self.root / "file").write_text("content")
@@ -94,6 +100,66 @@ class RootFSBuildTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unsupported file type", result.stderr)
 
+    def test_rejects_socket_and_external_hardlink(self):
+        sock = socket.socket(socket.AF_UNIX)
+        self.addCleanup(sock.close)
+        try:
+            sock.bind(str(self.root / "socket"))
+        except PermissionError as error:
+            print(f"socket rejection subcase skipped: {error}")
+        else:
+            result, _, _ = self.build("socket")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unsupported file type", result.stderr)
+            os.unlink(self.root / "socket")
+        inside = self.root / "inside"
+        inside.write_text("linked")
+        os.link(inside, self.temp / "outside")
+        result, _, _ = self.build("external-hardlink")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("hardlink group crosses the root boundary", result.stderr)
+
+    def test_sparse_metadata_identity_and_large_tree_are_deterministic(self):
+        sparse = self.root / "sparse"
+        with sparse.open("wb") as stream:
+            stream.seek((1 << 20) - 1)
+            stream.write(b"x")
+        os.chmod(sparse, 0o604)
+        for index in range(1000):
+            (self.root / f"entry-{index:04d}").write_text(str(index))
+        result, archive, manifest = self.build("large-sparse")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        entry = {item["path"]: item for item in json.loads(manifest.read_text())["entries"]}["sparse"]
+        self.assertEqual(entry["size"], 1 << 20)
+        self.assertEqual(entry["uid"], os.getuid())
+        self.assertEqual(entry["gid"], os.getgid())
+        self.assertEqual(entry["mode"] & 0o777, 0o604)
+        self.assertEqual(json.loads(subprocess.check_output([str(VERIFIER), str(archive), str(manifest)]))["entries"], 1002)
+
+    def test_verifier_rejects_archive_and_manifest_corruption(self):
+        (self.root / "value").write_text("content")
+        result, archive, manifest = self.build("verified")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        corrupt_archive = self.temp / "corrupt.cpio.gz"
+        data = bytearray(archive.read_bytes())
+        data[len(data) // 2] ^= 0x40
+        corrupt_archive.write_bytes(data)
+        verification = subprocess.run([str(VERIFIER), str(corrupt_archive), str(manifest)], text=True, capture_output=True)
+        self.assertNotEqual(verification.returncode, 0)
+        corrupt_manifest = self.temp / "corrupt.json"
+        value = json.loads(manifest.read_text())
+        value["entries"][-1]["uid"] += 1
+        corrupt_manifest.write_text(json.dumps(value))
+        verification = subprocess.run([str(VERIFIER), str(archive), str(corrupt_manifest)], text=True, capture_output=True)
+        self.assertNotEqual(verification.returncode, 0)
+
+        duplicate_manifest = self.temp / "duplicate.json"
+        original = manifest.read_text()
+        duplicate_manifest.write_text(original.replace('"schema_version":1', '"schema_version":1,"schema_version":1', 1))
+        verification = subprocess.run([str(VERIFIER), str(archive), str(duplicate_manifest)], text=True, capture_output=True)
+        self.assertNotEqual(verification.returncode, 0)
+        self.assertIn("duplicate manifest key", verification.stderr)
+
     def test_capacity_and_inode_limits_refuse_before_output(self):
         (self.root / "one").write_bytes(b"12345")
         output = self.temp / "limited.cpio.gz"
@@ -112,6 +178,7 @@ class RootFSBuildTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(message, result.stderr)
             self.assertFalse(output.exists())
+            self.assertFalse(manifest.exists())
 
     @unittest.skipUnless(hasattr(os, "setxattr"), "xattrs unavailable")
     def test_rejects_xattrs(self):

@@ -379,40 +379,6 @@ func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 	}
 }
 
-func TestCNIInvocationRetainsAuditableTranscript(t *testing.T) {
-	if os.Getenv("MK_TEST_CNI_HELPER") == "1" {
-		_, _ = io.Copy(io.Discard, os.Stdin)
-		fmt.Fprint(os.Stdout, `{"cniVersion":"1.0.0"}`)
-		os.Exit(0)
-	}
-	bundle := t.TempDir()
-	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	configuration := filepath.Join(bundle, "cni.conf")
-	if err := os.WriteFile(configuration, []byte(`{"cniVersion":"1.0.0"}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("MK_TEST_CNI_HELPER", "1")
-	t.Setenv("MK_CNI_BINARY", os.Args[0])
-	t.Setenv("MK_CNI_CONFIG", configuration)
-	s := &service{id: "task-one", bundle: bundle, netNS: "/run/netns/task-one"}
-	if err := s.runCNI(context.Background(), "ADD"); err != nil || !s.cniManaged {
-		t.Fatalf("ADD error=%v managed=%v", err, s.cniManaged)
-	}
-	data, err := os.ReadFile(filepath.Join(bundle, ".multikernel", "cni-add.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var transcript cniTranscript
-	if err = json.Unmarshal(data, &transcript); err != nil || transcript.ExitCode != 0 || transcript.Command != "ADD" || transcript.NetNS != s.netNS || transcript.Stdin == "" {
-		t.Fatalf("transcript=%+v error=%v", transcript, err)
-	}
-	if err = s.runCNI(context.Background(), "DEL"); err != nil || s.cniManaged {
-		t.Fatalf("DEL error=%v managed=%v", err, s.cniManaged)
-	}
-}
-
 func TestSupervisorRestartsSignaledWorker(t *testing.T) {
 	directory := t.TempDir()
 	marker := filepath.Join(directory, "worker-signaled")
