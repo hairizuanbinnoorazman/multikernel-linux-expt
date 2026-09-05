@@ -152,7 +152,10 @@ normative plan is revised with an explicit rationale.
 
 ### Automated tests still required
 
-- [ ] Manifest generation and digest reproducibility across two builds.
+- [x] Manifest generation and digest reproducibility across two builds. The
+  deterministic newc builder and changed-input control are exercised by
+  `scripts/test-runtime-rootfs-build.py`; disposable-host evidence is still
+  required by the replacement-run section below.
 - [ ] Whiteouts, opaque directories, hardlinks, symlinks, sparse files, xattrs,
   modes, uid/gid, timestamps, large trees, and every rejected file type/path.
 - [ ] Relative and absolute OCI root paths, hostile symlinks, concurrent source
@@ -252,8 +255,11 @@ normative plan is revised with an explicit rationale.
 - [ ] Define ownership transfer for containerd restart, shim restart, daemon
   restart, and shutdown. Reconstruct process state, stdio endpoints, exit
   status, and event delivery without changing the child boot identity.
-- [ ] Implement faithful guest PID reporting or define a versioned virtual PID
-  mapping. The current `Pids`, `State`, and events report the host shim PID.
+- [x] Implement faithful guest PID reporting or define a versioned virtual PID
+  mapping. `Start`, `State`, `Pids`, `Connect`, exit, and delete now report the
+  guest PID under mapping version `multikernel-v1-guest-pid`; the pre-start
+  Create response retains the supervisor PID required by the Task v2 launch
+  handshake.
 - [ ] Implement and test Task `Stats`, `Update`, and `Checkpoint`, or revise the
   advertised G6 surface and plan explicitly. Keep `Pause`/`Resume` as explicit
   unsupported methods until implemented and tested.
@@ -324,9 +330,9 @@ normative plan is revised with an explicit rationale.
 
 ## Cross-cutting evidence and tooling repair
 
-- [ ] Extend `make docs-check` or a dedicated evidence target to validate every
+- [x] Extend `make docs-check` or a dedicated evidence target to validate every
   committed `evidence/runtime-*/**/manifest.json`, not only schema fixtures.
-- [ ] Repair the 2026-09-01 feature-matrix and 2026-09-02 guest-I/O manifests,
+- [x] Repair the 2026-09-01 feature-matrix and 2026-09-02 guest-I/O manifests,
   or preserve them as explicitly non-conforming historical manifests with a
   machine-readable explanation. Do not silently rewrite raw transcripts.
 - [ ] Add required component versions, valid/redaction-aware host identities,

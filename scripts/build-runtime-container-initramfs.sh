@@ -3,6 +3,8 @@ set -euo pipefail
 
 bundle=${1:?usage: build-runtime-container-initramfs.sh BUNDLE OUTPUT}
 output=${2:?usage: build-runtime-container-initramfs.sh BUNDLE OUTPUT}
+output_manifest=${output%.cpio.gz}.manifest.json
+source_manifest=${output%.cpio.gz}.source-manifest.json
 manifest=${MK_KERNEL_MANIFEST:-/etc/mkruntime/kernels/gce-mk2.json}
 manifest_name=${MK_KERNEL_MANIFEST_NAME:-gce-mk2}
 busybox=${BUSYBOX:-$(command -v busybox)}
@@ -12,7 +14,15 @@ if [[ ! -f "$guest_init" ]]; then
 	guest_init=$(cd "$script_dir/.." && pwd)/guest/mk-agent-init
 fi
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+complete=false
+cleanup() {
+	rm -rf "$work"
+	if [[ $complete != true ]]; then
+		rm -f "$output" "$output_manifest" "$source_manifest" \
+			"$source_manifest.before" "$source_manifest.after"
+	fi
+}
+trap cleanup EXIT
 
 test -f "$bundle/config.json"
 validated_config=$work/config.json
@@ -35,15 +45,21 @@ install -m 0755 "$guest_init" "$work/init"
 # OCI root.path. Copy either prepared root into a private per-sandbox artifact
 # without modifying the snapshot.
 root_path=$(jq -er '.root.path' "$validated_config")
-if [[ "$root_path" = /* ]]; then
-	source_root=$root_path
-else
-	source_root=$bundle/$root_path
-fi
-test -d "$source_root"
+source_root=$("$script_dir/validate-runtime-root.py" "$bundle" "$validated_config")
+"$script_dir/build-runtime-rootfs.py" "$source_root" "$work/unused" "$source_manifest.before" --manifest-only \
+	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}"
 cp -a "$source_root/." "$work/bundle/rootfs/"
+"$script_dir/build-runtime-rootfs.py" "$source_root" "$work/unused" "$source_manifest.after" --manifest-only \
+	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}"
+cmp -s "$source_manifest.before" "$source_manifest.after" || {
+	echo 'OCI source root mutated during initramfs construction' >&2
+	exit 1
+}
+mv "$source_manifest.after" "$source_manifest"
+rm -f "$source_manifest.before"
 jq '.root.path = "rootfs"' "$validated_config" >"$work/bundle/config.json"
 
-(cd "$work" && find . -xdev -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 >"$output"
-chmod 0600 "$output"
-sha256sum "$output"
+"$script_dir/build-runtime-rootfs.py" "$work" "$output" "$output_manifest" \
+	--max-bytes "${MK_INITRAMFS_MAX_BYTES:-1207959552}" --max-inodes "${MK_INITRAMFS_MAX_INODES:-131200}" \
+	--min-free-bytes "${MK_INITRAMFS_MIN_FREE_BYTES:-1073741824}"
+complete=true

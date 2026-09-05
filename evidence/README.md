@@ -1,5 +1,11 @@
 # Evidence index
 
+All runtime manifests are checked by `scripts/check-runtime-evidence.py`.
+Historical manifests that predate the strict v1 contract are not rewritten;
+their exact machine-readable deficiencies and explanations are recorded in
+`runtime-manifest-exceptions.json`. An exception is an explicit nonconformance,
+not evidence that the affected run passed a gate.
+
 - [`daxfs-20260828/`](daxfs-20260828/README.md): DAXFS, Docker-derived roots,
   shared mounts, corruption, exhaustion, dual kernels, and cleanup.
 - [`ext4-disk-20260830/`](ext4-disk-20260830/README.md): direct-device topology

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ ${MK_EVIDENCE_XTRACE:-1} = 1 ]]; then
+	PS4='+${BASH_SOURCE}:${LINENO}: '
+	set -x
+fi
+
 # Full shared ctr/Docker feature audit for the G4-G6 implementation. Run only
 # on an otherwise idle, disposable, qualified Multikernel host. Every positive
 # row is exercised through both clients; unsupported Task v2 operations are
@@ -163,20 +168,17 @@ test "$(sudo docker exec "$docker_name" \
 	/bin/cat /proc/sys/kernel/random/boot_id)" = "$docker_boot"
 row runtime-daemon-restart-continuity
 
-# These calls reach unimplemented Task v2 methods and must fail without
-# changing either running task. Their rejection is part of the audit, not a
-# supported-feature row.
-if sudo ctr tasks pause "$ctr_id" >/dev/null 2>&1; then
-	echo 'ctr pause unexpectedly succeeded' >&2
-	exit 1
-fi
-if sudo docker pause "$docker_name" >/dev/null 2>&1; then
-	echo 'Docker pause unexpectedly succeeded' >&2
-	exit 1
-fi
+# Pause and resume are guest process-group signals. Verify the externally
+# visible Task v2 states as well as successful requests through both clients.
+sudo ctr tasks pause "$ctr_id"
+sudo docker pause "$docker_name" >/dev/null
+wait_for_state ctr PAUSED
+wait_for_state docker paused
+sudo ctr tasks resume "$ctr_id"
+sudo docker unpause "$docker_name" >/dev/null
 wait_for_state ctr RUNNING
 wait_for_state docker running
-echo 'FEATURE_MATRIX_UNSUPPORTED feature=pause-resume ctr=REJECTED docker=REJECTED'
+row pause-resume
 
 sudo ctr tasks kill --signal SIGTERM "$ctr_id"
 sudo docker kill --signal TERM "$docker_name" >/dev/null
@@ -273,6 +275,21 @@ sudo ctr containers rm "$ctr_id"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
 row terminal-mode
+
+# The earlier terminal row verifies allocation and initial sizing. These runs
+# wait for the guest to print its initial size, then mutate the already-live
+# client PTY and retain both values from inside the guest.
+resize_guest='trap '\''echo resized:$(stty size); exit 0'\'' WINCH; echo ready:$(stty size); while :; do sleep 1; done'
+"$(dirname "$0")/test-runtime-live-resize.py" -- \
+	sudo ctr run --tty --runtime "$runtime" "$image" "$ctr_id" /bin/sh -c "$resize_guest"
+sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
+sudo ctr containers rm "$ctr_id"
+wait_for_clean_host
+"$(dirname "$0")/test-runtime-live-resize.py" -- \
+	sudo docker run --tty --runtime "$runtime" --network none --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
+sudo docker rm "$docker_name" >/dev/null
+wait_for_clean_host
+row post-start-terminal-resize
 
 trap - EXIT
 echo G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS

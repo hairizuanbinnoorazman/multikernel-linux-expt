@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "manifests": {
+    "evidence/runtime-20260831/g0-g3-gce/manifest.json": {
+      "manifest_sha256": "d95e7f0e56d3dffeb9b48342587240cdad3ec3fe2ab0bae0326f1529ac93c859",
+      "classifications": ["pre-v1-schema"],
+      "explanation": "This immutable historical index predates evidence-manifest-v1 and is not schema-conforming gate proof."
+    },
+    "evidence/runtime-20260901/g4-g6-feature-matrix/manifest.json": {
+      "manifest_sha256": "66da9438551a37a1e9863cb5ef0f3f2fdc6b8af8e5300c1f8394ff81f94ec9c7",
+      "classifications": ["redacted-invalid-host-id", "dirty-source-not-retained", "unstructured-cleanup-ledger"],
+      "explanation": "The scoped historical matrix is provisional; its redacted boot ID is invalid, dirty diff is absent, and cleanup paths are not structured ledgers."
+    },
+    "evidence/runtime-20260901/g4-g6-gce/manifest.json": {
+      "manifest_sha256": "38286297a4db09dda5a29617d159c87ccb179e12f571963806d0fbe45fee672b",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The executable-MVP run used a dirty tree without retaining its exact diff and therefore cannot prove reproducibility."
+    },
+    "evidence/runtime-20260901/g4-g6-robustness/manifest.json": {
+      "manifest_sha256": "997813b29f54275418d48c60380c94b1496a998b98b2b6f2441249631135573f",
+      "classifications": ["narrative-only-output", "dirty-source-not-retained", "unstructured-cleanup-ledger"],
+      "explanation": "Commands and assertions point only to a narrative README, the dirty diff is absent, and no structured cleanup ledgers were retained."
+    },
+    "evidence/runtime-20260902/g4-g6-io-live/manifest.json": {
+      "manifest_sha256": "426586cac9b35588caac91dcf130aef21bcf2439c41e97a81490f1c31be32442",
+      "classifications": ["missing-component-versions", "redacted-invalid-host-id", "dirty-source-not-retained", "unstructured-cleanup-ledger"],
+      "explanation": "This historical I/O run lacks component versions and a retained dirty diff, uses an invalid redacted boot ID, and has no structured cleanup ledger."
+    },
+    "evidence/runtime-20260903/g0-g3-proof/manifest-g0.json": {
+      "manifest_sha256": "c25fad630a1fd94e0c4d8e0e3a6f2416225ec90d996618736beb72895eaf1422",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The historical proof run did not retain the exact dirty source diff."
+    },
+    "evidence/runtime-20260903/g0-g3-proof/manifest-g1.json": {
+      "manifest_sha256": "0a5a746443c0e14d41fd2ac5606118d828e8cbcd328edebd7e0b4b6beb462cb9",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The historical proof run did not retain the exact dirty source diff."
+    },
+    "evidence/runtime-20260903/g0-g3-proof/manifest-g2.json": {
+      "manifest_sha256": "58ba1aa126047dc8afc6825caeb8a2ae785d7ef4e99dcc8c7437e31ea84b0256",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The historical proof run did not retain the exact dirty source diff."
+    },
+    "evidence/runtime-20260903/g0-g3-proof/manifest-g3.json": {
+      "manifest_sha256": "b89608caa70759a0c9e3d0deca9c5dd2c111304f954af1932a2243109672612a",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The historical proof run did not retain the exact dirty source diff."
+    },
+    "evidence/runtime-20260903/g0-g3-remediation/manifest-g0.json": {
+      "manifest_sha256": "1e471e0fe7c648ce9018dfa4be5657edb6dde711e40dba12371a9c9f4c78447d",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The historical remediation run did not retain the exact dirty source diff."
+    },
+    "evidence/runtime-20260903/g0-g3-remediation/manifest-g1.json": {
+      "manifest_sha256": "49757a450240f70fc1b6ed8002ae9ff821c194bf029bc79dbe3af902d6107176",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The historical remediation run did not retain the exact dirty source diff."
+    },
+    "evidence/runtime-20260903/g0-g3-remediation/manifest-g2.json": {
+      "manifest_sha256": "4df8f4cd84c4a24fcdbaf8722183ecb72979c30ab6d2119a00c7171fd3785da4",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The historical remediation run did not retain the exact dirty source diff."
+    },
+    "evidence/runtime-20260903/g0-g3-remediation/manifest-g3.json": {
+      "manifest_sha256": "db144e8d73696bc60de1bc1d5543e247c6e5d1143afca141c1d5194eb7c91613",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The historical remediation run did not retain the exact dirty source diff."
+    },
+    "evidence/runtime-20260904/g0-g3-final/manifest-g0.json": {
+      "manifest_sha256": "b92dc160ca817260e6965db55c47e4b7c895c6d2243606af806cbd47cd65f9f7",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The final G0-G3 rerun predates strict dirty-diff retention; the exact workspace diff is unavailable."
+    },
+    "evidence/runtime-20260904/g0-g3-final/manifest-g1.json": {
+      "manifest_sha256": "b598d02dbdd2565a2b3cad76819434b3072eaa179113121e0dba9f02595c2d6a",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The final G0-G3 rerun predates strict dirty-diff retention; the exact workspace diff is unavailable."
+    },
+    "evidence/runtime-20260904/g0-g3-final/manifest-g2.json": {
+      "manifest_sha256": "b9e5dba7d3269b5a0750b87ebce0594df36679736f41a4a4b54c7da6b123aca5",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The final G0-G3 rerun predates strict dirty-diff retention; the exact workspace diff is unavailable."
+    },
+    "evidence/runtime-20260904/g0-g3-final/manifest-g3.json": {
+      "manifest_sha256": "1fc67c43655d3ffaa6e91d81c0d29d369b4740bce3a7e69cd860f7f4e3c05f23",
+      "classifications": ["dirty-source-not-retained"],
+      "explanation": "The final G0-G3 rerun predates strict dirty-diff retention; the exact workspace diff is unavailable."
+    }
+  }
+}

@@ -921,3 +921,18 @@ func TestShutdownRaceRequiresExplicitProcessCompletion(t *testing.T) {
 		t.Fatalf("Shutdown retry after explicit wait = %+v", retry)
 	}
 }
+
+func TestProcessGroupStatsAreBoundedToObservedGroup(t *testing.T) {
+	manager := NewManager(true)
+	manager.processes["self-group"] = &process{state: ProcessState{PID: syscall.Getpgrp(), Status: "RUNNING"}}
+	stats, err := manager.Stats("self-group")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.PIDs == 0 || stats.RSSBytes == 0 {
+		t.Fatalf("stats = %+v, want a nonempty process group", stats)
+	}
+	if ticks := clockTicks(); ticks == 0 {
+		t.Fatal("clock tick discovery returned zero")
+	}
+}

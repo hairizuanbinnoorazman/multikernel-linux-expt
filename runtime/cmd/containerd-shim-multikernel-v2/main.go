@@ -13,14 +13,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	cgroupstats "github.com/containerd/cgroups/stats/v1"
 	eventstypes "github.com/containerd/containerd/api/events"
 	taskapi "github.com/containerd/containerd/api/runtime/task/v2"
+	types "github.com/containerd/containerd/api/types"
 	tasktypes "github.com/containerd/containerd/api/types/task"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/mount"
@@ -31,6 +36,7 @@ import (
 	"github.com/containerd/typeurl/v2"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -41,12 +47,15 @@ import (
 
 const runtimeName = "io.containerd.multikernel.v2"
 
+var runtimeIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
+
 type process struct {
 	id, stdin, stdout, stderr  string
 	terminal                   bool
 	width, height              uint32
 	sizeSet                    bool
 	status                     tasktypes.Status
+	pid                        uint32
 	exit                       uint32
 	exited                     time.Time
 	done                       chan struct{}
@@ -54,6 +63,13 @@ type process struct {
 	stdoutWriter, stderrWriter io.WriteCloser
 	stdoutGuard, stderrGuard   io.Closer
 	stdinClosed                bool
+	stdoutOffset, stderrOffset uint64
+}
+
+type agentClient interface {
+	Call(string, any, any) error
+	CallContext(context.Context, string, any, any) error
+	Close() error
 }
 
 type service struct {
@@ -64,8 +80,9 @@ type service struct {
 	daemon                daemon.Client
 	sandbox               protocol.Sandbox
 	token                 []byte
-	agent                 *agent.Client
+	agent                 agentClient
 	relay                 *exec.Cmd
+	relaySocket           string
 	netDevice             *os.File
 	netDone               chan struct{}
 	netWG                 sync.WaitGroup
@@ -83,10 +100,44 @@ func getenv(name, fallback string) string {
 }
 
 func newService(ctx context.Context, id string, publisher shim.Publisher, shutdown func()) (shim.Shim, error) {
-	ns, _ := namespaces.Namespace(ctx)
-	bundle, _ := os.Getwd()
-	return &service{id: id, namespace: ns, bundle: bundle, publisher: publisher, shutdown: shutdown,
-		daemon: daemon.Client{Path: getenv("MK_DAEMON_SOCKET", "/run/mkruntimed.sock")}, processes: map[string]*process{}}, nil
+	ns, err := namespaces.NamespaceRequired(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bundle, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	if err = validateServiceIdentity(id, ns, bundle); err != nil {
+		return nil, err
+	}
+	s := &service{id: id, namespace: ns, bundle: bundle, publisher: publisher, shutdown: shutdown,
+		daemon: daemon.Client{Path: getenv("MK_DAEMON_SOCKET", "/run/mkruntimed.sock")}, processes: map[string]*process{}}
+	if err = s.recoverExisting(ctx); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func validateServiceIdentity(id, namespace, bundle string) error {
+	if !runtimeIdentifier.MatchString(id) || !runtimeIdentifier.MatchString(namespace) {
+		return fmt.Errorf("%w: invalid task ID or containerd namespace", errdefs.ErrInvalidArgument)
+	}
+	if !filepath.IsAbs(bundle) || filepath.Clean(bundle) != bundle {
+		return fmt.Errorf("%w: bundle must be an absolute canonical path", errdefs.ErrInvalidArgument)
+	}
+	resolved, err := filepath.EvalSymlinks(bundle)
+	if err != nil {
+		return fmt.Errorf("%w: resolve bundle: %v", errdefs.ErrInvalidArgument, err)
+	}
+	if resolved != bundle {
+		return fmt.Errorf("%w: symlinked bundle paths are unsupported", errdefs.ErrInvalidArgument)
+	}
+	info, err := os.Stat(bundle)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("%w: bundle is not a directory", errdefs.ErrInvalidArgument)
+	}
+	return nil
 }
 
 func newCommand(ctx context.Context, id string, opts shim.StartOpts) (*exec.Cmd, error) {
@@ -155,13 +206,34 @@ func (s *service) StartShim(ctx context.Context, opts shim.StartOpts) (_ string,
 }
 
 type persisted struct {
-	ID         string    `json:"id"`
-	Generation string    `json:"generation"`
-	Exit       uint32    `json:"exit"`
-	Exited     time.Time `json:"exited"`
-	NetIf      string    `json:"net_if,omitempty"`
-	NetSubnet  string    `json:"net_subnet,omitempty"`
-	NetEgress  string    `json:"net_egress,omitempty"`
+	SchemaVersion int                `json:"schema_version"`
+	ID            string             `json:"id"`
+	Generation    string             `json:"generation"`
+	PID           uint32             `json:"pid,omitempty"`
+	Exit          uint32             `json:"exit"`
+	Exited        time.Time          `json:"exited"`
+	NetIf         string             `json:"net_if,omitempty"`
+	NetSubnet     string             `json:"net_subnet,omitempty"`
+	NetEgress     string             `json:"net_egress,omitempty"`
+	Processes     []persistedProcess `json:"processes,omitempty"`
+}
+
+type persistedProcess struct {
+	ID           string           `json:"id"`
+	Stdin        string           `json:"stdin,omitempty"`
+	Stdout       string           `json:"stdout,omitempty"`
+	Stderr       string           `json:"stderr,omitempty"`
+	Terminal     bool             `json:"terminal,omitempty"`
+	Width        uint32           `json:"width,omitempty"`
+	Height       uint32           `json:"height,omitempty"`
+	SizeSet      bool             `json:"size_set,omitempty"`
+	StdinClosed  bool             `json:"stdin_closed,omitempty"`
+	Status       tasktypes.Status `json:"status"`
+	PID          uint32           `json:"pid,omitempty"`
+	Exit         uint32           `json:"exit,omitempty"`
+	Exited       time.Time        `json:"exited,omitempty"`
+	StdoutOffset uint64           `json:"stdout_offset,omitempty"`
+	StderrOffset uint64           `json:"stderr_offset,omitempty"`
 }
 
 func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) {
@@ -173,7 +245,7 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 		_ = json.Unmarshal(b, &p)
 	}
 	s.netIf, s.netSubnet, s.netEgress = p.NetIf, p.NetSubnet, p.NetEgress
-	s.stopNetwork()
+	_ = s.stopNetwork()
 	if p.ID != "" {
 		_, _ = daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil)
 		_, _ = daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil)
@@ -181,7 +253,7 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 	if p.Exited.IsZero() {
 		p.Exited = time.Now().UTC()
 	}
-	return &taskapi.DeleteResponse{Pid: uint32(os.Getpid()), ExitStatus: p.Exit, ExitedAt: timestamppb.New(p.Exited)}, nil
+	return &taskapi.DeleteResponse{Pid: p.PID, ExitStatus: p.Exit, ExitedAt: timestamppb.New(p.Exited)}, nil
 }
 
 func randomToken() ([]byte, string, error) {
@@ -193,13 +265,209 @@ func randomToken() ([]byte, string, error) {
 }
 
 func (s *service) persistRecovery() error {
-	p := persisted{ID: s.sandbox.ID, Generation: s.sandbox.Generation,
+	if s.sandbox.ID == "" {
+		return nil
+	}
+	p := persisted{SchemaVersion: 1, ID: s.sandbox.ID, Generation: s.sandbox.Generation,
 		NetIf: s.netIf, NetSubnet: s.netSubnet, NetEgress: s.netEgress}
+	for _, process := range s.processes {
+		if process.id == "" {
+			p.PID, p.Exit, p.Exited = process.pid, process.exit, process.exited
+		}
+		p.Processes = append(p.Processes, persistedProcess{
+			ID: process.id, Stdin: process.stdin, Stdout: process.stdout, Stderr: process.stderr,
+			Terminal: process.terminal, Width: process.width, Height: process.height,
+			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, Status: process.status,
+			PID: process.pid, Exit: process.exit, Exited: process.exited,
+			StdoutOffset: process.stdoutOffset, StderrOffset: process.stderrOffset,
+		})
+	}
+	sort.Slice(p.Processes, func(i, j int) bool { return p.Processes[i].ID < p.Processes[j].ID })
 	b, err := json.Marshal(p)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.bundle, ".multikernel", "sandbox.json"), b, 0600)
+	return atomicWriteFile(filepath.Join(s.bundle, ".multikernel", "sandbox.json"), b, 0600)
+}
+
+func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) {
+	directory := filepath.Dir(path)
+	temporary, err := os.CreateTemp(directory, "."+filepath.Base(path)+".*")
+	if err != nil {
+		return err
+	}
+	temporaryName := temporary.Name()
+	defer func() {
+		if retErr != nil {
+			_ = os.Remove(temporaryName)
+		}
+	}()
+	if err = temporary.Chmod(mode); err == nil {
+		_, err = temporary.Write(data)
+	}
+	if err == nil {
+		err = temporary.Sync()
+	}
+	closeErr := temporary.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err = os.Rename(temporaryName, path); err != nil {
+		return err
+	}
+	dir, err := os.Open(directory)
+	if err != nil {
+		return err
+	}
+	err = dir.Sync()
+	closeErr = dir.Close()
+	return errors.Join(err, closeErr)
+}
+
+func (s *service) recoverExisting(ctx context.Context) error {
+	runtimeDir := filepath.Join(s.bundle, ".multikernel")
+	b, err := os.ReadFile(filepath.Join(runtimeDir, "sandbox.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read shim recovery state: %w", err)
+	}
+	var recovery persisted
+	if err = json.Unmarshal(b, &recovery); err != nil || recovery.SchemaVersion != 1 || recovery.ID == "" || recovery.Generation == "" || len(recovery.Processes) == 0 {
+		return errors.New("shim recovery state is incomplete or unsupported")
+	}
+	var sandboxes []protocol.Sandbox
+	if apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "shim-recover-list-" + s.id, Method: "ListSandboxes"}, &sandboxes); apiErr != nil {
+		return fmt.Errorf("list sandboxes for shim recovery: %s", apiErr.Message)
+	}
+	for _, sandbox := range sandboxes {
+		if sandbox.ID == recovery.ID && sandbox.Generation == recovery.Generation {
+			s.sandbox = sandbox
+			break
+		}
+	}
+	if s.sandbox.ID == "" {
+		return errors.New("persisted sandbox generation is not owned by mkruntimed")
+	}
+	tokenText, err := os.ReadFile(filepath.Join(runtimeDir, "token"))
+	if err != nil {
+		return fmt.Errorf("read recovery token: %w", err)
+	}
+	s.token, err = hex.DecodeString(strings.TrimSpace(string(tokenText)))
+	if err != nil || len(s.token) != 32 {
+		return errors.New("recovery token is malformed")
+	}
+	s.netIf, s.netSubnet, s.netEgress = recovery.NetIf, recovery.NetSubnet, recovery.NetEgress
+	s.relaySocket = relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
+	_ = os.Remove(s.relaySocket)
+	s.relay = exec.Command(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), "server", strconv.Itoa(int(s.sandbox.Config.AgentPort)), s.relaySocket)
+	if err = s.relay.Start(); err != nil {
+		return fmt.Errorf("restart recovered agent relay: %w", err)
+	}
+	recovered := false
+	defer func() {
+		if recovered {
+			return
+		}
+		for _, process := range s.processes {
+			closeProcessIO(process)
+		}
+		if s.agent != nil {
+			_ = s.agent.Close()
+			s.agent = nil
+		}
+		if s.netDevice != nil {
+			_ = s.netDevice.Close()
+			s.netDevice = nil
+		}
+		if s.relay != nil && s.relay.Process != nil {
+			_ = s.relay.Process.Kill()
+			_, _ = s.relay.Process.Wait()
+			s.relay = nil
+		}
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		s.agent, err = agent.Dial(s.relaySocket, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+		if err == nil || time.Now().After(deadline) || ctx.Err() != nil {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if err != nil {
+		return fmt.Errorf("reconnect recovered guest agent: %w", err)
+	}
+	type recoveredProcess struct {
+		agentID string
+		process *process
+	}
+	var running []recoveredProcess
+	for _, saved := range recovery.Processes {
+		p := &process{
+			id: saved.ID, stdin: saved.Stdin, stdout: saved.Stdout, stderr: saved.Stderr,
+			terminal: saved.Terminal, width: saved.Width, height: saved.Height,
+			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, status: saved.Status,
+			pid: saved.PID, exit: saved.Exit, exited: saved.Exited,
+			stdoutOffset: saved.StdoutOffset, stderrOffset: saved.StderrOffset, done: make(chan struct{}),
+		}
+		s.processes[saved.ID] = p
+		if p.status == tasktypes.Status_STOPPED {
+			close(p.done)
+			continue
+		}
+		if p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED {
+			continue
+		}
+		agentID := p.id
+		if agentID == "" {
+			agentID = "init"
+		}
+		var state agent.ProcessState
+		if err = s.agent.CallContext(ctx, "StateProcess", map[string]string{"ID": agentID}, &state); err != nil {
+			return fmt.Errorf("recover process %q: %w", saved.ID, err)
+		}
+		if state.Status == "STOPPED" {
+			if err = s.agent.CallContext(ctx, "WaitProcess", map[string]string{"ID": agentID}, &state); err != nil {
+				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
+			}
+			p.status, p.exit = tasktypes.Status_STOPPED, uint32(state.ExitCode)
+			p.exited = time.Now().UTC()
+			close(p.done)
+			continue
+		}
+		if state.PID <= 0 {
+			return fmt.Errorf("recover process %q: invalid guest PID", saved.ID)
+		}
+		p.pid = uint32(state.PID)
+		if err = s.openProcessIO(ctx, p); err != nil {
+			return fmt.Errorf("recover process %q I/O: %w", saved.ID, err)
+		}
+		running = append(running, recoveredProcess{agentID: agentID, process: p})
+	}
+	if s.netIf != "" {
+		s.netDevice, err = openTUN(s.netIf)
+		if err != nil {
+			return fmt.Errorf("reopen recovered TUN: %w", err)
+		}
+		s.startNetworkPump()
+	}
+	for _, item := range running {
+		go s.pumpStdin(item.agentID, item.process)
+		go s.waitProcess(item.agentID, item.process.id, item.process)
+	}
+	recovered = true
+	return nil
+}
+
+func relaySocketPath(port uint32, generation string) string {
+	if len(generation) > 12 {
+		generation = generation[:12]
+	}
+	return filepath.Join("/run", "mk-agent-"+strconv.Itoa(int(port))+"-"+generation+".sock")
 }
 
 func sandboxID(id string) string {
@@ -283,8 +551,54 @@ func (s *service) publish(ctx context.Context, topic string, event any) error {
 	return s.publisher.Publish(namespaces.WithNamespace(ctx, s.namespace), topic, event)
 }
 
-func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (*taskapi.CreateTaskResponse, error) {
-	if r.ID != s.id || r.Bundle == "" {
+func (s *service) rollbackCreate(ctx context.Context, root, runtimeDir string) error {
+	var failures []error
+	if s.sandbox.ID != "" {
+		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-create-rollback-delete-"+s.sandbox.Generation, nil); err != nil {
+			failures = append(failures, fmt.Errorf("delete allocated sandbox: %w", err))
+		}
+		s.sandbox = protocol.Sandbox{}
+	}
+	if err := mount.UnmountAll(root, 0); err != nil {
+		failures = append(failures, fmt.Errorf("unmount rootfs: %w", err))
+	}
+	if err := os.RemoveAll(runtimeDir); err != nil {
+		failures = append(failures, fmt.Errorf("remove runtime artifacts: %w", err))
+	}
+	s.token = nil
+	delete(s.processes, "")
+	return errors.Join(failures...)
+}
+
+func readOnlyRootfsMounts(input []*types.Mount) ([]mount.Mount, error) {
+	result := make([]mount.Mount, len(input))
+	for index, item := range input {
+		if item.Type != "overlay" && item.Type != "bind" && item.Type != "none" {
+			return nil, fmt.Errorf("%w: unsupported rootfs mount type %q", errdefs.ErrNotImplemented, item.Type)
+		}
+		if (item.Type == "bind" || item.Type == "none") && !filepath.IsAbs(item.Source) {
+			return nil, fmt.Errorf("%w: bind rootfs source must be absolute", errdefs.ErrInvalidArgument)
+		}
+		options := make([]string, 0, len(item.Options)+1)
+		for _, option := range item.Options {
+			if option == "rw" {
+				continue
+			}
+			if strings.ContainsAny(option, "\x00\n\r") {
+				return nil, fmt.Errorf("%w: unsafe rootfs mount option", errdefs.ErrInvalidArgument)
+			}
+			options = append(options, option)
+		}
+		if !slices.Contains(options, "ro") {
+			options = append(options, "ro")
+		}
+		result[index] = mount.Mount{Type: item.Type, Source: item.Source, Options: options}
+	}
+	return result, nil
+}
+
+func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *taskapi.CreateTaskResponse, retErr error) {
+	if r.ID != s.id || r.Bundle != s.bundle {
 		return nil, fmt.Errorf("%w: invalid task", errdefs.ErrInvalidArgument)
 	}
 	s.mu.Lock()
@@ -296,20 +610,22 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (*ta
 	if err := os.MkdirAll(root, 0711); err != nil {
 		return nil, err
 	}
-	mounts := make([]mount.Mount, len(r.Rootfs))
-	for i, m := range r.Rootfs {
-		mounts[i] = mount.Mount{Type: m.Type, Source: m.Source, Options: m.Options}
+	mounts, err := readOnlyRootfsMounts(r.Rootfs)
+	if err != nil {
+		return nil, err
 	}
 	if err := mount.All(mounts, root); err != nil {
 		return nil, fmt.Errorf("mount rootfs: %w", err)
 	}
+	runtimeDir := filepath.Join(r.Bundle, ".multikernel")
 	fail := true
 	defer func() {
 		if fail {
-			_ = mount.UnmountAll(root, 0)
+			if cleanupErr := s.rollbackCreate(context.WithoutCancel(ctx), root, runtimeDir); cleanupErr != nil {
+				retErr = errors.Join(retErr, fmt.Errorf("create rollback: %w", cleanupErr))
+			}
 		}
 	}()
-	runtimeDir := filepath.Join(r.Bundle, ".multikernel")
 	if err := os.MkdirAll(runtimeDir, 0700); err != nil {
 		return nil, err
 	}
@@ -325,6 +641,16 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (*ta
 	build := exec.CommandContext(ctx, getenv("MK_INITRAMFS_BUILDER", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh"), r.Bundle, initrd)
 	if output, buildErr := build.CombinedOutput(); buildErr != nil {
 		return nil, fmt.Errorf("build child root: %w: %s", buildErr, strings.TrimSpace(string(output)))
+	} else if err = os.WriteFile(filepath.Join(runtimeDir, "build-result.json"), output, 0600); err != nil {
+		return nil, fmt.Errorf("record child root build result: %w", err)
+	}
+	for _, required := range []string{"initramfs.manifest.json", "initramfs.source-manifest.json"} {
+		if info, statErr := os.Stat(filepath.Join(runtimeDir, required)); statErr != nil || !info.Mode().IsRegular() || info.Size() == 0 {
+			return nil, fmt.Errorf("builder did not produce required %s", required)
+		}
+	}
+	if err = mount.UnmountAll(root, 0); err != nil {
+		return nil, fmt.Errorf("unmount caller rootfs after verified copy: %w", err)
 	}
 	if err = os.WriteFile(filepath.Join(runtimeDir, "initramfs.path"), []byte(initrd+"\n"), 0600); err != nil {
 		return nil, err
@@ -340,14 +666,13 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (*ta
 	}
 	s.sandbox = created.Sandbox
 	if _, err = daemon.Mutation(ctx, s.daemon, "LoadSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-load-"+s.sandbox.Generation, nil); err != nil {
-		_, _ = daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-rollback-"+s.sandbox.Generation, nil)
 		return nil, err
 	}
-	p := persisted{ID: s.sandbox.ID, Generation: s.sandbox.Generation}
-	b, _ := json.Marshal(p)
-	_ = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), b, 0600)
 	s.bundle = r.Bundle
 	s.processes[""] = &process{id: "", stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	if err = s.persistRecovery(); err != nil {
+		return nil, fmt.Errorf("persist recovery state: %w", err)
+	}
 	pid := uint32(os.Getpid())
 	if err = s.publish(ctx, ctruntime.TaskCreateEventTopic, &eventstypes.TaskCreate{ContainerID: s.id, Bundle: r.Bundle, Rootfs: r.Rootfs, Pid: pid}); err != nil {
 		return nil, err
@@ -360,26 +685,23 @@ func (s *service) connectAgent(ctx context.Context) error {
 	// Docker uses 64-byte container IDs and deeply nested runtime bundles;
 	// placing the relay socket in the bundle can exceed sockaddr_un.sun_path.
 	// Use a generation-qualified short path under /run instead.
-	gen := s.sandbox.Generation
-	if len(gen) > 12 {
-		gen = gen[:12]
-	}
-	sock := filepath.Join("/run", "mk-agent-"+strconv.Itoa(int(s.sandbox.Config.AgentPort))+"-"+gen+".sock")
+	sock := relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
+	s.relaySocket = sock
 	_ = os.Remove(sock)
 	if err := s.startNetwork(ctx); err != nil {
 		return err
 	}
 	if err := s.persistRecovery(); err != nil {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return fmt.Errorf("persist network recovery state: %w", err)
 	}
 	s.relay = exec.Command(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), "server", strconv.Itoa(int(s.sandbox.Config.AgentPort)), sock)
 	if err := s.relay.Start(); err != nil {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return err
 	}
 	if _, err := daemon.Mutation(ctx, s.daemon, "StartSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-start-"+s.sandbox.Generation, nil); err != nil {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return err
 	}
 	deadline := time.Now().Add(45 * time.Second)
@@ -389,12 +711,12 @@ func (s *service) connectAgent(ctx context.Context) error {
 			s.agent = client
 			slot := int(s.sandbox.Config.AgentPort) - 7200
 			third := strconv.Itoa(30 + slot)
-			if err = s.agent.Call("ConfigureNetwork", map[string]string{
+			if err = s.agent.CallContext(ctx, "ConfigureNetwork", map[string]string{
 				"Name": "mkn0", "Address": "172.30." + third + ".2/30", "Gateway": "172.30." + third + ".1",
 			}, nil); err != nil {
 				_ = s.agent.Close()
 				s.agent = nil
-				s.stopNetwork()
+				_ = s.stopNetwork()
 				return fmt.Errorf("configure child network: %w", err)
 			}
 			s.startNetworkPump()
@@ -402,7 +724,7 @@ func (s *service) connectAgent(ctx context.Context) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	s.stopNetwork()
+	_ = s.stopNetwork()
 	return errors.New("timed out connecting to child agent")
 }
 
@@ -450,20 +772,20 @@ func (s *service) startNetwork(ctx context.Context) error {
 		return err
 	}
 	if err := command(ctx, "/usr/sbin/ip", "address", "add", "172.30."+third+".1/30", "dev", s.netIf); err != nil {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return err
 	}
 	if err := command(ctx, "/usr/sbin/ip", "link", "set", s.netIf, "up"); err != nil {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return err
 	}
 	if err := command(ctx, "/usr/sbin/ip", "link", "set", s.netIf, "mtu", "1400"); err != nil {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return err
 	}
 	route, err := exec.CommandContext(ctx, "/usr/sbin/ip", "route", "show", "default").Output()
 	if err != nil {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return err
 	}
 	fields := strings.Fields(string(route))
@@ -474,7 +796,7 @@ func (s *service) startNetwork(ctx context.Context) error {
 		}
 	}
 	if s.netEgress == "" {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return errors.New("default egress interface not found")
 	}
 	rules := [][]string{
@@ -484,13 +806,13 @@ func (s *service) startNetwork(ctx context.Context) error {
 	}
 	for _, rule := range rules {
 		if err := command(ctx, "/usr/sbin/iptables", rule...); err != nil {
-			s.stopNetwork()
+			_ = s.stopNetwork()
 			return err
 		}
 	}
 	s.netDevice, err = openTUN(s.netIf)
 	if err != nil {
-		s.stopNetwork()
+		_ = s.stopNetwork()
 		return err
 	}
 	return nil
@@ -536,21 +858,26 @@ func (s *service) startNetworkPump() {
 	}()
 }
 
-func (s *service) stopNetwork() {
+func (s *service) stopNetwork() error {
+	var failures []error
 	if s.netDone != nil {
 		close(s.netDone)
 		s.netWG.Wait()
 		s.netDone = nil
 	}
 	if s.agent != nil {
-		_ = s.agent.Call("CloseNetwork", map[string]any{}, nil)
+		if err := s.agent.Call("CloseNetwork", map[string]any{}, nil); err != nil {
+			failures = append(failures, fmt.Errorf("close guest network: %w", err))
+		}
 	}
 	if s.netDevice != nil {
-		_ = s.netDevice.Close()
+		if err := s.netDevice.Close(); err != nil {
+			failures = append(failures, fmt.Errorf("close TUN: %w", err))
+		}
 		s.netDevice = nil
 	}
 	if s.netIf == "" {
-		return
+		return errors.Join(failures...)
 	}
 	rules := [][]string{
 		{"-w", "-t", "nat", "-D", "POSTROUTING", "-s", s.netSubnet, "-o", s.netEgress, "-j", "MASQUERADE"},
@@ -558,10 +885,15 @@ func (s *service) stopNetwork() {
 		{"-w", "-D", "FORWARD", "-i", s.netEgress, "-o", s.netIf, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"},
 	}
 	for _, rule := range rules {
-		_ = command(context.Background(), "/usr/sbin/iptables", rule...)
+		if err := command(context.Background(), "/usr/sbin/iptables", rule...); err != nil {
+			failures = append(failures, fmt.Errorf("remove network rule: %w", err))
+		}
 	}
-	_ = command(context.Background(), "/usr/sbin/ip", "link", "delete", s.netIf)
+	if err := command(context.Background(), "/usr/sbin/ip", "link", "delete", s.netIf); err != nil {
+		failures = append(failures, fmt.Errorf("delete TUN link: %w", err))
+	}
 	s.netIf = ""
+	return errors.Join(failures...)
 }
 
 func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.StartResponse, error) {
@@ -580,7 +912,7 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 			s.mu.Unlock()
 			return nil, err
 		}
-		if err := s.agent.Call("CreateProcess", map[string]any{"ID": "init", "Bundle": "/bundle"}, nil); err != nil {
+		if err := s.agent.CallContext(ctx, "CreateProcess", map[string]any{"ID": "init", "Bundle": "/bundle"}, nil); err != nil {
 			s.mu.Unlock()
 			return nil, err
 		}
@@ -599,13 +931,33 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		s.mu.Unlock()
 		return nil, err
 	}
-	if err := s.agent.Call("StartProcess", startRequest, nil); err != nil {
+	if err := s.agent.CallContext(ctx, "StartProcess", startRequest, nil); err != nil {
 		closeProcessIO(p)
 		s.mu.Unlock()
 		return nil, err
 	}
+	var guestState agent.ProcessState
+	if err := s.agent.CallContext(ctx, "StateProcess", map[string]string{"ID": processID}, &guestState); err != nil || guestState.PID <= 0 {
+		p.status = tasktypes.Status_RUNNING
+		go s.pumpStdin(processID, p)
+		go s.waitProcess(processID, r.ExecID, p)
+		_, _ = s.Kill(context.WithoutCancel(ctx), &taskapi.KillRequest{ExecID: r.ExecID, Signal: uint32(syscall.SIGKILL)})
+		if err == nil {
+			err = errors.New("guest returned an invalid process ID")
+		}
+		s.mu.Unlock()
+		return nil, fmt.Errorf("read started guest process identity: %w", err)
+	}
 	p.status = tasktypes.Status_RUNNING
-	pid := uint32(os.Getpid())
+	p.pid = uint32(guestState.PID)
+	pid := p.pid
+	go s.pumpStdin(processID, p)
+	go s.waitProcess(processID, r.ExecID, p)
+	if err := s.persistRecovery(); err != nil {
+		_, _ = s.Kill(context.WithoutCancel(ctx), &taskapi.KillRequest{ExecID: r.ExecID, Signal: uint32(syscall.SIGKILL)})
+		s.mu.Unlock()
+		return nil, fmt.Errorf("persist started process: %w", err)
+	}
 	var topic string
 	var event any
 	if r.ExecID == "" {
@@ -614,12 +966,11 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		topic, event = ctruntime.TaskExecStartedEventTopic, &eventstypes.TaskExecStarted{ContainerID: s.id, ExecID: r.ExecID, Pid: pid}
 	}
 	if err := s.publish(ctx, topic, event); err != nil {
+		_ = s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": processID, "Signal": strconv.Itoa(int(syscall.SIGKILL))}, nil)
 		s.mu.Unlock()
 		return nil, err
 	}
 	s.mu.Unlock()
-	go s.pumpStdin(processID, p)
-	go s.waitProcess(processID, r.ExecID, p)
 	return &taskapi.StartResponse{Pid: pid}, nil
 }
 
@@ -706,7 +1057,7 @@ func (s *service) pumpStdin(agentID string, p *process) {
 		n, err := reader.Read(buffer)
 		if n > 0 {
 			s.mu.Lock()
-			stopped := p.status != tasktypes.Status_RUNNING
+			stopped := p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED
 			s.mu.Unlock()
 			if stopped {
 				return
@@ -738,7 +1089,6 @@ func (s *service) pumpStdin(agentID string, p *process) {
 
 func (s *service) waitProcess(agentID, execID string, p *process) {
 	var state agent.ProcessState
-	var stdoutOffset, stderrOffset uint64
 	var err error
 	for {
 		var output struct {
@@ -749,12 +1099,15 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 			Status       string `json:"status"`
 		}
 		err = s.agent.Call("ReadProcessOutput", map[string]any{
-			"id": agentID, "stdout_offset": stdoutOffset, "stderr_offset": stderrOffset, "limit": uint64(32 << 10),
+			"id": agentID, "stdout_offset": p.stdoutOffset, "stderr_offset": p.stderrOffset, "limit": uint64(32 << 10),
 		}, &output)
 		if err != nil {
 			break
 		}
-		stdoutOffset, stderrOffset = output.StdoutOffset, output.StderrOffset
+		s.mu.Lock()
+		p.stdoutOffset, p.stderrOffset = output.StdoutOffset, output.StderrOffset
+		_ = s.persistRecovery()
+		s.mu.Unlock()
 		if p.stdoutWriter != nil && len(output.Stdout) > 0 {
 			if _, writeErr := p.stdoutWriter.Write(output.Stdout); writeErr != nil {
 				fmt.Fprintf(os.Stderr, "multikernel stdout: %v\n", writeErr)
@@ -766,7 +1119,7 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 			}
 		}
 		if output.Status == "STOPPED" && len(output.Stdout) == 0 && len(output.Stderr) == 0 {
-			err = s.agent.Call("StateProcess", map[string]string{"ID": agentID}, &state)
+			err = s.agent.Call("WaitProcess", map[string]string{"ID": agentID}, &state)
 			break
 		}
 		if len(output.Stdout) == 0 && len(output.Stderr) == 0 {
@@ -782,13 +1135,14 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 	s.mu.Lock()
 	p.status, p.exit, p.exited = tasktypes.Status_STOPPED, exit, now
 	close(p.done)
+	_ = s.persistRecovery()
 	s.mu.Unlock()
 	ctx := namespaces.WithNamespace(context.Background(), s.namespace)
 	eventID := execID
 	if eventID == "" {
 		eventID = s.id
 	}
-	_ = s.publisher.Publish(ctx, ctruntime.TaskExitEventTopic, &eventstypes.TaskExit{ContainerID: s.id, ID: eventID, Pid: uint32(os.Getpid()), ExitStatus: exit, ExitedAt: timestamppb.New(now)})
+	_ = s.publisher.Publish(ctx, ctruntime.TaskExitEventTopic, &eventstypes.TaskExit{ContainerID: s.id, ID: eventID, Pid: p.pid, ExitStatus: exit, ExitedAt: timestamppb.New(now)})
 }
 
 func (s *service) State(_ context.Context, r *taskapi.StateRequest) (*taskapi.StateResponse, error) {
@@ -798,7 +1152,7 @@ func (s *service) State(_ context.Context, r *taskapi.StateRequest) (*taskapi.St
 	if !ok {
 		return nil, errdefs.ErrNotFound
 	}
-	return &taskapi.StateResponse{ID: s.id, Bundle: s.bundle, Pid: uint32(os.Getpid()), Status: p.status, Stdin: p.stdin, Stdout: p.stdout, Stderr: p.stderr, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited), ExecID: r.ExecID}, nil
+	return &taskapi.StateResponse{ID: s.id, Bundle: s.bundle, Pid: p.pid, Status: p.status, Stdin: p.stdin, Stdout: p.stdout, Stderr: p.stderr, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited), ExecID: r.ExecID}, nil
 }
 
 func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.WaitResponse, error) {
@@ -820,7 +1174,7 @@ func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.Wa
 	return &taskapi.WaitResponse{ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}, nil
 }
 
-func (s *service) Kill(_ context.Context, r *taskapi.KillRequest) (*emptypb.Empty, error) {
+func (s *service) Kill(ctx context.Context, r *taskapi.KillRequest) (*emptypb.Empty, error) {
 	id := r.ExecID
 	if id == "" {
 		id = "init"
@@ -828,7 +1182,7 @@ func (s *service) Kill(_ context.Context, r *taskapi.KillRequest) (*emptypb.Empt
 	if s.agent == nil {
 		return nil, errdefs.ErrFailedPrecondition
 	}
-	if err := s.agent.Call("SignalProcess", map[string]any{"ID": id, "Signal": strconv.FormatUint(uint64(r.Signal), 10)}, nil); err != nil {
+	if err := s.agent.CallContext(ctx, "SignalProcess", map[string]any{"ID": id, "Signal": strconv.FormatUint(uint64(r.Signal), 10)}, nil); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -876,11 +1230,29 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 	p := &process{id: r.ExecID, stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	s.processes[r.ExecID] = p
 	s.mu.Unlock()
-	if err = s.agent.Call("ExecProcess", map[string]any{"id": r.ExecID, "parent_id": "init", "spec": processSpec(spec)}, nil); err != nil {
+	if err = s.agent.CallContext(ctx, "ExecProcess", map[string]any{"id": r.ExecID, "parent_id": "init", "spec": processSpec(spec)}, nil); err != nil {
+		s.mu.Lock()
+		delete(s.processes, r.ExecID)
+		s.mu.Unlock()
 		return nil, err
 	}
+	s.mu.Lock()
+	err = s.persistRecovery()
+	s.mu.Unlock()
+	if err != nil {
+		_ = s.agent.CallContext(context.WithoutCancel(ctx), "DeleteProcess", map[string]string{"ID": r.ExecID}, nil)
+		s.mu.Lock()
+		delete(s.processes, r.ExecID)
+		s.mu.Unlock()
+		return nil, fmt.Errorf("persist exec process: %w", err)
+	}
 	if err = s.publish(ctx, ctruntime.TaskExecAddedEventTopic, &eventstypes.TaskExecAdded{ContainerID: s.id, ExecID: r.ExecID}); err != nil {
-		return nil, err
+		cleanupErr := s.agent.CallContext(context.WithoutCancel(ctx), "DeleteProcess", map[string]string{"ID": r.ExecID}, nil)
+		s.mu.Lock()
+		delete(s.processes, r.ExecID)
+		_ = s.persistRecovery()
+		s.mu.Unlock()
+		return nil, errors.Join(err, cleanupErr)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -892,49 +1264,89 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		s.mu.Unlock()
 		return nil, errdefs.ErrNotFound
 	}
-	if p.status == tasktypes.Status_RUNNING {
+	if p.status == tasktypes.Status_RUNNING || p.status == tasktypes.Status_PAUSED {
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
 	}
-	delete(s.processes, r.ExecID)
 	s.mu.Unlock()
+	var failures []error
 	id := r.ExecID
 	if id == "" {
 		id = "init"
 	}
 	if s.agent != nil {
-		_ = s.agent.Call("DeleteProcess", map[string]string{"ID": id}, nil)
+		if err := s.agent.CallContext(ctx, "DeleteProcess", map[string]string{"ID": id}, nil); err != nil {
+			failures = append(failures, fmt.Errorf("delete guest process: %w", err))
+		}
 	}
 	if r.ExecID == "" {
 		if s.agent != nil {
-			s.stopNetwork()
-			_ = s.agent.Call("Shutdown", map[string]any{}, nil)
-			_ = s.agent.Close()
+			if err := s.stopNetwork(); err != nil {
+				failures = append(failures, err)
+			}
+			if err := s.agent.CallContext(ctx, "Shutdown", map[string]any{}, nil); err != nil {
+				failures = append(failures, fmt.Errorf("shutdown guest agent: %w", err))
+			}
+			if err := s.agent.Close(); err != nil {
+				failures = append(failures, fmt.Errorf("close guest agent: %w", err))
+			}
 		}
-		_, _ = daemon.Mutation(ctx, s.daemon, "StopSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-stop-"+s.sandbox.Generation, nil)
-		_, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-delete-"+s.sandbox.Generation, nil)
-		if err != nil {
-			return nil, err
+		if _, err := daemon.Mutation(ctx, s.daemon, "StopSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-stop-"+s.sandbox.Generation, nil); err != nil {
+			failures = append(failures, fmt.Errorf("stop sandbox: %w", err))
 		}
-		s.stopNetwork()
-		_ = mount.UnmountAll(filepath.Join(s.bundle, "rootfs"), 0)
+		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-delete-"+s.sandbox.Generation, nil); err != nil {
+			failures = append(failures, fmt.Errorf("delete sandbox: %w", err))
+		}
+		if err := mount.UnmountAll(filepath.Join(s.bundle, "rootfs"), 0); err != nil {
+			failures = append(failures, fmt.Errorf("unmount rootfs: %w", err))
+		}
 	}
-	resp := &taskapi.DeleteResponse{Pid: uint32(os.Getpid()), ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
-	_ = s.publish(ctx, ctruntime.TaskDeleteEventTopic, &eventstypes.TaskDelete{ContainerID: s.id, ID: r.ExecID, Pid: resp.Pid, ExitStatus: p.exit, ExitedAt: resp.ExitedAt})
-	return resp, nil
+	s.mu.Lock()
+	delete(s.processes, r.ExecID)
+	if r.ExecID != "" {
+		if err := s.persistRecovery(); err != nil {
+			failures = append(failures, fmt.Errorf("persist process deletion: %w", err))
+		}
+	}
+	s.mu.Unlock()
+	resp := &taskapi.DeleteResponse{Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
+	if err := s.publish(ctx, ctruntime.TaskDeleteEventTopic, &eventstypes.TaskDelete{ContainerID: s.id, ID: r.ExecID, Pid: resp.Pid, ExitStatus: p.exit, ExitedAt: resp.ExitedAt}); err != nil {
+		failures = append(failures, fmt.Errorf("publish task delete: %w", err))
+	}
+	if r.ExecID == "" && len(failures) == 0 {
+		if err := os.RemoveAll(filepath.Join(s.bundle, ".multikernel")); err != nil {
+			failures = append(failures, fmt.Errorf("remove runtime artifacts: %w", err))
+		}
+	}
+	return resp, errors.Join(failures...)
 }
 
 func (s *service) Pids(context.Context, *taskapi.PidsRequest) (*taskapi.PidsResponse, error) {
-	return &taskapi.PidsResponse{Processes: []*tasktypes.ProcessInfo{{Pid: uint32(os.Getpid())}}}, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	processes := make([]*tasktypes.ProcessInfo, 0, len(s.processes))
+	for _, process := range s.processes {
+		if process.pid != 0 {
+			processes = append(processes, &tasktypes.ProcessInfo{Pid: process.pid})
+		}
+	}
+	sort.Slice(processes, func(i, j int) bool { return processes[i].Pid < processes[j].Pid })
+	return &taskapi.PidsResponse{Processes: processes}, nil
 }
 func (s *service) Connect(context.Context, *taskapi.ConnectRequest) (*taskapi.ConnectResponse, error) {
-	return &taskapi.ConnectResponse{ShimPid: uint32(os.Getpid()), TaskPid: uint32(os.Getpid()), Version: "multikernel-v1"}, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var taskPID uint32
+	if init, ok := s.processes[""]; ok {
+		taskPID = init.pid
+	}
+	return &taskapi.ConnectResponse{ShimPid: uint32(os.Getpid()), TaskPid: taskPID, Version: "multikernel-v1-guest-pid"}, nil
 }
 func (s *service) Shutdown(context.Context, *taskapi.ShutdownRequest) (*emptypb.Empty, error) {
 	go s.shutdown()
 	return &emptypb.Empty{}, nil
 }
-func (s *service) ResizePty(_ context.Context, r *taskapi.ResizePtyRequest) (*emptypb.Empty, error) {
+func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*emptypb.Empty, error) {
 	if r.Width > 65535 || r.Height > 65535 {
 		return nil, fmt.Errorf("%w: terminal dimensions exceed the Linux PTY limit", errdefs.ErrInvalidArgument)
 	}
@@ -949,6 +1361,10 @@ func (s *service) ResizePty(_ context.Context, r *taskapi.ResizePtyRequest) (*em
 		return nil, errdefs.ErrFailedPrecondition
 	}
 	p.width, p.height, p.sizeSet = r.Width, r.Height, true
+	if err := s.persistRecovery(); err != nil {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("persist terminal size: %w", err)
+	}
 	if p.status == tasktypes.Status_CREATED {
 		s.mu.Unlock()
 		return &emptypb.Empty{}, nil
@@ -962,21 +1378,69 @@ func (s *service) ResizePty(_ context.Context, r *taskapi.ResizePtyRequest) (*em
 	if id == "" {
 		id = "init"
 	}
-	if err := s.agent.Call("ResizeProcess", map[string]any{"id": id, "width": r.Width, "height": r.Height}, nil); err != nil {
+	if err := s.agent.CallContext(ctx, "ResizeProcess", map[string]any{"id": id, "width": r.Width, "height": r.Height}, nil); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
-func (s *service) Pause(context.Context, *taskapi.PauseRequest) (*emptypb.Empty, error) {
-	return nil, errdefs.ErrNotImplemented
+func (s *service) Pause(ctx context.Context, _ *taskapi.PauseRequest) (*emptypb.Empty, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.processes[""]
+	if !ok {
+		return nil, errdefs.ErrNotFound
+	}
+	if p.status != tasktypes.Status_RUNNING || s.agent == nil {
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	if err := s.agent.CallContext(ctx, "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGSTOP))}, nil); err != nil {
+		return nil, err
+	}
+	p.status = tasktypes.Status_PAUSED
+	if err := s.persistRecovery(); err != nil {
+		rollbackErr := s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGCONT))}, nil)
+		p.status = tasktypes.Status_RUNNING
+		return nil, errors.Join(fmt.Errorf("persist paused state: %w", err), rollbackErr)
+	}
+	if err := s.publish(ctx, ctruntime.TaskPausedEventTopic, &eventstypes.TaskPaused{ContainerID: s.id}); err != nil {
+		rollbackErr := s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGCONT))}, nil)
+		p.status = tasktypes.Status_RUNNING
+		_ = s.persistRecovery()
+		return nil, errors.Join(err, rollbackErr)
+	}
+	return &emptypb.Empty{}, nil
 }
-func (s *service) Resume(context.Context, *taskapi.ResumeRequest) (*emptypb.Empty, error) {
-	return nil, errdefs.ErrNotImplemented
+func (s *service) Resume(ctx context.Context, _ *taskapi.ResumeRequest) (*emptypb.Empty, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.processes[""]
+	if !ok {
+		return nil, errdefs.ErrNotFound
+	}
+	if p.status != tasktypes.Status_PAUSED || s.agent == nil {
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	if err := s.agent.CallContext(ctx, "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGCONT))}, nil); err != nil {
+		return nil, err
+	}
+	p.status = tasktypes.Status_RUNNING
+	if err := s.persistRecovery(); err != nil {
+		rollbackErr := s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGSTOP))}, nil)
+		p.status = tasktypes.Status_PAUSED
+		return nil, errors.Join(fmt.Errorf("persist resumed state: %w", err), rollbackErr)
+	}
+	if err := s.publish(ctx, ctruntime.TaskResumedEventTopic, &eventstypes.TaskResumed{ContainerID: s.id}); err != nil {
+		rollbackErr := s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGSTOP))}, nil)
+		p.status = tasktypes.Status_PAUSED
+		_ = s.persistRecovery()
+		return nil, errors.Join(err, rollbackErr)
+	}
+	return &emptypb.Empty{}, nil
 }
 func (s *service) Checkpoint(context.Context, *taskapi.CheckpointTaskRequest) (*emptypb.Empty, error) {
 	return nil, errdefs.ErrNotImplemented
 }
-func (s *service) CloseIO(_ context.Context, r *taskapi.CloseIORequest) (*emptypb.Empty, error) {
+func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*emptypb.Empty, error) {
 	if !r.Stdin {
 		return &emptypb.Empty{}, nil
 	}
@@ -991,6 +1455,11 @@ func (s *service) CloseIO(_ context.Context, r *taskapi.CloseIORequest) (*emptyp
 		return &emptypb.Empty{}, nil
 	}
 	p.stdinClosed = true
+	if err := s.persistRecovery(); err != nil {
+		p.stdinClosed = false
+		s.mu.Unlock()
+		return nil, fmt.Errorf("persist closed stdin: %w", err)
+	}
 	hasReader := p.stdinReader != nil
 	s.mu.Unlock()
 	id := r.ExecID
@@ -1005,7 +1474,7 @@ func (s *service) CloseIO(_ context.Context, r *taskapi.CloseIORequest) (*emptyp
 	if s.agent == nil {
 		return nil, errdefs.ErrFailedPrecondition
 	}
-	if err := s.agent.Call("CloseProcessStdin", map[string]string{"id": id}, nil); err != nil {
+	if err := s.agent.CallContext(ctx, "CloseProcessStdin", map[string]string{"id": id}, nil); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -1013,10 +1482,113 @@ func (s *service) CloseIO(_ context.Context, r *taskapi.CloseIORequest) (*emptyp
 func (s *service) Update(context.Context, *taskapi.UpdateTaskRequest) (*emptypb.Empty, error) {
 	return nil, errdefs.ErrNotImplemented
 }
-func (s *service) Stats(context.Context, *taskapi.StatsRequest) (*taskapi.StatsResponse, error) {
-	return nil, errdefs.ErrNotImplemented
+func (s *service) Stats(ctx context.Context, _ *taskapi.StatsRequest) (*taskapi.StatsResponse, error) {
+	s.mu.Lock()
+	p, ok := s.processes[""]
+	client := s.agent
+	memoryLimit := s.sandbox.Config.MemoryBytes
+	var status tasktypes.Status
+	if ok {
+		status = p.status
+	}
+	s.mu.Unlock()
+	if !ok || client == nil {
+		return nil, errdefs.ErrNotFound
+	}
+	if status != tasktypes.Status_RUNNING && status != tasktypes.Status_PAUSED {
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	var guest agent.ProcessStats
+	if err := client.CallContext(ctx, "StatsProcess", map[string]string{"ID": "init"}, &guest); err != nil {
+		return nil, err
+	}
+	metrics := &cgroupstats.Metrics{
+		Pids: &cgroupstats.PidsStat{Current: guest.PIDs, Limit: 1024},
+		CPU: &cgroupstats.CPUStat{Usage: &cgroupstats.CPUUsage{
+			Total: guest.CPUUserNS + guest.CPUSystemNS, User: guest.CPUUserNS, Kernel: guest.CPUSystemNS,
+		}},
+		Memory: &cgroupstats.MemoryStat{RSS: guest.RSSBytes, TotalRSS: guest.RSSBytes,
+			Usage: &cgroupstats.MemoryEntry{Usage: guest.RSSBytes, Limit: memoryLimit}},
+	}
+	encoded, err := typeurl.MarshalAny(metrics)
+	if err != nil {
+		return nil, err
+	}
+	return &taskapi.StatsResponse{Stats: &anypb.Any{TypeUrl: encoded.GetTypeUrl(), Value: encoded.GetValue()}}, nil
 }
 
 var _ taskapi.TaskService = (*service)(nil)
 
-func main() { shim.Run(runtimeName, newService) }
+func serverInvocation() bool {
+	if len(os.Args) > 1 {
+		action := os.Args[len(os.Args)-1]
+		if action == "start" || action == "delete" {
+			return false
+		}
+	}
+	var info unix.Stat_t
+	return unix.Fstat(3, &info) == nil && info.Mode&unix.S_IFMT == unix.S_IFSOCK
+}
+
+func superviseShimWorker() int {
+	listener := os.NewFile(3, "shim-listener")
+	if listener == nil {
+		fmt.Fprintln(os.Stderr, "multikernel shim supervisor: inherited listener is missing")
+		return 1
+	}
+	self, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: executable: %v\n", err)
+		return 1
+	}
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: working directory: %v\n", err)
+		return 1
+	}
+	return superviseShimWorkerWith(listener, self, os.Args[1:], workingDirectory, os.Environ())
+}
+
+func superviseShimWorkerWith(listener *os.File, self string, arguments []string, workingDirectory string, environment []string) int {
+	var err error
+	pidPath := filepath.Join(workingDirectory, ".multikernel-worker.pid")
+	defer os.Remove(pidPath)
+	for attempt := 0; attempt < 10; attempt++ {
+		cmd := exec.Command(self, arguments...)
+		cmd.Dir = workingDirectory
+		cmd.Env = append(environment, "MK_SHIM_WORKER=1")
+		cmd.ExtraFiles = []*os.File{listener}
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+		cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
+		if err = cmd.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: start worker: %v\n", err)
+			return 1
+		}
+		_ = os.WriteFile(pidPath, []byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0600)
+		err = cmd.Wait()
+		if err == nil {
+			return 0
+		}
+		var exitError *exec.ExitError
+		if !errors.As(err, &exitError) {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: wait worker: %v\n", err)
+			return 1
+		}
+		status, ok := exitError.Sys().(syscall.WaitStatus)
+		if !ok || !status.Signaled() {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker exited without a recoverable signal: %v\n", err)
+			return exitError.ExitCode()
+		}
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker pid=%d signal=%s restart_attempt=%d\n", cmd.Process.Pid, status.Signal(), attempt+1)
+		time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
+	}
+	fmt.Fprintln(os.Stderr, "multikernel shim supervisor: restart budget exhausted")
+	return 1
+}
+
+func main() {
+	if serverInvocation() && os.Getenv("MK_SHIM_WORKER") != "1" {
+		os.Exit(superviseShimWorker())
+	}
+	shim.Run(runtimeName, newService)
+}
