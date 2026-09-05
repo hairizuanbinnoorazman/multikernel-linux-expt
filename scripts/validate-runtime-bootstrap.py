@@ -117,7 +117,19 @@ def main():
         vermagic = subprocess.check_output(["modinfo", "-F", "vermagic", module], text=True).strip()
         if name != "mk_transport" or not vermagic.startswith(manifest["kernel_release"] + " "):
             raise ValueError("transport module name or kernel release is incompatible")
-    print(json.dumps({"kernel": kernel, "initramfs": initramfs, "agent": agent, "relay": relay, "module": module}, sort_keys=True))
+    print(json.dumps({
+        "manifest": str(manifest_path),
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "architecture": manifest["architecture"],
+        "kernel_release": manifest["kernel_release"],
+        "required_config": manifest["required_config"],
+        "oci_features": manifest["oci_features"],
+        "kernel": kernel,
+        "initramfs": initramfs,
+        "agent": agent,
+        "relay": relay,
+        "module": module,
+    }, sort_keys=True))
     return 0
 
 

@@ -46,11 +46,15 @@ install -m 0755 "$guest_init" "$work/init"
 # without modifying the snapshot.
 root_path=$(jq -er '.root.path' "$validated_config")
 source_root=$("$script_dir/validate-runtime-root.py" "$bundle" "$validated_config")
+"$script_dir/validate-runtime-image.py" "$source_root" "$validated_config" "$bootstrap" \
+	>"$work/image-validation.json"
 "$script_dir/build-runtime-rootfs.py" "$source_root" "$work/unused" "$source_manifest.before" --manifest-only \
-	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}"
+	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
+	>"$work/source-before-result.json"
 cp -a "$source_root/." "$work/bundle/rootfs/"
 "$script_dir/build-runtime-rootfs.py" "$source_root" "$work/unused" "$source_manifest.after" --manifest-only \
-	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}"
+	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
+	>"$work/source-after-result.json"
 cmp -s "$source_manifest.before" "$source_manifest.after" || {
 	echo 'OCI source root mutated during initramfs construction' >&2
 	exit 1
@@ -61,5 +65,21 @@ jq '.root.path = "rootfs"' "$validated_config" >"$work/bundle/config.json"
 
 "$script_dir/build-runtime-rootfs.py" "$work" "$output" "$output_manifest" \
 	--max-bytes "${MK_INITRAMFS_MAX_BYTES:-1207959552}" --max-inodes "${MK_INITRAMFS_MAX_INODES:-131200}" \
-	--min-free-bytes "${MK_INITRAMFS_MIN_FREE_BYTES:-1073741824}"
+	--min-free-bytes "${MK_INITRAMFS_MIN_FREE_BYTES:-1073741824}" >"$work/archive-result.json"
+"$script_dir/verify-runtime-rootfs.py" "$output" "$output_manifest" >"$work/verification-result.json"
+jq -e --slurpfile built "$work/archive-result.json" --slurpfile verified "$work/verification-result.json" \
+	'$built[0].initramfs_sha256 == $verified[0].archive_sha256 and $built[0].manifest_sha256 == $verified[0].manifest_sha256' \
+	>/dev/null
+jq -n \
+	--arg source_root "$source_root" --arg requested_root "$root_path" \
+	--slurpfile source_before "$work/source-before-result.json" \
+	--slurpfile source_after "$work/source-after-result.json" \
+	--slurpfile image "$work/image-validation.json" \
+	--slurpfile archive "$work/archive-result.json" \
+	--slurpfile verification "$work/verification-result.json" \
+	--slurpfile kernel "$bootstrap" \
+	'{schema_version: 1, requested_root: $requested_root, source_root: $source_root,
+	  source_scan_before: $source_before[0], source_scan_after: $source_after[0], image: $image[0],
+	  generated_archive: $archive[0], verified_archive: $verification[0],
+	  selected_kernel: $kernel[0]}'
 complete=true

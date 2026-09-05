@@ -59,13 +59,17 @@ primary-owned services
 ```
 
 `mknetd` is the sole owner of endpoint allocation, primary veth/TUN topology,
-routes, NAT, and per-generation firewall chains. The Runtime v2 shim invokes
-CNI `ADD`/`CHECK`/`DEL`, generation-binds the resulting endpoint to its
-`mkruntimed` sandbox, and pumps one negotiated-MTU frame at a time over the
-authenticated agent session. Neither the child nor the shim moves or opens the
-GCE NIC. Durable endpoint and counter state lets `mknetd` reconcile independently
-of a client restart, while the shim recovery record binds the same endpoint and
-sandbox generations before reopening the CNI-namespace TUN.
+routes, NAT, named namespaces, and per-generation firewall chains. An external
+CNI caller can create the endpoint before the Runtime v2 task, in which case
+`mknetd` binds that exact endpoint to the `mkruntimed` sandbox. For standalone
+`ctr`, `mknetd` creates a runtime-owned generation-named namespace through the
+same contract. The unprivileged shim requests `PROVISION` and `ATTACH`, receives
+the already-open TUN descriptor over the authenticated Unix socket, and pumps
+one negotiated-MTU frame at a time over the authenticated agent session.
+Neither the child nor the shim moves, configures, or opens the GCE NIC or a
+primary namespace. Durable endpoint and counter state lets `mknetd` reconcile
+independently of a client restart, while the shim recovery record binds the same
+endpoint and sandbox generations before requesting a fresh descriptor.
 
 ## Component boundaries
 

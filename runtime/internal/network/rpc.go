@@ -22,6 +22,67 @@ type Client struct {
 	dial    func(context.Context, string, string) (net.Conn, error)
 }
 
+func (c Client) Attach(ctx context.Context, request Request) (Response, *os.File, error) {
+	timeout := c.Timeout
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	dial := c.dial
+	if dial == nil {
+		dial = (&net.Dialer{}).DialContext
+	}
+	connection, err := dial(ctx, "unix", c.Path)
+	if err != nil {
+		return Response{}, nil, err
+	}
+	unixConnection, ok := connection.(*net.UnixConn)
+	if !ok {
+		connection.Close()
+		return Response{}, nil, errors.New("mknetd ATTACH requires a Unix socket")
+	}
+	defer unixConnection.Close()
+	deadline, _ := ctx.Deadline()
+	_ = unixConnection.SetDeadline(deadline)
+	data, err := json.Marshal(request)
+	if err != nil {
+		return Response{}, nil, err
+	}
+	if _, err = unixConnection.Write(append(data, '\n')); err != nil {
+		return Response{}, nil, err
+	}
+	_ = unixConnection.CloseWrite()
+	dataBuffer := make([]byte, 1<<20)
+	oob := make([]byte, unix.CmsgSpace(4))
+	n, oobn, _, _, err := unixConnection.ReadMsgUnix(dataBuffer, oob)
+	if err != nil {
+		return Response{}, nil, err
+	}
+	var response Response
+	if err = protocol.StrictDecode(dataBuffer[:n], &response); err != nil {
+		return Response{}, nil, err
+	}
+	if response.Version != ProtocolVersion || response.RequestID != request.RequestID {
+		return Response{}, nil, errors.New("mknetd ATTACH response binding mismatch")
+	}
+	if response.Error != nil {
+		return response, nil, response.Error
+	}
+	messages, err := unix.ParseSocketControlMessage(oob[:oobn])
+	if err != nil || len(messages) != 1 {
+		return response, nil, errors.New("mknetd ATTACH returned invalid descriptor metadata")
+	}
+	fds, err := unix.ParseUnixRights(&messages[0])
+	if err != nil || len(fds) != 1 {
+		for _, fd := range fds {
+			_ = unix.Close(fd)
+		}
+		return response, nil, errors.New("mknetd ATTACH returned an invalid descriptor count")
+	}
+	return response, os.NewFile(uintptr(fds[0]), "mknetd-tun"), nil
+}
+
 func (c Client) Call(ctx context.Context, request Request) (Response, error) {
 	timeout := c.Timeout
 	if timeout <= 0 {
@@ -71,6 +132,7 @@ type Server struct {
 	Service    *Service
 	AllowedUID uint32
 	MaxFrame   int
+	OpenTUN    func(Endpoint) (*os.File, error)
 	mu         sync.Mutex
 	listener   net.Listener
 }
@@ -163,6 +225,7 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 	}
 	data, err := bufio.NewReader(io.LimitReader(connection, int64(maxFrame+2))).ReadBytes('\n')
 	response := Response{Version: ProtocolVersion}
+	var request Request
 	if err != nil && !errors.Is(err, io.EOF) {
 		response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: err.Error()}
 	} else {
@@ -173,14 +236,38 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 	if response.Error == nil && len(data) > maxFrame {
 		response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: "request exceeds the frame limit"}
 	} else if response.Error == nil {
-		var request Request
 		if err = protocol.StrictDecode(data, &request); err != nil {
 			response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: err.Error()}
 		} else {
 			response = s.Service.Dispatch(ctx, request)
 		}
 	}
-	_ = json.NewEncoder(connection).Encode(response)
+	encoded, _ := json.Marshal(response)
+	encoded = append(encoded, '\n')
+	if request.Method == "ATTACH" && response.Error == nil && response.Endpoint != nil {
+		opener := s.OpenTUN
+		if opener == nil {
+			opener = OpenTUN
+		}
+		device, openErr := opener(*response.Endpoint)
+		if openErr != nil {
+			response.Endpoint = nil
+			response.Error = &APIError{Code: "INTERNAL", Message: openErr.Error(), Retryable: true}
+			encoded, _ = json.Marshal(response)
+			encoded = append(encoded, '\n')
+		} else {
+			defer device.Close()
+			if unixConnection, ok := connection.(*net.UnixConn); ok {
+				_, _, _ = unixConnection.WriteMsgUnix(encoded, unix.UnixRights(int(device.Fd())), nil)
+				return
+			}
+			response.Endpoint = nil
+			response.Error = &APIError{Code: "INTERNAL", Message: "ATTACH requires a Unix socket"}
+			encoded, _ = json.Marshal(response)
+			encoded = append(encoded, '\n')
+		}
+	}
+	_, _ = connection.Write(encoded)
 }
 
 func CurrentUID() uint32 { return uint32(syscall.Geteuid()) }

@@ -21,14 +21,21 @@ type Backend interface {
 	Delete(context.Context, Endpoint) error
 }
 
+type NamespaceBackend interface {
+	Backend
+	CreateNamespace(context.Context, string) (string, error)
+	DeleteNamespace(context.Context, string) error
+}
+
 type Service struct {
-	Store   *Store
-	Backend Backend
-	Subnet  *net.IPNet
-	MTU     int
-	DNS     DNS
-	now     func() time.Time
-	mu      sync.Mutex
+	Store       *Store
+	Backend     Backend
+	Subnet      *net.IPNet
+	MTU         int
+	DNS         DNS
+	now         func() time.Time
+	mu          sync.Mutex
+	orchestrate sync.Mutex
 }
 
 func NewService(store *Store, backend Backend, subnet string, mtu int, dns DNS) (*Service, error) {
@@ -67,7 +74,7 @@ func validateEndpoint(endpoint *Endpoint, requireNetNS bool) *APIError {
 	if len(endpoint.IfName) > 15 {
 		return &APIError{Code: "INVALID_ARGUMENT", Message: "interface name exceeds the Linux 15-byte limit"}
 	}
-	if requireNetNS && (endpoint.NetNS == "" || endpoint.NetNS[0] != '/') {
+	if requireNetNS && !endpoint.ManagedNamespace && (endpoint.NetNS == "" || endpoint.NetNS[0] != '/') {
 		return &APIError{Code: "INVALID_ARGUMENT", Message: "ADD and CHECK require an absolute network namespace path"}
 	}
 	return nil
@@ -106,7 +113,7 @@ func (s *Service) allocate() (address, gateway string, err error) {
 }
 
 func sameAdd(a, b Endpoint) bool {
-	return a.ContainerID == b.ContainerID && a.NetworkName == b.NetworkName && a.IfName == b.IfName && a.NetNS == b.NetNS
+	return a.ContainerID == b.ContainerID && a.NetworkName == b.NetworkName && a.IfName == b.IfName && a.NetNS == b.NetNS && a.Owner == b.Owner
 }
 
 func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIError) {
@@ -114,6 +121,15 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 	defer s.mu.Unlock()
 	if issue := validateEndpoint(&requested, true); issue != nil {
 		return Endpoint{}, issue
+	}
+	if requested.Owner == "" {
+		requested.Owner = "cni"
+	}
+	if requested.Owner != "cni" && requested.Owner != "runtime" {
+		return Endpoint{}, &APIError{Code: "INVALID_ARGUMENT", Message: "endpoint owner must be cni or runtime"}
+	}
+	if requested.ManagedNamespace && requested.Owner != "runtime" {
+		return Endpoint{}, &APIError{Code: "INVALID_ARGUMENT", Message: "only runtime-owned endpoints may create a namespace"}
 	}
 	if existing, ok := s.Store.Get(requested.NetworkName, requested.ContainerID, requested.IfName); ok {
 		if !sameAdd(existing, requested) {
@@ -136,12 +152,28 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 	requested.Generation, requested.Address, requested.Gateway = gen, address, gateway
 	requested.MTU, requested.DNS, requested.State = s.MTU, s.DNS, "READY"
 	requested.CreatedAt, requested.UpdatedAt = now, now
+	if requested.ManagedNamespace {
+		namespaces, ok := s.Backend.(NamespaceBackend)
+		if !ok {
+			return Endpoint{}, &APIError{Code: "UNSUPPORTED", Message: "network backend cannot create namespaces"}
+		}
+		requested.NetNS, err = namespaces.CreateNamespace(ctx, requested.Generation)
+		if err != nil {
+			return Endpoint{}, &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		}
+	}
 	if err = s.Backend.Add(ctx, requested); err != nil {
 		_ = s.Backend.Delete(context.WithoutCancel(ctx), requested)
+		if requested.ManagedNamespace {
+			_ = s.Backend.(NamespaceBackend).DeleteNamespace(context.WithoutCancel(ctx), requested.NetNS)
+		}
 		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "endpoint ADD rolled back: " + err.Error(), Retryable: true}
 	}
 	if err = s.Store.Put(requested); err != nil {
 		rollbackErr := s.Backend.Delete(context.WithoutCancel(ctx), requested)
+		if requested.ManagedNamespace {
+			rollbackErr = errors.Join(rollbackErr, s.Backend.(NamespaceBackend).DeleteNamespace(context.WithoutCancel(ctx), requested.NetNS))
+		}
 		return Endpoint{}, &APIError{Code: "INTERNAL", Message: errors.Join(err, rollbackErr).Error(), Retryable: true}
 	}
 	return requested, nil
@@ -152,6 +184,9 @@ func (s *Service) Check(ctx context.Context, requested Endpoint) (Endpoint, *API
 	defer s.mu.Unlock()
 	if issue := validateEndpoint(&requested, true); issue != nil {
 		return Endpoint{}, issue
+	}
+	if requested.Owner == "" {
+		requested.Owner = "cni"
 	}
 	existing, ok := s.Store.Get(requested.NetworkName, requested.ContainerID, requested.IfName)
 	if !ok {
@@ -190,6 +225,15 @@ func (s *Service) Delete(ctx context.Context, requested Endpoint) *APIError {
 	}
 	if err := s.Backend.Delete(ctx, existing); err != nil {
 		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+	}
+	if existing.ManagedNamespace {
+		namespaces, ok := s.Backend.(NamespaceBackend)
+		if !ok {
+			return &APIError{Code: "INTERNAL", Message: "managed endpoint backend cannot delete namespaces"}
+		}
+		if err := namespaces.DeleteNamespace(ctx, existing.NetNS); err != nil {
+			return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		}
 	}
 	if err := s.Store.Delete(existing.NetworkName, existing.ContainerID, existing.IfName); err != nil {
 		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
@@ -231,6 +275,53 @@ func (s *Service) Bind(ctx context.Context, requested Endpoint) (Endpoint, *APIE
 		return Endpoint{}, &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
 	}
 	return *match, nil
+}
+
+func (s *Service) Provision(ctx context.Context, requested Endpoint) (Endpoint, *APIError) {
+	s.orchestrate.Lock()
+	defer s.orchestrate.Unlock()
+	if !identifier.MatchString(requested.SandboxID) || !endpointGeneration.MatchString(requested.SandboxGeneration) {
+		return Endpoint{}, &APIError{Code: "INVALID_ARGUMENT", Message: "PROVISION requires sandbox identity/generation"}
+	}
+	for _, candidate := range s.Store.List() {
+		identityMatch := candidate.ContainerID == requested.ContainerID && candidate.NetworkName == requested.NetworkName && candidate.IfName == requested.IfName
+		if identityMatch || (requested.NetNS != "" && candidate.NetNS == requested.NetNS) {
+			if !identityMatch || (requested.NetNS != "" && candidate.NetNS != requested.NetNS) {
+				return Endpoint{}, &APIError{Code: "ALREADY_EXISTS", Message: "namespace endpoint identity belongs to a different workload"}
+			}
+			return s.Bind(ctx, Endpoint{NetNS: candidate.NetNS, Generation: candidate.Generation, SandboxID: requested.SandboxID, SandboxGeneration: requested.SandboxGeneration})
+		}
+	}
+	requested.Owner = "runtime"
+	requested.ManagedNamespace = requested.NetNS == ""
+	sandboxID, sandboxGeneration := requested.SandboxID, requested.SandboxGeneration
+	requested.SandboxID, requested.SandboxGeneration = "", ""
+	allocated, issue := s.Add(ctx, requested)
+	if issue != nil {
+		return Endpoint{}, issue
+	}
+	bound, issue := s.Bind(ctx, Endpoint{NetNS: allocated.NetNS, Generation: allocated.Generation, SandboxID: sandboxID, SandboxGeneration: sandboxGeneration})
+	if issue != nil {
+		_ = s.Delete(context.WithoutCancel(ctx), allocated)
+	}
+	return bound, issue
+}
+
+func (s *Service) Release(ctx context.Context, requested Endpoint) *APIError {
+	s.orchestrate.Lock()
+	defer s.orchestrate.Unlock()
+	var match *Endpoint
+	for _, candidate := range s.Store.List() {
+		if candidate.SandboxID == requested.SandboxID {
+			copy := candidate
+			match = &copy
+			break
+		}
+	}
+	if issue := s.Unbind(requested); issue != nil || match == nil || match.Owner != "runtime" {
+		return issue
+	}
+	return s.Delete(ctx, *match)
 }
 
 func (s *Service) Unbind(requested Endpoint) *APIError {
@@ -350,7 +441,7 @@ func (s *Service) Dispatch(ctx context.Context, request Request) Response {
 			break
 		}
 		response.Error = s.Delete(ctx, *request.Endpoint)
-	case "BIND":
+	case "BIND", "ATTACH":
 		if request.Endpoint == nil {
 			response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: "endpoint is required"}
 			break
@@ -369,6 +460,19 @@ func (s *Service) Dispatch(ctx context.Context, request Request) Response {
 			break
 		}
 		response.Error = s.Report(*request.Endpoint)
+	case "PROVISION":
+		if request.Endpoint == nil {
+			response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: "endpoint is required"}
+			break
+		}
+		endpoint, issue := s.Provision(ctx, *request.Endpoint)
+		response.Endpoint, response.Error = &endpoint, issue
+	case "RELEASE":
+		if request.Endpoint == nil {
+			response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: "endpoint is required"}
+			break
+		}
+		response.Error = s.Release(ctx, *request.Endpoint)
 	case "LIST":
 		response.Error = &APIError{Code: "UNSUPPORTED", Message: fmt.Sprintf("LIST has %d endpoints; use the administrative API", len(s.List()))}
 	default:

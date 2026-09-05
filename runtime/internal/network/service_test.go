@@ -10,13 +10,15 @@ import (
 )
 
 type fakeBackend struct {
-	mu         sync.Mutex
-	adds       []Endpoint
-	checks     []Endpoint
-	deletes    []Endpoint
-	failAdd    error
-	failCheck  error
-	failDelete error
+	mu                sync.Mutex
+	adds              []Endpoint
+	checks            []Endpoint
+	deletes           []Endpoint
+	failAdd           error
+	failCheck         error
+	failDelete        error
+	namespacesCreated []string
+	namespacesDeleted []string
 }
 
 func (f *fakeBackend) Add(_ context.Context, endpoint Endpoint) error {
@@ -36,6 +38,19 @@ func (f *fakeBackend) Delete(_ context.Context, endpoint Endpoint) error {
 	defer f.mu.Unlock()
 	f.deletes = append(f.deletes, endpoint)
 	return f.failDelete
+}
+func (f *fakeBackend) CreateNamespace(_ context.Context, generation string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	path := "/run/netns/mk-" + generation[:12]
+	f.namespacesCreated = append(f.namespacesCreated, path)
+	return path, nil
+}
+func (f *fakeBackend) DeleteNamespace(_ context.Context, path string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.namespacesDeleted = append(f.namespacesDeleted, path)
+	return nil
 }
 
 func service(t *testing.T, subnet string, backend *fakeBackend) *Service {
@@ -246,5 +261,29 @@ func TestCounterReportsAreGenerationBoundAndMonotonic(t *testing.T) {
 	report.RXPackets, report.SandboxGeneration = 21, "22222222222222222222222222222222"
 	if issue = s.Report(report); issue == nil || issue.Code != "STALE_GENERATION" {
 		t.Fatalf("stale report issue=%+v", issue)
+	}
+}
+
+func TestRuntimeProvisionOwnsLifecycleWhileExternalCNIRetainsIt(t *testing.T) {
+	backend := &fakeBackend{}
+	s := service(t, "172.31.0.0/29", backend)
+	sandboxGeneration := "11111111111111111111111111111111"
+	runtimeEndpoint, issue := s.Provision(context.Background(), Endpoint{ContainerID: "runtime-one", NetworkName: "multikernel", IfName: "mktun0", SandboxID: "sandbox-one", SandboxGeneration: sandboxGeneration})
+	if issue != nil || runtimeEndpoint.Owner != "runtime" || !runtimeEndpoint.ManagedNamespace || len(backend.namespacesCreated) != 1 {
+		t.Fatalf("runtime endpoint=%+v issue=%v namespaces=%v", runtimeEndpoint, issue, backend.namespacesCreated)
+	}
+	if issue = s.Release(context.Background(), Endpoint{SandboxID: "sandbox-one", SandboxGeneration: sandboxGeneration}); issue != nil || len(backend.namespacesDeleted) != 1 || len(s.List()) != 0 {
+		t.Fatalf("runtime release issue=%v namespace deletes=%v endpoints=%v", issue, backend.namespacesDeleted, s.List())
+	}
+	external, issue := s.Add(context.Background(), endpoint("external"))
+	if issue != nil {
+		t.Fatal(issue)
+	}
+	bound, issue := s.Provision(context.Background(), Endpoint{ContainerID: external.ContainerID, NetworkName: external.NetworkName, IfName: external.IfName, NetNS: external.NetNS, SandboxID: "sandbox-two", SandboxGeneration: sandboxGeneration})
+	if issue != nil || bound.Owner != "cni" {
+		t.Fatalf("external bind=%+v issue=%v", bound, issue)
+	}
+	if issue = s.Release(context.Background(), Endpoint{SandboxID: "sandbox-two", SandboxGeneration: sandboxGeneration}); issue != nil || len(s.List()) != 1 {
+		t.Fatalf("external release issue=%v endpoints=%v", issue, s.List())
 	}
 }
