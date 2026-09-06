@@ -53,21 +53,22 @@ const runtimeName = "io.containerd.multikernel.v2"
 var runtimeIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 
 type process struct {
-	id, stdin, stdout, stderr  string
-	terminal                   bool
-	width, height              uint32
-	sizeSet                    bool
-	status                     tasktypes.Status
-	pid                        uint32
-	exit                       uint32
-	exited                     time.Time
-	done                       chan struct{}
-	stdinReader                io.ReadWriteCloser
-	stdoutWriter, stderrWriter io.WriteCloser
-	stdoutGuard, stderrGuard   io.Closer
-	stdinClosed                bool
-	stdoutOffset, stderrOffset uint64
-	exitEventQueued            bool
+	id, stdin, stdout, stderr      string
+	terminal                       bool
+	width, height                  uint32
+	sizeSet                        bool
+	status                         tasktypes.Status
+	pid                            uint32
+	exit                           uint32
+	exited                         time.Time
+	done                           chan struct{}
+	stdinReader                    io.ReadWriteCloser
+	stdoutWriter, stderrWriter     io.WriteCloser
+	stdoutGuard, stderrGuard       io.Closer
+	stdinClosed                    bool
+	stdoutOffset, stderrOffset     uint64
+	stdoutPressure, stderrPressure time.Time
+	exitEventQueued                bool
 }
 
 type agentClient interface {
@@ -1133,11 +1134,11 @@ func openOutput(ctx context.Context, path string) (io.WriteCloser, io.Closer, er
 	}
 	// O_RDWR opens synchronously and keeps a read endpoint present even when
 	// the creating client detaches before another client attaches.
-	guard, err := fifo.OpenFifo(context.Background(), path, syscall.O_RDWR, 0)
+	guard, err := fifo.OpenFifo(ctx, path, syscall.O_RDWR|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, nil, err
 	}
-	w, err := fifo.OpenFifo(ctx, path, syscall.O_WRONLY, 0)
+	w, err := fifo.OpenFifo(ctx, path, syscall.O_WRONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		guard.Close()
 		return nil, nil, err
@@ -1160,7 +1161,7 @@ func (s *service) openProcessIO(ctx context.Context, p *process) (err error) {
 		}
 	}
 	if p.stdin != "" {
-		p.stdinReader, err = fifo.OpenFifo(context.Background(), p.stdin, syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
+		p.stdinReader, err = fifo.OpenFifo(ctx, p.stdin, syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
 		if err != nil {
 			closeProcessIO(p)
 			return fmt.Errorf("open stdin: %w", err)
@@ -1244,24 +1245,33 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 			Status       string `json:"status"`
 		}
 		err = s.agent.Call("ReadProcessOutput", map[string]any{
-			"id": agentID, "stdout_offset": p.stdoutOffset, "stderr_offset": p.stderrOffset, "limit": uint64(32 << 10),
+			"id": agentID, "stdout_offset": p.stdoutOffset, "stderr_offset": p.stderrOffset, "limit": uint64(4096),
 		}, &output)
 		if err != nil {
 			break
 		}
+		now := time.Now()
+		stdoutAdvance, stdoutDropped := deliverOutput(p.stdoutWriter, output.Stdout, &p.stdoutPressure, now, 30*time.Second)
+		stderrAdvance, stderrDropped := deliverOutput(p.stderrWriter, output.Stderr, &p.stderrPressure, now, 30*time.Second)
 		s.mu.Lock()
-		p.stdoutOffset, p.stderrOffset = output.StdoutOffset, output.StderrOffset
-		_ = s.persistRecovery()
-		s.mu.Unlock()
-		if p.stdoutWriter != nil && len(output.Stdout) > 0 {
-			if _, writeErr := p.stdoutWriter.Write(output.Stdout); writeErr != nil {
-				fmt.Fprintf(os.Stderr, "multikernel stdout: %v\n", writeErr)
-			}
+		if stdoutAdvance {
+			p.stdoutOffset = output.StdoutOffset
 		}
-		if p.stderrWriter != nil && len(output.Stderr) > 0 {
-			if _, writeErr := p.stderrWriter.Write(output.Stderr); writeErr != nil {
-				fmt.Fprintf(os.Stderr, "multikernel stderr: %v\n", writeErr)
-			}
+		if stderrAdvance {
+			p.stderrOffset = output.StderrOffset
+		}
+		if stdoutAdvance || stderrAdvance {
+			_ = s.persistRecovery()
+		}
+		s.mu.Unlock()
+		if stdoutDropped {
+			fmt.Fprintf(os.Stderr, "multikernel stdout: discarded %d bytes after 30s output pressure\n", len(output.Stdout))
+		}
+		if stderrDropped {
+			fmt.Fprintf(os.Stderr, "multikernel stderr: discarded %d bytes after 30s output pressure\n", len(output.Stderr))
+		}
+		if !stdoutAdvance || !stderrAdvance {
+			time.Sleep(10 * time.Millisecond)
 		}
 		if output.Status == "STOPPED" && len(output.Stdout) == 0 && len(output.Stderr) == 0 {
 			err = s.agent.Call("WaitProcess", map[string]string{"ID": agentID}, &state)
@@ -1287,6 +1297,31 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 	_ = s.persistRecovery()
 	close(p.done)
 	s.mu.Unlock()
+}
+
+// deliverOutput advances a guest offset only after the complete chunk reaches
+// its destination. Chunks are capped at Linux PIPE_BUF by waitProcess, making
+// nonblocking FIFO writes all-or-nothing. A permanently absent/slow consumer
+// cannot retain the shim forever: after the documented bound the chunk is
+// deliberately discarded and acknowledged with a diagnostic.
+func deliverOutput(writer io.Writer, data []byte, pressure *time.Time, now time.Time, timeout time.Duration) (advance, dropped bool) {
+	if len(data) == 0 || writer == nil {
+		*pressure = time.Time{}
+		return true, false
+	}
+	n, err := writer.Write(data)
+	if err == nil && n == len(data) {
+		*pressure = time.Time{}
+		return true, false
+	}
+	if pressure.IsZero() {
+		*pressure = now
+	}
+	if timeout > 0 && now.Sub(*pressure) >= timeout {
+		*pressure = time.Time{}
+		return true, true
+	}
+	return false, false
 }
 
 func (s *service) publishExit(ctx context.Context, execID string, p *process) error {

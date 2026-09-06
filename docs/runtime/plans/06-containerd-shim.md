@@ -50,6 +50,15 @@ Consumers must treat the Task event tuple and state transition idempotently.
 First delivery remains journal-ordered; replayed duplicates must not be
 interpreted as new lifecycle transitions.
 
+Output FIFOs are opened nonblocking with a guard endpoint so detached clients
+may reattach. The shim fetches at most Linux `PIPE_BUF` (4096) bytes per stream
+and advances each durable guest-output offset only after the entire chunk is
+written. Backpressure therefore replays rather than silently losing a chunk.
+If a consumer remains absent or slow for 30 seconds, the shim logs the exact
+dropped byte count and advances that stream deliberately so process wait and
+cleanup remain bounded. An unconfigured output stream is discarded by
+contract. Input and output FIFO opens honor the Task request context.
+
 ## Tests
 
 - Unit tests against a fake daemon.

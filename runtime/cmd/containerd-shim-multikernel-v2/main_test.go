@@ -76,6 +76,10 @@ type retryPublisher struct {
 	published chan string
 }
 
+type writerFunc func([]byte) (int, error)
+
+func (f writerFunc) Write(value []byte) (int, error) { return f(value) }
+
 func (f *retryPublisher) Publish(_ context.Context, topic string, _ events.Event) error {
 	f.attempts++
 	if f.attempts == 1 {
@@ -251,6 +255,34 @@ func TestOutputFIFOCanBeReattached(t *testing.T) {
 	}
 	if string(got) != "reattach-ok" {
 		t.Fatalf("attached output = %q, err = %v", got, err)
+	}
+}
+
+func TestOutputOffsetsAdvanceOnlyAfterDeliveryOrBoundedDrop(t *testing.T) {
+	now := time.Unix(100, 0)
+	pressure := time.Time{}
+	blocked := writerFunc(func([]byte) (int, error) { return 0, syscall.EAGAIN })
+	advance, dropped := deliverOutput(blocked, []byte("output"), &pressure, now, time.Second)
+	if advance || dropped || !pressure.Equal(now) {
+		t.Fatalf("initial pressure advanced=%v dropped=%v since=%v", advance, dropped, pressure)
+	}
+	advance, dropped = deliverOutput(blocked, []byte("output"), &pressure, now.Add(999*time.Millisecond), time.Second)
+	if advance || dropped {
+		t.Fatalf("pre-deadline pressure advanced=%v dropped=%v", advance, dropped)
+	}
+	advance, dropped = deliverOutput(blocked, []byte("output"), &pressure, now.Add(time.Second), time.Second)
+	if !advance || !dropped || !pressure.IsZero() {
+		t.Fatalf("bounded drop advanced=%v dropped=%v since=%v", advance, dropped, pressure)
+	}
+	pressure = now
+	complete := writerFunc(func(value []byte) (int, error) { return len(value), nil })
+	advance, dropped = deliverOutput(complete, []byte("output"), &pressure, now, time.Second)
+	if !advance || dropped || !pressure.IsZero() {
+		t.Fatalf("complete delivery advanced=%v dropped=%v since=%v", advance, dropped, pressure)
+	}
+	advance, dropped = deliverOutput(nil, []byte("discard-by-contract"), &pressure, now, time.Second)
+	if !advance || dropped {
+		t.Fatalf("unconfigured output advanced=%v dropped=%v", advance, dropped)
 	}
 }
 
