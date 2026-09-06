@@ -18,5 +18,7 @@
   {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-reply-error.valid.json", "valid": true},
   {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-reply-mac.invalid.json", "valid": false},
   {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.valid.json", "valid": true},
-  {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.missing-exit.invalid.json", "valid": false}
+  {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.missing-exit.invalid.json", "valid": false},
+  {"schema": "gce-resource-ledger-v1.schema.json", "fixture": "gce-resource-ledger.valid.json", "valid": true},
+  {"schema": "gce-resource-ledger-v1.schema.json", "fixture": "gce-resource-ledger.missing-autodelete.invalid.json", "valid": false}
 ]

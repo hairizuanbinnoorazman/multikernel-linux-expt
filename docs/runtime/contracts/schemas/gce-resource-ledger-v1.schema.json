@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multikernel.example/schemas/gce-resource-ledger-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "captured_at", "provider", "project", "instances", "disks", "snapshots", "addresses", "firewall_rules"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "provider": {"const": "gce"},
+    "project": {"type": "string", "minLength": 1, "maxLength": 256},
+    "instances": {"type": "array", "items": {"$ref": "#/$defs/instance"}},
+    "disks": {"type": "array", "items": {"$ref": "#/$defs/disk"}},
+    "snapshots": {"type": "array", "items": {"$ref": "#/$defs/snapshot"}},
+    "addresses": {"type": "array", "items": {"$ref": "#/$defs/address"}},
+    "firewall_rules": {"type": "array", "items": {"$ref": "#/$defs/firewall"}}
+  },
+  "$defs": {
+    "labels": {"type": "object", "propertyNames": {"pattern": "^[a-z][a-z0-9_-]{0,62}$"}, "additionalProperties": {"type": "string", "maxLength": 256}},
+    "name": {"type": "string", "minLength": 1, "maxLength": 256},
+    "stringArray": {"type": "array", "items": {"type": "string"}},
+    "attachment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "boot", "auto_delete"],
+      "properties": {"name": {"$ref": "#/$defs/name"}, "boot": {"type": "boolean"}, "auto_delete": {"type": "boolean"}}
+    },
+    "instance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "zone", "status", "machine_type", "creation_timestamp", "labels", "disks", "external_ips"],
+      "properties": {
+        "name": {"$ref": "#/$defs/name"}, "zone": {"$ref": "#/$defs/name"}, "status": {"$ref": "#/$defs/name"},
+        "machine_type": {"$ref": "#/$defs/name"}, "creation_timestamp": {"type": "string", "format": "date-time"},
+        "labels": {"$ref": "#/$defs/labels"}, "disks": {"type": "array", "items": {"$ref": "#/$defs/attachment"}},
+        "external_ips": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "disk": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "zone", "status", "size_gb", "disk_type", "labels", "users", "source_snapshot"],
+      "properties": {
+        "name": {"$ref": "#/$defs/name"}, "zone": {"$ref": "#/$defs/name"}, "status": {"$ref": "#/$defs/name"},
+        "size_gb": {"type": "integer", "minimum": 1}, "disk_type": {"$ref": "#/$defs/name"},
+        "labels": {"$ref": "#/$defs/labels"}, "users": {"$ref": "#/$defs/stringArray"}, "source_snapshot": {"type": ["string", "null"]}
+      }
+    },
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "status", "size_gb", "storage_bytes", "creation_timestamp", "labels", "source_disk"],
+      "properties": {
+        "name": {"$ref": "#/$defs/name"}, "status": {"$ref": "#/$defs/name"}, "size_gb": {"type": "integer", "minimum": 1},
+        "storage_bytes": {"type": "integer", "minimum": 0}, "creation_timestamp": {"type": "string", "format": "date-time"},
+        "labels": {"$ref": "#/$defs/labels"}, "source_disk": {"type": ["string", "null"]}
+      }
+    },
+    "address": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "region", "status", "address", "address_type", "labels", "users"],
+      "properties": {
+        "name": {"$ref": "#/$defs/name"}, "region": {"type": ["string", "null"]}, "status": {"$ref": "#/$defs/name"},
+        "address": {"type": "string"}, "address_type": {"$ref": "#/$defs/name"}, "labels": {"$ref": "#/$defs/labels"},
+        "users": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "firewall": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "network", "direction", "priority", "disabled", "source_ranges", "destination_ranges", "target_tags", "allowed", "denied"],
+      "properties": {
+        "name": {"$ref": "#/$defs/name"}, "network": {"$ref": "#/$defs/name"}, "direction": {"enum": ["INGRESS", "EGRESS"]},
+        "priority": {"type": "integer", "minimum": 0, "maximum": 65535}, "disabled": {"type": "boolean"},
+        "source_ranges": {"$ref": "#/$defs/stringArray"}, "destination_ranges": {"$ref": "#/$defs/stringArray"},
+        "target_tags": {"$ref": "#/$defs/stringArray"}, "allowed": {"type": "array", "items": {"type": "object"}},
+        "denied": {"type": "array", "items": {"type": "object"}}
+      }
+    }
+  }
+}
