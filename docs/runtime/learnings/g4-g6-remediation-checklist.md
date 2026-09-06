@@ -299,7 +299,12 @@ normative plan is revised with an explicit rationale.
   their test/evidence rows below.
 - [ ] Harden FIFO handling for peer disappearance, attach/detach churn, blocked
   writers, slow/unread output, output pressure, `CloseIO` races, and shim
-  restart. Bound retained output and goroutine/process lifetime.
+  restart. Bound retained output and goroutine/process lifetime. Output is now
+  nonblocking and fetched in atomic-size chunks; offsets advance only after
+  complete delivery, while sustained pressure has a logged 30-second bounded
+  drop policy. FIFO opens honor cancellation and focused tests cover reattach,
+  acknowledged offsets, replay under pressure, and bounded drop. The full
+  peer/churn/`CloseIO`/restart matrix remains open.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
   teardown without leaking resources.
