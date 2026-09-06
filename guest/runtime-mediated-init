@@ -1,0 +1,84 @@
+#!/bin/busybox sh
+set -eu
+
+/bin/busybox --install -s /bin
+mkdir -p /dev /proc /sys /tmp /newroot
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
+getarg() {
+	for argument in $(cat /proc/cmdline); do
+		case "$argument" in
+			"$1"=*) echo "${argument#*=}"; return ;;
+		esac
+	done
+}
+
+sandbox_id=$(getarg mk.sandbox_id)
+image_id=$(getarg mk.image_id)
+storage_generation=$(getarg mk.storage_generation)
+root_uuid=$(getarg mk.root_uuid)
+port=$(getarg mk.storage_port)
+size=$(getarg mk.storage_size)
+for value in "$sandbox_id" "$image_id" "$storage_generation" "$root_uuid" "$port" "$size"; do
+	if [ -z "$value" ]; then
+		echo MK_STORAGE_BOOTSTRAP_FAIL reason=missing-argument
+		exec sh -c 'while true; do sleep 3600; done'
+	fi
+done
+
+insmod /lib/mk_transport.ko || {
+	echo MK_STORAGE_BOOTSTRAP_FAIL reason=transport-module
+	exec sh -c 'while true; do sleep 3600; done'
+}
+insmod /lib/nbd.ko nbds_max=2 || {
+	echo MK_STORAGE_BOOTSTRAP_FAIL reason=nbd-module
+	exec sh -c 'while true; do sleep 3600; done'
+}
+ip link set lo up
+/bin/mkvsock-nbd client 0 "$port" /dev/nbd0 "$size" "$image_id" "$storage_generation" reserved \
+	>/tmp/nbd-client.log 2>&1 &
+nbd_pid=$!
+ready=0
+for second in $(seq 1 20); do
+	if [ -b /dev/nbd0 ] && [ "$(cat /sys/class/block/nbd0/size 2>/dev/null)" -gt 0 ]; then
+		ready=1
+		break
+	fi
+	kill -0 "$nbd_pid" 2>/dev/null || break
+	sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+	cat /tmp/nbd-client.log
+	echo MK_STORAGE_BOOTSTRAP_FAIL reason=nbd-timeout
+	exec sh -c 'while true; do sleep 3600; done'
+fi
+observed_uuid=
+for second in $(seq 1 10); do
+	observed_uuid=$(/bin/mkvsock-nbd uuid /dev/nbd0 2>/dev/null || true)
+	[ "$observed_uuid" = "$root_uuid" ] && break
+	kill -0 "$nbd_pid" 2>/dev/null || break
+	sleep 1
+done
+if [ "$observed_uuid" != "$root_uuid" ]; then
+	echo "MK_STORAGE_BOOTSTRAP_FAIL reason=uuid expected=$root_uuid observed=$observed_uuid"
+	exec sh -c 'while true; do sleep 3600; done'
+fi
+mount -t ext4 -o rw /dev/nbd0 /newroot || {
+	echo MK_STORAGE_BOOTSTRAP_FAIL reason=mount
+	exec sh -c 'while true; do sleep 3600; done'
+}
+observed_image=$(cat /newroot/.multikernel/image-id 2>/dev/null || true)
+if [ "$observed_image" != "$image_id" ]; then
+	echo "MK_STORAGE_BOOTSTRAP_FAIL reason=image-identity expected=$image_id observed=$observed_image"
+	umount /newroot || true
+	exec sh -c 'while true; do sleep 3600; done'
+fi
+cp /tmp/nbd-client.log /newroot/.multikernel/nbd-client.log
+sync
+echo "MK_STORAGE_BOOTSTRAP_READY sandbox=$sandbox_id image=$image_id uuid=$observed_uuid"
+mount --move /dev /newroot/dev
+mount --move /proc /newroot/proc
+mount --move /sys /newroot/sys
+exec switch_root /newroot /init

@@ -39,16 +39,41 @@ type SandboxConfig struct {
 	Bundle         string            `json:"bundle"`
 	AgentPort      uint32            `json:"agent_port"`
 	ChildCID       uint32            `json:"child_cid"`
+	Storage        *StorageConfig    `json:"storage,omitempty"`
 	Labels         map[string]string `json:"labels,omitempty"`
 }
+
+type StorageConfig struct {
+	Path           string `json:"path"`
+	ImageID        string `json:"image_id"`
+	FilesystemUUID string `json:"filesystem_uuid"`
+	SizeBytes      uint64 `json:"size_bytes"`
+	QuotaBytes     uint64 `json:"quota_bytes"`
+	InodeLimit     uint64 `json:"inode_limit"`
+	Port           uint32 `json:"port"`
+	SHA256         string `json:"sha256"`
+}
+
+type StorageStatus struct {
+	ExportGeneration string    `json:"export_generation"`
+	State            string    `json:"state"`
+	OfflineCheck     string    `json:"offline_check,omitempty"`
+	Reads            uint64    `json:"reads"`
+	ReadBytes        uint64    `json:"read_bytes"`
+	Writes           uint64    `json:"writes"`
+	WrittenBytes     uint64    `json:"written_bytes"`
+	Flushes          uint64    `json:"flushes"`
+	ReleasedAt       time.Time `json:"released_at,omitempty"`
+}
 type Sandbox struct {
-	ID         string        `json:"id"`
-	Generation string        `json:"generation"`
-	State      string        `json:"state"`
-	Error      *Error        `json:"error,omitempty"`
-	Config     SandboxConfig `json:"config"`
-	CreatedAt  time.Time     `json:"created_at"`
-	UpdatedAt  time.Time     `json:"updated_at"`
+	ID         string         `json:"id"`
+	Generation string         `json:"generation"`
+	State      string         `json:"state"`
+	Error      *Error         `json:"error,omitempty"`
+	Config     SandboxConfig  `json:"config"`
+	Storage    *StorageStatus `json:"storage,omitempty"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
 }
 type MutationResult struct {
 	Sandbox  Sandbox `json:"sandbox"`

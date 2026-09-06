@@ -138,8 +138,8 @@ func TestValidateServiceIdentityRejectsUnsafeValues(t *testing.T) {
 	}
 }
 
-func TestRootfsMountsAreForcedReadOnlyAndValidated(t *testing.T) {
-	mounts, err := readOnlyRootfsMounts([]*types.Mount{{
+func TestRootfsMountsAreSanitizedForDaemonAndValidated(t *testing.T) {
+	mounts, err := rootfsMounts([]*types.Mount{{
 		Type: "overlay", Source: "overlay", Options: []string{"rw", "lowerdir=/snap", "nodev"},
 	}})
 	if err != nil {
@@ -149,15 +149,15 @@ func TestRootfsMountsAreForcedReadOnlyAndValidated(t *testing.T) {
 	for _, option := range mounts[0].Options {
 		options[option] = true
 	}
-	if options["rw"] || !options["ro"] || !options["lowerdir=/snap"] {
-		t.Fatalf("read-only mount options = %v", mounts[0].Options)
+	if options["rw"] || !options["lowerdir=/snap"] {
+		t.Fatalf("sanitized mount options = %v", mounts[0].Options)
 	}
 	for _, input := range []*types.Mount{
 		{Type: "tmpfs", Source: "tmpfs"},
 		{Type: "bind", Source: "relative"},
 		{Type: "overlay", Source: "overlay", Options: []string{"ro\nmalicious"}},
 	} {
-		if _, err = readOnlyRootfsMounts([]*types.Mount{input}); err == nil {
+		if _, err = rootfsMounts([]*types.Mount{input}); err == nil {
 			t.Fatalf("unsafe mount accepted: %+v", input)
 		}
 	}

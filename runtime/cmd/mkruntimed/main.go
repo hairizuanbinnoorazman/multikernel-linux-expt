@@ -17,7 +17,9 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
+	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage"
 )
 
 func validatePoolReport(report hostcheck.Report, ids, forbidden []int, minPrimaryCPUs int, poolMemory, minPrimaryMemory uint64) error {
@@ -92,11 +94,20 @@ func memoryBytes(value string) (uint64, error) {
 }
 func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
+	var storageState, storageRuntime, storageServer, e2fsck string
+	var rootfsState, rootfsStorage, rootfsBuilder string
 	flag.StringVar(&configPath, "config", "/etc/mkruntime/config.json", "strict root-owned host configuration")
 	flag.StringVar(&pool, "pool-cpus", "", "comma-separated pool APIC IDs")
 	flag.StringVar(&poolmem, "pool-memory", "16GB", "Kerf pool memory")
 	flag.StringVar(&poolmemreserve, "pool-memory-reserve", "1GB", "memory retained as Kerf allocator slack")
-	flag.StringVar(&cmdline, "cmdline", "rdinit=/mk-agent console=mktty0 panic=-1", "child command line")
+	flag.StringVar(&cmdline, "cmdline", "rdinit=/init console=mktty0 panic=-1", "child command line")
+	flag.StringVar(&storageState, "storage-state-dir", "/var/lib/mkruntimed/storage", "durable storage export state")
+	flag.StringVar(&storageRuntime, "storage-runtime-dir", "/run/mkstorage", "storage server lease and log directory")
+	flag.StringVar(&storageServer, "storage-server", "/usr/local/libexec/multikernel/mkvsock-nbd", "primary mediated NBD server")
+	flag.StringVar(&e2fsck, "e2fsck", "/usr/sbin/e2fsck", "offline ext4 checker")
+	flag.StringVar(&rootfsState, "rootfs-state-dir", "/var/lib/mkruntimed/rootfs", "durable rootfs preparation state")
+	flag.StringVar(&rootfsStorage, "rootfs-storage-dir", "/srv/multikernel-storage/runtime", "prepared mediated root images")
+	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
 	hostConfig, e := hostconfig.Load(configPath)
 	if e != nil {
@@ -150,6 +161,23 @@ func main() {
 	}
 	b := &kerf.CLI{Path: kpath, Sysfs: sysfs, PoolCPUs: ids, PoolMemory: poolmem, Timeout: timeout}
 	svc := lifecycle.New(st, b, lifecycle.Artifacts{Cmdline: cmdline})
+	storageStore, e := storage.OpenStore(storageState)
+	if e != nil {
+		fmt.Fprintln(os.Stderr, "storage state:", e)
+		os.Exit(1)
+	}
+	storageBackend := &storage.LinuxBackend{Binary: storageServer, CheckBinary: e2fsck, RuntimeDir: storageRuntime, RequiredUID: 0, ReadyTimeout: timeout, StopTimeout: timeout}
+	svc.SetStorage(storage.NewService(storageStore, storageBackend))
+	rootfsStore, e := rootfspkg.OpenStore(rootfsState)
+	if e != nil {
+		fmt.Fprintln(os.Stderr, "rootfs state:", e)
+		os.Exit(1)
+	}
+	rootfsService, e := rootfspkg.NewService(rootfsStore, &rootfspkg.LinuxBackend{Builder: rootfsBuilder}, rootfsStorage)
+	if e != nil {
+		fmt.Fprintln(os.Stderr, "rootfs service:", e)
+		os.Exit(1)
+	}
 	svc.SetArtifactResolver(kernelmanifest.Resolver{Directory: hostConfig.KernelManifestDirectory, RequiredUID: 0})
 	svc.SetPoolCPUs(ids)
 	svc.SetPoolMemory(poolBytes, reserveBytes)
@@ -159,7 +187,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "reconcile:", e)
 		os.Exit(1)
 	}
-	srv := &daemon.Server{Service: svc, MaxFrame: hostConfig.MaxFrameSizeBytes}
+	if e = rootfsService.Reconcile(ctx); e != nil {
+		fmt.Fprintln(os.Stderr, "rootfs reconcile:", e)
+		os.Exit(1)
+	}
+	srv := &daemon.Server{Service: svc, Rootfs: rootfsService, MaxFrame: hostConfig.MaxFrameSizeBytes}
 	if e = srv.Listen(ctx, socket); e != nil {
 		fmt.Fprintln(os.Stderr, e)
 		os.Exit(1)

@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,7 +29,6 @@ import (
 	types "github.com/containerd/containerd/api/types"
 	tasktypes "github.com/containerd/containerd/api/types/task"
 	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/namespaces"
 	ctruntime "github.com/containerd/containerd/runtime"
 	"github.com/containerd/containerd/runtime/v2/shim"
@@ -44,6 +43,7 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
+	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -221,6 +221,8 @@ type persisted struct {
 	Exit          uint32             `json:"exit"`
 	Exited        time.Time          `json:"exited"`
 	Network       mknetwork.Endpoint `json:"network"`
+	TaskIdentity  string             `json:"task_identity"`
+	StorageSHA256 string             `json:"storage_sha256"`
 	Processes     []persistedProcess `json:"processes,omitempty"`
 }
 
@@ -255,7 +257,9 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 	_ = s.releaseNetwork(ctx)
 	if p.ID != "" {
 		_, _ = daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil)
-		_, _ = daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil)
+		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil); err == nil && p.TaskIdentity != "" && p.StorageSHA256 != "" {
+			_ = s.cleanupRootfs(ctx, rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle, TaskIdentity: p.TaskIdentity, StorageSHA256: p.StorageSHA256})
+		}
 	}
 	if p.Exited.IsZero() {
 		p.Exited = time.Now().UTC()
@@ -276,7 +280,11 @@ func (s *service) persistRecovery() error {
 		return nil
 	}
 	network := s.networkReport("READY")
-	p := persisted{SchemaVersion: 1, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network}
+	p := persisted{SchemaVersion: 1, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
+		TaskIdentity: storageTaskIdentity(s.namespace, s.id)}
+	if s.sandbox.Config.Storage != nil {
+		p.StorageSHA256 = s.sandbox.Config.Storage.SHA256
+	}
 	for _, process := range s.processes {
 		if process.id == "" {
 			p.PID, p.Exit, p.Exited = process.pid, process.exit, process.exited
@@ -528,6 +536,11 @@ func sandboxID(id string) string {
 	return x
 }
 
+func storageTaskIdentity(namespace, id string) string {
+	digest := sha256.Sum256([]byte(namespace + "\x00" + id))
+	return "task-" + hex.EncodeToString(digest[:16])
+}
+
 func parseCPUSet(s string) ([][]int, error) {
 	var sets [][]int
 	for _, group := range strings.Split(s, ";") {
@@ -580,7 +593,7 @@ func (s *service) allocate(ctx context.Context, bundle string) (protocol.Sandbox
 			}
 		}
 		if free {
-			return protocol.SandboxConfig{SchemaVersion: 1, ID: sandboxID(s.id), CPUs: set, MemoryBytes: 3 << 30, KernelManifest: "gce-mk2", Bundle: bundle, AgentPort: uint32(7200 + i), ChildCID: uint32(40 + i)}, lock, nil
+			return protocol.SandboxConfig{SchemaVersion: 1, ID: sandboxID(s.id), CPUs: set, MemoryBytes: 3 << 30, KernelManifest: "gce-mk2", Bundle: bundle, AgentPort: uint32(7200 + i), ChildCID: uint32(40 + i), Storage: &protocol.StorageConfig{Port: uint32(4061 + i)}}, lock, nil
 		}
 	}
 	lock.Close()
@@ -591,22 +604,24 @@ func (s *service) publish(ctx context.Context, topic string, event any) error {
 	return s.publisher.Publish(namespaces.WithNamespace(ctx, s.namespace), topic, event)
 }
 
-func (s *service) rollbackCreate(ctx context.Context, root, runtimeDir string) error {
+func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.CleanupRequest, lifecycleAttempted bool) error {
 	var failures []error
+	canCleanupPrepared := !lifecycleAttempted
 	if err := s.releaseNetwork(ctx); err != nil {
 		failures = append(failures, err)
 	}
 	if s.sandbox.ID != "" {
 		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-create-rollback-delete-"+s.sandbox.Generation, nil); err != nil {
 			failures = append(failures, fmt.Errorf("delete allocated sandbox: %w", err))
+		} else {
+			canCleanupPrepared = true
+			s.sandbox = protocol.Sandbox{}
 		}
-		s.sandbox = protocol.Sandbox{}
 	}
-	if err := mount.UnmountAll(root, 0); err != nil {
-		failures = append(failures, fmt.Errorf("unmount rootfs: %w", err))
-	}
-	if err := os.RemoveAll(runtimeDir); err != nil {
-		failures = append(failures, fmt.Errorf("remove runtime artifacts: %w", err))
+	if prepared != nil && canCleanupPrepared {
+		if err := s.cleanupRootfs(ctx, *prepared); err != nil {
+			failures = append(failures, fmt.Errorf("cleanup prepared rootfs: %w", err))
+		}
 	}
 	s.token = nil
 	delete(s.processes, "")
@@ -698,8 +713,8 @@ func (s *service) releaseNetwork(ctx context.Context) error {
 	return err
 }
 
-func readOnlyRootfsMounts(input []*types.Mount) ([]mount.Mount, error) {
-	result := make([]mount.Mount, len(input))
+func rootfsMounts(input []*types.Mount) ([]rootfspkg.Mount, error) {
+	result := make([]rootfspkg.Mount, len(input))
 	for index, item := range input {
 		if item.Type != "overlay" && item.Type != "bind" && item.Type != "none" {
 			return nil, fmt.Errorf("%w: unsupported rootfs mount type %q", errdefs.ErrNotImplemented, item.Type)
@@ -707,7 +722,7 @@ func readOnlyRootfsMounts(input []*types.Mount) ([]mount.Mount, error) {
 		if (item.Type == "bind" || item.Type == "none") && !filepath.IsAbs(item.Source) {
 			return nil, fmt.Errorf("%w: bind rootfs source must be absolute", errdefs.ErrInvalidArgument)
 		}
-		options := make([]string, 0, len(item.Options)+1)
+		options := make([]string, 0, len(item.Options))
 		for _, option := range item.Options {
 			if option == "rw" {
 				continue
@@ -717,12 +732,34 @@ func readOnlyRootfsMounts(input []*types.Mount) ([]mount.Mount, error) {
 			}
 			options = append(options, option)
 		}
-		if !slices.Contains(options, "ro") {
-			options = append(options, "ro")
-		}
-		result[index] = mount.Mount{Type: item.Type, Source: item.Source, Options: options}
+		result[index] = rootfspkg.Mount{Type: item.Type, Source: item.Source, Options: options}
 	}
 	return result, nil
+}
+
+func (s *service) prepareRootfs(ctx context.Context, request rootfspkg.PrepareRequest) (rootfspkg.PrepareResult, error) {
+	body, err := json.Marshal(request)
+	if err != nil {
+		return rootfspkg.PrepareResult{}, err
+	}
+	var result rootfspkg.PrepareResult
+	apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "prepare-rootfs-" + request.TaskIdentity, Method: "PrepareRootfs", Body: body}, &result)
+	if apiErr != nil {
+		return result, errors.New(apiErr.Code + ": " + apiErr.Message)
+	}
+	return result, nil
+}
+
+func (s *service) cleanupRootfs(ctx context.Context, request rootfspkg.CleanupRequest) error {
+	body, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+	apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "cleanup-rootfs-" + request.TaskIdentity, Method: "CleanupRootfs", Body: body}, nil)
+	if apiErr != nil {
+		return errors.New(apiErr.Code + ": " + apiErr.Message)
+	}
+	return nil
 }
 
 func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *taskapi.CreateTaskResponse, retErr error) {
@@ -738,29 +775,34 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err != nil {
 		return nil, err
 	}
-	root := filepath.Join(r.Bundle, "rootfs")
-	if err := os.MkdirAll(root, 0711); err != nil {
-		return nil, err
-	}
-	mounts, err := readOnlyRootfsMounts(r.Rootfs)
+	mounts, err := rootfsMounts(r.Rootfs)
 	if err != nil {
 		return nil, err
 	}
-	if err := mount.All(mounts, root); err != nil {
-		return nil, fmt.Errorf("mount rootfs: %w", err)
-	}
 	runtimeDir := filepath.Join(r.Bundle, ".multikernel")
+	var prepared *rootfspkg.CleanupRequest
+	lifecycleAttempted := false
 	fail := true
 	defer func() {
 		if fail {
-			if cleanupErr := s.rollbackCreate(context.WithoutCancel(ctx), root, runtimeDir); cleanupErr != nil {
+			if cleanupErr := s.rollbackCreate(context.WithoutCancel(ctx), prepared, lifecycleAttempted); cleanupErr != nil {
 				retErr = errors.Join(retErr, fmt.Errorf("create rollback: %w", cleanupErr))
 			}
 		}
 	}()
-	if err := os.MkdirAll(runtimeDir, 0700); err != nil {
+	config, lock, err := s.allocate(ctx, r.Bundle)
+	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); lock.Close() }()
+	identity := storageTaskIdentity(s.namespace, s.id)
+	result, err := s.prepareRootfs(ctx, rootfspkg.PrepareRequest{Version: rootfspkg.Version, Bundle: r.Bundle,
+		TaskIdentity: identity, StoragePort: config.Storage.Port, Mounts: mounts})
+	if err != nil {
+		return nil, err
+	}
+	config.Storage = &result.Storage
+	prepared = &rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: r.Bundle, TaskIdentity: identity, StorageSHA256: result.Storage.SHA256}
 	token, tokenHex, err := randomToken()
 	if err != nil {
 		return nil, err
@@ -769,29 +811,7 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err = os.WriteFile(filepath.Join(runtimeDir, "token"), []byte(tokenHex+"\n"), 0600); err != nil {
 		return nil, err
 	}
-	initrd := filepath.Join(runtimeDir, "initramfs.cpio.gz")
-	build := exec.CommandContext(ctx, getenv("MK_INITRAMFS_BUILDER", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh"), r.Bundle, initrd)
-	if output, buildErr := build.CombinedOutput(); buildErr != nil {
-		return nil, fmt.Errorf("build child root: %w: %s", buildErr, strings.TrimSpace(string(output)))
-	} else if err = os.WriteFile(filepath.Join(runtimeDir, "build-result.json"), output, 0600); err != nil {
-		return nil, fmt.Errorf("record child root build result: %w", err)
-	}
-	for _, required := range []string{"initramfs.manifest.json", "initramfs.source-manifest.json"} {
-		if info, statErr := os.Stat(filepath.Join(runtimeDir, required)); statErr != nil || !info.Mode().IsRegular() || info.Size() == 0 {
-			return nil, fmt.Errorf("builder did not produce required %s", required)
-		}
-	}
-	if err = mount.UnmountAll(root, 0); err != nil {
-		return nil, fmt.Errorf("unmount caller rootfs after verified copy: %w", err)
-	}
-	if err = os.WriteFile(filepath.Join(runtimeDir, "initramfs.path"), []byte(initrd+"\n"), 0600); err != nil {
-		return nil, err
-	}
-	config, lock, err := s.allocate(ctx, r.Bundle)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); lock.Close() }()
+	lifecycleAttempted = true
 	created, err := daemon.Mutation(ctx, s.daemon, "CreateSandbox", "", "", "shim-create-"+s.id+"-"+tokenHex[:12], &config)
 	if err != nil {
 		return nil, err
@@ -1357,6 +1377,7 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 			failures = append(failures, fmt.Errorf("delete guest process: %w", err))
 		}
 	}
+	lifecycleDeleted := false
 	if r.ExecID == "" {
 		if s.agent != nil {
 			if err := s.stopNetwork(); err != nil {
@@ -1377,9 +1398,15 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		}
 		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-delete-"+s.sandbox.Generation, nil); err != nil {
 			failures = append(failures, fmt.Errorf("delete sandbox: %w", err))
+		} else {
+			lifecycleDeleted = true
 		}
-		if err := mount.UnmountAll(filepath.Join(s.bundle, "rootfs"), 0); err != nil {
-			failures = append(failures, fmt.Errorf("unmount rootfs: %w", err))
+		if lifecycleDeleted && s.sandbox.Config.Storage != nil {
+			request := rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle,
+				TaskIdentity: storageTaskIdentity(s.namespace, s.id), StorageSHA256: s.sandbox.Config.Storage.SHA256}
+			if err := s.cleanupRootfs(ctx, request); err != nil {
+				failures = append(failures, fmt.Errorf("cleanup prepared rootfs: %w", err))
+			}
 		}
 	}
 	s.mu.Lock()
@@ -1393,11 +1420,6 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 	resp := &taskapi.DeleteResponse{Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
 	if err := s.publish(ctx, ctruntime.TaskDeleteEventTopic, &eventstypes.TaskDelete{ContainerID: s.id, ID: r.ExecID, Pid: resp.Pid, ExitStatus: p.exit, ExitedAt: resp.ExitedAt}); err != nil {
 		failures = append(failures, fmt.Errorf("publish task delete: %w", err))
-	}
-	if r.ExecID == "" && len(failures) == 0 {
-		if err := os.RemoveAll(filepath.Join(s.bundle, ".multikernel")); err != nil {
-			failures = append(failures, fmt.Errorf("remove runtime artifacts: %w", err))
-		}
 	}
 	return resp, errors.Join(failures...)
 }

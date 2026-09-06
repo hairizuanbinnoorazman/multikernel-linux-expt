@@ -78,7 +78,9 @@ endpoint and sandbox generations before requesting a fresh descriptor.
 The shim implements containerd Runtime v2 task behavior. It must not directly
 hot-unplug CPUs, allocate Multikernel memory, or manipulate global Kerf state.
 It translates containerd requests into sandbox requests and preserves stdio,
-exit status, and task event semantics.
+exit status, and task event semantics. It also must not mount caller snapshots
+or construct filesystem images: it submits the exact bundle, mounts, task
+identity, and storage port to the authenticated rootfs-preparation API.
 
 ### `mkruntimed`
 
@@ -86,7 +88,10 @@ The daemon is the only runtime component permitted to mutate Kerf or
 `/sys/fs/multikernel`. It owns resource allocation, a durable operation
 journal, per-sandbox locks, reconciliation after restart, and cleanup. Its API
 must be versioned and usable without containerd so lower layers can be tested
-independently.
+independently. Its journaled rootfs-preparation service mounts the containerd
+snapshot read-only, builds and verifies the mediated ext4 image on the retained
+storage filesystem, unmounts the snapshot before allocation, and removes the
+image only after the matching sandbox generation has released it.
 
 ### Kerf adapter
 

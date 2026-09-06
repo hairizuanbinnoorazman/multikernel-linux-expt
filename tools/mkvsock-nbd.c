@@ -49,6 +49,20 @@
 #define HELLO_VERSION 1U
 #define MAX_REQUEST (4U * 1024U * 1024U)
 
+static volatile sig_atomic_t stop_requested;
+static int active_client = -1;
+static int active_listener = -1;
+
+static void request_stop(int signal_number)
+{
+	(void)signal_number;
+	stop_requested = 1;
+	if (active_client >= 0)
+		shutdown(active_client, SHUT_RDWR);
+	if (active_listener >= 0)
+		shutdown(active_listener, SHUT_RDWR);
+}
+
 struct sockaddr_vm {
 	unsigned short svm_family;
 	unsigned short svm_reserved1;
@@ -275,8 +289,14 @@ static void run_server(const char *image, unsigned int port,
 		die("fstat(image)");
 	if (!buffer)
 		die("malloc");
+	struct sigaction stop_action = { .sa_handler = request_stop };
+	sigemptyset(&stop_action.sa_mask);
+	if (sigaction(SIGTERM, &stop_action, NULL) < 0 ||
+	    sigaction(SIGINT, &stop_action, NULL) < 0)
+		die("sigaction");
 
 	int listener = vsock_socket();
+	active_listener = listener;
 	if (bind(listener, (struct sockaddr *)&addr, sizeof(addr)) < 0)
 		die("bind");
 	if (listen(listener, 1) < 0)
@@ -289,8 +309,11 @@ static void run_server(const char *image, unsigned int port,
 	       image, image_id, generation, (long long)st.st_size, port);
 	fflush(stdout);
 	int sock = accept(listener, NULL, NULL);
+	if (sock < 0 && stop_requested)
+		goto closed;
 	if (sock < 0)
 		die("accept");
+	active_client = sock;
 	set_socket_timeout(sock);
 	if (read_exact_or_eof(sock, &hello, sizeof(hello)) <= 0)
 		die("hello eof");
@@ -361,6 +384,9 @@ static void run_server(const char *image, unsigned int port,
 		}
 	}
 
+closed:
+	active_client = -1;
+	active_listener = -1;
 	if (fdatasync(image_fd) < 0)
 		die("final fdatasync");
 	printf("MKNBD_SERVER_CLOSED reads=%llu read_bytes=%llu writes=%llu write_bytes=%llu flushes=%llu\n",
@@ -368,7 +394,8 @@ static void run_server(const char *image, unsigned int port,
 	       (unsigned long long)writes, (unsigned long long)bytes_written,
 	       (unsigned long long)flushes);
 	free(buffer);
-	close(sock);
+	if (sock >= 0)
+		close(sock);
 	close(listener);
 	close(image_fd);
 }

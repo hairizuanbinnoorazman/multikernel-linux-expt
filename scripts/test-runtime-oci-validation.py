@@ -22,6 +22,10 @@ BASE = {
         "cwd": "/",
     },
     "root": {"path": "rootfs"},
+    "linux": {"namespaces": [
+        {"type": "mount"}, {"type": "pid"}, {"type": "network", "path": "/run/netns/test"},
+    ]},
+    "annotations": {"io.example.test": "inert"},
 }
 
 
@@ -38,8 +42,11 @@ def run_case(directory, name, config=None, raw=None, accepted=False):
     )
     if (result.returncode == 0) != accepted:
         raise AssertionError(f"{name}: exit={result.returncode}, stderr={result.stderr!r}")
-    if accepted and json.loads(output.read_text(encoding="utf-8")) != config:
-        raise AssertionError(f"{name}: validator changed accepted input")
+    if accepted:
+        projected = json.loads(output.read_text(encoding="utf-8"))
+        expected = {key: config[key] for key in ("ociVersion", "process", "root")}
+        if projected != expected:
+            raise AssertionError(f"{name}: unexpected guest projection {projected!r}")
     if not accepted and output.exists():
         raise AssertionError(f"{name}: rejected input produced output")
 
@@ -53,11 +60,21 @@ def main():
             "duplicate",
             raw='{"ociVersion":"1.1.0","ociVersion":"1.1.0","process":{},"root":{}}',
         )
-        top_fields = ["mounts", "hooks", "linux", "hostname", "annotations"]
+        top_fields = ["mounts", "hooks", "hostname"]
         for field in top_fields:
             config = copy.deepcopy(BASE)
             config[field] = [] if field == "mounts" else {}
             run_case(directory, f"top-{field}", config)
+        for name, namespaces in (
+            ("missing-network", [{"type": "mount"}]),
+            ("duplicate-network", [{"type": "network"}, {"type": "network"}]),
+            ("joined-pid", [{"type": "network"}, {"type": "pid", "path": "/proc/1/ns/pid"}]),
+            ("user-namespace", [{"type": "network"}, {"type": "user"}]),
+            ("relative-network", [{"type": "network", "path": "relative"}]),
+        ):
+            config = copy.deepcopy(BASE)
+            config["linux"]["namespaces"] = namespaces
+            run_case(directory, name, config)
         process_fields = [
             "capabilities", "rlimits", "noNewPrivileges", "consoleSize",
             "apparmorProfile", "oomScoreAdj", "scheduler", "selinuxLabel",
@@ -79,7 +96,7 @@ def main():
         bundle = directory / "bundle"
         (bundle / "rootfs").mkdir(parents=True)
         config = copy.deepcopy(BASE)
-        config["annotations"] = {}
+        config["hostname"] = "unsupported"
         (bundle / "config.json").write_text(json.dumps(config), encoding="utf-8")
         environment = os.environ.copy()
         environment.update({
@@ -95,9 +112,9 @@ def main():
             env=environment,
             check=False,
         )
-        if result.returncode == 0 or "unsupported OCI field(s): annotations" not in result.stderr:
+        if result.returncode == 0 or "unsupported OCI field(s): hostname" not in result.stderr:
             raise AssertionError(f"builder did not reject before normalization: {result.stderr!r}")
-    print("runtime OCI fail-closed validation: PASS (25 cases)")
+    print("runtime OCI fail-closed validation: PASS (28 cases plus namespace projection)")
 
 
 if __name__ == "__main__":

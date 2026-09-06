@@ -3,11 +3,13 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
+	storagepkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -21,6 +23,38 @@ type fake struct {
 }
 
 type failingResolver struct{ calls int }
+
+type lifecycleStorageBackend struct {
+	active map[string]string
+	fail   error
+	calls  []string
+}
+
+func (b *lifecycleStorageBackend) Inspect(context.Context, storagepkg.PreparedImage) error {
+	b.calls = append(b.calls, "inspect")
+	return b.fail
+}
+func (b *lifecycleStorageBackend) Start(_ context.Context, value storagepkg.Export) error {
+	b.calls = append(b.calls, "storage-start")
+	if b.fail != nil {
+		return b.fail
+	}
+	b.active[value.Path] = value.ExportGeneration
+	return nil
+}
+func (b *lifecycleStorageBackend) Observe(_ context.Context, value storagepkg.Export) (storagepkg.Observation, error) {
+	generation, ok := b.active[value.Path]
+	return storagepkg.Observation{Active: ok, Generation: generation}, nil
+}
+func (b *lifecycleStorageBackend) Stop(_ context.Context, value storagepkg.Export) (storagepkg.Counters, error) {
+	b.calls = append(b.calls, "storage-stop")
+	delete(b.active, value.Path)
+	return storagepkg.Counters{Writes: 2, Flushes: 1}, nil
+}
+func (b *lifecycleStorageBackend) OfflineCheck(context.Context, storagepkg.Export) (string, error) {
+	b.calls = append(b.calls, "offline-check")
+	return "clean", nil
+}
 
 func (r *failingResolver) Resolve(string) (Artifacts, error) {
 	r.calls++
@@ -319,6 +353,79 @@ func setup(t *testing.T) (*Service, *state.Store, *fake) {
 func config(id string, cpu, port int) protocol.SandboxConfig {
 	return protocol.SandboxConfig{SchemaVersion: 1, ID: id, CPUs: []int{cpu}, MemoryBytes: 1 << 30, KernelManifest: "test", Bundle: "/bundle/" + id, AgentPort: uint32(port), ChildCID: uint32(port - 7000)}
 }
+
+func TestStorageOwnershipParticipatesInCreateDeleteAndRollback(t *testing.T) {
+	newService := func(t *testing.T) (*Service, *state.Store, *fake, *lifecycleStorageBackend) {
+		t.Helper()
+		service, lifecycleStore, kerfBackend := setup(t)
+		storageStore, err := storagepkg.OpenStore(filepath.Join(t.TempDir(), "storage"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		storageBackend := &lifecycleStorageBackend{active: map[string]string{}}
+		service.SetStorage(storagepkg.NewService(storageStore, storageBackend))
+		return service, lifecycleStore, kerfBackend, storageBackend
+	}
+	withStorage := func() protocol.SandboxConfig {
+		value := config("box-a", 8, 7001)
+		value.Storage = &protocol.StorageConfig{Path: "/srv/storage/box-a.ext4", ImageID: "busybox-root",
+			FilesystemUUID: "11111111-2222-4333-8444-555555555555", SizeBytes: 64 << 20,
+			QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061, SHA256: strings.Repeat("b", 64)}
+		return value
+	}
+
+	t.Run("lifecycle", func(t *testing.T) {
+		service, lifecycleStore, _, storageBackend := newService(t)
+		defer lifecycleStore.Close()
+		created, apiErr := service.Create(context.Background(), withStorage(), "create-storage")
+		if apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		if created.Sandbox.Storage == nil || created.Sandbox.Storage.State != "ACTIVE" || created.Sandbox.Storage.ExportGeneration == "" {
+			t.Fatalf("created storage = %+v", created.Sandbox.Storage)
+		}
+		if _, apiErr = service.Load(context.Background(), created.Sandbox.ID, created.Sandbox.Generation, "load-storage"); apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		if _, apiErr = service.Start(context.Background(), created.Sandbox.ID, created.Sandbox.Generation, "start-storage"); apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		deleted, apiErr := service.Delete(context.Background(), created.Sandbox.ID, created.Sandbox.Generation, "delete-storage")
+		if apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		if deleted.Sandbox.Storage == nil || deleted.Sandbox.Storage.State != "RELEASED" || deleted.Sandbox.Storage.OfflineCheck != "clean" || deleted.Sandbox.Storage.Writes != 2 {
+			t.Fatalf("deleted storage = %+v", deleted.Sandbox.Storage)
+		}
+		if strings.Join(storageBackend.calls, ",") != "inspect,storage-start,storage-stop,offline-check" {
+			t.Fatalf("storage call order = %v", storageBackend.calls)
+		}
+	})
+
+	t.Run("missing", func(t *testing.T) {
+		service, lifecycleStore, _, _ := newService(t)
+		defer lifecycleStore.Close()
+		if _, apiErr := service.Create(context.Background(), config("box-a", 8, 7001), "missing-storage"); apiErr == nil || apiErr.Code != "INVALID_ARGUMENT" {
+			t.Fatalf("missing storage error = %+v", apiErr)
+		}
+	})
+
+	t.Run("rollback", func(t *testing.T) {
+		service, lifecycleStore, kerfBackend, storageBackend := newService(t)
+		defer lifecycleStore.Close()
+		storageBackend.fail = errors.New("injected storage inspection failure")
+		if _, apiErr := service.Create(context.Background(), withStorage(), "failed-storage"); apiErr == nil || apiErr.Code != "BACKEND_FAILURE" {
+			t.Fatalf("storage failure = %+v", apiErr)
+		}
+		if len(kerfBackend.states) != 0 {
+			t.Fatalf("Kerf allocation leaked: %v", kerfBackend.states)
+		}
+		if got := strings.Join(kerfBackend.calls, ","); !strings.Contains(got, "create:box-a,delete:box-a,release:") {
+			t.Fatalf("rollback calls = %v", kerfBackend.calls)
+		}
+	})
+}
+
 func TestLifecycleAndReplay(t *testing.T) {
 	s, st, f := setup(t)
 	defer st.Close()
