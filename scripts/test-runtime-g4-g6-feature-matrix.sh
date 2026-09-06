@@ -70,6 +70,23 @@ row() {
 	printf 'FEATURE_MATRIX_PASS feature=%s ctr=PASS docker=PASS\n' "$1"
 }
 
+# Retain the values behind assertions. Fixed delimiters preserve multiline
+# command output without lossy shell quoting.
+observe() {
+	local key=$1 value=$2
+	printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' "$key" "$value" "$key"
+}
+
+clean_inventory() {
+	printf 'children=%s links=%s nat_rules=%s filter_rules=%s ctr_tasks=%s docker_containers=%s' \
+		"$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d | wc -l)" \
+		"$(ip -o link show | awk -F': ' '$2 ~ /^mkv[0-9a-f]+$/ {count++} END {print count+0}')" \
+		"$(sudo iptables -t nat -S POSTROUTING | grep -c '172\.31\.' || true)" \
+		"$(sudo iptables -S | grep -c '^\(-N\|-A\) MK-' || true)" \
+		"$(sudo ctr tasks list -q | wc -l)" \
+		"$(sudo docker ps -aq | wc -l)"
+}
+
 test "$(id -u)" -ne 0 || {
 	echo 'run as an ordinary sudo-capable user' >&2
 	exit 1
@@ -77,16 +94,20 @@ test "$(id -u)" -ne 0 || {
 for service in mkruntimed mknetd containerd docker; do
 	test "$(systemctl is-active "$service")" = active
 done
+observe host "kernel=$(uname -r) boot_id=$(cat /proc/sys/kernel/random/boot_id) services=$(systemctl is-active mkruntimed mknetd containerd docker | paste -sd,)"
 mountpoint -q /sys/fs/multikernel
 test -x /usr/local/bin/containerd-shim-multikernel-v2
 test -c /dev/net/tun
 cleanup
 wait_for_clean_host
+observe initial-clean-inventory "$(clean_inventory)"
 
 sudo ctr images pull "$image" >/dev/null
 sudo docker image inspect "$image" >/dev/null 2>&1 || sudo docker pull "$image" >/dev/null
 sudo ctr images list -q | grep -Fxq "$image"
 sudo docker image inspect "$image" >/dev/null
+observe ctr-image "$(sudo ctr images list | awk -v image="$image" 'NR == 1 || $1 == image')"
+observe docker-image "$(sudo docker image inspect --format 'id={{.Id}} repo_digests={{json .RepoDigests}} architecture={{.Architecture}}' "$image")"
 row image-pull-and-inspect
 
 # Split create/start proves that support is not limited to the combined `run`
@@ -100,6 +121,7 @@ sudo docker create --runtime "$runtime" --name "$docker_name" \
 sudo docker start "$docker_name" >/dev/null
 wait_for_state ctr RUNNING
 wait_for_state docker running
+observe split-create-state "ctr=$(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $3}') docker=$(sudo docker inspect --format '{{.State.Status}}' "$docker_name")"
 row split-create-and-start
 
 test "$(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $3}')" = RUNNING
@@ -110,12 +132,15 @@ ctr_boot=$(sudo ctr task exec --exec-id matrix-ctr-boot "$ctr_id" \
 	/bin/cat /proc/sys/kernel/random/boot_id)
 docker_boot=$(sudo docker exec "$docker_name" \
 	/bin/cat /proc/sys/kernel/random/boot_id)
+ctr_kernel=$(sudo ctr task exec --exec-id matrix-ctr-kernel "$ctr_id" /bin/uname -r)
+docker_kernel=$(sudo docker exec "$docker_name" /bin/uname -r)
 host_boot=$(cat /proc/sys/kernel/random/boot_id)
 test -n "$ctr_boot"
 test -n "$docker_boot"
 test "$ctr_boot" != "$docker_boot"
 test "$ctr_boot" != "$host_boot"
 test "$docker_boot" != "$host_boot"
+observe kernel-identities "host_boot=$host_boot ctr_boot=$ctr_boot docker_boot=$docker_boot host_kernel=$(uname -r) ctr_kernel=$ctr_kernel docker_kernel=$docker_kernel"
 row exec-and-distinct-kernel-identity
 
 ctr_stdio=$(sudo ctr task exec --exec-id matrix-ctr-stdio "$ctr_id" \
@@ -126,22 +151,25 @@ printf '%s\n' "$ctr_stdio" | grep -Fxq ctr-stdout
 printf '%s\n' "$ctr_stdio" | grep -Fxq ctr-stderr
 printf '%s\n' "$docker_stdio" | grep -Fxq docker-stdout
 printf '%s\n' "$docker_stdio" | grep -Fxq docker-stderr
+observe exec-stdio "ctr=$ctr_stdio
+docker=$docker_stdio"
 row exec-stdout-and-stderr
 
 sudo ctr task exec --exec-id matrix-ctr-write "$ctr_id" \
 	/bin/sh -c 'printf ctr-private >/tmp/matrix-owner'
 sudo docker exec "$docker_name" \
 	/bin/sh -c 'printf docker-private >/tmp/matrix-owner'
-test "$(sudo ctr task exec --exec-id matrix-ctr-read "$ctr_id" \
-	/bin/cat /tmp/matrix-owner)" = ctr-private
-test "$(sudo docker exec "$docker_name" \
-	/bin/cat /tmp/matrix-owner)" = docker-private
+ctr_private=$(sudo ctr task exec --exec-id matrix-ctr-read "$ctr_id" /bin/cat /tmp/matrix-owner)
+docker_private=$(sudo docker exec "$docker_name" /bin/cat /tmp/matrix-owner)
+test "$ctr_private" = ctr-private
+test "$docker_private" = docker-private
+observe private-root-values "ctr=$ctr_private docker=$docker_private"
 row private-writable-root
 
 ctr_network=$(sudo ctr task exec --exec-id matrix-ctr-network "$ctr_id" /bin/sh -c \
-	'ip -4 address show dev mkn0; wget -T 15 -qO- http://example.com >/dev/null; echo network-ok')
+	'ip -4 address show dev mkn0; nslookup example.com; wget -T 15 -qO- http://example.com | sha256sum; echo network-ok')
 docker_network=$(sudo docker exec "$docker_name" /bin/sh -c \
-	'ip -4 address show dev mkn0; wget -T 15 -qO- http://example.com >/dev/null; echo network-ok')
+	'ip -4 address show dev mkn0; nslookup example.com; wget -T 15 -qO- http://example.com | sha256sum; echo network-ok')
 printf '%s\n' "$ctr_network" | grep -q network-ok
 printf '%s\n' "$docker_network" | grep -q network-ok
 ctr_ip=$(printf '%s\n' "$ctr_network" | awk '/inet / {sub("/.*", "", $2); print $2; exit}')
@@ -149,26 +177,37 @@ docker_ip=$(printf '%s\n' "$docker_network" | awk '/inet / {sub("/.*", "", $2); 
 test -n "$ctr_ip"
 test -n "$docker_ip"
 test "$ctr_ip" != "$docker_ip"
+observe mediated-network "ctr=$ctr_network
+docker=$docker_network"
 row primary-mediated-network
 
-if sudo ctr task exec --exec-id matrix-ctr-cross "$ctr_id" \
-	/bin/ping -c 1 -W 2 "$docker_ip" >/dev/null 2>&1; then
+set +e
+sudo ctr task exec --exec-id matrix-ctr-cross "$ctr_id" /bin/ping -c 1 -W 2 "$docker_ip" >/dev/null 2>&1
+ctr_cross_rc=$?
+sudo docker exec "$docker_name" /bin/ping -c 1 -W 2 "$ctr_ip" >/dev/null 2>&1
+docker_cross_rc=$?
+set -e
+if test "$ctr_cross_rc" -eq 0; then
 	echo 'ctr child reached the Docker child link' >&2
 	exit 1
 fi
-if sudo docker exec "$docker_name" \
-	/bin/ping -c 1 -W 2 "$ctr_ip" >/dev/null 2>&1; then
+if test "$docker_cross_rc" -eq 0; then
 	echo 'Docker child reached the ctr child link' >&2
 	exit 1
 fi
+observe sibling-isolation "ctr_to_docker_ip=$docker_ip exit_status=$ctr_cross_rc docker_to_ctr_ip=$ctr_ip exit_status=$docker_cross_rc"
 row cross-sandbox-network-isolation
 
+runtime_pid_before=$(systemctl show -p MainPID --value mkruntimed)
 sudo systemctl restart mkruntimed
+runtime_pid_after=$(systemctl show -p MainPID --value mkruntimed)
 test "$(systemctl is-active mkruntimed)" = active
 test "$(sudo ctr task exec --exec-id matrix-ctr-daemon-restart "$ctr_id" \
 	/bin/cat /proc/sys/kernel/random/boot_id)" = "$ctr_boot"
 test "$(sudo docker exec "$docker_name" \
 	/bin/cat /proc/sys/kernel/random/boot_id)" = "$docker_boot"
+test "$runtime_pid_before" != "$runtime_pid_after"
+observe runtime-restart "pid_before=$runtime_pid_before pid_after=$runtime_pid_after ctr_boot=$ctr_boot docker_boot=$docker_boot"
 row runtime-daemon-restart-continuity
 
 # Pause and resume are guest process-group signals. Verify the externally
@@ -181,19 +220,24 @@ sudo ctr tasks resume "$ctr_id"
 sudo docker unpause "$docker_name" >/dev/null
 wait_for_state ctr RUNNING
 wait_for_state docker running
+observe pause-resume-states "ctr=$(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $3}') docker=$(sudo docker inspect --format '{{.State.Status}}' "$docker_name")"
 row pause-resume
 
 sudo ctr tasks kill --signal SIGTERM "$ctr_id"
 sudo docker kill --signal TERM "$docker_name" >/dev/null
 wait_for_state ctr STOPPED
 wait_for_state docker exited
-test "$(sudo docker wait "$docker_name")" = 42
+docker_signal_exit=$(sudo docker wait "$docker_name")
+test "$docker_signal_exit" = 42
+ctr_signal_state=$(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $0}')
+observe signal-exit "ctr_task=$ctr_signal_state docker_status=exited docker_exit=$docker_signal_exit"
 row signal-and-exit-observation
 
 sudo ctr tasks rm "$ctr_id" >/dev/null
 sudo ctr containers rm "$ctr_id"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
+observe post-delete-clean-inventory "$(clean_inventory)"
 row delete-and-resource-cleanup
 
 # Foreground run, init stdout/stderr, and nonzero exit are proved using the
@@ -217,6 +261,9 @@ for cycle in 1 2; do
 	printf '%s\n' "$docker_output" | grep -q "docker-error-$cycle"
 	test "$(sudo docker inspect --format '{{.State.ExitCode}}' "$docker_name")" = 17
 	test "$(sudo docker wait "$docker_name")" = 17
+	observe "nonzero-cycle-$cycle" "ctr_exit=$ctr_rc docker_exit=$docker_rc
+ctr_output=$ctr_output
+docker_output=$docker_output"
 	sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
 	sudo ctr containers rm "$ctr_id"
 	sudo docker rm "$docker_name" >/dev/null
@@ -235,6 +282,7 @@ docker_stdin=$(printf 'docker-stdin\n' | sudo docker run --interactive \
 	/bin/sh -c 'read line; echo guest-$line')
 printf '%s\n' "$ctr_stdin" | grep -Fxq guest-ctr-stdin
 printf '%s\n' "$docker_stdin" | grep -Fxq guest-docker-stdin
+observe guest-stdin "ctr=$ctr_stdin docker=$docker_stdin"
 sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_id"
 sudo docker rm "$docker_name" >/dev/null
@@ -255,6 +303,7 @@ ctr_attached=$(printf 'stdin\n' | sudo ctr tasks attach "$ctr_attach_id")
 docker_attached=$({ printf 'stdin\n'; sleep 2; } | sudo docker attach "$docker_attach_name")
 printf '%s\n' "$ctr_attached" | grep -Fxq ctr-attached-stdin
 printf '%s\n' "$docker_attached" | grep -Fxq docker-attached-stdin
+observe guest-attach "ctr=$ctr_attached docker=$docker_attached"
 sudo ctr tasks rm "$ctr_attach_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_attach_id"
 sudo docker rm "$docker_attach_name" >/dev/null
@@ -273,6 +322,8 @@ printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq ctr-terminal-ok
 printf '%s\n' "$docker_tty" | tr -d '\r' | grep -Fxq docker-terminal-ok
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq '37 91'
 printf '%s\n' "$docker_tty" | tr -d '\r' | grep -Fxq '37 91'
+observe terminal-mode "ctr=$ctr_tty
+docker=$docker_tty"
 sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_id"
 sudo docker rm "$docker_name" >/dev/null
@@ -292,6 +343,7 @@ wait_for_clean_host
 	sudo docker run --tty --runtime "$runtime" --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
+observe final-clean-inventory "$(clean_inventory)"
 row post-start-terminal-resize
 
 trap - EXIT

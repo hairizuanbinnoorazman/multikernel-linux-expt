@@ -386,7 +386,13 @@ normative plan is revised with an explicit rationale.
   final evidence bundle remains open.
 - [ ] Make the live harness tee safe expanded commands and assertion values to
   the retained transcript while continuing to redact credentials and tokens.
-  Preserve command exit status even when an expected negative test fails.
+  Preserve command exit status even when an expected negative test fails. The
+  shared matrix now emits delimited observations for host/service identity,
+  image digests/platforms, task states, three boot IDs and kernel releases,
+  stdio/private-root values, DNS/HTTP output, endpoint addresses, both negative
+  sibling exit statuses, daemon PIDs, signal/nonzero exits, stdin/attach/PTY
+  output, and initial/final resource counts. A top-level tee/redaction runner
+  and equivalent value capture in every isolated fault harness remain open.
 - [ ] Capture relevant `journalctl` output for containerd, Docker,
   `mkruntimed`, shim, relay/network service, guest agent, and kernel/serial logs
   around every restart and fault injection.
