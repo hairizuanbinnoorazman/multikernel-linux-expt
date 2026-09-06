@@ -9,11 +9,15 @@ IMAGE_PROJECT ?= ubuntu-os-cloud
 IMAGE_FAMILY ?= ubuntu-2604-lts-amd64
 DISK_SIZE ?= 100GB
 REMOTE_LAB ?= multikernel-linux-lab
+RUNTIME_VERSION ?= 0.1.0-dev
+# Never stamp a commit onto binaries built from an uncommitted tree.
+RUNTIME_REVISION ?= $(shell test -z "$$(git status --porcelain --untracked-files=normal 2>/dev/null)" && git rev-parse HEAD 2>/dev/null || printf unknown)
+RUNTIME_BUILD_FLAGS = -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=$(RUNTIME_VERSION) -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=$(RUNTIME_REVISION)"
 
 GCLOUD = gcloud compute
 SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 
-.PHONY: help docs-check runtime-test runtime-build runtime-g4-g6-test runtime-g4-g6-matrix check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
+.PHONY: help docs-check runtime-test runtime-build runtime-manifest runtime-g4-g6-test runtime-g4-g6-matrix check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
 	ssh serial snapshot sync provision-kernel reboot verify-host install-kerf \
 	smoke-up smoke-status smoke-down daxfs-build daxfs-up daxfs-status \
 	daxfs-down daxfs-dual-kernel-proof collect-logs disk-roots-create \
@@ -31,13 +35,17 @@ runtime-test: ## Run unprivileged runtime unit and contract tests.
 
 runtime-build: ## Build static runtime binaries locally.
 	mkdir -p runtime/bin
-	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-host-check ./cmd/mk-host-check
-	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mkruntimed ./cmd/mkruntimed
-	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-agent ./cmd/mk-agent
-	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-agentctl ./cmd/mk-agentctl
-	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mknetd ./cmd/mknetd
-	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/mk-cni ./cmd/mk-cni
-	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -o bin/containerd-shim-multikernel-v2 ./cmd/containerd-shim-multikernel-v2
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build $(RUNTIME_BUILD_FLAGS) -o bin/mk-host-check ./cmd/mk-host-check
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build $(RUNTIME_BUILD_FLAGS) -o bin/mkruntimed ./cmd/mkruntimed
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build $(RUNTIME_BUILD_FLAGS) -o bin/mk-agent ./cmd/mk-agent
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build $(RUNTIME_BUILD_FLAGS) -o bin/mk-agentctl ./cmd/mk-agentctl
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build $(RUNTIME_BUILD_FLAGS) -o bin/mknetd ./cmd/mknetd
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build $(RUNTIME_BUILD_FLAGS) -o bin/mk-cni ./cmd/mk-cni
+	cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build $(RUNTIME_BUILD_FLAGS) -o bin/containerd-shim-multikernel-v2 ./cmd/containerd-shim-multikernel-v2
+
+runtime-manifest: runtime-build ## Write an exclusive-create manifest for the runtime binaries.
+	python3 scripts/runtime-release-manifest.py runtime/bin runtime/release-manifest.json \
+		--expected-version=$(RUNTIME_VERSION) --expected-revision=$(RUNTIME_REVISION)
 
 runtime-g4-g6-test: ## Run privileged ctr/Docker per-kernel proof on a configured host.
 	bash scripts/test-runtime-g4-g6.sh

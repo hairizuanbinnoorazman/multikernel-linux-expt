@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
@@ -254,6 +255,9 @@ func errorCode(err error) int {
 }
 
 func main() {
+	if buildinfo.PrintRequested(os.Stdout, "mk-cni", os.Args[1:]) {
+		return
+	}
 	input, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 )
 
 func exchangePayload(c net.Conn, payload []byte) (agent.Reply, error) {
@@ -77,6 +78,9 @@ func terminateRelay(command *exec.Cmd) error {
 }
 
 func main() {
+	if buildinfo.PrintRequested(os.Stdout, "mk-agentctl", os.Args[1:]) {
+		return
+	}
 	var id, generation, token, bundle, unixSocket, relay string
 	var port uint
 	var authMatrix bool
