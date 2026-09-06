@@ -379,7 +379,11 @@ normative plan is revised with an explicit rationale.
 - [ ] Capture structured `resources-before.json` and `resources-after.json`
   covering instances, disks, snapshots, addresses, firewall rules, and every
   billable or retained resource. Narrative cloud-cleanup text is supplementary,
-  not a substitute for the contract ledger.
+  not a substitute for the contract ledger. A strict project-wide GCE ledger
+  schema and exclusive-create collector now cover these resource classes,
+  attachment users, and boot/data-disk auto-delete policy. The collector passed
+  against the replacement project; retaining its before/after outputs in the
+  final evidence bundle remains open.
 - [ ] Make the live harness tee safe expanded commands and assertion values to
   the retained transcript while continuing to redact credentials and tokens.
   Preserve command exit status even when an expected negative test fails.

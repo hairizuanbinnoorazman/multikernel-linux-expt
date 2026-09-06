@@ -7,9 +7,12 @@ host and GCE identity, commands with exit status and output path, assertions,
 known limitations, and cleanup result.
 
 Cloud runs also contain `resources-before.json` and `resources-after.json`
-covering instances, disks, snapshots created by the run, addresses, and any
-other billable resource. Each entry records project, zone/region, name, type,
-purpose, ownership labels, auto-delete/retention policy, and final state. A
+conforming to
+[`gce-resource-ledger-v1.schema.json`](schemas/gce-resource-ledger-v1.schema.json).
+The ledgers cover all project instances, disks, snapshots, reserved addresses,
+and firewall rules, including instance-to-disk auto-delete relationships,
+labels, location, users, and final state. This project-wide scope makes both
+resources created by the run and pre-existing retained resources visible. A
 retained resource requires an explicit reason and operator acknowledgment.
 
 Secrets, metadata tokens, private keys, full environments, OCI registry
