@@ -81,6 +81,7 @@ type agentClient interface {
 type service struct {
 	mu                    sync.Mutex
 	eventMu               sync.Mutex
+	eventRetryStop        sync.Once
 	id, namespace, bundle string
 	publisher             shim.Publisher
 	shutdown              func()
@@ -102,6 +103,8 @@ type service struct {
 	netErrors             atomic.Uint64
 	processes             map[string]*process
 	events                eventJournal
+	eventRetryCancel      context.CancelFunc
+	eventRetryDone        chan struct{}
 }
 
 func getenv(name, fallback string) string {
@@ -147,6 +150,7 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 	if err = s.flushEvents(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "multikernel event replay deferred: %v\n", err)
 	}
+	s.startEventRetry(time.Second)
 	return s, nil
 }
 
@@ -1522,7 +1526,10 @@ func (s *service) Connect(context.Context, *taskapi.ConnectRequest) (*taskapi.Co
 	return &taskapi.ConnectResponse{ShimPid: uint32(os.Getpid()), TaskPid: taskPID, Version: "multikernel-v1-guest-pid"}, nil
 }
 func (s *service) Shutdown(context.Context, *taskapi.ShutdownRequest) (*emptypb.Empty, error) {
-	go s.shutdown()
+	go func() {
+		s.stopEventRetry()
+		s.shutdown()
+	}()
 	return &emptypb.Empty{}, nil
 }
 func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*emptypb.Empty, error) {

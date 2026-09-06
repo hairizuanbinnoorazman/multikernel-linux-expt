@@ -38,7 +38,10 @@ persists each typed event and monotonically increasing local sequence before
 publication, publishes pending entries in sequence, and acknowledges them with
 an atomic rewrite. A transient publication error does not roll back an already
 committed lifecycle mutation; the next event or reconstructed worker retries
-the journal. Exit state records whether its exit event was durably queued, and
+the journal. A joined background worker also retries once per second while the
+shim remains alive, with each attempt bounded to five seconds, so a quiet task
+does not require a later lifecycle call to recover from a transient containerd
+disconnect. Exit state records whether its exit event was durably queued, and
 Delete repairs a missing exit entry before it can enqueue the delete event.
 Containerd's forwarding API has no transactional event identifier, so the
 contract is **at-least-once replay**, not exactly once: a crash after remote

@@ -286,5 +286,6 @@ documented contract is at-least-once because containerd's event-forwarding API
 cannot atomically combine remote acceptance with the shim's local
 acknowledgement; a crash in that interval can replay a duplicate. Local tests
 cover ordered replay, pre-publication journal failure, acknowledgement failure,
-and unsafe journal files. Restart/event transcripts are still required before
+unsafe journal files, and retry after a transient disconnect without another
+lifecycle request. Restart/event transcripts are still required before
 the broad checklist row can close.
