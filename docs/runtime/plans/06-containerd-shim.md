@@ -33,6 +33,20 @@ an OCI checkpoint with defensible storage, network, and process identity could
 be built. Those methods require a future versioned contract rather than a
 partial compatibility claim.
 
+Task events use a versioned, private journal beside the bundle. The shim
+persists each typed event and monotonically increasing local sequence before
+publication, publishes pending entries in sequence, and acknowledges them with
+an atomic rewrite. A transient publication error does not roll back an already
+committed lifecycle mutation; the next event or reconstructed worker retries
+the journal. Exit state records whether its exit event was durably queued, and
+Delete repairs a missing exit entry before it can enqueue the delete event.
+Containerd's forwarding API has no transactional event identifier, so the
+contract is **at-least-once replay**, not exactly once: a crash after remote
+acceptance but before the local acknowledgement may produce a duplicate.
+Consumers must treat the Task event tuple and state transition idempotently.
+First delivery remains journal-ordered; replayed duplicates must not be
+interpreted as new lifecycle transitions.
+
 ## Tests
 
 - Unit tests against a fake daemon.

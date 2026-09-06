@@ -279,9 +279,16 @@ normative plan is revised with an explicit rationale.
   because Kerf allocation is generation-immutable and excludes `Checkpoint`
   because the selected Multikernel/Kerf contract has no checkpoint primitive;
   both reject before child contact or state mutation, with a focused test.
-- [ ] Complete lifecycle event publication and ordering, including exactly-once
+- [x] Complete lifecycle event publication and ordering, including exactly-once
   or documented replay semantics across restart, exec events, exit/delete
-  races, and publication failure.
+  races, and publication failure. Typed Task events are persisted before
+  publication in a private bounded journal and replayed in local sequence after
+  worker reconstruction. The explicit contract is at-least-once: remote
+  acceptance followed by a crash before local acknowledgement can duplicate an
+  event. Exit queue state is durable and Delete repairs a missing exit first.
+  Focused tests cover ordered replay, queue/ack failure, unsafe journal input,
+  and exit-before-delete; the full event matrix and live transcript remain in
+  their test/evidence rows below.
 - [ ] Harden FIFO handling for peer disappearance, attach/detach churn, blocked
   writers, slow/unread output, output pressure, `CloseIO` races, and shim
   restart. Bound retained output and goroutine/process lifetime.

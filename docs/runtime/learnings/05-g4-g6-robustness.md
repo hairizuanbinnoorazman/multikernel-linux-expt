@@ -276,3 +276,15 @@ record, followed by an offline check. An unexplained missing server remains
 durably diagnosable. These behaviors pass focused local tests but are not G4
 live evidence until the replacement-instance storage/fault matrix retains the
 observed values.
+
+The G6 shim now journals typed Task events before publication and replays them
+in local sequence after worker reconstruction. Exit completion persists an
+`exit_event_queued` invariant, and Delete queues a missing exit before its own
+event, closing the earlier wait/delete ordering window. Publication failure is
+therefore durable and lifecycle mutation is not falsely rolled back. The
+documented contract is at-least-once because containerd's event-forwarding API
+cannot atomically combine remote acceptance with the shim's local
+acknowledgement; a crash in that interval can replay a duplicate. Local tests
+cover ordered replay, pre-publication journal failure, acknowledgement failure,
+and unsafe journal files. Restart/event transcripts are still required before
+the broad checklist row can close.

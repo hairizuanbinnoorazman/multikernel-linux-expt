@@ -66,6 +66,7 @@ type process struct {
 	stdoutGuard, stderrGuard   io.Closer
 	stdinClosed                bool
 	stdoutOffset, stderrOffset uint64
+	exitEventQueued            bool
 }
 
 type agentClient interface {
@@ -73,10 +74,12 @@ type agentClient interface {
 	CallContext(context.Context, string, any, any) error
 	Close() error
 	Reconnect(string) error
+	ReconnectContext(context.Context, string) error
 }
 
 type service struct {
 	mu                    sync.Mutex
+	eventMu               sync.Mutex
 	id, namespace, bundle string
 	publisher             shim.Publisher
 	shutdown              func()
@@ -97,6 +100,7 @@ type service struct {
 	netTXDrops            atomic.Uint64
 	netErrors             atomic.Uint64
 	processes             map[string]*process
+	events                eventJournal
 }
 
 func getenv(name, fallback string) string {
@@ -104,6 +108,17 @@ func getenv(name, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func waitContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func newService(ctx context.Context, id string, publisher shim.Publisher, shutdown func()) (shim.Shim, error) {
@@ -120,9 +135,16 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 	}
 	s := &service{id: id, namespace: ns, bundle: bundle, publisher: publisher, shutdown: shutdown,
 		daemon:    daemon.Client{Path: getenv("MK_DAEMON_SOCKET", "/run/mkruntimed.sock")},
-		netClient: mknetwork.Client{Path: getenv("MK_NETWORK_SOCKET", "/run/mknetd.sock")}, processes: map[string]*process{}}
+		netClient: mknetwork.Client{Path: getenv("MK_NETWORK_SOCKET", "/run/mknetd.sock")}, processes: map[string]*process{},
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err = s.loadEventJournal(); err != nil {
+		return nil, err
+	}
 	if err = s.recoverExisting(ctx); err != nil {
 		return nil, err
+	}
+	if err = s.flushEvents(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel event replay deferred: %v\n", err)
 	}
 	return s, nil
 }
@@ -227,21 +249,22 @@ type persisted struct {
 }
 
 type persistedProcess struct {
-	ID           string           `json:"id"`
-	Stdin        string           `json:"stdin,omitempty"`
-	Stdout       string           `json:"stdout,omitempty"`
-	Stderr       string           `json:"stderr,omitempty"`
-	Terminal     bool             `json:"terminal,omitempty"`
-	Width        uint32           `json:"width,omitempty"`
-	Height       uint32           `json:"height,omitempty"`
-	SizeSet      bool             `json:"size_set,omitempty"`
-	StdinClosed  bool             `json:"stdin_closed,omitempty"`
-	Status       tasktypes.Status `json:"status"`
-	PID          uint32           `json:"pid,omitempty"`
-	Exit         uint32           `json:"exit,omitempty"`
-	Exited       time.Time        `json:"exited,omitempty"`
-	StdoutOffset uint64           `json:"stdout_offset,omitempty"`
-	StderrOffset uint64           `json:"stderr_offset,omitempty"`
+	ID              string           `json:"id"`
+	Stdin           string           `json:"stdin,omitempty"`
+	Stdout          string           `json:"stdout,omitempty"`
+	Stderr          string           `json:"stderr,omitempty"`
+	Terminal        bool             `json:"terminal,omitempty"`
+	Width           uint32           `json:"width,omitempty"`
+	Height          uint32           `json:"height,omitempty"`
+	SizeSet         bool             `json:"size_set,omitempty"`
+	StdinClosed     bool             `json:"stdin_closed,omitempty"`
+	Status          tasktypes.Status `json:"status"`
+	PID             uint32           `json:"pid,omitempty"`
+	Exit            uint32           `json:"exit,omitempty"`
+	Exited          time.Time        `json:"exited,omitempty"`
+	StdoutOffset    uint64           `json:"stdout_offset,omitempty"`
+	StderrOffset    uint64           `json:"stderr_offset,omitempty"`
+	ExitEventQueued bool             `json:"exit_event_queued,omitempty"`
 }
 
 func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) {
@@ -295,6 +318,7 @@ func (s *service) persistRecovery() error {
 			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, Status: process.status,
 			PID: process.pid, Exit: process.exit, Exited: process.exited,
 			StdoutOffset: process.stdoutOffset, StderrOffset: process.stderrOffset,
+			ExitEventQueued: process.exitEventQueued,
 		})
 	}
 	sort.Slice(p.Processes, func(i, j int) bool { return p.Processes[i].ID < p.Processes[j].ID })
@@ -444,11 +468,13 @@ func (s *service) recoverExisting(ctx context.Context) error {
 	}()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		s.agent, err = agent.Dial(s.relaySocket, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+		s.agent, err = agent.DialContext(ctx, s.relaySocket, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
 		if err == nil || time.Now().After(deadline) || ctx.Err() != nil {
 			break
 		}
-		time.Sleep(50 * time.Millisecond)
+		if err = waitContext(ctx, 50*time.Millisecond); err != nil {
+			break
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("reconnect recovered guest agent: %w", err)
@@ -464,10 +490,17 @@ func (s *service) recoverExisting(ctx context.Context) error {
 			terminal: saved.Terminal, width: saved.Width, height: saved.Height,
 			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, status: saved.Status,
 			pid: saved.PID, exit: saved.Exit, exited: saved.Exited,
-			stdoutOffset: saved.StdoutOffset, stderrOffset: saved.StderrOffset, done: make(chan struct{}),
+			stdoutOffset: saved.StdoutOffset, stderrOffset: saved.StderrOffset,
+			exitEventQueued: saved.ExitEventQueued, done: make(chan struct{}),
 		}
 		s.processes[saved.ID] = p
 		if p.status == tasktypes.Status_STOPPED {
+			if !p.exitEventQueued {
+				if err = s.publishExit(ctx, p.id, p); err != nil {
+					return fmt.Errorf("recover process %q exit event: %w", saved.ID, err)
+				}
+				p.exitEventQueued = true
+			}
 			close(p.done)
 			continue
 		}
@@ -488,6 +521,10 @@ func (s *service) recoverExisting(ctx context.Context) error {
 			}
 			p.status, p.exit = tasktypes.Status_STOPPED, uint32(state.ExitCode)
 			p.exited = time.Now().UTC()
+			if err = s.publishExit(ctx, p.id, p); err != nil {
+				return fmt.Errorf("recover stopped process %q exit event: %w", saved.ID, err)
+			}
+			p.exitEventQueued = true
 			close(p.done)
 			continue
 		}
@@ -506,6 +543,9 @@ func (s *service) recoverExisting(ctx context.Context) error {
 	for _, item := range running {
 		go s.pumpStdin(item.agentID, item.process)
 		go s.waitProcess(item.agentID, item.process.id, item.process)
+	}
+	if err = s.persistRecovery(); err != nil {
+		return fmt.Errorf("persist reconstructed process state: %w", err)
 	}
 	recovered = true
 	return nil
@@ -598,10 +638,6 @@ func (s *service) allocate(ctx context.Context, bundle string) (protocol.Sandbox
 	}
 	lock.Close()
 	return protocol.SandboxConfig{}, nil, errors.New("no disjoint Multikernel CPU set is available")
-}
-
-func (s *service) publish(ctx context.Context, topic string, event any) error {
-	return s.publisher.Publish(namespaces.WithNamespace(ctx, s.namespace), topic, event)
 }
 
 func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.CleanupRequest, lifecycleAttempted bool) error {
@@ -866,7 +902,7 @@ func (s *service) connectAgent(ctx context.Context) error {
 	}
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
-		client, err := agent.Dial(sock, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+		client, err := agent.DialContext(ctx, sock, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
 		if err == nil {
 			s.agent = client
 			if err = s.agent.CallContext(ctx, "ConfigureNetwork", agent.NetworkConfig{
@@ -881,7 +917,10 @@ func (s *service) connectAgent(ctx context.Context) error {
 			s.startNetworkPump()
 			return nil
 		}
-		time.Sleep(100 * time.Millisecond)
+		if err := waitContext(ctx, 100*time.Millisecond); err != nil {
+			_ = s.stopNetwork()
+			return err
+		}
 	}
 	_ = s.stopNetwork()
 	return errors.New("timed out connecting to child agent")
@@ -932,7 +971,10 @@ func (s *service) startNetworkPump() {
 						return
 					case <-time.After(100 * time.Millisecond):
 					}
-					if reconnectErr := s.agent.Reconnect(s.relaySocket); reconnectErr == nil {
+					reconnectCtx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+					reconnectErr := s.agent.ReconnectContext(reconnectCtx, s.relaySocket)
+					cancel()
+					if reconnectErr == nil {
 						_ = s.reportNetwork("READY")
 						break
 					}
@@ -1232,15 +1274,23 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 	}
 	s.mu.Lock()
 	p.status, p.exit, p.exited = tasktypes.Status_STOPPED, exit, now
-	close(p.done)
+	if err := s.publishExit(context.Background(), execID, p); err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel exit event queue: %v\n", err)
+	} else {
+		p.exitEventQueued = true
+	}
 	_ = s.persistRecovery()
+	close(p.done)
 	s.mu.Unlock()
-	ctx := namespaces.WithNamespace(context.Background(), s.namespace)
+}
+
+func (s *service) publishExit(ctx context.Context, execID string, p *process) error {
 	eventID := execID
 	if eventID == "" {
 		eventID = s.id
 	}
-	_ = s.publisher.Publish(ctx, ctruntime.TaskExitEventTopic, &eventstypes.TaskExit{ContainerID: s.id, ID: eventID, Pid: p.pid, ExitStatus: exit, ExitedAt: timestamppb.New(now)})
+	return s.publish(ctx, ctruntime.TaskExitEventTopic, &eventstypes.TaskExit{ContainerID: s.id, ID: eventID,
+		Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)})
 }
 
 func (s *service) State(_ context.Context, r *taskapi.StateRequest) (*taskapi.StateResponse, error) {
@@ -1379,6 +1429,17 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 	if p.status == tasktypes.Status_RUNNING || p.status == tasktypes.Status_PAUSED {
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
+	}
+	if p.status == tasktypes.Status_STOPPED && !p.exitEventQueued {
+		if err := s.publishExit(ctx, r.ExecID, p); err != nil {
+			s.mu.Unlock()
+			return nil, fmt.Errorf("queue missing exit event before delete: %w", err)
+		}
+		p.exitEventQueued = true
+		if err := s.persistRecovery(); err != nil {
+			s.mu.Unlock()
+			return nil, fmt.Errorf("persist exit event ordering before delete: %w", err)
+		}
 	}
 	s.mu.Unlock()
 	var failures []error

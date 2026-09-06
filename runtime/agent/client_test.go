@@ -84,7 +84,7 @@ func TestFreshDialSequenceCanReconnectAfterPriorClient(t *testing.T) {
 	defer listener.Close()
 	oldDial := dialAgent
 	oldSequence := initialSequence
-	dialAgent = func(_, _ string) (net.Conn, error) {
+	dialAgent = func(_ context.Context, _, _ string) (net.Conn, error) {
 		client, server := net.Pipe()
 		listener.connections <- server
 		return client, nil
@@ -122,7 +122,7 @@ func TestAuthenticatedReconnectPreservesSequenceAndShutdownEndsSession(t *testin
 	listener := newPipeListener()
 	defer listener.Close()
 	oldDial := dialAgent
-	dialAgent = func(_, _ string) (net.Conn, error) {
+	dialAgent = func(_ context.Context, _, _ string) (net.Conn, error) {
 		client, server := net.Pipe()
 		listener.connections <- server
 		return client, nil
@@ -210,6 +210,24 @@ func TestCallContextCancellationInterruptsBlockedPeer(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("cancellation did not interrupt the blocked call")
+	}
+}
+
+func TestDialAndReconnectHonorContextCancellation(t *testing.T) {
+	oldDial := dialAgent
+	dialAgent = func(ctx context.Context, _, _ string) (net.Conn, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	defer func() { dialAgent = oldDial }()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := DialContext(ctx, "blocked", "box", "0123456789abcdef0123456789abcdef", 7001, nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("DialContext error = %v", err)
+	}
+	client := &Client{}
+	if err := client.ReconnectContext(ctx, "blocked"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("ReconnectContext error = %v", err)
 	}
 }
 

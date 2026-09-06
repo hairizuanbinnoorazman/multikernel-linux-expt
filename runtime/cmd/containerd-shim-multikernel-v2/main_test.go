@@ -15,6 +15,7 @@ import (
 	"time"
 
 	cgroupstats "github.com/containerd/cgroups/stats/v1"
+	eventstypes "github.com/containerd/containerd/api/events"
 	taskapi "github.com/containerd/containerd/api/runtime/task/v2"
 	types "github.com/containerd/containerd/api/types"
 	tasktypes "github.com/containerd/containerd/api/types/task"
@@ -61,12 +62,20 @@ func (f *fakeAgentClient) CallContext(_ context.Context, method string, _ any, r
 	}
 	return nil
 }
-func (f *fakeAgentClient) Close() error           { return nil }
-func (f *fakeAgentClient) Reconnect(string) error { return nil }
+func (f *fakeAgentClient) Close() error                                   { return nil }
+func (f *fakeAgentClient) Reconnect(string) error                         { return nil }
+func (f *fakeAgentClient) ReconnectContext(context.Context, string) error { return nil }
 
-type fakePublisher struct{ topics []string }
+type fakePublisher struct {
+	topics   []string
+	failures int
+}
 
 func (f *fakePublisher) Publish(_ context.Context, topic string, _ events.Event) error {
+	if f.failures > 0 {
+		f.failures--
+		return errors.New("injected publication failure")
+	}
 	f.topics = append(f.topics, topic)
 	return nil
 }
@@ -144,6 +153,18 @@ func TestValidateServiceIdentityRejectsUnsafeValues(t *testing.T) {
 	}
 	if err := validateServiceIdentity("task", "default", linked); !errors.Is(err, errdefs.ErrInvalidArgument) {
 		t.Fatalf("symlinked bundle error = %v", err)
+	}
+}
+
+func TestRetryWaitReturnsImmediatelyOnCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	started := time.Now()
+	if err := waitContext(ctx, time.Hour); !errors.Is(err, context.Canceled) {
+		t.Fatalf("waitContext error = %v", err)
+	}
+	if time.Since(started) > 100*time.Millisecond {
+		t.Fatal("canceled retry wait did not return promptly")
 	}
 }
 
@@ -285,7 +306,7 @@ func TestPauseResumeSignalsGuestAndPublishesTransitions(t *testing.T) {
 	fakeAgent := &fakeAgentClient{fail: map[string]error{}}
 	fakeEvents := &fakePublisher{}
 	s := &service{
-		id: "task", namespace: "default", agent: fakeAgent, publisher: fakeEvents,
+		id: "task", namespace: "default", bundle: t.TempDir(), agent: fakeAgent, publisher: fakeEvents,
 		processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}},
 	}
 	if _, err := s.Pause(context.Background(), &taskapi.PauseRequest{}); err != nil {
@@ -345,6 +366,129 @@ func TestUpdateAndCheckpointAreExcludedWithoutMutation(t *testing.T) {
 	}
 	if len(fake.calls) != 0 || len(events.topics) != 0 || s.processes[""].status != tasktypes.Status_RUNNING {
 		t.Fatalf("excluded methods mutated state: calls=%v events=%v status=%v", fake.calls, events.topics, s.processes[""].status)
+	}
+}
+
+func TestEventJournalPreservesOrderAndReplaysAfterFailure(t *testing.T) {
+	bundle := t.TempDir()
+	failed := &fakePublisher{failures: 2}
+	s := &service{bundle: bundle, namespace: "default", publisher: failed,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err := s.publish(context.Background(), ctruntime.TaskCreateEventTopic, &eventstypes.TaskCreate{ContainerID: "task"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.publish(context.Background(), ctruntime.TaskStartEventTopic, &eventstypes.TaskStart{ContainerID: "task", Pid: 7}); err != nil {
+		t.Fatal(err)
+	}
+	if len(failed.topics) != 0 {
+		t.Fatalf("later event bypassed failed predecessor: %v", failed.topics)
+	}
+	replayed := &fakePublisher{}
+	recovered := &service{bundle: bundle, namespace: "default", publisher: replayed,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err := recovered.loadEventJournal(); err != nil {
+		t.Fatal(err)
+	}
+	if err := recovered.flushEvents(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{ctruntime.TaskCreateEventTopic, ctruntime.TaskStartEventTopic}
+	if fmt.Sprint(replayed.topics) != fmt.Sprint(want) {
+		t.Fatalf("replayed topics = %v, want %v", replayed.topics, want)
+	}
+	if _, err := os.Stat(recovered.eventJournalPath()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("acknowledged journal remains: %v", err)
+	}
+}
+
+func TestEventJournalPersistenceFailurePrecedesPublication(t *testing.T) {
+	originalMarshal := jsonMarshal
+	jsonMarshal = func(any) ([]byte, error) { return nil, errors.New("injected journal failure") }
+	defer func() { jsonMarshal = originalMarshal }()
+	publisher := &fakePublisher{}
+	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err := s.publish(context.Background(), ctruntime.TaskCreateEventTopic, &eventstypes.TaskCreate{ContainerID: "task"}); err == nil {
+		t.Fatal("journal failure was ignored")
+	}
+	if len(publisher.topics) != 0 {
+		t.Fatalf("event published before durable queue: %v", publisher.topics)
+	}
+	if len(s.events.Pending) != 0 || s.events.NextSequence != 1 {
+		t.Fatalf("failed queue mutated memory: %+v", s.events)
+	}
+}
+
+func TestEventJournalAckFailureRetainsPublishedEventForReplay(t *testing.T) {
+	publisher := &fakePublisher{failures: 2}
+	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	for _, item := range []struct {
+		topic string
+		event any
+	}{{ctruntime.TaskCreateEventTopic, &eventstypes.TaskCreate{ContainerID: "task"}},
+		{ctruntime.TaskStartEventTopic, &eventstypes.TaskStart{ContainerID: "task", Pid: 7}}} {
+		if err := s.publish(context.Background(), item.topic, item.event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	originalMarshal := jsonMarshal
+	jsonMarshal = func(any) ([]byte, error) { return nil, errors.New("injected acknowledgement failure") }
+	defer func() { jsonMarshal = originalMarshal }()
+	if err := s.flushEvents(context.Background()); err == nil {
+		t.Fatal("acknowledgement failure was ignored")
+	}
+	if len(publisher.topics) != 1 || len(s.events.Pending) != 2 || s.events.Pending[0].Sequence != 1 {
+		t.Fatalf("at-least-once replay state was lost: topics=%v events=%+v", publisher.topics, s.events)
+	}
+}
+
+func TestEventJournalRejectsSymlinkAndPermissiveState(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		make func(string) error
+	}{
+		{"symlink", func(path string) error {
+			target := path + ".target"
+			if err := os.WriteFile(target, []byte(`{"schema_version":1,"next_sequence":1,"pending":[]}`), 0600); err != nil {
+				return err
+			}
+			return os.Symlink(target, path)
+		}},
+		{"permissive", func(path string) error {
+			return os.WriteFile(path, []byte(`{"schema_version":1,"next_sequence":1,"pending":[]}`), 0644)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s := &service{bundle: t.TempDir(), events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+			if err := test.make(s.eventJournalPath()); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.loadEventJournal(); err == nil {
+				t.Fatal("unsafe event journal accepted")
+			}
+		})
+	}
+}
+
+func TestDeleteRepairsMissingExitEventBeforeDeleteEvent(t *testing.T) {
+	publisher := &fakePublisher{}
+	fake := &fakeAgentClient{fail: map[string]error{}}
+	p := &process{id: "exec", pid: 23, status: tasktypes.Status_STOPPED, exit: 17,
+		exited: time.Unix(123, 0).UTC(), done: make(chan struct{})}
+	close(p.done)
+	s := &service{id: "task", namespace: "default", bundle: t.TempDir(), publisher: publisher, agent: fake,
+		processes: map[string]*process{"exec": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	response, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ExecID: "exec"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{ctruntime.TaskExitEventTopic, ctruntime.TaskDeleteEventTopic}
+	if response.ExitStatus != 17 || fmt.Sprint(publisher.topics) != fmt.Sprint(want) {
+		t.Fatalf("response=%+v topics=%v, want %v", response, publisher.topics, want)
+	}
+	if _, exists := s.processes["exec"]; exists {
+		t.Fatal("deleted exec process remains")
 	}
 }
 
