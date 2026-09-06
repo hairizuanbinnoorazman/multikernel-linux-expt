@@ -23,10 +23,16 @@ type Client struct {
 	Timeout               time.Duration
 }
 
-var dialAgent = net.Dial
+var dialAgent = func(ctx context.Context, network, address string) (net.Conn, error) {
+	return (&net.Dialer{}).DialContext(ctx, network, address)
+}
 
 func Dial(path, sandboxID, generation string, endpoint uint32, token []byte) (*Client, error) {
-	c, err := dialAgent("unix", path)
+	return DialContext(context.Background(), path, sandboxID, generation, endpoint, token)
+}
+
+func DialContext(ctx context.Context, path, sandboxID, generation string, endpoint uint32, token []byte) (*Client, error) {
+	c, err := dialAgent(ctx, "unix", path)
 	if err != nil {
 		return nil, err
 	}
@@ -39,9 +45,13 @@ func (c *Client) Close() error { return c.conn.Close() }
 // sequence. The server retains its last accepted sequence, so restarting at
 // one would correctly be rejected as replay.
 func (c *Client) Reconnect(path string) error {
+	return c.ReconnectContext(context.Background(), path)
+}
+
+func (c *Client) ReconnectContext(ctx context.Context, path string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conn, err := dialAgent("unix", path)
+	conn, err := dialAgent(ctx, "unix", path)
 	if err != nil {
 		return err
 	}
