@@ -192,6 +192,31 @@ class RootFSBuildTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unsupported xattrs", result.stderr)
 
+    @unittest.skipUnless(hasattr(os, "setxattr"), "xattrs unavailable")
+    def test_materializes_overlay_opaque_directory_metadata(self):
+        target = self.root / "opaque"
+        target.mkdir()
+        (target / "visible").write_text("materialized\n")
+        try:
+            os.setxattr(target, "user.overlay.opaque", b"y")
+        except OSError as error:
+            self.skipTest(f"overlay opacity xattr unavailable: {error}")
+        result, archive, manifest = self.build("opaque")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(manifest.read_text())
+        self.assertEqual(data["normalization"]["overlay_opacity"], "materialized-view-normalized")
+        self.assertTrue(archive.exists())
+
+    def test_rejects_whiteout_or_device_node(self):
+        target = self.root / "whiteout"
+        try:
+            os.mknod(target, stat.S_IFCHR | 0o600, os.makedev(0, 0))
+        except (PermissionError, OSError) as error:
+            self.skipTest(f"device node creation unavailable: {error}")
+        result, _, _ = self.build("whiteout")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unsupported file type", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

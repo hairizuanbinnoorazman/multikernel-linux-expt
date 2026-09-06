@@ -57,7 +57,7 @@ func (b *LinuxBackend) Mount(ctx context.Context, input []Mount, target string) 
 				options = append(options, option)
 			}
 		}
-		for _, required := range []string{"ro", "nodev", "nosuid"} {
+		for _, required := range []string{"ro", "nodev", "nosuid", "noexec"} {
 			if !slices.Contains(options, required) {
 				options = append(options, required)
 			}

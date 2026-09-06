@@ -103,7 +103,9 @@ def build(arguments) -> dict:
             os.fsync(stream.fileno())
         environment = {
             "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
-            "LANG": "C", "LC_ALL": "C", "E2FSPROGS_FAKE_TIME": "0", "SOURCE_DATE_EPOCH": "0",
+            # e2fsprogs treats a zero fake time as "use the wall clock".  One is
+            # the earliest positive epoch and is stable across supported hosts.
+            "LANG": "C", "LC_ALL": "C", "E2FSPROGS_FAKE_TIME": "1", "SOURCE_DATE_EPOCH": "1",
         }
         command = [
             arguments.mke2fs, "-q", "-F", "-t", "ext4", "-m", "0",
@@ -131,7 +133,7 @@ def build(arguments) -> dict:
             "filesystem_uuid": arguments.uuid, "size_bytes": arguments.size, "quota_bytes": arguments.size,
             "inode_limit": arguments.inodes, "port": arguments.port, "sha256": image_digest,
             "offline_check_sha256": check_digest, "allocation": "posix_fallocate", "format": "ext4",
-            "determinism": {"fake_time": 0, "hash_seed": arguments.uuid, "lazy_initialization": False},
+            "determinism": {"fake_time": 1, "hash_seed": arguments.uuid, "lazy_initialization": False},
         }
         atomic_json(arguments.metadata, record)
         completed = True

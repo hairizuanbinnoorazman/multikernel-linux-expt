@@ -9,16 +9,48 @@ all behavior-bearing unsupported fields remain fatal.
 
 import json
 import pathlib
+import re
 import sys
 
 
-TOP_LEVEL = {"ociVersion", "process", "root", "linux", "annotations"}
-PROCESS = {"terminal", "user", "args", "env", "cwd"}
+TOP_LEVEL = {"ociVersion", "process", "root", "linux", "annotations", "mounts", "hostname"}
+PROCESS = {"terminal", "user", "args", "env", "cwd", "noNewPrivileges", "rlimits", "capabilities"}
 USER = {"uid", "gid", "additionalGids"}
-ROOT = {"path"}
-LINUX = {"namespaces"}
+CAPABILITY_SETS = {"bounding", "effective", "inheritable", "permitted", "ambient"}
+CAPABILITIES = {
+    "CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_DAC_READ_SEARCH", "CAP_FOWNER", "CAP_FSETID", "CAP_KILL",
+    "CAP_SETGID", "CAP_SETUID", "CAP_SETPCAP", "CAP_LINUX_IMMUTABLE", "CAP_NET_BIND_SERVICE",
+    "CAP_NET_BROADCAST", "CAP_NET_ADMIN", "CAP_NET_RAW", "CAP_IPC_LOCK", "CAP_IPC_OWNER",
+    "CAP_SYS_MODULE", "CAP_SYS_RAWIO", "CAP_SYS_CHROOT", "CAP_SYS_PTRACE", "CAP_SYS_PACCT",
+    "CAP_SYS_ADMIN", "CAP_SYS_BOOT", "CAP_SYS_NICE", "CAP_SYS_RESOURCE", "CAP_SYS_TIME",
+    "CAP_SYS_TTY_CONFIG", "CAP_MKNOD", "CAP_LEASE", "CAP_AUDIT_WRITE", "CAP_AUDIT_CONTROL",
+    "CAP_SETFCAP", "CAP_MAC_OVERRIDE", "CAP_MAC_ADMIN", "CAP_SYSLOG", "CAP_WAKE_ALARM",
+    "CAP_BLOCK_SUSPEND", "CAP_AUDIT_READ", "CAP_PERFMON", "CAP_BPF", "CAP_CHECKPOINT_RESTORE",
+}
+RLIMITS = {
+    "RLIMIT_AS", "RLIMIT_CORE", "RLIMIT_CPU", "RLIMIT_DATA", "RLIMIT_FSIZE", "RLIMIT_LOCKS",
+    "RLIMIT_MEMLOCK", "RLIMIT_MSGQUEUE", "RLIMIT_NICE", "RLIMIT_NOFILE", "RLIMIT_NPROC",
+    "RLIMIT_RSS", "RLIMIT_RTPRIO", "RLIMIT_RTTIME", "RLIMIT_SIGPENDING", "RLIMIT_STACK",
+}
+ROOT = {"path", "readonly"}
+LINUX = {"namespaces", "resources", "cgroupsPath", "maskedPaths", "readonlyPaths"}
 NAMESPACE = {"type", "path"}
 CHILD_BOUNDARY_NAMESPACES = {"pid", "ipc", "uts", "mount", "cgroup"}
+SAFE_MASKED_PATHS = {
+    "/proc/acpi", "/proc/asound", "/proc/kcore", "/proc/keys", "/proc/latency_stats",
+    "/proc/timer_list", "/proc/timer_stats", "/proc/sched_debug", "/sys/firmware",
+    "/sys/devices/virtual/powercap", "/proc/scsi",
+}
+SAFE_READONLY_PATHS = {"/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"}
+DEFAULT_MOUNTS = {
+    "/proc": ("proc", "proc", {"nosuid", "noexec", "nodev"}),
+    "/dev": ("tmpfs", "tmpfs", {"nosuid", "strictatime", "mode=755", "size=65536k"}),
+    "/dev/pts": ("devpts", "devpts", {"nosuid", "noexec", "newinstance", "ptmxmode=0666", "mode=0620", "gid=5"}),
+    "/dev/shm": ("tmpfs", "shm", {"nosuid", "noexec", "nodev", "mode=1777", "size=65536k"}),
+    "/dev/mqueue": ("mqueue", "mqueue", {"nosuid", "noexec", "nodev"}),
+    "/sys": ("sysfs", "sysfs", {"nosuid", "noexec", "nodev", "ro"}),
+    "/run": ("tmpfs", "tmpfs", {"nosuid", "strictatime", "mode=755", "size=65536k"}),
+}
 
 
 def strict_object(pairs):
@@ -76,11 +108,38 @@ def validate_namespaces(value):
         raise ValueError("exactly one Linux network namespace is required")
 
 
+def validate_default_mounts(value):
+    if not isinstance(value, list):
+        raise ValueError("mounts must be an array")
+    seen = set()
+    for index, item in enumerate(value):
+        item = require_object(item, f"mounts[{index}]")
+        reject_unknown(item, {"destination", "type", "source", "options"}, f"mounts[{index}]")
+        destination = item.get("destination")
+        if destination not in DEFAULT_MOUNTS or destination in seen:
+            raise ValueError(f"unsupported or duplicate OCI mount destination {destination!r}")
+        seen.add(destination)
+        mount_type, source, options = DEFAULT_MOUNTS[destination]
+        actual_options = item.get("options", [])
+        if (item.get("type") != mount_type or item.get("source") != source or
+                not isinstance(actual_options, list) or len(actual_options) != len(set(actual_options)) or
+                set(actual_options) != options):
+            raise ValueError(f"OCI mount {destination!r} differs from the enforced default contract")
+
+
+def validate_path_policy(values, allowed, name):
+    if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
+        raise ValueError(f"linux.{name} must be a string array")
+    if len(values) != len(set(values)) or any(item not in allowed for item in values):
+        raise ValueError(f"linux.{name} contains a duplicate or unsupported path")
+
+
 def validate(config):
     config = require_object(config, "config")
     reject_unknown(config, TOP_LEVEL, "OCI")
-    if config.get("ociVersion") != "1.1.0":
-        raise ValueError("ociVersion must be exactly 1.1.0")
+    version = config.get("ociVersion")
+    if not isinstance(version, str) or not re.fullmatch(r"1\.(?:0|1|2|3)\.\d+(?:-[A-Za-z0-9.-]+)?", version):
+        raise ValueError("ociVersion must be a supported OCI 1.0-1.3 version")
 
     process = require_object(config.get("process"), "process")
     reject_unknown(process, PROCESS, "process")
@@ -94,6 +153,43 @@ def validate(config):
         raise ValueError("process.env must be a string array")
     if not isinstance(process.get("cwd"), str) or not process["cwd"].startswith("/"):
         raise ValueError("process.cwd must be an absolute path")
+    if "noNewPrivileges" in process and not isinstance(process["noNewPrivileges"], bool):
+        raise ValueError("process.noNewPrivileges must be boolean")
+    rlimits = process.get("rlimits", [])
+    if not isinstance(rlimits, list) or len(rlimits) > 32:
+        raise ValueError("process.rlimits must be an array of at most 32 limits")
+    seen_limits = set()
+    for index, limit in enumerate(rlimits):
+        limit = require_object(limit, f"process.rlimits[{index}]")
+        reject_unknown(limit, {"type", "hard", "soft"}, f"process.rlimits[{index}]")
+        kind = limit.get("type")
+        if kind not in RLIMITS or kind in seen_limits:
+            raise ValueError(f"unsupported or duplicate process rlimit {kind!r}")
+        seen_limits.add(kind)
+        for field in ("hard", "soft"):
+            value = limit.get(field)
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 0xFFFFFFFFFFFFFFFF:
+                raise ValueError(f"process.rlimits[{index}].{field} must be uint64")
+        if limit["soft"] > limit["hard"]:
+            raise ValueError(f"process.rlimits[{index}] soft limit exceeds hard limit")
+    capabilities = process.get("capabilities")
+    if capabilities is not None:
+        capabilities = require_object(capabilities, "process.capabilities")
+        reject_unknown(capabilities, CAPABILITY_SETS, "process.capabilities")
+        for name, values in capabilities.items():
+            if not isinstance(values, list) or len(values) > len(CAPABILITIES) or not all(isinstance(item, str) for item in values):
+                raise ValueError(f"process.capabilities.{name} must be a bounded string array")
+            if len(values) != len(set(values)) or any(item not in CAPABILITIES for item in values):
+                raise ValueError(f"process.capabilities.{name} contains an unknown or duplicate capability")
+        if process.get("user", {}).get("uid") != 0:
+            raise ValueError("non-root processes may not provide a Linux capability contract")
+        bounding = set(capabilities.get("bounding", []))
+        permitted = set(capabilities.get("permitted", []))
+        effective = set(capabilities.get("effective", []))
+        inheritable = set(capabilities.get("inheritable", []))
+        ambient = set(capabilities.get("ambient", []))
+        if not permitted <= bounding or not effective <= permitted or not ambient <= (permitted & inheritable):
+            raise ValueError("process capability sets violate containment")
 
     user = require_object(process.get("user"), "process.user")
     reject_unknown(user, USER, "process.user")
@@ -109,19 +205,42 @@ def validate(config):
     reject_unknown(root, ROOT, "root")
     if not isinstance(root.get("path"), str) or not root["path"]:
         raise ValueError("root.path must be a non-empty string")
+    if "readonly" in root and not isinstance(root["readonly"], bool):
+        raise ValueError("root.readonly must be boolean")
 
-    validate_namespaces(config.get("linux"))
+    linux = config.get("linux")
+    validate_namespaces(linux)
+    if "resources" in linux:
+        if linux["resources"] != {"devices": [{"allow": False, "access": "rwm"}]}:
+            raise ValueError("only the default deny-all device resource contract is supported")
+    if "cgroupsPath" in linux:
+        path = linux["cgroupsPath"]
+        if not isinstance(path, str) or not path.startswith("/") or pathlib.PurePosixPath(path).as_posix() != path or len(path) > 4096:
+            raise ValueError("linux.cgroupsPath must be absolute, canonical, and bounded")
+    validate_path_policy(linux.get("maskedPaths", []), SAFE_MASKED_PATHS, "maskedPaths")
+    validate_path_policy(linux.get("readonlyPaths", []), SAFE_READONLY_PATHS, "readonlyPaths")
+    validate_default_mounts(config.get("mounts", []))
+    hostname = config.get("hostname", "")
+    if not isinstance(hostname, str) or len(hostname) > 63 or (hostname and not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?", hostname)):
+        raise ValueError("hostname must be an RFC1123-compatible value of at most 63 bytes")
     annotations = config.get("annotations", {})
     if not isinstance(annotations, dict) or not all(isinstance(key, str) and isinstance(value, str) for key, value in annotations.items()):
         raise ValueError("annotations must be a string-to-string object")
 
 
 def guest_projection(config):
-    return {
-        "ociVersion": config["ociVersion"],
+    result = {
+        "ociVersion": "1.1.0",
         "process": config["process"],
         "root": config["root"],
     }
+    if config.get("hostname"):
+        result["hostname"] = config["hostname"]
+    linux = config["linux"]
+    policy = {name: linux[name] for name in ("maskedPaths", "readonlyPaths") if name in linux}
+    if policy:
+        result["linux"] = policy
+    return result
 
 
 def main():

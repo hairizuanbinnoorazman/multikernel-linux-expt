@@ -169,8 +169,9 @@ func capabilityReport() map[string]any {
 		return err == nil
 	}
 	return map[string]any{
-		"protocol":     1,
-		"oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize"},
+		"protocol": 1,
+		"oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize",
+			"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts"},
 		"kernel": map[string]any{
 			"architecture": runtime.GOARCH,
 			"release":      read("/proc/sys/kernel/osrelease"),

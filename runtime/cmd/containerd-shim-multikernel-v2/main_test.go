@@ -79,6 +79,18 @@ func TestValidateExecProcessFailsClosed(t *testing.T) {
 	if err := validateExecProcess(base()); err != nil {
 		t.Fatalf("supported process rejected: %v", err)
 	}
+	supported := base()
+	supported.User.UID = 0
+	supported.NoNewPrivileges = true
+	supported.Rlimits = []specs.POSIXRlimit{{Type: "RLIMIT_NOFILE", Soft: 64, Hard: 64}}
+	supported.Capabilities = &specs.LinuxCapabilities{Bounding: []string{"CAP_CHOWN"}, Permitted: []string{"CAP_CHOWN"}, Effective: []string{"CAP_CHOWN"}}
+	if err := validateExecProcess(supported); err != nil {
+		t.Fatalf("standard process controls rejected: %v", err)
+	}
+	projected := processSpec(supported)
+	if projected.NoNewPrivileges == nil || !*projected.NoNewPrivileges || len(projected.Rlimits) != 1 || projected.Capabilities["effective"][0] != "CAP_CHOWN" {
+		t.Fatalf("standard process controls were not projected: %+v", projected)
+	}
 	zero := 0
 	umask := uint32(0o22)
 	tests := []struct {
@@ -87,9 +99,6 @@ func TestValidateExecProcessFailsClosed(t *testing.T) {
 	}{
 		{"console-size", func(p *specs.Process) { p.ConsoleSize = &specs.Box{} }},
 		{"command-line", func(p *specs.Process) { p.CommandLine = "true" }},
-		{"capabilities", func(p *specs.Process) { p.Capabilities = &specs.LinuxCapabilities{} }},
-		{"rlimits", func(p *specs.Process) { p.Rlimits = []specs.POSIXRlimit{} }},
-		{"no-new-privileges", func(p *specs.Process) { p.NoNewPrivileges = true }},
 		{"apparmor", func(p *specs.Process) { p.ApparmorProfile = "profile" }},
 		{"oom-score", func(p *specs.Process) { p.OOMScoreAdj = &zero }},
 		{"scheduler", func(p *specs.Process) { p.Scheduler = &specs.Scheduler{} }},
@@ -321,6 +330,21 @@ func TestStatsReturnsGuestProcessGroupMetrics(t *testing.T) {
 	}
 	if metrics.CPU.Usage.Total != 18 || metrics.Memory.Usage.Usage != 4096 || metrics.Memory.Usage.Limit != 3<<30 || metrics.Pids.Current != 3 {
 		t.Fatalf("stats = %+v", metrics)
+	}
+}
+
+func TestUpdateAndCheckpointAreExcludedWithoutMutation(t *testing.T) {
+	fake := &fakeAgentClient{fail: map[string]error{}}
+	events := &fakePublisher{}
+	s := &service{agent: fake, publisher: events, processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}}}
+	if _, err := s.Update(context.Background(), &taskapi.UpdateTaskRequest{}); !errors.Is(err, errdefs.ErrNotImplemented) {
+		t.Fatalf("Update error = %v", err)
+	}
+	if _, err := s.Checkpoint(context.Background(), &taskapi.CheckpointTaskRequest{}); !errors.Is(err, errdefs.ErrNotImplemented) {
+		t.Fatalf("Checkpoint error = %v", err)
+	}
+	if len(fake.calls) != 0 || len(events.topics) != 0 || s.processes[""].status != tasktypes.Status_RUNNING {
+		t.Fatalf("excluded methods mutated state: calls=%v events=%v status=%v", fake.calls, events.topics, s.processes[""].status)
 	}
 }
 
