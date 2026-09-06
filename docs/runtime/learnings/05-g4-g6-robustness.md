@@ -146,7 +146,7 @@ manifest is not schema-valid because component versions are missing and
 `${HOST_BOOT_ID}` is invalid, and `gate: G6` plus `result: pass` can be mistaken
 for a full-gate result.
 
-## Current audited verdict
+## 2026-09-02 audited verdict
 
 | Gate | Supported learning | Gate-blocking remediation |
 | --- | --- | --- |
@@ -258,6 +258,21 @@ the authenticated sequence, and reports monotonic packet/drop/error counters.
 DNS configuration and regular-file/symlink/absent restoration are tested.
 Linux command-order tests inject failure at every partial-`ADD` boundary and
 assert reverse cleanup, source-spoof, sibling, metadata, and default-drop
-rules. These are implementation observations from the local test suite, not
+rules. The anti-spoof and NAT match is now the exact child `/32`, rather than
+the whole allocated `/30`, and `CHECK` verifies the complete source, metadata,
+sibling, egress, return-flow, default-drop, and NAT rule set. These are
+implementation observations from the local test suite, not
 G5 gate evidence: privileged namespace traffic, policy bypass, restart/load,
 and final cleanup still require the disposable-instance matrix and raw bundle.
+
+The G4 backend now produces a fully allocated ext4 image with a deterministic
+positive e2fsprogs fake epoch; zero was found by execution to mean “wall clock”
+on the supported toolchain. The Go consumer enforces that exact metadata
+contract. Root scanning revalidates every admitted path after content reads so
+later membership or inode-identity mutation fails the build. Storage restart
+reconciliation can complete an exact `QUIESCING` lease only after observing a
+still-running exact export or its generation-specific graceful-close counter
+record, followed by an offline check. An unexplained missing server remains
+durably diagnosable. These behaviors pass focused local tests but are not G4
+live evidence until the replacement-instance storage/fault matrix retains the
+observed values.

@@ -202,7 +202,34 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 		case "QUIESCING":
-			return errors.New("incomplete storage quiescence requires offline recovery")
+			observation, err := s.backend.Observe(ctx, value)
+			if err != nil {
+				return fmt.Errorf("observe quiescing storage export: %w", err)
+			}
+			if observation.Active && observation.Generation != value.ExportGeneration {
+				return errors.New("quiescing storage process has a conflicting generation")
+			}
+			counters := observation.Counters
+			if observation.Active {
+				counters, err = s.backend.Stop(ctx, value)
+				if err != nil {
+					return fmt.Errorf("resume storage quiescence: %w", err)
+				}
+			} else if !observation.Closed {
+				return errors.New("quiescing storage server is absent without a graceful close record")
+			}
+			result, err := s.backend.OfflineCheck(ctx, value)
+			if err != nil {
+				return fmt.Errorf("recover offline filesystem check: %w", err)
+			}
+			value.State = "RELEASED"
+			value.Counters = counters
+			value.OfflineCheck = result
+			value.ReleasedAt = s.now().UTC()
+			value.UpdatedAt = value.ReleasedAt
+			if err = s.store.Put(value); err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("unsupported storage state %q", value.State)
 		}

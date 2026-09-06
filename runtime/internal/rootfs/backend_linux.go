@@ -91,7 +91,7 @@ func loadStorageBuild(path, expectedPath string, expectedPort uint32) (protocol.
 		return protocol.StorageConfig{}, err
 	}
 	if value.SchemaVersion != 1 || value.Path != expectedPath || value.Port != expectedPort ||
-		value.Format != "ext4" || value.Allocation != "posix_fallocate" || value.Determinism.FakeTime != 0 ||
+		value.Format != "ext4" || value.Allocation != "posix_fallocate" || value.Determinism.FakeTime != 1 ||
 		value.Determinism.HashSeed != value.FilesystemUUID || value.Determinism.LazyInitialization ||
 		!sha256RE.MatchString(value.SHA256) || value.SizeBytes == 0 || value.QuotaBytes != value.SizeBytes || value.InodeLimit == 0 {
 		return protocol.StorageConfig{}, errors.New("builder storage identity differs from the enforced v1 contract")

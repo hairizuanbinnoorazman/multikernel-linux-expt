@@ -3,10 +3,13 @@
 This directory contains the G0-G6 Multikernel runtime MVP described
 in [`../docs/runtime/architecture.md`](../docs/runtime/architecture.md). Host
 qualification, the Kerf control-plane happy path, and the minimal child OCI
-agent reached provisional local and GCE milestones. A private OCI-root initramfs, authenticated
-primary-mediated TUN networking, and the containerd Runtime v2 shim also passed
-the G4-G6 happy-path proof through both `ctr` and Docker. The broader gate
-failure/recovery matrices remain open.
+agent reached provisional local and GCE milestones. Earlier live runs passed a
+private OCI-root prototype, authenticated primary-mediated TUN networking, and
+the containerd Runtime v2 shim through both `ctr` and Docker. The current tree
+instead builds a deterministic bootstrap initramfs and a private, quota-sized
+mediated ext4 OCI root; that replacement plus the CNI-owned network design
+still require current-revision GCE proof. The broader failure/recovery matrices
+remain open.
 
 Guest stdin, detach/reattach, terminal execution, and Runtime v2 resize are
 implemented. Stdin/attach, PTY execution, and initial terminal-size propagation
@@ -67,11 +70,12 @@ packages.
 ## Local validation
 
 ```bash
-GOCACHE=/tmp/mk-go-cache go test ./...
+GOCACHE=/tmp/mk-go-cache go test -race ./...
 GOCACHE=/tmp/mk-go-cache go vet ./...
 CGO_ENABLED=0 go build ./cmd/mk-agent
-sudo ../scripts/test-runtime-g4-g6.sh # qualified, configured GCE host only
-sudo ../scripts/test-runtime-g4-g6-feature-matrix.sh # disposable GCE host only
+../scripts/test-runtime-g4-g6.sh # qualified, configured GCE host; script uses sudo
+../scripts/test-runtime-g4-g6-feature-matrix.sh # disposable GCE host; script uses sudo
+../scripts/test-runtime-recovery.sh # disposable GCE host; script uses sudo
 ```
 
 The GCE scripts are explicit, billable tests under `../scripts/test-runtime-g*.sh`.

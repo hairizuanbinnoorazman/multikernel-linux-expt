@@ -18,6 +18,7 @@ func TestLoadStorageBuildRequiresExactDeterministicIdentity(t *testing.T) {
 		FilesystemUUID: "11111111-2222-4333-8444-555555555555", SizeBytes: 64 << 20,
 		QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061, SHA256: strings.Repeat("a", 64),
 		OfflineCheckSHA256: strings.Repeat("b", 64), Allocation: "posix_fallocate", Format: "ext4"}
+	value.Determinism.FakeTime = 1
 	value.Determinism.HashSeed = value.FilesystemUUID
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -30,6 +31,15 @@ func TestLoadStorageBuildRequiresExactDeterministicIdentity(t *testing.T) {
 	if err != nil || config.SHA256 != value.SHA256 || config.FilesystemUUID != value.FilesystemUUID {
 		t.Fatalf("storage config = %+v, %v", config, err)
 	}
+	value.Determinism.FakeTime = 0
+	raw, _ = json.Marshal(value)
+	if err = os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = loadStorageBuild(path, image, 4061); err == nil {
+		t.Fatal("wall-clock fake time accepted")
+	}
+	value.Determinism.FakeTime = 1
 	value.Determinism.LazyInitialization = true
 	raw, _ = json.Marshal(value)
 	if err = os.WriteFile(path, raw, 0600); err != nil {

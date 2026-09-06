@@ -58,12 +58,8 @@ def _safe_target(path: str, target: str) -> bool:
     return True
 
 
-def _read_stable(path: Path, before: os.stat_result) -> bytes:
-    with path.open("rb", buffering=0) as stream:
-        data = stream.read()
-        after_fd = os.fstat(stream.fileno())
-    after_path = path.stat(follow_symlinks=False)
-    identity = lambda value: (
+def _identity(value: os.stat_result) -> tuple[int, ...]:
+    return (
         value.st_dev,
         value.st_ino,
         value.st_mode,
@@ -73,9 +69,40 @@ def _read_stable(path: Path, before: os.stat_result) -> bytes:
         value.st_mtime_ns,
         value.st_ctime_ns,
     )
-    if identity(before) != identity(after_fd) or identity(before) != identity(after_path):
+
+
+def _read_stable(path: Path, before: os.stat_result) -> bytes:
+    with path.open("rb", buffering=0) as stream:
+        data = stream.read()
+        after_fd = os.fstat(stream.fileno())
+    after_path = path.stat(follow_symlinks=False)
+    if _identity(before) != _identity(after_fd) or _identity(before) != _identity(after_path):
         raise RootFSError(f"input mutated while reading: {path}")
     return data
+
+
+def _revalidate_tree(root: Path, raw: list[tuple[str, Path, os.stat_result]]) -> None:
+    """Reject membership or identity changes anywhere after the initial scan."""
+    expected = {relative: _identity(info) for relative, _, info in raw}
+    observed: dict[str, tuple[int, ...]] = {}
+    stack = [(".", root)]
+    try:
+        while stack:
+            relative, current = stack.pop()
+            info = current.stat(follow_symlinks=False)
+            observed[relative] = _identity(info)
+            if stat.S_ISDIR(info.st_mode):
+                children = sorted(os.scandir(current), key=lambda item: os.fsencode(item.name), reverse=True)
+                for child in children:
+                    child_relative = child.name if relative == "." else relative + "/" + child.name
+                    stack.append((child_relative, Path(child.path)))
+    except OSError as error:
+        raise RootFSError(f"input tree mutated during final validation: {error}") from error
+    if expected.keys() != observed.keys():
+        raise RootFSError("input tree membership mutated during build")
+    for relative, identity in expected.items():
+        if observed[relative] != identity:
+            raise RootFSError(f"input mutated during build: {relative}")
 
 
 def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
@@ -165,6 +192,7 @@ def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
         else:
             raise RootFSError(f"unsupported file type at {relative}: mode {info.st_mode:#o}")
         entries.append(entry)
+    _revalidate_tree(root, raw)
     return entries, contents
 
 
