@@ -34,7 +34,28 @@ sudo systemctl enable --now sys-fs-multikernel.mount mkruntimed.service mknetd.s
 
 The shim name follows containerd's Runtime v2 binary convention, so `ctr` can
 select `io.containerd.multikernel.v2` directly once the binary is on the daemon
-`PATH`; do not change containerd's default runtime. For Docker versions that
+`PATH`; do not change containerd's default runtime. CRI callers use the named
+`multikernel` handler from
+[`containerd/20-multikernel-runtime.toml`](containerd/20-multikernel-runtime.toml).
+That import-only fragment contains neither a config version nor
+`default_runtime_name`. Install it only after verifying the active main config
+imports `/etc/containerd/conf.d/*.toml`:
+
+```bash
+sudo containerd config dump | sed -n '1,30p'
+sudo install -d -m 0755 /etc/containerd/conf.d
+sudo install -m 0644 deploy/containerd/20-multikernel-runtime.toml \
+  /etc/containerd/conf.d/20-multikernel-runtime.toml
+sudo containerd config dump | grep -A16 'runtimes.multikernel'
+```
+
+If the host has no main config, first stage `containerd config default` as the
+candidate main config and confirm its `imports` entry; do not synthesize a
+partial main config or replace an existing one. Restart only on an idle
+disposable host, then verify CRI still reports `runc` as its default and the
+new handler separately. Remove only this fragment to roll back.
+
+For Docker versions that
 require explicit registration, merge the opt-in entry without overwriting any
 existing daemon settings:
 

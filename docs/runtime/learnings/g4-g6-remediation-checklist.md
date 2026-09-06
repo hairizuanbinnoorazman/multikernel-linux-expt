@@ -320,8 +320,10 @@ normative plan is revised with an explicit rationale.
   upgrade/rollback behavior, and no default-runtime mutation. Every Go
   component now has an injected common version/revision and deterministic
   release manifest; Docker configuration is conflict-detecting, validated,
-  opt-in, and preserves the default. Versioned install layout, containerd CRI
-  fragments, automated fresh install, and upgrade/rollback remain open.
+  opt-in, and preserves the default. The containerd v3/v4 import-only CRI
+  fragment adds a named handler without owning the main config or default and
+  passes structural plus containerd config-dump tests. Versioned install
+  layout, automated fresh install, and upgrade/rollback remain open.
 
 ### Automated tests still required
 
