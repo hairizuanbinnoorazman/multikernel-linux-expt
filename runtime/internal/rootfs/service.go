@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -74,6 +75,12 @@ func validateRequest(request PrepareRequest) error {
 		if (mount.Type == "bind" || mount.Type == "none") && (!filepath.IsAbs(mount.Source) || filepath.Clean(mount.Source) != mount.Source) {
 			return errors.New("bind rootfs source must be absolute and canonical")
 		}
+		if mount.Type == "bind" || mount.Type == "none" {
+			resolved, err := filepath.EvalSymlinks(mount.Source)
+			if err != nil || resolved != mount.Source {
+				return errors.New("bind rootfs source may not contain symlinks")
+			}
+		}
 		if len(mount.Options) > 64 {
 			return errors.New("too many rootfs mount options")
 		}
@@ -85,9 +92,44 @@ func validateRequest(request PrepareRequest) error {
 			case "shared", "rshared", "slave", "rslave", "private", "rprivate", "unbindable", "runbindable":
 				return errors.New("rootfs propagation changes are unsupported")
 			}
+			if err := validateMountOption(mount.Type, option); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func validateMountOption(mountType, option string) error {
+	if mountType == "bind" || mountType == "none" {
+		if slices.Contains([]string{"bind", "rbind", "ro", "rw", "nosuid", "nodev", "noexec", "relatime", "noatime", "strictatime"}, option) {
+			return nil
+		}
+		return fmt.Errorf("unsupported bind rootfs option %q", option)
+	}
+	if slices.Contains([]string{"ro", "rw", "nosuid", "nodev", "noexec", "index=off", "index=on", "userxattr", "volatile", "metacopy=on", "metacopy=off", "redirect_dir=on", "redirect_dir=off", "xino=on", "xino=off", "xino=auto"}, option) {
+		return nil
+	}
+	for _, prefix := range []string{"lowerdir=", "upperdir=", "workdir="} {
+		if !strings.HasPrefix(option, prefix) {
+			continue
+		}
+		paths := strings.Split(strings.TrimPrefix(option, prefix), ":")
+		if prefix != "lowerdir=" && len(paths) != 1 {
+			return errors.New("overlay writable path option must contain exactly one path")
+		}
+		for _, path := range paths {
+			if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+				return errors.New("overlay rootfs paths must be absolute and canonical")
+			}
+			resolved, err := filepath.EvalSymlinks(path)
+			if err != nil || resolved != path {
+				return errors.New("overlay rootfs paths may not contain symlinks")
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("unsupported overlay rootfs option %q", option)
 }
 
 func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareResult, error) {

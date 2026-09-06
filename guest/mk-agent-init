@@ -1,17 +1,22 @@
 #!/bin/busybox sh
 set -eu
 /bin/busybox --install -s /bin
-mkdir -p /dev /dev/pts /proc /sys /sys/fs/cgroup /tmp
+mkdir -p /dev /dev/pts /dev/shm /dev/mqueue /proc /sys /sys/fs/cgroup /run /tmp
 mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts
 mountpoint -q /dev/pts || mount -t devpts devpts /dev/pts -o mode=620,ptmxmode=666
+mountpoint -q /dev/shm || mount -t tmpfs shm /dev/shm -o nosuid,noexec,nodev,mode=1777,size=65536k
+mountpoint -q /dev/mqueue || mount -t mqueue mqueue /dev/mqueue -o nosuid,noexec,nodev
 mountpoint -q /proc || mount -t proc proc /proc
 mountpoint -q /sys || mount -t sysfs sysfs /sys
 mountpoint -q /sys/fs/cgroup || mount -t cgroup2 none /sys/fs/cgroup
-mkdir -p /bundle/rootfs/dev /bundle/rootfs/proc /bundle/rootfs/sys /bundle/rootfs/tmp
+mkdir -p /bundle/rootfs/dev /bundle/rootfs/proc /bundle/rootfs/sys /bundle/rootfs/run /bundle/rootfs/tmp
 mount --bind /dev /bundle/rootfs/dev
 mount --bind /proc /bundle/rootfs/proc
 mount --bind /sys /bundle/rootfs/sys
+mount -o remount,bind,nosuid,noexec,nodev /bundle/rootfs/proc
+mount -o remount,bind,ro,nosuid,noexec,nodev /bundle/rootfs/sys
+mount -t tmpfs tmpfs /bundle/rootfs/run -o nosuid,strictatime,mode=755,size=65536k
 if [ -f /mk_transport.ko ] && ! grep -q '^mk_transport ' /proc/modules; then
 	insmod /mk_transport.ko
 fi

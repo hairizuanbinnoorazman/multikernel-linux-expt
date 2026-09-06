@@ -100,7 +100,8 @@ def verify(archive_path: Path, manifest_path: Path) -> dict:
         "archive": "cpio-newc",
         "mtime": 0,
         "inode_assignment": "lexical-path-with-hardlink-groups",
-        "xattrs": "rejected",
+        "xattrs": "rejected-except-realized-overlay-opacity",
+        "overlay_opacity": "materialized-view-normalized",
         "sparse_extents": "normalized-to-regular-bytes",
         "device_nodes": "rejected",
     }

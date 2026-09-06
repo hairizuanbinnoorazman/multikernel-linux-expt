@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -381,36 +382,14 @@ func TestUnsupportedFailsClosed(t *testing.T) {
 	}{
 		{"mounts", func(c map[string]any) { c["mounts"] = []any{map[string]any{}} }, "mounts and hooks"},
 		{"hooks", func(c map[string]any) { c["hooks"] = map[string]any{"prestart": []any{}} }, "mounts and hooks"},
-		{"capabilities", func(c map[string]any) {
-			c["process"].(map[string]any)["capabilities"] = map[string]any{"bounding": []any{"CAP_CHOWN"}}
-		}, "capabilities"},
 		{"namespaces", func(c map[string]any) {
 			c["linux"] = map[string]any{"namespaces": []any{map[string]any{"type": "pid"}}}
-		}, "namespaces/resources/seccomp/path controls"},
-		{"resources", func(c map[string]any) { c["linux"] = map[string]any{"resources": map[string]any{}} }, "namespaces/resources/seccomp/path controls"},
-		{"seccomp", func(c map[string]any) { c["linux"] = map[string]any{"seccomp": map[string]any{}} }, "namespaces/resources/seccomp/path controls"},
-		{"masked paths", func(c map[string]any) { c["linux"] = map[string]any{"maskedPaths": []any{"/proc/kcore"}} }, "namespaces/resources/seccomp/path controls"},
-		{"readonly paths", func(c map[string]any) { c["linux"] = map[string]any{"readonlyPaths": []any{"/proc/sys"}} }, "namespaces/resources/seccomp/path controls"},
-		{"read-only root", func(c map[string]any) { c["root"].(map[string]any)["readonly"] = true }, "read-only root"},
-		{"no new privileges", func(c map[string]any) { c["process"].(map[string]any)["noNewPrivileges"] = true }, "noNewPrivileges"},
-		{"rlimits", func(c map[string]any) {
-			c["process"].(map[string]any)["rlimits"] = []any{map[string]any{"type": "RLIMIT_NOFILE", "hard": 64, "soft": 64}}
-		}, "rlimits"},
-		{"hostname", func(c map[string]any) { c["hostname"] = "sandbox" }, "hostname"},
+		}, "namespaces/resources/seccomp"},
+		{"resources", func(c map[string]any) { c["linux"] = map[string]any{"resources": map[string]any{}} }, "namespaces/resources/seccomp"},
+		{"seccomp", func(c map[string]any) { c["linux"] = map[string]any{"seccomp": map[string]any{}} }, "namespaces/resources/seccomp"},
 		{"annotations", func(c map[string]any) { c["annotations"] = map[string]any{} }, "annotations"},
 		{"empty mounts", func(c map[string]any) { c["mounts"] = []any{} }, "mounts and hooks"},
 		{"empty hooks", func(c map[string]any) { c["hooks"] = map[string]any{} }, "mounts and hooks"},
-		{"empty capabilities", func(c map[string]any) {
-			c["process"].(map[string]any)["capabilities"] = map[string]any{}
-		}, "capabilities"},
-		{"empty rlimits", func(c map[string]any) {
-			c["process"].(map[string]any)["rlimits"] = []any{}
-		}, "rlimits"},
-		{"empty linux", func(c map[string]any) { c["linux"] = map[string]any{} }, "namespaces/resources/seccomp/path controls"},
-		{"false read-only root", func(c map[string]any) { c["root"].(map[string]any)["readonly"] = false }, "read-only root"},
-		{"false no new privileges", func(c map[string]any) {
-			c["process"].(map[string]any)["noNewPrivileges"] = false
-		}, "noNewPrivileges"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -436,6 +415,29 @@ func TestUnsupportedFailsClosed(t *testing.T) {
 				t.Fatalf("Create() error = %v, want rejection containing %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestSupportedRootPolicyLoadsBeforePrivilegedApplication(t *testing.T) {
+	b := bundle(t, []string{"/probe"}, "")
+	raw, err := os.ReadFile(filepath.Join(b, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err = json.Unmarshal(raw, &config); err != nil {
+		t.Fatal(err)
+	}
+	config["hostname"] = "sandbox-one"
+	config["root"].(map[string]any)["readonly"] = false
+	config["linux"] = map[string]any{"maskedPaths": []any{"/proc/kcore"}, "readonlyPaths": []any{"/proc/sys"}}
+	raw, _ = json.Marshal(config)
+	if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, _, err := LoadBundle(b)
+	if err != nil || loaded.Hostname != "sandbox-one" || loaded.Linux == nil || len(loaded.Linux.MaskedPaths) != 1 {
+		t.Fatalf("supported root policy = %+v, %v", loaded, err)
 	}
 }
 
@@ -816,6 +818,11 @@ func TestAuthenticationAndReplay(t *testing.T) {
 	for _, feature := range features {
 		if feature == "uid" || feature == "gid" || feature == "supplementary-groups" || feature == "signals" {
 			t.Fatalf("unproved feature %q advertised", feature)
+		}
+	}
+	for _, required := range []string{"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts"} {
+		if !slices.Contains(features, required) {
+			t.Fatalf("implemented feature %q not advertised: %v", required, features)
 		}
 	}
 	kernel, ok := capabilities["kernel"].(map[string]any)

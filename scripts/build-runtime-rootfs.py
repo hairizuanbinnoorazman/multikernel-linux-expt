@@ -26,6 +26,9 @@ class RootFSError(Exception):
     pass
 
 
+OVERLAY_OPAQUE_XATTRS = {"trusted.overlay.opaque", "user.overlay.opaque"}
+
+
 @dataclass(frozen=True)
 class Entry:
     path: str
@@ -121,8 +124,16 @@ def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
             xattrs = os.listxattr(path, follow_symlinks=False)
         except OSError as error:
             raise RootFSError(f"cannot inspect xattrs for {relative}: {error}") from error
-        if xattrs:
-            raise RootFSError(f"unsupported xattrs on {relative}: {','.join(sorted(xattrs))}")
+        unsupported_xattrs = set(xattrs) - OVERLAY_OPAQUE_XATTRS
+        if unsupported_xattrs:
+            raise RootFSError(f"unsupported xattrs on {relative}: {','.join(sorted(unsupported_xattrs))}")
+        for name in set(xattrs) & OVERLAY_OPAQUE_XATTRS:
+            try:
+                value = os.getxattr(path, name, follow_symlinks=False)
+            except OSError as error:
+                raise RootFSError(f"cannot inspect overlay opacity on {relative}: {error}") from error
+            if not stat.S_ISDIR(info.st_mode) or value not in (b"y", b"x"):
+                raise RootFSError(f"malformed overlay opacity metadata on {relative}")
         common = dict(path=relative, mode=info.st_mode, uid=info.st_uid, gid=info.st_gid, size=0)
         if stat.S_ISDIR(info.st_mode):
             entry = Entry(kind="directory", **common)
@@ -164,7 +175,8 @@ def manifest(entries: list[Entry]) -> bytes:
             "archive": "cpio-newc",
             "mtime": 0,
             "inode_assignment": "lexical-path-with-hardlink-groups",
-            "xattrs": "rejected",
+            "xattrs": "rejected-except-realized-overlay-opacity",
+            "overlay_opacity": "materialized-view-normalized",
             "sparse_extents": "normalized-to-regular-bytes",
             "device_nodes": "rejected",
         },

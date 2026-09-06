@@ -16,6 +16,13 @@ import (
 )
 
 func main() {
+	if len(os.Args) >= 4 && os.Args[1] == "__oci_exec" {
+		if err := agent.RunOCIExec(os.Args[2], os.Args[3:]); err != nil {
+			fmt.Fprintln(os.Stderr, "OCI executor:", err)
+			os.Exit(126)
+		}
+		return
+	}
 	var id, gen, token, unixSocket string
 	var port uint
 	var noChroot, mediatedRoot bool

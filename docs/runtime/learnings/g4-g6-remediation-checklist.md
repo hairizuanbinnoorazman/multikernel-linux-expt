@@ -273,9 +273,12 @@ normative plan is revised with an explicit rationale.
   guest PID under mapping version `multikernel-v1-guest-pid`; the pre-start
   Create response retains the supervisor PID required by the Task v2 launch
   handshake.
-- [ ] Implement and test Task `Stats`, `Update`, and `Checkpoint`, or revise the
-  advertised G6 surface and plan explicitly. Keep `Pause`/`Resume` as explicit
-  unsupported methods until implemented and tested.
+- [x] Implement and test Task `Stats`, `Update`, and `Checkpoint`, or revise the
+  advertised G6 surface and plan explicitly. `Pause`, `Resume`, and `Stats` are
+  implemented with focused tests. Plan 06 now explicitly excludes `Update`
+  because Kerf allocation is generation-immutable and excludes `Checkpoint`
+  because the selected Multikernel/Kerf contract has no checkpoint primitive;
+  both reject before child contact or state mutation, with a focused test.
 - [ ] Complete lifecycle event publication and ordering, including exactly-once
   or documented replay semantics across restart, exec events, exit/delete
   races, and publication failure.

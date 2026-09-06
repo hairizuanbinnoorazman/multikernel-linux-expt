@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 
 
@@ -37,12 +38,16 @@ class StorageBuildTests(unittest.TestCase):
 
     def test_reproducible_fully_allocated_and_changed_input_control(self):
         first, image_a, metadata_a = self.build("a")
+        # Cross a wall-clock second so this detects e2fsprogs silently treating
+        # a zero fake-time value as "now".
+        time.sleep(1.1)
         second, image_b, metadata_b = self.build("b")
         self.assertEqual(first.returncode, 0, first.stderr)
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(image_a.read_bytes(), image_b.read_bytes())
         record_a = json.loads(metadata_a.read_text())
         record_b = json.loads(metadata_b.read_text())
+        self.assertEqual(record_a["determinism"]["fake_time"], 1)
         self.assertEqual(record_a["sha256"], hashlib.sha256(image_a.read_bytes()).hexdigest())
         self.assertEqual(record_a["sha256"], record_b["sha256"])
         self.assertGreaterEqual(image_a.stat().st_blocks * 512, image_a.stat().st_size)

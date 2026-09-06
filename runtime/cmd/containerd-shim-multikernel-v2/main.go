@@ -1289,15 +1289,29 @@ func (s *service) Kill(ctx context.Context, r *taskapi.KillRequest) (*emptypb.Em
 func processSpec(p *specs.Process) agent.ProcessSpec {
 	gids := make([]uint32, len(p.User.AdditionalGids))
 	copy(gids, p.User.AdditionalGids)
-	return agent.ProcessSpec{Terminal: p.Terminal, User: agent.User{UID: p.User.UID, GID: p.User.GID, AdditionalGids: gids}, Args: p.Args, Env: p.Env, Cwd: p.Cwd}
+	result := agent.ProcessSpec{Terminal: p.Terminal, User: agent.User{UID: p.User.UID, GID: p.User.GID, AdditionalGids: gids}, Args: p.Args, Env: p.Env, Cwd: p.Cwd}
+	if p.NoNewPrivileges {
+		value := true
+		result.NoNewPrivileges = &value
+	}
+	for _, limit := range p.Rlimits {
+		result.Rlimits = append(result.Rlimits, agent.Rlimit{Type: limit.Type, Hard: limit.Hard, Soft: limit.Soft})
+	}
+	if p.Capabilities != nil {
+		result.Capabilities = map[string][]string{
+			"bounding": append([]string(nil), p.Capabilities.Bounding...), "effective": append([]string(nil), p.Capabilities.Effective...),
+			"inheritable": append([]string(nil), p.Capabilities.Inheritable...), "permitted": append([]string(nil), p.Capabilities.Permitted...),
+			"ambient": append([]string(nil), p.Capabilities.Ambient...),
+		}
+	}
+	return result
 }
 
 func validateExecProcess(p *specs.Process) error {
 	if p == nil || len(p.Args) == 0 || p.Cwd == "" || !filepath.IsAbs(p.Cwd) {
 		return fmt.Errorf("%w: exec args and absolute cwd are required", errdefs.ErrInvalidArgument)
 	}
-	if p.ConsoleSize != nil || p.CommandLine != "" || p.Capabilities != nil ||
-		p.Rlimits != nil || p.NoNewPrivileges || p.ApparmorProfile != "" ||
+	if p.ConsoleSize != nil || p.CommandLine != "" || p.ApparmorProfile != "" ||
 		p.OOMScoreAdj != nil || p.Scheduler != nil || p.SelinuxLabel != "" ||
 		p.IOPriority != nil || p.User.Umask != nil || p.User.Username != "" {
 		return fmt.Errorf("%w: unsupported exec process field", errdefs.ErrNotImplemented)

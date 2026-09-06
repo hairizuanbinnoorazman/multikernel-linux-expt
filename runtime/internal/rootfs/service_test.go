@@ -60,8 +60,12 @@ func rootfsFixture(t *testing.T) (*Service, *fakeBackend, PrepareRequest, string
 	if err != nil {
 		t.Fatal(err)
 	}
+	snapshot := filepath.Join(base, "snapshot")
+	if err := os.Mkdir(snapshot, 0700); err != nil {
+		t.Fatal(err)
+	}
 	request := PrepareRequest{Version: Version, Bundle: bundle, TaskIdentity: "task-0123456789abcdef0123456789abcdef", StoragePort: 4061,
-		Mounts: []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=/snapshot"}}}}
+		Mounts: []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=" + snapshot}}}}
 	return service, backend, request, base
 }
 
@@ -179,5 +183,13 @@ func TestValidationRejectsSymlinkBundleAndPropagation(t *testing.T) {
 	request.Mounts[0].Options = []string{"rshared"}
 	if _, err := service.Prepare(context.Background(), request); err == nil {
 		t.Fatal("propagation option accepted")
+	}
+	request.Mounts[0].Options = []string{"lowerdir=relative"}
+	if _, err := service.Prepare(context.Background(), request); err == nil {
+		t.Fatal("relative overlay path accepted")
+	}
+	request.Mounts[0].Options = []string{"context=untrusted"}
+	if _, err := service.Prepare(context.Background(), request); err == nil {
+		t.Fatal("unknown overlay option accepted")
 	}
 }

@@ -195,6 +195,7 @@ type Manager struct {
 	dnsSymlink  string
 	dnsMode     os.FileMode
 	dnsExisted  bool
+	policySet   bool
 	NoChroot    bool
 }
 
@@ -240,26 +241,19 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 	if len(c.Process.Args) == 0 {
 		return c, "", errors.New("process.args is required")
 	}
-	if c.Process.NoNewPrivileges != nil {
-		return c, "", errors.New("noNewPrivileges is not implemented")
-	}
-	if c.Process.Rlimits != nil {
-		return c, "", errors.New("rlimits are not implemented")
-	}
-	if c.Root.Readonly != nil {
-		return c, "", errors.New("read-only root is not implemented")
-	}
-	if c.Hostname != "" {
-		return c, "", errors.New("hostname is not implemented")
-	}
-	if c.Process.Capabilities != nil {
-		return c, "", errors.New("capabilities are not implemented")
+	if e := validateExecConstraints(c.Process); e != nil {
+		return c, "", e
 	}
 	if c.Mounts != nil || c.Hooks != nil {
 		return c, "", errors.New("mounts and hooks are not implemented")
 	}
 	if c.Linux != nil {
-		return c, "", errors.New("Linux namespaces/resources/seccomp/path controls are not implemented")
+		if c.Linux.Namespaces != nil || c.Linux.Resources != nil || c.Linux.Seccomp != nil {
+			return c, "", errors.New("Linux namespaces/resources/seccomp are not implemented in the guest projection")
+		}
+		if err := validateRootPolicy(c.Linux.MaskedPaths, c.Linux.ReadonlyPaths); err != nil {
+			return c, "", err
+		}
 	}
 	if c.Annotations != nil {
 		return c, "", errors.New("annotations are not implemented")
@@ -322,6 +316,15 @@ func (m *Manager) Create(id, bundle string) error {
 	if len(m.processes) >= maxProcesses {
 		return errors.New("process retention limit reached")
 	}
+	if !m.policySet {
+		if m.NoChroot && (c.Hostname != "" || c.Root.Readonly != nil || c.Linux != nil) {
+			return errors.New("root policy cannot be applied in no-chroot test mode")
+		}
+		if e = applyRootPolicy(c, root); e != nil {
+			return e
+		}
+		m.policySet = true
+	}
 	m.processes[id] = &process{spec: c.Process, root: root, done: make(chan struct{}), state: ProcessState{ID: id, Status: "CREATED"}}
 	return nil
 }
@@ -332,8 +335,11 @@ func (m *Manager) Exec(id, parentID string, spec ProcessSpec) error {
 	if !validProcessID(id) {
 		return errors.New("invalid process ID")
 	}
-	if len(spec.Args) == 0 || spec.NoNewPrivileges != nil || spec.Rlimits != nil || spec.Capabilities != nil {
-		return errors.New("unsupported exec process configuration")
+	if len(spec.Args) == 0 {
+		return errors.New("exec process args are required")
+	}
+	if err := validateExecConstraints(spec); err != nil {
+		return err
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -399,7 +405,18 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 		m.mu.Unlock()
 		return e
 	}
-	cmd := exec.Command(exe, p.spec.Args[1:]...)
+	commandPath := exe
+	commandArgs := p.spec.Args[1:]
+	if p.spec.NoNewPrivileges != nil || p.spec.Rlimits != nil || p.spec.Capabilities != nil {
+		constraints, constraintErr := encodeExecConstraints(p.spec)
+		if constraintErr != nil {
+			m.mu.Unlock()
+			return constraintErr
+		}
+		commandPath = "/mk-agent"
+		commandArgs = append([]string{"__oci_exec", constraints}, p.spec.Args...)
+	}
+	cmd := exec.Command(commandPath, commandArgs...)
 	cmd.Env = append([]string(nil), p.spec.Env...)
 	cmd.Dir = p.spec.Cwd
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

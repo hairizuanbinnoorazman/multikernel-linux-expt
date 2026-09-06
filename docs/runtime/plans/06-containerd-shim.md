@@ -23,6 +23,16 @@ Containerd remains responsible for pulling images, applying OCI layers, and
 preparing snapshot/rootfs mounts; the shim passes those inputs and `config.json`
 through the runtime contracts instead of building a guest OS or boot image.
 
+`Pause`, `Resume`, and `Stats` are supported extensions to this minimum
+surface. Task `Update` and `Checkpoint` are deliberately not advertised by
+this gate and return `UNIMPLEMENTED` before contacting the child or mutating
+state. CPU and memory ownership is fixed for a sandbox generation at Create;
+changing it in place would violate Kerf's allocation contract. The selected
+Multikernel/Kerf interface also has no checkpoint/restore primitive from which
+an OCI checkpoint with defensible storage, network, and process identity could
+be built. Those methods require a future versioned contract rather than a
+partial compatibility claim.
+
 ## Tests
 
 - Unit tests against a fake daemon.
