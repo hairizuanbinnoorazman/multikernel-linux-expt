@@ -168,6 +168,25 @@ class RootFSBuildTests(unittest.TestCase):
         self.assertEqual(entry["mode"] & 0o777, 0o604)
         self.assertEqual(json.loads(subprocess.check_output([str(VERIFIER), str(archive), str(manifest)]))["entries"], 1002)
 
+    def test_mtime_and_sparse_allocation_are_normalized(self):
+        target = self.root / "content"
+        payload = b"prefix" + (b"\0" * (1 << 20)) + b"suffix"
+        with target.open("wb") as stream:
+            stream.write(b"prefix")
+            stream.seek((1 << 20) + len(b"prefix"))
+            stream.write(b"suffix")
+        os.utime(target, ns=(1_000_000_000, 1_000_000_000))
+        first, archive_a, manifest_a = self.build("sparse-form")
+        self.assertEqual(first.returncode, 0, first.stderr)
+        # Replace sparse extents with allocated zero bytes and choose unrelated
+        # timestamps. The admitted bytes and OCI-visible metadata are equal.
+        target.write_bytes(payload)
+        os.utime(target, ns=(9_000_000_000, 9_000_000_000))
+        second, archive_b, manifest_b = self.build("dense-form")
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(archive_a.read_bytes(), archive_b.read_bytes())
+        self.assertEqual(manifest_a.read_bytes(), manifest_b.read_bytes())
+
     def test_verifier_rejects_archive_and_manifest_corruption(self):
         (self.root / "value").write_text("content")
         result, archive, manifest = self.build("verified")
@@ -238,6 +257,23 @@ class RootFSBuildTests(unittest.TestCase):
         data = json.loads(manifest.read_text())
         self.assertEqual(data["normalization"]["overlay_opacity"], "materialized-view-normalized")
         self.assertTrue(archive.exists())
+
+    @unittest.skipUnless(hasattr(os, "setxattr"), "xattrs unavailable")
+    def test_rejects_malformed_overlay_opacity(self):
+        for name, directory, value in (
+            ("wrong-type", False, b"y"),
+            ("wrong-value", True, b"not-opaque"),
+        ):
+            with self.subTest(name=name):
+                target = self.root / name
+                target.mkdir() if directory else target.write_text("content")
+                try:
+                    os.setxattr(target, "user.overlay.opaque", value)
+                except OSError as error:
+                    self.skipTest(f"overlay xattrs unavailable: {error}")
+                result, _, _ = self.build(name)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("malformed overlay opacity", result.stderr)
 
     def test_rejects_whiteout_or_device_node(self):
         target = self.root / "whiteout"
