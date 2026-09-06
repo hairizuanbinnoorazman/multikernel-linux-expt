@@ -200,7 +200,10 @@ func (s *Service) Cleanup(ctx context.Context, request CleanupRequest) error {
 	return s.store.Delete(request.TaskIdentity)
 }
 
-func (s *Service) Reconcile(ctx context.Context) error {
+// Reconcile repairs interrupted preparations and removes prepared images that
+// are not owned by a live lifecycle record. The map binds an exact backing
+// path to its content digest, so a reused path cannot inherit stale ownership.
+func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, record := range s.store.List() {
@@ -219,6 +222,24 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 		case "PREPARED":
+			if record.Storage == nil {
+				return errors.New("prepared rootfs has no storage identity")
+			}
+			if digest, owned := storageOwners[record.Storage.Path]; !owned || digest != record.Storage.SHA256 {
+				if err := s.backend.Unmount(ctx, record.Root); err != nil {
+					return fmt.Errorf("unmount orphaned rootfs: %w", err)
+				}
+				if err := os.RemoveAll(record.RuntimeDir); err != nil {
+					return err
+				}
+				if err := os.RemoveAll(record.StorageDir); err != nil {
+					return err
+				}
+				if err := s.store.Delete(record.Request.TaskIdentity); err != nil {
+					return err
+				}
+				continue
+			}
 			if err := s.backend.VerifyPrepared(ctx, record); err != nil {
 				return fmt.Errorf("verify prepared rootfs: %w", err)
 			}

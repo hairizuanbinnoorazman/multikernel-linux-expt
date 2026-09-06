@@ -60,10 +60,10 @@ func validatePrepared(value PreparedImage) error {
 	if _, err := hex.DecodeString(value.SHA256); err != nil {
 		return errors.New("storage image digest is malformed")
 	}
-	if value.SizeBytes < 64<<20 || value.SizeBytes%4096 != 0 || value.QuotaBytes != value.SizeBytes {
+	if value.SizeBytes < 64<<20 || value.SizeBytes > 16<<30 || value.SizeBytes%4096 != 0 || value.QuotaBytes != value.SizeBytes {
 		return errors.New("image size must be aligned, bounded by, and equal to its enforced quota")
 	}
-	if value.InodeLimit == 0 || value.Port < 1024 {
+	if value.InodeLimit < 128 || value.InodeLimit > 2_097_152 || value.Port < 1024 || value.Port > 65535 {
 		return errors.New("inode limit and non-privileged export port are required")
 	}
 	return nil

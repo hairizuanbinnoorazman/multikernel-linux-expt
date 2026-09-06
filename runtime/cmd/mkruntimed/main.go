@@ -187,7 +187,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "reconcile:", e)
 		os.Exit(1)
 	}
-	if e = rootfsService.Reconcile(ctx); e != nil {
+	storageOwners := map[string]string{}
+	for _, sandbox := range svc.List() {
+		if sandbox.Config.Storage != nil {
+			storageOwners[sandbox.Config.Storage.Path] = sandbox.Config.Storage.SHA256
+		}
+	}
+	if e = rootfsService.Reconcile(ctx, storageOwners); e != nil {
 		fmt.Fprintln(os.Stderr, "rootfs reconcile:", e)
 		os.Exit(1)
 	}
