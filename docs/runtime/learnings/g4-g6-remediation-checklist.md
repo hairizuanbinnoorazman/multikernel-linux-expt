@@ -156,8 +156,14 @@ normative plan is revised with an explicit rationale.
   deterministic newc builder and changed-input control are exercised by
   `scripts/test-runtime-rootfs-build.py`; disposable-host evidence is still
   required by the replacement-run section below.
-- [ ] Whiteouts, opaque directories, hardlinks, symlinks, sparse files, xattrs,
-  modes, uid/gid, timestamps, large trees, and every rejected file type/path.
+- [x] Whiteouts/device nodes, opaque directories, hardlinks, symlinks, sparse
+  files, xattrs, modes, uid/gid, timestamps, and large trees have focused
+  coverage. The suite proves equivalent sparse/dense bytes and differing
+  mtimes produce identical output, extracts and checks links/modes, rejects
+  malformed opacity and unsupported xattrs, and exercises FIFO, socket,
+  escaping-link, external-hardlink, and device rejection. Device creation is
+  permission-gated locally and must execute rather than skip in the privileged
+  replacement-host run.
 - [ ] Relative and absolute OCI root paths, hostile symlinks, concurrent source
   changes, wrong architecture, malformed OCI JSON, and unsupported OCI fields.
 - [ ] Read-only input rejection, private-write isolation, configured
