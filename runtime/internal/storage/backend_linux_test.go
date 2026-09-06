@@ -140,14 +140,21 @@ int main(void) {
 	if err != nil || !observed.Active || observed.Generation != value.ExportGeneration {
 		t.Fatalf("observation = %+v, %v", observed, err)
 	}
-	counters, err := backend.Stop(context.Background(), value)
+	// A fresh backend has no in-memory child handle. It must adopt and stop the
+	// exact durable process record, as happens after mkruntimed restarts.
+	recovered := &LinuxBackend{Binary: binaryPath, RuntimeDir: backend.RuntimeDir, RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 20 * time.Millisecond}
+	observed, err = recovered.Observe(context.Background(), value)
+	if err != nil || !observed.Active || observed.Generation != value.ExportGeneration {
+		t.Fatalf("recovered observation = %+v, %v", observed, err)
+	}
+	counters, err := recovered.Stop(context.Background(), value)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if counters.Reads != 2 || counters.ReadBytes != 8192 || counters.Writes != 3 || counters.WrittenBytes != 12288 || counters.Flushes != 4 {
 		t.Fatalf("counters = %+v", counters)
 	}
-	observed, err = backend.Observe(context.Background(), value)
+	observed, err = recovered.Observe(context.Background(), value)
 	if err != nil || observed.Active {
 		t.Fatalf("post-stop observation = %+v, %v", observed, err)
 	}

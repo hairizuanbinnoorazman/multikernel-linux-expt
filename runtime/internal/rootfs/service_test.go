@@ -118,11 +118,31 @@ func TestUnmountFailurePreservesRecoverableState(t *testing.T) {
 		t.Fatalf("recoverable record = %+v, %v", record, ok)
 	}
 	backend.unmountErr = nil
-	if err := service.Reconcile(context.Background()); err != nil {
+	if err := service.Reconcile(context.Background(), nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := service.store.Get(request.TaskIdentity); ok {
 		t.Fatal("partial state survived reconcile")
+	}
+}
+
+func TestReconcileRetainsOnlyExactLifecycleOwner(t *testing.T) {
+	service, _, request, _ := rootfsFixture(t)
+	result, err := service.Prepare(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = service.Reconcile(context.Background(), map[string]string{result.Storage.Path: result.Storage.SHA256}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := service.store.Get(request.TaskIdentity); !ok {
+		t.Fatal("owned preparation was removed")
+	}
+	if err = service.Reconcile(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := service.store.Get(request.TaskIdentity); ok {
+		t.Fatal("orphaned preparation survived")
 	}
 }
 

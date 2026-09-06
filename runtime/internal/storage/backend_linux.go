@@ -255,7 +255,11 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	command := exec.Command(b.Binary, "server", value.Path, strconv.Itoa(int(value.Port)), value.ImageID, value.ExportGeneration)
 	command.Stdout, command.Stderr = log, log
 	command.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGTERM}
+	// The export outlives mkruntimed so a daemon restart cannot sever a live
+	// child's root disk. Reconciliation adopts it only when PID start time,
+	// argv, path, port, image ID, and export generation all match the durable
+	// lease; teardown signals that exact process group.
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err = command.Start(); err != nil {
 		_ = log.Close()
 		b.mu.Unlock()
