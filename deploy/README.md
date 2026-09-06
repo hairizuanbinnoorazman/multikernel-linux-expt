@@ -21,6 +21,14 @@ sudo systemctl enable --now sys-fs-multikernel.mount mkruntimed.service mknetd.s
 sudo systemctl restart containerd docker
 ```
 
+Install a strict `/etc/mkruntime/config.json` from the documented host-config
+contract, mount the qualified `mk-mediated-storage` filesystem at
+`/srv/multikernel-storage`, and install the rootfs builder, NBD helper, guest
+bootstrap scripts, kernel/module manifest, and agent artifacts referenced by
+that contract. `mkruntimed` performs snapshot mounting and deterministic root
+construction; the shim only submits a bounded preparation request and never
+mounts the caller's snapshot itself.
+
 Install `runtime/bin/mknetd` as `/usr/local/sbin/mknetd`, and adapt
 `MKNETWORK_EGRESS` and `MKNETWORK_DNS` to the qualified host before starting
 the service. Containerd or another orchestrator may invoke CNI `ADD`, `CHECK`,

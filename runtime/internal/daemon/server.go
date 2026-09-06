@@ -11,12 +11,14 @@ import (
 	"syscall"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
 
 type Server struct {
 	Service    *lifecycle.Service
+	Rootfs     *rootfs.Service
 	MaxFrame   int
 	AllowedUID uint32
 	mu         sync.Mutex
@@ -156,6 +158,36 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			}
 		}
 		out.Body, out.Error = s.Service.Events(query.AfterSequence, query.Limit)
+	case "PrepareRootfs":
+		if s.Rootfs == nil {
+			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "rootfs preparation service is unavailable"}
+			break
+		}
+		var request rootfs.PrepareRequest
+		if e := protocol.StrictDecode(r.Body, &request); e != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: e.Error()}
+			break
+		}
+		var e error
+		out.Body, e = s.Rootfs.Prepare(ctx, request)
+		if e != nil {
+			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: e.Error()}
+		}
+	case "CleanupRootfs":
+		if s.Rootfs == nil {
+			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "rootfs preparation service is unavailable"}
+			break
+		}
+		var request rootfs.CleanupRequest
+		if e := protocol.StrictDecode(r.Body, &request); e != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: e.Error()}
+			break
+		}
+		if e := s.Rootfs.Cleanup(ctx, request); e != nil {
+			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: e.Error()}
+		} else {
+			out.Body = map[string]bool{"cleaned": true}
+		}
 	case "CreateSandbox":
 		var c protocol.SandboxConfig
 		if e := protocol.StrictDecode(r.Body, &c); e != nil {

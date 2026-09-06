@@ -101,6 +101,7 @@ type Server struct {
 	Bundle                string
 	Endpoint              uint32
 	Token                 []byte
+	BeforeShutdown        func() error
 	mu                    sync.Mutex
 	last                  uint64
 }
@@ -347,6 +348,12 @@ func (s *Server) Dispatch(e Envelope) Reply {
 	case "Shutdown":
 		if !s.Manager.Quiescent() {
 			r.Error = "managed processes are still running"
+		} else if s.BeforeShutdown != nil {
+			if err := s.BeforeShutdown(); err != nil {
+				r.Error = "storage quiescence failed"
+			} else {
+				r.Body = map[string]string{"status": "quiesced"}
+			}
 		} else {
 			r.Body = map[string]string{"status": "quiesced"}
 		}

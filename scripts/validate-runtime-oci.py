@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
-"""Fail-closed validation for the provisional Multikernel OCI subset."""
+"""Fail-closed validation and guest projection for the Multikernel OCI subset.
+
+Linux namespaces are consumed by the sandbox/CNI boundary rather than recreated
+inside its dedicated child kernel. Annotations are inert metadata. Those two
+fields are validated here and deliberately omitted from the guest projection;
+all behavior-bearing unsupported fields remain fatal.
+"""
 
 import json
 import pathlib
 import sys
 
 
-TOP_LEVEL = {"ociVersion", "process", "root"}
+TOP_LEVEL = {"ociVersion", "process", "root", "linux", "annotations"}
 PROCESS = {"terminal", "user", "args", "env", "cwd"}
 USER = {"uid", "gid", "additionalGids"}
 ROOT = {"path"}
+LINUX = {"namespaces"}
+NAMESPACE = {"type", "path"}
+CHILD_BOUNDARY_NAMESPACES = {"pid", "ipc", "uts", "mount", "cgroup"}
 
 
 def strict_object(pairs):
@@ -36,6 +45,35 @@ def reject_unknown(value, allowed, name):
 def require_uint32(value, name):
     if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 0xFFFFFFFF:
         raise ValueError(f"{name} must be an unsigned 32-bit integer")
+
+
+def validate_namespaces(value):
+    linux = require_object(value, "linux")
+    reject_unknown(linux, LINUX, "linux")
+    namespaces = linux.get("namespaces")
+    if not isinstance(namespaces, list):
+        raise ValueError("linux.namespaces must be an array")
+    seen = set()
+    for index, item in enumerate(namespaces):
+        item = require_object(item, f"linux.namespaces[{index}]")
+        reject_unknown(item, NAMESPACE, f"linux.namespaces[{index}]")
+        kind = item.get("type")
+        path = item.get("path", "")
+        if kind in seen:
+            raise ValueError(f"duplicate Linux namespace type {kind!r}")
+        seen.add(kind)
+        if kind == "network":
+            if not isinstance(path, str):
+                raise ValueError("network namespace path must be a string")
+            if path and (not path.startswith("/") or pathlib.PurePosixPath(path).as_posix() != path or ".." in pathlib.PurePosixPath(path).parts):
+                raise ValueError("network namespace path must be absolute and canonical")
+        elif kind in CHILD_BOUNDARY_NAMESPACES:
+            if path not in (None, ""):
+                raise ValueError(f"joining an existing {kind} namespace is unsupported")
+        else:
+            raise ValueError(f"unsupported Linux namespace type {kind!r}")
+    if "network" not in seen:
+        raise ValueError("exactly one Linux network namespace is required")
 
 
 def validate(config):
@@ -72,6 +110,19 @@ def validate(config):
     if not isinstance(root.get("path"), str) or not root["path"]:
         raise ValueError("root.path must be a non-empty string")
 
+    validate_namespaces(config.get("linux"))
+    annotations = config.get("annotations", {})
+    if not isinstance(annotations, dict) or not all(isinstance(key, str) and isinstance(value, str) for key, value in annotations.items()):
+        raise ValueError("annotations must be a string-to-string object")
+
+
+def guest_projection(config):
+    return {
+        "ociVersion": config["ociVersion"],
+        "process": config["process"],
+        "root": config["root"],
+    }
+
 
 def main():
     if len(sys.argv) not in (2, 3):
@@ -85,7 +136,7 @@ def main():
         if len(sys.argv) == 3:
             destination = pathlib.Path(sys.argv[2])
             destination.write_text(
-                json.dumps(config, separators=(",", ":"), sort_keys=True) + "\n",
+                json.dumps(guest_projection(config), separators=(",", ":"), sort_keys=True) + "\n",
                 encoding="utf-8",
             )
     except (OSError, ValueError, json.JSONDecodeError) as error:

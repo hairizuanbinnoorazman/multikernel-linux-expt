@@ -17,6 +17,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf"
 	statepkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
+	storagepkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -36,12 +37,14 @@ type Service struct {
 	poolCPUs          map[int]bool
 	poolMemoryBytes   uint64
 	poolMemoryReserve uint64
+	storage           *storagepkg.Service
 	global            sync.Mutex
 	locks             sync.Map
 	fault             func(string) error
 }
 
 func (s *Service) SetArtifactResolver(resolver ArtifactResolver) { s.resolver = resolver }
+func (s *Service) SetStorage(service *storagepkg.Service)        { s.storage = service }
 func (s *Service) SetFaultInjector(injector func(string) error)  { s.fault = injector }
 func (s *Service) checkpoint(point string) error {
 	if s.fault == nil {
@@ -64,6 +67,51 @@ func (s *Service) artifactsFor(manifest string) (Artifacts, error) {
 
 func New(st *statepkg.Store, b kerf.Backend, a Artifacts) *Service {
 	return &Service{store: st, backend: b, artifacts: a}
+}
+
+func preparedStorage(value *protocol.StorageConfig) storagepkg.PreparedImage {
+	return storagepkg.PreparedImage{Path: value.Path, ImageID: value.ImageID, FilesystemUUID: value.FilesystemUUID,
+		SizeBytes: value.SizeBytes, QuotaBytes: value.QuotaBytes, InodeLimit: value.InodeLimit, Port: value.Port, SHA256: value.SHA256}
+}
+
+func storageStatus(value storagepkg.Export) *protocol.StorageStatus {
+	return &protocol.StorageStatus{ExportGeneration: value.ExportGeneration, State: value.State,
+		OfflineCheck: value.OfflineCheck, Reads: value.Counters.Reads, ReadBytes: value.Counters.ReadBytes,
+		Writes: value.Counters.Writes, WrittenBytes: value.Counters.WrittenBytes, Flushes: value.Counters.Flushes,
+		ReleasedAt: value.ReleasedAt}
+}
+
+func (s *Service) provisionStorage(ctx context.Context, sandbox *protocol.Sandbox) error {
+	if s.storage == nil {
+		return nil
+	}
+	if sandbox.Config.Storage == nil {
+		return errors.New("prepared storage identity is required")
+	}
+	value, err := s.storage.Provision(ctx, sandbox.ID, sandbox.Generation, preparedStorage(sandbox.Config.Storage))
+	if err != nil {
+		return err
+	}
+	if sandbox.Storage != nil && sandbox.Storage.ExportGeneration != value.ExportGeneration {
+		return errors.New("sandbox storage generation differs from durable export")
+	}
+	sandbox.Storage = storageStatus(value)
+	return nil
+}
+
+func (s *Service) releaseStorage(ctx context.Context, sandbox *protocol.Sandbox) error {
+	if s.storage == nil {
+		return nil
+	}
+	if sandbox.Storage == nil || sandbox.Storage.ExportGeneration == "" {
+		return errors.New("sandbox has no generation-bound storage export")
+	}
+	value, err := s.storage.Release(ctx, sandbox.ID, sandbox.Generation, sandbox.Storage.ExportGeneration)
+	if err != nil {
+		return err
+	}
+	sandbox.Storage = storageStatus(value)
+	return nil
 }
 func (s *Service) SetPoolCPUs(cpus []int) {
 	s.poolCPUs = make(map[int]bool, len(cpus))
@@ -308,6 +356,9 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 	if e := validateConfig(c); e != nil {
 		return protocol.MutationResult{}, apierr("INVALID_ARGUMENT", e.Error(), false)
 	}
+	if s.storage != nil && c.Storage == nil {
+		return protocol.MutationResult{}, apierr("INVALID_ARGUMENT", "prepared storage identity is required", false)
+	}
 	if len(s.poolCPUs) != 0 {
 		for _, cpu := range c.CPUs {
 			if !s.poolCPUs[cpu] {
@@ -374,6 +425,19 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 		if e := s.backend.Create(ctx, *current); e != nil {
 			return e
 		}
+		if e := s.provisionStorage(ctx, current); e != nil {
+			deleteErr := s.backend.Delete(context.WithoutCancel(ctx), *current)
+			var poolErr error
+			if firstSandbox {
+				poolErr = s.backend.ReleasePool(context.WithoutCancel(ctx))
+			}
+			return errors.Join(e, deleteErr, poolErr)
+		}
+		if e := s.store.SetSandbox(*current); e != nil {
+			storageErr := s.releaseStorage(context.WithoutCancel(ctx), current)
+			deleteErr := s.backend.Delete(context.WithoutCancel(ctx), *current)
+			return errors.Join(e, storageErr, deleteErr)
+		}
 		current.State = "CREATED"
 		return nil
 	})
@@ -419,6 +483,9 @@ func (s *Service) transition(ctx context.Context, id, gen, key, method string, f
 }
 func (s *Service) Load(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
 	return s.transition(ctx, id, gen, key, "LoadSandbox", []string{"CREATED"}, "", "LOADED", func(x protocol.Sandbox) error {
+		if err := s.provisionStorage(ctx, &x); err != nil {
+			return err
+		}
 		artifacts, err := s.artifactsFor(x.Config.KernelManifest)
 		if err != nil {
 			return err
@@ -457,6 +524,9 @@ func (s *Service) Delete(ctx context.Context, id, gen, key string) (protocol.Mut
 			if e := s.backend.Stop(ctx, *current); e != nil {
 				return e
 			}
+		}
+		if e := s.releaseStorage(ctx, current); e != nil {
+			return e
 		}
 		if e := s.backend.Delete(ctx, *current); e != nil {
 			return e
@@ -502,6 +572,11 @@ func (s *Service) Events(after uint64, limit uint32) ([]protocol.Event, *protoco
 	return events, nil
 }
 func (s *Service) Reconcile(ctx context.Context) error {
+	if s.storage != nil {
+		if err := s.storage.Reconcile(ctx); err != nil {
+			return fmt.Errorf("storage reconcile: %w", err)
+		}
+	}
 	es, e := s.store.JournalEntries()
 	if e != nil {
 		return e
@@ -595,12 +670,18 @@ func (s *Service) reconcileIncomplete(ctx context.Context, intent statepkg.Journ
 			actual, err = s.backend.Observe(ctx, sandbox.ID)
 		}
 		if err == nil && actual == "CREATED" {
+			err = s.provisionStorage(ctx, &sandbox)
+		}
+		if err == nil && actual == "CREATED" {
 			return finish("CREATED")
 		}
 	case "LoadSandbox":
 		if actual == "CREATED" {
 			var artifacts Artifacts
-			artifacts, err = s.artifactsFor(sandbox.Config.KernelManifest)
+			err = s.provisionStorage(ctx, &sandbox)
+			if err == nil {
+				artifacts, err = s.artifactsFor(sandbox.Config.KernelManifest)
+			}
 			if err == nil {
 				err = s.backend.Load(ctx, sandbox, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline)
 			}
@@ -634,6 +715,9 @@ func (s *Service) reconcileIncomplete(ctx context.Context, intent statepkg.Journ
 	case "DeleteSandbox":
 		if actual == "RUNNING" {
 			err = s.backend.Stop(ctx, sandbox)
+		}
+		if err == nil && actual != "ABSENT" {
+			err = s.releaseStorage(ctx, &sandbox)
 		}
 		if err == nil && actual != "ABSENT" {
 			err = s.backend.Delete(ctx, sandbox)

@@ -277,6 +277,10 @@ func TestSignalReachesContainerProcessGroup(t *testing.T) {
 	}
 	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
 		if data, readErr := os.ReadFile(marker); readErr == nil {
+			if len(data) == 0 {
+				time.Sleep(time.Millisecond)
+				continue
+			}
 			if string(data) != "child-received-sigterm\n" {
 				t.Fatalf("marker = %q", data)
 			}
@@ -873,6 +877,24 @@ func TestShutdownRequiresQuiescence(t *testing.T) {
 	body, ok := reply.Body.(map[string]string)
 	if reply.Error != "" || !ok || body["status"] != "quiesced" {
 		t.Fatalf("quiescent Shutdown reply = %+v", reply)
+	}
+}
+
+func TestShutdownRequiresStorageQuiescenceBeforeSuccess(t *testing.T) {
+	server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001,
+		Token: []byte("01234567890123456789012345678901"), BeforeShutdown: func() error { return errors.New("injected remount failure") }}
+	request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation, Endpoint: server.Endpoint, Sequence: 1, Method: "Shutdown"}
+	Sign(&request, server.Token)
+	reply := server.Dispatch(request)
+	if reply.Error != "storage quiescence failed" {
+		t.Fatalf("failed storage quiescence reply = %+v", reply)
+	}
+	server.BeforeShutdown = func() error { return nil }
+	request.Sequence++
+	Sign(&request, server.Token)
+	reply = server.Dispatch(request)
+	if reply.Error != "" {
+		t.Fatalf("successful storage quiescence reply = %+v", reply)
 	}
 }
 

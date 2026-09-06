@@ -18,12 +18,13 @@ import (
 func main() {
 	var id, gen, token, unixSocket string
 	var port uint
-	var noChroot bool
+	var noChroot, mediatedRoot bool
 	flag.StringVar(&id, "sandbox-id", "", "sandbox ID")
 	flag.StringVar(&gen, "generation", "", "sandbox generation")
 	flag.StringVar(&token, "token-hex", "", "256-bit authentication token")
 	flag.UintVar(&port, "port", 0, "AF_VSOCK port")
 	flag.BoolVar(&noChroot, "test-no-chroot", false, "disable chroot for explicit local tests")
+	flag.BoolVar(&mediatedRoot, "mediated-root", false, "remount the mediated ext4 root read-only before shutdown")
 	flag.StringVar(&unixSocket, "unix-socket", "", "child-local Unix control socket")
 	flag.Parse()
 	key, e := hex.DecodeString(token)
@@ -34,6 +35,16 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	s := &agent.Server{Manager: agent.NewManager(noChroot), SandboxID: id, Generation: gen, Bundle: "/bundle", Endpoint: uint32(port), Token: key}
+	if mediatedRoot {
+		s.BeforeShutdown = func() error {
+			syscall.Sync()
+			if err := unix.Mount("", "/", "", unix.MS_REMOUNT|unix.MS_RDONLY, ""); err != nil {
+				return err
+			}
+			syscall.Sync()
+			return nil
+		}
+	}
 	if unixSocket == "" {
 		fmt.Fprintln(os.Stderr, "--unix-socket is required; direct Go AF_VSOCK is prohibited")
 		os.Exit(2)

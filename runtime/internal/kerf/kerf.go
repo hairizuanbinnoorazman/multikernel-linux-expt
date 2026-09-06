@@ -141,6 +141,16 @@ func (c *CLI) Load(ctx context.Context, s protocol.Sandbox, kernel, initrd, cmdl
 		cmdline += " mk.sandbox_id=" + s.ID + " mk.generation=" + s.Generation +
 			" mk.token=" + token + " mk.agent_port=" + strconv.FormatUint(uint64(s.Config.AgentPort), 10)
 	}
+	if s.Config.Storage != nil {
+		if s.Storage == nil || s.Storage.State != "ACTIVE" || len(s.Storage.ExportGeneration) != 32 {
+			return errors.New("runtime storage export is not generation-bound and active")
+		}
+		cmdline += " mk.image_id=" + s.Config.Storage.ImageID +
+			" mk.storage_generation=" + s.Storage.ExportGeneration +
+			" mk.root_uuid=" + s.Config.Storage.FilesystemUUID +
+			" mk.storage_port=" + strconv.FormatUint(uint64(s.Config.Storage.Port), 10) +
+			" mk.storage_size=" + strconv.FormatUint(s.Config.Storage.SizeBytes, 10)
+	}
 	err := c.run(ctx, "load", s.ID, "--kernel="+kernel, "--initrd="+initrd, "--cmdline="+cmdline, "--verbose")
 	return c.acceptObserved(ctx, s.ID, "LOADED", err)
 }

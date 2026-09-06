@@ -2,17 +2,17 @@
 set -eu
 /bin/busybox --install -s /bin
 mkdir -p /dev /dev/pts /proc /sys /sys/fs/cgroup /tmp
-mount -t devtmpfs devtmpfs /dev
+mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts
-mount -t devpts devpts /dev/pts -o mode=620,ptmxmode=666
-mount -t proc proc /proc
-mount -t sysfs sysfs /sys
-mount -t cgroup2 none /sys/fs/cgroup
+mountpoint -q /dev/pts || mount -t devpts devpts /dev/pts -o mode=620,ptmxmode=666
+mountpoint -q /proc || mount -t proc proc /proc
+mountpoint -q /sys || mount -t sysfs sysfs /sys
+mountpoint -q /sys/fs/cgroup || mount -t cgroup2 none /sys/fs/cgroup
 mkdir -p /bundle/rootfs/dev /bundle/rootfs/proc /bundle/rootfs/sys /bundle/rootfs/tmp
 mount --bind /dev /bundle/rootfs/dev
 mount --bind /proc /bundle/rootfs/proc
 mount --bind /sys /bundle/rootfs/sys
-if [ -f /mk_transport.ko ]; then
+if [ -f /mk_transport.ko ] && ! grep -q '^mk_transport ' /proc/modules; then
 	insmod /mk_transport.ko
 fi
 
@@ -35,8 +35,10 @@ if [ -z "$sandbox_id" ] || [ -z "$generation" ] || [ -z "$token" ] || [ -z "$por
 fi
 
 echo "MK_AGENT_START sandbox=$sandbox_id generation=$generation port=$port"
+mediated=
+grep -q 'mk.storage_generation=' /proc/cmdline && mediated=--mediated-root
 /mk-agent --sandbox-id="$sandbox_id" --generation="$generation" \
-	--token-hex="$token" --port="$port" --unix-socket=/tmp/mk-agent.sock &
+	--token-hex="$token" --port="$port" --unix-socket=/tmp/mk-agent.sock $mediated &
 agent_pid=$!
 while kill -0 "$agent_pid" 2>/dev/null; do
 	/mkvsock-relay client 0 "$port" /tmp/mk-agent.sock || true
