@@ -1,6 +1,6 @@
 # G4-G6 remediation and live-evidence checklist
 
-Audit date: 2026-09-02
+Audit date: 2026-09-02; implementation status refreshed 2026-09-06
 
 This is the implementation and evidence handoff for gates G4, G5, and G6. The
 existing GCE runs demonstrate a useful executable MVP, but they do not close
@@ -18,9 +18,9 @@ is what remains after those local passes.
 
 | Gate | Demonstrated boundary | Why the gate remains open |
 | --- | --- | --- |
-| G4 | Containerd- and Docker-prepared BusyBox roots are copied into private per-sandbox initramfs artifacts; two sandbox-private writes and clean teardown passed. | Snapshot non-mutation and reproducibility were not measured; manifest validation, metadata fidelity, ownership modes, quotas, persistence, corruption, recovery, and the storage failure matrix remain incomplete. |
-| G5 | Two static `/30` TUN links, primary NAT, outbound HTTP with name resolution, sibling-link isolation, and final link/rule cleanup passed. | There is no CNI binary or normal `ADD`/`CHECK`/`DEL`; `mknetd`, MTU negotiation, counters, backpressure policy, reconnect, load/fault coverage, and policy-bypass testing remain incomplete. |
-| G6 | Core Task v2 lifecycle, concurrent `ctr`/Docker use, exec, stdio, nonzero exits, signals, name reuse, `mkruntimed` restart, stdin/attach, PTY, initial terminal-size propagation, and normal cleanup passed in narrow runs. | Post-start live-resize evidence, containerd/shim task reconnection, Docker daemon restart, event ordering, cancellation/deadlines, FIFO failures, faithful PIDs, several Task methods, broad OCI support, and evidence-grade restart/failure reruns remain incomplete. |
+| G4 | The current tree builds and verifies canonical manifests and deterministic newc roots, rejects observed source mutation and unsafe metadata, produces bounded fully allocated private ext4 images, generation-binds one mediated export, and journals graceful teardown/recovery. Earlier live runs only prove the narrower BusyBox/private-write MVP. | Configured persistence and read-only bind inputs remain incomplete. Exhaustion, corruption, server-loss, host-reset, clone, cross-export, and replacement-instance evidence matrices have not passed on the current revision. |
+| G5 | The current tree contains `mknetd`, CNI 1.0 `ADD`/`CHECK`/idempotent `DEL`, generation-bound endpoint state, negotiated MTU/DNS, bounded exchange/counters, restart reconciliation, and exact-address anti-spoof/firewall policy. Earlier live runs only prove static-link networking. | The CNI implementation and complete firewall CHECK have automated coverage but no current-revision live proof. Traffic, MTU/load/fault, restart, spoof/bypass, primary-health, and cleanup evidence matrices remain open. |
+| G6 | The current tree implements the core Task v2 lifecycle, faithful versioned guest PIDs, pause/resume/stats, standard OCI process controls, durable task/process/I/O offsets, a supervised shim worker, and generation-bound task reconstruction. Earlier live runs prove only the narrower lifecycle/I/O MVP. | Current-revision forced-shim reconstruction remains live-unproved. Durable event replay, complete cancellation/FIFO/race matrices, Docker restart, packaging upgrade/rollback, and evidence-grade shared and isolated reruns remain incomplete. |
 
 The canonical gate rows in [`../plans/README.md`](../plans/README.md) and
 [`../../project/TASKS.md`](../../project/TASKS.md) must remain unchecked until

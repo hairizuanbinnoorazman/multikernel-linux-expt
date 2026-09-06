@@ -13,6 +13,7 @@ type fakeBackend struct {
 	fail     map[string]error
 	calls    []string
 	counters Counters
+	closed   bool
 }
 
 func newFakeBackend() *fakeBackend {
@@ -36,7 +37,7 @@ func (f *fakeBackend) Observe(_ context.Context, value Export) (Observation, err
 		return Observation{}, err
 	}
 	generation, active := f.active[value.Path]
-	return Observation{Active: active, Generation: generation, Counters: f.counters}, nil
+	return Observation{Active: active, Closed: !active && f.closed, Generation: generation, Counters: f.counters}, nil
 }
 func (f *fakeBackend) Stop(_ context.Context, value Export) (Counters, error) {
 	f.calls = append(f.calls, "stop")
@@ -44,6 +45,7 @@ func (f *fakeBackend) Stop(_ context.Context, value Export) (Counters, error) {
 		return Counters{}, err
 	}
 	delete(f.active, value.Path)
+	f.closed = true
 	return f.counters, nil
 }
 func (f *fakeBackend) OfflineCheck(context.Context, Export) (string, error) {
@@ -172,5 +174,56 @@ func TestReconcileRestartsOnlyAbsentExactActiveExport(t *testing.T) {
 	}
 	if err = service.Reconcile(context.Background()); err == nil {
 		t.Fatal("incomplete quiescence was guessed away")
+	}
+}
+
+func TestReconcileCompletesExactQuiescingExport(t *testing.T) {
+	for _, serverActive := range []bool{true, false} {
+		t.Run(map[bool]string{true: "active", false: "already-stopped"}[serverActive], func(t *testing.T) {
+			service, store, backend, image := fixture(t)
+			backend.counters = Counters{Reads: 2, ReadBytes: 8192, Writes: 3, WrittenBytes: 12288, Flushes: 4}
+			value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+			if err != nil {
+				t.Fatal(err)
+			}
+			value.State = "QUIESCING"
+			if err = store.Put(value); err != nil {
+				t.Fatal(err)
+			}
+			if !serverActive {
+				delete(backend.active, image.Path)
+				backend.closed = true
+			}
+			if err = service.Reconcile(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			recovered, ok := store.Get("box-a", sandboxGeneration)
+			if !ok || recovered.State != "RELEASED" || recovered.OfflineCheck != "clean" || recovered.Counters != backend.counters {
+				t.Fatalf("recovered export = %+v", recovered)
+			}
+			if _, active := backend.active[image.Path]; active {
+				t.Fatal("recovered export remained active")
+			}
+		})
+	}
+}
+
+func TestReconcileRetainsQuiescingExportWithoutGracefulCloseProof(t *testing.T) {
+	service, store, backend, image := fixture(t)
+	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.State = "QUIESCING"
+	if err = store.Put(value); err != nil {
+		t.Fatal(err)
+	}
+	delete(backend.active, image.Path)
+	if err = service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "without a graceful close record") {
+		t.Fatalf("reconcile error = %v", err)
+	}
+	retained, ok := store.Get("box-a", sandboxGeneration)
+	if !ok || retained.State != "QUIESCING" {
+		t.Fatalf("diagnosable quiescing state was lost: %+v", retained)
 	}
 }

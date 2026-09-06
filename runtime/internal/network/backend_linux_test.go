@@ -73,7 +73,8 @@ func TestLinuxBackendPolicyAndNamespaceCommands(t *testing.T) {
 	for _, required := range []string{
 		"ip link set mkhost0 netns 123",
 		"nsenter --net=/proc/123/ns/net -- ip tuntap add dev eth0 mode tun",
-		"iptables -w -A MK-0123456789ab ! -s 172.31.0.0/30 -j DROP",
+		"iptables -w -A MK-0123456789ab ! -s 172.31.0.2/32 -j DROP",
+		"iptables -w -t nat -A POSTROUTING -s 172.31.0.2/32 -o ens4 -j MASQUERADE",
 		"iptables -w -A MK-0123456789ab -d 169.254.169.254/32 -p udp --dport 53 -j ACCEPT",
 		"iptables -w -A MK-0123456789ab -d 169.254.169.254/32 -j REJECT",
 		"iptables -w -A MK-0123456789ab -o mkv+ -j DROP",
@@ -132,9 +133,21 @@ func TestLinuxBackendRejectsMalformedIdentityBeforeCommands(t *testing.T) {
 }
 
 func TestLinuxBackendCheckValidatesObservedValues(t *testing.T) {
-	backend := LinuxBackend{Runner: &inspectingRunner{}, IP: "ip", IPTables: "iptables", Nsenter: "nsenter", Egress: "ens4"}
+	runner := &inspectingRunner{}
+	backend := LinuxBackend{Runner: runner, IP: "ip", IPTables: "iptables", Nsenter: "nsenter", Egress: "ens4"}
 	if err := backend.Check(context.Background(), linuxEndpoint()); err != nil {
 		t.Fatal(err)
+	}
+	joined := strings.Join(runner.calls, "\n")
+	for _, required := range []string{
+		"iptables -w -C MK-0123456789ab -o mkv+ -j DROP",
+		"iptables -w -C MK-0123456789ab -j DROP",
+		"iptables -w -C FORWARD -i ens4 -o mkv0123456789a -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT",
+		"iptables -w -t nat -C POSTROUTING -s 172.31.0.2/32 -o ens4 -j MASQUERADE",
+	} {
+		if !strings.Contains(joined, required) {
+			t.Errorf("CHECK omitted %q in:\n%s", required, joined)
+		}
 	}
 	backend.Runner = &inspectingRunner{corrupt: true}
 	if err := backend.Check(context.Background(), linuxEndpoint()); err == nil {

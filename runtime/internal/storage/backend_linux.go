@@ -347,10 +347,17 @@ func processMatches(record processRecord, binary string) bool {
 func (b *LinuxBackend) Observe(_ context.Context, value Export) (Observation, error) {
 	b.mu.Lock()
 	b.defaults()
-	recordPath, _ := b.paths(value)
+	recordPath, logPath := b.paths(value)
 	b.mu.Unlock()
 	record, err := readRecord(recordPath)
 	if errors.Is(err, os.ErrNotExist) {
+		// A daemon may restart after the server completed its graceful close but
+		// before the QUIESCING lease was finalized. The generation-specific log
+		// is the durable counter record for that exact export.
+		counters, counterErr := parseCounters(logPath)
+		if counterErr == nil {
+			return Observation{Closed: true, Counters: counters}, nil
+		}
 		return Observation{}, nil
 	}
 	if err != nil {

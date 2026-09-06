@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import gzip
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -8,12 +9,22 @@ import shutil
 import socket
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT = Path(__file__).with_name("build-runtime-rootfs.py")
 VERIFIER = Path(__file__).with_name("verify-runtime-rootfs.py")
+
+
+def load_builder():
+    spec = importlib.util.spec_from_file_location("runtime_rootfs_builder", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 class RootFSBuildTests(unittest.TestCase):
@@ -93,6 +104,22 @@ class RootFSBuildTests(unittest.TestCase):
         result, _, _ = self.build("escape")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("escaping symlink", result.stderr)
+
+    def test_rejects_mutation_after_file_read(self):
+        source = self.root / "value"
+        source.write_text("before\n")
+        builder = load_builder()
+        original = builder._read_stable
+
+        def mutate_after_read(path, before):
+            data = original(path, before)
+            if path.name == "value":
+                path.write_text("after\n")
+            return data
+
+        with mock.patch.object(builder, "_read_stable", side_effect=mutate_after_read):
+            with self.assertRaisesRegex(builder.RootFSError, "input mutated during build"):
+                builder.scan(self.root)
 
     def test_rejects_fifo(self):
         os.mkfifo(self.root / "fifo")

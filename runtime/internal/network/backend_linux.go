@@ -155,6 +155,8 @@ func (b LinuxBackend) Add(ctx context.Context, endpoint Endpoint) error {
 	if err != nil {
 		return err
 	}
+	childIP, _, _ := net.ParseCIDR(endpoint.Address)
+	childSource := childIP.String() + "/32"
 	target, err := netnsTarget(endpoint.NetNS)
 	if err != nil {
 		return err
@@ -178,7 +180,7 @@ func (b LinuxBackend) Add(ctx context.Context, endpoint Endpoint) error {
 		{b.Nsenter, b.ns(endpoint, b.IP, "route", "replace", "default", "via", transitHost, "dev", peerIf)},
 		{b.IP, []string{"route", "add", guestNetwork, "via", transitPeer, "dev", hostIf}},
 		{b.IPTables, []string{"-w", "-N", chain}},
-		{b.IPTables, []string{"-w", "-A", chain, "!", "-s", guestNetwork, "-j", "DROP"}},
+		{b.IPTables, []string{"-w", "-A", chain, "!", "-s", childSource, "-j", "DROP"}},
 		{b.IPTables, []string{"-w", "-A", chain, "-d", "169.254.169.254/32", "-p", "udp", "--dport", "53", "-j", "ACCEPT"}},
 		{b.IPTables, []string{"-w", "-A", chain, "-d", "169.254.169.254/32", "-p", "tcp", "--dport", "53", "-j", "ACCEPT"}},
 		{b.IPTables, []string{"-w", "-A", chain, "-d", "169.254.169.254/32", "-j", "REJECT"}},
@@ -187,7 +189,7 @@ func (b LinuxBackend) Add(ctx context.Context, endpoint Endpoint) error {
 		{b.IPTables, []string{"-w", "-A", chain, "-j", "DROP"}},
 		{b.IPTables, []string{"-w", "-I", "FORWARD", "1", "-i", hostIf, "-j", chain}},
 		{b.IPTables, []string{"-w", "-I", "FORWARD", "1", "-i", b.Egress, "-o", hostIf, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"}},
-		{b.IPTables, []string{"-w", "-t", "nat", "-A", "POSTROUTING", "-s", guestNetwork, "-o", b.Egress, "-j", "MASQUERADE"}},
+		{b.IPTables, []string{"-w", "-t", "nat", "-A", "POSTROUTING", "-s", childSource, "-o", b.Egress, "-j", "MASQUERADE"}},
 	}
 	for _, command := range commands {
 		if err = b.Runner.Run(ctx, command.name, command.args...); err != nil {
@@ -204,6 +206,8 @@ func (b LinuxBackend) Check(ctx context.Context, endpoint Endpoint) error {
 	if err != nil {
 		return err
 	}
+	childIP, _, _ := net.ParseCIDR(endpoint.Address)
+	childSource := childIP.String() + "/32"
 	inspector, ok := b.Runner.(InspectRunner)
 	if !ok {
 		return errors.New("Linux backend runner cannot inspect endpoint state")
@@ -220,9 +224,15 @@ func (b LinuxBackend) Check(ctx context.Context, endpoint Endpoint) error {
 		{b.Nsenter, b.ns(endpoint, "/usr/sbin/sysctl", "-n", "net.ipv4.ip_forward"), []string{"1"}},
 		{b.Nsenter, b.ns(endpoint, b.IP, "route", "show", "default"), []string{"via " + transitHost, "dev mkhost0"}},
 		{b.IPTables, []string{"-w", "-C", "FORWARD", "-i", hostIf, "-j", chain}, nil},
-		{b.IPTables, []string{"-w", "-C", chain, "!", "-s", guestNetwork, "-j", "DROP"}, nil},
+		{b.IPTables, []string{"-w", "-C", chain, "!", "-s", childSource, "-j", "DROP"}, nil},
 		{b.IPTables, []string{"-w", "-C", chain, "-d", "169.254.169.254/32", "-p", "udp", "--dport", "53", "-j", "ACCEPT"}, nil},
+		{b.IPTables, []string{"-w", "-C", chain, "-d", "169.254.169.254/32", "-p", "tcp", "--dport", "53", "-j", "ACCEPT"}, nil},
 		{b.IPTables, []string{"-w", "-C", chain, "-d", "169.254.169.254/32", "-j", "REJECT"}, nil},
+		{b.IPTables, []string{"-w", "-C", chain, "-o", "mkv+", "-j", "DROP"}, nil},
+		{b.IPTables, []string{"-w", "-C", chain, "-o", b.Egress, "-j", "ACCEPT"}, nil},
+		{b.IPTables, []string{"-w", "-C", chain, "-j", "DROP"}, nil},
+		{b.IPTables, []string{"-w", "-C", "FORWARD", "-i", b.Egress, "-o", hostIf, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"}, nil},
+		{b.IPTables, []string{"-w", "-t", "nat", "-C", "POSTROUTING", "-s", childSource, "-o", b.Egress, "-j", "MASQUERADE"}, nil},
 	}
 	for _, check := range checks {
 		output, outputErr := inspector.Output(ctx, check.name, check.args...)
@@ -244,11 +254,13 @@ func (b LinuxBackend) Delete(ctx context.Context, endpoint Endpoint) error {
 	if topologyErr != nil {
 		return topologyErr
 	}
+	childIP, _, _ := net.ParseCIDR(endpoint.Address)
+	childSource := childIP.String() + "/32"
 	commands := []struct {
 		name string
 		args []string
 	}{
-		{b.IPTables, []string{"-w", "-t", "nat", "-D", "POSTROUTING", "-s", guestNetwork, "-o", b.Egress, "-j", "MASQUERADE"}},
+		{b.IPTables, []string{"-w", "-t", "nat", "-D", "POSTROUTING", "-s", childSource, "-o", b.Egress, "-j", "MASQUERADE"}},
 		{b.IPTables, []string{"-w", "-D", "FORWARD", "-i", b.Egress, "-o", hostIf, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"}},
 		{b.IPTables, []string{"-w", "-D", "FORWARD", "-i", hostIf, "-j", chain}},
 		{b.IPTables, []string{"-w", "-F", chain}},

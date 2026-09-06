@@ -38,6 +38,7 @@ type Export struct {
 
 type Observation struct {
 	Active     bool
+	Closed     bool
 	Generation string
 	Counters   Counters
 }

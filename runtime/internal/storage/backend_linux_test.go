@@ -155,7 +155,7 @@ int main(void) {
 		t.Fatalf("counters = %+v", counters)
 	}
 	observed, err = recovered.Observe(context.Background(), value)
-	if err != nil || observed.Active {
+	if err != nil || observed.Active || observed.Counters != counters {
 		t.Fatalf("post-stop observation = %+v, %v", observed, err)
 	}
 	result, err := backend.OfflineCheck(context.Background(), value)
