@@ -391,8 +391,10 @@ normative plan is revised with an explicit rationale.
   image digests/platforms, task states, three boot IDs and kernel releases,
   stdio/private-root values, DNS/HTTP output, endpoint addresses, both negative
   sibling exit statuses, daemon PIDs, signal/nonzero exits, stdin/attach/PTY
-  output, and initial/final resource counts. A top-level tee/redaction runner
-  and equivalent value capture in every isolated fault harness remain open.
+  output, and initial/final resource counts. The exclusive mode-0600 capture
+  runner streams combined output, records redacted argv and UTC boundaries,
+  preserves nonzero exit status, and fsyncs the transcript. Equivalent value
+  capture in every isolated fault harness remains open.
 - [ ] Capture relevant `journalctl` output for containerd, Docker,
   `mkruntimed`, shim, relay/network service, guest agent, and kernel/serial logs
   around every restart and fault injection.
