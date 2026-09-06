@@ -1,0 +1,16 @@
+# Import-only fragment for containerd config v3 (2.2) and v4 (2.3+).
+# The main config owns version/default_runtime_name and imports this file.
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.multikernel]
+  runtime_type = 'io.containerd.multikernel.v2'
+  runtime_path = ''
+  pod_annotations = []
+  container_annotations = []
+  privileged_without_host_devices = false
+  privileged_without_host_devices_all_devices_allowed = false
+  cgroup_writable = false
+  base_runtime_spec = ''
+  cni_conf_dir = '/etc/cni/net.d'
+  cni_max_conf_num = 1
+  snapshotter = ''
+  sandboxer = 'podsandbox'
+  io_type = ''
