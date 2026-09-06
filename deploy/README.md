@@ -14,12 +14,41 @@ sudo install -d -m 0755 /etc/cni/net.d /opt/cni/bin
 sudo install -m 0644 deploy/cni/10-multikernel.conf \
   /etc/cni/net.d/10-multikernel.conf
 sudo install -m 0755 runtime/bin/mk-cni /opt/cni/bin/multikernel
-sudo install -d -m 0755 /etc/docker
-sudo install -m 0644 deploy/docker/daemon.json /etc/docker/daemon.json
 sudo systemctl daemon-reload
 sudo systemctl enable --now sys-fs-multikernel.mount mkruntimed.service mknetd.service
-sudo systemctl restart containerd docker
 ```
+
+The shim name follows containerd's Runtime v2 binary convention, so `ctr` can
+select `io.containerd.multikernel.v2` directly once the binary is on the daemon
+`PATH`; do not change containerd's default runtime. For Docker versions that
+require explicit registration, merge the opt-in entry without overwriting any
+existing daemon settings:
+
+```bash
+work=$(mktemp -d)
+candidate=$work/daemon.json
+./scripts/merge-runtime-docker-config.py /etc/docker/daemon.json "$candidate"
+sudo dockerd --validate --config-file "$candidate"
+sudo install -d -m 0755 /etc/docker
+if test -e /etc/docker/daemon.json; then
+  sudo cp --preserve=mode,ownership,timestamps /etc/docker/daemon.json \
+    /etc/docker/daemon.json.pre-multikernel
+fi
+sudo install -m 0644 "$candidate" /etc/docker/.daemon.json.multikernel-candidate
+sudo mv /etc/docker/.daemon.json.multikernel-candidate /etc/docker/daemon.json
+sudo systemctl reload docker
+sudo docker info --format '{{json .Runtimes}}'
+rm -r "$work"
+```
+
+[`docker/runtime.fragment.json`](docker/runtime.fragment.json) shows the exact
+entry. The merge tool preserves `default-runtime` byte-for-value at the JSON
+value level and rejects conflicting entries. Roll back by running the same
+tool with `--remove`, validating the candidate, installing it atomically, and
+reloading Docker; if a pre-install copy was retained, restoring that exact file
+is the stronger rollback. Do not restart containerd or Docker until their
+current task inventories are empty or the restart-continuity matrix is the
+explicit purpose of the disposable-host run.
 
 Install a strict `/etc/mkruntime/config.json` from the documented host-config
 contract, mount the qualified `mk-mediated-storage` filesystem at
