@@ -71,6 +71,21 @@ type fakePublisher struct {
 	failures int
 }
 
+type retryPublisher struct {
+	attempts  int
+	published chan string
+}
+
+func (f *retryPublisher) Publish(_ context.Context, topic string, _ events.Event) error {
+	f.attempts++
+	if f.attempts == 1 {
+		return errors.New("injected transient disconnect")
+	}
+	f.published <- topic
+	return nil
+}
+func (f *retryPublisher) Close() error { return nil }
+
 func (f *fakePublisher) Publish(_ context.Context, topic string, _ events.Event) error {
 	if f.failures > 0 {
 		f.failures--
@@ -398,6 +413,33 @@ func TestEventJournalPreservesOrderAndReplaysAfterFailure(t *testing.T) {
 	}
 	if _, err := os.Stat(recovered.eventJournalPath()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("acknowledged journal remains: %v", err)
+	}
+}
+
+func TestEventJournalRetriesWithoutAnotherLifecycleRequest(t *testing.T) {
+	publisher := &retryPublisher{published: make(chan string, 1)}
+	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err := s.publish(context.Background(), ctruntime.TaskStartEventTopic,
+		&eventstypes.TaskStart{ContainerID: "task", Pid: 7}); err != nil {
+		t.Fatal(err)
+	}
+	s.startEventRetry(5 * time.Millisecond)
+	defer s.stopEventRetry()
+	select {
+	case topic := <-publisher.published:
+		if topic != ctruntime.TaskStartEventTopic {
+			t.Fatalf("retried topic = %q", topic)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("durable event was not retried while the shim remained running")
+	}
+	s.stopEventRetry()
+	if len(s.events.Pending) != 0 {
+		t.Fatalf("acknowledged retry remains pending: %+v", s.events.Pending)
+	}
+	if _, err := os.Stat(s.eventJournalPath()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("acknowledged retry journal remains: %v", err)
 	}
 }
 

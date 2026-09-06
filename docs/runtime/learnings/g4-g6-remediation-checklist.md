@@ -283,7 +283,9 @@ normative plan is revised with an explicit rationale.
   or documented replay semantics across restart, exec events, exit/delete
   races, and publication failure. Typed Task events are persisted before
   publication in a private bounded journal and replayed in local sequence after
-  worker reconstruction. The explicit contract is at-least-once: remote
+  worker reconstruction or by a joined periodic worker while the shim remains
+  otherwise idle. Each periodic publication attempt is bounded. The explicit
+  contract is at-least-once: remote
   acceptance followed by a crash before local acknowledgement can duplicate an
   event. Exit queue state is durable and Delete repairs a missing exit first.
   Focused tests cover ordered replay, queue/ack failure, unsafe journal input,

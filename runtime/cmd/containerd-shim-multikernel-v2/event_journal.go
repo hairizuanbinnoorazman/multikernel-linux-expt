@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	eventstypes "github.com/containerd/containerd/api/events"
 	"github.com/containerd/containerd/namespaces"
@@ -230,4 +231,42 @@ func (s *service) publish(ctx context.Context, topic string, event any) error {
 		fmt.Fprintf(os.Stderr, "multikernel event publication deferred: %v\n", err)
 	}
 	return nil
+}
+
+// startEventRetry guarantees that a transiently disconnected containerd does
+// not require another lifecycle request or a shim restart to receive durable
+// events. Each attempt is bounded; sequence serialization remains in
+// flushEvents, and cancellation is joined before the shim exits.
+func (s *service) startEventRetry(interval time.Duration) {
+	if interval <= 0 || s.eventRetryCancel != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.eventRetryCancel = cancel
+	s.eventRetryDone = make(chan struct{})
+	go func() {
+		defer close(s.eventRetryDone)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				attempt, attemptCancel := context.WithTimeout(ctx, 5*time.Second)
+				_ = s.flushEvents(attempt)
+				attemptCancel()
+			}
+		}
+	}()
+}
+
+func (s *service) stopEventRetry() {
+	s.eventRetryStop.Do(func() {
+		if s.eventRetryCancel == nil {
+			return
+		}
+		s.eventRetryCancel()
+		<-s.eventRetryDone
+	})
 }
