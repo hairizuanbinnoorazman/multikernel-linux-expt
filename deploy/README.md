@@ -1,7 +1,21 @@
 # Runtime deployment examples
 
 These files contain no project, account, credential, or operator-specific home
-directory. Install and adapt them explicitly on a qualified host:
+directory. Build with an explicit release identity and create the deterministic
+component manifest before installation:
+
+```bash
+revision=$(git rev-parse HEAD)
+test -z "$(git status --porcelain --untracked-files=normal)"
+make runtime-manifest RUNTIME_VERSION=0.1.0-dev RUNTIME_REVISION="$revision"
+```
+
+`runtime-manifest` fails rather than replacing an existing manifest. Each
+binary supports `--version`; the generator requires the same exact 40-hex
+revision from every regular, executable, non-symlink component before hashing
+it. Preserve this manifest alongside the installed hashes in evidence.
+
+Install and adapt the files explicitly on a qualified host:
 
 ```bash
 sudo install -d -m 0755 /etc/multikernel
@@ -31,8 +45,8 @@ candidate=$work/daemon.json
 sudo dockerd --validate --config-file "$candidate"
 sudo install -d -m 0755 /etc/docker
 if test -e /etc/docker/daemon.json; then
-  sudo cp --preserve=mode,ownership,timestamps /etc/docker/daemon.json \
-    /etc/docker/daemon.json.pre-multikernel
+  sudo cp --no-clobber --preserve=mode,ownership,timestamps \
+    /etc/docker/daemon.json /etc/docker/daemon.json.pre-multikernel
 fi
 sudo install -m 0644 "$candidate" /etc/docker/.daemon.json.multikernel-candidate
 sudo mv /etc/docker/.daemon.json.multikernel-candidate /etc/docker/daemon.json

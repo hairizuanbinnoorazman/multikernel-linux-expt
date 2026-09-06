@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig"
@@ -93,6 +94,9 @@ func memoryBytes(value string) (uint64, error) {
 	return n, nil
 }
 func main() {
+	if buildinfo.PrintRequested(os.Stdout, "mkruntimed", os.Args[1:]) {
+		return
+	}
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string

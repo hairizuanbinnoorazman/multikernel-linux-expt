@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck"
 )
 
@@ -28,6 +29,9 @@ func cpuList(value string) ([]int, error) {
 }
 
 func main() {
+	if buildinfo.PrintRequested(os.Stdout, "mk-host-check", os.Args[1:]) {
+		return
+	}
 	o := hostcheck.DefaultOptions()
 	flag.StringVar(&o.Root, "root", "/", "alternate read-only fixture root")
 	flag.StringVar(&o.Kerf, "kerf", "kerf", "Kerf executable")

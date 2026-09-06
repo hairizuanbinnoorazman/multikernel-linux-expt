@@ -304,7 +304,11 @@ normative plan is revised with an explicit rationale.
   truthful capability reporting.
 - [ ] Complete packaging: versioned binaries, explicit containerd and Docker
   configuration fragments, service dependencies, fresh-host installation,
-  upgrade/rollback behavior, and no default-runtime mutation.
+  upgrade/rollback behavior, and no default-runtime mutation. Every Go
+  component now has an injected common version/revision and deterministic
+  release manifest; Docker configuration is conflict-detecting, validated,
+  opt-in, and preserves the default. Versioned install layout, containerd CRI
+  fragments, automated fresh install, and upgrade/rollback remain open.
 
 ### Automated tests still required
 

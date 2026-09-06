@@ -12,10 +12,14 @@ import (
 	"syscall"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"golang.org/x/sys/unix"
 )
 
 func main() {
+	if buildinfo.PrintRequested(os.Stdout, "mk-agent", os.Args[1:]) {
+		return
+	}
 	if len(os.Args) >= 4 && os.Args[1] == "__oci_exec" {
 		if err := agent.RunOCIExec(os.Args[2], os.Args[3:]); err != nil {
 			fmt.Fprintln(os.Stderr, "OCI executor:", err)

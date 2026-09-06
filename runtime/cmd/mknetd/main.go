@@ -15,6 +15,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 )
 
@@ -82,6 +83,9 @@ func run(ctx context.Context, value configuration) error {
 }
 
 func main() {
+	if buildinfo.PrintRequested(os.Stdout, "mknetd", os.Args[1:]) {
+		return
+	}
 	value, err := parseConfiguration(os.Args[1:])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

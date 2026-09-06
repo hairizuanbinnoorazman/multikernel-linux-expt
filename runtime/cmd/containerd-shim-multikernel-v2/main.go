@@ -41,6 +41,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
@@ -1765,6 +1766,9 @@ func superviseShimWorkerWith(listener *os.File, self string, arguments []string,
 }
 
 func main() {
+	if buildinfo.PrintRequested(os.Stdout, "containerd-shim-multikernel-v2", os.Args[1:]) {
+		return
+	}
 	if serverInvocation() && os.Getenv("MK_SHIM_WORKER") != "1" {
 		os.Exit(superviseShimWorker())
 	}

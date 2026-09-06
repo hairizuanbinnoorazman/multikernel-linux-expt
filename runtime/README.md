@@ -72,11 +72,19 @@ packages.
 ```bash
 GOCACHE=/tmp/mk-go-cache go test -race ./...
 GOCACHE=/tmp/mk-go-cache go vet ./...
-CGO_ENABLED=0 go build ./cmd/mk-agent
+make -C .. runtime-build
 ../scripts/test-runtime-g4-g6.sh # qualified, configured GCE host; script uses sudo
 ../scripts/test-runtime-g4-g6-feature-matrix.sh # disposable GCE host; script uses sudo
 ../scripts/test-runtime-recovery.sh # disposable GCE host; script uses sudo
 ```
+
+The top-level build injects one common `version` and `revision`, removes the Go
+build ID and ambient VCS metadata, and uses `-trimpath`. Pass
+`RUNTIME_VERSION` and `RUNTIME_REVISION` explicitly for an evidence build. A
+dirty checkout receives revision `unknown` by default, so it cannot be
+misrepresented as the committed tree. `make runtime-manifest` executes every
+component's `--version` and emits deterministic sizes and SHA-256 digests with
+exclusive-create output semantics.
 
 The GCE scripts are explicit, billable tests under `../scripts/test-runtime-g*.sh`.
 The G3 AF_VSOCK compatibility path uses `../tools/mkvsock-relay.c`; direct Go
