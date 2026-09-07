@@ -159,7 +159,7 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 		if !sameAdd(existing, requested) {
 			return Endpoint{}, &APIError{Code: "ALREADY_EXISTS", Message: "endpoint identity is already bound to different input"}
 		}
-		if existing.State == "ALLOCATING" {
+		if existing.State == "ALLOCATING" || existing.State == "DELETING" {
 			return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "endpoint allocation is incomplete and requires reconciliation", Retryable: true}
 		}
 		if err := s.Backend.Check(ctx, existing); err != nil {
@@ -245,6 +245,9 @@ func (s *Service) Check(ctx context.Context, requested Endpoint) (Endpoint, *API
 	if requested.Generation != "" && requested.Generation != existing.Generation {
 		return Endpoint{}, &APIError{Code: "STALE_GENERATION", Message: "endpoint generation does not match"}
 	}
+	if existing.State == "ALLOCATING" || existing.State == "DELETING" {
+		return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "endpoint is in a transitional state", Retryable: true}
+	}
 	if err := s.Backend.Check(ctx, existing); err != nil {
 		return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: err.Error(), Retryable: true}
 	}
@@ -269,6 +272,13 @@ func (s *Service) Delete(ctx context.Context, requested Endpoint) *APIError {
 	}
 	if existing.SandboxID != "" {
 		return &APIError{Code: "FAILED_PRECONDITION", Message: "endpoint is still bound to a sandbox generation", Retryable: true}
+	}
+	if existing.State != "DELETING" {
+		existing.State = "DELETING"
+		existing.UpdatedAt = s.now()
+		if err := s.Store.Put(existing); err != nil {
+			return &APIError{Code: "INTERNAL", Message: "journal endpoint deletion: " + err.Error(), Retryable: true}
+		}
 	}
 	if err := s.Backend.Delete(ctx, existing); err != nil {
 		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
@@ -309,6 +319,9 @@ func (s *Service) Bind(ctx context.Context, requested Endpoint) (Endpoint, *APIE
 	}
 	if requested.Generation != "" && requested.Generation != match.Generation {
 		return Endpoint{}, &APIError{Code: "STALE_GENERATION", Message: "endpoint generation does not match"}
+	}
+	if match.State == "ALLOCATING" || match.State == "DELETING" {
+		return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "endpoint is in a transitional state", Retryable: true}
 	}
 	if match.SandboxID != "" && (match.SandboxID != requested.SandboxID || match.SandboxGeneration != requested.SandboxGeneration) {
 		return Endpoint{}, &APIError{Code: "ALREADY_EXISTS", Message: "endpoint is bound to a different sandbox generation"}
@@ -419,6 +432,9 @@ func (s *Service) Report(requested Endpoint) *APIError {
 	if match.Generation != requested.Generation || match.SandboxGeneration != requested.SandboxGeneration {
 		return &APIError{Code: "STALE_GENERATION", Message: "counter report generation does not match"}
 	}
+	if match.State == "ALLOCATING" || match.State == "DELETING" {
+		return &APIError{Code: "FAILED_PRECONDITION", Message: "endpoint is in a transitional state", Retryable: true}
+	}
 	if requested.RXPackets < match.RXPackets || requested.TXPackets < match.TXPackets || requested.RXDrops < match.RXDrops || requested.TXDrops < match.TXDrops || requested.Errors < match.Errors {
 		return &APIError{Code: "STALE_COUNTER", Message: "network counters cannot decrease"}
 	}
@@ -453,14 +469,14 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	defer s.mu.Unlock()
 	var failures []error
 	for _, endpoint := range s.Store.List() {
-		if endpoint.State == "ALLOCATING" {
+		if endpoint.State == "ALLOCATING" || endpoint.State == "DELETING" {
 			if err := s.rollbackAllocation(endpoint); err != nil {
-				failures = append(failures, fmt.Errorf("rollback incomplete endpoint %s/%s/%s generation %s: %w",
+				failures = append(failures, fmt.Errorf("complete transitional endpoint %s/%s/%s generation %s: %w",
 					endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName, endpoint.Generation, err))
 				continue
 			}
 			if err := s.discardAllocationRecord(endpoint); err != nil {
-				failures = append(failures, fmt.Errorf("discard incomplete endpoint %s/%s/%s generation %s: %w",
+				failures = append(failures, fmt.Errorf("discard transitional endpoint %s/%s/%s generation %s: %w",
 					endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName, endpoint.Generation, err))
 			}
 			continue

@@ -236,6 +236,9 @@ normative plan is revised with an explicit rationale.
   exists before mutation and is removed only after rollback. Durable endpoints
   receive full semantic/key/path validation before reconciliation, and the
   state file is loaded no-follow with inode-stability checks.
+  Endpoint teardown symmetrically journals `DELETING` before external removal;
+  an injected backend failure proves restart reconciliation completes deletion
+  and removes the retained record.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;

@@ -42,6 +42,10 @@ or firewall rule. It changes the record to `READY` only after the complete
 backend succeeds. Synchronous failure rolls external state back under a bounded
 context and removes the record only after cleanup succeeds; restart
 reconciliation performs the same cleanup for any retained `ALLOCATING` record.
+Teardown first changes an unbound endpoint to `DELETING`; only then does it
+remove backend resources, a managed namespace, and finally the record. Restart
+reconciliation completes either transitional phase, so a host/service failure
+cannot leave a READY record for resources already being removed.
 On startup, the durable store validates every map key, workload/generation,
 owner, namespace path, address/gateway, MTU, DNS policy, state, and sandbox
 binding before reconciliation can act. The state file is opened no-follow with
