@@ -31,6 +31,13 @@ Use one already-proven mechanism first:
 Do not share a writable DAXFS root across children. Do not expose one writable
 ext4 image to multiple children.
 
+The ext4 builder copies an admitted source into a private staging tree with
+archive semantics, accounts for that staging allocation in its high-water
+check, and normalizes imported atime/mtime there. Because POSIX cannot assign
+ctime, the builder normalizes imported inode ctime in the completed image,
+then runs an offline filesystem check before publishing the image and identity
+record. Metadata normalization must never be applied to the caller-owned root.
+
 ### C. Container overlays and volumes
 
 - Give each container a private writable layer.
@@ -42,6 +49,8 @@ ext4 image to multiple children.
 
 - Whiteouts, opaque directories, hardlinks, symlinks, sparse files, xattrs,
   permissions, timestamps, and large trees.
+- Byte-identical ext4 rebuilds after source atime changes and across different
+  staging creation times, plus a changed-content negative control.
 - Preservation of a containerd-unpacked BusyBox root without treating it as a
   bootable ISO, disk installer, or source of the child kernel.
 - Read-only image rejection of writes.

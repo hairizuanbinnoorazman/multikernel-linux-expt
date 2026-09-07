@@ -277,8 +277,14 @@ and final cleanup still require the disposable-instance matrix and raw bundle.
 
 The G4 backend now produces a fully allocated ext4 image with a deterministic
 positive e2fsprogs fake epoch; zero was found by execution to mean “wall clock”
-on the supported toolchain. The Go consumer enforces that exact metadata
-contract. Root scanning revalidates every admitted path after content reads so
+on the supported toolchain. A later repeated-build check exposed that
+`mke2fs -d` still copied source ctime and could observe changing atime. The
+builder now imports an allocation-accounted private staging clone, normalizes
+its atime/mtime and the completed image's imported inode ctime, and performs
+offline validation before publication. Repeated local builds with an explicit
+source-atime change are byte-identical while a content change produces a new
+digest. The Go consumer enforces that exact metadata contract. Root scanning
+revalidates every admitted path after content reads so
 later membership or inode-identity mutation fails the build. Storage restart
 reconciliation can complete an exact `QUIESCING` lease only after observing a
 still-running exact export or its generation-specific graceful-close counter

@@ -23,6 +23,84 @@ class StorageBuildError(Exception):
     pass
 
 
+NORMALIZED_TIME_NS = 1_000_000_000
+
+
+def allocated_bytes(root: Path) -> int:
+    """Return allocated bytes without counting a hard-linked inode twice."""
+    total = 0
+    observed = set()
+    for current, directories, files in os.walk(root, followlinks=False):
+        for path in (Path(current), *(Path(current) / name for name in directories + files)):
+            info = path.lstat()
+            identity = (info.st_dev, info.st_ino)
+            if identity not in observed:
+                observed.add(identity)
+                total += info.st_blocks * 512
+    return total
+
+
+def imported_inode_count(root: Path) -> int:
+    """Count unique source inodes other than the root mapped to ext4 inode 2."""
+    observed = set()
+    for current, directories, files in os.walk(root, followlinks=False):
+        directory = Path(current)
+        for name in directories + files:
+            info = (directory / name).lstat()
+            observed.add((info.st_dev, info.st_ino))
+    return len(observed)
+
+
+def normalize_tree_times(root: Path) -> None:
+    """Normalize imported metadata without mutating the caller-owned source."""
+    for current, directories, files in os.walk(root, topdown=False, followlinks=False):
+        directory = Path(current)
+        for name in files + directories:
+            os.utime(
+                directory / name,
+                ns=(NORMALIZED_TIME_NS, NORMALIZED_TIME_NS),
+                follow_symlinks=False,
+            )
+        os.utime(
+            directory,
+            ns=(NORMALIZED_TIME_NS, NORMALIZED_TIME_NS),
+            follow_symlinks=False,
+        )
+
+
+def normalize_imported_ctimes(image: Path, count: int, debugfs: str) -> None:
+    """Normalize ctime fields that mke2fs copies but POSIX cannot set."""
+    descriptor, command_name = tempfile.mkstemp(prefix=".debugfs-normalize.", dir=image.parent)
+    command_path = Path(command_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="ascii") as commands:
+            # ext4 reserves inodes 1-10, creates lost+found as inode 11, and
+            # mke2fs -d allocates one inode per unique source object from 12.
+            for inode in range(12, 12 + count):
+                commands.write(f"set_inode_field <{inode}> ctime 1\n")
+                commands.write(f"set_inode_field <{inode}> ctime_extra 0\n")
+            commands.flush()
+            os.fsync(commands.fileno())
+        result = subprocess.run(
+            [debugfs, "-w", "-f", str(command_path), str(image)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        diagnostic = result.stdout + result.stderr
+        failure_markers = (
+            "File not found by ext2_lookup",
+            "Filesystem opened read/only",
+            "while setting inode field",
+            "Usage: set_inode_field",
+        )
+        if result.returncode or any(marker in diagnostic for marker in failure_markers):
+            raise StorageBuildError(f"ext4 metadata normalization failed: {diagnostic.strip()}")
+    finally:
+        command_path.unlink(missing_ok=True)
+
+
 def digest(path: Path) -> str:
     result = hashlib.sha256()
     with path.open("rb", buffering=0) as stream:
@@ -88,14 +166,36 @@ def build(arguments) -> dict:
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.metadata.parent.mkdir(parents=True, exist_ok=True)
     free = shutil.disk_usage(arguments.output.parent).free
-    if free < arguments.size + arguments.min_free_bytes:
-        raise StorageBuildError(f"storage high-water refusal: free={free} required={arguments.size + arguments.min_free_bytes}")
+    required = arguments.size + arguments.min_free_bytes + allocated_bytes(root)
+    if free < required:
+        raise StorageBuildError(f"storage high-water refusal: free={free} required={required}")
 
-    descriptor, temporary_name = tempfile.mkstemp(prefix="." + arguments.output.name + ".", dir=arguments.output.parent)
-    os.close(descriptor)
-    temporary = Path(temporary_name)
+    staging = Path(tempfile.mkdtemp(prefix=".root-staging.", dir=arguments.output.parent))
+    staged_root = staging / "root"
+    temporary = None
     completed = False
     try:
+        staged_root.mkdir(mode=0o700)
+        copy = subprocess.run(
+            ["/bin/cp", "-a", "--reflink=auto", "--", str(root) + "/.", str(staged_root)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if copy.returncode:
+            raise StorageBuildError(f"root staging failed: {copy.stderr.strip()}")
+        normalize_tree_times(staged_root)
+        free = shutil.disk_usage(arguments.output.parent).free
+        required = arguments.size + arguments.min_free_bytes
+        if free < required:
+            raise StorageBuildError(f"storage high-water refusal: free={free} required={required}")
+
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix="." + arguments.output.name + ".", dir=arguments.output.parent
+        )
+        os.close(descriptor)
+        temporary = Path(temporary_name)
         os.chmod(temporary, 0o600)
         with temporary.open("r+b", buffering=0) as stream:
             os.posix_fallocate(stream.fileno(), 0, arguments.size)
@@ -111,11 +211,12 @@ def build(arguments) -> dict:
             arguments.mke2fs, "-q", "-F", "-t", "ext4", "-m", "0",
             "-E", f"nodiscard,lazy_itable_init=0,lazy_journal_init=0,hash_seed={arguments.uuid}",
             "-N", str(arguments.inodes), "-U", arguments.uuid, "-L", "mk-runtime",
-            "-d", str(root), str(temporary),
+            "-d", str(staged_root), str(temporary),
         ]
         result = subprocess.run(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
         if result.returncode:
             raise StorageBuildError(f"mke2fs failed: {result.stderr.strip()}")
+        normalize_imported_ctimes(temporary, imported_inode_count(staged_root), arguments.debugfs)
         inspect_ext4(temporary, arguments.uuid, arguments.size, arguments.inodes)
         check = subprocess.run([arguments.e2fsck, "-fn", str(temporary)], env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
         if check.returncode:
@@ -133,14 +234,21 @@ def build(arguments) -> dict:
             "filesystem_uuid": arguments.uuid, "size_bytes": arguments.size, "quota_bytes": arguments.size,
             "inode_limit": arguments.inodes, "port": arguments.port, "sha256": image_digest,
             "offline_check_sha256": check_digest, "allocation": "posix_fallocate", "format": "ext4",
-            "determinism": {"fake_time": 1, "hash_seed": arguments.uuid, "lazy_initialization": False},
+            "determinism": {
+                "fake_time": 1,
+                "hash_seed": arguments.uuid,
+                "lazy_initialization": False,
+                "source_metadata_time": 1,
+            },
         }
         atomic_json(arguments.metadata, record)
         completed = True
         return record
     finally:
+        shutil.rmtree(staging, ignore_errors=True)
         if not completed:
-            temporary.unlink(missing_ok=True)
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
             arguments.output.unlink(missing_ok=True)
             arguments.metadata.unlink(missing_ok=True)
 
@@ -158,6 +266,7 @@ def main() -> int:
     parser.add_argument("--min-free-bytes", type=int, default=1 << 30)
     parser.add_argument("--mke2fs", default="/usr/sbin/mke2fs")
     parser.add_argument("--e2fsck", default="/usr/sbin/e2fsck")
+    parser.add_argument("--debugfs", default="/usr/sbin/debugfs")
     arguments = parser.parse_args()
     try:
         print(json.dumps(build(arguments), separators=(",", ":"), sort_keys=True))
