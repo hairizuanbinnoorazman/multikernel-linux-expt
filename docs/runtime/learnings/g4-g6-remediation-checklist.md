@@ -175,7 +175,11 @@ normative plan is revised with an explicit rationale.
   and digest. Service result files are created exclusively; focused tests
   reject malformed metadata, hardlinks, symlinks, sparse or wrongly sized
   images, and pre-existing publication targets. The live injected failure and
-  no-leak matrix remains open.
+  no-leak matrix remains open. Builder execution now drains output with a
+  one-MiB retention ceiling and bounded returned diagnostics; the earlier of
+  caller cancellation and a ten-minute default kills its complete process
+  group. Focused tests reject overflowing output and prove a background child
+  holding the pipe is killed promptly at deadline.
 
 ### Automated tests still required
 
@@ -396,7 +400,9 @@ normative plan is revised with an explicit rationale.
   response reads, the default timeout, and a successful round trip. Auditing
   also rejects unknown/duplicate response fields and mismatched response
   versions or request IDs. Fault-injecting every remaining boundary is still
-  open.
+  open. Rootfs builder execution now has bounded capture, a finite default,
+  caller cancellation, and descendant process-group termination as described
+  under G4.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

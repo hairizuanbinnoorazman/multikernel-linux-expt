@@ -246,6 +246,15 @@ pre-planted file or symlink from being overwritten; focused adversarial tests
 cover malformed metadata, hardlinks, symlinks, sparse images, wrong sizes, and
 existing publication targets.
 
+Builder cancellation previously targeted only the direct command, while
+`CombinedOutput` retained arbitrary output before checking its size. Builder
+execution now has a ten-minute default bound, inherits any earlier caller
+deadline, and kills a dedicated process group so a descendant cannot retain
+the output pipes. A draining writer retains at most one MiB and returned error
+text has a smaller cap. Focused tests cover overflow, normal combined output,
+and a background child killed at deadline; disposable-host fault proof remains
+open.
+
 The shim now removes partial Create artifacts and allocated sandboxes on later
 failure, gives agent RPCs bounded deadlines with context cancellation, removes
 failed Exec entries, and reports a versioned guest-PID mapping. Guest
