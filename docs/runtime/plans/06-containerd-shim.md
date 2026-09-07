@@ -53,6 +53,13 @@ Consumers must treat the Task event tuple and state transition idempotently.
 First delivery remains journal-ordered; replayed duplicates must not be
 interpreted as new lifecycle transitions.
 
+Task `Shutdown`, including a request with `now=true`, acknowledges without
+terminating while any process record remains owned by the shim. Once the
+registry is empty, shutdown atomically seals the service against a new Create,
+flushes every durable event, joins the event retry worker, and invokes the
+server shutdown callback once. A failed final event flush reopens the service
+for a later shutdown retry rather than abandoning the journal.
+
 Output FIFOs are opened nonblocking with a guard endpoint so detached clients
 may reattach. The shim fetches at most Linux `PIPE_BUF` (4096) bytes per stream
 and advances each durable guest-output offset only after the entire chunk is

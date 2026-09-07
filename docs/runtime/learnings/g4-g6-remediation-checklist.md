@@ -292,7 +292,12 @@ normative plan is revised with an explicit rationale.
   reclaim is a useful fallback but is not the plan's reconnect requirement.
 - [ ] Define ownership transfer for containerd restart, shim restart, daemon
   restart, and shutdown. Reconstruct process state, stdio endpoints, exit
-  status, and event delivery without changing the child boot identity.
+  status, and event delivery without changing the child boot identity. Task
+  `Shutdown` now refuses to terminate while any process record remains, then
+  atomically seals an empty service against Create, requires the durable event
+  journal to flush, and joins event retry before invoking shutdown once. A
+  failed flush leaves shutdown retryable. The complete cross-process restart
+  transfer and live identity transcript remain open.
 - [x] Implement faithful guest PID reporting or define a versioned virtual PID
   mapping. `Start`, `State`, `Pids`, `Connect`, exit, and delete now report the
   guest PID under mapping version `multikernel-v1-guest-pid`; the pre-start

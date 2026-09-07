@@ -107,6 +107,7 @@ type service struct {
 	events                eventJournal
 	eventRetryCancel      context.CancelFunc
 	eventRetryDone        chan struct{}
+	shuttingDown          bool
 }
 
 func getenv(name, fallback string) string {
@@ -901,6 +902,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.shuttingDown {
+		return nil, errdefs.ErrFailedPrecondition
+	}
 	if len(s.processes) != 0 {
 		return nil, errdefs.ErrAlreadyExists
 	}
@@ -1741,10 +1745,26 @@ func (s *service) Connect(context.Context, *taskapi.ConnectRequest) (*taskapi.Co
 	}
 	return &taskapi.ConnectResponse{ShimPid: uint32(os.Getpid()), TaskPid: taskPID, Version: "multikernel-v1-guest-pid"}, nil
 }
-func (s *service) Shutdown(context.Context, *taskapi.ShutdownRequest) (*emptypb.Empty, error) {
+func (s *service) Shutdown(ctx context.Context, _ *taskapi.ShutdownRequest) (*emptypb.Empty, error) {
+	s.mu.Lock()
+	if len(s.processes) != 0 || s.shuttingDown {
+		s.mu.Unlock()
+		return &emptypb.Empty{}, nil
+	}
+	s.shuttingDown = true
+	shutdown := s.shutdown
+	s.mu.Unlock()
+	if err := s.flushEvents(ctx); err != nil {
+		s.mu.Lock()
+		s.shuttingDown = false
+		s.mu.Unlock()
+		return nil, fmt.Errorf("flush durable events before shutdown: %w", err)
+	}
 	go func() {
 		s.stopEventRetry()
-		s.shutdown()
+		if shutdown != nil {
+			shutdown()
+		}
 	}()
 	return &emptypb.Empty{}, nil
 }
