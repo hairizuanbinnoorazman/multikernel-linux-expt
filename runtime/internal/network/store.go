@@ -119,15 +119,15 @@ func validateStoredEndpoint(key string, endpoint Endpoint) error {
 	} else if _, err := netnsTarget(endpoint.NetNS); err != nil {
 		return err
 	}
-	if endpoint.State != "ALLOCATING" && endpoint.State != "READY" && endpoint.State != "DEGRADED" && endpoint.State != "DISCONNECTED" {
+	if endpoint.State != "ALLOCATING" && endpoint.State != "DELETING" && endpoint.State != "READY" && endpoint.State != "DEGRADED" && endpoint.State != "DISCONNECTED" {
 		return errors.New("endpoint state is invalid")
 	}
 	if (endpoint.SandboxID == "") != (endpoint.SandboxGeneration == "") ||
 		endpoint.SandboxID != "" && (!identifier.MatchString(endpoint.SandboxID) || !endpointGeneration.MatchString(endpoint.SandboxGeneration)) {
 		return errors.New("endpoint sandbox binding is invalid")
 	}
-	if endpoint.State == "ALLOCATING" && endpoint.SandboxID != "" {
-		return errors.New("incomplete endpoint may not be sandbox-bound")
+	if (endpoint.State == "ALLOCATING" || endpoint.State == "DELETING") && endpoint.SandboxID != "" {
+		return errors.New("transitional endpoint may not be sandbox-bound")
 	}
 	if len(endpoint.DNS.Nameservers) > 8 || len(endpoint.DNS.Search) > 8 || len(endpoint.DNS.Options) > 8 {
 		return errors.New("endpoint DNS policy is oversized")

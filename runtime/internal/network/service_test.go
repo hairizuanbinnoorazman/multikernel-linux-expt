@@ -160,6 +160,31 @@ func TestReconcileRemovesInterruptedAllocatingGeneration(t *testing.T) {
 	}
 }
 
+func TestDeleteJournalsTransitionAndReconcileCompletesFailure(t *testing.T) {
+	backend := &fakeBackend{}
+	s := service(t, "172.31.0.0/30", backend)
+	allocated, issue := s.Add(context.Background(), endpoint("deleting"))
+	if issue != nil {
+		t.Fatal(issue)
+	}
+	backend.failDelete = errors.New("injected endpoint delete failure")
+	if issue = s.Delete(context.Background(), allocated); issue == nil {
+		t.Fatal("endpoint delete failure was accepted")
+	}
+	journaled, ok := s.Store.Get(allocated.NetworkName, allocated.ContainerID, allocated.IfName)
+	if !ok || journaled.State != "DELETING" {
+		t.Fatalf("failed deletion record = %+v, %v", journaled, ok)
+	}
+	backend.failDelete = nil
+	backend.deletes = nil
+	if err := s.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(backend.deletes) != 1 || len(s.List()) != 0 {
+		t.Fatalf("deletion reconcile deletes=%d state=%+v", len(backend.deletes), s.List())
+	}
+}
+
 func TestConcurrentAllocationIsCollisionFreeAndDurable(t *testing.T) {
 	directory := t.TempDir()
 	store, err := OpenStore(directory)
