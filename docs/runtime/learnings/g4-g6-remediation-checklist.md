@@ -168,6 +168,14 @@ normative plan is revised with an explicit rationale.
   alias. Cleanup is descriptor-anchored beneath stable bundle/storage-root
   inodes; focused symlink and post-open rename tests prove a replacement tree
   is not traversed or removed.
+  Privileged builder output consumption now uses bounded no-follow opens with
+  caller-owner, single-link, mode, and stable-identity checks. Exact storage
+  metadata is revalidated against the request, and both initial publication
+  and recovery bind the declared quota to the image's size, allocated blocks,
+  and digest. Service result files are created exclusively; focused tests
+  reject malformed metadata, hardlinks, symlinks, sparse or wrongly sized
+  images, and pre-existing publication targets. The live injected failure and
+  no-leak matrix remains open.
 
 ### Automated tests still required
 

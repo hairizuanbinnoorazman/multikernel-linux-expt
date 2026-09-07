@@ -237,6 +237,15 @@ allocation. Focused tests include identical-build and changed-input controls,
 archive extraction, hardlinks, symlinks, modes, unsafe roots, FIFOs, xattrs,
 and capacity refusal.
 
+The rootfs adapter no longer trusts those builder outputs merely because the
+builder exited successfully. It uses bounded `O_NOFOLLOW` opens, verifies
+owner/link/mode and stable file identity, checks the complete storage identity
+contract, and verifies the image's declared size, allocation, and digest both
+before publication and during recovery. Exclusive result creation prevents a
+pre-planted file or symlink from being overwritten; focused adversarial tests
+cover malformed metadata, hardlinks, symlinks, sparse images, wrong sizes, and
+existing publication targets.
+
 The shim now removes partial Create artifacts and allocated sandboxes on later
 failure, gives agent RPCs bounded deadlines with context cancellation, removes
 failed Exec entries, and reports a versioned guest-PID mapping. Guest
