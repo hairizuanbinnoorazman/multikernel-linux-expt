@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
@@ -22,13 +25,18 @@ func (f *fakeCaller) Call(_ context.Context, request network.Request) (network.R
 
 func validConfig(t *testing.T) []byte {
 	t.Helper()
-	return []byte(fmt.Sprintf(`{"cniVersion":"1.0.0","name":"multikernel","type":"multikernel","socket":"/run/mknetd.sock","cacheDir":%q}`, t.TempDir()))
+	cache := t.TempDir()
+	if err := os.Chmod(cache, 0700); err != nil {
+		t.Fatal(err)
+	}
+	return []byte(fmt.Sprintf(`{"cniVersion":"1.0.0","name":"multikernel","type":"multikernel","socket":"/run/mknetd.sock","cacheDir":%q}`, cache))
 }
 
 func TestAddReturnsAllocatedInterfaceIPAndDNS(t *testing.T) {
 	fake := &fakeCaller{response: network.Response{Endpoint: &network.Endpoint{
 		ContainerID: "box", NetworkName: "multikernel", IfName: "eth0", NetNS: "/run/netns/box",
-		Generation: "0123456789abcdef0123456789abcdef", Address: "172.31.0.2/30", Gateway: "172.31.0.1", DNS: network.DNS{Nameservers: []string{"1.1.1.1"}},
+		Owner: "cni", Generation: "0123456789abcdef0123456789abcdef", Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400,
+		State: "READY", DNS: network.DNS{Nameservers: []string{"1.1.1.1"}},
 	}}}
 	value, err := run(context.Background(), validConfig(t), environment{Command: "ADD", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}, fake)
 	if err != nil {
@@ -40,6 +48,56 @@ func TestAddReturnsAllocatedInterfaceIPAndDNS(t *testing.T) {
 	}
 	if len(fake.requests) != 1 || fake.requests[0].Method != "ADD" {
 		t.Fatalf("requests = %+v", fake.requests)
+	}
+}
+
+func TestAddRejectsMismatchedResponseAndRollsBackExactGeneration(t *testing.T) {
+	allocated := &network.Endpoint{
+		ContainerID: "other", NetworkName: "multikernel", IfName: "eth0", NetNS: "/run/netns/box", Owner: "cni",
+		Generation: "0123456789abcdef0123456789abcdef", Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400, State: "READY",
+	}
+	fake := &fakeCaller{response: network.Response{Endpoint: allocated}}
+	_, err := run(context.Background(), validConfig(t), environment{Command: "ADD", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}, fake)
+	if err == nil || !strings.Contains(err.Error(), "identity differs") {
+		t.Fatalf("mismatched ADD response error = %v", err)
+	}
+	if len(fake.requests) != 2 || fake.requests[0].Method != "ADD" || fake.requests[1].Method != "DEL" || fake.requests[1].Endpoint != allocated {
+		t.Fatalf("ADD rollback requests = %+v", fake.requests)
+	}
+}
+
+func TestAddRejectsSymlinkCacheWithoutChangingTargetAndRollsBack(t *testing.T) {
+	base := t.TempDir()
+	target := filepath.Join(base, "target")
+	if err := os.Mkdir(target, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(target, 0755); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(base, "cache")
+	if err := os.Symlink(target, linked); err != nil {
+		t.Fatal(err)
+	}
+	input := []byte(fmt.Sprintf(`{"cniVersion":"1.0.0","name":"multikernel","type":"multikernel","socket":"/run/mknetd.sock","cacheDir":%q}`, linked))
+	allocated := &network.Endpoint{
+		ContainerID: "box", NetworkName: "multikernel", IfName: "eth0", NetNS: "/run/netns/box", Owner: "cni",
+		Generation: "0123456789abcdef0123456789abcdef", Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400, State: "READY",
+	}
+	fake := &fakeCaller{response: network.Response{Endpoint: allocated}}
+	_, err := run(context.Background(), input, environment{Command: "ADD", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}, fake)
+	if err == nil || !strings.Contains(err.Error(), "real directory") {
+		t.Fatalf("symlink cache error = %v", err)
+	}
+	info, statErr := os.Stat(target)
+	if statErr != nil {
+		t.Fatal(statErr)
+	}
+	if info.Mode().Perm() != 0755 {
+		t.Fatalf("symlink target mode changed: mode=%v", info.Mode().Perm())
+	}
+	if len(fake.requests) != 2 || fake.requests[1].Method != "DEL" {
+		t.Fatalf("symlink cache rollback requests = %+v", fake.requests)
 	}
 }
 
