@@ -305,7 +305,9 @@ normative plan is revised with an explicit rationale.
   handshake.
 - [x] Implement and test Task `Stats`, `Update`, and `Checkpoint`, or revise the
   advertised G6 surface and plan explicitly. `Pause`, `Resume`, and `Stats` are
-  implemented with focused tests. Plan 06 now explicitly excludes `Update`
+  implemented with focused tests; pause/resume transact across every live init
+  and exec process group, while Stats aggregates their CPU, RSS, and PID counts
+  with overflow rejection. Plan 06 now explicitly excludes `Update`
   because Kerf allocation is generation-immutable and excludes `Checkpoint`
   because the selected Multikernel/Kerf contract has no checkpoint primitive;
   both reject before child contact or state mutation, with a focused test.
@@ -330,8 +332,10 @@ normative plan is revised with an explicit rationale.
   acknowledged offsets, replay under pressure, bounded drop, and transient
   guest-close failure. Close requested and guest acknowledged are separate
   durable states; pending acknowledgement retries after FIFO EOF and recovery
-  until process exit. The full peer/churn/`CloseIO`/restart matrix remains
-  open, and these latest close-acknowledgement changes need live revalidation.
+  until process exit. Pre-start close persists without premature guest contact,
+  and stopped close fails without mutation. The full peer/churn/`CloseIO`/
+  restart matrix remains open, and these latest close-acknowledgement changes
+  need live revalidation.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
   teardown without leaking resources.
@@ -392,7 +396,10 @@ normative plan is revised with an explicit rationale.
   fallback reclaim.
 - [ ] Init and exec signal delivery, ignored `SIGTERM`, `SIGKILL`, nonzero exit,
   descendant cleanup, wait/delete races, and same-name reuse after every
-  failure mode.
+  failure mode. Pause/resume now signals all applicable init and exec process
+  groups transactionally, with deterministic order and bounded reverse-order
+  rollback after partial signal failure. Focused tests cover success and the
+  partial boundary; the remaining signal/exit/churn and live matrix is open.
 
 ### Replacement instance evidence required
 
