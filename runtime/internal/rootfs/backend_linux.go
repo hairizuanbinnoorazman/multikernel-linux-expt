@@ -3,6 +3,7 @@
 package rootfs
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -17,7 +18,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/containerd/containerd/mount"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -27,7 +30,79 @@ import (
 var sha256RE = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type LinuxBackend struct {
-	Builder string
+	Builder      string
+	BuildTimeout time.Duration
+}
+
+const maximumBuilderOutput = 1 << 20
+
+type boundedOutput struct {
+	mu       sync.Mutex
+	data     []byte
+	maximum  int
+	overflow bool
+}
+
+func (w *boundedOutput) Write(value []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	remaining := w.maximum - len(w.data)
+	if remaining > 0 {
+		w.data = append(w.data, value[:min(remaining, len(value))]...)
+	}
+	if len(value) > remaining {
+		w.overflow = true
+	}
+	// Continue draining after reaching the bound so the child cannot block on
+	// its diagnostic pipe. The overflow bit makes the operation fail closed.
+	return len(value), nil
+}
+
+func (w *boundedOutput) result() ([]byte, bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return bytes.Clone(w.data), w.overflow
+}
+
+func runBoundedBuilder(ctx context.Context, timeout time.Duration, binary string, arguments, environment []string, maximum int) ([]byte, error) {
+	if timeout <= 0 {
+		timeout = 10 * time.Minute
+	}
+	bounded, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	cmd := exec.CommandContext(bounded, binary, arguments...)
+	cmd.Env = environment
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		if errors.Is(err, syscall.ESRCH) {
+			return os.ErrProcessDone
+		}
+		return err
+	}
+	cmd.WaitDelay = 5 * time.Second
+	capture := &boundedOutput{maximum: maximum}
+	cmd.Stdout, cmd.Stderr = capture, capture
+	runErr := cmd.Run()
+	output, overflow := capture.result()
+	if overflow {
+		return output, errors.New("rootfs builder output exceeds limit")
+	}
+	if contextErr := bounded.Err(); contextErr != nil {
+		return output, errors.Join(runErr, contextErr)
+	}
+	return output, runErr
+}
+
+func builderDiagnostic(output []byte) string {
+	const maximum = 16 << 10
+	if len(output) <= maximum {
+		return strings.TrimSpace(string(output))
+	}
+	return strings.TrimSpace(string(output[:maximum])) + " [truncated]"
 }
 
 type storageBuildMetadata struct {
@@ -187,15 +262,11 @@ func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, runtim
 	}
 	initrd := filepath.Join(runtimeDir, "initramfs.cpio.gz")
 	storagePath := filepath.Join(storageDir, "root.ext4")
-	cmd := exec.CommandContext(ctx, b.Builder, request.Bundle, initrd)
-	cmd.Env = append(os.Environ(), "MK_TASK_IDENTITY="+request.TaskIdentity,
+	environment := append(os.Environ(), "MK_TASK_IDENTITY="+request.TaskIdentity,
 		"MK_STORAGE_PORT="+strconv.FormatUint(uint64(request.StoragePort), 10), "MK_STORAGE_OUTPUT="+storagePath)
-	output, err := cmd.CombinedOutput()
-	if len(output) > 1<<20 {
-		return PrepareResult{}, errors.New("rootfs builder output exceeds limit")
-	}
+	output, err := runBoundedBuilder(ctx, b.BuildTimeout, b.Builder, []string{request.Bundle, initrd}, environment, maximumBuilderOutput)
 	if err != nil {
-		return PrepareResult{}, fmt.Errorf("build child root: %w: %s", err, strings.TrimSpace(string(output)))
+		return PrepareResult{}, fmt.Errorf("build child root: %w: %s", err, builderDiagnostic(output))
 	}
 	for required, maximum := range map[string]int64{
 		"initramfs.cpio.gz": 16 << 30, "initramfs.manifest.json": 16 << 20,

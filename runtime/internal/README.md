@@ -35,3 +35,7 @@ stable identity across reads, validates exact storage metadata, and binds the
 declared quota to the image's size, allocated blocks, and digest. Runtime
 result files are created exclusively so an existing file or symlink cannot be
 overwritten.
+Rootfs builder execution is a bounded process-group operation. Output is
+drained without retaining more than one MiB, error diagnostics are truncated,
+and the earlier of the caller deadline and a ten-minute build bound kills the
+entire builder group so descendants cannot retain pipes or partial work.

@@ -62,6 +62,12 @@ path and port and the supported identity/quota contract; the image itself must
 have the declared size, full allocation, and digest before publication and on
 recovery. Service-authored result files use exclusive creation so pre-existing
 files and symlinks cannot redirect or replace publication.
+The builder and all of its descendants execute in a dedicated process group
+under the earlier of the request deadline and a ten-minute default. Timeout or
+cancellation kills that group. Combined output is continuously drained but at
+most one MiB is retained, overflow fails the build, and any returned diagnostic
+is separately truncated so a hostile builder cannot exhaust memory or the
+daemon response frame.
 
 ### C. Container overlays and volumes
 
@@ -92,6 +98,8 @@ files and symlinks cannot redirect or replace publication.
 - Forged, symlinked, hard-linked, sparse, incorrectly sized, permissively
   writable, mismatched, or changing rootfs-builder outputs, plus refusal to
   overwrite existing result files.
+- Builder output overflow and a cancelled or timed-out builder with a live
+  descendant holding its output pipe.
 - Clean child remount-read-only, NBD disconnect, server sync, and offline
   `e2fsck`.
 - Snapshot/clone recovery using disposable copies.
