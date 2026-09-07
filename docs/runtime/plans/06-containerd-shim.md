@@ -82,6 +82,23 @@ if the guest rejects it, and reapplies the retained size while reconstructing a
 live terminal after shim restart. Stopped and paused process resize requests
 fail without mutating the record.
 
+Stdin close also separates durable request from guest acknowledgement. A
+request made while the process is CREATED is retained without premature guest
+contact and is acknowledged by the stdin pump after Start. Running and paused
+processes retry transient acknowledgement failures; a stopped process cannot
+gain a new close intent, while an already acknowledged request is idempotent.
+
+Task pause and resume cover every running or paused init/exec process group in
+a deterministic order. If any signal fails, already transitioned groups are
+signaled back in reverse order under a bounded rollback context. Process states
+are committed together only after all signals succeed, and persistence or
+event failure likewise restores every group and its previous durable state.
+
+Task stats aggregate CPU, resident memory, and PID counts across every running
+or paused init and exec process group. Created and stopped processes are not
+reported as live consumption, and arithmetic overflow rejects the response
+rather than wrapping a task metric.
+
 ## Tests
 
 - Unit tests against a fake daemon.

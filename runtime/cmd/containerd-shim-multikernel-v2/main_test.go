@@ -48,9 +48,10 @@ func TestMain(m *testing.M) {
 }
 
 type fakeAgentClient struct {
-	calls []string
-	fail  map[string]error
-	stats agent.ProcessStats
+	calls     []string
+	fail      map[string]error
+	stats     agent.ProcessStats
+	statsByID map[string]agent.ProcessStats
 }
 
 type daemonCallFunc func(context.Context, protocol.Request, any) *protocol.Error
@@ -82,6 +83,31 @@ func (f *closeRetryAgent) Close() error                                   { retu
 func (f *closeRetryAgent) Reconnect(string) error                         { return nil }
 func (f *closeRetryAgent) ReconnectContext(context.Context, string) error { return nil }
 
+type signalFailureAgent struct {
+	attempts int
+	failAt   int
+	calls    []string
+}
+
+func (f *signalFailureAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *signalFailureAgent) CallContext(_ context.Context, method string, request, _ any) error {
+	if method != "SignalProcess" {
+		return fmt.Errorf("unexpected method %s", method)
+	}
+	value := request.(map[string]any)
+	f.attempts++
+	f.calls = append(f.calls, fmt.Sprintf("%s:%s", value["ID"], value["Signal"]))
+	if f.attempts == f.failAt {
+		return errors.New("injected signal failure")
+	}
+	return nil
+}
+func (f *signalFailureAgent) Close() error                                   { return nil }
+func (f *signalFailureAgent) Reconnect(string) error                         { return nil }
+func (f *signalFailureAgent) ReconnectContext(context.Context, string) error { return nil }
+
 type eofReadWriteCloser struct{}
 
 func (eofReadWriteCloser) Read([]byte) (int, error)    { return 0, io.EOF }
@@ -91,13 +117,17 @@ func (eofReadWriteCloser) Close() error                { return nil }
 func (f *fakeAgentClient) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
-func (f *fakeAgentClient) CallContext(_ context.Context, method string, _ any, response any) error {
+func (f *fakeAgentClient) CallContext(_ context.Context, method string, request any, response any) error {
 	f.calls = append(f.calls, method)
 	if err := f.fail[method]; err != nil {
 		return err
 	}
 	if method == "StatsProcess" {
-		*(response.(*agent.ProcessStats)) = f.stats
+		value := f.stats
+		if f.statsByID != nil {
+			value = f.statsByID[request.(map[string]string)["ID"]]
+		}
+		*(response.(*agent.ProcessStats)) = value
 	}
 	return nil
 }
@@ -515,6 +545,28 @@ func TestCloseIORetriesUntilGuestAcknowledges(t *testing.T) {
 	}
 }
 
+func TestCloseIOPersistsCreatedIntentAndDoesNotMutateStoppedProcess(t *testing.T) {
+	created := &process{id: "", status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	stopped := &process{id: "stopped", status: tasktypes.Status_STOPPED, done: make(chan struct{})}
+	s := &service{processes: map[string]*process{"": created, "stopped": stopped}}
+	request := &taskapi.CloseIORequest{Stdin: true}
+	if _, err := s.CloseIO(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if !created.stdinClosed || created.stdinCloseAcked {
+		t.Fatalf("created close state = requested:%v acknowledged:%v", created.stdinClosed, created.stdinCloseAcked)
+	}
+	if _, err := s.CloseIO(context.Background(), request); err != nil {
+		t.Fatalf("repeated created CloseIO error = %v", err)
+	}
+	if _, err := s.CloseIO(context.Background(), &taskapi.CloseIORequest{ExecID: "stopped", Stdin: true}); !errors.Is(err, errdefs.ErrFailedPrecondition) {
+		t.Fatalf("stopped CloseIO error = %v", err)
+	}
+	if stopped.stdinClosed || stopped.stdinCloseAcked {
+		t.Fatalf("stopped CloseIO mutated state: %+v", stopped)
+	}
+}
+
 func TestStdinPumpRetriesRequestedCloseAndRecordsAcknowledgement(t *testing.T) {
 	client := &closeRetryAgent{called: make(chan int, 2)}
 	p := &process{id: "", status: tasktypes.Status_RUNNING, stdinReader: eofReadWriteCloser{}, done: make(chan struct{})}
@@ -818,21 +870,21 @@ func TestPauseResumeSignalsGuestAndPublishesTransitions(t *testing.T) {
 	fakeEvents := &fakePublisher{}
 	s := &service{
 		id: "task", namespace: "default", bundle: t.TempDir(), agent: fakeAgent, publisher: fakeEvents,
-		processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}},
+		processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}, "exec": {status: tasktypes.Status_RUNNING}},
 	}
 	if _, err := s.Pause(context.Background(), &taskapi.PauseRequest{}); err != nil {
 		t.Fatal(err)
 	}
-	if s.processes[""].status != tasktypes.Status_PAUSED {
-		t.Fatalf("pause status = %v", s.processes[""].status)
+	if s.processes[""].status != tasktypes.Status_PAUSED || s.processes["exec"].status != tasktypes.Status_PAUSED {
+		t.Fatalf("pause statuses = init:%v exec:%v", s.processes[""].status, s.processes["exec"].status)
 	}
 	if _, err := s.Resume(context.Background(), &taskapi.ResumeRequest{}); err != nil {
 		t.Fatal(err)
 	}
-	if s.processes[""].status != tasktypes.Status_RUNNING {
-		t.Fatalf("resume status = %v", s.processes[""].status)
+	if s.processes[""].status != tasktypes.Status_RUNNING || s.processes["exec"].status != tasktypes.Status_RUNNING {
+		t.Fatalf("resume statuses = init:%v exec:%v", s.processes[""].status, s.processes["exec"].status)
 	}
-	if len(fakeAgent.calls) != 2 || fakeAgent.calls[0] != "SignalProcess" || fakeAgent.calls[1] != "SignalProcess" {
+	if len(fakeAgent.calls) != 4 {
 		t.Fatalf("agent calls = %v", fakeAgent.calls)
 	}
 	if len(fakeEvents.topics) != 2 || fakeEvents.topics[0] != ctruntime.TaskPausedEventTopic || fakeEvents.topics[1] != ctruntime.TaskResumedEventTopic {
@@ -840,13 +892,32 @@ func TestPauseResumeSignalsGuestAndPublishesTransitions(t *testing.T) {
 	}
 }
 
+func TestPauseRollsBackAlreadySignaledProcessOnPartialFailure(t *testing.T) {
+	fake := &signalFailureAgent{failAt: 2}
+	s := &service{agent: fake, processes: map[string]*process{
+		"":     {status: tasktypes.Status_RUNNING},
+		"exec": {status: tasktypes.Status_RUNNING},
+	}}
+	if _, err := s.Pause(context.Background(), &taskapi.PauseRequest{}); err == nil {
+		t.Fatal("partial pause failure was accepted")
+	}
+	if s.processes[""].status != tasktypes.Status_RUNNING || s.processes["exec"].status != tasktypes.Status_RUNNING {
+		t.Fatalf("partial pause mutated states: init=%v exec=%v", s.processes[""].status, s.processes["exec"].status)
+	}
+	want := fmt.Sprintf("[init:%d exec:%d init:%d]", syscall.SIGSTOP, syscall.SIGSTOP, syscall.SIGCONT)
+	if fmt.Sprint(fake.calls) != want {
+		t.Fatalf("partial pause calls = %v, want %s", fake.calls, want)
+	}
+}
+
 func TestStatsReturnsGuestProcessGroupMetrics(t *testing.T) {
-	fake := &fakeAgentClient{fail: map[string]error{}, stats: agent.ProcessStats{
-		CPUUserNS: 11, CPUSystemNS: 7, RSSBytes: 4096, PIDs: 3,
+	fake := &fakeAgentClient{fail: map[string]error{}, statsByID: map[string]agent.ProcessStats{
+		"init": {CPUUserNS: 11, CPUSystemNS: 7, RSSBytes: 4096, PIDs: 3},
+		"exec": {CPUUserNS: 5, CPUSystemNS: 2, RSSBytes: 2048, PIDs: 1},
 	}}
 	s := &service{
 		agent: fake, sandbox: protocol.Sandbox{Config: protocol.SandboxConfig{MemoryBytes: 3 << 30}},
-		processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}},
+		processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}, "exec": {status: tasktypes.Status_PAUSED}, "created": {status: tasktypes.Status_CREATED}},
 	}
 	response, err := s.Stats(context.Background(), &taskapi.StatsRequest{})
 	if err != nil {
@@ -860,8 +931,24 @@ func TestStatsReturnsGuestProcessGroupMetrics(t *testing.T) {
 	if !ok {
 		t.Fatalf("stats type = %T", decoded)
 	}
-	if metrics.CPU.Usage.Total != 18 || metrics.Memory.Usage.Usage != 4096 || metrics.Memory.Usage.Limit != 3<<30 || metrics.Pids.Current != 3 {
+	if metrics.CPU.Usage.Total != 25 || metrics.CPU.Usage.User != 16 || metrics.CPU.Usage.Kernel != 9 || metrics.Memory.Usage.Usage != 6144 || metrics.Memory.Usage.Limit != 3<<30 || metrics.Pids.Current != 4 {
 		t.Fatalf("stats = %+v", metrics)
+	}
+	if fmt.Sprint(fake.calls) != "[StatsProcess StatsProcess]" {
+		t.Fatalf("stats calls = %v", fake.calls)
+	}
+}
+
+func TestStatsRejectsAggregateOverflow(t *testing.T) {
+	fake := &fakeAgentClient{fail: map[string]error{}, statsByID: map[string]agent.ProcessStats{
+		"init": {CPUUserNS: ^uint64(0)},
+		"exec": {CPUUserNS: 1},
+	}}
+	s := &service{agent: fake, processes: map[string]*process{
+		"": {status: tasktypes.Status_RUNNING}, "exec": {status: tasktypes.Status_RUNNING},
+	}}
+	if _, err := s.Stats(context.Background(), &taskapi.StatsRequest{}); err == nil || !strings.Contains(err.Error(), "overflow") {
+		t.Fatalf("overflow stats error = %v", err)
 	}
 }
 

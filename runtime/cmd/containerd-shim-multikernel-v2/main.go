@@ -1859,6 +1859,54 @@ func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*
 	s.mu.Unlock()
 	return &emptypb.Empty{}, nil
 }
+
+type processSignalTarget struct {
+	id      string
+	process *process
+}
+
+func (s *service) signalTargets(status tasktypes.Status) []processSignalTarget {
+	result := make([]processSignalTarget, 0, len(s.processes))
+	for id, process := range s.processes {
+		if process.status != status {
+			continue
+		}
+		agentID := id
+		if agentID == "" {
+			agentID = "init"
+		}
+		result = append(result, processSignalTarget{id: agentID, process: process})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].id == "init" || result[j].id == "init" {
+			return result[i].id == "init"
+		}
+		return result[i].id < result[j].id
+	})
+	return result
+}
+
+func signalProcessTargets(ctx context.Context, client agentClient, targets []processSignalTarget, signal syscall.Signal) (int, error) {
+	for index, target := range targets {
+		if err := client.CallContext(ctx, "SignalProcess", map[string]any{"ID": target.id, "Signal": strconv.Itoa(int(signal))}, nil); err != nil {
+			return index, err
+		}
+	}
+	return len(targets), nil
+}
+
+func rollbackProcessSignals(client agentClient, targets []processSignalTarget, signal syscall.Signal) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var failures []error
+	for index := len(targets) - 1; index >= 0; index-- {
+		if err := client.CallContext(ctx, "SignalProcess", map[string]any{"ID": targets[index].id, "Signal": strconv.Itoa(int(signal))}, nil); err != nil {
+			failures = append(failures, fmt.Errorf("rollback process %s: %w", targets[index].id, err))
+		}
+	}
+	return errors.Join(failures...)
+}
+
 func (s *service) Pause(ctx context.Context, _ *taskapi.PauseRequest) (*emptypb.Empty, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1869,18 +1917,26 @@ func (s *service) Pause(ctx context.Context, _ *taskapi.PauseRequest) (*emptypb.
 	if p.status != tasktypes.Status_RUNNING || s.agent == nil {
 		return nil, errdefs.ErrFailedPrecondition
 	}
-	if err := s.agent.CallContext(ctx, "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGSTOP))}, nil); err != nil {
-		return nil, err
+	targets := s.signalTargets(tasktypes.Status_RUNNING)
+	signaled, err := signalProcessTargets(ctx, s.agent, targets, syscall.SIGSTOP)
+	if err != nil {
+		return nil, errors.Join(err, rollbackProcessSignals(s.agent, targets[:signaled], syscall.SIGCONT))
 	}
-	p.status = tasktypes.Status_PAUSED
+	for _, target := range targets {
+		target.process.status = tasktypes.Status_PAUSED
+	}
 	if err := s.persistRecovery(); err != nil {
-		rollbackErr := s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGCONT))}, nil)
-		p.status = tasktypes.Status_RUNNING
+		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGCONT)
+		for _, target := range targets {
+			target.process.status = tasktypes.Status_RUNNING
+		}
 		return nil, errors.Join(fmt.Errorf("persist paused state: %w", err), rollbackErr)
 	}
 	if err := s.publish(ctx, ctruntime.TaskPausedEventTopic, &eventstypes.TaskPaused{ContainerID: s.id}); err != nil {
-		rollbackErr := s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGCONT))}, nil)
-		p.status = tasktypes.Status_RUNNING
+		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGCONT)
+		for _, target := range targets {
+			target.process.status = tasktypes.Status_RUNNING
+		}
 		_ = s.persistRecovery()
 		return nil, errors.Join(err, rollbackErr)
 	}
@@ -1896,18 +1952,26 @@ func (s *service) Resume(ctx context.Context, _ *taskapi.ResumeRequest) (*emptyp
 	if p.status != tasktypes.Status_PAUSED || s.agent == nil {
 		return nil, errdefs.ErrFailedPrecondition
 	}
-	if err := s.agent.CallContext(ctx, "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGCONT))}, nil); err != nil {
-		return nil, err
+	targets := s.signalTargets(tasktypes.Status_PAUSED)
+	signaled, err := signalProcessTargets(ctx, s.agent, targets, syscall.SIGCONT)
+	if err != nil {
+		return nil, errors.Join(err, rollbackProcessSignals(s.agent, targets[:signaled], syscall.SIGSTOP))
 	}
-	p.status = tasktypes.Status_RUNNING
+	for _, target := range targets {
+		target.process.status = tasktypes.Status_RUNNING
+	}
 	if err := s.persistRecovery(); err != nil {
-		rollbackErr := s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGSTOP))}, nil)
-		p.status = tasktypes.Status_PAUSED
+		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGSTOP)
+		for _, target := range targets {
+			target.process.status = tasktypes.Status_PAUSED
+		}
 		return nil, errors.Join(fmt.Errorf("persist resumed state: %w", err), rollbackErr)
 	}
 	if err := s.publish(ctx, ctruntime.TaskResumedEventTopic, &eventstypes.TaskResumed{ContainerID: s.id}); err != nil {
-		rollbackErr := s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": "init", "Signal": strconv.Itoa(int(syscall.SIGSTOP))}, nil)
-		p.status = tasktypes.Status_PAUSED
+		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGSTOP)
+		for _, target := range targets {
+			target.process.status = tasktypes.Status_PAUSED
+		}
 		_ = s.persistRecovery()
 		return nil, errors.Join(err, rollbackErr)
 	}
@@ -1930,6 +1994,14 @@ func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*empt
 		s.mu.Unlock()
 		return &emptypb.Empty{}, nil
 	}
+	if p.status == tasktypes.Status_STOPPED {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	if p.status != tasktypes.Status_CREATED && p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
 	if !p.stdinClosed {
 		p.stdinClosed = true
 		if err := s.persistRecovery(); err != nil {
@@ -1937,6 +2009,10 @@ func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*empt
 			s.mu.Unlock()
 			return nil, fmt.Errorf("persist closed stdin: %w", err)
 		}
+	}
+	if p.status == tasktypes.Status_CREATED {
+		s.mu.Unlock()
+		return &emptypb.Empty{}, nil
 	}
 	hasReader := p.stdinReader != nil
 	s.mu.Unlock()
@@ -1962,6 +2038,17 @@ func (s *service) Stats(ctx context.Context, _ *taskapi.StatsRequest) (*taskapi.
 	p, ok := s.processes[""]
 	client := s.agent
 	memoryLimit := s.sandbox.Config.MemoryBytes
+	var processIDs []string
+	for id, process := range s.processes {
+		if process.status != tasktypes.Status_RUNNING && process.status != tasktypes.Status_PAUSED {
+			continue
+		}
+		if id == "" {
+			id = "init"
+		}
+		processIDs = append(processIDs, id)
+	}
+	sort.Strings(processIDs)
 	var status tasktypes.Status
 	if ok {
 		status = p.status
@@ -1974,8 +2061,24 @@ func (s *service) Stats(ctx context.Context, _ *taskapi.StatsRequest) (*taskapi.
 		return nil, errdefs.ErrFailedPrecondition
 	}
 	var guest agent.ProcessStats
-	if err := client.CallContext(ctx, "StatsProcess", map[string]string{"ID": "init"}, &guest); err != nil {
-		return nil, err
+	for _, id := range processIDs {
+		var observed agent.ProcessStats
+		if err := client.CallContext(ctx, "StatsProcess", map[string]string{"ID": id}, &observed); err != nil {
+			return nil, fmt.Errorf("stats process %s: %w", id, err)
+		}
+		if ^uint64(0)-guest.CPUUserNS < observed.CPUUserNS ||
+			^uint64(0)-guest.CPUSystemNS < observed.CPUSystemNS ||
+			^uint64(0)-guest.RSSBytes < observed.RSSBytes ||
+			^uint64(0)-guest.PIDs < observed.PIDs {
+			return nil, errors.New("guest process metrics overflow task aggregate")
+		}
+		guest.CPUUserNS += observed.CPUUserNS
+		guest.CPUSystemNS += observed.CPUSystemNS
+		guest.RSSBytes += observed.RSSBytes
+		guest.PIDs += observed.PIDs
+	}
+	if ^uint64(0)-guest.CPUUserNS < guest.CPUSystemNS {
+		return nil, errors.New("guest CPU metrics overflow total usage")
 	}
 	metrics := &cgroupstats.Metrics{
 		Pids: &cgroupstats.PidsStat{Current: guest.PIDs, Limit: 1024},
