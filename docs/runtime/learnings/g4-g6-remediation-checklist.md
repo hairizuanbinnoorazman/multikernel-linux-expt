@@ -148,7 +148,12 @@ normative plan is revised with an explicit rationale.
   disconnect, sync, offline-check, and preserve a diagnosable state on failure.
 - [ ] Resolve partial-artifact cleanup. Failed `Create` must remove token,
   initramfs, recovery, mount, and runtime-directory state as well as avoiding a
-  Kerf allocation.
+  Kerf allocation. Root preparation now defensively unmounts even when mount
+  reports failure, removes runtime/storage artifacts and its durable record at
+  every confirmed-unmounted build/state boundary, propagates cleanup failures,
+  and retains only a recoverable record when unmount or durable-record cleanup
+  cannot be proven. The ambiguous daemon `CreateSandbox` response window and
+  its cross-service cancellation/reconciliation contract remain open.
 
 ### Automated tests still required
 

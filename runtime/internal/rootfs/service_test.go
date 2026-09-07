@@ -21,6 +21,7 @@ type fakeBackend struct {
 	unmountErr  error
 	verifyErr   error
 	storagePath string
+	buildHook   func()
 }
 
 func (f *fakeBackend) Mount(_ context.Context, _ []Mount, target string) error {
@@ -37,6 +38,9 @@ func (f *fakeBackend) Build(_ context.Context, request PrepareRequest, runtimeDi
 		return PrepareResult{}, f.buildErr
 	}
 	f.storagePath = filepath.Join(storageDir, "root.ext4")
+	if f.buildHook != nil {
+		f.buildHook()
+	}
 	return PrepareResult{Storage: protocol.StorageConfig{Path: f.storagePath, ImageID: "image", FilesystemUUID: "12345678-1234-1234-1234-123456789abc", SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 128, Port: request.StoragePort, SHA256: strings.Repeat("a", 64)}, BuildResult: []byte(`{"schema_version":1}`)}, nil
 }
 func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record) error {
@@ -108,6 +112,100 @@ func TestPrepareBuildFailureUnmountsAndRemovesArtifacts(t *testing.T) {
 	}
 	if len(backend.calls) != 3 || !strings.HasPrefix(backend.calls[2], "unmount:") {
 		t.Fatalf("calls = %v", backend.calls)
+	}
+}
+
+func TestMountFailureDefensivelyUnmountsAndRemovesArtifacts(t *testing.T) {
+	service, backend, request, base := rootfsFixture(t)
+	backend.mountErr = errors.New("injected partial mount failure")
+	if _, err := service.Prepare(context.Background(), request); err == nil {
+		t.Fatal("mount failure accepted")
+	}
+	if !reflect.DeepEqual(backend.calls, []string{"mount:" + filepath.Join(request.Bundle, "rootfs"), "unmount:" + filepath.Join(request.Bundle, "rootfs")}) {
+		t.Fatalf("rollback calls = %v", backend.calls)
+	}
+	if _, ok := service.store.Get(request.TaskIdentity); ok {
+		t.Fatal("failed mount remained journaled")
+	}
+	for _, path := range []string{filepath.Join(request.Bundle, ".multikernel"), filepath.Join(base, "storage", request.TaskIdentity)} {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("artifact survived at %s: %v", path, err)
+		}
+	}
+}
+
+func TestUncertainPartialMountRemainsRecoverable(t *testing.T) {
+	service, backend, request, _ := rootfsFixture(t)
+	backend.mountErr = errors.New("injected partial mount failure")
+	backend.unmountErr = errors.New("injected defensive unmount failure")
+	_, err := service.Prepare(context.Background(), request)
+	if err == nil || !strings.Contains(err.Error(), "rollback uncertain rootfs mount") {
+		t.Fatalf("uncertain mount error = %v", err)
+	}
+	record, ok := service.store.Get(request.TaskIdentity)
+	if !ok || record.Phase != "MOUNTING" {
+		t.Fatalf("recoverable mount record = %+v, %v", record, ok)
+	}
+	backend.unmountErr = nil
+	if err = service.Reconcile(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := service.store.Get(request.TaskIdentity); ok {
+		t.Fatal("reconciled partial mount remained journaled")
+	}
+}
+
+func TestFinalStateFailureRemovesBuiltArtifactsAndRecoveryRecord(t *testing.T) {
+	service, backend, request, base := rootfsFixture(t)
+	backend.buildHook = func() {
+		service.store.persistFault = func() error {
+			service.store.persistFault = nil
+			return errors.New("injected final state persistence failure")
+		}
+	}
+	if _, err := service.Prepare(context.Background(), request); err == nil {
+		t.Fatal("final state failure accepted")
+	}
+	if _, ok := service.store.Get(request.TaskIdentity); ok {
+		t.Fatal("failed final state remained journaled")
+	}
+	for _, path := range []string{filepath.Join(request.Bundle, ".multikernel"), filepath.Join(base, "storage", request.TaskIdentity)} {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("artifact survived at %s: %v", path, err)
+		}
+	}
+}
+
+func TestCleanupPersistenceFailurePreservesDiagnosableRecord(t *testing.T) {
+	service, backend, request, base := rootfsFixture(t)
+	remainingFailures := 2
+	backend.buildHook = func() {
+		service.store.persistFault = func() error {
+			if remainingFailures > 0 {
+				remainingFailures--
+				return errors.New("injected unavailable state storage")
+			}
+			return nil
+		}
+	}
+	_, err := service.Prepare(context.Background(), request)
+	if err == nil || !strings.Contains(err.Error(), "remove rootfs recovery record") {
+		t.Fatalf("cleanup persistence error = %v", err)
+	}
+	record, ok := service.store.Get(request.TaskIdentity)
+	if !ok || record.Phase != "MOUNTED" {
+		t.Fatalf("diagnosable recovery record = %+v, %v", record, ok)
+	}
+	for _, path := range []string{filepath.Join(request.Bundle, ".multikernel"), filepath.Join(base, "storage", request.TaskIdentity)} {
+		if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("artifact survived at %s: %v", path, statErr)
+		}
+	}
+	if err = service.Reconcile(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := service.store.Get(request.TaskIdentity); ok {
+		t.Fatal("diagnosable record survived reconciliation after storage recovered")
 	}
 }
 

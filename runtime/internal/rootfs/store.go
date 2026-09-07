@@ -17,9 +17,10 @@ type diskState struct {
 }
 
 type Store struct {
-	mu   sync.Mutex
-	dir  string
-	data diskState
+	mu           sync.Mutex
+	dir          string
+	data         diskState
+	persistFault func() error
 }
 
 func OpenStore(dir string) (*Store, error) {
@@ -108,6 +109,11 @@ func (s *Store) Delete(identity string) error {
 	return nil
 }
 func (s *Store) persistLocked() error {
+	if s.persistFault != nil {
+		if err := s.persistFault(); err != nil {
+			return err
+		}
+	}
 	data, err := json.MarshalIndent(s.data, "", "  ")
 	if err != nil {
 		return err
