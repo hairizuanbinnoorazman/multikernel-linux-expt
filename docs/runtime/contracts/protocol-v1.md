@@ -21,8 +21,11 @@ advertised protocol capability or major version rather than an unannounced wire
 change.
 
 Daemon methods are `NodeInfo`, `ListSandboxes`, `CreateSandbox`,
-`LoadSandbox`, `StartSandbox`, `StopSandbox`, `DeleteSandbox`, `SandboxState`,
-and `WatchEvents`. Agent methods are `Capabilities`, `CreateProcess`,
+`CancelCreateSandbox`, `LoadSandbox`, `StartSandbox`, `StopSandbox`,
+`DeleteSandbox`, `SandboxState`, and `WatchEvents`. `CancelCreateSandbox` is an
+internal rollback operation bound to the exact original create idempotency key
+and full configuration fingerprint; it is not a general deletion shortcut.
+Agent methods are `Capabilities`, `CreateProcess`,
 `ExecProcess`, `StartProcess`, `SignalProcess`, `ResizeProcess`, `WriteProcess`,
 `CloseProcessStdin`, `ReadProcessOutput`, `WaitProcess`, `StateProcess`,
 `DeleteProcess`, `ConfigureNetwork`, `ExchangeNetwork`, `CloseNetwork`, and

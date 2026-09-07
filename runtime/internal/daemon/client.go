@@ -12,6 +12,10 @@ import (
 
 type Client struct{ Path string }
 
+type Caller interface {
+	Call(context.Context, protocol.Request, any) *protocol.Error
+}
+
 func (c Client) Call(ctx context.Context, request protocol.Request, body any) *protocol.Error {
 	d := net.Dialer{}
 	conn, err := d.DialContext(ctx, "unix", c.Path)
@@ -49,7 +53,7 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 	return nil
 }
 
-func Mutation(ctx context.Context, c Client, method, id, generation, key string, config *protocol.SandboxConfig) (protocol.MutationResult, error) {
+func Mutation(ctx context.Context, c Caller, method, id, generation, key string, config *protocol.SandboxConfig) (protocol.MutationResult, error) {
 	request := protocol.Request{Version: 1, RequestID: key, Method: method, SandboxID: id, Generation: generation, IdempotencyKey: key}
 	if config != nil {
 		request.Body, _ = json.Marshal(config)

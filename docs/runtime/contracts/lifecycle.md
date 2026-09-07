@@ -31,6 +31,17 @@ ABSENT -> ALLOCATING -> CREATED -> LOADED -> RUNNING
 covers any non-running durable state through `RELEASING -> ABSENT`. Deleting a
 running sandbox first performs the stop transition.
 
+If the shim cannot determine whether `CreateSandbox` succeeded, it issues
+`CancelCreateSandbox` with the original idempotency key and exact configuration.
+The daemon first durably completes any forward-recovery intent as `ABORTED`,
+then permits cancellation only while durable and observed state remain
+create-only (`ALLOCATING`, `CREATED`, or absent). It releases a generation-bound
+storage export, deletes the observed backend instance, releases the pool when
+last, and atomically removes sandbox ownership while recording an `ABORTED`
+replay tombstone. A delayed retry of the original create therefore cannot
+reallocate it. Progressed `LOADED`/`RUNNING` sandboxes and mismatched
+fingerprints are never canceled.
+
 The write-ahead journal records `intent` before external mutation and
 `complete` after observation. A crash leaves a visible incomplete operation.
 Reconciliation observes Kerf and resumes or records `OPERATOR_ACTION`; it does
@@ -64,6 +75,7 @@ on the last durable state, not a separate state.
 | `BACKEND_TIMEOUT` | Kerf/agent exceeded a bounded deadline | Reconcile first |
 | `BACKEND_FAILURE` | Kerf/agent returned invalid or failed output | Reconcile first |
 | `UNAUTHENTICATED` | Transport proof is absent or wrong | No |
+| `ABORTED` | Exact create was durably canceled and cannot be replayed | No |
 | `OPERATOR_ACTION` | Ownership/outcome cannot be proved safely | Manual review |
 | `INTERNAL` | Runtime invariant failed | Reconcile and investigate |
 

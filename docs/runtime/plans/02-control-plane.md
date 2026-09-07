@@ -11,6 +11,7 @@ Implement `mkruntimed` with a versioned Unix-domain API:
 
 - `NodeInfo` and `ListSandboxes`;
 - `CreateSandbox`;
+- exact-input `CancelCreateSandbox` for ambiguous create rollback;
 - `LoadSandbox`;
 - `StartSandbox`;
 - `StopSandbox`;

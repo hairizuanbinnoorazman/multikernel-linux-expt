@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -160,11 +161,120 @@ func (s *Service) replay(key, fp string) (protocol.MutationResult, *protocol.Err
 		if old.Fingerprint != fp {
 			return protocol.MutationResult{}, apierr("IDEMPOTENCY_CONFLICT", "idempotency key has different input", false), true
 		}
+		if old.Error != nil {
+			failure := *old.Error
+			return protocol.MutationResult{}, &failure, true
+		}
 		r := old.Result
 		r.Replayed = true
 		return r, nil, true
 	}
 	return protocol.MutationResult{}, nil, false
+}
+
+// CancelCreate makes an ambiguous CreateSandbox failure terminal. It is bound
+// to the original idempotency key and config fingerprint. The original intent
+// is completed durably before external resources are removed, preventing
+// restart reconciliation from creating a sandbox after cancellation.
+func (s *Service) CancelCreate(ctx context.Context, c protocol.SandboxConfig, key string) (bool, *protocol.Error) {
+	if err := validateConfig(c); err != nil || !printableASCII(key, 1, 128) {
+		return false, apierr("INVALID_ARGUMENT", "invalid create cancellation identity", false)
+	}
+	fp := fingerprint("CreateSandbox", c)
+	s.global.Lock()
+	defer s.global.Unlock()
+	defer s.lock(c.ID)()
+
+	if previous, ok := s.store.Result(key); ok {
+		if previous.Fingerprint != fp {
+			return false, apierr("IDEMPOTENCY_CONFLICT", "create cancellation fingerprint differs", false)
+		}
+	}
+	entries, err := s.store.JournalEntries()
+	if err != nil {
+		return false, apierr("INTERNAL", "create journal is unavailable", true)
+	}
+	var intent *statepkg.JournalEntry
+	completed := false
+	for i := range entries {
+		entry := entries[i]
+		if entry.Method != "CreateSandbox" || entry.IdempotencyKey != key {
+			continue
+		}
+		if entry.Fingerprint != fp || entry.SandboxID != c.ID || entry.Sandbox == nil || !reflect.DeepEqual(entry.Sandbox.Config, c) {
+			return false, apierr("IDEMPOTENCY_CONFLICT", "create cancellation does not own journaled input", false)
+		}
+		if entry.Phase == "intent" {
+			copy := entry
+			intent = &copy
+		} else if intent != nil && entry.OperationID == intent.OperationID && entry.Phase == "complete" {
+			completed = true
+		}
+	}
+	sandbox, exists := s.store.Sandbox(c.ID)
+	if intent == nil && !exists {
+		failure := apierr("ABORTED", "create canceled before allocation", false)
+		if err = s.store.Tombstone(key, fp, failure); err != nil {
+			return false, apierr("INTERNAL", "persist create cancellation", true)
+		}
+		return true, nil
+	}
+	if intent == nil || (exists && !reflect.DeepEqual(sandbox.Config, c)) {
+		return false, apierr("IDEMPOTENCY_CONFLICT", "sandbox ID is not owned by canceled create", false)
+	}
+	if !exists {
+		sandbox = *intent.Sandbox
+	}
+	if sandbox.State != "ALLOCATING" && sandbox.State != "CREATED" {
+		return false, apierr("FAILED_PRECONDITION", "sandbox progressed beyond cancellable create state", false)
+	}
+	failure := apierr("ABORTED", "create canceled by runtime shim", false)
+	failure.OperationID = intent.OperationID
+	if !completed {
+		completion := *intent
+		completion.Phase = "complete"
+		completion.Error = failure
+		completion.State = sandbox.State
+		if err = s.store.Append(completion); err != nil {
+			return false, apierr("INTERNAL", "persist create cancellation intent", true)
+		}
+	}
+	if err = s.store.Tombstone(key, fp, failure); err != nil {
+		return false, apierr("INTERNAL", "persist create cancellation tombstone", true)
+	}
+	actual, err := s.backend.Observe(ctx, sandbox.ID)
+	if err != nil {
+		return false, apierr("BACKEND_FAILURE", "observe canceled create", true)
+	}
+	if actual != "ABSENT" && actual != "CREATED" {
+		return false, apierr("FAILED_PRECONDITION", "backend progressed beyond cancellable create state", false)
+	}
+	if sandbox.Storage != nil && sandbox.Storage.State != "RELEASED" {
+		if err = s.releaseStorage(ctx, &sandbox); err != nil {
+			return false, apierr("BACKEND_FAILURE", "release canceled create storage", true)
+		}
+	}
+	if actual == "CREATED" {
+		if err = s.backend.Delete(ctx, sandbox); err != nil {
+			return false, apierr("BACKEND_FAILURE", "delete canceled create sandbox", true)
+		}
+		if actual, err = s.backend.Observe(ctx, sandbox.ID); err != nil || actual != "ABSENT" {
+			return false, apierr("BACKEND_FAILURE", "canceled create deletion was not observed", true)
+		}
+	}
+	// The canceled create can be absent from the snapshot after a backend
+	// failure even though first-sandbox pool creation committed. With the
+	// global allocation lock held, zero or one owner both mean no other
+	// sandbox can depend on the pool.
+	if len(s.store.Snapshot().Sandboxes) <= 1 {
+		if err = s.backend.ReleasePool(ctx); err != nil {
+			return false, apierr("BACKEND_FAILURE", "release canceled create pool", true)
+		}
+	}
+	if err = s.store.AbortCreate(c.ID, key, fp, failure); err != nil {
+		return false, apierr("INTERNAL", "persist canceled create completion", true)
+	}
+	return true, nil
 }
 
 func printableASCII(value string, min, max int) bool {
@@ -372,11 +482,11 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 		}
 	}
 	fp := fingerprint("CreateSandbox", c)
+	s.global.Lock()
+	defer s.global.Unlock()
 	if r, e, ok := s.replay(key, fp); ok {
 		return r, e
 	}
-	s.global.Lock()
-	defer s.global.Unlock()
 	defer s.lock(c.ID)()
 	if _, ok := s.store.Sandbox(c.ID); ok {
 		return protocol.MutationResult{}, apierr("ALREADY_EXISTS", "sandbox ID exists", false)
@@ -423,7 +533,11 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 			}
 		}
 		if e := s.backend.Create(ctx, *current); e != nil {
-			return e
+			var poolErr error
+			if firstSandbox {
+				poolErr = s.backend.ReleasePool(context.WithoutCancel(ctx))
+			}
+			return errors.Join(e, poolErr)
 		}
 		if e := s.provisionStorage(ctx, current); e != nil {
 			deleteErr := s.backend.Delete(context.WithoutCancel(ctx), *current)

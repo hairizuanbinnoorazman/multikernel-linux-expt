@@ -152,8 +152,15 @@ normative plan is revised with an explicit rationale.
   reports failure, removes runtime/storage artifacts and its durable record at
   every confirmed-unmounted build/state boundary, propagates cleanup failures,
   and retains only a recoverable record when unmount or durable-record cleanup
-  cannot be proven. The ambiguous daemon `CreateSandbox` response window and
-  its cross-service cancellation/reconciliation contract remain open.
+  cannot be proven. The shim now resolves an ambiguous daemon
+  `CreateSandbox` response through exact-key/config `CancelCreateSandbox`:
+  mkruntimed durably stops forward reconciliation, tombstones delayed create
+  replay, removes only a create-state storage/backend owner, and confirms that
+  cleanup is safe before the shim removes prepared roots. If cancellation is
+  temporarily unavailable, the strict existing token is reused so the next
+  Create retries the same idempotency identity rather than creating a second
+  ambiguity. The full end-to-end injected failure matrix and live no-leak
+  inventory remain open.
 
 ### Automated tests still required
 

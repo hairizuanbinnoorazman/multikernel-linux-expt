@@ -69,3 +69,42 @@ func TestRemoveSandboxPersistsRemoval(t *testing.T) {
 		t.Fatal("removed sandbox reappeared after reopen")
 	}
 }
+
+func TestCreateTombstoneAndFinalRemovalPersistAcrossReopen(t *testing.T) {
+	dir := t.TempDir()
+	store, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sandbox := protocol.Sandbox{ID: "box", State: "CREATED"}
+	if err = store.SetSandbox(sandbox); err != nil {
+		t.Fatal(err)
+	}
+	failure := &protocol.Error{Code: "ABORTED", Message: "canceled", Retryable: false}
+	if err = store.Tombstone("create-key", "fingerprint", failure); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := store.Sandbox("box"); !exists {
+		t.Fatal("tombstone prematurely removed sandbox ownership")
+	}
+	if result, ok := store.Result("create-key"); !ok || result.Error == nil || result.Error.Code != "ABORTED" {
+		t.Fatalf("tombstone result = %+v, %v", result, ok)
+	}
+	if err = store.AbortCreate("box", "create-key", "fingerprint", failure); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	if _, exists := reopened.Sandbox("box"); exists {
+		t.Fatal("aborted sandbox ownership reappeared after reopen")
+	}
+	if result, ok := reopened.Result("create-key"); !ok || result.Fingerprint != "fingerprint" || result.Error == nil || result.Error.Code != "ABORTED" {
+		t.Fatalf("reopened tombstone = %+v, %v", result, ok)
+	}
+}
