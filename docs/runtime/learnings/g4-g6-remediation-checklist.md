@@ -164,8 +164,15 @@ normative plan is revised with an explicit rationale.
   escaping-link, external-hardlink, and device rejection. Device creation is
   permission-gated locally and must execute rather than skip in the privileged
   replacement-host run.
-- [ ] Relative and absolute OCI root paths, hostile symlinks, concurrent source
+- [x] Relative and absolute OCI root paths, hostile symlinks, concurrent source
   changes, wrong architecture, malformed OCI JSON, and unsupported OCI fields.
+  `test-runtime-root-validation.py` exercises canonical relative/allowlisted
+  absolute roots plus traversal, non-canonical spelling, files, missing paths,
+  and symlink components. `test-runtime-rootfs-build.py` injects mutation after
+  a stable file read. `test-runtime-image-validation.py` covers wrong ELF
+  architecture, interpreters, and escaping entrypoints, while the 29-case OCI
+  suite rejects duplicate/truncated JSON and unsupported behavior fields before
+  the builder reaches allocation.
 - [ ] Read-only input rejection, private-write isolation, configured
   persistence, and proof that unconfigured writes do not persist.
 - [ ] Block and inode exhaustion, high-water refusal, wrong UUID/generation,

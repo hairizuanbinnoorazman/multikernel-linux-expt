@@ -31,6 +31,11 @@ class RootValidationTests(unittest.TestCase):
     def test_accepts_canonical_relative_root(self):
         self.check("rootfs", True)
 
+    def test_rejects_noncanonical_relative_roots(self):
+        for value in ("./rootfs", "rootfs/", "rootfs//nested"):
+            with self.subTest(value=value):
+                self.check(value, False)
+
     def test_rejects_relative_traversal(self):
         self.check("../outside", False)
 
@@ -40,6 +45,11 @@ class RootValidationTests(unittest.TestCase):
         os.symlink(outside, self.bundle / "linked")
         self.check("linked", False)
 
+    def test_rejects_missing_and_non_directory_roots(self):
+        (self.bundle / "file").write_text("not a root", encoding="utf-8")
+        self.check("file", False)
+        self.check("missing", False)
+
     def test_absolute_root_must_be_under_allowlist(self):
         allowed = self.temp / "storage"
         allowed.mkdir()
@@ -47,6 +57,7 @@ class RootValidationTests(unittest.TestCase):
         root.mkdir()
         self.check(str(root), True, allowed)
         self.check(str(self.bundle / "rootfs"), False, allowed)
+        self.check(str(root) + "/", False, allowed)
 
 
 if __name__ == "__main__":
