@@ -14,6 +14,14 @@ image, and restarts it with the same export generation before publishing
 `ACTIVE`. It never adopts a process merely because it is present, and it never
 acts on a conflicting generation.
 
+The durable store treats its file as untrusted input. It opens state no-follow
+and verifies the pre-open inode is the private, caller-owned, single-link inode
+actually read. Every key, owner/generation, prepared-image identity, lifecycle
+state, UTC timestamp, and offline-check digest is validated before recovery.
+Non-released records must be unique by sandbox owner, path, port, and filesystem
+UUID, and writes can only advance `PREPARING` → `ACTIVE` → `QUIESCING` →
+`RELEASED` without changing immutable identity.
+
 If the daemon restarts in `QUIESCING`, reconciliation either stops the exact
 still-running export or adopts its generation-specific graceful-close counter
 record, then runs the offline check and finalizes release. An absent server

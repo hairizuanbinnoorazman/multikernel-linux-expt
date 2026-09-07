@@ -53,7 +53,7 @@ func (f *fakeBackend) Stop(_ context.Context, value Export) (Counters, error) {
 }
 func (f *fakeBackend) OfflineCheck(context.Context, Export) (string, error) {
 	f.calls = append(f.calls, "check")
-	return "clean", f.fail["check"]
+	return "e2fsck-clean-sha256:" + strings.Repeat("c", 64), f.fail["check"]
 }
 
 func fixture(t *testing.T) (*Service, *Store, *fakeBackend, PreparedImage) {
@@ -110,7 +110,7 @@ func TestReleaseRequiresExactGenerationAndOfflineCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if released.State != "RELEASED" || released.OfflineCheck != "clean" || released.Counters.Flushes != 4 || !released.ReleasedAt.Equal(released.UpdatedAt) {
+	if released.State != "RELEASED" || !offlineCheckRE.MatchString(released.OfflineCheck) || released.Counters.Flushes != 4 || !released.ReleasedAt.Equal(released.UpdatedAt) {
 		t.Fatalf("released export = %+v", released)
 	}
 	if _, ok := backend.active[image.Path]; ok {
@@ -272,7 +272,7 @@ func TestReconcileCompletesExactQuiescingExport(t *testing.T) {
 				t.Fatal(err)
 			}
 			recovered, ok := store.Get("box-a", sandboxGeneration)
-			if !ok || recovered.State != "RELEASED" || recovered.OfflineCheck != "clean" || recovered.Counters != backend.counters {
+			if !ok || recovered.State != "RELEASED" || !offlineCheckRE.MatchString(recovered.OfflineCheck) || recovered.Counters != backend.counters {
 				t.Fatalf("recovered export = %+v", recovered)
 			}
 			if _, active := backend.active[image.Path]; active {

@@ -15,6 +15,7 @@ import (
 var identityRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$`)
 var generationRE = regexp.MustCompile(`^[a-f0-9]{32}$`)
 var uuidRE = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
+var digestRE = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Backend interface {
 	Inspect(context.Context, PreparedImage) error
@@ -54,10 +55,7 @@ func validatePrepared(value PreparedImage) error {
 	if !identityRE.MatchString(value.ImageID) || !uuidRE.MatchString(value.FilesystemUUID) {
 		return errors.New("invalid image identity or filesystem UUID")
 	}
-	if len(value.SHA256) != 64 {
-		return errors.New("storage image digest is malformed")
-	}
-	if _, err := hex.DecodeString(value.SHA256); err != nil {
+	if !digestRE.MatchString(value.SHA256) {
 		return errors.New("storage image digest is malformed")
 	}
 	if value.SizeBytes < 64<<20 || value.SizeBytes > 16<<30 || value.SizeBytes%4096 != 0 || value.QuotaBytes != value.SizeBytes {

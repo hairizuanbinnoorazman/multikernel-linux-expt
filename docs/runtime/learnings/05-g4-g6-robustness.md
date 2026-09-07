@@ -290,6 +290,10 @@ also retains `PREPARING` ownership when export start has an ambiguous outcome;
 an exact retry or reconciliation stops any matching partial server,
 re-inspects the image, and restarts the same generation before publishing it
 as active. A conflicting live generation remains untouched and fails closed.
+Durable storage state is now semantically validated before recovery, including
+forward-only transitions and uniqueness of every live owner, path, port, and
+filesystem UUID; no-follow, stable-inode, ownership, mode, and link checks
+protect the state file itself.
 Restart reconciliation can complete an exact `QUIESCING` lease only after
 observing a still-running exact export or its generation-specific
 graceful-close counter record, followed by an offline check. An unexplained
