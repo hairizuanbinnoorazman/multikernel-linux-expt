@@ -1,0 +1,52 @@
+{
+  "required_components": [
+    "containerd-shim-multikernel-v2",
+    "mk-agent",
+    "mk-agentctl",
+    "mk-cni",
+    "mk-host-check",
+    "mknetd",
+    "mkruntimed"
+  ],
+  "required_gate_assertions": {
+    "G4": [
+      "oci-source-digests-and-snapshot-immutability",
+      "deterministic-root-rebuild-and-change-control",
+      "root-metadata-and-hostile-input-matrix",
+      "architecture-and-kernel-compatibility",
+      "writable-root-owner-generation-and-isolation",
+      "readonly-bind-and-persistence-semantics",
+      "capacity-quota-high-water-and-enospc",
+      "storage-teardown-offline-check-and-recovery",
+      "corruption-server-loss-host-reset-and-clone",
+      "cross-export-isolation-and-cleanup"
+    ],
+    "G5": [
+      "cni-add-check-del-and-partial-rollback",
+      "tcp-udp-dns-and-return-traffic",
+      "distinct-network-identity-and-sibling-isolation",
+      "mtu-frame-fault-and-load-matrix",
+      "transport-child-service-daemon-and-primary-restarts",
+      "spoof-route-metadata-and-policy-bypass-rejection",
+      "primary-health-and-controller-ownership",
+      "network-resource-cleanup"
+    ],
+    "G6": [
+      "shared-ctr-and-docker-lifecycle-io-matrix",
+      "post-start-terminal-resize",
+      "containerd-restart-continuity",
+      "docker-restart-continuity",
+      "mkruntimed-restart-continuity",
+      "forced-shim-reconstruction-and-reconnect",
+      "forced-shim-bounded-fallback-reclaim",
+      "init-and-exec-event-order-and-replay",
+      "fifo-attach-pressure-closeio-and-restart",
+      "cancellation-and-deadline-cleanup",
+      "oci-surface-fail-closed-before-allocation",
+      "concurrent-sandbox-churn-and-isolation",
+      "signals-exits-races-and-name-reuse",
+      "runtime-resource-cleanup"
+    ]
+  },
+  "schema_version": 1
+}

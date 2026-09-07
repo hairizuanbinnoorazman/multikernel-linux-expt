@@ -413,7 +413,13 @@ normative plan is revised with an explicit rationale.
 - [ ] Add a final evidence audit that checks referenced files exist, hashes the
   retained bundle, verifies assertions point to raw output rather than a
   narrative index, and rejects `result: pass` when required gate assertions are
-  absent or failed.
+  absent or failed. `scripts/audit-g4-g6-evidence.py` now enforces separate
+  final G4/G5/G6 pass manifests, the versioned required-assertion inventory,
+  exact capture envelopes/exit codes/raw assertion markers, consistent source,
+  host and component identities, valid before/after GCE ledgers, tested-instance
+  and boot-disk deletion, retained-disk preservation, reference containment,
+  and a tamper-evident bundle inventory. Applying it to the completed live run
+  remains open.
 
 ## Full `ctr` and Docker support work breakdown
 
