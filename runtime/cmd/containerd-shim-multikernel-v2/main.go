@@ -32,7 +32,6 @@ import (
 	"github.com/containerd/containerd/namespaces"
 	ctruntime "github.com/containerd/containerd/runtime"
 	"github.com/containerd/containerd/runtime/v2/shim"
-	"github.com/containerd/fifo"
 	"github.com/containerd/typeurl/v2"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -908,6 +907,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if r.ID != s.id || r.Bundle != s.bundle {
 		return nil, fmt.Errorf("%w: invalid task", errdefs.ErrInvalidArgument)
 	}
+	if err := validateProcessIOPaths(r.Stdin, r.Stdout, r.Stderr); err != nil {
+		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.shuttingDown {
@@ -1234,25 +1236,100 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 	return &taskapi.StartResponse{Pid: pid}, nil
 }
 
+func inspectProcessIOPath(path string) (os.FileInfo, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return nil, errors.New("stdio path must be absolute and canonical")
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 || info.Mode().Perm()&0077 != 0 ||
+		(!info.Mode().IsRegular() && info.Mode()&os.ModeNamedPipe == 0) {
+		return nil, errors.New("stdio path must be a private caller-owned single-link FIFO or regular file")
+	}
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags:   uint64(unix.O_PATH | unix.O_CLOEXEC | unix.O_NOFOLLOW),
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	file := os.NewFile(uintptr(descriptor), path)
+	opened, statErr := file.Stat()
+	closeErr := file.Close()
+	if err = errors.Join(statErr, closeErr); err != nil {
+		return nil, err
+	}
+	if !sameProcessIOIdentity(info, opened) {
+		return nil, errors.New("stdio path identity changed while validating")
+	}
+	return opened, nil
+}
+
+func sameProcessIOIdentity(before, after os.FileInfo) bool {
+	left, leftOK := before.Sys().(*syscall.Stat_t)
+	right, rightOK := after.Sys().(*syscall.Stat_t)
+	return leftOK && rightOK && os.SameFile(before, after) && before.Mode() == after.Mode() &&
+		left.Uid == right.Uid && left.Gid == right.Gid && left.Nlink == right.Nlink && left.Ctim == right.Ctim
+}
+
+func validateProcessIOPaths(paths ...string) error {
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		if _, err := inspectProcessIOPath(path); err != nil {
+			return fmt.Errorf("unsafe stdio path %q: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func openKnownProcessIOPath(ctx context.Context, path string, flags int, expected os.FileInfo) (*os.File, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags:   uint64(flags | unix.O_CLOEXEC | unix.O_NOFOLLOW),
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	file := os.NewFile(uintptr(descriptor), path)
+	opened, err := file.Stat()
+	if err != nil || !sameProcessIOIdentity(expected, opened) {
+		_ = file.Close()
+		return nil, errors.New("stdio path identity changed while opening")
+	}
+	if err = ctx.Err(); err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	return file, nil
+}
+
 func openOutput(ctx context.Context, path string) (io.WriteCloser, io.Closer, error) {
 	if path == "" {
 		return nil, nil, nil
 	}
-	isFIFO, err := fifo.IsFifo(path)
+	info, err := inspectProcessIOPath(path)
 	if err != nil {
 		return nil, nil, err
 	}
-	if !isFIFO {
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if info.Mode()&os.ModeNamedPipe == 0 {
+		f, err := openKnownProcessIOPath(ctx, path, unix.O_WRONLY|unix.O_APPEND, info)
 		return f, nil, err
 	}
 	// O_RDWR opens synchronously and keeps a read endpoint present even when
 	// the creating client detaches before another client attaches.
-	guard, err := fifo.OpenFifo(ctx, path, syscall.O_RDWR|syscall.O_NONBLOCK, 0)
+	guard, err := openKnownProcessIOPath(ctx, path, unix.O_RDWR|unix.O_NONBLOCK, info)
 	if err != nil {
 		return nil, nil, err
 	}
-	w, err := fifo.OpenFifo(ctx, path, syscall.O_WRONLY|syscall.O_NONBLOCK, 0)
+	w, err := openKnownProcessIOPath(ctx, path, unix.O_WRONLY|unix.O_NONBLOCK, info)
 	if err != nil {
 		guard.Close()
 		return nil, nil, err
@@ -1275,7 +1352,16 @@ func (s *service) openProcessIO(ctx context.Context, p *process) (err error) {
 		}
 	}
 	if p.stdin != "" {
-		p.stdinReader, err = fifo.OpenFifo(ctx, p.stdin, syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
+		info, inspectErr := inspectProcessIOPath(p.stdin)
+		if inspectErr != nil {
+			closeProcessIO(p)
+			return fmt.Errorf("inspect stdin: %w", inspectErr)
+		}
+		if info.Mode()&os.ModeNamedPipe == 0 {
+			closeProcessIO(p)
+			return errors.New("stdin must be a named pipe")
+		}
+		p.stdinReader, err = openKnownProcessIOPath(ctx, p.stdin, unix.O_RDONLY|unix.O_NONBLOCK, info)
 		if err != nil {
 			closeProcessIO(p)
 			return fmt.Errorf("open stdin: %w", err)
@@ -1590,6 +1676,9 @@ func validateExecProcess(p *specs.Process) error {
 func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emptypb.Empty, error) {
 	if !guestProcessIdentifier.MatchString(r.ExecID) {
 		return nil, errdefs.ErrInvalidArgument
+	}
+	if err := validateProcessIOPaths(r.Stdin, r.Stdout, r.Stderr); err != nil {
+		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
 	}
 	s.mu.Lock()
 	client := s.agent

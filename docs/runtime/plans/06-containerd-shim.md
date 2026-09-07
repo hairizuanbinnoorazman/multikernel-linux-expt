@@ -75,6 +75,13 @@ If a consumer remains absent or slow for 30 seconds, the shim logs the exact
 dropped byte count and advances that stream deliberately so process wait and
 cleanup remain bounded. An unconfigured output stream is discarded by
 contract. Input and output FIFO opens honor the Task request context.
+Every configured stdio path is validated before Create or Exec can allocate or
+contact the guest. Paths must be absolute and canonical private, caller-owned,
+single-link FIFOs or output files. Validation and each later start/recovery
+open use `openat2` with symlink and magic-link traversal disabled, then bind
+device, inode, mode, owner, link count, and ctime across the open. Stdin is
+restricted to a FIFO. A replacement path or same-inode metadata change fails
+closed, and a cancelled request cannot acquire a descriptor.
 
 Terminal resize is a durable intent. A created process retains it for Start;
 a running process records it before contacting the guest, rolls the record back
