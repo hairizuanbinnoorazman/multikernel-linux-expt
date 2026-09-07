@@ -45,6 +45,7 @@ type storageBuildMetadata struct {
 		FakeTime           int    `json:"fake_time"`
 		HashSeed           string `json:"hash_seed"`
 		LazyInitialization bool   `json:"lazy_initialization"`
+		SourceMetadataTime int    `json:"source_metadata_time"`
 	} `json:"determinism"`
 }
 
@@ -93,6 +94,7 @@ func loadStorageBuild(path, expectedPath string, expectedPort uint32) (protocol.
 	if value.SchemaVersion != 1 || value.Path != expectedPath || value.Port != expectedPort ||
 		value.Format != "ext4" || value.Allocation != "posix_fallocate" || value.Determinism.FakeTime != 1 ||
 		value.Determinism.HashSeed != value.FilesystemUUID || value.Determinism.LazyInitialization ||
+		value.Determinism.SourceMetadataTime != 1 ||
 		!sha256RE.MatchString(value.SHA256) || value.SizeBytes == 0 || value.QuotaBytes != value.SizeBytes || value.InodeLimit == 0 {
 		return protocol.StorageConfig{}, errors.New("builder storage identity differs from the enforced v1 contract")
 	}

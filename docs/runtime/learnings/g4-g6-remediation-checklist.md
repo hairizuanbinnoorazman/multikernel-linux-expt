@@ -189,7 +189,11 @@ normative plan is revised with an explicit rationale.
   persistence, and proof that unconfigured writes do not persist.
 - [ ] Block and inode exhaustion, high-water refusal, wrong UUID/generation,
   stale lock, duplicate attach, interrupted copy, and builder failure at every
-  allocation boundary.
+  allocation boundary. The local ext4 builder now accounts for its private
+  staging clone, normalizes staged atime/mtime and imported inode ctime, and
+  passes repeated byte-identical rebuilds with hardlinks, symlinks, an explicit
+  source-atime change, and a changed-content negative control. The broader
+  allocation/fault matrix and disposable-host evidence remain open.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
   dirty recovery; snapshot/clone recovery using disposable copies.

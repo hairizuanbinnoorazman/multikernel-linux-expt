@@ -20,6 +20,7 @@ func TestLoadStorageBuildRequiresExactDeterministicIdentity(t *testing.T) {
 		OfflineCheckSHA256: strings.Repeat("b", 64), Allocation: "posix_fallocate", Format: "ext4"}
 	value.Determinism.FakeTime = 1
 	value.Determinism.HashSeed = value.FilesystemUUID
+	value.Determinism.SourceMetadataTime = 1
 	raw, err := json.Marshal(value)
 	if err != nil {
 		t.Fatal(err)
@@ -40,6 +41,15 @@ func TestLoadStorageBuildRequiresExactDeterministicIdentity(t *testing.T) {
 		t.Fatal("wall-clock fake time accepted")
 	}
 	value.Determinism.FakeTime = 1
+	value.Determinism.SourceMetadataTime = 0
+	raw, _ = json.Marshal(value)
+	if err = os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = loadStorageBuild(path, image, 4061); err == nil {
+		t.Fatal("unnormalized source metadata accepted")
+	}
+	value.Determinism.SourceMetadataTime = 1
 	value.Determinism.LazyInitialization = true
 	raw, _ = json.Marshal(value)
 	if err = os.WriteFile(path, raw, 0600); err != nil {

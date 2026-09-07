@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -21,6 +22,8 @@ class StorageBuildTests(unittest.TestCase):
         self.root = self.temp / "root"
         (self.root / "etc").mkdir(parents=True)
         (self.root / "etc" / "value").write_text("one\n")
+        os.link(self.root / "etc" / "value", self.root / "etc" / "value-hardlink")
+        (self.root / "etc" / "value-symlink").symlink_to("value")
 
     def build(self, name, **overrides):
         output = self.temp / f"{name}.ext4"
@@ -37,9 +40,19 @@ class StorageBuildTests(unittest.TestCase):
         return result, output, metadata
 
     def test_reproducible_fully_allocated_and_changed_input_control(self):
+        source = self.root / "etc" / "value"
+        source_before_build = source.stat()
         first, image_a, metadata_a = self.build("a")
+        source_after_build = source.stat()
+        self.assertEqual(source_before_build.st_mtime_ns, source_after_build.st_mtime_ns)
+        self.assertEqual(source_before_build.st_ctime_ns, source_after_build.st_ctime_ns)
+        source_before = source.stat()
+        os.utime(
+            source,
+            ns=(source_before.st_atime_ns + 10_000_000_000, source_before.st_mtime_ns),
+        )
         # Cross a wall-clock second so this detects e2fsprogs silently treating
-        # a zero fake-time value as "now".
+        # a zero fake-time value as "now" and source atime leaking into ext4.
         time.sleep(1.1)
         second, image_b, metadata_b = self.build("b")
         self.assertEqual(first.returncode, 0, first.stderr)
@@ -48,6 +61,7 @@ class StorageBuildTests(unittest.TestCase):
         record_a = json.loads(metadata_a.read_text())
         record_b = json.loads(metadata_b.read_text())
         self.assertEqual(record_a["determinism"]["fake_time"], 1)
+        self.assertEqual(record_a["determinism"]["source_metadata_time"], 1)
         self.assertEqual(record_a["sha256"], hashlib.sha256(image_a.read_bytes()).hexdigest())
         self.assertEqual(record_a["sha256"], record_b["sha256"])
         self.assertGreaterEqual(image_a.stat().st_blocks * 512, image_a.stat().st_size)
@@ -67,6 +81,15 @@ class StorageBuildTests(unittest.TestCase):
             self.assertIn(message, result.stderr)
             self.assertFalse(output.exists())
             self.assertFalse(metadata.exists())
+
+    def test_metadata_normalization_failure_cleans_partial_artifacts(self):
+        result, output, metadata = self.build("debugfs", debugfs="/bin/false")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("metadata normalization failed", result.stderr)
+        self.assertFalse(output.exists())
+        self.assertFalse(metadata.exists())
+        self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
+        self.assertEqual(list(self.temp.glob(".debugfs-normalize.*")), [])
 
 
 if __name__ == "__main__":
