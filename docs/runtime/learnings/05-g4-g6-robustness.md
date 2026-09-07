@@ -294,6 +294,12 @@ Durable storage state is now semantically validated before recovery, including
 forward-only transitions and uniqueness of every live owner, path, port, and
 filesystem UUID; no-follow, stable-inode, ownership, mode, and link checks
 protect the state file itself.
+Rootfs recovery applies the same untrusted-state rule and additionally proves
+that every recursive-cleanup target is derived from the canonical bundle or
+configured storage root. Forged paths, phase regressions, duplicate bundle or
+port claims, and caller alias mutation fail before cleanup. Recursive removal
+is descriptor-anchored, with tests proving root symlinks are rejected and a
+post-open rename cannot redirect deletion into the replacement tree.
 Restart reconciliation can complete an exact `QUIESCING` lease only after
 observing a still-running exact export or its generation-specific
 graceful-close counter record, followed by an offline check. An unexplained
