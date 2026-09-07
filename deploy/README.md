@@ -15,6 +15,35 @@ binary supports `--version`; the generator requires the same exact 40-hex
 revision from every regular, executable, non-symlink component before hashing
 it. Preserve this manifest alongside the installed hashes in evidence.
 
+Install the verified binaries into an immutable, versioned release directory
+and atomically select it:
+
+```bash
+sudo ./scripts/manage-runtime-binaries.py install \
+  runtime/release-manifest.json runtime/bin
+sudo ./scripts/manage-runtime-binaries.py inspect
+```
+
+The installer verifies every component identity and hash both before and after
+copying. It refuses unrelated files at its command paths, creates stable links
+without replacing operator-owned paths, and switches
+`/usr/local/lib/multikernel/current` atomically. `mk-agent` is retained in the
+release's `bin` directory for deterministic initramfs construction; it is not a
+host command. Installing a newer manifest performs an upgrade while preserving
+the prior immutable release. Roll back by selecting its exact identifier from
+`inspect`, for example:
+
+```bash
+sudo ./scripts/manage-runtime-binaries.py activate \
+  0.1.0-dev-0123456789abcdef0123456789abcdef01234567
+```
+
+`uninstall` and `remove-release` are dry-run/preservation oriented: uninstall
+requires `--apply`, removes only managed command links and the active selector,
+and preserves all releases. An active release cannot be removed. After
+activating another release or uninstalling, remove an exact verified inactive
+release with `remove-release IDENTIFIER --apply`.
+
 Install and adapt the files explicitly on a qualified host:
 
 ```bash
@@ -27,7 +56,6 @@ sudo install -m 0644 deploy/systemd/sys-fs-multikernel.mount \
 sudo install -d -m 0755 /etc/cni/net.d /opt/cni/bin
 sudo install -m 0644 deploy/cni/10-multikernel.conf \
   /etc/cni/net.d/10-multikernel.conf
-sudo install -m 0755 runtime/bin/mk-cni /opt/cni/bin/multikernel
 sudo systemctl daemon-reload
 sudo systemctl enable --now sys-fs-multikernel.mount mkruntimed.service mknetd.service
 ```
