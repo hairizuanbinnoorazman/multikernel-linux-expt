@@ -1,6 +1,7 @@
 package network
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,32 @@ func TestStoreRejectsUntrustedDurableState(t *testing.T) {
 				t.Fatal("untrusted state accepted")
 			}
 		})
+	}
+}
+
+func TestStoreRejectsForgedEndpointIdentityBeforeReconciliation(t *testing.T) {
+	directory := t.TempDir()
+	endpoint := Endpoint{
+		ContainerID: "box", NetworkName: "multikernel", IfName: "eth0", NetNS: "/run/netns/box", Owner: "cni",
+		Generation: "0123456789abcdef0123456789abcdef", Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400, State: "ALLOCATING",
+	}
+	data, err := json.Marshal(diskState{Version: 1, Endpoints: map[string]Endpoint{"forged-key": endpoint}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(directory, "state.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = OpenStore(directory); err == nil || !strings.Contains(err.Error(), "key") {
+		t.Fatalf("forged endpoint error = %v", err)
+	}
+	store, err := OpenStore(filepath.Join(t.TempDir(), "state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	endpoint.NetNS = "/tmp/attacker-controlled"
+	if err = store.Put(endpoint); err == nil {
+		t.Fatal("unsafe endpoint entered durable store")
 	}
 }
 

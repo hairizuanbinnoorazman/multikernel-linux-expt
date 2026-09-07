@@ -17,6 +17,7 @@ type fakeBackend struct {
 	failAdd           error
 	failCheck         error
 	failDelete        error
+	addHook           func()
 	namespacesCreated []string
 	namespacesDeleted []string
 }
@@ -25,6 +26,9 @@ func (f *fakeBackend) Add(_ context.Context, endpoint Endpoint) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.adds = append(f.adds, endpoint)
+	if f.addHook != nil {
+		f.addHook()
+	}
 	return f.failAdd
 }
 func (f *fakeBackend) Check(_ context.Context, endpoint Endpoint) error {
@@ -115,6 +119,44 @@ func TestPartialAddFailureRollsBackWithoutState(t *testing.T) {
 	_, issue := s.Add(context.Background(), endpoint("failed"))
 	if issue == nil || len(backend.deletes) != 1 || len(s.List()) != 0 {
 		t.Fatalf("failed ADD issue=%v deletes=%d state=%v", issue, len(backend.deletes), s.List())
+	}
+}
+
+func TestFinalAddStateFailureRollsBackDurableAllocatingRecord(t *testing.T) {
+	backend := &fakeBackend{}
+	s := service(t, "172.31.0.0/30", backend)
+	backend.addHook = func() {
+		journaled, ok := s.Store.Get("multikernel", "failed", "eth0")
+		if !ok || journaled.State != "ALLOCATING" || journaled.Generation == "" {
+			t.Fatalf("pre-mutation allocation record = %+v, %v", journaled, ok)
+		}
+		s.Store.persistFault = func() error {
+			s.Store.persistFault = nil
+			return errors.New("injected final state persistence failure")
+		}
+	}
+	if _, issue := s.Add(context.Background(), endpoint("failed")); issue == nil || !strings.Contains(issue.Message, "persistence") {
+		t.Fatalf("final state issue = %+v", issue)
+	}
+	if len(backend.adds) != 1 || len(backend.deletes) != 1 || len(s.List()) != 0 {
+		t.Fatalf("final state rollback adds=%d deletes=%d state=%+v", len(backend.adds), len(backend.deletes), s.List())
+	}
+}
+
+func TestReconcileRemovesInterruptedAllocatingGeneration(t *testing.T) {
+	backend := &fakeBackend{}
+	s := service(t, "172.31.0.0/30", backend)
+	value := endpoint("interrupted")
+	value.Owner, value.Generation, value.Address, value.Gateway, value.MTU, value.State =
+		"cni", "0123456789abcdef0123456789abcdef", "172.31.0.2/30", "172.31.0.1", 1400, "ALLOCATING"
+	if err := s.Store.Put(value); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(backend.deletes) != 1 || len(backend.checks) != 0 || len(s.List()) != 0 {
+		t.Fatalf("reconcile deletes=%d checks=%d state=%+v", len(backend.deletes), len(backend.checks), s.List())
 	}
 }
 

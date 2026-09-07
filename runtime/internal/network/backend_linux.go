@@ -127,11 +127,15 @@ func (b LinuxBackend) CreateNamespace(ctx context.Context, generation string) (s
 		return "", errors.New("invalid namespace generation")
 	}
 	b = b.defaults()
-	name := "mk-" + generation[:12]
+	name := filepath.Base(managedNamespacePath(generation))
 	if err := b.Runner.Run(ctx, b.IP, "netns", "add", name); err != nil {
 		return "", err
 	}
 	return filepath.Join("/run/netns", name), nil
+}
+
+func managedNamespacePath(generation string) string {
+	return filepath.Join("/run/netns", "mk-"+generation[:12])
 }
 
 func (b LinuxBackend) DeleteNamespace(ctx context.Context, path string) error {

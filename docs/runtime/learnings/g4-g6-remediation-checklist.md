@@ -230,7 +230,12 @@ normative plan is revised with an explicit rationale.
   DNS, owner, generation, and state before caching; safely identifiable
   post-ADD failures receive a bounded generation-bound DEL. Cache directories
   and files are owner/mode/symlink checked, and reads are no-follow and
-  inode-stable.
+  inode-stable. Beneath CNI, mknetd now journals `ALLOCATING` before its first
+  namespace/link mutation and reconciles incomplete generations by bounded
+  teardown; injected final-state persistence failure proves the durable record
+  exists before mutation and is removed only after rollback. Durable endpoints
+  receive full semantic/key/path validation before reconciliation, and the
+  state file is loaded no-follow with inode-stability checks.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;
