@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -116,13 +117,15 @@ func TestLinuxBackendProcessIdentityGracefulStopAndOfflineCheck(t *testing.T) {
 #include <unistd.h>
 static volatile sig_atomic_t done;
 static void stop(int signal_number) { (void)signal_number; done = 1; }
-int main(void) {
+int main(int argc, char **argv) {
+  if (argc != 6) return 2;
   signal(SIGTERM, stop); signal(SIGINT, stop);
-  puts("MKNBD_SERVER_READY image=test image_id=test generation=test size=67108864 port=4061"); fflush(stdout);
+  printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s\n", argv[2], argv[4], argv[5], argv[3]); fflush(stdout);
   while (!done) pause();
   puts("MKNBD_SERVER_CLOSED reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4"); fflush(stdout);
   return 0;
 }
+
 `
 	if err := os.WriteFile(sourcePath, []byte(source), 0600); err != nil {
 		t.Fatal(err)
@@ -161,5 +164,137 @@ int main(void) {
 	result, err := backend.OfflineCheck(context.Background(), value)
 	if err != nil || len(result) != len("e2fsck-clean-sha256:")+64 {
 		t.Fatalf("offline check = %q, %v", result, err)
+	}
+}
+
+func validBackendLease(path string) Export {
+	return Export{
+		SandboxID: "box", SandboxGeneration: sandboxGeneration,
+		ExportGeneration: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", State: "ACTIVE",
+		PreparedImage: PreparedImage{
+			Path: path, ImageID: "image", FilesystemUUID: "11111111-2222-4333-8444-555555555555",
+			SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061,
+			SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		},
+	}
+}
+
+func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
+	directory := t.TempDir()
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	start, err := processStartTime(os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := processRecord{Version: 1, PID: os.Getpid(), StartTime: start, Path: value.Path,
+		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "record.json")
+	if err = os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if observed, err := readRecord(path, value); err != nil || observed != record {
+		t.Fatalf("record = %+v, %v", observed, err)
+	}
+	conflict := value
+	conflict.ExportGeneration = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	if _, err = readRecord(path, conflict); err == nil {
+		t.Fatal("process record was accepted for a conflicting lease")
+	}
+	if err = os.Link(path, path+".other"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = readRecord(path, value); err == nil {
+		t.Fatal("hard-linked process record was accepted")
+	}
+}
+
+func TestCounterEvidenceRequiresExactReadyAndCanonicalTerminalClose(t *testing.T) {
+	directory := t.TempDir()
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	path := filepath.Join(directory, "server.log")
+	closed := []byte("MKNBD_SERVER_CLOSED reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4\n")
+	write := func(content []byte) {
+		t.Helper()
+		if err := os.WriteFile(path, content, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(append(readyMarker(value), closed...))
+	if counters, err := parseCounters(path, value); err != nil || counters != (Counters{Reads: 2, ReadBytes: 8192, Writes: 3, WrittenBytes: 12288, Flushes: 4}) {
+		t.Fatalf("counters = %+v, %v", counters, err)
+	}
+	conflict := value
+	conflict.ImageID = "other"
+	if _, err := parseCounters(path, conflict); err == nil {
+		t.Fatal("counter log for another export was accepted")
+	}
+	write(append(append(readyMarker(value), closed...), []byte("trailing output\n")...))
+	if _, err := parseCounters(path, value); err == nil {
+		t.Fatal("non-terminal close record was accepted")
+	}
+	write(closed)
+	if _, err := parseCounters(path, value); err == nil {
+		t.Fatal("close record without exact readiness evidence was accepted")
+	}
+}
+
+func TestBackendLeaseValidationPrecedesPathDerivation(t *testing.T) {
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	value.SandboxGeneration = "short"
+	backend := &LinuxBackend{RuntimeDir: t.TempDir()}
+	if _, err := backend.Observe(context.Background(), value); err == nil {
+		t.Fatal("malformed lease reached backend path derivation")
+	}
+}
+
+func TestMissingEphemeralRuntimeDirectoryObservesExportAbsent(t *testing.T) {
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "missing")}
+	observed, err := backend.Observe(context.Background(), value)
+	if err != nil || observed != (Observation{}) {
+		t.Fatalf("missing runtime observation = %+v, %v", observed, err)
+	}
+}
+
+func TestManagedBackendSignalsBeforeStopTimeout(t *testing.T) {
+	directory := t.TempDir()
+	binaryPath := filepath.Join(directory, "server")
+	sourcePath := filepath.Join(directory, "server.c")
+	source := `#include <signal.h>
+#include <stdio.h>
+#include <unistd.h>
+static volatile sig_atomic_t done;
+static void stop(int signal_number) { (void)signal_number; done = 1; }
+int main(int argc, char **argv) {
+  if (argc != 6) return 2;
+  signal(SIGTERM, stop);
+  printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s\n", argv[2], argv[4], argv[5], argv[3]); fflush(stdout);
+  while (!done) pause();
+  puts("MKNBD_SERVER_CLOSED reads=0 read_bytes=0 writes=0 write_bytes=0 flushes=0"); fflush(stdout);
+  return 0;
+}
+`
+	if err := os.WriteFile(sourcePath, []byte(source), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if output, err := exec.Command("cc", "-O2", "-Wall", "-Wextra", "-Werror", sourcePath, "-o", binaryPath).CombinedOutput(); err != nil {
+		t.Skipf("C compiler unavailable: %v: %s", err, output)
+	}
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	backend := &LinuxBackend{Binary: binaryPath, RuntimeDir: filepath.Join(directory, "run"),
+		RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 3 * time.Second}
+	if err := backend.Start(context.Background(), value); err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	if _, err := backend.Stop(context.Background(), value); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed >= time.Second {
+		t.Fatalf("managed stop waited before signaling: %v", elapsed)
 	}
 }

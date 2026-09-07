@@ -208,7 +208,11 @@ normative plan is revised with an explicit rationale.
   keys/identities/states, invalid release evidence, identity changes, state or
   timestamp regressions, and duplicate live owner/path/port/UUID claims before
   reconciliation; its file is loaded no-follow with inode, link, mode, and
-  owner checks.
+  owner checks. Backend record/log reads now apply the same checks, readiness
+  is bound to exact path/image/generation/size/port, and close counters require
+  the corresponding ready marker plus a canonical terminal line. Tests reject
+  mismatched and hard-linked evidence and prove managed stop signals before its
+  timeout rather than waiting for a server that exits only on `SIGTERM`.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
   dirty recovery; snapshot/clone recovery using disposable copies.

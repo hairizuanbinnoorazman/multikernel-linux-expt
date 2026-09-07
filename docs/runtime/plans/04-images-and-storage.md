@@ -51,6 +51,10 @@ storage root plus task identity. Recovery validates these derivations again
 immediately before recursive cleanup and removes relative names through
 inode-stable, descriptor-anchored roots; phases advance only from `MOUNTING`
 to `MOUNTED` to `PREPARED`.
+Backend process records and logs must be private bounded files, bound to the
+exact export lease, and opened no-follow. Readiness must repeat the lease's
+path/image/generation/size/port; close counters are valid only after that exact
+marker and as the terminal canonical line.
 
 ### C. Container overlays and volumes
 
@@ -75,6 +79,9 @@ to `MOUNTED` to `PREPARED`.
 - Backend start failure both before mutation and after an exact server becomes
   live; exact retry and daemon reconciliation must retain the same owner and
   export generation.
+- Forged, symlinked, hard-linked, oversized, mismatched, or changing process
+  records/logs; wrong readiness identity; nonterminal close evidence; PID reuse;
+  and immediate bounded signaling of a managed server.
 - Clean child remount-read-only, NBD disconnect, server sync, and offline
   `e2fsck`.
 - Snapshot/clone recovery using disposable copies.

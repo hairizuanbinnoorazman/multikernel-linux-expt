@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -81,6 +82,86 @@ func (b *LinuxBackend) paths(value Export) (record, log string) {
 	return filepath.Join(b.RuntimeDir, name+".json"), filepath.Join(b.RuntimeDir, name+".log")
 }
 
+func validateBackendLease(value Export) error {
+	if !identityRE.MatchString(value.SandboxID) || !generationRE.MatchString(value.SandboxGeneration) ||
+		!generationRE.MatchString(value.ExportGeneration) {
+		return errors.New("storage backend lease identity is invalid")
+	}
+	return validatePrepared(value.PreparedImage)
+}
+
+func validateRuntimeDirectory(path string, create bool) error {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return errors.New("storage runtime directory must be absolute and canonical")
+	}
+	if create {
+		if err := os.MkdirAll(path, 0700); err != nil {
+			return err
+		}
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	identity, identityOK := info.Sys().(*syscall.Stat_t)
+	if !identityOK || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || identity.Uid != uint32(os.Geteuid()) {
+		return errors.New("storage runtime directory must be a caller-owned real directory")
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || resolved != path {
+		return errors.New("storage runtime directory may not contain symlinks")
+	}
+	if info.Mode().Perm() != 0700 {
+		return errors.New("storage runtime directory must have mode 0700")
+	}
+	return nil
+}
+
+func readPrivateRuntimeFile(path string, limit int64, stable bool) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	identity, identityOK := info.Sys().(*syscall.Stat_t)
+	if !identityOK || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > limit ||
+		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
+		return nil, errors.New("storage runtime file must be private, caller-owned, single-link, regular, and bounded")
+	}
+	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	file := os.NewFile(uintptr(descriptor), path)
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(info, opened) {
+		_ = file.Close()
+		return nil, errors.New("storage runtime file identity changed while opening")
+	}
+	data, readErr := io.ReadAll(io.LimitReader(file, limit+1))
+	after, statErr := file.Stat()
+	closeErr := file.Close()
+	if err = errors.Join(readErr, statErr, closeErr); err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, errors.New("storage runtime file exceeds its evidence bound")
+	}
+	if stable {
+		openedIdentity, openedOK := opened.Sys().(*syscall.Stat_t)
+		afterIdentity, afterOK := after.Sys().(*syscall.Stat_t)
+		if !openedOK || !afterOK || after.Size() != opened.Size() || afterIdentity.Mtim != openedIdentity.Mtim ||
+			afterIdentity.Ctim != openedIdentity.Ctim {
+			return nil, errors.New("storage runtime file changed while reading")
+		}
+	}
+	return data, nil
+}
+
+func readyMarker(value Export) []byte {
+	return []byte(fmt.Sprintf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=%d port=%d\n",
+		value.Path, value.ImageID, value.ExportGeneration, value.SizeBytes, value.Port))
+}
+
 func ext4UUID(value []byte) string {
 	parts := []string{
 		hex.EncodeToString(value[0:4]), hex.EncodeToString(value[4:6]),
@@ -120,6 +201,9 @@ func inspectExt4(descriptor int, expected PreparedImage) error {
 }
 
 func (b *LinuxBackend) Inspect(_ context.Context, image PreparedImage) error {
+	if err := validatePrepared(image); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	b.defaults()
 	b.mu.Unlock()
@@ -232,13 +316,12 @@ func atomicRecord(path string, value processRecord) error {
 }
 
 func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
-	b.mu.Lock()
-	b.defaults()
-	if err := os.MkdirAll(b.RuntimeDir, 0700); err != nil {
-		b.mu.Unlock()
+	if err := validateBackendLease(value); err != nil {
 		return err
 	}
-	if err := os.Chmod(b.RuntimeDir, 0700); err != nil {
+	b.mu.Lock()
+	b.defaults()
+	if err := validateRuntimeDirectory(b.RuntimeDir, true); err != nil {
 		b.mu.Unlock()
 		return err
 	}
@@ -304,29 +387,30 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 			_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
 			return errors.New("storage server readiness timeout")
 		case <-ticker.C:
-			data, readErr := os.ReadFile(logPath)
-			if readErr == nil && bytes.Contains(data, []byte("MKNBD_SERVER_READY ")) {
+			data, readErr := readPrivateRuntimeFile(logPath, 1<<20, false)
+			if readErr != nil {
+				_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+				return fmt.Errorf("read storage readiness evidence: %w", readErr)
+			}
+			if bytes.Contains(data, readyMarker(value)) {
 				return nil
 			}
 		}
 	}
 }
 
-func readRecord(path string) (processRecord, error) {
+func readRecord(path string, expected Export) (processRecord, error) {
 	var value processRecord
-	info, err := os.Lstat(path)
-	if err != nil {
-		return value, err
-	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 4096 {
-		return value, errors.New("storage process record is not private and bounded")
-	}
-	data, err := os.ReadFile(path)
+	data, err := readPrivateRuntimeFile(path, 4096, true)
 	if err != nil {
 		return value, err
 	}
 	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 1 {
 		return value, errors.New("storage process record is malformed")
+	}
+	if value.PID <= 1 || value.StartTime == 0 || value.Path != expected.Path || value.Port != expected.Port ||
+		value.ImageID != expected.ImageID || value.ExportGeneration != expected.ExportGeneration {
+		return value, errors.New("storage process record differs from its exact export lease")
 	}
 	return value, nil
 }
@@ -345,16 +429,25 @@ func processMatches(record processRecord, binary string) bool {
 }
 
 func (b *LinuxBackend) Observe(_ context.Context, value Export) (Observation, error) {
+	if err := validateBackendLease(value); err != nil {
+		return Observation{}, err
+	}
 	b.mu.Lock()
 	b.defaults()
 	recordPath, logPath := b.paths(value)
 	b.mu.Unlock()
-	record, err := readRecord(recordPath)
+	if err := validateRuntimeDirectory(b.RuntimeDir, false); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return Observation{}, nil
+		}
+		return Observation{}, err
+	}
+	record, err := readRecord(recordPath, value)
 	if errors.Is(err, os.ErrNotExist) {
 		// A daemon may restart after the server completed its graceful close but
 		// before the QUIESCING lease was finalized. The generation-specific log
 		// is the durable counter record for that exact export.
-		counters, counterErr := parseCounters(logPath)
+		counters, counterErr := parseCounters(logPath, value)
 		if counterErr == nil {
 			return Observation{Closed: true, Counters: counters}, nil
 		}
@@ -383,45 +476,67 @@ func waitForProcess(ctx context.Context, done <-chan error, timeout time.Duratio
 	}
 }
 
-func parseCounters(logPath string) (Counters, error) {
-	data, err := os.ReadFile(logPath)
+func parseCounters(logPath string, value Export) (Counters, error) {
+	data, err := readPrivateRuntimeFile(logPath, 1<<20, true)
 	if err != nil {
 		return Counters{}, err
 	}
+	ready := bytes.LastIndex(data, readyMarker(value))
 	offset := bytes.LastIndex(data, []byte("MKNBD_SERVER_CLOSED"))
-	if offset < 0 {
-		return Counters{}, errors.New("server close marker is absent")
+	if ready < 0 || offset < ready {
+		return Counters{}, errors.New("exact server ready/close evidence is absent or out of order")
 	}
 	var result Counters
 	var readBytes, writeBytes uint64
-	_, err = fmt.Sscanf(string(data[offset:]),
+	count, err := fmt.Sscanf(string(data[offset:]),
 		"MKNBD_SERVER_CLOSED reads=%d read_bytes=%d writes=%d write_bytes=%d flushes=%d",
 		&result.Reads, &readBytes, &result.Writes, &writeBytes, &result.Flushes)
+	if err != nil || count != 5 {
+		return Counters{}, errors.New("server close counter record is malformed")
+	}
 	result.ReadBytes, result.WrittenBytes = readBytes, writeBytes
-	return result, err
+	canonical := fmt.Sprintf("MKNBD_SERVER_CLOSED reads=%d read_bytes=%d writes=%d write_bytes=%d flushes=%d\n",
+		result.Reads, result.ReadBytes, result.Writes, result.WrittenBytes, result.Flushes)
+	if string(data[offset:]) != canonical {
+		return Counters{}, errors.New("server close counter record is not canonical or terminal")
+	}
+	return result, nil
 }
 
 func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error) {
+	if err := validateBackendLease(value); err != nil {
+		return Counters{}, err
+	}
 	b.mu.Lock()
 	b.defaults()
 	recordPath, logPath := b.paths(value)
 	managed := b.managed[recordPath]
 	b.mu.Unlock()
-	record, err := readRecord(recordPath)
+	if err := validateRuntimeDirectory(b.RuntimeDir, false); err != nil {
+		return Counters{}, err
+	}
+	record, err := readRecord(recordPath, value)
 	if err != nil {
 		return Counters{}, err
 	}
-	if record.ExportGeneration != value.ExportGeneration || !processMatches(record, b.Binary) {
-		if managed == nil || record.ExportGeneration != value.ExportGeneration {
-			return Counters{}, errors.New("refuse to stop process without exact storage lease identity")
+	processIsExact := processMatches(record, b.Binary)
+	alreadyExited := false
+	if !processIsExact && managed != nil {
+		select {
+		case <-managed.done:
+			alreadyExited = true
+		default:
 		}
 	}
+	if !processIsExact && !alreadyExited {
+		return Counters{}, errors.New("refuse to stop process without exact storage lease identity")
+	}
 	if managed != nil {
-		if _, exited := waitForProcess(ctx, managed.done, b.StopTimeout); !exited {
+		if !alreadyExited {
 			if err = syscall.Kill(-record.PID, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
 				return Counters{}, err
 			}
-			if waitErr, exited := waitForProcess(ctx, managed.done, 15*time.Second); !exited {
+			if waitErr, exited := waitForProcess(ctx, managed.done, b.StopTimeout); !exited {
 				return Counters{}, errors.Join(errors.New("storage server did not stop after graceful signal"), waitErr)
 			}
 		}
@@ -441,7 +556,7 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 			return Counters{}, errors.New("recovered storage server did not stop")
 		}
 	}
-	counters, err := parseCounters(logPath)
+	counters, err := parseCounters(logPath, value)
 	if err != nil {
 		return Counters{}, errors.New("storage server stopped without a complete counter record")
 	}
@@ -455,6 +570,9 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 }
 
 func (b *LinuxBackend) OfflineCheck(ctx context.Context, value Export) (string, error) {
+	if err := validateBackendLease(value); err != nil {
+		return "", err
+	}
 	b.mu.Lock()
 	b.defaults()
 	b.mu.Unlock()

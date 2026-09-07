@@ -22,6 +22,15 @@ Non-released records must be unique by sandbox owner, path, port, and filesystem
 UUID, and writes can only advance `PREPARING` → `ACTIVE` → `QUIESCING` →
 `RELEASED` without changing immutable identity.
 
+Backend process records and logs are also bounded, private, caller-owned,
+single-link files opened no-follow with stable inode/metadata checks. A server
+is ready only when its marker exactly repeats the lease path, image ID, export
+generation, size, and port. Graceful-close counters are accepted only after
+that exact ready marker and only as the canonical terminal log line. Managed
+teardown first checks for an already-reaped child, otherwise revalidates its
+PID/start-time/argv identity, sends `SIGTERM` immediately, and waits within the
+configured bound.
+
 If the daemon restarts in `QUIESCING`, reconciliation either stops the exact
 still-running export or adopts its generation-specific graceful-close counter
 record, then runs the offline check and finalizes release. An absent server
