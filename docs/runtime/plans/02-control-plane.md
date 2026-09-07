@@ -23,6 +23,12 @@ Add a Kerf adapter with explicit argv construction, sanitized environment,
 bounded execution time, captured structured output, and no shell expansion.
 Persist a write-ahead operation journal under a configurable state directory.
 Use one global allocation lock and one lock per sandbox.
+The Unix client must apply the earlier of the caller's deadline and a bounded
+default to dialing, request writes, and response reads. Cancellation after a
+successful dial must actively interrupt socket I/O and retain the caller's
+context error, so a silent or wedged daemon cannot retain a shim operation
+indefinitely. A response is strict-decoded and accepted only when its protocol
+version and request ID match the originating request.
 
 ## Tests without Multikernel
 
