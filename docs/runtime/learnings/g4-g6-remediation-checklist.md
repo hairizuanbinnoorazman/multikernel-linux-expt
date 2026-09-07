@@ -332,7 +332,13 @@ normative plan is revised with an explicit rationale.
   teardown without leaking resources.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
-  races and hostile mount inputs.
+  races and hostile mount inputs. Service construction rejects unsafe task,
+  namespace, and bundle values; the global sandbox ID now digest-binds the
+  complete namespace/task tuple so different namespaces, punctuation, or
+  truncated long IDs cannot alias. Exec IDs outside the guest protocol's
+  bounded safe alphabet are rejected before guest contact. Rootfs and OCI
+  path validation is covered, but complete stdio-path race protection remains
+  open.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and
@@ -353,7 +359,11 @@ normative plan is revised with an explicit rationale.
 ### Automated tests still required
 
 - [ ] A fake-daemon Task v2 suite for every method, state transition, duplicate
-  request, invalid transition, event, exit code, and cleanup path.
+  request, invalid transition, event, exit code, and cleanup path. Focused
+  coverage now rejects exec start before init, exec creation after init exit,
+  kill of absent or non-running processes, init deletion with retained execs,
+  unsafe exec IDs, and duplicate execs before agent contact; the exhaustive
+  method/transition matrix remains open.
 - [ ] Event ordering and publication failure for create/start/exec/exit/delete,
   including containerd disconnect and restart.
 - [ ] Context cancellation and deadline expiry at every blocking boundary.

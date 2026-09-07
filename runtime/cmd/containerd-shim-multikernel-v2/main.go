@@ -51,6 +51,7 @@ import (
 const runtimeName = "io.containerd.multikernel.v2"
 
 var runtimeIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
+var guestProcessIdentifier = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 
 type process struct {
 	id, stdin, stdout, stderr      string
@@ -629,7 +630,10 @@ func relaySocketPath(port uint32, generation string) string {
 	return filepath.Join("/run", "mk-agent-"+strconv.Itoa(int(port))+"-"+generation+".sock")
 }
 
-func sandboxID(id string) string {
+// sandboxID maps the containerd namespace/task tuple into the daemon's global
+// identifier space. The readable prefix is diagnostic only; the digest binds
+// the complete, unsanitized tuple so truncation and punctuation cannot alias.
+func sandboxID(namespace, id string) string {
 	var b strings.Builder
 	b.WriteString("mk-")
 	for _, r := range strings.ToLower(id) {
@@ -637,14 +641,15 @@ func sandboxID(id string) string {
 			b.WriteRune(r)
 		}
 	}
-	x := strings.Trim(b.String(), "-")
-	if len(x) > 50 {
-		x = x[:50]
+	prefix := strings.Trim(strings.TrimPrefix(b.String(), "mk-"), "-")
+	if prefix == "" {
+		prefix = "task"
 	}
-	if x == "mk" || x == "mk-" {
-		x = "mk-task"
+	if len(prefix) > 32 {
+		prefix = prefix[:32]
 	}
-	return x
+	digest := sha256.Sum256([]byte(namespace + "\x00" + id))
+	return "mk-" + prefix + "-" + hex.EncodeToString(digest[:8])
 }
 
 func storageTaskIdentity(namespace, id string) string {
@@ -704,7 +709,7 @@ func (s *service) allocate(ctx context.Context, bundle string) (protocol.Sandbox
 			}
 		}
 		if free {
-			return protocol.SandboxConfig{SchemaVersion: 1, ID: sandboxID(s.id), CPUs: set, MemoryBytes: 3 << 30, KernelManifest: "gce-mk2", Bundle: bundle, AgentPort: uint32(7200 + i), ChildCID: uint32(40 + i), Storage: &protocol.StorageConfig{Port: uint32(4061 + i)}}, lock, nil
+			return protocol.SandboxConfig{SchemaVersion: 1, ID: sandboxID(s.namespace, s.id), CPUs: set, MemoryBytes: 3 << 30, KernelManifest: "gce-mk2", Bundle: bundle, AgentPort: uint32(7200 + i), ChildCID: uint32(40 + i), Storage: &protocol.StorageConfig{Port: uint32(4061 + i)}}, lock, nil
 		}
 	}
 	lock.Close()
@@ -1143,6 +1148,13 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
 	}
+	if r.ExecID != "" {
+		init, exists := s.processes[""]
+		if !exists || init.status != tasktypes.Status_RUNNING {
+			s.mu.Unlock()
+			return nil, errdefs.ErrFailedPrecondition
+		}
+	}
 	if r.ExecID == "" {
 		if err := s.connectAgent(ctx); err != nil {
 			s.mu.Unlock()
@@ -1177,7 +1189,7 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		p.status = tasktypes.Status_RUNNING
 		go s.pumpStdin(processID, p)
 		go s.waitProcess(processID, r.ExecID, p)
-		_, _ = s.Kill(context.WithoutCancel(ctx), &taskapi.KillRequest{ExecID: r.ExecID, Signal: uint32(syscall.SIGKILL)})
+		_ = s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": processID, "Signal": strconv.Itoa(int(syscall.SIGKILL))}, nil)
 		if err == nil {
 			err = errors.New("guest returned an invalid process ID")
 		}
@@ -1190,7 +1202,7 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 	go s.pumpStdin(processID, p)
 	go s.waitProcess(processID, r.ExecID, p)
 	if err := s.persistRecovery(); err != nil {
-		_, _ = s.Kill(context.WithoutCancel(ctx), &taskapi.KillRequest{ExecID: r.ExecID, Signal: uint32(syscall.SIGKILL)})
+		_ = s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": processID, "Signal": strconv.Itoa(int(syscall.SIGKILL))}, nil)
 		s.mu.Unlock()
 		return nil, fmt.Errorf("persist started process: %w", err)
 	}
@@ -1505,14 +1517,26 @@ func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.Wa
 }
 
 func (s *service) Kill(ctx context.Context, r *taskapi.KillRequest) (*emptypb.Empty, error) {
+	s.mu.Lock()
+	p, ok := s.processes[r.ExecID]
+	client := s.agent
+	if !ok {
+		s.mu.Unlock()
+		return nil, errdefs.ErrNotFound
+	}
+	if p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	s.mu.Unlock()
 	id := r.ExecID
 	if id == "" {
 		id = "init"
 	}
-	if s.agent == nil {
+	if client == nil {
 		return nil, errdefs.ErrFailedPrecondition
 	}
-	if err := s.agent.CallContext(ctx, "SignalProcess", map[string]any{"ID": id, "Signal": strconv.FormatUint(uint64(r.Signal), 10)}, nil); err != nil {
+	if err := client.CallContext(ctx, "SignalProcess", map[string]any{"ID": id, "Signal": strconv.FormatUint(uint64(r.Signal), 10)}, nil); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -1552,8 +1576,14 @@ func validateExecProcess(p *specs.Process) error {
 }
 
 func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emptypb.Empty, error) {
-	if r.ExecID == "" || s.agent == nil {
+	if !guestProcessIdentifier.MatchString(r.ExecID) {
 		return nil, errdefs.ErrInvalidArgument
+	}
+	s.mu.Lock()
+	client := s.agent
+	s.mu.Unlock()
+	if client == nil {
+		return nil, errdefs.ErrFailedPrecondition
 	}
 	v, err := typeurl.UnmarshalAny(r.Spec)
 	if err != nil {
@@ -1567,6 +1597,11 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 		return nil, err
 	}
 	s.mu.Lock()
+	init, initExists := s.processes[""]
+	if !initExists || init.status != tasktypes.Status_RUNNING {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
 	if _, exists := s.processes[r.ExecID]; exists {
 		s.mu.Unlock()
 		return nil, errdefs.ErrAlreadyExists
@@ -1574,7 +1609,7 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 	p := &process{id: r.ExecID, stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	s.processes[r.ExecID] = p
 	s.mu.Unlock()
-	if err = s.agent.CallContext(ctx, "ExecProcess", map[string]any{"id": r.ExecID, "parent_id": "init", "spec": processSpec(spec)}, nil); err != nil {
+	if err = client.CallContext(ctx, "ExecProcess", map[string]any{"id": r.ExecID, "parent_id": "init", "spec": processSpec(spec)}, nil); err != nil {
 		s.mu.Lock()
 		delete(s.processes, r.ExecID)
 		s.mu.Unlock()
@@ -1584,14 +1619,14 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 	err = s.persistRecovery()
 	s.mu.Unlock()
 	if err != nil {
-		_ = s.agent.CallContext(context.WithoutCancel(ctx), "DeleteProcess", map[string]string{"ID": r.ExecID}, nil)
+		_ = client.CallContext(context.WithoutCancel(ctx), "DeleteProcess", map[string]string{"ID": r.ExecID}, nil)
 		s.mu.Lock()
 		delete(s.processes, r.ExecID)
 		s.mu.Unlock()
 		return nil, fmt.Errorf("persist exec process: %w", err)
 	}
 	if err = s.publish(ctx, ctruntime.TaskExecAddedEventTopic, &eventstypes.TaskExecAdded{ContainerID: s.id, ExecID: r.ExecID}); err != nil {
-		cleanupErr := s.agent.CallContext(context.WithoutCancel(ctx), "DeleteProcess", map[string]string{"ID": r.ExecID}, nil)
+		cleanupErr := client.CallContext(context.WithoutCancel(ctx), "DeleteProcess", map[string]string{"ID": r.ExecID}, nil)
 		s.mu.Lock()
 		delete(s.processes, r.ExecID)
 		_ = s.persistRecovery()
@@ -1611,6 +1646,10 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 	if p.status == tasktypes.Status_RUNNING || p.status == tasktypes.Status_PAUSED {
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
+	}
+	if r.ExecID == "" && len(s.processes) != 1 {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("%w: delete exec processes before deleting init", errdefs.ErrFailedPrecondition)
 	}
 	if p.status == tasktypes.Status_STOPPED && !p.exitEventQueued {
 		if err := s.publishExit(ctx, r.ExecID, p); err != nil {

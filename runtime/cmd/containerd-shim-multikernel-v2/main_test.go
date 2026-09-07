@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -210,6 +211,30 @@ func TestValidateServiceIdentityRejectsUnsafeValues(t *testing.T) {
 	}
 	if err := validateServiceIdentity("task", "default", linked); !errors.Is(err, errdefs.ErrInvalidArgument) {
 		t.Fatalf("symlinked bundle error = %v", err)
+	}
+}
+
+func TestSandboxIDBindsCompleteNamespaceAndTaskWithoutAliases(t *testing.T) {
+	base := sandboxID("namespace-a", "task")
+	if base != sandboxID("namespace-a", "task") || !regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`).MatchString(base) {
+		t.Fatalf("sandbox ID is not stable and daemon-safe: %q", base)
+	}
+	aliases := []string{
+		sandboxID("namespace-b", "task"),
+		sandboxID("namespace-a", "task.with.punctuation"),
+		sandboxID("namespace-a", "task_with_punctuation"),
+		sandboxID("namespace-a", strings.Repeat("a", 127)+"b"),
+		sandboxID("namespace-a", strings.Repeat("a", 127)+"c"),
+	}
+	seen := map[string]bool{base: true}
+	for _, candidate := range aliases {
+		if seen[candidate] {
+			t.Fatalf("distinct namespace/task tuples alias as %q", candidate)
+		}
+		seen[candidate] = true
+		if len(candidate) > 63 {
+			t.Fatalf("sandbox ID exceeds daemon limit: %q", candidate)
+		}
 	}
 }
 
@@ -568,7 +593,7 @@ func TestResizePtyRejectsInvalidRequests(t *testing.T) {
 func TestExecRollsBackProcessOnAgentFailure(t *testing.T) {
 	agentFailure := errors.New("injected agent failure")
 	fake := &fakeAgentClient{fail: map[string]error{"ExecProcess": agentFailure}}
-	s := &service{agent: fake, processes: map[string]*process{}}
+	s := &service{agent: fake, processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}}}
 	spec := &specs.Process{User: specs.User{}, Args: []string{"/bin/true"}, Cwd: "/"}
 	encodedValue, err := typeurl.MarshalAny(spec)
 	if err != nil {
@@ -581,6 +606,75 @@ func TestExecRollsBackProcessOnAgentFailure(t *testing.T) {
 	}
 	if _, exists := s.processes["failed"]; exists {
 		t.Fatal("failed exec left a stale process")
+	}
+}
+
+func TestExecRejectsGuestUnrepresentableIDBeforeAgentContact(t *testing.T) {
+	fake := &fakeAgentClient{fail: map[string]error{}}
+	s := &service{agent: fake, processes: map[string]*process{}}
+	spec := &specs.Process{User: specs.User{}, Args: []string{"/bin/true"}, Cwd: "/"}
+	encodedValue, err := typeurl.MarshalAny(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := &anypb.Any{TypeUrl: encodedValue.GetTypeUrl(), Value: encodedValue.GetValue()}
+	for _, id := range []string{"", "../exec", "Exec", "exec_id", strings.Repeat("a", 65)} {
+		if _, err = s.Exec(context.Background(), &taskapi.ExecProcessRequest{ExecID: id, Spec: encoded}); !errors.Is(err, errdefs.ErrInvalidArgument) {
+			t.Fatalf("ExecID %q error = %v, want invalid argument", id, err)
+		}
+	}
+	if len(fake.calls) != 0 || len(s.processes) != 0 {
+		t.Fatalf("invalid exec reached agent or state: calls=%v processes=%v", fake.calls, s.processes)
+	}
+}
+
+func TestTaskStateGuardsRejectInvalidTransitionsBeforeAgentContact(t *testing.T) {
+	fake := &fakeAgentClient{fail: map[string]error{}}
+	init := &process{id: "", status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	execProcess := &process{id: "exec", status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	s := &service{agent: fake, processes: map[string]*process{"": init, "exec": execProcess}}
+
+	if _, err := s.Start(context.Background(), &taskapi.StartRequest{ExecID: "exec"}); !errors.Is(err, errdefs.ErrFailedPrecondition) {
+		t.Fatalf("exec start before init error = %v", err)
+	}
+	if _, err := s.Kill(context.Background(), &taskapi.KillRequest{ExecID: "missing", Signal: uint32(syscall.SIGTERM)}); !errors.Is(err, errdefs.ErrNotFound) {
+		t.Fatalf("missing kill error = %v", err)
+	}
+	if _, err := s.Kill(context.Background(), &taskapi.KillRequest{ExecID: "", Signal: uint32(syscall.SIGTERM)}); !errors.Is(err, errdefs.ErrFailedPrecondition) {
+		t.Fatalf("created kill error = %v", err)
+	}
+	init.status = tasktypes.Status_STOPPED
+	spec := &specs.Process{User: specs.User{}, Args: []string{"/bin/true"}, Cwd: "/"}
+	encodedValue, err := typeurl.MarshalAny(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := &anypb.Any{TypeUrl: encodedValue.GetTypeUrl(), Value: encodedValue.GetValue()}
+	if _, err = s.Exec(context.Background(), &taskapi.ExecProcessRequest{ExecID: "new-exec", Spec: encoded}); !errors.Is(err, errdefs.ErrFailedPrecondition) {
+		t.Fatalf("exec after init stop error = %v", err)
+	}
+	if _, err = s.Delete(context.Background(), &taskapi.DeleteRequest{}); !errors.Is(err, errdefs.ErrFailedPrecondition) {
+		t.Fatalf("init delete with retained exec error = %v", err)
+	}
+	if len(fake.calls) != 0 {
+		t.Fatalf("invalid transitions contacted agent: %v", fake.calls)
+	}
+}
+
+func TestKillForwardsOnlyForLiveKnownProcess(t *testing.T) {
+	fake := &fakeAgentClient{fail: map[string]error{}}
+	s := &service{agent: fake, processes: map[string]*process{
+		"":     {status: tasktypes.Status_RUNNING},
+		"exec": {status: tasktypes.Status_PAUSED},
+	}}
+	if _, err := s.Kill(context.Background(), &taskapi.KillRequest{Signal: uint32(syscall.SIGTERM), All: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Kill(context.Background(), &taskapi.KillRequest{ExecID: "exec", Signal: uint32(syscall.SIGKILL)}); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(fake.calls) != "[SignalProcess SignalProcess]" {
+		t.Fatalf("kill calls = %v", fake.calls)
 	}
 }
 

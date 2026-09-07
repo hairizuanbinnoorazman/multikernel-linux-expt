@@ -18,7 +18,10 @@ service surface:
 
 The shim must remain unprivileged except for access to the daemon socket. It
 must never execute Kerf directly. Containerd namespace and sandbox identifiers
-must map deterministically to internal IDs without becoming trusted paths.
+map into the daemon's global ID space using a readable prefix plus a digest of
+the complete namespace/task tuple. The prefix is never an identity boundary;
+the digest prevents namespace, punctuation-normalization, and truncation
+aliases without making either caller-controlled value a trusted path.
 Containerd remains responsible for pulling images, applying OCI layers, and
 preparing snapshot/rootfs mounts; the shim passes those inputs and `config.json`
 through the runtime contracts instead of building a guest OS or boot image.
