@@ -46,6 +46,9 @@ Teardown first changes an unbound endpoint to `DELETING`; only then does it
 remove backend resources, a managed namespace, and finally the record. Restart
 reconciliation completes either transitional phase, so a host/service failure
 cannot leave a READY record for resources already being removed.
+For a runtime-owned endpoint, the sandbox ID and generation remain attached to
+the `DELETING` record until cleanup finishes. A repeated RELEASE can therefore
+find and resume a failed teardown without waiting for an mknetd restart.
 On startup, the durable store validates every map key, workload/generation,
 owner, namespace path, address/gateway, MTU, DNS policy, state, and sandbox
 binding before reconciliation can act. The state file is opened no-follow with
