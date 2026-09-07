@@ -238,7 +238,9 @@ normative plan is revised with an explicit rationale.
   state file is loaded no-follow with inode-stability checks.
   Endpoint teardown symmetrically journals `DELETING` before external removal;
   an injected backend failure proves restart reconciliation completes deletion
-  and removes the retained record.
+  and removes the retained record. Runtime-owned RELEASE retains its sandbox
+  generation through that phase, and a focused failure/retry test proves the
+  same process can resume teardown without an mknetd restart.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;

@@ -354,3 +354,29 @@ func TestRuntimeProvisionOwnsLifecycleWhileExternalCNIRetainsIt(t *testing.T) {
 		t.Fatalf("external release issue=%v endpoints=%v", issue, s.List())
 	}
 }
+
+func TestRuntimeReleaseRetainsSandboxIdentityUntilRetryCompletes(t *testing.T) {
+	backend := &fakeBackend{}
+	s := service(t, "172.31.0.0/30", backend)
+	sandboxGeneration := "11111111111111111111111111111111"
+	allocated, issue := s.Provision(context.Background(), Endpoint{ContainerID: "runtime", NetworkName: "multikernel", IfName: "mktun0", SandboxID: "sandbox", SandboxGeneration: sandboxGeneration})
+	if issue != nil {
+		t.Fatal(issue)
+	}
+	backend.failDelete = errors.New("injected runtime release failure")
+	request := Endpoint{SandboxID: "sandbox", SandboxGeneration: sandboxGeneration}
+	if issue = s.Release(context.Background(), request); issue == nil {
+		t.Fatal("runtime release failure was accepted")
+	}
+	retained, ok := s.Store.Get(allocated.NetworkName, allocated.ContainerID, allocated.IfName)
+	if !ok || retained.State != "DELETING" || retained.SandboxID != "sandbox" || retained.SandboxGeneration != sandboxGeneration {
+		t.Fatalf("failed runtime release record = %+v, %v", retained, ok)
+	}
+	backend.failDelete = nil
+	if issue = s.Release(context.Background(), request); issue != nil {
+		t.Fatal(issue)
+	}
+	if len(s.List()) != 0 {
+		t.Fatalf("retried runtime release retained state: %+v", s.List())
+	}
+}

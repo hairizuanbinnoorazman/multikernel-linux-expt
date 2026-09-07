@@ -370,6 +370,9 @@ func (s *Service) Provision(ctx context.Context, requested Endpoint) (Endpoint, 
 func (s *Service) Release(ctx context.Context, requested Endpoint) *APIError {
 	s.orchestrate.Lock()
 	defer s.orchestrate.Unlock()
+	if !identifier.MatchString(requested.SandboxID) || !endpointGeneration.MatchString(requested.SandboxGeneration) {
+		return &APIError{Code: "INVALID_ARGUMENT", Message: "RELEASE requires valid sandbox identity/generation"}
+	}
 	var match *Endpoint
 	for _, candidate := range s.Store.List() {
 		if candidate.SandboxID == requested.SandboxID {
@@ -378,10 +381,29 @@ func (s *Service) Release(ctx context.Context, requested Endpoint) *APIError {
 			break
 		}
 	}
-	if issue := s.Unbind(requested); issue != nil || match == nil || match.Owner != "runtime" {
-		return issue
+	if match == nil {
+		return nil
 	}
-	return s.Delete(ctx, *match)
+	if match.SandboxGeneration != requested.SandboxGeneration {
+		return &APIError{Code: "STALE_GENERATION", Message: "sandbox generation does not match endpoint binding"}
+	}
+	if match.Owner != "runtime" {
+		return s.Unbind(requested)
+	}
+	if match.State != "DELETING" {
+		match.State = "DELETING"
+		match.UpdatedAt = s.now()
+		if err := s.Store.Put(*match); err != nil {
+			return &APIError{Code: "INTERNAL", Message: "journal runtime endpoint deletion: " + err.Error(), Retryable: true}
+		}
+	}
+	if err := s.rollbackAllocation(*match); err != nil {
+		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+	}
+	if err := s.discardAllocationRecord(*match); err != nil {
+		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+	}
+	return nil
 }
 
 func (s *Service) Unbind(requested Endpoint) *APIError {
