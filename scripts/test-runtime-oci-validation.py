@@ -74,6 +74,7 @@ def main():
             "duplicate",
             raw='{"ociVersion":"1.1.0","ociVersion":"1.1.0","process":{},"root":{}}',
         )
+        run_case(directory, "truncated-json", raw='{"ociVersion":"1.1.0",')
         top_fields = ["hooks"]
         for field in top_fields:
             config = copy.deepcopy(BASE)
@@ -166,7 +167,7 @@ def main():
         )
         if result.returncode == 0 or "unsupported OCI field(s): hooks" not in result.stderr:
             raise AssertionError(f"builder did not reject before normalization: {result.stderr!r}")
-    print("runtime OCI fail-closed validation: PASS (28 cases plus namespace projection)")
+    print("runtime OCI fail-closed validation: PASS (29 cases plus namespace projection)")
 
 
 if __name__ == "__main__":

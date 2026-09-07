@@ -31,7 +31,7 @@ def resolve(bundle, configured, allowed_absolute):
     raw = PurePosixPath(configured)
     if configured == "" or "\x00" in configured:
         raise ValueError("root.path is empty or contains NUL")
-    if any(part in (".", "..") for part in raw.parts):
+    if raw.as_posix() != configured or any(part in (".", "..") for part in raw.parts):
         raise ValueError("root.path contains traversal or non-canonical components")
     if raw.is_absolute():
         candidate = Path(configured)
