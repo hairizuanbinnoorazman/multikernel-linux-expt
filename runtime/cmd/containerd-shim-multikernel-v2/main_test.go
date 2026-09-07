@@ -678,6 +678,81 @@ func TestKillForwardsOnlyForLiveKnownProcess(t *testing.T) {
 	}
 }
 
+func TestShutdownWaitsForEmptyOwnershipAndSealsService(t *testing.T) {
+	called := make(chan struct{}, 1)
+	s := &service{id: "task", bundle: "/bundle", shutdown: func() { called <- struct{}{} }, processes: map[string]*process{
+		"": {status: tasktypes.Status_STOPPED},
+	}}
+	if _, err := s.Shutdown(context.Background(), &taskapi.ShutdownRequest{ID: "task", Now: true}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-called:
+		t.Fatal("shutdown callback ran while process ownership remained")
+	default:
+	}
+	s.mu.Lock()
+	delete(s.processes, "")
+	s.mu.Unlock()
+	if _, err := s.Shutdown(context.Background(), &taskapi.ShutdownRequest{ID: "task"}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-called:
+	case <-time.After(time.Second):
+		t.Fatal("empty service did not invoke shutdown callback")
+	}
+	if _, err := s.Create(context.Background(), &taskapi.CreateTaskRequest{ID: "task", Bundle: "/bundle"}); !errors.Is(err, errdefs.ErrFailedPrecondition) {
+		t.Fatalf("create after shutdown error = %v", err)
+	}
+	if _, err := s.Shutdown(context.Background(), &taskapi.ShutdownRequest{ID: "task"}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-called:
+		t.Fatal("repeated shutdown invoked callback again")
+	default:
+	}
+}
+
+func TestShutdownRetainsOwnershipUntilDurableEventsFlush(t *testing.T) {
+	bundle := t.TempDir()
+	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	publisher := &fakePublisher{failures: 2}
+	called := make(chan struct{}, 1)
+	s := &service{id: "task", namespace: "default", bundle: bundle, publisher: publisher,
+		shutdown: func() { called <- struct{}{} }, processes: map[string]*process{},
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err := s.publish(context.Background(), ctruntime.TaskDeleteEventTopic, &eventstypes.TaskDelete{ContainerID: "task", ID: "task"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.events.Pending) != 1 {
+		t.Fatalf("pending events = %d", len(s.events.Pending))
+	}
+	if _, err := s.Shutdown(context.Background(), &taskapi.ShutdownRequest{ID: "task"}); err == nil {
+		t.Fatal("shutdown accepted while durable event delivery failed")
+	}
+	select {
+	case <-called:
+		t.Fatal("failed event flush invoked shutdown callback")
+	default:
+	}
+	publisher.failures = 0
+	if _, err := s.Shutdown(context.Background(), &taskapi.ShutdownRequest{ID: "task"}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-called:
+	case <-time.After(time.Second):
+		t.Fatal("shutdown did not proceed after event delivery recovered")
+	}
+	if len(s.events.Pending) != 0 {
+		t.Fatalf("events remain pending after shutdown: %+v", s.events.Pending)
+	}
+}
+
 func TestStatePidsAndConnectReportGuestProcessIDs(t *testing.T) {
 	s := &service{bundle: "/bundle", processes: map[string]*process{
 		"":     {pid: 17, status: tasktypes.Status_RUNNING},
