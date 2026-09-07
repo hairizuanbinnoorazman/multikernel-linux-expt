@@ -28,6 +28,7 @@ import (
 	"github.com/containerd/fifo"
 	"github.com/containerd/typeurl/v2"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
@@ -487,6 +488,116 @@ func TestOutputFIFOCanBeReattached(t *testing.T) {
 	}
 	if string(got) != "reattach-ok" {
 		t.Fatalf("attached output = %q, err = %v", got, err)
+	}
+}
+
+func TestProcessIOPathsRejectUnsafeIdentityAndSymlinkAncestors(t *testing.T) {
+	directory := t.TempDir()
+	unsafeFIFO := filepath.Join(directory, "unsafe")
+	if err := syscall.Mkfifo(unsafeFIFO, 0660); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateProcessIOPaths(unsafeFIFO); err == nil {
+		t.Fatal("group-accessible FIFO was accepted")
+	}
+
+	regular := filepath.Join(directory, "output")
+	if err := os.WriteFile(regular, []byte("output"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(regular, regular+".other"); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateProcessIOPaths(regular); err == nil {
+		t.Fatal("hard-linked output was accepted")
+	}
+
+	realParent := filepath.Join(directory, "real")
+	if err := os.Mkdir(realParent, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(filepath.Join(realParent, "fifo"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	linkedParent := filepath.Join(directory, "linked")
+	if err := os.Symlink(realParent, linkedParent); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateProcessIOPaths(filepath.Join(linkedParent, "fifo")); err == nil {
+		t.Fatal("stdio beneath a symlinked parent was accepted")
+	}
+}
+
+func TestProcessIOOpenRejectsReplacementAndCancellation(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "output")
+	if err := os.WriteFile(path, []byte("old"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	expected, err := inspectProcessIOPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Chmod(path, 0640); err != nil {
+		t.Fatal(err)
+	}
+	if file, openErr := openKnownProcessIOPath(context.Background(), path, unix.O_WRONLY, expected); openErr == nil {
+		_ = file.Close()
+		t.Fatal("same-inode stdio mode change was accepted")
+	}
+	if err = os.Chmod(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	expected, err = inspectProcessIOPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(path, path+".old"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, []byte("replacement"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if file, openErr := openKnownProcessIOPath(context.Background(), path, unix.O_WRONLY, expected); openErr == nil {
+		_ = file.Close()
+		t.Fatal("replacement stdio inode was accepted")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if file, openErr := openKnownProcessIOPath(ctx, path, unix.O_WRONLY, expected); !errors.Is(openErr, context.Canceled) {
+		if file != nil {
+			_ = file.Close()
+		}
+		t.Fatalf("cancelled stdio open error = %v", openErr)
+	}
+}
+
+func TestInvalidProcessIOFailsBeforeCreateOrExecMutation(t *testing.T) {
+	s := &service{id: "task", bundle: "/bundle", processes: make(map[string]*process)}
+	if _, err := s.Create(context.Background(), &taskapi.CreateTaskRequest{
+		ID: "task", Bundle: "/bundle", Stdin: "relative-fifo",
+	}); !errors.Is(err, errdefs.ErrInvalidArgument) {
+		t.Fatalf("Create invalid stdio error = %v", err)
+	}
+	if len(s.processes) != 0 {
+		t.Fatalf("Create mutated process state: %+v", s.processes)
+	}
+	if _, err := s.Exec(context.Background(), &taskapi.ExecProcessRequest{
+		ExecID: "exec", Stdout: "relative-fifo",
+	}); !errors.Is(err, errdefs.ErrInvalidArgument) {
+		t.Fatalf("Exec invalid stdio error = %v", err)
+	}
+}
+
+func TestProcessStdinMustBeFIFO(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "stdin")
+	if err := os.WriteFile(path, []byte("input"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	p := &process{stdin: path}
+	if err := (&service{}).openProcessIO(context.Background(), p); err == nil {
+		t.Fatal("regular-file stdin was accepted")
 	}
 }
 

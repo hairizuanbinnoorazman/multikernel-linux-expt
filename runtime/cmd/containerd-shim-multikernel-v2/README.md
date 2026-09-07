@@ -11,6 +11,12 @@ keeps containerd's FIFO endpoints reusable after detach, drains buffered stdin
 before forwarding `CloseIO`, and maps terminal processes to the child PTY and
 `ResizePty` path. These paths passed through both `ctr` and Docker on the
 [qualified disposable-host run](../../../evidence/runtime-20260902/g4-g6-io-live/README.md).
+Current code validates configured stdio paths before Create/Exec mutation and
+revalidates them on start and reconstruction. Linux `openat2` rejects symlinked
+ancestors and magic links; stable device/inode, mode, owner, link count, and
+ctime checks reject path replacement or metadata races. Stdin must be a
+private caller-owned single-link FIFO, while output may also be a similarly
+protected regular file. Current-revision live revalidation remains required.
 
 The Task PID is a versioned guest PID (`multikernel-v1-guest-pid`); the shim
 supervisor PID remains the pre-start Create identity. The serving worker is

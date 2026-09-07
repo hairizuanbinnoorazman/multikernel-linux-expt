@@ -333,3 +333,11 @@ cover ordered replay, pre-publication journal failure, acknowledgement failure,
 unsafe journal files, and retry after a transient disconnect without another
 lifecycle request. Restart/event transcripts are still required before
 the broad checklist row can close.
+
+Stdio path strings are another restart trust boundary, not harmless containerd
+metadata. The shim now validates them before Create or Exec mutation and uses
+Linux `openat2` for every start/reconstruction descriptor, rejecting symlinked
+ancestors and magic links. Stable device/inode, mode, ownership, link-count,
+and ctime comparisons detect replacement and same-inode metadata races; stdin
+is restricted to a private FIFO. Focused tests exercise each rejection and
+request cancellation, while live attach/restart revalidation remains open.

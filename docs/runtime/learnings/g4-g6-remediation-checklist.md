@@ -380,7 +380,12 @@ normative plan is revised with an explicit rationale.
   durable states; pending acknowledgement retries after FIFO EOF and recovery
   until process exit. Pre-start close persists without premature guest contact,
   and stopped close fails without mutation. The full peer/churn/`CloseIO`/
-  restart matrix remains open, and these latest close-acknowledgement changes
+  restart matrix remains open. Stdio paths now fail before Create/Exec mutation
+  unless they are absolute canonical, private, caller-owned, single-link FIFOs
+  or output files. Start and reconstruction use no-symlink `openat2` opens and
+  bind device/inode, mode, owner, link count, and ctime; focused tests reject
+  unsafe modes, hardlinks, symlinked ancestors, inode replacement, same-inode
+  mode changes, regular-file stdin, and cancelled opens. These changes still
   need live revalidation.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
@@ -392,8 +397,9 @@ normative plan is revised with an explicit rationale.
   complete namespace/task tuple so different namespaces, punctuation, or
   truncated long IDs cannot alias. Exec IDs outside the guest protocol's
   bounded safe alphabet are rejected before guest contact. Rootfs and OCI
-  path validation is covered, but complete stdio-path race protection remains
-  open.
+  path validation is covered. Stdio validation and descriptor acquisition now
+  apply the no-symlink, stable-identity contract described above; the broader
+  hostile-input/failure matrix and disposable-host evidence remain open.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and
