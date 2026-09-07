@@ -195,6 +195,17 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			break
 		}
 		out.Body, out.Error = s.Service.Create(ctx, c, r.IdempotencyKey)
+	case "CancelCreateSandbox":
+		var c protocol.SandboxConfig
+		if e := protocol.StrictDecode(r.Body, &c); e != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: e.Error()}
+			break
+		}
+		var safe bool
+		safe, out.Error = s.Service.CancelCreate(ctx, c, r.IdempotencyKey)
+		if out.Error == nil {
+			out.Body = map[string]bool{"safe_to_cleanup": safe}
+		}
 	case "LoadSandbox":
 		out.Body, out.Error = s.Service.Load(ctx, r.SandboxID, r.Generation, r.IdempotencyKey)
 	case "StartSandbox":

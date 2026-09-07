@@ -86,7 +86,7 @@ type service struct {
 	id, namespace, bundle string
 	publisher             shim.Publisher
 	shutdown              func()
-	daemon                daemon.Client
+	daemon                daemon.Caller
 	sandbox               protocol.Sandbox
 	token                 []byte
 	agent                 agentClient
@@ -302,6 +302,70 @@ func randomToken() ([]byte, string, error) {
 		return nil, "", err
 	}
 	return b, hex.EncodeToString(b), nil
+}
+
+func loadOrCreateToken(runtimeDir string) ([]byte, string, error) {
+	path := filepath.Join(runtimeDir, "token")
+	if existing, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0); err == nil {
+		info, statErr := existing.Stat()
+		data, readErr := io.ReadAll(io.LimitReader(existing, 66))
+		closeErr := existing.Close()
+		if statErr != nil || readErr != nil || closeErr != nil {
+			return nil, "", errors.Join(statErr, readErr, closeErr)
+		}
+		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 || info.Size() != 65 {
+			return nil, "", errors.New("existing runtime token is unsafe")
+		}
+		if len(data) != 65 || data[64] != '\n' {
+			return nil, "", errors.New("existing runtime token is malformed")
+		}
+		token, err := hex.DecodeString(string(data[:64]))
+		if err != nil || len(token) != 32 {
+			return nil, "", errors.New("existing runtime token is malformed")
+		}
+		return token, string(data[:64]), nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, "", err
+	}
+	token, encoded, err := randomToken()
+	if err != nil {
+		return nil, "", err
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, "", err
+	}
+	remove := true
+	defer func() {
+		if remove {
+			_ = os.Remove(path)
+		}
+	}()
+	written, err := file.WriteString(encoded + "\n")
+	if err == nil && written != 65 {
+		err = io.ErrShortWrite
+	}
+	if err == nil {
+		err = file.Sync()
+	}
+	closeErr := file.Close()
+	if err != nil {
+		return nil, "", err
+	}
+	if closeErr != nil {
+		return nil, "", closeErr
+	}
+	directory, err := os.Open(runtimeDir)
+	if err != nil {
+		return nil, "", err
+	}
+	err = directory.Sync()
+	closeErr = directory.Close()
+	if err != nil || closeErr != nil {
+		return nil, "", errors.Join(err, closeErr)
+	}
+	remove = false
+	return token, encoded, nil
 }
 
 func (s *service) persistRecovery() error {
@@ -804,6 +868,27 @@ func (s *service) cleanupRootfs(ctx context.Context, request rootfspkg.CleanupRe
 	return nil
 }
 
+func (s *service) cancelCreate(ctx context.Context, config protocol.SandboxConfig, key string) error {
+	body, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	var result struct {
+		SafeToCleanup bool `json:"safe_to_cleanup"`
+	}
+	apiErr := s.daemon.Call(ctx, protocol.Request{
+		Version: 1, RequestID: "cancel-" + key, Method: "CancelCreateSandbox",
+		IdempotencyKey: key, Body: body,
+	}, &result)
+	if apiErr != nil {
+		return errors.New(apiErr.Code + ": " + apiErr.Message)
+	}
+	if !result.SafeToCleanup {
+		return errors.New("create cancellation did not prove cleanup safety")
+	}
+	return nil
+}
+
 func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *taskapi.CreateTaskResponse, retErr error) {
 	if r.ID != s.id || r.Bundle != s.bundle {
 		return nil, fmt.Errorf("%w: invalid task", errdefs.ErrInvalidArgument)
@@ -845,18 +930,22 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	}
 	config.Storage = &result.Storage
 	prepared = &rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: r.Bundle, TaskIdentity: identity, StorageSHA256: result.Storage.SHA256}
-	token, tokenHex, err := randomToken()
+	token, tokenHex, err := loadOrCreateToken(runtimeDir)
 	if err != nil {
 		return nil, err
 	}
 	s.token = token
-	if err = os.WriteFile(filepath.Join(runtimeDir, "token"), []byte(tokenHex+"\n"), 0600); err != nil {
-		return nil, err
-	}
 	lifecycleAttempted = true
-	created, err := daemon.Mutation(ctx, s.daemon, "CreateSandbox", "", "", "shim-create-"+s.id+"-"+tokenHex[:12], &config)
+	createKey := "shim-create-" + s.id + "-" + tokenHex[:12]
+	created, err := daemon.Mutation(ctx, s.daemon, "CreateSandbox", "", "", createKey, &config)
 	if err != nil {
-		return nil, err
+		cancelContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		cancelErr := s.cancelCreate(cancelContext, config, createKey)
+		cancel()
+		if cancelErr == nil {
+			lifecycleAttempted = false
+		}
+		return nil, errors.Join(err, cancelErr)
 	}
 	s.sandbox = created.Sandbox
 	if _, err = daemon.Mutation(ctx, s.daemon, "LoadSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-load-"+s.sandbox.Generation, nil); err != nil {

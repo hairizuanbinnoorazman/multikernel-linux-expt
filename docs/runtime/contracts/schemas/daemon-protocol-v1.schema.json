@@ -9,7 +9,7 @@
       "properties": {
         "version": {"const": 1},
         "request_id": {"$ref": "#/$defs/requestId"},
-        "method": {"enum": ["NodeInfo", "ListSandboxes", "CreateSandbox", "LoadSandbox", "StartSandbox", "StopSandbox", "DeleteSandbox", "SandboxState", "WatchEvents"]},
+        "method": {"enum": ["NodeInfo", "ListSandboxes", "CreateSandbox", "CancelCreateSandbox", "LoadSandbox", "StartSandbox", "StopSandbox", "DeleteSandbox", "SandboxState", "WatchEvents"]},
         "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[ -~]+$"},
         "sandbox_id": {"$ref": "#/$defs/sandboxId"},
         "generation": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
@@ -26,7 +26,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["code", "message", "operation_id", "retryable"],
       "properties": {
-        "code": {"enum": ["INVALID_ARGUMENT", "UNSUPPORTED", "NOT_FOUND", "ALREADY_EXISTS", "STALE_GENERATION", "IDEMPOTENCY_CONFLICT", "FAILED_PRECONDITION", "RESOURCE_EXHAUSTED", "BACKEND_TIMEOUT", "BACKEND_FAILURE", "UNAUTHENTICATED", "OPERATOR_ACTION", "INTERNAL"]},
+        "code": {"enum": ["INVALID_ARGUMENT", "UNSUPPORTED", "NOT_FOUND", "ALREADY_EXISTS", "STALE_GENERATION", "IDEMPOTENCY_CONFLICT", "FAILED_PRECONDITION", "RESOURCE_EXHAUSTED", "BACKEND_TIMEOUT", "BACKEND_FAILURE", "UNAUTHENTICATED", "ABORTED", "OPERATOR_ACTION", "INTERNAL"]},
         "message": {"type": "string", "minLength": 1, "maxLength": 1024},
         "operation_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "retryable": {"type": "boolean"}

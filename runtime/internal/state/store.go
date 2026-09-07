@@ -30,6 +30,7 @@ type JournalEntry struct {
 type IdempotentResult struct {
 	Fingerprint string                  `json:"fingerprint"`
 	Result      protocol.MutationResult `json:"result"`
+	Error       *protocol.Error         `json:"error,omitempty"`
 }
 type Snapshot struct {
 	Version   int                         `json:"version"`
@@ -107,9 +108,53 @@ func (s *Store) Commit(sb protocol.Sandbox, key, fingerprint string, result prot
 		s.data.Sandboxes[sb.ID] = sb
 	}
 	if key != "" {
-		s.data.Results[key] = IdempotentResult{fingerprint, result}
+		s.data.Results[key] = IdempotentResult{Fingerprint: fingerprint, Result: result}
 	}
 	return s.persistLocked()
+}
+
+// Tombstone records terminal failure replay while retaining sandbox ownership
+// for a cancellation worker that has not yet proven external cleanup.
+func (s *Store) Tombstone(key, fingerprint string, failure *protocol.Error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	previous, existed := s.data.Results[key]
+	s.data.Results[key] = IdempotentResult{Fingerprint: fingerprint, Error: failure}
+	if err := s.persistLocked(); err != nil {
+		if existed {
+			s.data.Results[key] = previous
+		} else {
+			delete(s.data.Results, key)
+		}
+		return err
+	}
+	return nil
+}
+
+// AbortCreate atomically removes create-only sandbox ownership and records a
+// durable error replay for the original idempotency key. A delayed caller can
+// therefore never recreate an allocation after cancellation was acknowledged.
+func (s *Store) AbortCreate(id, key, fingerprint string, failure *protocol.Error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	previousSandbox, hadSandbox := s.data.Sandboxes[id]
+	previousResult, hadResult := s.data.Results[key]
+	delete(s.data.Sandboxes, id)
+	s.data.Results[key] = IdempotentResult{Fingerprint: fingerprint, Error: failure}
+	if err := s.persistLocked(); err != nil {
+		if hadSandbox {
+			s.data.Sandboxes[id] = previousSandbox
+		} else {
+			delete(s.data.Sandboxes, id)
+		}
+		if hadResult {
+			s.data.Results[key] = previousResult
+		} else {
+			delete(s.data.Results, key)
+		}
+		return err
+	}
+	return nil
 }
 func (s *Store) SetSandbox(sb protocol.Sandbox) error {
 	s.mu.Lock()

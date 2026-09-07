@@ -10,6 +10,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -28,6 +30,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -47,6 +50,12 @@ type fakeAgentClient struct {
 	calls []string
 	fail  map[string]error
 	stats agent.ProcessStats
+}
+
+type daemonCallFunc func(context.Context, protocol.Request, any) *protocol.Error
+
+func (f daemonCallFunc) Call(ctx context.Context, request protocol.Request, response any) *protocol.Error {
+	return f(ctx, request, response)
 }
 
 func (f *fakeAgentClient) Call(method string, request, response any) error {
@@ -184,6 +193,145 @@ func TestRetryWaitReturnsImmediatelyOnCancellation(t *testing.T) {
 	}
 	if time.Since(started) > 100*time.Millisecond {
 		t.Fatal("canceled retry wait did not return promptly")
+	}
+}
+
+func TestCancelCreateUsesExactOriginalIdentity(t *testing.T) {
+	wantConfig := protocol.SandboxConfig{SchemaVersion: 1, ID: "box-a", CPUs: []int{8}, MemoryBytes: 1 << 30,
+		KernelManifest: "test", Bundle: "/bundle/box-a", AgentPort: 7001, ChildCID: 3}
+	wantKey := "shim-create-box-a-0123456789ab"
+	var callErr error
+	caller := daemonCallFunc(func(_ context.Context, request protocol.Request, response any) *protocol.Error {
+		var observed protocol.SandboxConfig
+		if decodeErr := protocol.StrictDecode(request.Body, &observed); decodeErr != nil {
+			callErr = decodeErr
+			return nil
+		}
+		if request.Method != "CancelCreateSandbox" || request.IdempotencyKey != wantKey || !reflect.DeepEqual(observed, wantConfig) {
+			callErr = fmt.Errorf("unexpected cancellation request: %+v %+v", request, observed)
+			return nil
+		}
+		encoded, _ := json.Marshal(map[string]bool{"safe_to_cleanup": true})
+		if decodeErr := json.Unmarshal(encoded, response); decodeErr != nil {
+			callErr = decodeErr
+		}
+		return nil
+	})
+	service := &service{daemon: caller}
+	if err := service.cancelCreate(context.Background(), wantConfig, wantKey); err != nil {
+		t.Fatal(err)
+	}
+	if callErr != nil {
+		t.Fatal(callErr)
+	}
+}
+
+func TestLoadOrCreateTokenReusesExactSafeIdentity(t *testing.T) {
+	directory := t.TempDir()
+	first, encoded, err := loadOrCreateToken(directory)
+	if err != nil || len(first) != 32 || len(encoded) != 64 {
+		t.Fatalf("first token = %x %q, %v", first, encoded, err)
+	}
+	second, repeated, err := loadOrCreateToken(directory)
+	if err != nil || !reflect.DeepEqual(second, first) || repeated != encoded {
+		t.Fatalf("repeated token = %x %q, %v", second, repeated, err)
+	}
+	info, err := os.Lstat(filepath.Join(directory, "token"))
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 || info.Size() != 65 {
+		t.Fatalf("token metadata = %+v, %v", info, err)
+	}
+}
+
+func TestLoadOrCreateTokenRejectsMalformedAndSymlinkState(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		setup func(string) error
+	}{
+		{"malformed", func(path string) error { return os.WriteFile(path, []byte("short\n"), 0600) }},
+		{"permissive", func(path string) error { return os.WriteFile(path, []byte(strings.Repeat("a", 64)+"\n"), 0644) }},
+		{"symlink", func(path string) error { return os.Symlink("missing", path) }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			directory := t.TempDir()
+			if err := test.setup(filepath.Join(directory, "token")); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := loadOrCreateToken(directory); err == nil {
+				t.Fatal("unsafe existing token accepted")
+			}
+		})
+	}
+}
+
+func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
+	bundle := t.TempDir()
+	configJSON := `{"ociVersion":"1.0.2","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":"/run/netns/test"}]}}`
+	if err := os.WriteFile(filepath.Join(bundle, "config.json"), []byte(configJSON), 0600); err != nil {
+		t.Fatal(err)
+	}
+	lock := filepath.Join(t.TempDir(), "shim.lock")
+	t.Setenv("MK_SHIM_LOCK", lock)
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	storageHash := strings.Repeat("a", 64)
+	var calls []string
+	respond := func(output any, value any) *protocol.Error {
+		if output == nil {
+			return nil
+		}
+		data, _ := json.Marshal(value)
+		if err := json.Unmarshal(data, output); err != nil {
+			t.Fatal(err)
+		}
+		return nil
+	}
+	caller := daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
+		calls = append(calls, request.Method)
+		switch request.Method {
+		case "ListSandboxes":
+			return respond(output, []protocol.Sandbox{})
+		case "PrepareRootfs":
+			if err := os.Mkdir(runtimeDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			return respond(output, rootfspkg.PrepareResult{Storage: protocol.StorageConfig{
+				Path: "/srv/storage/root.ext4", ImageID: "image", FilesystemUUID: "12345678-1234-4234-8234-123456789abc",
+				SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061, SHA256: storageHash,
+			}})
+		case "CreateSandbox":
+			return &protocol.Error{Code: "BACKEND_FAILURE", Message: "ambiguous create", Retryable: true}
+		case "CancelCreateSandbox":
+			if !strings.HasPrefix(request.IdempotencyKey, "shim-create-task-a-") {
+				t.Fatalf("unexpected create cancellation key %q", request.IdempotencyKey)
+			}
+			return respond(output, map[string]bool{"safe_to_cleanup": true})
+		case "CleanupRootfs":
+			var cleanup rootfspkg.CleanupRequest
+			if err := protocol.StrictDecode(request.Body, &cleanup); err != nil || cleanup.Bundle != bundle || cleanup.StorageSHA256 != storageHash {
+				t.Fatalf("cleanup request = %+v, %v", cleanup, err)
+			}
+			if err := os.RemoveAll(runtimeDir); err != nil {
+				t.Fatal(err)
+			}
+			return respond(output, map[string]bool{"cleaned": true})
+		default:
+			t.Fatalf("unexpected daemon method %q", request.Method)
+			return nil
+		}
+	})
+	service := &service{id: "task-a", namespace: "default", bundle: bundle, daemon: caller, processes: map[string]*process{}}
+	_, err := service.Create(context.Background(), &taskapi.CreateTaskRequest{ID: "task-a", Bundle: bundle})
+	if err == nil || !strings.Contains(err.Error(), "ambiguous create") {
+		t.Fatalf("Create() error = %v", err)
+	}
+	wantCalls := []string{"ListSandboxes", "PrepareRootfs", "CreateSandbox", "CancelCreateSandbox", "CleanupRootfs"}
+	if !reflect.DeepEqual(calls, wantCalls) {
+		t.Fatalf("daemon calls = %v, want %v", calls, wantCalls)
+	}
+	if _, statErr := os.Lstat(runtimeDir); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("runtime artifacts survived cancellation: %v", statErr)
+	}
+	if len(service.token) != 0 || len(service.processes) != 0 || service.sandbox.ID != "" {
+		t.Fatalf("shim state survived cancellation: token=%d processes=%d sandbox=%+v", len(service.token), len(service.processes), service.sandbox)
 	}
 }
 

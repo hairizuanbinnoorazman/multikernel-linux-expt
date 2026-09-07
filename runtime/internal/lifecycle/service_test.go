@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -14,12 +15,14 @@ import (
 )
 
 type fake struct {
-	mu      sync.Mutex
-	states  map[string]string
-	calls   []string
-	fail    string
-	failErr error
-	onCall  func()
+	mu         sync.Mutex
+	states     map[string]string
+	calls      []string
+	fail       string
+	failErr    error
+	failures   map[string]error
+	onCall     func()
+	observeErr error
 }
 
 type failingResolver struct{ calls int }
@@ -145,6 +148,99 @@ func TestCrashInjectionAtEveryOperationBoundary(t *testing.T) {
 	}
 }
 
+func TestCancelAmbiguousCreateAtEveryBoundary(t *testing.T) {
+	points := []string{"before-intent", "after-intent", "before-external-mutation", "after-external-mutation", "after-observation", "before-snapshot", "after-snapshot", "before-completion", "after-completion"}
+	for _, point := range points {
+		t.Run(point, func(t *testing.T) {
+			service, store, backend := setup(t)
+			defer store.Close()
+			candidate := config("box-a", 8, 7001)
+			injected := false
+			service.SetFaultInjector(func(observed string) error {
+				if observed == point && !injected {
+					injected = true
+					return errors.New("injected lost create response")
+				}
+				return nil
+			})
+			if _, apiErr := service.Create(context.Background(), candidate, "create-key"); apiErr == nil {
+				t.Fatal("ambiguous create unexpectedly succeeded")
+			}
+			service.SetFaultInjector(nil)
+			safe, apiErr := service.CancelCreate(context.Background(), candidate, "create-key")
+			if apiErr != nil || !safe {
+				t.Fatalf("CancelCreate() = %v, %+v", safe, apiErr)
+			}
+			if _, exists := service.Get(candidate.ID); exists {
+				t.Fatal("canceled sandbox remains in durable state")
+			}
+			if actual, err := backend.Observe(context.Background(), candidate.ID); err != nil || actual != "ABSENT" {
+				t.Fatalf("canceled backend state = %q, %v", actual, err)
+			}
+			if incomplete := state.Incomplete(mustJournal(t, store)); len(incomplete) != 0 {
+				t.Fatalf("canceled create intent remains incomplete: %+v", incomplete)
+			}
+			if _, replayErr := service.Create(context.Background(), candidate, "create-key"); replayErr == nil || replayErr.Code != "ABORTED" || replayErr.Retryable {
+				t.Fatalf("delayed create replay = %+v, want terminal ABORTED", replayErr)
+			}
+			safe, apiErr = service.CancelCreate(context.Background(), candidate, "create-key")
+			if apiErr != nil || !safe {
+				t.Fatalf("repeated CancelCreate() = %v, %+v", safe, apiErr)
+			}
+		})
+	}
+}
+
+func TestCancelCreateRefusesDifferentOrProgressedOwner(t *testing.T) {
+	service, store, _ := setup(t)
+	defer store.Close()
+	candidate := config("box-a", 8, 7001)
+	created, apiErr := service.Create(context.Background(), candidate, "create-key")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	different := candidate
+	different.CPUs = []int{10}
+	if safe, cancelErr := service.CancelCreate(context.Background(), different, "create-key"); cancelErr == nil || cancelErr.Code != "IDEMPOTENCY_CONFLICT" || safe {
+		t.Fatalf("different cancellation = %v, %+v", safe, cancelErr)
+	}
+	if _, apiErr = service.Load(context.Background(), candidate.ID, created.Sandbox.Generation, "load-key"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if safe, cancelErr := service.CancelCreate(context.Background(), candidate, "create-key"); cancelErr == nil || cancelErr.Code != "FAILED_PRECONDITION" || safe {
+		t.Fatalf("progressed cancellation = %v, %+v", safe, cancelErr)
+	}
+	if sandbox, exists := service.Get(candidate.ID); !exists || sandbox.State != "LOADED" {
+		t.Fatalf("progressed sandbox was changed: %+v, %v", sandbox, exists)
+	}
+}
+
+func TestCancelCreateTombstonesBeforeExternalCleanup(t *testing.T) {
+	service, store, backend := setup(t)
+	defer store.Close()
+	candidate := config("box-a", 8, 7001)
+	if _, apiErr := service.Create(context.Background(), candidate, "create-key"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	backend.observeErr = errors.New("injected observation outage")
+	if safe, cancelErr := service.CancelCreate(context.Background(), candidate, "create-key"); cancelErr == nil || cancelErr.Code != "BACKEND_FAILURE" || safe {
+		t.Fatalf("interrupted cancellation = %v, %+v", safe, cancelErr)
+	}
+	if _, replayErr := service.Create(context.Background(), candidate, "create-key"); replayErr == nil || replayErr.Code != "ABORTED" {
+		t.Fatalf("create replay before cleanup = %+v, want ABORTED", replayErr)
+	}
+	if _, exists := service.Get(candidate.ID); !exists {
+		t.Fatal("ownership disappeared before external cleanup was proven")
+	}
+	backend.observeErr = nil
+	if safe, cancelErr := service.CancelCreate(context.Background(), candidate, "create-key"); cancelErr != nil || !safe {
+		t.Fatalf("retried cancellation = %v, %+v", safe, cancelErr)
+	}
+	if _, exists := service.Get(candidate.ID); exists {
+		t.Fatal("canceled ownership survived successful retry")
+	}
+}
+
 func TestManifestIsResolvedBeforeBackendMutation(t *testing.T) {
 	service, store, backend := setup(t)
 	defer store.Close()
@@ -203,6 +299,41 @@ func TestBackendFailuresRestoreObservedRetryableState(t *testing.T) {
 	}
 }
 
+func TestFirstCreateFailureReleasesNewPool(t *testing.T) {
+	service, store, backend := setup(t)
+	defer store.Close()
+	backend.fail = "create"
+	if _, apiErr := service.Create(context.Background(), config("box-a", 8, 7001), "create-key"); apiErr == nil || apiErr.Code != "BACKEND_FAILURE" {
+		t.Fatalf("Create() error = %+v", apiErr)
+	}
+	if !reflect.DeepEqual(backend.calls, []string{"pool:", "create:box-a", "release:"}) {
+		t.Fatalf("backend calls = %v", backend.calls)
+	}
+	if _, exists := service.Get("box-a"); exists {
+		t.Fatal("failed first create retained sandbox ownership")
+	}
+}
+
+func TestCancelCreateRetriesUncertainFirstPoolRelease(t *testing.T) {
+	service, store, backend := setup(t)
+	defer store.Close()
+	candidate := config("box-a", 8, 7001)
+	backend.failures = map[string]error{
+		"create":  errors.New("injected create failure"),
+		"release": errors.New("injected pool release failure"),
+	}
+	if _, apiErr := service.Create(context.Background(), candidate, "create-key"); apiErr == nil || apiErr.Code != "BACKEND_FAILURE" {
+		t.Fatalf("Create() error = %+v", apiErr)
+	}
+	delete(backend.failures, "release")
+	if safe, apiErr := service.CancelCreate(context.Background(), candidate, "create-key"); apiErr != nil || !safe {
+		t.Fatalf("CancelCreate() = %v, %+v", safe, apiErr)
+	}
+	if !reflect.DeepEqual(backend.calls, []string{"pool:", "create:box-a", "release:", "release:"}) {
+		t.Fatalf("backend calls = %v", backend.calls)
+	}
+}
+
 func (f *fake) call(n, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -215,6 +346,9 @@ func (f *fake) call(n, id string) error {
 			return f.failErr
 		}
 		return errors.New("injected")
+	}
+	if err := f.failures[n]; err != nil {
+		return err
 	}
 	return nil
 }
@@ -281,6 +415,9 @@ func (f *fake) EnsurePool(c context.Context) error { return f.call("pool", "") }
 func (f *fake) Observe(c context.Context, id string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.observeErr != nil {
+		return "", f.observeErr
+	}
 	if x, ok := f.states[id]; ok {
 		return x, nil
 	}
