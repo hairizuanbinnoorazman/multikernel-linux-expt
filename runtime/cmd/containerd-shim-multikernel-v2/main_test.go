@@ -58,6 +58,35 @@ func (f daemonCallFunc) Call(ctx context.Context, request protocol.Request, resp
 	return f(ctx, request, response)
 }
 
+type closeRetryAgent struct {
+	attempts int
+	called   chan int
+}
+
+func (f *closeRetryAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *closeRetryAgent) CallContext(_ context.Context, method string, _, _ any) error {
+	if method != "CloseProcessStdin" {
+		return fmt.Errorf("unexpected method %s", method)
+	}
+	f.attempts++
+	f.called <- f.attempts
+	if f.attempts == 1 {
+		return errors.New("injected close failure")
+	}
+	return nil
+}
+func (f *closeRetryAgent) Close() error                                   { return nil }
+func (f *closeRetryAgent) Reconnect(string) error                         { return nil }
+func (f *closeRetryAgent) ReconnectContext(context.Context, string) error { return nil }
+
+type eofReadWriteCloser struct{}
+
+func (eofReadWriteCloser) Read([]byte) (int, error)    { return 0, io.EOF }
+func (eofReadWriteCloser) Write(p []byte) (int, error) { return len(p), nil }
+func (eofReadWriteCloser) Close() error                { return nil }
+
 func (f *fakeAgentClient) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
@@ -434,6 +463,96 @@ func TestOutputOffsetsAdvanceOnlyAfterDeliveryOrBoundedDrop(t *testing.T) {
 	}
 }
 
+func TestCloseIORetriesUntilGuestAcknowledges(t *testing.T) {
+	client := &fakeAgentClient{fail: map[string]error{"CloseProcessStdin": errors.New("injected close failure")}}
+	p := &process{id: "", status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	s := &service{agent: client, processes: map[string]*process{"": p}}
+	request := &taskapi.CloseIORequest{Stdin: true}
+	if _, err := s.CloseIO(context.Background(), request); err == nil {
+		t.Fatal("failed guest close was accepted")
+	}
+	if !p.stdinClosed || p.stdinCloseAcked {
+		t.Fatalf("failed close state = requested:%v acknowledged:%v", p.stdinClosed, p.stdinCloseAcked)
+	}
+	delete(client.fail, "CloseProcessStdin")
+	if _, err := s.CloseIO(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if !p.stdinClosed || !p.stdinCloseAcked {
+		t.Fatalf("successful close state = requested:%v acknowledged:%v", p.stdinClosed, p.stdinCloseAcked)
+	}
+	calls := len(client.calls)
+	if _, err := s.CloseIO(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.calls) != calls {
+		t.Fatal("acknowledged repeated CloseIO contacted the guest")
+	}
+}
+
+func TestStdinPumpRetriesRequestedCloseAndRecordsAcknowledgement(t *testing.T) {
+	client := &closeRetryAgent{called: make(chan int, 2)}
+	p := &process{id: "", status: tasktypes.Status_RUNNING, stdinReader: eofReadWriteCloser{}, done: make(chan struct{})}
+	s := &service{agent: client, processes: map[string]*process{"": p}}
+	go s.pumpStdin("init", p)
+	if _, err := s.CloseIO(context.Background(), &taskapi.CloseIORequest{Stdin: true}); err != nil {
+		t.Fatal(err)
+	}
+	for expected := 1; expected <= 2; expected++ {
+		select {
+		case observed := <-client.called:
+			if observed != expected {
+				t.Fatalf("close attempt = %d, want %d", observed, expected)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("close attempt %d was not observed", expected)
+		}
+	}
+	deadline := time.Now().Add(time.Second)
+	for {
+		s.mu.Lock()
+		acknowledged, reader := p.stdinCloseAcked, p.stdinReader
+		s.mu.Unlock()
+		if acknowledged && reader == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("pump close state = acknowledged:%v reader:%v", acknowledged, reader)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestRecoveredNoFIFOPumpRetriesPendingClose(t *testing.T) {
+	client := &closeRetryAgent{called: make(chan int, 2)}
+	p := &process{id: "", status: tasktypes.Status_RUNNING, stdinClosed: true, done: make(chan struct{})}
+	s := &service{agent: client, processes: map[string]*process{"": p}}
+	go s.pumpStdin("init", p)
+	for expected := 1; expected <= 2; expected++ {
+		select {
+		case observed := <-client.called:
+			if observed != expected {
+				t.Fatalf("close attempt = %d, want %d", observed, expected)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("close attempt %d was not observed", expected)
+		}
+	}
+	deadline := time.Now().Add(time.Second)
+	for {
+		s.mu.Lock()
+		acknowledged := p.stdinCloseAcked
+		s.mu.Unlock()
+		if acknowledged {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("recovered no-FIFO close was not acknowledged")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestResizePtyRejectsInvalidRequests(t *testing.T) {
 	s := &service{processes: map[string]*process{
 		"": {status: tasktypes.Status_CREATED},
@@ -723,7 +842,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 		bundle:  bundle,
 		sandbox: protocol.Sandbox{ID: "box", Generation: "0123456789abcdef0123456789abcdef"},
 		processes: map[string]*process{
-			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdoutOffset: 123, stderrOffset: 45, done: make(chan struct{})},
+			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdinClosed: true, stdinCloseAcked: true, stdoutOffset: 123, stderrOffset: 45, done: make(chan struct{})},
 		},
 	}
 	if err := s.persistRecovery(); err != nil {
@@ -737,7 +856,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	if err = json.Unmarshal(data, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.SchemaVersion != 1 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || saved.Processes[0].StdoutOffset != 123 {
+	if saved.SchemaVersion != 1 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || !saved.Processes[0].StdinCloseAcked || saved.Processes[0].StdoutOffset != 123 {
 		t.Fatalf("persisted recovery = %+v", saved)
 	}
 	temporary, err := filepath.Glob(filepath.Join(bundle, ".multikernel", ".sandbox.json.*"))

@@ -139,6 +139,16 @@ agent tests but still needs a deliberate live rerun. It does not close
 pause/resume, `Stats`, `Update`, `Checkpoint`, faithful guest PIDs, CNI, the
 full G4 storage matrix, or shim-crash task reconnection.
 
+A later local fault-injection review found that a failed guest
+`CloseProcessStdin` call was incorrectly remembered as completed. The shim now
+persists close-requested and close-acknowledged as separate states, retries a
+pending acknowledgement after FIFO EOF or recovery until the process stops,
+and makes repeated `CloseIO` calls idempotent only after acknowledgement.
+Focused race-detector tests cover transient failure with and without a FIFO,
+and the recovery-state test covers durable acknowledgement. This later change
+still requires disposable-host revalidation; it is not part of the 2026-09-02
+live claim above.
+
 The final I/O transcript is also marker-oriented: it does not retain the
 asserted stdin, attach, or `37 91` guest output. Its exact harness hash and exit
 status support the scoped assertions, but the dirty source diff is absent. Its
