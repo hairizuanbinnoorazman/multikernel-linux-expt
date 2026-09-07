@@ -36,6 +36,17 @@ bound `DEL` under a five-second rollback deadline. The generation cache is a
 private caller-owned real directory; reads use `O_NOFOLLOW`, bounded input, and
 pre/post-open inode identity checks.
 
+`mknetd` journals an `ALLOCATING` endpoint generation, including the
+deterministic managed-namespace path, before creating a namespace, link, route,
+or firewall rule. It changes the record to `READY` only after the complete
+backend succeeds. Synchronous failure rolls external state back under a bounded
+context and removes the record only after cleanup succeeds; restart
+reconciliation performs the same cleanup for any retained `ALLOCATING` record.
+On startup, the durable store validates every map key, workload/generation,
+owner, namespace path, address/gateway, MTU, DNS policy, state, and sandbox
+binding before reconciliation can act. The state file is opened no-follow with
+a bounded read and matching pre/post-open inode identity.
+
 ## Tests
 
 - Child-to-primary, outbound TCP/UDP, DNS, and return traffic.

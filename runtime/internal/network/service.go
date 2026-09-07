@@ -113,7 +113,31 @@ func (s *Service) allocate() (address, gateway string, err error) {
 }
 
 func sameAdd(a, b Endpoint) bool {
-	return a.ContainerID == b.ContainerID && a.NetworkName == b.NetworkName && a.IfName == b.IfName && a.NetNS == b.NetNS && a.Owner == b.Owner
+	netNSMatches := a.NetNS == b.NetNS || a.ManagedNamespace && b.ManagedNamespace && (a.NetNS == "" || b.NetNS == "")
+	return a.ContainerID == b.ContainerID && a.NetworkName == b.NetworkName && a.IfName == b.IfName &&
+		netNSMatches && a.Owner == b.Owner && a.ManagedNamespace == b.ManagedNamespace
+}
+
+func (s *Service) rollbackAllocation(endpoint Endpoint) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var failures []error
+	if err := s.Backend.Delete(ctx, endpoint); err != nil {
+		failures = append(failures, fmt.Errorf("delete partial endpoint: %w", err))
+	}
+	if endpoint.ManagedNamespace {
+		namespaces, ok := s.Backend.(NamespaceBackend)
+		if !ok {
+			failures = append(failures, errors.New("managed endpoint backend cannot delete namespaces"))
+		} else if err := namespaces.DeleteNamespace(ctx, endpoint.NetNS); err != nil {
+			failures = append(failures, fmt.Errorf("delete partial namespace: %w", err))
+		}
+	}
+	return errors.Join(failures...)
+}
+
+func (s *Service) discardAllocationRecord(endpoint Endpoint) error {
+	return s.Store.Delete(endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName)
 }
 
 func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIError) {
@@ -135,6 +159,9 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 		if !sameAdd(existing, requested) {
 			return Endpoint{}, &APIError{Code: "ALREADY_EXISTS", Message: "endpoint identity is already bound to different input"}
 		}
+		if existing.State == "ALLOCATING" {
+			return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "endpoint allocation is incomplete and requires reconciliation", Retryable: true}
+		}
 		if err := s.Backend.Check(ctx, existing); err != nil {
 			return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: err.Error(), Retryable: true}
 		}
@@ -150,29 +177,49 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 	}
 	now := s.now()
 	requested.Generation, requested.Address, requested.Gateway = gen, address, gateway
-	requested.MTU, requested.DNS, requested.State = s.MTU, s.DNS, "READY"
+	requested.MTU, requested.DNS, requested.State = s.MTU, s.DNS, "ALLOCATING"
 	requested.CreatedAt, requested.UpdatedAt = now, now
 	if requested.ManagedNamespace {
-		namespaces, ok := s.Backend.(NamespaceBackend)
-		if !ok {
+		if _, ok := s.Backend.(NamespaceBackend); !ok {
 			return Endpoint{}, &APIError{Code: "UNSUPPORTED", Message: "network backend cannot create namespaces"}
 		}
-		requested.NetNS, err = namespaces.CreateNamespace(ctx, requested.Generation)
+		requested.NetNS = managedNamespacePath(requested.Generation)
+	}
+	if err = s.Store.Put(requested); err != nil {
+		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "journal endpoint allocation: " + err.Error(), Retryable: true}
+	}
+	if requested.ManagedNamespace {
+		namespaces := s.Backend.(NamespaceBackend)
+		var created string
+		created, err = namespaces.CreateNamespace(ctx, requested.Generation)
 		if err != nil {
-			return Endpoint{}, &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+			rollbackErr := s.rollbackAllocation(requested)
+			if rollbackErr == nil {
+				rollbackErr = s.discardAllocationRecord(requested)
+			}
+			return Endpoint{}, &APIError{Code: "INTERNAL", Message: errors.Join(err, rollbackErr).Error(), Retryable: true}
+		}
+		if created != requested.NetNS {
+			rollbackErr := s.rollbackAllocation(requested)
+			if rollbackErr == nil {
+				rollbackErr = s.discardAllocationRecord(requested)
+			}
+			return Endpoint{}, &APIError{Code: "INTERNAL", Message: errors.Join(errors.New("network backend returned a non-deterministic namespace path"), rollbackErr).Error(), Retryable: true}
 		}
 	}
 	if err = s.Backend.Add(ctx, requested); err != nil {
-		_ = s.Backend.Delete(context.WithoutCancel(ctx), requested)
-		if requested.ManagedNamespace {
-			_ = s.Backend.(NamespaceBackend).DeleteNamespace(context.WithoutCancel(ctx), requested.NetNS)
+		rollbackErr := s.rollbackAllocation(requested)
+		if rollbackErr == nil {
+			rollbackErr = s.discardAllocationRecord(requested)
 		}
-		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "endpoint ADD rolled back: " + err.Error(), Retryable: true}
+		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "endpoint ADD rolled back: " + errors.Join(err, rollbackErr).Error(), Retryable: true}
 	}
+	requested.State = "READY"
+	requested.UpdatedAt = s.now()
 	if err = s.Store.Put(requested); err != nil {
-		rollbackErr := s.Backend.Delete(context.WithoutCancel(ctx), requested)
-		if requested.ManagedNamespace {
-			rollbackErr = errors.Join(rollbackErr, s.Backend.(NamespaceBackend).DeleteNamespace(context.WithoutCancel(ctx), requested.NetNS))
+		rollbackErr := s.rollbackAllocation(requested)
+		if rollbackErr == nil {
+			rollbackErr = s.discardAllocationRecord(requested)
 		}
 		return Endpoint{}, &APIError{Code: "INTERNAL", Message: errors.Join(err, rollbackErr).Error(), Retryable: true}
 	}
@@ -406,6 +453,18 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	defer s.mu.Unlock()
 	var failures []error
 	for _, endpoint := range s.Store.List() {
+		if endpoint.State == "ALLOCATING" {
+			if err := s.rollbackAllocation(endpoint); err != nil {
+				failures = append(failures, fmt.Errorf("rollback incomplete endpoint %s/%s/%s generation %s: %w",
+					endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName, endpoint.Generation, err))
+				continue
+			}
+			if err := s.discardAllocationRecord(endpoint); err != nil {
+				failures = append(failures, fmt.Errorf("discard incomplete endpoint %s/%s/%s generation %s: %w",
+					endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName, endpoint.Generation, err))
+			}
+			continue
+		}
 		if err := s.Backend.Check(ctx, endpoint); err != nil {
 			failures = append(failures, fmt.Errorf("endpoint %s/%s/%s generation %s: %w",
 				endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName, endpoint.Generation, err))
