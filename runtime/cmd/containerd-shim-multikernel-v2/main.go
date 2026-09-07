@@ -70,6 +70,8 @@ type process struct {
 	stdoutOffset, stderrOffset     uint64
 	stdoutPressure, stderrPressure time.Time
 	exitEventQueued                bool
+	deleteEventQueued              bool
+	deleting                       bool
 }
 
 type agentClient interface {
@@ -257,23 +259,24 @@ type persisted struct {
 }
 
 type persistedProcess struct {
-	ID              string           `json:"id"`
-	Stdin           string           `json:"stdin,omitempty"`
-	Stdout          string           `json:"stdout,omitempty"`
-	Stderr          string           `json:"stderr,omitempty"`
-	Terminal        bool             `json:"terminal,omitempty"`
-	Width           uint32           `json:"width,omitempty"`
-	Height          uint32           `json:"height,omitempty"`
-	SizeSet         bool             `json:"size_set,omitempty"`
-	StdinClosed     bool             `json:"stdin_closed,omitempty"`
-	StdinCloseAcked bool             `json:"stdin_close_acked,omitempty"`
-	Status          tasktypes.Status `json:"status"`
-	PID             uint32           `json:"pid,omitempty"`
-	Exit            uint32           `json:"exit,omitempty"`
-	Exited          time.Time        `json:"exited,omitempty"`
-	StdoutOffset    uint64           `json:"stdout_offset,omitempty"`
-	StderrOffset    uint64           `json:"stderr_offset,omitempty"`
-	ExitEventQueued bool             `json:"exit_event_queued,omitempty"`
+	ID                string           `json:"id"`
+	Stdin             string           `json:"stdin,omitempty"`
+	Stdout            string           `json:"stdout,omitempty"`
+	Stderr            string           `json:"stderr,omitempty"`
+	Terminal          bool             `json:"terminal,omitempty"`
+	Width             uint32           `json:"width,omitempty"`
+	Height            uint32           `json:"height,omitempty"`
+	SizeSet           bool             `json:"size_set,omitempty"`
+	StdinClosed       bool             `json:"stdin_closed,omitempty"`
+	StdinCloseAcked   bool             `json:"stdin_close_acked,omitempty"`
+	Status            tasktypes.Status `json:"status"`
+	PID               uint32           `json:"pid,omitempty"`
+	Exit              uint32           `json:"exit,omitempty"`
+	Exited            time.Time        `json:"exited,omitempty"`
+	StdoutOffset      uint64           `json:"stdout_offset,omitempty"`
+	StderrOffset      uint64           `json:"stderr_offset,omitempty"`
+	ExitEventQueued   bool             `json:"exit_event_queued,omitempty"`
+	DeleteEventQueued bool             `json:"delete_event_queued,omitempty"`
 }
 
 func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) {
@@ -391,7 +394,7 @@ func (s *service) persistRecovery() error {
 			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, StdinCloseAcked: process.stdinCloseAcked, Status: process.status,
 			PID: process.pid, Exit: process.exit, Exited: process.exited,
 			StdoutOffset: process.stdoutOffset, StderrOffset: process.stderrOffset,
-			ExitEventQueued: process.exitEventQueued,
+			ExitEventQueued: process.exitEventQueued, DeleteEventQueued: process.deleteEventQueued,
 		})
 	}
 	sort.Slice(p.Processes, func(i, j int) bool { return p.Processes[i].ID < p.Processes[j].ID })
@@ -564,7 +567,7 @@ func (s *service) recoverExisting(ctx context.Context) error {
 			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, stdinCloseAcked: saved.StdinCloseAcked, status: saved.Status,
 			pid: saved.PID, exit: saved.Exit, exited: saved.Exited,
 			stdoutOffset: saved.StdoutOffset, stderrOffset: saved.StderrOffset,
-			exitEventQueued: saved.ExitEventQueued, done: make(chan struct{}),
+			exitEventQueued: saved.ExitEventQueued, deleteEventQueued: saved.DeleteEventQueued, done: make(chan struct{}),
 		}
 		s.processes[saved.ID] = p
 		if p.status == tasktypes.Status_STOPPED {
@@ -605,6 +608,11 @@ func (s *service) recoverExisting(ctx context.Context) error {
 			return fmt.Errorf("recover process %q: invalid guest PID", saved.ID)
 		}
 		p.pid = uint32(state.PID)
+		if p.terminal && p.sizeSet {
+			if err = s.agent.CallContext(ctx, "ResizeProcess", map[string]any{"id": agentID, "width": p.width, "height": p.height}, nil); err != nil {
+				return fmt.Errorf("recover process %q terminal size: %w", saved.ID, err)
+			}
+		}
 		if err = s.openProcessIO(ctx, p); err != nil {
 			return fmt.Errorf("recover process %q I/O: %w", saved.ID, err)
 		}
@@ -1651,6 +1659,10 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
 	}
+	if p.deleting {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("%w: process deletion is already in progress", errdefs.ErrFailedPrecondition)
+	}
 	if r.ExecID == "" && len(s.processes) != 1 {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("%w: delete exec processes before deleting init", errdefs.ErrFailedPrecondition)
@@ -1666,62 +1678,89 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 			return nil, fmt.Errorf("persist exit event ordering before delete: %w", err)
 		}
 	}
+	p.deleting = true
+	client := s.agent
 	s.mu.Unlock()
-	var failures []error
+	abort := func(err error) (*taskapi.DeleteResponse, error) {
+		s.mu.Lock()
+		p.deleting = false
+		s.mu.Unlock()
+		return nil, err
+	}
 	id := r.ExecID
 	if id == "" {
 		id = "init"
 	}
-	if s.agent != nil {
-		if err := s.agent.CallContext(ctx, "DeleteProcess", map[string]string{"ID": id}, nil); err != nil {
-			failures = append(failures, fmt.Errorf("delete guest process: %w", err))
+	if client != nil {
+		if err := client.CallContext(ctx, "DeleteProcess", map[string]string{"ID": id}, nil); err != nil {
+			return abort(fmt.Errorf("delete guest process: %w", err))
 		}
 	}
-	lifecycleDeleted := false
 	if r.ExecID == "" {
-		if s.agent != nil {
+		if client != nil {
 			if err := s.stopNetwork(); err != nil {
-				failures = append(failures, err)
+				return abort(err)
 			}
-			if err := s.agent.CallContext(ctx, "Shutdown", map[string]any{}, nil); err != nil {
-				failures = append(failures, fmt.Errorf("shutdown guest agent: %w", err))
+			if err := client.CallContext(ctx, "Shutdown", map[string]any{}, nil); err != nil {
+				return abort(fmt.Errorf("shutdown guest agent: %w", err))
 			}
-			if err := s.agent.Close(); err != nil {
-				failures = append(failures, fmt.Errorf("close guest agent: %w", err))
+			closeErr := client.Close()
+			s.mu.Lock()
+			s.agent = nil
+			s.mu.Unlock()
+			if closeErr != nil {
+				return abort(fmt.Errorf("close guest agent: %w", closeErr))
 			}
 		}
 		if err := s.releaseNetwork(ctx); err != nil {
-			failures = append(failures, fmt.Errorf("release primary network endpoint: %w", err))
+			return abort(fmt.Errorf("release primary network endpoint: %w", err))
 		}
 		if _, err := daemon.Mutation(ctx, s.daemon, "StopSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-stop-"+s.sandbox.Generation, nil); err != nil {
-			failures = append(failures, fmt.Errorf("stop sandbox: %w", err))
+			return abort(fmt.Errorf("stop sandbox: %w", err))
 		}
 		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-delete-"+s.sandbox.Generation, nil); err != nil {
-			failures = append(failures, fmt.Errorf("delete sandbox: %w", err))
-		} else {
-			lifecycleDeleted = true
+			return abort(fmt.Errorf("delete sandbox: %w", err))
 		}
-		if lifecycleDeleted && s.sandbox.Config.Storage != nil {
-			request := rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle,
-				TaskIdentity: storageTaskIdentity(s.namespace, s.id), StorageSHA256: s.sandbox.Config.Storage.SHA256}
-			if err := s.cleanupRootfs(ctx, request); err != nil {
-				failures = append(failures, fmt.Errorf("cleanup prepared rootfs: %w", err))
-			}
+	}
+	s.mu.Lock()
+	deleteQueued := p.deleteEventQueued
+	s.mu.Unlock()
+	if !deleteQueued {
+		response := &taskapi.DeleteResponse{Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
+		if err := s.publish(ctx, ctruntime.TaskDeleteEventTopic, &eventstypes.TaskDelete{ContainerID: s.id, ID: r.ExecID, Pid: response.Pid, ExitStatus: p.exit, ExitedAt: response.ExitedAt}); err != nil {
+			return abort(fmt.Errorf("queue task delete event: %w", err))
+		}
+		s.mu.Lock()
+		p.deleteEventQueued = true
+		persistErr := s.persistRecovery()
+		s.mu.Unlock()
+		if persistErr != nil {
+			return abort(fmt.Errorf("persist queued delete event: %w", persistErr))
+		}
+	}
+	if err := s.flushEvents(ctx); err != nil {
+		return abort(fmt.Errorf("flush task delete event: %w", err))
+	}
+	if r.ExecID == "" && s.sandbox.Config.Storage != nil {
+		request := rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle,
+			TaskIdentity: storageTaskIdentity(s.namespace, s.id), StorageSHA256: s.sandbox.Config.Storage.SHA256}
+		if err := s.cleanupRootfs(ctx, request); err != nil {
+			return abort(fmt.Errorf("cleanup prepared rootfs: %w", err))
 		}
 	}
 	s.mu.Lock()
 	delete(s.processes, r.ExecID)
 	if r.ExecID != "" {
 		if err := s.persistRecovery(); err != nil {
-			failures = append(failures, fmt.Errorf("persist process deletion: %w", err))
+			s.processes[r.ExecID] = p
+			p.deleting = false
+			s.mu.Unlock()
+			return nil, fmt.Errorf("persist process deletion: %w", err)
 		}
 	}
 	s.mu.Unlock()
 	resp := &taskapi.DeleteResponse{Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
-	if err := s.publish(ctx, ctruntime.TaskDeleteEventTopic, &eventstypes.TaskDelete{ContainerID: s.id, ID: r.ExecID, Pid: resp.Pid, ExitStatus: p.exit, ExitedAt: resp.ExitedAt}); err != nil {
-		failures = append(failures, fmt.Errorf("publish task delete: %w", err))
-	}
-	return resp, errors.Join(failures...)
+	return resp, nil
 }
 
 func (s *service) Pids(context.Context, *taskapi.PidsRequest) (*taskapi.PidsResponse, error) {
@@ -1782,8 +1821,19 @@ func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
 	}
+	if p.status != tasktypes.Status_CREATED && p.status != tasktypes.Status_RUNNING {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	client := s.agent
+	if p.status == tasktypes.Status_RUNNING && client == nil {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	oldWidth, oldHeight, oldSizeSet := p.width, p.height, p.sizeSet
 	p.width, p.height, p.sizeSet = r.Width, r.Height, true
 	if err := s.persistRecovery(); err != nil {
+		p.width, p.height, p.sizeSet = oldWidth, oldHeight, oldSizeSet
 		s.mu.Unlock()
 		return nil, fmt.Errorf("persist terminal size: %w", err)
 	}
@@ -1791,18 +1841,22 @@ func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*
 		s.mu.Unlock()
 		return &emptypb.Empty{}, nil
 	}
-	if p.status != tasktypes.Status_RUNNING || s.agent == nil {
-		s.mu.Unlock()
-		return nil, errdefs.ErrFailedPrecondition
-	}
-	s.mu.Unlock()
 	id := r.ExecID
 	if id == "" {
 		id = "init"
 	}
-	if err := s.agent.CallContext(ctx, "ResizeProcess", map[string]any{"id": id, "width": r.Width, "height": r.Height}, nil); err != nil {
-		return nil, err
+	if err := client.CallContext(ctx, "ResizeProcess", map[string]any{"id": id, "width": r.Width, "height": r.Height}, nil); err != nil {
+		p.width, p.height, p.sizeSet = oldWidth, oldHeight, oldSizeSet
+		rollbackErr := s.persistRecovery()
+		if rollbackErr != nil {
+			// The durable new intent won the failure race. Keep memory aligned
+			// with it so a caller retry or reconstruction reapplies that intent.
+			p.width, p.height, p.sizeSet = r.Width, r.Height, true
+		}
+		s.mu.Unlock()
+		return nil, errors.Join(err, rollbackErr)
 	}
+	s.mu.Unlock()
 	return &emptypb.Empty{}, nil
 }
 func (s *service) Pause(ctx context.Context, _ *taskapi.PauseRequest) (*emptypb.Empty, error) {

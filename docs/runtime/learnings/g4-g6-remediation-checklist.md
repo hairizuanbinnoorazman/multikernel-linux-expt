@@ -370,11 +370,19 @@ normative plan is revised with an explicit rationale.
   unsafe exec IDs, and duplicate execs before agent contact; the exhaustive
   method/transition matrix remains open.
 - [ ] Event ordering and publication failure for create/start/exec/exit/delete,
-  including containerd disconnect and restart.
+  including containerd disconnect and restart. Delete now persists a queued
+  marker, requires the ordered journal to flush before rootfs/process record
+  removal, and retains retry ownership across guest or broker failure. Focused
+  tests inject both boundaries; the exhaustive sequence and live disconnect
+  transcript remain open.
 - [ ] Context cancellation and deadline expiry at every blocking boundary.
 - [ ] FIFO writer/reader disappearance, no initial peer, late attach, repeated
   attach, output backpressure, terminal and non-terminal `CloseIO`, resize
   before start and during exec, invalid resize, and teardown while attached.
+  Focused tests now cover retained pre-start size, successful running resize,
+  guest-rejected resize rollback, and stopped/invalid requests without state
+  mutation. Reconstruction reapplies the durable size before restarting I/O;
+  the remaining FIFO/attach matrix and live post-start resize are open.
 - [ ] Unsupported OCI configuration before allocation and after each possible
   partial allocation, proving fail-closed cleanup.
 - [ ] Two or more concurrent sandboxes under churn with disjoint CPUs, memory,
