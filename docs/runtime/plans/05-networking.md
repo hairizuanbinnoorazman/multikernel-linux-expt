@@ -27,6 +27,15 @@ owns only its virtual interface and container namespaces.
 - DNS configuration injection.
 - CNI `ADD`, `CHECK`, and `DEL` adapter after the static proof.
 
+The CNI adapter treats an `ADD` response as untrusted. Before caching it, the
+adapter requires the exact requested container, network, interface, and
+namespace identity; a CNI-owned generation; a valid IPv4 `/30`, gateway, MTU,
+DNS policy, and READY state; and no premature sandbox binding. Any identifiable
+post-allocation validation or cache-persistence failure issues a generation-
+bound `DEL` under a five-second rollback deadline. The generation cache is a
+private caller-owned real directory; reads use `O_NOFOLLOW`, bounded input, and
+pre/post-open inode identity checks.
+
 ## Tests
 
 - Child-to-primary, outbound TCP/UDP, DNS, and return traffic.

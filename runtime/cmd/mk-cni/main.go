@@ -9,14 +9,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
+	"syscall"
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+	"golang.org/x/sys/unix"
 )
 
 var cniIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
@@ -80,7 +83,9 @@ func validateConfig(data []byte) (config, error) {
 	if err := protocol.StrictDecode(data, &value); err != nil {
 		return value, err
 	}
-	if value.CNIVersion != "1.0.0" || !cniIdentifier.MatchString(value.Name) || value.Type != "multikernel" || !filepath.IsAbs(value.Socket) || !filepath.IsAbs(value.CacheDir) {
+	if value.CNIVersion != "1.0.0" || !cniIdentifier.MatchString(value.Name) || value.Type != "multikernel" ||
+		!filepath.IsAbs(value.Socket) || filepath.Clean(value.Socket) != value.Socket ||
+		!filepath.IsAbs(value.CacheDir) || filepath.Clean(value.CacheDir) != value.CacheDir {
 		return value, errors.New("CNI config requires cniVersion 1.0.0, a valid name, type multikernel, and absolute socket/cacheDir")
 	}
 	return value, nil
@@ -97,19 +102,56 @@ func cachePath(configuration config, env environment) string {
 	return filepath.Join(configuration.CacheDir, hex.EncodeToString(digest[:])+".json")
 }
 
+func validateCacheDirectory(path string, create bool) error {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return errors.New("CNI cache directory must be absolute and canonical")
+	}
+	if create {
+		if err := os.MkdirAll(path, 0700); err != nil {
+			return err
+		}
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 || identity.Uid != uint32(os.Geteuid()) {
+		return errors.New("CNI cache directory must be a private caller-owned real directory")
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || resolved != path {
+		return errors.New("CNI cache directory may not contain symlinks")
+	}
+	return nil
+}
+
 func readCache(configuration config, env environment) (cacheRecord, error) {
 	var record cacheRecord
+	if err := validateCacheDirectory(configuration.CacheDir, false); err != nil {
+		return record, err
+	}
 	path := cachePath(configuration, env)
 	info, err := os.Lstat(path)
 	if err != nil {
 		return record, err
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 4096 {
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() <= 0 || info.Size() > 4096 {
 		return record, errors.New("CNI endpoint cache must be a private bounded regular file")
 	}
-	data, err := os.ReadFile(path)
+	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
-		return record, err
+		return record, fmt.Errorf("open CNI endpoint cache: %w", err)
+	}
+	file := os.NewFile(uintptr(descriptor), path)
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(info, opened) {
+		return record, errors.New("CNI endpoint cache identity changed while opening")
+	}
+	data, err := io.ReadAll(io.LimitReader(file, 4097))
+	if err != nil || len(data) > 4096 {
+		return record, errors.New("CNI endpoint cache changed or exceeded its read bound")
 	}
 	if err = protocol.StrictDecode(data, &record); err != nil || record.Version != 1 || !endpointGeneration.MatchString(record.Generation) || !filepath.IsAbs(record.NetNS) {
 		return record, errors.New("CNI endpoint cache is malformed")
@@ -120,15 +162,8 @@ func readCache(configuration config, env environment) (cacheRecord, error) {
 var endpointGeneration = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 func writeCache(configuration config, env environment, record cacheRecord) (retErr error) {
-	if err := os.MkdirAll(configuration.CacheDir, 0700); err != nil {
+	if err := validateCacheDirectory(configuration.CacheDir, true); err != nil {
 		return err
-	}
-	if err := os.Chmod(configuration.CacheDir, 0700); err != nil {
-		return err
-	}
-	resolved, err := filepath.EvalSymlinks(configuration.CacheDir)
-	if err != nil || resolved != filepath.Clean(configuration.CacheDir) {
-		return errors.New("CNI cache directory may not contain symlinks")
 	}
 	data, err := json.Marshal(record)
 	if err != nil {
@@ -169,6 +204,52 @@ func syncDirectory(path string) error {
 		return err
 	}
 	return errors.Join(directory.Sync(), directory.Close())
+}
+
+func validateAllocatedEndpoint(requested, allocated *network.Endpoint) error {
+	if allocated == nil || !endpointGeneration.MatchString(allocated.Generation) {
+		return errors.New("mknetd returned an invalid endpoint generation")
+	}
+	if allocated.ContainerID != requested.ContainerID || allocated.NetworkName != requested.NetworkName ||
+		allocated.IfName != requested.IfName || allocated.NetNS != requested.NetNS || allocated.Owner != "cni" ||
+		allocated.ManagedNamespace || allocated.SandboxID != "" || allocated.SandboxGeneration != "" || allocated.State != "READY" {
+		return errors.New("mknetd ADD response identity differs from the exact CNI request")
+	}
+	ip, subnet, err := net.ParseCIDR(allocated.Address)
+	if err != nil || ip.To4() == nil {
+		return errors.New("mknetd returned an invalid IPv4 address")
+	}
+	ones, bits := subnet.Mask.Size()
+	gateway := net.ParseIP(allocated.Gateway)
+	if bits != 32 || ones != 30 || gateway == nil || gateway.To4() == nil || !subnet.Contains(gateway) || gateway.Equal(ip) {
+		return errors.New("mknetd returned an invalid IPv4 /30 gateway")
+	}
+	if allocated.MTU < 576 || allocated.MTU > 65515 {
+		return errors.New("mknetd returned an invalid MTU")
+	}
+	if len(allocated.DNS.Nameservers) > 8 || len(allocated.DNS.Search) > 8 || len(allocated.DNS.Options) > 8 {
+		return errors.New("mknetd returned an oversized DNS policy")
+	}
+	for _, server := range allocated.DNS.Nameservers {
+		if net.ParseIP(server) == nil {
+			return errors.New("mknetd returned an invalid DNS server")
+		}
+	}
+	return nil
+}
+
+func rollbackAllocatedEndpoint(client caller, allocated *network.Endpoint) error {
+	if allocated == nil || !endpointGeneration.MatchString(allocated.Generation) {
+		return errors.New("cannot safely roll back an endpoint without its valid generation")
+	}
+	rollbackID, err := requestID("DEL")
+	if err != nil {
+		return err
+	}
+	rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = client.Call(rollbackCtx, network.Request{Version: 1, RequestID: rollbackID, Method: "DEL", Endpoint: allocated})
+	return err
 }
 
 func run(ctx context.Context, input []byte, env environment, client caller) (any, error) {
@@ -223,13 +304,11 @@ func run(ctx context.Context, input []byte, env environment, client caller) (any
 		return nil, errors.New("unsupported CNI_COMMAND")
 	}
 	allocated := response.Endpoint
-	if !endpointGeneration.MatchString(allocated.Generation) {
-		return nil, errors.New("mknetd returned an invalid endpoint generation")
+	if err = validateAllocatedEndpoint(endpoint, allocated); err != nil {
+		return nil, errors.Join(err, rollbackAllocatedEndpoint(client, allocated))
 	}
 	if err = writeCache(configuration, env, cacheRecord{Version: 1, Generation: allocated.Generation, NetNS: allocated.NetNS}); err != nil {
-		rollbackID, _ := requestID("DEL")
-		_, rollbackErr := client.Call(context.WithoutCancel(ctx), network.Request{Version: 1, RequestID: rollbackID, Method: "DEL", Endpoint: allocated})
-		return nil, errors.Join(fmt.Errorf("persist CNI generation cache: %w", err), rollbackErr)
+		return nil, errors.Join(fmt.Errorf("persist CNI generation cache: %w", err), rollbackAllocatedEndpoint(client, allocated))
 	}
 	return cniResult{
 		CNIVersion: configuration.CNIVersion,

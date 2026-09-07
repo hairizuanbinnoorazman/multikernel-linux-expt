@@ -225,7 +225,12 @@ normative plan is revised with an explicit rationale.
 - [x] Implement a CNI binary and versioned configuration supporting normal
   `ADD`, `CHECK`, and idempotent `DEL`, including partial-`ADD` rollback and
   stale namespace cleanup. `mk-cni` implements CNI 1.0.0, a durable generation
-  cache, strict input, rollback, and stale-generation rejection.
+  cache, strict input, rollback, and stale-generation rejection. It now binds
+  the returned endpoint to the exact ADD identity and validates address, MTU,
+  DNS, owner, generation, and state before caching; safely identifiable
+  post-ADD failures receive a bounded generation-bound DEL. Cache directories
+  and files are owner/mode/symlink checked, and reads are no-follow and
+  inode-stable.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;
