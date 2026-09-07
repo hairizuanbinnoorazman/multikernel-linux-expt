@@ -402,7 +402,11 @@ normative plan is revised with an explicit rationale.
   versions or request IDs. Fault-injecting every remaining boundary is still
   open. Rootfs builder execution now has bounded capture, a finite default,
   caller cancellation, and descendant process-group termination as described
-  under G4.
+  under G4. Rootfs Prepare/Cleanup/Reconcile reject pre-cancelled calls before
+  mutation, mount entry checks cancellation, and storage-image verification
+  checks between bounded hash reads. Focused tests prove pre-cancelled service
+  calls preserve backend and journal state and that hashing returns the caller
+  cancellation.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

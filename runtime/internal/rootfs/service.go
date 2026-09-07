@@ -218,6 +218,9 @@ func validateMountOption(mountType, option string) error {
 func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return PrepareResult{}, err
+	}
 	if err := validateRequest(request); err != nil {
 		return PrepareResult{}, err
 	}
@@ -299,6 +302,9 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 func (s *Service) Cleanup(ctx context.Context, request CleanupRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if request.Version != Version || !identityRE.MatchString(request.TaskIdentity) || !sha256RE.MatchString(request.StorageSHA256) {
 		return errors.New("invalid rootfs cleanup identity")
 	}
@@ -327,7 +333,13 @@ func (s *Service) Cleanup(ctx context.Context, request CleanupRequest) error {
 func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	for _, record := range s.store.List() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := s.validateArtifactPaths(record); err != nil {
 			return err
 		}

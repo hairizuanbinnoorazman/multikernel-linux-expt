@@ -253,7 +253,10 @@ deadline, and kills a dedicated process group so a descendant cannot retain
 the output pipes. A draining writer retains at most one MiB and returned error
 text has a smaller cap. Focused tests cover overflow, normal combined output,
 and a background child killed at deadline; disposable-host fault proof remains
-open.
+open. Rootfs service entry points additionally reject pre-cancelled work before
+mutation, while mount entry and large image hashing observe the request context;
+focused tests prove cancelled preparation, cleanup, and reconciliation preserve
+backend calls, artifacts, and journal ownership.
 
 The shim now removes partial Create artifacts and allocated sandboxes on later
 failure, gives agent RPCs bounded deadlines with context cancellation, removes

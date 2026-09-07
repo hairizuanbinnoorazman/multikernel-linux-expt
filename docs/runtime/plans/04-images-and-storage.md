@@ -68,6 +68,11 @@ cancellation kills that group. Combined output is continuously drained but at
 most one MiB is retained, overflow fails the build, and any returned diagnostic
 is separately truncated so a hostile builder cannot exhaust memory or the
 daemon response frame.
+Prepare, cleanup, and reconciliation must reject a pre-cancelled operation
+before filesystem or journal mutation. Mount entry and artifact verification
+do the same, and storage-image hashing observes cancellation between one-MiB
+chunks rather than monopolizing the rootfs service through a complete image
+scan.
 
 ### C. Container overlays and volumes
 
