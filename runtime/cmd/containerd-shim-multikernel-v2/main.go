@@ -65,7 +65,7 @@ type process struct {
 	stdinReader                    io.ReadWriteCloser
 	stdoutWriter, stderrWriter     io.WriteCloser
 	stdoutGuard, stderrGuard       io.Closer
-	stdinClosed                    bool
+	stdinClosed, stdinCloseAcked   bool
 	stdoutOffset, stderrOffset     uint64
 	stdoutPressure, stderrPressure time.Time
 	exitEventQueued                bool
@@ -264,6 +264,7 @@ type persistedProcess struct {
 	Height          uint32           `json:"height,omitempty"`
 	SizeSet         bool             `json:"size_set,omitempty"`
 	StdinClosed     bool             `json:"stdin_closed,omitempty"`
+	StdinCloseAcked bool             `json:"stdin_close_acked,omitempty"`
 	Status          tasktypes.Status `json:"status"`
 	PID             uint32           `json:"pid,omitempty"`
 	Exit            uint32           `json:"exit,omitempty"`
@@ -385,7 +386,7 @@ func (s *service) persistRecovery() error {
 		p.Processes = append(p.Processes, persistedProcess{
 			ID: process.id, Stdin: process.stdin, Stdout: process.stdout, Stderr: process.stderr,
 			Terminal: process.terminal, Width: process.width, Height: process.height,
-			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, Status: process.status,
+			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, StdinCloseAcked: process.stdinCloseAcked, Status: process.status,
 			PID: process.pid, Exit: process.exit, Exited: process.exited,
 			StdoutOffset: process.stdoutOffset, StderrOffset: process.stderrOffset,
 			ExitEventQueued: process.exitEventQueued,
@@ -558,7 +559,7 @@ func (s *service) recoverExisting(ctx context.Context) error {
 		p := &process{
 			id: saved.ID, stdin: saved.Stdin, stdout: saved.Stdout, stderr: saved.Stderr,
 			terminal: saved.Terminal, width: saved.Width, height: saved.Height,
-			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, status: saved.Status,
+			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, stdinCloseAcked: saved.StdinCloseAcked, status: saved.Status,
 			pid: saved.PID, exit: saved.Exit, exited: saved.Exited,
 			stdoutOffset: saved.StdoutOffset, stderrOffset: saved.StderrOffset,
 			exitEventQueued: saved.ExitEventQueued, done: make(chan struct{}),
@@ -1285,8 +1286,16 @@ func closeProcessIO(p *process) {
 func (s *service) pumpStdin(agentID string, p *process) {
 	reader := p.stdinReader
 	if reader == nil {
+		s.retryPendingStdinClose(agentID, p)
 		return
 	}
+	defer func() {
+		s.mu.Lock()
+		_ = reader.Close()
+		p.stdinReader = nil
+		s.mu.Unlock()
+		s.retryPendingStdinClose(agentID, p)
+	}()
 	buffer := make([]byte, 32<<10)
 	for {
 		n, err := reader.Read(buffer)
@@ -1308,11 +1317,10 @@ func (s *service) pumpStdin(agentID string, p *process) {
 		if n == 0 {
 			s.mu.Lock()
 			closeRequested := p.stdinClosed
+			closeAcknowledged := p.stdinCloseAcked
 			s.mu.Unlock()
-			if closeRequested {
-				if callErr := s.agent.Call("CloseProcessStdin", map[string]string{"id": agentID}, nil); callErr != nil {
-					fmt.Fprintf(os.Stderr, "multikernel close stdin: %v\n", callErr)
-				}
+			if closeRequested && !closeAcknowledged {
+				s.retryPendingStdinClose(agentID, p)
 				return
 			}
 			// FIFO EOF can also mean that an attaching client disconnected.
@@ -1320,6 +1328,51 @@ func (s *service) pumpStdin(agentID string, p *process) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
+}
+
+func (s *service) retryPendingStdinClose(agentID string, p *process) {
+	for {
+		s.mu.Lock()
+		requested := p.stdinClosed && !p.stdinCloseAcked
+		stopped := p.status == tasktypes.Status_STOPPED
+		s.mu.Unlock()
+		if !requested || stopped {
+			return
+		}
+		if err := s.acknowledgeStdinClose(context.Background(), agentID, p); err == nil {
+			return
+		} else {
+			fmt.Fprintf(os.Stderr, "multikernel close stdin: %v\n", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func (s *service) acknowledgeStdinClose(ctx context.Context, agentID string, p *process) error {
+	s.mu.Lock()
+	if p.stdinCloseAcked {
+		s.mu.Unlock()
+		return nil
+	}
+	client := s.agent
+	s.mu.Unlock()
+	if client == nil {
+		return errdefs.ErrFailedPrecondition
+	}
+	if err := client.CallContext(ctx, "CloseProcessStdin", map[string]string{"id": agentID}, nil); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if p.stdinCloseAcked {
+		return nil
+	}
+	p.stdinCloseAcked = true
+	if err := s.persistRecovery(); err != nil {
+		p.stdinCloseAcked = false
+		return fmt.Errorf("persist acknowledged stdin close: %w", err)
+	}
+	return nil
 }
 
 func (s *service) waitProcess(agentID, execID string, p *process) {
@@ -1370,13 +1423,13 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 			time.Sleep(20 * time.Millisecond)
 		}
 	}
-	closeProcessIO(p)
 	now := time.Now().UTC()
 	exit := uint32(255)
 	if err == nil {
 		exit = uint32(state.ExitCode)
 	}
 	s.mu.Lock()
+	closeProcessIO(p)
 	p.status, p.exit, p.exited = tasktypes.Status_STOPPED, exit, now
 	if err := s.publishExit(context.Background(), execID, p); err != nil {
 		fmt.Fprintf(os.Stderr, "multikernel exit event queue: %v\n", err)
@@ -1760,15 +1813,17 @@ func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*empt
 		s.mu.Unlock()
 		return nil, errdefs.ErrNotFound
 	}
-	if p.stdinClosed {
+	if p.stdinClosed && p.stdinCloseAcked {
 		s.mu.Unlock()
 		return &emptypb.Empty{}, nil
 	}
-	p.stdinClosed = true
-	if err := s.persistRecovery(); err != nil {
-		p.stdinClosed = false
-		s.mu.Unlock()
-		return nil, fmt.Errorf("persist closed stdin: %w", err)
+	if !p.stdinClosed {
+		p.stdinClosed = true
+		if err := s.persistRecovery(); err != nil {
+			p.stdinClosed = false
+			s.mu.Unlock()
+			return nil, fmt.Errorf("persist closed stdin: %w", err)
+		}
 	}
 	hasReader := p.stdinReader != nil
 	s.mu.Unlock()
@@ -1781,10 +1836,7 @@ func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*empt
 		// closes guest stdin. It observes stdinClosed after reaching FIFO EOF.
 		return &emptypb.Empty{}, nil
 	}
-	if s.agent == nil {
-		return nil, errdefs.ErrFailedPrecondition
-	}
-	if err := s.agent.CallContext(ctx, "CloseProcessStdin", map[string]string{"id": id}, nil); err != nil {
+	if err := s.acknowledgeStdinClose(ctx, id, p); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

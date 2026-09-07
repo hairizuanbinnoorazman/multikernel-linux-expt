@@ -322,8 +322,11 @@ normative plan is revised with an explicit rationale.
   nonblocking and fetched in atomic-size chunks; offsets advance only after
   complete delivery, while sustained pressure has a logged 30-second bounded
   drop policy. FIFO opens honor cancellation and focused tests cover reattach,
-  acknowledged offsets, replay under pressure, and bounded drop. The full
-  peer/churn/`CloseIO`/restart matrix remains open.
+  acknowledged offsets, replay under pressure, bounded drop, and transient
+  guest-close failure. Close requested and guest acknowledged are separate
+  durable states; pending acknowledgement retries after FIFO EOF and recovery
+  until process exit. The full peer/churn/`CloseIO`/restart matrix remains
+  open, and these latest close-acknowledgement changes need live revalidation.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
   teardown without leaking resources.
