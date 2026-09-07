@@ -389,7 +389,14 @@ normative plan is revised with an explicit rationale.
   need live revalidation.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
-  teardown without leaking resources.
+  teardown without leaking resources. The shared daemon client now applies
+  the earlier of a caller deadline and a 30-second default across dial, write,
+  and read, and cancellation actively interrupts an already-connected socket.
+  Focused tests cover pre-dial cancellation, blocked request writes, blocked
+  response reads, the default timeout, and a successful round trip. Auditing
+  also rejects unknown/duplicate response fields and mismatched response
+  versions or request IDs. Fault-injecting every remaining boundary is still
+  open.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

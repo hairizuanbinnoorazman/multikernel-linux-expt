@@ -341,3 +341,13 @@ ancestors and magic links. Stable device/inode, mode, ownership, link-count,
 and ctime comparisons detect replacement and same-inode metadata races; stdin
 is restricted to a private FIFO. Focused tests exercise each rejection and
 request cancellation, while live attach/restart revalidation remains open.
+
+The shim-to-`mkruntimed` client previously used the request context only for
+Unix-socket dialing; a daemon that accepted and then stopped reading or
+replying could hold the operation forever. The client now applies the earlier
+of the caller deadline and a 30-second default to the whole exchange, and a
+context callback wakes blocked socket I/O. Focused tests cover blocked writes,
+blocked reads, pre-dial cancellation, the default bound, and normal response
+decoding. Replies are strict-decoded and bound to the originating protocol
+version and request ID. Other blocking boundaries and live leak checks remain
+to be audited.

@@ -13,6 +13,13 @@ Expected package boundaries:
 No adapter may release a resource unless the state layer proves that the
 runtime owns it.
 
+The daemon client bounds the complete Unix request, not only connection setup.
+It applies caller cancellation/deadlines and a 30-second default to writes and
+reads, actively wakes blocked socket I/O, and returns the caller's context
+error when its deadline is the limiting boundary. Strict response decoding and
+exact version/request-ID matching prevent a stale or malformed reply from
+being attributed to the operation.
+
 Rootfs durable records are treated as untrusted across restart. Their files,
 keys, request identities, phase-specific results, and exact bundle/runtime/
 storage path derivations are validated before reconciliation. Store reads and
