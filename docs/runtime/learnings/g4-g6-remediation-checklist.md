@@ -322,8 +322,11 @@ normative plan is revised with an explicit rationale.
   release manifest; Docker configuration is conflict-detecting, validated,
   opt-in, and preserves the default. The containerd v3/v4 import-only CRI
   fragment adds a named handler without owning the main config or default and
-  passes structural plus containerd config-dump tests. Versioned install
-  layout, automated fresh install, and upgrade/rollback remain open.
+  passes structural plus containerd config-dump tests. A verified immutable
+  release layout now provides atomic activation, fresh binary installation,
+  upgrades, rollback, ownership-safe uninstall, and inactive-release removal
+  with end-to-end tests. Automated service/config installation and live
+  upgrade/rollback evidence remain open.
 
 ### Automated tests still required
 
