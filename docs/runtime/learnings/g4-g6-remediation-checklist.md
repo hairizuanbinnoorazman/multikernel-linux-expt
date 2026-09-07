@@ -193,7 +193,11 @@ normative plan is revised with an explicit rationale.
   staging clone, normalizes staged atime/mtime and imported inode ctime, and
   passes repeated byte-identical rebuilds with hardlinks, symlinks, an explicit
   source-atime change, and a changed-content negative control. The broader
-  allocation/fault matrix and disposable-host evidence remain open.
+  allocation/fault matrix and disposable-host evidence remain open. Storage
+  export start now retains `PREPARING` ownership on both pre-mutation and
+  post-mutation failure; focused exact-retry and reconciliation tests prove an
+  ambiguous live process is stopped and restarted with the same generation
+  before `ACTIVE` is published.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
   dirty recovery; snapshot/clone recovery using disposable copies.

@@ -286,12 +286,16 @@ source-atime change are byte-identical while a content change produces a new
 digest. The Go consumer enforces that exact metadata contract. Root scanning
 revalidates every admitted path after content reads so
 later membership or inode-identity mutation fails the build. Storage restart
-reconciliation can complete an exact `QUIESCING` lease only after observing a
-still-running exact export or its generation-specific graceful-close counter
-record, followed by an offline check. An unexplained missing server remains
-durably diagnosable. These behaviors pass focused local tests but are not G4
-live evidence until the replacement-instance storage/fault matrix retains the
-observed values.
+also retains `PREPARING` ownership when export start has an ambiguous outcome;
+an exact retry or reconciliation stops any matching partial server,
+re-inspects the image, and restarts the same generation before publishing it
+as active. A conflicting live generation remains untouched and fails closed.
+Restart reconciliation can complete an exact `QUIESCING` lease only after
+observing a still-running exact export or its generation-specific
+graceful-close counter record, followed by an offline check. An unexplained
+missing server remains durably diagnosable. These behaviors pass focused local
+tests but are not G4 live evidence until the replacement-instance
+storage/fault matrix retains the observed values.
 
 The G6 shim now journals typed Task events before publication and replays them
 in local sequence after worker reconstruction. Exit completion persists an

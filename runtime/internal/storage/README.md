@@ -7,6 +7,13 @@ reconciliation never adopts a conflicting live generation, and release must
 complete backend quiescence plus an offline filesystem check before state is
 marked `RELEASED`.
 
+Export creation journals `PREPARING` before starting the server. A failed or
+ambiguous start retains that owner record. Reconciliation—or an exact repeated
+provision request—stops an exact live-but-ambiguous process, re-inspects the
+image, and restarts it with the same export generation before publishing
+`ACTIVE`. It never adopts a process merely because it is present, and it never
+acts on a conflicting generation.
+
 If the daemon restarts in `QUIESCING`, reconciliation either stops the exact
 still-running export or adopts its generation-specific graceful-close counter
 record, then runs the offline check and finalizes release. An absent server

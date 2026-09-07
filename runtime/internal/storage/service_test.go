@@ -29,6 +29,9 @@ func (f *fakeBackend) Start(_ context.Context, value Export) error {
 		return err
 	}
 	f.active[value.Path] = value.ExportGeneration
+	if err := f.fail["start-after-active"]; err != nil {
+		return err
+	}
 	return nil
 }
 func (f *fakeBackend) Observe(_ context.Context, value Export) (Observation, error) {
@@ -126,7 +129,14 @@ func TestProvisionAndReleaseFailuresRemainFailClosed(t *testing.T) {
 			if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err == nil {
 				t.Fatal("injected provision failure was ignored")
 			}
-			if len(store.List()) != 0 || len(backend.active) != 0 {
+			retained := store.List()
+			if point == "inspect" && len(retained) != 0 {
+				t.Fatalf("inspection failure created ownership: %+v", retained)
+			}
+			if point == "start" && (len(retained) != 1 || retained[0].State != "PREPARING") {
+				t.Fatalf("start failure did not retain preparation ownership: %+v", retained)
+			}
+			if len(backend.active) != 0 {
 				t.Fatalf("partial export remained: state=%+v active=%v", store.List(), backend.active)
 			}
 		})
@@ -147,6 +157,70 @@ func TestProvisionAndReleaseFailuresRemainFailClosed(t *testing.T) {
 				t.Fatalf("failure was not retained for recovery: %+v", remaining)
 			}
 		})
+	}
+}
+
+func TestReconcileRestartsRetainedPreparationWithExactGeneration(t *testing.T) {
+	for _, retryMethod := range []string{"provision", "reconcile"} {
+		for _, activeBeforeFailure := range []bool{false, true} {
+			name := retryMethod + "-" + map[bool]string{false: "absent", true: "ambiguous-active"}[activeBeforeFailure]
+			t.Run(name, func(t *testing.T) {
+				service, store, backend, image := fixture(t)
+				failurePoint := "start"
+				if activeBeforeFailure {
+					failurePoint = "start-after-active"
+				}
+				backend.fail[failurePoint] = errors.New("injected ambiguous start")
+				if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err == nil {
+					t.Fatal("injected start failure was ignored")
+				}
+				retained, ok := store.Get("box-a", sandboxGeneration)
+				if !ok || retained.State != "PREPARING" || retained.ExportGeneration == "" {
+					t.Fatalf("retained preparation = %+v, %v", retained, ok)
+				}
+				delete(backend.fail, failurePoint)
+				if retryMethod == "provision" {
+					if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err != nil {
+						t.Fatal(err)
+					}
+				} else if err := service.Reconcile(context.Background()); err != nil {
+					t.Fatal(err)
+				}
+				recovered, ok := store.Get("box-a", sandboxGeneration)
+				if !ok || recovered.State != "ACTIVE" || recovered.ExportGeneration != retained.ExportGeneration ||
+					backend.active[image.Path] != retained.ExportGeneration {
+					t.Fatalf("recovered preparation = %+v active=%v", recovered, backend.active)
+				}
+				if activeBeforeFailure && !backend.closed {
+					t.Fatal("ambiguous live export was not gracefully stopped before restart")
+				}
+			})
+		}
+	}
+}
+
+func TestRetainedPreparationRefusesConflictingLiveGeneration(t *testing.T) {
+	service, store, backend, image := fixture(t)
+	backend.fail["start"] = errors.New("injected start failure")
+	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err == nil {
+		t.Fatal("injected start failure was ignored")
+	}
+	retained, ok := store.Get("box-a", sandboxGeneration)
+	if !ok || retained.State != "PREPARING" {
+		t.Fatalf("retained preparation = %+v, %v", retained, ok)
+	}
+	conflicting := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	backend.active[image.Path] = conflicting
+	delete(backend.fail, "start")
+	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err == nil ||
+		!strings.Contains(err.Error(), "conflicting generation") {
+		t.Fatalf("conflicting preparation retry error = %v", err)
+	}
+	if backend.active[image.Path] != conflicting || backend.closed {
+		t.Fatalf("conflicting process was mutated: active=%v closed=%v", backend.active, backend.closed)
+	}
+	if current, ok := store.Get("box-a", sandboxGeneration); !ok || current.State != "PREPARING" {
+		t.Fatalf("conflict lost retained ownership: %+v, %v", current, ok)
 	}
 }
 

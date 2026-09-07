@@ -69,6 +69,36 @@ func validatePrepared(value PreparedImage) error {
 	return nil
 }
 
+// recoverPreparation repairs a journaled start whose external outcome was
+// ambiguous. The caller holds s.mu. An exact live process is stopped first so
+// only a Start call that returns success can transition the lease to ACTIVE.
+func (s *Service) recoverPreparation(ctx context.Context, value Export) (Export, error) {
+	observation, err := s.backend.Observe(ctx, value)
+	if err != nil {
+		return Export{}, fmt.Errorf("observe retained storage preparation: %w", err)
+	}
+	if observation.Active && observation.Generation != value.ExportGeneration {
+		return Export{}, errors.New("preparing storage process has a conflicting generation")
+	}
+	if observation.Active {
+		if _, err = s.backend.Stop(ctx, value); err != nil {
+			return Export{}, fmt.Errorf("stop ambiguous storage preparation: %w", err)
+		}
+	}
+	if err = s.backend.Inspect(ctx, value.PreparedImage); err != nil {
+		return Export{}, fmt.Errorf("reinspect retained storage preparation: %w", err)
+	}
+	if err = s.backend.Start(ctx, value); err != nil {
+		return Export{}, fmt.Errorf("restart retained storage preparation: %w", err)
+	}
+	value.State = "ACTIVE"
+	value.UpdatedAt = s.now().UTC()
+	if err = s.store.Put(value); err != nil {
+		return Export{}, fmt.Errorf("publish recovered storage export with PREPARING ownership retained: %w", err)
+	}
+	return value, nil
+}
+
 func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration string, image PreparedImage) (Export, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -79,7 +109,13 @@ func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration st
 		return Export{}, err
 	}
 	if existing, ok := s.store.Get(sandboxID, sandboxGeneration); ok {
-		if existing.PreparedImage != image || existing.State != "ACTIVE" {
+		if existing.PreparedImage != image {
+			return Export{}, errors.New("sandbox generation has conflicting or incomplete storage state")
+		}
+		if existing.State == "PREPARING" {
+			return s.recoverPreparation(ctx, existing)
+		}
+		if existing.State != "ACTIVE" {
 			return Export{}, errors.New("sandbox generation has conflicting or incomplete storage state")
 		}
 		observation, err := s.backend.Observe(ctx, existing)
@@ -111,15 +147,12 @@ func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration st
 		return Export{}, err
 	}
 	if err = s.backend.Start(ctx, value); err != nil {
-		_ = s.store.Delete(sandboxID, sandboxGeneration)
-		return Export{}, fmt.Errorf("start storage export: %w", err)
+		return Export{}, fmt.Errorf("start storage export with PREPARING ownership retained: %w", err)
 	}
 	value.State = "ACTIVE"
 	value.UpdatedAt = s.now().UTC()
 	if err = s.store.Put(value); err != nil {
-		_, stopErr := s.backend.Stop(context.WithoutCancel(ctx), value)
-		deleteErr := s.store.Delete(sandboxID, sandboxGeneration)
-		return Export{}, errors.Join(err, stopErr, deleteErr)
+		return Export{}, fmt.Errorf("publish active storage export with PREPARING ownership retained: %w", err)
 	}
 	return value, nil
 }
@@ -189,16 +222,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return fmt.Errorf("restart durable storage export: %w", err)
 			}
 		case "PREPARING":
-			observation, err := s.backend.Observe(ctx, value)
-			if err != nil {
-				return err
-			}
-			if !observation.Active || observation.Generation != value.ExportGeneration {
-				return errors.New("incomplete storage preparation requires operator action")
-			}
-			value.State = "ACTIVE"
-			value.UpdatedAt = s.now().UTC()
-			if err = s.store.Put(value); err != nil {
+			if _, err := s.recoverPreparation(ctx, value); err != nil {
 				return err
 			}
 		case "QUIESCING":
