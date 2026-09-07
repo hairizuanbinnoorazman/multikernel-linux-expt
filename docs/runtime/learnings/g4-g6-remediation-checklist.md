@@ -160,7 +160,14 @@ normative plan is revised with an explicit rationale.
   temporarily unavailable, the strict existing token is reused so the next
   Create retries the same idempotency identity rather than creating a second
   ambiguity. The full end-to-end injected failure matrix and live no-leak
-  inventory remain open.
+  inventory remain open. Rootfs durable state now validates its no-follow,
+  single-link, caller-owned file; exact record key/request/result; derived
+  bundle/runtime/storage paths; unique bundle/port ownership; and forward-only
+  phases. Reconciliation rechecks configured path derivation before recursive
+  cleanup, and deep-copy tests prevent callers from mutating journal fields by
+  alias. Cleanup is descriptor-anchored beneath stable bundle/storage-root
+  inodes; focused symlink and post-open rename tests prove a replacement tree
+  is not traversed or removed.
 
 ### Automated tests still required
 

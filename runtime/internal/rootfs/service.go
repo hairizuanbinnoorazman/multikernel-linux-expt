@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 var identityRE = regexp.MustCompile(`^task-[a-f0-9]{32}$`)
@@ -29,13 +30,50 @@ type Service struct {
 	mu          sync.Mutex
 }
 
+func openStableRoot(path string) (*os.Root, error) {
+	before, err := os.Lstat(path)
+	if err != nil || !before.IsDir() || before.Mode()&os.ModeSymlink != 0 {
+		return nil, errors.New("cleanup root must be a real directory")
+	}
+	identity, identityOK := before.Sys().(*syscall.Stat_t)
+	if !identityOK || identity.Uid != uint32(os.Geteuid()) {
+		return nil, errors.New("cleanup root must be owned by the caller")
+	}
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		return nil, err
+	}
+	after, err := root.Stat(".")
+	if err != nil || !os.SameFile(before, after) {
+		_ = root.Close()
+		return nil, errors.New("cleanup root identity changed while opening")
+	}
+	return root, nil
+}
+
+func removeRelativeTree(rootPath, name string) error {
+	root, err := openStableRoot(rootPath)
+	if err != nil {
+		return err
+	}
+	err = root.RemoveAll(name)
+	return errors.Join(err, root.Close())
+}
+
+func (s *Service) removePreparedArtifacts(record Record) error {
+	if err := s.validateArtifactPaths(record); err != nil {
+		return err
+	}
+	return errors.Join(
+		removeRelativeTree(record.Request.Bundle, ".multikernel"),
+		removeRelativeTree(s.storageRoot, record.Request.TaskIdentity),
+	)
+}
+
 func (s *Service) cleanupFailedPreparation(record Record) error {
 	var failures []error
-	if err := os.RemoveAll(record.RuntimeDir); err != nil {
-		failures = append(failures, fmt.Errorf("remove runtime artifacts: %w", err))
-	}
-	if err := os.RemoveAll(record.StorageDir); err != nil {
-		failures = append(failures, fmt.Errorf("remove storage artifacts: %w", err))
+	if err := s.removePreparedArtifacts(record); err != nil {
+		failures = append(failures, fmt.Errorf("remove prepared artifacts: %w", err))
 	}
 	if err := errors.Join(failures...); err != nil {
 		// Keep the durable record so reconciliation can retry any cleanup that
@@ -46,6 +84,15 @@ func (s *Service) cleanupFailedPreparation(record Record) error {
 		failures = append(failures, fmt.Errorf("remove rootfs recovery record: %w", err))
 	}
 	return errors.Join(failures...)
+}
+
+func (s *Service) validateArtifactPaths(record Record) error {
+	if record.Root != filepath.Join(record.Request.Bundle, "rootfs") ||
+		record.RuntimeDir != filepath.Join(record.Request.Bundle, ".multikernel") ||
+		record.StorageDir != filepath.Join(s.storageRoot, record.Request.TaskIdentity) {
+		return errors.New("rootfs recovery paths are not bound to the configured roots")
+	}
+	return nil
 }
 
 func NewService(store *Store, backend Backend, storageRoot string) (*Service, error) {
@@ -63,10 +110,27 @@ func NewService(store *Store, backend Backend, storageRoot string) (*Service, er
 	if err != nil || resolved != storageRoot {
 		return nil, errors.New("rootfs storage root may not contain symlinks")
 	}
+	info, err := os.Lstat(storageRoot)
+	if err != nil {
+		return nil, err
+	}
+	identity, identityOK := info.Sys().(*syscall.Stat_t)
+	if !identityOK || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || identity.Uid != uint32(os.Geteuid()) {
+		return nil, errors.New("rootfs storage root must be a caller-owned real directory")
+	}
 	if err := os.Chmod(storageRoot, 0700); err != nil {
 		return nil, err
 	}
-	return &Service{store: store, backend: backend, storageRoot: storageRoot}, nil
+	service := &Service{store: store, backend: backend, storageRoot: storageRoot}
+	for _, record := range store.List() {
+		if err := service.validateArtifactPaths(record); err != nil {
+			return nil, fmt.Errorf("reject unsafe rootfs recovery record %s: %w", record.Request.TaskIdentity, err)
+		}
+		if err := validateRequest(record.Request); err != nil {
+			return nil, fmt.Errorf("reject invalid rootfs recovery request %s: %w", record.Request.TaskIdentity, err)
+		}
+	}
+	return service, nil
 }
 
 func validateRequest(request PrepareRequest) error {
@@ -245,13 +309,13 @@ func (s *Service) Cleanup(ctx context.Context, request CleanupRequest) error {
 	if record.Request.Bundle != request.Bundle || record.Storage == nil || record.Storage.SHA256 != request.StorageSHA256 || record.Phase != "PREPARED" {
 		return errors.New("rootfs cleanup identity is stale or conflicting")
 	}
+	if err := s.validateArtifactPaths(record); err != nil {
+		return err
+	}
 	if err := s.backend.Unmount(ctx, record.Root); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(record.RuntimeDir); err != nil {
-		return err
-	}
-	if err := os.RemoveAll(record.StorageDir); err != nil {
+	if err := s.removePreparedArtifacts(record); err != nil {
 		return err
 	}
 	return s.store.Delete(request.TaskIdentity)
@@ -264,15 +328,15 @@ func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, record := range s.store.List() {
+		if err := s.validateArtifactPaths(record); err != nil {
+			return err
+		}
 		switch record.Phase {
 		case "MOUNTING", "MOUNTED":
 			if err := s.backend.Unmount(ctx, record.Root); err != nil {
 				return fmt.Errorf("recover partial rootfs mount: %w", err)
 			}
-			if err := os.RemoveAll(record.RuntimeDir); err != nil {
-				return err
-			}
-			if err := os.RemoveAll(record.StorageDir); err != nil {
+			if err := s.removePreparedArtifacts(record); err != nil {
 				return err
 			}
 			if err := s.store.Delete(record.Request.TaskIdentity); err != nil {
@@ -286,10 +350,7 @@ func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string
 				if err := s.backend.Unmount(ctx, record.Root); err != nil {
 					return fmt.Errorf("unmount orphaned rootfs: %w", err)
 				}
-				if err := os.RemoveAll(record.RuntimeDir); err != nil {
-					return err
-				}
-				if err := os.RemoveAll(record.StorageDir); err != nil {
+				if err := s.removePreparedArtifacts(record); err != nil {
 					return err
 				}
 				if err := s.store.Delete(record.Request.TaskIdentity); err != nil {

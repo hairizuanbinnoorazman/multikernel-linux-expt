@@ -45,6 +45,12 @@ The storage journal is loaded as untrusted input: its file identity and owner,
 record keys, immutable export identities, state-specific completion fields,
 UTC timestamps, live-owner uniqueness, and forward-only transitions are all
 validated before reconciliation may inspect or signal a backend process.
+The root-preparation journal similarly binds `rootfs` and `.multikernel`
+directories to the canonical bundle and its storage directory to the configured
+storage root plus task identity. Recovery validates these derivations again
+immediately before recursive cleanup and removes relative names through
+inode-stable, descriptor-anchored roots; phases advance only from `MOUNTING`
+to `MOUNTED` to `PREPARED`.
 
 ### C. Container overlays and volumes
 
