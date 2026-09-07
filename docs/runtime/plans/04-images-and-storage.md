@@ -55,6 +55,13 @@ Backend process records and logs must be private bounded files, bound to the
 exact export lease, and opened no-follow. Readiness must repeat the lease's
 path/image/generation/size/port; close counters are valid only after that exact
 marker and as the terminal canonical line.
+The rootfs service must distrust privileged builder outputs too: required
+artifacts are no-follow, bounded, caller-owned single-link regular files whose
+identity remains stable while read. Storage metadata must match the requested
+path and port and the supported identity/quota contract; the image itself must
+have the declared size, full allocation, and digest before publication and on
+recovery. Service-authored result files use exclusive creation so pre-existing
+files and symlinks cannot redirect or replace publication.
 
 ### C. Container overlays and volumes
 
@@ -82,6 +89,9 @@ marker and as the terminal canonical line.
 - Forged, symlinked, hard-linked, oversized, mismatched, or changing process
   records/logs; wrong readiness identity; nonterminal close evidence; PID reuse;
   and immediate bounded signaling of a managed server.
+- Forged, symlinked, hard-linked, sparse, incorrectly sized, permissively
+  writable, mismatched, or changing rootfs-builder outputs, plus refusal to
+  overwrite existing result files.
 - Clean child remount-read-only, NBD disconnect, server sync, and offline
   `e2fsck`.
 - Snapshot/clone recovery using disposable copies.

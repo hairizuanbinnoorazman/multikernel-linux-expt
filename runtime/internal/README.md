@@ -22,3 +22,9 @@ Recursive cleanup opens the canonical bundle and configured storage root as
 stable descriptor-backed `os.Root` handles and removes only relative owned
 names. A symlink or rename after validation therefore cannot redirect cleanup
 into a replacement tree.
+Privileged rootfs-builder outputs are also treated as untrusted. Publication
+opens bounded caller-owned, single-link regular files with `O_NOFOLLOW`, checks
+stable identity across reads, validates exact storage metadata, and binds the
+declared quota to the image's size, allocated blocks, and digest. Runtime
+result files are created exclusively so an existing file or symlink cannot be
+overwritten.
