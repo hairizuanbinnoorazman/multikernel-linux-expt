@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -49,7 +50,7 @@ func (s *Service) generation() (string, error) {
 }
 
 func validatePrepared(value PreparedImage) error {
-	if !filepath.IsAbs(value.Path) || filepath.Clean(value.Path) != value.Path {
+	if !filepath.IsAbs(value.Path) || filepath.Clean(value.Path) != value.Path || strings.ContainsAny(value.Path, "\x00\n\r") {
 		return errors.New("storage image path must be absolute and canonical")
 	}
 	if !identityRE.MatchString(value.ImageID) || !uuidRE.MatchString(value.FilesystemUUID) {

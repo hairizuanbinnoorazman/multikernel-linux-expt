@@ -294,6 +294,11 @@ Durable storage state is now semantically validated before recovery, including
 forward-only transitions and uniqueness of every live owner, path, port, and
 filesystem UUID; no-follow, stable-inode, ownership, mode, and link checks
 protect the state file itself.
+The backend applies those file checks to process records and logs as well,
+binds readiness and graceful-close evidence to the exact export tuple, and
+accepts counters only from the terminal canonical close line. Managed stop
+checks for an already-reaped child before revalidating PID/start-time/argv,
+then signals immediately and waits within its configured bound.
 Rootfs recovery applies the same untrusted-state rule and additionally proves
 that every recursive-cleanup target is derived from the canonical bundle or
 configured storage root. Forged paths, phase regressions, duplicate bundle or
