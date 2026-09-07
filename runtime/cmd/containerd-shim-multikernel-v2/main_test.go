@@ -579,14 +579,42 @@ func TestRecoveredNoFIFOPumpRetriesPendingClose(t *testing.T) {
 }
 
 func TestResizePtyRejectsInvalidRequests(t *testing.T) {
+	stopped := &process{terminal: true, status: tasktypes.Status_STOPPED, width: 80, height: 24, sizeSet: true}
 	s := &service{processes: map[string]*process{
-		"": {status: tasktypes.Status_CREATED},
+		"":        {status: tasktypes.Status_CREATED},
+		"stopped": stopped,
 	}}
 	if _, err := s.ResizePty(context.Background(), &taskapi.ResizePtyRequest{}); !errors.Is(err, errdefs.ErrFailedPrecondition) {
 		t.Fatalf("non-terminal resize error = %v", err)
 	}
 	if _, err := s.ResizePty(context.Background(), &taskapi.ResizePtyRequest{Width: 65536}); !errors.Is(err, errdefs.ErrInvalidArgument) {
 		t.Fatalf("oversized resize error = %v", err)
+	}
+	if _, err := s.ResizePty(context.Background(), &taskapi.ResizePtyRequest{ExecID: "stopped", Width: 91, Height: 37}); !errors.Is(err, errdefs.ErrFailedPrecondition) {
+		t.Fatalf("stopped resize error = %v", err)
+	}
+	if stopped.width != 80 || stopped.height != 24 || !stopped.sizeSet {
+		t.Fatalf("rejected stopped resize mutated state: %+v", stopped)
+	}
+}
+
+func TestResizePtyRollsBackIntentWhenGuestRejects(t *testing.T) {
+	injected := errors.New("injected resize failure")
+	fake := &fakeAgentClient{fail: map[string]error{"ResizeProcess": injected}}
+	p := &process{terminal: true, status: tasktypes.Status_RUNNING, width: 80, height: 24, sizeSet: true}
+	s := &service{agent: fake, processes: map[string]*process{"": p}}
+	if _, err := s.ResizePty(context.Background(), &taskapi.ResizePtyRequest{Width: 91, Height: 37}); !errors.Is(err, injected) {
+		t.Fatalf("resize error = %v", err)
+	}
+	if p.width != 80 || p.height != 24 || !p.sizeSet {
+		t.Fatalf("failed resize retained new intent: %+v", p)
+	}
+	delete(fake.fail, "ResizeProcess")
+	if _, err := s.ResizePty(context.Background(), &taskapi.ResizePtyRequest{Width: 100, Height: 40}); err != nil {
+		t.Fatal(err)
+	}
+	if p.width != 100 || p.height != 40 || !p.sizeSet {
+		t.Fatalf("successful resize state: %+v", p)
 	}
 }
 
@@ -1002,6 +1030,40 @@ func TestDeleteRepairsMissingExitEventBeforeDeleteEvent(t *testing.T) {
 	}
 }
 
+func TestDeleteRetainsRetryOwnershipAcrossGuestAndEventFailures(t *testing.T) {
+	bundle := t.TempDir()
+	agentFailure := errors.New("injected guest delete failure")
+	fakeAgent := &fakeAgentClient{fail: map[string]error{"DeleteProcess": agentFailure}}
+	publisher := &fakePublisher{}
+	p := &process{id: "exec", pid: 23, status: tasktypes.Status_STOPPED, exitEventQueued: true, done: make(chan struct{})}
+	close(p.done)
+	s := &service{id: "task", namespace: "default", bundle: bundle, publisher: publisher, agent: fakeAgent,
+		processes: map[string]*process{"exec": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	request := &taskapi.DeleteRequest{ExecID: "exec"}
+	if _, err := s.Delete(context.Background(), request); !errors.Is(err, agentFailure) {
+		t.Fatalf("guest delete error = %v", err)
+	}
+	if s.processes["exec"] != p || p.deleting || p.deleteEventQueued {
+		t.Fatalf("guest failure lost retry state: process=%p deleting=%v event=%v", s.processes["exec"], p.deleting, p.deleteEventQueued)
+	}
+	delete(fakeAgent.fail, "DeleteProcess")
+	publisher.failures = 2
+	if _, err := s.Delete(context.Background(), request); err == nil || !strings.Contains(err.Error(), "flush task delete event") {
+		t.Fatalf("event flush error = %v", err)
+	}
+	if s.processes["exec"] != p || p.deleting || !p.deleteEventQueued {
+		t.Fatalf("event failure lost retry state: process=%p deleting=%v event=%v", s.processes["exec"], p.deleting, p.deleteEventQueued)
+	}
+	publisher.failures = 0
+	response, err := s.Delete(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Pid != 23 || s.processes["exec"] != nil || len(publisher.topics) != 1 || publisher.topics[0] != ctruntime.TaskDeleteEventTopic {
+		t.Fatalf("retry response=%+v processes=%v topics=%v", response, s.processes, publisher.topics)
+	}
+}
+
 func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing.T) {
 	bundle := t.TempDir()
 	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
@@ -1011,7 +1073,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 		bundle:  bundle,
 		sandbox: protocol.Sandbox{ID: "box", Generation: "0123456789abcdef0123456789abcdef"},
 		processes: map[string]*process{
-			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdinClosed: true, stdinCloseAcked: true, stdoutOffset: 123, stderrOffset: 45, done: make(chan struct{})},
+			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdinClosed: true, stdinCloseAcked: true, stdoutOffset: 123, stderrOffset: 45, exitEventQueued: true, deleteEventQueued: true, done: make(chan struct{})},
 		},
 	}
 	if err := s.persistRecovery(); err != nil {
@@ -1025,7 +1087,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	if err = json.Unmarshal(data, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.SchemaVersion != 1 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || !saved.Processes[0].StdinCloseAcked || saved.Processes[0].StdoutOffset != 123 {
+	if saved.SchemaVersion != 1 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || !saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdoutOffset != 123 {
 		t.Fatalf("persisted recovery = %+v", saved)
 	}
 	temporary, err := filepath.Glob(filepath.Join(bundle, ".multikernel", ".sandbox.json.*"))

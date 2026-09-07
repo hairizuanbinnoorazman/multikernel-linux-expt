@@ -60,6 +60,13 @@ flushes every durable event, joins the event retry worker, and invokes the
 server shutdown callback once. A failed final event flush reopens the service
 for a later shutdown retry rather than abandoning the journal.
 
+Delete is likewise a durable retryable transition. A failed guest, network,
+daemon, rootfs, or event operation retains the process record and clears only
+the in-memory in-progress guard. The delete-event queued bit is persisted, and
+the event journal must flush before rootfs artifacts or the final process
+record are removed. Retrying can therefore resume idempotent external cleanup
+without losing the exit-before-delete order.
+
 Output FIFOs are opened nonblocking with a guard endpoint so detached clients
 may reattach. The shim fetches at most Linux `PIPE_BUF` (4096) bytes per stream
 and advances each durable guest-output offset only after the entire chunk is
@@ -68,6 +75,12 @@ If a consumer remains absent or slow for 30 seconds, the shim logs the exact
 dropped byte count and advances that stream deliberately so process wait and
 cleanup remain bounded. An unconfigured output stream is discarded by
 contract. Input and output FIFO opens honor the Task request context.
+
+Terminal resize is a durable intent. A created process retains it for Start;
+a running process records it before contacting the guest, rolls the record back
+if the guest rejects it, and reapplies the retained size while reconstructing a
+live terminal after shim restart. Stopped and paused process resize requests
+fail without mutating the record.
 
 ## Tests
 
