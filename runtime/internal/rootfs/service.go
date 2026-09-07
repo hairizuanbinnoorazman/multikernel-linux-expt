@@ -29,6 +29,25 @@ type Service struct {
 	mu          sync.Mutex
 }
 
+func (s *Service) cleanupFailedPreparation(record Record) error {
+	var failures []error
+	if err := os.RemoveAll(record.RuntimeDir); err != nil {
+		failures = append(failures, fmt.Errorf("remove runtime artifacts: %w", err))
+	}
+	if err := os.RemoveAll(record.StorageDir); err != nil {
+		failures = append(failures, fmt.Errorf("remove storage artifacts: %w", err))
+	}
+	if err := errors.Join(failures...); err != nil {
+		// Keep the durable record so reconciliation can retry any cleanup that
+		// could not be proven complete.
+		return err
+	}
+	if err := s.store.Delete(record.Request.TaskIdentity); err != nil {
+		failures = append(failures, fmt.Errorf("remove rootfs recovery record: %w", err))
+	}
+	return errors.Join(failures...)
+}
+
 func NewService(store *Store, backend Backend, storageRoot string) (*Service, error) {
 	if store == nil || backend == nil {
 		return nil, errors.New("rootfs store and backend are required")
@@ -182,18 +201,17 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		return PrepareResult{}, err
 	}
 	if err := s.backend.Mount(ctx, request.Mounts, root); err != nil {
-		_ = s.store.Delete(request.TaskIdentity)
-		_ = os.RemoveAll(runtimeDir)
-		_ = os.RemoveAll(storageDir)
-		return PrepareResult{}, err
+		unmountErr := s.backend.Unmount(context.WithoutCancel(ctx), root)
+		if unmountErr != nil {
+			return PrepareResult{}, errors.Join(err, fmt.Errorf("rollback uncertain rootfs mount: %w", unmountErr))
+		}
+		return PrepareResult{}, errors.Join(err, s.cleanupFailedPreparation(record))
 	}
 	record.Phase = "MOUNTED"
 	if err := s.store.Put(record); err != nil {
 		unmountErr := s.backend.Unmount(context.WithoutCancel(ctx), root)
 		if unmountErr == nil {
-			_ = s.store.Delete(request.TaskIdentity)
-			_ = os.RemoveAll(runtimeDir)
-			_ = os.RemoveAll(storageDir)
+			return PrepareResult{}, errors.Join(err, s.cleanupFailedPreparation(record))
 		}
 		return PrepareResult{}, errors.Join(err, unmountErr)
 	}
@@ -203,16 +221,13 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		return PrepareResult{}, errors.Join(buildErr, fmt.Errorf("rootfs unmount failed: %w", unmountErr))
 	}
 	if buildErr != nil {
-		_ = s.store.Delete(request.TaskIdentity)
-		_ = os.RemoveAll(runtimeDir)
-		_ = os.RemoveAll(storageDir)
-		return PrepareResult{}, buildErr
+		return PrepareResult{}, errors.Join(buildErr, s.cleanupFailedPreparation(record))
 	}
 	record.Phase = "PREPARED"
 	record.Storage = &result.Storage
 	record.BuildResult = append([]byte(nil), result.BuildResult...)
 	if err := s.store.Put(record); err != nil {
-		return PrepareResult{}, err
+		return PrepareResult{}, errors.Join(err, s.cleanupFailedPreparation(record))
 	}
 	return result, nil
 }
