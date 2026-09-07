@@ -37,6 +37,10 @@ check, and normalizes imported atime/mtime there. Because POSIX cannot assign
 ctime, the builder normalizes imported inode ctime in the completed image,
 then runs an offline filesystem check before publishing the image and identity
 record. Metadata normalization must never be applied to the caller-owned root.
+Export allocation journals its exact owner and generation as `PREPARING`
+before server creation. An ambiguous start retains that journal; recovery
+stops any exact live partial server, revalidates the image, and restarts with
+the same generation. Only a start that returns success may publish `ACTIVE`.
 
 ### C. Container overlays and volumes
 
@@ -58,6 +62,9 @@ record. Metadata normalization must never be applied to the caller-owned root.
 - Full disk, inode exhaustion, malformed image, wrong UUID, wrong generation,
   stale lock, duplicate attach, server loss during read/write/flush, and
   primary restart.
+- Backend start failure both before mutation and after an exact server becomes
+  live; exact retry and daemon reconciliation must retain the same owner and
+  export generation.
 - Clean child remount-read-only, NBD disconnect, server sync, and offline
   `e2fsck`.
 - Snapshot/clone recovery using disposable copies.
