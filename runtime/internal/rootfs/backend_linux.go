@@ -205,6 +205,9 @@ func writePrivateExclusive(path string, data []byte) error {
 }
 
 func (b *LinuxBackend) Mount(ctx context.Context, input []Mount, target string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	mounts := make([]mount.Mount, len(input))
 	for i, item := range input {
 		options := make([]string, 0, len(item.Options)+3)
@@ -223,10 +226,16 @@ func (b *LinuxBackend) Mount(ctx context.Context, input []Mount, target string) 
 	if err := mount.All(mounts, target); err != nil {
 		return fmt.Errorf("mount read-only source root: %w", err)
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (b *LinuxBackend) Unmount(_ context.Context, target string) error {
+func (b *LinuxBackend) Unmount(ctx context.Context, target string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := mount.UnmountAll(target, 0); err != nil {
 		return err
 	}
@@ -284,8 +293,11 @@ func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, runtim
 	if err != nil {
 		return PrepareResult{}, err
 	}
-	storageDigest, err := fileSHA256(storagePath, storage.SizeBytes)
-	if err != nil || storageDigest != storage.SHA256 {
+	storageDigest, err := fileSHA256(ctx, storagePath, storage.SizeBytes)
+	if err != nil {
+		return PrepareResult{}, fmt.Errorf("verify builder storage image: %w", err)
+	}
+	if storageDigest != storage.SHA256 {
 		return PrepareResult{}, errors.New("builder storage image differs from its declared identity")
 	}
 	if !json.Valid(output) {
@@ -300,7 +312,10 @@ func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, runtim
 	return PrepareResult{Storage: storage, BuildResult: append(json.RawMessage(nil), output...)}, nil
 }
 
-func fileSHA256(path string, expectedSize uint64) (string, error) {
+func fileSHA256(ctx context.Context, path string, expectedSize uint64) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	file, before, err := openTrustedArtifact(path, 16<<30, true)
 	if err != nil {
 		return "", err
@@ -310,12 +325,33 @@ func fileSHA256(path string, expectedSize uint64) (string, error) {
 		return "", errors.New("storage artifact size or allocation differs from its declared quota")
 	}
 	hash := sha256.New()
-	_, copyErr := io.Copy(hash, file)
+	buffer := make([]byte, 1<<20)
+	var copyErr error
+	for {
+		if copyErr = ctx.Err(); copyErr != nil {
+			break
+		}
+		n, readErr := file.Read(buffer)
+		if n > 0 {
+			if _, copyErr = hash.Write(buffer[:n]); copyErr != nil {
+				break
+			}
+		}
+		if readErr != nil {
+			if !errors.Is(readErr, io.EOF) {
+				copyErr = readErr
+			}
+			break
+		}
+	}
 	stableErr := verifyStableArtifact(file, before)
 	return hex.EncodeToString(hash.Sum(nil)), errors.Join(copyErr, stableErr, file.Close())
 }
 
-func (b *LinuxBackend) VerifyPrepared(_ context.Context, record Record) error {
+func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if record.Storage == nil || record.Storage.Path != filepath.Join(record.StorageDir, "root.ext4") {
 		return errors.New("prepared storage path differs from journal")
 	}
@@ -323,6 +359,9 @@ func (b *LinuxBackend) VerifyPrepared(_ context.Context, record Record) error {
 		record.Storage.Path: 16 << 30, filepath.Join(record.RuntimeDir, "initramfs.cpio.gz"): 16 << 30,
 		filepath.Join(record.RuntimeDir, "storage.json"): 1 << 20,
 	} {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		file, _, err := openTrustedArtifact(path, maximum, true)
 		if err != nil {
 			return fmt.Errorf("prepared artifact is missing or unsafe: %s", path)
@@ -331,8 +370,11 @@ func (b *LinuxBackend) VerifyPrepared(_ context.Context, record Record) error {
 			return fmt.Errorf("close prepared artifact %s: %w", path, err)
 		}
 	}
-	digest, err := fileSHA256(record.Storage.Path, record.Storage.SizeBytes)
-	if err != nil || digest != record.Storage.SHA256 {
+	digest, err := fileSHA256(ctx, record.Storage.Path, record.Storage.SizeBytes)
+	if err != nil {
+		return fmt.Errorf("verify prepared storage content: %w", err)
+	}
+	if digest != record.Storage.SHA256 {
 		return errors.New("prepared storage content differs from journal")
 	}
 	metadata, err := loadStorageBuild(filepath.Join(record.RuntimeDir, "storage.json"), record.Storage.Path, record.Storage.Port)

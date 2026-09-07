@@ -291,3 +291,58 @@ func TestValidationRejectsSymlinkBundleAndPropagation(t *testing.T) {
 		t.Fatal("unknown overlay option accepted")
 	}
 }
+
+func TestRootfsOperationsRejectPreCancelledContextWithoutMutation(t *testing.T) {
+	t.Run("prepare", func(t *testing.T) {
+		service, backend, request, _ := rootfsFixture(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if _, err := service.Prepare(ctx, request); !errors.Is(err, context.Canceled) {
+			t.Fatalf("Prepare cancellation error = %v", err)
+		}
+		if len(backend.calls) != 0 || len(service.store.List()) != 0 {
+			t.Fatalf("cancelled Prepare mutated state: calls=%v records=%v", backend.calls, service.store.List())
+		}
+	})
+
+	t.Run("cleanup", func(t *testing.T) {
+		service, backend, request, _ := rootfsFixture(t)
+		result, err := service.Prepare(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		calls := len(backend.calls)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		err = service.Cleanup(ctx, CleanupRequest{Version: Version, Bundle: request.Bundle,
+			TaskIdentity: request.TaskIdentity, StorageSHA256: result.Storage.SHA256})
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Cleanup cancellation error = %v", err)
+		}
+		if len(backend.calls) != calls {
+			t.Fatalf("cancelled Cleanup called backend: %v", backend.calls[calls:])
+		}
+		if _, ok := service.store.Get(request.TaskIdentity); !ok {
+			t.Fatal("cancelled Cleanup removed ownership record")
+		}
+	})
+
+	t.Run("reconcile", func(t *testing.T) {
+		service, backend, request, _ := rootfsFixture(t)
+		if _, err := service.Prepare(context.Background(), request); err != nil {
+			t.Fatal(err)
+		}
+		calls := len(backend.calls)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if err := service.Reconcile(ctx, nil); !errors.Is(err, context.Canceled) {
+			t.Fatalf("Reconcile cancellation error = %v", err)
+		}
+		if len(backend.calls) != calls {
+			t.Fatalf("cancelled Reconcile called backend: %v", backend.calls[calls:])
+		}
+		if _, ok := service.store.Get(request.TaskIdentity); !ok {
+			t.Fatal("cancelled Reconcile removed ownership record")
+		}
+	})
+}

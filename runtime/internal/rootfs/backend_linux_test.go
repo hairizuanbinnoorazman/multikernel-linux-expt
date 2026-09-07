@@ -166,14 +166,14 @@ func TestFileSHA256RequiresExactAllocatedPrivateArtifact(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := sha256.Sum256(payload)
-	digest, err := fileSHA256(path, uint64(len(payload)))
+	digest, err := fileSHA256(context.Background(), path, uint64(len(payload)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if digest != hex.EncodeToString(want[:]) {
 		t.Fatalf("digest = %s, want %x", digest, want)
 	}
-	if _, err = fileSHA256(path, uint64(len(payload))+4096); err == nil {
+	if _, err = fileSHA256(context.Background(), path, uint64(len(payload))+4096); err == nil {
 		t.Fatal("artifact with a size different from its declared quota was accepted")
 	}
 
@@ -189,7 +189,7 @@ func TestFileSHA256RequiresExactAllocatedPrivateArtifact(t *testing.T) {
 	if err = file.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fileSHA256(sparse, 64<<20); err == nil {
+	if _, err = fileSHA256(context.Background(), sparse, 64<<20); err == nil {
 		t.Fatal("sparse artifact without its declared allocation was accepted")
 	}
 
@@ -197,8 +197,20 @@ func TestFileSHA256RequiresExactAllocatedPrivateArtifact(t *testing.T) {
 	if err = os.Symlink(path, symlink); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fileSHA256(symlink, uint64(len(payload))); err == nil {
+	if _, err = fileSHA256(context.Background(), symlink, uint64(len(payload))); err == nil {
 		t.Fatal("symlinked artifact was accepted")
+	}
+}
+
+func TestFileSHA256HonorsCancellation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "root.ext4")
+	if err := os.WriteFile(path, bytes.Repeat([]byte("x"), 4096), 0600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := fileSHA256(ctx, path, 4096); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled hash error = %v", err)
 	}
 }
 
