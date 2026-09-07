@@ -197,7 +197,11 @@ normative plan is revised with an explicit rationale.
   export start now retains `PREPARING` ownership on both pre-mutation and
   post-mutation failure; focused exact-retry and reconciliation tests prove an
   ambiguous live process is stopped and restarted with the same generation
-  before `ACTIVE` is published.
+  before `ACTIVE` is published. The durable storage store also rejects forged
+  keys/identities/states, invalid release evidence, identity changes, state or
+  timestamp regressions, and duplicate live owner/path/port/UUID claims before
+  reconciliation; its file is loaded no-follow with inode, link, mode, and
+  owner checks.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
   dirty recovery; snapshot/clone recovery using disposable copies.

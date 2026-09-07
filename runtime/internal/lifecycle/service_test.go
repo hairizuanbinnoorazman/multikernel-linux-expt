@@ -56,7 +56,7 @@ func (b *lifecycleStorageBackend) Stop(_ context.Context, value storagepkg.Expor
 }
 func (b *lifecycleStorageBackend) OfflineCheck(context.Context, storagepkg.Export) (string, error) {
 	b.calls = append(b.calls, "offline-check")
-	return "clean", nil
+	return "e2fsck-clean-sha256:" + strings.Repeat("c", 64), nil
 }
 
 func (r *failingResolver) Resolve(string) (Artifacts, error) {
@@ -531,7 +531,8 @@ func TestStorageOwnershipParticipatesInCreateDeleteAndRollback(t *testing.T) {
 		if apiErr != nil {
 			t.Fatal(apiErr)
 		}
-		if deleted.Sandbox.Storage == nil || deleted.Sandbox.Storage.State != "RELEASED" || deleted.Sandbox.Storage.OfflineCheck != "clean" || deleted.Sandbox.Storage.Writes != 2 {
+		if deleted.Sandbox.Storage == nil || deleted.Sandbox.Storage.State != "RELEASED" ||
+			!strings.HasPrefix(deleted.Sandbox.Storage.OfflineCheck, "e2fsck-clean-sha256:") || deleted.Sandbox.Storage.Writes != 2 {
 			t.Fatalf("deleted storage = %+v", deleted.Sandbox.Storage)
 		}
 		if strings.Join(storageBackend.calls, ",") != "inspect,storage-start,storage-stop,offline-check" {

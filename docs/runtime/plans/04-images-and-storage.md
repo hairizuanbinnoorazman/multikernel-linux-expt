@@ -41,6 +41,10 @@ Export allocation journals its exact owner and generation as `PREPARING`
 before server creation. An ambiguous start retains that journal; recovery
 stops any exact live partial server, revalidates the image, and restarts with
 the same generation. Only a start that returns success may publish `ACTIVE`.
+The storage journal is loaded as untrusted input: its file identity and owner,
+record keys, immutable export identities, state-specific completion fields,
+UTC timestamps, live-owner uniqueness, and forward-only transitions are all
+validated before reconciliation may inspect or signal a backend process.
 
 ### C. Container overlays and volumes
 
