@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -19,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 	"golang.org/x/sys/unix"
 )
 
@@ -117,6 +117,13 @@ func read(root, name string) string {
 	return strings.TrimSpace(string(b))
 }
 
+const maxHostCommandOutput = 64 << 10
+
+func runHostCommand(ctx context.Context, timeout time.Duration, binary string, arguments ...string) ([]byte, error) {
+	return boundedexec.Run(ctx, timeout, binary, arguments,
+		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, maxHostCommandOutput)
+}
+
 func Check(ctx context.Context, o Options) Report {
 	if o.Root == "" {
 		o.Root = "/"
@@ -127,7 +134,7 @@ func Check(ctx context.Context, o Options) Report {
 	if o.MinPrimaryMemByte == 0 {
 		o.MinPrimaryMemByte = 8 << 30
 	}
-	if o.Timeout == 0 {
+	if o.Timeout <= 0 {
 		o.Timeout = 5 * time.Second
 	}
 	r := Report{SchemaVersion: SchemaVersion, GeneratedAt: time.Now().UTC(), Architecture: runtime.GOARCH, KernelConfig: map[string]string{}, PCIClasses: map[string]string{}, SMTPolicy: "whole-core"}
@@ -159,25 +166,19 @@ func Check(ctx context.Context, o Options) Report {
 	r.PCIClasses = pciClasses(o.Root)
 	r.ProtectedDevices, r.ForbiddenPCIFunctions = protectedDevices(o.Root)
 	r.KernelConfig = kernelConfig(o.Root, r.KernelRelease)
-	r.GuestAgent = guestAgent(o.Root)
+	r.GuestAgent = guestAgent(ctx, o.Root, o.Timeout)
 	if o.Root == "/" && o.Kerf != "" {
-		cctx, cancel := context.WithTimeout(ctx, o.Timeout)
-		defer cancel()
-		out, err := exec.CommandContext(cctx, o.Kerf, "--version").CombinedOutput()
+		out, err := runHostCommand(ctx, o.Timeout, o.Kerf, "--version")
 		if err == nil {
 			r.KerfVersion = strings.TrimSpace(string(out))
 		}
-		showctx, showcancel := context.WithTimeout(ctx, o.Timeout)
-		defer showcancel()
-		out, err = exec.CommandContext(showctx, o.Kerf, "show").CombinedOutput()
+		out, err = runHostCommand(ctx, o.Timeout, o.Kerf, "show")
 		if err == nil {
 			r.KerfState = strings.TrimSpace(string(out))
 		}
 		if len(o.ProbeCPUs) != 0 && o.ProbeMemory != "" {
-			probectx, probecancel := context.WithTimeout(ctx, o.Timeout)
-			defer probecancel()
 			args := []string{"init", "--cpus=" + intList(o.ProbeCPUs), "--memory=" + o.ProbeMemory, "--devices=none", "--dry-run"}
-			out, err = exec.CommandContext(probectx, o.Kerf, args...).CombinedOutput()
+			out, err = runHostCommand(ctx, o.Timeout, o.Kerf, args...)
 			r.ContiguousProbe = strings.TrimSpace(string(out))
 			if err == nil {
 				r.ContiguousAllocation = "ready"
@@ -465,12 +466,11 @@ func kimageIDs(raw string) []string {
 	return ids
 }
 
-func guestAgent(root string) string {
+func guestAgent(ctx context.Context, root string, timeout time.Duration) string {
 	if root != "/" {
 		return valueOrUnknown(read(root, "/run/google-guest-agent.status"))
 	}
-	c := exec.Command("systemctl", "is-active", "google-guest-agent")
-	b, e := c.Output()
+	b, e := runHostCommand(ctx, timeout, "/usr/bin/systemctl", "is-active", "google-guest-agent")
 	if e != nil {
 		return "unknown"
 	}

@@ -55,3 +55,5 @@ use the same runner with a 30-second default and bounded combined-output
 diagnostics.
 Kerf lifecycle commands also use it; failure reports retain only output byte
 count and digest so verbose Kerf output cannot disclose the agent token.
+Read-only host-qualification probes use a smaller 64-KiB retention ceiling and
+fail closed when a command times out or overflows it.

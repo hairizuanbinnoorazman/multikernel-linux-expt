@@ -436,7 +436,10 @@ normative plan is revised with an explicit rationale.
   Caller cancellation is checked before commands and sysfs observations and
   cannot be converted to success by an already-matching state. Focused
   descendant-timeout, secret-safe overflow, and canceled-observation tests
-  pass; the live cross-service cancellation/leak matrix is still open.
+  pass. Host-qualification Kerf and guest-agent probes now share the bounded
+  runner with a five-second default and 64-KiB combined-output ceiling; focused
+  descendant-timeout, overflow, and mixed-output tests pass. The live
+  cross-service cancellation/leak matrix is still open.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

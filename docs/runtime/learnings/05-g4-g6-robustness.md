@@ -400,3 +400,12 @@ already-matching sysfs state cannot convert cancellation into success. Focused
 tests prove timeout kills a background descendant, overflow remains secret-safe,
 and canceled observation never executes or succeeds; live child-boot
 cancellation and leak evidence remains open.
+
+Host qualification also used separately bounded `CommandContext` calls whose
+`CombinedOutput` retention was unlimited, while its guest-agent `systemctl`
+probe had neither a deadline nor descendant cleanup. All external read-only
+probes now share the process-group runner with caller cancellation, a
+five-second default, and a 64-KiB combined-output ceiling. Overflow or timeout
+leaves a critical qualification signal unknown or unavailable, so it fails
+closed. Focused tests cover descendant timeout, overflow, and mixed output;
+replacement-host report capture remains required.
