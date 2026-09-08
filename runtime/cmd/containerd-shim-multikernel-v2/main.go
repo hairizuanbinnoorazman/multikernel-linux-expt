@@ -288,6 +288,7 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 	}
 	s.netEndpoint = p.Network
 	_ = s.stopNetwork()
+	_ = s.stopRelay()
 	_ = s.releaseNetwork(ctx)
 	if p.ID != "" {
 		_, _ = daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil)
@@ -464,7 +465,7 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) 
 	return errors.Join(err, closeErr)
 }
 
-func (s *service) recoverExisting(ctx context.Context) error {
+func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	runtimeDir := filepath.Join(s.bundle, ".multikernel")
 	b, err := os.ReadFile(filepath.Join(runtimeDir, "sandbox.json"))
 	if errors.Is(err, os.ErrNotExist) {
@@ -515,31 +516,29 @@ func (s *service) recoverExisting(ctx context.Context) error {
 	s.netErrors.Store(bound.Errors)
 	s.relaySocket = relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
 	_ = os.Remove(s.relaySocket)
-	s.relay = exec.Command(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), "server", strconv.Itoa(int(s.sandbox.Config.AgentPort)), s.relaySocket)
+	s.relay = newRelayCommand(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), s.sandbox.Config.AgentPort, s.relaySocket)
 	if err = s.relay.Start(); err != nil {
-		return fmt.Errorf("restart recovered agent relay: %w", err)
+		return errors.Join(fmt.Errorf("restart recovered agent relay: %w", err), s.stopRelay())
 	}
 	recovered := false
 	defer func() {
 		if recovered {
 			return
 		}
+		var cleanupErrors []error
 		for _, process := range s.processes {
 			closeProcessIO(process)
 		}
 		if s.agent != nil {
-			_ = s.agent.Close()
+			cleanupErrors = append(cleanupErrors, s.agent.Close())
 			s.agent = nil
 		}
 		if s.netDevice != nil {
-			_ = s.netDevice.Close()
+			cleanupErrors = append(cleanupErrors, s.netDevice.Close())
 			s.netDevice = nil
 		}
-		if s.relay != nil && s.relay.Process != nil {
-			_ = s.relay.Process.Kill()
-			_, _ = s.relay.Process.Wait()
-			s.relay = nil
-		}
+		cleanupErrors = append(cleanupErrors, s.stopRelay())
+		retErr = errors.Join(retErr, errors.Join(cleanupErrors...))
 	}()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
@@ -636,6 +635,44 @@ func relaySocketPath(port uint32, generation string) string {
 		generation = generation[:12]
 	}
 	return filepath.Join("/run", "mk-agent-"+strconv.Itoa(int(port))+"-"+generation+".sock")
+}
+
+func newRelayCommand(binary string, port uint32, socket string) *exec.Cmd {
+	command := exec.Command(binary, "server", strconv.Itoa(int(port)), socket)
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	return command
+}
+
+func terminateRelay(command *exec.Cmd) error {
+	if command == nil || command.Process == nil {
+		return nil
+	}
+	err := syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
+	if err != nil && !errors.Is(err, syscall.ESRCH) {
+		return err
+	}
+	waitErr := command.Wait()
+	var exitErr *exec.ExitError
+	if waitErr == nil || errors.As(waitErr, &exitErr) {
+		return nil
+	}
+	return waitErr
+}
+
+func (s *service) stopRelay() error {
+	if s.relay != nil {
+		if err := terminateRelay(s.relay); err != nil {
+			return err
+		}
+		s.relay = nil
+	}
+	if s.relaySocket != "" {
+		if err := os.Remove(s.relaySocket); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		s.relaySocket = ""
+	}
+	return nil
 }
 
 // sandboxID maps the containerd namespace/task tuple into the daemon's global
@@ -1003,17 +1040,14 @@ func (s *service) connectAgent(ctx context.Context) error {
 	}
 	s.netEndpoint, s.netDevice = endpoint, device
 	if err := s.persistRecovery(); err != nil {
-		_ = s.stopNetwork()
-		return fmt.Errorf("persist network recovery state: %w", err)
+		return errors.Join(fmt.Errorf("persist network recovery state: %w", err), s.stopNetwork(), s.stopRelay())
 	}
-	s.relay = exec.Command(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), "server", strconv.Itoa(int(s.sandbox.Config.AgentPort)), sock)
+	s.relay = newRelayCommand(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), s.sandbox.Config.AgentPort, sock)
 	if err := s.relay.Start(); err != nil {
-		_ = s.stopNetwork()
-		return err
+		return errors.Join(err, s.stopNetwork(), s.stopRelay())
 	}
 	if _, err := daemon.Mutation(ctx, s.daemon, "StartSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-start-"+s.sandbox.Generation, nil); err != nil {
-		_ = s.stopNetwork()
-		return err
+		return errors.Join(err, s.stopNetwork(), s.stopRelay())
 	}
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
@@ -1026,19 +1060,16 @@ func (s *service) connectAgent(ctx context.Context) error {
 			}, nil); err != nil {
 				_ = s.agent.Close()
 				s.agent = nil
-				_ = s.stopNetwork()
-				return fmt.Errorf("configure child network: %w", err)
+				return errors.Join(fmt.Errorf("configure child network: %w", err), s.stopNetwork(), s.stopRelay())
 			}
 			s.startNetworkPump()
 			return nil
 		}
 		if err := waitContext(ctx, 100*time.Millisecond); err != nil {
-			_ = s.stopNetwork()
-			return err
+			return errors.Join(err, s.stopNetwork(), s.stopRelay())
 		}
 	}
-	_ = s.stopNetwork()
-	return errors.New("timed out connecting to child agent")
+	return errors.Join(errors.New("timed out connecting to child agent"), s.stopNetwork(), s.stopRelay())
 }
 
 func (s *service) startNetworkPump() {
@@ -1800,6 +1831,9 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 			if closeErr != nil {
 				return abort(fmt.Errorf("close guest agent: %w", closeErr))
 			}
+		}
+		if err := s.stopRelay(); err != nil {
+			return abort(fmt.Errorf("stop agent relay: %w", err))
 		}
 		if err := s.releaseNetwork(ctx); err != nil {
 			return abort(fmt.Errorf("release primary network endpoint: %w", err))

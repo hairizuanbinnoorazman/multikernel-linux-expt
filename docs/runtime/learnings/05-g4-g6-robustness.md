@@ -418,3 +418,13 @@ dedicated process groups and termination kills and reaps the group rather than
 only the leader. Focused tests cover blocked writes, blocked reads, bounded
 termination, and descendant cleanup; current-revision VM revalidation remains
 open.
+
+Shim-owned agent relays had no symmetric lifecycle: they were started without
+a process group, several connection-failure paths left them running, and normal
+task deletion never reaped them after guest shutdown. Relay ownership is now
+explicit. Starts create a dedicated process group; failed connection or
+reconstruction, normal Delete, and fallback Cleanup kill and reap it. Normal
+Delete preserves the transport through the final authenticated guest Shutdown
+reply, and relay-socket removal remains retryable on failure. Focused tests
+prove descendant removal and socket cleanup retry; live process inventories
+remain required.

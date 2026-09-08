@@ -361,8 +361,12 @@ normative plan is revised with an explicit rationale.
   `Shutdown` now refuses to terminate while any process record remains, then
   atomically seals an empty service against Create, requires the durable event
   journal to flush, and joins event retry before invoking shutdown once. A
-  failed flush leaves shutdown retryable. The complete cross-process restart
-  transfer and live identity transcript remain open.
+  failed flush leaves shutdown retryable. Agent relays are now explicit shim
+  ownership: every start uses a dedicated process group, every connection or
+  reconstruction failure reaps that group, normal Delete stops it only after
+  the final guest Shutdown reply, and a failed socket removal retains its path
+  for retry. Focused descendant and socket-cleanup tests pass. The complete
+  cross-process restart transfer and live identity transcript remain open.
 - [x] Implement faithful guest PID reporting or define a versioned virtual PID
   mapping. `Start`, `State`, `Pids`, `Connect`, exit, and delete now report the
   guest PID under mapping version `multikernel-v1-guest-pid`; the pre-start

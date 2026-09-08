@@ -67,6 +67,13 @@ the event journal must flush before rootfs artifacts or the final process
 record are removed. Retrying can therefore resume idempotent external cleanup
 without losing the exit-before-delete order.
 
+The shim owns each agent relay that it starts. Relays run in dedicated process
+groups; failed connection setup, failed reconstruction, normal task deletion,
+and fallback cleanup kill and reap the complete group. Relay-socket removal is
+retryable and its path remains owned until removal succeeds. Normal deletion
+keeps the relay alive through the final authenticated guest `Shutdown` reply,
+then terminates it before releasing the primary network endpoint.
+
 Output FIFOs are opened nonblocking with a guard endpoint so detached clients
 may reattach. The shim fetches at most Linux `PIPE_BUF` (4096) bytes per stream
 and advances each durable guest-output offset only after the entire chunk is
@@ -115,6 +122,8 @@ rather than wrapping a task metric.
 - Shim crash while a task runs and shim reconnect/recovery.
 - Duplicate requests, context cancellation, deadline expiry, and FIFO peer
   disappearance.
+- Relay descendants and sockets are absent after connection failure,
+  reconstruction failure, normal deletion, and cleanup retry.
 - Unsupported OCI configuration fails before resource allocation where
   possible and always cleans up if allocation already occurred.
 - Two concurrent sandboxes using disjoint child resources.
