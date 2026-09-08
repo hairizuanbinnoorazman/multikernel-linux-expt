@@ -73,6 +73,11 @@ before filesystem or journal mutation. Mount entry and artifact verification
 do the same, and storage-image hashing observes cancellation between one-MiB
 chunks rather than monopolizing the rootfs service through a complete image
 scan.
+Storage Provision, Release, and Reconcile must similarly reject cancellation
+before an ownership transition. Each backend operation checks before external
+inspection or process mutation; in particular, Stop cannot signal an export
+after its request is already cancelled, and image inspection polls between
+four-MiB hash reads.
 
 ### C. Container overlays and volumes
 

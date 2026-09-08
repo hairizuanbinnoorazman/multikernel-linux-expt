@@ -301,3 +301,52 @@ func TestReconcileRetainsQuiescingExportWithoutGracefulCloseProof(t *testing.T) 
 		t.Fatalf("diagnosable quiescing state was lost: %+v", retained)
 	}
 }
+
+func TestStorageOperationsRejectPreCancelledContextWithoutMutation(t *testing.T) {
+	t.Run("provision", func(t *testing.T) {
+		service, store, backend, image := fixture(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if _, err := service.Provision(ctx, "box-a", sandboxGeneration, image); !errors.Is(err, context.Canceled) {
+			t.Fatalf("Provision cancellation error = %v", err)
+		}
+		if len(backend.calls) != 0 || len(store.List()) != 0 {
+			t.Fatalf("cancelled Provision mutated state: calls=%v records=%v", backend.calls, store.List())
+		}
+	})
+
+	t.Run("release", func(t *testing.T) {
+		service, store, backend, image := fixture(t)
+		value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+		if err != nil {
+			t.Fatal(err)
+		}
+		calls := len(backend.calls)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if _, err = service.Release(ctx, "box-a", sandboxGeneration, value.ExportGeneration); !errors.Is(err, context.Canceled) {
+			t.Fatalf("Release cancellation error = %v", err)
+		}
+		current, ok := store.Get("box-a", sandboxGeneration)
+		if !ok || current.State != "ACTIVE" || len(backend.calls) != calls {
+			t.Fatalf("cancelled Release mutated state: record=%+v calls=%v", current, backend.calls[calls:])
+		}
+	})
+
+	t.Run("reconcile", func(t *testing.T) {
+		service, store, backend, image := fixture(t)
+		if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err != nil {
+			t.Fatal(err)
+		}
+		calls := len(backend.calls)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if err := service.Reconcile(ctx); !errors.Is(err, context.Canceled) {
+			t.Fatalf("Reconcile cancellation error = %v", err)
+		}
+		current, ok := store.Get("box-a", sandboxGeneration)
+		if !ok || current.State != "ACTIVE" || len(backend.calls) != calls {
+			t.Fatalf("cancelled Reconcile mutated state: record=%+v calls=%v", current, backend.calls[calls:])
+		}
+	})
+}
