@@ -68,10 +68,12 @@ load/start/stop failure injections, one-shot client disappearance, two-child
 daemon-`SIGKILL` recovery, and the 8 GB pre-backend admission rejection. G3
 first reached the final Shutdown reply and child-scoped `loaded` transition but
 found that a controller-owned relay can return to listen and make the controller
-wait forever. Deterministic relay kill/reap was added with focused race-tested
-coverage; the corrected rerun passed non-root identity, the safe negative
-authentication/framing matrix, relay-loss reconnect, measured capabilities,
-explicit shutdown/poweroff, and credential redaction. The downloaded
+wait forever. Deterministic process-group relay kill/reap and 30-second
+complete-exchange deadlines now have focused blocked-write, blocked-read, and
+descendant-reap coverage; the corrected historical rerun passed non-root
+identity, the safe negative authentication/framing matrix, relay-loss
+reconnect, measured capabilities, explicit shutdown/poweroff, and credential
+redaction. The downloaded
 [final evidence set](../../../evidence/runtime-20260904/g0-g3-final/README.md)
 passes its remote checksums and has one assertion-mapped manifest per gate.
 

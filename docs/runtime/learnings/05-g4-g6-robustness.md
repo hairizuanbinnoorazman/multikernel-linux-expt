@@ -409,3 +409,12 @@ five-second default, and a 64-KiB combined-output ceiling. Overflow or timeout
 leaves a critical qualification signal unknown or unavailable, so it fails
 closed. Focused tests cover descendant timeout, overflow, and mixed output;
 replacement-host report capture remains required.
+
+The direct-agent evidence controller previously performed framed writes and
+reads without deadlines, so an accepted but silent relay could stall the live
+matrix. Its complete exchanges, including malformed and authentication probes,
+now have a 30-second deadline. Controller-owned reconnect relays run in
+dedicated process groups and termination kills and reaps the group rather than
+only the leader. Focused tests cover blocked writes, blocked reads, bounded
+termination, and descendant cleanup; current-revision VM revalidation remains
+open.

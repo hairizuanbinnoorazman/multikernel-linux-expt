@@ -12,13 +12,27 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 )
 
+const agentExchangeTimeout = 30 * time.Second
+
 func exchangePayload(c net.Conn, payload []byte) (agent.Reply, error) {
+	return exchangePayloadWithTimeout(c, payload, agentExchangeTimeout)
+}
+
+func exchangePayloadWithTimeout(c net.Conn, payload []byte, timeout time.Duration) (agent.Reply, error) {
+	if timeout <= 0 {
+		return agent.Reply{}, errors.New("agent exchange timeout must be positive")
+	}
+	if err := c.SetDeadline(time.Now().Add(timeout)); err != nil {
+		return agent.Reply{}, err
+	}
+	defer c.SetDeadline(time.Time{})
 	var header [4]byte
 	var err error
 	binary.BigEndian.PutUint32(header[:], uint32(len(payload)))
@@ -65,7 +79,14 @@ func terminateRelay(command *exec.Cmd) error {
 		return nil
 	}
 	if command.Process != nil {
-		if err := command.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		pid := command.Process.Pid
+		err := error(nil)
+		if command.SysProcAttr != nil && command.SysProcAttr.Setpgid {
+			err = syscall.Kill(-pid, syscall.SIGKILL)
+		} else {
+			err = command.Process.Kill()
+		}
+		if err != nil && !errors.Is(err, os.ErrProcessDone) && !errors.Is(err, syscall.ESRCH) {
 			return err
 		}
 	}
@@ -221,6 +242,7 @@ func main() {
 		}
 		_ = os.Remove(unixSocket)
 		ownedRelay = exec.Command(relay, "server", fmt.Sprint(port), unixSocket)
+		ownedRelay.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		if err = ownedRelay.Start(); err != nil {
 			fmt.Fprintln(os.Stderr, "start reconnect relay:", err)
 			os.Exit(1)
@@ -237,6 +259,10 @@ func main() {
 	}
 	if authMatrix {
 		var header [4]byte
+		if err = conn.SetDeadline(time.Now().Add(agentExchangeTimeout)); err != nil {
+			fmt.Fprintln(os.Stderr, "oversized frame deadline:", err)
+			os.Exit(1)
+		}
 		binary.BigEndian.PutUint32(header[:], 1<<20+1)
 		if _, err = conn.Write(header[:]); err != nil {
 			fmt.Fprintln(os.Stderr, "oversized frame write:", err)

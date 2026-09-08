@@ -47,6 +47,8 @@ unsupported field remains a hard error before allocation.
 - Agent disconnect and reconnect policy.
 - Protocol replay, stale generation, oversized frame, malformed message, and
   unauthenticated peer rejection.
+- Controller request-write and response-read deadlines, plus complete
+  process-group cleanup for controller-owned reconnect relays.
 - A minimal BusyBox OCI bundle whose `/bin/busybox` comes from the bundle root,
   while `uname` proves the separately selected child kernel is running.
 - Wrong image architecture and unsupported required kernel/OCI features fail
@@ -72,3 +74,6 @@ live matrices pass. Namespace/capability/rlimit/cgroup application remains
 mandatory for G6 production container support; G3 proves that those fields are
 rejected rather than discarded. The policy and protocol schemas must stay
 synchronized with the implemented method and terminal evolution.
+`mk-agentctl` applies a 30-second deadline to each complete framed exchange,
+including negative authentication/framing probes, and starts owned reconnect
+relays in dedicated process groups so teardown kills and reaps descendants.
