@@ -116,9 +116,11 @@ caused the child to report shutdown and return to Kerf `loaded`, but exposed a
 primary-side cleanup defect: the final controller-owned C relay returned to its
 listen loop after the child endpoint disappeared, so `mk-agentctl` blocked in
 `Wait`. The harness was safely interrupted and reclaimed the child. The
-controller now explicitly kills and reaps each owned reconnect relay; a focused
-test proves termination is bounded and the full race suite passes. The corrected
-rerun then completed, and its
+controller now explicitly kills and reaps each owned reconnect relay. Current
+code places the relay in a dedicated process group, bounds every complete
+controller exchange to 30 seconds, and has focused blocked-write, blocked-read,
+and descendant-reap tests. The corrected historical rerun then completed, and
+its
 [manifest and lifecycle JSON](../../../evidence/runtime-20260904/g0-g3-final/README.md)
 retain the negative matrix, exact process result, reconnect, final Shutdown
 reply, child poweroff/`loaded` transition, resource return, and token-redaction

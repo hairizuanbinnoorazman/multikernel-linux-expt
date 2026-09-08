@@ -559,6 +559,11 @@ normative plan is revised with an explicit rationale.
   runner streams combined output, records redacted argv and UTC boundaries,
   preserves nonzero exit status, and fsyncs the transcript. Equivalent value
   capture in every isolated fault harness remains open.
+  `mk-agentctl` now applies a 30-second deadline to complete framed exchanges,
+  including malformed/authentication probes, and kills controller-owned relay
+  process groups. Focused blocked-write, blocked-read, and descendant-reap
+  tests prevent that portion of the live harness from stalling indefinitely;
+  current-revision VM execution remains open.
 - [ ] Capture relevant `journalctl` output for containerd, Docker,
   `mkruntimed`, shim, relay/network service, guest agent, and kernel/serial logs
   around every restart and fault injection.
