@@ -429,8 +429,14 @@ normative plan is revised with an explicit rationale.
   boundary with focused cancellation and overflow tests. Privileged network
   commands in both the primary and guest now use that runner as well. Focused
   deadline, descendant, output-bound, pre-mutation cancellation, and retryable
-  DNS-cleanup tests pass; the live cross-service cancellation/leak matrix is
-  still open.
+  DNS-cleanup tests pass. Kerf lifecycle commands now use the shared runner too:
+  caller cancellation and a 30-second default kill the complete process group,
+  output retention is capped at one MiB, and failures expose only retained byte
+  count and SHA-256 rather than verbose output that may contain the agent token.
+  Caller cancellation is checked before commands and sysfs observations and
+  cannot be converted to success by an already-matching state. Focused
+  descendant-timeout, secret-safe overflow, and canceled-observation tests
+  pass; the live cross-service cancellation/leak matrix is still open.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

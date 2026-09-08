@@ -20,7 +20,14 @@ Implement `mkruntimed` with a versioned Unix-domain API:
 - an event stream.
 
 Add a Kerf adapter with explicit argv construction, sanitized environment,
-bounded execution time, captured structured output, and no shell expansion.
+bounded execution time, process-group termination, bounded combined-output
+capture, digest-only failure evidence, and no shell expansion. The adapter
+inherits an earlier caller deadline, defaults to 30 seconds and one MiB, and
+never returns verbose Kerf output that could echo the guest authentication
+token. Caller cancellation is checked before command, observation, and
+inventory work and cannot be reclassified as success by an already-matching
+sysfs state; only a command's internally bounded ambiguous outcome may use
+exact-state observation.
 Persist a write-ahead operation journal under a configurable state directory.
 Use one global allocation lock and one lock per sandbox.
 The Unix client must apply the earlier of the caller's deadline and a bounded
@@ -33,7 +40,9 @@ version and request ID match the originating request.
 ## Tests without Multikernel
 
 - Fake-Kerf happy path and every nonzero exit.
-- Timeout, truncated output, malformed state, and killed daemon.
+- Timeout with descendants, output overflow and secret-safe evidence, caller
+  cancellation with an already-matching observation, malformed state, and
+  killed daemon.
 - Duplicate create/start/stop/delete requests.
 - Two concurrent allocations racing for the same resource.
 - Restart at every lifecycle transition and deterministic reconciliation.

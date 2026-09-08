@@ -389,3 +389,14 @@ blocked reads, pre-dial cancellation, the default bound, and normal response
 decoding. Replies are strict-decoded and bound to the originating protocol
 version and request ID. Other blocking boundaries and live leak checks remain
 to be audited.
+
+Kerf lifecycle execution already had a nominal timeout, but retained unbounded
+`CombinedOutput`; verbose load output could also echo the guest authentication
+token embedded in the kernel command line. It now uses the shared bounded
+process-group runner with caller cancellation, a 30-second default, and a
+one-MiB retention ceiling. Failures report only retained byte count and SHA-256.
+Caller cancellation is checked before execution and observation, so an
+already-matching sysfs state cannot convert cancellation into success. Focused
+tests prove timeout kills a background descendant, overflow remains secret-safe,
+and canceled observation never executes or succeeds; live child-boot
+cancellation and leak evidence remains open.

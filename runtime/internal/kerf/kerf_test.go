@@ -5,9 +5,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -130,7 +132,7 @@ func TestDeleteAcceptsCommittedNonzeroExit(t *testing.T) {
 
 func TestBackendTimeoutIsBounded(t *testing.T) {
 	script := filepath.Join(t.TempDir(), "kerf")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 5\n"), 0755); err != nil {
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 60 & wait\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	client := &CLI{Path: script, Timeout: 10 * time.Millisecond}
@@ -141,6 +143,57 @@ func TestBackendTimeoutIsBounded(t *testing.T) {
 	}
 	if elapsed := time.Since(started); elapsed > time.Second {
 		t.Fatalf("timeout took %s", elapsed)
+	}
+}
+
+func TestBackendOutputIsBoundedAndSecretSafe(t *testing.T) {
+	script := filepath.Join(t.TempDir(), "kerf")
+	contents := "#!/bin/sh\nprintf super-secret >&2\nhead -c 4097 /dev/zero\nexit 9\n"
+	if err := os.WriteFile(script, []byte(contents), 0755); err != nil {
+		t.Fatal(err)
+	}
+	client := &CLI{Path: script, Timeout: time.Second, MaxOutput: 4096}
+	err := client.EnsurePool(context.Background())
+	if !errors.Is(err, boundedexec.ErrOutputLimit) {
+		t.Fatalf("overflow error = %v", err)
+	}
+	if strings.Contains(err.Error(), "super-secret") {
+		t.Fatalf("Kerf error disclosed command output: %v", err)
+	}
+	if !strings.Contains(err.Error(), "retained_output_bytes=4096") || !strings.Contains(err.Error(), "retained_output_sha256=") {
+		t.Fatalf("Kerf error lacks bounded output evidence: %v", err)
+	}
+}
+
+func TestCallerCancellationCannotBeAcceptedAsObservedSuccess(t *testing.T) {
+	root := t.TempDir()
+	instance := filepath.Join(root, "instances", "box")
+	if err := os.MkdirAll(instance, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(instance, "status"), []byte("created\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(t.TempDir(), "executed")
+	script := filepath.Join(t.TempDir(), "kerf")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\ntouch '"+marker+"'\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	client := &CLI{Path: script, Sysfs: root, Timeout: time.Second}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	sandbox := protocol.Sandbox{ID: "box", Config: protocol.SandboxConfig{CPUs: []int{8}, MemoryBytes: 1 << 30, ChildCID: 2}}
+	if err := client.Create(ctx, sandbox); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled create with matching observed state = %v", err)
+	}
+	if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("cancelled Kerf command executed: %v", err)
+	}
+	if _, err := client.Observe(ctx, sandbox.ID); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled observation error = %v", err)
+	}
+	if _, err := client.ListInstances(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled inventory error = %v", err)
 	}
 }
 
