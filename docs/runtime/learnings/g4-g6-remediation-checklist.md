@@ -454,6 +454,13 @@ normative plan is revised with an explicit rationale.
   path validation is covered. Stdio validation and descriptor acquisition now
   apply the no-symlink, stable-identity contract described above; the broader
   hostile-input/failure matrix and disposable-host evidence remain open.
+  Reconstruction and fallback Cleanup now share a bounded, no-symlink,
+  caller-owned single-link recovery-file loader with stable identity and strict
+  decoding. It binds sandbox/generation/task/storage/network ownership and
+  validates bounded unique process state before external action. Cleanup no
+  longer suppresses network, relay, sandbox, or rootfs failures; a failed stop
+  prevents deletion and rootfs removal. Focused wrong-owner, malformed-state,
+  symlink, partial-network, stop-failure, and rootfs-failure tests pass.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and

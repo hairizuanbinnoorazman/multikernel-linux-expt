@@ -428,3 +428,13 @@ Delete preserves the transport through the final authenticated guest Shutdown
 reply, and relay-socket removal remains retryable on failure. Focused tests
 prove descendant removal and socket cleanup retry; live process inventories
 remain required.
+
+Fallback shim Cleanup previously followed and loosely decoded `sandbox.json`,
+accepted incomplete ownership, and ignored every network, relay, daemon, and
+rootfs error before returning success. Reconstruction and Cleanup now share a
+strict bounded `openat2` loader that checks caller ownership, link count, mode,
+stable identity, exact task/generation/storage/network ownership, and bounded
+unique process state. Invalid state fails before mutation. Cleanup aggregates
+teardown failures, will not delete after a failed stop, and reaches rootfs
+cleanup only after confirmed sandbox deletion. Focused adversarial state and
+ordered failure tests pass; forced-shim live cleanup evidence remains open.

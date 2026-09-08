@@ -1401,3 +1401,167 @@ func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
 		}
 	})
 }
+
+func validPersistedRecovery(namespace, task string) persisted {
+	return persisted{
+		SchemaVersion: 1,
+		ID:            sandboxID(namespace, task),
+		Generation:    strings.Repeat("a", 32),
+		TaskIdentity:  storageTaskIdentity(namespace, task),
+		Processes:     []persistedProcess{{ID: "", Status: tasktypes.Status_STOPPED}},
+	}
+}
+
+func TestRecoveryStateIsBoundedStrictAndIdentityBound(t *testing.T) {
+	namespace, task := "default", "task-a"
+	valid := validPersistedRecovery(namespace, task)
+	encode := func(t *testing.T, value persisted) []byte {
+		t.Helper()
+		data, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "sandbox.json")
+		if err := os.WriteFile(path, encode(t, valid), 0600); err != nil {
+			t.Fatal(err)
+		}
+		loaded, found, err := loadPersistedRecovery(path, namespace, task)
+		if err != nil || !found || loaded.ID != valid.ID || loaded.Generation != valid.Generation {
+			t.Fatalf("loaded recovery = %+v, found=%v error=%v", loaded, found, err)
+		}
+	})
+
+	for name, mutate := range map[string]func(*persisted){
+		"wrong sandbox":     func(value *persisted) { value.ID = sandboxID(namespace, "other") },
+		"wrong generation":  func(value *persisted) { value.Generation = "short" },
+		"wrong task owner":  func(value *persisted) { value.TaskIdentity = storageTaskIdentity(namespace, "other") },
+		"partial network":   func(value *persisted) { value.Network.SandboxID = value.ID },
+		"duplicate process": func(value *persisted) { value.Processes = append(value.Processes, value.Processes[0]) },
+		"invalid state":     func(value *persisted) { value.Processes[0].Status = tasktypes.Status_UNKNOWN },
+	} {
+		t.Run(name, func(t *testing.T) {
+			value := valid
+			value.Processes = append([]persistedProcess(nil), valid.Processes...)
+			mutate(&value)
+			path := filepath.Join(t.TempDir(), "sandbox.json")
+			if err := os.WriteFile(path, encode(t, value), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := loadPersistedRecovery(path, namespace, task); err == nil {
+				t.Fatalf("unsafe recovery accepted: %+v", value)
+			}
+		})
+	}
+
+	t.Run("unknown field", func(t *testing.T) {
+		data := encode(t, valid)
+		data = append(data[:len(data)-1], []byte(`,"unknown":true}`)...)
+		path := filepath.Join(t.TempDir(), "sandbox.json")
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := loadPersistedRecovery(path, namespace, task); err == nil {
+			t.Fatal("recovery with unknown field was accepted")
+		}
+	})
+
+	t.Run("symlink", func(t *testing.T) {
+		directory := t.TempDir()
+		target := filepath.Join(directory, "target")
+		if err := os.WriteFile(target, encode(t, valid), 0600); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(directory, "sandbox.json")
+		if err := os.Symlink(target, path); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := loadPersistedRecovery(path, namespace, task); err == nil {
+			t.Fatal("symlinked recovery was accepted")
+		}
+	})
+}
+
+func TestFallbackCleanupPropagatesStopFailureBeforeDelete(t *testing.T) {
+	bundle := t.TempDir()
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	namespace, task := "default", "task-a"
+	data, err := json.Marshal(validPersistedRecovery(namespace, task))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Chdir(bundle); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(previous)
+	var calls []string
+	s := &service{id: task, namespace: namespace, bundle: bundle, daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, _ any) *protocol.Error {
+		calls = append(calls, request.Method)
+		if request.Method == "StopSandbox" {
+			return &protocol.Error{Code: "BACKEND_FAILURE", Message: "injected stop failure"}
+		}
+		return nil
+	})}
+	response, err := s.Cleanup(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "injected stop failure") || response == nil {
+		t.Fatalf("Cleanup response=%+v error=%v", response, err)
+	}
+	if !reflect.DeepEqual(calls, []string{"StopSandbox"}) {
+		t.Fatalf("cleanup calls after failed stop = %v", calls)
+	}
+}
+
+func TestFallbackCleanupPropagatesRootfsFailureAfterSandboxDelete(t *testing.T) {
+	bundle := t.TempDir()
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	namespace, task := "default", "task-a"
+	recovery := validPersistedRecovery(namespace, task)
+	recovery.StorageSHA256 = strings.Repeat("b", 64)
+	data, err := json.Marshal(recovery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Chdir(bundle); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(previous)
+	var calls []string
+	s := &service{id: task, namespace: namespace, bundle: bundle, daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, _ any) *protocol.Error {
+		calls = append(calls, request.Method)
+		if request.Method == "CleanupRootfs" {
+			return &protocol.Error{Code: "BACKEND_FAILURE", Message: "injected rootfs cleanup failure"}
+		}
+		return nil
+	})}
+	response, err := s.Cleanup(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "injected rootfs cleanup failure") || response == nil {
+		t.Fatalf("Cleanup response=%+v error=%v", response, err)
+	}
+	want := []string{"StopSandbox", "DeleteSandbox", "CleanupRootfs"}
+	if !reflect.DeepEqual(calls, want) {
+		t.Fatalf("cleanup call order = %v, want %v", calls, want)
+	}
+}

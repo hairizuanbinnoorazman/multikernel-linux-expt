@@ -51,6 +51,8 @@ const runtimeName = "io.containerd.multikernel.v2"
 
 var runtimeIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 var guestProcessIdentifier = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
+var recoveryGeneration = regexp.MustCompile(`^[0-9a-f]{32}$`)
+var recoverySHA256 = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type process struct {
 	id, stdin, stdout, stderr      string
@@ -278,28 +280,143 @@ type persistedProcess struct {
 	DeleteEventQueued bool             `json:"delete_event_queued,omitempty"`
 }
 
-func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) {
-	if address, err := shim.ReadAddress("address"); err == nil {
-		_ = shim.RemoveSocket(address)
+func validatePersistedRecovery(value persisted, namespace, task string) error {
+	if value.SchemaVersion != 1 || value.ID != sandboxID(namespace, task) ||
+		!recoveryGeneration.MatchString(value.Generation) ||
+		value.TaskIdentity != storageTaskIdentity(namespace, task) ||
+		(value.StorageSHA256 != "" && !recoverySHA256.MatchString(value.StorageSHA256)) ||
+		len(value.Processes) == 0 || len(value.Processes) > 1024 {
+		return errors.New("shim recovery identity or bounds are invalid")
 	}
-	var p persisted
-	if b, err := os.ReadFile(filepath.Join(".multikernel", "sandbox.json")); err == nil {
-		_ = json.Unmarshal(b, &p)
+	networkIdentityPresent := value.Network.Generation != "" || value.Network.SandboxID != "" || value.Network.SandboxGeneration != ""
+	if networkIdentityPresent {
+		if value.Network.SandboxID != value.ID || value.Network.SandboxGeneration != value.Generation ||
+			!recoveryGeneration.MatchString(value.Network.Generation) {
+			return errors.New("shim recovery network ownership is invalid")
+		}
+	}
+	seen := make(map[string]bool, len(value.Processes))
+	initSeen := false
+	for _, process := range value.Processes {
+		if seen[process.ID] || (process.ID != "" && !guestProcessIdentifier.MatchString(process.ID)) {
+			return errors.New("shim recovery contains an invalid or duplicate process identity")
+		}
+		seen[process.ID] = true
+		if process.ID == "" {
+			if initSeen {
+				return errors.New("shim recovery contains multiple init processes")
+			}
+			initSeen = true
+		}
+		if process.Status != tasktypes.Status_CREATED && process.Status != tasktypes.Status_RUNNING &&
+			process.Status != tasktypes.Status_PAUSED && process.Status != tasktypes.Status_STOPPED {
+			return errors.New("shim recovery contains an invalid process state")
+		}
+		if process.Width > 65535 || process.Height > 65535 || process.StdinCloseAcked && !process.StdinClosed {
+			return errors.New("shim recovery contains invalid terminal or stdin state")
+		}
+		for _, path := range []string{process.Stdin, process.Stdout, process.Stderr} {
+			if path != "" && (!filepath.IsAbs(path) || filepath.Clean(path) != path || len(path) > 4096 || strings.ContainsRune(path, 0)) {
+				return errors.New("shim recovery contains an invalid stdio path")
+			}
+		}
+	}
+	if !initSeen {
+		return errors.New("shim recovery has no init process")
+	}
+	return nil
+}
+
+func loadPersistedRecovery(path, namespace, task string) (persisted, bool, error) {
+	var value persisted
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return value, false, nil
+	}
+	if err != nil {
+		return value, false, err
+	}
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || identity.Uid != uint32(os.Geteuid()) ||
+		identity.Nlink != 1 || info.Size() <= 0 || info.Size() > 8<<20 {
+		return value, false, errors.New("shim recovery must be a private caller-owned bounded single-link regular file")
+	}
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags: uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW), Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return value, false, err
+	}
+	file := os.NewFile(uintptr(descriptor), path)
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !sameProcessIOIdentity(info, opened) {
+		return value, false, errors.New("shim recovery identity changed while opening")
+	}
+	data, err := io.ReadAll(io.LimitReader(file, (8<<20)+1))
+	if err != nil || len(data) > 8<<20 {
+		return value, false, errors.New("shim recovery changed or exceeded its read bound")
+	}
+	after, err := file.Stat()
+	if err != nil || !sameProcessIOIdentity(opened, after) {
+		return value, false, errors.New("shim recovery identity changed while reading")
+	}
+	if err = protocol.StrictDecode(data, &value); err != nil {
+		return value, false, fmt.Errorf("decode shim recovery: %w", err)
+	}
+	if err = validatePersistedRecovery(value, namespace, task); err != nil {
+		return value, false, err
+	}
+	return value, true, nil
+}
+
+func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var failures []error
+	if address, err := shim.ReadAddress("address"); err == nil {
+		if err = shim.RemoveSocket(address); err != nil {
+			failures = append(failures, fmt.Errorf("remove shim socket: %w", err))
+		}
+	} else if _, statErr := os.Lstat("address"); statErr == nil {
+		failures = append(failures, fmt.Errorf("read existing shim address: %w", err))
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		failures = append(failures, fmt.Errorf("inspect shim address: %w", statErr))
+	}
+	p, found, err := loadPersistedRecovery(filepath.Join(".multikernel", "sandbox.json"), s.namespace, s.id)
+	if err != nil {
+		return nil, fmt.Errorf("load shim cleanup ownership: %w", err)
+	}
+	if !found {
+		now := timestamppb.Now()
+		return &taskapi.DeleteResponse{ExitedAt: now}, errors.Join(failures...)
 	}
 	s.netEndpoint = p.Network
-	_ = s.stopNetwork()
-	_ = s.stopRelay()
-	_ = s.releaseNetwork(ctx)
+	if err = s.stopNetwork(); err != nil {
+		failures = append(failures, fmt.Errorf("stop recovered network: %w", err))
+	}
+	if err = s.stopRelay(); err != nil {
+		failures = append(failures, fmt.Errorf("stop recovered relay: %w", err))
+	}
+	if err = s.releaseNetwork(ctx); err != nil {
+		failures = append(failures, fmt.Errorf("release recovered network: %w", err))
+	}
 	if p.ID != "" {
-		_, _ = daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil)
-		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil); err == nil && p.TaskIdentity != "" && p.StorageSHA256 != "" {
-			_ = s.cleanupRootfs(ctx, rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle, TaskIdentity: p.TaskIdentity, StorageSHA256: p.StorageSHA256})
+		if _, stopErr := daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil); stopErr != nil {
+			failures = append(failures, fmt.Errorf("stop recovered sandbox: %w", stopErr))
+		} else if _, deleteErr := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil); deleteErr != nil {
+			failures = append(failures, fmt.Errorf("delete recovered sandbox: %w", deleteErr))
+		} else if p.StorageSHA256 != "" {
+			if cleanupErr := s.cleanupRootfs(ctx, rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle, TaskIdentity: p.TaskIdentity, StorageSHA256: p.StorageSHA256}); cleanupErr != nil {
+				failures = append(failures, fmt.Errorf("cleanup recovered rootfs: %w", cleanupErr))
+			}
 		}
 	}
 	if p.Exited.IsZero() {
 		p.Exited = time.Now().UTC()
 	}
-	return &taskapi.DeleteResponse{Pid: p.PID, ExitStatus: p.Exit, ExitedAt: timestamppb.New(p.Exited)}, nil
+	return &taskapi.DeleteResponse{Pid: p.PID, ExitStatus: p.Exit, ExitedAt: timestamppb.New(p.Exited)}, errors.Join(failures...)
 }
 
 func randomToken() ([]byte, string, error) {
@@ -467,16 +584,12 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) 
 
 func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	runtimeDir := filepath.Join(s.bundle, ".multikernel")
-	b, err := os.ReadFile(filepath.Join(runtimeDir, "sandbox.json"))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
+	recovery, found, err := loadPersistedRecovery(filepath.Join(runtimeDir, "sandbox.json"), s.namespace, s.id)
 	if err != nil {
 		return fmt.Errorf("read shim recovery state: %w", err)
 	}
-	var recovery persisted
-	if err = json.Unmarshal(b, &recovery); err != nil || recovery.SchemaVersion != 1 || recovery.ID == "" || recovery.Generation == "" || len(recovery.Processes) == 0 {
-		return errors.New("shim recovery state is incomplete or unsupported")
+	if !found {
+		return nil
 	}
 	var sandboxes []protocol.Sandbox
 	if apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "shim-recover-list-" + s.id, Method: "ListSandboxes"}, &sandboxes); apiErr != nil {
