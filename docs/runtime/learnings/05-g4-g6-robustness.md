@@ -341,6 +341,13 @@ missing server remains durably diagnosable. These behaviors pass focused local
 tests but are not G4 live evidence until the replacement-instance
 storage/fault matrix retains the observed values.
 
+Offline `e2fsck` formerly used unbounded `Cmd.Output` and had no default
+deadline. It now shares the rootfs process-group runner, retains at most one
+MiB of combined stdout/stderr for a successful evidence digest, defaults to a
+five-minute bound, and kills descendants on timeout or cancellation. Overflow
+and non-clean exits fail without disclosing checker output. Focused tests cover
+each boundary; live dirty/corrupt-image recovery evidence is still required.
+
 The G6 shim now journals typed Task events before publication and replays them
 in local sequence after worker reconstruction. Exit completion persists an
 `exit_event_queued` invariant, and Delete queues a missing exit before its own

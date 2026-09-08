@@ -225,6 +225,11 @@ normative plan is revised with an explicit rationale.
   the corresponding ready marker plus a canonical terminal line. Tests reject
   mismatched and hard-linked evidence and prove managed stop signals before its
   timeout rather than waiting for a server that exits only on `SIGTERM`.
+  Offline `e2fsck` now shares the bounded process-group runner with rootfs
+  builds: a five-minute default, caller cancellation, one-MiB combined-output
+  retention, descendant termination, and secret-safe errors are enforced.
+  Focused tests cover timeout with a background child, overflow, stderr
+  evidence hashing, and a non-clean exit. Live fault evidence remains open.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
   dirty recovery; snapshot/clone recovery using disposable copies.
@@ -410,6 +415,8 @@ normative plan is revised with an explicit rationale.
   points now enforce the same pre-mutation rule; inspection polls during image
   hashing. Focused tests prove cancelled release retains `ACTIVE` ownership,
   no backend call occurs, and cancellation interrupts a multi-chunk inspection.
+  The shared bounded runner also closes the offline-check descendant/output
+  boundary with focused cancellation and overflow tests.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

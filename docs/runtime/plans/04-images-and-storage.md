@@ -78,6 +78,11 @@ before an ownership transition. Each backend operation checks before external
 inspection or process mutation; in particular, Stop cannot signal an export
 after its request is already cancelled, and image inspection polls between
 four-MiB hash reads.
+The offline checker uses the same process-group runner as the rootfs builder,
+with a five-minute default and one-MiB combined stdout/stderr evidence bound.
+Timeout or cancellation kills descendants; overflow and every non-clean exit
+fail closed. Only successful bounded output is hashed into the release record,
+and failure responses do not disclose checker diagnostics.
 
 ### C. Container overlays and volumes
 
@@ -110,6 +115,8 @@ four-MiB hash reads.
   overwrite existing result files.
 - Builder output overflow and a cancelled or timed-out builder with a live
   descendant holding its output pipe.
+- Offline-check timeout with a descendant holding the pipe, output overflow,
+  combined stdout/stderr hashing, and secret-safe non-clean failure.
 - Clean child remount-read-only, NBD disconnect, server sync, and offline
   `e2fsck`.
 - Snapshot/clone recovery using disposable copies.
