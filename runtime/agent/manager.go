@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"debug/elf"
 	"encoding/binary"
 	"encoding/json"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/containerd/console"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 	"golang.org/x/sys/unix"
 )
 
@@ -191,16 +193,19 @@ type Manager struct {
 	network     *os.File
 	networkName string
 	networkMTU  int
+	networkExec func(context.Context, ...string) ([]byte, error)
 	dnsOriginal []byte
 	dnsSymlink  string
 	dnsMode     os.FileMode
 	dnsExisted  bool
+	dnsManaged  bool
+	dnsPath     string
 	policySet   bool
 	NoChroot    bool
 }
 
 func NewManager(noChroot bool) *Manager {
-	return &Manager{processes: map[string]*process{}, NoChroot: noChroot}
+	return &Manager{processes: map[string]*process{}, networkExec: runNetworkCommand, dnsPath: "/bundle/rootfs/etc/resolv.conf", NoChroot: noChroot}
 }
 
 func strictJSON(path string, v any) error {
@@ -825,6 +830,31 @@ type NetworkConfig struct {
 	Nameservers []string `json:"nameservers,omitempty"`
 }
 
+func runNetworkCommand(ctx context.Context, arguments ...string) ([]byte, error) {
+	return runBoundedNetworkCommand(ctx, "/bin/ip", arguments...)
+}
+
+func runBoundedNetworkCommand(ctx context.Context, binary string, arguments ...string) ([]byte, error) {
+	const (
+		timeout         = 30 * time.Second
+		maximumOutput   = 1 << 20
+		diagnosticLimit = 16 << 10
+	)
+	output, err := boundedexec.Run(ctx, timeout, binary, arguments,
+		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, maximumOutput)
+	if err != nil && len(output) > diagnosticLimit {
+		output = output[:diagnosticLimit]
+	}
+	return output, err
+}
+
+func (m *Manager) executeNetworkCommand(ctx context.Context, arguments ...string) ([]byte, error) {
+	if m.networkExec == nil {
+		return runNetworkCommand(ctx, arguments...)
+	}
+	return m.networkExec(ctx, arguments...)
+}
+
 func replaceDNS(path string, nameservers []string) (original []byte, symlink string, mode os.FileMode, existed bool, retErr error) {
 	if info, err := os.Lstat(path); err == nil {
 		existed, mode = true, info.Mode().Perm()
@@ -851,6 +881,11 @@ func replaceDNS(path string, nameservers []string) (original []byte, symlink str
 		fmt.Fprintf(&resolv, "nameserver %s\n", server)
 	}
 	retErr = os.WriteFile(path, []byte(resolv.String()), 0644)
+	if retErr != nil {
+		if restoreErr := restoreDNS(path, original, symlink, mode, existed); restoreErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("restore DNS after replacement failure: %w", restoreErr))
+		}
+	}
 	return
 }
 
@@ -868,6 +903,13 @@ func restoreDNS(path string, original []byte, symlink string, mode os.FileMode, 
 }
 
 func (m *Manager) ConfigureNetwork(config NetworkConfig) error {
+	return m.ConfigureNetworkContext(context.Background(), config)
+}
+
+func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkConfig) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if config.Name == "" || len(config.Name) > 15 || config.Address == "" || config.Gateway == "" || config.MTU < 576 || config.MTU > 65515 {
 		return errors.New("valid network name, address, gateway, and MTU are required")
 	}
@@ -886,8 +928,8 @@ func (m *Manager) ConfigureNetwork(config NetworkConfig) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.network != nil {
-		return errors.New("network is already configured")
+	if m.network != nil || m.networkName != "" || m.dnsManaged {
+		return errors.New("network is already configured or cleanup is pending")
 	}
 	f, err := os.OpenFile("/dev/net/tun", os.O_RDWR|syscall.O_NONBLOCK, 0)
 	if err != nil {
@@ -909,22 +951,36 @@ func (m *Manager) ConfigureNetwork(config NetworkConfig) error {
 		{"route", "add", "default", "via", config.Gateway, "dev", config.Name},
 	}
 	for _, args := range commands {
-		if output, commandErr := exec.Command("/bin/ip", args...).CombinedOutput(); commandErr != nil {
+		if output, commandErr := m.executeNetworkCommand(ctx, args...); commandErr != nil {
 			f.Close()
-			_, _ = exec.Command("/bin/ip", "link", "delete", config.Name).CombinedOutput()
-			return fmt.Errorf("ip %s: %w: %s", strings.Join(args, " "), commandErr, strings.TrimSpace(string(output)))
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			cleanupOutput, cleanupErr := m.executeNetworkCommand(cleanupCtx, "link", "delete", config.Name)
+			cancel()
+			operationErr := fmt.Errorf("ip %s: %w: %s", strings.Join(args, " "), commandErr, strings.TrimSpace(string(output)))
+			if cleanupErr != nil {
+				m.networkName = config.Name
+				cleanupErr = fmt.Errorf("delete child network after setup failure: %w: %s", cleanupErr, strings.TrimSpace(string(cleanupOutput)))
+			}
+			return errors.Join(operationErr, cleanupErr)
 		}
 	}
-	dnsPath := "/bundle/rootfs/etc/resolv.conf"
-	m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, err = replaceDNS(dnsPath, config.Nameservers)
+	m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, err = replaceDNS(m.dnsPath, config.Nameservers)
 	if err != nil {
 		f.Close()
-		_, _ = exec.Command("/bin/ip", "link", "delete", config.Name).CombinedOutput()
-		return err
+		m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, m.dnsManaged = nil, "", 0, false, false
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		cleanupOutput, cleanupErr := m.executeNetworkCommand(cleanupCtx, "link", "delete", config.Name)
+		cancel()
+		if cleanupErr != nil {
+			m.networkName = config.Name
+			cleanupErr = fmt.Errorf("delete child network after DNS failure: %w: %s", cleanupErr, strings.TrimSpace(string(cleanupOutput)))
+		}
+		return errors.Join(err, cleanupErr)
 	}
 	m.network = f
 	m.networkName = config.Name
 	m.networkMTU = config.MTU
+	m.dnsManaged = true
 	return nil
 }
 
@@ -961,6 +1017,13 @@ func (m *Manager) ExchangeNetwork(packet []byte) ([]byte, error) {
 }
 
 func (m *Manager) CloseNetwork() error {
+	return m.CloseNetworkContext(context.Background())
+}
+
+func (m *Manager) CloseNetworkContext(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var failures []error
@@ -969,17 +1032,20 @@ func (m *Manager) CloseNetwork() error {
 		m.network = nil
 	}
 	if m.networkName != "" {
-		if output, err := exec.Command("/bin/ip", "link", "delete", m.networkName).CombinedOutput(); err != nil {
+		if output, err := m.executeNetworkCommand(ctx, "link", "delete", m.networkName); err != nil {
 			failures = append(failures, fmt.Errorf("delete child network: %w: %s", err, strings.TrimSpace(string(output))))
+		} else {
+			m.networkName = ""
+			m.networkMTU = 0
 		}
-		m.networkName = ""
-		m.networkMTU = 0
 	}
-	dnsPath := "/bundle/rootfs/etc/resolv.conf"
-	if err := restoreDNS(dnsPath, m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted); err != nil {
-		failures = append(failures, fmt.Errorf("restore DNS: %w", err))
+	if m.dnsManaged {
+		if err := restoreDNS(m.dnsPath, m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted); err != nil {
+			failures = append(failures, fmt.Errorf("restore DNS: %w", err))
+		} else {
+			m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, m.dnsManaged = nil, "", 0, false, false
+		}
 	}
-	m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted = nil, "", 0, false
 	return errors.Join(failures...)
 }
 func SignalNumber(s string) (syscall.Signal, error) {

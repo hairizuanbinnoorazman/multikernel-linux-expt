@@ -301,11 +301,16 @@ normative plan is revised with an explicit rationale.
   data plane is single-frame/single-flight, uses a 250 ms exchange deadline,
   reconnects the authenticated agent sequence, and durably reports monotonic
   packet/drop/error counters and link state. Every privileged Linux network
-  command and the mknetd egress preflight now uses the shared process-group
-  runner with caller cancellation, a 30-second default, one-MiB combined
-  output retention, and 16-KiB error diagnostics. Focused tests cover a
-  blocked descendant, output overflow, and combined stdout/stderr; live fault
-  and leak evidence remains open below.
+  command in the primary and guest, plus the mknetd egress preflight, now uses
+  the shared process-group runner with primary caller cancellation, guest
+  server cancellation, a 30-second default, one-MiB combined output retention,
+  and 16-KiB error diagnostics. Guest dispatch propagates its server context,
+  setup rollback has an independent five-second cleanup bound, and failed link
+  or DNS cleanup keeps retry identity. Repeated successful close cannot remove
+  the restored DNS file. Focused tests cover a blocked descendant, output
+  overflow, combined stdout/stderr, cancellation without mutation, repeated
+  close, and failed DNS restoration; live fault and leak evidence remains open
+  below.
 - [x] Define firewall and network-policy ownership and install rules that
   cannot be bypassed by spoofed source addresses, alternate routes, malformed
   packets, or sibling traffic. Per-generation primary chains enforce source,
@@ -422,8 +427,9 @@ normative plan is revised with an explicit rationale.
   no backend call occurs, and cancellation interrupts a multi-chunk inspection.
   The shared bounded runner also closes the offline-check descendant/output
   boundary with focused cancellation and overflow tests. Privileged network
-  commands now use that runner as well, with focused deadline, descendant,
-  and output-bound tests; the live cross-service cancellation/leak matrix is
+  commands in both the primary and guest now use that runner as well. Focused
+  deadline, descendant, output-bound, pre-mutation cancellation, and retryable
+  DNS-cleanup tests pass; the live cross-service cancellation/leak matrix is
   still open.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
