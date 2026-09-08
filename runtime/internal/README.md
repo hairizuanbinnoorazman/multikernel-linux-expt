@@ -53,3 +53,5 @@ and retain at most the configured evidence bound.
 Privileged primary and guest network commands and the `mknetd` egress preflight
 use the same runner with a 30-second default and bounded combined-output
 diagnostics.
+Kerf lifecycle commands also use it; failure reports retain only output byte
+count and digest so verbose Kerf output cannot disclose the agent token.

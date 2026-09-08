@@ -2,17 +2,18 @@ package kerf
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -35,33 +36,30 @@ type CLI struct {
 	PoolCPUs   []int
 	PoolMemory string
 	Timeout    time.Duration
+	MaxOutput  int
 	Kernel     string
 	Initrd     string
 	Cmdline    string
 }
 
 func (c *CLI) run(ctx context.Context, args ...string) error {
-	if c.Timeout == 0 {
-		c.Timeout = 30 * time.Second
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	x, cancel := context.WithTimeout(ctx, c.Timeout)
-	defer cancel()
-	cmd := exec.CommandContext(x, c.Path, args...)
-	cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error {
-		if cmd.Process == nil {
-			return nil
-		}
-		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	timeout := c.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
 	}
-	cmd.WaitDelay = time.Second
-	b, e := cmd.CombinedOutput()
-	if x.Err() != nil {
-		return fmt.Errorf("kerf timeout: %w", x.Err())
+	maximumOutput := c.MaxOutput
+	if maximumOutput <= 0 {
+		maximumOutput = 1 << 20
 	}
-	if e != nil {
-		return fmt.Errorf("kerf %s: %w: %s", args[0], e, strings.TrimSpace(string(b)))
+	output, err := boundedexec.Run(ctx, timeout, c.Path, args,
+		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, maximumOutput)
+	if err != nil {
+		digest := sha256.Sum256(output)
+		return fmt.Errorf("kerf %s: %w (retained_output_bytes=%d retained_output_sha256=%s)",
+			args[0], err, len(output), hex.EncodeToString(digest[:]))
 	}
 	return nil
 }
@@ -75,13 +73,19 @@ func ints(v []int) string {
 func (c *CLI) EnsurePool(ctx context.Context) error {
 	return c.run(ctx, "init", "--cpus="+ints(c.PoolCPUs), "--memory="+c.PoolMemory, "--devices=none", "--verbose")
 }
-func (c *CLI) Observe(_ context.Context, id string) (string, error) {
+func (c *CLI) Observe(ctx context.Context, id string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	b, e := os.ReadFile(filepath.Join(c.Sysfs, "instances", id, "status"))
 	if errors.Is(e, os.ErrNotExist) {
 		return "ABSENT", nil
 	}
 	if e != nil {
 		return "", e
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
 	switch strings.TrimSpace(string(b)) {
 	case "created", "ready":
@@ -94,12 +98,18 @@ func (c *CLI) Observe(_ context.Context, id string) (string, error) {
 		return "", fmt.Errorf("unrecognized Kerf instance status %q", strings.TrimSpace(string(b)))
 	}
 }
-func (c *CLI) ListInstances(_ context.Context) ([]string, error) {
+func (c *CLI) ListInstances(ctx context.Context) ([]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	entries, err := os.ReadDir(filepath.Join(c.Sysfs, "instances"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	instances := make([]string, 0, len(entries))
@@ -116,6 +126,9 @@ func (c *CLI) Create(ctx context.Context, s protocol.Sandbox) error {
 	if err == nil {
 		return nil
 	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
 	// Kerf v0.2.0 can commit create and then raise KeyError while refreshing
 	// its in-memory view. Accept only a positive observation of this exact ID.
 	observed, observeErr := c.Observe(ctx, s.ID)
@@ -125,6 +138,9 @@ func (c *CLI) Create(ctx context.Context, s protocol.Sandbox) error {
 	return err
 }
 func (c *CLI) Load(ctx context.Context, s protocol.Sandbox, kernel, initrd, cmdline string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	runtimeDir := filepath.Join(s.Config.Bundle, ".multikernel")
 	if b, err := os.ReadFile(filepath.Join(runtimeDir, "initramfs.path")); err == nil {
 		candidate := strings.TrimSpace(string(b))
@@ -182,6 +198,9 @@ func (c *CLI) Delete(ctx context.Context, s protocol.Sandbox) error {
 func (c *CLI) acceptObserved(ctx context.Context, id, expected string, commandErr error) error {
 	if commandErr == nil {
 		return nil
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
 	}
 	observed, observeErr := c.Observe(ctx, id)
 	if observeErr == nil && observed == expected {
