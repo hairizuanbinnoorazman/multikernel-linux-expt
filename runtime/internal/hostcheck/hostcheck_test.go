@@ -3,9 +3,14 @@ package hostcheck
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 )
 
 func fixture(t *testing.T, release, online string, instances bool) string {
@@ -44,6 +49,44 @@ func fixture(t *testing.T, release, online string, instances bool) string {
 		os.Mkdir(filepath.Join(root, "sys/fs/multikernel/instances/foreign"), 0755)
 	}
 	return root
+}
+
+func TestHostQualificationCommandsBoundOutputDeadlineAndDescendants(t *testing.T) {
+	command := func(body string) string {
+		path := filepath.Join(t.TempDir(), "command")
+		if err := os.WriteFile(path, []byte("#!/bin/sh\nset -eu\n"+body+"\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+
+	t.Run("deadline", func(t *testing.T) {
+		started := time.Now()
+		_, err := runHostCommand(context.Background(), 50*time.Millisecond, command("sleep 60 & wait"))
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("host command deadline error = %v", err)
+		}
+		if elapsed := time.Since(started); elapsed > time.Second {
+			t.Fatalf("host command cancellation took %s", elapsed)
+		}
+	})
+
+	t.Run("overflow", func(t *testing.T) {
+		output, err := runHostCommand(context.Background(), time.Second, command("head -c 65537 /dev/zero"))
+		if !errors.Is(err, boundedexec.ErrOutputLimit) || len(output) != maxHostCommandOutput {
+			t.Fatalf("host command overflow: bytes=%d error=%v", len(output), err)
+		}
+	})
+
+	t.Run("combined output", func(t *testing.T) {
+		output, err := runHostCommand(context.Background(), time.Second, command("printf stdout; printf stderr >&2"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(output), "stdout") || !strings.Contains(string(output), "stderr") {
+			t.Fatalf("host command combined output = %q", output)
+		}
+	})
 }
 
 func TestUnknownCriticalQualificationSignalsFailClosed(t *testing.T) {

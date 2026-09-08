@@ -18,6 +18,12 @@ Create a read-only `mk-host-check` command or script that emits JSON containing:
 - storage/NIC controller topology with explicit forbidden-device findings.
 
 It must not initialize a pool or modify the host.
+All external qualification probes (`kerf --version`, `kerf show`, Kerf
+allocation dry-run, and guest-agent service status) use a sanitized environment,
+the earlier of caller cancellation and a five-second default, complete
+process-group termination, and at most 64 KiB of combined output. Timeout or
+overflow makes the corresponding critical signal unknown or unavailable and
+therefore cannot qualify the host.
 
 ## Tests
 
@@ -31,6 +37,8 @@ It must not initialize a pool or modify the host.
 8. Child reads only its assigned CPU and approximate memory view.
 9. Child crash followed by controlled resource reclamation.
 10. Primary remains reachable and the guest agent remains healthy throughout.
+11. External-probe timeout kills descendants and output overflow fails closed
+    without growing the report beyond its retention bound.
 
 ## Isolation investigation
 
