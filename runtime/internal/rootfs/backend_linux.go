@@ -3,7 +3,6 @@
 package rootfs
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,17 +11,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/containerd/containerd/mount"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
@@ -36,65 +34,15 @@ type LinuxBackend struct {
 
 const maximumBuilderOutput = 1 << 20
 
-type boundedOutput struct {
-	mu       sync.Mutex
-	data     []byte
-	maximum  int
-	overflow bool
-}
-
-func (w *boundedOutput) Write(value []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	remaining := w.maximum - len(w.data)
-	if remaining > 0 {
-		w.data = append(w.data, value[:min(remaining, len(value))]...)
-	}
-	if len(value) > remaining {
-		w.overflow = true
-	}
-	// Continue draining after reaching the bound so the child cannot block on
-	// its diagnostic pipe. The overflow bit makes the operation fail closed.
-	return len(value), nil
-}
-
-func (w *boundedOutput) result() ([]byte, bool) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return bytes.Clone(w.data), w.overflow
-}
-
 func runBoundedBuilder(ctx context.Context, timeout time.Duration, binary string, arguments, environment []string, maximum int) ([]byte, error) {
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
-	bounded, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	cmd := exec.CommandContext(bounded, binary, arguments...)
-	cmd.Env = environment
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error {
-		if cmd.Process == nil {
-			return nil
-		}
-		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		if errors.Is(err, syscall.ESRCH) {
-			return os.ErrProcessDone
-		}
-		return err
+	output, err := boundedexec.Run(ctx, timeout, binary, arguments, environment, maximum)
+	if errors.Is(err, boundedexec.ErrOutputLimit) {
+		return output, errors.Join(err, errors.New("rootfs builder output exceeds limit"))
 	}
-	cmd.WaitDelay = 5 * time.Second
-	capture := &boundedOutput{maximum: maximum}
-	cmd.Stdout, cmd.Stderr = capture, capture
-	runErr := cmd.Run()
-	output, overflow := capture.result()
-	if overflow {
-		return output, errors.New("rootfs builder output exceeds limit")
-	}
-	if contextErr := bounded.Err(); contextErr != nil {
-		return output, errors.Join(runErr, contextErr)
-	}
-	return output, runErr
+	return output, err
 }
 
 func builderDiagnostic(output []byte) string {

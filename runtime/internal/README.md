@@ -2,6 +2,7 @@
 
 Expected package boundaries:
 
+- `boundedexec`: deadline-, process-group-, and output-bounded Linux commands.
 - `kerf`: exact, testable adapter for the pinned Kerf backend.
 - `lifecycle`: sandbox state machine and rollback policy.
 - `state`: journal, locks, ownership, and restart reconciliation.
@@ -46,3 +47,6 @@ Storage Provision, Release, and Reconcile likewise reject cancellation before
 journal transitions or backend calls. Backend inspection, start, observation,
 stop, and offline-check entry points reject it before filesystem or process
 mutation, and image hashing polls between four-MiB reads.
+Rootfs building and offline ext4 checking share `boundedexec`: both always have
+a finite timeout, kill the complete process group, continuously drain output,
+and retain at most the configured evidence bound.

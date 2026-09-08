@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -231,6 +232,56 @@ func validBackendLease(path string) Export {
 			SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		},
 	}
+}
+
+func executableScript(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "command")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nset -eu\n"+body+"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestOfflineCheckIsBoundedAndHashesCombinedEvidence(t *testing.T) {
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	t.Run("deadline kills descendants", func(t *testing.T) {
+		backend := &LinuxBackend{CheckBinary: executableScript(t, "sleep 60 & wait"), CheckTimeout: 50 * time.Millisecond}
+		started := time.Now()
+		if _, err := backend.OfflineCheck(context.Background(), value); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("offline deadline error = %v", err)
+		}
+		if elapsed := time.Since(started); elapsed > time.Second {
+			t.Fatalf("offline cancellation took %s", elapsed)
+		}
+	})
+
+	t.Run("output overflow", func(t *testing.T) {
+		backend := &LinuxBackend{CheckBinary: executableScript(t, "head -c 1048577 /dev/zero"), CheckTimeout: time.Second}
+		if _, err := backend.OfflineCheck(context.Background(), value); err == nil || !strings.Contains(err.Error(), "output exceeded") {
+			t.Fatalf("offline overflow error = %v", err)
+		}
+	})
+
+	t.Run("stderr evidence", func(t *testing.T) {
+		backend := &LinuxBackend{CheckBinary: executableScript(t, "printf 'offline-evidence\\n' >&2"), CheckTimeout: time.Second}
+		result, err := backend.OfflineCheck(context.Background(), value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := sha256.Sum256([]byte("offline-evidence\n"))
+		if result != "e2fsck-clean-sha256:"+hex.EncodeToString(want[:]) {
+			t.Fatalf("offline evidence = %q", result)
+		}
+	})
+
+	t.Run("non-clean diagnostic is not disclosed", func(t *testing.T) {
+		backend := &LinuxBackend{CheckBinary: executableScript(t, "printf 'sensitive-checker-detail\\n' >&2; exit 4"), CheckTimeout: time.Second}
+		_, err := backend.OfflineCheck(context.Background(), value)
+		if err == nil || strings.Contains(err.Error(), "sensitive-checker-detail") {
+			t.Fatalf("offline non-clean error = %v", err)
+		}
+	})
 }
 
 func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {

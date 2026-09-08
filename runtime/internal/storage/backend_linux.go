@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -51,6 +52,7 @@ type LinuxBackend struct {
 	RequiredUID  int
 	ReadyTimeout time.Duration
 	StopTimeout  time.Duration
+	CheckTimeout time.Duration
 
 	mu      sync.Mutex
 	managed map[string]*managedExport
@@ -71,6 +73,9 @@ func (b *LinuxBackend) defaults() {
 	}
 	if b.StopTimeout == 0 {
 		b.StopTimeout = 20 * time.Second
+	}
+	if b.CheckTimeout == 0 {
+		b.CheckTimeout = 5 * time.Minute
 	}
 	if b.managed == nil {
 		b.managed = map[string]*managedExport{}
@@ -613,18 +618,16 @@ func (b *LinuxBackend) OfflineCheck(ctx context.Context, value Export) (string, 
 	b.mu.Lock()
 	b.defaults()
 	b.mu.Unlock()
-	command := exec.CommandContext(ctx, b.CheckBinary, "-fn", value.Path)
-	command.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
-	output, err := command.Output()
+	output, err := boundedexec.Run(ctx, b.CheckTimeout, b.CheckBinary, []string{"-fn", value.Path},
+		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, 1<<20)
 	if err != nil {
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			output = append(output, exit.Stderr...)
+		if errors.Is(err, boundedexec.ErrOutputLimit) {
+			return "", errors.New("e2fsck output exceeded evidence bound")
+		}
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return "", fmt.Errorf("offline filesystem check interrupted: %w", err)
 		}
 		return "", errors.New("e2fsck reported a non-clean filesystem")
-	}
-	if len(output) > 1<<20 {
-		return "", errors.New("e2fsck output exceeded evidence bound")
 	}
 	digest := sha256.Sum256(output)
 	return "e2fsck-clean-sha256:" + hex.EncodeToString(digest[:]), nil
