@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
@@ -58,8 +57,8 @@ func parseConfiguration(arguments []string) (configuration, error) {
 }
 
 func run(ctx context.Context, value configuration) error {
-	if output, err := exec.CommandContext(ctx, "/usr/sbin/ip", "link", "show", "dev", value.egress).CombinedOutput(); err != nil {
-		return fmt.Errorf("validate egress %q: %w: %s", value.egress, err, strings.TrimSpace(string(output)))
+	if _, err := (network.ExecRunner{}).Output(ctx, "/usr/sbin/ip", "link", "show", "dev", value.egress); err != nil {
+		return fmt.Errorf("validate egress %q: %w", value.egress, err)
 	}
 	store, err := network.OpenStore(value.stateDir)
 	if err != nil {

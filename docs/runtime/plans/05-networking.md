@@ -54,6 +54,12 @@ owner, namespace path, address/gateway, MTU, DNS policy, state, and sandbox
 binding before reconciliation can act. The state file is opened no-follow with
 a bounded read and matching pre/post-open inode identity.
 
+Every privileged `ip`, `iptables`, `nsenter`, and sysctl operation, including
+the `mknetd` egress preflight, runs through the shared bounded process-group
+runner. The earlier of caller cancellation and a 30-second default terminates
+the complete command group; combined stdout/stderr retention is limited to one
+MiB and returned failure diagnostics to 16 KiB.
+
 ## Tests
 
 - Child-to-primary, outbound TCP/UDP, DNS, and return traffic.
@@ -62,6 +68,8 @@ a bounded read and matching pre/post-open inode identity.
 - MTU boundary, fragmentation, checksum, loss, reordering, and sustained load.
 - Transport disconnect/reconnect and child/daemon restart.
 - CNI failure after partial `ADD`, repeated `DEL`, and stale namespace cleanup.
+- Privileged-command timeout with descendants, combined-output capture, and
+  output-limit failure without an unbounded diagnostic.
 - Network-policy enforcement location and bypass attempts.
 - Primary SSH, metadata, and guest-agent connectivity remain healthy.
 

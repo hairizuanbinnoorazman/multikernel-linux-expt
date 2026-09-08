@@ -50,3 +50,5 @@ mutation, and image hashing polls between four-MiB reads.
 Rootfs building and offline ext4 checking share `boundedexec`: both always have
 a finite timeout, kill the complete process group, continuously drain output,
 and retain at most the configured evidence bound.
+Privileged network commands and the `mknetd` egress preflight use the same
+runner with a 30-second default and bounded combined-output diagnostics.

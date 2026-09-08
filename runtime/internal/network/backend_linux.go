@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 )
 
 var procNetNS = regexp.MustCompile(`^/proc/([0-9]+)/ns/net$`)
@@ -26,7 +28,10 @@ type InspectRunner interface {
 	Output(context.Context, string, ...string) ([]byte, error)
 }
 
-type ExecRunner struct{}
+type ExecRunner struct {
+	Timeout   time.Duration
+	MaxOutput int
+}
 
 type commandError struct {
 	command string
@@ -37,16 +42,27 @@ type commandError struct {
 func (e *commandError) Error() string { return e.command + ": " + e.err.Error() + ": " + e.output }
 func (e *commandError) Unwrap() error { return e.err }
 
-func (ExecRunner) Run(ctx context.Context, name string, arguments ...string) error {
-	_, err := (ExecRunner{}).Output(ctx, name, arguments...)
+func (r ExecRunner) Run(ctx context.Context, name string, arguments ...string) error {
+	_, err := r.Output(ctx, name, arguments...)
 	return err
 }
 
-func (ExecRunner) Output(ctx context.Context, name string, arguments ...string) ([]byte, error) {
-	command := exec.CommandContext(ctx, name, arguments...)
-	output, err := command.CombinedOutput()
+func (r ExecRunner) Output(ctx context.Context, name string, arguments ...string) ([]byte, error) {
+	if r.Timeout <= 0 {
+		r.Timeout = 30 * time.Second
+	}
+	if r.MaxOutput <= 0 {
+		r.MaxOutput = 1 << 20
+	}
+	output, err := boundedexec.Run(ctx, r.Timeout, name, arguments,
+		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, r.MaxOutput)
 	if err != nil {
-		return nil, &commandError{command: name + " " + strings.Join(arguments, " "), err: err, output: strings.TrimSpace(string(output))}
+		const diagnosticLimit = 16 << 10
+		diagnostic := output
+		if len(diagnostic) > diagnosticLimit {
+			diagnostic = diagnostic[:diagnosticLimit]
+		}
+		return nil, &commandError{command: name + " " + strings.Join(arguments, " "), err: err, output: strings.TrimSpace(string(diagnostic))}
 	}
 	return output, nil
 }

@@ -5,8 +5,13 @@ package network
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 )
 
 type recordingRunner struct {
@@ -162,6 +167,52 @@ func TestResourceAbsentOnlyAcceptsKnownCommandDiagnostics(t *testing.T) {
 	if resourceAbsent(errors.New("No such process")) || resourceAbsent(&commandError{err: errors.New("exit status 2"), output: "permission denied"}) {
 		t.Fatal("unstructured or unexpected failure was ignored")
 	}
+}
+
+func networkCommand(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "command")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nset -eu\n"+body+"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestExecRunnerBoundsOutputDeadlineAndDescendants(t *testing.T) {
+	t.Run("deadline", func(t *testing.T) {
+		runner := ExecRunner{Timeout: 50 * time.Millisecond, MaxOutput: 4096}
+		started := time.Now()
+		_, err := runner.Output(context.Background(), networkCommand(t, "sleep 60 & wait"))
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("network command deadline error = %v", err)
+		}
+		if elapsed := time.Since(started); elapsed > time.Second {
+			t.Fatalf("network command cancellation took %s", elapsed)
+		}
+	})
+
+	t.Run("overflow and bounded diagnostic", func(t *testing.T) {
+		runner := ExecRunner{Timeout: time.Second, MaxOutput: 32 << 10}
+		_, err := runner.Output(context.Background(), networkCommand(t, "head -c 32769 /dev/zero"))
+		if !errors.Is(err, boundedexec.ErrOutputLimit) {
+			t.Fatalf("network command overflow error = %v", err)
+		}
+		var commandErr *commandError
+		if !errors.As(err, &commandErr) || len(commandErr.output) > 16<<10 {
+			t.Fatalf("network command diagnostic length = %d", len(commandErr.output))
+		}
+	})
+
+	t.Run("combined output", func(t *testing.T) {
+		runner := ExecRunner{Timeout: time.Second, MaxOutput: 4096}
+		output, err := runner.Output(context.Background(), networkCommand(t, "printf stdout; printf stderr >&2"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(output), "stdout") || !strings.Contains(string(output), "stderr") {
+			t.Fatalf("network combined output = %q", output)
+		}
+	})
 }
 
 func TestManagedNamespaceLifecycleIsGenerationNamed(t *testing.T) {
