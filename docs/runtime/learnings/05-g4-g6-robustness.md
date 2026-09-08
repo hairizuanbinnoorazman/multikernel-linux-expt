@@ -303,12 +303,17 @@ sibling, egress, return-flow, default-drop, and NAT rule set. These are
 implementation observations from the local test suite, not
 G5 gate evidence: privileged namespace traffic, policy bypass, restart/load,
 and final cleanup still require the disposable-instance matrix and raw bundle.
-Privileged `ip`, `iptables`, `nsenter`, sysctl, and egress-preflight execution
-previously relied on unbounded `CombinedOutput`. It now shares the bounded
-process-group runner, observes caller cancellation and a 30-second default,
-retains no more than one MiB of combined output, and limits returned diagnostics
-to 16 KiB. Focused tests cover a blocked descendant, overflow, and combined
-stdout/stderr; disposable-host timeout and leak evidence remains open.
+Privileged primary and guest `ip`, `iptables`, `nsenter`, sysctl, and
+egress-preflight execution previously relied on unbounded `CombinedOutput`.
+It now shares the bounded process-group runner, observes primary caller or
+guest server cancellation, and has a 30-second default. It retains no more
+than one MiB of combined output and limits returned diagnostics to 16 KiB.
+Guest setup rollback has its own
+five-second cleanup context; link and DNS cleanup identities survive failure,
+while successful DNS restoration makes repeated close a no-op. Focused tests
+cover a blocked descendant, overflow, combined stdout/stderr, pre-mutation
+cancellation, repeated close, and failed DNS restoration; disposable-host
+timeout and leak evidence remains open.
 
 The G4 backend now produces a fully allocated ext4 image with a deterministic
 positive e2fsprogs fake epoch; zero was found by execution to mean “wall clock”

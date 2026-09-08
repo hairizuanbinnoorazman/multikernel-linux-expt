@@ -190,6 +190,10 @@ func capabilityReport() map[string]any {
 	}
 }
 func (s *Server) Dispatch(e Envelope) Reply {
+	return s.DispatchContext(context.Background(), e)
+}
+
+func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 	r := Reply{Version: 1, Sequence: e.Sequence}
 	if x := s.verify(e); x != nil {
 		r.Error = x.Error()
@@ -321,7 +325,7 @@ func (s *Server) Dispatch(e Envelope) Reply {
 		var q NetworkConfig
 		if x := decode(e.Body, &q); x != nil {
 			r.Error = x.Error()
-		} else if x = s.Manager.ConfigureNetwork(q); x != nil {
+		} else if x = s.Manager.ConfigureNetworkContext(ctx, q); x != nil {
 			r.Error = x.Error()
 		}
 	case "ExchangeNetwork":
@@ -336,7 +340,7 @@ func (s *Server) Dispatch(e Envelope) Reply {
 			r.Body = map[string][]byte{"packet": packet}
 		}
 	case "CloseNetwork":
-		if x := s.Manager.CloseNetwork(); x != nil {
+		if x := s.Manager.CloseNetworkContext(ctx); x != nil {
 			r.Error = x.Error()
 		}
 	case "DeleteProcess":
@@ -408,7 +412,7 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 			if decodeErr := decode(b, &env); decodeErr != nil {
 				reply.Error = decodeErr.Error()
 			} else {
-				reply = s.Dispatch(env)
+				reply = s.DispatchContext(ctx, env)
 			}
 		}
 		b, e := json.Marshal(reply)

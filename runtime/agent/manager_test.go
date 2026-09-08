@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 	"golang.org/x/sys/unix"
 )
 
@@ -1004,4 +1006,136 @@ func TestDNSReplacementRestoresRegularSymlinkAndAbsentState(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGuestNetworkCommandsBoundOutputCancellationAndDescendants(t *testing.T) {
+	command := func(body string) string {
+		path := filepath.Join(t.TempDir(), "command")
+		if err := os.WriteFile(path, []byte("#!/bin/sh\nset -eu\n"+body+"\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+
+	t.Run("caller deadline kills descendants", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		started := time.Now()
+		_, err := runBoundedNetworkCommand(ctx, command("sleep 60 & wait"))
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("guest network command deadline error = %v", err)
+		}
+		if elapsed := time.Since(started); elapsed > time.Second {
+			t.Fatalf("guest network command cancellation took %s", elapsed)
+		}
+	})
+
+	t.Run("overflow has bounded diagnostic", func(t *testing.T) {
+		output, err := runBoundedNetworkCommand(context.Background(), command("head -c 1048577 /dev/zero"))
+		if !errors.Is(err, boundedexec.ErrOutputLimit) {
+			t.Fatalf("guest network command overflow error = %v", err)
+		}
+		if len(output) > 16<<10 {
+			t.Fatalf("guest network command diagnostic length = %d", len(output))
+		}
+	})
+
+	t.Run("captures combined output", func(t *testing.T) {
+		output, err := runBoundedNetworkCommand(context.Background(), command("printf stdout; printf stderr >&2"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(output), "stdout") || !strings.Contains(string(output), "stderr") {
+			t.Fatalf("guest network combined output = %q", output)
+		}
+	})
+}
+
+func TestGuestNetworkMutationRejectsCancelledContextWithoutLosingState(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	m := NewManager(true)
+	config := NetworkConfig{Name: "mk0", Address: "192.0.2.2/30", Gateway: "192.0.2.1", MTU: 1500}
+	if err := m.ConfigureNetworkContext(ctx, config); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled ConfigureNetwork error = %v", err)
+	}
+	if m.network != nil || m.networkName != "" || m.networkMTU != 0 {
+		t.Fatalf("cancelled configuration mutated network state: name=%q mtu=%d file=%v", m.networkName, m.networkMTU, m.network)
+	}
+	m.networkName, m.networkMTU = "mk0", 1500
+	if err := m.CloseNetworkContext(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled CloseNetwork error = %v", err)
+	}
+	if m.networkName != "mk0" || m.networkMTU != 1500 {
+		t.Fatalf("cancelled close discarded retry identity: name=%q mtu=%d", m.networkName, m.networkMTU)
+	}
+}
+
+func TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup(t *testing.T) {
+	t.Run("failed link deletion remains retryable", func(t *testing.T) {
+		m := NewManager(true)
+		m.networkName, m.networkMTU = "mk0", 1500
+		attempts := 0
+		m.networkExec = func(context.Context, ...string) ([]byte, error) {
+			attempts++
+			if attempts == 1 {
+				return []byte("busy"), errors.New("injected delete failure")
+			}
+			return nil, nil
+		}
+		if err := m.CloseNetworkContext(context.Background()); err == nil {
+			t.Fatal("injected link deletion failure was ignored")
+		}
+		if m.networkName != "mk0" || m.networkMTU != 1500 {
+			t.Fatalf("failed close discarded retry identity: name=%q mtu=%d", m.networkName, m.networkMTU)
+		}
+		if err := m.CloseNetworkContext(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if m.networkName != "" || m.networkMTU != 0 || attempts != 2 {
+			t.Fatalf("retried close state: name=%q mtu=%d attempts=%d", m.networkName, m.networkMTU, attempts)
+		}
+	})
+
+	t.Run("repeated close preserves restored file", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "resolv.conf")
+		if err := os.WriteFile(path, []byte("nameserver 192.0.2.53\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		m := NewManager(true)
+		m.dnsPath = path
+		m.dnsOriginal = []byte("nameserver 10.0.0.1\n")
+		m.dnsMode, m.dnsExisted, m.dnsManaged = 0600, true, true
+		if err := m.CloseNetworkContext(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if err := m.CloseNetworkContext(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != "nameserver 10.0.0.1\n" {
+			t.Fatalf("DNS after repeated close = %q, %v", data, err)
+		}
+		if m.dnsManaged {
+			t.Fatal("successful DNS restoration retained cleanup ownership")
+		}
+	})
+
+	t.Run("failed restore remains retryable", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "resolv.conf")
+		if err := os.Mkdir(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "occupied"), []byte("x"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		m := NewManager(true)
+		m.dnsPath, m.dnsManaged = path, true
+		if err := m.CloseNetworkContext(context.Background()); err == nil {
+			t.Fatal("non-empty DNS replacement directory was removed")
+		}
+		if !m.dnsManaged {
+			t.Fatal("failed DNS restoration discarded retry ownership")
+		}
+	})
 }

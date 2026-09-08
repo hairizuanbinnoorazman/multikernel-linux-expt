@@ -54,11 +54,14 @@ owner, namespace path, address/gateway, MTU, DNS policy, state, and sandbox
 binding before reconciliation can act. The state file is opened no-follow with
 a bounded read and matching pre/post-open inode identity.
 
-Every privileged `ip`, `iptables`, `nsenter`, and sysctl operation, including
-the `mknetd` egress preflight, runs through the shared bounded process-group
-runner. The earlier of caller cancellation and a 30-second default terminates
-the complete command group; combined stdout/stderr retention is limited to one
-MiB and returned failure diagnostics to 16 KiB.
+Every privileged primary or guest `ip`, `iptables`, `nsenter`, and sysctl
+operation, including the `mknetd` egress preflight, runs through the shared
+bounded process-group runner. Primary calls observe caller cancellation; guest
+calls observe agent-server cancellation, and every call has a 30-second
+default that terminates the complete command group. Combined stdout/stderr
+retention is limited to one MiB and returned failure diagnostics to 16 KiB.
+Guest DNS restoration retains cleanup ownership after failure and becomes a
+no-op after success, so repeated network close cannot remove restored state.
 
 ## Tests
 
@@ -70,6 +73,7 @@ MiB and returned failure diagnostics to 16 KiB.
 - CNI failure after partial `ADD`, repeated `DEL`, and stale namespace cleanup.
 - Privileged-command timeout with descendants, combined-output capture, and
   output-limit failure without an unbounded diagnostic.
+- Repeated guest-network close and failed DNS-restoration retry ownership.
 - Network-policy enforcement location and bypass attempts.
 - Primary SSH, metadata, and guest-agent connectivity remain healthy.
 
