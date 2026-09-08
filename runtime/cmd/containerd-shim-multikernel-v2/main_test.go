@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -1335,4 +1336,68 @@ func TestSupervisorRestartsSignaledWorker(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(directory, ".multikernel-worker.pid")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("worker PID file remains after clean exit: %v", err)
 	}
+}
+
+func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
+	t.Run("command has private process group", func(t *testing.T) {
+		command := newRelayCommand("/bin/true", 7001, "/tmp/mk-relay-test.sock")
+		if command.SysProcAttr == nil || !command.SysProcAttr.Setpgid {
+			t.Fatalf("relay process attributes = %+v", command.SysProcAttr)
+		}
+	})
+
+	t.Run("stop kills group and removes socket", func(t *testing.T) {
+		command := exec.Command("/bin/sh", "-c", "sleep 60 & wait")
+		command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		if err := command.Start(); err != nil {
+			t.Fatal(err)
+		}
+		processGroup := command.Process.Pid
+		socket := filepath.Join(t.TempDir(), "relay.sock")
+		if err := os.WriteFile(socket, []byte("placeholder"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		s := &service{relay: command, relaySocket: socket}
+		if err := s.stopRelay(); err != nil {
+			t.Fatal(err)
+		}
+		if s.relay != nil || s.relaySocket != "" {
+			t.Fatalf("relay ownership remains: command=%v socket=%q", s.relay, s.relaySocket)
+		}
+		if _, err := os.Stat(socket); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("relay socket remains: %v", err)
+		}
+		deadline := time.Now().Add(time.Second)
+		for {
+			err := syscall.Kill(-processGroup, syscall.Signal(0))
+			if errors.Is(err, syscall.ESRCH) {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("relay process group %d remains: %v", processGroup, err)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	})
+
+	t.Run("socket cleanup remains retryable", func(t *testing.T) {
+		socket := filepath.Join(t.TempDir(), "relay.sock")
+		if err := os.Mkdir(socket, 0700); err != nil {
+			t.Fatal(err)
+		}
+		occupied := filepath.Join(socket, "occupied")
+		if err := os.WriteFile(occupied, []byte("x"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		s := &service{relaySocket: socket}
+		if err := s.stopRelay(); err == nil || s.relaySocket != socket {
+			t.Fatalf("failed socket cleanup: error=%v retained=%q", err, s.relaySocket)
+		}
+		if err := os.Remove(occupied); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.stopRelay(); err != nil || s.relaySocket != "" {
+			t.Fatalf("socket cleanup retry: error=%v retained=%q", err, s.relaySocket)
+		}
+	})
 }
