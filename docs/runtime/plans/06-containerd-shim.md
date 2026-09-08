@@ -74,6 +74,16 @@ retryable and its path remains owned until removal succeeds. Normal deletion
 keeps the relay alive through the final authenticated guest `Shutdown` reply,
 then terminates it before releasing the primary network endpoint.
 
+Shim recovery state is untrusted input after restart. Both reconstruction and
+fallback `Cleanup` open a bounded private caller-owned single-link regular file
+with `openat2` symlink/magic-link rejection and stable identity checks. Strict
+decoding binds the sandbox, generation, task/storage owner, optional network
+owner, process identities and states, stdio paths, and terminal/stdin invariants
+to the current containerd namespace/task tuple. Fallback cleanup rejects invalid
+state before external mutation, reports every teardown failure, stops before
+sandbox deletion when stop fails, and removes the rootfs only after sandbox
+deletion succeeds.
+
 Output FIFOs are opened nonblocking with a guard endpoint so detached clients
 may reattach. The shim fetches at most Linux `PIPE_BUF` (4096) bytes per stream
 and advances each durable guest-output offset only after the entire chunk is
@@ -124,6 +134,9 @@ rather than wrapping a task metric.
   disappearance.
 - Relay descendants and sockets are absent after connection failure,
   reconstruction failure, normal deletion, and cleanup retry.
+- Recovery files reject unknown fields, wrong owners/generations, unsafe file
+  identities, partial network identity, duplicate processes, and invalid state;
+  fallback cleanup propagates ordered stop, delete, and rootfs failures.
 - Unsupported OCI configuration fails before resource allocation where
   possible and always cleans up if allocation already occurred.
 - Two concurrent sandboxes using disjoint child resources.
