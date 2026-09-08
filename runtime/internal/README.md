@@ -42,3 +42,7 @@ entire builder group so descendants cannot retain pipes or partial work.
 Prepare, cleanup, reconciliation, mount entry, and recovery hashing reject a
 cancelled context before mutation; large storage-image hashing checks the
 context between bounded read chunks.
+Storage Provision, Release, and Reconcile likewise reject cancellation before
+journal transitions or backend calls. Backend inspection, start, observation,
+stop, and offline-check entry points reject it before filesystem or process
+mutation, and image hashing polls between four-MiB reads.

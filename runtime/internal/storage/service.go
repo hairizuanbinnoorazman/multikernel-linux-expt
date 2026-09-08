@@ -72,6 +72,9 @@ func validatePrepared(value PreparedImage) error {
 // ambiguous. The caller holds s.mu. An exact live process is stopped first so
 // only a Start call that returns success can transition the lease to ACTIVE.
 func (s *Service) recoverPreparation(ctx context.Context, value Export) (Export, error) {
+	if err := ctx.Err(); err != nil {
+		return Export{}, err
+	}
 	observation, err := s.backend.Observe(ctx, value)
 	if err != nil {
 		return Export{}, fmt.Errorf("observe retained storage preparation: %w", err)
@@ -101,6 +104,9 @@ func (s *Service) recoverPreparation(ctx context.Context, value Export) (Export,
 func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration string, image PreparedImage) (Export, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return Export{}, err
+	}
 	if !identityRE.MatchString(sandboxID) || !generationRE.MatchString(sandboxGeneration) {
 		return Export{}, errors.New("invalid sandbox identity")
 	}
@@ -159,6 +165,9 @@ func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration st
 func (s *Service) Release(ctx context.Context, sandboxID, sandboxGeneration, exportGeneration string) (Export, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return Export{}, err
+	}
 	value, ok := s.store.Get(sandboxID, sandboxGeneration)
 	if !ok {
 		return Export{}, errors.New("storage export not found")
@@ -199,7 +208,13 @@ func (s *Service) Release(ctx context.Context, sandboxID, sandboxGeneration, exp
 func (s *Service) Reconcile(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	for _, value := range s.store.List() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		switch value.State {
 		case "RELEASED":
 			continue

@@ -200,7 +200,10 @@ func inspectExt4(descriptor int, expected PreparedImage) error {
 	return nil
 }
 
-func (b *LinuxBackend) Inspect(_ context.Context, image PreparedImage) error {
+func (b *LinuxBackend) Inspect(ctx context.Context, image PreparedImage) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := validatePrepared(image); err != nil {
 		return err
 	}
@@ -236,6 +239,9 @@ func (b *LinuxBackend) Inspect(_ context.Context, image PreparedImage) error {
 	hash := sha256.New()
 	buffer := make([]byte, 4<<20)
 	for offset := int64(0); offset < info.Size; {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
 		length := len(buffer)
 		if remaining := info.Size - offset; remaining < int64(length) {
 			length = int(remaining)
@@ -246,6 +252,9 @@ func (b *LinuxBackend) Inspect(_ context.Context, image PreparedImage) error {
 		}
 		_, _ = hash.Write(buffer[:n])
 		offset += int64(n)
+	}
+	if err = ctx.Err(); err != nil {
+		return err
 	}
 	var after unix.Stat_t
 	if err = unix.Fstat(descriptor, &after); err != nil || after.Size != info.Size || after.Mtim != info.Mtim || after.Ctim != info.Ctim {
@@ -316,11 +325,18 @@ func atomicRecord(path string, value processRecord) error {
 }
 
 func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := validateBackendLease(value); err != nil {
 		return err
 	}
 	b.mu.Lock()
 	b.defaults()
+	if err := ctx.Err(); err != nil {
+		b.mu.Unlock()
+		return err
+	}
 	if err := validateRuntimeDirectory(b.RuntimeDir, true); err != nil {
 		b.mu.Unlock()
 		return err
@@ -343,6 +359,12 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	// argv, path, port, image ID, and export generation all match the durable
 	// lease; teardown signals that exact process group.
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err = ctx.Err(); err != nil {
+		_ = log.Close()
+		_ = os.Remove(logPath)
+		b.mu.Unlock()
+		return err
+	}
 	if err = command.Start(); err != nil {
 		_ = log.Close()
 		b.mu.Unlock()
@@ -428,7 +450,10 @@ func processMatches(record processRecord, binary string) bool {
 	return string(data) == want
 }
 
-func (b *LinuxBackend) Observe(_ context.Context, value Export) (Observation, error) {
+func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, error) {
+	if err := ctx.Err(); err != nil {
+		return Observation{}, err
+	}
 	if err := validateBackendLease(value); err != nil {
 		return Observation{}, err
 	}
@@ -504,6 +529,9 @@ func parseCounters(logPath string, value Export) (Counters, error) {
 }
 
 func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error) {
+	if err := ctx.Err(); err != nil {
+		return Counters{}, err
+	}
 	if err := validateBackendLease(value); err != nil {
 		return Counters{}, err
 	}
@@ -512,6 +540,9 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 	recordPath, logPath := b.paths(value)
 	managed := b.managed[recordPath]
 	b.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return Counters{}, err
+	}
 	if err := validateRuntimeDirectory(b.RuntimeDir, false); err != nil {
 		return Counters{}, err
 	}
@@ -530,6 +561,9 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 	}
 	if !processIsExact && !alreadyExited {
 		return Counters{}, errors.New("refuse to stop process without exact storage lease identity")
+	}
+	if err = ctx.Err(); err != nil {
+		return Counters{}, err
 	}
 	if managed != nil {
 		if !alreadyExited {
@@ -570,6 +604,9 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 }
 
 func (b *LinuxBackend) OfflineCheck(ctx context.Context, value Export) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if err := validateBackendLease(value); err != nil {
 		return "", err
 	}

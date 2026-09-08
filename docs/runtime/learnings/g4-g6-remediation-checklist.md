@@ -406,7 +406,10 @@ normative plan is revised with an explicit rationale.
   mutation, mount entry checks cancellation, and storage-image verification
   checks between bounded hash reads. Focused tests prove pre-cancelled service
   calls preserve backend and journal state and that hashing returns the caller
-  cancellation.
+  cancellation. Storage Provision/Release/Reconcile and all backend entry
+  points now enforce the same pre-mutation rule; inspection polls during image
+  hashing. Focused tests prove cancelled release retains `ACTIVE` ownership,
+  no backend call occurs, and cancellation interrupts a multi-chunk inspection.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

@@ -258,6 +258,14 @@ mutation, while mount entry and large image hashing observe the request context;
 focused tests prove cancelled preparation, cleanup, and reconciliation preserve
 backend calls, artifacts, and journal ownership.
 
+Storage operations now follow the same rule. Provision, Release, and Reconcile
+reject cancellation before changing durable ownership; inspection, start,
+observation, stop, and offline-check entry points reject it before external
+mutation. The image digest loop polls between four-MiB reads. Focused tests
+prove a cancelled release remains `ACTIVE`, invokes no backend stop, and that
+mid-inspection cancellation interrupts hashing rather than scanning the rest
+of the image.
+
 The shim now removes partial Create artifacts and allocated sandboxes on later
 failure, gives agent RPCs bounded deadlines with context cancellation, removes
 failed Exec entries, and reports a versioned guest-PID mapping. Guest

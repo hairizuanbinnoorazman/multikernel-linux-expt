@@ -13,6 +13,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -104,6 +106,58 @@ func TestLinuxBackendRejectsSparseAndMultiplyLinkedImages(t *testing.T) {
 	}
 	if err := backend.Inspect(context.Background(), image); err == nil {
 		t.Fatal("multiply-linked backing image accepted")
+	}
+}
+
+func TestLinuxBackendOperationsRejectPreCancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "runtime")}
+	for name, operation := range map[string]func() error{
+		"inspect": func() error { return backend.Inspect(ctx, PreparedImage{}) },
+		"start":   func() error { return backend.Start(ctx, Export{}) },
+		"observe": func() error { _, err := backend.Observe(ctx, Export{}); return err },
+		"stop":    func() error { _, err := backend.Stop(ctx, Export{}); return err },
+		"check":   func() error { _, err := backend.OfflineCheck(ctx, Export{}); return err },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := operation(); !errors.Is(err, context.Canceled) {
+				t.Fatalf("pre-cancelled operation error = %v", err)
+			}
+		})
+	}
+	if _, err := os.Stat(backend.RuntimeDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("pre-cancelled backend created runtime state: %v", err)
+	}
+}
+
+type cancelAfterChecks struct {
+	checks atomic.Int32
+	after  int32
+	done   chan struct{}
+	once   sync.Once
+}
+
+func (c *cancelAfterChecks) Deadline() (time.Time, bool) { return time.Time{}, false }
+func (c *cancelAfterChecks) Done() <-chan struct{}       { return c.done }
+func (c *cancelAfterChecks) Value(any) any               { return nil }
+func (c *cancelAfterChecks) Err() error {
+	if c.checks.Add(1) >= c.after {
+		c.once.Do(func() { close(c.done) })
+		return context.Canceled
+	}
+	return nil
+}
+
+func TestLinuxBackendInspectionChecksCancellationBetweenChunks(t *testing.T) {
+	image := makeExt4(t, false)
+	ctx := &cancelAfterChecks{after: 4, done: make(chan struct{})}
+	backend := &LinuxBackend{RequiredUID: os.Getuid()}
+	if err := backend.Inspect(ctx, image); !errors.Is(err, context.Canceled) {
+		t.Fatalf("mid-inspection cancellation error = %v", err)
+	}
+	if checks := ctx.checks.Load(); checks != ctx.after {
+		t.Fatalf("context checks = %d, want %d", checks, ctx.after)
 	}
 }
 
