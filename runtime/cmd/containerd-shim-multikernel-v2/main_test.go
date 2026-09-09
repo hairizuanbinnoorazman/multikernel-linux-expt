@@ -152,6 +152,10 @@ type writerFunc func([]byte) (int, error)
 
 func (f writerFunc) Write(value []byte) (int, error) { return f(value) }
 
+type inheritedFileSocket string
+
+func (path inheritedFileSocket) File() (*os.File, error) { return os.Open(string(path)) }
+
 func (f *retryPublisher) Publish(_ context.Context, topic string, _ events.Event) error {
 	f.attempts++
 	if f.attempts == 1 {
@@ -295,6 +299,37 @@ func TestPreCancelledShimStartupAndRecoveryDoNotCreateOrInspectState(t *testing.
 	}
 	if _, err := os.Stat(filepath.Join(s.bundle, ".multikernel")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("cancelled startup created runtime state: %v", err)
+	}
+}
+
+func TestLaunchShimWorkerCleansProcessGroupAndOwnedArtifactsOnPIDFailure(t *testing.T) {
+	directory := t.TempDir()
+	address := "unix://" + filepath.Join(directory, "shim.sock")
+	inheritedPath := filepath.Join(directory, "inherited-descriptor")
+	if err := os.WriteFile(inheritedPath, []byte("descriptor"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	addressPath := filepath.Join(directory, "address")
+	pidPath := filepath.Join(directory, "shim.pid")
+	if err := os.Mkdir(pidPath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("/bin/sh", "-c", "sleep 300 & wait")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := launchShimWorker(context.Background(), cmd, inheritedFileSocket(inheritedPath), address, addressPath, pidPath); err == nil {
+		t.Fatal("PID-file failure was accepted")
+	}
+	if _, statErr := os.Lstat(addressPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("partial address file survived: %v", statErr)
+	}
+	if info, statErr := os.Stat(pidPath); statErr != nil || !info.IsDir() {
+		t.Fatalf("pre-existing PID path was removed or changed: %+v, %v", info, statErr)
+	}
+	if cmd.Process == nil {
+		t.Fatal("worker did not reach the injected post-start failure")
+	}
+	if killErr := syscall.Kill(-cmd.Process.Pid, 0); !errors.Is(killErr, syscall.ESRCH) {
+		t.Fatalf("worker process group survived cleanup: %v", killErr)
 	}
 }
 
