@@ -438,3 +438,10 @@ unique process state. Invalid state fails before mutation. Cleanup aggregates
 teardown failures, will not delete after a failed stop, and reaches rootfs
 cleanup only after confirmed sandbox deletion. Focused adversarial state and
 ordered failure tests pass; forced-shim live cleanup evidence remains open.
+
+Reconstruction also previously loaded its authentication token through a plain
+path read even though normal Create performed stronger checks. Both paths now
+use one bounded `openat2` loader that rejects symlinked ancestors, hardlinks,
+wrong ownership or mode, malformed length or encoding, and identity changes
+while the token is opened or read. Focused adversarial tests cover the static
+path and link failures; current-revision reconstruction evidence remains open.

@@ -471,8 +471,12 @@ normative plan is revised with an explicit rationale.
   decoding. It binds sandbox/generation/task/storage/network ownership and
   validates bounded unique process state before external action. Cleanup no
   longer suppresses network, relay, sandbox, or rootfs failures; a failed stop
-  prevents deletion and rootfs removal. Focused wrong-owner, malformed-state,
-  symlink, partial-network, stop-failure, and rootfs-failure tests pass.
+  prevents deletion and rootfs removal. Normal startup and reconstruction now
+  share a no-symlink, caller-owned, single-link, exact-size, stable-identity
+  token loader instead of reconstruction bypassing those checks with a path
+  read. Focused wrong-owner, malformed-state, symlink, hardlink,
+  symlinked-ancestor, partial-network, stop-failure, and rootfs-failure tests
+  pass.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and

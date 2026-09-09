@@ -387,6 +387,13 @@ func TestLoadOrCreateTokenRejectsMalformedAndSymlinkState(t *testing.T) {
 		{"malformed", func(path string) error { return os.WriteFile(path, []byte("short\n"), 0600) }},
 		{"permissive", func(path string) error { return os.WriteFile(path, []byte(strings.Repeat("a", 64)+"\n"), 0644) }},
 		{"symlink", func(path string) error { return os.Symlink("missing", path) }},
+		{"hardlink", func(path string) error {
+			target := path + ".target"
+			if err := os.WriteFile(target, []byte(strings.Repeat("a", 64)+"\n"), 0600); err != nil {
+				return err
+			}
+			return os.Link(target, path)
+		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			directory := t.TempDir()
@@ -398,6 +405,24 @@ func TestLoadOrCreateTokenRejectsMalformedAndSymlinkState(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("symlinked ancestor", func(t *testing.T) {
+		directory := t.TempDir()
+		realRuntime := filepath.Join(directory, "real")
+		if err := os.Mkdir(realRuntime, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(realRuntime, "token"), []byte(strings.Repeat("a", 64)+"\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		linkedRuntime := filepath.Join(directory, "linked")
+		if err := os.Symlink(realRuntime, linkedRuntime); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := loadOrCreateToken(linkedRuntime); err == nil {
+			t.Fatal("token beneath a symlinked ancestor was accepted")
+		}
+	})
 }
 
 func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
