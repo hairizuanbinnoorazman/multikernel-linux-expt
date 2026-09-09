@@ -333,9 +333,17 @@ normative plan is revised with an explicit rationale.
 - [ ] Two sandboxes with overlapping internal names but distinct network
   identity, plus positive allowed routing and negative default isolation.
 - [ ] MTU boundaries, fragmentation, checksums, malformed/oversized frames,
-  loss, reordering, burst traffic, sustained load, and slow readers.
+  loss, reordering, burst traffic, sustained load, and slow readers. A
+  socketpair-backed shim pump suite now proves exact-MTU bidirectional
+  forwarding, oversized primary ingress and guest egress drops, exact counter
+  increments, disconnected-packet loss accounting, and retry-until-success
+  reconnect after two injected failures. Fragmentation, checksum, ordering,
+  load, and slow-reader coverage remain open.
 - [ ] Agent transport disconnect/reconnect, child restart, networking-service
-  restart, `mkruntimed` restart, shim death, and primary restart.
+  restart, `mkruntimed` restart, shim death, and primary restart. Focused pump
+  coverage now proves exchange disconnect detection and authenticated reconnect
+  retry before later traffic succeeds; the cross-process restart matrix remains
+  open.
 - [ ] CNI failure after every partial `ADD` boundary, repeated `CHECK`, repeated
   `DEL`, stale namespace/link/rule cleanup, and name/address reuse.
 - [ ] Source spoofing, route injection, metadata-address access policy,

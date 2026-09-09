@@ -60,6 +60,56 @@ type fakeAgentClient struct {
 	statsByID map[string]agent.ProcessStats
 }
 
+type networkPumpAgent struct {
+	mu                sync.Mutex
+	exchanges         int
+	reconnects        int
+	reconnectFailures int
+	handler           func(int, []byte) ([]byte, error)
+	packets           chan []byte
+}
+
+func (f *networkPumpAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+
+func (f *networkPumpAgent) CallContext(_ context.Context, method string, request, response any) error {
+	if method != "ExchangeNetwork" {
+		return fmt.Errorf("unexpected network pump method %s", method)
+	}
+	packet := append([]byte(nil), request.(map[string][]byte)["packet"]...)
+	f.mu.Lock()
+	f.exchanges++
+	call := f.exchanges
+	f.mu.Unlock()
+	if len(packet) != 0 && f.packets != nil {
+		f.packets <- packet
+	}
+	output, err := f.handler(call, packet)
+	if err != nil {
+		return err
+	}
+	return setJSONResponse(response, map[string][]byte{"packet": output})
+}
+
+func (f *networkPumpAgent) Close() error           { return nil }
+func (f *networkPumpAgent) Reconnect(string) error { return nil }
+func (f *networkPumpAgent) ReconnectContext(context.Context, string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reconnects++
+	if f.reconnects <= f.reconnectFailures {
+		return errors.New("injected reconnect failure")
+	}
+	return nil
+}
+
+func (f *networkPumpAgent) reconnectCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.reconnects
+}
+
 type fakeNetworkClient struct {
 	endpoint       mknetwork.Endpoint
 	descriptorPath string
@@ -2114,6 +2164,121 @@ func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 		}
 		if _, err := bundleNetworkNamespace(bundle); err == nil {
 			t.Fatal("oversized OCI config accepted")
+		}
+	})
+}
+
+func networkPumpSocket(t *testing.T) (*os.File, int) {
+	t.Helper()
+	descriptors, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_DGRAM|unix.SOCK_NONBLOCK|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	device := os.NewFile(uintptr(descriptors[0]), "network-pump-device")
+	t.Cleanup(func() {
+		_ = device.Close()
+		_ = unix.Close(descriptors[1])
+	})
+	return device, descriptors[1]
+}
+
+func waitNetworkCondition(t *testing.T, condition func() bool, description string) {
+	t.Helper()
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+		if condition() {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", description)
+}
+
+func stopNetworkPumpForTest(s *service) {
+	close(s.netDone)
+	s.netWG.Wait()
+	s.netDone = nil
+}
+
+func TestNetworkPumpMTUBoundsCountersAndReconnect(t *testing.T) {
+	const mtu = 576
+	t.Run("exact MTU round trip and oversized ingress", func(t *testing.T) {
+		device, peer := networkPumpSocket(t)
+		packets := make(chan []byte, 2)
+		client := &networkPumpAgent{packets: packets, handler: func(_ int, packet []byte) ([]byte, error) {
+			return packet, nil
+		}}
+		s := &service{agent: client, netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
+		if _, err := unix.Write(peer, bytes.Repeat([]byte{1}, mtu+1)); err != nil {
+			t.Fatal(err)
+		}
+		s.startNetworkPump()
+		defer stopNetworkPumpForTest(s)
+		waitNetworkCondition(t, func() bool { return s.netRXDrops.Load() == 1 }, "oversized ingress drop")
+		payload := bytes.Repeat([]byte{2}, mtu)
+		if _, err := unix.Write(peer, payload); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case observed := <-packets:
+			if !bytes.Equal(observed, payload) {
+				t.Fatal("exact-MTU ingress changed")
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("exact-MTU ingress was not forwarded")
+		}
+		buffer := make([]byte, mtu+1)
+		waitNetworkCondition(t, func() bool {
+			n, err := unix.Read(peer, buffer)
+			return err == nil && n == len(payload) && bytes.Equal(buffer[:n], payload)
+		}, "exact-MTU egress")
+		if s.netRXPackets.Load() != 1 || s.netTXPackets.Load() != 1 || s.netRXDrops.Load() != 1 || s.netTXDrops.Load() != 0 || s.netErrors.Load() != 0 {
+			t.Fatalf("network counters = rx:%d tx:%d rxdrop:%d txdrop:%d errors:%d", s.netRXPackets.Load(), s.netTXPackets.Load(), s.netRXDrops.Load(), s.netTXDrops.Load(), s.netErrors.Load())
+		}
+	})
+
+	t.Run("oversized guest egress", func(t *testing.T) {
+		device, peer := networkPumpSocket(t)
+		client := &networkPumpAgent{handler: func(_ int, packet []byte) ([]byte, error) {
+			if len(packet) == 0 {
+				return nil, nil
+			}
+			return bytes.Repeat([]byte{3}, mtu+1), nil
+		}}
+		s := &service{agent: client, netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
+		if _, err := unix.Write(peer, bytes.Repeat([]byte{2}, mtu)); err != nil {
+			t.Fatal(err)
+		}
+		s.startNetworkPump()
+		defer stopNetworkPumpForTest(s)
+		waitNetworkCondition(t, func() bool { return s.netTXDrops.Load() == 1 }, "oversized guest egress drop")
+		if s.netRXPackets.Load() != 1 || s.netTXPackets.Load() != 0 {
+			t.Fatalf("oversized egress counters = rx:%d tx:%d", s.netRXPackets.Load(), s.netTXPackets.Load())
+		}
+	})
+
+	t.Run("disconnect drops packet and retries reconnect", func(t *testing.T) {
+		device, peer := networkPumpSocket(t)
+		packets := make(chan []byte, 2)
+		client := &networkPumpAgent{packets: packets, reconnectFailures: 2}
+		client.handler = func(_ int, packet []byte) ([]byte, error) {
+			if len(packet) != 0 && client.reconnectCount() == 0 {
+				return nil, errors.New("injected exchange disconnect")
+			}
+			return nil, nil
+		}
+		s := &service{agent: client, netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
+		if _, err := unix.Write(peer, bytes.Repeat([]byte{4}, mtu)); err != nil {
+			t.Fatal(err)
+		}
+		s.startNetworkPump()
+		defer stopNetworkPumpForTest(s)
+		waitNetworkCondition(t, func() bool { return client.reconnectCount() >= 3 }, "bounded reconnect retries")
+		if _, err := unix.Write(peer, bytes.Repeat([]byte{5}, mtu)); err != nil {
+			t.Fatal(err)
+		}
+		waitNetworkCondition(t, func() bool { return s.netRXPackets.Load() == 1 }, "post-reconnect packet")
+		if s.netRXDrops.Load() != 1 || s.netErrors.Load() != 1 {
+			t.Fatalf("disconnect counters = drops:%d errors:%d", s.netRXDrops.Load(), s.netErrors.Load())
 		}
 	})
 }

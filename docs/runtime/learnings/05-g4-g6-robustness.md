@@ -504,6 +504,12 @@ loaders. It now enforces the same no-symlink, caller-owned, single-link,
 one-MiB, stable-identity contract before decoding the namespace needed by
 `mknetd`.
 
+The shim packet pump now has direct socketpair-backed fault coverage rather
+than relying only on service/store tests. Exact-MTU packets traverse both
+directions, oversized ingress and egress increment their specific drop
+counters, an exchange disconnect accounts the in-flight loss, and two injected
+reconnect failures are retried before subsequent traffic is accepted.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and
