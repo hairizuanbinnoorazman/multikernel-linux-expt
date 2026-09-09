@@ -470,5 +470,8 @@ and socket state are cleared.
 Task cancellation coverage now includes the read side as well as mutation.
 State, Wait, Pids, Connect, and Stats reject an already-cancelled caller before
 locking or guest contact; focused coverage proves no guest request is emitted
-and the process completion record remains unchanged. The live cross-service
-deadline and leak matrix remains open.
+and the process completion record remains unchanged. Task entry locks now use
+cancellation-aware acquisition too; contended read and mutation tests return
+while the competing owner still holds the lock. Non-cancellable locks remain
+only where post-mutation cleanup must finish to preserve ownership. The live
+cross-service deadline and leak matrix remains open.
