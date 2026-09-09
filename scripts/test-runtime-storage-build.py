@@ -95,6 +95,22 @@ class StorageBuildTests(unittest.TestCase):
         self.assertFalse(metadata.exists())
         self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
 
+    def test_block_exhaustion_is_bounded_and_cleans_partial_artifacts(self):
+        payload = self.root / "allocated-payload"
+        with payload.open("wb") as stream:
+            chunk = b"multikernel-block-exhaustion\n" * 32768
+            remaining = 63 << 20
+            while remaining:
+                written = min(remaining, len(chunk))
+                stream.write(chunk[:written])
+                remaining -= written
+        result, output, metadata = self.build("block-exhaustion", size=64 << 20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("mke2fs failed", result.stderr)
+        self.assertFalse(output.exists())
+        self.assertFalse(metadata.exists())
+        self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
+
     def test_metadata_normalization_failure_cleans_partial_artifacts(self):
         result, output, metadata = self.build("debugfs", debugfs="/bin/false")
         self.assertNotEqual(result.returncode, 0)

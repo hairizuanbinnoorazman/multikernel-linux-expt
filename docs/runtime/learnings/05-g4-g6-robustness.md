@@ -494,7 +494,9 @@ Storage high-water accounting now validates its free-space reserve before any
 directory or image creation; negative values can no longer reduce the required
 capacity through arithmetic. A focused ext4 build deliberately exceeds a
 128-inode image with 256 source entries and proves the formatter failure leaves
-no image, metadata, or staging directory.
+no image, metadata, or staging directory. A separate fully allocated 63-MiB
+payload into the minimum 64-MiB filesystem exercises block exhaustion and
+proves the identical cleanup invariant.
 
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a

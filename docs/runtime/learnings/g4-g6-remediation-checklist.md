@@ -233,7 +233,9 @@ normative plan is revised with an explicit rationale.
   negative or unreasonably large free-space reserve so the high-water policy
   cannot be disabled through arithmetic, and a real 256-file/128-inode build
   proves inode exhaustion fails boundedly with no image, metadata, or staging
-  residue. Block exhaustion and live fault evidence remain open.
+  residue. A separate fully allocated 63-MiB source into the minimum 64-MiB
+  ext4 quota proves block exhaustion follows the same no-residue failure path.
+  Live fault evidence remains open.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
   dirty recovery; snapshot/clone recovery using disposable copies.
@@ -588,6 +590,9 @@ normative plan is revised with an explicit rationale.
   groups transactionally, with deterministic order and bounded reverse-order
   rollback after partial signal failure. Focused tests cover success and the
   partial boundary; the remaining signal/exit/churn and live matrix is open.
+  The descendant process-group signal test now waits for the terminal marker
+  value instead of treating its earlier ready value as a terminal failure,
+  eliminating a false negative while preserving the two-second bound.
 
 ### Replacement instance evidence required
 
