@@ -1602,6 +1602,13 @@ func TestEventJournalRejectsSymlinkAndPermissiveState(t *testing.T) {
 		{"permissive", func(path string) error {
 			return os.WriteFile(path, []byte(`{"schema_version":1,"next_sequence":1,"pending":[]}`), 0644)
 		}},
+		{"hardlink", func(path string) error {
+			target := path + ".target"
+			if err := os.WriteFile(target, []byte(`{"schema_version":1,"next_sequence":1,"pending":[]}`), 0600); err != nil {
+				return err
+			}
+			return os.Link(target, path)
+		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			s := &service{bundle: t.TempDir(), events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
@@ -1613,6 +1620,26 @@ func TestEventJournalRejectsSymlinkAndPermissiveState(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("symlinked ancestor", func(t *testing.T) {
+		directory := t.TempDir()
+		realBundle := filepath.Join(directory, "real")
+		if err := os.Mkdir(realBundle, 0700); err != nil {
+			t.Fatal(err)
+		}
+		realJournal := filepath.Join(realBundle, ".multikernel-events.json")
+		if err := os.WriteFile(realJournal, []byte(`{"schema_version":1,"next_sequence":1,"pending":[]}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+		linkedBundle := filepath.Join(directory, "linked")
+		if err := os.Symlink(realBundle, linkedBundle); err != nil {
+			t.Fatal(err)
+		}
+		s := &service{bundle: linkedBundle, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+		if err := s.loadEventJournal(); err == nil {
+			t.Fatal("event journal beneath a symlinked ancestor was accepted")
+		}
+	})
 }
 
 func TestDeleteRepairsMissingExitEventBeforeDeleteEvent(t *testing.T) {

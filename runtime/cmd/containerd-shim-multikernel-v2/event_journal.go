@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	eventstypes "github.com/containerd/containerd/api/events"
@@ -116,22 +117,31 @@ func (s *service) loadEventJournal() error {
 	if err != nil {
 		return fmt.Errorf("inspect event journal: %w", err)
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() <= 0 || info.Size() > 8<<20 {
-		return errors.New("event journal must be a private bounded regular file")
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() <= 0 || info.Size() > 8<<20 ||
+		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
+		return errors.New("event journal must be a private caller-owned bounded single-link regular file")
 	}
-	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags: uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW), Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
 	if err != nil {
 		return fmt.Errorf("open event journal: %w", err)
 	}
 	file := os.NewFile(uintptr(descriptor), path)
-	defer file.Close()
 	opened, err := file.Stat()
-	if err != nil || !os.SameFile(info, opened) {
+	if err != nil || !sameProcessIOIdentity(info, opened) {
+		_ = file.Close()
 		return errors.New("event journal identity changed while opening")
 	}
-	data, err := io.ReadAll(io.LimitReader(file, (8<<20)+1))
-	if err != nil || len(data) > 8<<20 {
+	data, readErr := io.ReadAll(io.LimitReader(file, (8<<20)+1))
+	after, statErr := file.Stat()
+	closeErr := file.Close()
+	if err = errors.Join(readErr, statErr, closeErr); err != nil || len(data) > 8<<20 {
 		return errors.New("event journal changed or exceeded its read bound")
+	}
+	if !sameProcessIOIdentity(opened, after) {
+		return errors.New("event journal identity changed while reading")
 	}
 	var value eventJournal
 	if err = protocol.StrictDecode(data, &value); err != nil {

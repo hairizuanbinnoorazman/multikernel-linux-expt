@@ -477,3 +477,9 @@ only where post-mutation cleanup must finish to preserve ownership. The live
 cross-service deadline and leak matrix remains open. Event queue and flush
 locks use the same cancellation-aware acquisition, with contention tests
 proving cancellation does not mutate pending events or sequence state.
+
+Event-journal recovery now applies the same untrusted-file contract as shim
+recovery state and tokens: caller ownership, one link, private mode, bounded
+size, no symlinked ancestors, and stable device/inode/metadata through the
+read. Focused hardlink and symlinked-ancestor tests supplement the existing
+schema, symlink, and mode cases; live event replay evidence remains open.
