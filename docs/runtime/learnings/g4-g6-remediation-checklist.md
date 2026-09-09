@@ -397,8 +397,11 @@ normative plan is revised with an explicit rationale.
   acceptance followed by a crash before local acknowledgement can duplicate an
   event. Exit queue state is durable and Delete repairs a missing exit first.
   Focused tests cover ordered replay, queue/ack failure, unsafe journal input,
-  and exit-before-delete; the full event matrix and live transcript remain in
-  their test/evidence rows below.
+  and exit-before-delete. Journal loading now additionally enforces caller
+  ownership, one link, no symlinked ancestors, and stable identity across the
+  bounded read; focused hardlink and ancestor tests cover the added boundary.
+  The full event matrix and live transcript remain in their test/evidence rows
+  below.
 - [ ] Harden FIFO handling for peer disappearance, attach/detach churn, blocked
   writers, slow/unread output, output pressure, `CloseIO` races, and shim
   restart. Bound retained output and goroutine/process lifetime. Output is now
