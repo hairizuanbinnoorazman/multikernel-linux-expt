@@ -355,6 +355,11 @@ normative plan is revised with an explicit rationale.
 
 - [ ] Preserve and reconnect a running task after forced shim death. Safe
   reclaim is a useful fallback but is not the plan's reconnect requirement.
+  Focused reconstruction now proves that an exact daemon-owned sandbox and
+  network generation restore the recorded live guest PID, authenticated agent
+  identity, relay/network ownership, output/wait loop, and subsequent exact
+  exit completion. Forced-death process continuity and live identity evidence
+  remain open.
 - [ ] Define ownership transfer for containerd restart, shim restart, daemon
   restart, and shutdown. Reconstruct process state, stdio endpoints, exit
   status, and event delivery without changing the child boot identity. Task

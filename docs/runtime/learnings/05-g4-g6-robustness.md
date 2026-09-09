@@ -452,3 +452,11 @@ caller-owned, single-link Unix socket with non-writable group/other mode and
 fail closed on every other path. Focused tests prove regular files,
 directories, and symlinks are rejected without removal; the privileged live
 socket replacement case remains part of the replacement run.
+
+The reconstruction path now has a focused successful-reconnect test rather
+than only state-validation and fallback-cleanup coverage. Injected daemon,
+network, agent, and relay boundaries prove that the exact sandbox and network
+generations restore a recorded running guest PID, authenticated agent
+parameters, output/wait loop, and its later exact exit completion before owned
+resources are reaped. Live forced-death continuity for a running process is
+still required.

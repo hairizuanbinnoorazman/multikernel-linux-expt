@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -34,6 +35,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
@@ -55,6 +57,81 @@ type fakeAgentClient struct {
 	fail      map[string]error
 	stats     agent.ProcessStats
 	statsByID map[string]agent.ProcessStats
+}
+
+type fakeNetworkClient struct {
+	endpoint       mknetwork.Endpoint
+	descriptorPath string
+	calls          []string
+}
+
+type recoveryAgentClient struct {
+	finish chan struct{}
+	mu     sync.Mutex
+	calls  []string
+}
+
+func (f *recoveryAgentClient) record(method string) {
+	f.mu.Lock()
+	f.calls = append(f.calls, method)
+	f.mu.Unlock()
+}
+
+func (f *recoveryAgentClient) snapshotCalls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.calls...)
+}
+
+func setJSONResponse(output, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, output)
+}
+
+func (f *recoveryAgentClient) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+
+func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, _, response any) error {
+	f.record(method)
+	switch method {
+	case "StateProcess":
+		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "RUNNING"})
+	case "ReadProcessOutput":
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-f.finish:
+		}
+		return setJSONResponse(response, map[string]any{"status": "STOPPED", "stdout_offset": 0, "stderr_offset": 0})
+	case "WaitProcess":
+		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 17})
+	default:
+		return nil
+	}
+}
+
+func (f *recoveryAgentClient) Close() error                                   { return nil }
+func (f *recoveryAgentClient) Reconnect(string) error                         { return nil }
+func (f *recoveryAgentClient) ReconnectContext(context.Context, string) error { return nil }
+
+func (f *fakeNetworkClient) Call(_ context.Context, request mknetwork.Request) (mknetwork.Response, error) {
+	f.calls = append(f.calls, request.Method)
+	endpoint := f.endpoint
+	return mknetwork.Response{Version: mknetwork.ProtocolVersion, RequestID: request.RequestID, Endpoint: &endpoint}, nil
+}
+
+func (f *fakeNetworkClient) Attach(_ context.Context, request mknetwork.Request) (mknetwork.Response, *os.File, error) {
+	f.calls = append(f.calls, request.Method)
+	descriptor, err := os.Open(f.descriptorPath)
+	if err != nil {
+		return mknetwork.Response{}, nil, err
+	}
+	endpoint := f.endpoint
+	return mknetwork.Response{Version: mknetwork.ProtocolVersion, RequestID: request.RequestID, Endpoint: &endpoint}, descriptor, nil
 }
 
 type daemonCallFunc func(context.Context, protocol.Request, any) *protocol.Error
@@ -1482,6 +1559,106 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	temporary, err := filepath.Glob(filepath.Join(bundle, ".multikernel", ".sandbox.json.*"))
 	if err != nil || len(temporary) != 0 {
 		t.Fatalf("temporary recovery files = %v, error = %v", temporary, err)
+	}
+}
+
+func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *testing.T) {
+	bundle := t.TempDir()
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	namespace, task := "default", "task-a"
+	sandboxGeneration := strings.Repeat("a", 32)
+	networkGeneration := strings.Repeat("b", 32)
+	sandbox := protocol.Sandbox{ID: sandboxID(namespace, task), Generation: sandboxGeneration, State: "RUNNING",
+		Config: protocol.SandboxConfig{AgentPort: 7200}}
+	recovery := validPersistedRecovery(namespace, task)
+	recovery.Network = mknetwork.Endpoint{Generation: networkGeneration, SandboxID: sandbox.ID,
+		SandboxGeneration: sandbox.Generation, NetNS: "/run/netns/task-a", MTU: 1400}
+	recovery.Processes[0].Status = tasktypes.Status_RUNNING
+	recovery.Processes[0].PID = 41
+	data, err := json.Marshal(recovery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(runtimeDir, "token"), []byte(strings.Repeat("c", 64)+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	descriptorPath := filepath.Join(bundle, "network-descriptor")
+	if err = os.WriteFile(descriptorPath, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	network := &fakeNetworkClient{endpoint: recovery.Network, descriptorPath: descriptorPath}
+	fakeAgent := &recoveryAgentClient{finish: make(chan struct{})}
+	var daemonCalls []string
+	service := &service{id: task, namespace: namespace, bundle: bundle, processes: map[string]*process{}, netClient: network,
+		publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+		daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
+			daemonCalls = append(daemonCalls, request.Method)
+			encoded, _ := json.Marshal([]protocol.Sandbox{sandbox})
+			if err := json.Unmarshal(encoded, output); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}),
+		agentDial: func(_ context.Context, _ string, id, generation string, port uint32, token []byte) (agentClient, error) {
+			if id != sandbox.ID || generation != sandbox.Generation || port != 7200 || len(token) != 32 {
+				t.Fatalf("agent identity = id:%q generation:%q port:%d token:%d", id, generation, port, len(token))
+			}
+			return fakeAgent, nil
+		},
+		newRelay: func(uint32, string) *exec.Cmd {
+			command := exec.Command("/bin/sleep", "300")
+			command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+			return command
+		},
+	}
+	if err = service.recoverExisting(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if service.sandbox.ID != sandbox.ID || service.sandbox.Generation != sandbox.Generation || service.netEndpoint.Generation != networkGeneration {
+		t.Fatalf("recovered ownership = sandbox:%+v network:%+v", service.sandbox, service.netEndpoint)
+	}
+	if service.relaySocket != relaySocketPath(7200, sandbox.Generation) || service.relay == nil {
+		t.Fatalf("recovered relay ownership = socket:%q command:%v", service.relaySocket, service.relay)
+	}
+	process := service.processes[""]
+	if process == nil || process.pid != 41 || process.status != tasktypes.Status_RUNNING || process.exitEventQueued {
+		t.Fatalf("recovered process = %+v", process)
+	}
+	select {
+	case <-process.done:
+		t.Fatal("recovered running process completed before the guest exit")
+	default:
+	}
+	close(fakeAgent.finish)
+	select {
+	case <-process.done:
+	case <-time.After(time.Second):
+		t.Fatal("recovered process did not observe the guest exit")
+	}
+	if process.status != tasktypes.Status_STOPPED || process.exit != 17 || !process.exitEventQueued {
+		t.Fatalf("recovered exit = status:%v exit:%d event:%v", process.status, process.exit, process.exitEventQueued)
+	}
+	if err = service.stopNetwork(); err != nil {
+		t.Fatal(err)
+	}
+	// The injected relay never creates its derived /run socket, and the local
+	// test sandbox intentionally denies writes there. Retain the ownership
+	// assertion above, then reap only the injected process group here.
+	service.relaySocket = ""
+	if err = service.stopRelay(); err != nil {
+		t.Fatal(err)
+	}
+	if err = service.agent.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(daemonCalls, []string{"ListSandboxes"}) || len(network.calls) < 2 || network.calls[0] != "ATTACH" {
+		t.Fatalf("recovery calls = daemon:%v network:%v agent:%v", daemonCalls, network.calls, fakeAgent.snapshotCalls())
 	}
 }
 
