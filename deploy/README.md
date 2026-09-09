@@ -44,7 +44,29 @@ and preserves all releases. An active release cannot be removed. After
 activating another release or uninstalling, remove an exact verified inactive
 release with `remove-release IDENTIFIER --apply`.
 
-Install and adapt the files explicitly on a qualified host:
+Create an adapted `runtime.env` and strict host configuration outside the
+repository, then install the complete service/config set as an immutable
+generation and atomically activate it:
+
+```bash
+sudo ./scripts/manage-runtime-deployment.py install \
+  /path/to/runtime.env /path/to/config.json
+sudo ./scripts/manage-runtime-deployment.py inspect
+sudo systemctl daemon-reload
+sudo systemctl enable --now sys-fs-multikernel.mount mkruntimed.service mknetd.service
+```
+
+The installer validates both operator inputs, hashes every deployed unit and
+fragment, refuses unrelated destination paths, and switches all stable links
+through `/etc/multikernel/current`. Installing a changed configuration creates
+a new immutable generation; `activate DEPLOYMENT` rolls back atomically.
+`uninstall` is a dry run unless passed `--apply` and preserves generations;
+an active generation cannot be removed with `remove-deployment`. The reported
+activation commands remain explicit because starting privileged services is a
+separate operator action and must follow host qualification.
+
+The equivalent manual layout, useful for auditing rather than installation,
+is:
 
 ```bash
 sudo install -d -m 0755 /etc/multikernel

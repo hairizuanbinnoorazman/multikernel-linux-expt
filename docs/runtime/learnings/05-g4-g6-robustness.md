@@ -470,6 +470,14 @@ at one MiB, and reject mutation while reading. In particular, a valid JSON
 prefix followed by data beyond the former decoder limit can no longer be
 accepted as the complete configuration.
 
+Privileged deployment configuration is no longer a sequence of unrelated
+manual copies. A dedicated manager builds immutable, hash-verified generations
+containing the host configuration, environment, systemd units, CNI config and
+containerd import fragment. Stable destinations resolve through one atomically
+selected generation, allowing exact rollback while collision and uninstall
+rules preserve operator-owned files. Service activation remains an explicit
+post-qualification action and is reported by `inspect`.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and
