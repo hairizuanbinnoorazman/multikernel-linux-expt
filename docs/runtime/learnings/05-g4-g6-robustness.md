@@ -474,4 +474,6 @@ and the process completion record remains unchanged. Task entry locks now use
 cancellation-aware acquisition too; contended read and mutation tests return
 while the competing owner still holds the lock. Non-cancellable locks remain
 only where post-mutation cleanup must finish to preserve ownership. The live
-cross-service deadline and leak matrix remains open.
+cross-service deadline and leak matrix remains open. Event queue and flush
+locks use the same cancellation-aware acquisition, with contention tests
+proving cancellation does not mutate pending events or sequence state.

@@ -469,7 +469,9 @@ normative plan is revised with an explicit rationale.
   read and mutation tests prove cancellation returns while another owner still
   holds the lock and without changing process state. Mandatory cleanup locks
   after an external mutation remain non-cancellable so ownership cannot be
-  abandoned halfway through reconciliation.
+  abandoned halfway through reconciliation. Event queue and flush lock
+  acquisition is cancellation-aware as well; focused contention tests prove a
+  cancelled publisher neither queues nor acknowledges journal state.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

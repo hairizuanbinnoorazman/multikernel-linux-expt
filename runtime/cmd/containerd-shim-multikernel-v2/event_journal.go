@@ -174,7 +174,9 @@ var jsonMarshal = func(value any) ([]byte, error) {
 }
 
 func (s *service) flushEvents(ctx context.Context) error {
-	s.eventMu.Lock()
+	if err := lockContext(ctx, &s.eventMu); err != nil {
+		return err
+	}
 	defer s.eventMu.Unlock()
 	for len(s.events.Pending) != 0 {
 		next := s.events.Pending[0]
@@ -195,6 +197,9 @@ func (s *service) flushEvents(ctx context.Context) error {
 }
 
 func (s *service) publish(ctx context.Context, topic string, event any) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	encoded, err := typeurl.MarshalAny(event)
 	if err != nil {
 		return err
@@ -202,7 +207,9 @@ func (s *service) publish(ctx context.Context, topic string, event any) error {
 	if !eventMatchesTopic(topic, event) {
 		return errors.New("event topic and payload type differ")
 	}
-	s.eventMu.Lock()
+	if err = lockContext(ctx, &s.eventMu); err != nil {
+		return err
+	}
 	if len(s.events.Pending) >= maxPendingEvents {
 		s.eventMu.Unlock()
 		return errors.New("event journal pending limit reached")

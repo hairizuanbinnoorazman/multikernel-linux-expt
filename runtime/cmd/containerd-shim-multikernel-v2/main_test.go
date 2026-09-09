@@ -1472,6 +1472,52 @@ func TestEventJournalPreservesOrderAndReplaysAfterFailure(t *testing.T) {
 	}
 }
 
+func TestEventJournalLockWaitHonorsCancellationWithoutMutation(t *testing.T) {
+	s := &service{id: "task", namespace: "default", bundle: t.TempDir(), publisher: &fakePublisher{},
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	s.eventMu.Lock()
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		result <- s.publish(ctx, ctruntime.TaskStartEventTopic, &eventstypes.TaskStart{ContainerID: "task", Pid: 41})
+	}()
+	time.Sleep(10 * time.Millisecond)
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			s.eventMu.Unlock()
+			t.Fatalf("contended publication error = %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		s.eventMu.Unlock()
+		t.Fatal("contended event publication ignored cancellation")
+	}
+	if len(s.events.Pending) != 0 || s.events.NextSequence != 1 {
+		s.eventMu.Unlock()
+		t.Fatalf("cancelled publication mutated journal: %+v", s.events)
+	}
+	s.eventMu.Unlock()
+
+	s.eventMu.Lock()
+	ctx, cancel = context.WithCancel(context.Background())
+	result = make(chan error, 1)
+	go func() { result <- s.flushEvents(ctx) }()
+	time.Sleep(10 * time.Millisecond)
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			s.eventMu.Unlock()
+			t.Fatalf("contended flush error = %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		s.eventMu.Unlock()
+		t.Fatal("contended event flush ignored cancellation")
+	}
+	s.eventMu.Unlock()
+}
+
 func TestEventJournalRetriesWithoutAnotherLifecycleRequest(t *testing.T) {
 	publisher := &retryPublisher{published: make(chan string, 1)}
 	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
