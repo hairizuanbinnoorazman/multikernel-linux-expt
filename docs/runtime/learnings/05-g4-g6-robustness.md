@@ -479,6 +479,12 @@ selected generation, allowing exact rollback while collision and uninstall
 rules preserve operator-owned files. Service activation remains an explicit
 post-qualification action and is reported by `inspect`.
 
+Task v2 request identity is now enforced uniformly rather than only during
+Create. Every supported RPC rejects nil input and a task ID that differs from
+the per-shim task before taking its mutation lock or contacting the guest; the
+focused method table also proves these failures leave process and shutdown
+state unchanged.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and

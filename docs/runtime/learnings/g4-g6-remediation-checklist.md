@@ -482,7 +482,10 @@ normative plan is revised with an explicit rationale.
   complete namespace/task tuple so different namespaces, punctuation, or
   truncated long IDs cannot alias. Exec IDs outside the guest protocol's
   bounded safe alphabet are rejected before guest contact. Rootfs and OCI
-  path validation is covered. Stdio validation and descriptor acquisition now
+  path validation is covered. Every supported Task RPC now rejects nil input
+  and a task ID different from the per-shim identity before lock acquisition,
+  guest contact, events, or state mutation; a full method-table test covers
+  both cases. Stdio validation and descriptor acquisition now
   apply the no-symlink, stable-identity contract described above; the broader
   hostile-input/failure matrix and disposable-host evidence remain open. The
   shim now applies the rootfs service's complete mount contract before sandbox

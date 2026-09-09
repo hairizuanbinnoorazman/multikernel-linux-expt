@@ -1367,6 +1367,72 @@ func TestStatePidsAndConnectReportGuestProcessIDs(t *testing.T) {
 	}
 }
 
+func TestTaskRPCsRejectNilAndMismatchedTaskIdentityBeforeMutation(t *testing.T) {
+	fake := &fakeAgentClient{fail: map[string]error{}}
+	s := &service{id: "task", bundle: "/bundle", agent: fake, processes: map[string]*process{
+		"": {status: tasktypes.Status_RUNNING, done: make(chan struct{})},
+	}}
+	tests := []struct {
+		name  string
+		nil   func() error
+		wrong func() error
+	}{
+		{"Create", func() error { _, err := s.Create(context.Background(), nil); return err }, func() error {
+			_, err := s.Create(context.Background(), &taskapi.CreateTaskRequest{ID: "other"})
+			return err
+		}},
+		{"Start", func() error { _, err := s.Start(context.Background(), nil); return err }, func() error { _, err := s.Start(context.Background(), &taskapi.StartRequest{ID: "other"}); return err }},
+		{"State", func() error { _, err := s.State(context.Background(), nil); return err }, func() error { _, err := s.State(context.Background(), &taskapi.StateRequest{ID: "other"}); return err }},
+		{"Wait", func() error { _, err := s.Wait(context.Background(), nil); return err }, func() error { _, err := s.Wait(context.Background(), &taskapi.WaitRequest{ID: "other"}); return err }},
+		{"Kill", func() error { _, err := s.Kill(context.Background(), nil); return err }, func() error { _, err := s.Kill(context.Background(), &taskapi.KillRequest{ID: "other"}); return err }},
+		{"Exec", func() error { _, err := s.Exec(context.Background(), nil); return err }, func() error {
+			_, err := s.Exec(context.Background(), &taskapi.ExecProcessRequest{ID: "other"})
+			return err
+		}},
+		{"Delete", func() error { _, err := s.Delete(context.Background(), nil); return err }, func() error {
+			_, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ID: "other"})
+			return err
+		}},
+		{"Pids", func() error { _, err := s.Pids(context.Background(), nil); return err }, func() error { _, err := s.Pids(context.Background(), &taskapi.PidsRequest{ID: "other"}); return err }},
+		{"Connect", func() error { _, err := s.Connect(context.Background(), nil); return err }, func() error {
+			_, err := s.Connect(context.Background(), &taskapi.ConnectRequest{ID: "other"})
+			return err
+		}},
+		{"Shutdown", func() error { _, err := s.Shutdown(context.Background(), nil); return err }, func() error {
+			_, err := s.Shutdown(context.Background(), &taskapi.ShutdownRequest{ID: "other", Now: true})
+			return err
+		}},
+		{"ResizePty", func() error { _, err := s.ResizePty(context.Background(), nil); return err }, func() error {
+			_, err := s.ResizePty(context.Background(), &taskapi.ResizePtyRequest{ID: "other"})
+			return err
+		}},
+		{"Pause", func() error { _, err := s.Pause(context.Background(), nil); return err }, func() error { _, err := s.Pause(context.Background(), &taskapi.PauseRequest{ID: "other"}); return err }},
+		{"Resume", func() error { _, err := s.Resume(context.Background(), nil); return err }, func() error {
+			_, err := s.Resume(context.Background(), &taskapi.ResumeRequest{ID: "other"})
+			return err
+		}},
+		{"CloseIO", func() error { _, err := s.CloseIO(context.Background(), nil); return err }, func() error {
+			_, err := s.CloseIO(context.Background(), &taskapi.CloseIORequest{ID: "other"})
+			return err
+		}},
+		{"Stats", func() error { _, err := s.Stats(context.Background(), nil); return err }, func() error { _, err := s.Stats(context.Background(), &taskapi.StatsRequest{ID: "other"}); return err }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for name, invoke := range map[string]func() error{"nil": test.nil, "mismatched": test.wrong} {
+				t.Run(name, func(t *testing.T) {
+					if err := invoke(); !errors.Is(err, errdefs.ErrInvalidArgument) {
+						t.Fatalf("error = %v, want invalid argument", err)
+					}
+				})
+			}
+		})
+	}
+	if len(fake.calls) != 0 || len(s.processes) != 1 || s.processes[""].status != tasktypes.Status_RUNNING || s.shuttingDown {
+		t.Fatalf("invalid requests mutated service: calls=%v processes=%+v shuttingDown=%v", fake.calls, s.processes, s.shuttingDown)
+	}
+}
+
 func TestPauseResumeSignalsGuestAndPublishesTransitions(t *testing.T) {
 	fakeAgent := &fakeAgentClient{fail: map[string]error{}}
 	fakeEvents := &fakePublisher{}
@@ -1374,13 +1440,13 @@ func TestPauseResumeSignalsGuestAndPublishesTransitions(t *testing.T) {
 		id: "task", namespace: "default", bundle: t.TempDir(), agent: fakeAgent, publisher: fakeEvents,
 		processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}, "exec": {status: tasktypes.Status_RUNNING}},
 	}
-	if _, err := s.Pause(context.Background(), &taskapi.PauseRequest{}); err != nil {
+	if _, err := s.Pause(context.Background(), &taskapi.PauseRequest{ID: "task"}); err != nil {
 		t.Fatal(err)
 	}
 	if s.processes[""].status != tasktypes.Status_PAUSED || s.processes["exec"].status != tasktypes.Status_PAUSED {
 		t.Fatalf("pause statuses = init:%v exec:%v", s.processes[""].status, s.processes["exec"].status)
 	}
-	if _, err := s.Resume(context.Background(), &taskapi.ResumeRequest{}); err != nil {
+	if _, err := s.Resume(context.Background(), &taskapi.ResumeRequest{ID: "task"}); err != nil {
 		t.Fatal(err)
 	}
 	if s.processes[""].status != tasktypes.Status_RUNNING || s.processes["exec"].status != tasktypes.Status_RUNNING {
@@ -1679,7 +1745,7 @@ func TestDeleteRepairsMissingExitEventBeforeDeleteEvent(t *testing.T) {
 	close(p.done)
 	s := &service{id: "task", namespace: "default", bundle: t.TempDir(), publisher: publisher, agent: fake,
 		processes: map[string]*process{"exec": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
-	response, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ExecID: "exec"})
+	response, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ID: "task", ExecID: "exec"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1701,7 +1767,7 @@ func TestDeleteRetainsRetryOwnershipAcrossGuestAndEventFailures(t *testing.T) {
 	close(p.done)
 	s := &service{id: "task", namespace: "default", bundle: bundle, publisher: publisher, agent: fakeAgent,
 		processes: map[string]*process{"exec": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
-	request := &taskapi.DeleteRequest{ExecID: "exec"}
+	request := &taskapi.DeleteRequest{ID: "task", ExecID: "exec"}
 	if _, err := s.Delete(context.Background(), request); !errors.Is(err, agentFailure) {
 		t.Fatalf("guest delete error = %v", err)
 	}
