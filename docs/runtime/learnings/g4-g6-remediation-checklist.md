@@ -513,7 +513,11 @@ normative plan is revised with an explicit rationale.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and
-  truthful capability reporting.
+  truthful capability reporting. The adapter and guest now also share bounded
+  process-shape semantics: argv/environment byte and count ceilings, NUL and
+  duplicate-environment rejection, canonical bounded cwd, and unique bounded
+  supplementary groups all fail before allocation or guest process mutation.
+  Focused adapter and guest tests cover these hostile shapes.
 - [ ] Complete packaging: versioned binaries, explicit containerd and Docker
   configuration fragments, service dependencies, fresh-host installation,
   upgrade/rollback behavior, and no default-runtime mutation. Every Go

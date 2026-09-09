@@ -474,6 +474,36 @@ func TestUnsupportedOCIVersionFailsBeforeCreate(t *testing.T) {
 	}
 }
 
+func TestProcessShapeFailsBeforeGuestStateMutation(t *testing.T) {
+	valid := ProcessSpec{User: User{UID: uint32(os.Getuid()), GID: uint32(os.Getgid())}, Args: []string{"/probe"}, Env: []string{"A=1"}, Cwd: "/"}
+	tests := map[string]func(*ProcessSpec){
+		"empty argv0":           func(spec *ProcessSpec) { spec.Args = []string{""} },
+		"nul argument":          func(spec *ProcessSpec) { spec.Args = []string{"/probe", "bad\x00arg"} },
+		"too many arguments":    func(spec *ProcessSpec) { spec.Args = make([]string, maxProcessArgs+1); spec.Args[0] = "/probe" },
+		"oversized text":        func(spec *ProcessSpec) { spec.Args = []string{"/probe", strings.Repeat("x", maxProcessText)} },
+		"invalid environment":   func(spec *ProcessSpec) { spec.Env = []string{"NOVALUE"} },
+		"duplicate environment": func(spec *ProcessSpec) { spec.Env = []string{"A=1", "A=2"} },
+		"noncanonical cwd":      func(spec *ProcessSpec) { spec.Cwd = "/work/../escape" },
+		"duplicate groups":      func(spec *ProcessSpec) { spec.User.AdditionalGids = []uint32{1, 1} },
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			spec := valid
+			spec.Args = append([]string(nil), valid.Args...)
+			spec.Env = append([]string(nil), valid.Env...)
+			mutate(&spec)
+			manager := NewManager(true)
+			manager.processes["parent"] = &process{root: t.TempDir()}
+			if err := manager.Exec("candidate", "parent", spec); err == nil {
+				t.Fatal("hostile process shape accepted")
+			}
+			if _, exists := manager.processes["candidate"]; exists {
+				t.Fatal("rejected process mutated guest state")
+			}
+		})
+	}
+}
+
 func TestBundleRootRejectsSymlinkAndEscape(t *testing.T) {
 	t.Run("escape", func(t *testing.T) {
 		bundle := bundle(t, []string{"/probe"}, "")

@@ -456,6 +456,13 @@ now share the complete bounded mount validator, so nil entries, malformed or
 duplicate options, unsafe sources, escaping paths, and unsupported mount
 semantics fail before the first allocation mutation.
 
+OCI process validation is now independently bounded on both sides of the
+primary/guest boundary. Argument and environment counts and combined bytes,
+embedded NULs, duplicate environment names, non-canonical working directories,
+and duplicate or excessive supplementary groups are rejected before primary
+allocation or guest process-record mutation rather than being deferred to
+`execve`.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and

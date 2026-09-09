@@ -27,9 +27,12 @@ BASE = {
     ]},
     "annotations": {"io.example.test": "inert"},
 }
+CASE_COUNT = 0
 
 
 def run_case(directory, name, config=None, raw=None, accepted=False):
+    global CASE_COUNT
+    CASE_COUNT += 1
     source = directory / f"{name}.json"
     output = directory / f"{name}.out.json"
     source.write_text(raw if raw is not None else json.dumps(config), encoding="utf-8")
@@ -109,6 +112,14 @@ def main():
         bad_resource = copy.deepcopy(standard)
         bad_resource["linux"]["resources"]["memory"] = {"limit": 1}
         run_case(directory, "unsupported-resource", bad_resource)
+        for name, linux_update in (
+            ("unsupported-seccomp", {"seccomp": {"defaultAction": "SCMP_ACT_ERRNO"}}),
+            ("noncanonical-cgroup", {"cgroupsPath": "/tasks/../escape"}),
+            ("unsupported-masked-path", {"maskedPaths": ["/etc/shadow"]}),
+        ):
+            config = copy.deepcopy(BASE)
+            config["linux"].update(linux_update)
+            run_case(directory, name, config)
         for name, namespaces in (
             ("missing-network", [{"type": "mount"}]),
             ("duplicate-network", [{"type": "network"}, {"type": "network"}]),
@@ -137,6 +148,19 @@ def main():
             config = copy.deepcopy(BASE)
             mutate(config["process"])
             run_case(directory, name, config)
+        for name, mutate in (
+            ("empty-argv0", lambda process: process.update(args=[""])),
+            ("nul-argument", lambda process: process.update(args=["/bin/true", "bad\0arg"])),
+            ("too-many-arguments", lambda process: process.update(args=["/bin/true"] * 257)),
+            ("oversized-process-text", lambda process: process.update(args=["/bin/true", "x" * (128 << 10)])),
+            ("invalid-environment", lambda process: process.update(env=["NOVALUE"])),
+            ("duplicate-environment", lambda process: process.update(env=["A=1", "A=2"])),
+            ("nul-environment", lambda process: process.update(env=["A=bad\0value"])),
+            ("noncanonical-cwd", lambda process: process.update(cwd="/work/../escape")),
+        ):
+            config = copy.deepcopy(BASE)
+            mutate(config["process"])
+            run_case(directory, name, config)
         for field, value in (("readonly", "false"), ("unknown", None)):
             config = copy.deepcopy(BASE)
             config["root"][field] = value
@@ -145,6 +169,13 @@ def main():
             config = copy.deepcopy(BASE)
             config["process"]["user"][field] = value
             run_case(directory, f"user-{field}", config)
+        for name, gids in (("duplicate-gids", [1, 1]), ("too-many-gids", list(range(257))), ("malformed-gid", [{}])):
+            config = copy.deepcopy(BASE)
+            config["process"]["user"]["additionalGids"] = gids
+            run_case(directory, name, config)
+        invalid_hostname = copy.deepcopy(BASE)
+        invalid_hostname["hostname"] = "-invalid"
+        run_case(directory, "invalid-hostname", invalid_hostname)
 
         bundle = directory / "bundle"
         (bundle / "rootfs").mkdir(parents=True)
@@ -167,7 +198,7 @@ def main():
         )
         if result.returncode == 0 or "unsupported OCI field(s): hooks" not in result.stderr:
             raise AssertionError(f"builder did not reject before normalization: {result.stderr!r}")
-    print("runtime OCI fail-closed validation: PASS (29 cases plus namespace projection)")
+    print(f"runtime OCI fail-closed validation: PASS ({CASE_COUNT} cases plus namespace projection)")
 
 
 if __name__ == "__main__":
