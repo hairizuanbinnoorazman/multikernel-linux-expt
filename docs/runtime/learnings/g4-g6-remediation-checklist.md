@@ -501,6 +501,10 @@ normative plan is revised with an explicit rationale.
   allocation, including bounded count/source/options, nil entries, canonical
   no-symlink source paths, supported option syntax, and duplicate rejection;
   focused adapter and service tests cover the shared boundary.
+  The shim's separate network-namespace projection now reads `config.json`
+  through a one-MiB, caller-owned, single-link, stable-identity `openat2`
+  boundary as well; hardlink, symlinked-ancestor, and oversized-valid-prefix
+  tests prevent this secondary parser from weakening the OCI input contract.
   Reconstruction and fallback Cleanup now share a bounded, no-symlink,
   caller-owned single-link recovery-file loader with stable identity and strict
   decoding. It binds sandbox/generation/task/storage/network ownership and

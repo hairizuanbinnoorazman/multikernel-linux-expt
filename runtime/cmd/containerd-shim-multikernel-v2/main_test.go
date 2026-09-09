@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -2053,6 +2054,9 @@ func TestRecoverExistingClosesAcquiredNetworkDescriptorOnRelayStartFailure(t *te
 }
 
 func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
+	config := func(path string) []byte {
+		return []byte(fmt.Sprintf(`{"ociVersion":"1.0.2","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":%q}]}}`, path))
+	}
 	for name, test := range map[string]struct {
 		path string
 		err  bool
@@ -2063,8 +2067,7 @@ func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			bundle := t.TempDir()
-			data := fmt.Sprintf(`{"ociVersion":"1.0.2","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":%q}]}}`, test.path)
-			if err := os.WriteFile(filepath.Join(bundle, "config.json"), []byte(data), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(bundle, "config.json"), config(test.path), 0600); err != nil {
 				t.Fatal(err)
 			}
 			actual, err := bundleNetworkNamespace(bundle)
@@ -2073,6 +2076,46 @@ func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 			}
 		})
 	}
+	t.Run("hardlink rejected", func(t *testing.T) {
+		bundle := t.TempDir()
+		path := filepath.Join(bundle, "config.json")
+		if err := os.WriteFile(path, config(""), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Link(path, filepath.Join(bundle, "config.link")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := bundleNetworkNamespace(bundle); err == nil {
+			t.Fatal("hard-linked OCI config accepted")
+		}
+	})
+	t.Run("symlinked ancestor rejected", func(t *testing.T) {
+		directory := t.TempDir()
+		realBundle := filepath.Join(directory, "real")
+		if err := os.Mkdir(realBundle, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(realBundle, "config.json"), config(""), 0600); err != nil {
+			t.Fatal(err)
+		}
+		linkedBundle := filepath.Join(directory, "linked")
+		if err := os.Symlink(realBundle, linkedBundle); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := bundleNetworkNamespace(linkedBundle); err == nil {
+			t.Fatal("OCI config beneath symlinked bundle accepted")
+		}
+	})
+	t.Run("oversized valid prefix rejected", func(t *testing.T) {
+		bundle := t.TempDir()
+		data := append(config(""), bytes.Repeat([]byte(" "), (1<<20)+1)...)
+		if err := os.WriteFile(filepath.Join(bundle, "config.json"), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := bundleNetworkNamespace(bundle); err == nil {
+			t.Fatal("oversized OCI config accepted")
+		}
+	})
 }
 
 func TestSupervisorRestartsSignaledWorker(t *testing.T) {

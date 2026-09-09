@@ -498,6 +498,12 @@ no image, metadata, or staging directory. A separate fully allocated 63-MiB
 payload into the minimum 64-MiB filesystem exercises block exhaustion and
 proves the identical cleanup invariant.
 
+The shim's network-namespace projection used to re-open OCI `config.json` with
+an unbounded path read even though the primary adapter and guest used stronger
+loaders. It now enforces the same no-symlink, caller-owned, single-link,
+one-MiB, stable-identity contract before decoding the namespace needed by
+`mknetd`.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and

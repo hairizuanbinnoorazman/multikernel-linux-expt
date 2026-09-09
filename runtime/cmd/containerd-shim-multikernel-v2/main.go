@@ -1139,12 +1139,34 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 func bundleNetworkNamespace(bundle string) (string, error) {
 	path := filepath.Join(bundle, "config.json")
 	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-		return "", errors.New("OCI config.json must be a regular file without symlinks")
-	}
-	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
+	}
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 || info.Size() > 1<<20 ||
+		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
+		return "", errors.New("OCI config.json must be a bounded private caller-owned single-link regular file")
+	}
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags:   uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW),
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return "", err
+	}
+	file := os.NewFile(uintptr(descriptor), path)
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !sameProcessIOIdentity(info, opened) {
+		return "", errors.New("OCI config.json identity changed while opening")
+	}
+	data, err := io.ReadAll(io.LimitReader(file, (1<<20)+1))
+	if err != nil || len(data) > 1<<20 {
+		return "", errors.New("OCI config.json changed or exceeded its read bound")
+	}
+	after, err := file.Stat()
+	if err != nil || !sameProcessIOIdentity(opened, after) {
+		return "", errors.New("OCI config.json identity changed while reading")
 	}
 	var spec specs.Spec
 	if err = protocol.StrictDecode(data, &spec); err != nil {
