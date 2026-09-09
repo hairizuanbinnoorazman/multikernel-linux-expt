@@ -1300,11 +1300,21 @@ func (s *service) cancelCreate(ctx context.Context, config protocol.SandboxConfi
 	return nil
 }
 
+func (s *service) validateTaskRequest(id string) error {
+	if id != s.id {
+		return fmt.Errorf("%w: request task ID does not match shim task", errdefs.ErrInvalidArgument)
+	}
+	return nil
+}
+
 func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *taskapi.CreateTaskResponse, retErr error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if r.ID != s.id || r.Bundle != s.bundle {
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil create request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil || r.Bundle != s.bundle {
 		return nil, fmt.Errorf("%w: invalid task", errdefs.ErrInvalidArgument)
 	}
 	if err := validateProcessIOPaths(r.Stdin, r.Stdout, r.Stderr); err != nil {
@@ -1552,6 +1562,12 @@ func (s *service) stopNetwork() error {
 
 func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.StartResponse, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil start request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -1993,6 +2009,12 @@ func (s *service) State(ctx context.Context, r *taskapi.StateRequest) (*taskapi.
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil state request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
+		return nil, err
+	}
 	if err := lockContext(ctx, &s.mu); err != nil {
 		return nil, err
 	}
@@ -2006,6 +2028,12 @@ func (s *service) State(ctx context.Context, r *taskapi.StateRequest) (*taskapi.
 
 func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.WaitResponse, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil wait request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2030,6 +2058,12 @@ func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.Wa
 
 func (s *service) Kill(ctx context.Context, r *taskapi.KillRequest) (*emptypb.Empty, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil kill request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2094,6 +2128,12 @@ func validateExecProcess(p *specs.Process) error {
 
 func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emptypb.Empty, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil exec request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if !guestProcessIdentifier.MatchString(r.ExecID) {
@@ -2165,6 +2205,12 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 
 func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskapi.DeleteResponse, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil delete request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2286,8 +2332,14 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 	return resp, nil
 }
 
-func (s *service) Pids(ctx context.Context, _ *taskapi.PidsRequest) (*taskapi.PidsResponse, error) {
+func (s *service) Pids(ctx context.Context, r *taskapi.PidsRequest) (*taskapi.PidsResponse, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil pids request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2303,8 +2355,14 @@ func (s *service) Pids(ctx context.Context, _ *taskapi.PidsRequest) (*taskapi.Pi
 	sort.Slice(processes, func(i, j int) bool { return processes[i].Pid < processes[j].Pid })
 	return &taskapi.PidsResponse{Processes: processes}, nil
 }
-func (s *service) Connect(ctx context.Context, _ *taskapi.ConnectRequest) (*taskapi.ConnectResponse, error) {
+func (s *service) Connect(ctx context.Context, r *taskapi.ConnectRequest) (*taskapi.ConnectResponse, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil connect request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2317,8 +2375,14 @@ func (s *service) Connect(ctx context.Context, _ *taskapi.ConnectRequest) (*task
 	}
 	return &taskapi.ConnectResponse{ShimPid: uint32(os.Getpid()), TaskPid: taskPID, Version: "multikernel-v1-guest-pid"}, nil
 }
-func (s *service) Shutdown(ctx context.Context, _ *taskapi.ShutdownRequest) (*emptypb.Empty, error) {
+func (s *service) Shutdown(ctx context.Context, r *taskapi.ShutdownRequest) (*emptypb.Empty, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil shutdown request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2347,6 +2411,12 @@ func (s *service) Shutdown(ctx context.Context, _ *taskapi.ShutdownRequest) (*em
 }
 func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*emptypb.Empty, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil resize request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if r.Width > 65535 || r.Height > 65535 {
@@ -2450,8 +2520,14 @@ func rollbackProcessSignals(client agentClient, targets []processSignalTarget, s
 	return errors.Join(failures...)
 }
 
-func (s *service) Pause(ctx context.Context, _ *taskapi.PauseRequest) (*emptypb.Empty, error) {
+func (s *service) Pause(ctx context.Context, r *taskapi.PauseRequest) (*emptypb.Empty, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil pause request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2490,8 +2566,14 @@ func (s *service) Pause(ctx context.Context, _ *taskapi.PauseRequest) (*emptypb.
 	}
 	return &emptypb.Empty{}, nil
 }
-func (s *service) Resume(ctx context.Context, _ *taskapi.ResumeRequest) (*emptypb.Empty, error) {
+func (s *service) Resume(ctx context.Context, r *taskapi.ResumeRequest) (*emptypb.Empty, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil resume request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2534,11 +2616,17 @@ func (s *service) Checkpoint(context.Context, *taskapi.CheckpointTaskRequest) (*
 	return nil, errdefs.ErrNotImplemented
 }
 func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*emptypb.Empty, error) {
-	if !r.Stdin {
-		return &emptypb.Empty{}, nil
-	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil close I/O request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
+		return nil, err
+	}
+	if !r.Stdin {
+		return &emptypb.Empty{}, nil
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
 		return nil, err
@@ -2591,8 +2679,14 @@ func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*empt
 func (s *service) Update(context.Context, *taskapi.UpdateTaskRequest) (*emptypb.Empty, error) {
 	return nil, errdefs.ErrNotImplemented
 }
-func (s *service) Stats(ctx context.Context, _ *taskapi.StatsRequest) (*taskapi.StatsResponse, error) {
+func (s *service) Stats(ctx context.Context, r *taskapi.StatsRequest) (*taskapi.StatsResponse, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("%w: nil stats request", errdefs.ErrInvalidArgument)
+	}
+	if err := s.validateTaskRequest(r.ID); err != nil {
 		return nil, err
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
