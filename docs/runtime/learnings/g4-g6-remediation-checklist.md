@@ -532,8 +532,15 @@ normative plan is revised with an explicit rationale.
   passes structural plus containerd config-dump tests. A verified immutable
   release layout now provides atomic activation, fresh binary installation,
   upgrades, rollback, ownership-safe uninstall, and inactive-release removal
-  with end-to-end tests. Automated service/config installation and live
-  upgrade/rollback evidence remain open.
+  with end-to-end tests. Privileged service activation and live
+  upgrade/rollback evidence remain open. Service and configuration files now
+  have a separate immutable generation manager: it validates operator runtime
+  environment and host config input, hashes the fixed systemd/CNI/containerd
+  assets, refuses unrelated paths or unsafe directory ancestry, switches all
+  managed links atomically through one selector, supports exact rollback, and
+  preserves generations on ownership-safe uninstall. End-to-end alternate-root
+  tests cover fresh install, upgrade, rollback, dry-run/uninstall, inactive
+  removal, collisions, invalid input, and symlinked installation ancestry.
 
 ### Automated tests still required
 
