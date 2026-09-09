@@ -229,7 +229,11 @@ normative plan is revised with an explicit rationale.
   builds: a five-minute default, caller cancellation, one-MiB combined-output
   retention, descendant termination, and secret-safe errors are enforced.
   Focused tests cover timeout with a background child, overflow, stderr
-  evidence hashing, and a non-clean exit. Live fault evidence remains open.
+  evidence hashing, and a non-clean exit. The ext4 builder now rejects a
+  negative or unreasonably large free-space reserve so the high-water policy
+  cannot be disabled through arithmetic, and a real 256-file/128-inode build
+  proves inode exhaustion fails boundedly with no image, metadata, or staging
+  residue. Block exhaustion and live fault evidence remain open.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
   dirty recovery; snapshot/clone recovery using disposable copies.
