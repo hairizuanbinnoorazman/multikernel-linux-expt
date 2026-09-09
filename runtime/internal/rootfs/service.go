@@ -148,12 +148,22 @@ func validateRequest(request PrepareRequest) error {
 	if err != nil || !info.IsDir() {
 		return errors.New("bundle is not a directory")
 	}
-	if len(request.Mounts) > 8 {
+	return ValidateMounts(request.Mounts)
+}
+
+// ValidateMounts applies the complete rootfs mount contract without allocating
+// any sandbox or storage state. Callers at an earlier trust boundary can use it
+// to reject hostile containerd input before performing external mutations.
+func ValidateMounts(mounts []Mount) error {
+	if len(mounts) > 8 {
 		return errors.New("at most eight rootfs mounts are supported")
 	}
-	for _, mount := range request.Mounts {
+	for _, mount := range mounts {
 		if mount.Type != "overlay" && mount.Type != "bind" && mount.Type != "none" {
 			return fmt.Errorf("unsupported rootfs mount type %q", mount.Type)
+		}
+		if mount.Source == "" || len(mount.Source) > 4096 || strings.ContainsAny(mount.Source, "\x00\n\r") {
+			return errors.New("rootfs mount source is empty, oversized, or unsafe")
 		}
 		if (mount.Type == "bind" || mount.Type == "none") && (!filepath.IsAbs(mount.Source) || filepath.Clean(mount.Source) != mount.Source) {
 			return errors.New("bind rootfs source must be absolute and canonical")
@@ -167,10 +177,15 @@ func validateRequest(request PrepareRequest) error {
 		if len(mount.Options) > 64 {
 			return errors.New("too many rootfs mount options")
 		}
+		seenOptions := make(map[string]struct{}, len(mount.Options))
 		for _, option := range mount.Options {
 			if option == "" || len(option) > 4096 || strings.ContainsAny(option, "\x00\n\r") {
 				return errors.New("rootfs mount option is empty, oversized, or unsafe")
 			}
+			if _, duplicate := seenOptions[option]; duplicate {
+				return fmt.Errorf("duplicate rootfs mount option %q", option)
+			}
+			seenOptions[option] = struct{}{}
 			switch option {
 			case "shared", "rshared", "slave", "rslave", "private", "rprivate", "unbindable", "runbindable":
 				return errors.New("rootfs propagation changes are unsupported")

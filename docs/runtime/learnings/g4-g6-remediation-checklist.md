@@ -484,7 +484,11 @@ normative plan is revised with an explicit rationale.
   bounded safe alphabet are rejected before guest contact. Rootfs and OCI
   path validation is covered. Stdio validation and descriptor acquisition now
   apply the no-symlink, stable-identity contract described above; the broader
-  hostile-input/failure matrix and disposable-host evidence remain open.
+  hostile-input/failure matrix and disposable-host evidence remain open. The
+  shim now applies the rootfs service's complete mount contract before sandbox
+  allocation, including bounded count/source/options, nil entries, canonical
+  no-symlink source paths, supported option syntax, and duplicate rejection;
+  focused adapter and service tests cover the shared boundary.
   Reconstruction and fallback Cleanup now share a bounded, no-symlink,
   caller-owned single-link recovery-file loader with stable identity and strict
   decoding. It binds sandbox/generation/task/storage/network ownership and

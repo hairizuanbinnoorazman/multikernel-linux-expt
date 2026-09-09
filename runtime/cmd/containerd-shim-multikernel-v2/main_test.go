@@ -603,8 +603,9 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 }
 
 func TestRootfsMountsAreSanitizedForDaemonAndValidated(t *testing.T) {
+	snapshot := t.TempDir()
 	mounts, err := rootfsMounts([]*types.Mount{{
-		Type: "overlay", Source: "overlay", Options: []string{"rw", "lowerdir=/snap", "nodev"},
+		Type: "overlay", Source: "overlay", Options: []string{"rw", "lowerdir=" + snapshot, "nodev"},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -613,17 +614,27 @@ func TestRootfsMountsAreSanitizedForDaemonAndValidated(t *testing.T) {
 	for _, option := range mounts[0].Options {
 		options[option] = true
 	}
-	if options["rw"] || !options["lowerdir=/snap"] {
+	if options["rw"] || !options["lowerdir="+snapshot] {
 		t.Fatalf("sanitized mount options = %v", mounts[0].Options)
 	}
 	for _, input := range []*types.Mount{
+		nil,
 		{Type: "tmpfs", Source: "tmpfs"},
 		{Type: "bind", Source: "relative"},
 		{Type: "overlay", Source: "overlay", Options: []string{"ro\nmalicious"}},
+		{Type: "overlay", Source: "overlay", Options: []string{"nodev", "nodev"}},
+		{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=relative"}},
 	} {
 		if _, err = rootfsMounts([]*types.Mount{input}); err == nil {
 			t.Fatalf("unsafe mount accepted: %+v", input)
 		}
+	}
+	tooMany := make([]*types.Mount, 9)
+	for index := range tooMany {
+		tooMany[index] = &types.Mount{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=" + snapshot}}
+	}
+	if _, err = rootfsMounts(tooMany); err == nil {
+		t.Fatal("too many rootfs mounts accepted")
 	}
 }
 
