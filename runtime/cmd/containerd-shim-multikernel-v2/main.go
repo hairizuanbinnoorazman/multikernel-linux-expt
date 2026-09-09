@@ -1054,6 +1054,9 @@ func (s *service) cancelCreate(ctx context.Context, config protocol.SandboxConfi
 }
 
 func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *taskapi.CreateTaskResponse, retErr error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if r.ID != s.id || r.Bundle != s.bundle {
 		return nil, fmt.Errorf("%w: invalid task", errdefs.ErrInvalidArgument)
 	}
@@ -1062,6 +1065,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if s.shuttingDown {
 		return nil, errdefs.ErrFailedPrecondition
 	}
@@ -1296,7 +1302,14 @@ func (s *service) stopNetwork() error {
 }
 
 func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.StartResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	p, ok := s.processes[r.ExecID]
 	if !ok {
 		s.mu.Unlock()
@@ -1759,6 +1772,9 @@ func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.Wa
 }
 
 func (s *service) Kill(ctx context.Context, r *taskapi.KillRequest) (*emptypb.Empty, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	p, ok := s.processes[r.ExecID]
 	client := s.agent
@@ -1818,6 +1834,9 @@ func validateExecProcess(p *specs.Process) error {
 }
 
 func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emptypb.Empty, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if !guestProcessIdentifier.MatchString(r.ExecID) {
 		return nil, errdefs.ErrInvalidArgument
 	}
@@ -1842,6 +1861,10 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 		return nil, err
 	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	init, initExists := s.processes[""]
 	if !initExists || init.status != tasktypes.Status_RUNNING {
 		s.mu.Unlock()
@@ -1882,7 +1905,14 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 }
 
 func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskapi.DeleteResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	p, ok := s.processes[r.ExecID]
 	if !ok {
 		s.mu.Unlock()
@@ -2021,7 +2051,14 @@ func (s *service) Connect(context.Context, *taskapi.ConnectRequest) (*taskapi.Co
 	return &taskapi.ConnectResponse{ShimPid: uint32(os.Getpid()), TaskPid: taskPID, Version: "multikernel-v1-guest-pid"}, nil
 }
 func (s *service) Shutdown(ctx context.Context, _ *taskapi.ShutdownRequest) (*emptypb.Empty, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	if len(s.processes) != 0 || s.shuttingDown {
 		s.mu.Unlock()
 		return &emptypb.Empty{}, nil
@@ -2044,10 +2081,17 @@ func (s *service) Shutdown(ctx context.Context, _ *taskapi.ShutdownRequest) (*em
 	return &emptypb.Empty{}, nil
 }
 func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*emptypb.Empty, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if r.Width > 65535 || r.Height > 65535 {
 		return nil, fmt.Errorf("%w: terminal dimensions exceed the Linux PTY limit", errdefs.ErrInvalidArgument)
 	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	p, ok := s.processes[r.ExecID]
 	if !ok {
 		s.mu.Unlock()
@@ -2144,8 +2188,14 @@ func rollbackProcessSignals(client agentClient, targets []processSignalTarget, s
 }
 
 func (s *service) Pause(ctx context.Context, _ *taskapi.PauseRequest) (*emptypb.Empty, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	p, ok := s.processes[""]
 	if !ok {
 		return nil, errdefs.ErrNotFound
@@ -2179,8 +2229,14 @@ func (s *service) Pause(ctx context.Context, _ *taskapi.PauseRequest) (*emptypb.
 	return &emptypb.Empty{}, nil
 }
 func (s *service) Resume(ctx context.Context, _ *taskapi.ResumeRequest) (*emptypb.Empty, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	p, ok := s.processes[""]
 	if !ok {
 		return nil, errdefs.ErrNotFound
@@ -2220,7 +2276,14 @@ func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*empt
 	if !r.Stdin {
 		return &emptypb.Empty{}, nil
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	p, ok := s.processes[r.ExecID]
 	if !ok {
 		s.mu.Unlock()
