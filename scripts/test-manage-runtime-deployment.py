@@ -21,6 +21,17 @@ DESTINATIONS = (
     "etc/systemd/system/mknetd.service",
     "etc/cni/net.d/10-multikernel.conf",
     "etc/containerd/conf.d/20-multikernel-runtime.toml",
+    "usr/local/libexec/multikernel/build-runtime-container-initramfs.sh",
+    "usr/local/libexec/multikernel/validate-runtime-oci.py",
+    "usr/local/libexec/multikernel/validate-runtime-bootstrap.py",
+    "usr/local/libexec/multikernel/validate-runtime-root.py",
+    "usr/local/libexec/multikernel/validate-runtime-image.py",
+    "usr/local/libexec/multikernel/build-runtime-rootfs.py",
+    "usr/local/libexec/multikernel/runtime-storage-identity.py",
+    "usr/local/libexec/multikernel/build-runtime-storage.py",
+    "usr/local/libexec/multikernel/verify-runtime-rootfs.py",
+    "usr/local/libexec/multikernel/guest/mk-agent-init",
+    "usr/local/libexec/multikernel/guest/runtime-mediated-init",
 )
 
 
@@ -73,6 +84,7 @@ def main():
         assert active(root) == f"deployments/{first}"
         assert_links(root)
         assert (root / "etc/multikernel/deployments" / first / "runtime.env").stat().st_mode & 0o777 == 0o600
+        assert (root / "usr/local/libexec/multikernel/build-runtime-container-initramfs.sh").stat().st_mode & 0o777 == 0o755
 
         second = json.loads(run(root, "install", *map(os.fspath, second_inputs)).stdout)["installed_and_active"]
         assert second != first and active(root) == f"deployments/{second}"
