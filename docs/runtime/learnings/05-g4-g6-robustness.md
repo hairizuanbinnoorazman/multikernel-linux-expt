@@ -485,6 +485,11 @@ the per-shim task before taking its mutation lock or contacting the guest; the
 focused method table also proves these failures leave process and shutdown
 state unchanged.
 
+Wait no longer changes from cancellable locking to an unconditional mutex wait
+after observing process exit. Its final exit snapshot uses the same
+cancellation-aware lock acquisition, so concurrent teardown cannot indefinitely
+retain a caller whose deadline has expired.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and

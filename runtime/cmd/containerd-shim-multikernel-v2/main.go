@@ -2051,7 +2051,9 @@ func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.Wa
 		return nil, ctx.Err()
 	case <-done:
 	}
-	s.mu.Lock()
+	if err := lockContext(ctx, &s.mu); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
 	return &taskapi.WaitResponse{ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}, nil
 }
