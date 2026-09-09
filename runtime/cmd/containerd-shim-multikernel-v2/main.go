@@ -90,6 +90,7 @@ type networkClient interface {
 
 type agentDialer func(context.Context, string, string, string, uint32, []byte) (agentClient, error)
 type relayFactory func(uint32, string) *exec.Cmd
+type relayPathFactory func(uint32, string) string
 
 type service struct {
 	mu                    sync.Mutex
@@ -111,6 +112,7 @@ type service struct {
 	netClient             networkClient
 	agentDial             agentDialer
 	newRelay              relayFactory
+	relayPath             relayPathFactory
 	netRXPackets          atomic.Uint64
 	netTXPackets          atomic.Uint64
 	netRXDrops            atomic.Uint64
@@ -182,6 +184,13 @@ func (s *service) relayCommand(port uint32, socket string) *exec.Cmd {
 		return s.newRelay(port, socket)
 	}
 	return newRelayCommand(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), port, socket)
+}
+
+func (s *service) agentRelaySocketPath(port uint32, generation string) string {
+	if s.relayPath != nil {
+		return s.relayPath(port, generation)
+	}
+	return relaySocketPath(port, generation)
 }
 
 func validateServiceIdentity(id, namespace, bundle string) error {
@@ -734,20 +743,6 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	}
 	s.netEndpoint = bound
 	s.netDevice = device
-	s.netRXPackets.Store(bound.RXPackets)
-	s.netTXPackets.Store(bound.TXPackets)
-	s.netRXDrops.Store(bound.RXDrops)
-	s.netTXDrops.Store(bound.TXDrops)
-	s.netErrors.Store(bound.Errors)
-	s.relaySocket = relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
-	if err = removeStaleRelaySocket(s.relaySocket); err != nil {
-		s.relaySocket = ""
-		return fmt.Errorf("remove stale recovered agent relay socket: %w", err)
-	}
-	s.relay = s.relayCommand(s.sandbox.Config.AgentPort, s.relaySocket)
-	if err = s.relay.Start(); err != nil {
-		return errors.Join(fmt.Errorf("restart recovered agent relay: %w", err), s.stopRelay())
-	}
 	recovered := false
 	defer func() {
 		if recovered {
@@ -768,6 +763,20 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 		cleanupErrors = append(cleanupErrors, s.stopRelay())
 		retErr = errors.Join(retErr, errors.Join(cleanupErrors...))
 	}()
+	s.netRXPackets.Store(bound.RXPackets)
+	s.netTXPackets.Store(bound.TXPackets)
+	s.netRXDrops.Store(bound.RXDrops)
+	s.netTXDrops.Store(bound.TXDrops)
+	s.netErrors.Store(bound.Errors)
+	s.relaySocket = s.agentRelaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
+	if err = removeStaleRelaySocket(s.relaySocket); err != nil {
+		s.relaySocket = ""
+		return fmt.Errorf("remove stale recovered agent relay socket: %w", err)
+	}
+	s.relay = s.relayCommand(s.sandbox.Config.AgentPort, s.relaySocket)
+	if err = s.relay.Start(); err != nil {
+		return fmt.Errorf("restart recovered agent relay: %w", err)
+	}
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		s.agent, err = s.dialAgent(ctx, s.relaySocket)
@@ -1278,7 +1287,7 @@ func (s *service) connectAgent(ctx context.Context) error {
 	// Docker uses 64-byte container IDs and deeply nested runtime bundles;
 	// placing the relay socket in the bundle can exceed sockaddr_un.sun_path.
 	// Use a generation-qualified short path under /run instead.
-	sock := relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
+	sock := s.agentRelaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
 	s.relaySocket = sock
 	if err := removeStaleRelaySocket(sock); err != nil {
 		s.relaySocket = ""

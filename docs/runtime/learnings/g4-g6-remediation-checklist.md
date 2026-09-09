@@ -358,8 +358,10 @@ normative plan is revised with an explicit rationale.
   Focused reconstruction now proves that an exact daemon-owned sandbox and
   network generation restore the recorded live guest PID, authenticated agent
   identity, relay/network ownership, output/wait loop, and subsequent exact
-  exit completion. Forced-death process continuity and live identity evidence
-  remain open.
+  exit completion. Reconstruction cleanup ownership now begins immediately
+  after network-descriptor acquisition; a forced relay-start failure proves
+  the descriptor, command, and socket identity are released. Forced-death
+  process continuity and live identity evidence remain open.
 - [ ] Define ownership transfer for containerd restart, shim restart, daemon
   restart, and shutdown. Reconstruct process state, stdio endpoints, exit
   status, and event delivery without changing the child boot identity. Task
