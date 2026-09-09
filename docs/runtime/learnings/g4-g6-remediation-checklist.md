@@ -476,7 +476,11 @@ normative plan is revised with an explicit rationale.
   token loader instead of reconstruction bypassing those checks with a path
   read. Focused wrong-owner, malformed-state, symlink, hardlink,
   symlinked-ancestor, partial-network, stop-failure, and rootfs-failure tests
-  pass.
+  pass. Fresh connection and reconstruction also refuse to unlink a stale
+  relay path unless it is a caller-owned, single-link Unix socket with safe
+  mode; focused regular-file, directory, symlink, and missing-path tests prove
+  hostile path types remain untouched. Live stale-socket replacement remains
+  open.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and

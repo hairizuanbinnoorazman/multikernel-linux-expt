@@ -716,7 +716,10 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	s.netTXDrops.Store(bound.TXDrops)
 	s.netErrors.Store(bound.Errors)
 	s.relaySocket = relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
-	_ = os.Remove(s.relaySocket)
+	if err = removeStaleRelaySocket(s.relaySocket); err != nil {
+		s.relaySocket = ""
+		return fmt.Errorf("remove stale recovered agent relay socket: %w", err)
+	}
 	s.relay = newRelayCommand(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), s.sandbox.Config.AgentPort, s.relaySocket)
 	if err = s.relay.Start(); err != nil {
 		return errors.Join(fmt.Errorf("restart recovered agent relay: %w", err), s.stopRelay())
@@ -842,6 +845,22 @@ func newRelayCommand(binary string, port uint32, socket string) *exec.Cmd {
 	command := exec.Command(binary, "server", strconv.Itoa(int(port)), socket)
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	return command
+}
+
+func removeStaleRelaySocket(path string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || info.Mode()&os.ModeSocket == 0 || info.Mode().Perm()&0022 != 0 ||
+		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
+		return errors.New("stale relay path is not a caller-owned single-link socket with safe mode")
+	}
+	return os.Remove(path)
 }
 
 func terminateRelay(command *exec.Cmd) error {
@@ -1237,7 +1256,10 @@ func (s *service) connectAgent(ctx context.Context) error {
 	// Use a generation-qualified short path under /run instead.
 	sock := relaySocketPath(s.sandbox.Config.AgentPort, s.sandbox.Generation)
 	s.relaySocket = sock
-	_ = os.Remove(sock)
+	if err := removeStaleRelaySocket(sock); err != nil {
+		s.relaySocket = ""
+		return fmt.Errorf("remove stale agent relay socket: %w", err)
+	}
 	if s.netEndpoint.Generation == "" {
 		return errors.New("CNI endpoint is not bound")
 	}
