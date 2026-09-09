@@ -72,15 +72,28 @@ class StorageBuildTests(unittest.TestCase):
 
     def test_high_water_and_bad_identity_leave_no_artifacts(self):
         for name, overrides, message in (
-            ("high", {"min_free_bytes": 1 << 62}, "high-water refusal"),
+            ("high", {"min_free_bytes": 16 << 40}, "high-water refusal"),
             ("uuid", {"uuid": "bad"}, "malformed"),
             ("size", {"size": 4096}, "outside the supported bounds"),
+            ("negative-reserve", {"min_free_bytes": -1}, "outside the supported bounds"),
         ):
             result, output, metadata = self.build(name, **overrides)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(message, result.stderr)
             self.assertFalse(output.exists())
             self.assertFalse(metadata.exists())
+
+    def test_inode_exhaustion_is_bounded_and_cleans_partial_artifacts(self):
+        crowded = self.root / "crowded"
+        crowded.mkdir()
+        for index in range(256):
+            (crowded / f"entry-{index:04d}").write_text("x")
+        result, output, metadata = self.build("inode-exhaustion", inodes=128)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("mke2fs failed", result.stderr)
+        self.assertFalse(output.exists())
+        self.assertFalse(metadata.exists())
+        self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
 
     def test_metadata_normalization_failure_cleans_partial_artifacts(self):
         result, output, metadata = self.build("debugfs", debugfs="/bin/false")

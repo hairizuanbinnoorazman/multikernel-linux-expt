@@ -161,8 +161,9 @@ def build(arguments) -> dict:
     if not IDENTITY.fullmatch(arguments.image_id) or not UUID.fullmatch(arguments.uuid):
         raise StorageBuildError("image ID or UUID is malformed")
     if (arguments.size < 64 << 20 or arguments.size > 16 << 30 or arguments.size % 4096 or
-            arguments.inodes < 128 or arguments.inodes > 2_097_152 or arguments.port < 1024 or arguments.port > 65535):
-        raise StorageBuildError("size, inode quota, or export port is outside the supported bounds")
+            arguments.inodes < 128 or arguments.inodes > 2_097_152 or arguments.port < 1024 or arguments.port > 65535 or
+            arguments.min_free_bytes < 0 or arguments.min_free_bytes > 16 << 40):
+        raise StorageBuildError("size, inode quota, free-space reserve, or export port is outside the supported bounds")
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.metadata.parent.mkdir(parents=True, exist_ok=True)
     free = shutil.disk_usage(arguments.output.parent).free
