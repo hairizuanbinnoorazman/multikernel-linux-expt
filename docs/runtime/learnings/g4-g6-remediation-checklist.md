@@ -449,8 +449,13 @@ normative plan is revised with an explicit rationale.
   Create, Start, Kill, Exec, Delete, Shutdown, ResizePty, Pause, Resume, and
   CloseIO while proving state and guest-call counts remain unchanged. Shim
   startup and reconstruction also reject pre-cancelled calls before creating
-  or inspecting runtime state, with focused coverage. The live cross-service
-  cancellation/leak matrix is still open.
+  or inspecting runtime state, with focused coverage. Shim worker launch now
+  treats address publication, inherited-socket transfer, process start, and
+  PID publication as one cleanup transaction: any later failure kills and
+  reaps the worker process group and removes only artifacts created by that
+  attempt. A focused post-start PID-publication failure test covers the process
+  and artifact boundary. The live cross-service cancellation/leak matrix is
+  still open.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

@@ -200,6 +200,80 @@ func newCommand(ctx context.Context, id string, opts shim.StartOpts) (*exec.Cmd,
 	return cmd, nil
 }
 
+type shimSocketFile interface {
+	File() (*os.File, error)
+}
+
+func launchShimWorker(ctx context.Context, cmd *exec.Cmd, socket shimSocketFile, address, addressPath, pidPath string) (retErr error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	addressWritten := false
+	pidWritten := false
+	started := false
+	var inherited *os.File
+	defer func() {
+		if retErr == nil {
+			return
+		}
+		var failures []error
+		if inherited != nil {
+			failures = append(failures, inherited.Close())
+		}
+		if started {
+			failures = append(failures, terminateRelay(cmd))
+		}
+		if pidWritten {
+			if err := os.Remove(pidPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				failures = append(failures, fmt.Errorf("remove partial shim PID file: %w", err))
+			}
+		}
+		if addressWritten {
+			if err := os.Remove(addressPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				failures = append(failures, fmt.Errorf("remove partial shim address file: %w", err))
+			}
+		}
+		retErr = errors.Join(retErr, errors.Join(failures...))
+	}()
+	if err := shim.WriteAddress(addressPath, address); err != nil {
+		return err
+	}
+	addressWritten = true
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var err error
+	inherited, err = socket.File()
+	if err != nil {
+		return err
+	}
+	cmd.ExtraFiles = []*os.File{inherited}
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+	if err = cmd.Start(); err != nil {
+		return err
+	}
+	started = true
+	if err = inherited.Close(); err != nil {
+		inherited = nil
+		return fmt.Errorf("close inherited shim socket: %w", err)
+	}
+	inherited = nil
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+	if err = shim.WritePidFile(pidPath, cmd.Process.Pid); err != nil {
+		return err
+	}
+	pidWritten = true
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }()
+	return nil
+}
+
 func (s *service) StartShim(ctx context.Context, opts shim.StartOpts) (_ string, retErr error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
@@ -229,21 +303,7 @@ func (s *service) StartShim(ctx context.Context, opts shim.StartOpts) (_ string,
 			_ = shim.RemoveSocket(address)
 		}
 	}()
-	if err = shim.WriteAddress("address", address); err != nil {
-		return "", err
-	}
-	f, err := socket.File()
-	if err != nil {
-		return "", err
-	}
-	cmd.ExtraFiles = []*os.File{f}
-	if err = cmd.Start(); err != nil {
-		f.Close()
-		return "", err
-	}
-	f.Close()
-	go cmd.Wait()
-	if err = shim.WritePidFile("shim.pid", cmd.Process.Pid); err != nil {
+	if err = launchShimWorker(ctx, cmd, socket, address, "address", "shim.pid"); err != nil {
 		return "", err
 	}
 	return address, nil
