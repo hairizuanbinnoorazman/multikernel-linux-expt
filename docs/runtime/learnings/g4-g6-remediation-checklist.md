@@ -442,7 +442,12 @@ normative plan is revised with an explicit rationale.
   descendant-timeout, secret-safe overflow, and canceled-observation tests
   pass. Host-qualification Kerf and guest-agent probes now share the bounded
   runner with a five-second default and 64-KiB combined-output ceiling; focused
-  descendant-timeout, overflow, and mixed-output tests pass. The live
+  descendant-timeout, overflow, and mixed-output tests pass. Every supported
+  mutating Task service RPC now rejects an already-cancelled context before
+  local state, durable intent, events, or guest state can change, and rechecks
+  cancellation after acquiring its mutation lock. A focused table test covers
+  Create, Start, Kill, Exec, Delete, Shutdown, ResizePty, Pause, Resume, and
+  CloseIO while proving state and guest-call counts remain unchanged. The live
   cross-service cancellation/leak matrix is still open.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
