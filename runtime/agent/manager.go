@@ -213,12 +213,37 @@ func NewManager(noChroot bool) *Manager {
 }
 
 func strictJSON(path string, v any) error {
-	f, e := os.Open(path)
+	descriptor, e := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags:   uint64(unix.O_RDONLY | unix.O_CLOEXEC),
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
 	if e != nil {
 		return e
 	}
+	f := os.NewFile(uintptr(descriptor), path)
 	defer f.Close()
-	d := json.NewDecoder(io.LimitReader(f, 1<<20))
+	before, e := f.Stat()
+	if e != nil {
+		return e
+	}
+	identity, ok := before.Sys().(*syscall.Stat_t)
+	if !ok || !before.Mode().IsRegular() || identity.Nlink != 1 || identity.Uid != uint32(os.Geteuid()) || before.Mode().Perm()&0022 != 0 || before.Size() > 1<<20 {
+		return errors.New("JSON input must be a bounded private caller-owned single-link regular file")
+	}
+	data, e := io.ReadAll(io.LimitReader(f, (1<<20)+1))
+	if e != nil || len(data) > 1<<20 {
+		return errors.New("JSON input exceeds the retained byte limit")
+	}
+	after, e := f.Stat()
+	if e != nil {
+		return e
+	}
+	afterIdentity, ok := after.Sys().(*syscall.Stat_t)
+	if !ok || identity.Dev != afterIdentity.Dev || identity.Ino != afterIdentity.Ino ||
+		identity.Size != afterIdentity.Size || identity.Mtim != afterIdentity.Mtim || identity.Ctim != afterIdentity.Ctim {
+		return errors.New("JSON input identity changed while reading")
+	}
+	d := json.NewDecoder(bytes.NewReader(data))
 	d.DisallowUnknownFields()
 	if e = d.Decode(v); e != nil {
 		return e
@@ -238,9 +263,6 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 	}
 	var c OCIConfig
 	configPath := filepath.Join(bundle, "config.json")
-	if info, e := os.Lstat(configPath); e != nil || !info.Mode().IsRegular() {
-		return c, "", errors.New("config.json must be a regular file without symlinks")
-	}
 	if e := strictJSON(configPath, &c); e != nil {
 		return c, "", e
 	}

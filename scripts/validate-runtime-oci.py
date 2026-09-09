@@ -8,8 +8,10 @@ all behavior-bearing unsupported fields remain fatal.
 """
 
 import json
+import os
 import pathlib
 import re
+import stat
 import sys
 
 
@@ -46,6 +48,7 @@ MAX_PROCESS_ARGS = 256
 MAX_PROCESS_ENV = 1024
 MAX_PROCESS_TEXT = 128 << 10
 MAX_SUPPLEMENTAL_GIDS = 256
+MAX_CONFIG_BYTES = 1 << 20
 DEFAULT_MOUNTS = {
     "/proc": ("proc", "proc", {"nosuid", "noexec", "nodev"}),
     "/dev": ("tmpfs", "tmpfs", {"nosuid", "strictatime", "mode=755", "size=65536k"}),
@@ -64,6 +67,52 @@ def strict_object(pairs):
             raise ValueError(f"duplicate JSON object name {name!r}")
         value[name] = item
     return value
+
+
+def load_config(source):
+    if not source.is_absolute() or pathlib.Path(os.path.normpath(source)) != source:
+        raise ValueError("OCI config path must be absolute and canonical")
+    directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    descriptor = None
+    try:
+        for component in source.parts[1:-1]:
+            child = os.open(
+                component,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                dir_fd=directory,
+            )
+            os.close(directory)
+            directory = child
+        descriptor = os.open(
+            source.name,
+            os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            dir_fd=directory,
+        )
+    finally:
+        os.close(directory)
+    try:
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or
+                before.st_uid != os.geteuid() or before.st_mode & 0o022 or
+                before.st_size > MAX_CONFIG_BYTES):
+            raise ValueError("OCI config must be a bounded private caller-owned single-link regular file")
+        chunks = []
+        retained = 0
+        while retained <= MAX_CONFIG_BYTES:
+            chunk = os.read(descriptor, min(65536, MAX_CONFIG_BYTES + 1 - retained))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            retained += len(chunk)
+        if retained > MAX_CONFIG_BYTES:
+            raise ValueError("OCI config exceeds the retained byte limit")
+        after = os.fstat(descriptor)
+        if ((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns) !=
+                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)):
+            raise ValueError("OCI config identity changed while reading")
+        return json.loads(b"".join(chunks).decode("utf-8"), object_pairs_hook=strict_object)
+    finally:
+        os.close(descriptor)
 
 
 def require_object(value, name):
@@ -268,8 +317,7 @@ def main():
         return 2
     source = pathlib.Path(sys.argv[1])
     try:
-        with source.open(encoding="utf-8") as stream:
-            config = json.load(stream, object_pairs_hook=strict_object)
+        config = load_config(source)
         validate(config)
         if len(sys.argv) == 3:
             destination = pathlib.Path(sys.argv[2])
