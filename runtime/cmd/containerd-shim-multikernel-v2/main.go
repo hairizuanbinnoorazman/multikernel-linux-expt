@@ -490,26 +490,52 @@ func randomToken() ([]byte, string, error) {
 	return b, hex.EncodeToString(b), nil
 }
 
+func loadExistingToken(runtimeDir string) ([]byte, string, error) {
+	path := filepath.Join(runtimeDir, "token")
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, "", err
+	}
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 || info.Size() != 65 ||
+		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
+		return nil, "", errors.New("existing runtime token is unsafe")
+	}
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags: uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW), Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	file := os.NewFile(uintptr(descriptor), path)
+	opened, statErr := file.Stat()
+	if statErr != nil || !sameProcessIOIdentity(info, opened) {
+		_ = file.Close()
+		return nil, "", errors.New("runtime token identity changed while opening")
+	}
+	data, readErr := io.ReadAll(io.LimitReader(file, 66))
+	after, afterErr := file.Stat()
+	closeErr := file.Close()
+	if err = errors.Join(readErr, afterErr, closeErr); err != nil {
+		return nil, "", err
+	}
+	if !sameProcessIOIdentity(opened, after) {
+		return nil, "", errors.New("runtime token identity changed while reading")
+	}
+	if len(data) != 65 || data[64] != '\n' {
+		return nil, "", errors.New("existing runtime token is malformed")
+	}
+	token, err := hex.DecodeString(string(data[:64]))
+	if err != nil || len(token) != 32 {
+		return nil, "", errors.New("existing runtime token is malformed")
+	}
+	return token, string(data[:64]), nil
+}
+
 func loadOrCreateToken(runtimeDir string) ([]byte, string, error) {
 	path := filepath.Join(runtimeDir, "token")
-	if existing, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0); err == nil {
-		info, statErr := existing.Stat()
-		data, readErr := io.ReadAll(io.LimitReader(existing, 66))
-		closeErr := existing.Close()
-		if statErr != nil || readErr != nil || closeErr != nil {
-			return nil, "", errors.Join(statErr, readErr, closeErr)
-		}
-		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 || info.Size() != 65 {
-			return nil, "", errors.New("existing runtime token is unsafe")
-		}
-		if len(data) != 65 || data[64] != '\n' {
-			return nil, "", errors.New("existing runtime token is malformed")
-		}
-		token, err := hex.DecodeString(string(data[:64]))
-		if err != nil || len(token) != 32 {
-			return nil, "", errors.New("existing runtime token is malformed")
-		}
-		return token, string(data[:64]), nil
+	if token, encoded, err := loadExistingToken(runtimeDir); err == nil {
+		return token, encoded, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, "", err
 	}
@@ -670,13 +696,9 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	if s.sandbox.ID == "" {
 		return errors.New("persisted sandbox generation is not owned by mkruntimed")
 	}
-	tokenText, err := os.ReadFile(filepath.Join(runtimeDir, "token"))
+	s.token, _, err = loadExistingToken(runtimeDir)
 	if err != nil {
 		return fmt.Errorf("read recovery token: %w", err)
-	}
-	s.token, err = hex.DecodeString(strings.TrimSpace(string(tokenText)))
-	if err != nil || len(s.token) != 32 {
-		return errors.New("recovery token is malformed")
 	}
 	s.netEndpoint = recovery.Network
 	if s.netEndpoint.SandboxID != s.sandbox.ID || s.netEndpoint.SandboxGeneration != s.sandbox.Generation {
