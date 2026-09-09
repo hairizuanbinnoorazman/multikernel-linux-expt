@@ -42,6 +42,10 @@ SAFE_MASKED_PATHS = {
     "/sys/devices/virtual/powercap", "/proc/scsi",
 }
 SAFE_READONLY_PATHS = {"/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"}
+MAX_PROCESS_ARGS = 256
+MAX_PROCESS_ENV = 1024
+MAX_PROCESS_TEXT = 128 << 10
+MAX_SUPPLEMENTAL_GIDS = 256
 DEFAULT_MOUNTS = {
     "/proc": ("proc", "proc", {"nosuid", "noexec", "nodev"}),
     "/dev": ("tmpfs", "tmpfs", {"nosuid", "strictatime", "mode=755", "size=65536k"}),
@@ -146,13 +150,22 @@ def validate(config):
     if "terminal" in process and not isinstance(process["terminal"], bool):
         raise ValueError("process.terminal must be boolean")
     args = process.get("args")
-    if not isinstance(args, list) or not args or not all(isinstance(item, str) for item in args):
-        raise ValueError("process.args must be a non-empty string array")
+    if (not isinstance(args, list) or not args or len(args) > MAX_PROCESS_ARGS or
+            not all(isinstance(item, str) and "\0" not in item for item in args) or not args[0]):
+        raise ValueError("process.args must contain a bounded non-empty argv[0] without NUL")
     env = process.get("env", [])
-    if not isinstance(env, list) or not all(isinstance(item, str) for item in env):
-        raise ValueError("process.env must be a string array")
-    if not isinstance(process.get("cwd"), str) or not process["cwd"].startswith("/"):
-        raise ValueError("process.cwd must be an absolute path")
+    if not isinstance(env, list) or len(env) > MAX_PROCESS_ENV or not all(isinstance(item, str) and "\0" not in item for item in env):
+        raise ValueError("process.env must be a bounded string array without NUL")
+    environment_names = [item.partition("=")[0] for item in env]
+    if any("=" not in item or not name for item, name in zip(env, environment_names)) or len(environment_names) != len(set(environment_names)):
+        raise ValueError("process.env entries must have unique non-empty names")
+    if sum(len(item) + 1 for item in args + env) > MAX_PROCESS_TEXT:
+        raise ValueError("process args and environment exceed the retained byte limit")
+    cwd = process.get("cwd")
+    cwd_path = pathlib.PurePosixPath(cwd) if isinstance(cwd, str) else None
+    if (not isinstance(cwd, str) or not cwd.startswith("/") or "\0" in cwd or
+            len(cwd) > 4096 or cwd_path.as_posix() != cwd or ".." in cwd_path.parts):
+        raise ValueError("process.cwd must be absolute, canonical, and bounded")
     if "noNewPrivileges" in process and not isinstance(process["noNewPrivileges"], bool):
         raise ValueError("process.noNewPrivileges must be boolean")
     rlimits = process.get("rlimits", [])
@@ -196,10 +209,14 @@ def validate(config):
     require_uint32(user.get("uid"), "process.user.uid")
     require_uint32(user.get("gid"), "process.user.gid")
     gids = user.get("additionalGids", [])
-    if not isinstance(gids, list):
-        raise ValueError("process.user.additionalGids must be an array")
+    if not isinstance(gids, list) or len(gids) > MAX_SUPPLEMENTAL_GIDS:
+        raise ValueError("process.user.additionalGids must be a bounded array")
+    seen_gids = set()
     for index, gid in enumerate(gids):
         require_uint32(gid, f"process.user.additionalGids[{index}]")
+        if gid in seen_gids:
+            raise ValueError("process.user.additionalGids must contain unique values")
+        seen_gids.add(gid)
 
     root = require_object(config.get("root"), "root")
     reject_unknown(root, ROOT, "root")
@@ -215,7 +232,9 @@ def validate(config):
             raise ValueError("only the default deny-all device resource contract is supported")
     if "cgroupsPath" in linux:
         path = linux["cgroupsPath"]
-        if not isinstance(path, str) or not path.startswith("/") or pathlib.PurePosixPath(path).as_posix() != path or len(path) > 4096:
+        if (not isinstance(path, str) or not path.startswith("/") or
+                pathlib.PurePosixPath(path).as_posix() != path or
+                ".." in pathlib.PurePosixPath(path).parts or len(path) > 4096):
             raise ValueError("linux.cgroupsPath must be absolute, canonical, and bounded")
     validate_path_policy(linux.get("maskedPaths", []), SAFE_MASKED_PATHS, "maskedPaths")
     validate_path_policy(linux.get("readonlyPaths", []), SAFE_READONLY_PATHS, "readonlyPaths")

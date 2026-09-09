@@ -105,8 +105,12 @@ type lockedBuffer struct {
 }
 
 const (
-	maxProcesses   = 1024
-	maxOutputBytes = 4 << 20
+	maxProcesses       = 1024
+	maxOutputBytes     = 4 << 20
+	maxProcessArgs     = 256
+	maxProcessEnv      = 1024
+	maxProcessText     = 128 << 10
+	maxSupplementalGID = 256
 )
 
 func (b *lockedBuffer) Write(p []byte) (int, error) {
@@ -243,10 +247,7 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 	if c.OCIVersion != "1.1.0" {
 		return c, "", fmt.Errorf("unsupported OCI version %q", c.OCIVersion)
 	}
-	if len(c.Process.Args) == 0 {
-		return c, "", errors.New("process.args is required")
-	}
-	if e := validateExecConstraints(c.Process); e != nil {
+	if e := validateProcessSpec(c.Process); e != nil {
 		return c, "", e
 	}
 	if c.Mounts != nil || c.Hooks != nil {
@@ -340,10 +341,7 @@ func (m *Manager) Exec(id, parentID string, spec ProcessSpec) error {
 	if !validProcessID(id) {
 		return errors.New("invalid process ID")
 	}
-	if len(spec.Args) == 0 {
-		return errors.New("exec process args are required")
-	}
-	if err := validateExecConstraints(spec); err != nil {
+	if err := validateProcessSpec(spec); err != nil {
 		return err
 	}
 	m.mu.Lock()
@@ -373,6 +371,55 @@ func envList(v []string) error {
 		}
 	}
 	return nil
+}
+
+func validateProcessSpec(spec ProcessSpec) error {
+	if len(spec.Args) == 0 || len(spec.Args) > maxProcessArgs || spec.Args[0] == "" {
+		return errors.New("process args must contain a bounded non-empty argv[0]")
+	}
+	textBytes := 0
+	for _, argument := range spec.Args {
+		if strings.IndexByte(argument, 0) >= 0 {
+			return errors.New("process args contain NUL")
+		}
+		textBytes += len(argument) + 1
+		if textBytes > maxProcessText {
+			return errors.New("process args exceed the retained byte limit")
+		}
+	}
+	if len(spec.Env) > maxProcessEnv {
+		return errors.New("too many process environment entries")
+	}
+	seenEnvironment := make(map[string]struct{}, len(spec.Env))
+	for _, value := range spec.Env {
+		separator := strings.IndexByte(value, '=')
+		if separator < 1 || strings.IndexByte(value, 0) >= 0 {
+			return errors.New("invalid environment entry")
+		}
+		name := value[:separator]
+		if _, duplicate := seenEnvironment[name]; duplicate {
+			return fmt.Errorf("duplicate environment name %q", name)
+		}
+		seenEnvironment[name] = struct{}{}
+		textBytes += len(value) + 1
+		if textBytes > maxProcessText {
+			return errors.New("process args and environment exceed the retained byte limit")
+		}
+	}
+	if spec.Cwd == "" || !filepath.IsAbs(spec.Cwd) || filepath.Clean(spec.Cwd) != spec.Cwd || strings.IndexByte(spec.Cwd, 0) >= 0 || len(spec.Cwd) > 4096 {
+		return errors.New("process cwd must be absolute, canonical, and bounded")
+	}
+	if len(spec.User.AdditionalGids) > maxSupplementalGID {
+		return errors.New("too many supplemental groups")
+	}
+	seenGroups := make(map[uint32]struct{}, len(spec.User.AdditionalGids))
+	for _, group := range spec.User.AdditionalGids {
+		if _, duplicate := seenGroups[group]; duplicate {
+			return fmt.Errorf("duplicate supplemental group %d", group)
+		}
+		seenGroups[group] = struct{}{}
+	}
+	return validateExecConstraints(spec)
 }
 func gids(v []uint32) []uint32 { r := make([]uint32, len(v)); copy(r, v); return r }
 func (m *Manager) Start(id string) error {
