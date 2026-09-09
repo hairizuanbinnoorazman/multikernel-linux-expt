@@ -56,9 +56,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now sys-fs-multikernel.mount mkruntimed.service mknetd.service
 ```
 
-The installer validates both operator inputs, hashes every deployed unit and
-fragment, refuses unrelated destination paths, and switches all stable links
-through `/etc/multikernel/current`. Installing a changed configuration creates
+The installer validates both operator inputs, hashes every deployed unit,
+fragment, rootfs builder/helper, and guest bootstrap script, refuses unrelated
+destination paths, and switches all stable links through
+`/etc/multikernel/current`. Installing a changed configuration or support tool creates
 a new immutable generation; `activate DEPLOYMENT` rolls back atomically.
 `uninstall` is a dry run unless passed `--apply` and preserves generations;
 an active generation cannot be removed with `remove-deployment`. The reported
@@ -139,7 +140,11 @@ Install a strict `/etc/mkruntime/config.json` from the documented host-config
 contract, mount the qualified `mk-mediated-storage` filesystem at
 `/srv/multikernel-storage`, and install the rootfs builder, NBD helper, guest
 bootstrap scripts, kernel/module manifest, and agent artifacts referenced by
-that contract. `mkruntimed` performs snapshot mounting and deterministic root
+that contract. The deployment manager installs the versioned rootfs builder
+and its validation/build helpers plus both guest init scripts. The
+host/kernel-specific NBD helper, NBD module, transport module, kernel manifest,
+and artifacts referenced by that manifest remain separately provisioned and
+must pass bootstrap validation. `mkruntimed` performs snapshot mounting and deterministic root
 construction; the shim only submits a bounded preparation request and never
 mounts the caller's snapshot itself.
 

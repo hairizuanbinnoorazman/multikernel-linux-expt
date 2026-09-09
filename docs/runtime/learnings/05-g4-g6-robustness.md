@@ -473,7 +473,8 @@ accepted as the complete configuration.
 Privileged deployment configuration is no longer a sequence of unrelated
 manual copies. A dedicated manager builds immutable, hash-verified generations
 containing the host configuration, environment, systemd units, CNI config and
-containerd import fragment. Stable destinations resolve through one atomically
+containerd import fragment, together with the complete rootfs builder/helper
+and guest-init dependency set referenced by the service. Stable destinations resolve through one atomically
 selected generation, allowing exact rollback while collision and uninstall
 rules preserve operator-owned files. Service activation remains an explicit
 post-qualification action and is reported by `inspect`.

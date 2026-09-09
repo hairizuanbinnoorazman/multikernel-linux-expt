@@ -536,7 +536,8 @@ normative plan is revised with an explicit rationale.
   upgrade/rollback evidence remain open. Service and configuration files now
   have a separate immutable generation manager: it validates operator runtime
   environment and host config input, hashes the fixed systemd/CNI/containerd
-  assets, refuses unrelated paths or unsafe directory ancestry, switches all
+  assets and the complete rootfs builder/helper/guest-init support set, refuses
+  unrelated paths or unsafe directory ancestry, switches all
   managed links atomically through one selector, supports exact rollback, and
   preserves generations on ownership-safe uninstall. End-to-end alternate-root
   tests cover fresh install, upgrade, rollback, dry-run/uninstall, inactive

@@ -22,6 +22,17 @@ ASSETS = {
     "systemd/mknetd.service": REPO / "deploy/systemd/mknetd.service",
     "cni/10-multikernel.conf": REPO / "deploy/cni/10-multikernel.conf",
     "containerd/20-multikernel-runtime.toml": REPO / "deploy/containerd/20-multikernel-runtime.toml",
+    "libexec/build-runtime-container-initramfs.sh": REPO / "scripts/build-runtime-container-initramfs.sh",
+    "libexec/validate-runtime-oci.py": REPO / "scripts/validate-runtime-oci.py",
+    "libexec/validate-runtime-bootstrap.py": REPO / "scripts/validate-runtime-bootstrap.py",
+    "libexec/validate-runtime-root.py": REPO / "scripts/validate-runtime-root.py",
+    "libexec/validate-runtime-image.py": REPO / "scripts/validate-runtime-image.py",
+    "libexec/build-runtime-rootfs.py": REPO / "scripts/build-runtime-rootfs.py",
+    "libexec/runtime-storage-identity.py": REPO / "scripts/runtime-storage-identity.py",
+    "libexec/build-runtime-storage.py": REPO / "scripts/build-runtime-storage.py",
+    "libexec/verify-runtime-rootfs.py": REPO / "scripts/verify-runtime-rootfs.py",
+    "libexec/guest/mk-agent-init": REPO / "guest/mk-agent-init",
+    "libexec/guest/runtime-mediated-init": REPO / "guest/runtime-mediated-init",
 }
 LINKS = {
     Path("/etc/multikernel/runtime.env"): "runtime.env",
@@ -31,7 +42,19 @@ LINKS = {
     Path("/etc/systemd/system/mknetd.service"): "systemd/mknetd.service",
     Path("/etc/cni/net.d/10-multikernel.conf"): "cni/10-multikernel.conf",
     Path("/etc/containerd/conf.d/20-multikernel-runtime.toml"): "containerd/20-multikernel-runtime.toml",
+    Path("/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh"): "libexec/build-runtime-container-initramfs.sh",
+    Path("/usr/local/libexec/multikernel/validate-runtime-oci.py"): "libexec/validate-runtime-oci.py",
+    Path("/usr/local/libexec/multikernel/validate-runtime-bootstrap.py"): "libexec/validate-runtime-bootstrap.py",
+    Path("/usr/local/libexec/multikernel/validate-runtime-root.py"): "libexec/validate-runtime-root.py",
+    Path("/usr/local/libexec/multikernel/validate-runtime-image.py"): "libexec/validate-runtime-image.py",
+    Path("/usr/local/libexec/multikernel/build-runtime-rootfs.py"): "libexec/build-runtime-rootfs.py",
+    Path("/usr/local/libexec/multikernel/runtime-storage-identity.py"): "libexec/runtime-storage-identity.py",
+    Path("/usr/local/libexec/multikernel/build-runtime-storage.py"): "libexec/build-runtime-storage.py",
+    Path("/usr/local/libexec/multikernel/verify-runtime-rootfs.py"): "libexec/verify-runtime-rootfs.py",
+    Path("/usr/local/libexec/multikernel/guest/mk-agent-init"): "libexec/guest/mk-agent-init",
+    Path("/usr/local/libexec/multikernel/guest/runtime-mediated-init"): "libexec/guest/runtime-mediated-init",
 }
+EXECUTABLES = {name for name in ASSETS if name.startswith("libexec/")}
 ENV_KEYS = {
     "MKRUNTIME_POOL_CPUS", "MKRUNTIME_POOL_MEMORY", "MKRUNTIME_POOL_MEMORY_RESERVE",
     "MKRUNTIME_CMDLINE", "MKNETWORK_SUBNET", "MKNETWORK_EGRESS", "MKNETWORK_MTU",
@@ -256,7 +279,8 @@ def install(root: Path, runtime_env: Path, host_config: Path):
             for name, data in files.items():
                 output = staging / name
                 output.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
-                descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600 if name in ("runtime.env", "mkruntime/config.json") else 0o644)
+                mode = 0o600 if name in ("runtime.env", "mkruntime/config.json") else 0o755 if name in EXECUTABLES else 0o644
+                descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
                 with os.fdopen(descriptor, "wb") as stream:
                     stream.write(data)
                     stream.flush()

@@ -13,8 +13,16 @@ task_identity=${MK_TASK_IDENTITY:-}
 storage_port=${MK_STORAGE_PORT:-}
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd "$script_dir/.." && pwd)
-guest_init=${MK_GUEST_INIT:-$repo_dir/guest/mk-agent-init}
-bootstrap_init=${MK_STORAGE_BOOTSTRAP_INIT:-$repo_dir/guest/runtime-mediated-init}
+support_root=${MK_RUNTIME_SUPPORT_ROOT:-}
+if [[ -z $support_root ]]; then
+	if [[ -d $repo_dir/guest ]]; then
+		support_root=$repo_dir
+	else
+		support_root=$script_dir
+	fi
+fi
+guest_init=${MK_GUEST_INIT:-$support_root/guest/mk-agent-init}
+bootstrap_init=${MK_STORAGE_BOOTSTRAP_INIT:-$support_root/guest/runtime-mediated-init}
 scratch=$(mktemp -d)
 root=$scratch/root
 boot=$scratch/boot
