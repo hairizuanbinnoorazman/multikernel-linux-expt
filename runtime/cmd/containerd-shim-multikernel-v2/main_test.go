@@ -1592,6 +1592,36 @@ func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
 	})
 }
 
+func TestStaleRelayCleanupRejectsNonSocketPathsWithoutRemoval(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing.sock")
+	if err := removeStaleRelaySocket(missing); err != nil {
+		t.Fatalf("missing stale socket error = %v", err)
+	}
+	for name, create := range map[string]func(string) error{
+		"regular":   func(path string) error { return os.WriteFile(path, []byte("owned data"), 0600) },
+		"directory": func(path string) error { return os.Mkdir(path, 0700) },
+		"symlink":   func(path string) error { return os.Symlink("missing-target", path) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "relay.sock")
+			if err := create(path); err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.Lstat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = removeStaleRelaySocket(path); err == nil {
+				t.Fatal("non-socket stale relay path was accepted")
+			}
+			after, statErr := os.Lstat(path)
+			if statErr != nil || before.Mode() != after.Mode() || !os.SameFile(before, after) {
+				t.Fatalf("rejected path changed: before=%+v after=%+v error=%v", before, after, statErr)
+			}
+		})
+	}
+}
+
 func validPersistedRecovery(namespace, task string) persisted {
 	return persisted{
 		SchemaVersion: 1,

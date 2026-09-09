@@ -445,3 +445,10 @@ use one bounded `openat2` loader that rejects symlinked ancestors, hardlinks,
 wrong ownership or mode, malformed length or encoding, and identity changes
 while the token is opened or read. Focused adversarial tests cover the static
 path and link failures; current-revision reconstruction evidence remains open.
+
+Fresh connection and reconstruction formerly unlinked the derived relay path
+without checking either its type or the removal result. They now remove only a
+caller-owned, single-link Unix socket with non-writable group/other mode and
+fail closed on every other path. Focused tests prove regular files,
+directories, and symlinks are rejected without removal; the privileged live
+socket replacement case remains part of the replacement run.
