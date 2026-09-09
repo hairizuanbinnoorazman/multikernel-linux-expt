@@ -463,6 +463,13 @@ and duplicate or excessive supplementary groups are rejected before primary
 allocation or guest process-record mutation rather than being deferred to
 `execve`.
 
+OCI configuration loading now treats the file identity as untrusted at both
+the primary adapter and guest agent. Descriptor-anchored no-follow reads bind
+owner, mode, link count, size, inode and timestamps, cap the complete document
+at one MiB, and reject mutation while reading. In particular, a valid JSON
+prefix followed by data beyond the former decoder limit can no longer be
+accepted as the complete configuration.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and

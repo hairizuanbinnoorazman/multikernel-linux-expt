@@ -36,6 +36,7 @@ def run_case(directory, name, config=None, raw=None, accepted=False):
     source = directory / f"{name}.json"
     output = directory / f"{name}.out.json"
     source.write_text(raw if raw is not None else json.dumps(config), encoding="utf-8")
+    source.chmod(0o644)
     result = subprocess.run(
         [str(VALIDATOR), str(source), str(output)],
         stdout=subprocess.PIPE,
@@ -177,11 +178,39 @@ def main():
         invalid_hostname["hostname"] = "-invalid"
         run_case(directory, "invalid-hostname", invalid_hostname)
 
+        secure_source = directory / "secure-source.json"
+        secure_output = directory / "secure-output.json"
+        secure_source.write_text(json.dumps(BASE), encoding="utf-8")
+        secure_source.chmod(0o644)
+        hardlink = directory / "hardlink-source.json"
+        os.link(secure_source, hardlink)
+        result = subprocess.run([str(VALIDATOR), str(hardlink), str(secure_output)], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode == 0 or secure_output.exists():
+            raise AssertionError("hard-linked OCI config was accepted")
+        hardlink.unlink()
+        secure_source.unlink()
+
+        writable = directory / "writable-source.json"
+        writable.write_text(json.dumps(BASE), encoding="utf-8")
+        writable.chmod(0o664)
+        result = subprocess.run([str(VALIDATOR), str(writable), str(secure_output)], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode == 0 or secure_output.exists():
+            raise AssertionError("group-writable OCI config was accepted")
+
+        oversized = directory / "oversized-source.json"
+        oversized.write_bytes(json.dumps(BASE).encode("utf-8") + b" " * ((1 << 20) + 1))
+        oversized.chmod(0o644)
+        result = subprocess.run([str(VALIDATOR), str(oversized), str(secure_output)], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode == 0 or secure_output.exists():
+            raise AssertionError("oversized OCI config with a valid prefix was accepted")
+
         bundle = directory / "bundle"
         (bundle / "rootfs").mkdir(parents=True)
         config = copy.deepcopy(BASE)
         config["hooks"] = {"prestart": []}
-        (bundle / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        bundle_config = bundle / "config.json"
+        bundle_config.write_text(json.dumps(config), encoding="utf-8")
+        bundle_config.chmod(0o644)
         environment = os.environ.copy()
         environment.update({
             "MK_AGENT": str(directory / "missing-agent"),
@@ -198,7 +227,7 @@ def main():
         )
         if result.returncode == 0 or "unsupported OCI field(s): hooks" not in result.stderr:
             raise AssertionError(f"builder did not reject before normalization: {result.stderr!r}")
-    print(f"runtime OCI fail-closed validation: PASS ({CASE_COUNT} cases plus namespace projection)")
+    print(f"runtime OCI fail-closed validation: PASS ({CASE_COUNT} semantic cases plus namespace and file-identity boundaries)")
 
 
 if __name__ == "__main__":

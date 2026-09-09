@@ -518,6 +518,10 @@ normative plan is revised with an explicit rationale.
   duplicate-environment rejection, canonical bounded cwd, and unique bounded
   supplementary groups all fail before allocation or guest process mutation.
   Focused adapter and guest tests cover these hostile shapes.
+  Both boundaries also open `config.json` without following symlink or magic
+  link ancestors, require a private caller-owned single-link regular file,
+  cap the complete input at one MiB, and reject identity changes across the
+  read. Oversized-valid-prefix and hardlink tests prove the added boundary.
 - [ ] Complete packaging: versioned binaries, explicit containerd and Docker
   configuration fragments, service dependencies, fresh-host installation,
   upgrade/rollback behavior, and no default-runtime mutation. Every Go

@@ -536,6 +536,44 @@ func TestBundleRootRejectsSymlinkAndEscape(t *testing.T) {
 	})
 }
 
+func TestLoadBundleRejectsUnsafeConfigIdentityAndSize(t *testing.T) {
+	t.Run("hardlink", func(t *testing.T) {
+		bundlePath := bundle(t, []string{"/probe"}, "")
+		config := filepath.Join(bundlePath, "config.json")
+		linked := filepath.Join(bundlePath, "config.link")
+		if err := os.Link(config, linked); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := LoadBundle(bundlePath); err == nil {
+			t.Fatal("hard-linked config accepted")
+		}
+	})
+	t.Run("writable", func(t *testing.T) {
+		bundlePath := bundle(t, []string{"/probe"}, "")
+		if err := os.Chmod(filepath.Join(bundlePath, "config.json"), 0664); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := LoadBundle(bundlePath); err == nil {
+			t.Fatal("group-writable config accepted")
+		}
+	})
+	t.Run("oversized valid prefix", func(t *testing.T) {
+		bundlePath := bundle(t, []string{"/probe"}, "")
+		config := filepath.Join(bundlePath, "config.json")
+		data, err := os.ReadFile(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data = append(data, bytes.Repeat([]byte(" "), (1<<20)+1)...)
+		if err = os.WriteFile(config, data, 0644); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err = LoadBundle(bundlePath); err == nil {
+			t.Fatal("oversized config with valid JSON prefix accepted")
+		}
+	})
+}
+
 func TestExecLifecycleFailuresCleanupAndConcurrency(t *testing.T) {
 	manager := NewManager(true)
 	bundlePath := bundle(t, []string{"/probe"}, "")
