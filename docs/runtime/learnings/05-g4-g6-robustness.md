@@ -460,3 +460,9 @@ generations restore a recorded running guest PID, authenticated agent
 parameters, output/wait loop, and its later exact exit completion before owned
 resources are reaped. Live forced-death continuity for a running process is
 still required.
+
+That focused path also exposed a descriptor leak before agent reconnect:
+reconstruction acquired the generation-bound TUN descriptor before installing
+its failure-cleanup defer. Cleanup ownership now begins at acquisition, and a
+forced relay-start failure proves the descriptor is closed and relay command
+and socket state are cleared.

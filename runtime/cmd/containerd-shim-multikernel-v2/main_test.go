@@ -62,6 +62,7 @@ type fakeAgentClient struct {
 type fakeNetworkClient struct {
 	endpoint       mknetwork.Endpoint
 	descriptorPath string
+	descriptor     *os.File
 	calls          []string
 }
 
@@ -131,6 +132,7 @@ func (f *fakeNetworkClient) Attach(_ context.Context, request mknetwork.Request)
 		return mknetwork.Response{}, nil, err
 	}
 	endpoint := f.endpoint
+	f.descriptor = descriptor
 	return mknetwork.Response{Version: mknetwork.ProtocolVersion, RequestID: request.RequestID, Endpoint: &endpoint}, descriptor, nil
 }
 
@@ -1597,6 +1599,7 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	var daemonCalls []string
 	service := &service{id: task, namespace: namespace, bundle: bundle, processes: map[string]*process{}, netClient: network,
 		publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+		relayPath: func(uint32, string) string { return filepath.Join(bundle, "agent-relay.sock") },
 		daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
 			daemonCalls = append(daemonCalls, request.Method)
 			encoded, _ := json.Marshal([]protocol.Sandbox{sandbox})
@@ -1623,7 +1626,7 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	if service.sandbox.ID != sandbox.ID || service.sandbox.Generation != sandbox.Generation || service.netEndpoint.Generation != networkGeneration {
 		t.Fatalf("recovered ownership = sandbox:%+v network:%+v", service.sandbox, service.netEndpoint)
 	}
-	if service.relaySocket != relaySocketPath(7200, sandbox.Generation) || service.relay == nil {
+	if service.relaySocket != filepath.Join(bundle, "agent-relay.sock") || service.relay == nil {
 		t.Fatalf("recovered relay ownership = socket:%q command:%v", service.relaySocket, service.relay)
 	}
 	process := service.processes[""]
@@ -1647,10 +1650,6 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	if err = service.stopNetwork(); err != nil {
 		t.Fatal(err)
 	}
-	// The injected relay never creates its derived /run socket, and the local
-	// test sandbox intentionally denies writes there. Retain the ownership
-	// assertion above, then reap only the injected process group here.
-	service.relaySocket = ""
 	if err = service.stopRelay(); err != nil {
 		t.Fatal(err)
 	}
@@ -1659,6 +1658,58 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	}
 	if !reflect.DeepEqual(daemonCalls, []string{"ListSandboxes"}) || len(network.calls) < 2 || network.calls[0] != "ATTACH" {
 		t.Fatalf("recovery calls = daemon:%v network:%v agent:%v", daemonCalls, network.calls, fakeAgent.snapshotCalls())
+	}
+}
+
+func TestRecoverExistingClosesAcquiredNetworkDescriptorOnRelayStartFailure(t *testing.T) {
+	bundle := t.TempDir()
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	namespace, task := "default", "task-a"
+	sandbox := protocol.Sandbox{ID: sandboxID(namespace, task), Generation: strings.Repeat("a", 32), State: "RUNNING",
+		Config: protocol.SandboxConfig{AgentPort: 7200}}
+	recovery := validPersistedRecovery(namespace, task)
+	recovery.Network = mknetwork.Endpoint{Generation: strings.Repeat("b", 32), SandboxID: sandbox.ID,
+		SandboxGeneration: sandbox.Generation, NetNS: "/run/netns/task-a", MTU: 1400}
+	data, err := json.Marshal(recovery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(runtimeDir, "token"), []byte(strings.Repeat("c", 64)+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	descriptorPath := filepath.Join(bundle, "network-descriptor")
+	if err = os.WriteFile(descriptorPath, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	network := &fakeNetworkClient{endpoint: recovery.Network, descriptorPath: descriptorPath}
+	service := &service{id: task, namespace: namespace, bundle: bundle, processes: map[string]*process{}, netClient: network,
+		relayPath: func(uint32, string) string { return filepath.Join(bundle, "agent-relay.sock") },
+		daemon: daemonCallFunc(func(_ context.Context, _ protocol.Request, output any) *protocol.Error {
+			encoded, _ := json.Marshal([]protocol.Sandbox{sandbox})
+			if err := json.Unmarshal(encoded, output); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}),
+		newRelay: func(uint32, string) *exec.Cmd { return exec.Command(filepath.Join(bundle, "missing-relay")) },
+	}
+	if err = service.recoverExisting(context.Background()); err == nil || !strings.Contains(err.Error(), "restart recovered agent relay") {
+		t.Fatalf("relay start failure = %v", err)
+	}
+	if service.netDevice != nil || service.relay != nil || service.relaySocket != "" {
+		t.Fatalf("failed recovery retained ownership: device=%v relay=%v socket=%q", service.netDevice, service.relay, service.relaySocket)
+	}
+	if network.descriptor == nil {
+		t.Fatal("network descriptor was not acquired before injected failure")
+	}
+	if _, statErr := network.descriptor.Stat(); !errors.Is(statErr, os.ErrClosed) {
+		t.Fatalf("acquired network descriptor remains open: %v", statErr)
 	}
 }
 
