@@ -465,6 +465,11 @@ normative plan is revised with an explicit rationale.
   still open. Supported Task read/wait RPCs also reject pre-cancelled calls
   before locking or guest contact; focused State, Wait, Pids, Connect, and
   Stats coverage proves the process record and guest-call count are unchanged.
+  Task entry lock acquisition itself is now cancellation-aware; contended
+  read and mutation tests prove cancellation returns while another owner still
+  holds the lock and without changing process state. Mandatory cleanup locks
+  after an external mutation remain non-cancellable so ownership cannot be
+  abandoned halfway through reconciliation.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

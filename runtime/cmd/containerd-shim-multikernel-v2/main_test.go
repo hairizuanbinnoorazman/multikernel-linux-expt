@@ -407,8 +407,16 @@ func TestLaunchShimWorkerCleansProcessGroupAndOwnedArtifactsOnPIDFailure(t *test
 	if cmd.Process == nil {
 		t.Fatal("worker did not reach the injected post-start failure")
 	}
-	if killErr := syscall.Kill(-cmd.Process.Pid, 0); !errors.Is(killErr, syscall.ESRCH) {
-		t.Fatalf("worker process group survived cleanup: %v", killErr)
+	deadline := time.Now().Add(time.Second)
+	for {
+		killErr := syscall.Kill(-cmd.Process.Pid, 0)
+		if errors.Is(killErr, syscall.ESRCH) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("worker process group survived cleanup: %v", killErr)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -1165,6 +1173,44 @@ func TestPreCancelledTaskReadsAndWaitAvoidGuestContact(t *testing.T) {
 	case <-done:
 		t.Fatal("cancelled Wait changed process completion")
 	default:
+	}
+}
+
+func TestTaskEntryLockWaitHonorsCancellation(t *testing.T) {
+	for name, invoke := range map[string]func(context.Context, *service) error{
+		"state": func(ctx context.Context, s *service) error {
+			_, err := s.State(ctx, &taskapi.StateRequest{})
+			return err
+		},
+		"close-io": func(ctx context.Context, s *service) error {
+			_, err := s.CloseIO(ctx, &taskapi.CloseIORequest{Stdin: true})
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := &service{processes: map[string]*process{"": {status: tasktypes.Status_CREATED}}}
+			s.mu.Lock()
+			ctx, cancel := context.WithCancel(context.Background())
+			result := make(chan error, 1)
+			go func() { result <- invoke(ctx, s) }()
+			time.Sleep(10 * time.Millisecond)
+			cancel()
+			select {
+			case err := <-result:
+				if !errors.Is(err, context.Canceled) {
+					s.mu.Unlock()
+					t.Fatalf("contended call error = %v", err)
+				}
+			case <-time.After(500 * time.Millisecond):
+				s.mu.Unlock()
+				t.Fatal("contended Task call ignored cancellation")
+			}
+			if s.processes[""].stdinClosed {
+				s.mu.Unlock()
+				t.Fatal("cancelled contended call mutated process state")
+			}
+			s.mu.Unlock()
+		})
 	}
 }
 
