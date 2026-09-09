@@ -83,6 +83,14 @@ type agentClient interface {
 	ReconnectContext(context.Context, string) error
 }
 
+type networkClient interface {
+	Call(context.Context, mknetwork.Request) (mknetwork.Response, error)
+	Attach(context.Context, mknetwork.Request) (mknetwork.Response, *os.File, error)
+}
+
+type agentDialer func(context.Context, string, string, string, uint32, []byte) (agentClient, error)
+type relayFactory func(uint32, string) *exec.Cmd
+
 type service struct {
 	mu                    sync.Mutex
 	eventMu               sync.Mutex
@@ -100,7 +108,9 @@ type service struct {
 	netDone               chan struct{}
 	netWG                 sync.WaitGroup
 	netEndpoint           mknetwork.Endpoint
-	netClient             mknetwork.Client
+	netClient             networkClient
+	agentDial             agentDialer
+	newRelay              relayFactory
 	netRXPackets          atomic.Uint64
 	netTXPackets          atomic.Uint64
 	netRXDrops            atomic.Uint64
@@ -158,6 +168,20 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 	}
 	s.startEventRetry(time.Second)
 	return s, nil
+}
+
+func (s *service) dialAgent(ctx context.Context, path string) (agentClient, error) {
+	if s.agentDial != nil {
+		return s.agentDial(ctx, path, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+	}
+	return agent.DialContext(ctx, path, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+}
+
+func (s *service) relayCommand(port uint32, socket string) *exec.Cmd {
+	if s.newRelay != nil {
+		return s.newRelay(port, socket)
+	}
+	return newRelayCommand(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), port, socket)
 }
 
 func validateServiceIdentity(id, namespace, bundle string) error {
@@ -720,7 +744,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 		s.relaySocket = ""
 		return fmt.Errorf("remove stale recovered agent relay socket: %w", err)
 	}
-	s.relay = newRelayCommand(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), s.sandbox.Config.AgentPort, s.relaySocket)
+	s.relay = s.relayCommand(s.sandbox.Config.AgentPort, s.relaySocket)
 	if err = s.relay.Start(); err != nil {
 		return errors.Join(fmt.Errorf("restart recovered agent relay: %w", err), s.stopRelay())
 	}
@@ -746,7 +770,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	}()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		s.agent, err = agent.DialContext(ctx, s.relaySocket, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+		s.agent, err = s.dialAgent(ctx, s.relaySocket)
 		if err == nil || time.Now().After(deadline) || ctx.Err() != nil {
 			break
 		}
@@ -1271,7 +1295,7 @@ func (s *service) connectAgent(ctx context.Context) error {
 	if err := s.persistRecovery(); err != nil {
 		return errors.Join(fmt.Errorf("persist network recovery state: %w", err), s.stopNetwork(), s.stopRelay())
 	}
-	s.relay = newRelayCommand(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), s.sandbox.Config.AgentPort, sock)
+	s.relay = s.relayCommand(s.sandbox.Config.AgentPort, sock)
 	if err := s.relay.Start(); err != nil {
 		return errors.Join(err, s.stopNetwork(), s.stopRelay())
 	}
@@ -1280,7 +1304,7 @@ func (s *service) connectAgent(ctx context.Context) error {
 	}
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
-		client, err := agent.DialContext(ctx, sock, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+		client, err := s.dialAgent(ctx, sock)
 		if err == nil {
 			s.agent = client
 			if err = s.agent.CallContext(ctx, "ConfigureNetwork", agent.NetworkConfig{
