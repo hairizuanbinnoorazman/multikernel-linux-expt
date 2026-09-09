@@ -26,6 +26,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/events"
 	ctruntime "github.com/containerd/containerd/runtime"
+	"github.com/containerd/containerd/runtime/v2/shim"
 	"github.com/containerd/fifo"
 	"github.com/containerd/typeurl/v2"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -279,6 +280,21 @@ func TestRetryWaitReturnsImmediatelyOnCancellation(t *testing.T) {
 	}
 	if time.Since(started) > 100*time.Millisecond {
 		t.Fatal("canceled retry wait did not return promptly")
+	}
+}
+
+func TestPreCancelledShimStartupAndRecoveryDoNotCreateOrInspectState(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	s := &service{bundle: filepath.Join(t.TempDir(), "missing-bundle")}
+	if address, err := s.StartShim(ctx, shim.StartOpts{ID: "task"}); !errors.Is(err, context.Canceled) || address != "" {
+		t.Fatalf("StartShim() = %q, %v", address, err)
+	}
+	if err := s.recoverExisting(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("recoverExisting() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(s.bundle, ".multikernel")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("cancelled startup created runtime state: %v", err)
 	}
 }
 
