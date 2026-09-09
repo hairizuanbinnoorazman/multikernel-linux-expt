@@ -493,7 +493,9 @@ normative plan is revised with an explicit rationale.
   prevents deletion and rootfs removal. Normal startup and reconstruction now
   share a no-symlink, caller-owned, single-link, exact-size, stable-identity
   token loader instead of reconstruction bypassing those checks with a path
-  read. Focused wrong-owner, malformed-state, symlink, hardlink,
+  read. Initially absent tokens are created exclusively relative to the same
+  validated parent descriptor, and failure cleanup unlinks only the inode that
+  attempt created. Focused wrong-owner, malformed-state, symlink, hardlink,
   symlinked-ancestor, partial-network, stop-failure, and rootfs-failure tests
   pass. Fresh connection and reconstruction also refuse to unlink a stale
   relay path unless it is a caller-owned, single-link Unix socket with safe
@@ -502,7 +504,8 @@ normative plan is revised with an explicit rationale.
   open. Recovery and event-journal publication is descriptor-anchored beneath
   a no-symlink, caller-owned, non-world-writable parent and uses same-directory
   `openat`/`renameat`; focused normal replacement, symlinked-parent, and unsafe
-  parent-mode tests prove publication cannot be redirected.
+  parent-mode tests prove publication cannot be redirected; an empty
+  symlinked-parent test separately proves token creation cannot be redirected.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and

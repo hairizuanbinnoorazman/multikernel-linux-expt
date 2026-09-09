@@ -510,6 +510,24 @@ func TestLoadOrCreateTokenRejectsMalformedAndSymlinkState(t *testing.T) {
 			t.Fatal("token beneath a symlinked ancestor was accepted")
 		}
 	})
+
+	t.Run("symlinked empty ancestor does not redirect creation", func(t *testing.T) {
+		directory := t.TempDir()
+		realRuntime := filepath.Join(directory, "real-empty")
+		if err := os.Mkdir(realRuntime, 0700); err != nil {
+			t.Fatal(err)
+		}
+		linkedRuntime := filepath.Join(directory, "linked-empty")
+		if err := os.Symlink(realRuntime, linkedRuntime); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := loadOrCreateToken(linkedRuntime); err == nil {
+			t.Fatal("token creation beneath a symlinked ancestor was accepted")
+		}
+		if _, err := os.Stat(filepath.Join(realRuntime, "token")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("redirected token was created: %v", err)
+		}
+	})
 }
 
 func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {

@@ -590,8 +590,7 @@ func loadExistingToken(runtimeDir string) ([]byte, string, error) {
 	return token, string(data[:64]), nil
 }
 
-func loadOrCreateToken(runtimeDir string) ([]byte, string, error) {
-	path := filepath.Join(runtimeDir, "token")
+func loadOrCreateToken(runtimeDir string) (_ []byte, _ string, retErr error) {
 	if token, encoded, err := loadExistingToken(runtimeDir); err == nil {
 		return token, encoded, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -601,14 +600,35 @@ func loadOrCreateToken(runtimeDir string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	directory, err := openStateDirectory(runtimeDir)
 	if err != nil {
 		return nil, "", err
+	}
+	defer func() { retErr = errors.Join(retErr, directory.Close()) }()
+	descriptor, err := unix.Openat(int(directory.Fd()), "token",
+		unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, "", err
+	}
+	file := os.NewFile(uintptr(descriptor), "token")
+	createdInfo, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, "", err
+	}
+	createdIdentity, ok := createdInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		_ = file.Close()
+		return nil, "", errors.New("created runtime token identity is unavailable")
 	}
 	remove := true
 	defer func() {
 		if remove {
-			_ = os.Remove(path)
+			var current unix.Stat_t
+			if err := unix.Fstatat(int(directory.Fd()), "token", &current, unix.AT_SYMLINK_NOFOLLOW); err == nil &&
+				current.Dev == createdIdentity.Dev && current.Ino == createdIdentity.Ino {
+				_ = unix.Unlinkat(int(directory.Fd()), "token", 0)
+			}
 		}
 	}()
 	written, err := file.WriteString(encoded + "\n")
@@ -625,14 +645,9 @@ func loadOrCreateToken(runtimeDir string) ([]byte, string, error) {
 	if closeErr != nil {
 		return nil, "", closeErr
 	}
-	directory, err := os.Open(runtimeDir)
+	err = directory.Sync()
 	if err != nil {
 		return nil, "", err
-	}
-	err = directory.Sync()
-	closeErr = directory.Close()
-	if err != nil || closeErr != nil {
-		return nil, "", errors.Join(err, closeErr)
 	}
 	remove = false
 	return token, encoded, nil
@@ -692,35 +707,47 @@ func (s *service) reportNetwork(state string) error {
 	return err
 }
 
-func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) {
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path || mode.Perm()&0077 != 0 {
-		return errors.New("atomic state path and mode must be canonical, absolute, and private")
+func openStateDirectory(directory string) (*os.File, error) {
+	if !filepath.IsAbs(directory) || filepath.Clean(directory) != directory {
+		return nil, errors.New("state directory must be canonical and absolute")
 	}
-	directory := filepath.Dir(path)
 	info, err := os.Lstat(directory)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	identity, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
-		return errors.New("atomic state parent identity is unavailable")
+		return nil, errors.New("state directory identity is unavailable")
 	}
 	if !info.IsDir() || info.Mode().Perm()&0002 != 0 || identity.Uid != uint32(os.Geteuid()) {
-		return fmt.Errorf("atomic state parent must be a caller-owned directory with safe mode (mode=%#o owner=%d caller=%d)",
+		return nil, fmt.Errorf("state directory must be caller-owned with safe mode (mode=%#o owner=%d caller=%d)",
 			info.Mode().Perm(), identity.Uid, os.Geteuid())
 	}
 	descriptor, err := unix.Openat2(unix.AT_FDCWD, directory, &unix.OpenHow{
 		Flags: uint64(unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC), Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	dir := os.NewFile(uintptr(descriptor), directory)
-	defer func() { retErr = errors.Join(retErr, dir.Close()) }()
 	opened, err := dir.Stat()
 	if err != nil || !sameProcessIOIdentity(info, opened) {
-		return errors.New("atomic state parent identity changed while opening")
+		_ = dir.Close()
+		return nil, errors.New("state directory identity changed while opening")
 	}
+	return dir, nil
+}
+
+func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || mode.Perm()&0077 != 0 {
+		return errors.New("atomic state path and mode must be canonical, absolute, and private")
+	}
+	directory := filepath.Dir(path)
+	dir, err := openStateDirectory(directory)
+	if err != nil {
+		return err
+	}
+	defer func() { retErr = errors.Join(retErr, dir.Close()) }()
 	base := filepath.Base(path)
 	var temporary *os.File
 	var temporaryName string
