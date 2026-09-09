@@ -499,7 +499,10 @@ normative plan is revised with an explicit rationale.
   relay path unless it is a caller-owned, single-link Unix socket with safe
   mode; focused regular-file, directory, symlink, and missing-path tests prove
   hostile path types remain untouched. Live stale-socket replacement remains
-  open.
+  open. Recovery and event-journal publication is descriptor-anchored beneath
+  a no-symlink, caller-owned, non-world-writable parent and uses same-directory
+  `openat`/`renameat`; focused normal replacement, symlinked-parent, and unsafe
+  parent-mode tests prove publication cannot be redirected.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and

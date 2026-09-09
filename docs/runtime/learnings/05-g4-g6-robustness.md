@@ -483,3 +483,10 @@ recovery state and tokens: caller ownership, one link, private mode, bounded
 size, no symlinked ancestors, and stable device/inode/metadata through the
 read. Focused hardlink and symlinked-ancestor tests supplement the existing
 schema, symlink, and mode cases; live event replay evidence remains open.
+
+Recovery and event-journal writes no longer reopen their parent by pathname
+during atomic publication. The shared writer validates and opens a canonical,
+caller-owned, non-world-writable parent through `openat2`, creates the private
+temporary file relative to that descriptor, and publishes with same-directory
+`renameat` plus directory sync. Focused replacement, symlinked-parent, and
+unsafe-parent-mode tests prove state cannot be redirected.
