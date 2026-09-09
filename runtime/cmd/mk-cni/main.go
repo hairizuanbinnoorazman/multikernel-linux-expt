@@ -107,6 +107,33 @@ func validateCacheDirectory(path string, create bool) error {
 		return errors.New("CNI cache directory must be absolute and canonical")
 	}
 	if create {
+		for current := string(filepath.Separator); ; {
+			relative, err := filepath.Rel(current, path)
+			if err != nil || relative == "." {
+				break
+			}
+			component := relative
+			if separator := len(component); separator > 0 {
+				for index, value := range component {
+					if value == filepath.Separator {
+						separator = index
+						break
+					}
+				}
+				component = component[:separator]
+			}
+			current = filepath.Join(current, component)
+			info, statErr := os.Lstat(current)
+			if errors.Is(statErr, os.ErrNotExist) {
+				break
+			}
+			if statErr != nil {
+				return statErr
+			}
+			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+				return errors.New("CNI cache directory ancestry may not contain symlinks or non-directories")
+			}
+		}
 		if err := os.MkdirAll(path, 0700); err != nil {
 			return err
 		}
@@ -136,10 +163,14 @@ func readCache(configuration config, env environment) (cacheRecord, error) {
 	if err != nil {
 		return record, err
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() <= 0 || info.Size() > 4096 {
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() <= 0 || info.Size() > 4096 ||
+		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
 		return record, errors.New("CNI endpoint cache must be a private bounded regular file")
 	}
-	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags: uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW), Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
 	if err != nil {
 		return record, fmt.Errorf("open CNI endpoint cache: %w", err)
 	}
@@ -153,10 +184,21 @@ func readCache(configuration config, env environment) (cacheRecord, error) {
 	if err != nil || len(data) > 4096 {
 		return record, errors.New("CNI endpoint cache changed or exceeded its read bound")
 	}
+	after, err := file.Stat()
+	if err != nil || !sameCacheIdentity(opened, after) {
+		return record, errors.New("CNI endpoint cache identity changed while reading")
+	}
 	if err = protocol.StrictDecode(data, &record); err != nil || record.Version != 1 || !endpointGeneration.MatchString(record.Generation) || !filepath.IsAbs(record.NetNS) {
 		return record, errors.New("CNI endpoint cache is malformed")
 	}
 	return record, nil
+}
+
+func sameCacheIdentity(first, second os.FileInfo) bool {
+	a, aok := first.Sys().(*syscall.Stat_t)
+	b, bok := second.Sys().(*syscall.Stat_t)
+	return aok && bok && a.Dev == b.Dev && a.Ino == b.Ino && a.Uid == b.Uid && a.Nlink == b.Nlink &&
+		a.Mode == b.Mode && a.Size == b.Size && a.Mtim == b.Mtim && a.Ctim == b.Ctim
 }
 
 var endpointGeneration = regexp.MustCompile(`^[0-9a-f]{32}$`)
@@ -192,10 +234,32 @@ func writeCache(configuration config, env environment, record cacheRecord) (retE
 	if closeErr != nil {
 		return closeErr
 	}
-	if err = os.Rename(name, cachePath(configuration, env)); err != nil {
-		return err
+	destination := cachePath(configuration, env)
+	if err = unix.Renameat2(unix.AT_FDCWD, name, unix.AT_FDCWD, destination, unix.RENAME_NOREPLACE); err != nil {
+		if !errors.Is(err, syscall.EEXIST) {
+			return err
+		}
+		existing, readErr := readCache(configuration, env)
+		if readErr != nil || existing != record {
+			return errors.New("CNI endpoint cache already owns a different generation")
+		}
+		if err = os.Remove(name); err != nil {
+			return err
+		}
+		return syncDirectory(configuration.CacheDir)
 	}
 	return syncDirectory(configuration.CacheDir)
+}
+
+func readCNIInput(input io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(input, (1<<20)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > 1<<20 {
+		return nil, errors.New("CNI configuration exceeds the one-MiB input limit")
+	}
+	return data, nil
 }
 
 func syncDirectory(path string) error {
@@ -337,7 +401,7 @@ func main() {
 	if buildinfo.PrintRequested(os.Stdout, "mk-cni", os.Args[1:]) {
 		return
 	}
-	input, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
+	input, err := readCNIInput(os.Stdin)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

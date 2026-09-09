@@ -345,7 +345,13 @@ normative plan is revised with an explicit rationale.
   retry before later traffic succeeds; the cross-process restart matrix remains
   open.
 - [ ] CNI failure after every partial `ADD` boundary, repeated `CHECK`, repeated
-  `DEL`, stale namespace/link/rule cleanup, and name/address reuse.
+  `DEL`, stale namespace/link/rule cleanup, and name/address reuse. CNI stdin
+  now rejects a valid JSON prefix followed by bytes beyond its one-MiB limit;
+  cache creation rejects a symlinked ancestor before creating redirected
+  directories; and no-replace publication makes an exact generation replay
+  idempotent while refusing to overwrite a conflicting generation. Focused
+  tests prove all three boundaries; the remaining repeated/fault matrix stays
+  open.
 - [ ] Source spoofing, route injection, metadata-address access policy,
   forwarding-rule bypass, and sibling-link policy bypass.
 - [ ] Before/during/after checks for primary SSH, metadata access, guest agent,
