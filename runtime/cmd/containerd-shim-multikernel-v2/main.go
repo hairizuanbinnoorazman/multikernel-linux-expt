@@ -201,6 +201,9 @@ func newCommand(ctx context.Context, id string, opts shim.StartOpts) (*exec.Cmd,
 }
 
 func (s *service) StartShim(ctx context.Context, opts shim.StartOpts) (_ string, retErr error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	cmd, err := newCommand(ctx, opts.ID, opts)
 	if err != nil {
 		return "", err
@@ -583,6 +586,9 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) 
 }
 
 func (s *service) recoverExisting(ctx context.Context) (retErr error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	runtimeDir := filepath.Join(s.bundle, ".multikernel")
 	recovery, found, err := loadPersistedRecovery(filepath.Join(runtimeDir, "sandbox.json"), s.namespace, s.id)
 	if err != nil {
