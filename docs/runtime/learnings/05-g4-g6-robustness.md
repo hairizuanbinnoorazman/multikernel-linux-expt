@@ -444,7 +444,11 @@ path read even though normal Create performed stronger checks. Both paths now
 use one bounded `openat2` loader that rejects symlinked ancestors, hardlinks,
 wrong ownership or mode, malformed length or encoding, and identity changes
 while the token is opened or read. Focused adversarial tests cover the static
-path and link failures; current-revision reconstruction evidence remains open.
+path and link failures. Exclusive creation of an initially absent token now
+uses the same validated parent descriptor, and failure cleanup removes only
+the inode created by that attempt; an empty symlinked-parent test proves it
+cannot redirect creation. Current-revision reconstruction evidence remains
+open.
 
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
