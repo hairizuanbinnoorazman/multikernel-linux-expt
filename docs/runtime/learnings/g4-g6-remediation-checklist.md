@@ -475,6 +475,9 @@ normative plan is revised with an explicit rationale.
   abandoned halfway through reconciliation. Event queue and flush lock
   acquisition is cancellation-aware as well; focused contention tests prove a
   cancelled publisher neither queues nor acknowledges journal state.
+  Wait's post-exit state snapshot now reacquires the task lock through the
+  same cancellation-aware path; a focused completed-process contention test
+  proves cancellation cannot strand the waiter behind concurrent teardown.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

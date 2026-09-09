@@ -1243,6 +1243,34 @@ func TestTaskEntryLockWaitHonorsCancellation(t *testing.T) {
 	}
 }
 
+func TestWaitPostExitLockHonorsCancellation(t *testing.T) {
+	done := make(chan struct{})
+	s := &service{processes: map[string]*process{"": {status: tasktypes.Status_RUNNING, done: done}}}
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		_, err := s.Wait(ctx, &taskapi.WaitRequest{})
+		result <- err
+	}()
+	// Allow Wait to retain the process and block on its completion channel.
+	time.Sleep(10 * time.Millisecond)
+	s.mu.Lock()
+	close(done)
+	time.Sleep(10 * time.Millisecond)
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			s.mu.Unlock()
+			t.Fatalf("post-exit lock error = %v, want context.Canceled", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		s.mu.Unlock()
+		t.Fatal("Wait ignored cancellation while reacquiring its post-exit lock")
+	}
+	s.mu.Unlock()
+}
+
 func TestKillForwardsOnlyForLiveKnownProcess(t *testing.T) {
 	fake := &fakeAgentClient{fail: map[string]error{}}
 	s := &service{agent: fake, processes: map[string]*process{
