@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -86,7 +87,7 @@ func TestAddRejectsSymlinkCacheWithoutChangingTargetAndRollsBack(t *testing.T) {
 	}
 	fake := &fakeCaller{response: network.Response{Endpoint: allocated}}
 	_, err := run(context.Background(), input, environment{Command: "ADD", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}, fake)
-	if err == nil || !strings.Contains(err.Error(), "real directory") {
+	if err == nil || !strings.Contains(err.Error(), "symlinks or non-directories") {
 		t.Fatalf("symlink cache error = %v", err)
 	}
 	info, statErr := os.Stat(target)
@@ -135,7 +136,7 @@ func TestVersionDoesNotRequireConfigOrDaemon(t *testing.T) {
 
 func TestCNIRejectsUnknownFieldsUnsafeIdentityAndDaemonErrors(t *testing.T) {
 	valid := validConfig(t)
-	badConfig := append(valid[:len(valid)-1], []byte(`,"extra":true}`)...)
+	badConfig := append(append([]byte(nil), valid[:len(valid)-1]...), []byte(`,"extra":true}`)...)
 	if _, err := run(context.Background(), badConfig, environment{Command: "ADD", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}, &fakeCaller{}); err == nil {
 		t.Fatal("unknown config field accepted")
 	}
@@ -145,5 +146,73 @@ func TestCNIRejectsUnknownFieldsUnsafeIdentityAndDaemonErrors(t *testing.T) {
 	injected := &network.APIError{Code: "RESOURCE_EXHAUSTED", Message: "full"}
 	if _, err := run(context.Background(), valid, environment{Command: "ADD", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}, &fakeCaller{err: injected}); !errors.Is(err, injected) || errorCode(err) != 11 {
 		t.Fatalf("daemon error=%v code=%d", err, errorCode(err))
+	}
+}
+
+func TestCNIInputRejectsOversizedValidPrefix(t *testing.T) {
+	prefix := validConfig(t)
+	input := append(prefix, bytes.Repeat([]byte(" "), (1<<20)+1)...)
+	if _, err := readCNIInput(bytes.NewReader(input)); err == nil {
+		t.Fatal("oversized CNI input with a valid JSON prefix was accepted")
+	}
+	if data, err := readCNIInput(bytes.NewReader(prefix)); err != nil || !bytes.Equal(data, prefix) {
+		t.Fatalf("bounded CNI input = %q, %v", data, err)
+	}
+}
+
+func TestCacheCreationRejectsSymlinkAncestorWithoutMutation(t *testing.T) {
+	base := t.TempDir()
+	target := filepath.Join(base, "target")
+	if err := os.Mkdir(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(base, "linked")
+	if err := os.Symlink(target, linked); err != nil {
+		t.Fatal(err)
+	}
+	configuration := config{Name: "multikernel", CacheDir: filepath.Join(linked, "new-cache")}
+	env := environment{ContainerID: "box", IfName: "eth0"}
+	err := writeCache(configuration, env, cacheRecord{Version: 1, Generation: "0123456789abcdef0123456789abcdef", NetNS: "/run/netns/box"})
+	if err == nil {
+		t.Fatal("cache beneath symlinked ancestor was accepted")
+	}
+	if _, statErr := os.Stat(filepath.Join(target, "new-cache")); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("cache creation mutated symlink target: %v", statErr)
+	}
+}
+
+func TestCachePublicationIsIdempotentAndGenerationExclusive(t *testing.T) {
+	input := validConfig(t)
+	configuration, err := validateConfig(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := environment{ContainerID: "box", IfName: "eth0"}
+	first := cacheRecord{Version: 1, Generation: "0123456789abcdef0123456789abcdef", NetNS: "/run/netns/box"}
+	if err = writeCache(configuration, env, first); err != nil {
+		t.Fatal(err)
+	}
+	if err = writeCache(configuration, env, first); err != nil {
+		t.Fatalf("exact cache replay failed: %v", err)
+	}
+	conflict := first
+	conflict.Generation = "abcdef0123456789abcdef0123456789"
+	if err = writeCache(configuration, env, conflict); err == nil || !strings.Contains(err.Error(), "different generation") {
+		t.Fatalf("conflicting cache generation error = %v", err)
+	}
+	observed, err := readCache(configuration, env)
+	if err != nil || observed != first {
+		t.Fatalf("cache after conflict = %+v, %v", observed, err)
+	}
+	entries, err := os.ReadDir(configuration.CacheDir)
+	if err != nil || len(entries) != 1 || entries[0].Name() != filepath.Base(cachePath(configuration, env)) {
+		t.Fatalf("cache directory after replay = %v, %v", entries, err)
+	}
+	linked := filepath.Join(configuration.CacheDir, "attacker-link")
+	if err = os.Link(cachePath(configuration, env), linked); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = readCache(configuration, env); err == nil {
+		t.Fatal("hard-linked cache ownership record was accepted")
 	}
 }
