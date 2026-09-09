@@ -693,19 +693,69 @@ func (s *service) reportNetwork(state string) error {
 }
 
 func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || mode.Perm()&0077 != 0 {
+		return errors.New("atomic state path and mode must be canonical, absolute, and private")
+	}
 	directory := filepath.Dir(path)
-	temporary, err := os.CreateTemp(directory, "."+filepath.Base(path)+".*")
+	info, err := os.Lstat(directory)
 	if err != nil {
 		return err
 	}
-	temporaryName := temporary.Name()
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return errors.New("atomic state parent identity is unavailable")
+	}
+	if !info.IsDir() || info.Mode().Perm()&0002 != 0 || identity.Uid != uint32(os.Geteuid()) {
+		return fmt.Errorf("atomic state parent must be a caller-owned directory with safe mode (mode=%#o owner=%d caller=%d)",
+			info.Mode().Perm(), identity.Uid, os.Geteuid())
+	}
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, directory, &unix.OpenHow{
+		Flags: uint64(unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC), Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return err
+	}
+	dir := os.NewFile(uintptr(descriptor), directory)
+	defer func() { retErr = errors.Join(retErr, dir.Close()) }()
+	opened, err := dir.Stat()
+	if err != nil || !sameProcessIOIdentity(info, opened) {
+		return errors.New("atomic state parent identity changed while opening")
+	}
+	base := filepath.Base(path)
+	var temporary *os.File
+	var temporaryName string
+	for attempt := 0; attempt < 16; attempt++ {
+		random := make([]byte, 8)
+		if _, err = io.ReadFull(rand.Reader, random); err != nil {
+			return err
+		}
+		temporaryName = "." + base + "." + hex.EncodeToString(random)
+		temporaryDescriptor, openErr := unix.Openat(int(dir.Fd()), temporaryName,
+			unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, uint32(mode.Perm()))
+		if errors.Is(openErr, syscall.EEXIST) {
+			continue
+		}
+		if openErr != nil {
+			return openErr
+		}
+		temporary = os.NewFile(uintptr(temporaryDescriptor), temporaryName)
+		break
+	}
+	if temporary == nil {
+		return errors.New("could not allocate a unique atomic state temporary file")
+	}
+	renamed := false
 	defer func() {
-		if retErr != nil {
-			_ = os.Remove(temporaryName)
+		if !renamed {
+			_ = unix.Unlinkat(int(dir.Fd()), temporaryName, 0)
 		}
 	}()
 	if err = temporary.Chmod(mode); err == nil {
-		_, err = temporary.Write(data)
+		var written int
+		written, err = temporary.Write(data)
+		if err == nil && written != len(data) {
+			err = io.ErrShortWrite
+		}
 	}
 	if err == nil {
 		err = temporary.Sync()
@@ -717,16 +767,12 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) 
 	if closeErr != nil {
 		return closeErr
 	}
-	if err = os.Rename(temporaryName, path); err != nil {
+	if err = unix.Renameat(int(dir.Fd()), temporaryName, int(dir.Fd()), base); err != nil {
 		return err
 	}
-	dir, err := os.Open(directory)
-	if err != nil {
-		return err
-	}
+	renamed = true
 	err = dir.Sync()
-	closeErr = dir.Close()
-	return errors.Join(err, closeErr)
+	return err
 }
 
 func (s *service) recoverExisting(ctx context.Context) (retErr error) {

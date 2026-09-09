@@ -1729,6 +1729,57 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	}
 }
 
+func TestAtomicStatePublicationIsDescriptorAnchoredAndPrivate(t *testing.T) {
+	t.Run("normal replacement", func(t *testing.T) {
+		directory := t.TempDir()
+		path := filepath.Join(directory, "state.json")
+		if err := atomicWriteFile(path, []byte("one"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := atomicWriteFile(path, []byte("two"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(path)
+		info, statErr := os.Stat(path)
+		if err != nil || statErr != nil || string(data) != "two" || info.Mode().Perm() != 0600 {
+			t.Fatalf("published state = %q mode=%v read=%v stat=%v", data, info.Mode(), err, statErr)
+		}
+		temporary, err := filepath.Glob(filepath.Join(directory, ".state.json.*"))
+		if err != nil || len(temporary) != 0 {
+			t.Fatalf("temporary files = %v, %v", temporary, err)
+		}
+	})
+
+	t.Run("symlinked parent", func(t *testing.T) {
+		directory := t.TempDir()
+		realParent := filepath.Join(directory, "real")
+		if err := os.Mkdir(realParent, 0700); err != nil {
+			t.Fatal(err)
+		}
+		linkedParent := filepath.Join(directory, "linked")
+		if err := os.Symlink(realParent, linkedParent); err != nil {
+			t.Fatal(err)
+		}
+		if err := atomicWriteFile(filepath.Join(linkedParent, "state.json"), []byte("hostile"), 0600); err == nil {
+			t.Fatal("atomic publication followed a symlinked parent")
+		}
+		if _, err := os.Stat(filepath.Join(realParent, "state.json")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("symlink target was modified: %v", err)
+		}
+	})
+
+	t.Run("writable parent", func(t *testing.T) {
+		directory := t.TempDir()
+		if err := os.Chmod(directory, 0777); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chmod(directory, 0700)
+		if err := atomicWriteFile(filepath.Join(directory, "state.json"), []byte("hostile"), 0600); err == nil {
+			t.Fatal("atomic publication accepted a group/world-writable parent")
+		}
+	})
+}
+
 func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *testing.T) {
 	bundle := t.TempDir()
 	runtimeDir := filepath.Join(bundle, ".multikernel")
