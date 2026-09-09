@@ -278,20 +278,17 @@ func TestSignalReachesContainerProcessGroup(t *testing.T) {
 	if state.ExitCode != 128+int(syscall.SIGTERM) {
 		t.Fatalf("exit code = %d, want signal exit", state.ExitCode)
 	}
+	var observedMarker []byte
 	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
 		if data, readErr := os.ReadFile(marker); readErr == nil {
-			if len(data) == 0 {
-				time.Sleep(time.Millisecond)
-				continue
+			observedMarker = data
+			if string(data) == "child-received-sigterm\n" {
+				return
 			}
-			if string(data) != "child-received-sigterm\n" {
-				t.Fatalf("marker = %q", data)
-			}
-			return
 		}
 		time.Sleep(time.Millisecond)
 	}
-	t.Fatal("descendant did not observe process-group SIGTERM")
+	t.Fatalf("descendant did not observe process-group SIGTERM; marker=%q", observedMarker)
 }
 
 func TestProcessAndOutputRetentionBounds(t *testing.T) {
