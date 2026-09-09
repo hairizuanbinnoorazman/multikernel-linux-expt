@@ -1122,6 +1122,52 @@ func TestPreCancelledTaskMutationsPreserveStateAndAvoidGuestContact(t *testing.T
 	})
 }
 
+func TestPreCancelledTaskReadsAndWaitAvoidGuestContact(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	fake := &fakeAgentClient{fail: map[string]error{}}
+	done := make(chan struct{})
+	s := &service{agent: fake, processes: map[string]*process{"": {
+		pid: 41, status: tasktypes.Status_RUNNING, done: done,
+	}}}
+	for name, invoke := range map[string]func() error{
+		"state": func() error {
+			_, err := s.State(ctx, &taskapi.StateRequest{})
+			return err
+		},
+		"wait": func() error {
+			_, err := s.Wait(ctx, &taskapi.WaitRequest{})
+			return err
+		},
+		"pids": func() error {
+			_, err := s.Pids(ctx, &taskapi.PidsRequest{})
+			return err
+		},
+		"connect": func() error {
+			_, err := s.Connect(ctx, &taskapi.ConnectRequest{})
+			return err
+		},
+		"stats": func() error {
+			_, err := s.Stats(ctx, &taskapi.StatsRequest{})
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := invoke(); !errors.Is(err, context.Canceled) {
+				t.Fatalf("error = %v, want context.Canceled", err)
+			}
+		})
+	}
+	if len(fake.calls) != 0 {
+		t.Fatalf("cancelled reads contacted guest: %v", fake.calls)
+	}
+	select {
+	case <-done:
+		t.Fatal("cancelled Wait changed process completion")
+	default:
+	}
+}
+
 func TestKillForwardsOnlyForLiveKnownProcess(t *testing.T) {
 	fake := &fakeAgentClient{fail: map[string]error{}}
 	s := &service{agent: fake, processes: map[string]*process{

@@ -462,7 +462,9 @@ normative plan is revised with an explicit rationale.
   reaps the worker process group and removes only artifacts created by that
   attempt. A focused post-start PID-publication failure test covers the process
   and artifact boundary. The live cross-service cancellation/leak matrix is
-  still open.
+  still open. Supported Task read/wait RPCs also reject pre-cancelled calls
+  before locking or guest contact; focused State, Wait, Pids, Connect, and
+  Stats coverage proves the process record and guest-call count are unchanged.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

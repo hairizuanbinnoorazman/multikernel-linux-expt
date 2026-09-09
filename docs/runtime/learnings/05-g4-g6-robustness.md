@@ -466,3 +466,9 @@ reconstruction acquired the generation-bound TUN descriptor before installing
 its failure-cleanup defer. Cleanup ownership now begins at acquisition, and a
 forced relay-start failure proves the descriptor is closed and relay command
 and socket state are cleared.
+
+Task cancellation coverage now includes the read side as well as mutation.
+State, Wait, Pids, Connect, and Stats reject an already-cancelled caller before
+locking or guest contact; focused coverage proves no guest request is emitted
+and the process completion record remains unchanged. The live cross-service
+deadline and leak matrix remains open.

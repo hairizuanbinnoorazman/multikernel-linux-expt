@@ -1885,9 +1885,15 @@ func (s *service) publishExit(ctx context.Context, execID string, p *process) er
 		Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)})
 }
 
-func (s *service) State(_ context.Context, r *taskapi.StateRequest) (*taskapi.StateResponse, error) {
+func (s *service) State(ctx context.Context, r *taskapi.StateRequest) (*taskapi.StateResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	p, ok := s.processes[r.ExecID]
 	if !ok {
 		return nil, errdefs.ErrNotFound
@@ -1896,7 +1902,14 @@ func (s *service) State(_ context.Context, r *taskapi.StateRequest) (*taskapi.St
 }
 
 func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.WaitResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	p, ok := s.processes[r.ExecID]
 	if !ok {
 		s.mu.Unlock()
@@ -2172,9 +2185,15 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 	return resp, nil
 }
 
-func (s *service) Pids(context.Context, *taskapi.PidsRequest) (*taskapi.PidsResponse, error) {
+func (s *service) Pids(ctx context.Context, _ *taskapi.PidsRequest) (*taskapi.PidsResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	processes := make([]*tasktypes.ProcessInfo, 0, len(s.processes))
 	for _, process := range s.processes {
 		if process.pid != 0 {
@@ -2184,9 +2203,15 @@ func (s *service) Pids(context.Context, *taskapi.PidsRequest) (*taskapi.PidsResp
 	sort.Slice(processes, func(i, j int) bool { return processes[i].Pid < processes[j].Pid })
 	return &taskapi.PidsResponse{Processes: processes}, nil
 }
-func (s *service) Connect(context.Context, *taskapi.ConnectRequest) (*taskapi.ConnectResponse, error) {
+func (s *service) Connect(ctx context.Context, _ *taskapi.ConnectRequest) (*taskapi.ConnectResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var taskPID uint32
 	if init, ok := s.processes[""]; ok {
 		taskPID = init.pid
@@ -2476,7 +2501,14 @@ func (s *service) Update(context.Context, *taskapi.UpdateTaskRequest) (*emptypb.
 	return nil, errdefs.ErrNotImplemented
 }
 func (s *service) Stats(ctx context.Context, _ *taskapi.StatsRequest) (*taskapi.StatsResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
 	p, ok := s.processes[""]
 	client := s.agent
 	memoryLimit := s.sandbox.Config.MemoryBytes
