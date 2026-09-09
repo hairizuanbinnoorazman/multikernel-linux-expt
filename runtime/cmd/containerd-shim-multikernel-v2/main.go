@@ -1222,8 +1222,14 @@ func (s *service) releaseNetwork(ctx context.Context) error {
 }
 
 func rootfsMounts(input []*types.Mount) ([]rootfspkg.Mount, error) {
+	if len(input) > 8 {
+		return nil, fmt.Errorf("%w: at most eight rootfs mounts are supported", errdefs.ErrInvalidArgument)
+	}
 	result := make([]rootfspkg.Mount, len(input))
 	for index, item := range input {
+		if item == nil {
+			return nil, fmt.Errorf("%w: nil rootfs mount", errdefs.ErrInvalidArgument)
+		}
 		if item.Type != "overlay" && item.Type != "bind" && item.Type != "none" {
 			return nil, fmt.Errorf("%w: unsupported rootfs mount type %q", errdefs.ErrNotImplemented, item.Type)
 		}
@@ -1241,6 +1247,9 @@ func rootfsMounts(input []*types.Mount) ([]rootfspkg.Mount, error) {
 			options = append(options, option)
 		}
 		result[index] = rootfspkg.Mount{Type: item.Type, Source: item.Source, Options: options}
+	}
+	if err := rootfspkg.ValidateMounts(result); err != nil {
+		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
 	}
 	return result, nil
 }

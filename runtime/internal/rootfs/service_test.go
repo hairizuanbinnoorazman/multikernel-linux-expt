@@ -96,6 +96,26 @@ func TestPrepareJournalsBuildUnmountAndReplays(t *testing.T) {
 	}
 }
 
+func TestValidateMountsRejectsHostileInputBeforeBackendUse(t *testing.T) {
+	snapshot := t.TempDir()
+	valid := []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=" + snapshot, "nodev"}}}
+	if err := ValidateMounts(valid); err != nil {
+		t.Fatalf("valid mounts rejected: %v", err)
+	}
+	for name, mounts := range map[string][]Mount{
+		"empty source":     {{Type: "overlay", Source: ""}},
+		"unsafe source":    {{Type: "overlay", Source: "overlay\nmalicious"}},
+		"duplicate option": {{Type: "overlay", Source: "overlay", Options: []string{"nodev", "nodev"}}},
+		"relative overlay": {{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=relative"}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := ValidateMounts(mounts); err == nil {
+				t.Fatal("hostile mounts accepted")
+			}
+		})
+	}
+}
+
 func TestPrepareBuildFailureUnmountsAndRemovesArtifacts(t *testing.T) {
 	service, backend, request, base := rootfsFixture(t)
 	backend.buildErr = errors.New("injected build failure")

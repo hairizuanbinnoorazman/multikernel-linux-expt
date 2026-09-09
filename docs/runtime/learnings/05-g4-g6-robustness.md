@@ -450,6 +450,12 @@ the inode created by that attempt; an empty symlinked-parent test proves it
 cannot redirect creation. Current-revision reconstruction evidence remains
 open.
 
+Rootfs mount validation no longer has a weaker shim-side precheck followed by
+the complete policy only after sandbox allocation. The shim and rootfs service
+now share the complete bounded mount validator, so nil entries, malformed or
+duplicate options, unsafe sources, escaping paths, and unsupported mount
+semantics fail before the first allocation mutation.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and
