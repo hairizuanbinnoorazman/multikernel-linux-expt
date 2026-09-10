@@ -109,6 +109,7 @@ func (s *service) loadEventJournal() error {
 	path := s.eventJournalPath()
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
+		s.eventJournalIdentity = nil
 		if s.events.NextSequence == 0 {
 			s.events = eventJournal{SchemaVersion: 1, NextSequence: 1}
 		}
@@ -143,6 +144,10 @@ func (s *service) loadEventJournal() error {
 	if !sameProcessIOIdentity(opened, after) {
 		return errors.New("event journal identity changed while reading")
 	}
+	loadedIdentity, ok := stateIdentity(opened)
+	if !ok {
+		return errors.New("event journal identity is unavailable")
+	}
 	var value eventJournal
 	if err = protocol.StrictDecode(data, &value); err != nil {
 		return fmt.Errorf("decode event journal: %w", err)
@@ -151,6 +156,7 @@ func (s *service) loadEventJournal() error {
 		return err
 	}
 	s.events = value
+	s.eventJournalIdentity = &loadedIdentity
 	return nil
 }
 
@@ -160,21 +166,22 @@ func (s *service) persistEventJournalLocked() error {
 	}
 	path := s.eventJournalPath()
 	if len(s.events.Pending) == 0 {
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := removeStateFile(path, s.eventJournalIdentity, 0600); err != nil {
 			return err
 		}
-		directory, err := os.Open(filepath.Dir(path))
-		if err != nil {
-			return err
-		}
-		err = directory.Sync()
-		return errors.Join(err, directory.Close())
+		s.eventJournalIdentity = nil
+		return nil
 	}
 	data, err := jsonMarshal(s.events)
 	if err != nil {
 		return err
 	}
-	return atomicWriteFile(path, data, 0600)
+	var published stateFileIdentity
+	if err = atomicWriteFileOwned(path, data, 0600, s.eventJournalIdentity, &published); err != nil {
+		return err
+	}
+	s.eventJournalIdentity = &published
+	return nil
 }
 
 // jsonMarshal is a variable only to make the pre-publication persistence
