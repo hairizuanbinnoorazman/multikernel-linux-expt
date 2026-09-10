@@ -280,3 +280,74 @@ func (d *Directory) Replace(name string, data []byte, mode os.FileMode) (retErr 
 	renamed = true
 	return d.file.Sync()
 }
+
+// PublishExclusive durably creates name without replacing an existing entry.
+// It returns false without error when name already exists.
+func (d *Directory) PublishExclusive(name string, data []byte, mode os.FileMode) (created bool, retErr error) {
+	if filepath.Base(name) != name || name == "." || mode.Perm()&0077 != 0 {
+		return false, errors.New("invalid private publication name or mode")
+	}
+	var temporary *os.File
+	var temporaryName string
+	for attempt := 0; attempt < 16; attempt++ {
+		random := make([]byte, 8)
+		if _, retErr = io.ReadFull(rand.Reader, random); retErr != nil {
+			return false, retErr
+		}
+		temporaryName = "." + name + "." + hex.EncodeToString(random)
+		fd, err := unix.Openat(int(d.file.Fd()), temporaryName,
+			unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, uint32(mode.Perm()))
+		if errors.Is(err, syscall.EEXIST) {
+			continue
+		}
+		if err != nil {
+			return false, err
+		}
+		temporary = os.NewFile(uintptr(fd), temporaryName)
+		break
+	}
+	if temporary == nil {
+		return false, errors.New("could not allocate a unique publication file")
+	}
+	renamed := false
+	defer func() {
+		if !renamed {
+			_ = unix.Unlinkat(int(d.file.Fd()), temporaryName, 0)
+		}
+	}()
+	written, err := temporary.Write(data)
+	if err == nil && written != len(data) {
+		err = io.ErrShortWrite
+	}
+	if err == nil {
+		err = temporary.Sync()
+	}
+	closeErr := temporary.Close()
+	if err != nil {
+		return false, err
+	}
+	if closeErr != nil {
+		return false, closeErr
+	}
+	if err = unix.Renameat2(int(d.file.Fd()), temporaryName, int(d.file.Fd()), name, unix.RENAME_NOREPLACE); errors.Is(err, syscall.EEXIST) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	renamed = true
+	return true, d.file.Sync()
+}
+
+// Remove unlinks a simple name relative to the opened directory and syncs the
+// directory when an entry was removed.
+func (d *Directory) Remove(name string) (bool, error) {
+	if filepath.Base(name) != name || name == "." {
+		return false, errors.New("invalid removal name")
+	}
+	if err := unix.Unlinkat(int(d.file.Fd()), name, 0); errors.Is(err, syscall.ENOENT) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, d.file.Sync()
+}

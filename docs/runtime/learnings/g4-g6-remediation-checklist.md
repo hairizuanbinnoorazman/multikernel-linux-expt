@@ -280,9 +280,12 @@ normative plan is revised with an explicit rationale.
   cache, strict input, rollback, and stale-generation rejection. It now binds
   the returned endpoint to the exact ADD identity and validates address, MTU,
   DNS, owner, generation, and state before caching; safely identifiable
-  post-ADD failures receive a bounded generation-bound DEL. Cache directories
-  and files are owner/mode/symlink checked, and reads are no-follow and
-  inode-stable. Beneath CNI, mknetd now journals `ALLOCATING` before its first
+  post-ADD failures receive a bounded generation-bound DEL. Cache directory
+  creation, private bounded reads, exclusive publication, and deletion are now
+  relative to a component-walked no-symlink directory descriptor. The
+  descriptor stays open across CHECK/DEL daemon contact, and DEL refuses to
+  remove a cache whose generation record changed in flight. Beneath CNI,
+  mknetd now journals `ALLOCATING` before its first
   namespace/link mutation and reconciles incomplete generations by bounded
   teardown; injected final-state persistence failure proves the durable record
   exists before mutation and is removed only after rollback. Durable endpoints
