@@ -493,7 +493,9 @@ normative plan is revised with an explicit rationale.
   same-type replacement instead of trusting the recovered pathname. Legacy
   v1 records without that proof fail closed. Twenty race-detector repetitions
   cover FIFO and regular-output substitution without modifying the replacement.
-  These changes still need live revalidation.
+  A real FIFO test covers no initial stdin peer, two sequential late writer
+  attachments with exact guest-call bytes, and prompt pump termination when its
+  descriptor is torn down. These changes still need live revalidation.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
   teardown without leaking resources. The shared daemon client now applies
