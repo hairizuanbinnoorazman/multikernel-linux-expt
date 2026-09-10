@@ -574,8 +574,10 @@ normative plan is revised with an explicit rationale.
   pass. Fresh connection and reconstruction also refuse to unlink a stale
   relay path unless it is a caller-owned, single-link Unix socket with safe
   mode; focused regular-file, directory, symlink, and missing-path tests prove
-  hostile path types remain untouched. Live stale-socket replacement remains
-  open. Recovery and event-journal publication is descriptor-anchored beneath
+  hostile path types remain untouched. The relay helper no longer performs
+  its own unchecked pre-bind or post-accept `unlink`; pathname cleanup belongs
+  solely to the validating shim. Live stale-socket replacement remains open.
+  Recovery and event-journal publication is descriptor-anchored beneath
   a no-symlink, caller-owned, non-world-writable parent and uses same-directory
   `openat`/`renameat`; focused normal replacement, symlinked-parent, and unsafe
   parent-mode tests prove publication cannot be redirected; an empty
