@@ -6,12 +6,11 @@ import (
 	"errors"
 	"io"
 	"net"
-	"os"
 	"sync"
-	"syscall"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
@@ -25,33 +24,17 @@ type Server struct {
 	listener   net.Listener
 }
 
-func (s *Server) Listen(ctx context.Context, path string) error {
+func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 	if s.MaxFrame == 0 {
 		s.MaxFrame = 1 << 20
 	}
-	if st, e := os.Lstat(path); e == nil {
-		if st.Mode()&os.ModeSocket == 0 {
-			return errors.New("refusing to replace non-socket")
-		}
-		os.Remove(path)
-	}
-	l, e := net.Listen("unix", path)
+	l, e := unixsocket.Listen(path, 0660)
 	if e != nil {
 		return e
 	}
-	if e = os.Chmod(path, 0660); e != nil {
-		l.Close()
-		return e
-	}
-	info, e := os.Lstat(path)
-	if e != nil {
-		l.Close()
-		return e
-	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || stat.Uid != s.AllowedUID || info.Mode().Perm() != 0660 {
-		l.Close()
-		return errors.New("Unix socket ownership or mode does not match policy")
+	defer func() { retErr = errors.Join(retErr, l.Close()) }()
+	if l.Owner() != s.AllowedUID {
+		return errors.New("Unix socket ownership does not match the allowed peer UID")
 	}
 	s.mu.Lock()
 	s.listener = l
@@ -60,7 +43,7 @@ func (s *Server) Listen(ctx context.Context, path string) error {
 	for {
 		c, e := l.Accept()
 		if e != nil {
-			if ctx.Err() != nil {
+			if ctx.Err() != nil || errors.Is(e, net.ErrClosed) {
 				return nil
 			}
 			return e

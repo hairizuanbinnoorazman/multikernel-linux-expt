@@ -548,6 +548,19 @@ generation change without removing the substituted record.
 CHECK also validates mknetd's complete returned endpoint identity and no longer
 accepts an empty or mismatched successful response.
 
+The mknetd and mkruntimed listeners formerly inspected and removed stale Unix
+socket paths, then bound and chmodded by pathname; mkruntimed also ignored a
+stale removal failure, and mknetd's outer cleanup could unlink a replacement.
+A shared listener guard now opens the parent without following symlinks,
+requires caller ownership and safe parent mode, removes only a caller-owned
+single-link stale socket with the exact service mode, binds through the held
+directory descriptor, and captures the published inode. Cleanup removes only
+that inode. Real pathname-socket tests also exposed that Go listeners unlink
+their configured path automatically on Close, so `SetUnlinkOnClose(false)` is
+mandatory for the identity guard to be meaningful. Focused unsandboxed tests
+exercise connection, stale replacement, normal cleanup, and preservation of a
+hostile post-bind replacement; GCE restart evidence remains open.
+
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
 caller-owned, single-link Unix socket with non-writable group/other mode and

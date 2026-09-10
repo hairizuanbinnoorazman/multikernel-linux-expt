@@ -77,7 +77,6 @@ func run(ctx context.Context, value configuration) error {
 	}
 	server := &network.Server{Service: service, AllowedUID: uint32(value.allowedUID)}
 	defer server.Close()
-	defer os.Remove(value.socket)
 	return server.Listen(ctx, value.socket)
 }
 
