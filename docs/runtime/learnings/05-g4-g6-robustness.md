@@ -410,8 +410,12 @@ of the caller deadline and a 30-second default to the whole exchange, and a
 context callback wakes blocked socket I/O. Focused tests cover blocked writes,
 blocked reads, pre-dial cancellation, the default bound, and normal response
 decoding. Replies are strict-decoded and bound to the originating protocol
-version and request ID. Other blocking boundaries and live leak checks remain
-to be audited.
+version and request ID. Typed bodies are now strict-decoded directly rather
+than through a permissive generic-map round trip, and complete response input
+uses a one-byte overflow sentinel so a valid one-MiB prefix cannot hide trailing
+data. The mknetd request client uses the same overflow rule; its descriptor
+ATTACH path also requires an untruncated newline-terminated response. Other
+blocking boundaries and live leak checks remain to be audited.
 
 Kerf lifecycle execution already had a nominal timeout, but retained unbounded
 `CombinedOutput`; verbose load output could also echo the guest authentication

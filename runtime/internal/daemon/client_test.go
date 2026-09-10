@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -104,6 +105,35 @@ func TestClientRejectsUnboundOrMalformedResponse(t *testing.T) {
 			}, nil)
 			if issue == nil || issue.Code != "INTERNAL" {
 				t.Fatalf("malformed response issue = %+v", issue)
+			}
+		})
+	}
+}
+
+func TestClientRejectsOversizedValidPrefixAndStrictlyDecodesBody(t *testing.T) {
+	for name, response := range map[string][]byte{
+		"oversized valid prefix": append([]byte(`{"version":1,"request_id":"request"}`), bytes.Repeat([]byte(" "), (1<<20)+1)...),
+		"unknown body field":     []byte(`{"version":1,"request_id":"request","body":{"value":"ok","extra":true}}`),
+		"duplicate body field":   []byte(`{"version":1,"request_id":"request","body":{"value":"ok","value":"other"}}`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			clientConnection, serverConnection := net.Pipe()
+			defer serverConnection.Close()
+			client := Client{Path: "memory", dial: func(context.Context, string, string) (net.Conn, error) {
+				return clientConnection, nil
+			}}
+			go func() {
+				buffer := make([]byte, 4096)
+				_, _ = serverConnection.Read(buffer)
+				_, _ = serverConnection.Write(response)
+				_ = serverConnection.Close()
+			}()
+			var body struct {
+				Value string `json:"value"`
+			}
+			issue := client.Call(context.Background(), protocol.Request{Version: 1, RequestID: "request", Method: "NodeInfo"}, &body)
+			if issue == nil || issue.Code != "INTERNAL" {
+				t.Fatalf("unsafe response issue = %+v", issue)
 			}
 		})
 	}

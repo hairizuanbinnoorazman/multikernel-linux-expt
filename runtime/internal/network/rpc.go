@@ -53,12 +53,16 @@ func (c Client) Attach(ctx context.Context, request Request) (Response, *os.File
 		return Response{}, nil, err
 	}
 	_ = unixConnection.CloseWrite()
-	dataBuffer := make([]byte, 1<<20)
+	dataBuffer := make([]byte, (1<<20)+1)
 	oob := make([]byte, unix.CmsgSpace(4))
-	n, oobn, _, _, err := unixConnection.ReadMsgUnix(dataBuffer, oob)
+	n, oobn, flags, _, err := unixConnection.ReadMsgUnix(dataBuffer, oob)
 	if err != nil {
 		return Response{}, nil, err
 	}
+	if n > 1<<20 || flags&unix.MSG_TRUNC != 0 || n == 0 || dataBuffer[n-1] != '\n' {
+		return Response{}, nil, errors.New("mknetd ATTACH response is oversized, truncated, or unterminated")
+	}
+	n--
 	var response Response
 	if err = protocol.StrictDecode(dataBuffer[:n], &response); err != nil {
 		return Response{}, nil, err
@@ -111,9 +115,12 @@ func (c Client) Call(ctx context.Context, request Request) (Response, error) {
 	if unixConnection, ok := connection.(*net.UnixConn); ok {
 		_ = unixConnection.CloseWrite()
 	}
-	data, err = io.ReadAll(io.LimitReader(connection, 1<<20))
+	data, err = io.ReadAll(io.LimitReader(connection, (1<<20)+1))
 	if err != nil {
 		return Response{}, err
+	}
+	if len(data) > 1<<20 {
+		return Response{}, errors.New("mknetd response exceeds the one-MiB limit")
 	}
 	var response Response
 	if err = protocol.StrictDecode(data, &response); err != nil {
