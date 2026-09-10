@@ -230,7 +230,14 @@ normative plan is revised with an explicit rationale.
   is bound to exact path/image/generation/size/port, and close counters require
   the corresponding ready marker plus a canonical terminal line. Tests reject
   mismatched and hard-linked evidence and prove managed stop signals before its
-  timeout rather than waiting for a server that exits only on `SIGTERM`.
+  timeout rather than waiting for a server that exits only on `SIGTERM`. The
+  backend now holds and identity-binds the private runtime directory and uses
+  its descriptor for process-record publication, record/log reads, readiness,
+  restart observation, stop, and removal. Publication is no-replace; unsafe
+  stale logs and record collisions preserve prior artifacts; and preownership
+  process-start failures reap the child and remove their log. Focused tests
+  prove a whole-directory replacement is rejected and untouched, hostile stale
+  paths are not followed, and a missing server binary leaves no artifacts.
   Offline `e2fsck` now shares the bounded process-group runner with rootfs
   builds: a five-minute default, caller cancellation, one-MiB combined-output
   retention, descendant termination, and secret-safe errors are enforced.

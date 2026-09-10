@@ -205,6 +205,32 @@ int main(int argc, char **argv) {
 	if err != nil || !observed.Active || observed.Generation != value.ExportGeneration {
 		t.Fatalf("recovered observation = %+v, %v", observed, err)
 	}
+	movedRuntime := backend.RuntimeDir + ".original"
+	if err = os.Rename(backend.RuntimeDir, movedRuntime); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(backend.RuntimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	replacementMarker := filepath.Join(backend.RuntimeDir, "replacement")
+	if err = os.WriteFile(replacementMarker, []byte("preserve"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = recovered.Observe(context.Background(), value); err == nil || !strings.Contains(err.Error(), "identity changed") {
+		t.Fatalf("replacement runtime observation error = %v", err)
+	}
+	if data, readErr := os.ReadFile(replacementMarker); readErr != nil || string(data) != "preserve" {
+		t.Fatalf("replacement runtime directory changed: %q, %v", data, readErr)
+	}
+	if err = os.Remove(replacementMarker); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Remove(backend.RuntimeDir); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(movedRuntime, backend.RuntimeDir); err != nil {
+		t.Fatal(err)
+	}
 	counters, err := recovered.Stop(context.Background(), value)
 	if err != nil {
 		t.Fatal(err)
@@ -220,6 +246,61 @@ int main(int argc, char **argv) {
 	if err != nil || len(result) != len("e2fsck-clean-sha256:")+64 {
 		t.Fatalf("offline check = %q, %v", result, err)
 	}
+}
+
+func TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures(t *testing.T) {
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	t.Run("unsafe stale log", func(t *testing.T) {
+		backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "run")}
+		if err := os.Mkdir(backend.RuntimeDir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		_, logPath := backend.paths(value)
+		target := filepath.Join(backend.RuntimeDir, "target")
+		if err := os.WriteFile(target, []byte("preserve"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(target, logPath); err != nil {
+			t.Fatal(err)
+		}
+		if err := backend.Start(t.Context(), value); err == nil {
+			t.Fatal("unsafe stale log was replaced")
+		}
+		if data, err := os.ReadFile(target); err != nil || string(data) != "preserve" {
+			t.Fatalf("stale-log target changed: %q, %v", data, err)
+		}
+	})
+
+	t.Run("record collision preserves prior log", func(t *testing.T) {
+		backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "run")}
+		if err := os.Mkdir(backend.RuntimeDir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		recordPath, logPath := backend.paths(value)
+		if err := os.WriteFile(recordPath, []byte("prior-record"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(logPath, []byte("prior-log"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := backend.Start(t.Context(), value); err == nil {
+			t.Fatal("existing process record was overwritten")
+		}
+		if data, err := os.ReadFile(logPath); err != nil || string(data) != "prior-log" {
+			t.Fatalf("record collision changed prior log: %q, %v", data, err)
+		}
+	})
+
+	t.Run("command start failure leaves no artifacts", func(t *testing.T) {
+		backend := &LinuxBackend{Binary: filepath.Join(t.TempDir(), "missing-server"), RuntimeDir: filepath.Join(t.TempDir(), "run")}
+		if err := backend.Start(t.Context(), value); err == nil {
+			t.Fatal("missing storage server was started")
+		}
+		entries, err := os.ReadDir(backend.RuntimeDir)
+		if err != nil || len(entries) != 0 {
+			t.Fatalf("failed start artifacts = %v, %v", entries, err)
+		}
+	})
 }
 
 func validBackendLease(path string) Export {
@@ -286,6 +367,9 @@ func TestOfflineCheckIsBoundedAndHashesCombinedEvidence(t *testing.T) {
 
 func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	start, err := processStartTime(os.Getpid())
 	if err != nil {
@@ -319,6 +403,9 @@ func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 
 func TestCounterEvidenceRequiresExactReadyAndCanonicalTerminalClose(t *testing.T) {
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	path := filepath.Join(directory, "server.log")
 	closed := []byte("MKNBD_SERVER_CLOSED reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4\n")
