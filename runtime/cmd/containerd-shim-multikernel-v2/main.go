@@ -1018,7 +1018,7 @@ func (s *service) stopRelay() error {
 		s.relay = nil
 	}
 	if s.relaySocket != "" {
-		if err := os.Remove(s.relaySocket); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := removeStaleRelaySocket(s.relaySocket); err != nil {
 			return err
 		}
 		s.relaySocket = ""

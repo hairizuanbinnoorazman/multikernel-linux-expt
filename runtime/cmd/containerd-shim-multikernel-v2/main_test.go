@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -2319,7 +2320,18 @@ func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
 		}
 		processGroup := command.Process.Pid
 		socket := filepath.Join(t.TempDir(), "relay.sock")
-		if err := os.WriteFile(socket, []byte("placeholder"), 0600); err != nil {
+		listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socket, Net: "unix"})
+		if errors.Is(err, syscall.EPERM) {
+			t.Skip("sandbox forbids Unix pathname listeners")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		listener.SetUnlinkOnClose(false)
+		if err = os.Chmod(socket, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err = listener.Close(); err != nil {
 			t.Fatal(err)
 		}
 		s := &service{relay: command, relaySocket: socket}
@@ -2359,6 +2371,9 @@ func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
 			t.Fatalf("failed socket cleanup: error=%v retained=%q", err, s.relaySocket)
 		}
 		if err := os.Remove(occupied); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(socket); err != nil {
 			t.Fatal(err)
 		}
 		if err := s.stopRelay(); err != nil || s.relaySocket != "" {
