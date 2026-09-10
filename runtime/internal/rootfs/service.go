@@ -27,34 +27,63 @@ type Service struct {
 	store       *Store
 	backend     Backend
 	storageRoot string
+	storageID   DirectoryIdentity
 	mu          sync.Mutex
 }
 
-func openStableRoot(path string) (*os.Root, error) {
+func openedDirectoryIdentity(info os.FileInfo) (DirectoryIdentity, bool) {
+	value, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return DirectoryIdentity{}, false
+	}
+	return DirectoryIdentity{Device: uint64(value.Dev), Inode: value.Ino, UID: value.Uid}, true
+}
+
+func inspectStableRoot(path string) (*os.Root, DirectoryIdentity, error) {
 	before, err := os.Lstat(path)
 	if err != nil || !before.IsDir() || before.Mode()&os.ModeSymlink != 0 {
-		return nil, errors.New("cleanup root must be a real directory")
+		return nil, DirectoryIdentity{}, errors.New("cleanup root must be a real directory")
 	}
-	identity, identityOK := before.Sys().(*syscall.Stat_t)
-	if !identityOK || identity.Uid != uint32(os.Geteuid()) {
-		return nil, errors.New("cleanup root must be owned by the caller")
+	identity, identityOK := openedDirectoryIdentity(before)
+	if !identityOK || identity.UID != uint32(os.Geteuid()) {
+		return nil, DirectoryIdentity{}, errors.New("cleanup root must be owned by the caller")
 	}
 	root, err := os.OpenRoot(path)
 	if err != nil {
-		return nil, err
+		return nil, DirectoryIdentity{}, err
 	}
 	after, err := root.Stat(".")
 	if err != nil || !os.SameFile(before, after) {
 		_ = root.Close()
-		return nil, errors.New("cleanup root identity changed while opening")
+		return nil, DirectoryIdentity{}, errors.New("cleanup root identity changed while opening")
 	}
-	return root, nil
+	return root, identity, nil
 }
 
-func removeRelativeTree(rootPath, name string) error {
-	root, err := openStableRoot(rootPath)
+func openStableRoot(path string) (*os.Root, error) {
+	root, _, err := inspectStableRoot(path)
+	return root, err
+}
+
+func verifyRootIdentity(path string, expected DirectoryIdentity) error {
+	root, observed, err := inspectStableRoot(path)
 	if err != nil {
 		return err
+	}
+	err = root.Close()
+	if observed != expected {
+		return errors.Join(errors.New("cleanup root no longer has its recorded identity"), err)
+	}
+	return err
+}
+
+func removeRelativeTree(rootPath, name string, expected ...DirectoryIdentity) error {
+	root, observed, err := inspectStableRoot(rootPath)
+	if err != nil {
+		return err
+	}
+	if len(expected) > 0 && observed != expected[0] {
+		return errors.Join(errors.New("cleanup root no longer has its recorded identity"), root.Close())
 	}
 	err = root.RemoveAll(name)
 	return errors.Join(err, root.Close())
@@ -65,8 +94,8 @@ func (s *Service) removePreparedArtifacts(record Record) error {
 		return err
 	}
 	return errors.Join(
-		removeRelativeTree(record.Request.Bundle, ".multikernel"),
-		removeRelativeTree(s.storageRoot, record.Request.TaskIdentity),
+		removeRelativeTree(record.Request.Bundle, ".multikernel", record.BundleID),
+		removeRelativeTree(s.storageRoot, record.Request.TaskIdentity, record.StorageID),
 	)
 }
 
@@ -89,8 +118,18 @@ func (s *Service) cleanupFailedPreparation(record Record) error {
 func (s *Service) validateArtifactPaths(record Record) error {
 	if record.Root != filepath.Join(record.Request.Bundle, "rootfs") ||
 		record.RuntimeDir != filepath.Join(record.Request.Bundle, ".multikernel") ||
-		record.StorageDir != filepath.Join(s.storageRoot, record.Request.TaskIdentity) {
+		record.StorageDir != filepath.Join(s.storageRoot, record.Request.TaskIdentity) || record.StorageID != s.storageID {
 		return errors.New("rootfs recovery paths are not bound to the configured roots")
+	}
+	return nil
+}
+
+func (s *Service) verifyArtifactRootIdentities(record Record) error {
+	if err := verifyRootIdentity(record.Request.Bundle, record.BundleID); err != nil {
+		return fmt.Errorf("bundle identity: %w", err)
+	}
+	if err := verifyRootIdentity(s.storageRoot, record.StorageID); err != nil {
+		return fmt.Errorf("storage-root identity: %w", err)
 	}
 	return nil
 }
@@ -121,13 +160,23 @@ func NewService(store *Store, backend Backend, storageRoot string) (*Service, er
 	if err := os.Chmod(storageRoot, 0700); err != nil {
 		return nil, err
 	}
-	service := &Service{store: store, backend: backend, storageRoot: storageRoot}
+	storageHandle, storageID, err := inspectStableRoot(storageRoot)
+	if err != nil {
+		return nil, err
+	}
+	if err = storageHandle.Close(); err != nil {
+		return nil, err
+	}
+	service := &Service{store: store, backend: backend, storageRoot: storageRoot, storageID: storageID}
 	for _, record := range store.List() {
 		if err := service.validateArtifactPaths(record); err != nil {
 			return nil, fmt.Errorf("reject unsafe rootfs recovery record %s: %w", record.Request.TaskIdentity, err)
 		}
 		if err := validateRequest(record.Request); err != nil {
 			return nil, fmt.Errorf("reject invalid rootfs recovery request %s: %w", record.Request.TaskIdentity, err)
+		}
+		if err := service.verifyArtifactRootIdentities(record); err != nil {
+			return nil, fmt.Errorf("reject replaced rootfs bundle %s: %w", record.Request.TaskIdentity, err)
 		}
 	}
 	return service, nil
@@ -243,6 +292,9 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		if !reflect.DeepEqual(existing.Request, request) || existing.Phase != "PREPARED" || existing.Storage == nil {
 			return PrepareResult{}, errors.New("task identity has conflicting or incomplete rootfs state")
 		}
+		if err := s.verifyArtifactRootIdentities(existing); err != nil {
+			return PrepareResult{}, err
+		}
 		if err := s.backend.VerifyPrepared(ctx, existing); err != nil {
 			return PrepareResult{}, err
 		}
@@ -256,31 +308,50 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 	root := filepath.Join(request.Bundle, "rootfs")
 	runtimeDir := filepath.Join(request.Bundle, ".multikernel")
 	storageDir := filepath.Join(s.storageRoot, request.TaskIdentity)
-	if err := os.MkdirAll(root, 0711); err != nil {
+	bundleHandle, bundleID, err := inspectStableRoot(request.Bundle)
+	if err != nil {
 		return PrepareResult{}, err
 	}
-	rootInfo, err := os.Lstat(root)
+	defer bundleHandle.Close()
+	storageHandle, storageID, err := inspectStableRoot(s.storageRoot)
+	if err != nil {
+		return PrepareResult{}, err
+	}
+	defer storageHandle.Close()
+	if storageID != s.storageID {
+		return PrepareResult{}, errors.New("rootfs storage root no longer has its configured identity")
+	}
+	if err := bundleHandle.MkdirAll("rootfs", 0711); err != nil {
+		return PrepareResult{}, err
+	}
+	rootInfo, err := bundleHandle.Lstat("rootfs")
 	if err != nil || !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
 		return PrepareResult{}, errors.New("bundle rootfs must be a real directory")
 	}
-	if _, err := os.Lstat(runtimeDir); !errors.Is(err, os.ErrNotExist) {
+	if _, err := bundleHandle.Lstat(".multikernel"); !errors.Is(err, os.ErrNotExist) {
 		return PrepareResult{}, errors.New("runtime artifact directory already exists")
 	}
-	if _, err := os.Lstat(storageDir); !errors.Is(err, os.ErrNotExist) {
+	if _, err := storageHandle.Lstat(request.TaskIdentity); !errors.Is(err, os.ErrNotExist) {
 		return PrepareResult{}, errors.New("storage artifact directory already exists")
 	}
-	if err := os.MkdirAll(runtimeDir, 0700); err != nil {
+	if err := bundleHandle.MkdirAll(".multikernel", 0700); err != nil {
 		return PrepareResult{}, err
 	}
-	if err := os.MkdirAll(storageDir, 0700); err != nil {
-		_ = os.Remove(runtimeDir)
+	if err := storageHandle.MkdirAll(request.TaskIdentity, 0700); err != nil {
+		_ = bundleHandle.Remove(".multikernel")
 		return PrepareResult{}, err
 	}
-	record := Record{Version: Version, Request: request, Root: root, RuntimeDir: runtimeDir, StorageDir: storageDir, Phase: "MOUNTING"}
+	record := Record{Version: Version, Request: request, Root: root, RuntimeDir: runtimeDir, StorageDir: storageDir,
+		BundleID: bundleID, StorageID: s.storageID, Phase: "MOUNTING"}
+	if err := s.verifyArtifactRootIdentities(record); err != nil {
+		return PrepareResult{}, errors.Join(err, bundleHandle.RemoveAll(".multikernel"), storageHandle.RemoveAll(request.TaskIdentity))
+	}
 	if err := s.store.Put(record); err != nil {
-		_ = os.Remove(runtimeDir)
-		_ = os.Remove(storageDir)
-		return PrepareResult{}, err
+		return PrepareResult{}, errors.Join(err, bundleHandle.RemoveAll(".multikernel"), storageHandle.RemoveAll(request.TaskIdentity))
+	}
+	if err := s.verifyArtifactRootIdentities(record); err != nil {
+		return PrepareResult{}, errors.Join(err, bundleHandle.RemoveAll(".multikernel"),
+			storageHandle.RemoveAll(request.TaskIdentity), s.store.Delete(request.TaskIdentity))
 	}
 	if err := s.backend.Mount(ctx, request.Mounts, root); err != nil {
 		unmountErr := s.backend.Unmount(context.WithoutCancel(ctx), root)
@@ -333,6 +404,9 @@ func (s *Service) Cleanup(ctx context.Context, request CleanupRequest) error {
 	if err := s.validateArtifactPaths(record); err != nil {
 		return err
 	}
+	if err := s.verifyArtifactRootIdentities(record); err != nil {
+		return err
+	}
 	if err := s.backend.Unmount(ctx, record.Root); err != nil {
 		return err
 	}
@@ -356,6 +430,9 @@ func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string
 			return err
 		}
 		if err := s.validateArtifactPaths(record); err != nil {
+			return err
+		}
+		if err := s.verifyArtifactRootIdentities(record); err != nil {
 			return err
 		}
 		switch record.Phase {

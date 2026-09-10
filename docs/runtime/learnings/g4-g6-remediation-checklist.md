@@ -163,11 +163,17 @@ normative plan is revised with an explicit rationale.
   inventory remain open. Rootfs durable state now validates its no-follow,
   single-link, caller-owned file; exact record key/request/result; derived
   bundle/runtime/storage paths; unique bundle/port ownership; and forward-only
-  phases. Reconciliation rechecks configured path derivation before recursive
+  phases. Each record also captures the bundle and configured storage-root
+  device/inode/owner before mutation. Replay, service restart, cleanup, and
+  reconciliation reject a whole-directory substitution before any backend
+  action. Reconciliation rechecks configured path derivation before recursive
   cleanup, and deep-copy tests prevent callers from mutating journal fields by
-  alias. Cleanup is descriptor-anchored beneath stable bundle/storage-root
-  inodes; focused symlink and post-open rename tests prove a replacement tree
-  is not traversed or removed.
+  alias. Cleanup is descriptor-anchored beneath the identity-bound
+  bundle/storage-root inodes; focused pre-open replacement, symlink, and
+  post-open rename tests prove a replacement tree is not traversed or removed.
+  This identity-bearing disk format is version 2: an empty version-1 store is
+  upgraded atomically, while active legacy records that cannot prove their
+  roots are rejected rather than guessed.
   Privileged builder output consumption now uses bounded no-follow opens with
   caller-owner, single-link, mode, and stable-identity checks. Exact storage
   metadata is revalidated against the request, and both initial publication

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -18,6 +19,8 @@ import (
 var rootfsDigestRE = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var rootfsUUIDRE = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
 var rootfsImageIDRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
+
+const rootfsDiskVersion = 2
 
 type diskState struct {
 	Version int               `json:"version"`
@@ -38,7 +41,7 @@ func OpenStore(dir string) (*Store, error) {
 		return nil, fmt.Errorf("open rootfs state directory: %w", err)
 	}
 	defer directory.Close()
-	store := &Store{dir: dir, dirIdentity: directory.Identity(), data: diskState{Version: Version, Records: map[string]Record{}}}
+	store := &Store{dir: dir, dirIdentity: directory.Identity(), data: diskState{Version: rootfsDiskVersion, Records: map[string]Record{}}}
 	data, found, err := directory.ReadPrivate("state.json", 16<<20)
 	if err != nil {
 		return nil, fmt.Errorf("read rootfs state: %w", err)
@@ -46,7 +49,19 @@ func OpenStore(dir string) (*Store, error) {
 	if !found {
 		return store, nil
 	}
-	if err = protocol.StrictDecode(data, &store.data); err != nil || store.data.Version != Version || store.data.Records == nil {
+	if err = protocol.StrictDecode(data, &store.data); err != nil || store.data.Records == nil {
+		return nil, errors.New("rootfs state is malformed or unsupported")
+	}
+	if store.data.Version == 1 && len(store.data.Records) == 0 {
+		store.data.Version = rootfsDiskVersion
+		upgraded, marshalErr := json.MarshalIndent(store.data, "", "  ")
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		if err = directory.Replace("state.json", append(upgraded, '\n'), 0600); err != nil {
+			return nil, fmt.Errorf("upgrade empty rootfs state: %w", err)
+		}
+	} else if store.data.Version != rootfsDiskVersion {
 		return nil, errors.New("rootfs state is malformed or unsupported")
 	}
 	if err = validateRootfsDiskState(store.data); err != nil {
@@ -115,6 +130,10 @@ func validateRootfsRecord(key string, record Record) error {
 		filepath.Base(record.StorageDir) != record.Request.TaskIdentity {
 		return errors.New("rootfs artifact paths are not bound to the request")
 	}
+	if record.BundleID.Device == 0 || record.BundleID.Inode == 0 || record.BundleID.UID != uint32(os.Geteuid()) ||
+		record.StorageID.Device == 0 || record.StorageID.Inode == 0 || record.StorageID.UID != uint32(os.Geteuid()) {
+		return errors.New("rootfs directory identities are invalid")
+	}
 	switch record.Phase {
 	case "MOUNTING", "MOUNTED":
 		if record.Storage != nil || len(record.BuildResult) != 0 {
@@ -174,7 +193,8 @@ func cloneRootfsRecord(value Record) Record {
 
 func validRootfsTransition(previous, next Record) bool {
 	if previous.Version != next.Version || !reflect.DeepEqual(previous.Request, next.Request) || previous.Root != next.Root ||
-		previous.RuntimeDir != next.RuntimeDir || previous.StorageDir != next.StorageDir {
+		previous.RuntimeDir != next.RuntimeDir || previous.StorageDir != next.StorageDir ||
+		previous.BundleID != next.BundleID || previous.StorageID != next.StorageID {
 		return false
 	}
 	if previous.Phase == next.Phase {

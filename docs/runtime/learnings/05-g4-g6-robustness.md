@@ -612,3 +612,14 @@ caller-owned, non-world-writable parent through `openat2`, creates the private
 temporary file relative to that descriptor, and publishes with same-directory
 `renameat` plus directory sync. Focused replacement, symlinked-parent, and
 unsafe-parent-mode tests prove state cannot be redirected.
+
+Rootfs recovery records now bind both the original containerd bundle and the
+configured storage root to their device, inode, and owner. A same-owner
+whole-directory substitution made before replay or cleanup is rejected before
+backend verification or unmount, and cleanup remains descriptor-anchored after
+opening the recorded roots. Focused bundle and storage-root replacement tests
+prove the substitute remains untouched and the durable cleanup record remains
+available for retry. The identity-bearing store is explicitly version 2. An
+empty version-1 store upgrades atomically; nonempty legacy ownership is
+rejected because its original directory identity cannot be reconstructed
+safely from a pathname.
