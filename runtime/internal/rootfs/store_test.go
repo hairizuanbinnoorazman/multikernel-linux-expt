@@ -156,6 +156,28 @@ func TestRootfsStoreRejectsDuplicateLiveClaims(t *testing.T) {
 	}
 }
 
+func TestRootfsStoreRejectsDirectoryReplacementBeforePersistence(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "state")
+	store, err := OpenStore(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(directory, directory+".moved"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	identity := "task-0123456789abcdef0123456789abcdef"
+	record := validRootfsRecord("/srv/bundles/box", "/var/lib/multikernel/rootfs", identity, 4061)
+	if err = store.Put(record); err == nil || !strings.Contains(err.Error(), "identity changed") {
+		t.Fatalf("directory replacement error = %v", err)
+	}
+	if entries, readErr := os.ReadDir(directory); readErr != nil || len(entries) != 0 {
+		t.Fatalf("replacement directory was mutated: %v, %v", entries, readErr)
+	}
+}
+
 func TestRootfsStoreRejectsSymlinkHardlinkAndPermissiveState(t *testing.T) {
 	parent := t.TempDir()
 	target := filepath.Join(parent, "target")

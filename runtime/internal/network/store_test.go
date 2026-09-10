@@ -75,3 +75,27 @@ func TestStoreRejectsSymlinkAndPermissiveState(t *testing.T) {
 		t.Fatalf("permissive state error=%v", err)
 	}
 }
+
+func TestStoreRejectsDirectoryReplacementBeforePersistence(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "state")
+	store, err := OpenStore(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(directory, directory+".moved"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	endpoint := Endpoint{
+		ContainerID: "box", NetworkName: "multikernel", IfName: "eth0", NetNS: "/run/netns/box", Owner: "cni",
+		Generation: "0123456789abcdef0123456789abcdef", Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400, State: "ALLOCATING",
+	}
+	if err = store.Put(endpoint); err == nil || !strings.Contains(err.Error(), "identity changed") {
+		t.Fatalf("directory replacement error = %v", err)
+	}
+	if entries, readErr := os.ReadDir(directory); readErr != nil || len(entries) != 0 {
+		t.Fatalf("replacement directory was mutated: %v, %v", entries, readErr)
+	}
+}

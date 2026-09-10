@@ -4,18 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
-	"golang.org/x/sys/unix"
 )
 
 var rootfsDigestRE = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -30,60 +27,24 @@ type diskState struct {
 type Store struct {
 	mu           sync.Mutex
 	dir          string
+	dirIdentity  safefile.Identity
 	data         diskState
 	persistFault func() error
 }
 
 func OpenStore(dir string) (*Store, error) {
-	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir {
-		return nil, errors.New("rootfs state directory must be absolute and canonical")
-	}
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return nil, err
-	}
-	dirInfo, err := os.Lstat(dir)
+	directory, err := safefile.OpenDirectory(dir, true)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open rootfs state directory: %w", err)
 	}
-	identity, identityOK := dirInfo.Sys().(*syscall.Stat_t)
-	if !identityOK || !dirInfo.IsDir() || dirInfo.Mode()&os.ModeSymlink != 0 || identity.Uid != uint32(os.Geteuid()) {
-		return nil, errors.New("rootfs state directory must be a caller-owned real directory")
+	defer directory.Close()
+	store := &Store{dir: dir, dirIdentity: directory.Identity(), data: diskState{Version: Version, Records: map[string]Record{}}}
+	data, found, err := directory.ReadPrivate("state.json", 16<<20)
+	if err != nil {
+		return nil, fmt.Errorf("read rootfs state: %w", err)
 	}
-	resolved, err := filepath.EvalSymlinks(dir)
-	if err != nil || resolved != dir {
-		return nil, errors.New("rootfs state directory may not contain symlinks")
-	}
-	if err = os.Chmod(dir, 0700); err != nil {
-		return nil, err
-	}
-	store := &Store{dir: dir, data: diskState{Version: Version, Records: map[string]Record{}}}
-	path := filepath.Join(dir, "state.json")
-	info, err := os.Lstat(path)
-	if errors.Is(err, os.ErrNotExist) {
+	if !found {
 		return store, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	stateIdentity, identityOK := info.Sys().(*syscall.Stat_t)
-	if !identityOK || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 16<<20 ||
-		stateIdentity.Uid != uint32(os.Geteuid()) || stateIdentity.Nlink != 1 {
-		return nil, errors.New("rootfs state must be a private caller-owned single-link bounded regular file")
-	}
-	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
-	if err != nil {
-		return nil, err
-	}
-	file := os.NewFile(uintptr(descriptor), path)
-	opened, err := file.Stat()
-	if err != nil || !os.SameFile(info, opened) {
-		_ = file.Close()
-		return nil, errors.New("rootfs state identity changed while opening")
-	}
-	data, readErr := io.ReadAll(io.LimitReader(file, (16<<20)+1))
-	err = errors.Join(readErr, file.Close())
-	if err != nil {
-		return nil, err
 	}
 	if err = protocol.StrictDecode(data, &store.data); err != nil || store.data.Version != Version || store.data.Records == nil {
 		return nil, errors.New("rootfs state is malformed or unsupported")
@@ -92,6 +53,18 @@ func OpenStore(dir string) (*Store, error) {
 		return nil, err
 	}
 	return store, nil
+}
+
+func (s *Store) openDirectory() (*safefile.Directory, error) {
+	directory, err := safefile.OpenDirectory(s.dir, false)
+	if err != nil {
+		return nil, err
+	}
+	if directory.Identity() != s.dirIdentity {
+		_ = directory.Close()
+		return nil, errors.New("rootfs state directory identity changed")
+	}
+	return directory, nil
 }
 
 func validateStoredRequest(request PrepareRequest) error {
@@ -289,38 +262,10 @@ func (s *Store) persistLocked() error {
 	if err != nil {
 		return err
 	}
-	temporary, err := os.CreateTemp(s.dir, ".state.*")
+	directory, err := s.openDirectory()
 	if err != nil {
 		return err
 	}
-	name := temporary.Name()
-	cleanup := true
-	defer func() {
-		if cleanup {
-			_ = os.Remove(name)
-		}
-	}()
-	if err = temporary.Chmod(0600); err == nil {
-		_, err = temporary.Write(append(data, '\n'))
-	}
-	if err == nil {
-		err = temporary.Sync()
-	}
-	closeErr := temporary.Close()
-	if err != nil {
-		return err
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	if err = os.Rename(name, filepath.Join(s.dir, "state.json")); err != nil {
-		return err
-	}
-	cleanup = false
-	directory, err := os.Open(s.dir)
-	if err != nil {
-		return err
-	}
-	err = directory.Sync()
-	return errors.Join(err, directory.Close())
+	defer directory.Close()
+	return directory.Replace("state.json", append(data, '\n'), 0600)
 }

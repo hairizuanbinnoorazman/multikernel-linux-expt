@@ -266,6 +266,16 @@ prove a cancelled release remains `ACTIVE`, invokes no backend stop, and that
 mid-inspection cancellation interrupts hashing rather than scanning the rest
 of the image.
 
+The rootfs, storage-export, and network-endpoint ownership stores no longer
+reopen validated state directories and publish through their pathnames. A
+shared primitive walks from the filesystem root with no-follow `openat`,
+creates missing components relative to already opened parents, binds the final
+directory device/inode, performs private bounded state reads relative to that
+descriptor, and publishes synchronized replacements with `openat`/`renameat`.
+Each store rejects a post-open directory substitution before mutation, and
+focused tests also cover symlinked ancestry, unsafe files, and publication to
+an intentionally renamed but still-open directory inode.
+
 The shim now removes partial Create artifacts and allocated sandboxes on later
 failure, gives agent RPCs bounded deadlines with context cancellation, removes
 failed Exec entries, and reports a versioned guest-PID mapping. Guest
