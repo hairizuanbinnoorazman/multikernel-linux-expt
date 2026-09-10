@@ -411,7 +411,14 @@ Linux `openat2` for every start/reconstruction descriptor, rejecting symlinked
 ancestors and magic links. Stable device/inode, mode, ownership, link-count,
 and ctime comparisons detect replacement and same-inode metadata races; stdin
 is restricted to a private FIFO. Focused tests exercise each rejection and
-request cancellation, while live attach/restart revalidation remains open.
+request cancellation. Recovery format version 2 now durably records each
+configured stream's immutable device, inode, owner, group, mode, and link count
+at Create or Exec. Start and reconstruction must reopen that exact object, so
+a private same-type replacement made before either boundary is preserved and
+rejected. Version-1 records are rejected because their original stdio identity
+cannot be reconstructed safely from a pathname. Twenty race-detector
+repetitions cover FIFO and regular-output substitution; live attach/restart
+revalidation remains open.
 
 The shim-to-`mkruntimed` client previously used the request context only for
 Unix-socket dialing; a daemon that accepted and then stopped reading or

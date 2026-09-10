@@ -487,8 +487,13 @@ normative plan is revised with an explicit rationale.
   or output files. Start and reconstruction use no-symlink `openat2` opens and
   bind device/inode, mode, owner, link count, and ctime; focused tests reject
   unsafe modes, hardlinks, symlinked ancestors, inode replacement, same-inode
-  mode changes, regular-file stdin, and cancelled opens. These changes still
-  need live revalidation.
+  mode changes, regular-file stdin, and cancelled opens. Recovery format v2
+  now persists the immutable device/inode/owner/group/mode/link identity
+  captured before Create or Exec mutation, and Start/reconstruction refuse a
+  same-type replacement instead of trusting the recovered pathname. Legacy
+  v1 records without that proof fail closed. Twenty race-detector repetitions
+  cover FIFO and regular-output substitution without modifying the replacement.
+  These changes still need live revalidation.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
   teardown without leaking resources. The shared daemon client now applies
