@@ -97,8 +97,12 @@ contact the guest. Paths must be absolute and canonical private, caller-owned,
 single-link FIFOs or output files. Validation and each later start/recovery
 open use `openat2` with symlink and magic-link traversal disabled, then bind
 device, inode, mode, owner, link count, and ctime across the open. Stdin is
-restricted to a FIFO. A replacement path or same-inode metadata change fails
-closed, and a cancelled request cannot acquire a descriptor.
+restricted to a FIFO. Recovery format v2 persists each stream's immutable
+device, inode, owner, group, mode, and link-count identity captured before the
+Create or Exec mutation. Start and reconstruction require that exact identity;
+a replacement path, same-inode metadata change, or legacy recovery record that
+cannot prove the original stream fails closed. A cancelled request cannot
+acquire a descriptor.
 
 Terminal resize is a durable intent. A created process retains it for Start;
 a running process records it before contacting the guest, rolls the record back

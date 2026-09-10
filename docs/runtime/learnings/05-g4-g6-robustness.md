@@ -417,8 +417,11 @@ at Create or Exec. Start and reconstruction must reopen that exact object, so
 a private same-type replacement made before either boundary is preserved and
 rejected. Version-1 records are rejected because their original stdio identity
 cannot be reconstructed safely from a pathname. Twenty race-detector
-repetitions cover FIFO and regular-output substitution; live attach/restart
-revalidation remains open.
+repetitions cover FIFO and regular-output substitution. A real nonblocking FIFO
+test additionally leaves stdin without an initial writer, attaches and detaches
+two writers in sequence, observes both exact byte strings at the guest-call
+boundary, and proves descriptor teardown terminates the pump. Live
+attach/restart revalidation remains open.
 
 The shim-to-`mkruntimed` client previously used the request context only for
 Unix-socket dialing; a daemon that accepted and then stopped reading or

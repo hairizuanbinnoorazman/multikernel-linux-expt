@@ -61,6 +61,26 @@ type fakeAgentClient struct {
 	statsByID map[string]agent.ProcessStats
 }
 
+type stdinCaptureAgent struct{ writes chan []byte }
+
+func (f *stdinCaptureAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *stdinCaptureAgent) CallContext(_ context.Context, method string, request, _ any) error {
+	if method != "WriteProcess" {
+		return nil
+	}
+	value, ok := request.(map[string]any)["data"].([]byte)
+	if !ok {
+		return errors.New("stdin write has invalid data")
+	}
+	f.writes <- append([]byte(nil), value...)
+	return nil
+}
+func (f *stdinCaptureAgent) Close() error                                   { return nil }
+func (f *stdinCaptureAgent) Reconnect(string) error                         { return nil }
+func (f *stdinCaptureAgent) ReconnectContext(context.Context, string) error { return nil }
+
 type networkPumpAgent struct {
 	mu                sync.Mutex
 	exchanges         int
@@ -862,6 +882,60 @@ func TestProcessStdinMustBeFIFO(t *testing.T) {
 	}
 	if _, err := inspectBoundProcessIOPath(path, true); err == nil {
 		t.Fatal("regular-file stdin was accepted")
+	}
+}
+
+func TestStdinFIFOAcceptsLateAndRepeatedWriters(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "stdin")
+	if err := syscall.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	identity, err := inspectBoundProcessIOPath(path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &process{stdin: path, stdinIdentity: identity, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	agentClient := &stdinCaptureAgent{writes: make(chan []byte, 2)}
+	s := &service{agent: agentClient, processes: map[string]*process{"": p}}
+	if err = s.openProcessIO(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	pumpDone := make(chan struct{})
+	go func() {
+		s.pumpStdin("init", p)
+		close(pumpDone)
+	}()
+	// Exercise the no-initial-peer state before attaching the first writer.
+	time.Sleep(20 * time.Millisecond)
+	for _, want := range []string{"late-writer", "reattached-writer"} {
+		descriptor, openErr := unix.Open(path, unix.O_WRONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+		if openErr != nil {
+			t.Fatal(openErr)
+		}
+		writer := os.NewFile(uintptr(descriptor), path)
+		if _, openErr = writer.WriteString(want); openErr != nil {
+			_ = writer.Close()
+			t.Fatal(openErr)
+		}
+		if openErr = writer.Close(); openErr != nil {
+			t.Fatal(openErr)
+		}
+		select {
+		case got := <-agentClient.writes:
+			if string(got) != want {
+				t.Fatalf("guest stdin = %q, want %q", got, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("late stdin writer %q was not forwarded", want)
+		}
+	}
+	s.mu.Lock()
+	closeProcessIO(p)
+	s.mu.Unlock()
+	select {
+	case <-pumpDone:
+	case <-time.After(time.Second):
+		t.Fatal("stdin pump survived descriptor teardown")
 	}
 }
 
