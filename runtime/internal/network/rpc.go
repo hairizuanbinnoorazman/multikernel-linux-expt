@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
@@ -153,29 +154,18 @@ func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
-func (s *Server) Listen(ctx context.Context, path string) error {
+func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 	if s.Service == nil {
 		return errors.New("mknetd service is required")
 	}
 	if s.MaxFrame == 0 {
 		s.MaxFrame = 1 << 20
 	}
-	if info, err := os.Lstat(path); err == nil {
-		if info.Mode()&os.ModeSocket == 0 {
-			return errors.New("refusing to replace non-socket mknetd path")
-		}
-		if err = os.Remove(path); err != nil {
-			return err
-		}
-	}
-	listener, err := net.Listen("unix", path)
+	listener, err := unixsocket.Listen(path, 0660)
 	if err != nil {
 		return err
 	}
-	if err = os.Chmod(path, 0660); err != nil {
-		listener.Close()
-		return err
-	}
+	defer func() { retErr = errors.Join(retErr, listener.Close()) }()
 	s.mu.Lock()
 	s.listener = listener
 	s.mu.Unlock()

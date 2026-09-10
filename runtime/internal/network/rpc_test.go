@@ -48,12 +48,16 @@ func TestClientRejectsOversizedValidResponsePrefix(t *testing.T) {
 }
 
 func TestServerRefusesToReplaceNonSocket(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "mknetd.sock")
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "mknetd.sock")
 	if err := os.WriteFile(path, []byte("owned"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	server := &Server{Service: service(t, "172.31.0.0/30", &fakeBackend{}), AllowedUID: CurrentUID()}
-	if err := server.Listen(context.Background(), path); err == nil || !strings.Contains(err.Error(), "non-socket") {
+	if err := server.Listen(context.Background(), path); err == nil || !strings.Contains(err.Error(), "socket path") {
 		t.Fatalf("Listen error = %v", err)
 	}
 }

@@ -302,6 +302,14 @@ normative plan is revised with an explicit rationale.
   now shares the descriptor-anchored directory walk, private bounded read, and
   synchronized `openat`/`renameat` publication used by the storage stores; a
   post-open directory replacement is rejected without mutating the substitute.
+  mknetd and mkruntimed listener creation now share a descriptor-anchored Unix
+  socket guard: the parent is opened without symlinks and must be caller-owned
+  and non-writable by group/other; only an exact-mode, caller-owned,
+  single-link stale socket is removed; binding resolves through the held parent
+  descriptor; and shutdown unlinks only the captured socket inode. Go's
+  automatic Unix-listener unlink is explicitly disabled so it cannot bypass
+  the identity check. Real pathname-socket tests cover safe stale replacement,
+  live connection, normal cleanup, and hostile replacement preservation.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;
@@ -416,7 +424,9 @@ normative plan is revised with an explicit rationale.
   substitute is written. Snapshot persistence failures now restore the
   corresponding in-memory ownership mutation. Focused malformed-input,
   capacity, hardlink/mode, and post-open replacement tests pass. Focused
-  descendant and socket-cleanup tests pass. The complete
+  descendant and socket-cleanup tests pass. The mkruntimed listener uses the
+  same descriptor-anchored exact-inode socket lifecycle as mknetd and retains
+  its allowed-peer UID ownership check. The complete
   cross-process restart transfer and live identity transcript remain open.
 - [x] Implement faithful guest PID reporting or define a versioned virtual PID
   mapping. `Start`, `State`, `Pids`, `Connect`, exit, and delete now report the
