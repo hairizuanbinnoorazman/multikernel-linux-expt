@@ -1,17 +1,22 @@
 package state
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
+
+const maxSnapshotBytes = 16 << 20
+const maxJournalBytes = 64 << 20
+const maxJournalEntryBytes = 1 << 20
 
 type JournalEntry struct {
 	Sequence       uint64            `json:"sequence"`
@@ -39,43 +44,82 @@ type Snapshot struct {
 	Results   map[string]IdempotentResult `json:"results"`
 }
 type Store struct {
-	mu      sync.Mutex
-	dir     string
-	journal *os.File
-	data    Snapshot
-	syncDir func(string) error
+	mu              sync.Mutex
+	dir             string
+	dirIdentity     safefile.Identity
+	journal         *os.File
+	journalIdentity safefile.Identity
+	journalFailed   bool
+	data            Snapshot
+	syncDir         func(string) error
 }
 
-func (s *Store) JournalEntries() ([]JournalEntry, error) { return ReadJournal(s.dir) }
+func (s *Store) JournalEntries() ([]JournalEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.journalFailed {
+		return nil, ErrClosed
+	}
+	if err := s.validateJournalPath(); err != nil {
+		return nil, err
+	}
+	data, identity, err := safefile.ReadOpened(s.journal, maxJournalBytes)
+	if err != nil || !safefile.SameObject(identity, s.journalIdentity) {
+		return nil, errors.New("journal identity changed while reading")
+	}
+	return parseJournal(data)
+}
 
 func Open(dir string) (*Store, error) {
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return nil, err
+	directory, err := safefile.OpenDirectory(dir, true)
+	if err != nil {
+		return nil, fmt.Errorf("open lifecycle state directory: %w", err)
 	}
-	if err := os.Chmod(dir, 0700); err != nil {
-		return nil, err
-	}
-	s := &Store{dir: dir, data: Snapshot{Version: 1, Sandboxes: map[string]protocol.Sandbox{}, Results: map[string]IdempotentResult{}}, syncDir: syncDirectory}
-	if b, e := os.ReadFile(filepath.Join(dir, "state.json")); e == nil {
-		if e = json.Unmarshal(b, &s.data); e != nil {
-			return nil, fmt.Errorf("decode state: %w", e)
+	defer directory.Close()
+	s := &Store{dir: dir, dirIdentity: directory.Identity(),
+		data:    Snapshot{Version: 1, Sandboxes: map[string]protocol.Sandbox{}, Results: map[string]IdempotentResult{}},
+		syncDir: func(string) error { return nil }}
+	if data, found, readErr := directory.ReadPrivate("state.json", maxSnapshotBytes); readErr != nil {
+		return nil, fmt.Errorf("read lifecycle snapshot: %w", readErr)
+	} else if found {
+		if err = protocol.StrictDecode(data, &s.data); err != nil {
+			return nil, fmt.Errorf("decode lifecycle snapshot: %w", err)
+		}
+		if s.data.Version != 1 || s.data.Sandboxes == nil || s.data.Results == nil {
+			return nil, errors.New("lifecycle snapshot is malformed or unsupported")
 		}
 	}
-	f, e := os.OpenFile(filepath.Join(dir, "journal.jsonl"), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
-	if e != nil {
-		return nil, e
+	s.journal, s.journalIdentity, err = directory.OpenAppend("journal.jsonl", maxJournalBytes, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("open lifecycle journal: %w", err)
 	}
-	s.journal = f
-	if entries, readErr := ReadJournal(dir); readErr == nil {
-		for _, entry := range entries {
-			if entry.Sequence > s.data.Sequence {
-				s.data.Sequence = entry.Sequence
-			}
+	data, identity, err := safefile.ReadOpened(s.journal, maxJournalBytes)
+	if err != nil || !safefile.SameObject(identity, s.journalIdentity) {
+		_ = s.journal.Close()
+		return nil, errors.New("lifecycle journal identity changed while opening")
+	}
+	entries, err := parseJournal(data)
+	if err != nil {
+		_ = s.journal.Close()
+		return nil, fmt.Errorf("decode lifecycle journal: %w", err)
+	}
+	if len(entries) == 0 && s.data.Sequence != 0 || len(entries) != 0 && s.data.Sequence > entries[len(entries)-1].Sequence {
+		_ = s.journal.Close()
+		return nil, errors.New("lifecycle snapshot sequence is ahead of its journal")
+	}
+	for _, entry := range entries {
+		if entry.Sequence > s.data.Sequence {
+			s.data.Sequence = entry.Sequence
 		}
 	}
 	return s, nil
 }
-func (s *Store) Close() error { s.mu.Lock(); defer s.mu.Unlock(); return s.journal.Close() }
+func (s *Store) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.journalFailed = true
+	return s.journal.Close()
+}
 func (s *Store) Snapshot() Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -87,21 +131,45 @@ func (s *Store) Snapshot() Snapshot {
 func (s *Store) Append(e JournalEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.data.Sequence++
-	e.Sequence = s.data.Sequence
+	if s.journalFailed {
+		return ErrClosed
+	}
+	if err := s.validateJournalPath(); err != nil {
+		s.journalFailed = true
+		return err
+	}
+	identity, err := safefile.InspectOpened(s.journal, maxJournalBytes)
+	if err != nil || !safefile.SameObject(identity, s.journalIdentity) {
+		s.journalFailed = true
+		return errors.New("journal identity changed before append")
+	}
+	e.Sequence = s.data.Sequence + 1
 	e.At = time.Now().UTC()
 	b, err := json.Marshal(e)
 	if err != nil {
 		return err
 	}
-	if _, err = s.journal.Write(append(b, '\n')); err != nil {
+	b = append(b, '\n')
+	if len(b) > maxJournalEntryBytes || identity.Size > maxJournalBytes-int64(len(b)) {
+		return errors.New("lifecycle journal capacity exceeded")
+	}
+	written, err := s.journal.Write(b)
+	if err != nil || written != len(b) {
+		s.journalFailed = true
+		return errors.Join(err, io.ErrShortWrite)
+	}
+	if err = s.journal.Sync(); err != nil {
+		s.journalFailed = true
 		return err
 	}
-	return s.journal.Sync()
+	s.data.Sequence = e.Sequence
+	return nil
 }
 func (s *Store) Commit(sb protocol.Sandbox, key, fingerprint string, result protocol.MutationResult) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	previousSandbox, hadSandbox := s.data.Sandboxes[sb.ID]
+	previousResult, hadResult := s.data.Results[key]
 	if sb.State == "ABSENT" {
 		delete(s.data.Sandboxes, sb.ID)
 	} else {
@@ -110,7 +178,22 @@ func (s *Store) Commit(sb protocol.Sandbox, key, fingerprint string, result prot
 	if key != "" {
 		s.data.Results[key] = IdempotentResult{Fingerprint: fingerprint, Result: result}
 	}
-	return s.persistLocked()
+	if err := s.persistLocked(); err != nil {
+		if hadSandbox {
+			s.data.Sandboxes[sb.ID] = previousSandbox
+		} else {
+			delete(s.data.Sandboxes, sb.ID)
+		}
+		if key != "" {
+			if hadResult {
+				s.data.Results[key] = previousResult
+			} else {
+				delete(s.data.Results, key)
+			}
+		}
+		return err
+	}
+	return nil
 }
 
 // Tombstone records terminal failure replay while retaining sandbox ownership
@@ -159,15 +242,31 @@ func (s *Store) AbortCreate(id, key, fingerprint string, failure *protocol.Error
 func (s *Store) SetSandbox(sb protocol.Sandbox) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	previous, existed := s.data.Sandboxes[sb.ID]
 	s.data.Sandboxes[sb.ID] = sb
-	return s.persistLocked()
+	if err := s.persistLocked(); err != nil {
+		if existed {
+			s.data.Sandboxes[sb.ID] = previous
+		} else {
+			delete(s.data.Sandboxes, sb.ID)
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Store) RemoveSandbox(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	previous, existed := s.data.Sandboxes[id]
 	delete(s.data.Sandboxes, id)
-	return s.persistLocked()
+	if err := s.persistLocked(); err != nil {
+		if existed {
+			s.data.Sandboxes[id] = previous
+		}
+		return err
+	}
+	return nil
 }
 func (s *Store) Result(key string) (IdempotentResult, bool) {
 	s.mu.Lock()
@@ -181,54 +280,92 @@ func (s *Store) Sandbox(id string) (protocol.Sandbox, bool) {
 	v, ok := s.data.Sandboxes[id]
 	return v, ok
 }
+
+func (s *Store) openDirectory() (*safefile.Directory, error) {
+	directory, err := safefile.OpenDirectory(s.dir, false)
+	if err != nil {
+		return nil, err
+	}
+	if directory.Identity() != s.dirIdentity {
+		_ = directory.Close()
+		return nil, errors.New("lifecycle state directory identity changed")
+	}
+	return directory, nil
+}
+
+func (s *Store) validateJournalPath() error {
+	directory, err := s.openDirectory()
+	if err != nil {
+		return err
+	}
+	defer directory.Close()
+	identity, found, err := directory.InspectPrivate("journal.jsonl", maxJournalBytes)
+	if err != nil || !found || !safefile.SameObject(identity, s.journalIdentity) {
+		return errors.New("lifecycle journal pathname identity changed")
+	}
+	return nil
+}
+
 func (s *Store) persistLocked() error {
 	b, e := json.MarshalIndent(s.data, "", "  ")
 	if e != nil {
 		return e
 	}
-	tmp := filepath.Join(s.dir, "state.json.tmp")
-	if e = os.WriteFile(tmp, append(b, '\n'), 0600); e != nil {
-		return e
+	if len(b)+1 > maxSnapshotBytes {
+		return errors.New("lifecycle snapshot capacity exceeded")
 	}
-	f, e := os.Open(tmp)
+	directory, e := s.openDirectory()
 	if e != nil {
 		return e
 	}
-	if e = f.Sync(); e != nil {
-		f.Close()
-		return e
-	}
-	f.Close()
-	if e = os.Rename(tmp, filepath.Join(s.dir, "state.json")); e != nil {
+	defer directory.Close()
+	if e = directory.Replace("state.json", append(b, '\n'), 0600); e != nil {
 		return e
 	}
 	return s.syncDir(s.dir)
 }
 
-func syncDirectory(path string) error {
-	directory, err := os.Open(path)
+func ReadJournal(dir string) ([]JournalEntry, error) {
+	directory, err := safefile.OpenDirectory(dir, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer directory.Close()
-	return directory.Sync()
+	data, found, err := directory.ReadPrivate("journal.jsonl", maxJournalBytes)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, os.ErrNotExist
+	}
+	return parseJournal(data)
 }
-func ReadJournal(dir string) ([]JournalEntry, error) {
-	f, e := os.Open(filepath.Join(dir, "journal.jsonl"))
-	if e != nil {
-		return nil, e
+
+func parseJournal(data []byte) ([]JournalEntry, error) {
+	if len(data) == 0 {
+		return nil, nil
 	}
-	defer f.Close()
-	var out []JournalEntry
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		var x JournalEntry
-		if e = json.Unmarshal(s.Bytes(), &x); e != nil {
-			return nil, e
+	if data[len(data)-1] != '\n' {
+		return nil, errors.New("lifecycle journal has a truncated final entry")
+	}
+	lines := bytes.Split(data[:len(data)-1], []byte{'\n'})
+	entries := make([]JournalEntry, 0, len(lines))
+	var previous uint64
+	for index, line := range lines {
+		if len(line) == 0 || len(line) > maxJournalEntryBytes {
+			return nil, fmt.Errorf("lifecycle journal entry %d is empty or oversized", index+1)
 		}
-		out = append(out, x)
+		var entry JournalEntry
+		if err := protocol.StrictDecode(line, &entry); err != nil {
+			return nil, fmt.Errorf("lifecycle journal entry %d: %w", index+1, err)
+		}
+		if entry.Sequence != previous+1 {
+			return nil, fmt.Errorf("lifecycle journal entry %d has a non-contiguous sequence", index+1)
+		}
+		previous = entry.Sequence
+		entries = append(entries, entry)
 	}
-	return out, s.Err()
+	return entries, nil
 }
 func Incomplete(es []JournalEntry) []JournalEntry {
 	done := map[string]bool{}

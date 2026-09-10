@@ -72,6 +72,9 @@ func TestPrivateReadAndReplaceAreDescriptorAnchored(t *testing.T) {
 
 func TestReadPrivateRejectsUnsafeFiles(t *testing.T) {
 	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
 	directory, err := OpenDirectory(base, false)
 	if err != nil {
 		t.Fatal(err)
