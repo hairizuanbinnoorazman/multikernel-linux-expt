@@ -570,7 +570,10 @@ fail closed on every other path. Focused tests prove regular files,
 directories, and symlinks are rejected without removal; the privileged live
 socket replacement case remains part of the replacement run. The relay helper
 itself no longer unlinks before bind or after accept; the supervising shim is
-the sole component permitted to remove that pathname.
+the sole component permitted to remove that pathname. Before agent dialing,
+the shim captures the helper-published socket inode relative to a held,
+no-symlink parent descriptor; normal teardown removes only that exact inode
+and preserves cleanup ownership for retry if the pathname was replaced.
 
 The reconstruction path now has a focused successful-reconnect test rather
 than only state-validation and fallback-cleanup coverage. Injected daemon,

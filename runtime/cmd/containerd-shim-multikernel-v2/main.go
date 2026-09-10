@@ -44,6 +44,7 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -91,6 +92,8 @@ type networkClient interface {
 type agentDialer func(context.Context, string, string, string, uint32, []byte) (agentClient, error)
 type relayFactory func(uint32, string) *exec.Cmd
 type relayPathFactory func(uint32, string) string
+type relayPathOwner interface{ Remove() error }
+type relayOwnerFactory func(string) (relayPathOwner, error)
 
 type service struct {
 	mu                    sync.Mutex
@@ -105,6 +108,7 @@ type service struct {
 	agent                 agentClient
 	relay                 *exec.Cmd
 	relaySocket           string
+	relayOwner            relayPathOwner
 	netDevice             *os.File
 	netDone               chan struct{}
 	netWG                 sync.WaitGroup
@@ -113,6 +117,7 @@ type service struct {
 	agentDial             agentDialer
 	newRelay              relayFactory
 	relayPath             relayPathFactory
+	newRelayOwner         relayOwnerFactory
 	netRXPackets          atomic.Uint64
 	netTXPackets          atomic.Uint64
 	netRXDrops            atomic.Uint64
@@ -216,6 +221,13 @@ func (s *service) agentRelaySocketPath(port uint32, generation string) string {
 		return s.relayPath(port, generation)
 	}
 	return relaySocketPath(port, generation)
+}
+
+func (s *service) captureRelaySocket(path string) (relayPathOwner, error) {
+	if s.newRelayOwner != nil {
+		return s.newRelayOwner(path)
+	}
+	return unixsocket.Capture(path)
 }
 
 func validateServiceIdentity(id, namespace, bundle string) error {
@@ -877,6 +889,17 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	}
 	deadline := time.Now().Add(5 * time.Second)
 	for {
+		if s.relayOwner == nil {
+			s.relayOwner, err = s.captureRelaySocket(s.relaySocket)
+			if errors.Is(err, os.ErrNotExist) && time.Now().Before(deadline) && ctx.Err() == nil {
+				if err = waitContext(ctx, 50*time.Millisecond); err == nil {
+					continue
+				}
+			}
+			if err != nil {
+				return fmt.Errorf("capture recovered agent relay socket: %w", err)
+			}
+		}
 		s.agent, err = s.dialAgent(ctx, s.relaySocket)
 		if err == nil || time.Now().After(deadline) || ctx.Err() != nil {
 			break
@@ -1018,9 +1041,16 @@ func (s *service) stopRelay() error {
 		s.relay = nil
 	}
 	if s.relaySocket != "" {
-		if err := removeStaleRelaySocket(s.relaySocket); err != nil {
+		var err error
+		if s.relayOwner != nil {
+			err = s.relayOwner.Remove()
+		} else {
+			err = removeStaleRelaySocket(s.relaySocket)
+		}
+		if err != nil {
 			return err
 		}
+		s.relayOwner = nil
 		s.relaySocket = ""
 	}
 	return nil
@@ -1451,6 +1481,18 @@ func (s *service) connectAgent(ctx context.Context) error {
 	}
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
+		if s.relayOwner == nil {
+			s.relayOwner, err = s.captureRelaySocket(sock)
+			if errors.Is(err, os.ErrNotExist) {
+				if err = waitContext(ctx, 100*time.Millisecond); err != nil {
+					return errors.Join(err, s.stopNetwork(), s.stopRelay())
+				}
+				continue
+			}
+			if err != nil {
+				return errors.Join(fmt.Errorf("capture agent relay socket: %w", err), s.stopNetwork(), s.stopRelay())
+			}
+		}
 		client, err := s.dialAgent(ctx, sock)
 		if err == nil {
 			s.agent = client

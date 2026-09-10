@@ -29,6 +29,17 @@ type Listener struct {
 	err      error
 }
 
+// Path owns the identity of an already-published Unix socket relative to a
+// held parent descriptor. It is used when a supervised helper, rather than Go,
+// performed bind(2).
+type Path struct {
+	dir      *os.File
+	base     string
+	identity identity
+	mu       sync.Mutex
+	closed   bool
+}
+
 func socketIdentity(stat unix.Stat_t) identity {
 	return identity{device: uint64(stat.Dev), inode: stat.Ino, uid: stat.Uid, mode: stat.Mode, links: stat.Nlink}
 }
@@ -45,6 +56,22 @@ func inspectAt(dir *os.File, base string, expectedMode os.FileMode) (identity, b
 	if stat.Mode&unix.S_IFMT != unix.S_IFSOCK || stat.Uid != uint32(os.Geteuid()) || stat.Nlink != 1 ||
 		os.FileMode(stat.Mode).Perm() != expectedMode.Perm() {
 		return identity{}, true, errors.New("Unix socket path must be a caller-owned single-link socket with the expected mode")
+	}
+	return socketIdentity(stat), true, nil
+}
+
+func inspectSafeAt(dir *os.File, base string) (identity, bool, error) {
+	var stat unix.Stat_t
+	err := unix.Fstatat(int(dir.Fd()), base, &stat, unix.AT_SYMLINK_NOFOLLOW)
+	if errors.Is(err, syscall.ENOENT) {
+		return identity{}, false, nil
+	}
+	if err != nil {
+		return identity{}, false, err
+	}
+	if stat.Mode&unix.S_IFMT != unix.S_IFSOCK || stat.Uid != uint32(os.Geteuid()) || stat.Nlink != 1 ||
+		os.FileMode(stat.Mode).Perm()&0022 != 0 {
+		return identity{}, true, errors.New("Unix socket path must be a caller-owned single-link socket with safe mode")
 	}
 	return socketIdentity(stat), true, nil
 }
@@ -119,6 +146,56 @@ func Listen(path string, mode os.FileMode) (*Listener, error) {
 	}
 	cleanupDir = false
 	return &Listener{listener: listener, dir: dir, base: base, identity: created}, nil
+}
+
+// Capture binds cleanup authority to the current inode at path. A missing path
+// returns os.ErrNotExist so a supervisor can distinguish startup progress from
+// an unsafe published object.
+func Capture(path string) (*Path, error) {
+	dir, base, err := openParent(path)
+	if err != nil {
+		return nil, err
+	}
+	current, found, err := inspectSafeAt(dir, base)
+	if err != nil {
+		_ = dir.Close()
+		return nil, err
+	}
+	if !found {
+		_ = dir.Close()
+		return nil, os.ErrNotExist
+	}
+	return &Path{dir: dir, base: base, identity: current}, nil
+}
+
+// Remove unlinks only the inode captured by Capture. A mismatch remains
+// retryable: the parent descriptor stays open and the replacement is preserved.
+func (p *Path) Remove() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return nil
+	}
+	current, found, err := inspectSafeAt(p.dir, p.base)
+	if err != nil {
+		return err
+	}
+	if found && current != p.identity {
+		return errors.New("refusing to remove replaced Unix socket path")
+	}
+	if found {
+		if err = unix.Unlinkat(int(p.dir.Fd()), p.base, 0); err != nil {
+			return err
+		}
+		if err = p.dir.Sync(); err != nil {
+			return err
+		}
+	}
+	err = p.dir.Close()
+	if err == nil {
+		p.closed = true
+	}
+	return err
 }
 
 func (l *Listener) Accept() (net.Conn, error) { return l.listener.Accept() }
