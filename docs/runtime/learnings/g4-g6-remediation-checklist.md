@@ -401,7 +401,16 @@ normative plan is revised with an explicit rationale.
   ownership: every start uses a dedicated process group, every connection or
   reconstruction failure reaps that group, normal Delete stops it only after
   the final guest Shutdown reply, and a failed socket removal retains its path
-  for retry. Focused descendant and socket-cleanup tests pass. The complete
+  for retry. The mkruntimed lifecycle snapshot and append journal now use the
+  same descriptor-anchored, private, caller-owned state directory contract as
+  the G4/G5 ownership stores. Snapshot and journal reads are bounded and
+  strict; journal creation is exclusive and directory-synchronized; entries
+  are individually bounded with contiguous sequences; append exhaustion is
+  explicit; and a replaced directory or journal pathname fails before a
+  substitute is written. Snapshot persistence failures now restore the
+  corresponding in-memory ownership mutation. Focused malformed-input,
+  capacity, hardlink/mode, and post-open replacement tests pass. Focused
+  descendant and socket-cleanup tests pass. The complete
   cross-process restart transfer and live identity transcript remain open.
 - [x] Implement faithful guest PID reporting or define a versioned virtual PID
   mapping. `Start`, `State`, `Pids`, `Connect`, exit, and delete now report the

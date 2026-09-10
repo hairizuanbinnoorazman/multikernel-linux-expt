@@ -369,6 +369,19 @@ five-minute bound, and kills descendants on timeout or cancellation. Overflow
 and non-clean exits fail without disclosing checker output. Focused tests cover
 each boundary; live dirty/corrupt-image recovery evidence is still required.
 
+The mkruntimed lifecycle snapshot and mutation journal previously remained an
+exception to the durable-file rules: snapshot load ignored every error except
+a successfully read malformed JSON document, journal load errors were ignored,
+and creation, append, reads, and replacement all reopened pathnames without
+size or identity bounds. They now use the descriptor-anchored state directory,
+strict bounded snapshot and journal reads, an exclusively created and
+directory-synchronized append file, a 64-MiB journal ceiling, one-MiB entry
+ceiling, contiguous sequence validation, and explicit poisoning after an
+ambiguous write or sync failure. Directory and journal pathname replacement,
+unsafe snapshot files, truncated/duplicate/unknown journal input, sequence
+gaps, and capacity exhaustion have focused tests. Failed snapshot persistence
+also rolls back the affected in-memory sandbox/result mutation.
+
 The G6 shim now journals typed Task events before publication and replays them
 in local sequence after worker reconstruction. Exit completion persists an
 `exit_event_queued` invariant, and Delete queues a missing exit before its own

@@ -80,6 +80,10 @@ func OpenDirectory(path string, create bool) (*Directory, error) {
 			info.Mode().Perm(), value.UID, os.Geteuid())
 	}
 	if info.Mode().Perm() != 0700 {
+		if !create {
+			_ = current.Close()
+			return nil, fmt.Errorf("directory mode must remain private (mode=%#o)", info.Mode().Perm())
+		}
 		if err = current.Chmod(0700); err != nil {
 			_ = current.Close()
 			return nil, err
@@ -102,6 +106,50 @@ func OpenDirectory(path string, create bool) (*Directory, error) {
 func (d *Directory) Close() error       { return d.file.Close() }
 func (d *Directory) Identity() Identity { return d.identity }
 
+func inspectPrivate(file *os.File, limit int64) (Identity, error) {
+	if limit <= 0 {
+		return Identity{}, errors.New("private file size limit must be positive")
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return Identity{}, err
+	}
+	value, ok := identity(info)
+	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || value.UID != uint32(os.Geteuid()) ||
+		value.Links != 1 || info.Size() < 0 || info.Size() > limit {
+		return Identity{}, errors.New("file must be private, caller-owned, single-link, regular, and bounded")
+	}
+	return value, nil
+}
+
+// InspectOpened validates a private opened file and returns its current identity.
+func InspectOpened(file *os.File, limit int64) (Identity, error) { return inspectPrivate(file, limit) }
+
+// SameObject compares the immutable ownership identity of two observations.
+func SameObject(first, second Identity) bool {
+	return first.Device == second.Device && first.Inode == second.Inode && first.UID == second.UID &&
+		first.Mode == second.Mode && first.Links == second.Links
+}
+
+// ReadOpened reads a private opened file without changing its current offset.
+func ReadOpened(file *os.File, limit int64) ([]byte, Identity, error) {
+	before, err := inspectPrivate(file, limit)
+	if err != nil {
+		return nil, Identity{}, err
+	}
+	data := make([]byte, before.Size)
+	if len(data) != 0 {
+		if _, err = file.ReadAt(data, 0); err != nil {
+			return nil, Identity{}, err
+		}
+	}
+	after, err := inspectPrivate(file, limit)
+	if err != nil || before != after {
+		return nil, Identity{}, errors.New("file identity changed while reading")
+	}
+	return data, before, nil
+}
+
 func (d *Directory) ReadPrivate(name string, limit int64) ([]byte, bool, error) {
 	if filepath.Base(name) != name || name == "." || limit <= 0 {
 		return nil, false, errors.New("invalid private file name or size limit")
@@ -118,25 +166,65 @@ func (d *Directory) ReadPrivate(name string, limit int64) ([]byte, bool, error) 
 	}
 	file := os.NewFile(uintptr(fd), name)
 	defer file.Close()
-	before, err := file.Stat()
+	data, _, err := ReadOpened(file, limit)
+	return data, true, err
+}
+
+// InspectPrivate opens a named file relative to the directory and validates it
+// without reading its contents.
+func (d *Directory) InspectPrivate(name string, limit int64) (Identity, bool, error) {
+	if filepath.Base(name) != name || name == "." || limit <= 0 {
+		return Identity{}, false, errors.New("invalid private file name or size limit")
+	}
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if errors.Is(err, syscall.ENOENT) {
+		return Identity{}, false, nil
+	}
+	if errors.Is(err, syscall.ELOOP) {
+		return Identity{}, false, errors.New("file must be a private regular file, not a symlink")
+	}
 	if err != nil {
-		return nil, false, err
+		return Identity{}, false, err
 	}
-	beforeID, ok := identity(before)
-	if !ok || !before.Mode().IsRegular() || before.Mode().Perm()&0077 != 0 || beforeID.UID != uint32(os.Geteuid()) ||
-		beforeID.Links != 1 || before.Size() < 0 || before.Size() > limit {
-		return nil, false, errors.New("file must be private, caller-owned, single-link, regular, and bounded")
+	file := os.NewFile(uintptr(fd), name)
+	defer file.Close()
+	value, err := inspectPrivate(file, limit)
+	return value, true, err
+}
+
+// OpenAppend opens or exclusively creates a bounded private append-only file.
+func (d *Directory) OpenAppend(name string, limit int64, mode os.FileMode) (*os.File, Identity, error) {
+	if filepath.Base(name) != name || name == "." || mode.Perm()&0077 != 0 || limit <= 0 {
+		return nil, Identity{}, errors.New("invalid private append file name, mode, or limit")
 	}
-	data, err := io.ReadAll(io.LimitReader(file, limit+1))
-	if err != nil || int64(len(data)) > limit {
-		return nil, false, errors.New("file changed or exceeded its read bound")
+	created := false
+	fd, err := unix.Openat(int(d.file.Fd()), name,
+		unix.O_RDWR|unix.O_APPEND|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, uint32(mode.Perm()))
+	if err == nil {
+		created = true
+	} else if errors.Is(err, syscall.EEXIST) {
+		fd, err = unix.Openat(int(d.file.Fd()), name, unix.O_RDWR|unix.O_APPEND|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	}
-	after, err := file.Stat()
-	afterID, ok := identity(after)
-	if err != nil || !ok || beforeID != afterID {
-		return nil, false, errors.New("file identity changed while reading")
+	if err != nil {
+		return nil, Identity{}, err
 	}
-	return data, true, nil
+	file := os.NewFile(uintptr(fd), name)
+	value, inspectErr := inspectPrivate(file, limit)
+	if inspectErr != nil {
+		_ = file.Close()
+		if created {
+			_ = unix.Unlinkat(int(d.file.Fd()), name, 0)
+		}
+		return nil, Identity{}, inspectErr
+	}
+	if created {
+		if err = d.file.Sync(); err != nil {
+			_ = file.Close()
+			_ = unix.Unlinkat(int(d.file.Fd()), name, 0)
+			return nil, Identity{}, err
+		}
+	}
+	return file, value, nil
 }
 
 // Replace publishes data atomically relative to the already opened directory.
