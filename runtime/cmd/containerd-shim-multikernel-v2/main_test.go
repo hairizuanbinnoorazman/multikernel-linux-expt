@@ -713,7 +713,15 @@ func TestOutputFIFOCanBeReattached(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w, guard, err := openOutput(context.Background(), path)
+	info, err := inspectProcessIOPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, ok := processIOIdentityFromInfo(info)
+	if !ok {
+		t.Fatal("FIFO identity unavailable")
+	}
+	w, guard, err := openOutput(context.Background(), path, identity)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -746,7 +754,7 @@ func TestProcessIOPathsRejectUnsafeIdentityAndSymlinkAncestors(t *testing.T) {
 	if err := syscall.Mkfifo(unsafeFIFO, 0660); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateProcessIOPaths(unsafeFIFO); err == nil {
+	if _, err := inspectBoundProcessIOPath(unsafeFIFO, false); err == nil {
 		t.Fatal("group-accessible FIFO was accepted")
 	}
 
@@ -757,7 +765,7 @@ func TestProcessIOPathsRejectUnsafeIdentityAndSymlinkAncestors(t *testing.T) {
 	if err := os.Link(regular, regular+".other"); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateProcessIOPaths(regular); err == nil {
+	if _, err := inspectBoundProcessIOPath(regular, false); err == nil {
 		t.Fatal("hard-linked output was accepted")
 	}
 
@@ -772,7 +780,7 @@ func TestProcessIOPathsRejectUnsafeIdentityAndSymlinkAncestors(t *testing.T) {
 	if err := os.Symlink(realParent, linkedParent); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateProcessIOPaths(filepath.Join(linkedParent, "fifo")); err == nil {
+	if _, err := inspectBoundProcessIOPath(filepath.Join(linkedParent, "fifo"), false); err == nil {
 		t.Fatal("stdio beneath a symlinked parent was accepted")
 	}
 }
@@ -783,9 +791,13 @@ func TestProcessIOOpenRejectsReplacementAndCancellation(t *testing.T) {
 	if err := os.WriteFile(path, []byte("old"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	expected, err := inspectProcessIOPath(path)
+	info, err := inspectProcessIOPath(path)
 	if err != nil {
 		t.Fatal(err)
+	}
+	expected, ok := processIOIdentityFromInfo(info)
+	if !ok {
+		t.Fatal("output identity unavailable")
 	}
 	if err = os.Chmod(path, 0640); err != nil {
 		t.Fatal(err)
@@ -797,9 +809,13 @@ func TestProcessIOOpenRejectsReplacementAndCancellation(t *testing.T) {
 	if err = os.Chmod(path, 0600); err != nil {
 		t.Fatal(err)
 	}
-	expected, err = inspectProcessIOPath(path)
+	info, err = inspectProcessIOPath(path)
 	if err != nil {
 		t.Fatal(err)
+	}
+	expected, ok = processIOIdentityFromInfo(info)
+	if !ok {
+		t.Fatal("output identity unavailable")
 	}
 	if err = os.Rename(path, path+".old"); err != nil {
 		t.Fatal(err)
@@ -844,9 +860,53 @@ func TestProcessStdinMustBeFIFO(t *testing.T) {
 	if err := os.WriteFile(path, []byte("input"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	p := &process{stdin: path}
-	if err := (&service{}).openProcessIO(context.Background(), p); err == nil {
+	if _, err := inspectBoundProcessIOPath(path, true); err == nil {
 		t.Fatal("regular-file stdin was accepted")
+	}
+}
+
+func TestBoundProcessIORejectsReplacementBeforeStartOrRecovery(t *testing.T) {
+	for _, output := range []bool{false, true} {
+		name := "stdin"
+		if output {
+			name = "stdout"
+		}
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), name)
+			if output {
+				if err := os.WriteFile(path, nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := syscall.Mkfifo(path, 0600); err != nil {
+				t.Fatal(err)
+			}
+			identity, err := inspectBoundProcessIOPath(path, !output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = os.Rename(path, path+".original"); err != nil {
+				t.Fatal(err)
+			}
+			if output {
+				if err = os.WriteFile(path, []byte("replacement"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			} else if err = syscall.Mkfifo(path, 0600); err != nil {
+				t.Fatal(err)
+			}
+			p := &process{done: make(chan struct{})}
+			if output {
+				p.stdout, p.stdoutIdentity = path, identity
+			} else {
+				p.stdin, p.stdinIdentity = path, identity
+			}
+			if err = (&service{}).openProcessIO(context.Background(), p); err == nil || !strings.Contains(err.Error(), "identity changed") {
+				t.Fatalf("replacement I/O error = %v", err)
+			}
+			if _, err = os.Lstat(path); err != nil {
+				t.Fatalf("replacement was changed: %v", err)
+			}
+		})
 	}
 }
 
@@ -1915,11 +1975,19 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 		t.Fatal(err)
 	}
+	stdout := filepath.Join(bundle, "stdout")
+	if err := os.WriteFile(stdout, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	stdoutIdentity, err := inspectBoundProcessIOPath(stdout, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := &service{
 		bundle:  bundle,
 		sandbox: protocol.Sandbox{ID: "box", Generation: "0123456789abcdef0123456789abcdef"},
 		processes: map[string]*process{
-			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdinClosed: true, stdinCloseAcked: true, stdoutOffset: 123, stderrOffset: 45, exitEventQueued: true, deleteEventQueued: true, done: make(chan struct{})},
+			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdout: stdout, stdoutIdentity: stdoutIdentity, stdinClosed: true, stdinCloseAcked: true, stdoutOffset: 123, stderrOffset: 45, exitEventQueued: true, deleteEventQueued: true, done: make(chan struct{})},
 		},
 	}
 	if err := s.persistRecovery(); err != nil {
@@ -1933,7 +2001,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	if err = json.Unmarshal(data, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.SchemaVersion != 1 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || !saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdoutOffset != 123 {
+	if saved.SchemaVersion != 2 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || !saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdoutOffset != 123 || saved.Processes[0].StdoutIdentity != stdoutIdentity {
 		t.Fatalf("persisted recovery = %+v", saved)
 	}
 	temporary, err := filepath.Glob(filepath.Join(bundle, ".multikernel", ".sandbox.json.*"))
@@ -2009,6 +2077,16 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 		SandboxGeneration: sandbox.Generation, NetNS: "/run/netns/task-a", MTU: 1400}
 	recovery.Processes[0].Status = tasktypes.Status_RUNNING
 	recovery.Processes[0].PID = 41
+	stdout := filepath.Join(bundle, "stdout")
+	if err := os.WriteFile(stdout, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	stdoutIdentity, err := inspectBoundProcessIOPath(stdout, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovery.Processes[0].Stdout = stdout
+	recovery.Processes[0].StdoutIdentity = stdoutIdentity
 	data, err := json.Marshal(recovery)
 	if err != nil {
 		t.Fatal(err)
@@ -2067,7 +2145,7 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 		t.Fatalf("recovered relay ownership = socket:%q command:%v", service.relaySocket, service.relay)
 	}
 	process := service.processes[""]
-	if process == nil || process.pid != 41 || process.status != tasktypes.Status_RUNNING || process.exitEventQueued {
+	if process == nil || process.pid != 41 || process.status != tasktypes.Status_RUNNING || process.exitEventQueued || process.stdoutIdentity != stdoutIdentity {
 		t.Fatalf("recovered process = %+v", process)
 	}
 	select {
@@ -2463,7 +2541,7 @@ func TestStaleRelayCleanupRejectsNonSocketPathsWithoutRemoval(t *testing.T) {
 
 func validPersistedRecovery(namespace, task string) persisted {
 	return persisted{
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		ID:            sandboxID(namespace, task),
 		Generation:    strings.Repeat("a", 32),
 		TaskIdentity:  storageTaskIdentity(namespace, task),
@@ -2495,12 +2573,18 @@ func TestRecoveryStateIsBoundedStrictAndIdentityBound(t *testing.T) {
 	})
 
 	for name, mutate := range map[string]func(*persisted){
-		"wrong sandbox":     func(value *persisted) { value.ID = sandboxID(namespace, "other") },
-		"wrong generation":  func(value *persisted) { value.Generation = "short" },
-		"wrong task owner":  func(value *persisted) { value.TaskIdentity = storageTaskIdentity(namespace, "other") },
-		"partial network":   func(value *persisted) { value.Network.SandboxID = value.ID },
-		"duplicate process": func(value *persisted) { value.Processes = append(value.Processes, value.Processes[0]) },
-		"invalid state":     func(value *persisted) { value.Processes[0].Status = tasktypes.Status_UNKNOWN },
+		"legacy schema":    func(value *persisted) { value.SchemaVersion = 1 },
+		"wrong sandbox":    func(value *persisted) { value.ID = sandboxID(namespace, "other") },
+		"wrong generation": func(value *persisted) { value.Generation = "short" },
+		"wrong task owner": func(value *persisted) { value.TaskIdentity = storageTaskIdentity(namespace, "other") },
+		"partial network":  func(value *persisted) { value.Network.SandboxID = value.ID },
+		"duplicate process": func(value *persisted) {
+			value.Processes = append(value.Processes, value.Processes[0])
+		},
+		"invalid state": func(value *persisted) { value.Processes[0].Status = tasktypes.Status_UNKNOWN },
+		"stdio without ownership": func(value *persisted) {
+			value.Processes[0].Stdout = "/run/containerd/fifo"
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			value := valid

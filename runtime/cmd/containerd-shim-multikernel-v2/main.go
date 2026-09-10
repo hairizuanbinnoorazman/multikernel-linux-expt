@@ -57,6 +57,9 @@ var recoverySHA256 = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type process struct {
 	id, stdin, stdout, stderr      string
+	stdinIdentity                  processIOIdentity
+	stdoutIdentity                 processIOIdentity
+	stderrIdentity                 processIOIdentity
 	terminal                       bool
 	width, height                  uint32
 	sizeSet                        bool
@@ -402,28 +405,59 @@ type persisted struct {
 }
 
 type persistedProcess struct {
-	ID                string           `json:"id"`
-	Stdin             string           `json:"stdin,omitempty"`
-	Stdout            string           `json:"stdout,omitempty"`
-	Stderr            string           `json:"stderr,omitempty"`
-	Terminal          bool             `json:"terminal,omitempty"`
-	Width             uint32           `json:"width,omitempty"`
-	Height            uint32           `json:"height,omitempty"`
-	SizeSet           bool             `json:"size_set,omitempty"`
-	StdinClosed       bool             `json:"stdin_closed,omitempty"`
-	StdinCloseAcked   bool             `json:"stdin_close_acked,omitempty"`
-	Status            tasktypes.Status `json:"status"`
-	PID               uint32           `json:"pid,omitempty"`
-	Exit              uint32           `json:"exit,omitempty"`
-	Exited            time.Time        `json:"exited,omitempty"`
-	StdoutOffset      uint64           `json:"stdout_offset,omitempty"`
-	StderrOffset      uint64           `json:"stderr_offset,omitempty"`
-	ExitEventQueued   bool             `json:"exit_event_queued,omitempty"`
-	DeleteEventQueued bool             `json:"delete_event_queued,omitempty"`
+	ID                string            `json:"id"`
+	Stdin             string            `json:"stdin,omitempty"`
+	Stdout            string            `json:"stdout,omitempty"`
+	Stderr            string            `json:"stderr,omitempty"`
+	StdinIdentity     processIOIdentity `json:"stdin_identity,omitempty"`
+	StdoutIdentity    processIOIdentity `json:"stdout_identity,omitempty"`
+	StderrIdentity    processIOIdentity `json:"stderr_identity,omitempty"`
+	Terminal          bool              `json:"terminal,omitempty"`
+	Width             uint32            `json:"width,omitempty"`
+	Height            uint32            `json:"height,omitempty"`
+	SizeSet           bool              `json:"size_set,omitempty"`
+	StdinClosed       bool              `json:"stdin_closed,omitempty"`
+	StdinCloseAcked   bool              `json:"stdin_close_acked,omitempty"`
+	Status            tasktypes.Status  `json:"status"`
+	PID               uint32            `json:"pid,omitempty"`
+	Exit              uint32            `json:"exit,omitempty"`
+	Exited            time.Time         `json:"exited,omitempty"`
+	StdoutOffset      uint64            `json:"stdout_offset,omitempty"`
+	StderrOffset      uint64            `json:"stderr_offset,omitempty"`
+	ExitEventQueued   bool              `json:"exit_event_queued,omitempty"`
+	DeleteEventQueued bool              `json:"delete_event_queued,omitempty"`
+}
+
+type processIOIdentity struct {
+	Device uint64 `json:"device"`
+	Inode  uint64 `json:"inode"`
+	UID    uint32 `json:"uid"`
+	GID    uint32 `json:"gid"`
+	Mode   uint32 `json:"mode"`
+	Links  uint64 `json:"links"`
+}
+
+func processIOIdentityFromInfo(info os.FileInfo) (processIOIdentity, bool) {
+	value, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return processIOIdentity{}, false
+	}
+	return processIOIdentity{Device: uint64(value.Dev), Inode: value.Ino, UID: value.Uid,
+		GID: value.Gid, Mode: value.Mode, Links: value.Nlink}, true
+}
+
+func validProcessIOIdentity(path string, value processIOIdentity, stdin bool) bool {
+	if path == "" {
+		return value == (processIOIdentity{})
+	}
+	typeBits := value.Mode & unix.S_IFMT
+	typeOK := typeBits == unix.S_IFIFO || !stdin && typeBits == unix.S_IFREG
+	return value.Inode != 0 && value.UID == uint32(os.Geteuid()) && value.Links == 1 &&
+		value.Mode&0077 == 0 && typeOK
 }
 
 func validatePersistedRecovery(value persisted, namespace, task string) error {
-	if value.SchemaVersion != 1 || value.ID != sandboxID(namespace, task) ||
+	if value.SchemaVersion != 2 || value.ID != sandboxID(namespace, task) ||
 		!recoveryGeneration.MatchString(value.Generation) ||
 		value.TaskIdentity != storageTaskIdentity(namespace, task) ||
 		(value.StorageSHA256 != "" && !recoverySHA256.MatchString(value.StorageSHA256)) ||
@@ -461,6 +495,11 @@ func validatePersistedRecovery(value persisted, namespace, task string) error {
 			if path != "" && (!filepath.IsAbs(path) || filepath.Clean(path) != path || len(path) > 4096 || strings.ContainsRune(path, 0)) {
 				return errors.New("shim recovery contains an invalid stdio path")
 			}
+		}
+		if !validProcessIOIdentity(process.Stdin, process.StdinIdentity, true) ||
+			!validProcessIOIdentity(process.Stdout, process.StdoutIdentity, false) ||
+			!validProcessIOIdentity(process.Stderr, process.StderrIdentity, false) {
+			return errors.New("shim recovery contains invalid stdio ownership")
 		}
 	}
 	if !initSeen {
@@ -679,7 +718,7 @@ func (s *service) persistRecovery() error {
 		return nil
 	}
 	network := s.networkReport("READY")
-	p := persisted{SchemaVersion: 1, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
+	p := persisted{SchemaVersion: 2, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
 		TaskIdentity: storageTaskIdentity(s.namespace, s.id)}
 	if s.sandbox.Config.Storage != nil {
 		p.StorageSHA256 = s.sandbox.Config.Storage.SHA256
@@ -690,6 +729,7 @@ func (s *service) persistRecovery() error {
 		}
 		p.Processes = append(p.Processes, persistedProcess{
 			ID: process.id, Stdin: process.stdin, Stdout: process.stdout, Stderr: process.stderr,
+			StdinIdentity: process.stdinIdentity, StdoutIdentity: process.stdoutIdentity, StderrIdentity: process.stderrIdentity,
 			Terminal: process.terminal, Width: process.width, Height: process.height,
 			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, StdinCloseAcked: process.stdinCloseAcked, Status: process.status,
 			PID: process.pid, Exit: process.exit, Exited: process.exited,
@@ -1006,6 +1046,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	for _, saved := range recovery.Processes {
 		p := &process{
 			id: saved.ID, stdin: saved.Stdin, stdout: saved.Stdout, stderr: saved.Stderr,
+			stdinIdentity: saved.StdinIdentity, stdoutIdentity: saved.StdoutIdentity, stderrIdentity: saved.StderrIdentity,
 			terminal: saved.Terminal, width: saved.Width, height: saved.Height,
 			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, stdinCloseAcked: saved.StdinCloseAcked, status: saved.Status,
 			pid: saved.PID, exit: saved.Exit, exited: saved.Exited,
@@ -1456,7 +1497,8 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err := s.validateTaskRequest(r.ID); err != nil || r.Bundle != s.bundle {
 		return nil, fmt.Errorf("%w: invalid task", errdefs.ErrInvalidArgument)
 	}
-	if err := validateProcessIOPaths(r.Stdin, r.Stdout, r.Stderr); err != nil {
+	stdinIdentity, stdoutIdentity, stderrIdentity, err := inspectBoundProcessIOPaths(r.Stdin, r.Stdout, r.Stderr)
+	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -1526,7 +1568,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 		return nil, fmt.Errorf("provision primary network endpoint: %w", err)
 	}
 	s.bundle = r.Bundle
-	s.processes[""] = &process{id: "", stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	s.processes[""] = &process{id: "", stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr,
+		stdinIdentity: stdinIdentity, stdoutIdentity: stdoutIdentity, stderrIdentity: stderrIdentity,
+		terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	if err = s.persistRecovery(); err != nil {
 		return nil, fmt.Errorf("persist recovery state: %w", err)
 	}
@@ -1846,19 +1890,41 @@ func sameProcessIOIdentity(before, after os.FileInfo) bool {
 		left.Uid == right.Uid && left.Gid == right.Gid && left.Nlink == right.Nlink && left.Ctim == right.Ctim
 }
 
-func validateProcessIOPaths(paths ...string) error {
-	for _, path := range paths {
-		if path == "" {
-			continue
-		}
-		if _, err := inspectProcessIOPath(path); err != nil {
-			return fmt.Errorf("unsafe stdio path %q: %w", path, err)
-		}
+func inspectBoundProcessIOPath(path string, stdin bool) (processIOIdentity, error) {
+	if path == "" {
+		return processIOIdentity{}, nil
 	}
-	return nil
+	info, err := inspectProcessIOPath(path)
+	if err != nil {
+		return processIOIdentity{}, err
+	}
+	value, ok := processIOIdentityFromInfo(info)
+	if !ok || !validProcessIOIdentity(path, value, stdin) {
+		if stdin {
+			return processIOIdentity{}, errors.New("stdin must be a private named pipe")
+		}
+		return processIOIdentity{}, errors.New("output must be a private named pipe or regular file")
+	}
+	return value, nil
 }
 
-func openKnownProcessIOPath(ctx context.Context, path string, flags int, expected os.FileInfo) (*os.File, error) {
+func inspectBoundProcessIOPaths(stdin, stdout, stderr string) (processIOIdentity, processIOIdentity, processIOIdentity, error) {
+	stdinIdentity, err := inspectBoundProcessIOPath(stdin, true)
+	if err != nil {
+		return processIOIdentity{}, processIOIdentity{}, processIOIdentity{}, fmt.Errorf("inspect stdin: %w", err)
+	}
+	stdoutIdentity, err := inspectBoundProcessIOPath(stdout, false)
+	if err != nil {
+		return processIOIdentity{}, processIOIdentity{}, processIOIdentity{}, fmt.Errorf("inspect stdout: %w", err)
+	}
+	stderrIdentity, err := inspectBoundProcessIOPath(stderr, false)
+	if err != nil {
+		return processIOIdentity{}, processIOIdentity{}, processIOIdentity{}, fmt.Errorf("inspect stderr: %w", err)
+	}
+	return stdinIdentity, stdoutIdentity, stderrIdentity, nil
+}
+
+func openKnownProcessIOPath(ctx context.Context, path string, flags int, expected processIOIdentity) (*os.File, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -1871,7 +1937,12 @@ func openKnownProcessIOPath(ctx context.Context, path string, flags int, expecte
 	}
 	file := os.NewFile(uintptr(descriptor), path)
 	opened, err := file.Stat()
-	if err != nil || !sameProcessIOIdentity(expected, opened) {
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	observed, ok := processIOIdentityFromInfo(opened)
+	if !ok || observed != expected {
 		_ = file.Close()
 		return nil, errors.New("stdio path identity changed while opening")
 	}
@@ -1882,7 +1953,7 @@ func openKnownProcessIOPath(ctx context.Context, path string, flags int, expecte
 	return file, nil
 }
 
-func openOutput(ctx context.Context, path string) (io.WriteCloser, io.Closer, error) {
+func openOutput(ctx context.Context, path string, expected processIOIdentity) (io.WriteCloser, io.Closer, error) {
 	if path == "" {
 		return nil, nil, nil
 	}
@@ -1890,17 +1961,21 @@ func openOutput(ctx context.Context, path string) (io.WriteCloser, io.Closer, er
 	if err != nil {
 		return nil, nil, err
 	}
+	observed, ok := processIOIdentityFromInfo(info)
+	if !ok || observed != expected {
+		return nil, nil, errors.New("stdio path identity changed before opening")
+	}
 	if info.Mode()&os.ModeNamedPipe == 0 {
-		f, err := openKnownProcessIOPath(ctx, path, unix.O_WRONLY|unix.O_APPEND, info)
+		f, err := openKnownProcessIOPath(ctx, path, unix.O_WRONLY|unix.O_APPEND, expected)
 		return f, nil, err
 	}
 	// O_RDWR opens synchronously and keeps a read endpoint present even when
 	// the creating client detaches before another client attaches.
-	guard, err := openKnownProcessIOPath(ctx, path, unix.O_RDWR|unix.O_NONBLOCK, info)
+	guard, err := openKnownProcessIOPath(ctx, path, unix.O_RDWR|unix.O_NONBLOCK, expected)
 	if err != nil {
 		return nil, nil, err
 	}
-	w, err := openKnownProcessIOPath(ctx, path, unix.O_WRONLY|unix.O_NONBLOCK, info)
+	w, err := openKnownProcessIOPath(ctx, path, unix.O_WRONLY|unix.O_NONBLOCK, expected)
 	if err != nil {
 		guard.Close()
 		return nil, nil, err
@@ -1911,28 +1986,19 @@ func openOutput(ctx context.Context, path string) (io.WriteCloser, io.Closer, er
 }
 
 func (s *service) openProcessIO(ctx context.Context, p *process) (err error) {
-	p.stdoutWriter, p.stdoutGuard, err = openOutput(ctx, p.stdout)
+	p.stdoutWriter, p.stdoutGuard, err = openOutput(ctx, p.stdout, p.stdoutIdentity)
 	if err != nil {
 		return fmt.Errorf("open stdout: %w", err)
 	}
 	if !p.terminal {
-		p.stderrWriter, p.stderrGuard, err = openOutput(ctx, p.stderr)
+		p.stderrWriter, p.stderrGuard, err = openOutput(ctx, p.stderr, p.stderrIdentity)
 		if err != nil {
 			closeProcessIO(p)
 			return fmt.Errorf("open stderr: %w", err)
 		}
 	}
 	if p.stdin != "" {
-		info, inspectErr := inspectProcessIOPath(p.stdin)
-		if inspectErr != nil {
-			closeProcessIO(p)
-			return fmt.Errorf("inspect stdin: %w", inspectErr)
-		}
-		if info.Mode()&os.ModeNamedPipe == 0 {
-			closeProcessIO(p)
-			return errors.New("stdin must be a named pipe")
-		}
-		p.stdinReader, err = openKnownProcessIOPath(ctx, p.stdin, unix.O_RDONLY|unix.O_NONBLOCK, info)
+		p.stdinReader, err = openKnownProcessIOPath(ctx, p.stdin, unix.O_RDONLY|unix.O_NONBLOCK, p.stdinIdentity)
 		if err != nil {
 			closeProcessIO(p)
 			return fmt.Errorf("open stdin: %w", err)
@@ -2292,7 +2358,8 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 	if !guestProcessIdentifier.MatchString(r.ExecID) {
 		return nil, errdefs.ErrInvalidArgument
 	}
-	if err := validateProcessIOPaths(r.Stdin, r.Stdout, r.Stderr); err != nil {
+	stdinIdentity, stdoutIdentity, stderrIdentity, err := inspectBoundProcessIOPaths(r.Stdin, r.Stdout, r.Stderr)
+	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
@@ -2326,7 +2393,9 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 		s.mu.Unlock()
 		return nil, errdefs.ErrAlreadyExists
 	}
-	p := &process{id: r.ExecID, stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr, terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	p := &process{id: r.ExecID, stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr,
+		stdinIdentity: stdinIdentity, stdoutIdentity: stdoutIdentity, stderrIdentity: stderrIdentity,
+		terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	s.processes[r.ExecID] = p
 	s.mu.Unlock()
 	if err = client.CallContext(ctx, "ExecProcess", map[string]any{"id": r.ExecID, "parent_id": "init", "spec": processSpec(spec)}, nil); err != nil {
