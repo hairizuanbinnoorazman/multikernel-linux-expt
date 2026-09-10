@@ -423,6 +423,17 @@ two writers in sequence, observes both exact byte strings at the guest-call
 boundary, and proves descriptor teardown terminates the pump. Live
 attach/restart revalidation remains open.
 
+Process output polling formerly converted the first agent-call error directly
+into a synthetic exit status 255, even when the child remained live and only
+the relay transport had disconnected. Output and final Wait reads now retry
+idempotently through the generation-bound relay within one 30-second overall
+budget, retaining the last acknowledged stdout/stderr offsets. Agent replies
+retain their structured error type, so an authenticated operation rejection is
+returned once rather than reconnected and replayed. Twenty race-detector
+repetitions cover transient output and Wait recovery, unchanged offsets,
+initial reconnect failure, terminal remote rejection, and deadline exhaustion;
+the cross-process live disconnect case remains open.
+
 The shim-to-`mkruntimed` client previously used the request context only for
 Unix-socket dialing; a daemon that accepted and then stopped reading or
 replying could hold the operation forever. The client now applies the earlier

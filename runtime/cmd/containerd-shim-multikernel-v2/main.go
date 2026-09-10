@@ -129,6 +129,7 @@ type service struct {
 	newRelay              relayFactory
 	relayPath             relayPathFactory
 	newRelayOwner         relayOwnerFactory
+	outputCallTimeout     time.Duration
 	netRXPackets          atomic.Uint64
 	netTXPackets          atomic.Uint64
 	netRXDrops            atomic.Uint64
@@ -2133,9 +2134,7 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 			StderrOffset uint64 `json:"stderr_offset"`
 			Status       string `json:"status"`
 		}
-		err = s.agent.Call("ReadProcessOutput", map[string]any{
-			"id": agentID, "stdout_offset": p.stdoutOffset, "stderr_offset": p.stderrOffset, "limit": uint64(4096),
-		}, &output)
+		err = s.readProcessOutput(agentID, p.stdoutOffset, p.stderrOffset, &output)
 		if err != nil {
 			break
 		}
@@ -2163,7 +2162,7 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 			time.Sleep(10 * time.Millisecond)
 		}
 		if output.Status == "STOPPED" && len(output.Stdout) == 0 && len(output.Stderr) == 0 {
-			err = s.agent.Call("WaitProcess", map[string]string{"ID": agentID}, &state)
+			err = s.callAgentWithReconnect("WaitProcess", map[string]string{"ID": agentID}, &state)
 			break
 		}
 		if len(output.Stdout) == 0 && len(output.Stderr) == 0 {
@@ -2186,6 +2185,39 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 	_ = s.persistRecovery()
 	close(p.done)
 	s.mu.Unlock()
+}
+
+func (s *service) readProcessOutput(agentID string, stdoutOffset, stderrOffset uint64, output any) error {
+	return s.callAgentWithReconnect("ReadProcessOutput", map[string]any{
+		"id": agentID, "stdout_offset": stdoutOffset, "stderr_offset": stderrOffset, "limit": uint64(4096),
+	}, output)
+}
+
+func (s *service) callAgentWithReconnect(method string, request, output any) error {
+	timeout := s.outputCallTimeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	var lastErr error
+	for {
+		if err := s.agent.CallContext(ctx, method, request, output); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		var remoteError *agent.RemoteError
+		if errors.As(lastErr, &remoteError) || s.relaySocket == "" || ctx.Err() != nil {
+			return lastErr
+		}
+		if err := s.agent.ReconnectContext(ctx, s.relaySocket); err != nil {
+			lastErr = errors.Join(lastErr, fmt.Errorf("reconnect guest output transport: %w", err))
+		}
+		if err := waitContext(ctx, 50*time.Millisecond); err != nil {
+			return errors.Join(lastErr, err)
+		}
+	}
 }
 
 // deliverOutput advances a guest offset only after the complete chunk reaches

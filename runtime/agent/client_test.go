@@ -164,6 +164,10 @@ func TestAuthenticatedReconnectPreservesSequenceAndShutdownEndsSession(t *testin
 	if err = replayed.Call("Capabilities", map[string]any{}, nil); err == nil || !strings.Contains(err.Error(), "UNAUTHENTICATED") {
 		t.Fatalf("restarted sequence error = %v", err)
 	}
+	var remoteError *RemoteError
+	if !errors.As(err, &remoteError) || remoteError.Failure.Code != "UNAUTHENTICATED" || remoteError.Failure.Retryable {
+		t.Fatalf("restarted sequence did not retain structured remote error: %#v", err)
+	}
 	_ = replayed.Close()
 
 	if err = client.Reconnect("memory"); err != nil {

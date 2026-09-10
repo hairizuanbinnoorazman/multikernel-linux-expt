@@ -9,6 +9,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
 var initialSequence = func() uint64 { return uint64(time.Now().UnixNano()) }
@@ -22,6 +24,13 @@ type Client struct {
 	sequence              uint64
 	Timeout               time.Duration
 }
+
+// RemoteError is a successfully authenticated agent reply that rejected the
+// operation. It is distinct from a transport failure and must not trigger a
+// reconnect/replay of a non-idempotent request.
+type RemoteError struct{ Failure protocol.Error }
+
+func (e *RemoteError) Error() string { return e.Failure.Code + ": " + e.Failure.Message }
 
 var dialAgent = func(ctx context.Context, network, address string) (net.Conn, error) {
 	return (&net.Dialer{}).DialContext(ctx, network, address)
@@ -148,6 +157,9 @@ func (c *Client) CallContext(ctx context.Context, method string, request, respon
 		return errors.New("agent response sequence mismatch")
 	}
 	if reply.Error != "" {
+		if reply.Failure != nil {
+			return &RemoteError{Failure: *reply.Failure}
+		}
 		return errors.New(reply.Error)
 	}
 	if response == nil || reply.Body == nil {
