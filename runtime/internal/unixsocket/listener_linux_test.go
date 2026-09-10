@@ -146,3 +146,55 @@ func TestListenerCleanupPreservesReplacement(t *testing.T) {
 		t.Fatalf("replacement path = %q, %v", data, readErr)
 	}
 }
+
+func TestCapturedPathRemovesOnlyCapturedSocket(t *testing.T) {
+	path := filepath.Join(privateTempDir(t), "relay.sock")
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if errors.Is(err, syscall.EPERM) {
+		t.Skip("sandbox forbids Unix pathname listeners")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener.SetUnlinkOnClose(false)
+	if err = os.Chmod(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := Capture(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := path + ".original"
+	if err = os.Rename(path, moved); err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement.SetUnlinkOnClose(false)
+	if err = os.Chmod(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err = owner.Remove(); err == nil {
+		t.Fatal("captured owner removed a replacement")
+	}
+	if _, err = os.Lstat(path); err != nil {
+		t.Fatalf("replacement was not preserved: %v", err)
+	}
+	if err = replacement.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(moved, path); err != nil {
+		t.Fatal(err)
+	}
+	if err = owner.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if err = listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+}

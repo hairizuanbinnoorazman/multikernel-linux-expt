@@ -576,7 +576,10 @@ normative plan is revised with an explicit rationale.
   mode; focused regular-file, directory, symlink, and missing-path tests prove
   hostile path types remain untouched. The relay helper no longer performs
   its own unchecked pre-bind or post-accept `unlink`; pathname cleanup belongs
-  solely to the validating shim. Live stale-socket replacement remains open.
+  solely to the validating shim. The shim must capture the published relay
+  socket through a held no-symlink parent descriptor before agent dialing and
+  teardown removes only that exact inode; a focused replacement test proves a
+  substituted socket is preserved. Live stale-socket replacement remains open.
   Recovery and event-journal publication is descriptor-anchored beneath
   a no-symlink, caller-owned, non-world-writable parent and uses same-directory
   `openat`/`renameat`; focused normal replacement, symlinked-parent, and unsafe

@@ -283,6 +283,10 @@ type writerFunc func([]byte) (int, error)
 
 func (f writerFunc) Write(value []byte) (int, error) { return f(value) }
 
+type relayOwnerFunc func() error
+
+func (f relayOwnerFunc) Remove() error { return f() }
+
 type inheritedFileSocket string
 
 func (path inheritedFileSocket) File() (*os.File, error) { return os.Open(string(path)) }
@@ -1988,6 +1992,7 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	network := &fakeNetworkClient{endpoint: recovery.Network, descriptorPath: descriptorPath}
 	fakeAgent := &recoveryAgentClient{finish: make(chan struct{})}
 	var daemonCalls []string
+	var relayCaptured, relayRemoved bool
 	service := &service{id: task, namespace: namespace, bundle: bundle, processes: map[string]*process{}, netClient: network,
 		publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
 		relayPath: func(uint32, string) string { return filepath.Join(bundle, "agent-relay.sock") },
@@ -2000,6 +2005,9 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 			return nil
 		}),
 		agentDial: func(_ context.Context, _ string, id, generation string, port uint32, token []byte) (agentClient, error) {
+			if !relayCaptured {
+				t.Fatal("agent dial preceded relay socket identity capture")
+			}
 			if id != sandbox.ID || generation != sandbox.Generation || port != 7200 || len(token) != 32 {
 				t.Fatalf("agent identity = id:%q generation:%q port:%d token:%d", id, generation, port, len(token))
 			}
@@ -2009,6 +2017,10 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 			command := exec.Command("/bin/sleep", "300")
 			command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 			return command
+		},
+		newRelayOwner: func(string) (relayPathOwner, error) {
+			relayCaptured = true
+			return relayOwnerFunc(func() error { relayRemoved = true; return nil }), nil
 		},
 	}
 	if err = service.recoverExisting(context.Background()); err != nil {
@@ -2043,6 +2055,9 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	}
 	if err = service.stopRelay(); err != nil {
 		t.Fatal(err)
+	}
+	if !relayRemoved {
+		t.Fatal("captured relay socket identity was not released")
 	}
 	if err = service.agent.Close(); err != nil {
 		t.Fatal(err)
