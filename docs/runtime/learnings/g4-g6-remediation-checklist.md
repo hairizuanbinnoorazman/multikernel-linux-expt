@@ -302,14 +302,16 @@ normative plan is revised with an explicit rationale.
   now shares the descriptor-anchored directory walk, private bounded read, and
   synchronized `openat`/`renameat` publication used by the storage stores; a
   post-open directory replacement is rejected without mutating the substitute.
-  mknetd and mkruntimed listener creation now share a descriptor-anchored Unix
+  mknetd, mkruntimed, and the guest mk-agent listener now share a descriptor-anchored Unix
   socket guard: the parent is opened without symlinks and must be caller-owned
   and non-writable by group/other; only an exact-mode, caller-owned,
   single-link stale socket is removed; binding resolves through the held parent
   descriptor; and shutdown unlinks only the captured socket inode. Go's
   automatic Unix-listener unlink is explicitly disabled so it cannot bypass
   the identity check. Real pathname-socket tests cover safe stale replacement,
-  live connection, normal cleanup, and hostile replacement preservation.
+  live connection, normal cleanup, and hostile replacement preservation. The
+  guest init creates a private `/run/multikernel-agent` parent instead of
+  placing the agent control socket in shared `/tmp`.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;

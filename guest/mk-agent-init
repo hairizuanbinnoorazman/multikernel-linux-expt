@@ -42,11 +42,15 @@ fi
 echo "MK_AGENT_START sandbox=$sandbox_id generation=$generation port=$port"
 mediated=
 grep -q 'mk.storage_generation=' /proc/cmdline && mediated=--mediated-root
+agent_socket_dir=/run/multikernel-agent
+agent_socket=$agent_socket_dir/control.sock
+mkdir -p "$agent_socket_dir"
+chmod 0700 "$agent_socket_dir"
 /mk-agent --sandbox-id="$sandbox_id" --generation="$generation" \
-	--token-hex="$token" --port="$port" --unix-socket=/tmp/mk-agent.sock $mediated &
+	--token-hex="$token" --port="$port" --unix-socket="$agent_socket" $mediated &
 agent_pid=$!
 while kill -0 "$agent_pid" 2>/dev/null; do
-	/mkvsock-relay client 0 "$port" /tmp/mk-agent.sock || true
+	/mkvsock-relay client 0 "$port" "$agent_socket" || true
 	kill -0 "$agent_pid" 2>/dev/null || break
 	sleep 1
 done
