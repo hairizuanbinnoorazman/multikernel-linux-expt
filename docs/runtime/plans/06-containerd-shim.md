@@ -104,6 +104,15 @@ a replacement path, same-inode metadata change, or legacy recovery record that
 cannot prove the original stream fails closed. A cancelled request cannot
 acquire a descriptor.
 
+Background output and terminal-wait reads are idempotent reconnect boundaries.
+Each operation has one 30-second budget covering the initial authenticated
+call, relay reconnect attempts, and replay with the same acknowledged output
+offsets. An authenticated structured agent rejection is terminal and is never
+replayed; only transport/protocol failures enter reconnect. Exhausting the
+single budget produces the shim's explicit failed-exit fallback instead of
+allowing the wait goroutine to live forever or inventing an exit immediately
+after one transient disconnect.
+
 Terminal resize is a durable intent. A created process retains it for Start;
 a running process records it before contacting the guest, rolls the record back
 if the guest rejects it, and reapplies the retained size while reconstructing a

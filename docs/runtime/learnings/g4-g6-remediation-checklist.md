@@ -495,7 +495,13 @@ normative plan is revised with an explicit rationale.
   cover FIFO and regular-output substitution without modifying the replacement.
   A real FIFO test covers no initial stdin peer, two sequential late writer
   attachments with exact guest-call bytes, and prompt pump termination when its
-  descriptor is torn down. These changes still need live revalidation.
+  descriptor is torn down. Output polling and final Wait now treat only
+  transport/protocol failures as reconnectable, replay their idempotent reads
+  with unchanged acknowledged offsets, and share one 30-second overall budget;
+  a structured authenticated agent rejection is terminal. Twenty
+  race-detector repetitions cover successful output/Wait reconnect, an initial
+  reconnect failure, non-replayed remote rejection, and deadline exhaustion.
+  These changes still need live revalidation.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
   teardown without leaking resources. The shared daemon client now applies

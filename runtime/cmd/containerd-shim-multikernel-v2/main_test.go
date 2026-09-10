@@ -81,6 +81,60 @@ func (f *stdinCaptureAgent) Close() error                                   { re
 func (f *stdinCaptureAgent) Reconnect(string) error                         { return nil }
 func (f *stdinCaptureAgent) ReconnectContext(context.Context, string) error { return nil }
 
+type outputReconnectAgent struct {
+	readFailures      int
+	waitFailures      int
+	reconnectFailures int
+	remoteReadFailure bool
+	readCalls         int
+	waitCalls         int
+	reconnects        int
+}
+
+func (f *outputReconnectAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *outputReconnectAgent) CallContext(ctx context.Context, method string, request, response any) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	switch method {
+	case "ReadProcessOutput":
+		f.readCalls++
+		if f.remoteReadFailure {
+			return &agent.RemoteError{Failure: protocol.Error{Code: "NOT_FOUND", Message: "managed process was not found"}}
+		}
+		if f.readCalls <= f.readFailures {
+			return errors.New("injected output disconnect")
+		}
+		values := request.(map[string]any)
+		if values["stdout_offset"] != uint64(7) || values["stderr_offset"] != uint64(9) {
+			return errors.New("output retry changed acknowledged offsets")
+		}
+		return setJSONResponse(response, map[string]any{"stdout": []byte("after-reconnect"), "stdout_offset": uint64(22), "stderr_offset": uint64(9), "status": "RUNNING"})
+	case "WaitProcess":
+		f.waitCalls++
+		if f.waitCalls <= f.waitFailures {
+			return errors.New("injected wait disconnect")
+		}
+		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 19})
+	default:
+		return fmt.Errorf("unexpected method %s", method)
+	}
+}
+func (f *outputReconnectAgent) Close() error           { return nil }
+func (f *outputReconnectAgent) Reconnect(string) error { return nil }
+func (f *outputReconnectAgent) ReconnectContext(ctx context.Context, _ string) error {
+	f.reconnects++
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if f.reconnects <= f.reconnectFailures {
+		return errors.New("injected reconnect failure")
+	}
+	return nil
+}
+
 type networkPumpAgent struct {
 	mu                sync.Mutex
 	exchanges         int
@@ -1009,6 +1063,61 @@ func TestOutputOffsetsAdvanceOnlyAfterDeliveryOrBoundedDrop(t *testing.T) {
 	advance, dropped = deliverOutput(nil, []byte("discard-by-contract"), &pressure, now, time.Second)
 	if !advance || dropped {
 		t.Fatalf("unconfigured output advanced=%v dropped=%v", advance, dropped)
+	}
+}
+
+func TestProcessOutputAndWaitRecoverTransportWithoutChangingOffsets(t *testing.T) {
+	client := &outputReconnectAgent{readFailures: 2, waitFailures: 1, reconnectFailures: 1}
+	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", outputCallTimeout: time.Second}
+	var output struct {
+		Stdout       []byte `json:"stdout"`
+		StdoutOffset uint64 `json:"stdout_offset"`
+		StderrOffset uint64 `json:"stderr_offset"`
+		Status       string `json:"status"`
+	}
+	if err := s.readProcessOutput("init", 7, 9, &output); err != nil {
+		t.Fatal(err)
+	}
+	if string(output.Stdout) != "after-reconnect" || output.StdoutOffset != 22 || output.StderrOffset != 9 || output.Status != "RUNNING" {
+		t.Fatalf("output after reconnect = %+v", output)
+	}
+	var state agent.ProcessState
+	if err := s.callAgentWithReconnect("WaitProcess", map[string]string{"ID": "init"}, &state); err != nil {
+		t.Fatal(err)
+	}
+	if state.ExitCode != 19 || client.readCalls != 3 || client.waitCalls != 2 || client.reconnects != 3 {
+		t.Fatalf("reconnect result state=%+v reads=%d waits=%d reconnects=%d", state, client.readCalls, client.waitCalls, client.reconnects)
+	}
+}
+
+func TestProcessOutputReconnectHasOneOverallDeadline(t *testing.T) {
+	client := &outputReconnectAgent{readFailures: 1000, reconnectFailures: 1000}
+	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", outputCallTimeout: 80 * time.Millisecond}
+	started := time.Now()
+	var output map[string]any
+	err := s.readProcessOutput("init", 7, 9, &output)
+	if err == nil || !strings.Contains(err.Error(), "injected output disconnect") {
+		t.Fatalf("bounded reconnect error = %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
+		t.Fatalf("bounded reconnect elapsed = %v", elapsed)
+	}
+	if client.readCalls < 2 || client.reconnects == 0 {
+		t.Fatalf("bounded reconnect attempts reads=%d reconnects=%d", client.readCalls, client.reconnects)
+	}
+}
+
+func TestProcessOutputDoesNotReplayAuthenticatedRemoteRejection(t *testing.T) {
+	client := &outputReconnectAgent{remoteReadFailure: true}
+	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", outputCallTimeout: time.Second}
+	var output map[string]any
+	err := s.readProcessOutput("init", 7, 9, &output)
+	var remoteError *agent.RemoteError
+	if !errors.As(err, &remoteError) || remoteError.Failure.Code != "NOT_FOUND" {
+		t.Fatalf("remote output error = %#v", err)
+	}
+	if client.readCalls != 1 || client.reconnects != 0 {
+		t.Fatalf("remote rejection was replayed: reads=%d reconnects=%d", client.readCalls, client.reconnects)
 	}
 }
 

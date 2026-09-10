@@ -33,10 +33,11 @@ type Envelope struct {
 	MAC        string          `json:"mac"`
 }
 type Reply struct {
-	Version  int    `json:"version"`
-	Sequence uint64 `json:"sequence"`
-	Body     any    `json:"-"`
-	Error    string `json:"-"`
+	Version  int             `json:"version"`
+	Sequence uint64          `json:"sequence"`
+	Body     any             `json:"-"`
+	Error    string          `json:"-"`
+	Failure  *protocol.Error `json:"-"`
 }
 
 func (r Reply) MarshalJSON() ([]byte, error) {
@@ -67,7 +68,8 @@ func (r *Reply) UnmarshalJSON(data []byte) error {
 	if err := protocol.StrictDecode(data, &wire); err != nil {
 		return err
 	}
-	r.Version, r.Sequence, r.Body = wire.Version, wire.Sequence, wire.Body
+	r.Version, r.Sequence, r.Body, r.Error = wire.Version, wire.Sequence, wire.Body, ""
+	r.Failure = wire.Error
 	if wire.Error != nil {
 		r.Error = wire.Error.Code + ": " + wire.Error.Message
 	}
