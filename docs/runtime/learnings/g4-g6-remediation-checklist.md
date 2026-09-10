@@ -235,6 +235,12 @@ normative plan is revised with an explicit rationale.
   proves inode exhaustion fails boundedly with no image, metadata, or staging
   residue. A separate fully allocated 63-MiB source into the minimum 64-MiB
   ext4 quota proves block exhaustion follows the same no-residue failure path.
+  Rootfs and storage ownership stores now create and walk their state
+  directories component-by-component without following symlinks, bind the
+  opened directory device/inode for the lifetime of the store, read private
+  state relative to that descriptor, and publish synchronized replacements
+  with `openat`/`renameat`. Focused post-open directory-replacement tests prove
+  a substituted pathname is rejected without receiving durable state.
   Live fault evidence remains open.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
@@ -286,7 +292,10 @@ normative plan is revised with an explicit rationale.
   an injected backend failure proves restart reconciliation completes deletion
   and removes the retained record. Runtime-owned RELEASE retains its sandbox
   generation through that phase, and a focused failure/retry test proves the
-  same process can resume teardown without an mknetd restart.
+  same process can resume teardown without an mknetd restart. The mknetd store
+  now shares the descriptor-anchored directory walk, private bounded read, and
+  synchronized `openat`/`renameat` publication used by the storage stores; a
+  post-open directory replacement is rejected without mutating the substitute.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;
