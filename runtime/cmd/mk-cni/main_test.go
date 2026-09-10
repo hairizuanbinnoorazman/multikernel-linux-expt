@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -17,10 +18,14 @@ type fakeCaller struct {
 	requests []network.Request
 	response network.Response
 	err      error
+	hook     func(network.Request)
 }
 
 func (f *fakeCaller) Call(_ context.Context, request network.Request) (network.Response, error) {
 	f.requests = append(f.requests, request)
+	if f.hook != nil {
+		f.hook(request)
+	}
 	return f.response, f.err
 }
 
@@ -87,7 +92,7 @@ func TestAddRejectsSymlinkCacheWithoutChangingTargetAndRollsBack(t *testing.T) {
 	}
 	fake := &fakeCaller{response: network.Response{Endpoint: allocated}}
 	_, err := run(context.Background(), input, environment{Command: "ADD", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}, fake)
-	if err == nil || !strings.Contains(err.Error(), "symlinks or non-directories") {
+	if err == nil || !strings.Contains(err.Error(), "CNI cache directory is unsafe") {
 		t.Fatalf("symlink cache error = %v", err)
 	}
 	info, statErr := os.Stat(target)
@@ -99,6 +104,68 @@ func TestAddRejectsSymlinkCacheWithoutChangingTargetAndRollsBack(t *testing.T) {
 	}
 	if len(fake.requests) != 2 || fake.requests[1].Method != "DEL" {
 		t.Fatalf("symlink cache rollback requests = %+v", fake.requests)
+	}
+}
+
+func TestDeleteRefusesChangedGenerationCache(t *testing.T) {
+	input := validConfig(t)
+	configuration, err := validateConfig(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := environment{Command: "DEL", ContainerID: "box", IfName: "eth0"}
+	first := cacheRecord{Version: 1, Generation: "0123456789abcdef0123456789abcdef", NetNS: "/run/netns/box"}
+	if err = writeCache(configuration, env, first); err != nil {
+		t.Fatal(err)
+	}
+	replacement := first
+	replacement.Generation = "abcdef0123456789abcdef0123456789"
+	fake := &fakeCaller{hook: func(network.Request) {
+		data, marshalErr := json.Marshal(replacement)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		if writeErr := os.WriteFile(cachePath(configuration, env), append(data, '\n'), 0600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+	}}
+	if _, err = run(context.Background(), input, env, fake); err == nil || !strings.Contains(err.Error(), "changed before deletion") {
+		t.Fatalf("changed generation deletion error = %v", err)
+	}
+	observed, err := readCache(configuration, env)
+	if err != nil || observed != replacement {
+		t.Fatalf("changed generation cache = %+v, %v", observed, err)
+	}
+}
+
+func TestDeleteRemainsAnchoredAcrossCacheDirectoryRename(t *testing.T) {
+	input := validConfig(t)
+	configuration, err := validateConfig(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := environment{Command: "DEL", ContainerID: "box", IfName: "eth0"}
+	record := cacheRecord{Version: 1, Generation: "0123456789abcdef0123456789abcdef", NetNS: "/run/netns/box"}
+	if err = writeCache(configuration, env, record); err != nil {
+		t.Fatal(err)
+	}
+	moved := configuration.CacheDir + ".moved"
+	fake := &fakeCaller{hook: func(network.Request) {
+		if renameErr := os.Rename(configuration.CacheDir, moved); renameErr != nil {
+			t.Fatal(renameErr)
+		}
+		if mkdirErr := os.Mkdir(configuration.CacheDir, 0700); mkdirErr != nil {
+			t.Fatal(mkdirErr)
+		}
+	}}
+	if _, err = run(context.Background(), input, env, fake); err != nil {
+		t.Fatal(err)
+	}
+	if _, statErr := os.Stat(filepath.Join(moved, cacheName(configuration, env))); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("cache remained in original directory inode: %v", statErr)
+	}
+	if entries, readErr := os.ReadDir(configuration.CacheDir); readErr != nil || len(entries) != 0 {
+		t.Fatalf("replacement directory was mutated: %v, %v", entries, readErr)
 	}
 }
 

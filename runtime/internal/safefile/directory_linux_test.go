@@ -103,3 +103,34 @@ func TestReadPrivateRejectsUnsafeFiles(t *testing.T) {
 		t.Fatal("oversized file was accepted")
 	}
 }
+
+func TestExclusivePublicationAndRemoval(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := OpenDirectory(base, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	created, err := directory.PublishExclusive("record", []byte("first"), 0600)
+	if err != nil || !created {
+		t.Fatalf("first publication = %v, %v", created, err)
+	}
+	created, err = directory.PublishExclusive("record", []byte("second"), 0600)
+	if err != nil || created {
+		t.Fatalf("conflicting publication = %v, %v", created, err)
+	}
+	if data, readErr := os.ReadFile(filepath.Join(base, "record")); readErr != nil || string(data) != "first" {
+		t.Fatalf("published record = %q, %v", data, readErr)
+	}
+	removed, err := directory.Remove("record")
+	if err != nil || !removed {
+		t.Fatalf("first removal = %v, %v", removed, err)
+	}
+	removed, err = directory.Remove("record")
+	if err != nil || removed {
+		t.Fatalf("idempotent removal = %v, %v", removed, err)
+	}
+}

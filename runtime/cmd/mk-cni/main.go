@@ -13,13 +13,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"syscall"
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
-	"golang.org/x/sys/unix"
 )
 
 var cniIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
@@ -98,157 +97,74 @@ type cacheRecord struct {
 }
 
 func cachePath(configuration config, env environment) string {
-	digest := sha256.Sum256([]byte(configuration.Name + "\x00" + env.ContainerID + "\x00" + env.IfName))
-	return filepath.Join(configuration.CacheDir, hex.EncodeToString(digest[:])+".json")
+	return filepath.Join(configuration.CacheDir, cacheName(configuration, env))
 }
 
-func validateCacheDirectory(path string, create bool) error {
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
-		return errors.New("CNI cache directory must be absolute and canonical")
-	}
-	if create {
-		for current := string(filepath.Separator); ; {
-			relative, err := filepath.Rel(current, path)
-			if err != nil || relative == "." {
-				break
-			}
-			component := relative
-			if separator := len(component); separator > 0 {
-				for index, value := range component {
-					if value == filepath.Separator {
-						separator = index
-						break
-					}
-				}
-				component = component[:separator]
-			}
-			current = filepath.Join(current, component)
-			info, statErr := os.Lstat(current)
-			if errors.Is(statErr, os.ErrNotExist) {
-				break
-			}
-			if statErr != nil {
-				return statErr
-			}
-			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-				return errors.New("CNI cache directory ancestry may not contain symlinks or non-directories")
-			}
-		}
-		if err := os.MkdirAll(path, 0700); err != nil {
-			return err
-		}
-	}
-	info, err := os.Lstat(path)
+func cacheName(configuration config, env environment) string {
+	digest := sha256.Sum256([]byte(configuration.Name + "\x00" + env.ContainerID + "\x00" + env.IfName))
+	return hex.EncodeToString(digest[:]) + ".json"
+}
+
+func openCacheDirectory(path string, create bool) (*safefile.Directory, error) {
+	directory, err := safefile.OpenDirectory(path, create)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("CNI cache directory is unsafe: %w", err)
 	}
-	identity, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 || identity.Uid != uint32(os.Geteuid()) {
-		return errors.New("CNI cache directory must be a private caller-owned real directory")
-	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil || resolved != path {
-		return errors.New("CNI cache directory may not contain symlinks")
-	}
-	return nil
+	return directory, nil
 }
 
 func readCache(configuration config, env environment) (cacheRecord, error) {
+	directory, err := openCacheDirectory(configuration.CacheDir, false)
+	if err != nil {
+		return cacheRecord{}, err
+	}
+	defer directory.Close()
+	return readCacheFrom(directory, configuration, env)
+}
+
+func readCacheFrom(directory *safefile.Directory, configuration config, env environment) (cacheRecord, error) {
 	var record cacheRecord
-	if err := validateCacheDirectory(configuration.CacheDir, false); err != nil {
-		return record, err
-	}
-	path := cachePath(configuration, env)
-	info, err := os.Lstat(path)
+	data, found, err := directory.ReadPrivate(cacheName(configuration, env), 4096)
 	if err != nil {
 		return record, err
 	}
-	identity, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() <= 0 || info.Size() > 4096 ||
-		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
-		return record, errors.New("CNI endpoint cache must be a private bounded regular file")
+	if !found {
+		return record, fmt.Errorf("CNI endpoint cache %s: %w", cachePath(configuration, env), os.ErrNotExist)
 	}
-	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
-		Flags: uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW), Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
-	})
-	if err != nil {
-		return record, fmt.Errorf("open CNI endpoint cache: %w", err)
-	}
-	file := os.NewFile(uintptr(descriptor), path)
-	defer file.Close()
-	opened, err := file.Stat()
-	if err != nil || !os.SameFile(info, opened) {
-		return record, errors.New("CNI endpoint cache identity changed while opening")
-	}
-	data, err := io.ReadAll(io.LimitReader(file, 4097))
-	if err != nil || len(data) > 4096 {
-		return record, errors.New("CNI endpoint cache changed or exceeded its read bound")
-	}
-	after, err := file.Stat()
-	if err != nil || !sameCacheIdentity(opened, after) {
-		return record, errors.New("CNI endpoint cache identity changed while reading")
-	}
-	if err = protocol.StrictDecode(data, &record); err != nil || record.Version != 1 || !endpointGeneration.MatchString(record.Generation) || !filepath.IsAbs(record.NetNS) {
+	if err = protocol.StrictDecode(data, &record); err != nil || record.Version != 1 || !endpointGeneration.MatchString(record.Generation) ||
+		!filepath.IsAbs(record.NetNS) || filepath.Clean(record.NetNS) != record.NetNS {
 		return record, errors.New("CNI endpoint cache is malformed")
 	}
 	return record, nil
 }
 
-func sameCacheIdentity(first, second os.FileInfo) bool {
-	a, aok := first.Sys().(*syscall.Stat_t)
-	b, bok := second.Sys().(*syscall.Stat_t)
-	return aok && bok && a.Dev == b.Dev && a.Ino == b.Ino && a.Uid == b.Uid && a.Nlink == b.Nlink &&
-		a.Mode == b.Mode && a.Size == b.Size && a.Mtim == b.Mtim && a.Ctim == b.Ctim
-}
-
 var endpointGeneration = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
-func writeCache(configuration config, env environment, record cacheRecord) (retErr error) {
-	if err := validateCacheDirectory(configuration.CacheDir, true); err != nil {
-		return err
+func writeCache(configuration config, env environment, record cacheRecord) error {
+	if record.Version != 1 || !endpointGeneration.MatchString(record.Generation) || !filepath.IsAbs(record.NetNS) || filepath.Clean(record.NetNS) != record.NetNS {
+		return errors.New("refusing to publish malformed CNI endpoint cache")
 	}
 	data, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
-	temporary, err := os.CreateTemp(configuration.CacheDir, ".endpoint.*")
+	directory, err := openCacheDirectory(configuration.CacheDir, true)
 	if err != nil {
 		return err
 	}
-	name := temporary.Name()
-	defer func() {
-		if retErr != nil {
-			_ = os.Remove(name)
-		}
-	}()
-	if err = temporary.Chmod(0600); err == nil {
-		_, err = temporary.Write(append(data, '\n'))
-	}
-	if err == nil {
-		err = temporary.Sync()
-	}
-	closeErr := temporary.Close()
+	defer directory.Close()
+	created, err := directory.PublishExclusive(cacheName(configuration, env), append(data, '\n'), 0600)
 	if err != nil {
 		return err
 	}
-	if closeErr != nil {
-		return closeErr
+	if created {
+		return nil
 	}
-	destination := cachePath(configuration, env)
-	if err = unix.Renameat2(unix.AT_FDCWD, name, unix.AT_FDCWD, destination, unix.RENAME_NOREPLACE); err != nil {
-		if !errors.Is(err, syscall.EEXIST) {
-			return err
-		}
-		existing, readErr := readCache(configuration, env)
-		if readErr != nil || existing != record {
-			return errors.New("CNI endpoint cache already owns a different generation")
-		}
-		if err = os.Remove(name); err != nil {
-			return err
-		}
-		return syncDirectory(configuration.CacheDir)
+	existing, readErr := readCacheFrom(directory, configuration, env)
+	if readErr != nil || existing != record {
+		return errors.New("CNI endpoint cache already owns a different generation")
 	}
-	return syncDirectory(configuration.CacheDir)
+	return nil
 }
 
 func readCNIInput(input io.Reader) ([]byte, error) {
@@ -262,12 +178,22 @@ func readCNIInput(input io.Reader) ([]byte, error) {
 	return data, nil
 }
 
-func syncDirectory(path string) error {
-	directory, err := os.Open(path)
-	if err != nil {
-		return err
+func deleteCacheFrom(directory *safefile.Directory, configuration config, env environment, expected *cacheRecord) error {
+	if directory == nil {
+		return nil
 	}
-	return errors.Join(directory.Sync(), directory.Close())
+	current, readErr := readCacheFrom(directory, configuration, env)
+	if errors.Is(readErr, os.ErrNotExist) {
+		return nil
+	}
+	if readErr != nil {
+		return readErr
+	}
+	if expected == nil || current != *expected {
+		return errors.New("CNI endpoint cache changed before deletion")
+	}
+	_, err := directory.Remove(cacheName(configuration, env))
+	return err
 }
 
 func validateAllocatedEndpoint(requested, allocated *network.Endpoint) error {
@@ -335,9 +261,18 @@ func run(ctx context.Context, input []byte, env environment, client caller) (any
 		return nil, err
 	}
 	endpoint := &network.Endpoint{ContainerID: env.ContainerID, NetworkName: configuration.Name, IfName: env.IfName, NetNS: env.NetNS}
+	var cached *cacheRecord
+	var cacheDirectory *safefile.Directory
 	if env.Command == "CHECK" || env.Command == "DEL" {
-		record, cacheErr := readCache(configuration, env)
+		cacheDirectory, err = openCacheDirectory(configuration.CacheDir, false)
+		var record cacheRecord
+		cacheErr := err
 		if cacheErr == nil {
+			defer cacheDirectory.Close()
+			record, cacheErr = readCacheFrom(cacheDirectory, configuration, env)
+		}
+		if cacheErr == nil {
+			cached = &record
 			endpoint.Generation = record.Generation
 			if endpoint.NetNS == "" {
 				endpoint.NetNS = record.NetNS
@@ -351,13 +286,8 @@ func run(ctx context.Context, input []byte, env environment, client caller) (any
 		return nil, err
 	}
 	if env.Command == "DEL" {
-		if err = os.Remove(cachePath(configuration, env)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err = deleteCacheFrom(cacheDirectory, configuration, env, cached); err != nil {
 			return nil, err
-		}
-		if err == nil {
-			if err = syncDirectory(configuration.CacheDir); err != nil {
-				return nil, err
-			}
 		}
 		return nil, nil
 	}

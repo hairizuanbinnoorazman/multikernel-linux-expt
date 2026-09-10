@@ -534,10 +534,13 @@ counters, an exchange disconnect accounts the in-flight loss, and two injected
 reconnect failures are retried before subsequent traffic is accepted.
 
 The CNI binary no longer truncates stdin at one MiB and then attempts to parse
-the valid prefix; oversize is explicit failure. Cache directory creation checks
-existing ancestry before `MkdirAll`, and generation publication uses
-`RENAME_NOREPLACE`: exact replay is idempotent, while a different generation
-cannot replace the durable ownership record.
+the valid prefix; oversize is explicit failure. Cache directory creation now
+walks and creates components relative to no-follow parent descriptors, and
+private bounded reads, `RENAME_NOREPLACE` publication, and deletion remain
+relative to the verified final descriptor. Exact replay is idempotent, a
+different generation cannot replace the durable ownership record, and DEL
+keeps the descriptor across its daemon request so it refuses an in-flight
+generation change without removing the substituted record.
 
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a
