@@ -21,6 +21,13 @@ type Caller interface {
 	Call(context.Context, protocol.Request, any) *protocol.Error
 }
 
+type responseEnvelope struct {
+	Version   int             `json:"version"`
+	RequestID string          `json:"request_id"`
+	Body      json.RawMessage `json:"body,omitempty"`
+	Error     *protocol.Error `json:"error,omitempty"`
+}
+
 func (c Client) Call(ctx context.Context, request protocol.Request, body any) *protocol.Error {
 	if err := ctx.Err(); err != nil {
 		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
@@ -68,12 +75,15 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 	if unix, ok := conn.(*net.UnixConn); ok {
 		_ = unix.CloseWrite()
 	}
-	data, err := io.ReadAll(io.LimitReader(conn, 1<<20))
+	data, err := io.ReadAll(io.LimitReader(conn, (1<<20)+1))
 	if err != nil {
 		err = daemonRequestIOError(ctx, err, requestedDeadline, hasRequestedDeadline)
 		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
 	}
-	var response protocol.Response
+	if len(data) > 1<<20 {
+		return &protocol.Error{Code: "INTERNAL", Message: "daemon response exceeds the one-MiB limit"}
+	}
+	var response responseEnvelope
 	if err = protocol.StrictDecode(data, &response); err != nil {
 		return &protocol.Error{Code: "INTERNAL", Message: err.Error()}
 	}
@@ -84,8 +94,10 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 		return response.Error
 	}
 	if body != nil {
-		encoded, _ := json.Marshal(response.Body)
-		if err = json.Unmarshal(encoded, body); err != nil {
+		if len(response.Body) == 0 {
+			return &protocol.Error{Code: "INTERNAL", Message: "daemon response omitted its body"}
+		}
+		if err = protocol.StrictDecode(response.Body, body); err != nil {
 			return &protocol.Error{Code: "INTERNAL", Message: err.Error()}
 		}
 	}

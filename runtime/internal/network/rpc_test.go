@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net"
@@ -24,6 +25,25 @@ func TestRPCBindsResponseAndRejectsDuplicateJSON(t *testing.T) {
 	response, err := client.Call(context.Background(), request)
 	if err != nil || response.Endpoint == nil || response.Endpoint.Generation == "" {
 		t.Fatalf("RPC response=%+v error=%v", response, err)
+	}
+}
+
+func TestClientRejectsOversizedValidResponsePrefix(t *testing.T) {
+	clientConnection, serverConnection := net.Pipe()
+	defer serverConnection.Close()
+	client := Client{Path: "memory", dial: func(context.Context, string, string) (net.Conn, error) {
+		return clientConnection, nil
+	}}
+	go func() {
+		buffer := make([]byte, 4096)
+		_, _ = serverConnection.Read(buffer)
+		prefix := []byte(`{"version":1,"request_id":"request"}`)
+		_, _ = serverConnection.Write(append(prefix, bytes.Repeat([]byte(" "), (1<<20)+1)...))
+		_ = serverConnection.Close()
+	}()
+	_, err := client.Call(context.Background(), Request{Version: 1, RequestID: "request", Method: "CHECK"})
+	if err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("oversized response error = %v", err)
 	}
 }
 

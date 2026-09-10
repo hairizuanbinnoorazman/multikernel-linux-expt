@@ -471,8 +471,12 @@ normative plan is revised with an explicit rationale.
   and read, and cancellation actively interrupts an already-connected socket.
   Focused tests cover pre-dial cancellation, blocked request writes, blocked
   response reads, the default timeout, and a successful round trip. Auditing
-  also rejects unknown/duplicate response fields and mismatched response
-  versions or request IDs. Fault-injecting every remaining boundary is still
+  also rejects unknown/duplicate envelope and typed-body fields, mismatched
+  response versions or request IDs, missing typed bodies, and a valid response
+  prefix followed by data beyond the complete one-MiB bound. The mknetd client
+  applies the same exact overflow rejection; ATTACH additionally requires a
+  complete newline-terminated descriptor response and rejects truncation.
+  Fault-injecting every remaining boundary is still
   open. Rootfs builder execution now has bounded capture, a finite default,
   caller cancellation, and descendant process-group termination as described
   under G4. Rootfs Prepare/Cleanup/Reconcile reject pre-cancelled calls before
