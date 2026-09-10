@@ -548,14 +548,16 @@ generation change without removing the substituted record.
 CHECK also validates mknetd's complete returned endpoint identity and no longer
 accepts an empty or mismatched successful response.
 
-The mknetd and mkruntimed listeners formerly inspected and removed stale Unix
+The mknetd, mkruntimed, and mk-agent listeners formerly inspected and removed stale Unix
 socket paths, then bound and chmodded by pathname; mkruntimed also ignored a
 stale removal failure, and mknetd's outer cleanup could unlink a replacement.
 A shared listener guard now opens the parent without following symlinks,
 requires caller ownership and safe parent mode, removes only a caller-owned
 single-link stale socket with the exact service mode, binds through the held
 directory descriptor, and captures the published inode. Cleanup removes only
-that inode. Real pathname-socket tests also exposed that Go listeners unlink
+that inode. Guest init places the agent control socket beneath a private
+`/run/multikernel-agent` directory instead of shared `/tmp`. Real
+pathname-socket tests also exposed that Go listeners unlink
 their configured path automatically on Close, so `SetUnlinkOnClose(false)` is
 mandatory for the identity guard to be meaningful. Focused unsandboxed tests
 exercise connection, stale replacement, normal cleanup, and preservation of a

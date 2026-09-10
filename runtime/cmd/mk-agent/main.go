@@ -6,13 +6,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"golang.org/x/sys/unix"
 )
 
@@ -60,14 +60,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "--unix-socket is required; direct Go AF_VSOCK is prohibited")
 		os.Exit(2)
 	}
-	os.Remove(unixSocket)
-	listener, listenErr := net.Listen("unix", unixSocket)
+	listener, listenErr := unixsocket.Listen(unixSocket, 0600)
 	if listenErr != nil {
 		fmt.Fprintln(os.Stderr, listenErr)
 		os.Exit(1)
 	}
-	defer listener.Close()
 	e = s.Serve(ctx, listener)
+	e = errors.Join(e, listener.Close())
 	if errors.Is(e, agent.ErrShutdownRequested) {
 		syscall.Sync()
 		if e = unix.Reboot(unix.LINUX_REBOOT_CMD_POWER_OFF); e != nil {
