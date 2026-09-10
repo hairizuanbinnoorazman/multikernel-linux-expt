@@ -1651,6 +1651,40 @@ func TestEventJournalPreservesOrderAndReplaysAfterFailure(t *testing.T) {
 	}
 }
 
+func TestEventJournalRefusesReplacedPathForWriteAndAcknowledgement(t *testing.T) {
+	publisher := &fakePublisher{failures: 1}
+	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err := s.publish(t.Context(), ctruntime.TaskCreateEventTopic,
+		&eventstypes.TaskCreate{ContainerID: "task"}); err != nil {
+		t.Fatal(err)
+	}
+	path := s.eventJournalPath()
+	if err := os.Rename(path, path+".owned"); err != nil {
+		t.Fatal(err)
+	}
+	replacement := []byte("caller replacement")
+	if err := os.WriteFile(path, replacement, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.publish(t.Context(), ctruntime.TaskStartEventTopic,
+		&eventstypes.TaskStart{ContainerID: "task", Pid: 7}); err == nil {
+		t.Fatal("event journal write replaced an unowned inode")
+	}
+	if len(s.events.Pending) != 1 || s.events.NextSequence != 2 {
+		t.Fatalf("failed replacement write changed event ownership: %+v", s.events)
+	}
+	if err := s.flushEvents(t.Context()); err == nil {
+		t.Fatal("event acknowledgement removed an unowned inode")
+	}
+	if len(s.events.Pending) != 1 || len(publisher.topics) != 1 {
+		t.Fatalf("failed acknowledgement lost replay state: pending=%+v topics=%v", s.events.Pending, publisher.topics)
+	}
+	if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, replacement) {
+		t.Fatalf("replacement journal changed: %q, %v", data, err)
+	}
+}
+
 func TestEventJournalLockWaitHonorsCancellationWithoutMutation(t *testing.T) {
 	s := &service{id: "task", namespace: "default", bundle: t.TempDir(), publisher: &fakePublisher{},
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}

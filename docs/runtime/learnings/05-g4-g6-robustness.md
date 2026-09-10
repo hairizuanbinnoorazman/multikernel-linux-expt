@@ -611,7 +611,12 @@ during atomic publication. The shared writer validates and opens a canonical,
 caller-owned, non-world-writable parent through `openat2`, creates the private
 temporary file relative to that descriptor, and publishes with same-directory
 `renameat` plus directory sync. Focused replacement, symlinked-parent, and
-unsafe-parent-mode tests prove state cannot be redirected.
+unsafe-parent-mode tests prove state cannot be redirected. Event-journal
+ownership now also tracks the exact inode loaded or created by the shim. Every
+subsequent rewrite verifies that inode before replacement, and final
+acknowledgement unlinks relative to the held parent only when the identity still
+matches. A substituted journal is preserved and the published event is put
+back at the front of the in-memory queue for at-least-once replay.
 
 Rootfs recovery records now bind both the original containerd bundle and the
 configured storage root to their device, inode, and owner. A same-owner

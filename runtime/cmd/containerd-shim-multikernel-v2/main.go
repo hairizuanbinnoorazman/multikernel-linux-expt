@@ -95,6 +95,14 @@ type relayPathFactory func(uint32, string) string
 type relayPathOwner interface{ Remove() error }
 type relayOwnerFactory func(string) (relayPathOwner, error)
 
+type stateFileIdentity struct {
+	device uint64
+	inode  uint64
+	uid    uint32
+	mode   uint32
+	links  uint64
+}
+
 type service struct {
 	mu                    sync.Mutex
 	eventMu               sync.Mutex
@@ -125,6 +133,7 @@ type service struct {
 	netErrors             atomic.Uint64
 	processes             map[string]*process
 	events                eventJournal
+	eventJournalIdentity  *stateFileIdentity
 	eventRetryCancel      context.CancelFunc
 	eventRetryDone        chan struct{}
 	shuttingDown          bool
@@ -750,7 +759,63 @@ func openStateDirectory(directory string) (*os.File, error) {
 	return dir, nil
 }
 
+func stateIdentity(info os.FileInfo) (stateFileIdentity, bool) {
+	value, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return stateFileIdentity{}, false
+	}
+	return stateFileIdentity{device: uint64(value.Dev), inode: value.Ino, uid: value.Uid,
+		mode: value.Mode, links: value.Nlink}, true
+}
+
+func inspectStateFileAt(dir *os.File, base string, mode os.FileMode) (stateFileIdentity, bool, error) {
+	var stat unix.Stat_t
+	err := unix.Fstatat(int(dir.Fd()), base, &stat, unix.AT_SYMLINK_NOFOLLOW)
+	if errors.Is(err, syscall.ENOENT) {
+		return stateFileIdentity{}, false, nil
+	}
+	if err != nil {
+		return stateFileIdentity{}, false, err
+	}
+	identity := stateFileIdentity{device: uint64(stat.Dev), inode: stat.Ino, uid: stat.Uid,
+		mode: stat.Mode, links: stat.Nlink}
+	if stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Uid != uint32(os.Geteuid()) || stat.Nlink != 1 ||
+		os.FileMode(stat.Mode).Perm() != mode.Perm() {
+		return stateFileIdentity{}, true, errors.New("state file must be a private caller-owned single-link regular file")
+	}
+	return identity, true, nil
+}
+
+func removeStateFile(path string, expected *stateFileIdentity, mode os.FileMode) (retErr error) {
+	dir, err := openStateDirectory(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	defer func() { retErr = errors.Join(retErr, dir.Close()) }()
+	current, found, err := inspectStateFileAt(dir, filepath.Base(path), mode)
+	if err != nil {
+		return err
+	}
+	if !found {
+		if expected != nil {
+			return errors.New("owned state file disappeared before removal")
+		}
+		return nil
+	}
+	if expected == nil || current != *expected {
+		return errors.New("refusing to remove replaced or unowned state file")
+	}
+	if err = unix.Unlinkat(int(dir.Fd()), filepath.Base(path), 0); err != nil {
+		return err
+	}
+	return dir.Sync()
+}
+
 func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) {
+	return atomicWriteFileOwned(path, data, mode, nil, nil)
+}
+
+func atomicWriteFileOwned(path string, data []byte, mode os.FileMode, expected, published *stateFileIdentity) (retErr error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path || mode.Perm()&0077 != 0 {
 		return errors.New("atomic state path and mode must be canonical, absolute, and private")
 	}
@@ -761,6 +826,13 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) 
 	}
 	defer func() { retErr = errors.Join(retErr, dir.Close()) }()
 	base := filepath.Base(path)
+	current, found, err := inspectStateFileAt(dir, base, mode)
+	if err != nil {
+		return err
+	}
+	if published != nil && (expected == nil && found || expected != nil && (!found || current != *expected)) {
+		return errors.New("refusing to replace an unowned or changed state file")
+	}
 	var temporary *os.File
 	var temporaryName string
 	for attempt := 0; attempt < 16; attempt++ {
@@ -799,6 +871,18 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) 
 	if err == nil {
 		err = temporary.Sync()
 	}
+	var temporaryIdentity stateFileIdentity
+	if err == nil {
+		var info os.FileInfo
+		info, err = temporary.Stat()
+		var ok bool
+		if err == nil {
+			temporaryIdentity, ok = stateIdentity(info)
+			if !ok {
+				err = errors.New("temporary state identity is unavailable")
+			}
+		}
+	}
 	closeErr := temporary.Close()
 	if err != nil {
 		return err
@@ -811,6 +895,9 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) (retErr error) 
 	}
 	renamed = true
 	err = dir.Sync()
+	if err == nil && published != nil {
+		*published = temporaryIdentity
+	}
 	return err
 }
 

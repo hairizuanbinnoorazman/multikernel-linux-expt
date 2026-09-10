@@ -589,7 +589,11 @@ normative plan is revised with an explicit rationale.
   Recovery and event-journal publication is descriptor-anchored beneath
   a no-symlink, caller-owned, non-world-writable parent and uses same-directory
   `openat`/`renameat`; focused normal replacement, symlinked-parent, and unsafe
-  parent-mode tests prove publication cannot be redirected; an empty
+  parent-mode tests prove publication cannot be redirected. The event journal
+  additionally retains the exact loaded or newly published inode and refuses
+  both a later atomic rewrite and final acknowledgement unlink if the name was
+  replaced; the pending event remains available for at-least-once replay and a
+  focused test proves the substitute bytes are untouched. An empty
   symlinked-parent test separately proves token creation cannot be redirected.
 - [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
