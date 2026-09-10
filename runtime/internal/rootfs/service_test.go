@@ -96,6 +96,48 @@ func TestPrepareJournalsBuildUnmountAndReplays(t *testing.T) {
 	}
 }
 
+func TestCleanupRejectsWholeRootReplacementBeforeBackendMutation(t *testing.T) {
+	for _, replace := range []string{"bundle", "storage"} {
+		t.Run(replace, func(t *testing.T) {
+			service, backend, request, base := rootfsFixture(t)
+			result, err := service.Prepare(t.Context(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			backend.calls = nil
+			target := request.Bundle
+			if replace == "storage" {
+				target = filepath.Join(base, "storage")
+			}
+			moved := target + ".original"
+			if err = os.Rename(target, moved); err != nil {
+				t.Fatal(err)
+			}
+			if err = os.Mkdir(target, 0700); err != nil {
+				t.Fatal(err)
+			}
+			marker := filepath.Join(target, "replacement-marker")
+			if err = os.WriteFile(marker, []byte("preserve"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			err = service.Cleanup(t.Context(), CleanupRequest{Version: Version, Bundle: request.Bundle,
+				TaskIdentity: request.TaskIdentity, StorageSHA256: result.Storage.SHA256})
+			if err == nil || !strings.Contains(err.Error(), "identity") {
+				t.Fatalf("replacement cleanup error = %v", err)
+			}
+			if len(backend.calls) != 0 {
+				t.Fatalf("backend mutated after root replacement: %v", backend.calls)
+			}
+			if data, readErr := os.ReadFile(marker); readErr != nil || string(data) != "preserve" {
+				t.Fatalf("replacement was modified: %q, %v", data, readErr)
+			}
+			if _, ok := service.store.Get(request.TaskIdentity); !ok {
+				t.Fatal("replacement failure discarded durable cleanup ownership")
+			}
+		})
+	}
+}
+
 func TestValidateMountsRejectsHostileInputBeforeBackendUse(t *testing.T) {
 	snapshot := t.TempDir()
 	valid := []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=" + snapshot, "nodev"}}}
