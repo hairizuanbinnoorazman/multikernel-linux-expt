@@ -179,7 +179,10 @@ func TestCheckAndDeleteProduceNoResultAndDeleteAllowsEmptyNetNS(t *testing.T) {
 	if err = writeCache(configuration, env, cacheRecord{Version: 1, Generation: "0123456789abcdef0123456789abcdef", NetNS: env.NetNS}); err != nil {
 		t.Fatal(err)
 	}
-	fake := &fakeCaller{}
+	fake := &fakeCaller{response: network.Response{Endpoint: &network.Endpoint{
+		ContainerID: "box", NetworkName: "multikernel", IfName: "eth0", NetNS: "/run/netns/box", Owner: "cni",
+		Generation: "0123456789abcdef0123456789abcdef", Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400, State: "READY",
+	}}}
 	for _, test := range []environment{
 		{Command: "CHECK", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"},
 		{Command: "DEL", ContainerID: "box", IfName: "eth0"},
@@ -191,6 +194,36 @@ func TestCheckAndDeleteProduceNoResultAndDeleteAllowsEmptyNetNS(t *testing.T) {
 	}
 	if len(fake.requests) != 2 || fake.requests[0].Endpoint.Generation == "" || fake.requests[1].Endpoint.NetNS != "/run/netns/box" {
 		t.Fatalf("cached requests = %+v", fake.requests)
+	}
+}
+
+func TestCheckRejectsMissingOrMismatchedResponse(t *testing.T) {
+	input := validConfig(t)
+	configuration, err := validateConfig(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := environment{Command: "CHECK", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}
+	record := cacheRecord{Version: 1, Generation: "0123456789abcdef0123456789abcdef", NetNS: env.NetNS}
+	if err = writeCache(configuration, env, record); err != nil {
+		t.Fatal(err)
+	}
+	for name, response := range map[string]network.Response{
+		"missing": {},
+		"mismatched": {Endpoint: &network.Endpoint{
+			ContainerID: "other", NetworkName: "multikernel", IfName: "eth0", NetNS: env.NetNS, Owner: "cni",
+			Generation: record.Generation, Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400, State: "READY",
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake := &fakeCaller{response: response}
+			if _, checkErr := run(context.Background(), input, env, fake); checkErr == nil {
+				t.Fatal("unsafe CHECK response was accepted")
+			}
+			if len(fake.requests) != 1 || fake.requests[0].Method != "CHECK" {
+				t.Fatalf("CHECK requests = %+v", fake.requests)
+			}
+		})
 	}
 }
 

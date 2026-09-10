@@ -280,7 +280,10 @@ normative plan is revised with an explicit rationale.
   cache, strict input, rollback, and stale-generation rejection. It now binds
   the returned endpoint to the exact ADD identity and validates address, MTU,
   DNS, owner, generation, and state before caching; safely identifiable
-  post-ADD failures receive a bounded generation-bound DEL. Cache directory
+  post-ADD failures receive a bounded generation-bound DEL. CHECK now requires
+  mknetd to return that same complete endpoint identity and rejects a missing
+  or mismatched response rather than treating transport success as proof.
+  Cache directory
   creation, private bounded reads, exclusive publication, and deletion are now
   relative to a component-walked no-symlink directory descriptor. The
   descriptor stays open across CHECK/DEL daemon contact, and DEL refuses to

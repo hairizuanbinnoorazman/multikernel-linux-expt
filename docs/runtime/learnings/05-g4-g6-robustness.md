@@ -541,6 +541,8 @@ relative to the verified final descriptor. Exact replay is idempotent, a
 different generation cannot replace the durable ownership record, and DEL
 keeps the descriptor across its daemon request so it refuses an in-flight
 generation change without removing the substituted record.
+CHECK also validates mknetd's complete returned endpoint identity and no longer
+accepts an empty or mismatched successful response.
 
 Fresh connection and reconstruction formerly unlinked the derived relay path
 without checking either its type or the removal result. They now remove only a

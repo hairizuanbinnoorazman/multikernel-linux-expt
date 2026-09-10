@@ -292,6 +292,12 @@ func run(ctx context.Context, input []byte, env environment, client caller) (any
 		return nil, nil
 	}
 	if env.Command == "CHECK" {
+		if response.Endpoint == nil {
+			return nil, errors.New("mknetd CHECK response omitted the endpoint")
+		}
+		if err = validateAllocatedEndpoint(endpoint, response.Endpoint); err != nil {
+			return nil, fmt.Errorf("validate mknetd CHECK response: %w", err)
+		}
 		return nil, nil
 	}
 	if env.Command != "ADD" || response.Endpoint == nil {
