@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +23,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -56,6 +56,7 @@ type LinuxBackend struct {
 
 	mu      sync.Mutex
 	managed map[string]*managedExport
+	runtime safefile.Identity
 }
 
 func (b *LinuxBackend) defaults() {
@@ -87,6 +88,20 @@ func (b *LinuxBackend) paths(value Export) (record, log string) {
 	return filepath.Join(b.RuntimeDir, name+".json"), filepath.Join(b.RuntimeDir, name+".log")
 }
 
+func (b *LinuxBackend) openRuntimeDirectoryLocked(create bool) (*safefile.Directory, error) {
+	directory, err := safefile.OpenDirectory(b.RuntimeDir, create)
+	if err != nil {
+		return nil, err
+	}
+	identity := directory.Identity()
+	if b.runtime != (safefile.Identity{}) && identity != b.runtime {
+		_ = directory.Close()
+		return nil, errors.New("storage runtime directory identity changed")
+	}
+	b.runtime = identity
+	return directory, nil
+}
+
 func validateBackendLease(value Export) error {
 	if !identityRE.MatchString(value.SandboxID) || !generationRE.MatchString(value.SandboxGeneration) ||
 		!generationRE.MatchString(value.ExportGeneration) {
@@ -95,69 +110,23 @@ func validateBackendLease(value Export) error {
 	return validatePrepared(value.PreparedImage)
 }
 
-func validateRuntimeDirectory(path string, create bool) error {
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
-		return errors.New("storage runtime directory must be absolute and canonical")
-	}
-	if create {
-		if err := os.MkdirAll(path, 0700); err != nil {
-			return err
-		}
-	}
-	info, err := os.Lstat(path)
-	if err != nil {
-		return err
-	}
-	identity, identityOK := info.Sys().(*syscall.Stat_t)
-	if !identityOK || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || identity.Uid != uint32(os.Geteuid()) {
-		return errors.New("storage runtime directory must be a caller-owned real directory")
-	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil || resolved != path {
-		return errors.New("storage runtime directory may not contain symlinks")
-	}
-	if info.Mode().Perm() != 0700 {
-		return errors.New("storage runtime directory must have mode 0700")
-	}
-	return nil
-}
-
-func readPrivateRuntimeFile(path string, limit int64, stable bool) ([]byte, error) {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	identity, identityOK := info.Sys().(*syscall.Stat_t)
-	if !identityOK || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > limit ||
-		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
-		return nil, errors.New("storage runtime file must be private, caller-owned, single-link, regular, and bounded")
-	}
-	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
-	if err != nil {
-		return nil, err
-	}
-	file := os.NewFile(uintptr(descriptor), path)
-	opened, err := file.Stat()
-	if err != nil || !os.SameFile(info, opened) {
-		_ = file.Close()
-		return nil, errors.New("storage runtime file identity changed while opening")
-	}
-	data, readErr := io.ReadAll(io.LimitReader(file, limit+1))
-	after, statErr := file.Stat()
-	closeErr := file.Close()
-	if err = errors.Join(readErr, statErr, closeErr); err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > limit {
-		return nil, errors.New("storage runtime file exceeds its evidence bound")
-	}
+func readPrivateRuntimeFileAt(directory *safefile.Directory, name string, limit int64, stable bool) ([]byte, error) {
 	if stable {
-		openedIdentity, openedOK := opened.Sys().(*syscall.Stat_t)
-		afterIdentity, afterOK := after.Sys().(*syscall.Stat_t)
-		if !openedOK || !afterOK || after.Size() != opened.Size() || afterIdentity.Mtim != openedIdentity.Mtim ||
-			afterIdentity.Ctim != openedIdentity.Ctim {
-			return nil, errors.New("storage runtime file changed while reading")
+		data, found, err := directory.ReadPrivate(name, limit)
+		if err != nil || !found {
+			if err == nil {
+				err = os.ErrNotExist
+			}
+			return nil, err
 		}
+		return data, nil
+	}
+	data, found, err := directory.ReadPrivateSnapshot(name, limit)
+	if err != nil || !found {
+		if err == nil {
+			err = os.ErrNotExist
+		}
+		return nil, err
 	}
 	return data, nil
 }
@@ -287,46 +256,19 @@ func processStartTime(pid int) (uint64, error) {
 	return strconv.ParseUint(fields[19], 10, 64)
 }
 
-func atomicRecord(path string, value processRecord) error {
+func atomicRecordAt(directory *safefile.Directory, name string, value processRecord) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	directory := filepath.Dir(path)
-	temporary, err := os.CreateTemp(directory, ".record.*")
+	created, err := directory.PublishExclusive(name, append(data, '\n'), 0600)
 	if err != nil {
 		return err
 	}
-	name := temporary.Name()
-	cleanup := true
-	defer func() {
-		if cleanup {
-			_ = os.Remove(name)
-		}
-	}()
-	if err = temporary.Chmod(0600); err == nil {
-		_, err = temporary.Write(append(data, '\n'))
+	if !created {
+		return errors.New("storage process record already exists")
 	}
-	if err == nil {
-		err = temporary.Sync()
-	}
-	closeErr := temporary.Close()
-	if err != nil {
-		return err
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	if err = os.Rename(name, path); err != nil {
-		return err
-	}
-	cleanup = false
-	dir, err := os.Open(directory)
-	if err != nil {
-		return err
-	}
-	err = dir.Sync()
-	return errors.Join(err, dir.Close())
+	return nil
 }
 
 func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
@@ -342,16 +284,31 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		b.mu.Unlock()
 		return err
 	}
-	if err := validateRuntimeDirectory(b.RuntimeDir, true); err != nil {
+	directory, err := b.openRuntimeDirectoryLocked(true)
+	if err != nil {
 		b.mu.Unlock()
 		return err
 	}
+	defer directory.Close()
 	recordPath, logPath := b.paths(value)
-	log, err := os.OpenFile(logPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if errors.Is(err, os.ErrExist) {
-		_ = os.Remove(logPath)
-		log, err = os.OpenFile(logPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	recordName, logName := filepath.Base(recordPath), filepath.Base(logPath)
+	if _, found, inspectErr := directory.InspectPrivate(recordName, 4096); inspectErr != nil {
+		b.mu.Unlock()
+		return inspectErr
+	} else if found {
+		b.mu.Unlock()
+		return errors.New("storage process record already exists")
 	}
+	if _, found, inspectErr := directory.InspectPrivate(logName, 1<<20); inspectErr != nil {
+		b.mu.Unlock()
+		return inspectErr
+	} else if found {
+		if _, err = directory.Remove(logName); err != nil {
+			b.mu.Unlock()
+			return err
+		}
+	}
+	log, _, err := directory.OpenAppend(logName, 1<<20, 0600)
 	if err != nil {
 		b.mu.Unlock()
 		return err
@@ -366,27 +323,32 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err = ctx.Err(); err != nil {
 		_ = log.Close()
-		_ = os.Remove(logPath)
+		_, _ = directory.Remove(logName)
 		b.mu.Unlock()
 		return err
 	}
 	if err = command.Start(); err != nil {
 		_ = log.Close()
+		_, _ = directory.Remove(logName)
 		b.mu.Unlock()
 		return err
 	}
 	startTime, err := processStartTime(command.Process.Pid)
 	if err != nil {
 		_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+		_ = command.Wait()
 		_ = log.Close()
+		_, _ = directory.Remove(logName)
 		b.mu.Unlock()
 		return err
 	}
 	record := processRecord{Version: 1, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration}
-	if err = atomicRecord(recordPath, record); err != nil {
+	if err = atomicRecordAt(directory, recordName, record); err != nil {
 		_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+		_ = command.Wait()
 		_ = log.Close()
+		_, _ = directory.Remove(logName)
 		b.mu.Unlock()
 		return err
 	}
@@ -405,8 +367,12 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	for {
 		select {
 		case err = <-done:
-			_ = os.Remove(recordPath)
-			return fmt.Errorf("storage server exited before ready: %w", err)
+			_, recordErr := directory.Remove(recordName)
+			_, logErr := directory.Remove(logName)
+			b.mu.Lock()
+			delete(b.managed, recordPath)
+			b.mu.Unlock()
+			return errors.Join(fmt.Errorf("storage server exited before ready: %w", err), recordErr, logErr)
 		case <-ctx.Done():
 			_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
 			return ctx.Err()
@@ -414,7 +380,7 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 			_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
 			return errors.New("storage server readiness timeout")
 		case <-ticker.C:
-			data, readErr := readPrivateRuntimeFile(logPath, 1<<20, false)
+			data, readErr := readPrivateRuntimeFileAt(directory, logName, 1<<20, false)
 			if readErr != nil {
 				_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
 				return fmt.Errorf("read storage readiness evidence: %w", readErr)
@@ -427,8 +393,17 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 }
 
 func readRecord(path string, expected Export) (processRecord, error) {
+	directory, err := safefile.OpenDirectory(filepath.Dir(path), false)
+	if err != nil {
+		return processRecord{}, err
+	}
+	defer directory.Close()
+	return readRecordAt(directory, filepath.Base(path), expected)
+}
+
+func readRecordAt(directory *safefile.Directory, name string, expected Export) (processRecord, error) {
 	var value processRecord
-	data, err := readPrivateRuntimeFile(path, 4096, true)
+	data, err := readPrivateRuntimeFileAt(directory, name, 4096, true)
 	if err != nil {
 		return value, err
 	}
@@ -465,19 +440,22 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 	b.mu.Lock()
 	b.defaults()
 	recordPath, logPath := b.paths(value)
+	directory, err := b.openRuntimeDirectoryLocked(false)
 	b.mu.Unlock()
-	if err := validateRuntimeDirectory(b.RuntimeDir, false); err != nil {
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return Observation{}, nil
 		}
 		return Observation{}, err
 	}
-	record, err := readRecord(recordPath, value)
+	defer directory.Close()
+	recordName, logName := filepath.Base(recordPath), filepath.Base(logPath)
+	record, err := readRecordAt(directory, recordName, value)
 	if errors.Is(err, os.ErrNotExist) {
 		// A daemon may restart after the server completed its graceful close but
 		// before the QUIESCING lease was finalized. The generation-specific log
 		// is the durable counter record for that exact export.
-		counters, counterErr := parseCounters(logPath, value)
+		counters, counterErr := parseCountersAt(directory, logName, value)
 		if counterErr == nil {
 			return Observation{Closed: true, Counters: counters}, nil
 		}
@@ -487,7 +465,9 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 		return Observation{}, err
 	}
 	if !processMatches(record, b.Binary) {
-		_ = os.Remove(recordPath)
+		if _, err = directory.Remove(recordName); err != nil {
+			return Observation{}, err
+		}
 		return Observation{}, nil
 	}
 	return Observation{Active: true, Generation: record.ExportGeneration}, nil
@@ -507,7 +487,16 @@ func waitForProcess(ctx context.Context, done <-chan error, timeout time.Duratio
 }
 
 func parseCounters(logPath string, value Export) (Counters, error) {
-	data, err := readPrivateRuntimeFile(logPath, 1<<20, true)
+	directory, err := safefile.OpenDirectory(filepath.Dir(logPath), false)
+	if err != nil {
+		return Counters{}, err
+	}
+	defer directory.Close()
+	return parseCountersAt(directory, filepath.Base(logPath), value)
+}
+
+func parseCountersAt(directory *safefile.Directory, name string, value Export) (Counters, error) {
+	data, err := readPrivateRuntimeFileAt(directory, name, 1<<20, true)
 	if err != nil {
 		return Counters{}, err
 	}
@@ -544,14 +533,17 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 	b.defaults()
 	recordPath, logPath := b.paths(value)
 	managed := b.managed[recordPath]
+	directory, err := b.openRuntimeDirectoryLocked(false)
 	b.mu.Unlock()
+	if err != nil {
+		return Counters{}, err
+	}
+	defer directory.Close()
 	if err := ctx.Err(); err != nil {
 		return Counters{}, err
 	}
-	if err := validateRuntimeDirectory(b.RuntimeDir, false); err != nil {
-		return Counters{}, err
-	}
-	record, err := readRecord(recordPath, value)
+	recordName, logName := filepath.Base(recordPath), filepath.Base(logPath)
+	record, err := readRecordAt(directory, recordName, value)
 	if err != nil {
 		return Counters{}, err
 	}
@@ -595,11 +587,11 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 			return Counters{}, errors.New("recovered storage server did not stop")
 		}
 	}
-	counters, err := parseCounters(logPath, value)
+	counters, err := parseCountersAt(directory, logName, value)
 	if err != nil {
 		return Counters{}, errors.New("storage server stopped without a complete counter record")
 	}
-	if err = os.Remove(recordPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if _, err = directory.Remove(recordName); err != nil {
 		return Counters{}, err
 	}
 	b.mu.Lock()

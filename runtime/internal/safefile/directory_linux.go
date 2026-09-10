@@ -170,6 +170,39 @@ func (d *Directory) ReadPrivate(name string, limit int64) ([]byte, bool, error) 
 	return data, true, err
 }
 
+// ReadPrivateSnapshot reads the validated prefix present when an append-only
+// private file is opened. Appends after the initial inspection are deliberately
+// excluded, while the opened descriptor prevents pathname replacement from
+// redirecting the read.
+func (d *Directory) ReadPrivateSnapshot(name string, limit int64) ([]byte, bool, error) {
+	if filepath.Base(name) != name || name == "." || limit <= 0 {
+		return nil, false, errors.New("invalid private file name or size limit")
+	}
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if errors.Is(err, syscall.ENOENT) {
+		return nil, false, nil
+	}
+	if errors.Is(err, syscall.ELOOP) {
+		return nil, false, errors.New("file must be a private regular file, not a symlink")
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	file := os.NewFile(uintptr(fd), name)
+	defer file.Close()
+	value, err := inspectPrivate(file, limit)
+	if err != nil {
+		return nil, true, err
+	}
+	data := make([]byte, value.Size)
+	if len(data) != 0 {
+		if _, err = file.ReadAt(data, 0); err != nil {
+			return nil, true, err
+		}
+	}
+	return data, true, nil
+}
+
 // InspectPrivate opens a named file relative to the directory and validates it
 // without reading its contents.
 func (d *Directory) InspectPrivate(name string, limit int64) (Identity, bool, error) {

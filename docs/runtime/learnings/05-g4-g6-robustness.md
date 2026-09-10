@@ -349,6 +349,16 @@ binds readiness and graceful-close evidence to the exact export tuple, and
 accepts counters only from the terminal canonical close line. Managed stop
 checks for an already-reaped child before revalidating PID/start-time/argv,
 then signals immediately and waits within its configured bound.
+The backend now also holds the private runtime-directory descriptor and binds
+its device and inode for its lifetime. Process-record publication is exclusive,
+and record/log inspection, readiness reads, cleanup, restart observation, and
+stop all operate relative to that descriptor. Start refuses an unsafe stale
+log or an existing record without replacing prior evidence, and failures before
+ownership publication reap the child and remove only the log created for that
+attempt. Focused race-detector tests replace the entire runtime directory,
+inject a symlink log and record collision, and fail command startup; the
+replacement and prior artifacts remain untouched and failed startup leaves no
+owned residue.
 Rootfs recovery applies the same untrusted-state rule and additionally proves
 that every recursive-cleanup target is derived from the canonical bundle or
 configured storage root. Forged paths, phase regressions, duplicate bundle or
