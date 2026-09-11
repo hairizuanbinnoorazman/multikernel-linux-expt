@@ -490,6 +490,12 @@ outlive the service. Both now derive a handler context from the accept loop and
 use the joined close callback for the listener and each connection. Focused
 blocked-peer tests and the shared active/completed callback tests pass 100
 race-detector repetitions.
+Daemon response generation now enforces the client's one-MiB limit and converts
+oversized or unencodable bodies to a bounded INTERNAL error retaining the
+request ID. Agent reply decoding now requires exactly one body or error and
+strict-decodes the caller's typed body. Unknown/duplicate fields, omitted body,
+and body-plus-error cases fail. Both adversarial groups pass 100 race-detector
+repetitions.
 
 Kerf lifecycle execution already had a nominal timeout, but retained unbounded
 `CombinedOutput`; verbose load output could also echo the guest authentication

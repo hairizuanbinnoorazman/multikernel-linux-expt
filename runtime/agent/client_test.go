@@ -5,12 +5,15 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
 type pipeListener struct {
@@ -91,6 +94,44 @@ func TestClientRejectsMismatchedReplyBinding(t *testing.T) {
 	}
 }
 
+func TestClientStrictlyRejectsMalformedTypedReplyBodies(t *testing.T) {
+	for name, responseBody := range map[string]string{
+		"unknown typed field":   `,"body":{"protocol":1,"extra":true}`,
+		"duplicate typed field": `,"body":{"protocol":1,"protocol":2}`,
+		"omitted body":          ``,
+		"body and error":        `,"body":{},"error":{"code":"INTERNAL","message":"bad","retryable":false}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			clientConnection, serverConnection := net.Pipe()
+			defer clientConnection.Close()
+			defer serverConnection.Close()
+			client := &Client{conn: clientConnection, token: []byte("01234567890123456789012345678901"), sandboxID: "box", generation: "0123456789abcdef0123456789abcdef", endpoint: 7001}
+			go func() {
+				var header [4]byte
+				if _, err := io.ReadFull(serverConnection, header[:]); err != nil {
+					return
+				}
+				request := make([]byte, binary.BigEndian.Uint32(header[:]))
+				if _, err := io.ReadFull(serverConnection, request); err != nil {
+					return
+				}
+				var envelope Envelope
+				_ = json.Unmarshal(request, &envelope)
+				response := []byte(fmt.Sprintf(`{"version":1,"sequence":%d%s}`, envelope.Sequence, responseBody))
+				binary.BigEndian.PutUint32(header[:], uint32(len(response)))
+				_ = protocol.WriteFull(serverConnection, header[:])
+				_ = protocol.WriteFull(serverConnection, response)
+			}()
+			var capabilities struct {
+				Protocol int `json:"protocol"`
+			}
+			if err := client.Call("Capabilities", map[string]any{}, &capabilities); err == nil {
+				t.Fatal("malformed agent reply succeeded")
+			}
+		})
+	}
+}
+
 func TestAgentFrameCompletesShortSuccessfulWritesInBothDirections(t *testing.T) {
 	clientConnection, serverConnection := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -102,14 +143,12 @@ func TestAgentFrameCompletesShortSuccessfulWritesInBothDirections(t *testing.T) 
 	}()
 	client := &Client{conn: &shortWriteConn{Conn: clientConnection, maximum: 2}, token: server.Token,
 		sandboxID: server.SandboxID, generation: server.Generation, endpoint: server.Endpoint}
-	var capabilities struct {
-		Protocol int `json:"protocol"`
-	}
+	var capabilities map[string]any
 	if err := client.Call("Capabilities", map[string]any{}, &capabilities); err != nil {
 		t.Fatal(err)
 	}
-	if capabilities.Protocol != 1 {
-		t.Fatalf("capabilities protocol = %d", capabilities.Protocol)
+	if capabilities["protocol"] != float64(1) {
+		t.Fatalf("capabilities protocol = %v", capabilities["protocol"])
 	}
 	cancel()
 	_ = client.Close()

@@ -14,7 +14,10 @@ handler context when the accept loop ends.
 Every request contains `version: 1`, request ID, method, and a typed body.
 Mutations also contain sandbox ID, generation when one exists, and idempotency
 key. Every response echoes version/request ID and contains either a typed body
-or one structured error. Agent envelopes additionally contain sandbox ID,
+or one structured error, never both or neither. Response envelopes and typed
+bodies reject unknown and duplicate fields. Daemon responses exceeding the
+one-MiB wire bound, or bodies that cannot be encoded, become a bounded INTERNAL
+error retaining the originating request ID. Agent envelopes additionally contain sandbox ID,
 generation, endpoint, monotonically increasing sequence, and an HMAC-SHA256
 over the canonical frame using the sandbox token. Frames over 1 MiB and
 sequence replay are rejected before body decoding.

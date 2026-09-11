@@ -119,6 +119,10 @@ reference for every completed session.
 The primary daemon applies the same rule to its listener and concurrent request
 handlers. Service cancellation or accept-loop return closes incomplete request
 sockets rather than leaving handler goroutines blocked on peer EOF.
+Daemon replies are capped at the protocol's one-MiB response bound; oversized
+or unencodable bodies become a bounded INTERNAL response with the original
+request ID. Agent reply envelopes require exactly one body or structured error,
+and expected typed bodies are strict-decoded before the caller can act on them.
 
 Terminal resize is a durable intent. A created process retains it for Start;
 a running process records it before contacting the guest, rolls the record back

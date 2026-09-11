@@ -162,12 +162,15 @@ func (c *Client) CallContext(ctx context.Context, method string, request, respon
 		}
 		return errors.New(reply.Error)
 	}
-	if response == nil || reply.Body == nil {
+	if response == nil {
 		return nil
+	}
+	if reply.Body == nil {
+		return errors.New("agent response omitted its body")
 	}
 	b, err := json.Marshal(reply.Body)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(b, response)
+	return protocol.StrictDecode(b, response)
 }

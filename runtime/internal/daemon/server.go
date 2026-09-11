@@ -24,6 +24,39 @@ type Server struct {
 	listener   net.Listener
 }
 
+func daemonFrameLimit(configured int) int {
+	if configured <= 0 || configured > 1<<20 {
+		return 1 << 20
+	}
+	return configured
+}
+
+func encodeDaemonResponse(response protocol.Response, maximum int) ([]byte, error) {
+	maximum = daemonFrameLimit(maximum)
+	encoded, err := json.Marshal(response)
+	if err == nil {
+		encoded = append(encoded, '\n')
+		if len(encoded) <= maximum {
+			return encoded, nil
+		}
+	}
+	message := "daemon response exceeds the frame limit"
+	if err != nil {
+		message = "daemon response encoding failed"
+	}
+	fallback := protocol.Response{Version: protocol.Version, RequestID: response.RequestID,
+		Error: &protocol.Error{Code: "INTERNAL", Message: message}}
+	encoded, err = json.Marshal(fallback)
+	if err != nil {
+		return nil, err
+	}
+	encoded = append(encoded, '\n')
+	if len(encoded) > maximum {
+		return nil, errors.New("daemon response frame limit cannot hold an error response")
+	}
+	return encoded, nil
+}
+
 func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 	if s.MaxFrame == 0 {
 		s.MaxFrame = 1 << 20
@@ -99,12 +132,13 @@ func (s *Server) handle(ctx context.Context, c net.Conn) {
 	defer c.Close()
 	stopCancellation := protocol.CloseOnContext(ctx, c)
 	defer stopCancellation()
-	data, e := io.ReadAll(io.LimitReader(c, int64(s.MaxFrame+1)))
+	maximum := daemonFrameLimit(s.MaxFrame)
+	data, e := io.ReadAll(io.LimitReader(c, int64(maximum+1)))
 	if e != nil {
 		return
 	}
 	resp := protocol.Response{Version: 1}
-	if len(data) > s.MaxFrame {
+	if len(data) > maximum {
 		resp.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "frame too large"}
 	} else {
 		var req protocol.Request
@@ -114,7 +148,10 @@ func (s *Server) handle(ctx context.Context, c net.Conn) {
 			resp = s.Dispatch(ctx, req)
 		}
 	}
-	json.NewEncoder(c).Encode(resp)
+	encoded, e := encodeDaemonResponse(resp, 1<<20)
+	if e == nil {
+		_ = protocol.WriteFull(c, encoded)
+	}
 }
 func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Response {
 	out := protocol.Response{Version: 1, RequestID: r.RequestID}

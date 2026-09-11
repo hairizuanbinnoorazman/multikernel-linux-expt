@@ -2192,13 +2192,16 @@ func (s *service) acknowledgeStdinClose(ctx context.Context, agentID string, p *
 func (s *service) waitProcess(agentID, execID string, p *process) {
 	var state agent.ProcessState
 	var err error
+	stdoutTruncationReported, stderrTruncationReported := false, false
 	for {
 		var output struct {
-			Stdout       []byte `json:"stdout"`
-			Stderr       []byte `json:"stderr"`
-			StdoutOffset uint64 `json:"stdout_offset"`
-			StderrOffset uint64 `json:"stderr_offset"`
-			Status       string `json:"status"`
+			Stdout          []byte `json:"stdout"`
+			Stderr          []byte `json:"stderr"`
+			StdoutOffset    uint64 `json:"stdout_offset"`
+			StderrOffset    uint64 `json:"stderr_offset"`
+			Status          string `json:"status"`
+			StdoutTruncated bool   `json:"stdout_truncated"`
+			StderrTruncated bool   `json:"stderr_truncated"`
 		}
 		err = s.readProcessOutput(agentID, p.stdoutOffset, p.stderrOffset, &output)
 		if err != nil {
@@ -2223,6 +2226,14 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		}
 		if stderrDropped {
 			fmt.Fprintf(os.Stderr, "multikernel stderr: discarded %d bytes after 30s output pressure\n", len(output.Stderr))
+		}
+		if output.StdoutTruncated && !stdoutTruncationReported {
+			fmt.Fprintln(os.Stderr, "multikernel stdout: guest retention limit discarded output before delivery")
+			stdoutTruncationReported = true
+		}
+		if output.StderrTruncated && !stderrTruncationReported {
+			fmt.Fprintln(os.Stderr, "multikernel stderr: guest retention limit discarded output before delivery")
+			stderrTruncationReported = true
 		}
 		if !stdoutAdvance || !stderrAdvance {
 			time.Sleep(10 * time.Millisecond)

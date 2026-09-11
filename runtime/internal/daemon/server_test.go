@@ -58,6 +58,33 @@ func TestDaemonHandlerCancellationClosesIncompleteRequest(t *testing.T) {
 	}
 }
 
+func TestDaemonResponseIsBoundedAndFailureRemainsRequestBound(t *testing.T) {
+	for name, body := range map[string]any{
+		"oversized":   map[string]string{"value": strings.Repeat("x", 1024)},
+		"unencodable": func() {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			encoded, err := encodeDaemonResponse(protocol.Response{Version: 1, RequestID: "bounded-response", Body: body}, 256)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(encoded) > 256 {
+				t.Fatalf("response size = %d", len(encoded))
+			}
+			var response protocol.Response
+			if err = protocol.StrictDecode(encoded, &response); err != nil {
+				t.Fatal(err)
+			}
+			if response.RequestID != "bounded-response" || response.Error == nil || response.Error.Code != "INTERNAL" {
+				t.Fatalf("bounded response = %+v", response)
+			}
+		})
+	}
+	if _, err := encodeDaemonResponse(protocol.Response{Version: 1, RequestID: "tiny", Body: map[string]string{"value": "x"}}, 8); err == nil {
+		t.Fatal("impossibly small response frame limit succeeded")
+	}
+}
+
 func TestDaemonWireRejectsInvalidRequests(t *testing.T) {
 	tests := []struct {
 		name     string
