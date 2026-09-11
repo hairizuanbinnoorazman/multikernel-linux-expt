@@ -15,6 +15,64 @@ import (
 	"time"
 )
 
+type observedCloseConn struct {
+	net.Conn
+	closed chan struct{}
+	once   sync.Once
+}
+
+func (c *observedCloseConn) Close() error {
+	c.once.Do(func() { close(c.closed) })
+	return c.Conn.Close()
+}
+
+func TestServeConnStopsCancellationCallbackAfterPeerDisconnect(t *testing.T) {
+	clientConnection, rawServerConnection := net.Pipe()
+	serverConnection := &observedCloseConn{Conn: rawServerConnection, closed: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	server := &Server{Manager: NewManager(true)}
+	served := make(chan error, 1)
+	go func() { served <- server.ServeConn(ctx, serverConnection) }()
+	if err := clientConnection.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-served:
+		if err != nil {
+			t.Fatalf("peer disconnect = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("server did not observe peer disconnect")
+	}
+	cancel()
+	select {
+	case <-serverConnection.closed:
+		t.Fatal("completed connection retained a server-cancellation callback")
+	case <-time.After(25 * time.Millisecond):
+	}
+	_ = rawServerConnection.Close()
+}
+
+func TestServeConnCancellationClosesBlockedConnection(t *testing.T) {
+	clientConnection, rawServerConnection := net.Pipe()
+	defer clientConnection.Close()
+	serverConnection := &observedCloseConn{Conn: rawServerConnection, closed: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	served := make(chan error, 1)
+	go func() { served <- (&Server{Manager: NewManager(true)}).ServeConn(ctx, serverConnection) }()
+	cancel()
+	select {
+	case <-serverConnection.closed:
+	case <-time.After(time.Second):
+		t.Fatal("server cancellation did not close blocked connection")
+	}
+	select {
+	case <-served:
+	case <-time.After(time.Second):
+		t.Fatal("server remained blocked after cancellation")
+	}
+}
+
 type memoryConn struct {
 	input  *bytes.Reader
 	output bytes.Buffer

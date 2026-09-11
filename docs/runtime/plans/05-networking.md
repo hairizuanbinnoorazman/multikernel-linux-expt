@@ -67,6 +67,9 @@ complete newline-terminated response. The server accepts only a complete
 payload and control-message send. The client marks received descriptors
 close-on-exec immediately and closes every received descriptor when payload,
 binding, error, truncation, or descriptor-count validation fails.
+Synthetic send-boundary coverage is local; the real SCM_RIGHTS success and
+rejected-payload leak tests are permission-gated and must execute without a
+skip in the privileged disposable-host run.
 
 ## Tests
 

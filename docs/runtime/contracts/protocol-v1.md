@@ -42,8 +42,8 @@ replay safe without admitting changed bytes, gaps, or reordering. If the local
 process writer accepts a prefix and returns an error, the guest retains that
 prefix position and an exact replay resumes with the unaccepted suffix; the
 acknowledged offset advances only after the complete chunk is accepted.
-Omitting the offset retains the original protocol-v1 behavior for an older controller but
-does not provide reconnect-safe replay.
+Omitting the offset retains the original protocol-v1 behavior for an older
+controller but does not provide reconnect-safe replay.
 `ExecProcess` names an existing parent process and inherits its already
 validated container root; it cannot supply an arbitrary root path. Process
 state and wait replies contain metadata only. Output is retrieved through
@@ -55,6 +55,9 @@ than blocking a child indefinitely when its controller disappears.
 An agent transport disconnect leaves managed processes and the last accepted
 sequence intact. The same authenticated controller may reconnect and continue
 with the next sequence; restarting at sequence one is rejected as replay. A
+completed connection unregisters its server-cancellation callback immediately,
+so reconnect churn cannot retain one waiter and connection reference per old
+session. Cancellation still closes and unblocks a currently active connection.
 successful quiescent `Shutdown` reply is the final reply on the session. The
 agent then syncs and invokes child poweroff; the pinned Multikernel spawn-kernel
 machine operations convert that action into a child-scoped notification and

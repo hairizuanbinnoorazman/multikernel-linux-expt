@@ -328,8 +328,9 @@ normative plan is revised with an explicit rationale.
   ATTACH descriptor receipt now marks every received right close-on-exec and
   closes it on truncated, malformed, misbound, error, or wrong-count replies;
   the server accepts only a complete payload-and-rights send. A real
-  Unix-socket/pipe test proves a rejected truncated reply leaves no hidden
-  reader descriptor.
+  Unix-socket/pipe test checks that a rejected truncated reply leaves no hidden
+  reader descriptor, but both real SCM_RIGHTS tests are skipped by the current
+  local sandbox and remain mandatory without a skip on the disposable host.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;
@@ -506,6 +507,10 @@ normative plan is revised with an explicit rationale.
   a structured authenticated agent rejection is terminal. Twenty
   race-detector repetitions cover successful output/Wait reconnect, an initial
   reconnect failure, non-replayed remote rejection, and deadline exhaustion.
+  Agent connection cancellation no longer leaves a goroutine and connection
+  reference behind after each normal disconnect. Focused tests prove active
+  cancellation still unblocks the session and completed sessions unregister
+  their callback; 100 race-detector repetitions pass.
   Stdin now uses the advertised `stdin-offset-v1` contract: recovery v2
   persists each bounded pending chunk before guest mutation, the agent accepts
   only the exact next offset, and an identical most-recent offset/length/SHA-256

@@ -398,7 +398,16 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 }
 
 func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
-	go func() { <-ctx.Done(); c.Close() }()
+	cancelDone := make(chan struct{})
+	stopCancellation := context.AfterFunc(ctx, func() {
+		_ = c.Close()
+		close(cancelDone)
+	})
+	defer func() {
+		if !stopCancellation() {
+			<-cancelDone
+		}
+	}()
 	for {
 		var header [4]byte
 		if _, e := io.ReadFull(c, header[:]); e != nil {
