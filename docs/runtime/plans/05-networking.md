@@ -62,6 +62,11 @@ default that terminates the complete command group. Combined stdout/stderr
 retention is limited to one MiB and returned failure diagnostics to 16 KiB.
 Guest DNS restoration retains cleanup ownership after failure and becomes a
 no-op after success, so repeated network close cannot remove restored state.
+`ATTACH` transfers exactly one generation-bound TUN descriptor with one
+complete newline-terminated response. The server accepts only a complete
+payload and control-message send. The client marks received descriptors
+close-on-exec immediately and closes every received descriptor when payload,
+binding, error, truncation, or descriptor-count validation fails.
 
 ## Tests
 

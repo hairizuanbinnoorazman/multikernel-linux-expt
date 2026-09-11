@@ -23,6 +23,48 @@ type Client struct {
 	dial    func(context.Context, string, string) (net.Conn, error)
 }
 
+func closeDescriptors(descriptors []int) {
+	for _, descriptor := range descriptors {
+		_ = unix.Close(descriptor)
+	}
+}
+
+func parseReceivedRights(oob []byte) ([]int, error) {
+	messages, err := unix.ParseSocketControlMessage(oob)
+	if err != nil {
+		return nil, err
+	}
+	var descriptors []int
+	for index := range messages {
+		rights, parseErr := unix.ParseUnixRights(&messages[index])
+		descriptors = append(descriptors, rights...)
+		if parseErr != nil {
+			closeDescriptors(descriptors)
+			return nil, parseErr
+		}
+	}
+	for _, descriptor := range descriptors {
+		unix.CloseOnExec(descriptor)
+	}
+	return descriptors, nil
+}
+
+type unixRightsWriter interface {
+	WriteMsgUnix([]byte, []byte, *net.UnixAddr) (int, int, error)
+}
+
+func writeUnixRights(writer unixRightsWriter, payload []byte, descriptor int) error {
+	rights := unix.UnixRights(descriptor)
+	written, rightsWritten, err := writer.WriteMsgUnix(payload, rights, nil)
+	if err != nil {
+		return err
+	}
+	if written != len(payload) || rightsWritten != len(rights) {
+		return io.ErrShortWrite
+	}
+	return nil
+}
+
 func (c Client) Attach(ctx context.Context, request Request) (Response, *os.File, error) {
 	timeout := c.Timeout
 	if timeout <= 0 {
@@ -60,7 +102,17 @@ func (c Client) Attach(ctx context.Context, request Request) (Response, *os.File
 	if err != nil {
 		return Response{}, nil, err
 	}
-	if n > 1<<20 || flags&unix.MSG_TRUNC != 0 || n == 0 || dataBuffer[n-1] != '\n' {
+	descriptors, err := parseReceivedRights(oob[:oobn])
+	if err != nil {
+		return Response{}, nil, errors.New("mknetd ATTACH returned invalid descriptor metadata")
+	}
+	retainDescriptor := false
+	defer func() {
+		if !retainDescriptor {
+			closeDescriptors(descriptors)
+		}
+	}()
+	if n > 1<<20 || flags&(unix.MSG_TRUNC|unix.MSG_CTRUNC) != 0 || n == 0 || dataBuffer[n-1] != '\n' {
 		return Response{}, nil, errors.New("mknetd ATTACH response is oversized, truncated, or unterminated")
 	}
 	n--
@@ -74,18 +126,11 @@ func (c Client) Attach(ctx context.Context, request Request) (Response, *os.File
 	if response.Error != nil {
 		return response, nil, response.Error
 	}
-	messages, err := unix.ParseSocketControlMessage(oob[:oobn])
-	if err != nil || len(messages) != 1 {
-		return response, nil, errors.New("mknetd ATTACH returned invalid descriptor metadata")
-	}
-	fds, err := unix.ParseUnixRights(&messages[0])
-	if err != nil || len(fds) != 1 {
-		for _, fd := range fds {
-			_ = unix.Close(fd)
-		}
+	if len(descriptors) != 1 {
 		return response, nil, errors.New("mknetd ATTACH returned an invalid descriptor count")
 	}
-	return response, os.NewFile(uintptr(fds[0]), "mknetd-tun"), nil
+	retainDescriptor = true
+	return response, os.NewFile(uintptr(descriptors[0]), "mknetd-tun"), nil
 }
 
 func (c Client) Call(ctx context.Context, request Request) (Response, error) {
@@ -255,7 +300,9 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		} else {
 			defer device.Close()
 			if unixConnection, ok := connection.(*net.UnixConn); ok {
-				_, _, _ = unixConnection.WriteMsgUnix(encoded, unix.UnixRights(int(device.Fd())), nil)
+				if writeUnixRights(unixConnection, encoded, int(device.Fd())) != nil {
+					return
+				}
 				return
 			}
 			response.Endpoint = nil

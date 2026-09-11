@@ -325,6 +325,11 @@ normative plan is revised with an explicit rationale.
   live connection, normal cleanup, and hostile replacement preservation. The
   guest init creates a private `/run/multikernel-agent` parent instead of
   placing the agent control socket in shared `/tmp`.
+  ATTACH descriptor receipt now marks every received right close-on-exec and
+  closes it on truncated, malformed, misbound, error, or wrong-count replies;
+  the server accepts only a complete payload-and-rights send. A real
+  Unix-socket/pipe test proves a rejected truncated reply leaves no hidden
+  reader descriptor.
 - [x] Consume the CNI-created primary namespace and endpoint rather than
   requiring Docker `--network none` plus a runtime-private static link as the
   final design. An external CNI caller can create the OCI namespace endpoint;
