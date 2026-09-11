@@ -68,6 +68,9 @@ func (r *Reply) UnmarshalJSON(data []byte) error {
 	if err := protocol.StrictDecode(data, &wire); err != nil {
 		return err
 	}
+	if (wire.Body == nil) == (wire.Error == nil) {
+		return errors.New("agent reply must contain exactly one body or error")
+	}
 	r.Version, r.Sequence, r.Body, r.Error = wire.Version, wire.Sequence, wire.Body, ""
 	r.Failure = wire.Error
 	if wire.Error != nil {

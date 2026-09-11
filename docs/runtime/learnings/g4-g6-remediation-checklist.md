@@ -599,6 +599,11 @@ normative plan is revised with an explicit rationale.
   Daemon and mknetd service return also cancel derived request handlers and
   close incomplete accepted peers; focused blocked-request tests pass 100
   race-detector repetitions.
+  Daemon replies now enforce the one-MiB client bound and replace oversized or
+  unencodable bodies with a bounded request-ID-bound INTERNAL error. Agent
+  replies require exactly one body/error and strict typed-body decoding;
+  unknown/duplicate fields, missing body, and body-plus-error all fail. The
+  adversarial response groups pass 100 race-detector repetitions.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,
