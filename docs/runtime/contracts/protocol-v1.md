@@ -3,6 +3,9 @@
 Daemon messages use length-bounded JSON over a root-owned Unix stream socket.
 Agent messages use the same envelope over Multikernel AF_VSOCK. Exactly one
 JSON object is permitted per frame; duplicate and unknown fields are rejected.
+Framing writes must either deliver the complete frame or fail. Shared write
+handling completes injected short-success writes and rejects zero progress so
+a faulty wrapped transport cannot silently truncate a request or response.
 
 Every request contains `version: 1`, request ID, method, and a typed body.
 Mutations also contain sandbox ID, generation when one exists, and idempotency

@@ -68,7 +68,7 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 	if err != nil {
 		return &protocol.Error{Code: "INVALID_ARGUMENT", Message: err.Error()}
 	}
-	if _, err = conn.Write(payload); err != nil {
+	if err = protocol.WriteFull(conn, payload); err != nil {
 		err = daemonRequestIOError(ctx, err, requestedDeadline, hasRequestedDeadline)
 		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
 	}

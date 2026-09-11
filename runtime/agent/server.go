@@ -430,10 +430,10 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 			return e
 		}
 		binary.BigEndian.PutUint32(header[:], uint32(len(b)))
-		if _, e = c.Write(header[:]); e != nil {
+		if e = protocol.WriteFull(c, header[:]); e != nil {
 			return e
 		}
-		if _, e = c.Write(b); e != nil {
+		if e = protocol.WriteFull(c, b); e != nil {
 			return e
 		}
 		if env.Method == "Shutdown" && reply.Error == "" {
