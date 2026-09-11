@@ -28,6 +28,26 @@ type bufferWriteCloser struct{ bytes.Buffer }
 
 func (*bufferWriteCloser) Close() error { return nil }
 
+type prefixErrorWriteCloser struct {
+	bytes.Buffer
+	prefix int
+	failed bool
+}
+
+func (w *prefixErrorWriteCloser) Write(data []byte) (int, error) {
+	if !w.failed {
+		w.failed = true
+		if w.prefix > len(data) {
+			w.prefix = len(data)
+		}
+		_, _ = w.Buffer.Write(data[:w.prefix])
+		return w.prefix, errors.New("injected stdin write failure")
+	}
+	return w.Buffer.Write(data)
+}
+
+func (*prefixErrorWriteCloser) Close() error { return nil }
+
 func bundle(t *testing.T, args []string, extra string) string {
 	t.Helper()
 	d := t.TempDir()
@@ -224,6 +244,42 @@ func TestStdinWriteOffsetsMakeLostReplyReplayIdempotent(t *testing.T) {
 	}
 	if input.String() != "exactly-once-next" {
 		t.Fatalf("post-exit replay duplicated stdin bytes = %q", input.String())
+	}
+}
+
+func TestStdinWriteOffsetReplayResumesAfterPartialLocalWrite(t *testing.T) {
+	input := &prefixErrorWriteCloser{prefix: 5}
+	m := NewManager(true)
+	m.processes["stdin"] = &process{stdin: input, state: ProcessState{ID: "stdin", Status: "RUNNING"}}
+	data := []byte("partial-write-replay")
+	if next, err := m.WriteAt("stdin", 0, data); err == nil || next != 0 {
+		t.Fatalf("partial WriteAt = %d, %v", next, err)
+	}
+	if input.String() != string(data[:5]) {
+		t.Fatalf("partial bytes = %q", input.String())
+	}
+	changed := append([]byte(nil), data...)
+	changed[len(changed)-1]++
+	if _, err := m.WriteAt("stdin", 0, changed); err == nil {
+		t.Fatal("changed partial replay was accepted")
+	}
+	if _, err := m.WriteAt("stdin", 1, data); err == nil {
+		t.Fatal("gapped partial replay was accepted")
+	}
+	if input.String() != string(data[:5]) {
+		t.Fatalf("rejected partial replay changed bytes = %q", input.String())
+	}
+	if next, err := m.WriteAt("stdin", 0, append([]byte(nil), data...)); err != nil || next != uint64(len(data)) {
+		t.Fatalf("exact partial replay = %d, %v", next, err)
+	}
+	if input.String() != string(data) {
+		t.Fatalf("replayed partial stdin bytes = %q", input.String())
+	}
+	if next, err := m.WriteAt("stdin", 0, data); err != nil || next != uint64(len(data)) {
+		t.Fatalf("acknowledgement replay = %d, %v", next, err)
+	}
+	if input.String() != string(data) {
+		t.Fatalf("acknowledgement replay duplicated stdin bytes = %q", input.String())
 	}
 }
 

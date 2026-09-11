@@ -505,11 +505,14 @@ normative plan is revised with an explicit rationale.
   persists each bounded pending chunk before guest mutation, the agent accepts
   only the exact next offset, and an identical most-recent offset/length/SHA-256
   replay is acknowledged without a duplicate write. The shim clears pending
-  bytes only after durably recording the returned offset. Focused agent,
+  bytes only after durably recording the returned offset. A local partial write
+  retains its accepted prefix and an exact replay resumes with only its
+  unaccepted suffix before advancing the acknowledged offset. Focused agent,
   protocol, and shim tests cover ordered writes, changed/gapped rejection,
   lost-response reconnect (including post-exit acknowledgement), publication
   failure before guest contact, acknowledgement persistence failure, bounded
-  recovery input, and offset-free v1 compatibility.
+  recovery input, partial local-write continuation, and offset-free v1
+  compatibility.
   `CloseProcessStdin` acknowledgement also reconnects within the earlier Task
   caller deadline and shared 30-second I/O bound; focused injection proves the
   requested state survives transport loss and the retry becomes acknowledged.

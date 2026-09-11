@@ -440,10 +440,13 @@ duplicate input while declining to retry silently lost the live attachment.
 The agent now advertises `stdin-offset-v1`. It accepts only the exact next byte
 offset and retains the last offset, length, and SHA-256 so an identical
 lost-response replay is acknowledged without a second write, including after
-the process exits. Recovery v2 records the shim's acknowledged offset and a
+the process exits. When a local writer accepts a prefix before returning an
+error, the agent retains that position and an exact replay resumes with only
+the unaccepted suffix. Recovery v2 records the shim's acknowledged offset and a
 bounded pending chunk before guest contact; acknowledgement clears it only in
 a second durable update. Focused tests prove ordered writes, changed/gapped
-rejection, wire-level deduplication, reconnect replay, intent-before-mutation,
+rejection, wire-level deduplication, partial-write continuation, reconnect
+replay, intent-before-mutation,
 acknowledgement-failure rollback, recovery bounds, and compatibility for an
 older offset-free controller. Twenty race-detector repetitions pass; live
 FIFO disconnect/restart evidence remains open.
