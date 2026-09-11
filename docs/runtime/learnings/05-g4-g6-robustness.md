@@ -301,6 +301,11 @@ chains. The CNI 1.0.0 adapter caches endpoint generations for stale-safe
 namespaces share the same generation-bound `mknetd` contract. The unprivileged
 shim receives an already-open TUN descriptor and requests a fresh descriptor
 after worker reconstruction without performing namespace operations. The
+descriptor receiver now parses and marks all received rights close-on-exec
+before payload validation, then closes them on every rejection path. A real
+Unix-socket/pipe test sends a descriptor beside a truncated reply and proves
+the rejected duplicate leaves no hidden pipe reader. The server also requires
+the complete response and ancillary payload to be sent together.
 packet path is negotiated-MTU bounded and
 single-flight, detects a 250 ms stalled exchange, reconnects without resetting
 the authenticated sequence, and reports monotonic packet/drop/error counters.

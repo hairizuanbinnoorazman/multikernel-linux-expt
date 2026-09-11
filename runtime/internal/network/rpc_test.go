@@ -1,8 +1,10 @@
 package network
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -10,11 +12,40 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 type shortWriteConn struct {
 	net.Conn
 	maximum int
+}
+
+type fakeRightsWriter struct {
+	payloadAdjustment int
+	rightsAdjustment  int
+	err               error
+}
+
+func (w fakeRightsWriter) WriteMsgUnix(payload, rights []byte, _ *net.UnixAddr) (int, int, error) {
+	return len(payload) + w.payloadAdjustment, len(rights) + w.rightsAdjustment, w.err
+}
+
+func TestDescriptorSendRequiresCompletePayloadAndRights(t *testing.T) {
+	for name, writer := range map[string]fakeRightsWriter{
+		"payload truncated": {payloadAdjustment: -1},
+		"rights truncated":  {rightsAdjustment: -1},
+		"transport error":   {err: errors.New("injected send failure")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := writeUnixRights(writer, []byte("response\n"), 1); err == nil {
+				t.Fatal("incomplete descriptor send succeeded")
+			}
+		})
+	}
+	if err := writeUnixRights(fakeRightsWriter{}, []byte("response\n"), 1); err != nil {
+		t.Fatalf("complete descriptor send = %v", err)
+	}
 }
 
 func (c *shortWriteConn) Write(data []byte) (int, error) {
@@ -118,5 +149,59 @@ func TestAttachPassesExactlyOneGenerationBoundDescriptor(t *testing.T) {
 	_ = descriptor.Close()
 	if readErr != nil || string(data) != "descriptor-proof" {
 		t.Fatalf("descriptor data=%q error=%v", data, readErr)
+	}
+}
+
+func TestAttachClosesReceivedDescriptorWhenPayloadIsTruncated(t *testing.T) {
+	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientFile, serverFile := os.NewFile(uintptr(fds[0]), "client"), os.NewFile(uintptr(fds[1]), "server")
+	clientConnection, err := net.FileConn(clientFile)
+	if err != nil {
+		_ = clientFile.Close()
+		_ = serverFile.Close()
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skip("sandbox forbids Unix descriptor socket inspection")
+		}
+		t.Fatal(err)
+	}
+	serverConnection, err := net.FileConn(serverFile)
+	_ = clientFile.Close()
+	_ = serverFile.Close()
+	if err != nil {
+		_ = clientConnection.Close()
+		t.Fatal(err)
+	}
+	unixServer, ok := serverConnection.(*net.UnixConn)
+	if !ok {
+		_ = clientConnection.Close()
+		_ = serverConnection.Close()
+		t.Fatal("socketpair did not produce a Unix connection")
+	}
+	readPipe, writePipe, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer writePipe.Close()
+	sent := make(chan struct{})
+	go func() {
+		defer close(sent)
+		defer unixServer.Close()
+		_, _ = bufio.NewReader(unixServer).ReadBytes('\n')
+		_, _, _ = unixServer.WriteMsgUnix([]byte("{"), unix.UnixRights(int(readPipe.Fd())), nil)
+		_ = readPipe.Close()
+	}()
+	request := Request{Version: 1, RequestID: "truncated-rights", Method: "ATTACH"}
+	_, descriptor, err := (Client{Path: "socketpair", dial: func(context.Context, string, string) (net.Conn, error) {
+		return clientConnection, nil
+	}}).Attach(context.Background(), request)
+	if err == nil || descriptor != nil || !strings.Contains(err.Error(), "truncated") {
+		t.Fatalf("truncated ATTACH descriptor=%v error=%v", descriptor, err)
+	}
+	<-sent
+	if _, writeErr := unix.Write(int(writePipe.Fd()), []byte{1}); !errors.Is(writeErr, syscall.EPIPE) {
+		t.Fatalf("received descriptor leaked after rejected payload: %v", writeErr)
 	}
 }
