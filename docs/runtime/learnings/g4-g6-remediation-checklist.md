@@ -579,6 +579,9 @@ normative plan is revised with an explicit rationale.
   Wait's post-exit state snapshot now reacquires the task lock through the
   same cancellation-aware path; a focused completed-process contention test
   proves cancellation cannot strand the waiter behind concurrent teardown.
+  Shared protocol writes complete across injected short-success transport
+  wrappers and fail on zero progress. Focused agent framing covers both
+  directions; daemon and mknetd tests cover their request/response paths.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

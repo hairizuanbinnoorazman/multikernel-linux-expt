@@ -14,6 +14,18 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
+type shortWriteConn struct {
+	net.Conn
+	maximum int
+}
+
+func (c *shortWriteConn) Write(data []byte) (int, error) {
+	if len(data) > c.maximum {
+		data = data[:c.maximum]
+	}
+	return c.Conn.Write(data)
+}
+
 func TestClientCancellationInterruptsResponseRead(t *testing.T) {
 	clientConnection, serverConnection := net.Pipe()
 	defer serverConnection.Close()
@@ -74,6 +86,32 @@ func TestClientSuccessfulRoundTrip(t *testing.T) {
 		Value string `json:"value"`
 	}
 	if issue := client.Call(context.Background(), protocol.Request{Version: 1, RequestID: "success", Method: "NodeInfo"}, &body); issue != nil {
+		t.Fatal(issue)
+	}
+	if body.Value != "ok" {
+		t.Fatalf("response value = %q", body.Value)
+	}
+}
+
+func TestClientCompletesShortSuccessfulRequestWrites(t *testing.T) {
+	clientConnection, serverConnection := net.Pipe()
+	defer serverConnection.Close()
+	client := Client{Path: "memory", dial: func(context.Context, string, string) (net.Conn, error) {
+		return &shortWriteConn{Conn: clientConnection, maximum: 3}, nil
+	}}
+	go func() {
+		var request protocol.Request
+		if err := json.NewDecoder(serverConnection).Decode(&request); err != nil {
+			return
+		}
+		encoded, _ := json.Marshal(protocol.Response{Version: 1, RequestID: request.RequestID, Body: map[string]any{"value": "ok"}})
+		_, _ = serverConnection.Write(encoded)
+		_ = serverConnection.Close()
+	}()
+	var body struct {
+		Value string `json:"value"`
+	}
+	if issue := client.Call(context.Background(), protocol.Request{Version: 1, RequestID: "short-write", Method: "NodeInfo"}, &body); issue != nil {
 		t.Fatal(issue)
 	}
 	if body.Value != "ok" {

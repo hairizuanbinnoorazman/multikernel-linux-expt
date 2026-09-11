@@ -117,13 +117,13 @@ func (c *Client) CallContext(ctx context.Context, method string, request, respon
 	}
 	var header [4]byte
 	binary.BigEndian.PutUint32(header[:], uint32(len(payload)))
-	if _, err = c.conn.Write(header[:]); err != nil {
+	if err = protocol.WriteFull(c.conn, header[:]); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
 		return err
 	}
-	if _, err = c.conn.Write(payload); err != nil {
+	if err = protocol.WriteFull(c.conn, payload); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}

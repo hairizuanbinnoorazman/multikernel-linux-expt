@@ -462,8 +462,11 @@ replying could hold the operation forever. The client now applies the earlier
 of the caller deadline and a 30-second default to the whole exchange, and a
 context callback wakes blocked socket I/O. Focused tests cover blocked writes,
 blocked reads, pre-dial cancellation, the default bound, and normal response
-decoding. Replies are strict-decoded and bound to the originating protocol
-version and request ID. Typed bodies are now strict-decoded directly rather
+decoding. Shared protocol writes also complete across injected short-success
+transport wrappers and reject zero progress; focused agent framing covers both
+directions, the daemon client covers request writes, and mknetd covers request
+and response writes. Replies are strict-decoded and bound to the originating
+protocol version and request ID. Typed bodies are now strict-decoded directly rather
 than through a permissive generic-map round trip, and complete response input
 uses a one-byte overflow sentinel so a valid one-MiB prefix cannot hide trailing
 data. The mknetd request client uses the same overflow rule; its descriptor

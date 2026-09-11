@@ -12,14 +12,26 @@ import (
 	"testing"
 )
 
+type shortWriteConn struct {
+	net.Conn
+	maximum int
+}
+
+func (c *shortWriteConn) Write(data []byte) (int, error) {
+	if len(data) > c.maximum {
+		data = data[:c.maximum]
+	}
+	return c.Conn.Write(data)
+}
+
 func TestRPCBindsResponseAndRejectsDuplicateJSON(t *testing.T) {
 	backend := &fakeBackend{}
 	service := service(t, "172.31.0.0/30", backend)
 	server := &Server{Service: service, AllowedUID: CurrentUID(), MaxFrame: 1 << 20}
 	client := Client{Path: "memory", dial: func(context.Context, string, string) (net.Conn, error) {
 		clientConnection, serverConnection := net.Pipe()
-		go server.handle(context.Background(), serverConnection)
-		return clientConnection, nil
+		go server.handle(context.Background(), &shortWriteConn{Conn: serverConnection, maximum: 3})
+		return &shortWriteConn{Conn: clientConnection, maximum: 2}, nil
 	}}
 	request := Request{Version: 1, RequestID: "add-1", Method: "ADD", Endpoint: func() *Endpoint { value := endpoint("rpc"); return &value }()}
 	response, err := client.Call(context.Background(), request)

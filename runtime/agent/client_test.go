@@ -19,6 +19,18 @@ type pipeListener struct {
 	once        sync.Once
 }
 
+type shortWriteConn struct {
+	net.Conn
+	maximum int
+}
+
+func (c *shortWriteConn) Write(data []byte) (int, error) {
+	if len(data) > c.maximum {
+		data = data[:c.maximum]
+	}
+	return c.Conn.Write(data)
+}
+
 func newPipeListener() *pipeListener {
 	return &pipeListener{connections: make(chan net.Conn), closed: make(chan struct{})}
 }
@@ -76,6 +88,35 @@ func TestClientRejectsMismatchedReplyBinding(t *testing.T) {
 				t.Fatalf("Call() error = %v, want %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestAgentFrameCompletesShortSuccessfulWritesInBothDirections(t *testing.T) {
+	clientConnection, serverConnection := net.Pipe()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001, Token: []byte("01234567890123456789012345678901")}
+	served := make(chan error, 1)
+	go func() {
+		served <- server.ServeConn(ctx, &shortWriteConn{Conn: serverConnection, maximum: 3})
+	}()
+	client := &Client{conn: &shortWriteConn{Conn: clientConnection, maximum: 2}, token: server.Token,
+		sandboxID: server.SandboxID, generation: server.Generation, endpoint: server.Endpoint}
+	var capabilities struct {
+		Protocol int `json:"protocol"`
+	}
+	if err := client.Call("Capabilities", map[string]any{}, &capabilities); err != nil {
+		t.Fatal(err)
+	}
+	if capabilities.Protocol != 1 {
+		t.Fatalf("capabilities protocol = %d", capabilities.Protocol)
+	}
+	cancel()
+	_ = client.Close()
+	select {
+	case <-served:
+	case <-time.After(time.Second):
+		t.Fatal("short-write server did not terminate")
 	}
 }
 

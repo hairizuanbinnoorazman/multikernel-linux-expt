@@ -50,7 +50,7 @@ func (c Client) Attach(ctx context.Context, request Request) (Response, *os.File
 	if err != nil {
 		return Response{}, nil, err
 	}
-	if _, err = unixConnection.Write(append(data, '\n')); err != nil {
+	if err = protocol.WriteFull(unixConnection, append(data, '\n')); err != nil {
 		return Response{}, nil, err
 	}
 	_ = unixConnection.CloseWrite()
@@ -110,7 +110,7 @@ func (c Client) Call(ctx context.Context, request Request) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
-	if _, err = connection.Write(append(data, '\n')); err != nil {
+	if err = protocol.WriteFull(connection, append(data, '\n')); err != nil {
 		return Response{}, err
 	}
 	if unixConnection, ok := connection.(*net.UnixConn); ok {
@@ -264,7 +264,7 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 			encoded = append(encoded, '\n')
 		}
 	}
-	_, _ = connection.Write(encoded)
+	_ = protocol.WriteFull(connection, encoded)
 }
 
 func CurrentUID() uint32 { return uint32(syscall.Geteuid()) }

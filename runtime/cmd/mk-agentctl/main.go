@@ -17,6 +17,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
 const agentExchangeTimeout = 30 * time.Second
@@ -36,10 +37,10 @@ func exchangePayloadWithTimeout(c net.Conn, payload []byte, timeout time.Duratio
 	var header [4]byte
 	var err error
 	binary.BigEndian.PutUint32(header[:], uint32(len(payload)))
-	if _, err = c.Write(header[:]); err != nil {
+	if err = protocol.WriteFull(c, header[:]); err != nil {
 		return agent.Reply{}, err
 	}
-	if _, err = c.Write(payload); err != nil {
+	if err = protocol.WriteFull(c, payload); err != nil {
 		return agent.Reply{}, err
 	}
 	if _, err = io.ReadFull(c, header[:]); err != nil {
@@ -264,7 +265,7 @@ func main() {
 			os.Exit(1)
 		}
 		binary.BigEndian.PutUint32(header[:], 1<<20+1)
-		if _, err = conn.Write(header[:]); err != nil {
+		if err = protocol.WriteFull(conn, header[:]); err != nil {
 			fmt.Fprintln(os.Stderr, "oversized frame write:", err)
 			os.Exit(1)
 		}
