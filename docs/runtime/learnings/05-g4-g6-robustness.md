@@ -304,8 +304,10 @@ after worker reconstruction without performing namespace operations. The
 descriptor receiver now parses and marks all received rights close-on-exec
 before payload validation, then closes them on every rejection path. A real
 Unix-socket/pipe test sends a descriptor beside a truncated reply and proves
-the rejected duplicate leaves no hidden pipe reader. The server also requires
-the complete response and ancillary payload to be sent together.
+the rejected duplicate leaves no hidden pipe reader when the host permits
+`net.FileConn`; it is skipped by the current local sandbox and therefore awaits
+disposable-host execution. The server also requires the complete response and
+ancillary payload to be sent together; its synthetic short/error matrix passes.
 packet path is negotiated-MTU bounded and
 single-flight, detects a 250 ms stalled exchange, reconnects without resetting
 the authenticated sequence, and reports monotonic packet/drop/error counters.
@@ -438,6 +440,11 @@ returned once rather than reconnected and replayed. Twenty race-detector
 repetitions cover transient output and Wait recovery, unchanged offsets,
 initial reconnect failure, terminal remote rejection, and deadline exhaustion;
 the cross-process live disconnect case remains open.
+The agent server formerly left one goroutine waiting on the server-wide context
+after every peer disconnect. Connection cancellation now uses a callback that
+is unregistered and joined on session return. Focused tests prove cancellation
+still unblocks an active read and later cancellation does not touch a completed
+session; 100 race-detector repetitions pass.
 
 Stdin previously had the complementary unsafe choice: the pump consumed FIFO
 bytes and issued an unversioned write, so retrying a lost response could

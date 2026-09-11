@@ -112,6 +112,10 @@ replayed; only transport/protocol failures enter reconnect. Exhausting the
 single budget produces the shim's explicit failed-exit fallback instead of
 allowing the wait goroutine to live forever or inventing an exit immediately
 after one transient disconnect.
+The agent removes each connection's cancellation callback when that session
+ends normally; active server cancellation still closes a blocked connection.
+Repeated relay reconnects therefore do not retain a goroutine and connection
+reference for every completed session.
 
 Terminal resize is a durable intent. A created process retains it for Start;
 a running process records it before contacting the guest, rolls the record back
