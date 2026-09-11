@@ -66,16 +66,18 @@ type stdinCaptureAgent struct{ writes chan []byte }
 func (f *stdinCaptureAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
-func (f *stdinCaptureAgent) CallContext(_ context.Context, method string, request, _ any) error {
+func (f *stdinCaptureAgent) CallContext(_ context.Context, method string, request, response any) error {
 	if method != "WriteProcess" {
 		return nil
 	}
-	value, ok := request.(map[string]any)["data"].([]byte)
+	values := request.(map[string]any)
+	value, ok := values["data"].([]byte)
 	if !ok {
 		return errors.New("stdin write has invalid data")
 	}
 	f.writes <- append([]byte(nil), value...)
-	return nil
+	offset := values["offset"].(uint64) + uint64(len(value))
+	return setJSONResponse(response, map[string]uint64{"offset": offset})
 }
 func (f *stdinCaptureAgent) Close() error                                   { return nil }
 func (f *stdinCaptureAgent) Reconnect(string) error                         { return nil }
@@ -84,10 +86,12 @@ func (f *stdinCaptureAgent) ReconnectContext(context.Context, string) error { re
 type outputReconnectAgent struct {
 	readFailures      int
 	waitFailures      int
+	closeFailures     int
 	reconnectFailures int
 	remoteReadFailure bool
 	readCalls         int
 	waitCalls         int
+	closeCalls        int
 	reconnects        int
 }
 
@@ -118,6 +122,12 @@ func (f *outputReconnectAgent) CallContext(ctx context.Context, method string, r
 			return errors.New("injected wait disconnect")
 		}
 		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 19})
+	case "CloseProcessStdin":
+		f.closeCalls++
+		if f.closeCalls <= f.closeFailures {
+			return errors.New("injected close disconnect")
+		}
+		return nil
 	default:
 		return fmt.Errorf("unexpected method %s", method)
 	}
@@ -132,6 +142,38 @@ func (f *outputReconnectAgent) ReconnectContext(ctx context.Context, _ string) e
 	if f.reconnects <= f.reconnectFailures {
 		return errors.New("injected reconnect failure")
 	}
+	return nil
+}
+
+type stdinReplayAgent struct {
+	calls      int
+	reconnects int
+	accepted   []byte
+}
+
+func (f *stdinReplayAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *stdinReplayAgent) CallContext(_ context.Context, method string, request, response any) error {
+	if method != "WriteProcess" {
+		return fmt.Errorf("unexpected method %s", method)
+	}
+	f.calls++
+	values := request.(map[string]any)
+	offset, data := values["offset"].(uint64), values["data"].([]byte)
+	if offset != 0 || string(data) != "replay-safe" {
+		return errors.New("stdin replay changed offset or bytes")
+	}
+	if f.calls == 1 {
+		f.accepted = append(f.accepted, data...)
+		return errors.New("injected lost stdin acknowledgement")
+	}
+	return setJSONResponse(response, map[string]uint64{"offset": uint64(len(f.accepted))})
+}
+func (f *stdinReplayAgent) Close() error           { return nil }
+func (f *stdinReplayAgent) Reconnect(string) error { return nil }
+func (f *stdinReplayAgent) ReconnectContext(context.Context, string) error {
+	f.reconnects++
 	return nil
 }
 
@@ -993,6 +1035,89 @@ func TestStdinFIFOAcceptsLateAndRepeatedWriters(t *testing.T) {
 	}
 }
 
+func TestPendingStdinReplaysLostAcknowledgementExactlyOnce(t *testing.T) {
+	client := &stdinReplayAgent{}
+	p := &process{status: tasktypes.Status_RUNNING, stdinPending: []byte("replay-safe"), done: make(chan struct{})}
+	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: time.Second,
+		processes: map[string]*process{"": p}}
+	if err := s.deliverPendingStdin("init", p); err != nil {
+		t.Fatal(err)
+	}
+	if client.calls != 2 || client.reconnects != 1 || string(client.accepted) != "replay-safe" {
+		t.Fatalf("stdin replay calls=%d reconnects=%d accepted=%q", client.calls, client.reconnects, client.accepted)
+	}
+	if p.stdinOffset != uint64(len("replay-safe")) || len(p.stdinPending) != 0 {
+		t.Fatalf("stdin durable acknowledgement offset=%d pending=%q", p.stdinOffset, p.stdinPending)
+	}
+}
+
+func TestStdinIntentPersistenceFailurePrecedesGuestMutation(t *testing.T) {
+	bundle := t.TempDir()
+	path := filepath.Join(bundle, "stdin")
+	if err := syscall.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	identity, err := inspectBoundProcessIOPath(path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &process{stdin: path, stdinIdentity: identity, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	agentClient := &stdinCaptureAgent{writes: make(chan []byte, 1)}
+	s := &service{bundle: bundle, sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+		agent: agentClient, processes: map[string]*process{"": p}}
+	// Deliberately omit bundle/.multikernel so the pending-byte publication
+	// fails before WriteProcess can mutate guest stdin.
+	if err = s.openProcessIO(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	pumpDone := make(chan struct{})
+	go func() {
+		s.pumpStdin("init", p)
+		close(pumpDone)
+	}()
+	descriptor, err := unix.Open(path, unix.O_WRONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := os.NewFile(uintptr(descriptor), path)
+	if _, err = writer.WriteString("durable-first"); err != nil {
+		_ = writer.Close()
+		t.Fatal(err)
+	}
+	if err = writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-pumpDone:
+	case <-time.After(time.Second):
+		t.Fatal("stdin pump did not stop after durable intent failure")
+	}
+	select {
+	case data := <-agentClient.writes:
+		t.Fatalf("guest received stdin before durable intent: %q", data)
+	default:
+	}
+	if p.stdinOffset != 0 || string(p.stdinPending) != "durable-first" || p.stdinReader != nil {
+		t.Fatalf("failed stdin intent offset=%d pending=%q reader=%v", p.stdinOffset, p.stdinPending, p.stdinReader)
+	}
+}
+
+func TestStdinAcknowledgementPersistenceFailureRetainsReplayIdentity(t *testing.T) {
+	client := &stdinReplayAgent{}
+	p := &process{status: tasktypes.Status_RUNNING, stdinPending: []byte("replay-safe"), done: make(chan struct{})}
+	s := &service{bundle: t.TempDir(), sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+		agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: time.Second,
+		processes: map[string]*process{"": p}}
+	// Missing .multikernel makes the post-ack durable update fail. The guest may
+	// have accepted the bytes, so the exact pending tuple must remain retryable.
+	if err := s.deliverPendingStdin("init", p); err == nil || !strings.Contains(err.Error(), "persist acknowledged stdin offset") {
+		t.Fatalf("stdin acknowledgement persistence error = %v", err)
+	}
+	if p.stdinOffset != 0 || string(p.stdinPending) != "replay-safe" || string(client.accepted) != "replay-safe" {
+		t.Fatalf("failed acknowledgement offset=%d pending=%q accepted=%q", p.stdinOffset, p.stdinPending, client.accepted)
+	}
+}
+
 func TestBoundProcessIORejectsReplacementBeforeStartOrRecovery(t *testing.T) {
 	for _, output := range []bool{false, true} {
 		name := "stdin"
@@ -1068,7 +1193,7 @@ func TestOutputOffsetsAdvanceOnlyAfterDeliveryOrBoundedDrop(t *testing.T) {
 
 func TestProcessOutputAndWaitRecoverTransportWithoutChangingOffsets(t *testing.T) {
 	client := &outputReconnectAgent{readFailures: 2, waitFailures: 1, reconnectFailures: 1}
-	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", outputCallTimeout: time.Second}
+	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: time.Second}
 	var output struct {
 		Stdout       []byte `json:"stdout"`
 		StdoutOffset uint64 `json:"stdout_offset"`
@@ -1092,7 +1217,7 @@ func TestProcessOutputAndWaitRecoverTransportWithoutChangingOffsets(t *testing.T
 
 func TestProcessOutputReconnectHasOneOverallDeadline(t *testing.T) {
 	client := &outputReconnectAgent{readFailures: 1000, reconnectFailures: 1000}
-	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", outputCallTimeout: 80 * time.Millisecond}
+	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: 80 * time.Millisecond}
 	started := time.Now()
 	var output map[string]any
 	err := s.readProcessOutput("init", 7, 9, &output)
@@ -1109,7 +1234,7 @@ func TestProcessOutputReconnectHasOneOverallDeadline(t *testing.T) {
 
 func TestProcessOutputDoesNotReplayAuthenticatedRemoteRejection(t *testing.T) {
 	client := &outputReconnectAgent{remoteReadFailure: true}
-	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", outputCallTimeout: time.Second}
+	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: time.Second}
 	var output map[string]any
 	err := s.readProcessOutput("init", 7, 9, &output)
 	var remoteError *agent.RemoteError
@@ -1145,6 +1270,21 @@ func TestCloseIORetriesUntilGuestAcknowledges(t *testing.T) {
 	}
 	if len(client.calls) != calls {
 		t.Fatal("acknowledged repeated CloseIO contacted the guest")
+	}
+}
+
+func TestCloseIOReconnectsTransportWithinCallerDeadline(t *testing.T) {
+	client := &outputReconnectAgent{closeFailures: 1}
+	p := &process{id: "", status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: time.Second,
+		processes: map[string]*process{"": p}}
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if _, err := s.CloseIO(ctx, &taskapi.CloseIORequest{Stdin: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !p.stdinClosed || !p.stdinCloseAcked || client.closeCalls != 2 || client.reconnects != 1 {
+		t.Fatalf("close reconnect requested=%v acked=%v calls=%d reconnects=%d", p.stdinClosed, p.stdinCloseAcked, client.closeCalls, client.reconnects)
 	}
 }
 
@@ -2166,11 +2306,22 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
+	stdin := filepath.Join(bundle, "stdin")
+	if err = syscall.Mkfifo(stdin, 0600); err != nil {
+		t.Fatal(err)
+	}
+	stdinIdentity, err := inspectBoundProcessIOPath(stdin, true)
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := &service{
 		bundle:  bundle,
 		sandbox: protocol.Sandbox{ID: "box", Generation: "0123456789abcdef0123456789abcdef"},
 		processes: map[string]*process{
-			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdout: stdout, stdoutIdentity: stdoutIdentity, stdinClosed: true, stdinCloseAcked: true, stdoutOffset: 123, stderrOffset: 45, exitEventQueued: true, deleteEventQueued: true, done: make(chan struct{})},
+			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdin: stdin, stdinIdentity: stdinIdentity,
+				stdout: stdout, stdoutIdentity: stdoutIdentity, stdinClosed: true,
+				stdinOffset: 5, stdinPending: []byte("pending"), stdoutOffset: 123, stderrOffset: 45,
+				exitEventQueued: true, deleteEventQueued: true, done: make(chan struct{})},
 		},
 	}
 	if err := s.persistRecovery(); err != nil {
@@ -2184,7 +2335,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	if err = json.Unmarshal(data, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.SchemaVersion != 2 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || !saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdoutOffset != 123 || saved.Processes[0].StdoutIdentity != stdoutIdentity {
+	if saved.SchemaVersion != 2 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdinOffset != 5 || string(saved.Processes[0].StdinPending) != "pending" || saved.Processes[0].StdinIdentity != stdinIdentity || saved.Processes[0].StdoutOffset != 123 || saved.Processes[0].StdoutIdentity != stdoutIdentity {
 		t.Fatalf("persisted recovery = %+v", saved)
 	}
 	temporary, err := filepath.Glob(filepath.Join(bundle, ".multikernel", ".sandbox.json.*"))
@@ -2767,6 +2918,12 @@ func TestRecoveryStateIsBoundedStrictAndIdentityBound(t *testing.T) {
 		"invalid state": func(value *persisted) { value.Processes[0].Status = tasktypes.Status_UNKNOWN },
 		"stdio without ownership": func(value *persisted) {
 			value.Processes[0].Stdout = "/run/containerd/fifo"
+		},
+		"stdin offset without stream": func(value *persisted) {
+			value.Processes[0].StdinOffset = 1
+		},
+		"oversized pending stdin": func(value *persisted) {
+			value.Processes[0].StdinPending = make([]byte, (32<<10)+1)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

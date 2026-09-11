@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"debug/elf"
 	"encoding/binary"
 	"encoding/json"
@@ -89,6 +90,11 @@ type process struct {
 	stdin          io.WriteCloser
 	inputMu        sync.Mutex
 	stdinClosed    bool
+	stdinOffset    uint64
+	stdinLastStart uint64
+	stdinLastSize  uint64
+	stdinLastHash  [sha256.Size]byte
+	stdinHasLast   bool
 	stdout, stderr lockedBuffer
 	outputDone     chan struct{}
 	done           chan struct{}
@@ -638,23 +644,60 @@ func (m *Manager) wait(p *process) {
 }
 
 func (m *Manager) Write(id string, data []byte) error {
-	if len(data) > 64<<10 {
-		return errors.New("stdin chunk exceeds 64 KiB")
-	}
 	m.mu.Lock()
 	p, ok := m.processes[id]
-	running := ok && p.state.Status == "RUNNING"
 	m.mu.Unlock()
-	if !running {
+	if !ok {
 		return errors.New("process is not running")
 	}
 	p.inputMu.Lock()
-	defer p.inputMu.Unlock()
-	if p.stdinClosed || p.stdin == nil {
-		return errors.New("process stdin is closed")
-	}
-	_, err := p.stdin.Write(data)
+	offset := p.stdinOffset
+	p.inputMu.Unlock()
+	_, err := m.WriteAt(id, offset, data)
 	return err
+}
+
+// WriteAt delivers one stdin chunk exactly once for a live agent process.
+// Replaying the most recently acknowledged offset and bytes is idempotent,
+// which makes a lost transport response safe to retry after reconnect.
+func (m *Manager) WriteAt(id string, offset uint64, data []byte) (uint64, error) {
+	if len(data) == 0 || len(data) > 64<<10 {
+		return 0, errors.New("stdin chunk must contain between 1 byte and 64 KiB")
+	}
+	m.mu.Lock()
+	p, ok := m.processes[id]
+	if !ok {
+		m.mu.Unlock()
+		return 0, errors.New("process is not running")
+	}
+	p.inputMu.Lock()
+	running := p.state.Status == "RUNNING"
+	m.mu.Unlock()
+	defer p.inputMu.Unlock()
+	digest := sha256.Sum256(data)
+	if p.stdinHasLast && offset == p.stdinLastStart && uint64(len(data)) == p.stdinLastSize && digest == p.stdinLastHash &&
+		p.stdinOffset == offset+uint64(len(data)) {
+		return p.stdinOffset, nil
+	}
+	if !running {
+		return p.stdinOffset, errors.New("process is not running")
+	}
+	if p.stdinClosed || p.stdin == nil {
+		return p.stdinOffset, errors.New("process stdin is closed")
+	}
+	if offset != p.stdinOffset || uint64(len(data)) > ^uint64(0)-offset {
+		return p.stdinOffset, errors.New("stdin chunk offset differs from the exact acknowledged position")
+	}
+	written, err := p.stdin.Write(data)
+	if err != nil {
+		return p.stdinOffset, err
+	}
+	if written != len(data) {
+		return p.stdinOffset, io.ErrShortWrite
+	}
+	p.stdinLastStart, p.stdinLastSize, p.stdinLastHash, p.stdinHasLast = offset, uint64(len(data)), digest, true
+	p.stdinOffset += uint64(len(data))
+	return p.stdinOffset, nil
 }
 
 func (m *Manager) CloseStdin(id string) error {

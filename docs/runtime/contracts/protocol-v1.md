@@ -31,6 +31,13 @@ Agent methods are `Capabilities`, `CreateProcess`,
 `DeleteProcess`, `ConfigureNetwork`, `ExchangeNetwork`, `CloseNetwork`, and
 `Shutdown`. Stdin writes and output reads are limited to 64 KiB per request;
 network exchange carries at most one 65,535-byte packet in each direction.
+The advertised `stdin-offset-v1` capability adds an `offset` to `WriteProcess`
+and returns the next acknowledged offset. The guest accepts only the exact next
+offset, except that it idempotently acknowledges a replay of the most recently
+accepted offset when both length and SHA-256 match. This makes response-loss
+replay safe without admitting changed bytes, gaps, or reordering. Omitting the
+offset retains the original protocol-v1 behavior for an older controller but
+does not provide reconnect-safe replay.
 `ExecProcess` names an existing parent process and inherits its already
 validated container root; it cannot supply an arbitrary root path. Process
 state and wait replies contain metadata only. Output is retrieved through

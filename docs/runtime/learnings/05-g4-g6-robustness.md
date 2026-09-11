@@ -434,6 +434,25 @@ repetitions cover transient output and Wait recovery, unchanged offsets,
 initial reconnect failure, terminal remote rejection, and deadline exhaustion;
 the cross-process live disconnect case remains open.
 
+Stdin previously had the complementary unsafe choice: the pump consumed FIFO
+bytes and issued an unversioned write, so retrying a lost response could
+duplicate input while declining to retry silently lost the live attachment.
+The agent now advertises `stdin-offset-v1`. It accepts only the exact next byte
+offset and retains the last offset, length, and SHA-256 so an identical
+lost-response replay is acknowledged without a second write, including after
+the process exits. Recovery v2 records the shim's acknowledged offset and a
+bounded pending chunk before guest contact; acknowledgement clears it only in
+a second durable update. Focused tests prove ordered writes, changed/gapped
+rejection, wire-level deduplication, reconnect replay, intent-before-mutation,
+acknowledgement-failure rollback, recovery bounds, and compatibility for an
+older offset-free controller. Twenty race-detector repetitions pass; live
+FIFO disconnect/restart evidence remains open.
+`CloseProcessStdin` acknowledgement now uses the same bounded relay reconnect
+transaction while retaining the Task caller's earlier deadline. Its existing
+requested-versus-acknowledged durable state makes replay idempotent; a focused
+test injects a transport loss, reconnects, observes one successful retry, and
+records the acknowledgement.
+
 The shim-to-`mkruntimed` client previously used the request context only for
 Unix-socket dialing; a daemon that accepted and then stopped reading or
 replying could hold the operation forever. The client now applies the earlier

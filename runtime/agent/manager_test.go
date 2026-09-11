@@ -24,6 +24,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+type bufferWriteCloser struct{ bytes.Buffer }
+
+func (*bufferWriteCloser) Close() error { return nil }
+
 func bundle(t *testing.T, args []string, extra string) string {
 	t.Helper()
 	d := t.TempDir()
@@ -182,6 +186,44 @@ func TestStdinAndIncrementalOutput(t *testing.T) {
 	}
 	if err = m.Write("stdin", []byte("late")); err == nil {
 		t.Fatal("write after exit unexpectedly succeeded")
+	}
+}
+
+func TestStdinWriteOffsetsMakeLostReplyReplayIdempotent(t *testing.T) {
+	input := &bufferWriteCloser{}
+	m := NewManager(true)
+	m.processes["stdin"] = &process{stdin: input, state: ProcessState{ID: "stdin", Status: "RUNNING"}}
+	data := []byte("exactly-once")
+	next, err := m.WriteAt("stdin", 0, data)
+	if err != nil || next != uint64(len(data)) {
+		t.Fatalf("initial WriteAt = %d, %v", next, err)
+	}
+	if next, err = m.WriteAt("stdin", 0, data); err != nil || next != uint64(len(data)) {
+		t.Fatalf("lost-reply replay = %d, %v", next, err)
+	}
+	if input.String() != string(data) {
+		t.Fatalf("replayed stdin bytes = %q", input.String())
+	}
+	if _, err = m.WriteAt("stdin", 0, []byte("different")); err == nil {
+		t.Fatal("same offset with different bytes was accepted")
+	}
+	if _, err = m.WriteAt("stdin", next+1, []byte("gap")); err == nil {
+		t.Fatal("gapped stdin offset was accepted")
+	}
+	if next, err = m.WriteAt("stdin", next, []byte("-next")); err != nil || next != uint64(len("exactly-once-next")) {
+		t.Fatalf("next stdin chunk = %d, %v", next, err)
+	}
+	if input.String() != "exactly-once-next" {
+		t.Fatalf("ordered stdin bytes = %q", input.String())
+	}
+	m.mu.Lock()
+	m.processes["stdin"].state.Status = "STOPPED"
+	m.mu.Unlock()
+	if replayed, replayErr := m.WriteAt("stdin", uint64(len("exactly-once")), []byte("-next")); replayErr != nil || replayed != next {
+		t.Fatalf("post-exit lost-reply replay = %d, %v", replayed, replayErr)
+	}
+	if input.String() != "exactly-once-next" {
+		t.Fatalf("post-exit replay duplicated stdin bytes = %q", input.String())
 	}
 }
 
@@ -881,6 +923,10 @@ func TestAuthenticationAndReplay(t *testing.T) {
 	features, ok := capabilities["oci_features"].([]string)
 	if !ok {
 		t.Fatalf("oci_features type = %T", capabilities["oci_features"])
+	}
+	protocolFeatures, ok := capabilities["protocol_features"].([]string)
+	if !ok || !slices.Contains(protocolFeatures, "stdin-offset-v1") {
+		t.Fatalf("protocol features = %#v", capabilities["protocol_features"])
 	}
 	for _, feature := range features {
 		if feature == "uid" || feature == "gid" || feature == "supplementary-groups" || feature == "signals" {
