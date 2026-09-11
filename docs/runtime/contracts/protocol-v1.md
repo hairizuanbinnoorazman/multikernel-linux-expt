@@ -35,8 +35,11 @@ The advertised `stdin-offset-v1` capability adds an `offset` to `WriteProcess`
 and returns the next acknowledged offset. The guest accepts only the exact next
 offset, except that it idempotently acknowledges a replay of the most recently
 accepted offset when both length and SHA-256 match. This makes response-loss
-replay safe without admitting changed bytes, gaps, or reordering. Omitting the
-offset retains the original protocol-v1 behavior for an older controller but
+replay safe without admitting changed bytes, gaps, or reordering. If the local
+process writer accepts a prefix and returns an error, the guest retains that
+prefix position and an exact replay resumes with the unaccepted suffix; the
+acknowledged offset advances only after the complete chunk is accepted.
+Omitting the offset retains the original protocol-v1 behavior for an older controller but
 does not provide reconnect-safe replay.
 `ExecProcess` names an existing parent process and inherits its already
 validated container root; it cannot supply an arbitrary root path. Process

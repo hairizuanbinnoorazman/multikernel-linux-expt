@@ -83,23 +83,28 @@ type ProcessStats struct {
 	PIDs        uint64 `json:"pids"`
 }
 type process struct {
-	spec           ProcessSpec
-	root           string
-	cmd            *exec.Cmd
-	terminal       console.Console
-	stdin          io.WriteCloser
-	inputMu        sync.Mutex
-	stdinClosed    bool
-	stdinOffset    uint64
-	stdinLastStart uint64
-	stdinLastSize  uint64
-	stdinLastHash  [sha256.Size]byte
-	stdinHasLast   bool
-	stdout, stderr lockedBuffer
-	outputDone     chan struct{}
-	done           chan struct{}
-	state          ProcessState
-	waited         bool
+	spec                 ProcessSpec
+	root                 string
+	cmd                  *exec.Cmd
+	terminal             console.Console
+	stdin                io.WriteCloser
+	inputMu              sync.Mutex
+	stdinClosed          bool
+	stdinOffset          uint64
+	stdinLastStart       uint64
+	stdinLastSize        uint64
+	stdinLastHash        [sha256.Size]byte
+	stdinHasLast         bool
+	stdinPartialStart    uint64
+	stdinPartialSize     uint64
+	stdinPartialHash     [sha256.Size]byte
+	stdinPartialAccepted uint64
+	stdinHasPartial      bool
+	stdout, stderr       lockedBuffer
+	outputDone           chan struct{}
+	done                 chan struct{}
+	state                ProcessState
+	waited               bool
 }
 
 type lockedBuffer struct {
@@ -659,7 +664,9 @@ func (m *Manager) Write(id string, data []byte) error {
 
 // WriteAt delivers one stdin chunk exactly once for a live agent process.
 // Replaying the most recently acknowledged offset and bytes is idempotent,
-// which makes a lost transport response safe to retry after reconnect.
+// which makes a lost transport response safe to retry after reconnect. If the
+// local writer reports an error after accepting a prefix, an exact replay
+// resumes at the first byte not yet accepted instead of duplicating the prefix.
 func (m *Manager) WriteAt(id string, offset uint64, data []byte) (uint64, error) {
 	if len(data) == 0 || len(data) > 64<<10 {
 		return 0, errors.New("stdin chunk must contain between 1 byte and 64 KiB")
@@ -679,6 +686,9 @@ func (m *Manager) WriteAt(id string, offset uint64, data []byte) (uint64, error)
 		p.stdinOffset == offset+uint64(len(data)) {
 		return p.stdinOffset, nil
 	}
+	if p.stdinHasPartial && (offset != p.stdinPartialStart || uint64(len(data)) != p.stdinPartialSize || digest != p.stdinPartialHash) {
+		return p.stdinOffset, errors.New("stdin chunk offset or data differs from the partially accepted replay")
+	}
 	if !running {
 		return p.stdinOffset, errors.New("process is not running")
 	}
@@ -688,15 +698,34 @@ func (m *Manager) WriteAt(id string, offset uint64, data []byte) (uint64, error)
 	if offset != p.stdinOffset || uint64(len(data)) > ^uint64(0)-offset {
 		return p.stdinOffset, errors.New("stdin chunk offset differs from the exact acknowledged position")
 	}
-	written, err := p.stdin.Write(data)
-	if err != nil {
-		return p.stdinOffset, err
+	if !p.stdinHasPartial {
+		p.stdinPartialStart = offset
+		p.stdinPartialSize = uint64(len(data))
+		p.stdinPartialHash = digest
+		p.stdinPartialAccepted = 0
+		p.stdinHasPartial = true
 	}
-	if written != len(data) {
-		return p.stdinOffset, io.ErrShortWrite
+	for p.stdinPartialAccepted < uint64(len(data)) {
+		remaining := data[p.stdinPartialAccepted:]
+		written, err := p.stdin.Write(remaining)
+		if written < 0 || written > len(remaining) {
+			return p.stdinOffset, errors.New("stdin writer returned an invalid byte count")
+		}
+		p.stdinPartialAccepted += uint64(written)
+		if p.stdinPartialAccepted == uint64(len(data)) {
+			break
+		}
+		if err != nil {
+			return p.stdinOffset, err
+		}
+		if written == 0 {
+			return p.stdinOffset, io.ErrNoProgress
+		}
 	}
 	p.stdinLastStart, p.stdinLastSize, p.stdinLastHash, p.stdinHasLast = offset, uint64(len(data)), digest, true
-	p.stdinOffset += uint64(len(data))
+	p.stdinOffset = offset + uint64(len(data))
+	p.stdinPartialStart, p.stdinPartialSize, p.stdinPartialAccepted, p.stdinHasPartial = 0, 0, 0, false
+	p.stdinPartialHash = [sha256.Size]byte{}
 	return p.stdinOffset, nil
 }
 

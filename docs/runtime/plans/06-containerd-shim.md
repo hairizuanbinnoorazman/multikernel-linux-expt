@@ -132,7 +132,9 @@ the bytes and current acknowledged offset. `WriteProcess` uses the advertised
 idempotently acknowledges the immediately preceding offset when its length and
 SHA-256 are identical. The shim can therefore reconnect and replay a lost reply
 without duplicating input, then clears the pending bytes only after the next
-offset is durably recorded. A failure to publish intent precedes guest mutation;
+offset is durably recorded. A partial local write retains its accepted prefix,
+and an exact replay writes only the remaining suffix before acknowledgement.
+A failure to publish intent precedes guest mutation;
 a failure to persist acknowledgement restores the same replay tuple.
 
 Task pause and resume cover every running or paused init/exec process group in
