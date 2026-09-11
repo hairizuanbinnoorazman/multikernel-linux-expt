@@ -60,6 +60,9 @@ bounded process-group runner. Primary calls observe caller cancellation; guest
 calls observe agent-server cancellation, and every call has a 30-second
 default that terminates the complete command group. Combined stdout/stderr
 retention is limited to one MiB and returned failure diagnostics to 16 KiB.
+`mknetd` service cancellation closes the listener and every accepted request
+socket, including a peer stalled before its newline; accept-loop failure
+cancels the derived handler context as well.
 Guest DNS restoration retains cleanup ownership after failure and becomes a
 no-op after success, so repeated network close cannot remove restored state.
 `ATTACH` transfers exactly one generation-bound TUN descriptor with one

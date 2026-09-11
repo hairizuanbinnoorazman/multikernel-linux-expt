@@ -41,6 +41,23 @@ type memoryAddr string
 func (a memoryAddr) Network() string { return "memory" }
 func (a memoryAddr) String() string  { return string(a) }
 
+func TestDaemonHandlerCancellationClosesIncompleteRequest(t *testing.T) {
+	clientConnection, serverConnection := net.Pipe()
+	defer clientConnection.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		(&Server{MaxFrame: 1024}).handle(ctx, serverConnection)
+	}()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("daemon handler remained blocked after service cancellation")
+	}
+}
+
 func TestDaemonWireRejectsInvalidRequests(t *testing.T) {
 	tests := []struct {
 		name     string

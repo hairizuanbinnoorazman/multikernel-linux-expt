@@ -116,6 +116,9 @@ The agent removes each connection's cancellation callback when that session
 ends normally; active server cancellation still closes a blocked connection.
 Repeated relay reconnects therefore do not retain a goroutine and connection
 reference for every completed session.
+The primary daemon applies the same rule to its listener and concurrent request
+handlers. Service cancellation or accept-loop return closes incomplete request
+sockets rather than leaving handler goroutines blocked on peer EOF.
 
 Terminal resize is a durable intent. A created process retains it for Start;
 a running process records it before contacting the guest, rolls the record back

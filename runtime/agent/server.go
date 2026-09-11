@@ -378,7 +378,8 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 	return r
 }
 func (s *Server) Serve(ctx context.Context, l net.Listener) error {
-	go func() { <-ctx.Done(); l.Close() }()
+	stopCancellation := protocol.CloseOnContext(ctx, l)
+	defer stopCancellation()
 	for {
 		c, e := l.Accept()
 		if e != nil {
@@ -398,16 +399,8 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 }
 
 func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
-	cancelDone := make(chan struct{})
-	stopCancellation := context.AfterFunc(ctx, func() {
-		_ = c.Close()
-		close(cancelDone)
-	})
-	defer func() {
-		if !stopCancellation() {
-			<-cancelDone
-		}
-	}()
+	stopCancellation := protocol.CloseOnContext(ctx, c)
+	defer stopCancellation()
 	for {
 		var header [4]byte
 		if _, e := io.ReadFull(c, header[:]); e != nil {

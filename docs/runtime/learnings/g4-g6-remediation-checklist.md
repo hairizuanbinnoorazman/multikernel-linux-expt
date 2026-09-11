@@ -361,6 +361,10 @@ normative plan is revised with an explicit rationale.
   overflow, combined stdout/stderr, cancellation without mutation, repeated
   close, and failed DNS restoration; live fault and leak evidence remains open
   below.
+  Service cancellation now closes both the mknetd listener and every accepted
+  incomplete request; accept-loop return cancels the derived handler context.
+  Focused blocked-peer and shared callback tests pass 100 race-detector
+  repetitions.
 - [x] Define firewall and network-policy ownership and install rules that
   cannot be bypassed by spoofed source addresses, alternate routes, malformed
   packets, or sibling traffic. Per-generation primary chains enforce source,
@@ -592,6 +596,9 @@ normative plan is revised with an explicit rationale.
   Shared protocol writes complete across injected short-success transport
   wrappers and fail on zero progress. Focused agent framing covers both
   directions; daemon and mknetd tests cover their request/response paths.
+  Daemon and mknetd service return also cancel derived request handlers and
+  close incomplete accepted peers; focused blocked-request tests pass 100
+  race-detector repetitions.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,
