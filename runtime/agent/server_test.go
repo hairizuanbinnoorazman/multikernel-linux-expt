@@ -178,6 +178,50 @@ func TestStateReplyExcludesRetainedOutputAndReadIsBounded(t *testing.T) {
 	}
 }
 
+func TestWriteProcessProtocolAcknowledgesExactIdempotentOffset(t *testing.T) {
+	input := &bufferWriteCloser{}
+	manager := NewManager(true)
+	manager.processes["stdin"] = &process{stdin: input, state: ProcessState{ID: "stdin", Status: "RUNNING"}}
+	server := &Server{Manager: manager, SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001,
+		Token: []byte("01234567890123456789012345678901")}
+	dispatch := func(sequence uint64, offset uint64, data []byte) Reply {
+		body, err := json.Marshal(map[string]any{"id": "stdin", "offset": offset, "data": data})
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation,
+			Endpoint: server.Endpoint, Sequence: sequence, Method: "WriteProcess", Body: body}
+		Sign(&request, server.Token)
+		return server.Dispatch(request)
+	}
+	for sequence := uint64(1); sequence <= 2; sequence++ {
+		reply := dispatch(sequence, 0, []byte("once"))
+		body, ok := reply.Body.(map[string]uint64)
+		if reply.Error != "" || !ok || body["offset"] != 4 {
+			t.Fatalf("write reply %d = %+v", sequence, reply)
+		}
+	}
+	if input.String() != "once" {
+		t.Fatalf("idempotent protocol wrote %q", input.String())
+	}
+	if reply := dispatch(3, 0, []byte("other")); reply.Error == "" {
+		t.Fatal("same offset with different input was accepted")
+	}
+	body, err := json.Marshal(map[string]any{"id": "stdin", "data": []byte("-legacy")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation,
+		Endpoint: server.Endpoint, Sequence: 4, Method: "WriteProcess", Body: body}
+	Sign(&legacy, server.Token)
+	if reply := server.Dispatch(legacy); reply.Error != "" {
+		t.Fatalf("legacy offset-free write failed: %+v", reply)
+	}
+	if input.String() != "once-legacy" {
+		t.Fatalf("legacy-compatible input = %q", input.String())
+	}
+}
+
 func TestConcurrentSequencesAreSerializedAndOutOfOrderRejected(t *testing.T) {
 	server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001, Token: []byte("01234567890123456789012345678901")}
 	start := make(chan struct{})

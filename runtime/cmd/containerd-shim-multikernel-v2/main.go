@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -72,6 +73,8 @@ type process struct {
 	stdoutWriter, stderrWriter     io.WriteCloser
 	stdoutGuard, stderrGuard       io.Closer
 	stdinClosed, stdinCloseAcked   bool
+	stdinOffset                    uint64
+	stdinPending                   []byte
 	stdoutOffset, stderrOffset     uint64
 	stdoutPressure, stderrPressure time.Time
 	exitEventQueued                bool
@@ -129,7 +132,7 @@ type service struct {
 	newRelay              relayFactory
 	relayPath             relayPathFactory
 	newRelayOwner         relayOwnerFactory
-	outputCallTimeout     time.Duration
+	ioCallTimeout         time.Duration
 	netRXPackets          atomic.Uint64
 	netTXPackets          atomic.Uint64
 	netRXDrops            atomic.Uint64
@@ -419,6 +422,8 @@ type persistedProcess struct {
 	SizeSet           bool              `json:"size_set,omitempty"`
 	StdinClosed       bool              `json:"stdin_closed,omitempty"`
 	StdinCloseAcked   bool              `json:"stdin_close_acked,omitempty"`
+	StdinOffset       uint64            `json:"stdin_offset,omitempty"`
+	StdinPending      []byte            `json:"stdin_pending,omitempty"`
 	Status            tasktypes.Status  `json:"status"`
 	PID               uint32            `json:"pid,omitempty"`
 	Exit              uint32            `json:"exit,omitempty"`
@@ -489,8 +494,19 @@ func validatePersistedRecovery(value persisted, namespace, task string) error {
 			process.Status != tasktypes.Status_PAUSED && process.Status != tasktypes.Status_STOPPED {
 			return errors.New("shim recovery contains an invalid process state")
 		}
-		if process.Width > 65535 || process.Height > 65535 || process.StdinCloseAcked && !process.StdinClosed {
+		if process.Width > 65535 || process.Height > 65535 || process.StdinCloseAcked &&
+			(!process.StdinClosed || len(process.StdinPending) != 0) {
 			return errors.New("shim recovery contains invalid terminal or stdin state")
+		}
+		if len(process.StdinPending) > 32<<10 || len(process.StdinPending) != 0 &&
+			(process.Stdin == "" || process.Status != tasktypes.Status_RUNNING && process.Status != tasktypes.Status_PAUSED) {
+			return errors.New("shim recovery contains invalid pending stdin")
+		}
+		if uint64(len(process.StdinPending)) > ^uint64(0)-process.StdinOffset {
+			return errors.New("shim recovery pending stdin offset overflows")
+		}
+		if process.Stdin == "" && process.StdinOffset != 0 {
+			return errors.New("shim recovery contains stdin offset without a stream")
 		}
 		for _, path := range []string{process.Stdin, process.Stdout, process.Stderr} {
 			if path != "" && (!filepath.IsAbs(path) || filepath.Clean(path) != path || len(path) > 4096 || strings.ContainsRune(path, 0)) {
@@ -732,7 +748,8 @@ func (s *service) persistRecovery() error {
 			ID: process.id, Stdin: process.stdin, Stdout: process.stdout, Stderr: process.stderr,
 			StdinIdentity: process.stdinIdentity, StdoutIdentity: process.stdoutIdentity, StderrIdentity: process.stderrIdentity,
 			Terminal: process.terminal, Width: process.width, Height: process.height,
-			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, StdinCloseAcked: process.stdinCloseAcked, Status: process.status,
+			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, StdinCloseAcked: process.stdinCloseAcked,
+			StdinOffset: process.stdinOffset, StdinPending: append([]byte(nil), process.stdinPending...), Status: process.status,
 			PID: process.pid, Exit: process.exit, Exited: process.exited,
 			StdoutOffset: process.stdoutOffset, StderrOffset: process.stderrOffset,
 			ExitEventQueued: process.exitEventQueued, DeleteEventQueued: process.deleteEventQueued,
@@ -1049,7 +1066,8 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			id: saved.ID, stdin: saved.Stdin, stdout: saved.Stdout, stderr: saved.Stderr,
 			stdinIdentity: saved.StdinIdentity, stdoutIdentity: saved.StdoutIdentity, stderrIdentity: saved.StderrIdentity,
 			terminal: saved.Terminal, width: saved.Width, height: saved.Height,
-			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, stdinCloseAcked: saved.StdinCloseAcked, status: saved.Status,
+			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, stdinCloseAcked: saved.StdinCloseAcked,
+			stdinOffset: saved.StdinOffset, stdinPending: append([]byte(nil), saved.StdinPending...), status: saved.Status,
 			pid: saved.PID, exit: saved.Exit, exited: saved.Exited,
 			stdoutOffset: saved.StdoutOffset, stderrOffset: saved.StderrOffset,
 			exitEventQueued: saved.ExitEventQueued, deleteEventQueued: saved.DeleteEventQueued, done: make(chan struct{}),
@@ -1080,7 +1098,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			if err = s.agent.CallContext(ctx, "WaitProcess", map[string]string{"ID": agentID}, &state); err != nil {
 				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
 			}
-			p.status, p.exit = tasktypes.Status_STOPPED, uint32(state.ExitCode)
+			p.status, p.exit, p.stdinPending = tasktypes.Status_STOPPED, uint32(state.ExitCode), nil
 			p.exited = time.Now().UTC()
 			if err = s.publishExit(ctx, p.id, p); err != nil {
 				return fmt.Errorf("recover stopped process %q exit event: %w", saved.ID, err)
@@ -2033,28 +2051,44 @@ func closeProcessIO(p *process) {
 
 func (s *service) pumpStdin(agentID string, p *process) {
 	reader := p.stdinReader
+	if reader != nil {
+		defer func() {
+			s.mu.Lock()
+			_ = reader.Close()
+			p.stdinReader = nil
+			pending := len(p.stdinPending) != 0
+			s.mu.Unlock()
+			if !pending {
+				s.retryPendingStdinClose(agentID, p)
+			}
+		}()
+	}
+	if err := s.deliverPendingStdin(agentID, p); err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel stdin: %v\n", err)
+		return
+	}
 	if reader == nil {
 		s.retryPendingStdinClose(agentID, p)
 		return
 	}
-	defer func() {
-		s.mu.Lock()
-		_ = reader.Close()
-		p.stdinReader = nil
-		s.mu.Unlock()
-		s.retryPendingStdinClose(agentID, p)
-	}()
 	buffer := make([]byte, 32<<10)
 	for {
 		n, err := reader.Read(buffer)
 		if n > 0 {
 			s.mu.Lock()
 			stopped := p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED
+			if !stopped {
+				p.stdinPending = append(p.stdinPending[:0], buffer[:n]...)
+				if persistErr := s.persistRecovery(); persistErr != nil {
+					stopped = true
+					fmt.Fprintf(os.Stderr, "multikernel stdin intent: %v\n", persistErr)
+				}
+			}
 			s.mu.Unlock()
 			if stopped {
 				return
 			}
-			if callErr := s.agent.Call("WriteProcess", map[string]any{"id": agentID, "data": append([]byte(nil), buffer[:n]...)}, nil); callErr != nil {
+			if callErr := s.deliverPendingStdin(agentID, p); callErr != nil {
 				fmt.Fprintf(os.Stderr, "multikernel stdin: %v\n", callErr)
 				return
 			}
@@ -2076,6 +2110,38 @@ func (s *service) pumpStdin(agentID string, p *process) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
+}
+
+func (s *service) deliverPendingStdin(agentID string, p *process) error {
+	s.mu.Lock()
+	offset := p.stdinOffset
+	data := append([]byte(nil), p.stdinPending...)
+	s.mu.Unlock()
+	if len(data) == 0 {
+		return nil
+	}
+	var response struct {
+		Offset uint64 `json:"offset"`
+	}
+	if err := s.callAgentWithReconnect("WriteProcess", map[string]any{
+		"id": agentID, "offset": offset, "data": data,
+	}, &response); err != nil {
+		return err
+	}
+	if uint64(len(data)) > ^uint64(0)-offset || response.Offset != offset+uint64(len(data)) {
+		return errors.New("guest acknowledged an invalid stdin offset")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if p.stdinOffset != offset || !bytes.Equal(p.stdinPending, data) {
+		return errors.New("pending stdin identity changed during guest acknowledgement")
+	}
+	p.stdinOffset, p.stdinPending = response.Offset, nil
+	if err := s.persistRecovery(); err != nil {
+		p.stdinOffset, p.stdinPending = offset, data
+		return fmt.Errorf("persist acknowledged stdin offset: %w", err)
+	}
+	return nil
 }
 
 func (s *service) retryPendingStdinClose(agentID string, p *process) {
@@ -2102,12 +2168,12 @@ func (s *service) acknowledgeStdinClose(ctx context.Context, agentID string, p *
 		s.mu.Unlock()
 		return nil
 	}
-	client := s.agent
+	connected := s.agent != nil
 	s.mu.Unlock()
-	if client == nil {
+	if !connected {
 		return errdefs.ErrFailedPrecondition
 	}
-	if err := client.CallContext(ctx, "CloseProcessStdin", map[string]string{"id": agentID}, nil); err != nil {
+	if err := s.callAgentWithReconnectContext(ctx, "CloseProcessStdin", map[string]string{"id": agentID}, nil); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -2176,7 +2242,7 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 	}
 	s.mu.Lock()
 	closeProcessIO(p)
-	p.status, p.exit, p.exited = tasktypes.Status_STOPPED, exit, now
+	p.status, p.exit, p.exited, p.stdinPending = tasktypes.Status_STOPPED, exit, now, nil
 	if err := s.publishExit(context.Background(), execID, p); err != nil {
 		fmt.Fprintf(os.Stderr, "multikernel exit event queue: %v\n", err)
 	} else {
@@ -2194,11 +2260,15 @@ func (s *service) readProcessOutput(agentID string, stdoutOffset, stderrOffset u
 }
 
 func (s *service) callAgentWithReconnect(method string, request, output any) error {
-	timeout := s.outputCallTimeout
+	return s.callAgentWithReconnectContext(context.Background(), method, request, output)
+}
+
+func (s *service) callAgentWithReconnectContext(parent context.Context, method string, request, output any) error {
+	timeout := s.ioCallTimeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	var lastErr error
 	for {

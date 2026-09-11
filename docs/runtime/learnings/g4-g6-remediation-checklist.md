@@ -501,6 +501,18 @@ normative plan is revised with an explicit rationale.
   a structured authenticated agent rejection is terminal. Twenty
   race-detector repetitions cover successful output/Wait reconnect, an initial
   reconnect failure, non-replayed remote rejection, and deadline exhaustion.
+  Stdin now uses the advertised `stdin-offset-v1` contract: recovery v2
+  persists each bounded pending chunk before guest mutation, the agent accepts
+  only the exact next offset, and an identical most-recent offset/length/SHA-256
+  replay is acknowledged without a duplicate write. The shim clears pending
+  bytes only after durably recording the returned offset. Focused agent,
+  protocol, and shim tests cover ordered writes, changed/gapped rejection,
+  lost-response reconnect (including post-exit acknowledgement), publication
+  failure before guest contact, acknowledgement persistence failure, bounded
+  recovery input, and offset-free v1 compatibility.
+  `CloseProcessStdin` acknowledgement also reconnects within the earlier Task
+  caller deadline and shared 30-second I/O bound; focused injection proves the
+  requested state survives transport loss and the retry becomes acknowledged.
   These changes still need live revalidation.
 - [ ] Enforce context cancellation and deadlines through rootfs mount,
   initramfs build, daemon calls, child boot, agent connect, stdio, wait, and
