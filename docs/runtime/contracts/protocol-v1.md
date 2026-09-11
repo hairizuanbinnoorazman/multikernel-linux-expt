@@ -6,6 +6,10 @@ JSON object is permitted per frame; duplicate and unknown fields are rejected.
 Framing writes must either deliver the complete frame or fail. Shared write
 handling completes injected short-success writes and rejects zero progress so
 a faulty wrapped transport cannot silently truncate a request or response.
+Server cancellation closes both its listener and every accepted connection,
+including a peer stalled before completing a frame. Returning for any reason
+unregisters and joins those callbacks; concurrent servers cancel their derived
+handler context when the accept loop ends.
 
 Every request contains `version: 1`, request ID, method, and a typed body.
 Mutations also contain sandbox ID, generation when one exists, and idempotency

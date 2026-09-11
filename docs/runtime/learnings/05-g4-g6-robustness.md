@@ -484,6 +484,12 @@ uses a one-byte overflow sentinel so a valid one-MiB prefix cannot hide trailing
 data. The mknetd request client uses the same overflow rule; its descriptor
 ATTACH path also requires an untruncated newline-terminated response. Other
 blocking boundaries and live leak checks remain to be audited.
+The daemon and mknetd servers also formerly closed only their listeners on
+service cancellation; accepted peers stalled on an incomplete request could
+outlive the service. Both now derive a handler context from the accept loop and
+use the joined close callback for the listener and each connection. Focused
+blocked-peer tests and the shared active/completed callback tests pass 100
+race-detector repetitions.
 
 Kerf lifecycle execution already had a nominal timeout, but retained unbounded
 `CombinedOutput`; verbose load output could also echo the guest authentication

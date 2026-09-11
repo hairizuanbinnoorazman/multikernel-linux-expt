@@ -211,17 +211,17 @@ func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 		return err
 	}
 	defer func() { retErr = errors.Join(retErr, listener.Close()) }()
+	serveContext, stopServing := context.WithCancel(ctx)
+	defer stopServing()
 	s.mu.Lock()
 	s.listener = listener
 	s.mu.Unlock()
-	go func() {
-		<-ctx.Done()
-		_ = listener.Close()
-	}()
+	stopCancellation := protocol.CloseOnContext(serveContext, listener)
+	defer stopCancellation()
 	for {
 		connection, acceptErr := listener.Accept()
 		if acceptErr != nil {
-			if ctx.Err() != nil || errors.Is(acceptErr, net.ErrClosed) {
+			if serveContext.Err() != nil || errors.Is(acceptErr, net.ErrClosed) {
 				return nil
 			}
 			return acceptErr
@@ -230,7 +230,7 @@ func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 			_ = connection.Close()
 			continue
 		}
-		go s.handle(ctx, connection)
+		go s.handle(serveContext, connection)
 	}
 }
 
@@ -261,6 +261,8 @@ func authorize(connection net.Conn, allowedUID uint32) error {
 
 func (s *Server) handle(ctx context.Context, connection net.Conn) {
 	defer connection.Close()
+	stopCancellation := protocol.CloseOnContext(ctx, connection)
+	defer stopCancellation()
 	maxFrame := s.MaxFrame
 	if maxFrame == 0 {
 		maxFrame = 1 << 20

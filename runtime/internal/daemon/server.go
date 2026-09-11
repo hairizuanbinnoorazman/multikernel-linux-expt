@@ -33,17 +33,20 @@ func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 		return e
 	}
 	defer func() { retErr = errors.Join(retErr, l.Close()) }()
+	serveContext, stopServing := context.WithCancel(ctx)
+	defer stopServing()
 	if l.Owner() != s.AllowedUID {
 		return errors.New("Unix socket ownership does not match the allowed peer UID")
 	}
 	s.mu.Lock()
 	s.listener = l
 	s.mu.Unlock()
-	go func() { <-ctx.Done(); l.Close() }()
+	stopCancellation := protocol.CloseOnContext(serveContext, l)
+	defer stopCancellation()
 	for {
 		c, e := l.Accept()
 		if e != nil {
-			if ctx.Err() != nil || errors.Is(e, net.ErrClosed) {
+			if serveContext.Err() != nil || errors.Is(e, net.ErrClosed) {
 				return nil
 			}
 			return e
@@ -52,7 +55,7 @@ func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 			c.Close()
 			continue
 		}
-		go s.handle(ctx, c)
+		go s.handle(serveContext, c)
 	}
 }
 
@@ -94,6 +97,8 @@ func (s *Server) Close() error {
 }
 func (s *Server) handle(ctx context.Context, c net.Conn) {
 	defer c.Close()
+	stopCancellation := protocol.CloseOnContext(ctx, c)
+	defer stopCancellation()
 	data, e := io.ReadAll(io.LimitReader(c, int64(s.MaxFrame+1)))
 	if e != nil {
 		return

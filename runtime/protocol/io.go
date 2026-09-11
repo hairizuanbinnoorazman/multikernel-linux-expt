@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"context"
 	"errors"
 	"io"
 )
@@ -23,4 +24,21 @@ func WriteFull(writer io.Writer, data []byte) error {
 		}
 	}
 	return nil
+}
+
+// CloseOnContext closes a blocking resource when ctx ends. The returned
+// cleanup must be called when the operation finishes; it unregisters the
+// callback or joins an already-running callback so neither goroutines nor
+// resource references survive the operation.
+func CloseOnContext(ctx context.Context, closer io.Closer) func() {
+	closed := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		_ = closer.Close()
+		close(closed)
+	})
+	return func() {
+		if !stop() {
+			<-closed
+		}
+	}
 }

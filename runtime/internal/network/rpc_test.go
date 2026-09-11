@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -53,6 +54,23 @@ func (c *shortWriteConn) Write(data []byte) (int, error) {
 		data = data[:c.maximum]
 	}
 	return c.Conn.Write(data)
+}
+
+func TestNetworkHandlerCancellationClosesIncompleteRequest(t *testing.T) {
+	clientConnection, serverConnection := net.Pipe()
+	defer clientConnection.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		(&Server{MaxFrame: 1024}).handle(ctx, serverConnection)
+	}()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("mknetd handler remained blocked after service cancellation")
+	}
 }
 
 func TestRPCBindsResponseAndRejectsDuplicateJSON(t *testing.T) {
