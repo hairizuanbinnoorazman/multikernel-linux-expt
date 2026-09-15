@@ -991,7 +991,7 @@ func TestStdinFIFOAcceptsLateAndRepeatedWriters(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := &process{stdin: path, stdinIdentity: identity, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
-	agentClient := &stdinCaptureAgent{writes: make(chan []byte, 2)}
+	agentClient := &stdinCaptureAgent{writes: make(chan []byte, 3)}
 	s := &service{agent: agentClient, processes: map[string]*process{"": p}}
 	if err = s.openProcessIO(context.Background(), p); err != nil {
 		t.Fatal(err)
@@ -1003,26 +1003,37 @@ func TestStdinFIFOAcceptsLateAndRepeatedWriters(t *testing.T) {
 	}()
 	// Exercise the no-initial-peer state before attaching the first writer.
 	time.Sleep(20 * time.Millisecond)
-	for _, want := range []string{"late-writer", "reattached-writer"} {
-		descriptor, openErr := unix.Open(path, unix.O_WRONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
-		if openErr != nil {
-			t.Fatal(openErr)
-		}
-		writer := os.NewFile(uintptr(descriptor), path)
-		if _, openErr = writer.WriteString(want); openErr != nil {
-			_ = writer.Close()
-			t.Fatal(openErr)
-		}
-		if openErr = writer.Close(); openErr != nil {
-			t.Fatal(openErr)
-		}
+	assertWrite := func(want string) {
+		t.Helper()
 		select {
 		case got := <-agentClient.writes:
 			if string(got) != want {
 				t.Fatalf("guest stdin = %q, want %q", got, want)
 			}
 		case <-time.After(time.Second):
-			t.Fatalf("late stdin writer %q was not forwarded", want)
+			t.Fatalf("stdin %q was not forwarded", want)
+		}
+	}
+	for attachment, writes := range [][]string{{"late-writer", "same-writer-after-idle"}, {"reattached-writer"}} {
+		descriptor, openErr := unix.Open(path, unix.O_WRONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+		if openErr != nil {
+			t.Fatal(openErr)
+		}
+		writer := os.NewFile(uintptr(descriptor), path)
+		for index, want := range writes {
+			if _, openErr = writer.WriteString(want); openErr != nil {
+				_ = writer.Close()
+				t.Fatal(openErr)
+			}
+			assertWrite(want)
+			if attachment == 0 && index == 0 {
+				// Leave the writer attached while the nonblocking reader observes
+				// an empty FIFO. A transient EAGAIN must not terminate the pump.
+				time.Sleep(20 * time.Millisecond)
+			}
+		}
+		if openErr = writer.Close(); openErr != nil {
+			t.Fatal(openErr)
 		}
 	}
 	s.mu.Lock()

@@ -462,6 +462,10 @@ replay, intent-before-mutation,
 acknowledgement-failure rollback, recovery bounds, and compatibility for an
 older offset-free controller. Twenty race-detector repetitions pass; live
 FIFO disconnect/restart evidence remains open.
+The real FIFO regression also keeps one writer attached across an empty
+interval. The nonblocking reader now retries `EAGAIN` instead of terminating,
+so later bytes from the same attachment and a subsequent attachment both reach
+the guest; 100 race-detector repetitions pass.
 `CloseProcessStdin` acknowledgement now uses the same bounded relay reconnect
 transaction while retaining the Task caller's earlier deadline. Its existing
 requested-versus-acknowledged durable state makes replay idempotent; a focused

@@ -2093,7 +2093,7 @@ func (s *service) pumpStdin(agentID string, p *process) {
 				return
 			}
 		}
-		if err != nil && !errors.Is(err, io.EOF) {
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
 			return
 		}
 		if n == 0 {

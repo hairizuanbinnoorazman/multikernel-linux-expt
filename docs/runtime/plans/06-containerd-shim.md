@@ -150,6 +150,10 @@ offset is durably recorded. A partial local write retains its accepted prefix,
 and an exact replay writes only the remaining suffix before acknowledgement.
 A failure to publish intent precedes guest mutation;
 a failure to persist acknowledgement restores the same replay tuple.
+The nonblocking stdin pump treats an empty attached FIFO (`EAGAIN`) as a
+temporary no-data condition, just like an unattached FIFO EOF. It remains
+available for later bytes from that writer until process teardown or an
+explicit stdin-close request completes.
 
 Task pause and resume cover every running or paused init/exec process group in
 a deterministic order. If any signal fails, already transitioned groups are
