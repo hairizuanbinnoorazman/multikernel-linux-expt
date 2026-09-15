@@ -2285,9 +2285,20 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 	}
 	now := time.Now().UTC()
 	exit := uint32(state.ExitCode)
-	s.mu.Lock()
-	closeProcessIO(p)
-	p.status, p.exit, p.exited, p.stdinPending = tasktypes.Status_STOPPED, exit, now, nil
+	for {
+		s.mu.Lock()
+		closeProcessIO(p)
+		oldStatus, oldExit, oldExited := p.status, p.exit, p.exited
+		oldPending := append([]byte(nil), p.stdinPending...)
+		p.status, p.exit, p.exited, p.stdinPending = tasktypes.Status_STOPPED, exit, now, nil
+		if err = s.persistRecovery(); err == nil {
+			break
+		}
+		p.status, p.exit, p.exited, p.stdinPending = oldStatus, oldExit, oldExited, oldPending
+		s.mu.Unlock()
+		fmt.Fprintf(os.Stderr, "multikernel exit state persistence: %v\n", err)
+		time.Sleep(100 * time.Millisecond)
+	}
 	if err := s.publishExit(context.Background(), execID, p); err != nil {
 		fmt.Fprintf(os.Stderr, "multikernel exit event queue: %v\n", err)
 	} else {

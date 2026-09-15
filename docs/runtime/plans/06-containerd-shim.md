@@ -123,6 +123,10 @@ another bounded observation epoch after 100 milliseconds.
 The monitor is owned for the lifetime of the recorded running task; only an
 authenticated `WaitProcess` result may transition it to stopped and publish an
 exit status. Transport loss therefore cannot fabricate an exit.
+Even after that result, the prior visible state and open Task wait channel are
+retained until the exact stopped state, exit code, and timestamp are durable in
+recovery. Publication failure is retried at 100-millisecond intervals; only a
+successful recovery update permits exit-event queuing and Task completion.
 The agent removes each connection's cancellation callback when that session
 ends normally; active server cancellation still closes a blocked connection.
 Repeated relay reconnects therefore do not retain a goroutine and connection

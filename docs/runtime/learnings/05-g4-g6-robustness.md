@@ -456,6 +456,11 @@ making the failure contract explicitly at-least-once. An injected missing-state
 directory produces requests at offsets 0, 0, then 4 after repair and observes
 the exact later exit 11; 100 race-detector repetitions pass. Empty unchanged
 polls no longer rewrite the recovery file.
+An authenticated guest exit is likewise not exposed through Task Wait until
+its stopped state, exact code, and timestamp are durable. Injected missing
+recovery storage retains the prior running state and open wait channel; after
+repair, the on-disk process is `STOPPED` with exit 37 before completion.
+One hundred race-detector repetitions pass.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation
