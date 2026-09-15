@@ -153,7 +153,10 @@ a failure to persist acknowledgement restores the same replay tuple.
 The nonblocking stdin pump treats an empty attached FIFO (`EAGAIN`) as a
 temporary no-data condition, just like an unattached FIFO EOF. It remains
 available for later bytes from that writer until process teardown or an
-explicit stdin-close request completes.
+explicit stdin-close request completes. A close request permits the one read
+already in flight to become durable and reach the guest, then closes guest
+stdin before the pump accepts another chunk; a continuously writing peer
+therefore cannot postpone `CloseIO` indefinitely.
 
 Task pause and resume cover every running or paused init/exec process group in
 a deterministic order. If any signal fails, already transitioned groups are
