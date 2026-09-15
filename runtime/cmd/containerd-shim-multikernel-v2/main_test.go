@@ -419,6 +419,7 @@ type signalFailureAgent struct {
 	attempts int
 	failAt   int
 	calls    []string
+	hook     func(string)
 }
 
 func (f *signalFailureAgent) Call(method string, request, response any) error {
@@ -430,7 +431,11 @@ func (f *signalFailureAgent) CallContext(_ context.Context, method string, reque
 	}
 	value := request.(map[string]any)
 	f.attempts++
-	f.calls = append(f.calls, fmt.Sprintf("%s:%s", value["ID"], value["Signal"]))
+	call := fmt.Sprintf("%s:%s", value["ID"], value["Signal"])
+	f.calls = append(f.calls, call)
+	if f.hook != nil {
+		f.hook(call)
+	}
 	if f.attempts == f.failAt {
 		return errors.New("injected signal failure")
 	}
@@ -2278,6 +2283,69 @@ func TestPauseRollsBackAlreadySignaledProcessOnPartialFailure(t *testing.T) {
 	want := fmt.Sprintf("[init:%d exec:%d init:%d]", syscall.SIGSTOP, syscall.SIGSTOP, syscall.SIGCONT)
 	if fmt.Sprint(fake.calls) != want {
 		t.Fatalf("partial pause calls = %v, want %s", fake.calls, want)
+	}
+}
+
+func TestPauseResumeReturnRecoveryRollbackFailure(t *testing.T) {
+	for name, test := range map[string]struct {
+		initial          tasktypes.Status
+		rollbackSignal   syscall.Signal
+		durableOnFailure tasktypes.Status
+		invoke           func(*service) error
+		errorLabel       string
+	}{
+		"pause": {tasktypes.Status_RUNNING, syscall.SIGCONT, tasktypes.Status_PAUSED, func(s *service) error {
+			_, err := s.Pause(context.Background(), &taskapi.PauseRequest{ID: "task"})
+			return err
+		}, "persist pause rollback"},
+		"resume": {tasktypes.Status_PAUSED, syscall.SIGSTOP, tasktypes.Status_RUNNING, func(s *service) error {
+			_, err := s.Resume(context.Background(), &taskapi.ResumeRequest{ID: "task"})
+			return err
+		}, "persist resume rollback"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			bundle := t.TempDir()
+			runtimeDir := filepath.Join(bundle, ".multikernel")
+			heldDir := filepath.Join(bundle, ".multikernel-held")
+			if err := os.Mkdir(runtimeDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			var hookErr error
+			fake := &signalFailureAgent{hook: func(call string) {
+				if call == fmt.Sprintf("init:%d", test.rollbackSignal) {
+					hookErr = os.Rename(runtimeDir, heldDir)
+				}
+			}}
+			s := &service{id: "task", namespace: "tests", bundle: bundle,
+				sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+				agent:   fake, publisher: &fakePublisher{}, processes: map[string]*process{
+					"": {status: test.initial, done: make(chan struct{})},
+				}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+			originalMarshal := jsonMarshal
+			jsonMarshal = func(any) ([]byte, error) { return nil, errors.New("injected transition event failure") }
+			err := test.invoke(s)
+			jsonMarshal = originalMarshal
+			if hookErr != nil {
+				t.Fatal(hookErr)
+			}
+			if err == nil || !strings.Contains(err.Error(), "injected transition event failure") || !strings.Contains(err.Error(), test.errorLabel) {
+				t.Fatalf("transition rollback error = %v", err)
+			}
+			if observed := s.processes[""].status; observed != test.initial {
+				t.Fatalf("memory state after rollback = %v, want %v", observed, test.initial)
+			}
+			data, readErr := os.ReadFile(filepath.Join(heldDir, "sandbox.json"))
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			var saved persisted
+			if readErr = json.Unmarshal(data, &saved); readErr != nil {
+				t.Fatal(readErr)
+			}
+			if len(saved.Processes) != 1 || saved.Processes[0].Status != test.durableOnFailure {
+				t.Fatalf("unrepaired durable transition = %+v", saved.Processes)
+			}
+		})
 	}
 }
 

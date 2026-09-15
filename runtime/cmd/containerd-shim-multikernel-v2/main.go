@@ -2974,8 +2974,11 @@ func (s *service) Pause(ctx context.Context, r *taskapi.PauseRequest) (*emptypb.
 		for _, target := range targets {
 			target.process.status = tasktypes.Status_RUNNING
 		}
-		_ = s.persistRecovery()
-		return nil, errors.Join(err, rollbackErr)
+		persistErr := s.persistRecovery()
+		if persistErr != nil {
+			persistErr = fmt.Errorf("persist pause rollback: %w", persistErr)
+		}
+		return nil, errors.Join(err, rollbackErr, persistErr)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -3020,8 +3023,11 @@ func (s *service) Resume(ctx context.Context, r *taskapi.ResumeRequest) (*emptyp
 		for _, target := range targets {
 			target.process.status = tasktypes.Status_PAUSED
 		}
-		_ = s.persistRecovery()
-		return nil, errors.Join(err, rollbackErr)
+		persistErr := s.persistRecovery()
+		if persistErr != nil {
+			persistErr = fmt.Errorf("persist resume rollback: %w", persistErr)
+		}
+		return nil, errors.Join(err, rollbackErr, persistErr)
 	}
 	return &emptypb.Empty{}, nil
 }
