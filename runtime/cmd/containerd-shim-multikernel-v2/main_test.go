@@ -136,6 +136,47 @@ func (*waitOutageAgent) Close() error                                   { return
 func (*waitOutageAgent) Reconnect(string) error                         { return nil }
 func (*waitOutageAgent) ReconnectContext(context.Context, string) error { return nil }
 
+type outputAckAgent struct{ offsets chan uint64 }
+
+func (f *outputAckAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *outputAckAgent) CallContext(_ context.Context, method string, request, response any) error {
+	switch method {
+	case "ReadProcessOutput":
+		offset := request.(map[string]any)["stdout_offset"].(uint64)
+		f.offsets <- offset
+		if offset == 0 {
+			return setJSONResponse(response, processOutput{Stdout: []byte("once"), StdoutOffset: 4, Status: "RUNNING"})
+		}
+		if offset == 4 {
+			return setJSONResponse(response, processOutput{StdoutOffset: 4, Status: "STOPPED"})
+		}
+		return errors.New("unexpected output offset")
+	case "WaitProcess":
+		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 11})
+	default:
+		return fmt.Errorf("unexpected method %s", method)
+	}
+}
+func (*outputAckAgent) Close() error                                   { return nil }
+func (*outputAckAgent) Reconnect(string) error                         { return nil }
+func (*outputAckAgent) ReconnectContext(context.Context, string) error { return nil }
+
+type controlledOutputWriter struct{ writes chan controlledOutputWrite }
+type controlledOutputWrite struct {
+	data    []byte
+	release chan struct{}
+}
+
+func (f *controlledOutputWriter) Write(value []byte) (int, error) {
+	write := controlledOutputWrite{data: append([]byte(nil), value...), release: make(chan struct{})}
+	f.writes <- write
+	<-write.release
+	return len(value), nil
+}
+func (*controlledOutputWriter) Close() error { return nil }
+
 func (f *outputReconnectAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
@@ -1354,6 +1395,47 @@ func TestProcessOutputRequiresBoundedContiguousOffsetsAndKnownState(t *testing.T
 				t.Fatal("malformed process output was accepted")
 			}
 		})
+	}
+}
+
+func TestOutputOffsetRetriesWhenDurableAcknowledgementFails(t *testing.T) {
+	bundle := t.TempDir()
+	client := &outputAckAgent{offsets: make(chan uint64, 4)}
+	writer := &controlledOutputWriter{writes: make(chan controlledOutputWrite)}
+	p := &process{status: tasktypes.Status_RUNNING, stdoutWriter: writer, done: make(chan struct{})}
+	s := &service{id: "task", namespace: "tests", bundle: bundle,
+		sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+		agent:   client, processes: map[string]*process{"": p}, publisher: &fakePublisher{},
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	go s.waitProcess("init", "", p)
+	first := <-writer.writes
+	if string(first.data) != "once" {
+		t.Fatalf("first output write = %q", first.data)
+	}
+	close(first.release)
+	// The missing recovery directory makes the first offset publication fail.
+	// Reaching the second write proves the request offset rolled back to zero.
+	second := <-writer.writes
+	if string(second.data) != "once" {
+		t.Fatalf("retried output write = %q", second.data)
+	}
+	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	close(second.release)
+	select {
+	case <-p.done:
+	case <-time.After(time.Second):
+		t.Fatal("process did not finish after durable output acknowledgement recovered")
+	}
+	if firstOffset, secondOffset, finalOffset := <-client.offsets, <-client.offsets, <-client.offsets; firstOffset != 0 || secondOffset != 0 || finalOffset != 4 {
+		t.Fatalf("output request offsets = %d, %d, %d", firstOffset, secondOffset, finalOffset)
+	}
+	s.mu.Lock()
+	status, exit, stdoutOffset := p.status, p.exit, p.stdoutOffset
+	s.mu.Unlock()
+	if status != tasktypes.Status_STOPPED || exit != 11 || stdoutOffset != 4 {
+		t.Fatalf("final process = status:%v exit:%d stdout-offset:%d", status, exit, stdoutOffset)
 	}
 }
 

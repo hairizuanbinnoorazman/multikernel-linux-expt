@@ -2227,16 +2227,32 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		stdoutAdvance, stdoutDropped := deliverOutput(p.stdoutWriter, output.Stdout, &p.stdoutPressure, now, 30*time.Second)
 		stderrAdvance, stderrDropped := deliverOutput(p.stderrWriter, output.Stderr, &p.stderrPressure, now, 30*time.Second)
 		s.mu.Lock()
+		oldStdoutOffset, oldStderrOffset := p.stdoutOffset, p.stderrOffset
 		if stdoutAdvance {
 			p.stdoutOffset = output.StdoutOffset
 		}
 		if stderrAdvance {
 			p.stderrOffset = output.StderrOffset
 		}
-		if stdoutAdvance || stderrAdvance {
-			_ = s.persistRecovery()
+		stdoutChanged := p.stdoutOffset != oldStdoutOffset
+		stderrChanged := p.stderrOffset != oldStderrOffset
+		var persistErr error
+		if stdoutChanged || stderrChanged {
+			persistErr = s.persistRecovery()
+			if persistErr != nil {
+				p.stdoutOffset, p.stderrOffset = oldStdoutOffset, oldStderrOffset
+				if stdoutChanged {
+					stdoutAdvance = false
+				}
+				if stderrChanged {
+					stderrAdvance = false
+				}
+			}
 		}
 		s.mu.Unlock()
+		if persistErr != nil {
+			fmt.Fprintf(os.Stderr, "multikernel output acknowledgement: %v\n", persistErr)
+		}
 		if stdoutDropped {
 			fmt.Fprintf(os.Stderr, "multikernel stdout: discarded %d bytes after 30s output pressure\n", len(output.Stdout))
 		}

@@ -450,6 +450,12 @@ Output replies are now validated before destination I/O or offset mutation:
 both streams must fit the requested 4096-byte chunk, advance contiguously
 without overflow, and report `RUNNING` or `STOPPED`. Focused gap, regression,
 overflow, oversize, and unknown-state cases pass 100 race-detector repetitions.
+Output acknowledgement persistence is no longer ignored. Failure atomically
+restores both prior stream offsets and re-delivers the same bounded chunk,
+making the failure contract explicitly at-least-once. An injected missing-state
+directory produces requests at offsets 0, 0, then 4 after repair and observes
+the exact later exit 11; 100 race-detector repetitions pass. Empty unchanged
+polls no longer rewrite the recovery file.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation
