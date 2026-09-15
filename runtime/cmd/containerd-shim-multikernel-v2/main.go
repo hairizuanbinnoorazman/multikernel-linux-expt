@@ -2303,8 +2303,11 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		fmt.Fprintf(os.Stderr, "multikernel exit event queue: %v\n", err)
 	} else {
 		p.exitEventQueued = true
+		if err := s.persistRecovery(); err != nil {
+			p.exitEventQueued = false
+			fmt.Fprintf(os.Stderr, "multikernel exit event acknowledgement: %v\n", err)
+		}
 	}
-	_ = s.persistRecovery()
 	close(p.done)
 	s.mu.Unlock()
 }

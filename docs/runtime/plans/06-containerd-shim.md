@@ -134,6 +134,10 @@ Even after that result, the prior visible state and open Task wait channel are
 retained until the exact stopped state, exit code, and timestamp are durable in
 recovery. Publication failure is retried at 100-millisecond intervals; only a
 successful recovery update permits exit-event queuing and Task completion.
+After durable exit-event queuing, the recovery `exit_event_queued` flag is a
+separate acknowledgement. If that update fails, the in-memory flag returns to
+false to match the last durable process record; Delete or reconstruction then
+repairs the event through the documented at-least-once path.
 The agent removes each connection's cancellation callback when that session
 ends normally; active server cancellation still closes a blocked connection.
 Repeated relay reconnects therefore do not retain a goroutine and connection

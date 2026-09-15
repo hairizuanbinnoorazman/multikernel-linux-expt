@@ -461,6 +461,11 @@ its stopped state, exact code, and timestamp are durable. Injected missing
 recovery storage retains the prior running state and open wait channel; after
 repair, the on-disk process is `STOPPED` with exit 37 before completion.
 One hundred race-detector repetitions pass.
+The final exit-event acknowledgement write is no longer ignored either. If
+recovery disappears after durable event publication, memory restores
+`exitEventQueued=false` to match the stopped disk record, leaving the existing
+Delete/reconstruction repair path authoritative. The injected boundary retains
+exact exit 37 and passes 100 race-detector repetitions.
 Exec creation no longer discards cleanup errors after a recovery or event
 publication failure. Its five-second cancellation-independent rollback treats
 authenticated `NOT_FOUND` as confirmed absence, removes ownership only after
