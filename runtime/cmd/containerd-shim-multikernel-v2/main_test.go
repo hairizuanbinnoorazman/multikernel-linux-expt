@@ -1479,6 +1479,57 @@ func TestWaitProcessDoesNotFabricateExitAfterReconnectBudget(t *testing.T) {
 	}
 }
 
+func TestWaitProcessDoesNotCompleteBeforeExitStateIsDurable(t *testing.T) {
+	bundle := t.TempDir()
+	recovered := make(chan struct{})
+	close(recovered)
+	client := &waitOutageAgent{observed: make(chan struct{}), recovered: recovered}
+	p := &process{status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	s := &service{id: "task", namespace: "tests", bundle: bundle,
+		sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+		agent:   client, processes: map[string]*process{"": p}, publisher: &fakePublisher{},
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	go s.waitProcess("init", "", p)
+	select {
+	case <-client.observed:
+	case <-time.After(time.Second):
+		t.Fatal("output monitor did not observe the stopped guest")
+	}
+	// The missing recovery directory prevents the exact exit from becoming
+	// durable. The previous process state and open wait channel must remain.
+	time.Sleep(60 * time.Millisecond)
+	s.mu.Lock()
+	status, exit := p.status, p.exit
+	s.mu.Unlock()
+	if status != tasktypes.Status_RUNNING || exit != 0 {
+		t.Fatalf("process before durable exit = status:%v exit:%d", status, exit)
+	}
+	select {
+	case <-p.done:
+		t.Fatal("task wait completed before exit state was durable")
+	default:
+	}
+	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-p.done:
+	case <-time.After(time.Second):
+		t.Fatal("task wait did not complete after recovery storage returned")
+	}
+	data, err := os.ReadFile(filepath.Join(bundle, ".multikernel", "sandbox.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved persisted
+	if err = json.Unmarshal(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Processes) != 1 || saved.Processes[0].Status != tasktypes.Status_STOPPED || saved.Processes[0].Exit != 37 {
+		t.Fatalf("durable exit state = %+v", saved.Processes)
+	}
+}
+
 func TestCloseIORetriesUntilGuestAcknowledges(t *testing.T) {
 	client := &fakeAgentClient{fail: map[string]error{"CloseProcessStdin": errors.New("injected close failure")}}
 	p := &process{id: "", status: tasktypes.Status_RUNNING, done: make(chan struct{})}

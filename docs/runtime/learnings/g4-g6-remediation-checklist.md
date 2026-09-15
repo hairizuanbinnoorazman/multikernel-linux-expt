@@ -537,6 +537,10 @@ normative plan is revised with an explicit rationale.
   an explicit at-least-once contract. Injected failure requests offsets 0, 0,
   then 4 after repair and reaches exact exit 11 in 100 race-detector
   repetitions. Empty unchanged polls do not rewrite recovery state.
+  Observed exit completion is also ordered after durable stopped state, exact
+  code, and timestamp. Missing recovery storage retains the prior running state
+  and open Task wait channel; after repair, disk records `STOPPED` and exit 37
+  before completion. The injected boundary passes 100 race-detector repetitions.
   Agent connection cancellation no longer leaves a goroutine and connection
   reference behind after each normal disconnect. Focused tests prove active
   cancellation still unblocks the session and completed sessions unregister
