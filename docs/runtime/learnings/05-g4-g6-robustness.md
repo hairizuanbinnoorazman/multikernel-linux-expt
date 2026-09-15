@@ -467,6 +467,11 @@ authenticated `NOT_FOUND` as confirmed absence, removes ownership only after
 that result or successful deletion, republishes the exact resulting registry,
 and returns both guest and recovery errors. Success, already-absent, and failed
 deletion cases keep disk and memory aligned for 100 race-detector repetitions.
+Pause/resume event-failure rollback no longer suppresses a failed recovery
+rewrite. Injected directory replacement after reverse signaling proves memory
+returns to its prior state while the old durable transition remains
+diagnosable; both the event and labeled recovery failure are returned for
+Pause and Resume across 100 race-detector repetitions.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation

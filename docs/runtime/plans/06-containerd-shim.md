@@ -183,8 +183,10 @@ therefore cannot postpone `CloseIO` indefinitely.
 Task pause and resume cover every running or paused init/exec process group in
 a deterministic order. If any signal fails, already transitioned groups are
 signaled back in reverse order under a bounded rollback context. Process states
-are committed together only after all signals succeed, and persistence or
-event failure likewise restores every group and its previous durable state.
+are committed together only after all signals succeed. Persistence or event
+failure rolls every group and in-memory state back; the recovery rollback is
+then attempted explicitly, and any signal or recovery failure is returned
+rather than suppressing a potentially mismatched durable state.
 
 Task stats aggregate CPU, resident memory, and PID counts across every running
 or paused init and exec process group. Created and stopped processes are not
