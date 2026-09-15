@@ -119,6 +119,9 @@ reference for every completed session.
 The primary daemon applies the same rule to its listener and concurrent request
 handlers. Service cancellation or accept-loop return closes incomplete request
 sockets rather than leaving handler goroutines blocked on peer EOF.
+The daemon admits at most 128 handlers by default, caps configuration at 1,024,
+closes excess connections without a goroutine, and joins admitted handlers
+before returning.
 Daemon replies are capped at the protocol's one-MiB response bound; oversized
 or unencodable bodies become a bounded INTERNAL response with the original
 request ID. Agent reply envelopes require exactly one body or structured error,

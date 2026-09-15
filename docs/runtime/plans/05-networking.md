@@ -63,6 +63,9 @@ retention is limited to one MiB and returned failure diagnostics to 16 KiB.
 `mknetd` service cancellation closes the listener and every accepted request
 socket, including a peer stalled before its newline; accept-loop failure
 cancels the derived handler context as well.
+The concurrent handler budget defaults to 128 and is hard-capped at 1,024.
+Connections above the configured budget are closed without spawning a
+goroutine, and listener return waits for all admitted handlers to finish.
 Guest DNS restoration retains cleanup ownership after failure and becomes a
 no-op after success, so repeated network close cannot remove restored state.
 `ATTACH` transfers exactly one generation-bound TUN descriptor with one

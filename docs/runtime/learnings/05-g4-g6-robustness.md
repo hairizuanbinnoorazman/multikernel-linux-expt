@@ -490,6 +490,12 @@ outlive the service. Both now derive a handler context from the accept loop and
 use the joined close callback for the listener and each connection. Focused
 blocked-peer tests and the shared active/completed callback tests pass 100
 race-detector repetitions.
+Both concurrent accept loops now use a bounded handler semaphore (128 by
+default and no more than 1,024), close excess authenticated connections, and
+join admitted handlers on every return. In-memory listener tests exercise the
+exact production serve loops under saturation and cancellation for 100
+race-detector repetitions. Guarded pathname-listener execution remains part of
+the disposable-host matrix because the local sandbox forbids its socket option.
 Daemon response generation now enforces the client's one-MiB limit and converts
 oversized or unencodable bodies to a bounded INTERNAL error retaining the
 request ID. Agent reply decoding now requires exactly one body or error and

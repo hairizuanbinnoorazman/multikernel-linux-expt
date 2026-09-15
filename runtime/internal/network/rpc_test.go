@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -21,6 +22,32 @@ type shortWriteConn struct {
 	net.Conn
 	maximum int
 }
+
+type queueListener struct {
+	connections chan net.Conn
+	closed      chan struct{}
+	once        sync.Once
+}
+
+func newQueueListener() *queueListener {
+	return &queueListener{connections: make(chan net.Conn), closed: make(chan struct{})}
+}
+
+func (l *queueListener) Accept() (net.Conn, error) {
+	select {
+	case connection := <-l.connections:
+		return connection, nil
+	case <-l.closed:
+		return nil, net.ErrClosed
+	}
+}
+
+func (l *queueListener) Close() error {
+	l.once.Do(func() { close(l.closed) })
+	return nil
+}
+
+func (*queueListener) Addr() net.Addr { return &net.UnixAddr{Name: "queue", Net: "unix"} }
 
 type fakeRightsWriter struct {
 	payloadAdjustment int
@@ -73,6 +100,14 @@ func TestNetworkHandlerCancellationClosesIncompleteRequest(t *testing.T) {
 	}
 }
 
+func TestNetworkHandlerLimitCannotBeDisabledOrMadeUnbounded(t *testing.T) {
+	for configured, expected := range map[int]int{-1: 128, 0: 128, 1: 1, 512: 512, 4096: 1024} {
+		if observed := networkHandlerLimit(configured); observed != expected {
+			t.Fatalf("handler limit(%d) = %d, want %d", configured, observed, expected)
+		}
+	}
+}
+
 func TestRPCBindsResponseAndRejectsDuplicateJSON(t *testing.T) {
 	backend := &fakeBackend{}
 	service := service(t, "172.31.0.0/30", backend)
@@ -120,6 +155,48 @@ func TestServerRefusesToReplaceNonSocket(t *testing.T) {
 	server := &Server{Service: service(t, "172.31.0.0/30", &fakeBackend{}), AllowedUID: CurrentUID()}
 	if err := server.Listen(context.Background(), path); err == nil || !strings.Contains(err.Error(), "socket path") {
 		t.Fatalf("Listen error = %v", err)
+	}
+}
+
+func TestNetworkListenerBoundsAndJoinsIncompleteHandlers(t *testing.T) {
+	listener := newQueueListener()
+	server := &Server{MaxHandlers: 1}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	listened := make(chan error, 1)
+	go func() { listened <- server.serve(ctx, listener, func(net.Conn, uint32) error { return nil }) }()
+	first, firstServer := net.Pipe()
+	defer first.Close()
+	listener.connections <- firstServer
+	if _, err := first.Write([]byte("{")); err != nil {
+		t.Fatal(err)
+	}
+	for deadline := time.Now().Add(time.Second); server.activeHandlers.Load() != 1; {
+		if time.Now().After(deadline) {
+			t.Fatal("first incomplete handler did not become active")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	second, secondServer := net.Pipe()
+	defer second.Close()
+	if err := second.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	listener.connections <- secondServer
+	if _, err := second.Read(make([]byte, 1)); err == nil {
+		t.Fatal("handler above configured limit remained open")
+	}
+	cancel()
+	select {
+	case err := <-listened:
+		if err != nil {
+			t.Fatalf("cancelled mknetd listener = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("mknetd listener did not join incomplete handler")
+	}
+	if active := server.activeHandlers.Load(); active != 0 {
+		t.Fatalf("active handlers after listener return = %d", active)
 	}
 }
 

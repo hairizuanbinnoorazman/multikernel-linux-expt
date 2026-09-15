@@ -365,6 +365,10 @@ normative plan is revised with an explicit rationale.
   incomplete request; accept-loop return cancels the derived handler context.
   Focused blocked-peer and shared callback tests pass 100 race-detector
   repetitions.
+  The exact serve loop also enforces 128 handlers by default, a hard maximum of
+  1,024, closes over-budget peers without a goroutine, and joins admitted
+  handlers before return. Saturation/cancellation passes 100 race-detector
+  repetitions; the guarded pathname listener remains a disposable-host case.
 - [x] Define firewall and network-policy ownership and install rules that
   cannot be bypassed by spoofed source addresses, alternate routes, malformed
   packets, or sibling traffic. Per-generation primary chains enforce source,
@@ -599,6 +603,9 @@ normative plan is revised with an explicit rationale.
   Daemon and mknetd service return also cancel derived request handlers and
   close incomplete accepted peers; focused blocked-request tests pass 100
   race-detector repetitions.
+  Both accept loops have a bounded 128-handler default and 1,024 hard maximum,
+  close over-budget connections, and join admitted handlers. Exact serve-loop
+  saturation/cancellation tests pass 100 race-detector repetitions.
   Daemon replies now enforce the one-MiB client bound and replace oversized or
   unencodable bodies with a bounded request-ID-bound INTERNAL error. Agent
   replies require exactly one body/error and strict typed-body decoding;

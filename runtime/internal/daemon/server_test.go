@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,6 +42,32 @@ type memoryAddr string
 func (a memoryAddr) Network() string { return "memory" }
 func (a memoryAddr) String() string  { return string(a) }
 
+type queueListener struct {
+	connections chan net.Conn
+	closed      chan struct{}
+	once        sync.Once
+}
+
+func newQueueListener() *queueListener {
+	return &queueListener{connections: make(chan net.Conn), closed: make(chan struct{})}
+}
+
+func (l *queueListener) Accept() (net.Conn, error) {
+	select {
+	case connection := <-l.connections:
+		return connection, nil
+	case <-l.closed:
+		return nil, net.ErrClosed
+	}
+}
+
+func (l *queueListener) Close() error {
+	l.once.Do(func() { close(l.closed) })
+	return nil
+}
+
+func (*queueListener) Addr() net.Addr { return memoryAddr("queue") }
+
 func TestDaemonHandlerCancellationClosesIncompleteRequest(t *testing.T) {
 	clientConnection, serverConnection := net.Pipe()
 	defer clientConnection.Close()
@@ -55,6 +82,56 @@ func TestDaemonHandlerCancellationClosesIncompleteRequest(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("daemon handler remained blocked after service cancellation")
+	}
+}
+
+func TestDaemonHandlerLimitCannotBeDisabledOrMadeUnbounded(t *testing.T) {
+	for configured, expected := range map[int]int{-1: 128, 0: 128, 1: 1, 512: 512, 4096: 1024} {
+		if observed := daemonHandlerLimit(configured); observed != expected {
+			t.Fatalf("handler limit(%d) = %d, want %d", configured, observed, expected)
+		}
+	}
+}
+
+func TestDaemonServeBoundsAndJoinsIncompleteHandlers(t *testing.T) {
+	listener := newQueueListener()
+	server := &Server{MaxFrame: 1024, MaxHandlers: 1}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	served := make(chan error, 1)
+	go func() { served <- server.serve(ctx, listener, func(net.Conn, uint32) error { return nil }) }()
+	first, firstServer := net.Pipe()
+	defer first.Close()
+	listener.connections <- firstServer
+	if _, err := first.Write([]byte("{")); err != nil {
+		t.Fatal(err)
+	}
+	for deadline := time.Now().Add(time.Second); server.activeHandlers.Load() != 1; {
+		if time.Now().After(deadline) {
+			t.Fatal("first incomplete daemon handler did not become active")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	second, secondServer := net.Pipe()
+	defer second.Close()
+	if err := second.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	listener.connections <- secondServer
+	if _, err := second.Read(make([]byte, 1)); err == nil {
+		t.Fatal("daemon handler above configured limit remained open")
+	}
+	cancel()
+	select {
+	case err := <-served:
+		if err != nil {
+			t.Fatalf("cancelled daemon server = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("daemon server did not join incomplete handler")
+	}
+	if active := server.activeHandlers.Load(); active != 0 {
+		t.Fatalf("active daemon handlers after server return = %d", active)
 	}
 }
 
