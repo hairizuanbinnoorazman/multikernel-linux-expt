@@ -82,6 +82,18 @@ type process struct {
 	deleting                       bool
 }
 
+const processOutputChunk = 4096
+
+type processOutput struct {
+	Stdout          []byte `json:"stdout"`
+	Stderr          []byte `json:"stderr"`
+	StdoutOffset    uint64 `json:"stdout_offset"`
+	StderrOffset    uint64 `json:"stderr_offset"`
+	Status          string `json:"status"`
+	StdoutTruncated bool   `json:"stdout_truncated"`
+	StderrTruncated bool   `json:"stderr_truncated"`
+}
+
 type agentClient interface {
 	Call(string, any, any) error
 	CallContext(context.Context, string, any, any) error
@@ -2204,15 +2216,7 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 	var err error
 	stdoutTruncationReported, stderrTruncationReported := false, false
 	for {
-		var output struct {
-			Stdout          []byte `json:"stdout"`
-			Stderr          []byte `json:"stderr"`
-			StdoutOffset    uint64 `json:"stdout_offset"`
-			StderrOffset    uint64 `json:"stderr_offset"`
-			Status          string `json:"status"`
-			StdoutTruncated bool   `json:"stdout_truncated"`
-			StderrTruncated bool   `json:"stderr_truncated"`
-		}
+		var output processOutput
 		err = s.readProcessOutput(agentID, p.stdoutOffset, p.stderrOffset, &output)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "multikernel output monitor: %v\n", err)
@@ -2278,10 +2282,30 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 	s.mu.Unlock()
 }
 
-func (s *service) readProcessOutput(agentID string, stdoutOffset, stderrOffset uint64, output any) error {
-	return s.callAgentWithReconnect("ReadProcessOutput", map[string]any{
-		"id": agentID, "stdout_offset": stdoutOffset, "stderr_offset": stderrOffset, "limit": uint64(4096),
-	}, output)
+func (s *service) readProcessOutput(agentID string, stdoutOffset, stderrOffset uint64, output *processOutput) error {
+	if err := s.callAgentWithReconnect("ReadProcessOutput", map[string]any{
+		"id": agentID, "stdout_offset": stdoutOffset, "stderr_offset": stderrOffset, "limit": uint64(processOutputChunk),
+	}, output); err != nil {
+		return err
+	}
+	return validateProcessOutput(stdoutOffset, stderrOffset, *output)
+}
+
+func validateProcessOutput(stdoutOffset, stderrOffset uint64, output processOutput) error {
+	if len(output.Stdout) > processOutputChunk || len(output.Stderr) > processOutputChunk {
+		return errors.New("guest output exceeded the requested atomic chunk")
+	}
+	exactOffset := func(current, next uint64, data []byte) bool {
+		return uint64(len(data)) <= ^uint64(0)-current && next == current+uint64(len(data))
+	}
+	if !exactOffset(stdoutOffset, output.StdoutOffset, output.Stdout) ||
+		!exactOffset(stderrOffset, output.StderrOffset, output.Stderr) {
+		return errors.New("guest output returned a non-contiguous offset")
+	}
+	if output.Status != "RUNNING" && output.Status != "STOPPED" {
+		return errors.New("guest output returned an invalid process state")
+	}
+	return nil
 }
 
 func (s *service) callAgentWithReconnect(method string, request, output any) error {

@@ -1285,12 +1285,7 @@ func TestOutputOffsetsAdvanceOnlyAfterDeliveryOrBoundedDrop(t *testing.T) {
 func TestProcessOutputAndWaitRecoverTransportWithoutChangingOffsets(t *testing.T) {
 	client := &outputReconnectAgent{readFailures: 2, waitFailures: 1, reconnectFailures: 1}
 	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: time.Second}
-	var output struct {
-		Stdout       []byte `json:"stdout"`
-		StdoutOffset uint64 `json:"stdout_offset"`
-		StderrOffset uint64 `json:"stderr_offset"`
-		Status       string `json:"status"`
-	}
+	var output processOutput
 	if err := s.readProcessOutput("init", 7, 9, &output); err != nil {
 		t.Fatal(err)
 	}
@@ -1310,7 +1305,7 @@ func TestProcessOutputReconnectHasOneOverallDeadline(t *testing.T) {
 	client := &outputReconnectAgent{readFailures: 1000, reconnectFailures: 1000}
 	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: 80 * time.Millisecond}
 	started := time.Now()
-	var output map[string]any
+	var output processOutput
 	err := s.readProcessOutput("init", 7, 9, &output)
 	if err == nil || !strings.Contains(err.Error(), "injected output disconnect") {
 		t.Fatalf("bounded reconnect error = %v", err)
@@ -1326,7 +1321,7 @@ func TestProcessOutputReconnectHasOneOverallDeadline(t *testing.T) {
 func TestProcessOutputDoesNotReplayAuthenticatedRemoteRejection(t *testing.T) {
 	client := &outputReconnectAgent{remoteReadFailure: true}
 	s := &service{agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: time.Second}
-	var output map[string]any
+	var output processOutput
 	err := s.readProcessOutput("init", 7, 9, &output)
 	var remoteError *agent.RemoteError
 	if !errors.As(err, &remoteError) || remoteError.Failure.Code != "NOT_FOUND" {
@@ -1334,6 +1329,31 @@ func TestProcessOutputDoesNotReplayAuthenticatedRemoteRejection(t *testing.T) {
 	}
 	if client.readCalls != 1 || client.reconnects != 0 {
 		t.Fatalf("remote rejection was replayed: reads=%d reconnects=%d", client.readCalls, client.reconnects)
+	}
+}
+
+func TestProcessOutputRequiresBoundedContiguousOffsetsAndKnownState(t *testing.T) {
+	valid := processOutput{Stdout: []byte("x"), StdoutOffset: 8, StderrOffset: 9, Status: "RUNNING"}
+	if err := validateProcessOutput(7, 9, valid); err != nil {
+		t.Fatalf("valid process output = %v", err)
+	}
+	for name, test := range map[string]struct {
+		stdoutOffset uint64
+		stderrOffset uint64
+		output       processOutput
+	}{
+		"oversized stdout":  {7, 9, processOutput{Stdout: make([]byte, processOutputChunk+1), StdoutOffset: 7 + processOutputChunk + 1, StderrOffset: 9, Status: "RUNNING"}},
+		"oversized stderr":  {7, 9, processOutput{StdoutOffset: 7, Stderr: make([]byte, processOutputChunk+1), StderrOffset: 9 + processOutputChunk + 1, Status: "RUNNING"}},
+		"stdout gap":        {7, 9, processOutput{Stdout: []byte("x"), StdoutOffset: 9, StderrOffset: 9, Status: "RUNNING"}},
+		"stderr regression": {7, 9, processOutput{StdoutOffset: 7, StderrOffset: 8, Status: "RUNNING"}},
+		"offset overflow":   {^uint64(0), 9, processOutput{Stdout: []byte("x"), StdoutOffset: 0, StderrOffset: 9, Status: "RUNNING"}},
+		"unknown state":     {7, 9, processOutput{StdoutOffset: 7, StderrOffset: 9, Status: "PAUSED"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := validateProcessOutput(test.stdoutOffset, test.stderrOffset, test.output); err == nil {
+				t.Fatal("malformed process output was accepted")
+			}
+		})
 	}
 }
 

@@ -61,6 +61,10 @@ independent offset-based `ReadProcessOutput` chunks, so retained output cannot
 make a state reply exceed the frame limit. Each stream retains at most 4 MiB,
 briefly backpressures a full buffer, and then marks explicit truncation rather
 than blocking a child indefinitely when its controller disappears.
+For each returned stream, the next offset is exactly the requested offset plus
+the returned byte count without unsigned overflow. The controller rejects a
+chunk beyond its requested limit, a gap or regression, or an output-state value
+other than `RUNNING` or `STOPPED` before writing output or advancing recovery.
 
 An agent transport disconnect leaves managed processes and the last accepted
 sequence intact. The same authenticated controller may reconnect and continue

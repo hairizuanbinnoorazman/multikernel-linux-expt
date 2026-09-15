@@ -88,6 +88,10 @@ Output FIFOs are opened nonblocking with a guard endpoint so detached clients
 may reattach. The shim fetches at most Linux `PIPE_BUF` (4096) bytes per stream
 and advances each durable guest-output offset only after the entire chunk is
 written. Backpressure therefore replays rather than silently losing a chunk.
+Before delivery, each agent reply must contain no more than the requested 4096
+bytes per stream, an exact non-overflowing next offset equal to request plus
+returned length, and a known `RUNNING` or `STOPPED` state. A malformed reply
+cannot write to a destination or change durable offsets.
 If a consumer remains absent or slow for 30 seconds, the shim logs the exact
 dropped byte count and advances that stream deliberately so process wait and
 cleanup remain bounded. An unconfigured output stream is discarded by
@@ -108,9 +112,10 @@ Background output and terminal-wait reads are idempotent reconnect boundaries.
 Each operation has one 30-second budget covering the initial authenticated
 call, relay reconnect attempts, and replay with the same acknowledged output
 offsets. An authenticated structured agent rejection is terminal and is never
-replayed; only transport/protocol failures enter reconnect. Exhausting the
-single exchange budget leaves the process state and exit channel unchanged,
-logs the uncertainty, and begins another bounded epoch after 100 milliseconds.
+replayed within that exchange; only transport/protocol failures enter relay
+reconnect. An exchange rejection or exhausted transport budget leaves the
+process state and exit channel unchanged, logs the uncertainty, and begins
+another bounded observation epoch after 100 milliseconds.
 The monitor is owned for the lifetime of the recorded running task; only an
 authenticated `WaitProcess` result may transition it to stopped and publish an
 exit status. Transport loss therefore cannot fabricate an exit.

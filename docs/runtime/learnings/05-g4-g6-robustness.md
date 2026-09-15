@@ -446,6 +446,10 @@ and starts another bounded epoch until an authenticated `WaitProcess` supplies
 the exact exit. A sustained-outage/recovery test proves one expired epoch does
 not close the task wait channel and the later observed exit 37 is published;
 100 race-detector repetitions pass.
+Output replies are now validated before destination I/O or offset mutation:
+both streams must fit the requested 4096-byte chunk, advance contiguously
+without overflow, and report `RUNNING` or `STOPPED`. Focused gap, regression,
+overflow, oversize, and unknown-state cases pass 100 race-detector repetitions.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation
