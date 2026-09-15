@@ -507,9 +507,12 @@ normative plan is revised with an explicit rationale.
   same-type replacement instead of trusting the recovered pathname. Legacy
   v1 records without that proof fail closed. Twenty race-detector repetitions
   cover FIFO and regular-output substitution without modifying the replacement.
-  A real FIFO test covers no initial stdin peer, two sequential late writer
-  attachments with exact guest-call bytes, and prompt pump termination when its
-  descriptor is torn down. Output polling and final Wait now treat only
+  A real FIFO test covers no initial stdin peer, an attached writer idle long
+  enough for the nonblocking reader to return `EAGAIN`, a subsequent writer,
+  exact guest-call bytes, and prompt pump termination when its descriptor is
+  torn down. The pump now treats that empty attached state as temporary rather
+  than silently abandoning later input; 100 race-detector repetitions pass.
+  Output polling and final Wait now treat only
   transport/protocol failures as reconnectable, replay their idempotent reads
   with unchanged acknowledged offsets, and share one 30-second overall budget;
   a structured authenticated agent rejection is terminal. Twenty
