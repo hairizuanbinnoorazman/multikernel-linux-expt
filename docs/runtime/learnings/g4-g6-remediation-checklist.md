@@ -522,6 +522,11 @@ normative plan is revised with an explicit rationale.
   a structured authenticated agent rejection is terminal. Twenty
   race-detector repetitions cover successful output/Wait reconnect, an initial
   reconnect failure, non-replayed remote rejection, and deadline exhaustion.
+  Exhausting one bounded background epoch no longer fabricates exit 255: the
+  recorded process remains running and its wait channel remains open while the
+  monitor retries after 100 milliseconds. Only an authenticated `WaitProcess`
+  result transitions it to stopped. A sustained-outage/recovery test observes
+  the later exact exit 37 and passes 100 race-detector repetitions.
   Agent connection cancellation no longer leaves a goroutine and connection
   reference behind after each normal disconnect. Focused tests prove active
   cancellation still unblocks the session and completed sessions unregister

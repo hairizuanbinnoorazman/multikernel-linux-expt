@@ -440,6 +440,12 @@ returned once rather than reconnected and replayed. Twenty race-detector
 repetitions cover transient output and Wait recovery, unchanged offsets,
 initial reconnect failure, terminal remote rejection, and deadline exhaustion;
 the cross-process live disconnect case remains open.
+The background monitor no longer converts even a fully exhausted reconnect
+budget into exit 255. It retains the running state, waits 100 milliseconds,
+and starts another bounded epoch until an authenticated `WaitProcess` supplies
+the exact exit. A sustained-outage/recovery test proves one expired epoch does
+not close the task wait channel and the later observed exit 37 is published;
+100 race-detector repetitions pass.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation

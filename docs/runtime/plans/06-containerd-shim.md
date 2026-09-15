@@ -109,9 +109,11 @@ Each operation has one 30-second budget covering the initial authenticated
 call, relay reconnect attempts, and replay with the same acknowledged output
 offsets. An authenticated structured agent rejection is terminal and is never
 replayed; only transport/protocol failures enter reconnect. Exhausting the
-single budget produces the shim's explicit failed-exit fallback instead of
-allowing the wait goroutine to live forever or inventing an exit immediately
-after one transient disconnect.
+single exchange budget leaves the process state and exit channel unchanged,
+logs the uncertainty, and begins another bounded epoch after 100 milliseconds.
+The monitor is owned for the lifetime of the recorded running task; only an
+authenticated `WaitProcess` result may transition it to stopped and publish an
+exit status. Transport loss therefore cannot fabricate an exit.
 The agent removes each connection's cancellation callback when that session
 ends normally; active server cancellation still closes a blocked connection.
 Repeated relay reconnects therefore do not retain a goroutine and connection

@@ -105,6 +105,37 @@ type outputReconnectAgent struct {
 	reconnects        int
 }
 
+type waitOutageAgent struct {
+	observed  chan struct{}
+	recovered chan struct{}
+	once      sync.Once
+}
+
+func (f *waitOutageAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *waitOutageAgent) CallContext(ctx context.Context, method string, _ any, response any) error {
+	switch method {
+	case "ReadProcessOutput":
+		f.once.Do(func() { close(f.observed) })
+		select {
+		case <-f.recovered:
+			return setJSONResponse(response, map[string]any{
+				"stdout_offset": uint64(0), "stderr_offset": uint64(0), "status": "STOPPED",
+			})
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	case "WaitProcess":
+		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 37})
+	default:
+		return fmt.Errorf("unexpected method %s", method)
+	}
+}
+func (*waitOutageAgent) Close() error                                   { return nil }
+func (*waitOutageAgent) Reconnect(string) error                         { return nil }
+func (*waitOutageAgent) ReconnectContext(context.Context, string) error { return nil }
+
 func (f *outputReconnectAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
@@ -1303,6 +1334,46 @@ func TestProcessOutputDoesNotReplayAuthenticatedRemoteRejection(t *testing.T) {
 	}
 	if client.readCalls != 1 || client.reconnects != 0 {
 		t.Fatalf("remote rejection was replayed: reads=%d reconnects=%d", client.readCalls, client.reconnects)
+	}
+}
+
+func TestWaitProcessDoesNotFabricateExitAfterReconnectBudget(t *testing.T) {
+	client := &waitOutageAgent{observed: make(chan struct{}), recovered: make(chan struct{})}
+	p := &process{status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	s := &service{id: "task", namespace: "tests", bundle: t.TempDir(), agent: client,
+		ioCallTimeout: 20 * time.Millisecond, processes: map[string]*process{"": p},
+		publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	go s.waitProcess("init", "", p)
+	select {
+	case <-client.observed:
+	case <-time.After(time.Second):
+		t.Fatal("output monitor did not contact the guest")
+	}
+	// Let one complete reconnect budget expire. Transport uncertainty must not
+	// become an observed process exit.
+	time.Sleep(60 * time.Millisecond)
+	s.mu.Lock()
+	status, exit := p.status, p.exit
+	s.mu.Unlock()
+	if status != tasktypes.Status_RUNNING || exit != 0 {
+		t.Fatalf("process after transport outage = status:%v exit:%d", status, exit)
+	}
+	select {
+	case <-p.done:
+		t.Fatal("transport outage fabricated process completion")
+	default:
+	}
+	close(client.recovered)
+	select {
+	case <-p.done:
+	case <-time.After(time.Second):
+		t.Fatal("output monitor did not recover the exact guest exit")
+	}
+	s.mu.Lock()
+	status, exit, queued := p.status, p.exit, p.exitEventQueued
+	s.mu.Unlock()
+	if status != tasktypes.Status_STOPPED || exit != 37 || !queued {
+		t.Fatalf("recovered process exit = status:%v exit:%d event:%v", status, exit, queued)
 	}
 }
 
