@@ -762,7 +762,10 @@ normative plan is revised with an explicit rationale.
   rollback after partial signal failure. Event-failure rollback also returns a
   labeled recovery rewrite failure rather than hiding a disk/memory mismatch;
   injected directory replacement covers Pause and Resume for 100 race-detector
-  repetitions. Focused tests cover success and these partial boundaries; the
+  repetitions. A failed initial transition write also reverse-signals and
+  republishes the prior recovery state as a new inode; both directions pass
+  100 race-detector repetitions. Focused tests cover success and these partial
+  boundaries; the
   remaining signal/exit/churn and live matrix is open.
   The descendant process-group signal test now waits for the terminal marker
   value instead of treating its earlier ready value as a terminal failure,

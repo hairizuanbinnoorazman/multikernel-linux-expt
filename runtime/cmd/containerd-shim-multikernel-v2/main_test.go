@@ -2349,6 +2349,87 @@ func TestPauseResumeReturnRecoveryRollbackFailure(t *testing.T) {
 	}
 }
 
+func TestPauseResumeRepublishPriorStateAfterTransitionPersistenceFailure(t *testing.T) {
+	for name, test := range map[string]struct {
+		initial        tasktypes.Status
+		forwardSignal  syscall.Signal
+		rollbackSignal syscall.Signal
+		invoke         func(*service) error
+		errorLabel     string
+	}{
+		"pause": {tasktypes.Status_RUNNING, syscall.SIGSTOP, syscall.SIGCONT, func(s *service) error {
+			_, err := s.Pause(context.Background(), &taskapi.PauseRequest{ID: "task"})
+			return err
+		}, "persist paused state"},
+		"resume": {tasktypes.Status_PAUSED, syscall.SIGCONT, syscall.SIGSTOP, func(s *service) error {
+			_, err := s.Resume(context.Background(), &taskapi.ResumeRequest{ID: "task"})
+			return err
+		}, "persist resumed state"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			bundle := t.TempDir()
+			runtimeDir := filepath.Join(bundle, ".multikernel")
+			heldDir := filepath.Join(bundle, ".multikernel-held")
+			if err := os.Mkdir(runtimeDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			var hookErr error
+			fake := &signalFailureAgent{}
+			s := &service{id: "task", namespace: "tests", bundle: bundle,
+				sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+				agent:   fake, publisher: &fakePublisher{}, processes: map[string]*process{
+					"": {status: test.initial, done: make(chan struct{})},
+				}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+			if err := s.persistRecovery(); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(runtimeDir, "sandbox.json")
+			before, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fake.hook = func(call string) {
+				switch call {
+				case fmt.Sprintf("init:%d", test.forwardSignal):
+					hookErr = os.Rename(runtimeDir, heldDir)
+				case fmt.Sprintf("init:%d", test.rollbackSignal):
+					if hookErr == nil {
+						hookErr = os.Rename(heldDir, runtimeDir)
+					}
+				}
+			}
+			err = test.invoke(s)
+			if hookErr != nil {
+				t.Fatal(hookErr)
+			}
+			if err == nil || !strings.Contains(err.Error(), test.errorLabel) {
+				t.Fatalf("transition persistence error = %v", err)
+			}
+			if observed := s.processes[""].status; observed != test.initial {
+				t.Fatalf("memory state after persistence rollback = %v, want %v", observed, test.initial)
+			}
+			after, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if os.SameFile(before, after) {
+				t.Fatal("prior recovery state was not republished after transition failure")
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var saved persisted
+			if err = json.Unmarshal(data, &saved); err != nil {
+				t.Fatal(err)
+			}
+			if len(saved.Processes) != 1 || saved.Processes[0].Status != test.initial {
+				t.Fatalf("republished durable state = %+v", saved.Processes)
+			}
+		})
+	}
+}
+
 func TestStatsReturnsGuestProcessGroupMetrics(t *testing.T) {
 	fake := &fakeAgentClient{fail: map[string]error{}, statsByID: map[string]agent.ProcessStats{
 		"init": {CPUUserNS: 11, CPUSystemNS: 7, RSSBytes: 4096, PIDs: 3},

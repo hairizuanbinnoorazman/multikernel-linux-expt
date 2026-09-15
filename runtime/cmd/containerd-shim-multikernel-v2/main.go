@@ -2967,7 +2967,11 @@ func (s *service) Pause(ctx context.Context, r *taskapi.PauseRequest) (*emptypb.
 		for _, target := range targets {
 			target.process.status = tasktypes.Status_RUNNING
 		}
-		return nil, errors.Join(fmt.Errorf("persist paused state: %w", err), rollbackErr)
+		persistErr := s.persistRecovery()
+		if persistErr != nil {
+			persistErr = fmt.Errorf("persist pause rollback: %w", persistErr)
+		}
+		return nil, errors.Join(fmt.Errorf("persist paused state: %w", err), rollbackErr, persistErr)
 	}
 	if err := s.publish(ctx, ctruntime.TaskPausedEventTopic, &eventstypes.TaskPaused{ContainerID: s.id}); err != nil {
 		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGCONT)
@@ -3016,7 +3020,11 @@ func (s *service) Resume(ctx context.Context, r *taskapi.ResumeRequest) (*emptyp
 		for _, target := range targets {
 			target.process.status = tasktypes.Status_PAUSED
 		}
-		return nil, errors.Join(fmt.Errorf("persist resumed state: %w", err), rollbackErr)
+		persistErr := s.persistRecovery()
+		if persistErr != nil {
+			persistErr = fmt.Errorf("persist resume rollback: %w", persistErr)
+		}
+		return nil, errors.Join(fmt.Errorf("persist resumed state: %w", err), rollbackErr, persistErr)
 	}
 	if err := s.publish(ctx, ctruntime.TaskResumedEventTopic, &eventstypes.TaskResumed{ContainerID: s.id}); err != nil {
 		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGSTOP)
