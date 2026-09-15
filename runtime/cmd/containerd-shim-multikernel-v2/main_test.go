@@ -177,6 +177,39 @@ func (f *controlledOutputWriter) Write(value []byte) (int, error) {
 }
 func (*controlledOutputWriter) Close() error { return nil }
 
+type startCleanupAgent struct {
+	finish    chan struct{}
+	signalErr error
+}
+
+func (f *startCleanupAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *startCleanupAgent) CallContext(ctx context.Context, method string, _ any, response any) error {
+	switch method {
+	case "StartProcess":
+		return nil
+	case "StateProcess":
+		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "RUNNING"})
+	case "SignalProcess":
+		return f.signalErr
+	case "ReadProcessOutput":
+		select {
+		case <-f.finish:
+			return setJSONResponse(response, processOutput{Status: "STOPPED"})
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	case "WaitProcess":
+		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 9})
+	default:
+		return fmt.Errorf("unexpected method %s", method)
+	}
+}
+func (*startCleanupAgent) Close() error                                   { return nil }
+func (*startCleanupAgent) Reconnect(string) error                         { return nil }
+func (*startCleanupAgent) ReconnectContext(context.Context, string) error { return nil }
+
 func (f *outputReconnectAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
@@ -1823,6 +1856,56 @@ func TestExecRollbackRetainsOwnershipUntilGuestDeletion(t *testing.T) {
 				t.Fatalf("durable exec ownership=%v, memory=%v", found, retained)
 			}
 		})
+	}
+}
+
+func TestStartReturnsKillFailureAndRetainsMonitorAfterPersistenceFailure(t *testing.T) {
+	bundle := t.TempDir()
+	killFailure := errors.New("injected started-process kill failure")
+	client := &startCleanupAgent{finish: make(chan struct{}), signalErr: killFailure}
+	p := &process{id: "exec", status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	s := &service{id: "task", namespace: "tests", bundle: bundle,
+		sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)}, agent: client,
+		publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+		processes: map[string]*process{
+			"":     {status: tasktypes.Status_RUNNING, done: make(chan struct{})},
+			"exec": p,
+		}}
+	_, err := s.Start(context.Background(), &taskapi.StartRequest{ID: "task", ExecID: "exec"})
+	if err == nil || !strings.Contains(err.Error(), "persist started process") || !errors.Is(err, killFailure) {
+		t.Fatalf("Start cleanup error = %v", err)
+	}
+	if p.status != tasktypes.Status_RUNNING || p.pid != 41 {
+		t.Fatalf("retained started process = status:%v pid:%d", p.status, p.pid)
+	}
+	select {
+	case <-p.done:
+		t.Fatal("failed Start abandoned its running-process monitor")
+	default:
+	}
+	if err = os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	close(client.finish)
+	select {
+	case <-p.done:
+	case <-time.After(time.Second):
+		t.Fatal("retained monitor did not observe the exact later exit")
+	}
+	if p.status != tasktypes.Status_STOPPED || p.exit != 9 {
+		t.Fatalf("observed retained-process exit = status:%v exit:%d", p.status, p.exit)
+	}
+}
+
+func TestStartedProcessCleanupTreatsAuthenticatedAbsenceAsSuccess(t *testing.T) {
+	client := &fakeAgentClient{fail: map[string]error{
+		"SignalProcess": &agent.RemoteError{Failure: protocol.Error{Code: "NOT_FOUND", Message: "process not found"}},
+	}}
+	s := &service{agent: client}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := s.killStartedProcess(ctx, "exec"); err != nil {
+		t.Fatal(err)
 	}
 }
 

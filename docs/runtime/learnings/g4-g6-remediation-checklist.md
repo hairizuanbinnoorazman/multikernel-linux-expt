@@ -769,8 +769,12 @@ normative plan is revised with an explicit rationale.
   repetitions. A failed initial transition write also reverse-signals and
   republishes the prior recovery state as a new inode; both directions pass
   100 race-detector repetitions. Focused tests cover success and these partial
-  boundaries; the
-  remaining signal/exit/churn and live matrix is open.
+  boundaries. After guest Start succeeds, invalid PID, recovery, or start-event
+  failure retains RUNNING ownership and monitors while a cancellation-independent
+  five-second `SIGKILL` is attempted. Signal errors are returned and
+  authenticated `NOT_FOUND` confirms cleanup. Injected recovery/signal failure
+  retains PID 41 and later records exact exit 9 in 100 race-detector
+  repetitions. The remaining signal/exit/churn and live matrix is open.
   The descendant process-group signal test now waits for the terminal marker
   value instead of treating its earlier ready value as a terminal failure,
   eliminating a false negative while preserving the two-second bound.
