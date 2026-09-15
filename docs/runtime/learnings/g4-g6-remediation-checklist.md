@@ -532,6 +532,11 @@ normative plan is revised with an explicit rationale.
   stream exceeds the requested 4096-byte chunk, either next offset is not the
   exact non-overflowing request-plus-length value, or state is unknown. Focused
   malformed-reply cases pass 100 race-detector repetitions.
+  Complete delivery now advances both offsets in one durable recovery update;
+  publication failure restores both old values and retries the same chunk under
+  an explicit at-least-once contract. Injected failure requests offsets 0, 0,
+  then 4 after repair and reaches exact exit 11 in 100 race-detector
+  repetitions. Empty unchanged polls do not rewrite recovery state.
   Agent connection cancellation no longer leaves a goroutine and connection
   reference behind after each normal disconnect. Focused tests prove active
   cancellation still unblocks the session and completed sessions unregister

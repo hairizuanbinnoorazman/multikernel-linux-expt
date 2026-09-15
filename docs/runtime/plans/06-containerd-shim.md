@@ -92,6 +92,10 @@ Before delivery, each agent reply must contain no more than the requested 4096
 bytes per stream, an exact non-overflowing next offset equal to request plus
 returned length, and a known `RUNNING` or `STOPPED` state. A malformed reply
 cannot write to a destination or change durable offsets.
+After complete delivery, both candidate offsets are published in one recovery
+update. Publication failure restores both prior offsets and retries the same
+bounded reply; this is explicit at-least-once output rather than a silent
+in-memory acknowledgement. An unchanged empty reply does not rewrite recovery.
 If a consumer remains absent or slow for 30 seconds, the shim logs the exact
 dropped byte count and advances that stream deliberately so process wait and
 cleanup remain bounded. An unconfigured output stream is discarded by
