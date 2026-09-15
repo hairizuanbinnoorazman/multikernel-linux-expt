@@ -2523,6 +2523,27 @@ func validateExecProcess(p *specs.Process) error {
 	return nil
 }
 
+func agentNotFound(err error) bool {
+	var remote *agent.RemoteError
+	return errors.As(err, &remote) && remote.Failure.Code == "NOT_FOUND"
+}
+
+func (s *service) rollbackExec(ctx context.Context, client agentClient, execID string) error {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	deleteErr := client.CallContext(cleanupCtx, "DeleteProcess", map[string]string{"ID": execID}, nil)
+	if agentNotFound(deleteErr) {
+		deleteErr = nil
+	}
+	s.mu.Lock()
+	if deleteErr == nil {
+		delete(s.processes, execID)
+	}
+	persistErr := s.persistRecovery()
+	s.mu.Unlock()
+	return errors.Join(deleteErr, persistErr)
+}
+
 func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emptypb.Empty, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -2586,19 +2607,11 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 	err = s.persistRecovery()
 	s.mu.Unlock()
 	if err != nil {
-		_ = client.CallContext(context.WithoutCancel(ctx), "DeleteProcess", map[string]string{"ID": r.ExecID}, nil)
-		s.mu.Lock()
-		delete(s.processes, r.ExecID)
-		s.mu.Unlock()
-		return nil, fmt.Errorf("persist exec process: %w", err)
+		rollbackErr := s.rollbackExec(ctx, client, r.ExecID)
+		return nil, errors.Join(fmt.Errorf("persist exec process: %w", err), rollbackErr)
 	}
 	if err = s.publish(ctx, ctruntime.TaskExecAddedEventTopic, &eventstypes.TaskExecAdded{ContainerID: s.id, ExecID: r.ExecID}); err != nil {
-		cleanupErr := client.CallContext(context.WithoutCancel(ctx), "DeleteProcess", map[string]string{"ID": r.ExecID}, nil)
-		s.mu.Lock()
-		delete(s.processes, r.ExecID)
-		_ = s.persistRecovery()
-		s.mu.Unlock()
-		return nil, errors.Join(err, cleanupErr)
+		return nil, errors.Join(err, s.rollbackExec(ctx, client, r.ExecID))
 	}
 	return &emptypb.Empty{}, nil
 }

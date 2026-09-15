@@ -1716,6 +1716,58 @@ func TestExecRollsBackProcessOnAgentFailure(t *testing.T) {
 	}
 }
 
+func TestExecRollbackRetainsOwnershipUntilGuestDeletion(t *testing.T) {
+	deleteFailure := errors.New("injected exec cleanup failure")
+	for name, failure := range map[string]error{
+		"deleted":        nil,
+		"already absent": &agent.RemoteError{Failure: protocol.Error{Code: "NOT_FOUND", Message: "process not found"}},
+		"delete failed":  deleteFailure,
+	} {
+		t.Run(name, func(t *testing.T) {
+			bundle := t.TempDir()
+			if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			fake := &fakeAgentClient{fail: map[string]error{}}
+			if failure != nil {
+				fake.fail["DeleteProcess"] = failure
+			}
+			s := &service{id: "task", namespace: "tests", bundle: bundle,
+				sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)}, agent: fake,
+				processes: map[string]*process{
+					"":     {status: tasktypes.Status_RUNNING, done: make(chan struct{})},
+					"exec": {id: "exec", status: tasktypes.Status_CREATED, done: make(chan struct{})},
+				}}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			err := s.rollbackExec(ctx, fake, "exec")
+			_, retained := s.processes["exec"]
+			if errors.Is(failure, deleteFailure) {
+				if !errors.Is(err, deleteFailure) || !retained {
+					t.Fatalf("failed rollback error=%v retained=%v", err, retained)
+				}
+			} else if err != nil || retained {
+				t.Fatalf("completed rollback error=%v retained=%v", err, retained)
+			}
+			data, readErr := os.ReadFile(filepath.Join(bundle, ".multikernel", "sandbox.json"))
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			var saved persisted
+			if readErr = json.Unmarshal(data, &saved); readErr != nil {
+				t.Fatal(readErr)
+			}
+			found := false
+			for _, process := range saved.Processes {
+				found = found || process.ID == "exec"
+			}
+			if found != retained {
+				t.Fatalf("durable exec ownership=%v, memory=%v", found, retained)
+			}
+		})
+	}
+}
+
 func TestExecRejectsGuestUnrepresentableIDBeforeAgentContact(t *testing.T) {
 	fake := &fakeAgentClient{fail: map[string]error{}}
 	s := &service{agent: fake, processes: map[string]*process{}}

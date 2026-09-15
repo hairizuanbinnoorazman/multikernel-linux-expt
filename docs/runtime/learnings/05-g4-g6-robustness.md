@@ -461,6 +461,12 @@ its stopped state, exact code, and timestamp are durable. Injected missing
 recovery storage retains the prior running state and open wait channel; after
 repair, the on-disk process is `STOPPED` with exit 37 before completion.
 One hundred race-detector repetitions pass.
+Exec creation no longer discards cleanup errors after a recovery or event
+publication failure. Its five-second cancellation-independent rollback treats
+authenticated `NOT_FOUND` as confirmed absence, removes ownership only after
+that result or successful deletion, republishes the exact resulting registry,
+and returns both guest and recovery errors. Success, already-absent, and failed
+deletion cases keep disk and memory aligned for 100 race-detector repetitions.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation
