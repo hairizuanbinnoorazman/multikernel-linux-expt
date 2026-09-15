@@ -475,6 +475,7 @@ func (f *fakeAgentClient) ReconnectContext(context.Context, string) error { retu
 type fakePublisher struct {
 	topics   []string
 	failures int
+	hook     func()
 }
 
 type retryPublisher struct {
@@ -508,6 +509,9 @@ func (f *fakePublisher) Publish(_ context.Context, topic string, _ events.Event)
 	if f.failures > 0 {
 		f.failures--
 		return errors.New("injected publication failure")
+	}
+	if f.hook != nil {
+		f.hook()
 	}
 	f.topics = append(f.topics, topic)
 	return nil
@@ -1532,6 +1536,55 @@ func TestWaitProcessDoesNotCompleteBeforeExitStateIsDurable(t *testing.T) {
 	}
 	if len(saved.Processes) != 1 || saved.Processes[0].Status != tasktypes.Status_STOPPED || saved.Processes[0].Exit != 37 {
 		t.Fatalf("durable exit state = %+v", saved.Processes)
+	}
+}
+
+func TestExitEventFlagRollsBackWhenRecoveryAcknowledgementFails(t *testing.T) {
+	bundle := t.TempDir()
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	heldDir := filepath.Join(bundle, ".multikernel-held")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	recovered := make(chan struct{})
+	close(recovered)
+	client := &waitOutageAgent{observed: make(chan struct{}), recovered: recovered}
+	var hookErr error
+	publisher := &fakePublisher{hook: func() {
+		if hookErr == nil {
+			hookErr = os.Rename(runtimeDir, heldDir)
+		}
+	}}
+	p := &process{status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	s := &service{id: "task", namespace: "tests", bundle: bundle,
+		sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+		agent:   client, processes: map[string]*process{"": p}, publisher: publisher,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	go s.waitProcess("init", "", p)
+	select {
+	case <-p.done:
+	case <-time.After(time.Second):
+		t.Fatal("task wait did not complete after the observed exit")
+	}
+	if hookErr != nil {
+		t.Fatal(hookErr)
+	}
+	if p.exitEventQueued {
+		t.Fatal("memory claimed the exit-event flag was durable")
+	}
+	data, err := os.ReadFile(filepath.Join(heldDir, "sandbox.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved persisted
+	if err = json.Unmarshal(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Processes) != 1 || saved.Processes[0].Status != tasktypes.Status_STOPPED || saved.Processes[0].Exit != 37 || saved.Processes[0].ExitEventQueued {
+		t.Fatalf("durable exit-event acknowledgement = %+v", saved.Processes)
+	}
+	if len(publisher.topics) != 1 || publisher.topics[0] != ctruntime.TaskExitEventTopic {
+		t.Fatalf("published exit topics = %v", publisher.topics)
 	}
 }
 

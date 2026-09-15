@@ -541,6 +541,10 @@ normative plan is revised with an explicit rationale.
   code, and timestamp. Missing recovery storage retains the prior running state
   and open Task wait channel; after repair, disk records `STOPPED` and exit 37
   before completion. The injected boundary passes 100 race-detector repetitions.
+  If the later exit-event flag cannot be persisted, memory rolls it back to
+  false to match that durable stopped record, so Delete/reconstruction repairs
+  via at-least-once replay. The post-publication failure passes 100
+  race-detector repetitions with exact exit 37 retained.
   Exec creation rollback after recovery/event failure now uses a five-second
   cancellation-independent guest delete, treats authenticated `NOT_FOUND` as
   confirmed absence, retains ownership on other delete failures, republishes
