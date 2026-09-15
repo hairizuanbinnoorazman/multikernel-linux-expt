@@ -2215,7 +2215,9 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		}
 		err = s.readProcessOutput(agentID, p.stdoutOffset, p.stderrOffset, &output)
 		if err != nil {
-			break
+			fmt.Fprintf(os.Stderr, "multikernel output monitor: %v\n", err)
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
 		now := time.Now()
 		stdoutAdvance, stdoutDropped := deliverOutput(p.stdoutWriter, output.Stdout, &p.stdoutPressure, now, 30*time.Second)
@@ -2250,6 +2252,11 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		}
 		if output.Status == "STOPPED" && len(output.Stdout) == 0 && len(output.Stderr) == 0 {
 			err = s.callAgentWithReconnect("WaitProcess", map[string]string{"ID": agentID}, &state)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "multikernel process wait: %v\n", err)
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
 			break
 		}
 		if len(output.Stdout) == 0 && len(output.Stderr) == 0 {
@@ -2257,10 +2264,7 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		}
 	}
 	now := time.Now().UTC()
-	exit := uint32(255)
-	if err == nil {
-		exit = uint32(state.ExitCode)
-	}
+	exit := uint32(state.ExitCode)
 	s.mu.Lock()
 	closeProcessIO(p)
 	p.status, p.exit, p.exited, p.stdinPending = tasktypes.Status_STOPPED, exit, now, nil
