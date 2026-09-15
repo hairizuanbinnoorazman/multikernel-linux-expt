@@ -10,6 +10,9 @@ Server cancellation closes both its listener and every accepted connection,
 including a peer stalled before completing a frame. Returning for any reason
 unregisters and joins those callbacks; concurrent servers cancel their derived
 handler context when the accept loop ends.
+Daemon and mknetd accept loops default to 128 concurrent handlers, cannot be
+configured above 1,024, close an authenticated connection when no slot remains,
+and join every admitted handler before server return.
 
 Every request contains `version: 1`, request ID, method, and a typed body.
 Mutations also contain sandbox ID, generation when one exists, and idempotency

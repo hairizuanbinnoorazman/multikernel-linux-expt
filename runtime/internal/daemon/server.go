@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
@@ -16,12 +17,24 @@ import (
 )
 
 type Server struct {
-	Service    *lifecycle.Service
-	Rootfs     *rootfs.Service
-	MaxFrame   int
-	AllowedUID uint32
-	mu         sync.Mutex
-	listener   net.Listener
+	Service        *lifecycle.Service
+	Rootfs         *rootfs.Service
+	MaxFrame       int
+	MaxHandlers    int
+	AllowedUID     uint32
+	mu             sync.Mutex
+	listener       net.Listener
+	activeHandlers atomic.Int64
+}
+
+func daemonHandlerLimit(configured int) int {
+	if configured <= 0 {
+		return 128
+	}
+	if configured > 1024 {
+		return 1024
+	}
+	return configured
 }
 
 func daemonFrameLimit(configured int) int {
@@ -65,17 +78,32 @@ func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 	if e != nil {
 		return e
 	}
-	defer func() { retErr = errors.Join(retErr, l.Close()) }()
-	serveContext, stopServing := context.WithCancel(ctx)
-	defer stopServing()
 	if l.Owner() != s.AllowedUID {
+		_ = l.Close()
 		return errors.New("Unix socket ownership does not match the allowed peer UID")
 	}
+	return s.serve(ctx, l, authorizePeer)
+}
+
+func (s *Server) serve(ctx context.Context, l net.Listener, authorize func(net.Conn, uint32) error) (retErr error) {
+	serveContext, stopServing := context.WithCancel(ctx)
 	s.mu.Lock()
 	s.listener = l
 	s.mu.Unlock()
 	stopCancellation := protocol.CloseOnContext(serveContext, l)
-	defer stopCancellation()
+	var handlers sync.WaitGroup
+	defer func() {
+		stopServing()
+		stopCancellation()
+		retErr = errors.Join(retErr, l.Close())
+		handlers.Wait()
+		s.mu.Lock()
+		if s.listener == l {
+			s.listener = nil
+		}
+		s.mu.Unlock()
+	}()
+	slots := make(chan struct{}, daemonHandlerLimit(s.MaxHandlers))
 	for {
 		c, e := l.Accept()
 		if e != nil {
@@ -84,11 +112,23 @@ func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 			}
 			return e
 		}
-		if e = authorizePeer(c, s.AllowedUID); e != nil {
+		if e = authorize(c, s.AllowedUID); e != nil {
 			c.Close()
 			continue
 		}
-		go s.handle(serveContext, c)
+		select {
+		case slots <- struct{}{}:
+			handlers.Add(1)
+			s.activeHandlers.Add(1)
+			go func() {
+				defer handlers.Done()
+				defer s.activeHandlers.Add(-1)
+				defer func() { <-slots }()
+				s.handle(serveContext, c)
+			}()
+		default:
+			_ = c.Close()
+		}
 	}
 }
 

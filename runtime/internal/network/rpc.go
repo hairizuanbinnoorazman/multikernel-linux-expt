@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -182,12 +183,24 @@ func (c Client) Call(ctx context.Context, request Request) (Response, error) {
 }
 
 type Server struct {
-	Service    *Service
-	AllowedUID uint32
-	MaxFrame   int
-	OpenTUN    func(Endpoint) (*os.File, error)
-	mu         sync.Mutex
-	listener   net.Listener
+	Service        *Service
+	AllowedUID     uint32
+	MaxFrame       int
+	MaxHandlers    int
+	OpenTUN        func(Endpoint) (*os.File, error)
+	mu             sync.Mutex
+	listener       net.Listener
+	activeHandlers atomic.Int64
+}
+
+func networkHandlerLimit(configured int) int {
+	if configured <= 0 {
+		return 128
+	}
+	if configured > 1024 {
+		return 1024
+	}
+	return configured
 }
 
 func (s *Server) Close() error {
@@ -210,14 +223,28 @@ func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 	if err != nil {
 		return err
 	}
-	defer func() { retErr = errors.Join(retErr, listener.Close()) }()
+	return s.serve(ctx, listener, authorize)
+}
+
+func (s *Server) serve(ctx context.Context, listener net.Listener, authorizeConnection func(net.Conn, uint32) error) (retErr error) {
 	serveContext, stopServing := context.WithCancel(ctx)
-	defer stopServing()
 	s.mu.Lock()
 	s.listener = listener
 	s.mu.Unlock()
 	stopCancellation := protocol.CloseOnContext(serveContext, listener)
-	defer stopCancellation()
+	var handlers sync.WaitGroup
+	defer func() {
+		stopServing()
+		stopCancellation()
+		retErr = errors.Join(retErr, listener.Close())
+		handlers.Wait()
+		s.mu.Lock()
+		if s.listener == listener {
+			s.listener = nil
+		}
+		s.mu.Unlock()
+	}()
+	slots := make(chan struct{}, networkHandlerLimit(s.MaxHandlers))
 	for {
 		connection, acceptErr := listener.Accept()
 		if acceptErr != nil {
@@ -226,11 +253,23 @@ func (s *Server) Listen(ctx context.Context, path string) (retErr error) {
 			}
 			return acceptErr
 		}
-		if err = authorize(connection, s.AllowedUID); err != nil {
+		if authorizationErr := authorizeConnection(connection, s.AllowedUID); authorizationErr != nil {
 			_ = connection.Close()
 			continue
 		}
-		go s.handle(serveContext, connection)
+		select {
+		case slots <- struct{}{}:
+			handlers.Add(1)
+			s.activeHandlers.Add(1)
+			go func() {
+				defer handlers.Done()
+				defer s.activeHandlers.Add(-1)
+				defer func() { <-slots }()
+				s.handle(serveContext, connection)
+			}()
+		default:
+			_ = connection.Close()
+		}
 	}
 }
 
