@@ -472,6 +472,11 @@ rewrite. Injected directory replacement after reverse signaling proves memory
 returns to its prior state while the old durable transition remains
 diagnosable; both the event and labeled recovery failure are returned for
 Pause and Resume across 100 race-detector repetitions.
+Failure of the initial transition recovery write now takes the same
+compensating path. A directory is removed for the attempted write and restored
+for reverse signaling; the shim republishes the original state as a new inode
+before returning the transition error. Pause and Resume pass 100
+race-detector repetitions.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation

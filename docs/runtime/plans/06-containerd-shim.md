@@ -185,7 +185,8 @@ a deterministic order. If any signal fails, already transitioned groups are
 signaled back in reverse order under a bounded rollback context. Process states
 are committed together only after all signals succeed. Persistence or event
 failure rolls every group and in-memory state back; the recovery rollback is
-then attempted explicitly, and any signal or recovery failure is returned
+then published explicitly even when the failed transition write had an
+ambiguous outcome. Any signal or compensating recovery failure is returned
 rather than suppressing a potentially mismatched durable state.
 
 Task stats aggregate CPU, resident memory, and PID counts across every running
