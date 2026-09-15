@@ -59,6 +59,12 @@ idempotent success. It removes the in-memory owner only after that confirmation,
 persists the resulting registry in either case, and returns every guest or
 recovery cleanup error. A failed guest deletion therefore remains explicitly
 owned rather than becoming an untracked process.
+Once `StartProcess` succeeds, invalid PID observation, recovery failure, or
+start-event failure cannot revert the process to CREATED. The shim retains the
+RUNNING owner and its output/wait monitors, then uses a cancellation-independent
+five-second `SIGKILL` transaction. Signal failure is returned; authenticated
+`NOT_FOUND` confirms absence, and any later exact exit follows the same durable
+completion path.
 
 Task `Shutdown`, including a request with `now=true`, acknowledges without
 terminating while any process record remains owned by the shim. Once the

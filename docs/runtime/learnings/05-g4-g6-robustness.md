@@ -482,6 +482,12 @@ compensating path. A directory is removed for the attempted write and restored
 for reverse signaling; the shim republishes the original state as a new inode
 before returning the transition error. Pause and Resume pass 100
 race-detector repetitions.
+Post-start cleanup no longer discards `SIGKILL` failures. Invalid PID,
+recovery, and start-event failure paths retain RUNNING ownership and monitors,
+use a cancellation-independent five-second signal call, and return its error;
+authenticated `NOT_FOUND` is successful cleanup. Injected persistence plus
+signal failure retains guest PID 41 and later records exact exit 9 after
+storage repair across 100 race-detector repetitions.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation

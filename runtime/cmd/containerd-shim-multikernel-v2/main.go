@@ -1849,12 +1849,16 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		p.status = tasktypes.Status_RUNNING
 		go s.pumpStdin(processID, p)
 		go s.waitProcess(processID, r.ExecID, p)
-		_ = s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": processID, "Signal": strconv.Itoa(int(syscall.SIGKILL))}, nil)
+		persistErr := s.persistRecovery()
+		killErr := s.killStartedProcess(ctx, processID)
 		if err == nil {
 			err = errors.New("guest returned an invalid process ID")
 		}
 		s.mu.Unlock()
-		return nil, fmt.Errorf("read started guest process identity: %w", err)
+		if persistErr != nil {
+			persistErr = fmt.Errorf("persist unverified started process ownership: %w", persistErr)
+		}
+		return nil, errors.Join(fmt.Errorf("read started guest process identity: %w", err), persistErr, killErr)
 	}
 	p.status = tasktypes.Status_RUNNING
 	p.pid = uint32(guestState.PID)
@@ -1862,9 +1866,9 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 	go s.pumpStdin(processID, p)
 	go s.waitProcess(processID, r.ExecID, p)
 	if err := s.persistRecovery(); err != nil {
-		_ = s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": processID, "Signal": strconv.Itoa(int(syscall.SIGKILL))}, nil)
+		killErr := s.killStartedProcess(ctx, processID)
 		s.mu.Unlock()
-		return nil, fmt.Errorf("persist started process: %w", err)
+		return nil, errors.Join(fmt.Errorf("persist started process: %w", err), killErr)
 	}
 	var topic string
 	var event any
@@ -1874,12 +1878,27 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		topic, event = ctruntime.TaskExecStartedEventTopic, &eventstypes.TaskExecStarted{ContainerID: s.id, ExecID: r.ExecID, Pid: pid}
 	}
 	if err := s.publish(ctx, topic, event); err != nil {
-		_ = s.agent.CallContext(context.WithoutCancel(ctx), "SignalProcess", map[string]any{"ID": processID, "Signal": strconv.Itoa(int(syscall.SIGKILL))}, nil)
+		killErr := s.killStartedProcess(ctx, processID)
 		s.mu.Unlock()
-		return nil, err
+		return nil, errors.Join(err, killErr)
 	}
 	s.mu.Unlock()
 	return &taskapi.StartResponse{Pid: pid}, nil
+}
+
+func (s *service) killStartedProcess(ctx context.Context, processID string) error {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	err := s.agent.CallContext(cleanupCtx, "SignalProcess", map[string]any{
+		"ID": processID, "Signal": strconv.Itoa(int(syscall.SIGKILL)),
+	}, nil)
+	if agentNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("kill started guest process: %w", err)
+	}
+	return nil
 }
 
 func inspectProcessIOPath(path string) (os.FileInfo, error) {
