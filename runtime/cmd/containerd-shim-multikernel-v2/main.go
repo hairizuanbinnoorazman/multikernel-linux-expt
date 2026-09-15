@@ -2073,6 +2073,16 @@ func (s *service) pumpStdin(agentID string, p *process) {
 	}
 	buffer := make([]byte, 32<<10)
 	for {
+		s.mu.Lock()
+		closeRequested := p.stdinClosed
+		closeAcknowledged := p.stdinCloseAcked
+		s.mu.Unlock()
+		if closeRequested {
+			if !closeAcknowledged {
+				s.retryPendingStdinClose(agentID, p)
+			}
+			return
+		}
 		n, err := reader.Read(buffer)
 		if n > 0 {
 			s.mu.Lock()

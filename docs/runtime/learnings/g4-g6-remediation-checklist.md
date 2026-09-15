@@ -512,6 +512,10 @@ normative plan is revised with an explicit rationale.
   exact guest-call bytes, and prompt pump termination when its descriptor is
   torn down. The pump now treats that empty attached state as temporary rather
   than silently abandoning later input; 100 race-detector repetitions pass.
+  `CloseIO` also bounds the opposite case: after its durable request, the pump
+  forwards at most the read already in flight, acknowledges guest closure, and
+  performs no subsequent read even if the peer continuously supplies input.
+  The controlled cutoff test passes 100 race-detector repetitions.
   Output polling and final Wait now treat only
   transport/protocol failures as reconnectable, replay their idempotent reads
   with unchanged acknowledged offsets, and share one 30-second overall budget;

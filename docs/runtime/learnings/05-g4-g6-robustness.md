@@ -466,6 +466,10 @@ The real FIFO regression also keeps one writer attached across an empty
 interval. The nonblocking reader now retries `EAGAIN` instead of terminating,
 so later bytes from the same attachment and a subsequent attachment both reach
 the guest; 100 race-detector repetitions pass.
+Conversely, a continuously readable peer can no longer starve `CloseIO`: the
+pump completes its one in-flight read, acknowledges the durable close, and
+returns before issuing another read. A controlled-reader cutoff test passes
+100 race-detector repetitions.
 `CloseProcessStdin` acknowledgement now uses the same bounded relay reconnect
 transaction while retaining the Task caller's earlier deadline. Its existing
 requested-versus-acknowledged durable state makes replay idempotent; a focused

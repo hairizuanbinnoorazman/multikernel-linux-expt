@@ -83,6 +83,16 @@ func (f *stdinCaptureAgent) Close() error                                   { re
 func (f *stdinCaptureAgent) Reconnect(string) error                         { return nil }
 func (f *stdinCaptureAgent) ReconnectContext(context.Context, string) error { return nil }
 
+type controlledInput struct{ reads chan chan []byte }
+
+func (f *controlledInput) Read(target []byte) (int, error) {
+	value := make(chan []byte, 1)
+	f.reads <- value
+	return copy(target, <-value), nil
+}
+func (*controlledInput) Write(value []byte) (int, error) { return len(value), nil }
+func (*controlledInput) Close() error                    { return nil }
+
 type outputReconnectAgent struct {
 	readFailures      int
 	waitFailures      int
@@ -1043,6 +1053,45 @@ func TestStdinFIFOAcceptsLateAndRepeatedWriters(t *testing.T) {
 	case <-pumpDone:
 	case <-time.After(time.Second):
 		t.Fatal("stdin pump survived descriptor teardown")
+	}
+}
+
+func TestCloseIOStopsContinuouslyReadableStdinAfterInflightChunk(t *testing.T) {
+	reader := &controlledInput{reads: make(chan chan []byte)}
+	client := &stdinCaptureAgent{writes: make(chan []byte, 2)}
+	p := &process{stdinReader: reader, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	s := &service{agent: client, processes: map[string]*process{"": p}}
+	pumpDone := make(chan struct{})
+	go func() {
+		s.pumpStdin("init", p)
+		close(pumpDone)
+	}()
+	first := <-reader.reads
+	first <- []byte("before-close")
+	if got := <-client.writes; string(got) != "before-close" {
+		t.Fatalf("first guest stdin = %q", got)
+	}
+	// Prove the next read is already in flight when CloseIO records its intent.
+	second := <-reader.reads
+	if _, err := s.CloseIO(context.Background(), &taskapi.CloseIORequest{Stdin: true}); err != nil {
+		t.Fatal(err)
+	}
+	second <- []byte("in-flight")
+	if got := <-client.writes; string(got) != "in-flight" {
+		t.Fatalf("in-flight guest stdin = %q", got)
+	}
+	select {
+	case <-pumpDone:
+	case <-time.After(time.Second):
+		t.Fatal("CloseIO did not stop a continuously readable stdin pump")
+	}
+	if !p.stdinClosed || !p.stdinCloseAcked || p.stdinReader != nil {
+		t.Fatalf("closed stdin state = requested:%v acknowledged:%v reader:%v", p.stdinClosed, p.stdinCloseAcked, p.stdinReader)
+	}
+	select {
+	case <-reader.reads:
+		t.Fatal("stdin pump accepted another chunk after CloseIO")
+	default:
 	}
 }
 
