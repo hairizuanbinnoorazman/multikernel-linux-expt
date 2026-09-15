@@ -541,6 +541,11 @@ normative plan is revised with an explicit rationale.
   code, and timestamp. Missing recovery storage retains the prior running state
   and open Task wait channel; after repair, disk records `STOPPED` and exit 37
   before completion. The injected boundary passes 100 race-detector repetitions.
+  Exec creation rollback after recovery/event failure now uses a five-second
+  cancellation-independent guest delete, treats authenticated `NOT_FOUND` as
+  confirmed absence, retains ownership on other delete failures, republishes
+  the resulting registry, and returns all cleanup errors. Success, absence, and
+  failure cases align memory and disk in 100 race-detector repetitions.
   Agent connection cancellation no longer leaves a goroutine and connection
   reference behind after each normal disconnect. Focused tests prove active
   cancellation still unblocks the session and completed sessions unregister

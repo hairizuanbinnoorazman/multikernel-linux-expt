@@ -52,6 +52,13 @@ acceptance but before the local acknowledgement may produce a duplicate.
 Consumers must treat the Task event tuple and state transition idempotently.
 First delivery remains journal-ordered; replayed duplicates must not be
 interpreted as new lifecycle transitions.
+Exec creation rollback is a bounded ownership transaction. If recovery or the
+exec-added event cannot be queued after guest creation, the shim spends at most
+five seconds confirming `DeleteProcess`; authenticated `NOT_FOUND` is an
+idempotent success. It removes the in-memory owner only after that confirmation,
+persists the resulting registry in either case, and returns every guest or
+recovery cleanup error. A failed guest deletion therefore remains explicitly
+owned rather than becoming an untracked process.
 
 Task `Shutdown`, including a request with `now=true`, acknowledges without
 terminating while any process record remains owned by the shim. Once the
