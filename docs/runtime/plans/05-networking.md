@@ -66,6 +66,11 @@ cancels the derived handler context as well.
 The concurrent handler budget defaults to 128 and is hard-capped at 1,024.
 Connections above the configured budget are closed without spawning a
 goroutine, and listener return waits for all admitted handlers to finish.
+The shim owns one joined network-report worker with a one-entry latest-state
+queue. Failed `READY`, `DISCONNECTED`, `DEGRADED`, or monotonic-counter reports
+retry every 100 milliseconds; newer state replaces stale pending state, and
+each `mknetd` call remains bounded to two seconds. Network teardown cancels and
+joins that worker before its final synchronous counter report.
 Guest DNS restoration retains cleanup ownership after failure and becomes a
 no-op after success, so repeated network close cannot remove restored state.
 `ATTACH` transfers exactly one generation-bound TUN descriptor with one

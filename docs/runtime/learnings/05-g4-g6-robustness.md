@@ -678,6 +678,12 @@ than relying only on service/store tests. Exact-MTU packets traverse both
 directions, oversized ingress and egress increment their specific drop
 counters, an exchange disconnect accounts the in-flight loss, and two injected
 reconnect failures are retried before subsequent traffic is accepted.
+Network report failures are no longer discarded. A joined worker retains only
+the latest state, retries each two-second-bounded `mknetd` call after 100
+milliseconds, and is cancelled with the packet pump. An injected
+`DISCONNECTED` failure superseded by `READY` retries twice to success with the
+current counters, then accepts a later `DEGRADED` report; 100 race-detector
+repetitions pass.
 
 The CNI binary no longer truncates stdin at one MiB and then attempts to parse
 the valid prefix; oversize is explicit failure. Cache directory creation now

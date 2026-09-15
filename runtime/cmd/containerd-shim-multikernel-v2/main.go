@@ -137,6 +137,7 @@ type service struct {
 	relayOwner            relayPathOwner
 	netDevice             *os.File
 	netDone               chan struct{}
+	netReports            chan string
 	netWG                 sync.WaitGroup
 	netEndpoint           mknetwork.Endpoint
 	netClient             networkClient
@@ -796,6 +797,60 @@ func (s *service) reportNetwork(state string) error {
 	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-report-" + endpoint.Generation[:12], Method: "REPORT", Endpoint: &endpoint}
 	_, err := s.netClient.Call(ctx, request)
 	return err
+}
+
+func (s *service) queueNetworkReport(state string) {
+	if s.netReports == nil {
+		return
+	}
+	select {
+	case s.netReports <- state:
+		return
+	default:
+	}
+	select {
+	case <-s.netReports:
+	default:
+	}
+	select {
+	case s.netReports <- state:
+	default:
+	}
+}
+
+func (s *service) startNetworkReporter() {
+	s.netWG.Add(1)
+	go func() {
+		defer s.netWG.Done()
+		for {
+			var state string
+			select {
+			case <-s.netDone:
+				return
+			case state = <-s.netReports:
+			}
+			for {
+				if err := s.reportNetwork(state); err == nil {
+					break
+				} else {
+					fmt.Fprintf(os.Stderr, "multikernel network report %s: %v\n", state, err)
+				}
+				timer := time.NewTimer(100 * time.Millisecond)
+				select {
+				case <-s.netDone:
+					timer.Stop()
+					return
+				case state = <-s.netReports:
+					timer.Stop()
+				case <-timer.C:
+				}
+				select {
+				case state = <-s.netReports:
+				default:
+				}
+			}
+		}
+	}()
 }
 
 func openStateDirectory(directory string) (*os.File, error) {
@@ -1678,6 +1733,9 @@ func (s *service) connectAgent(ctx context.Context) error {
 
 func (s *service) startNetworkPump() {
 	s.netDone = make(chan struct{})
+	s.netReports = make(chan string, 1)
+	s.startNetworkReporter()
+	s.queueNetworkReport("READY")
 	s.netWG.Add(1)
 	go func() {
 		defer s.netWG.Done()
@@ -1699,7 +1757,7 @@ func (s *service) startNetworkPump() {
 				packet = append([]byte(nil), buffer[:n]...)
 			} else if err != nil && !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
 				s.netErrors.Add(1)
-				_ = s.reportNetwork("DEGRADED")
+				s.queueNetworkReport("DEGRADED")
 				fmt.Fprintf(os.Stderr, "multikernel network: host TUN read: %v\n", err)
 				return
 			}
@@ -1714,7 +1772,7 @@ func (s *service) startNetworkPump() {
 				if len(packet) > 0 {
 					s.netRXDrops.Add(1)
 				}
-				_ = s.reportNetwork("DISCONNECTED")
+				s.queueNetworkReport("DISCONNECTED")
 				for {
 					select {
 					case <-s.netDone:
@@ -1725,7 +1783,7 @@ func (s *service) startNetworkPump() {
 					reconnectErr := s.agent.ReconnectContext(reconnectCtx, s.relaySocket)
 					cancel()
 					if reconnectErr == nil {
-						_ = s.reportNetwork("READY")
+						s.queueNetworkReport("READY")
 						break
 					}
 				}
@@ -1745,14 +1803,14 @@ func (s *service) startNetworkPump() {
 					s.netTXDrops.Add(1)
 				} else {
 					s.netErrors.Add(1)
-					_ = s.reportNetwork("DEGRADED")
+					s.queueNetworkReport("DEGRADED")
 					fmt.Fprintf(os.Stderr, "multikernel network: host TUN write: %v\n", err)
 					return
 				}
 			}
 			total := s.netRXPackets.Load() + s.netTXPackets.Load()
 			if total-lastReported >= 256 {
-				_ = s.reportNetwork("READY")
+				s.queueNetworkReport("READY")
 				lastReported = total
 			}
 			if len(packet) == 0 && len(response.Packet) == 0 {
@@ -1768,6 +1826,7 @@ func (s *service) stopNetwork() error {
 		close(s.netDone)
 		s.netWG.Wait()
 		s.netDone = nil
+		s.netReports = nil
 	}
 	if s.agent != nil {
 		if err := s.agent.Call("CloseNetwork", map[string]any{}, nil); err != nil {

@@ -349,6 +349,33 @@ type fakeNetworkClient struct {
 	calls          []string
 }
 
+type retryNetworkReportClient struct {
+	mu       sync.Mutex
+	failures int
+	attempts chan mknetwork.Endpoint
+	success  chan mknetwork.Endpoint
+}
+
+func (f *retryNetworkReportClient) Call(_ context.Context, request mknetwork.Request) (mknetwork.Response, error) {
+	if request.Method != "REPORT" || request.Endpoint == nil {
+		return mknetwork.Response{}, fmt.Errorf("unexpected network request %s", request.Method)
+	}
+	endpoint := *request.Endpoint
+	f.attempts <- endpoint
+	f.mu.Lock()
+	if f.failures > 0 {
+		f.failures--
+		f.mu.Unlock()
+		return mknetwork.Response{}, errors.New("injected network report failure")
+	}
+	f.mu.Unlock()
+	f.success <- endpoint
+	return mknetwork.Response{Version: mknetwork.ProtocolVersion, RequestID: request.RequestID}, nil
+}
+func (*retryNetworkReportClient) Attach(context.Context, mknetwork.Request) (mknetwork.Response, *os.File, error) {
+	return mknetwork.Response{}, nil, errors.New("unexpected network attach")
+}
+
 type recoveryAgentClient struct {
 	finish chan struct{}
 	mu     sync.Mutex
@@ -3364,6 +3391,46 @@ func TestNetworkPumpMTUBoundsCountersAndReconnect(t *testing.T) {
 			t.Fatalf("disconnect counters = drops:%d errors:%d", s.netRXDrops.Load(), s.netErrors.Load())
 		}
 	})
+}
+
+func TestNetworkReporterRetriesAndCoalescesLatestState(t *testing.T) {
+	client := &retryNetworkReportClient{failures: 2, attempts: make(chan mknetwork.Endpoint, 4), success: make(chan mknetwork.Endpoint, 2)}
+	s := &service{netDone: make(chan struct{}), netReports: make(chan string, 1), netClient: client,
+		netEndpoint: mknetwork.Endpoint{Generation: strings.Repeat("a", 32), SandboxID: "box", SandboxGeneration: strings.Repeat("b", 32)}}
+	s.netRXPackets.Store(3)
+	s.startNetworkReporter()
+	s.queueNetworkReport("DISCONNECTED")
+	first := <-client.attempts
+	if first.State != "DISCONNECTED" || first.RXPackets != 3 {
+		t.Fatalf("first network report = %+v", first)
+	}
+	// Replace the failed state while the reporter is in its bounded retry wait.
+	s.netRXPackets.Store(7)
+	s.netErrors.Store(1)
+	s.queueNetworkReport("READY")
+	select {
+	case reported := <-client.success:
+		if reported.State != "READY" || reported.RXPackets != 7 || reported.Errors != 1 {
+			t.Fatalf("successful coalesced report = %+v", reported)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("network reporter did not retry to success")
+	}
+	second, third := <-client.attempts, <-client.attempts
+	if second.State != "READY" || third.State != "READY" {
+		t.Fatalf("retried network states = %q, %q", second.State, third.State)
+	}
+	s.queueNetworkReport("DEGRADED")
+	select {
+	case reported := <-client.success:
+		if reported.State != "DEGRADED" {
+			t.Fatalf("later network report state = %q", reported.State)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("network reporter did not accept a later state")
+	}
+	close(s.netDone)
+	s.netWG.Wait()
 }
 
 func TestSupervisorRestartsSignaledWorker(t *testing.T) {
