@@ -519,7 +519,8 @@ normative plan is revised with an explicit rationale.
   Output polling and final Wait now treat only
   transport/protocol failures as reconnectable, replay their idempotent reads
   with unchanged acknowledged offsets, and share one 30-second overall budget;
-  a structured authenticated agent rejection is terminal. Twenty
+  a structured authenticated agent rejection terminates that exchange without
+  reconnect or replay. Twenty
   race-detector repetitions cover successful output/Wait reconnect, an initial
   reconnect failure, non-replayed remote rejection, and deadline exhaustion.
   Exhausting one bounded background epoch no longer fabricates exit 255: the
@@ -527,6 +528,10 @@ normative plan is revised with an explicit rationale.
   monitor retries after 100 milliseconds. Only an authenticated `WaitProcess`
   result transitions it to stopped. A sustained-outage/recovery test observes
   the later exact exit 37 and passes 100 race-detector repetitions.
+  Each output reply is also rejected before delivery or durable mutation if a
+  stream exceeds the requested 4096-byte chunk, either next offset is not the
+  exact non-overflowing request-plus-length value, or state is unknown. Focused
+  malformed-reply cases pass 100 race-detector repetitions.
   Agent connection cancellation no longer leaves a goroutine and connection
   reference behind after each normal disconnect. Focused tests prove active
   cancellation still unblocks the session and completed sessions unregister
