@@ -357,7 +357,12 @@ normative plan is revised with an explicit rationale.
   and 16-KiB error diagnostics. Guest dispatch propagates its server context,
   setup rollback has an independent five-second cleanup bound, and failed link
   or DNS cleanup keeps retry identity. Repeated successful close cannot remove
-  the restored DNS file. Focused tests cover a blocked descendant, output
+  the restored DNS file. Shim state/counter report failures now enter a joined
+  one-entry latest-state worker: two-second calls retry every 100 milliseconds,
+  and a newer state supersedes stale pending state. Injected
+  `DISCONNECTED`-to-`READY` coalescing, two failures, current counters, and a
+  later `DEGRADED` report pass 100 race-detector repetitions. Focused tests
+  cover a blocked descendant, output
   overflow, combined stdout/stderr, cancellation without mutation, repeated
   close, and failed DNS restoration; live fault and leak evidence remains open
   below.
