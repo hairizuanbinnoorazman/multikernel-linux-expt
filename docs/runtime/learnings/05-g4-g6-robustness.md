@@ -472,6 +472,14 @@ authenticated `NOT_FOUND` as confirmed absence, removes ownership only after
 that result or successful deletion, republishes the exact resulting registry,
 and returns both guest and recovery errors. Success, already-absent, and failed
 deletion cases keep disk and memory aligned for 100 race-detector repetitions.
+Exec creation now persists its CREATED owner before contacting the guest. A
+lost `ExecProcess` reply followed by exact CREATED state succeeds and publishes
+the exec-added event; confirmed absence rolls the intent back, while unavailable
+state plus failed deletion retains the owner identically in memory and on disk.
+Reconstruction independently accepts only exact CREATED ownership, drops
+authenticated absence, rejects wrong or RUNNING state, and replays the
+exec-added event at least once. Both matrices pass 100 race-detector
+repetitions.
 Normal Task Delete now treats authenticated guest `NOT_FOUND` as confirmed
 idempotent absence instead of trapping a successfully deleted process behind a
 lost reply. An injected absence returns the exact PID and exit status, publishes

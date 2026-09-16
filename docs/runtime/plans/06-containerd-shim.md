@@ -59,6 +59,13 @@ idempotent success. It removes the in-memory owner only after that confirmation,
 persists the resulting registry in either case, and returns every guest or
 recovery cleanup error. A failed guest deletion therefore remains explicitly
 owned rather than becoming an untracked process.
+Before `ExecProcess`, the CREATED owner is now durable. An ambiguous guest
+reply is reconciled for five seconds across relay reconnect: exact CREATED
+continues, while absence or any invalid/unavailable state enters the bounded
+rollback above. If rollback cannot confirm deletion, the durable owner remains
+available to Task Delete. Reconstruction drops a confirmed pre-mutation
+absence, rejects any wrong/live identity, and replays `TaskExecAdded` for an
+exact CREATED exec under the journal's at-least-once contract.
 Normal Task Delete applies the same authenticated boundary: `NOT_FOUND`
 confirms that the guest process is already absent and permits exact delete-event
 publication and local owner removal, while every other guest error retains the
