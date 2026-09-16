@@ -783,6 +783,10 @@ normative plan is revised with an explicit rationale.
   Task v2's `uint32` range instead of truncating them. An injected oversized
   PID retains durable unverified ownership without publishing a start event,
   stays monitored through cleanup, and passes 100 race-detector repetitions.
+  Init Start reconciles its durable CREATED owner before mutation: only
+  authenticated `NOT_FOUND` creates, while exact CREATED state is reused after
+  partial failure/recovery. Wrong identity, live state, fabricated PID, and
+  transport failure cause no duplicate create across 100 race repetitions.
   Start/reconstruction require the exact agent process identity and `RUNNING`
   state rather than trusting PID alone. Wrong identity, `CREATED`, and early
   `STOPPED` start observations retain unverified ownership and monitoring with

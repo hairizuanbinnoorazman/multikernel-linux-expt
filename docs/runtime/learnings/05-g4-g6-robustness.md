@@ -493,6 +493,11 @@ range in both Start and reconstruction. An oversized PID remains an unverified
 RUNNING owner without a fabricated PID, publishes no start event, is durably
 recorded, and stays monitored through cleanup; 100 race-detector repetitions
 pass.
+Init Start no longer blindly repeats `CreateProcess` after a partial prior
+attempt. It probes authenticated state, creates only on `NOT_FOUND`, and reuses
+only exact `init`/`CREATED`/zero-PID/zero-exit state. Injected absence, existing
+creation, wrong identity, live state, fabricated PID, and transport failure
+pass 100 race-detector repetitions without a duplicate mutation.
 Start and reconstruction now also validate the agent process ID and state, not
 only its PID. Wrong identity, `CREATED`, and prematurely `STOPPED` start
 observations retain unverified RUNNING ownership, publish no start event, and
