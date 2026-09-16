@@ -790,6 +790,17 @@ func runningGuestProcess(state agent.ProcessState, processID string) (uint32, er
 	return taskGuestPID(state.PID)
 }
 
+func startedGuestProcess(state agent.ProcessState, processID string) (uint32, error) {
+	if state.Status == "RUNNING" {
+		return runningGuestProcess(state, processID)
+	}
+	if state.Status == "STOPPED" {
+		pid, _, err := stoppedGuestProcess(state, processID, 0)
+		return pid, err
+	}
+	return 0, errors.New("guest returned a started process with mismatched identity or state")
+}
+
 func createdGuestProcess(state agent.ProcessState, processID string) error {
 	if state.ID != processID || state.Status != "CREATED" || state.PID != 0 || state.ExitCode != 0 {
 		return errors.New("guest returned a created process with mismatched identity or state")
@@ -1945,14 +1956,26 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		s.mu.Unlock()
 		return nil, err
 	}
-	if err := s.agent.CallContext(ctx, "StartProcess", startRequest, nil); err != nil {
+	startErr := s.agent.CallContext(ctx, "StartProcess", startRequest, nil)
+	var guestState agent.ProcessState
+	stateCtx := ctx
+	var cancelState context.CancelFunc
+	if startErr != nil {
+		stateCtx, cancelState = context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	}
+	stateErr := s.agent.CallContext(stateCtx, "StateProcess", map[string]string{"ID": processID}, &guestState)
+	if cancelState != nil {
+		cancelState()
+	}
+	if startErr != nil && stateErr == nil && createdGuestProcess(guestState, processID) == nil {
 		closeProcessIO(p)
 		s.mu.Unlock()
-		return nil, err
+		return nil, startErr
 	}
-	var guestState agent.ProcessState
-	stateErr := s.agent.CallContext(ctx, "StateProcess", map[string]string{"ID": processID}, &guestState)
-	guestPID, pidErr := runningGuestProcess(guestState, processID)
+	guestPID, pidErr := startedGuestProcess(guestState, processID)
+	if startErr != nil && (stateErr != nil || pidErr != nil) {
+		stateErr = errors.Join(startErr, fmt.Errorf("reconcile failed guest start: %w", errors.Join(stateErr, pidErr)))
+	}
 	if stateErr != nil || pidErr != nil {
 		p.status = tasktypes.Status_RUNNING
 		go s.pumpStdin(processID, p)

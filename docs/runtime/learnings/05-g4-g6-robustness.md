@@ -498,11 +498,17 @@ attempt. It probes authenticated state, creates only on `NOT_FOUND`, and reuses
 only exact `init`/`CREATED`/zero-PID/zero-exit state. Injected absence, existing
 creation, wrong identity, live state, fabricated PID, and transport failure
 pass 100 race-detector repetitions without a duplicate mutation.
+An errored `StartProcess` call now reconciles with an independent five-second
+state read. Exact `CREATED` preserves retryable local state; exact `RUNNING` and
+rapid `STOPPED` prove the start applied and return success; unresolved transport
+failure retains unverified ownership, monitoring, durable state, and bounded
+cleanup. All four boundaries pass 100 race-detector repetitions.
 Start and reconstruction now also validate the agent process ID and state, not
-only its PID. Wrong identity, `CREATED`, and prematurely `STOPPED` start
-observations retain unverified RUNNING ownership, publish no start event, and
-remain monitored through cleanup across 100 race-detector repetitions;
-reconstruction admits only exact `RUNNING` or validated completion state.
+only its PID. Wrong identity and `CREATED` observations after a successful
+start retain unverified RUNNING ownership, publish no start event, and remain
+monitored through cleanup across 100 race-detector repetitions; a valid rapid
+`STOPPED` observation is accepted as an applied start. Reconstruction admits
+only exact `RUNNING` or validated completion state.
 Stopped responses now validate the requested agent ID, exact `STOPPED` state,
 established PID, and the agent's `0..255` exit-status contract before durable
 completion. Wrong ID, state, PID, negative exit, and exit 256 are each retried
