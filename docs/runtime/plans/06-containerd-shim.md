@@ -68,6 +68,11 @@ completion path. A guest PID is accepted only when it is positive and exactly
 representable by Task v2's `uint32` field; Start and reconstruction share that
 check, so an oversized signed agent value cannot be truncated into a different
 durable or externally reported identity.
+Completion requires a `WaitProcess` reply for the requested agent process,
+`STOPPED` state, the already established guest PID (or a valid PID when Start
+could not verify one), and an agent-derived exit status in `0..255`. A semantic
+mismatch is retried like transport loss and cannot close Task wait, mutate the
+durable exit, or publish an exit event.
 
 Task `Shutdown`, including a request with `now=true`, acknowledges without
 terminating while any process record remains owned by the shim. Once the

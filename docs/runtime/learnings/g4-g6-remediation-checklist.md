@@ -783,6 +783,10 @@ normative plan is revised with an explicit rationale.
   Task v2's `uint32` range instead of truncating them. An injected oversized
   PID retains durable unverified ownership without publishing a start event,
   stays monitored through cleanup, and passes 100 race-detector repetitions.
+  Wait/reconstruction completion now requires the requested agent ID,
+  `STOPPED`, the established PID, and exit status `0..255`. Wrong ID/state/PID,
+  negative exit, and exit 256 remain RUNNING with no exit event until an exact
+  reply arrives; the five-boundary matrix passes 100 race-detector repetitions.
   The remaining signal/exit/churn and live matrix is open.
   The descendant process-group signal test now waits for the terminal marker
   value instead of treating its earlier ready value as a terminal failure,

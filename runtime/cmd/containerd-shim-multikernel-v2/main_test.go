@@ -111,10 +111,42 @@ type waitOutageAgent struct {
 	once      sync.Once
 }
 
+type waitValidationAgent struct {
+	reads  chan struct{}
+	states chan agent.ProcessState
+}
+
+func (f *waitValidationAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *waitValidationAgent) CallContext(ctx context.Context, method string, _ any, response any) error {
+	switch method {
+	case "ReadProcessOutput":
+		select {
+		case f.reads <- struct{}{}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return setJSONResponse(response, processOutput{Status: "STOPPED"})
+	case "WaitProcess":
+		select {
+		case state := <-f.states:
+			return setJSONResponse(response, state)
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	default:
+		return fmt.Errorf("unexpected method %s", method)
+	}
+}
+func (*waitValidationAgent) Close() error                                   { return nil }
+func (*waitValidationAgent) Reconnect(string) error                         { return nil }
+func (*waitValidationAgent) ReconnectContext(context.Context, string) error { return nil }
+
 func (f *waitOutageAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
-func (f *waitOutageAgent) CallContext(ctx context.Context, method string, _ any, response any) error {
+func (f *waitOutageAgent) CallContext(ctx context.Context, method string, request, response any) error {
 	switch method {
 	case "ReadProcessOutput":
 		f.once.Do(func() { close(f.observed) })
@@ -127,7 +159,7 @@ func (f *waitOutageAgent) CallContext(ctx context.Context, method string, _ any,
 			return ctx.Err()
 		}
 	case "WaitProcess":
-		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 37})
+		return setStoppedResponse(request, response, 41, 37)
 	default:
 		return fmt.Errorf("unexpected method %s", method)
 	}
@@ -154,7 +186,7 @@ func (f *outputAckAgent) CallContext(_ context.Context, method string, request, 
 		}
 		return errors.New("unexpected output offset")
 	case "WaitProcess":
-		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 11})
+		return setStoppedResponse(request, response, 41, 11)
 	default:
 		return fmt.Errorf("unexpected method %s", method)
 	}
@@ -186,7 +218,7 @@ type startCleanupAgent struct {
 func (f *startCleanupAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
-func (f *startCleanupAgent) CallContext(ctx context.Context, method string, _ any, response any) error {
+func (f *startCleanupAgent) CallContext(ctx context.Context, method string, request, response any) error {
 	switch method {
 	case "StartProcess":
 		return nil
@@ -206,7 +238,7 @@ func (f *startCleanupAgent) CallContext(ctx context.Context, method string, _ an
 			return ctx.Err()
 		}
 	case "WaitProcess":
-		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 9})
+		return setStoppedResponse(request, response, 41, 9)
 	default:
 		return fmt.Errorf("unexpected method %s", method)
 	}
@@ -241,7 +273,7 @@ func (f *outputReconnectAgent) CallContext(ctx context.Context, method string, r
 		if f.waitCalls <= f.waitFailures {
 			return errors.New("injected wait disconnect")
 		}
-		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 19})
+		return setStoppedResponse(request, response, 41, 19)
 	case "CloseProcessStdin":
 		f.closeCalls++
 		if f.closeCalls <= f.closeFailures {
@@ -407,11 +439,16 @@ func setJSONResponse(output, value any) error {
 	return json.Unmarshal(data, output)
 }
 
+func setStoppedResponse(request, response any, pid, exit int) error {
+	id := request.(map[string]string)["ID"]
+	return setJSONResponse(response, agent.ProcessState{ID: id, PID: pid, Status: "STOPPED", ExitCode: exit})
+}
+
 func (f *recoveryAgentClient) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
 
-func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, _, response any) error {
+func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, request, response any) error {
 	f.record(method)
 	switch method {
 	case "StateProcess":
@@ -424,7 +461,7 @@ func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, _,
 		}
 		return setJSONResponse(response, map[string]any{"status": "STOPPED", "stdout_offset": 0, "stderr_offset": 0})
 	case "WaitProcess":
-		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "STOPPED", ExitCode: 17})
+		return setStoppedResponse(request, response, 41, 17)
 	default:
 		return nil
 	}
@@ -1413,6 +1450,52 @@ func TestProcessOutputAndWaitRecoverTransportWithoutChangingOffsets(t *testing.T
 	}
 	if state.ExitCode != 19 || client.readCalls != 3 || client.waitCalls != 2 || client.reconnects != 3 {
 		t.Fatalf("reconnect result state=%+v reads=%d waits=%d reconnects=%d", state, client.readCalls, client.waitCalls, client.reconnects)
+	}
+}
+
+func TestWaitProcessRejectsMismatchedStoppedStateUntilExactCompletion(t *testing.T) {
+	client := &waitValidationAgent{reads: make(chan struct{}), states: make(chan agent.ProcessState)}
+	p := &process{id: "exec", pid: 41, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	publisher := &fakePublisher{}
+	s := &service{id: "task", namespace: "tests", bundle: t.TempDir(), agent: client, publisher: publisher,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}, processes: map[string]*process{"exec": p}}
+	go s.waitProcess("exec", "exec", p)
+	<-client.reads
+	invalid := []agent.ProcessState{
+		{ID: "other", PID: 41, Status: "STOPPED", ExitCode: 37},
+		{ID: "exec", PID: 41, Status: "RUNNING", ExitCode: 37},
+		{ID: "exec", PID: 42, Status: "STOPPED", ExitCode: 37},
+		{ID: "exec", PID: 41, Status: "STOPPED", ExitCode: -1},
+		{ID: "exec", PID: 41, Status: "STOPPED", ExitCode: 256},
+	}
+	for _, state := range invalid {
+		client.states <- state
+		// A subsequent output read proves the prior response was rejected and
+		// the monitor returned to its observation loop.
+		<-client.reads
+		if p.status != tasktypes.Status_RUNNING || p.pid != 41 || p.exit != 0 {
+			t.Fatalf("invalid stopped state mutated process: %+v", p)
+		}
+		select {
+		case <-p.done:
+			t.Fatal("invalid stopped state completed Task wait")
+		default:
+		}
+		if len(publisher.topics) != 0 {
+			t.Fatalf("invalid stopped state published events: %v", publisher.topics)
+		}
+	}
+	client.states <- agent.ProcessState{ID: "exec", PID: 41, Status: "STOPPED", ExitCode: 37}
+	select {
+	case <-p.done:
+	case <-time.After(time.Second):
+		t.Fatal("exact stopped state did not complete Task wait")
+	}
+	if p.status != tasktypes.Status_STOPPED || p.pid != 41 || p.exit != 37 {
+		t.Fatalf("exact stopped state = status:%v pid:%d exit:%d", p.status, p.pid, p.exit)
+	}
+	if fmt.Sprint(publisher.topics) != "[/tasks/exit]" {
+		t.Fatalf("completion events = %v", publisher.topics)
 	}
 }
 
