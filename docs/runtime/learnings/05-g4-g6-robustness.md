@@ -711,6 +711,11 @@ milliseconds, and is cancelled with the packet pump. An injected
 `DISCONNECTED` failure superseded by `READY` retries twice to success with the
 current counters, then accepts a later `DEGRADED` report; 100 race-detector
 repetitions pass.
+The shim now reuses mknetd's durable endpoint validator at each network RPC
+boundary. PROVISION cannot retain a mismatched workload, ATTACH requires exact
+namespace/generation/sandbox ownership and closes an invalid received
+descriptor, and REPORT/RELEASE reject malformed generations before request-ID
+slicing or RPC contact. These boundaries pass 100 race-detector repetitions.
 
 The CNI binary no longer truncates stdin at one MiB and then attempts to parse
 the valid prefix; oversize is explicit failure. Cache directory creation now

@@ -431,6 +431,14 @@ type fakeNetworkClient struct {
 	calls          []string
 }
 
+func validShimEndpoint(containerID, sandboxID, sandboxGeneration, generation, netns string) mknetwork.Endpoint {
+	return mknetwork.Endpoint{
+		ContainerID: containerID, NetworkName: "multikernel", IfName: "mktun0", NetNS: netns,
+		Owner: "cni", SandboxID: sandboxID, SandboxGeneration: sandboxGeneration, Generation: generation,
+		Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400, State: "READY",
+	}
+}
+
 type retryNetworkReportClient struct {
 	mu       sync.Mutex
 	failures int
@@ -3380,8 +3388,7 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	sandbox := protocol.Sandbox{ID: sandboxID(namespace, task), Generation: sandboxGeneration, State: "RUNNING",
 		Config: protocol.SandboxConfig{AgentPort: 7200}}
 	recovery := validPersistedRecovery(namespace, task)
-	recovery.Network = mknetwork.Endpoint{Generation: networkGeneration, SandboxID: sandbox.ID,
-		SandboxGeneration: sandbox.Generation, NetNS: "/run/netns/task-a", MTU: 1400}
+	recovery.Network = validShimEndpoint(task, sandbox.ID, sandbox.Generation, networkGeneration, "/run/netns/task-a")
 	recovery.Processes[0].Status = tasktypes.Status_RUNNING
 	recovery.Processes[0].PID = 41
 	stdout := filepath.Join(bundle, "stdout")
@@ -3496,8 +3503,7 @@ func TestRecoverExistingClosesAcquiredNetworkDescriptorOnRelayStartFailure(t *te
 	sandbox := protocol.Sandbox{ID: sandboxID(namespace, task), Generation: strings.Repeat("a", 32), State: "RUNNING",
 		Config: protocol.SandboxConfig{AgentPort: 7200}}
 	recovery := validPersistedRecovery(namespace, task)
-	recovery.Network = mknetwork.Endpoint{Generation: strings.Repeat("b", 32), SandboxID: sandbox.ID,
-		SandboxGeneration: sandbox.Generation, NetNS: "/run/netns/task-a", MTU: 1400}
+	recovery.Network = validShimEndpoint(task, sandbox.ID, sandbox.Generation, strings.Repeat("b", 32), "/run/netns/task-a")
 	data, err := json.Marshal(recovery)
 	if err != nil {
 		t.Fatal(err)
@@ -3720,8 +3726,9 @@ func TestNetworkPumpMTUBoundsCountersAndReconnect(t *testing.T) {
 
 func TestNetworkReporterRetriesAndCoalescesLatestState(t *testing.T) {
 	client := &retryNetworkReportClient{failures: 2, attempts: make(chan mknetwork.Endpoint, 4), success: make(chan mknetwork.Endpoint, 2)}
+	endpoint := validShimEndpoint("task", "box", strings.Repeat("b", 32), strings.Repeat("a", 32), "/run/netns/task")
 	s := &service{netDone: make(chan struct{}), netReports: make(chan string, 1), netClient: client,
-		netEndpoint: mknetwork.Endpoint{Generation: strings.Repeat("a", 32), SandboxID: "box", SandboxGeneration: strings.Repeat("b", 32)}}
+		netEndpoint: endpoint}
 	s.netRXPackets.Store(3)
 	s.startNetworkReporter()
 	s.queueNetworkReport("DISCONNECTED")
@@ -3756,6 +3763,74 @@ func TestNetworkReporterRetriesAndCoalescesLatestState(t *testing.T) {
 	}
 	close(s.netDone)
 	s.netWG.Wait()
+}
+
+func TestShimRejectsInvalidNetworkEndpointsBeforeUse(t *testing.T) {
+	sandboxGeneration := strings.Repeat("b", 32)
+	generation := strings.Repeat("a", 32)
+	sandbox := protocol.Sandbox{ID: "box", Generation: sandboxGeneration}
+	valid := validShimEndpoint("task", sandbox.ID, sandbox.Generation, generation, "/run/netns/task")
+
+	t.Run("provision identity", func(t *testing.T) {
+		invalid := valid
+		invalid.ContainerID = "other"
+		client := &fakeNetworkClient{endpoint: invalid}
+		s := &service{id: "task", sandbox: sandbox, netClient: client}
+		if err := s.provisionNetwork(context.Background(), valid.NetNS); err == nil {
+			t.Fatal("PROVISION accepted a mismatched endpoint")
+		}
+		if !reflect.DeepEqual(s.netEndpoint, mknetwork.Endpoint{}) {
+			t.Fatalf("invalid PROVISION endpoint was retained: %+v", s.netEndpoint)
+		}
+	})
+
+	t.Run("provision managed ownership", func(t *testing.T) {
+		client := &fakeNetworkClient{endpoint: valid}
+		s := &service{id: "task", sandbox: sandbox, netClient: client}
+		if err := s.provisionNetwork(context.Background(), ""); err == nil {
+			t.Fatal("managed PROVISION accepted a CNI-owned endpoint")
+		}
+		if !reflect.DeepEqual(s.netEndpoint, mknetwork.Endpoint{}) {
+			t.Fatalf("wrong-ownership PROVISION endpoint was retained: %+v", s.netEndpoint)
+		}
+	})
+
+	t.Run("attach generation and descriptor", func(t *testing.T) {
+		directory := t.TempDir()
+		descriptorPath := filepath.Join(directory, "tun")
+		if err := os.WriteFile(descriptorPath, nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+		invalid := valid
+		invalid.Generation = strings.Repeat("c", 32)
+		client := &fakeNetworkClient{endpoint: invalid, descriptorPath: descriptorPath}
+		s := &service{id: "task", sandbox: sandbox, netClient: client}
+		if _, descriptor, err := s.attachNetwork(context.Background(), valid.NetNS, generation); err == nil || descriptor != nil {
+			t.Fatalf("ATTACH accepted mismatched generation: descriptor=%v error=%v", descriptor, err)
+		}
+		if client.descriptor == nil {
+			t.Fatal("ATTACH fixture did not transfer a descriptor")
+		}
+		if _, err := client.descriptor.Stat(); err == nil {
+			t.Fatal("invalid ATTACH descriptor remained open")
+		}
+	})
+
+	t.Run("report and release generation", func(t *testing.T) {
+		invalid := valid
+		invalid.Generation = "short"
+		client := &fakeNetworkClient{endpoint: valid}
+		s := &service{netEndpoint: invalid, netClient: client}
+		if err := s.reportNetwork("READY"); err == nil {
+			t.Fatal("REPORT accepted a malformed generation")
+		}
+		if err := s.releaseNetwork(context.Background()); err == nil {
+			t.Fatal("RELEASE accepted a malformed generation")
+		}
+		if len(client.calls) != 0 {
+			t.Fatalf("malformed endpoint reached mknetd: %v", client.calls)
+		}
+	})
 }
 
 func TestSupervisorRestartsSignaledWorker(t *testing.T) {

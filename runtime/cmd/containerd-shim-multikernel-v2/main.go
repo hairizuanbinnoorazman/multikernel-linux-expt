@@ -489,6 +489,9 @@ func validatePersistedRecovery(value persisted, namespace, task string) error {
 			!recoveryGeneration.MatchString(value.Network.Generation) {
 			return errors.New("shim recovery network ownership is invalid")
 		}
+		if err := mknetwork.ValidateEndpoint(value.Network); err != nil {
+			return fmt.Errorf("shim recovery network endpoint is invalid: %w", err)
+		}
 	}
 	seen := make(map[string]bool, len(value.Processes))
 	initSeen := false
@@ -840,6 +843,9 @@ func (s *service) reportNetwork(state string) error {
 	endpoint := s.networkReport(state)
 	if endpoint.Generation == "" {
 		return nil
+	}
+	if err := mknetwork.ValidateEndpoint(endpoint); err != nil {
+		return fmt.Errorf("validate network report endpoint: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -1510,7 +1516,30 @@ func (s *service) provisionNetwork(ctx context.Context, netns string) error {
 	if response.Endpoint == nil {
 		return errors.New("mknetd PROVISION returned no endpoint")
 	}
+	if err = validateShimNetworkEndpoint(*response.Endpoint, mknetwork.Endpoint{
+		ContainerID: s.id, NetworkName: "multikernel", IfName: "mktun0", NetNS: netns,
+		SandboxID: s.sandbox.ID, SandboxGeneration: s.sandbox.Generation,
+	}); err != nil {
+		return fmt.Errorf("validate mknetd PROVISION endpoint: %w", err)
+	}
 	s.netEndpoint = *response.Endpoint
+	return nil
+}
+
+func validateShimNetworkEndpoint(endpoint, expected mknetwork.Endpoint) error {
+	if err := mknetwork.ValidateEndpoint(endpoint); err != nil {
+		return err
+	}
+	if endpoint.ContainerID != expected.ContainerID || endpoint.NetworkName != expected.NetworkName ||
+		endpoint.IfName != expected.IfName || endpoint.SandboxID != expected.SandboxID ||
+		endpoint.SandboxGeneration != expected.SandboxGeneration ||
+		expected.NetNS != "" && endpoint.NetNS != expected.NetNS ||
+		expected.Generation != "" && endpoint.Generation != expected.Generation {
+		return errors.New("network endpoint differs from the requested ownership identity")
+	}
+	if expected.NetNS == "" && (endpoint.Owner != "runtime" || !endpoint.ManagedNamespace) {
+		return errors.New("network endpoint differs from the requested managed-namespace ownership")
+	}
 	return nil
 }
 
@@ -1528,12 +1557,22 @@ func (s *service) attachNetwork(ctx context.Context, netns, endpointGeneration s
 		}
 		return mknetwork.Endpoint{}, nil, errors.New("mknetd ATTACH returned no endpoint descriptor")
 	}
+	if err = validateShimNetworkEndpoint(*response.Endpoint, mknetwork.Endpoint{
+		ContainerID: s.id, NetworkName: "multikernel", IfName: "mktun0", NetNS: netns,
+		Generation: endpointGeneration, SandboxID: s.sandbox.ID, SandboxGeneration: s.sandbox.Generation,
+	}); err != nil {
+		_ = descriptor.Close()
+		return mknetwork.Endpoint{}, nil, fmt.Errorf("validate mknetd ATTACH endpoint: %w", err)
+	}
 	return *response.Endpoint, descriptor, nil
 }
 
 func (s *service) releaseNetwork(ctx context.Context) error {
 	if s.netEndpoint.SandboxID == "" {
 		return nil
+	}
+	if err := mknetwork.ValidateEndpoint(s.netEndpoint); err != nil {
+		return fmt.Errorf("validate network release endpoint: %w", err)
 	}
 	request := mknetwork.Request{Version: mknetwork.ProtocolVersion, RequestID: "shim-release-" + s.netEndpoint.SandboxGeneration[:16], Method: "RELEASE", Endpoint: &mknetwork.Endpoint{
 		SandboxID: s.netEndpoint.SandboxID, SandboxGeneration: s.netEndpoint.SandboxGeneration,
