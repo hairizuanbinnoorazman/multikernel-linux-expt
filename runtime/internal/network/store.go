@@ -114,6 +114,12 @@ func validateStoredEndpoint(key string, endpoint Endpoint) error {
 	return nil
 }
 
+// ValidateEndpoint applies the same complete semantic contract used for
+// durable mknetd records to an endpoint crossing an RPC trust boundary.
+func ValidateEndpoint(endpoint Endpoint) error {
+	return validateStoredEndpoint(endpointKey(endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName), endpoint)
+}
+
 func (s *Store) Get(networkName, containerID, ifName string) (Endpoint, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

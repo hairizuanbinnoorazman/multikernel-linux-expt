@@ -78,6 +78,12 @@ complete newline-terminated response. The server accepts only a complete
 payload and control-message send. The client marks received descriptors
 close-on-exec immediately and closes every received descriptor when payload,
 binding, error, truncation, or descriptor-count validation fails.
+PROVISION, recovery ATTACH, REPORT, and RELEASE all apply mknetd's complete
+durable endpoint validator before retaining state, slicing generation-derived
+request IDs, or issuing a mutation. Workload/sandbox identity and any requested
+namespace or endpoint generation must match exactly; malformed generations
+therefore return errors instead of panicking, and invalid ATTACH descriptors
+are closed before use.
 Synthetic send-boundary coverage is local; the real SCM_RIGHTS success and
 rejected-payload leak tests are permission-gated and must execute without a
 skip in the privileged disposable-host run.

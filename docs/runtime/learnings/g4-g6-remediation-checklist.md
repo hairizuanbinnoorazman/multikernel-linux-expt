@@ -296,6 +296,10 @@ normative plan is revised with an explicit rationale.
   post-ADD failures receive a bounded generation-bound DEL. CHECK now requires
   mknetd to return that same complete endpoint identity and rejects a missing
   or mismatched response rather than treating transport success as proof.
+  Shim PROVISION/recovery/REPORT/RELEASE apply the same complete durable
+  endpoint validator. Mismatched workload or generation is never retained,
+  invalid ATTACH closes its descriptor, and malformed report/release generation
+  cannot panic or reach mknetd; the boundary matrix passes 100 race repetitions.
   Cache directory
   creation, private bounded reads, exclusive publication, and deletion are now
   relative to a component-walked no-symlink directory descriptor. The
