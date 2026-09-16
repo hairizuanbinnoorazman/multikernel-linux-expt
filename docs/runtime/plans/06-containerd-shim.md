@@ -158,6 +158,11 @@ to the current containerd namespace/task tuple. Fallback cleanup rejects invalid
 state before external mutation, reports every teardown failure, stops before
 sandbox deletion when stop fails, and removes the rootfs only after sandbox
 deletion succeeds.
+Reconstruction observes each recorded live process with the bounded reconnect
+transaction. Both `StateProcess` and the stopped-state `WaitProcess` follow-up
+are idempotent reads, so transport loss reconnects and repeats the same process
+identity; authenticated rejection remains terminal and cannot fabricate a
+recovered process or exit.
 
 Output FIFOs are opened nonblocking with a guard endpoint so detached clients
 may reattach. The shim fetches at most Linux `PIPE_BUF` (4096) bytes per stream

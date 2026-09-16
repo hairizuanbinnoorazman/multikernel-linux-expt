@@ -798,8 +798,11 @@ than only state-validation and fallback-cleanup coverage. Injected daemon,
 network, agent, and relay boundaries prove that the exact sandbox and network
 generations restore a recorded running guest PID, authenticated agent
 parameters, output/wait loop, and its later exact exit completion before owned
-resources are reaped. Live forced-death continuity for a running process is
-still required.
+resources are reaped. The same reconstruction test now injects loss of its
+first `StateProcess` reply, requires one relay reconnect, and restores the exact
+PID across 100 race-detector repetitions. Reconstruction's idempotent state
+and stopped-state wait reads share that bounded reconnect path. Live
+forced-death continuity for a running process is still required.
 
 That focused path also exposed a descriptor leak before agent reconnect:
 reconstruction acquired the generation-bound TUN descriptor before installing
