@@ -783,6 +783,13 @@ func taskGuestPID(pid int) (uint32, error) {
 	return uint32(pid), nil
 }
 
+func runningGuestProcess(state agent.ProcessState, processID string) (uint32, error) {
+	if state.ID != processID || state.Status != "RUNNING" {
+		return 0, errors.New("guest returned a running process with mismatched identity or state")
+	}
+	return taskGuestPID(state.PID)
+}
+
 func stoppedGuestProcess(state agent.ProcessState, processID string, expectedPID uint32) (uint32, uint32, error) {
 	if state.ID != processID || state.Status != "STOPPED" {
 		return 0, 0, errors.New("guest returned a stopped process with mismatched identity or state")
@@ -1185,6 +1192,9 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 		if err = s.agent.CallContext(ctx, "StateProcess", map[string]string{"ID": agentID}, &state); err != nil {
 			return fmt.Errorf("recover process %q: %w", saved.ID, err)
 		}
+		if state.ID != agentID {
+			return fmt.Errorf("recover process %q: guest returned a mismatched process identity", saved.ID)
+		}
 		if state.Status == "STOPPED" {
 			if err = s.agent.CallContext(ctx, "WaitProcess", map[string]string{"ID": agentID}, &state); err != nil {
 				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
@@ -1203,7 +1213,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			close(p.done)
 			continue
 		}
-		guestPID, pidErr := taskGuestPID(state.PID)
+		guestPID, pidErr := runningGuestProcess(state, agentID)
 		if pidErr != nil {
 			return fmt.Errorf("recover process %q: %w", saved.ID, pidErr)
 		}
@@ -1935,7 +1945,7 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 	}
 	var guestState agent.ProcessState
 	stateErr := s.agent.CallContext(ctx, "StateProcess", map[string]string{"ID": processID}, &guestState)
-	guestPID, pidErr := taskGuestPID(guestState.PID)
+	guestPID, pidErr := runningGuestProcess(guestState, processID)
 	if stateErr != nil || pidErr != nil {
 		p.status = tasktypes.Status_RUNNING
 		go s.pumpStdin(processID, p)

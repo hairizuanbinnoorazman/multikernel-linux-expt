@@ -783,6 +783,10 @@ normative plan is revised with an explicit rationale.
   Task v2's `uint32` range instead of truncating them. An injected oversized
   PID retains durable unverified ownership without publishing a start event,
   stays monitored through cleanup, and passes 100 race-detector repetitions.
+  Start/reconstruction require the exact agent process identity and `RUNNING`
+  state rather than trusting PID alone. Wrong identity, `CREATED`, and early
+  `STOPPED` start observations retain unverified ownership and monitoring with
+  no start event across 100 race-detector repetitions.
   Wait/reconstruction completion now requires the requested agent ID,
   `STOPPED`, the established PID, and exit status `0..255`. Wrong ID/state/PID,
   negative exit, and exit 256 remain RUNNING with no exit event until an exact
