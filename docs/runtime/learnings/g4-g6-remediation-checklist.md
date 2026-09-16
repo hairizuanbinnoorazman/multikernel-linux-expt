@@ -787,10 +787,15 @@ normative plan is revised with an explicit rationale.
   authenticated `NOT_FOUND` creates, while exact CREATED state is reused after
   partial failure/recovery. Wrong identity, live state, fabricated PID, and
   transport failure cause no duplicate create across 100 race repetitions.
+  Ambiguous `StartProcess` failure is reconciled under an independent
+  five-second bound: exact CREATED remains retryable, exact RUNNING or rapid
+  STOPPED succeeds, and unavailable state retains monitored, durable ownership
+  plus bounded cleanup. The four-boundary matrix passes 100 race repetitions.
   Start/reconstruction require the exact agent process identity and `RUNNING`
-  state rather than trusting PID alone. Wrong identity, `CREATED`, and early
-  `STOPPED` start observations retain unverified ownership and monitoring with
-  no start event across 100 race-detector repetitions.
+  or validated completion state rather than trusting PID alone. Wrong identity
+  and `CREATED` observations after a successful Start retain unverified
+  ownership and monitoring with no start event across 100 race-detector
+  repetitions; an exact rapid `STOPPED` observation is accepted.
   Wait/reconstruction completion now requires the requested agent ID,
   `STOPPED`, the established PID, and exit status `0..255`. Wrong ID/state/PID,
   negative exit, and exit 256 remain RUNNING with no exit event until an exact

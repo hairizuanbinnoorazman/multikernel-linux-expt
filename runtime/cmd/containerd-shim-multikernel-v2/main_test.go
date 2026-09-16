@@ -211,6 +211,8 @@ func (*controlledOutputWriter) Close() error { return nil }
 
 type startCleanupAgent struct {
 	finish    chan struct{}
+	startErr  error
+	stateErr  error
 	signalErr error
 	statePID  int
 	stateID   string
@@ -253,10 +255,13 @@ func (f *startCleanupAgent) Call(method string, request, response any) error {
 func (f *startCleanupAgent) CallContext(ctx context.Context, method string, request, response any) error {
 	switch method {
 	case "StartProcess":
-		return nil
+		return f.startErr
 	case "StateProcess":
+		if f.stateErr != nil {
+			return f.stateErr
+		}
 		pid := f.statePID
-		if pid == 0 {
+		if pid == 0 && f.state != "CREATED" {
 			pid = 41
 		}
 		id := f.stateID
@@ -2102,7 +2107,6 @@ func TestStartRejectsMismatchedGuestProcessStateAndRetainsOwnership(t *testing.T
 	}{
 		{name: "wrong identity", id: "other", state: "RUNNING"},
 		{name: "created", state: "CREATED"},
-		{name: "already stopped", state: "STOPPED"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2132,6 +2136,81 @@ func TestStartRejectsMismatchedGuestProcessStateAndRetainsOwnership(t *testing.T
 			case <-p.done:
 			case <-time.After(time.Second):
 				t.Fatal("mismatched-state process monitor did not observe cleanup")
+			}
+		})
+	}
+}
+
+func TestStartReconcilesAmbiguousGuestResultWithoutLosingOwnership(t *testing.T) {
+	startFailure := errors.New("injected start transport failure")
+	stateFailure := errors.New("injected state transport failure")
+	tests := []struct {
+		name        string
+		state       string
+		stateErr    error
+		wantSuccess bool
+		wantCreated bool
+		wantEvent   bool
+	}{
+		{name: "confirmed created remains retryable", state: "CREATED", wantCreated: true},
+		{name: "running proves start applied", state: "RUNNING", wantSuccess: true, wantEvent: true},
+		{name: "rapid stop proves start applied", state: "STOPPED", wantSuccess: true, wantEvent: true},
+		{name: "unresolved transport failure retains ownership", stateErr: stateFailure},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bundle := t.TempDir()
+			if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			client := &startCleanupAgent{finish: make(chan struct{}), startErr: startFailure, stateErr: test.stateErr, state: test.state}
+			p := &process{id: "exec", status: tasktypes.Status_CREATED, done: make(chan struct{})}
+			publisher := &fakePublisher{}
+			s := &service{id: "task", namespace: "tests", bundle: bundle,
+				sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)}, agent: client,
+				publisher: publisher, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+				processes: map[string]*process{
+					"":     {status: tasktypes.Status_RUNNING, done: make(chan struct{})},
+					"exec": p,
+				}}
+			response, err := s.Start(context.Background(), &taskapi.StartRequest{ID: "task", ExecID: "exec"})
+			if test.wantSuccess {
+				if err != nil || response == nil || response.Pid != 41 {
+					t.Fatalf("reconciled Start response=%+v error=%v", response, err)
+				}
+			} else if !errors.Is(err, startFailure) {
+				t.Fatalf("ambiguous Start error = %v, want start failure", err)
+			}
+			startPublished := false
+			for _, topic := range publisher.topics {
+				startPublished = startPublished || topic == ctruntime.TaskExecStartedEventTopic
+			}
+			if startPublished != test.wantEvent {
+				t.Fatalf("published events = %v, want start event=%v", publisher.topics, test.wantEvent)
+			}
+			if test.wantCreated {
+				if p.status != tasktypes.Status_CREATED || p.pid != 0 {
+					t.Fatalf("confirmed-created state=%v pid=%d", p.status, p.pid)
+				}
+				select {
+				case <-p.done:
+					t.Fatal("confirmed-created process completed")
+				default:
+				}
+			} else {
+				var expectedPID uint32
+				if test.wantSuccess {
+					expectedPID = 41
+				}
+				if p.status != tasktypes.Status_RUNNING || p.pid != expectedPID {
+					t.Fatalf("retained ownership state=%v pid=%d", p.status, p.pid)
+				}
+				close(client.finish)
+				select {
+				case <-p.done:
+				case <-time.After(time.Second):
+					t.Fatal("reconciled process monitor did not observe completion")
+				}
 			}
 		})
 	}

@@ -73,9 +73,17 @@ completion path. A guest PID is accepted only when it is positive and exactly
 representable by Task v2's `uint32` field; Start and reconstruction share that
 check, so an oversized signed agent value cannot be truncated into a different
 durable or externally reported identity. Start additionally requires the exact
-requested agent process ID and `RUNNING` state before it publishes success;
-reconstruction accepts only that exact running observation or the separately
-validated stopped-completion path.
+requested agent process ID and a validated `RUNNING` or already-`STOPPED` state
+before it publishes success; reconstruction accepts only that exact running
+observation or the separately validated stopped-completion path.
+An errored `StartProcess` reply is ambiguous because the authenticated response
+may have been lost after mutation. A cancellation-independent, five-second
+state observation distinguishes exact `CREATED` (safe retry) from exact
+`RUNNING` or `STOPPED` (the start applied and succeeds). An unavailable or
+malformed observation retains unverified RUNNING ownership, starts its monitors,
+persists that uncertainty, and attempts bounded termination. A process that
+exits before the first state observation is therefore not misclassified as an
+invalid Start.
 Completion requires a `WaitProcess` reply for the requested agent process,
 `STOPPED` state, the already established guest PID (or a valid PID when Start
 could not verify one), and an agent-derived exit status in `0..255`. A semantic
