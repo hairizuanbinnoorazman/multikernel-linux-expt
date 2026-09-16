@@ -59,6 +59,11 @@ idempotent success. It removes the in-memory owner only after that confirmation,
 persists the resulting registry in either case, and returns every guest or
 recovery cleanup error. A failed guest deletion therefore remains explicitly
 owned rather than becoming an untracked process.
+Init Start reconciles its already durable CREATED owner with the authenticated
+agent before mutation. Only authenticated `NOT_FOUND` permits `CreateProcess`;
+an exact ID with `CREATED`, zero PID, and zero exit is reused after an earlier
+stdio/Start failure or shim recovery. Transport failure or any other identity
+or state cannot be interpreted as absence and cannot issue a duplicate create.
 Once `StartProcess` succeeds, invalid PID observation, recovery failure, or
 start-event failure cannot revert the process to CREATED. The shim retains the
 RUNNING owner and its output/wait monitors, then uses a cancellation-independent

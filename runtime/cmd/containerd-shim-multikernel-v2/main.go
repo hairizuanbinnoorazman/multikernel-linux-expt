@@ -790,6 +790,13 @@ func runningGuestProcess(state agent.ProcessState, processID string) (uint32, er
 	return taskGuestPID(state.PID)
 }
 
+func createdGuestProcess(state agent.ProcessState, processID string) error {
+	if state.ID != processID || state.Status != "CREATED" || state.PID != 0 || state.ExitCode != 0 {
+		return errors.New("guest returned a created process with mismatched identity or state")
+	}
+	return nil
+}
+
 func stoppedGuestProcess(state agent.ProcessState, processID string, expectedPID uint32) (uint32, uint32, error) {
 	if state.ID != processID || state.Status != "STOPPED" {
 		return 0, 0, errors.New("guest returned a stopped process with mismatched identity or state")
@@ -1919,7 +1926,7 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 			s.mu.Unlock()
 			return nil, err
 		}
-		if err := s.agent.CallContext(ctx, "CreateProcess", map[string]any{"ID": "init", "Bundle": "/bundle"}, nil); err != nil {
+		if err := ensureGuestProcessCreated(ctx, s.agent, "init", "/bundle"); err != nil {
 			s.mu.Unlock()
 			return nil, err
 		}
@@ -2655,6 +2662,24 @@ func validateExecProcess(p *specs.Process) error {
 func agentNotFound(err error) bool {
 	var remote *agent.RemoteError
 	return errors.As(err, &remote) && remote.Failure.Code == "NOT_FOUND"
+}
+
+func ensureGuestProcessCreated(ctx context.Context, client agentClient, processID, bundle string) error {
+	var state agent.ProcessState
+	err := client.CallContext(ctx, "StateProcess", map[string]string{"ID": processID}, &state)
+	if err == nil {
+		if err = createdGuestProcess(state, processID); err != nil {
+			return fmt.Errorf("reconcile created guest process: %w", err)
+		}
+		return nil
+	}
+	if !agentNotFound(err) {
+		return fmt.Errorf("inspect created guest process: %w", err)
+	}
+	if err = client.CallContext(ctx, "CreateProcess", map[string]any{"ID": processID, "Bundle": bundle}, nil); err != nil {
+		return fmt.Errorf("create guest process: %w", err)
+	}
+	return nil
 }
 
 func (s *service) rollbackExec(ctx context.Context, client agentClient, execID string) error {
