@@ -108,12 +108,23 @@ the event journal must flush before rootfs artifacts or the final process
 record are removed. Retrying can therefore resume idempotent external cleanup
 without losing the exit-before-delete order.
 
+Init deletion uses a two-phase guest shutdown. Guest `CloseNetwork` is itself
+bounded and reconnect-retryable so a lost successful reply cannot strand
+teardown. After process and network closure, the shim obtains an authenticated,
+reconnect-retryable `Quiesce` acknowledgement that proves the process registry
+is empty, storage is quiet, and later guest mutations are sealed. It then sends
+terminal `Shutdown`.
+Cancellation or an authenticated rejection still retains retry ownership; a
+transport loss after confirmed quiescence is safe to complete locally because
+the terminal request cannot bypass storage quiescence or admit new work.
+
 The shim owns each agent relay that it starts. Relays run in dedicated process
 groups; failed connection setup, failed reconstruction, normal task deletion,
 and fallback cleanup kill and reap the complete group. Relay-socket removal is
 retryable and its path remains owned until removal succeeds. Normal deletion
-keeps the relay alive through the final authenticated guest `Shutdown` reply,
-then terminates it before releasing the primary network endpoint.
+keeps the relay alive through authenticated guest quiescence and the terminal
+`Shutdown` attempt, then terminates it before releasing the primary network
+endpoint.
 
 Shim recovery state is untrusted input after restart. Both reconstruction and
 fallback `Cleanup` open a bounded private caller-owned single-link regular file

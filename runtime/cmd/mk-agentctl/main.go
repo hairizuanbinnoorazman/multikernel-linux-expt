@@ -331,7 +331,7 @@ func main() {
 	for _, method := range []struct {
 		name  string
 		value any
-	}{{"DeleteProcess", map[string]any{"id": "p1"}}, {"Shutdown", map[string]any{}}} {
+	}{{"DeleteProcess", map[string]any{"id": "p1"}}, {"Quiesce", map[string]any{}}, {"Shutdown", map[string]any{}}} {
 		reply, callErr := call(method.name, method.value)
 		if callErr != nil {
 			fmt.Fprintln(os.Stderr, method.name+":", callErr)

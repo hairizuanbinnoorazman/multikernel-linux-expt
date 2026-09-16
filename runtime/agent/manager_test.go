@@ -981,7 +981,7 @@ func TestAuthenticationAndReplay(t *testing.T) {
 		t.Fatalf("oci_features type = %T", capabilities["oci_features"])
 	}
 	protocolFeatures, ok := capabilities["protocol_features"].([]string)
-	if !ok || !slices.Contains(protocolFeatures, "stdin-offset-v1") {
+	if !ok || !slices.Contains(protocolFeatures, "stdin-offset-v1") || !slices.Contains(protocolFeatures, "two-phase-shutdown-v1") {
 		t.Fatalf("protocol features = %#v", capabilities["protocol_features"])
 	}
 	for _, feature := range features {
@@ -1053,6 +1053,34 @@ func TestShutdownRequiresQuiescence(t *testing.T) {
 	body, ok := reply.Body.(map[string]string)
 	if reply.Error != "" || !ok || body["status"] != "quiesced" {
 		t.Fatalf("quiescent Shutdown reply = %+v", reply)
+	}
+}
+
+func TestQuiesceIsIdempotentAndSealsMutations(t *testing.T) {
+	calls := 0
+	server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001,
+		Token: []byte("01234567890123456789012345678901"), BeforeShutdown: func() error { calls++; return nil }}
+	dispatch := func(sequence uint64, method string) Reply {
+		request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation, Endpoint: server.Endpoint,
+			Sequence: sequence, Method: method}
+		Sign(&request, server.Token)
+		return server.Dispatch(request)
+	}
+	for _, sequence := range []uint64{1, 2} {
+		reply := dispatch(sequence, "Quiesce")
+		body, ok := reply.Body.(map[string]string)
+		if reply.Error != "" || !ok || body["status"] != "quiesced" {
+			t.Fatalf("Quiesce reply = %+v", reply)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("storage quiescence calls = %d, want 1", calls)
+	}
+	if reply := dispatch(3, "DeleteProcess"); reply.Error != "agent is quiesced" {
+		t.Fatalf("post-quiesce mutation reply = %+v", reply)
+	}
+	if reply := dispatch(4, "Shutdown"); reply.Error != "" {
+		t.Fatalf("post-quiesce Shutdown reply = %+v", reply)
 	}
 }
 

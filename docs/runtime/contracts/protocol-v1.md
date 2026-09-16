@@ -41,9 +41,10 @@ and full configuration fingerprint; it is not a general deletion shortcut.
 Agent methods are `Capabilities`, `CreateProcess`,
 `ExecProcess`, `StartProcess`, `SignalProcess`, `ResizeProcess`, `WriteProcess`,
 `CloseProcessStdin`, `ReadProcessOutput`, `WaitProcess`, `StateProcess`,
-`DeleteProcess`, `ConfigureNetwork`, `ExchangeNetwork`, `CloseNetwork`, and
-`Shutdown`. Stdin writes and output reads are limited to 64 KiB per request;
-network exchange carries at most one 65,535-byte packet in each direction.
+`DeleteProcess`, `ConfigureNetwork`, `ExchangeNetwork`, `CloseNetwork`,
+`Quiesce`, and `Shutdown`. Stdin writes and output reads are limited to 64 KiB
+per request; network exchange carries at most one 65,535-byte packet in each
+direction.
 The advertised `stdin-offset-v1` capability adds an `offset` to `WriteProcess`
 and returns the next acknowledged offset. The guest accepts only the exact next
 offset, except that it idempotently acknowledges a replay of the most recently
@@ -72,10 +73,16 @@ with the next sequence; restarting at sequence one is rejected as replay. A
 completed connection unregisters its server-cancellation callback immediately,
 so reconnect churn cannot retain one waiter and connection reference per old
 session. Cancellation still closes and unblocks a currently active connection.
-successful quiescent `Shutdown` reply is the final reply on the session. The
-agent then syncs and invokes child poweroff; the pinned Multikernel spawn-kernel
-machine operations convert that action into a child-scoped notification and
-CPU park, not a platform reset.
+`Quiesce` is an idempotent authenticated commit point: it requires an empty
+process registry, performs the storage flush/read-only transition once, and
+seals the agent against subsequent process or network mutation. It remains
+available across transport reconnect so a lost reply can be retried safely.
+`Shutdown` retains the legacy direct-quiesce behavior, but the runtime first
+confirms `Quiesce`; after that confirmation, a lost terminal reply is safe to
+treat as completion. A successful `Shutdown` reply is the final reply on the
+session. The agent then syncs and invokes child poweroff; the pinned
+Multikernel spawn-kernel machine operations convert that action into a
+child-scoped notification and CPU park, not a platform reset.
 
 `WatchEvents` is a resumable bounded event stream: its body contains an
 exclusive `after_sequence` cursor and optional `limit` (default 128, maximum

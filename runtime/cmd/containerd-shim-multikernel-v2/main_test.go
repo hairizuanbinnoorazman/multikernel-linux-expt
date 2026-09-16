@@ -61,6 +61,67 @@ type fakeAgentClient struct {
 	statsByID map[string]agent.ProcessStats
 }
 
+type shutdownBoundaryAgent struct {
+	calls               []string
+	closeCalls          int
+	quiesceCalls        int
+	reconnects          int
+	loseFirstClose      bool
+	loseFirstQuiesce    bool
+	loseShutdown        bool
+	quiesceStatus       string
+	shutdownRemoteError error
+	afterQuiesce        func()
+}
+
+func (f *shutdownBoundaryAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *shutdownBoundaryAgent) CallContext(ctx context.Context, method string, _ any, response any) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	f.calls = append(f.calls, method)
+	switch method {
+	case "CloseNetwork":
+		f.closeCalls++
+		if f.loseFirstClose && f.closeCalls == 1 {
+			return io.ErrUnexpectedEOF
+		}
+		return nil
+	case "Quiesce":
+		f.quiesceCalls++
+		if f.loseFirstQuiesce && f.quiesceCalls == 1 {
+			return io.ErrUnexpectedEOF
+		}
+		status := f.quiesceStatus
+		if status == "" {
+			status = "quiesced"
+		}
+		err := setJSONResponse(response, guestQuiesceResponse{Status: status})
+		if f.afterQuiesce != nil {
+			f.afterQuiesce()
+		}
+		return err
+	case "Shutdown":
+		if f.shutdownRemoteError != nil {
+			return f.shutdownRemoteError
+		}
+		if f.loseShutdown {
+			return io.EOF
+		}
+		return setJSONResponse(response, guestQuiesceResponse{Status: "quiesced"})
+	default:
+		return fmt.Errorf("unexpected method %s", method)
+	}
+}
+func (*shutdownBoundaryAgent) Close() error           { return nil }
+func (*shutdownBoundaryAgent) Reconnect(string) error { return nil }
+func (f *shutdownBoundaryAgent) ReconnectContext(context.Context, string) error {
+	f.reconnects++
+	return nil
+}
+
 type stdinCaptureAgent struct{ writes chan []byte }
 
 func (f *stdinCaptureAgent) Call(method string, request, response any) error {
@@ -3280,6 +3341,62 @@ func TestDeleteTreatsAuthenticatedGuestAbsenceAsIdempotentSuccess(t *testing.T) 
 	if fmt.Sprint(publisher.topics) != "[/tasks/delete]" {
 		t.Fatalf("idempotent delete events = %v", publisher.topics)
 	}
+}
+
+func TestGuestShutdownRetriesQuiesceAndAcceptsLostTerminalReply(t *testing.T) {
+	fake := &shutdownBoundaryAgent{loseFirstQuiesce: true, loseShutdown: true}
+	s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}
+	if err := s.quiesceAndShutdownGuest(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(fake.calls) != "[Quiesce Quiesce Shutdown]" || fake.reconnects != 1 {
+		t.Fatalf("shutdown calls=%v reconnects=%d", fake.calls, fake.reconnects)
+	}
+}
+
+func TestGuestNetworkCloseRetriesLostReply(t *testing.T) {
+	fake := &shutdownBoundaryAgent{loseFirstClose: true}
+	s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second, networkCloseTimeout: time.Second}
+	if err := s.stopNetwork(); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(fake.calls) != "[CloseNetwork CloseNetwork]" || fake.reconnects != 1 {
+		t.Fatalf("network close calls=%v reconnects=%d", fake.calls, fake.reconnects)
+	}
+}
+
+func TestGuestShutdownRejectsUnprovenOrAuthenticatedFailure(t *testing.T) {
+	t.Run("invalid quiesce acknowledgement", func(t *testing.T) {
+		fake := &shutdownBoundaryAgent{quiesceStatus: "unknown"}
+		s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}
+		if err := s.quiesceAndShutdownGuest(context.Background()); err == nil || !strings.Contains(err.Error(), "unexpected status") {
+			t.Fatalf("quiesce error = %v", err)
+		}
+		if fmt.Sprint(fake.calls) != "[Quiesce]" {
+			t.Fatalf("invalid quiesce calls = %v", fake.calls)
+		}
+	})
+
+	t.Run("authenticated shutdown rejection", func(t *testing.T) {
+		remote := &agent.RemoteError{Failure: protocol.Error{Code: "FAILED_PRECONDITION", Message: "injected rejection"}}
+		fake := &shutdownBoundaryAgent{shutdownRemoteError: remote}
+		s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}
+		if err := s.quiesceAndShutdownGuest(context.Background()); !errors.Is(err, remote) {
+			t.Fatalf("shutdown error = %v", err)
+		}
+	})
+
+	t.Run("cancellation after quiescence", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		fake := &shutdownBoundaryAgent{afterQuiesce: cancel}
+		s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}
+		if err := s.quiesceAndShutdownGuest(ctx); !errors.Is(err, context.Canceled) {
+			t.Fatalf("shutdown cancellation error = %v", err)
+		}
+		if fmt.Sprint(fake.calls) != "[Quiesce]" {
+			t.Fatalf("cancelled shutdown calls = %v", fake.calls)
+		}
+	})
 }
 
 func TestDeleteRetainsRetryOwnershipAcrossGuestAndEventFailures(t *testing.T) {
