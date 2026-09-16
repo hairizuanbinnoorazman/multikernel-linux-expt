@@ -830,6 +830,15 @@ acknowledgement unlinks relative to the held parent only when the identity still
 matches. A substituted journal is preserved and the published event is put
 back at the front of the in-memory queue for at-least-once replay.
 
+Terminal size is another reply-loss boundary because the shim persists the
+requested dimensions before applying them in the guest. `ResizeProcess` is an
+exact set operation, so live resize and reconstruction now reconnect and replay
+the identical process ID, width, and height within the shared bounded RPC
+budget. An injected first-reply loss reaches the requested dimensions after one
+reconnect in 100 race-detector repetitions; authenticated rejection remains
+terminal and restores the prior durable intent. Disposable-host validation of
+this current revision remains pending the approved source transfer.
+
 Rootfs recovery records now bind both the original containerd bundle and the
 configured storage root to their device, inode, and owner. A same-owner
 whole-directory substitution made before replay or cleanup is rejected before

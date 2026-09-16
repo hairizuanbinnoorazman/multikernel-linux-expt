@@ -67,11 +67,13 @@ type shutdownBoundaryAgent struct {
 	configureCalls      int
 	deleteCalls         int
 	quiesceCalls        int
+	resizeCalls         int
 	reconnects          int
 	loseFirstClose      bool
 	loseFirstConfigure  bool
 	loseFirstDelete     bool
 	loseFirstQuiesce    bool
+	loseFirstResize     bool
 	loseShutdown        bool
 	quiesceStatus       string
 	shutdownRemoteError error
@@ -162,6 +164,12 @@ func (f *shutdownBoundaryAgent) CallContext(ctx context.Context, method string, 
 			f.afterQuiesce()
 		}
 		return err
+	case "ResizeProcess":
+		f.resizeCalls++
+		if f.loseFirstResize && f.resizeCalls == 1 {
+			return io.ErrUnexpectedEOF
+		}
+		return nil
 	case "Shutdown":
 		if f.shutdownRemoteError != nil {
 			return f.shutdownRemoteError
@@ -2075,7 +2083,7 @@ func TestResizePtyRejectsInvalidRequests(t *testing.T) {
 }
 
 func TestResizePtyRollsBackIntentWhenGuestRejects(t *testing.T) {
-	injected := errors.New("injected resize failure")
+	injected := &agent.RemoteError{Failure: protocol.Error{Code: "FAILED_PRECONDITION", Message: "injected resize failure"}}
 	fake := &fakeAgentClient{fail: map[string]error{"ResizeProcess": injected}}
 	p := &process{terminal: true, status: tasktypes.Status_RUNNING, width: 80, height: 24, sizeSet: true}
 	s := &service{agent: fake, processes: map[string]*process{"": p}}
@@ -3562,6 +3570,22 @@ func TestGuestProcessDeleteReconnectsAndConfirmsLostReply(t *testing.T) {
 	}
 	if fmt.Sprint(fake.calls) != "[DeleteProcess DeleteProcess]" || fake.reconnects != 1 {
 		t.Fatalf("process delete calls=%v reconnects=%d", fake.calls, fake.reconnects)
+	}
+}
+
+func TestResizePtyRetriesLostReply(t *testing.T) {
+	fake := &shutdownBoundaryAgent{loseFirstResize: true}
+	p := &process{terminal: true, status: tasktypes.Status_RUNNING, width: 80, height: 24, sizeSet: true}
+	s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second,
+		processes: map[string]*process{"": p}}
+	if _, err := s.ResizePty(context.Background(), &taskapi.ResizePtyRequest{Width: 91, Height: 37}); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(fake.calls) != "[ResizeProcess ResizeProcess]" || fake.reconnects != 1 {
+		t.Fatalf("resize calls=%v reconnects=%d", fake.calls, fake.reconnects)
+	}
+	if !p.sizeSet || p.width != 91 || p.height != 37 {
+		t.Fatalf("reconciled resize state: %+v", p)
 	}
 }
 

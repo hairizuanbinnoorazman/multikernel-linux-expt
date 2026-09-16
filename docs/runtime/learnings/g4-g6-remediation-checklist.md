@@ -545,6 +545,11 @@ normative plan is revised with an explicit rationale.
   reconnect or replay. Twenty
   race-detector repetitions cover successful output/Wait reconnect, an initial
   reconnect failure, non-replayed remote rejection, and deadline exhaustion.
+  Live `ResizePty` and reconstruction now apply the same bounded reconnect
+  rule to the exact process-ID/width/height set operation. An injected lost
+  successful reply reconnects once, replays the same request, and retains the
+  new durable dimensions; guest rejection retains the prior dimensions. The
+  focused resize matrix passes 100 race-detector repetitions.
   Exhausting one bounded background epoch no longer fabricates exit 255: the
   recorded process remains running and its wait channel remains open while the
   monitor retries after 100 milliseconds. Only an authenticated `WaitProcess`

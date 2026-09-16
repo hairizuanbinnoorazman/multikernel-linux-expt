@@ -1259,7 +1259,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 		}
 		p.pid = guestPID
 		if p.terminal && p.sizeSet {
-			if err = s.agent.CallContext(ctx, "ResizeProcess", map[string]any{"id": agentID, "width": p.width, "height": p.height}, nil); err != nil {
+			if err = s.resizeGuestProcess(ctx, agentID, p.width, p.height); err != nil {
 				return fmt.Errorf("recover process %q terminal size: %w", saved.ID, err)
 			}
 		}
@@ -2649,6 +2649,12 @@ func (s *service) deleteGuestProcess(ctx context.Context, id string) error {
 	return nil
 }
 
+func (s *service) resizeGuestProcess(ctx context.Context, id string, width, height uint32) error {
+	return s.callAgentWithReconnectContext(ctx, "ResizeProcess", map[string]any{
+		"id": id, "width": width, "height": height,
+	}, nil)
+}
+
 // deliverOutput advances a guest offset only after the complete chunk reaches
 // its destination. Chunks are capped at Linux PIPE_BUF by waitProcess, making
 // nonblocking FIFO writes all-or-nothing. A permanently absent/slow consumer
@@ -3163,8 +3169,7 @@ func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
 	}
-	client := s.agent
-	if p.status == tasktypes.Status_RUNNING && client == nil {
+	if p.status == tasktypes.Status_RUNNING && s.agent == nil {
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
 	}
@@ -3183,7 +3188,7 @@ func (s *service) ResizePty(ctx context.Context, r *taskapi.ResizePtyRequest) (*
 	if id == "" {
 		id = "init"
 	}
-	if err := client.CallContext(ctx, "ResizeProcess", map[string]any{"id": id, "width": r.Width, "height": r.Height}, nil); err != nil {
+	if err := s.resizeGuestProcess(ctx, id, r.Width, r.Height); err != nil {
 		p.width, p.height, p.sizeSet = oldWidth, oldHeight, oldSizeSet
 		rollbackErr := s.persistRecovery()
 		if rollbackErr != nil {
