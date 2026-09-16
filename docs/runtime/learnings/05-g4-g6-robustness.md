@@ -312,6 +312,12 @@ packet path is negotiated-MTU bounded and
 single-flight, detects a 250 ms stalled exchange, reconnects without resetting
 the authenticated sequence, and reports monotonic packet/drop/error counters.
 DNS configuration and regular-file/symlink/absent restoration are tested.
+Guest configuration is now replay-safe: the agent retains the complete
+successful configuration and accepts only an exact repeat, while the shim
+reconnects after a lost response. Different configuration is rejected without
+ownership mutation, and cleanup retains that replay identity through failure
+then clears it after a successful retry. Agent and shim fault matrices pass 100
+race-detector repetitions.
 Linux command-order tests inject failure at every partial-`ADD` boundary and
 assert reverse cleanup, source-spoof, sibling, metadata, and default-drop
 rules. The anti-spoof and NAT match is now the exact child `/32`, rather than

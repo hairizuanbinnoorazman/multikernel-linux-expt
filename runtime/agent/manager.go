@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -203,20 +204,21 @@ func (b *lockedBuffer) Truncated() bool {
 }
 
 type Manager struct {
-	mu          sync.Mutex
-	processes   map[string]*process
-	network     *os.File
-	networkName string
-	networkMTU  int
-	networkExec func(context.Context, ...string) ([]byte, error)
-	dnsOriginal []byte
-	dnsSymlink  string
-	dnsMode     os.FileMode
-	dnsExisted  bool
-	dnsManaged  bool
-	dnsPath     string
-	policySet   bool
-	NoChroot    bool
+	mu            sync.Mutex
+	processes     map[string]*process
+	network       *os.File
+	networkName   string
+	networkMTU    int
+	networkConfig NetworkConfig
+	networkExec   func(context.Context, ...string) ([]byte, error)
+	dnsOriginal   []byte
+	dnsSymlink    string
+	dnsMode       os.FileMode
+	dnsExisted    bool
+	dnsManaged    bool
+	dnsPath       string
+	policySet     bool
+	NoChroot      bool
 }
 
 func NewManager(noChroot bool) *Manager {
@@ -1069,7 +1071,13 @@ func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkCon
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.network != nil || m.networkName != "" || m.dnsManaged {
+	if m.network != nil && m.networkName == config.Name && m.networkMTU == config.MTU && m.dnsManaged &&
+		m.networkConfig.Name == config.Name && m.networkConfig.Address == config.Address &&
+		m.networkConfig.Gateway == config.Gateway && m.networkConfig.MTU == config.MTU &&
+		slices.Equal(m.networkConfig.Nameservers, config.Nameservers) {
+		return nil
+	}
+	if m.network != nil || m.networkName != "" || m.dnsManaged || m.networkConfig.Name != "" {
 		return errors.New("network is already configured or cleanup is pending")
 	}
 	f, err := os.OpenFile("/dev/net/tun", os.O_RDWR|syscall.O_NONBLOCK, 0)
@@ -1121,6 +1129,8 @@ func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkCon
 	m.network = f
 	m.networkName = config.Name
 	m.networkMTU = config.MTU
+	m.networkConfig = config
+	m.networkConfig.Nameservers = append([]string(nil), config.Nameservers...)
 	m.dnsManaged = true
 	return nil
 }
@@ -1169,7 +1179,9 @@ func (m *Manager) CloseNetworkContext(ctx context.Context) error {
 	defer m.mu.Unlock()
 	var failures []error
 	if m.network != nil {
-		failures = append(failures, m.network.Close())
+		if err := m.network.Close(); err != nil {
+			failures = append(failures, err)
+		}
 		m.network = nil
 	}
 	if m.networkName != "" {
@@ -1186,6 +1198,9 @@ func (m *Manager) CloseNetworkContext(ctx context.Context) error {
 		} else {
 			m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, m.dnsManaged = nil, "", 0, false, false
 		}
+	}
+	if len(failures) == 0 {
+		m.networkConfig = NetworkConfig{}
 	}
 	return errors.Join(failures...)
 }

@@ -126,6 +126,9 @@ terminal `Shutdown`.
 Cancellation or an authenticated rejection still retains retry ownership; a
 transport loss after confirmed quiescence is safe to complete locally because
 the terminal request cannot bypass storage quiescence or admit new work.
+Initial guest `ConfigureNetwork` uses the same bounded reconnect transaction;
+the agent accepts only an exact replay of its completed configuration, making a
+lost successful reply safe without admitting changed network identity.
 
 The shim owns each agent relay that it starts. Relays run in dedicated process
 groups; failed connection setup, failed reconstruction, normal task deletion,
