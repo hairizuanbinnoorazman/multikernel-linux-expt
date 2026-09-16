@@ -71,6 +71,10 @@ queue. Failed `READY`, `DISCONNECTED`, `DEGRADED`, or monotonic-counter reports
 retry every 100 milliseconds; newer state replaces stale pending state, and
 each `mknetd` call remains bounded to two seconds. Network teardown cancels and
 joins that worker before its final synchronous counter report.
+Guest `CloseNetwork` has an independent five-second deadline. Timeout is
+returned but does not skip local TUN closure or the final bounded counter
+report, so an unresponsive child cannot retain the shim's network descriptor
+or block Task deletion indefinitely.
 Guest DNS restoration retains cleanup ownership after failure and becomes a
 no-op after success, so repeated network close cannot remove restored state.
 `ATTACH` transfers exactly one generation-bound TUN descriptor with one

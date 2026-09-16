@@ -146,6 +146,7 @@ type service struct {
 	relayPath             relayPathFactory
 	newRelayOwner         relayOwnerFactory
 	ioCallTimeout         time.Duration
+	networkCloseTimeout   time.Duration
 	netRXPackets          atomic.Uint64
 	netTXPackets          atomic.Uint64
 	netRXDrops            atomic.Uint64
@@ -1926,7 +1927,14 @@ func (s *service) stopNetwork() error {
 		s.netReports = nil
 	}
 	if s.agent != nil {
-		if err := s.agent.Call("CloseNetwork", map[string]any{}, nil); err != nil {
+		timeout := s.networkCloseTimeout
+		if timeout <= 0 {
+			timeout = 5 * time.Second
+		}
+		closeCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		err := s.agent.CallContext(closeCtx, "CloseNetwork", map[string]any{}, nil)
+		cancel()
+		if err != nil {
 			failures = append(failures, fmt.Errorf("close guest network: %w", err))
 		}
 	}

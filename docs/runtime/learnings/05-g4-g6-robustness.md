@@ -716,6 +716,10 @@ boundary. PROVISION cannot retain a mismatched workload, ATTACH requires exact
 namespace/generation/sandbox ownership and closes an invalid received
 descriptor, and REPORT/RELEASE reject malformed generations before request-ID
 slicing or RPC contact. These boundaries pass 100 race-detector repetitions.
+Guest network close was the remaining unbounded teardown RPC. It now has an
+independent five-second default; an injected blocked close returns its deadline
+while local TUN closure and subsequent teardown continue. The focused timeout
+case passes 100 race-detector repetitions.
 
 The CNI binary no longer truncates stdin at one MiB and then attempts to parse
 the valid prefix; oversize is explicit failure. Cache directory creation now
