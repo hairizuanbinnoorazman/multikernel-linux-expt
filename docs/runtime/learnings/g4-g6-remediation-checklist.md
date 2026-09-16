@@ -566,7 +566,12 @@ normative plan is revised with an explicit rationale.
   cancellation-independent guest delete, treats authenticated `NOT_FOUND` as
   confirmed absence, retains ownership on other delete failures, republishes
   the resulting registry, and returns all cleanup errors. Success, absence, and
-  failure cases align memory and disk in 100 race-detector repetitions.
+  failure cases align memory and disk in 100 race-detector repetitions. The
+  CREATED exec owner is now durable before `ExecProcess`; reply-loss
+  reconciliation accepts exact CREATED, removes confirmed absence, and retains
+  ownership when state and deletion remain uncertain. Reconstruction applies
+  the same exact identity/state boundary and at-least-once exec-added event
+  repair. Both three/five-boundary matrices pass 100 race-detector repetitions.
   Agent connection cancellation no longer leaves a goroutine and connection
   reference behind after each normal disconnect. Focused tests prove active
   cancellation still unblocks the session and completed sessions unregister

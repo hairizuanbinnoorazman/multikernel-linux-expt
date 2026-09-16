@@ -1210,6 +1210,17 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			close(p.done)
 			continue
 		}
+		if p.status == tasktypes.Status_CREATED && p.id != "" {
+			var exists bool
+			exists, err = s.reconcileRecoveredCreatedExec(ctx, p)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				delete(s.processes, p.id)
+			}
+			continue
+		}
 		if p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED {
 			continue
 		}
@@ -1269,6 +1280,24 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	}
 	recovered = true
 	return nil
+}
+
+func (s *service) reconcileRecoveredCreatedExec(ctx context.Context, p *process) (bool, error) {
+	var state agent.ProcessState
+	err := s.callAgentWithReconnectContext(ctx, "StateProcess", map[string]string{"ID": p.id}, &state)
+	if agentNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("recover created exec process %q: %w", p.id, err)
+	}
+	if err = createdGuestProcess(state, p.id); err != nil {
+		return false, fmt.Errorf("recover created exec process %q: %w", p.id, err)
+	}
+	if err = s.publish(ctx, ctruntime.TaskExecAddedEventTopic, &eventstypes.TaskExecAdded{ContainerID: s.id, ExecID: p.id}); err != nil {
+		return false, fmt.Errorf("recover created exec process %q event: %w", p.id, err)
+	}
+	return true, nil
 }
 
 func relaySocketPath(port uint32, generation string) string {
@@ -2793,13 +2822,10 @@ func ensureGuestProcessCreated(ctx context.Context, client agentClient, processI
 	return nil
 }
 
-func (s *service) rollbackExec(ctx context.Context, client agentClient, execID string) error {
+func (s *service) rollbackExec(ctx context.Context, execID string) error {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	deleteErr := client.CallContext(cleanupCtx, "DeleteProcess", map[string]string{"ID": execID}, nil)
-	if agentNotFound(deleteErr) {
-		deleteErr = nil
-	}
+	deleteErr := s.deleteGuestProcess(cleanupCtx, execID)
 	s.mu.Lock()
 	if deleteErr == nil {
 		delete(s.processes, execID)
@@ -2861,22 +2887,36 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 		stdinIdentity: stdinIdentity, stdoutIdentity: stdoutIdentity, stderrIdentity: stderrIdentity,
 		terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	s.processes[r.ExecID] = p
-	s.mu.Unlock()
-	if err = client.CallContext(ctx, "ExecProcess", map[string]any{"id": r.ExecID, "parent_id": "init", "spec": processSpec(spec)}, nil); err != nil {
-		s.mu.Lock()
+	if err = s.persistRecovery(); err != nil {
 		delete(s.processes, r.ExecID)
 		s.mu.Unlock()
-		return nil, err
+		return nil, fmt.Errorf("persist exec creation intent: %w", err)
+	}
+	s.mu.Unlock()
+	if createErr := client.CallContext(ctx, "ExecProcess", map[string]any{"id": r.ExecID, "parent_id": "init", "spec": processSpec(spec)}, nil); createErr != nil {
+		reconcileCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		var state agent.ProcessState
+		stateErr := s.callAgentWithReconnectContext(reconcileCtx, "StateProcess", map[string]string{"ID": r.ExecID}, &state)
+		cancel()
+		stateValidationErr := stateErr
+		if stateValidationErr == nil {
+			stateValidationErr = createdGuestProcess(state, r.ExecID)
+		}
+		if stateValidationErr != nil {
+			rollbackErr := s.rollbackExec(ctx, r.ExecID)
+			return nil, errors.Join(fmt.Errorf("create guest exec: %w", createErr),
+				fmt.Errorf("reconcile guest exec creation: %w", stateValidationErr), rollbackErr)
+		}
 	}
 	s.mu.Lock()
 	err = s.persistRecovery()
 	s.mu.Unlock()
 	if err != nil {
-		rollbackErr := s.rollbackExec(ctx, client, r.ExecID)
+		rollbackErr := s.rollbackExec(ctx, r.ExecID)
 		return nil, errors.Join(fmt.Errorf("persist exec process: %w", err), rollbackErr)
 	}
 	if err = s.publish(ctx, ctruntime.TaskExecAddedEventTopic, &eventstypes.TaskExecAdded{ContainerID: s.id, ExecID: r.ExecID}); err != nil {
-		return nil, errors.Join(err, s.rollbackExec(ctx, client, r.ExecID))
+		return nil, errors.Join(err, s.rollbackExec(ctx, r.ExecID))
 	}
 	return &emptypb.Empty{}, nil
 }
