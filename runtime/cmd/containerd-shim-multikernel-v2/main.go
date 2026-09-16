@@ -2050,7 +2050,7 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 	if startErr != nil {
 		stateCtx, cancelState = context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	}
-	stateErr := s.agent.CallContext(stateCtx, "StateProcess", map[string]string{"ID": processID}, &guestState)
+	stateErr := s.callAgentWithReconnectContext(stateCtx, "StateProcess", map[string]string{"ID": processID}, &guestState)
 	if cancelState != nil {
 		cancelState()
 	}

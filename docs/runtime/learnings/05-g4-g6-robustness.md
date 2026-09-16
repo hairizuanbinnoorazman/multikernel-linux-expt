@@ -526,10 +526,12 @@ observation. The injected broken-transport case performs one create and one
 reconnect across 100 race-detector repetitions. An authenticated create
 rejection remains terminal.
 An errored `StartProcess` call now reconciles with an independent five-second
-state read. Exact `CREATED` preserves retryable local state; exact `RUNNING` and
-rapid `STOPPED` prove the start applied and return success; unresolved transport
-failure retains unverified ownership, monitoring, durable state, and bounded
-cleanup. All four boundaries pass 100 race-detector repetitions.
+state read that reconnects after transport loss. Exact `CREATED` preserves
+retryable local state; exact `RUNNING` and rapid `STOPPED` prove the start
+applied and return success; unresolved transport failure retains unverified
+ownership, monitoring, durable state, and bounded cleanup. The five-boundary
+matrix, including one lost state reply and one reconnect, passes 100
+race-detector repetitions.
 Start and reconstruction now also validate the agent process ID and state, not
 only its PID. Wrong identity and `CREATED` observations after a successful
 start retain unverified RUNNING ownership, publish no start event, and remain

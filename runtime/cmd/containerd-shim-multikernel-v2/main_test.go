@@ -365,13 +365,16 @@ func (f *controlledOutputWriter) Write(value []byte) (int, error) {
 func (*controlledOutputWriter) Close() error { return nil }
 
 type startCleanupAgent struct {
-	finish    chan struct{}
-	startErr  error
-	stateErr  error
-	signalErr error
-	statePID  int
-	stateID   string
-	state     string
+	finish            chan struct{}
+	startErr          error
+	stateErr          error
+	transientStateErr error
+	stateFailures     int
+	signalErr         error
+	statePID          int
+	stateID           string
+	state             string
+	reconnects        int
 }
 
 type createReconcileAgent struct {
@@ -430,6 +433,10 @@ func (f *startCleanupAgent) CallContext(ctx context.Context, method string, requ
 	case "StartProcess":
 		return f.startErr
 	case "StateProcess":
+		if f.stateFailures > 0 {
+			f.stateFailures--
+			return f.transientStateErr
+		}
 		if f.stateErr != nil {
 			return f.stateErr
 		}
@@ -461,9 +468,12 @@ func (f *startCleanupAgent) CallContext(ctx context.Context, method string, requ
 		return fmt.Errorf("unexpected method %s", method)
 	}
 }
-func (*startCleanupAgent) Close() error                                   { return nil }
-func (*startCleanupAgent) Reconnect(string) error                         { return nil }
-func (*startCleanupAgent) ReconnectContext(context.Context, string) error { return nil }
+func (*startCleanupAgent) Close() error           { return nil }
+func (*startCleanupAgent) Reconnect(string) error { return nil }
+func (f *startCleanupAgent) ReconnectContext(context.Context, string) error {
+	f.reconnects++
+	return nil
+}
 
 func (f *outputReconnectAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
@@ -2474,16 +2484,20 @@ func TestStartReconcilesAmbiguousGuestResultWithoutLosingOwnership(t *testing.T)
 	startFailure := errors.New("injected start transport failure")
 	stateFailure := errors.New("injected state transport failure")
 	tests := []struct {
-		name        string
-		state       string
-		stateErr    error
-		wantSuccess bool
-		wantCreated bool
-		wantEvent   bool
+		name              string
+		state             string
+		stateErr          error
+		transientStateErr error
+		stateFailures     int
+		wantReconnect     int
+		wantSuccess       bool
+		wantCreated       bool
+		wantEvent         bool
 	}{
 		{name: "confirmed created remains retryable", state: "CREATED", wantCreated: true},
 		{name: "running proves start applied", state: "RUNNING", wantSuccess: true, wantEvent: true},
 		{name: "rapid stop proves start applied", state: "STOPPED", wantSuccess: true, wantEvent: true},
+		{name: "lost state reply reconnects", state: "RUNNING", transientStateErr: io.ErrUnexpectedEOF, stateFailures: 1, wantReconnect: 1, wantSuccess: true, wantEvent: true},
 		{name: "unresolved transport failure retains ownership", stateErr: stateFailure},
 	}
 	for _, test := range tests {
@@ -2492,7 +2506,8 @@ func TestStartReconcilesAmbiguousGuestResultWithoutLosingOwnership(t *testing.T)
 			if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 				t.Fatal(err)
 			}
-			client := &startCleanupAgent{finish: make(chan struct{}), startErr: startFailure, stateErr: test.stateErr, state: test.state}
+			client := &startCleanupAgent{finish: make(chan struct{}), startErr: startFailure, stateErr: test.stateErr,
+				transientStateErr: test.transientStateErr, stateFailures: test.stateFailures, state: test.state}
 			p := &process{id: "exec", status: tasktypes.Status_CREATED, done: make(chan struct{})}
 			publisher := &fakePublisher{}
 			s := &service{id: "task", namespace: "tests", bundle: bundle,
@@ -2502,6 +2517,10 @@ func TestStartReconcilesAmbiguousGuestResultWithoutLosingOwnership(t *testing.T)
 					"":     {status: tasktypes.Status_RUNNING, done: make(chan struct{})},
 					"exec": p,
 				}}
+			if test.wantReconnect != 0 {
+				s.relaySocket = "/run/multikernel/relay.sock"
+				s.ioCallTimeout = time.Second
+			}
 			response, err := s.Start(context.Background(), &taskapi.StartRequest{ID: "task", ExecID: "exec"})
 			if test.wantSuccess {
 				if err != nil || response == nil || response.Pid != 41 {
@@ -2509,6 +2528,9 @@ func TestStartReconcilesAmbiguousGuestResultWithoutLosingOwnership(t *testing.T)
 				}
 			} else if !errors.Is(err, startFailure) {
 				t.Fatalf("ambiguous Start error = %v, want start failure", err)
+			}
+			if client.reconnects != test.wantReconnect {
+				t.Fatalf("state reconnects = %d, want %d", client.reconnects, test.wantReconnect)
 			}
 			startPublished := false
 			for _, topic := range publisher.topics {
