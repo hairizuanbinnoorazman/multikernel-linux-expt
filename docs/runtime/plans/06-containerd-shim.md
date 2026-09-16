@@ -129,6 +129,12 @@ the terminal request cannot bypass storage quiescence or admit new work.
 Initial guest `ConfigureNetwork` uses the same bounded reconnect transaction;
 the agent accepts only an exact replay of its completed configuration, making a
 lost successful reply safe without admitting changed network identity.
+Live and reconstructed terminal resize uses that bounded reconnect transaction
+too. `ResizeProcess` is an exact set operation, so replay carries the same
+process ID, width, and height; a lost successful reply can no longer make the
+shim roll its durable terminal-size intent back behind the guest's actual size.
+Authenticated guest rejection is not replayed and still restores the prior
+durable intent.
 
 The shim owns each agent relay that it starts. Relays run in dedicated process
 groups; failed connection setup, failed reconstruction, normal task deletion,
