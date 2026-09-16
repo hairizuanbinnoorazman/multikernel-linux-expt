@@ -826,9 +826,10 @@ normative plan is revised with an explicit rationale.
   one create and one reconnect in 100 race-detector repetitions; authenticated
   create rejection remains terminal.
   Ambiguous `StartProcess` failure is reconciled under an independent
-  five-second bound: exact CREATED remains retryable, exact RUNNING or rapid
-  STOPPED succeeds, and unavailable state retains monitored, durable ownership
-  plus bounded cleanup. The four-boundary matrix passes 100 race repetitions.
+  five-second bound with relay reconnect: exact CREATED remains retryable,
+  exact RUNNING or rapid STOPPED succeeds, and unavailable state retains
+  monitored, durable ownership plus bounded cleanup. The five-boundary matrix,
+  including one lost state reply and one reconnect, passes 100 race repetitions.
   Start/reconstruction require the exact agent process identity and `RUNNING`
   or validated completion state rather than trusting PID alone. Wrong identity
   and `CREATED` observations after a successful Start retain unverified

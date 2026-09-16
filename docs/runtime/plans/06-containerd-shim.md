@@ -99,7 +99,8 @@ before it publishes success; reconstruction accepts only that exact running
 observation or the separately validated stopped-completion path.
 An errored `StartProcess` reply is ambiguous because the authenticated response
 may have been lost after mutation. A cancellation-independent, five-second
-state observation distinguishes exact `CREATED` (safe retry) from exact
+state observation reconnects after transport loss and distinguishes exact
+`CREATED` (safe retry) from exact
 `RUNNING` or `STOPPED` (the start applied and succeeds). An unavailable or
 malformed observation retains unverified RUNNING ownership, starts its monitors,
 persists that uncertainty, and attempts bounded termination. A process that
