@@ -180,6 +180,7 @@ func (*controlledOutputWriter) Close() error { return nil }
 type startCleanupAgent struct {
 	finish    chan struct{}
 	signalErr error
+	statePID  int
 }
 
 func (f *startCleanupAgent) Call(method string, request, response any) error {
@@ -190,7 +191,11 @@ func (f *startCleanupAgent) CallContext(ctx context.Context, method string, _ an
 	case "StartProcess":
 		return nil
 	case "StateProcess":
-		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "RUNNING"})
+		pid := f.statePID
+		if pid == 0 {
+			pid = 41
+		}
+		return setJSONResponse(response, agent.ProcessState{PID: pid, Status: "RUNNING"})
 	case "SignalProcess":
 		return f.signalErr
 	case "ReadProcessOutput":
@@ -1921,6 +1926,49 @@ func TestStartReturnsKillFailureAndRetainsMonitorAfterPersistenceFailure(t *test
 	}
 	if p.status != tasktypes.Status_STOPPED || p.exit != 9 {
 		t.Fatalf("observed retained-process exit = status:%v exit:%d", p.status, p.exit)
+	}
+}
+
+func TestStartRejectsGuestPIDOutsideTaskRangeAndRetainsOwnership(t *testing.T) {
+	if ^uint(0)>>32 == 0 {
+		t.Skip("host int cannot represent a PID above the Task v2 range")
+	}
+	bundle := t.TempDir()
+	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	client := &startCleanupAgent{finish: make(chan struct{}), statePID: int(uint64(^uint32(0)) + 1)}
+	p := &process{id: "exec", status: tasktypes.Status_CREATED, done: make(chan struct{})}
+	publisher := &fakePublisher{}
+	s := &service{id: "task", namespace: "tests", bundle: bundle,
+		sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)}, agent: client,
+		publisher: publisher, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+		processes: map[string]*process{
+			"":     {status: tasktypes.Status_RUNNING, done: make(chan struct{})},
+			"exec": p,
+		}}
+	_, err := s.Start(context.Background(), &taskapi.StartRequest{ID: "task", ExecID: "exec"})
+	if err == nil || !strings.Contains(err.Error(), "outside the Task v2 range") {
+		t.Fatalf("Start invalid PID error = %v", err)
+	}
+	if p.status != tasktypes.Status_RUNNING || p.pid != 0 {
+		t.Fatalf("unverified process ownership = status:%v pid:%d", p.status, p.pid)
+	}
+	if len(publisher.topics) != 0 {
+		t.Fatalf("invalid PID published lifecycle events: %v", publisher.topics)
+	}
+	data, readErr := os.ReadFile(filepath.Join(bundle, ".multikernel", "sandbox.json"))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !bytes.Contains(data, []byte(`"status":2`)) || bytes.Contains(data, []byte(`"pid":`)) {
+		t.Fatalf("unverified ownership was not persisted without a PID: %s", data)
+	}
+	close(client.finish)
+	select {
+	case <-p.done:
+	case <-time.After(time.Second):
+		t.Fatal("unverified process monitor did not observe cleanup completion")
 	}
 }
 

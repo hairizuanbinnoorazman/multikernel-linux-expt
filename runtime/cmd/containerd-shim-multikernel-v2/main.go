@@ -776,6 +776,13 @@ func (s *service) persistRecovery() error {
 	return atomicWriteFile(filepath.Join(s.bundle, ".multikernel", "sandbox.json"), b, 0600)
 }
 
+func taskGuestPID(pid int) (uint32, error) {
+	if pid <= 0 || uint64(pid) > uint64(^uint32(0)) {
+		return 0, errors.New("guest returned a process ID outside the Task v2 range")
+	}
+	return uint32(pid), nil
+}
+
 func (s *service) networkReport(state string) mknetwork.Endpoint {
 	endpoint := s.netEndpoint
 	endpoint.State = state
@@ -1174,10 +1181,11 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			close(p.done)
 			continue
 		}
-		if state.PID <= 0 {
-			return fmt.Errorf("recover process %q: invalid guest PID", saved.ID)
+		guestPID, pidErr := taskGuestPID(state.PID)
+		if pidErr != nil {
+			return fmt.Errorf("recover process %q: %w", saved.ID, pidErr)
 		}
-		p.pid = uint32(state.PID)
+		p.pid = guestPID
 		if p.terminal && p.sizeSet {
 			if err = s.agent.CallContext(ctx, "ResizeProcess", map[string]any{"id": agentID, "width": p.width, "height": p.height}, nil); err != nil {
 				return fmt.Errorf("recover process %q terminal size: %w", saved.ID, err)
@@ -1904,23 +1912,25 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		return nil, err
 	}
 	var guestState agent.ProcessState
-	if err := s.agent.CallContext(ctx, "StateProcess", map[string]string{"ID": processID}, &guestState); err != nil || guestState.PID <= 0 {
+	stateErr := s.agent.CallContext(ctx, "StateProcess", map[string]string{"ID": processID}, &guestState)
+	guestPID, pidErr := taskGuestPID(guestState.PID)
+	if stateErr != nil || pidErr != nil {
 		p.status = tasktypes.Status_RUNNING
 		go s.pumpStdin(processID, p)
 		go s.waitProcess(processID, r.ExecID, p)
 		persistErr := s.persistRecovery()
 		killErr := s.killStartedProcess(ctx, processID)
-		if err == nil {
-			err = errors.New("guest returned an invalid process ID")
+		if stateErr == nil {
+			stateErr = pidErr
 		}
 		s.mu.Unlock()
 		if persistErr != nil {
 			persistErr = fmt.Errorf("persist unverified started process ownership: %w", persistErr)
 		}
-		return nil, errors.Join(fmt.Errorf("read started guest process identity: %w", err), persistErr, killErr)
+		return nil, errors.Join(fmt.Errorf("read started guest process identity: %w", stateErr), persistErr, killErr)
 	}
 	p.status = tasktypes.Status_RUNNING
-	p.pid = uint32(guestState.PID)
+	p.pid = guestPID
 	pid := p.pid
 	go s.pumpStdin(processID, p)
 	go s.waitProcess(processID, r.ExecID, p)

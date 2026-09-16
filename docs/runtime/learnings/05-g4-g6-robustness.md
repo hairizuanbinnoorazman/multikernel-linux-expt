@@ -488,6 +488,11 @@ use a cancellation-independent five-second signal call, and return its error;
 authenticated `NOT_FOUND` is successful cleanup. Injected persistence plus
 signal failure retains guest PID 41 and later records exact exit 9 after
 storage repair across 100 race-detector repetitions.
+PID validation now also rejects positive agent values above Task v2's `uint32`
+range in both Start and reconstruction. An oversized PID remains an unverified
+RUNNING owner without a fabricated PID, publishes no start event, is durably
+recorded, and stays monitored through cleanup; 100 race-detector repetitions
+pass.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation
