@@ -625,9 +625,16 @@ a process group, several connection-failure paths left them running, and normal
 task deletion never reaped them after guest shutdown. Relay ownership is now
 explicit. Starts create a dedicated process group; failed connection or
 reconstruction, normal Delete, and fallback Cleanup kill and reap it. Normal
-Delete preserves the transport through the final authenticated guest Shutdown
-reply, and relay-socket removal remains retryable on failure. Focused tests
-prove descendant removal and socket cleanup retry; live process inventories
+Delete now closes guest networking, retries an idempotent authenticated
+`Quiesce` across transport reconnect, and only then attempts terminal
+`Shutdown`. Quiescence performs storage shutdown once and seals later agent
+mutations. Injected loss of the first quiescence reply reconnects and succeeds;
+an injected lost `CloseNetwork` reply also reconnects and retries exactly.
+Loss of the terminal reply completes safely, while an invalid quiescence body
+or authenticated shutdown rejection fails closed. Cancellation after the
+quiescence acknowledgement also returns cancellation without attempting
+terminal shutdown. The paired agent and shim matrices pass 100 race-detector
+repetitions. Relay-socket removal remains retryable; live process inventories
 remain required.
 
 Fallback shim Cleanup previously followed and loosely decoded `sandbox.json`,

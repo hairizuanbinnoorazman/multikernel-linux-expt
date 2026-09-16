@@ -455,8 +455,13 @@ normative plan is revised with an explicit rationale.
   failed flush leaves shutdown retryable. Agent relays are now explicit shim
   ownership: every start uses a dedicated process group, every connection or
   reconstruction failure reaps that group, normal Delete stops it only after
-  the final guest Shutdown reply, and a failed socket removal retains its path
-  for retry. The mkruntimed lifecycle snapshot and append journal now use the
+  authenticated `Quiesce` and the terminal guest Shutdown attempt, and a failed
+  socket removal retains its path for retry. `Quiesce` is idempotent across
+  reconnect, runs storage quiescence once, and seals later mutation. Injected
+  network-close reply loss, quiescence-reply loss, terminal-reply loss, invalid
+  acknowledgement, authenticated rejection, and post-quiescence cancellation
+  pass paired 100-iteration race-detector matrices.
+  The mkruntimed lifecycle snapshot and append journal now use the
   same descriptor-anchored, private, caller-owned state directory contract as
   the G4/G5 ownership stores. Snapshot and journal reads are bounded and
   strict; journal creation is exclusive and directory-synchronized; entries

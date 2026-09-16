@@ -94,6 +94,10 @@ type processOutput struct {
 	StderrTruncated bool   `json:"stderr_truncated"`
 }
 
+type guestQuiesceResponse struct {
+	Status string `json:"status"`
+}
+
 type agentClient interface {
 	Call(string, any, any) error
 	CallContext(context.Context, string, any, any) error
@@ -1932,7 +1936,7 @@ func (s *service) stopNetwork() error {
 			timeout = 5 * time.Second
 		}
 		closeCtx, cancel := context.WithTimeout(context.Background(), timeout)
-		err := s.agent.CallContext(closeCtx, "CloseNetwork", map[string]any{}, nil)
+		err := s.callAgentWithReconnectContext(closeCtx, "CloseNetwork", map[string]any{}, nil)
 		cancel()
 		if err != nil {
 			failures = append(failures, fmt.Errorf("close guest network: %w", err))
@@ -2564,12 +2568,41 @@ func (s *service) callAgentWithReconnectContext(parent context.Context, method s
 			return lastErr
 		}
 		if err := s.agent.ReconnectContext(ctx, s.relaySocket); err != nil {
-			lastErr = errors.Join(lastErr, fmt.Errorf("reconnect guest output transport: %w", err))
+			lastErr = errors.Join(lastErr, fmt.Errorf("reconnect guest agent transport: %w", err))
 		}
 		if err := waitContext(ctx, 50*time.Millisecond); err != nil {
 			return errors.Join(lastErr, err)
 		}
 	}
+}
+
+func (s *service) quiesceAndShutdownGuest(ctx context.Context) error {
+	var quiesced guestQuiesceResponse
+	if err := s.callAgentWithReconnectContext(ctx, "Quiesce", map[string]any{}, &quiesced); err != nil {
+		return fmt.Errorf("quiesce guest agent: %w", err)
+	}
+	if quiesced.Status != "quiesced" {
+		return fmt.Errorf("quiesce guest agent: unexpected status %q", quiesced.Status)
+	}
+	var shutdown guestQuiesceResponse
+	err := s.agent.CallContext(ctx, "Shutdown", map[string]any{}, &shutdown)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		var remote *agent.RemoteError
+		if errors.As(err, &remote) {
+			return fmt.Errorf("shutdown guest agent: %w", err)
+		}
+		// Quiesce is the authenticated commit point. After it succeeds, a
+		// transport loss during terminal Shutdown is safe to complete locally:
+		// the guest is sealed against new mutations and storage is already quiet.
+		return nil
+	}
+	if shutdown.Status != "quiesced" {
+		return fmt.Errorf("shutdown guest agent: unexpected status %q", shutdown.Status)
+	}
+	return nil
 }
 
 // deliverOutput advances a guest offset only after the complete chunk reaches
@@ -2904,8 +2937,8 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 			if err := s.stopNetwork(); err != nil {
 				return abort(err)
 			}
-			if err := client.CallContext(ctx, "Shutdown", map[string]any{}, nil); err != nil {
-				return abort(fmt.Errorf("shutdown guest agent: %w", err))
+			if err := s.quiesceAndShutdownGuest(ctx); err != nil {
+				return abort(err)
 			}
 			closeErr := client.Close()
 			s.mu.Lock()

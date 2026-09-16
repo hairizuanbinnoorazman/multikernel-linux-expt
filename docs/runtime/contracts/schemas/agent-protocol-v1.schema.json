@@ -10,7 +10,7 @@
         "version": {"const": 1}, "sandbox_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$"},
         "generation": {"type": "string", "pattern": "^[a-f0-9]{32}$"}, "endpoint": {"type": "integer", "minimum": 1, "maximum": 4294967295},
         "sequence": {"type": "integer", "minimum": 1},
-        "method": {"enum": ["Capabilities", "CreateProcess", "ExecProcess", "StartProcess", "SignalProcess", "ResizeProcess", "WriteProcess", "CloseProcessStdin", "ReadProcessOutput", "WaitProcess", "StateProcess", "DeleteProcess", "ConfigureNetwork", "ExchangeNetwork", "CloseNetwork", "Shutdown"]},
+        "method": {"enum": ["Capabilities", "CreateProcess", "ExecProcess", "StartProcess", "SignalProcess", "ResizeProcess", "WriteProcess", "CloseProcessStdin", "ReadProcessOutput", "WaitProcess", "StateProcess", "DeleteProcess", "ConfigureNetwork", "ExchangeNetwork", "CloseNetwork", "Quiesce", "Shutdown"]},
         "body": {"type": "object"}, "mac": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
       }
     },

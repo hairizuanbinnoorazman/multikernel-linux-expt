@@ -92,7 +92,7 @@ func safeAgentError(sequence uint64, raw string) *protocol.Error {
 		code, message = "NOT_FOUND", "managed process was not found"
 	case strings.Contains(raw, "exists"):
 		code, message = "ALREADY_EXISTS", "managed process already exists"
-	case strings.Contains(raw, "not running"), strings.Contains(raw, "not started"), strings.Contains(raw, "still running"), strings.Contains(raw, "not created"), strings.Contains(raw, "stdin is closed"):
+	case strings.Contains(raw, "not running"), strings.Contains(raw, "not started"), strings.Contains(raw, "still running"), strings.Contains(raw, "not created"), strings.Contains(raw, "stdin is closed"), strings.Contains(raw, "is quiesced"):
 		code, message = "FAILED_PRECONDITION", "managed process is in the wrong state"
 	case strings.Contains(raw, "invalid"), strings.Contains(raw, "must"), strings.Contains(raw, "required"), strings.Contains(raw, "exceed"), strings.Contains(raw, "limit"), strings.Contains(raw, "offset"), strings.Contains(raw, "absolute"), strings.Contains(raw, "multiple JSON"), strings.Contains(raw, "unknown field"):
 		code, message = "INVALID_ARGUMENT", "invalid agent request"
@@ -109,6 +109,8 @@ type Server struct {
 	BeforeShutdown        func() error
 	mu                    sync.Mutex
 	last                  uint64
+	quiesceMu             sync.Mutex
+	quiesced              bool
 }
 
 func (e Envelope) canonical() []byte { e.MAC = ""; b, _ := json.Marshal(e); return b }
@@ -175,7 +177,7 @@ func capabilityReport() map[string]any {
 	}
 	return map[string]any{
 		"protocol":          1,
-		"protocol_features": []string{"stdin-offset-v1"},
+		"protocol_features": []string{"stdin-offset-v1", "two-phase-shutdown-v1"},
 		"oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize",
 			"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts"},
 		"kernel": map[string]any{
@@ -199,10 +201,38 @@ func (s *Server) Dispatch(e Envelope) Reply {
 	return s.DispatchContext(context.Background(), e)
 }
 
+func (s *Server) quiesce() error {
+	s.quiesceMu.Lock()
+	defer s.quiesceMu.Unlock()
+	if s.quiesced {
+		return nil
+	}
+	if !s.Manager.Quiescent() {
+		return errors.New("managed processes are still running")
+	}
+	if s.BeforeShutdown != nil {
+		if err := s.BeforeShutdown(); err != nil {
+			return errors.New("storage quiescence failed")
+		}
+	}
+	s.quiesced = true
+	return nil
+}
+
+func (s *Server) isQuiesced() bool {
+	s.quiesceMu.Lock()
+	defer s.quiesceMu.Unlock()
+	return s.quiesced
+}
+
 func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 	r := Reply{Version: 1, Sequence: e.Sequence}
 	if x := s.verify(e); x != nil {
 		r.Error = x.Error()
+		return r
+	}
+	if s.isQuiesced() && e.Method != "Capabilities" && e.Method != "Quiesce" && e.Method != "Shutdown" {
+		r.Error = "agent is quiesced"
 		return r
 	}
 	switch e.Method {
@@ -363,15 +393,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 		} else if x = s.Manager.Delete(q.ID); x != nil {
 			r.Error = x.Error()
 		}
-	case "Shutdown":
-		if !s.Manager.Quiescent() {
-			r.Error = "managed processes are still running"
-		} else if s.BeforeShutdown != nil {
-			if err := s.BeforeShutdown(); err != nil {
-				r.Error = "storage quiescence failed"
-			} else {
-				r.Body = map[string]string{"status": "quiesced"}
-			}
+	case "Quiesce", "Shutdown":
+		if x := s.quiesce(); x != nil {
+			r.Error = x.Error()
 		} else {
 			r.Body = map[string]string{"status": "quiesced"}
 		}
