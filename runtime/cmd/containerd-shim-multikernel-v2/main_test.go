@@ -213,6 +213,8 @@ type startCleanupAgent struct {
 	finish    chan struct{}
 	signalErr error
 	statePID  int
+	stateID   string
+	state     string
 }
 
 func (f *startCleanupAgent) Call(method string, request, response any) error {
@@ -227,7 +229,15 @@ func (f *startCleanupAgent) CallContext(ctx context.Context, method string, requ
 		if pid == 0 {
 			pid = 41
 		}
-		return setJSONResponse(response, agent.ProcessState{PID: pid, Status: "RUNNING"})
+		id := f.stateID
+		if id == "" {
+			id = request.(map[string]string)["ID"]
+		}
+		status := f.state
+		if status == "" {
+			status = "RUNNING"
+		}
+		return setJSONResponse(response, agent.ProcessState{ID: id, PID: pid, Status: status})
 	case "SignalProcess":
 		return f.signalErr
 	case "ReadProcessOutput":
@@ -452,7 +462,8 @@ func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, re
 	f.record(method)
 	switch method {
 	case "StateProcess":
-		return setJSONResponse(response, agent.ProcessState{PID: 41, Status: "RUNNING"})
+		id := request.(map[string]string)["ID"]
+		return setJSONResponse(response, agent.ProcessState{ID: id, PID: 41, Status: "RUNNING"})
 	case "ReadProcessOutput":
 		select {
 		case <-ctx.Done():
@@ -2052,6 +2063,47 @@ func TestStartRejectsGuestPIDOutsideTaskRangeAndRetainsOwnership(t *testing.T) {
 	case <-p.done:
 	case <-time.After(time.Second):
 		t.Fatal("unverified process monitor did not observe cleanup completion")
+	}
+}
+
+func TestStartRejectsMismatchedGuestProcessStateAndRetainsOwnership(t *testing.T) {
+	tests := []struct {
+		name, id, state string
+	}{
+		{name: "wrong identity", id: "other", state: "RUNNING"},
+		{name: "created", state: "CREATED"},
+		{name: "already stopped", state: "STOPPED"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bundle := t.TempDir()
+			if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			client := &startCleanupAgent{finish: make(chan struct{}), stateID: test.id, state: test.state}
+			p := &process{id: "exec", status: tasktypes.Status_CREATED, done: make(chan struct{})}
+			publisher := &fakePublisher{}
+			s := &service{id: "task", namespace: "tests", bundle: bundle,
+				sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)}, agent: client,
+				publisher: publisher, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+				processes: map[string]*process{
+					"":     {status: tasktypes.Status_RUNNING, done: make(chan struct{})},
+					"exec": p,
+				}}
+			_, err := s.Start(context.Background(), &taskapi.StartRequest{ID: "task", ExecID: "exec"})
+			if err == nil || !strings.Contains(err.Error(), "mismatched identity or state") {
+				t.Fatalf("Start mismatched state error = %v", err)
+			}
+			if p.status != tasktypes.Status_RUNNING || p.pid != 0 || len(publisher.topics) != 0 {
+				t.Fatalf("mismatched state ownership status=%v pid=%d events=%v", p.status, p.pid, publisher.topics)
+			}
+			close(client.finish)
+			select {
+			case <-p.done:
+			case <-time.After(time.Second):
+				t.Fatal("mismatched-state process monitor did not observe cleanup")
+			}
+		})
 	}
 }
 

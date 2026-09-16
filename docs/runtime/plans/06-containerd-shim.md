@@ -67,7 +67,10 @@ five-second `SIGKILL` transaction. Signal failure is returned; authenticated
 completion path. A guest PID is accepted only when it is positive and exactly
 representable by Task v2's `uint32` field; Start and reconstruction share that
 check, so an oversized signed agent value cannot be truncated into a different
-durable or externally reported identity.
+durable or externally reported identity. Start additionally requires the exact
+requested agent process ID and `RUNNING` state before it publishes success;
+reconstruction accepts only that exact running observation or the separately
+validated stopped-completion path.
 Completion requires a `WaitProcess` reply for the requested agent process,
 `STOPPED` state, the already established guest PID (or a valid PID when Start
 could not verify one), and an agent-derived exit status in `0..255`. A semantic

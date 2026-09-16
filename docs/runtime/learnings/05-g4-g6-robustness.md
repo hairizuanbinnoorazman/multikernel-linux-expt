@@ -493,6 +493,11 @@ range in both Start and reconstruction. An oversized PID remains an unverified
 RUNNING owner without a fabricated PID, publishes no start event, is durably
 recorded, and stays monitored through cleanup; 100 race-detector repetitions
 pass.
+Start and reconstruction now also validate the agent process ID and state, not
+only its PID. Wrong identity, `CREATED`, and prematurely `STOPPED` start
+observations retain unverified RUNNING ownership, publish no start event, and
+remain monitored through cleanup across 100 race-detector repetitions;
+reconstruction admits only exact `RUNNING` or validated completion state.
 Stopped responses now validate the requested agent ID, exact `STOPPED` state,
 established PID, and the agent's `0..255` exit-status contract before durable
 completion. Wrong ID, state, PID, negative exit, and exit 256 are each retried
