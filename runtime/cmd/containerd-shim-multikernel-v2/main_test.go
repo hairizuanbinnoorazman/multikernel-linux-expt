@@ -64,9 +64,11 @@ type fakeAgentClient struct {
 type shutdownBoundaryAgent struct {
 	calls               []string
 	closeCalls          int
+	deleteCalls         int
 	quiesceCalls        int
 	reconnects          int
 	loseFirstClose      bool
+	loseFirstDelete     bool
 	loseFirstQuiesce    bool
 	loseShutdown        bool
 	quiesceStatus       string
@@ -83,6 +85,12 @@ func (f *shutdownBoundaryAgent) CallContext(ctx context.Context, method string, 
 	}
 	f.calls = append(f.calls, method)
 	switch method {
+	case "DeleteProcess":
+		f.deleteCalls++
+		if f.loseFirstDelete && f.deleteCalls == 1 {
+			return io.ErrUnexpectedEOF
+		}
+		return &agent.RemoteError{Failure: protocol.Error{Code: "NOT_FOUND", Message: "managed process was not found"}}
 	case "CloseNetwork":
 		f.closeCalls++
 		if f.loseFirstClose && f.closeCalls == 1 {
@@ -3362,6 +3370,17 @@ func TestGuestNetworkCloseRetriesLostReply(t *testing.T) {
 	}
 	if fmt.Sprint(fake.calls) != "[CloseNetwork CloseNetwork]" || fake.reconnects != 1 {
 		t.Fatalf("network close calls=%v reconnects=%d", fake.calls, fake.reconnects)
+	}
+}
+
+func TestGuestProcessDeleteReconnectsAndConfirmsLostReply(t *testing.T) {
+	fake := &shutdownBoundaryAgent{loseFirstDelete: true}
+	s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}
+	if err := s.deleteGuestProcess(context.Background(), "exec"); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(fake.calls) != "[DeleteProcess DeleteProcess]" || fake.reconnects != 1 {
+		t.Fatalf("process delete calls=%v reconnects=%d", fake.calls, fake.reconnects)
 	}
 }
 
