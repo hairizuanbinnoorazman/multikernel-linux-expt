@@ -2895,7 +2895,7 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		id = "init"
 	}
 	if client != nil {
-		if err := client.CallContext(ctx, "DeleteProcess", map[string]string{"ID": id}, nil); err != nil {
+		if err := client.CallContext(ctx, "DeleteProcess", map[string]string{"ID": id}, nil); err != nil && !agentNotFound(err) {
 			return abort(fmt.Errorf("delete guest process: %w", err))
 		}
 	}

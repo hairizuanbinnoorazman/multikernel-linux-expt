@@ -807,6 +807,10 @@ normative plan is revised with an explicit rationale.
   `STOPPED`, the established PID, and exit status `0..255`. Wrong ID/state/PID,
   negative exit, and exit 256 remain RUNNING with no exit event until an exact
   reply arrives; the five-boundary matrix passes 100 race-detector repetitions.
+  Normal Task Delete treats authenticated guest `NOT_FOUND` as confirmed
+  idempotent absence, returns the exact PID/exit status, publishes the delete
+  event, and removes local ownership. Arbitrary guest failure still retains
+  retry ownership; the paired boundary passes 100 race-detector repetitions.
   The remaining signal/exit/churn and live matrix is open.
   The descendant process-group signal test now waits for the terminal marker
   value instead of treating its earlier ready value as a terminal failure,
