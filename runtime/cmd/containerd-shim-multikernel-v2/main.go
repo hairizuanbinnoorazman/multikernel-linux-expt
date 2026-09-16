@@ -3480,7 +3480,7 @@ func (s *service) Stats(ctx context.Context, r *taskapi.StatsRequest) (*taskapi.
 	var guest agent.ProcessStats
 	for _, id := range processIDs {
 		var observed agent.ProcessStats
-		if err := client.CallContext(ctx, "StatsProcess", map[string]string{"ID": id}, &observed); err != nil {
+		if err := s.callAgentWithReconnectContext(ctx, "StatsProcess", map[string]string{"ID": id}, &observed); err != nil {
 			return nil, fmt.Errorf("stats process %s: %w", id, err)
 		}
 		if ^uint64(0)-guest.CPUUserNS < observed.CPUUserNS ||

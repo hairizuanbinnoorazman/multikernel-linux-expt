@@ -821,6 +821,12 @@ cross-service deadline and leak matrix remains open. Event queue and flush
 locks use the same cancellation-aware acquisition, with contention tests
 proving cancellation does not mutate pending events or sequence state.
 
+Task Stats formerly treated a lost guest reply as terminal despite being an
+idempotent observation. Each `StatsProcess` read now uses the shared bounded
+reconnect path before it contributes to the task aggregate. An injected first
+reply loss reconnects once and returns the exact CPU, RSS, and PID metrics in
+100 race-detector repetitions; authenticated rejection remains non-replayed.
+
 Event-journal recovery now applies the same untrusted-file contract as shim
 recovery state and tokens: caller ownership, one link, private mode, bounded
 size, no symlinked ancestors, and stable device/inode/metadata through the

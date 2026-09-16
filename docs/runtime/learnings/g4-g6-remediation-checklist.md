@@ -491,7 +491,10 @@ normative plan is revised with an explicit rationale.
   advertised G6 surface and plan explicitly. `Pause`, `Resume`, and `Stats` are
   implemented with focused tests; pause/resume transact across every live init
   and exec process group, while Stats aggregates their CPU, RSS, and PID counts
-  with overflow rejection. Plan 06 now explicitly excludes `Update`
+  with overflow rejection. Stats now reconnects and replays the same
+  idempotent per-process observation after an injected lost reply; the exact
+  aggregate and one reconnect pass 100 race-detector repetitions. Plan 06 now
+  explicitly excludes `Update`
   because Kerf allocation is generation-immutable and excludes `Checkpoint`
   because the selected Multikernel/Kerf contract has no checkpoint primitive;
   both reject before child contact or state mutation, with a focused test.
