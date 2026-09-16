@@ -27,7 +27,10 @@ preparing snapshot/rootfs mounts; the shim passes those inputs and `config.json`
 through the runtime contracts instead of building a guest OS or boot image.
 
 `Pause`, `Resume`, and `Stats` are supported extensions to this minimum
-surface. Task `Update` and `Checkpoint` are deliberately not advertised by
+surface. Each per-process `StatsProcess` observation is an idempotent bounded
+reconnect transaction; a lost reply repeats the same process identity, while
+an authenticated rejection remains terminal and no partial aggregate is
+returned. Task `Update` and `Checkpoint` are deliberately not advertised by
 this gate and return `UNIMPLEMENTED` before contacting the child or mutating
 state. CPU and memory ownership is fixed for a sandbox generation at Create;
 changing it in place would violate Kerf's allocation contract. The selected

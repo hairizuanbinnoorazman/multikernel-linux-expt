@@ -61,6 +61,33 @@ type fakeAgentClient struct {
 	statsByID map[string]agent.ProcessStats
 }
 
+type statsReplyLossAgent struct {
+	calls      int
+	reconnects int
+	stats      agent.ProcessStats
+}
+
+func (f *statsReplyLossAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *statsReplyLossAgent) CallContext(_ context.Context, method string, _ any, response any) error {
+	if method != "StatsProcess" {
+		return fmt.Errorf("unexpected method %s", method)
+	}
+	f.calls++
+	if f.calls == 1 {
+		return io.ErrUnexpectedEOF
+	}
+	*(response.(*agent.ProcessStats)) = f.stats
+	return nil
+}
+func (*statsReplyLossAgent) Close() error           { return nil }
+func (*statsReplyLossAgent) Reconnect(string) error { return nil }
+func (f *statsReplyLossAgent) ReconnectContext(context.Context, string) error {
+	f.reconnects++
+	return nil
+}
+
 type shutdownBoundaryAgent struct {
 	calls               []string
 	closeCalls          int
@@ -3275,6 +3302,25 @@ func TestStatsRejectsAggregateOverflow(t *testing.T) {
 	}}
 	if _, err := s.Stats(context.Background(), &taskapi.StatsRequest{}); err == nil || !strings.Contains(err.Error(), "overflow") {
 		t.Fatalf("overflow stats error = %v", err)
+	}
+}
+
+func TestStatsRetriesLostGuestReply(t *testing.T) {
+	fake := &statsReplyLossAgent{stats: agent.ProcessStats{CPUUserNS: 11, CPUSystemNS: 7, RSSBytes: 4096, PIDs: 3}}
+	s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second,
+		sandbox:   protocol.Sandbox{Config: protocol.SandboxConfig{MemoryBytes: 3 << 30}},
+		processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}}}
+	response, err := s.Stats(context.Background(), &taskapi.StatsRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := typeurl.UnmarshalAny(response.Stats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metrics := decoded.(*cgroupstats.Metrics)
+	if fake.calls != 2 || fake.reconnects != 1 || metrics.CPU.Usage.Total != 18 || metrics.Memory.Usage.Usage != 4096 || metrics.Pids.Current != 3 {
+		t.Fatalf("calls=%d reconnects=%d stats=%+v", fake.calls, fake.reconnects, metrics)
 	}
 }
 
