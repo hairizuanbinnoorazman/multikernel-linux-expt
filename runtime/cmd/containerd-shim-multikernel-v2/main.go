@@ -783,6 +783,23 @@ func taskGuestPID(pid int) (uint32, error) {
 	return uint32(pid), nil
 }
 
+func stoppedGuestProcess(state agent.ProcessState, processID string, expectedPID uint32) (uint32, uint32, error) {
+	if state.ID != processID || state.Status != "STOPPED" {
+		return 0, 0, errors.New("guest returned a stopped process with mismatched identity or state")
+	}
+	pid, err := taskGuestPID(state.PID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if expectedPID != 0 && pid != expectedPID {
+		return 0, 0, errors.New("guest returned a stopped process with a different PID")
+	}
+	if state.ExitCode < 0 || state.ExitCode > 255 {
+		return 0, 0, errors.New("guest returned an exit status outside the agent contract")
+	}
+	return pid, uint32(state.ExitCode), nil
+}
+
 func (s *service) networkReport(state string) mknetwork.Endpoint {
 	endpoint := s.netEndpoint
 	endpoint.State = state
@@ -1172,7 +1189,12 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			if err = s.agent.CallContext(ctx, "WaitProcess", map[string]string{"ID": agentID}, &state); err != nil {
 				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
 			}
-			p.status, p.exit, p.stdinPending = tasktypes.Status_STOPPED, uint32(state.ExitCode), nil
+			var pid, exit uint32
+			pid, exit, err = stoppedGuestProcess(state, agentID, p.pid)
+			if err != nil {
+				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
+			}
+			p.status, p.pid, p.exit, p.stdinPending = tasktypes.Status_STOPPED, pid, exit, nil
 			p.exited = time.Now().UTC()
 			if err = s.publishExit(ctx, p.id, p); err != nil {
 				return fmt.Errorf("recover stopped process %q exit event: %w", saved.ID, err)
@@ -2301,6 +2323,7 @@ func (s *service) acknowledgeStdinClose(ctx context.Context, agentID string, p *
 
 func (s *service) waitProcess(agentID, execID string, p *process) {
 	var state agent.ProcessState
+	var pid, exit uint32
 	var err error
 	stdoutTruncationReported, stderrTruncationReported := false, false
 	for {
@@ -2365,6 +2388,12 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
+			pid, exit, err = stoppedGuestProcess(state, agentID, p.pid)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "multikernel process wait validation: %v\n", err)
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
 			break
 		}
 		if len(output.Stdout) == 0 && len(output.Stderr) == 0 {
@@ -2372,17 +2401,16 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		}
 	}
 	now := time.Now().UTC()
-	exit := uint32(state.ExitCode)
 	for {
 		s.mu.Lock()
 		closeProcessIO(p)
-		oldStatus, oldExit, oldExited := p.status, p.exit, p.exited
+		oldStatus, oldPID, oldExit, oldExited := p.status, p.pid, p.exit, p.exited
 		oldPending := append([]byte(nil), p.stdinPending...)
-		p.status, p.exit, p.exited, p.stdinPending = tasktypes.Status_STOPPED, exit, now, nil
+		p.status, p.pid, p.exit, p.exited, p.stdinPending = tasktypes.Status_STOPPED, pid, exit, now, nil
 		if err = s.persistRecovery(); err == nil {
 			break
 		}
-		p.status, p.exit, p.exited, p.stdinPending = oldStatus, oldExit, oldExited, oldPending
+		p.status, p.pid, p.exit, p.exited, p.stdinPending = oldStatus, oldPID, oldExit, oldExited, oldPending
 		s.mu.Unlock()
 		fmt.Fprintf(os.Stderr, "multikernel exit state persistence: %v\n", err)
 		time.Sleep(100 * time.Millisecond)

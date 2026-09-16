@@ -493,6 +493,12 @@ range in both Start and reconstruction. An oversized PID remains an unverified
 RUNNING owner without a fabricated PID, publishes no start event, is durably
 recorded, and stays monitored through cleanup; 100 race-detector repetitions
 pass.
+Stopped responses now validate the requested agent ID, exact `STOPPED` state,
+established PID, and the agent's `0..255` exit-status contract before durable
+completion. Wrong ID, state, PID, negative exit, and exit 256 are each retried
+without state or event mutation before an exact reply completes; 100
+race-detector repetitions pass. Reconstruction uses the same validator and can
+learn a valid PID for a previously unverified started owner.
 The agent server formerly left one goroutine waiting on the server-wide context
 after every peer disconnect. Connection cancellation now uses a callback that
 is unregistered and joined on session return. Focused tests prove cancellation
