@@ -59,6 +59,10 @@ idempotent success. It removes the in-memory owner only after that confirmation,
 persists the resulting registry in either case, and returns every guest or
 recovery cleanup error. A failed guest deletion therefore remains explicitly
 owned rather than becoming an untracked process.
+Normal Task Delete applies the same authenticated boundary: `NOT_FOUND`
+confirms that the guest process is already absent and permits exact delete-event
+publication and local owner removal, while every other guest error retains the
+owner for retry.
 Init Start reconciles its already durable CREATED owner with the authenticated
 agent before mutation. Only authenticated `NOT_FOUND` permits `CreateProcess`;
 an exact ID with `CREATED`, zero PID, and zero exit is reused after an earlier

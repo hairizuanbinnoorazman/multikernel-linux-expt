@@ -3257,6 +3257,31 @@ func TestDeleteRepairsMissingExitEventBeforeDeleteEvent(t *testing.T) {
 	}
 }
 
+func TestDeleteTreatsAuthenticatedGuestAbsenceAsIdempotentSuccess(t *testing.T) {
+	publisher := &fakePublisher{}
+	fake := &fakeAgentClient{fail: map[string]error{
+		"DeleteProcess": &agent.RemoteError{Failure: protocol.Error{Code: "NOT_FOUND", Message: "process not found"}},
+	}}
+	p := &process{id: "exec", pid: 23, status: tasktypes.Status_STOPPED, exit: 17,
+		exited: time.Unix(123, 0).UTC(), exitEventQueued: true, done: make(chan struct{})}
+	close(p.done)
+	s := &service{id: "task", namespace: "default", bundle: t.TempDir(), publisher: publisher, agent: fake,
+		processes: map[string]*process{"exec": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	response, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ID: "task", ExecID: "exec"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Pid != 23 || response.ExitStatus != 17 {
+		t.Fatalf("idempotent delete response = %+v", response)
+	}
+	if _, exists := s.processes["exec"]; exists {
+		t.Fatal("confirmed-absent guest retained ownership")
+	}
+	if fmt.Sprint(publisher.topics) != "[/tasks/delete]" {
+		t.Fatalf("idempotent delete events = %v", publisher.topics)
+	}
+}
+
 func TestDeleteRetainsRetryOwnershipAcrossGuestAndEventFailures(t *testing.T) {
 	bundle := t.TempDir()
 	agentFailure := errors.New("injected guest delete failure")
