@@ -1266,6 +1266,64 @@ func TestGuestNetworkMutationRejectsCancelledContextWithoutLosingState(t *testin
 	}
 }
 
+func TestConfigureNetworkAcceptsOnlyExactCompletedReplay(t *testing.T) {
+	config := NetworkConfig{Name: "mk0", Address: "192.0.2.2/30", Gateway: "192.0.2.1", MTU: 1500,
+		Nameservers: []string{"192.0.2.53"}}
+	descriptor, err := os.CreateTemp(t.TempDir(), "tun")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(true)
+	m.network, m.networkName, m.networkMTU, m.dnsManaged = descriptor, config.Name, config.MTU, true
+	m.networkConfig = config
+	m.networkConfig.Nameservers = append([]string(nil), config.Nameservers...)
+	if err = m.ConfigureNetworkContext(context.Background(), config); err != nil {
+		t.Fatalf("exact network replay failed: %v", err)
+	}
+	different := config
+	different.Gateway = "192.0.2.3"
+	if err = m.ConfigureNetworkContext(context.Background(), different); err == nil {
+		t.Fatal("different network replay was accepted")
+	}
+	if m.network != descriptor || m.networkConfig.Gateway != config.Gateway {
+		t.Fatalf("rejected replay changed ownership: network=%v config=%+v", m.network, m.networkConfig)
+	}
+	// Isolate the descriptor close from link/DNS integration while proving a
+	// completed close clears the replay identity.
+	m.networkName, m.networkMTU, m.dnsManaged = "", 0, false
+	if err = m.CloseNetworkContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if m.networkConfig.Name != "" {
+		t.Fatalf("completed close retained network replay identity: %+v", m.networkConfig)
+	}
+}
+
+func TestCloseNetworkRetainsReplayIdentityUntilRetryCompletes(t *testing.T) {
+	descriptor, err := os.CreateTemp(t.TempDir(), "closed-tun")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = descriptor.Close(); err != nil {
+		t.Fatal(err)
+	}
+	config := NetworkConfig{Name: "mk0", Address: "192.0.2.2/30", Gateway: "192.0.2.1", MTU: 1500}
+	m := NewManager(true)
+	m.network, m.networkConfig = descriptor, config
+	if err = m.CloseNetworkContext(context.Background()); err == nil {
+		t.Fatal("injected descriptor close failure was ignored")
+	}
+	if m.networkConfig.Name != config.Name {
+		t.Fatal("failed close discarded network replay identity")
+	}
+	if err = m.CloseNetworkContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if m.networkConfig.Name != "" {
+		t.Fatal("successful close retry retained network replay identity")
+	}
+}
+
 func TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup(t *testing.T) {
 	t.Run("failed link deletion remains retryable", func(t *testing.T) {
 		m := NewManager(true)

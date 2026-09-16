@@ -64,10 +64,12 @@ type fakeAgentClient struct {
 type shutdownBoundaryAgent struct {
 	calls               []string
 	closeCalls          int
+	configureCalls      int
 	deleteCalls         int
 	quiesceCalls        int
 	reconnects          int
 	loseFirstClose      bool
+	loseFirstConfigure  bool
 	loseFirstDelete     bool
 	loseFirstQuiesce    bool
 	loseShutdown        bool
@@ -128,6 +130,12 @@ func (f *shutdownBoundaryAgent) CallContext(ctx context.Context, method string, 
 	}
 	f.calls = append(f.calls, method)
 	switch method {
+	case "ConfigureNetwork":
+		f.configureCalls++
+		if f.loseFirstConfigure && f.configureCalls == 1 {
+			return io.ErrUnexpectedEOF
+		}
+		return nil
 	case "DeleteProcess":
 		f.deleteCalls++
 		if f.loseFirstDelete && f.deleteCalls == 1 {
@@ -3530,6 +3538,19 @@ func TestGuestNetworkCloseRetriesLostReply(t *testing.T) {
 	}
 	if fmt.Sprint(fake.calls) != "[CloseNetwork CloseNetwork]" || fake.reconnects != 1 {
 		t.Fatalf("network close calls=%v reconnects=%d", fake.calls, fake.reconnects)
+	}
+}
+
+func TestGuestNetworkConfigurationRetriesLostReply(t *testing.T) {
+	fake := &shutdownBoundaryAgent{loseFirstConfigure: true}
+	s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}
+	config := agent.NetworkConfig{Name: "mkn0", Address: "192.0.2.2/30", Gateway: "192.0.2.1", MTU: 1500,
+		Nameservers: []string{"192.0.2.53"}}
+	if err := s.configureGuestNetwork(context.Background(), config); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(fake.calls) != "[ConfigureNetwork ConfigureNetwork]" || fake.reconnects != 1 {
+		t.Fatalf("network configure calls=%v reconnects=%d", fake.calls, fake.reconnects)
 	}
 }
 

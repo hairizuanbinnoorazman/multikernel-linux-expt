@@ -1844,13 +1844,13 @@ func (s *service) connectAgent(ctx context.Context) error {
 		client, err := s.dialAgent(ctx, sock)
 		if err == nil {
 			s.agent = client
-			if err = s.agent.CallContext(ctx, "ConfigureNetwork", agent.NetworkConfig{
+			if err = s.configureGuestNetwork(ctx, agent.NetworkConfig{
 				Name: "mkn0", Address: s.netEndpoint.Address, Gateway: s.netEndpoint.Gateway,
 				MTU: s.netEndpoint.MTU, Nameservers: s.netEndpoint.DNS.Nameservers,
-			}, nil); err != nil {
+			}); err != nil {
 				_ = s.agent.Close()
 				s.agent = nil
-				return errors.Join(fmt.Errorf("configure child network: %w", err), s.stopNetwork(), s.stopRelay())
+				return errors.Join(err, s.stopNetwork(), s.stopRelay())
 			}
 			s.startNetworkPump()
 			return nil
@@ -1860,6 +1860,13 @@ func (s *service) connectAgent(ctx context.Context) error {
 		}
 	}
 	return errors.Join(errors.New("timed out connecting to child agent"), s.stopNetwork(), s.stopRelay())
+}
+
+func (s *service) configureGuestNetwork(ctx context.Context, config agent.NetworkConfig) error {
+	if err := s.callAgentWithReconnectContext(ctx, "ConfigureNetwork", config, nil); err != nil {
+		return fmt.Errorf("configure child network: %w", err)
+	}
+	return nil
 }
 
 func (s *service) startNetworkPump() {

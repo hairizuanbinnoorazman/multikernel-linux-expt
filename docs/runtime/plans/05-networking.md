@@ -75,6 +75,13 @@ Guest `CloseNetwork` has an independent five-second deadline. Timeout is
 returned but does not skip local TUN closure or the final bounded counter
 report, so an unresponsive child cannot retain the shim's network descriptor
 or block Task deletion indefinitely.
+Successful guest configuration retains the complete name, address, gateway,
+MTU, and ordered DNS identity. `ConfigureNetwork` accepts only an exact replay
+of that completed identity; a different request or any partial-cleanup state
+fails closed. The shim can therefore reconnect and retry a lost response within
+one bounded exchange without configuring the child twice. `CloseNetwork`
+clears the replay identity only after every close step succeeds and retains it
+across a failed close for the next cleanup retry.
 Guest DNS restoration retains cleanup ownership after failure and becomes a
 no-op after success, so repeated network close cannot remove restored state.
 `ATTACH` transfers exactly one generation-bound TUN descriptor with one

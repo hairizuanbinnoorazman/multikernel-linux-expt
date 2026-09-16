@@ -364,7 +364,12 @@ normative plan is revised with an explicit rationale.
   and 16-KiB error diagnostics. Guest dispatch propagates its server context,
   setup rollback has an independent five-second cleanup bound, and failed link
   or DNS cleanup keeps retry identity. Repeated successful close cannot remove
-  the restored DNS file. Shim state/counter report failures now enter a joined
+  the restored DNS file. Successful configuration now retains its complete
+  identity and accepts only an exact replay; the shim reconnects after an
+  injected lost reply, while changed identity fails without mutation. Failed
+  close retains the replay identity and a successful retry clears it. Both
+  matrices pass 100 race-detector repetitions. Shim state/counter report
+  failures now enter a joined
   one-entry latest-state worker: two-second calls retry every 100 milliseconds,
   and a newer state supersedes stale pending state. Injected
   `DISCONNECTED`-to-`READY` coalescing, two failures, current counters, and a
