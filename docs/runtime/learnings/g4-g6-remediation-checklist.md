@@ -447,10 +447,13 @@ normative plan is revised with an explicit rationale.
   Focused reconstruction now proves that an exact daemon-owned sandbox and
   network generation restore the recorded live guest PID, authenticated agent
   identity, relay/network ownership, output/wait loop, and subsequent exact
-  exit completion. Reconstruction cleanup ownership now begins immediately
-  after network-descriptor acquisition; a forced relay-start failure proves
-  the descriptor, command, and socket identity are released. Forced-death
-  process continuity and live identity evidence remain open.
+  exit completion. An injected first `StateProcess` reply loss now requires one
+  relay reconnect and restores the exact PID in 100 race-detector repetitions;
+  reconstruction state and stopped-state wait reads use the same bounded
+  idempotent path. Reconstruction cleanup ownership begins immediately after
+  network-descriptor acquisition; a forced relay-start failure proves the
+  descriptor, command, and socket identity are released. Forced-death process
+  continuity and live identity evidence remain open.
 - [ ] Define ownership transfer for containerd restart, shim restart, daemon
   restart, and shutdown. Reconstruct process state, stdio endpoints, exit
   status, and event delivery without changing the child boot identity. Task

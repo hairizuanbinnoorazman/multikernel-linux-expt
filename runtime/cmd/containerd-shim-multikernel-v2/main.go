@@ -1229,14 +1229,14 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			agentID = "init"
 		}
 		var state agent.ProcessState
-		if err = s.agent.CallContext(ctx, "StateProcess", map[string]string{"ID": agentID}, &state); err != nil {
+		if err = s.callAgentWithReconnectContext(ctx, "StateProcess", map[string]string{"ID": agentID}, &state); err != nil {
 			return fmt.Errorf("recover process %q: %w", saved.ID, err)
 		}
 		if state.ID != agentID {
 			return fmt.Errorf("recover process %q: guest returned a mismatched process identity", saved.ID)
 		}
 		if state.Status == "STOPPED" {
-			if err = s.agent.CallContext(ctx, "WaitProcess", map[string]string{"ID": agentID}, &state); err != nil {
+			if err = s.callAgentWithReconnectContext(ctx, "WaitProcess", map[string]string{"ID": agentID}, &state); err != nil {
 				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
 			}
 			var pid, exit uint32

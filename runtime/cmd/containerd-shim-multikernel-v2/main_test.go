@@ -630,9 +630,11 @@ func (*retryNetworkReportClient) Attach(context.Context, mknetwork.Request) (mkn
 }
 
 type recoveryAgentClient struct {
-	finish chan struct{}
-	mu     sync.Mutex
-	calls  []string
+	finish         chan struct{}
+	mu             sync.Mutex
+	calls          []string
+	failFirstState bool
+	reconnects     int
 }
 
 func (f *recoveryAgentClient) record(method string) {
@@ -668,6 +670,13 @@ func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, re
 	f.record(method)
 	switch method {
 	case "StateProcess":
+		f.mu.Lock()
+		fail := f.failFirstState
+		f.failFirstState = false
+		f.mu.Unlock()
+		if fail {
+			return io.ErrUnexpectedEOF
+		}
 		id := request.(map[string]string)["ID"]
 		return setJSONResponse(response, agent.ProcessState{ID: id, PID: 41, Status: "RUNNING"})
 	case "ReadProcessOutput":
@@ -684,9 +693,14 @@ func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, re
 	}
 }
 
-func (f *recoveryAgentClient) Close() error                                   { return nil }
-func (f *recoveryAgentClient) Reconnect(string) error                         { return nil }
-func (f *recoveryAgentClient) ReconnectContext(context.Context, string) error { return nil }
+func (f *recoveryAgentClient) Close() error           { return nil }
+func (f *recoveryAgentClient) Reconnect(string) error { return nil }
+func (f *recoveryAgentClient) ReconnectContext(context.Context, string) error {
+	f.mu.Lock()
+	f.reconnects++
+	f.mu.Unlock()
+	return nil
+}
 
 func (f *fakeNetworkClient) Call(_ context.Context, request mknetwork.Request) (mknetwork.Response, error) {
 	f.calls = append(f.calls, request.Method)
@@ -3833,7 +3847,7 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 		t.Fatal(err)
 	}
 	network := &fakeNetworkClient{endpoint: recovery.Network, descriptorPath: descriptorPath}
-	fakeAgent := &recoveryAgentClient{finish: make(chan struct{})}
+	fakeAgent := &recoveryAgentClient{finish: make(chan struct{}), failFirstState: true}
 	var daemonCalls []string
 	var relayCaptured, relayRemoved bool
 	service := &service{id: task, namespace: namespace, bundle: bundle, processes: map[string]*process{}, netClient: network,
@@ -3878,6 +3892,12 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	process := service.processes[""]
 	if process == nil || process.pid != 41 || process.status != tasktypes.Status_RUNNING || process.exitEventQueued || process.stdoutIdentity != stdoutIdentity {
 		t.Fatalf("recovered process = %+v", process)
+	}
+	fakeAgent.mu.Lock()
+	reconnects := fakeAgent.reconnects
+	fakeAgent.mu.Unlock()
+	if reconnects != 1 {
+		t.Fatalf("recovery reconnects = %d, want 1", reconnects)
 	}
 	select {
 	case <-process.done:
