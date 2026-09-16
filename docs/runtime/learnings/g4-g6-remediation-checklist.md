@@ -814,6 +814,11 @@ normative plan is revised with an explicit rationale.
   authenticated `NOT_FOUND` creates, while exact CREATED state is reused after
   partial failure/recovery. Wrong identity, live state, fabricated PID, and
   transport failure cause no duplicate create across 100 race repetitions.
+  A lost successful `CreateProcess` reply is also reconciled without replaying
+  the non-idempotent mutation: an independent state observation reconnects and
+  accepts only exact CREATED identity. The injected broken-transport case makes
+  one create and one reconnect in 100 race-detector repetitions; authenticated
+  create rejection remains terminal.
   Ambiguous `StartProcess` failure is reconciled under an independent
   five-second bound: exact CREATED remains retryable, exact RUNNING or rapid
   STOPPED succeeds, and unavailable state retains monitored, durable ownership

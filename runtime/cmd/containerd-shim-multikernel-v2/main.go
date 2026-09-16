@@ -2024,7 +2024,7 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 			s.mu.Unlock()
 			return nil, err
 		}
-		if err := ensureGuestProcessCreated(ctx, s.agent, "init", "/bundle"); err != nil {
+		if err := s.ensureGuestProcessCreated(ctx, "init", "/bundle"); err != nil {
 			s.mu.Unlock()
 			return nil, err
 		}
@@ -2817,9 +2817,9 @@ func agentNotFound(err error) bool {
 	return errors.As(err, &remote) && remote.Failure.Code == "NOT_FOUND"
 }
 
-func ensureGuestProcessCreated(ctx context.Context, client agentClient, processID, bundle string) error {
+func (s *service) ensureGuestProcessCreated(ctx context.Context, processID, bundle string) error {
 	var state agent.ProcessState
-	err := client.CallContext(ctx, "StateProcess", map[string]string{"ID": processID}, &state)
+	err := s.callAgentWithReconnectContext(ctx, "StateProcess", map[string]string{"ID": processID}, &state)
 	if err == nil {
 		if err = createdGuestProcess(state, processID); err != nil {
 			return fmt.Errorf("reconcile created guest process: %w", err)
@@ -2829,8 +2829,24 @@ func ensureGuestProcessCreated(ctx context.Context, client agentClient, processI
 	if !agentNotFound(err) {
 		return fmt.Errorf("inspect created guest process: %w", err)
 	}
-	if err = client.CallContext(ctx, "CreateProcess", map[string]any{"ID": processID, "Bundle": bundle}, nil); err != nil {
-		return fmt.Errorf("create guest process: %w", err)
+	createErr := s.agent.CallContext(ctx, "CreateProcess", map[string]any{"ID": processID, "Bundle": bundle}, nil)
+	if createErr == nil {
+		return nil
+	}
+	var remoteError *agent.RemoteError
+	if errors.As(createErr, &remoteError) {
+		return fmt.Errorf("create guest process: %w", createErr)
+	}
+	reconcileCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	state = agent.ProcessState{}
+	reconcileErr := s.callAgentWithReconnectContext(reconcileCtx, "StateProcess", map[string]string{"ID": processID}, &state)
+	if reconcileErr == nil {
+		reconcileErr = createdGuestProcess(state, processID)
+	}
+	if reconcileErr != nil {
+		return errors.Join(fmt.Errorf("create guest process: %w", createErr),
+			fmt.Errorf("reconcile guest process creation: %w", reconcileErr))
 	}
 	return nil
 }

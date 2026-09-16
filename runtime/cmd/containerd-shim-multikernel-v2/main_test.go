@@ -348,11 +348,15 @@ type startCleanupAgent struct {
 }
 
 type createReconcileAgent struct {
-	state       agent.ProcessState
-	stateErr    error
-	createErr   error
-	stateCalls  int
-	createCalls int
+	state        agent.ProcessState
+	createdState agent.ProcessState
+	stateErr     error
+	createErr    error
+	created      bool
+	disconnected bool
+	stateCalls   int
+	createCalls  int
+	reconnects   int
 }
 
 func (f *createReconcileAgent) Call(method string, request, response any) error {
@@ -362,20 +366,34 @@ func (f *createReconcileAgent) CallContext(_ context.Context, method string, _ a
 	switch method {
 	case "StateProcess":
 		f.stateCalls++
+		if f.created {
+			if f.disconnected {
+				return io.ErrUnexpectedEOF
+			}
+			return setJSONResponse(response, f.createdState)
+		}
 		if f.stateErr != nil {
 			return f.stateErr
 		}
 		return setJSONResponse(response, f.state)
 	case "CreateProcess":
 		f.createCalls++
+		if f.createdState.ID != "" {
+			f.created = true
+			f.disconnected = f.createErr != nil
+		}
 		return f.createErr
 	default:
 		return fmt.Errorf("unexpected method %s", method)
 	}
 }
-func (*createReconcileAgent) Close() error                                   { return nil }
-func (*createReconcileAgent) Reconnect(string) error                         { return nil }
-func (*createReconcileAgent) ReconnectContext(context.Context, string) error { return nil }
+func (*createReconcileAgent) Close() error           { return nil }
+func (*createReconcileAgent) Reconnect(string) error { return nil }
+func (f *createReconcileAgent) ReconnectContext(context.Context, string) error {
+	f.reconnects++
+	f.disconnected = false
+	return nil
+}
 
 func (f *startCleanupAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
@@ -2498,7 +2516,7 @@ func TestEnsureGuestProcessCreatedReconcilesBeforeMutation(t *testing.T) {
 		wantErr    string
 	}{
 		{name: "absent is created", stateErr: notFound, wantCreate: 1},
-		{name: "create failure is returned", stateErr: notFound, createErr: errors.New("injected create failure"), wantCreate: 1, wantErr: "create failure"},
+		{name: "create rejection is returned", stateErr: notFound, createErr: &agent.RemoteError{Failure: protocol.Error{Code: "FAILED_PRECONDITION", Message: "injected create failure"}}, wantCreate: 1, wantErr: "create failure"},
 		{name: "existing created is reused", state: agent.ProcessState{ID: "init", Status: "CREATED"}},
 		{name: "wrong identity", state: agent.ProcessState{ID: "other", Status: "CREATED"}, wantErr: "mismatched identity or state"},
 		{name: "running is not recreated", state: agent.ProcessState{ID: "init", PID: 41, Status: "RUNNING"}, wantErr: "mismatched identity or state"},
@@ -2508,7 +2526,8 @@ func TestEnsureGuestProcessCreatedReconcilesBeforeMutation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := &createReconcileAgent{state: test.state, stateErr: test.stateErr, createErr: test.createErr}
-			err := ensureGuestProcessCreated(context.Background(), client, "init", "/bundle")
+			s := &service{agent: client}
+			err := s.ensureGuestProcessCreated(context.Background(), "init", "/bundle")
 			if test.wantErr == "" && err != nil || test.wantErr != "" && (err == nil || !strings.Contains(err.Error(), test.wantErr)) {
 				t.Fatalf("reconcile error = %v, want substring %q", err, test.wantErr)
 			}
@@ -2516,6 +2535,21 @@ func TestEnsureGuestProcessCreatedReconcilesBeforeMutation(t *testing.T) {
 				t.Fatalf("calls state=%d create=%d, want 1/%d", client.stateCalls, client.createCalls, test.wantCreate)
 			}
 		})
+	}
+}
+
+func TestEnsureGuestProcessCreatedReconcilesLostReply(t *testing.T) {
+	notFound := &agent.RemoteError{Failure: protocol.Error{Code: "NOT_FOUND", Message: "process not found"}}
+	client := &createReconcileAgent{
+		stateErr: notFound, createErr: io.ErrUnexpectedEOF,
+		createdState: agent.ProcessState{ID: "init", Status: "CREATED"},
+	}
+	s := &service{agent: client, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}
+	if err := s.ensureGuestProcessCreated(context.Background(), "init", "/bundle"); err != nil {
+		t.Fatal(err)
+	}
+	if client.stateCalls != 3 || client.createCalls != 1 || client.reconnects != 1 {
+		t.Fatalf("calls state=%d create=%d reconnect=%d", client.stateCalls, client.createCalls, client.reconnects)
 	}
 }
 
