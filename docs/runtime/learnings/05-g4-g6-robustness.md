@@ -519,6 +519,12 @@ attempt. It probes authenticated state, creates only on `NOT_FOUND`, and reuses
 only exact `init`/`CREATED`/zero-PID/zero-exit state. Injected absence, existing
 creation, wrong identity, live state, fabricated PID, and transport failure
 pass 100 race-detector repetitions without a duplicate mutation.
+The create call itself now has the matching ambiguity boundary. A lost
+successful `CreateProcess` reply is not replayed; the shim reconnects and
+accepts only exact `init`/`CREATED` state under an independent five-second
+observation. The injected broken-transport case performs one create and one
+reconnect across 100 race-detector repetitions. An authenticated create
+rejection remains terminal.
 An errored `StartProcess` call now reconciles with an independent five-second
 state read. Exact `CREATED` preserves retryable local state; exact `RUNNING` and
 rapid `STOPPED` prove the start applied and return success; unresolved transport

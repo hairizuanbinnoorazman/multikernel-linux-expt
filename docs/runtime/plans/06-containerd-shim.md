@@ -77,6 +77,11 @@ agent before mutation. Only authenticated `NOT_FOUND` permits `CreateProcess`;
 an exact ID with `CREATED`, zero PID, and zero exit is reused after an earlier
 stdio/Start failure or shim recovery. Transport failure or any other identity
 or state cannot be interpreted as absence and cannot issue a duplicate create.
+Because `CreateProcess` itself is not replay-safe, a transport error from that
+call triggers an independent five-second state reconciliation across relay
+reconnect instead of another create. Only the exact CREATED identity completes
+the original call; authenticated create rejection or absent, invalid, or
+unavailable reconciliation remains an error with the durable local owner intact.
 Once `StartProcess` succeeds, invalid PID observation, recovery failure, or
 start-event failure cannot revert the process to CREATED. The shim retains the
 RUNNING owner and its output/wait monitors, then uses a cancellation-independent
