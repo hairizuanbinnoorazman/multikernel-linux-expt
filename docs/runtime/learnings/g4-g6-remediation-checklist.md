@@ -300,6 +300,9 @@ normative plan is revised with an explicit rationale.
   endpoint validator. Mismatched workload or generation is never retained,
   invalid ATTACH closes its descriptor, and malformed report/release generation
   cannot panic or reach mknetd; the boundary matrix passes 100 race repetitions.
+  Guest `CloseNetwork` now has an independent five-second deadline; timeout is
+  returned while local TUN cleanup continues, with 100 focused race-detector
+  repetitions proving the descriptor is closed after a blocked guest call.
   Cache directory
   creation, private bounded reads, exclusive publication, and deletion are now
   relative to a component-walked no-symlink directory descriptor. The

@@ -446,6 +446,23 @@ type retryNetworkReportClient struct {
 	success  chan mknetwork.Endpoint
 }
 
+type blockedNetworkCloseAgent struct{ calls chan struct{} }
+
+func (f *blockedNetworkCloseAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *blockedNetworkCloseAgent) CallContext(ctx context.Context, method string, _ any, _ any) error {
+	if method != "CloseNetwork" {
+		return fmt.Errorf("unexpected method %s", method)
+	}
+	f.calls <- struct{}{}
+	<-ctx.Done()
+	return ctx.Err()
+}
+func (*blockedNetworkCloseAgent) Close() error                                   { return nil }
+func (*blockedNetworkCloseAgent) Reconnect(string) error                         { return nil }
+func (*blockedNetworkCloseAgent) ReconnectContext(context.Context, string) error { return nil }
+
 func (f *retryNetworkReportClient) Call(_ context.Context, request mknetwork.Request) (mknetwork.Response, error) {
 	if request.Method != "REPORT" || request.Endpoint == nil {
 		return mknetwork.Response{}, fmt.Errorf("unexpected network request %s", request.Method)
@@ -3831,6 +3848,35 @@ func TestShimRejectsInvalidNetworkEndpointsBeforeUse(t *testing.T) {
 			t.Fatalf("malformed endpoint reached mknetd: %v", client.calls)
 		}
 	})
+}
+
+func TestStopNetworkBoundsGuestCloseAndContinuesLocalCleanup(t *testing.T) {
+	device, peer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer peer.Close()
+	client := &blockedNetworkCloseAgent{calls: make(chan struct{}, 1)}
+	s := &service{agent: client, netDevice: device, networkCloseTimeout: 10 * time.Millisecond}
+	started := time.Now()
+	err = s.stopNetwork()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("stopNetwork error = %v, want deadline exceeded", err)
+	}
+	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
+		t.Fatalf("bounded network close took %s", elapsed)
+	}
+	select {
+	case <-client.calls:
+	default:
+		t.Fatal("guest CloseNetwork was not attempted")
+	}
+	if s.netDevice != nil {
+		t.Fatal("timed-out guest close retained the TUN owner")
+	}
+	if _, err := device.Stat(); err == nil {
+		t.Fatal("timed-out guest close left the TUN descriptor open")
+	}
 }
 
 func TestSupervisorRestartsSignaledWorker(t *testing.T) {
