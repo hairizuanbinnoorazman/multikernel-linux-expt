@@ -779,7 +779,11 @@ normative plan is revised with an explicit rationale.
   five-second `SIGKILL` is attempted. Signal errors are returned and
   authenticated `NOT_FOUND` confirms cleanup. Injected recovery/signal failure
   retains PID 41 and later records exact exit 9 in 100 race-detector
-  repetitions. The remaining signal/exit/churn and live matrix is open.
+  repetitions. Start and reconstruction also reject positive agent PIDs above
+  Task v2's `uint32` range instead of truncating them. An injected oversized
+  PID retains durable unverified ownership without publishing a start event,
+  stays monitored through cleanup, and passes 100 race-detector repetitions.
+  The remaining signal/exit/churn and live matrix is open.
   The descendant process-group signal test now waits for the terminal marker
   value instead of treating its earlier ready value as a terminal failure,
   eliminating a false negative while preserving the two-second bound.

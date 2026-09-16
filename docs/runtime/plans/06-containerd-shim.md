@@ -64,7 +64,10 @@ start-event failure cannot revert the process to CREATED. The shim retains the
 RUNNING owner and its output/wait monitors, then uses a cancellation-independent
 five-second `SIGKILL` transaction. Signal failure is returned; authenticated
 `NOT_FOUND` confirms absence, and any later exact exit follows the same durable
-completion path.
+completion path. A guest PID is accepted only when it is positive and exactly
+representable by Task v2's `uint32` field; Start and reconstruction share that
+check, so an oversized signed agent value cannot be truncated into a different
+durable or externally reported identity.
 
 Task `Shutdown`, including a request with `now=true`, acknowledges without
 terminating while any process record remains owned by the shim. Once the
