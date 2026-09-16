@@ -2605,6 +2605,14 @@ func (s *service) quiesceAndShutdownGuest(ctx context.Context) error {
 	return nil
 }
 
+func (s *service) deleteGuestProcess(ctx context.Context, id string) error {
+	err := s.callAgentWithReconnectContext(ctx, "DeleteProcess", map[string]string{"ID": id}, nil)
+	if err != nil && !agentNotFound(err) {
+		return fmt.Errorf("delete guest process: %w", err)
+	}
+	return nil
+}
+
 // deliverOutput advances a guest offset only after the complete chunk reaches
 // its destination. Chunks are capped at Linux PIPE_BUF by waitProcess, making
 // nonblocking FIFO writes all-or-nothing. A permanently absent/slow consumer
@@ -2928,8 +2936,8 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		id = "init"
 	}
 	if client != nil {
-		if err := client.CallContext(ctx, "DeleteProcess", map[string]string{"ID": id}, nil); err != nil && !agentNotFound(err) {
-			return abort(fmt.Errorf("delete guest process: %w", err))
+		if err := s.deleteGuestProcess(ctx, id); err != nil {
+			return abort(err)
 		}
 	}
 	if r.ExecID == "" {

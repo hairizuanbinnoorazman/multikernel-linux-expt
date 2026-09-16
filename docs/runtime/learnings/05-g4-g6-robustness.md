@@ -476,7 +476,9 @@ Normal Task Delete now treats authenticated guest `NOT_FOUND` as confirmed
 idempotent absence instead of trapping a successfully deleted process behind a
 lost reply. An injected absence returns the exact PID and exit status, publishes
 only the delete event, and removes local ownership; the paired arbitrary-error
-case retains retry ownership. Both pass 100 race-detector repetitions.
+case retains retry ownership. An injected transport loss after deletion now
+reconnects through the owned relay and requires authenticated `NOT_FOUND` on
+the retry. The three boundaries pass 100 race-detector repetitions.
 Pause/resume event-failure rollback no longer suppresses a failed recovery
 rewrite. Injected directory replacement after reverse signaling proves memory
 returns to its prior state while the old durable transition remains

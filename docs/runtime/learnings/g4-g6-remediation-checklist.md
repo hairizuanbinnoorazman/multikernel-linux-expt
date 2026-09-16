@@ -815,7 +815,9 @@ normative plan is revised with an explicit rationale.
   Normal Task Delete treats authenticated guest `NOT_FOUND` as confirmed
   idempotent absence, returns the exact PID/exit status, publishes the delete
   event, and removes local ownership. Arbitrary guest failure still retains
-  retry ownership; the paired boundary passes 100 race-detector repetitions.
+  retry ownership. A lost successful deletion reply reconnects and requires
+  authenticated `NOT_FOUND` before continuing; the three-boundary matrix passes
+  100 race-detector repetitions.
   The remaining signal/exit/churn and live matrix is open.
   The descendant process-group signal test now waits for the terminal marker
   value instead of treating its earlier ready value as a terminal failure,
