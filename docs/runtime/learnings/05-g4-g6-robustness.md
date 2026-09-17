@@ -947,5 +947,9 @@ prove writes remain on the originals, substitutes remain untouched, and
 Prepared replay and reconciliation also verify manifests, metadata, allocation,
 and digests through the exact recorded directory descriptors, then recheck the
 names. A 100-repetition replacement test proves the originals are read while a
-concurrent substitute is rejected and preserved. Removal-time name races and
+concurrent substitute is rejected and preserved. Recovery additionally binds
+the initramfs and generated/source manifests to both generated and independently
+verified digests, and requires the exact durable build result, canonical
+`initramfs.path`, read-only-bind manifest, and storage metadata/image. Focused
+mutations reject every formerly omitted artifact. Removal-time name races and
 privileged disposable-host validation remain open.
