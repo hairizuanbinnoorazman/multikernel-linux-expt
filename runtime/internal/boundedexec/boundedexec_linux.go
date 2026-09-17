@@ -46,13 +46,26 @@ func (w *capture) result() ([]byte, bool) {
 }
 
 func Run(ctx context.Context, timeout time.Duration, binary string, arguments, environment []string, maximum int) ([]byte, error) {
+	return RunWithFiles(ctx, timeout, binary, arguments, environment, maximum, nil)
+}
+
+// RunWithFiles is Run with an explicit, ordered set of descriptors inherited
+// by the command as file descriptors 3 and above. The caller retains ownership
+// of the supplied files and must keep them open until this function returns.
+func RunWithFiles(ctx context.Context, timeout time.Duration, binary string, arguments, environment []string, maximum int, files []*os.File) ([]byte, error) {
 	if timeout <= 0 || maximum <= 0 {
 		return nil, errors.New("bounded command requires positive timeout and output limit")
+	}
+	for _, file := range files {
+		if file == nil {
+			return nil, errors.New("bounded command inherited file is nil")
+		}
 	}
 	bounded, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(bounded, binary, arguments...)
 	cmd.Env = environment
+	cmd.ExtraFiles = files
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error {
 		if cmd.Process == nil {

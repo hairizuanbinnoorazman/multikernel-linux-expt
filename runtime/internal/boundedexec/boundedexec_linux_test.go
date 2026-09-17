@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -50,5 +51,41 @@ func TestRunRejectsUnboundedConfiguration(t *testing.T) {
 		if _, err := Run(context.Background(), options.timeout, "/bin/true", nil, nil, options.maximum); err == nil {
 			t.Fatalf("unbounded options accepted: %+v", options)
 		}
+	}
+}
+
+func TestRunWithFilesPinsRenamedDirectory(t *testing.T) {
+	base := t.TempDir()
+	directory := filepath.Join(base, "source")
+	if err := os.Mkdir(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "marker"), []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.Open(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if err = os.Rename(directory, directory+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(directory, "marker"), []byte("replacement"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	output, err := RunWithFiles(context.Background(), time.Second, "/bin/sh",
+		[]string{"-c", "read value </proc/self/fd/3/marker; printf %s \"$value\""}, os.Environ(), 4096, []*os.File{file})
+	if err != nil || string(output) != "original" {
+		t.Fatalf("descriptor-pinned output = %q, %v", output, err)
+	}
+}
+
+func TestRunWithFilesRejectsNilDescriptor(t *testing.T) {
+	if _, err := RunWithFiles(context.Background(), time.Second, "/bin/true", nil, nil, 4096, []*os.File{nil}); err == nil {
+		t.Fatal("nil inherited descriptor accepted")
 	}
 }
