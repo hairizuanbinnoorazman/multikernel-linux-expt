@@ -316,27 +316,43 @@ func pinRootfsMounts(ctx context.Context, input []Mount) ([]mount.Mount, []*os.F
 	return mounts, files, nil
 }
 
-func (b *LinuxBackend) Mount(ctx context.Context, input []Mount, target string) (result error) {
+func (b *LinuxBackend) Mount(ctx context.Context, input []Mount, target string, expectedTarget DirectoryIdentity) (result error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return errors.Join(errMountNotAttempted, err)
 	}
 	mounts, files, err := pinRootfsMounts(ctx, input)
 	if err != nil {
-		return err
+		return errors.Join(errMountNotAttempted, err)
 	}
+	targetFile, anchoredTarget, err := pinRootfsDirectory(target)
+	if err != nil {
+		for _, file := range files {
+			_ = file.Close()
+		}
+		return fmt.Errorf("pin rootfs mount target: %w", errors.Join(errMountNotAttempted, err))
+	}
+	files = append(files, targetFile)
 	defer func() {
 		for _, file := range files {
 			result = errors.Join(result, file.Close())
 		}
 	}()
+	targetInfo, err := targetFile.Stat()
+	if err != nil {
+		return fmt.Errorf("inspect rootfs mount target: %w", errors.Join(errMountNotAttempted, err))
+	}
+	targetIdentity, ok := openedDirectoryIdentity(targetInfo)
+	if !ok || targetIdentity != expectedTarget {
+		return errors.Join(errMountNotAttempted, errors.New("rootfs mount target identity changed"))
+	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return errors.Join(errMountNotAttempted, err)
 	}
 	mountAll := b.mountAll
 	if mountAll == nil {
 		mountAll = mount.All
 	}
-	if err := mountAll(mounts, target); err != nil {
+	if err := mountAll(mounts, anchoredTarget); err != nil {
 		return fmt.Errorf("mount read-only source root: %w", err)
 	}
 	if err := ctx.Err(); err != nil {

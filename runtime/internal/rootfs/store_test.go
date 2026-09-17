@@ -2,6 +2,7 @@ package rootfs
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +18,8 @@ func validRootfsRecord(bundle, storageRoot, identity string, port uint32) Record
 			Mounts: []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=/snapshots/root"}}}},
 		Root: filepath.Join(bundle, "rootfs"), RuntimeDir: filepath.Join(bundle, ".multikernel"),
 		StorageDir: filepath.Join(storageRoot, identity), BundleID: DirectoryIdentity{Device: 1, Inode: 2, UID: uint32(os.Geteuid())},
-		StorageID: DirectoryIdentity{Device: 1, Inode: 3, UID: uint32(os.Geteuid())}, Phase: "MOUNTING",
+		RootID:    DirectoryIdentity{Device: 1, Inode: 3, UID: uint32(os.Geteuid())},
+		StorageID: DirectoryIdentity{Device: 1, Inode: 4, UID: uint32(os.Geteuid())}, Phase: "MOUNTING",
 	}
 }
 
@@ -110,6 +112,11 @@ func TestRootfsStoreRejectsForgedSemanticState(t *testing.T) {
 		"missing directory identity": func(state *diskState) {
 			value := base
 			value.BundleID = DirectoryIdentity{}
+			state.Records[identity] = value
+		},
+		"missing mount target identity": func(state *diskState) {
+			value := base
+			value.RootID = DirectoryIdentity{}
 			state.Records[identity] = value
 		},
 	} {
@@ -213,23 +220,33 @@ func TestRootfsStoreRejectsSymlinkHardlinkAndPermissiveState(t *testing.T) {
 }
 
 func TestRootfsStoreUpgradesOnlyEmptyLegacyState(t *testing.T) {
+	for _, version := range []int{1, 2} {
+		t.Run(fmt.Sprintf("version-%d", version), func(t *testing.T) {
+			directory := t.TempDir()
+			statePath := filepath.Join(directory, "state.json")
+			data, err := json.Marshal(diskState{Version: version, Records: map[string]Record{}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = os.WriteFile(statePath, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = OpenStore(directory); err != nil {
+				t.Fatal(err)
+			}
+			var upgraded diskState
+			data, err = os.ReadFile(statePath)
+			if err != nil || json.Unmarshal(data, &upgraded) != nil || upgraded.Version != rootfsDiskVersion {
+				t.Fatalf("upgraded state = %+v, read error = %v", upgraded, err)
+			}
+		})
+	}
 	directory := t.TempDir()
 	statePath := filepath.Join(directory, "state.json")
-	if err := os.WriteFile(statePath, []byte(`{"version":1,"records":{}}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := OpenStore(directory); err != nil {
-		t.Fatal(err)
-	}
-	var upgraded diskState
-	data, err := os.ReadFile(statePath)
-	if err != nil || json.Unmarshal(data, &upgraded) != nil || upgraded.Version != rootfsDiskVersion {
-		t.Fatalf("upgraded state = %+v, read error = %v", upgraded, err)
-	}
 	legacy := diskState{Version: 1, Records: map[string]Record{
 		"task-0123456789abcdef0123456789abcdef": validRootfsRecord("/srv/bundles/box", "/var/lib/multikernel/rootfs", "task-0123456789abcdef0123456789abcdef", 4061),
 	}}
-	data, err = json.Marshal(legacy)
+	data, err := json.Marshal(legacy)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,7 +20,7 @@ var rootfsDigestRE = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var rootfsUUIDRE = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
 var rootfsImageIDRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
 
-const rootfsDiskVersion = 2
+const rootfsDiskVersion = 3
 
 type diskState struct {
 	Version int               `json:"version"`
@@ -52,7 +52,7 @@ func OpenStore(dir string) (*Store, error) {
 	if err = protocol.StrictDecode(data, &store.data); err != nil || store.data.Records == nil {
 		return nil, errors.New("rootfs state is malformed or unsupported")
 	}
-	if store.data.Version == 1 && len(store.data.Records) == 0 {
+	if (store.data.Version == 1 || store.data.Version == 2) && len(store.data.Records) == 0 {
 		store.data.Version = rootfsDiskVersion
 		upgraded, marshalErr := json.MarshalIndent(store.data, "", "  ")
 		if marshalErr != nil {
@@ -131,6 +131,7 @@ func validateRootfsRecord(key string, record Record) error {
 		return errors.New("rootfs artifact paths are not bound to the request")
 	}
 	if record.BundleID.Device == 0 || record.BundleID.Inode == 0 || record.BundleID.UID != uint32(os.Geteuid()) ||
+		record.RootID.Device == 0 || record.RootID.Inode == 0 || record.RootID.UID != uint32(os.Geteuid()) ||
 		record.StorageID.Device == 0 || record.StorageID.Inode == 0 || record.StorageID.UID != uint32(os.Geteuid()) {
 		return errors.New("rootfs directory identities are invalid")
 	}
@@ -194,7 +195,7 @@ func cloneRootfsRecord(value Record) Record {
 func validRootfsTransition(previous, next Record) bool {
 	if previous.Version != next.Version || !reflect.DeepEqual(previous.Request, next.Request) || previous.Root != next.Root ||
 		previous.RuntimeDir != next.RuntimeDir || previous.StorageDir != next.StorageDir ||
-		previous.BundleID != next.BundleID || previous.StorageID != next.StorageID {
+		previous.BundleID != next.BundleID || previous.RootID != next.RootID || previous.StorageID != next.StorageID {
 		return false
 	}
 	if previous.Phase == next.Phase {

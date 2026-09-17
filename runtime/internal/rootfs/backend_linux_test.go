@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -43,10 +44,21 @@ func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
 		"upper-original": "", "work-original": "",
 	}
 	var anchoredPaths []string
+	var anchoredTarget string
+	targetPath := makeSource("target", "target-original")
+	targetInfo, err := os.Stat(targetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetID, ok := openedDirectoryIdentity(targetInfo)
+	if !ok {
+		t.Fatal("mount target identity unavailable")
+	}
 	backend := &LinuxBackend{mountAll: func(mounts []containermount.Mount, target string) error {
-		if target != filepath.Join(base, "target") || len(mounts) != 2 {
+		if !strings.HasPrefix(target, "/proc/self/fd/") || len(mounts) != 2 {
 			return errors.New("unexpected mount request")
 		}
+		anchoredTarget = target
 		for _, path := range originals {
 			if err := os.Rename(path, path+".original"); err != nil {
 				return err
@@ -57,6 +69,19 @@ func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(path, "marker"), []byte("replacement"), 0600); err != nil {
 				return err
 			}
+		}
+		if err := os.Rename(targetPath, targetPath+".original"); err != nil {
+			return err
+		}
+		if err := os.Mkdir(targetPath, 0700); err != nil {
+			return err
+		}
+		marker, err := os.ReadFile(filepath.Join(anchoredTarget, "marker"))
+		if err != nil {
+			return fmt.Errorf("read mount target descriptor: %w", err)
+		}
+		if string(marker) != "target-original" {
+			return fmt.Errorf("mount target descriptor resolved to replacement: %q", marker)
 		}
 		anchoredPaths = append(anchoredPaths, mounts[0].Source)
 		for _, option := range mounts[1].Options {
@@ -98,12 +123,10 @@ func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
 			"lowerdir=" + lowerA + ":" + lowerB, "upperdir=" + upper, "workdir=" + work,
 		}},
 	}
-	if err := os.Mkdir(filepath.Join(base, "target"), 0700); err != nil {
+	if err := backend.Mount(context.Background(), input, targetPath, targetID); err != nil {
 		t.Fatal(err)
 	}
-	if err := backend.Mount(context.Background(), input, filepath.Join(base, "target")); err != nil {
-		t.Fatal(err)
-	}
+	anchoredPaths = append(anchoredPaths, anchoredTarget)
 	for _, path := range anchoredPaths {
 		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("descriptor path remained usable after mount: %s: %v", path, err)
@@ -126,9 +149,43 @@ func TestMountRejectsSymlinkSubstitutionAtDescriptorOpen(t *testing.T) {
 		called = true
 		return nil
 	}}
-	err := backend.Mount(context.Background(), []Mount{{Type: "bind", Source: linkedSource}}, filepath.Join(base, "target"))
+	err := backend.Mount(context.Background(), []Mount{{Type: "bind", Source: linkedSource}}, filepath.Join(base, "target"), DirectoryIdentity{})
 	if err == nil || called {
 		t.Fatalf("symlink source reached mount call: err=%v called=%t", err, called)
+	}
+}
+
+func TestMountRejectsReplacedTargetIdentityBeforeMount(t *testing.T) {
+	base := t.TempDir()
+	source := filepath.Join(base, "source")
+	target := filepath.Join(base, "target")
+	for _, path := range []string{source, target} {
+		if err := os.Mkdir(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, ok := openedDirectoryIdentity(info)
+	if !ok {
+		t.Fatal("mount target identity unavailable")
+	}
+	if err = os.Rename(target, target+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	backend := &LinuxBackend{mountAll: func([]containermount.Mount, string) error {
+		called = true
+		return nil
+	}}
+	err = backend.Mount(context.Background(), []Mount{{Type: "bind", Source: source}}, target, expected)
+	if err == nil || !errors.Is(err, errMountNotAttempted) || called {
+		t.Fatalf("replaced target reached mount call: err=%v called=%t", err, called)
 	}
 }
 

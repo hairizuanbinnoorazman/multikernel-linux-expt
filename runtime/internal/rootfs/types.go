@@ -47,6 +47,7 @@ type Record struct {
 	RuntimeDir  string                  `json:"runtime_dir"`
 	StorageDir  string                  `json:"storage_dir"`
 	BundleID    DirectoryIdentity       `json:"bundle_identity"`
+	RootID      DirectoryIdentity       `json:"root_identity"`
 	StorageID   DirectoryIdentity       `json:"storage_root_identity"`
 	Phase       string                  `json:"phase"`
 	Storage     *protocol.StorageConfig `json:"storage,omitempty"`

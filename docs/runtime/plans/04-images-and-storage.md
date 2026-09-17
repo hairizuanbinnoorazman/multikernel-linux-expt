@@ -73,12 +73,16 @@ before filesystem or journal mutation. Mount entry and artifact verification
 do the same, and storage-image hashing observes cancellation between one-MiB
 chunks rather than monopolizing the rootfs service through a complete image
 scan.
-Immediately before the privileged rootfs mount, the backend opens every bind
-source and every overlay `lowerdir`, `upperdir`, and `workdir` through
-no-symlink `openat2`, retains those descriptors through the mount syscall, and
-substitutes `/proc/self/fd` references for caller pathnames. Validation alone
-is not sufficient because a pathname can be renamed or replaced between the
-check and the mount.
+Immediately before the privileged rootfs mount, the backend opens the recorded
+mountpoint, every bind source, and every overlay `lowerdir`, `upperdir`, and
+`workdir` through no-symlink `openat2`, retains those descriptors through the
+mount syscall, and substitutes `/proc/self/fd` references for caller
+pathnames. The mountpoint descriptor must match the device/inode/owner recorded
+before durable `MOUNTING` publication. Validation alone is not sufficient
+because a pathname can be renamed or replaced between the check and the mount.
+Failures before the mount call are distinguished from uncertain syscall
+failures so rollback never unmounts a substituted pathname; only a failure
+that may have partially mounted triggers defensive unmount.
 Storage Provision, Release, and Reconcile must similarly reject cancellation
 before an ownership transition. Each backend operation checks before external
 inspection or process mutation; in particular, Stop cannot signal an export
