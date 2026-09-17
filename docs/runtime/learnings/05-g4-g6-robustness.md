@@ -880,7 +880,8 @@ safely from a pathname.
 
 Read-only OCI bind inputs now have an implemented v1 subset instead of a
 blanket mount rejection. The adapter accepts only bounded, non-overlapping
-directory inputs using standard read-only `bind`/`rbind` forms (including
+directory or private single-link regular-file inputs using standard read-only
+`bind`/`rbind` forms (including
 Docker's `rbind,rprivate,ro`), normalizes them to guest
 `bind,ro,nodev,nosuid,noexec` semantics, and emits
 separate host and sanitized guest projections. A primary-side helper manifests
@@ -889,9 +890,9 @@ requires the copied manifest to match, and publishes a normalized manifest
 whose digest and summary are independently checked by the rootfs daemon during
 build and recovery. Host paths never enter the child. The agent advertises the
 subset, validates the sanitized destinations again, then self-binds and
-remounts them read-only before the first process. Existing real destination
-directories are replaced only in the private staging copy, reproducing normal
-bind hiding without mutating the caller snapshot. Local fault tests cover
+remounts them read-only before the first process. Existing type-matched real
+directory or regular-file destinations are replaced only in the private staging copy,
+reproducing normal bind hiding without mutating the caller snapshot. Local fault tests cover
 metadata/link preservation, destination replacement/type rejection, symlinked
 sources, injected source mutation, malformed provenance, and unsanitized guest configurations.
 Privileged guest write rejection, writable volumes, configured persistence,

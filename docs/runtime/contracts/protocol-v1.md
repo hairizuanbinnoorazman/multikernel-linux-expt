@@ -71,7 +71,7 @@ absolute guest destination and whose ordered options are exactly
 `bind,nodev,noexec,nosuid,ro`. These records refer only to primary-materialized
 content in the private guest root; they never authorize guest access to the
 original host source. The agent rejects overlapping or runtime-owned
-destinations and bind-remounts each directory read-only before process
+destinations and bind-remounts each real directory or regular file read-only before process
 creation.
 `ExecProcess` names an existing parent process and inherits its already
 validated container root; it cannot supply an arbitrary root path. Process

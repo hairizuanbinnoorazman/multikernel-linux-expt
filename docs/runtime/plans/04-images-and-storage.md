@@ -92,8 +92,9 @@ and failure responses do not disclose checker diagnostics.
 - Add capacity quotas and high-water refusal before live ENOSPC.
 
 The read-only bind-input v1 subset admits at most eight non-overlapping host
-directories. Each mount must be read-only, select exactly one of `bind` or
-`rbind`, and may use private plus standard restrictive/atime flags; writable,
+directories or private single-link regular files. Each mount must be read-only,
+select exactly one of `bind` or `rbind`, and may use private plus standard
+restrictive/atime flags; writable,
 shared, slave, and unknown options are rejected. The adapter normalizes every
 accepted form to the stricter guest `bind,ro,nodev,nosuid,noexec` policy. A
 destination may not overlap `/dev`, `/proc`, `/run`, or `/sys`. The primary
@@ -105,11 +106,11 @@ Numeric UID/GID, modes, links, and admitted content are preserved. Propagation
 is deliberately `none`: this is a point-in-time materialized input, not a live
 host bind. Before the first process, the guest bind-mounts the materialized
 destination onto itself and remounts it `ro,nodev,nosuid,noexec`. Existing
-real directory destinations are replaced only in the private staging copy, so
-they have ordinary bind-mount hiding semantics without changing the caller
-snapshot. Symlink or non-directory destinations, nested inputs, source
-symlinks, mutation, writable options, and shared/slave or unsupported
-propagation options fail closed. Writable host-path volumes and configured
+type-matched real directory or regular-file destinations are replaced only in
+the private staging copy, so they have ordinary bind-mount hiding semantics
+without changing the caller snapshot. Symlink, special, or type-mismatched
+destinations, nested inputs, source symlinks, mutation, writable options, and
+shared/slave or unsupported propagation options fail closed. Writable host-path volumes and configured
 persistence remain a later storage format and ownership contract.
 
 ## Tests

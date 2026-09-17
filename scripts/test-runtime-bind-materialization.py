@@ -98,11 +98,36 @@ def main() -> None:
         (file_root / "opt").mkdir(parents=True)
         (file_root / "opt" / "input").write_text("not-a-directory\n", encoding="utf-8")
         file_result = invoke(plan_path, file_root, base / "file-result.json")
-        if file_result.returncode == 0 or "not a real directory" not in file_result.stderr:
-            raise AssertionError("non-directory bind destination was accepted")
+        if file_result.returncode == 0 or "type differs" not in file_result.stderr:
+            raise AssertionError("mismatched bind destination type was accepted")
+
+        regular_source = base / "regular-source"
+        regular_source.write_text("regular immutable input\n", encoding="utf-8")
+        regular_source.chmod(0o640)
+        regular_root = base / "regular-root"
+        (regular_root / "etc").mkdir(parents=True)
+        regular_target = regular_root / "etc" / "input.conf"
+        regular_target.write_text("hidden old file\n", encoding="utf-8")
+        plan(plan_path, regular_source, "/etc/input.conf")
+        regular_result = invoke(plan_path, regular_root, base / "regular.json")
+        if regular_result.returncode != 0:
+            raise AssertionError(f"regular-file bind failed: {regular_result.stderr!r}")
+        if regular_target.read_text(encoding="utf-8") != "regular immutable input\n" or regular_target.stat().st_mode & 0o777 != 0o640:
+            raise AssertionError("regular-file bind bytes or mode differ")
+
+        linked_source = base / "linked-source"
+        os.link(regular_source, linked_source)
+        linked_root = base / "linked-root"
+        linked_root.mkdir()
+        plan(plan_path, linked_source, "/input.conf")
+        linked_result = invoke(plan_path, linked_root, base / "linked.json")
+        if linked_result.returncode == 0 or "single-link regular file" not in linked_result.stderr:
+            raise AssertionError("hard-linked regular-file source was accepted")
+        linked_source.unlink()
 
         limited_root = base / "limited-root"
         limited_root.mkdir()
+        plan(plan_path, regular_source, "/input.conf")
         limited = invoke_limited(plan_path, limited_root, base / "limited.json", "--max-bytes", "1")
         if limited.returncode == 0 or "aggregate byte or inode limit" not in limited.stderr:
             raise AssertionError("oversized bind input was accepted")
@@ -115,7 +140,7 @@ def main() -> None:
         symlink_root = base / "symlink-root"
         symlink_root.mkdir()
         symlink_result = invoke(plan_path, symlink_root, base / "symlink.json")
-        if symlink_result.returncode == 0 or "real directories" not in symlink_result.stderr:
+        if symlink_result.returncode == 0 or "must not traverse" not in symlink_result.stderr:
             raise AssertionError("symlinked bind source was accepted")
 
         mutation_source = base / "mutation-source"

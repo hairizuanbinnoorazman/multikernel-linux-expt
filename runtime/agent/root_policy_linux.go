@@ -94,6 +94,18 @@ func policyTarget(root, path string) (string, os.FileInfo, error) {
 	return target, info, nil
 }
 
+func readonlyBindTarget(root, destination string) (string, error) {
+	target := filepath.Join(root, strings.TrimPrefix(destination, "/"))
+	if err := secureDirectory(filepath.Dir(target)); err != nil {
+		return "", err
+	}
+	info, err := os.Lstat(target)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || (!info.IsDir() && !info.Mode().IsRegular()) {
+		return "", errors.New("materialized bind target must be a real directory or regular file")
+	}
+	return target, nil
+}
+
 func applyRootPolicy(config OCIConfig, root string) (retErr error) {
 	if config.Hostname != "" && (len(config.Hostname) > 63 || !hostnameRE.MatchString(config.Hostname)) {
 		return errors.New("hostname is malformed")
@@ -119,8 +131,8 @@ func applyRootPolicy(config OCIConfig, root string) (retErr error) {
 		hostnameChanged = true
 	}
 	for _, mount := range config.Mounts {
-		target := filepath.Join(root, strings.TrimPrefix(mount.Destination, "/"))
-		if err := secureDirectory(target); err != nil {
+		target, err := readonlyBindTarget(root, mount.Destination)
+		if err != nil {
 			return fmt.Errorf("read-only bind input %s: %w", mount.Destination, err)
 		}
 		if err := unix.Mount(target, target, "", unix.MS_BIND, ""); err != nil {

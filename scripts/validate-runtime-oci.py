@@ -196,6 +196,8 @@ def validate_mounts(value):
         canonical_absolute_path(destination, f"mounts[{index}].destination")
         source = item.get("source")
         canonical_absolute_path(source, f"mounts[{index}].source")
+        if source == "/":
+            raise ValueError("read-only bind source may not be the host root")
         if item.get("type") != "bind":
             raise ValueError(f"unsupported OCI mount type at {destination!r}")
         option_set = set(actual_options) if isinstance(actual_options, list) and all(

@@ -185,19 +185,25 @@ chmod 0755 "$bind_root"
 mkdir -m 0755 "$bind_root/ctr" "$bind_root/docker"
 printf 'ctr-host-immutable\n' >"$bind_root/ctr/value"
 printf 'docker-host-immutable\n' >"$bind_root/docker/value"
-chmod 0644 "$bind_root/ctr/value" "$bind_root/docker/value"
-bind_probe='set -eu; before=$(cat /opt/input/value); if printf changed >/opt/input/value 2>/dev/null; then echo writable-bind >&2; exit 90; fi; after=$(cat /opt/input/value); test "$before" = "$after"; printf "%s\n" "$after"'
+printf 'ctr-file-immutable\n' >"$bind_root/ctr-file"
+printf 'docker-file-immutable\n' >"$bind_root/docker-file"
+chmod 0644 "$bind_root/ctr/value" "$bind_root/docker/value" "$bind_root/ctr-file" "$bind_root/docker-file"
+bind_probe='set -eu; directory_before=$(cat /opt/input/value); file_before=$(cat /etc/mk-input.conf); if printf changed >/opt/input/value 2>/dev/null; then echo writable-directory-bind >&2; exit 90; fi; if printf changed >/etc/mk-input.conf 2>/dev/null; then echo writable-file-bind >&2; exit 91; fi; test "$directory_before" = "$(cat /opt/input/value)"; test "$file_before" = "$(cat /etc/mk-input.conf)"; printf "%s|%s\n" "$directory_before" "$file_before"'
 ctr_bind_output=$(sudo ctr run --rm --runtime "$runtime" \
 	--mount "type=bind,src=$bind_root/ctr,dst=/opt/input,options=rbind:ro" \
+	--mount "type=bind,src=$bind_root/ctr-file,dst=/etc/mk-input.conf,options=bind:ro" \
 	"$image" "$ctr_bind_id" /bin/sh -c "$bind_probe")
 docker_bind_output=$(sudo docker run --rm --runtime "$runtime" \
 	--name "$docker_bind_name" --mount "type=bind,src=$bind_root/docker,dst=/opt/input,readonly" \
+	--mount "type=bind,src=$bind_root/docker-file,dst=/etc/mk-input.conf,readonly" \
 	"$image" /bin/sh -c "$bind_probe")
-test "$ctr_bind_output" = ctr-host-immutable
-test "$docker_bind_output" = docker-host-immutable
+test "$ctr_bind_output" = 'ctr-host-immutable|ctr-file-immutable'
+test "$docker_bind_output" = 'docker-host-immutable|docker-file-immutable'
 test "$(cat "$bind_root/ctr/value")" = ctr-host-immutable
 test "$(cat "$bind_root/docker/value")" = docker-host-immutable
-observe readonly-bind-inputs "ctr=$ctr_bind_output docker=$docker_bind_output ctr_host=$(cat "$bind_root/ctr/value") docker_host=$(cat "$bind_root/docker/value")"
+test "$(cat "$bind_root/ctr-file")" = ctr-file-immutable
+test "$(cat "$bind_root/docker-file")" = docker-file-immutable
+observe readonly-bind-inputs "ctr=$ctr_bind_output docker=$docker_bind_output ctr_host=$(cat "$bind_root/ctr/value") ctr_file=$(cat "$bind_root/ctr-file") docker_host=$(cat "$bind_root/docker/value") docker_file=$(cat "$bind_root/docker-file")"
 rm -rf -- "$bind_root"
 bind_root=
 row readonly-bind-inputs

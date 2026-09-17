@@ -148,6 +148,7 @@ def main():
             ("shared-bind-propagation", lambda mount: mount["options"].append("rshared")),
             ("conflicting-private-bind", lambda mount: mount["options"].append("private")),
             ("relative-bind-source", lambda mount: mount.update(source="srv/input")),
+            ("host-root-bind-source", lambda mount: mount.update(source="/")),
             ("noncanonical-bind-destination", lambda mount: mount.update(destination="/opt/../input")),
             ("protected-bind-destination", lambda mount: mount.update(destination="/proc/input")),
             ("unsupported-bind-type", lambda mount: mount.update(type="tmpfs")),

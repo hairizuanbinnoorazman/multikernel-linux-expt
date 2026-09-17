@@ -622,6 +622,29 @@ func TestReadonlyBindInputContractFailsClosed(t *testing.T) {
 	}
 }
 
+func TestReadonlyBindTargetAcceptsOnlyRealDirectoriesAndRegularFiles(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "etc", "input"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if target, err := readonlyBindTarget(root, "/etc/input"); err != nil || target != filepath.Join(root, "etc", "input") {
+		t.Fatalf("directory target = %q, %v", target, err)
+	}
+	file := filepath.Join(root, "etc", "input.conf")
+	if err := os.WriteFile(file, []byte("value\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if target, err := readonlyBindTarget(root, "/etc/input.conf"); err != nil || target != file {
+		t.Fatalf("regular-file target = %q, %v", target, err)
+	}
+	if err := os.Symlink("input.conf", filepath.Join(root, "etc", "linked")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readonlyBindTarget(root, "/etc/linked"); err == nil {
+		t.Fatal("symlinked bind target was accepted")
+	}
+}
+
 func TestSupportedRootPolicyLoadsBeforePrivilegedApplication(t *testing.T) {
 	b := bundle(t, []string{"/probe"}, "")
 	raw, err := os.ReadFile(filepath.Join(b, "config.json"))
