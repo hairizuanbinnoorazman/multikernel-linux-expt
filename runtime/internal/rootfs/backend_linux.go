@@ -30,6 +30,7 @@ var sha256RE = regexp.MustCompile(`^[a-f0-9]{64}$`)
 type LinuxBackend struct {
 	Builder      string
 	BuildTimeout time.Duration
+	mountAll     func([]mount.Mount, string) error
 }
 
 const maximumBuilderOutput = 1 << 20
@@ -237,26 +238,105 @@ func writePrivateExclusive(path string, data []byte) error {
 	return errors.Join(writeErr, file.Close())
 }
 
-func (b *LinuxBackend) Mount(ctx context.Context, input []Mount, target string) error {
-	if err := ctx.Err(); err != nil {
-		return err
+func pinRootfsDirectory(path string) (*os.File, string, error) {
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags:   uint64(unix.O_PATH | unix.O_DIRECTORY | unix.O_CLOEXEC),
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return nil, "", err
 	}
+	file := os.NewFile(uintptr(descriptor), path)
+	return file, fmt.Sprintf("/proc/self/fd/%d", descriptor), nil
+}
+
+func pinRootfsMounts(ctx context.Context, input []Mount) ([]mount.Mount, []*os.File, error) {
 	mounts := make([]mount.Mount, len(input))
+	files := make([]*os.File, 0, len(input)*2)
+	closeFiles := func() {
+		for _, file := range files {
+			_ = file.Close()
+		}
+	}
+	pin := func(path string) (string, error) {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		file, anchored, err := pinRootfsDirectory(path)
+		if err != nil {
+			return "", err
+		}
+		files = append(files, file)
+		return anchored, nil
+	}
 	for i, item := range input {
+		if err := ctx.Err(); err != nil {
+			closeFiles()
+			return nil, nil, err
+		}
+		source := item.Source
+		if item.Type == "bind" || item.Type == "none" {
+			var err error
+			if source, err = pin(source); err != nil {
+				closeFiles()
+				return nil, nil, fmt.Errorf("pin rootfs mount source: %w", err)
+			}
+		}
 		options := make([]string, 0, len(item.Options)+3)
 		for _, option := range item.Options {
-			if option != "rw" && option != "dev" && option != "suid" {
-				options = append(options, option)
+			if option == "rw" || option == "dev" || option == "suid" {
+				continue
 			}
+			rewritten := option
+			for _, prefix := range []string{"lowerdir=", "upperdir=", "workdir="} {
+				if item.Type != "overlay" || !strings.HasPrefix(option, prefix) {
+					continue
+				}
+				paths := strings.Split(strings.TrimPrefix(option, prefix), ":")
+				anchored := make([]string, len(paths))
+				for index, path := range paths {
+					var err error
+					if anchored[index], err = pin(path); err != nil {
+						closeFiles()
+						return nil, nil, fmt.Errorf("pin overlay %s path: %w", strings.TrimSuffix(prefix, "="), err)
+					}
+				}
+				rewritten = prefix + strings.Join(anchored, ":")
+				break
+			}
+			options = append(options, rewritten)
 		}
 		for _, required := range []string{"ro", "nodev", "nosuid", "noexec"} {
 			if !slices.Contains(options, required) {
 				options = append(options, required)
 			}
 		}
-		mounts[i] = mount.Mount{Type: item.Type, Source: item.Source, Options: options}
+		mounts[i] = mount.Mount{Type: item.Type, Source: source, Options: options}
 	}
-	if err := mount.All(mounts, target); err != nil {
+	return mounts, files, nil
+}
+
+func (b *LinuxBackend) Mount(ctx context.Context, input []Mount, target string) (result error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	mounts, files, err := pinRootfsMounts(ctx, input)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for _, file := range files {
+			result = errors.Join(result, file.Close())
+		}
+	}()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	mountAll := b.mountAll
+	if mountAll == nil {
+		mountAll = mount.All
+	}
+	if err := mountAll(mounts, target); err != nil {
 		return fmt.Errorf("mount read-only source root: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
