@@ -226,8 +226,13 @@ current-revision live claim may be marked proved.
   ownership. Prepared replay/reconciliation similarly open the exact recorded
   directories, verify every artifact through held descriptors, and recheck the
   names afterward; a 100-repetition replacement test proves verification reads
-  the originals but refuses a concurrently substituted name. Cleanup also
-  rejects either substitution before backend mutation.
+  the originals but refuses a concurrently substituted name. Recovery now
+  requires the archive, generated/source/read-only-bind manifests, storage
+  metadata/image, exact durable build result, and canonical `initramfs.path`.
+  Archive and manifest digests must match both generated and independently
+  verified build-result sections; focused mutation cases reject each formerly
+  omitted artifact. Cleanup also rejects either substitution before backend
+  mutation.
   Privileged builder output consumption now uses bounded no-follow opens with
   caller-owner, single-link, mode, and stable-identity checks. Exact storage
   metadata is revalidated against the request, and both initial publication

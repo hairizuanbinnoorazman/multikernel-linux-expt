@@ -3,6 +3,7 @@
 package rootfs
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -508,6 +509,30 @@ func fileSHA256(ctx context.Context, path string, expectedSize uint64) (string, 
 	return hex.EncodeToString(hash.Sum(nil)), errors.Join(copyErr, stableErr, file.Close())
 }
 
+func buildResultDigest(buildResult json.RawMessage, section, field string) (string, error) {
+	var result map[string]json.RawMessage
+	if err := protocol.StrictDecode(buildResult, &result); err != nil {
+		return "", errors.New("invalid durable rootfs build result")
+	}
+	encodedSection, ok := result[section]
+	if !ok {
+		return "", fmt.Errorf("rootfs build result omits %s", section)
+	}
+	var values map[string]json.RawMessage
+	if err := protocol.StrictDecode(encodedSection, &values); err != nil {
+		return "", fmt.Errorf("invalid rootfs build result section %s", section)
+	}
+	encodedDigest, ok := values[field]
+	if !ok {
+		return "", fmt.Errorf("rootfs build result omits %s.%s", section, field)
+	}
+	var digest string
+	if err := protocol.StrictDecode(encodedDigest, &digest); err != nil || !sha256RE.MatchString(digest) {
+		return "", fmt.Errorf("invalid rootfs build result digest %s.%s", section, field)
+	}
+	return digest, nil
+}
+
 func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record, roots PreparedRoots) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -523,8 +548,12 @@ func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record, roots 
 	storagePath := filepath.Join(storageDir, "root.ext4")
 	for path, maximum := range map[string]int64{
 		storagePath: 16 << 30, filepath.Join(runtimeDir, "initramfs.cpio.gz"): 16 << 30,
+		filepath.Join(runtimeDir, "initramfs.manifest.json"):                16 << 20,
+		filepath.Join(runtimeDir, "initramfs.source-manifest.json"):         16 << 20,
 		filepath.Join(runtimeDir, "storage.json"):                           1 << 20,
 		filepath.Join(runtimeDir, "initramfs.readonly-binds.manifest.json"): 128 << 20,
+		filepath.Join(runtimeDir, "build-result.json"):                      1 << 20,
+		filepath.Join(runtimeDir, "initramfs.path"):                         1 << 20,
 	} {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -543,6 +572,60 @@ func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record, roots 
 	}
 	if digest != record.Storage.SHA256 {
 		return errors.New("prepared storage content differs from journal")
+	}
+	buildResult, err := readTrustedArtifact(filepath.Join(runtimeDir, "build-result.json"), 1<<20, true)
+	if err != nil || !bytes.Equal(buildResult, record.BuildResult) {
+		return errors.New("prepared build result differs from journal")
+	}
+	initrdPath, err := readTrustedArtifact(filepath.Join(runtimeDir, "initramfs.path"), 1<<20, true)
+	if err != nil || string(initrdPath) != filepath.Join(record.RuntimeDir, "initramfs.cpio.gz")+"\n" {
+		return errors.New("prepared initramfs path differs from journal")
+	}
+	initrd := filepath.Join(runtimeDir, "initramfs.cpio.gz")
+	initrdFile, initrdIdentity, err := openTrustedArtifact(initrd, 16<<30, true)
+	if err != nil {
+		return errors.New("prepared initramfs is missing or unsafe")
+	}
+	if err = initrdFile.Close(); err != nil {
+		return err
+	}
+	initrdDigest, err := fileSHA256(ctx, initrd, uint64(initrdIdentity.Size))
+	if err != nil {
+		return fmt.Errorf("verify prepared initramfs content: %w", err)
+	}
+	generatedInitrd, err := buildResultDigest(record.BuildResult, "generated_bootstrap", "initramfs_sha256")
+	if err != nil || initrdDigest != generatedInitrd {
+		return errors.New("prepared initramfs digest differs from build result")
+	}
+	verifiedInitrd, err := buildResultDigest(record.BuildResult, "verified_bootstrap", "archive_sha256")
+	if err != nil || initrdDigest != verifiedInitrd {
+		return errors.New("prepared initramfs digest differs from verification result")
+	}
+	manifest, err := readTrustedArtifact(filepath.Join(runtimeDir, "initramfs.manifest.json"), 16<<20, true)
+	if err != nil {
+		return errors.New("prepared initramfs manifest is missing or unsafe")
+	}
+	manifestSum := sha256.Sum256(manifest)
+	manifestDigest := hex.EncodeToString(manifestSum[:])
+	generatedManifest, err := buildResultDigest(record.BuildResult, "generated_bootstrap", "manifest_sha256")
+	if err != nil || manifestDigest != generatedManifest {
+		return errors.New("prepared initramfs manifest differs from build result")
+	}
+	verifiedManifest, err := buildResultDigest(record.BuildResult, "verified_bootstrap", "manifest_sha256")
+	if err != nil || manifestDigest != verifiedManifest {
+		return errors.New("prepared initramfs manifest differs from verification result")
+	}
+	sourceManifest, err := readTrustedArtifact(filepath.Join(runtimeDir, "initramfs.source-manifest.json"), 16<<20, true)
+	if err != nil {
+		return errors.New("prepared source manifest is missing or unsafe")
+	}
+	sourceSum := sha256.Sum256(sourceManifest)
+	sourceDigest := hex.EncodeToString(sourceSum[:])
+	for _, section := range []string{"source_scan_before", "source_scan_after"} {
+		expected, digestErr := buildResultDigest(record.BuildResult, section, "manifest_sha256")
+		if digestErr != nil || sourceDigest != expected {
+			return fmt.Errorf("prepared source manifest differs from %s", section)
+		}
 	}
 	metadata, err := loadStorageBuild(filepath.Join(runtimeDir, "storage.json"), record.Storage.Path, record.Storage.Port)
 	if err != nil || metadata != *record.Storage {

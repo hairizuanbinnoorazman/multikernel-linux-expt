@@ -60,7 +60,11 @@ reads or writes, and cannot be published as `PREPARED`.
 Prepared-artifact replay and reconciliation reopen the exact recorded runtime
 and per-task storage directory identities, retain those descriptors throughout
 manifest, metadata, allocation, and digest verification, then recheck the
-published names before accepting the result.
+published names before accepting the result. Recovery requires the initramfs,
+generated and source manifests, read-only-bind manifest, storage metadata and
+image, exact durable build result, and canonical `initramfs.path`; archive and
+manifest digests must match both the generated and independently verified
+sections of the durable build result.
 Backend process records and logs must be private bounded files, bound to the
 exact export lease, and opened no-follow. Readiness must repeat the lease's
 path/image/generation/size/port; close counters are valid only after that exact

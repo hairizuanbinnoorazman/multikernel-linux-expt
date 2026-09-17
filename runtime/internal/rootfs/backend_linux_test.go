@@ -234,9 +234,12 @@ chmod 0600 "$output" "${output%.cpio.gz}.manifest.json" "${output%.cpio.gz}.sour
 fallocate -l 67108864 "$storage"
 chmod 0600 "$storage"
 digest=$(sha256sum "$storage" | awk '{print $1}')
+archive_digest=$(sha256sum "$output" | awk '{print $1}')
+manifest_digest=$(sha256sum "${output%.cpio.gz}.manifest.json" | awk '{print $1}')
+source_digest=$(sha256sum "${output%.cpio.gz}.source-manifest.json" | awk '{print $1}')
 printf '{"schema_version":1,"path":"%s","image_id":"root-test","filesystem_uuid":"11111111-2222-4333-8444-555555555555","size_bytes":67108864,"quota_bytes":67108864,"inode_limit":4096,"port":4061,"sha256":"%s","offline_check_sha256":"0000000000000000000000000000000000000000000000000000000000000000","allocation":"posix_fallocate","format":"ext4","determinism":{"fake_time":1,"hash_seed":"11111111-2222-4333-8444-555555555555","lazy_initialization":false,"source_metadata_time":1}}\n' "$MK_STORAGE_LOGICAL_OUTPUT" "$digest" >"$runtime/storage.json"
 chmod 0600 "$runtime/storage.json"
-printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s"}\n' "$MK_LOGICAL_BUNDLE" "$MK_STORAGE_LOGICAL_OUTPUT"
+printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s","generated_bootstrap":{"initramfs_sha256":"%s","manifest_sha256":"%s"},"verified_bootstrap":{"archive_sha256":"%s","manifest_sha256":"%s"},"source_scan_before":{"manifest_sha256":"%s"},"source_scan_after":{"manifest_sha256":"%s"}}\n' "$MK_LOGICAL_BUNDLE" "$MK_STORAGE_LOGICAL_OUTPUT" "$archive_digest" "$manifest_digest" "$archive_digest" "$manifest_digest" "$source_digest" "$source_digest"
 `
 	if err = os.WriteFile(builder, []byte(script), 0700); err != nil {
 		t.Fatal(err)
@@ -272,6 +275,22 @@ printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s"}
 	}
 	runtimeAnchored := fmt.Sprintf("/proc/self/fd/%d", runtimeDir.Fd())
 	storageAnchored := fmt.Sprintf("/proc/self/fd/%d", storageDir.Fd())
+	for _, name := range []string{"build-result.json", "initramfs.path", "initramfs.cpio.gz", "initramfs.manifest.json", "initramfs.source-manifest.json"} {
+		path := filepath.Join(runtimeAnchored, name)
+		original, readErr := os.ReadFile(path)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if err = os.WriteFile(path, []byte("changed"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if verifyErr := (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}); verifyErr == nil {
+			t.Fatalf("changed prepared artifact %s was accepted", name)
+		}
+		if err = os.WriteFile(path, original, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if data, err := os.ReadFile(filepath.Join(runtimeAnchored, "initramfs.path")); err != nil || string(data) != filepath.Join(runtimePath, "initramfs.cpio.gz")+"\n" {
 		t.Fatalf("logical initramfs path = %q, %v", data, err)
 	}
