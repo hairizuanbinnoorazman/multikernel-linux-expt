@@ -261,6 +261,18 @@ already in flight to become durable and reach the guest, then closes guest
 stdin before the pump accepts another chunk; a continuously writing peer
 therefore cannot postpone `CloseIO` indefinitely.
 
+Task Kill persists the requested signal and a random operation ID before guest
+contact. The guest's advertised `signal-operation-id-v1` ledger binds that ID
+to one exact process, signal, and result, so relay reconnect can replay a lost
+reply without delivering an arbitrary signal twice. The shim clears the intent
+only after it durably records the observed-result phase, idempotently retires
+the guest ledger entry with `AcknowledgeSignal`, and persists local retirement.
+Reconstruction either replays an unresolved mutation or resumes acknowledgement
+without signaling again. A different signal cannot overtake an unresolved one.
+The bounded guest ledger refuses before mutation rather than evicting
+uncertainty. Cleanup, pause, resume, and their compensating signals use the same
+reply-loss-safe operation identity and bounded acknowledgement.
+
 Task pause and resume cover every running or paused init/exec process group in
 a deterministic order. If any signal fails, already transitioned groups are
 signaled back in reverse order under a bounded rollback context. Process states

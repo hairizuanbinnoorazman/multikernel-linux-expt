@@ -177,7 +177,7 @@ func capabilityReport() map[string]any {
 	}
 	return map[string]any{
 		"protocol":          1,
-		"protocol_features": []string{"stdin-offset-v1", "two-phase-shutdown-v1"},
+		"protocol_features": []string{"signal-operation-id-v1", "stdin-offset-v1", "two-phase-shutdown-v1"},
 		"oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize",
 			"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts"},
 		"kernel": map[string]any{
@@ -271,12 +271,30 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			r.Error = x.Error()
 		}
 	case "SignalProcess":
-		var q struct{ ID, Signal string }
+		var q struct {
+			ID          string `json:"ID"`
+			Signal      string `json:"Signal"`
+			OperationID string `json:"operation_id,omitempty"`
+		}
 		if x := decode(e.Body, &q); x != nil {
 			r.Error = x.Error()
 		} else if sig, x := SignalNumber(q.Signal); x != nil {
 			r.Error = x.Error()
+		} else if q.OperationID != "" {
+			if x = s.Manager.SignalOnce(q.ID, sig, q.OperationID); x != nil {
+				r.Error = x.Error()
+			}
 		} else if x = s.Manager.Signal(q.ID, sig); x != nil {
+			r.Error = x.Error()
+		}
+	case "AcknowledgeSignal":
+		var q struct {
+			ID          string `json:"ID"`
+			OperationID string `json:"operation_id"`
+		}
+		if x := decode(e.Body, &q); x != nil {
+			r.Error = x.Error()
+		} else if x = s.Manager.AcknowledgeSignal(q.ID, q.OperationID); x != nil {
 			r.Error = x.Error()
 		}
 	case "ResizeProcess":

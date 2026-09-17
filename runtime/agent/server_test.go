@@ -8,9 +8,11 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -277,6 +279,54 @@ func TestWriteProcessProtocolAcknowledgesExactIdempotentOffset(t *testing.T) {
 	}
 	if input.String() != "once-legacy" {
 		t.Fatalf("legacy-compatible input = %q", input.String())
+	}
+}
+
+func TestSignalProcessOperationIDIsExactlyOnce(t *testing.T) {
+	manager := NewManager(true)
+	manager.processes["signal"] = &process{cmd: &exec.Cmd{Process: &os.Process{Pid: 41}}, state: ProcessState{ID: "signal", Status: "RUNNING"}}
+	calls := 0
+	manager.signalProcess = func(pid int, signal syscall.Signal) error {
+		calls++
+		return nil
+	}
+	server := &Server{Manager: manager, SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001,
+		Token: []byte("01234567890123456789012345678901")}
+	dispatch := func(sequence uint64, signal string) Reply {
+		body, err := json.Marshal(map[string]any{"ID": "signal", "Signal": signal, "operation_id": strings.Repeat("a", 32)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation,
+			Endpoint: server.Endpoint, Sequence: sequence, Method: "SignalProcess", Body: body}
+		Sign(&request, server.Token)
+		return server.Dispatch(request)
+	}
+	for sequence := uint64(1); sequence <= 2; sequence++ {
+		if reply := dispatch(sequence, "10"); reply.Error != "" {
+			t.Fatalf("signal replay %d = %+v", sequence, reply)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("signal calls = %d, want 1", calls)
+	}
+	if reply := dispatch(3, "12"); !strings.Contains(reply.Error, "reused") {
+		t.Fatalf("changed signal replay = %+v", reply)
+	}
+	for sequence := uint64(4); sequence <= 5; sequence++ {
+		body, err := json.Marshal(map[string]any{"ID": "signal", "operation_id": strings.Repeat("a", 32)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation,
+			Endpoint: server.Endpoint, Sequence: sequence, Method: "AcknowledgeSignal", Body: body}
+		Sign(&request, server.Token)
+		if reply := server.Dispatch(request); reply.Error != "" {
+			t.Fatalf("signal acknowledgement %d = %+v", sequence, reply)
+		}
+	}
+	if len(manager.signalResults) != 0 {
+		t.Fatalf("acknowledged signal ledger = %+v", manager.signalResults)
 	}
 }
 

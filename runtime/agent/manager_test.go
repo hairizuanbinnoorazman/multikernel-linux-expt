@@ -389,6 +389,67 @@ func TestSignalReachesContainerProcessGroup(t *testing.T) {
 	t.Fatalf("descendant did not observe process-group SIGTERM; marker=%q", observedMarker)
 }
 
+func TestSignalOnceCachesExactResultAndRejectsChangedReplay(t *testing.T) {
+	m := NewManager(true)
+	m.processes["signal"] = &process{cmd: &exec.Cmd{Process: &os.Process{Pid: 41}}, state: ProcessState{ID: "signal", Status: "RUNNING"}}
+	calls := 0
+	m.signalProcess = func(pid int, signal syscall.Signal) error {
+		calls++
+		if pid != -41 || signal != syscall.SIGUSR1 {
+			return errors.New("unexpected signal target")
+		}
+		return nil
+	}
+	operationID := strings.Repeat("a", 32)
+	for attempt := 0; attempt < 2; attempt++ {
+		if err := m.SignalOnce("signal", syscall.SIGUSR1, operationID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("signal calls = %d, want 1", calls)
+	}
+	if err := m.SignalOnce("signal", syscall.SIGUSR2, operationID); err == nil || !strings.Contains(err.Error(), "reused") {
+		t.Fatalf("changed replay error = %v", err)
+	}
+	delete(m.processes, "signal")
+	if err := m.SignalOnce("other", syscall.SIGUSR1, operationID); err == nil || !strings.Contains(err.Error(), "reused") {
+		t.Fatalf("cross-process replay error = %v", err)
+	}
+	if err := m.SignalOnce("signal", syscall.SIGUSR1, operationID); err != nil {
+		t.Fatalf("post-exit exact replay = %v", err)
+	}
+	if err := m.AcknowledgeSignal("other", operationID); err == nil || !strings.Contains(err.Error(), "target differs") {
+		t.Fatalf("wrong-target acknowledgement = %v", err)
+	}
+	if err := m.AcknowledgeSignal("signal", operationID); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.AcknowledgeSignal("signal", operationID); err != nil {
+		t.Fatalf("acknowledgement replay = %v", err)
+	}
+	if err := m.SignalOnce("signal", syscall.SIGUSR1, operationID); err == nil || !strings.Contains(err.Error(), "not running") {
+		t.Fatalf("retired post-exit operation = %v", err)
+	}
+}
+
+func TestSignalOnceRefusesFullLedgerBeforeMutation(t *testing.T) {
+	m := NewManager(true)
+	m.processes["signal"] = &process{cmd: &exec.Cmd{Process: &os.Process{Pid: 41}}, state: ProcessState{ID: "signal", Status: "RUNNING"}}
+	m.signalResults = make(map[string]signalResult, maxSignalResults)
+	for index := 0; index < maxSignalResults; index++ {
+		m.signalResults[fmt.Sprintf("%032x", index)] = signalResult{id: "other", signal: syscall.SIGTERM}
+	}
+	calls := 0
+	m.signalProcess = func(int, syscall.Signal) error { calls++; return nil }
+	if err := m.SignalOnce("signal", syscall.SIGTERM, strings.Repeat("f", 32)); err == nil || !strings.Contains(err.Error(), "ledger is full") {
+		t.Fatalf("full-ledger error = %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("full ledger applied %d signals", calls)
+	}
+}
+
 func TestProcessAndOutputRetentionBounds(t *testing.T) {
 	var output lockedBuffer
 	payload := make([]byte, maxOutputBytes+1)
@@ -981,7 +1042,7 @@ func TestAuthenticationAndReplay(t *testing.T) {
 		t.Fatalf("oci_features type = %T", capabilities["oci_features"])
 	}
 	protocolFeatures, ok := capabilities["protocol_features"].([]string)
-	if !ok || !slices.Contains(protocolFeatures, "stdin-offset-v1") || !slices.Contains(protocolFeatures, "two-phase-shutdown-v1") {
+	if !ok || !slices.Contains(protocolFeatures, "signal-operation-id-v1") || !slices.Contains(protocolFeatures, "stdin-offset-v1") || !slices.Contains(protocolFeatures, "two-phase-shutdown-v1") {
 		t.Fatalf("protocol features = %#v", capabilities["protocol_features"])
 	}
 	for _, feature := range features {
