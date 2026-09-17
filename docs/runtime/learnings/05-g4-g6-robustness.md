@@ -509,6 +509,17 @@ use a cancellation-independent five-second signal call, and return its error;
 authenticated `NOT_FOUND` is successful cleanup. Injected persistence plus
 signal failure retains guest PID 41 and later records exact exit 9 after
 storage repair across 100 race-detector repetitions.
+Arbitrary signals now use the advertised `signal-operation-id-v1` contract.
+The generation-scoped guest ledger retains up to 4,096 exact
+target/signal/results, returns exact replay even after process exit, rejects
+cross-target or changed-signal reuse, and refuses before mutation instead of
+evicting uncertainty when full. Task Kill durably moves through intent and
+result-observed phases, reconnects/replays after reply loss, retires the guest
+entry with idempotent `AcknowledgeSignal`, then persists local retirement.
+Reconstruction resumes the correct phase. Cleanup and pause/resume use the same
+operation identity and acknowledgement. Focused guest, protocol, Kill,
+reconstruction, and transition matrices pass 100 race-detector repetitions;
+the Kill fault proves two calls, one reconnect, and one applied signal.
 PID validation now also rejects positive agent values above Task v2's `uint32`
 range in both Start and reconstruction. An oversized PID remains an unverified
 RUNNING owner without a fabricated PID, publishes no start event, is durably

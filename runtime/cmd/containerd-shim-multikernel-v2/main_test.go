@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -65,6 +66,58 @@ type statsReplyLossAgent struct {
 	calls      int
 	reconnects int
 	stats      agent.ProcessStats
+}
+
+type signalReplyLossAgent struct {
+	bundle     string
+	calls      int
+	applied    int
+	reconnects int
+	ackCalls   int
+	operation  string
+	durable    bool
+}
+
+func (f *signalReplyLossAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+func (f *signalReplyLossAgent) CallContext(_ context.Context, method string, request, _ any) error {
+	if method == "AcknowledgeSignal" {
+		values := request.(map[string]any)
+		if values["operation_id"] != f.operation {
+			return errors.New("acknowledged signal operation identity changed")
+		}
+		f.ackCalls++
+		return nil
+	}
+	if method != "SignalProcess" {
+		return fmt.Errorf("unexpected method %s", method)
+	}
+	f.calls++
+	values := request.(map[string]any)
+	operation := values["operation_id"].(string)
+	data, err := os.ReadFile(filepath.Join(f.bundle, ".multikernel", "sandbox.json"))
+	if err == nil {
+		var saved persisted
+		if json.Unmarshal(data, &saved) == nil && len(saved.Processes) == 1 {
+			f.durable = saved.Processes[0].PendingSignalOp == operation && saved.Processes[0].PendingSignal == uint32(syscall.SIGUSR1)
+		}
+	}
+	if f.operation == "" {
+		f.operation = operation
+		f.applied++
+		return io.ErrUnexpectedEOF
+	}
+	if operation != f.operation {
+		return errors.New("signal operation identity changed")
+	}
+	return nil
+}
+func (*signalReplyLossAgent) Close() error           { return nil }
+func (*signalReplyLossAgent) Reconnect(string) error { return nil }
+func (f *signalReplyLossAgent) ReconnectContext(context.Context, string) error {
+	f.reconnects++
+	return nil
 }
 
 func (f *statsReplyLossAgent) Call(method string, request, response any) error {
@@ -667,11 +720,12 @@ func (*retryNetworkReportClient) Attach(context.Context, mknetwork.Request) (mkn
 }
 
 type recoveryAgentClient struct {
-	finish         chan struct{}
-	mu             sync.Mutex
-	calls          []string
-	failFirstState bool
-	reconnects     int
+	finish          chan struct{}
+	mu              sync.Mutex
+	calls           []string
+	failFirstState  bool
+	reconnects      int
+	recoveredSignal bool
 }
 
 func (f *recoveryAgentClient) record(method string) {
@@ -725,6 +779,22 @@ func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, re
 		return setJSONResponse(response, map[string]any{"status": "STOPPED", "stdout_offset": 0, "stderr_offset": 0})
 	case "WaitProcess":
 		return setStoppedResponse(request, response, 41, 17)
+	case "SignalProcess":
+		values := request.(map[string]any)
+		if values["ID"] != "init" || values["Signal"] != strconv.Itoa(int(syscall.SIGUSR1)) ||
+			values["operation_id"] != strings.Repeat("d", 32) {
+			return errors.New("unexpected recovered signal identity")
+		}
+		f.mu.Lock()
+		f.recoveredSignal = true
+		f.mu.Unlock()
+		return nil
+	case "AcknowledgeSignal":
+		values := request.(map[string]any)
+		if values["ID"] != "init" || values["operation_id"] != strings.Repeat("d", 32) {
+			return errors.New("unexpected recovered signal acknowledgement")
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -796,6 +866,9 @@ func (f *signalFailureAgent) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
 func (f *signalFailureAgent) CallContext(_ context.Context, method string, request, _ any) error {
+	if method == "AcknowledgeSignal" {
+		return nil
+	}
 	if method != "SignalProcess" {
 		return fmt.Errorf("unexpected method %s", method)
 	}
@@ -2918,8 +2991,41 @@ func TestKillForwardsOnlyForLiveKnownProcess(t *testing.T) {
 	if _, err := s.Kill(context.Background(), &taskapi.KillRequest{ExecID: "exec", Signal: uint32(syscall.SIGKILL)}); err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(fake.calls) != "[SignalProcess SignalProcess]" {
+	if fmt.Sprint(fake.calls) != "[SignalProcess AcknowledgeSignal SignalProcess AcknowledgeSignal]" {
 		t.Fatalf("kill calls = %v", fake.calls)
+	}
+}
+
+func TestKillPersistsAndDeduplicatesLostSignalReply(t *testing.T) {
+	bundle := t.TempDir()
+	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	fake := &signalReplyLossAgent{bundle: bundle}
+	p := &process{status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	s := &service{id: "task", namespace: "tests", bundle: bundle, agent: fake,
+		relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second,
+		sandbox:   protocol.Sandbox{ID: sandboxID("tests", "task"), Generation: strings.Repeat("a", 32)},
+		processes: map[string]*process{"": p}}
+	if _, err := s.Kill(context.Background(), &taskapi.KillRequest{ID: "task", Signal: uint32(syscall.SIGUSR1)}); err != nil {
+		t.Fatal(err)
+	}
+	if fake.calls != 2 || fake.applied != 1 || fake.reconnects != 1 || fake.ackCalls != 1 || !fake.durable {
+		t.Fatalf("signal calls=%d applied=%d reconnects=%d acknowledgements=%d durable=%v", fake.calls, fake.applied, fake.reconnects, fake.ackCalls, fake.durable)
+	}
+	if p.pendingSignalOperation != "" || p.pendingSignal != 0 {
+		t.Fatalf("acknowledged signal intent = %q/%d", p.pendingSignalOperation, p.pendingSignal)
+	}
+	data, err := os.ReadFile(filepath.Join(bundle, ".multikernel", "sandbox.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved persisted
+	if err = json.Unmarshal(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Processes) != 1 || saved.Processes[0].PendingSignalOp != "" || saved.Processes[0].PendingSignal != 0 {
+		t.Fatalf("durable acknowledged signal = %+v", saved.Processes)
 	}
 }
 
@@ -3115,7 +3221,7 @@ func TestPauseResumeSignalsGuestAndPublishesTransitions(t *testing.T) {
 	if s.processes[""].status != tasktypes.Status_RUNNING || s.processes["exec"].status != tasktypes.Status_RUNNING {
 		t.Fatalf("resume statuses = init:%v exec:%v", s.processes[""].status, s.processes["exec"].status)
 	}
-	if len(fakeAgent.calls) != 4 {
+	if len(fakeAgent.calls) != 8 {
 		t.Fatalf("agent calls = %v", fakeAgent.calls)
 	}
 	if len(fakeEvents.topics) != 2 || fakeEvents.topics[0] != ctruntime.TaskPausedEventTopic || fakeEvents.topics[1] != ctruntime.TaskResumedEventTopic {
@@ -3890,6 +3996,8 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	recovery.Network = validShimEndpoint(task, sandbox.ID, sandbox.Generation, networkGeneration, "/run/netns/task-a")
 	recovery.Processes[0].Status = tasktypes.Status_RUNNING
 	recovery.Processes[0].PID = 41
+	recovery.Processes[0].PendingSignal = uint32(syscall.SIGUSR1)
+	recovery.Processes[0].PendingSignalOp = strings.Repeat("d", 32)
 	stdout := filepath.Join(bundle, "stdout")
 	if err := os.WriteFile(stdout, nil, 0600); err != nil {
 		t.Fatal(err)
@@ -3966,6 +4074,12 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	fakeAgent.mu.Unlock()
 	if reconnects != 1 {
 		t.Fatalf("recovery reconnects = %d, want 1", reconnects)
+	}
+	fakeAgent.mu.Lock()
+	recoveredSignal := fakeAgent.recoveredSignal
+	fakeAgent.mu.Unlock()
+	if !recoveredSignal || process.pendingSignalOperation != "" || process.pendingSignal != 0 {
+		t.Fatalf("recovered signal replay=%v pending=%q/%d", recoveredSignal, process.pendingSignalOperation, process.pendingSignal)
 	}
 	select {
 	case <-process.done:
@@ -4528,6 +4642,21 @@ func TestRecoveryStateIsBoundedStrictAndIdentityBound(t *testing.T) {
 		}
 	})
 
+	t.Run("valid stopped signal acknowledgement", func(t *testing.T) {
+		value := valid
+		value.Processes = append([]persistedProcess(nil), valid.Processes...)
+		value.Processes[0].PendingSignal = uint32(syscall.SIGTERM)
+		value.Processes[0].PendingSignalOp = strings.Repeat("f", 32)
+		value.Processes[0].PendingSignalAck = true
+		path := filepath.Join(t.TempDir(), "sandbox.json")
+		if err := os.WriteFile(path, encode(t, value), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, found, err := loadPersistedRecovery(path, namespace, task); err != nil || !found {
+			t.Fatalf("stopped signal acknowledgement found=%v error=%v", found, err)
+		}
+	})
+
 	for name, mutate := range map[string]func(*persisted){
 		"legacy schema":    func(value *persisted) { value.SchemaVersion = 1 },
 		"wrong sandbox":    func(value *persisted) { value.ID = sandboxID(namespace, "other") },
@@ -4546,6 +4675,25 @@ func TestRecoveryStateIsBoundedStrictAndIdentityBound(t *testing.T) {
 		},
 		"oversized pending stdin": func(value *persisted) {
 			value.Processes[0].StdinPending = make([]byte, (32<<10)+1)
+		},
+		"signal without operation": func(value *persisted) {
+			value.Processes[0].PendingSignal = uint32(syscall.SIGTERM)
+		},
+		"signal acknowledgement without operation": func(value *persisted) {
+			value.Processes[0].PendingSignalAck = true
+		},
+		"malformed signal operation": func(value *persisted) {
+			value.Processes[0].Status = tasktypes.Status_RUNNING
+			value.Processes[0].PendingSignalOp = "short"
+		},
+		"signal operation on stopped process": func(value *persisted) {
+			value.Processes[0].PendingSignal = uint32(syscall.SIGTERM)
+			value.Processes[0].PendingSignalOp = strings.Repeat("e", 32)
+		},
+		"unsupported pending signal": func(value *persisted) {
+			value.Processes[0].Status = tasktypes.Status_RUNNING
+			value.Processes[0].PendingSignal = 65
+			value.Processes[0].PendingSignalOp = strings.Repeat("e", 32)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

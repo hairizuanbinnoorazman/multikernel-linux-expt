@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -106,6 +107,12 @@ type process struct {
 	done                 chan struct{}
 	state                ProcessState
 	waited               bool
+}
+
+type signalResult struct {
+	id     string
+	signal syscall.Signal
+	err    string
 }
 
 type lockedBuffer struct {
@@ -218,11 +225,15 @@ type Manager struct {
 	dnsManaged    bool
 	dnsPath       string
 	policySet     bool
+	signalProcess func(int, syscall.Signal) error
+	signalResults map[string]signalResult
+	signalOrder   []string
 	NoChroot      bool
 }
 
 func NewManager(noChroot bool) *Manager {
-	return &Manager{processes: map[string]*process{}, networkExec: runNetworkCommand, dnsPath: "/bundle/rootfs/etc/resolv.conf", NoChroot: noChroot}
+	return &Manager{processes: map[string]*process{}, networkExec: runNetworkCommand,
+		dnsPath: "/bundle/rootfs/etc/resolv.conf", signalProcess: syscall.Kill, NoChroot: noChroot}
 }
 
 func strictJSON(path string, v any) error {
@@ -806,7 +817,74 @@ func (m *Manager) Signal(id string, sig syscall.Signal) error {
 	if !ok || p.cmd == nil || p.state.Status != "RUNNING" {
 		return errors.New("process is not running")
 	}
-	return syscall.Kill(-p.cmd.Process.Pid, sig)
+	return m.signalProcess(-p.cmd.Process.Pid, sig)
+}
+
+var signalOperationID = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+const maxSignalResults = 4096
+
+// SignalOnce makes an arbitrary process signal replay-safe across an agent
+// transport reconnect. The operation ID is generation-scoped by the
+// authenticated server and may name only one exact process/signal mutation.
+func (m *Manager) SignalOnce(id string, sig syscall.Signal, operationID string) error {
+	if !signalOperationID.MatchString(operationID) {
+		return errors.New("signal operation ID must be 32 lowercase hexadecimal characters")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if result, exists := m.signalResults[operationID]; exists {
+		if result.id != id || result.signal != sig {
+			return errors.New("signal operation ID was reused with a different target or signal")
+		}
+		if result.err != "" {
+			return errors.New(result.err)
+		}
+		return nil
+	}
+	p, ok := m.processes[id]
+	if !ok || p.cmd == nil || p.state.Status != "RUNNING" {
+		return errors.New("process is not running")
+	}
+	if m.signalResults == nil {
+		m.signalResults = make(map[string]signalResult)
+	}
+	if len(m.signalResults) >= maxSignalResults {
+		return errors.New("signal replay ledger is full")
+	}
+	err := m.signalProcess(-p.cmd.Process.Pid, sig)
+	result := signalResult{id: id, signal: sig}
+	if err != nil {
+		result.err = err.Error()
+	}
+	m.signalResults[operationID] = result
+	m.signalOrder = append(m.signalOrder, operationID)
+	return err
+}
+
+// AcknowledgeSignal retires a durably observed signal result. Absence is an
+// idempotent success so loss of the acknowledgement reply is replay-safe.
+func (m *Manager) AcknowledgeSignal(id, operationID string) error {
+	if !signalOperationID.MatchString(operationID) {
+		return errors.New("signal operation ID must be 32 lowercase hexadecimal characters")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result, exists := m.signalResults[operationID]
+	if !exists {
+		return nil
+	}
+	if result.id != id {
+		return errors.New("signal operation ID acknowledgement target differs")
+	}
+	delete(m.signalResults, operationID)
+	for index, value := range m.signalOrder {
+		if value == operationID {
+			m.signalOrder = append(m.signalOrder[:index], m.signalOrder[index+1:]...)
+			break
+		}
+	}
+	return nil
 }
 
 func (m *Manager) Quiescent() bool {
@@ -953,6 +1031,18 @@ func (m *Manager) Delete(id string) error {
 		return errors.New("process exit has not been waited")
 	}
 	delete(m.processes, id)
+	for operationID, result := range m.signalResults {
+		if result.id == id {
+			delete(m.signalResults, operationID)
+		}
+	}
+	order := m.signalOrder[:0]
+	for _, operationID := range m.signalOrder {
+		if _, exists := m.signalResults[operationID]; exists {
+			order = append(order, operationID)
+		}
+	}
+	m.signalOrder = order
 	return nil
 }
 

@@ -80,6 +80,9 @@ type process struct {
 	exitEventQueued                bool
 	deleteEventQueued              bool
 	deleting                       bool
+	pendingSignal                  uint32
+	pendingSignalOperation         string
+	pendingSignalAcknowledgement   bool
 }
 
 const processOutputChunk = 4096
@@ -450,6 +453,9 @@ type persistedProcess struct {
 	StderrOffset      uint64            `json:"stderr_offset,omitempty"`
 	ExitEventQueued   bool              `json:"exit_event_queued,omitempty"`
 	DeleteEventQueued bool              `json:"delete_event_queued,omitempty"`
+	PendingSignal     uint32            `json:"pending_signal,omitempty"`
+	PendingSignalOp   string            `json:"pending_signal_operation,omitempty"`
+	PendingSignalAck  bool              `json:"pending_signal_acknowledgement,omitempty"`
 }
 
 type processIOIdentity struct {
@@ -514,6 +520,12 @@ func validatePersistedRecovery(value persisted, namespace, task string) error {
 		if process.Status != tasktypes.Status_CREATED && process.Status != tasktypes.Status_RUNNING &&
 			process.Status != tasktypes.Status_PAUSED && process.Status != tasktypes.Status_STOPPED {
 			return errors.New("shim recovery contains an invalid process state")
+		}
+		if process.PendingSignalOp == "" && (process.PendingSignal != 0 || process.PendingSignalAck) || process.PendingSignalOp != "" &&
+			(!recoveryGeneration.MatchString(process.PendingSignalOp) || process.PendingSignal > 64 ||
+				process.Status != tasktypes.Status_RUNNING && process.Status != tasktypes.Status_PAUSED &&
+					!(process.PendingSignalAck && process.Status == tasktypes.Status_STOPPED)) {
+			return errors.New("shim recovery contains an invalid pending signal")
 		}
 		if process.Width > 65535 || process.Height > 65535 || process.StdinCloseAcked &&
 			(!process.StdinClosed || len(process.StdinPending) != 0) {
@@ -646,6 +658,14 @@ func randomToken() ([]byte, string, error) {
 	return b, hex.EncodeToString(b), nil
 }
 
+func newSignalOperationID() (string, error) {
+	b := make([]byte, 16)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
 func loadExistingToken(runtimeDir string) ([]byte, string, error) {
 	path := filepath.Join(runtimeDir, "token")
 	info, err := os.Lstat(path)
@@ -774,6 +794,8 @@ func (s *service) persistRecovery() error {
 			PID: process.pid, Exit: process.exit, Exited: process.exited,
 			StdoutOffset: process.stdoutOffset, StderrOffset: process.stderrOffset,
 			ExitEventQueued: process.exitEventQueued, DeleteEventQueued: process.deleteEventQueued,
+			PendingSignal: process.pendingSignal, PendingSignalOp: process.pendingSignalOperation,
+			PendingSignalAck: process.pendingSignalAcknowledgement,
 		})
 	}
 	sort.Slice(p.Processes, func(i, j int) bool { return p.Processes[i].ID < p.Processes[j].ID })
@@ -1187,7 +1209,13 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 		agentID string
 		process *process
 	}
+	type recoveredSignalAcknowledgement struct {
+		agentID, operationID string
+		process              *process
+		signal               uint32
+	}
 	var running []recoveredProcess
+	var signalAcknowledgements []recoveredSignalAcknowledgement
 	for _, saved := range recovery.Processes {
 		p := &process{
 			id: saved.ID, stdin: saved.Stdin, stdout: saved.Stdout, stderr: saved.Stderr,
@@ -1198,6 +1226,8 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			pid: saved.PID, exit: saved.Exit, exited: saved.Exited,
 			stdoutOffset: saved.StdoutOffset, stderrOffset: saved.StderrOffset,
 			exitEventQueued: saved.ExitEventQueued, deleteEventQueued: saved.DeleteEventQueued, done: make(chan struct{}),
+			pendingSignal: saved.PendingSignal, pendingSignalOperation: saved.PendingSignalOp,
+			pendingSignalAcknowledgement: saved.PendingSignalAck,
 		}
 		s.processes[saved.ID] = p
 		if p.status == tasktypes.Status_STOPPED {
@@ -1245,6 +1275,12 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
 			}
 			p.status, p.pid, p.exit, p.stdinPending = tasktypes.Status_STOPPED, pid, exit, nil
+			if p.pendingSignalOperation != "" {
+				p.pendingSignalAcknowledgement = true
+				signalAcknowledgements = append(signalAcknowledgements, recoveredSignalAcknowledgement{
+					agentID: agentID, operationID: p.pendingSignalOperation, process: p, signal: p.pendingSignal,
+				})
+			}
 			p.exited = time.Now().UTC()
 			if err = s.publishExit(ctx, p.id, p); err != nil {
 				return fmt.Errorf("recover stopped process %q exit event: %w", saved.ID, err)
@@ -1258,6 +1294,19 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			return fmt.Errorf("recover process %q: %w", saved.ID, pidErr)
 		}
 		p.pid = guestPID
+		if p.pendingSignalOperation != "" {
+			if !p.pendingSignalAcknowledgement {
+				signalErr := s.signalGuestProcess(ctx, agentID, p.pendingSignal, p.pendingSignalOperation)
+				var remoteError *agent.RemoteError
+				if signalErr != nil && !errors.As(signalErr, &remoteError) {
+					return fmt.Errorf("recover process %q pending signal: %w", saved.ID, signalErr)
+				}
+				p.pendingSignalAcknowledgement = true
+			}
+			signalAcknowledgements = append(signalAcknowledgements, recoveredSignalAcknowledgement{
+				agentID: agentID, operationID: p.pendingSignalOperation, process: p, signal: p.pendingSignal,
+			})
+		}
 		if p.terminal && p.sizeSet {
 			if err = s.resizeGuestProcess(ctx, agentID, p.width, p.height); err != nil {
 				return fmt.Errorf("recover process %q terminal size: %w", saved.ID, err)
@@ -1277,6 +1326,22 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	}
 	if err = s.persistRecovery(); err != nil {
 		return fmt.Errorf("persist reconstructed process state: %w", err)
+	}
+	for _, item := range signalAcknowledgements {
+		if err = s.acknowledgeGuestSignal(ctx, item.agentID, item.operationID); err != nil {
+			return fmt.Errorf("acknowledge recovered process %q signal: %w", item.process.id, err)
+		}
+		item.process.pendingSignal, item.process.pendingSignalOperation, item.process.pendingSignalAcknowledgement = 0, "", false
+	}
+	if len(signalAcknowledgements) != 0 {
+		if err = s.persistRecovery(); err != nil {
+			for _, item := range signalAcknowledgements {
+				item.process.pendingSignal = item.signal
+				item.process.pendingSignalOperation = item.operationID
+				item.process.pendingSignalAcknowledgement = true
+			}
+			return fmt.Errorf("persist recovered signal acknowledgement: %w", err)
+		}
 	}
 	recovered = true
 	return nil
@@ -2107,9 +2172,19 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 func (s *service) killStartedProcess(ctx context.Context, processID string) error {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	err := s.agent.CallContext(cleanupCtx, "SignalProcess", map[string]any{
-		"ID": processID, "Signal": strconv.Itoa(int(syscall.SIGKILL)),
-	}, nil)
+	operationID, err := newSignalOperationID()
+	if err != nil {
+		return fmt.Errorf("create cleanup signal identity: %w", err)
+	}
+	err = s.signalGuestProcess(cleanupCtx, processID, uint32(syscall.SIGKILL), operationID)
+	if err == nil {
+		err = s.acknowledgeGuestSignal(cleanupCtx, processID, operationID)
+	} else {
+		var remoteError *agent.RemoteError
+		if errors.As(err, &remoteError) {
+			err = errors.Join(err, s.acknowledgeGuestSignal(cleanupCtx, processID, operationID))
+		}
+	}
 	if agentNotFound(err) {
 		return nil
 	}
@@ -2533,14 +2608,34 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		closeProcessIO(p)
 		oldStatus, oldPID, oldExit, oldExited := p.status, p.pid, p.exit, p.exited
 		oldPending := append([]byte(nil), p.stdinPending...)
+		oldSignal, oldSignalOperation, oldSignalAck := p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement
 		p.status, p.pid, p.exit, p.exited, p.stdinPending = tasktypes.Status_STOPPED, pid, exit, now, nil
+		if p.pendingSignalOperation != "" {
+			p.pendingSignalAcknowledgement = true
+		}
 		if err = s.persistRecovery(); err == nil {
 			break
 		}
 		p.status, p.pid, p.exit, p.exited, p.stdinPending = oldStatus, oldPID, oldExit, oldExited, oldPending
+		p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement = oldSignal, oldSignalOperation, oldSignalAck
 		s.mu.Unlock()
 		fmt.Fprintf(os.Stderr, "multikernel exit state persistence: %v\n", err)
 		time.Sleep(100 * time.Millisecond)
+	}
+	if p.pendingSignalOperation != "" {
+		operationID, signal := p.pendingSignalOperation, p.pendingSignal
+		ackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ackErr := s.acknowledgeGuestSignal(ackCtx, agentID, operationID)
+		cancel()
+		if ackErr != nil {
+			fmt.Fprintf(os.Stderr, "multikernel signal acknowledgement: %v\n", ackErr)
+		} else {
+			p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement = 0, "", false
+			if err = s.persistRecovery(); err != nil {
+				p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement = signal, operationID, true
+				fmt.Fprintf(os.Stderr, "multikernel signal acknowledgement persistence: %v\n", err)
+			}
+		}
 	}
 	if err := s.publishExit(context.Background(), execID, p); err != nil {
 		fmt.Fprintf(os.Stderr, "multikernel exit event queue: %v\n", err)
@@ -2655,6 +2750,37 @@ func (s *service) resizeGuestProcess(ctx context.Context, id string, width, heig
 	}, nil)
 }
 
+func (s *service) signalGuestProcess(ctx context.Context, id string, signal uint32, operationID string) error {
+	return s.callAgentWithReconnectContext(ctx, "SignalProcess", map[string]any{
+		"ID": id, "Signal": strconv.FormatUint(uint64(signal), 10), "operation_id": operationID,
+	}, nil)
+}
+
+func (s *service) acknowledgeGuestSignal(ctx context.Context, id, operationID string) error {
+	return s.callAgentWithReconnectContext(ctx, "AcknowledgeSignal", map[string]any{
+		"ID": id, "operation_id": operationID,
+	}, nil)
+}
+
+func (s *service) applyGuestSignal(ctx context.Context, id string, signal uint32) error {
+	operationID, err := newSignalOperationID()
+	if err != nil {
+		return fmt.Errorf("create process signal identity: %w", err)
+	}
+	if err = s.signalGuestProcess(ctx, id, signal, operationID); err != nil {
+		var remoteError *agent.RemoteError
+		if !errors.As(err, &remoteError) {
+			return err
+		}
+		ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		return errors.Join(err, s.acknowledgeGuestSignal(ackCtx, id, operationID))
+	}
+	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	return s.acknowledgeGuestSignal(ackCtx, id, operationID)
+}
+
 // deliverOutput advances a guest offset only after the complete chunk reaches
 // its destination. Chunks are capped at Linux PIPE_BUF by waitProcess, making
 // nonblocking FIFO writes all-or-nothing. A permanently absent/slow consumer
@@ -2756,7 +2882,6 @@ func (s *service) Kill(ctx context.Context, r *taskapi.KillRequest) (*emptypb.Em
 		return nil, err
 	}
 	p, ok := s.processes[r.ExecID]
-	client := s.agent
 	if !ok {
 		s.mu.Unlock()
 		return nil, errdefs.ErrNotFound
@@ -2765,15 +2890,72 @@ func (s *service) Kill(ctx context.Context, r *taskapi.KillRequest) (*emptypb.Em
 		s.mu.Unlock()
 		return nil, errdefs.ErrFailedPrecondition
 	}
+	if s.agent == nil {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
+	operationID := p.pendingSignalOperation
+	if operationID != "" && p.pendingSignal != r.Signal {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("%w: a different signal remains unacknowledged", errdefs.ErrFailedPrecondition)
+	}
+	if operationID == "" {
+		var err error
+		operationID, err = newSignalOperationID()
+		if err != nil {
+			s.mu.Unlock()
+			return nil, fmt.Errorf("create signal operation identity: %w", err)
+		}
+		p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement = r.Signal, operationID, false
+		if err = s.persistRecovery(); err != nil {
+			p.pendingSignal, p.pendingSignalOperation = 0, ""
+			s.mu.Unlock()
+			return nil, fmt.Errorf("persist signal intent: %w", err)
+		}
+	}
+	resultObserved := p.pendingSignalAcknowledgement
 	s.mu.Unlock()
 	id := r.ExecID
 	if id == "" {
 		id = "init"
 	}
-	if client == nil {
-		return nil, errdefs.ErrFailedPrecondition
+	var signalErr error
+	if !resultObserved {
+		signalErr = s.signalGuestProcess(ctx, id, r.Signal, operationID)
+		var remoteError *agent.RemoteError
+		if signalErr != nil && !errors.As(signalErr, &remoteError) {
+			return nil, signalErr
+		}
+		s.mu.Lock()
+		if current, exists := s.processes[r.ExecID]; exists && current == p && current.pendingSignalOperation == operationID {
+			current.pendingSignalAcknowledgement = true
+			if err := s.persistRecovery(); err != nil {
+				current.pendingSignalAcknowledgement = false
+				s.mu.Unlock()
+				return nil, errors.Join(signalErr, fmt.Errorf("persist observed signal result: %w", err))
+			}
+		}
+		s.mu.Unlock()
 	}
-	if err := client.CallContext(ctx, "SignalProcess", map[string]any{"ID": id, "Signal": strconv.FormatUint(uint64(r.Signal), 10)}, nil); err != nil {
+	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	ackErr := s.acknowledgeGuestSignal(ackCtx, id, operationID)
+	cancel()
+	if ackErr != nil {
+		return nil, errors.Join(signalErr, fmt.Errorf("acknowledge guest signal result: %w", ackErr))
+	}
+	s.mu.Lock()
+	var clearErr error
+	if current, exists := s.processes[r.ExecID]; exists && current == p && current.pendingSignalOperation == operationID {
+		current.pendingSignal, current.pendingSignalOperation, current.pendingSignalAcknowledgement = 0, "", false
+		if clearErr = s.persistRecovery(); clearErr != nil {
+			current.pendingSignal, current.pendingSignalOperation, current.pendingSignalAcknowledgement = r.Signal, operationID, true
+		}
+	}
+	s.mu.Unlock()
+	if clearErr != nil {
+		clearErr = fmt.Errorf("persist retired signal intent: %w", clearErr)
+	}
+	if err := errors.Join(signalErr, clearErr); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -3245,21 +3427,22 @@ func (s *service) signalTargets(status tasktypes.Status) []processSignalTarget {
 	return result
 }
 
-func signalProcessTargets(ctx context.Context, client agentClient, targets []processSignalTarget, signal syscall.Signal) (int, error) {
+func (s *service) signalProcessTargets(ctx context.Context, targets []processSignalTarget, signal syscall.Signal) (int, error) {
 	for index, target := range targets {
-		if err := client.CallContext(ctx, "SignalProcess", map[string]any{"ID": target.id, "Signal": strconv.Itoa(int(signal))}, nil); err != nil {
+		if err := s.applyGuestSignal(ctx, target.id, uint32(signal)); err != nil {
 			return index, err
 		}
 	}
 	return len(targets), nil
 }
 
-func rollbackProcessSignals(client agentClient, targets []processSignalTarget, signal syscall.Signal) error {
+func (s *service) rollbackProcessSignals(targets []processSignalTarget, signal syscall.Signal) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var failures []error
 	for index := len(targets) - 1; index >= 0; index-- {
-		if err := client.CallContext(ctx, "SignalProcess", map[string]any{"ID": targets[index].id, "Signal": strconv.Itoa(int(signal))}, nil); err != nil {
+		err := s.applyGuestSignal(ctx, targets[index].id, uint32(signal))
+		if err != nil {
 			failures = append(failures, fmt.Errorf("rollback process %s: %w", targets[index].id, err))
 		}
 	}
@@ -3288,15 +3471,15 @@ func (s *service) Pause(ctx context.Context, r *taskapi.PauseRequest) (*emptypb.
 		return nil, errdefs.ErrFailedPrecondition
 	}
 	targets := s.signalTargets(tasktypes.Status_RUNNING)
-	signaled, err := signalProcessTargets(ctx, s.agent, targets, syscall.SIGSTOP)
+	signaled, err := s.signalProcessTargets(ctx, targets, syscall.SIGSTOP)
 	if err != nil {
-		return nil, errors.Join(err, rollbackProcessSignals(s.agent, targets[:signaled], syscall.SIGCONT))
+		return nil, errors.Join(err, s.rollbackProcessSignals(targets[:signaled], syscall.SIGCONT))
 	}
 	for _, target := range targets {
 		target.process.status = tasktypes.Status_PAUSED
 	}
 	if err := s.persistRecovery(); err != nil {
-		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGCONT)
+		rollbackErr := s.rollbackProcessSignals(targets, syscall.SIGCONT)
 		for _, target := range targets {
 			target.process.status = tasktypes.Status_RUNNING
 		}
@@ -3307,7 +3490,7 @@ func (s *service) Pause(ctx context.Context, r *taskapi.PauseRequest) (*emptypb.
 		return nil, errors.Join(fmt.Errorf("persist paused state: %w", err), rollbackErr, persistErr)
 	}
 	if err := s.publish(ctx, ctruntime.TaskPausedEventTopic, &eventstypes.TaskPaused{ContainerID: s.id}); err != nil {
-		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGCONT)
+		rollbackErr := s.rollbackProcessSignals(targets, syscall.SIGCONT)
 		for _, target := range targets {
 			target.process.status = tasktypes.Status_RUNNING
 		}
@@ -3341,15 +3524,15 @@ func (s *service) Resume(ctx context.Context, r *taskapi.ResumeRequest) (*emptyp
 		return nil, errdefs.ErrFailedPrecondition
 	}
 	targets := s.signalTargets(tasktypes.Status_PAUSED)
-	signaled, err := signalProcessTargets(ctx, s.agent, targets, syscall.SIGCONT)
+	signaled, err := s.signalProcessTargets(ctx, targets, syscall.SIGCONT)
 	if err != nil {
-		return nil, errors.Join(err, rollbackProcessSignals(s.agent, targets[:signaled], syscall.SIGSTOP))
+		return nil, errors.Join(err, s.rollbackProcessSignals(targets[:signaled], syscall.SIGSTOP))
 	}
 	for _, target := range targets {
 		target.process.status = tasktypes.Status_RUNNING
 	}
 	if err := s.persistRecovery(); err != nil {
-		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGSTOP)
+		rollbackErr := s.rollbackProcessSignals(targets, syscall.SIGSTOP)
 		for _, target := range targets {
 			target.process.status = tasktypes.Status_PAUSED
 		}
@@ -3360,7 +3543,7 @@ func (s *service) Resume(ctx context.Context, r *taskapi.ResumeRequest) (*emptyp
 		return nil, errors.Join(fmt.Errorf("persist resumed state: %w", err), rollbackErr, persistErr)
 	}
 	if err := s.publish(ctx, ctruntime.TaskResumedEventTopic, &eventstypes.TaskResumed{ContainerID: s.id}); err != nil {
-		rollbackErr := rollbackProcessSignals(s.agent, targets, syscall.SIGSTOP)
+		rollbackErr := s.rollbackProcessSignals(targets, syscall.SIGSTOP)
 		for _, target := range targets {
 			target.process.status = tasktypes.Status_PAUSED
 		}

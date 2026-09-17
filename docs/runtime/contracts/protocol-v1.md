@@ -39,7 +39,7 @@ Daemon methods are `NodeInfo`, `ListSandboxes`, `CreateSandbox`,
 internal rollback operation bound to the exact original create idempotency key
 and full configuration fingerprint; it is not a general deletion shortcut.
 Agent methods are `Capabilities`, `CreateProcess`,
-`ExecProcess`, `StartProcess`, `SignalProcess`, `ResizeProcess`, `WriteProcess`,
+`ExecProcess`, `StartProcess`, `SignalProcess`, `AcknowledgeSignal`, `ResizeProcess`, `WriteProcess`,
 `CloseProcessStdin`, `ReadProcessOutput`, `WaitProcess`, `StateProcess`,
 `DeleteProcess`, `ConfigureNetwork`, `ExchangeNetwork`, `CloseNetwork`,
 `Quiesce`, and `Shutdown`. Stdin writes and output reads are limited to 64 KiB
@@ -55,6 +55,16 @@ prefix position and an exact replay resumes with the unaccepted suffix; the
 acknowledged offset advances only after the complete chunk is accepted.
 Omitting the offset retains the original protocol-v1 behavior for an older
 controller but does not provide reconnect-safe replay.
+The advertised `signal-operation-id-v1` capability adds a generation-scoped
+32-character lowercase hexadecimal `operation_id` to `SignalProcess`. The
+guest retains a bounded ledger of the exact process ID, signal, and result. An
+exact replay returns that result without signaling again, including after the
+process has exited; reuse for another process or signal is rejected. The guest
+refuses a new mutation before signaling when the ledger is full and never
+evicts an unresolved result. `AcknowledgeSignal` idempotently retires an exact
+result only after the controller has durably observed it; process deletion also
+retires that process's results. Omitting the field retains legacy one-shot
+behavior and is not reply-loss safe.
 `ExecProcess` names an existing parent process and inherits its already
 validated container root; it cannot supply an arbitrary root path. Process
 state and wait replies contain metadata only. Output is retrieved through

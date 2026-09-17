@@ -812,7 +812,17 @@ normative plan is revised with an explicit rationale.
   five-second `SIGKILL` is attempted. Signal errors are returned and
   authenticated `NOT_FOUND` confirms cleanup. Injected recovery/signal failure
   retains PID 41 and later records exact exit 9 in 100 race-detector
-  repetitions. Start and reconstruction also reject positive agent PIDs above
+  repetitions. Task Kill now persists a generation-scoped signal operation ID before guest
+  contact. The advertised `signal-operation-id-v1` guest ledger returns exact
+  replay without signaling twice, including after process exit, and rejects
+  cross-target or changed-signal reuse. It refuses before mutation rather than
+  evicting an unresolved result when its 4,096-entry bound is full, while
+  idempotent `AcknowledgeSignal` retires durably observed results. Lost-reply
+  Kill performs two calls, one reconnect, and one applied signal through its
+  durable intent/result/retirement phases; reconstruction resumes the recorded
+  phase, and cleanup/pause/resume use the same primitive. The focused matrices
+  pass 100 race-detector repetitions.
+  Start and reconstruction also reject positive agent PIDs above
   Task v2's `uint32` range instead of truncating them. An injected oversized
   PID retains durable unverified ownership without publishing a start event,
   stays monitored through cleanup, and passes 100 race-detector repetitions.
