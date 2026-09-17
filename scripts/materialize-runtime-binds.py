@@ -14,6 +14,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
+import shutil
 import stat
 import subprocess
 import sys
@@ -96,11 +97,17 @@ def destination_directory(root: Path, destination: str) -> Path:
             raise MaterializationError(f"bind destination parent is not a real directory: {destination}")
     target = current / parts[-1]
     try:
-        target.lstat()
+        info = target.lstat()
     except FileNotFoundError:
         target.mkdir(mode=0o755)
     else:
-        raise MaterializationError(f"bind destination already exists in the OCI root: {destination}")
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            raise MaterializationError(f"existing bind destination is not a real directory: {destination}")
+        # This is the private staging copy, not the caller-owned OCI snapshot.
+        # Replacing its verified directory reproduces the hiding semantics of
+        # a bind mount without exposing the host source inside the child.
+        shutil.rmtree(target)
+        target.mkdir(mode=0o755)
     return target
 
 

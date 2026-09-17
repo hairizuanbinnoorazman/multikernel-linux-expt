@@ -144,14 +144,16 @@ normative plan is revised with an explicit rationale.
   inputs expressed as standard read-only `bind` or `rbind` mounts, including
   Docker's `rbind,rprivate,ro` form, and normalizes them to the stricter guest
   `bind,ro,nodev,nosuid,noexec` policy. The primary rejects writable, shared,
-  slave, unknown, protected, overlapping, symlinked, or pre-existing
-  destinations, manifests
+  slave, unknown, protected, overlapping, symlinked, or non-directory
+  destinations. Existing real directories are replaced only in the private
+  staging copy to reproduce bind-mount hiding semantics. The primary manifests
   each source before/after archive-semantic materialization, compares the copy,
   and retains a daemon-verified digest-bearing manifest. Numeric UID/GID and
   admitted metadata are preserved, propagation is explicitly absent, original
   host paths are removed from the guest projection, and the agent self-binds
   the materialized directory read-only before process creation. Focused tests
-  cover copy identity, collisions, symlinks, mutation, malformed provenance,
+  cover copy identity, destination replacement/type rejection, symlinks,
+  mutation, malformed provenance,
   and guest fail-closed parsing. Writable host volumes, configured persistence,
   and privileged live read-only enforcement remain open.
 - [ ] Add capacity accounting, block/inode quotas, a high-water refusal policy,
