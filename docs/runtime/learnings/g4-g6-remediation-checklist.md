@@ -1,6 +1,6 @@
 # G4-G6 remediation and live-evidence checklist
 
-Audit date: 2026-09-02; implementation status refreshed 2026-09-06
+Audit date: 2026-09-02; implementation status refreshed 2026-09-17
 
 This is the implementation and evidence handoff for gates G4, G5, and G6. The
 existing GCE runs demonstrate a useful executable MVP, but they do not close
@@ -26,6 +26,32 @@ The canonical gate rows in [`../plans/README.md`](../plans/README.md) and
 [`../../project/TASKS.md`](../../project/TASKS.md) must remain unchecked until
 the corresponding unchecked work in this document is either completed or the
 normative plan is revised with an explicit rationale.
+
+## Continuation checkpoint: 2026-09-17
+
+The current branch contains committed implementation progress through
+`0bcbe0f`, including replay-safe guest signals, primary-side materialization of
+bounded read-only directory and regular-file bind inputs, an authenticated
+guest capability handshake, standard Docker/`ctr` read-only bind option
+normalization, and bind-destination hiding semantics. The corresponding
+focused fault tests, 100-iteration race-detector groups, full
+`go test -race -count=1 ./...`, `go vet ./...`, and `scripts/check-docs.sh`
+passed locally before this checkpoint. These are local implementation results,
+not replacement-instance evidence.
+
+Disposable instance `mklinux-g4-g6-final-20260905` in
+`asia-southeast1-b` was observed `TERMINATED` and restarted on 2026-09-17. GCE
+then reported it `RUNNING`, with start timestamp
+`2026-09-17T05:31:55.506-07:00`, internal address `10.148.0.56`, and ephemeral
+external address `34.126.167.148`. This is an operator observation only: no new
+evidence bundle was created, and the replacement instance has not yet been
+qualified against or populated with the current source revision.
+
+Source transfer and new retained infrastructure evidence remain deliberately
+paused pending the exact authorization:
+`Approved: upload the source-only archive and retain the described infrastructure evidence.`
+Until that authorization is supplied, local remediation may continue, but no
+current-revision live claim may be marked proved.
 
 ## Retained instance runs and evidence quality
 
@@ -762,9 +788,10 @@ normative plan is revised with an explicit rationale.
   supplementary groups all fail before allocation or guest process mutation.
   Focused adapter and guest tests cover these hostile shapes.
   The supported mount subset now additionally includes at most eight
-  non-overlapping materialized read-only directory inputs with fixed
-  `nodev,nosuid,noexec` policy. All writable, propagation, protected-path,
-  noncanonical, conflicting, and unsanitized bind forms remain fail-closed;
+  non-overlapping materialized read-only directory or private single-link
+  regular-file inputs with fixed `nodev,nosuid,noexec` policy. Writable,
+  shared/slave or unsupported propagation, protected-path, noncanonical,
+  conflicting, and unsanitized bind forms remain fail-closed;
   the agent advertises this additive subset as `readonly-bind-inputs-v1`.
   Initial connection and reconstruction now perform an authenticated bounded
   capability handshake and require unique complete protocol/OCI feature sets,
