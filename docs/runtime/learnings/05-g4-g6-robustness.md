@@ -889,9 +889,11 @@ requires the copied manifest to match, and publishes a normalized manifest
 whose digest and summary are independently checked by the rootfs daemon during
 build and recovery. Host paths never enter the child. The agent advertises the
 subset, validates the sanitized destinations again, then self-binds and
-remounts them read-only before the first process. Local fault tests cover
-metadata/link preservation, existing destinations, symlinked sources, injected
-source mutation, malformed provenance, and unsanitized guest configurations.
+remounts them read-only before the first process. Existing real destination
+directories are replaced only in the private staging copy, reproducing normal
+bind hiding without mutating the caller snapshot. Local fault tests cover
+metadata/link preservation, destination replacement/type rejection, symlinked
+sources, injected source mutation, malformed provenance, and unsanitized guest configurations.
 Privileged guest write rejection, writable volumes, configured persistence,
 and current-revision disposable-host evidence remain open.
 

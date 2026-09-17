@@ -105,8 +105,11 @@ Numeric UID/GID, modes, links, and admitted content are preserved. Propagation
 is deliberately `none`: this is a point-in-time materialized input, not a live
 host bind. Before the first process, the guest bind-mounts the materialized
 destination onto itself and remounts it `ro,nodev,nosuid,noexec`. Existing
-destinations, nested inputs, source symlinks, mutation, writable options, and
-shared/slave or unsupported propagation options fail closed. Writable host-path volumes and configured
+real directory destinations are replaced only in the private staging copy, so
+they have ordinary bind-mount hiding semantics without changing the caller
+snapshot. Symlink or non-directory destinations, nested inputs, source
+symlinks, mutation, writable options, and shared/slave or unsupported
+propagation options fail closed. Writable host-path volumes and configured
 persistence remain a later storage format and ownership contract.
 
 ## Tests

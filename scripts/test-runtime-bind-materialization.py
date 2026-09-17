@@ -85,9 +85,21 @@ def main() -> None:
 
         conflict_root = base / "conflict-root"
         (conflict_root / "opt" / "input").mkdir(parents=True)
+        (conflict_root / "opt" / "input" / "hidden-by-bind").write_text("old\n", encoding="utf-8")
         conflict = invoke(plan_path, conflict_root, base / "conflict.json")
-        if conflict.returncode == 0 or "already exists" not in conflict.stderr:
-            raise AssertionError("pre-existing bind destination was accepted")
+        if conflict.returncode != 0:
+            raise AssertionError(f"real destination replacement failed: {conflict.stderr!r}")
+        if (conflict_root / "opt" / "input" / "hidden-by-bind").exists():
+            raise AssertionError("bind destination did not hide prior staged content")
+        if (conflict_root / "opt" / "input" / "value").read_text(encoding="utf-8") != "immutable input\n":
+            raise AssertionError("replacement bind content is missing")
+
+        file_root = base / "file-root"
+        (file_root / "opt").mkdir(parents=True)
+        (file_root / "opt" / "input").write_text("not-a-directory\n", encoding="utf-8")
+        file_result = invoke(plan_path, file_root, base / "file-result.json")
+        if file_result.returncode == 0 or "not a real directory" not in file_result.stderr:
+            raise AssertionError("non-directory bind destination was accepted")
 
         limited_root = base / "limited-root"
         limited_root.mkdir()
@@ -131,7 +143,7 @@ def main() -> None:
             else:
                 raise AssertionError("source mutation was accepted")
 
-    print("runtime read-only bind materialization: PASS (copy, metadata, conflicts, symlinks, mutation)")
+    print("runtime read-only bind materialization: PASS (copy, metadata, destination semantics, symlinks, mutation)")
 
 
 if __name__ == "__main__":
