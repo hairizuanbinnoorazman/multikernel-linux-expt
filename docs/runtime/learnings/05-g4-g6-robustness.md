@@ -908,3 +908,21 @@ mandatory. Transport loss can use the existing bounded reconnect path, while
 an authenticated incomplete or malformed peer fails terminally. Focused
 wrong-version, missing-feature, duplicate, missing-identity, success, and full
 reconstruction cases pass 100 race-detector repetitions.
+
+## Continuation checkpoint: 2026-09-17
+
+The remediation work above is committed through `0bcbe0f`; it is not merely an
+uncommitted working-tree experiment. Before this checkpoint, the full Go race
+suite, `go vet ./...`, documentation checks, the focused read-only bind tests,
+and the focused capability/reconstruction tests passed locally. Those results
+substantiate local implementation claims only and do not replace privileged
+disposable-host evidence.
+
+The retained replacement-instance name is
+`mklinux-g4-g6-final-20260905` in `asia-southeast1-b`. It was observed stopped
+and restarted on 2026-09-17; GCE subsequently reported `RUNNING` with start
+timestamp `2026-09-17T05:31:55.506-07:00`. No source was uploaded and no new
+evidence artifact was retained during that observation. Qualification,
+deployment, and the current-revision matrices remain pending explicit approval
+to upload the source-only archive and retain the described infrastructure
+evidence.
