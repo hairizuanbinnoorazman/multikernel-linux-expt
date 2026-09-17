@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Materialize admitted read-only OCI bind directories into a private root.
+"""Materialize admitted read-only OCI bind inputs into a private root.
 
 The original host paths are never projected into the child.  Each source is
-manifested before and after an archive-semantic copy, and the copied tree must
+manifested before and after an archive-semantic copy, and the copied object must
 have the same normalized manifest before it can be published.
 """
 
@@ -48,23 +48,49 @@ def strict_object(pairs):
     return result
 
 
-def real_directory(path: Path, name: str) -> Path:
-    if not path.is_absolute() or Path(os.path.normpath(path)) != path:
+def real_source(path: Path, name: str) -> tuple[Path, bool]:
+    if not path.is_absolute() or Path(os.path.normpath(path)) != path or path == Path("/"):
         raise MaterializationError(f"{name} must be absolute and canonical")
     current = Path("/")
-    for component in path.parts[1:]:
+    for index, component in enumerate(path.parts[1:]):
         current /= component
         try:
             info = current.lstat()
         except OSError as error:
             raise MaterializationError(f"{name} is unavailable: {error}") from error
-        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
-            raise MaterializationError(f"{name} must contain only real directories")
-    return path
+        final = index == len(path.parts[1:]) - 1
+        if stat.S_ISLNK(info.st_mode) or (not final and not stat.S_ISDIR(info.st_mode)):
+            raise MaterializationError(f"{name} must not traverse a symlink or non-directory")
+    if stat.S_ISDIR(info.st_mode):
+        return path, True
+    if stat.S_ISREG(info.st_mode) and info.st_nlink == 1:
+        return path, False
+    raise MaterializationError(f"{name} must be a real directory or private single-link regular file")
 
 
 def manifest_bytes(builder, root: Path) -> tuple[bytes, int, int]:
-    entries, _ = builder.scan(root)
+    info = root.stat(follow_symlinks=False)
+    if stat.S_ISDIR(info.st_mode):
+        entries, _ = builder.scan(root)
+    elif stat.S_ISREG(info.st_mode):
+        if info.st_nlink != 1:
+            raise MaterializationError("read-only bind regular file must have exactly one link")
+        try:
+            xattrs = os.listxattr(root, follow_symlinks=False)
+        except OSError as error:
+            raise MaterializationError(f"cannot inspect bind-file xattrs: {error}") from error
+        if xattrs:
+            raise MaterializationError("read-only bind regular file has unsupported xattrs")
+        data = builder._read_stable(root, info)
+        entries = [builder.Entry(
+            path=".", mode=info.st_mode, uid=info.st_uid, gid=info.st_gid,
+            size=len(data), kind="regular", digest=hashlib.sha256(data).hexdigest(),
+        )]
+        after = root.stat(follow_symlinks=False)
+        if builder._identity(info) != builder._identity(after) or after.st_nlink != 1:
+            raise MaterializationError("read-only bind regular file mutated during manifesting")
+    else:
+        raise MaterializationError("read-only bind source changed to an unsupported type")
     payload_bytes = sum(item.size for item in entries if item.kind == "regular")
     return builder.manifest(entries), payload_bytes, len(entries)
 
@@ -80,7 +106,7 @@ def exclusive_write(path: Path, data: bytes) -> None:
         os.close(descriptor)
 
 
-def destination_directory(root: Path, destination: str) -> Path:
+def destination_path(root: Path, destination: str, source_is_directory: bool) -> Path:
     pure = PurePosixPath(destination)
     if not destination.startswith("/") or pure.as_posix() != destination or destination == "/" or ".." in pure.parts:
         raise MaterializationError("bind destination is not absolute and canonical")
@@ -99,15 +125,25 @@ def destination_directory(root: Path, destination: str) -> Path:
     try:
         info = target.lstat()
     except FileNotFoundError:
-        target.mkdir(mode=0o755)
+        if source_is_directory:
+            target.mkdir(mode=0o755)
+        else:
+            descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC, 0o600)
+            os.close(descriptor)
     else:
-        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
-            raise MaterializationError(f"existing bind destination is not a real directory: {destination}")
+        if stat.S_ISLNK(info.st_mode) or (source_is_directory and not stat.S_ISDIR(info.st_mode)) or (
+                not source_is_directory and not stat.S_ISREG(info.st_mode)):
+            raise MaterializationError(f"existing bind destination type differs from its source: {destination}")
         # This is the private staging copy, not the caller-owned OCI snapshot.
-        # Replacing its verified directory reproduces the hiding semantics of
-        # a bind mount without exposing the host source inside the child.
-        shutil.rmtree(target)
-        target.mkdir(mode=0o755)
+        # Replacing its verified object reproduces the hiding semantics of a
+        # bind mount without exposing the host source inside the child.
+        if source_is_directory:
+            shutil.rmtree(target)
+            target.mkdir(mode=0o755)
+        else:
+            target.unlink()
+            descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC, 0o600)
+            os.close(descriptor)
     return target
 
 
@@ -127,7 +163,9 @@ def main() -> int:
         raise MaterializationError("invalid read-only bind plan")
     if len(plan["readonly_binds"]) > 8:
         raise MaterializationError("at most eight read-only bind inputs are supported")
-    root = real_directory(args.target_root, "materialization root")
+    root, root_is_directory = real_source(args.target_root, "materialization root")
+    if not root_is_directory:
+        raise MaterializationError("materialization root must be a real directory")
     records = []
     destinations = []
     total_bytes = 0
@@ -146,15 +184,16 @@ def main() -> int:
                for prior in destinations):
             raise MaterializationError("read-only bind destinations overlap")
         destinations.append(destination)
-        source = real_directory(Path(item["source"]), f"read-only bind source {index}")
+        source, source_is_directory = real_source(Path(item["source"]), f"read-only bind source {index}")
         before, payload_bytes, inodes = manifest_bytes(builder, source)
         total_bytes += payload_bytes
         total_inodes += inodes
         if total_bytes > args.max_bytes or total_inodes > args.max_inodes:
             raise MaterializationError("read-only bind inputs exceed the aggregate byte or inode limit")
-        target = destination_directory(root, destination)
+        target = destination_path(root, destination, source_is_directory)
+        copy_source = str(source) + "/." if source_is_directory else str(source)
         completed = subprocess.run(
-            ["/bin/cp", "--archive", "--reflink=never", "--", str(source) + "/.", str(target)],
+            ["/bin/cp", "--archive", "--reflink=never", "--", copy_source, str(target)],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
         )
         if completed.returncode != 0:

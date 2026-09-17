@@ -50,7 +50,7 @@ Docker's bridge, owns the child link.
 | Metrics/stats | Task `Stats` | `docker stats` | Implemented from guest process-group metrics with overflow/reconnect tests; current-revision live proof is pending |
 | Runtime resource update | Task `Update` | `docker update` | Not implemented |
 | Checkpoint/restore | Task `Checkpoint` | Docker checkpoint | Not implemented |
-| Full OCI controls | capabilities, seccomp, namespaces, mounts, hooks, rlimits, read-only root | equivalent Docker flags | Partial: capabilities, rlimits, hostname/path policy, read-only root, standard mounts, and materialized read-only directory binds are enforced; unsupported seccomp, hooks, writable/propagating mounts, and other controls fail closed |
+| Full OCI controls | capabilities, seccomp, namespaces, mounts, hooks, rlimits, read-only root | equivalent Docker flags | Partial: capabilities, rlimits, hostname/path policy, read-only root, standard mounts, and materialized read-only directory/file binds are enforced; unsupported seccomp, hooks, writable/propagating mounts, and other controls fail closed |
 | CNI `ADD`/`CHECK`/`DEL` | CNI 1.0 adapter | CNI 1.0 adapter | Implemented with focused identity/rollback tests; current-revision live proof is pending |
 
 The repeatable test is

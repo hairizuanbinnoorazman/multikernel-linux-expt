@@ -140,13 +140,14 @@ normative plan is revised with an explicit rationale.
 - [ ] Decide the supported writable-state model. Implement private writable
   layers, read-only bind inputs, persistence/volumes, ownership mapping, and
   propagation semantics, or narrow the G4 plan explicitly if some are outside
-  the intended runtime. Read-only bind-input v1 now accepts only directory
-  inputs expressed as standard read-only `bind` or `rbind` mounts, including
+  the intended runtime. Read-only bind-input v1 now accepts directories and
+  private single-link regular files expressed as standard read-only `bind` or
+  `rbind` mounts, including
   Docker's `rbind,rprivate,ro` form, and normalizes them to the stricter guest
   `bind,ro,nodev,nosuid,noexec` policy. The primary rejects writable, shared,
-  slave, unknown, protected, overlapping, symlinked, or non-directory
-  destinations. Existing real directories are replaced only in the private
-  staging copy to reproduce bind-mount hiding semantics. The primary manifests
+  slave, unknown, protected, overlapping, symlinked, special, or type-mismatched
+  destinations. Existing type-matched real objects are replaced only in the
+  private staging copy to reproduce bind-mount hiding semantics. The primary manifests
   each source before/after archive-semantic materialization, compares the copy,
   and retains a daemon-verified digest-bearing manifest. Numeric UID/GID and
   admitted metadata are preserved, propagation is explicitly absent, original
