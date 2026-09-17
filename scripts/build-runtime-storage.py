@@ -156,6 +156,11 @@ def atomic_json(path: Path, value: dict) -> None:
 
 def build(arguments) -> dict:
     root = arguments.root.resolve(strict=True)
+    logical_path = arguments.logical_path
+    if logical_path is None:
+        logical_path = arguments.output.resolve()
+    if not logical_path.is_absolute() or os.path.normpath(str(logical_path)) != str(logical_path):
+        raise StorageBuildError("logical output path must be absolute and canonical")
     if not root.is_dir() or arguments.output.exists() or arguments.metadata.exists():
         raise StorageBuildError("root must be a directory and output paths must not already exist")
     if not IDENTITY.fullmatch(arguments.image_id) or not UUID.fullmatch(arguments.uuid):
@@ -231,7 +236,7 @@ def build(arguments) -> dict:
         finally:
             os.close(directory)
         record = {
-            "schema_version": 1, "path": str(arguments.output.resolve()), "image_id": arguments.image_id,
+            "schema_version": 1, "path": str(logical_path), "image_id": arguments.image_id,
             "filesystem_uuid": arguments.uuid, "size_bytes": arguments.size, "quota_bytes": arguments.size,
             "inode_limit": arguments.inodes, "port": arguments.port, "sha256": image_digest,
             "offline_check_sha256": check_digest, "allocation": "posix_fallocate", "format": "ext4",
@@ -265,6 +270,7 @@ def main() -> int:
     parser.add_argument("--inodes", type=int, default=131072)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--min-free-bytes", type=int, default=1 << 30)
+    parser.add_argument("--logical-path", type=Path)
     parser.add_argument("--mke2fs", default="/usr/sbin/mke2fs")
     parser.add_argument("--e2fsck", default="/usr/sbin/e2fsck")
     parser.add_argument("--debugfs", default="/usr/sbin/debugfs")

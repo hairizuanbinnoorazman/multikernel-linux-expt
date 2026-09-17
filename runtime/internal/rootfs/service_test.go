@@ -5,6 +5,7 @@ package rootfs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -22,6 +23,7 @@ type fakeBackend struct {
 	verifyErr   error
 	storagePath string
 	mountID     DirectoryIdentity
+	buildRoots  BuildRoots
 	buildHook   func()
 }
 
@@ -34,16 +36,61 @@ func (f *fakeBackend) Unmount(_ context.Context, target string) error {
 	f.calls = append(f.calls, "unmount:"+target)
 	return f.unmountErr
 }
-func (f *fakeBackend) Build(_ context.Context, request PrepareRequest, runtimeDir, storageDir string) (PrepareResult, error) {
-	f.calls = append(f.calls, "build:"+runtimeDir)
+func (f *fakeBackend) Build(_ context.Context, request PrepareRequest, roots BuildRoots) (PrepareResult, error) {
+	f.calls = append(f.calls, "build:"+roots.RuntimeDirPath)
+	f.buildRoots = roots
 	if f.buildErr != nil {
 		return PrepareResult{}, f.buildErr
 	}
-	f.storagePath = filepath.Join(storageDir, "root.ext4")
+	f.storagePath = filepath.Join(roots.StorageDirPath, "root.ext4")
 	if f.buildHook != nil {
 		f.buildHook()
 	}
 	return PrepareResult{Storage: protocol.StorageConfig{Path: f.storagePath, ImageID: "image", FilesystemUUID: "12345678-1234-1234-1234-123456789abc", SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 128, Port: request.StoragePort, SHA256: strings.Repeat("a", 64)}, BuildResult: []byte(`{"schema_version":1}`)}, nil
+}
+
+func TestBuildUsesPinnedArtifactDirectoriesAndRejectsNameReplacement(t *testing.T) {
+	service, backend, request, base := rootfsFixture(t)
+	runtimePath := filepath.Join(request.Bundle, ".multikernel")
+	storagePath := filepath.Join(base, "storage", request.TaskIdentity)
+	backend.buildHook = func() {
+		for _, item := range []struct {
+			logical string
+			file    *os.File
+		}{
+			{runtimePath, backend.buildRoots.RuntimeDir},
+			{storagePath, backend.buildRoots.StorageDir},
+		} {
+			if err := os.Rename(item.logical, item.logical+".original"); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(item.logical, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(item.logical, "replacement"), []byte("preserve"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			anchored := fmt.Sprintf("/proc/self/fd/%d/original", item.file.Fd())
+			if err := os.WriteFile(anchored, []byte("pinned"), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := service.Prepare(t.Context(), request); err == nil || !strings.Contains(err.Error(), "artifact directory") {
+		t.Fatalf("artifact replacement result = %v", err)
+	}
+	record, ok := service.store.Get(request.TaskIdentity)
+	if !ok || record.Phase != "MOUNTED" {
+		t.Fatalf("replacement did not retain recoverable ownership: %+v, %v", record, ok)
+	}
+	for _, logical := range []string{runtimePath, storagePath} {
+		if data, err := os.ReadFile(filepath.Join(logical, "replacement")); err != nil || string(data) != "preserve" {
+			t.Fatalf("replacement was modified at %s: %q, %v", logical, data, err)
+		}
+		if data, err := os.ReadFile(filepath.Join(logical+".original", "original")); err != nil || string(data) != "pinned" {
+			t.Fatalf("builder descriptor did not retain original at %s: %q, %v", logical, data, err)
+		}
+	}
 }
 func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record) error {
 	f.calls = append(f.calls, "verify:"+record.Request.TaskIdentity)
@@ -137,6 +184,47 @@ func TestCleanupRejectsWholeRootReplacementBeforeBackendMutation(t *testing.T) {
 			}
 			if len(backend.calls) != 0 {
 				t.Fatalf("backend mutated after root replacement: %v", backend.calls)
+			}
+			if data, readErr := os.ReadFile(marker); readErr != nil || string(data) != "preserve" {
+				t.Fatalf("replacement was modified: %q, %v", data, readErr)
+			}
+			if _, ok := service.store.Get(request.TaskIdentity); !ok {
+				t.Fatal("replacement failure discarded durable cleanup ownership")
+			}
+		})
+	}
+}
+
+func TestCleanupRejectsArtifactDirectoryReplacementBeforeBackendMutation(t *testing.T) {
+	for _, replace := range []string{"runtime", "storage-directory"} {
+		t.Run(replace, func(t *testing.T) {
+			service, backend, request, base := rootfsFixture(t)
+			result, err := service.Prepare(t.Context(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			backend.calls = nil
+			target := filepath.Join(request.Bundle, ".multikernel")
+			if replace == "storage-directory" {
+				target = filepath.Join(base, "storage", request.TaskIdentity)
+			}
+			if err = os.Rename(target, target+".original"); err != nil {
+				t.Fatal(err)
+			}
+			if err = os.Mkdir(target, 0700); err != nil {
+				t.Fatal(err)
+			}
+			marker := filepath.Join(target, "replacement-marker")
+			if err = os.WriteFile(marker, []byte("preserve"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			err = service.Cleanup(t.Context(), CleanupRequest{Version: Version, Bundle: request.Bundle,
+				TaskIdentity: request.TaskIdentity, StorageSHA256: result.Storage.SHA256})
+			if err == nil || !strings.Contains(err.Error(), "artifact directory") {
+				t.Fatalf("replacement cleanup error = %v", err)
+			}
+			if len(backend.calls) != 0 {
+				t.Fatalf("backend mutated after artifact replacement: %v", backend.calls)
 			}
 			if data, readErr := os.ReadFile(marker); readErr != nil || string(data) != "preserve" {
 				t.Fatalf("replacement was modified: %q, %v", data, readErr)

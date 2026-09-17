@@ -51,6 +51,12 @@ storage root plus task identity. Recovery validates these derivations again
 immediately before recursive cleanup and removes relative names through
 inode-stable, descriptor-anchored roots; phases advance only from `MOUNTING`
 to `MOUNTED` to `PREPARED`.
+Runtime and per-task storage directories are created exclusively, recorded by
+device/inode/owner, opened relative to the already pinned parent roots, and
+inherited by the bounded builder. The builder accesses bundle input and all
+outputs through `/proc/self/fd` paths while its metadata records separate
+canonical logical paths. A name replacement therefore cannot redirect build
+reads or writes, and cannot be published as `PREPARED`.
 Backend process records and logs must be private bounded files, bound to the
 exact export lease, and opened no-follow. Readiness must repeat the lease's
 path/image/generation/size/port; close counters are valid only after that exact

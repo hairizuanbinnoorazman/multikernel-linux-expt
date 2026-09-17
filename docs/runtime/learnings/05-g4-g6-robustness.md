@@ -873,10 +873,11 @@ whole-directory substitution made before replay or cleanup is rejected before
 backend verification or unmount, and cleanup remains descriptor-anchored after
 opening the recorded roots. Focused bundle and storage-root replacement tests
 prove the substitute remains untouched and the durable cleanup record remains
-available for retry. The identity-bearing store is now explicitly version 3,
-including the pre-mount rootfs device/inode/owner. Empty version-1 or version-2
-stores upgrade atomically; nonempty legacy ownership is rejected because its
-original directory identities cannot be reconstructed safely from pathnames.
+available for retry. The identity-bearing store is now explicitly version 4,
+including the pre-mount rootfs and exclusive runtime/per-task storage
+device/inode/owner tuples. Empty version-1 through version-3 stores upgrade
+atomically; nonempty legacy ownership is rejected because its original
+directory identities cannot be reconstructed safely from pathnames.
 
 Read-only OCI bind inputs now have an implemented v1 subset instead of a
 blanket mount rejection. The adapter accepts only bounded, non-overlapping
@@ -937,5 +938,11 @@ pathname inside an injected mount boundary, verify that all distinct original
 inodes remain selected, and verify that descriptors close after return.
 Pre-syscall failures are separately classified so rejection never unmounts a
 substituted target, while an uncertain mount syscall still receives defensive
-unmount. Post-mount artifact-path replacement and privileged disposable-host
-validation remain open.
+unmount. The runtime and per-task storage directories are also created
+exclusively, identity-bound in durable state, and inherited by the bounded
+builder. Bundle reads and artifact writes use child `/proc/self/fd` paths while
+published metadata retains canonical logical paths. Focused replacement tests
+prove writes remain on the originals, substitutes remain untouched, and
+`PREPARED` publication is refused with recoverable ownership retained.
+Post-build verification/removal races and privileged disposable-host validation
+remain open.

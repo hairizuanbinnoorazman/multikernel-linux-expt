@@ -18,8 +18,10 @@ func validRootfsRecord(bundle, storageRoot, identity string, port uint32) Record
 			Mounts: []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=/snapshots/root"}}}},
 		Root: filepath.Join(bundle, "rootfs"), RuntimeDir: filepath.Join(bundle, ".multikernel"),
 		StorageDir: filepath.Join(storageRoot, identity), BundleID: DirectoryIdentity{Device: 1, Inode: 2, UID: uint32(os.Geteuid())},
-		RootID:    DirectoryIdentity{Device: 1, Inode: 3, UID: uint32(os.Geteuid())},
-		StorageID: DirectoryIdentity{Device: 1, Inode: 4, UID: uint32(os.Geteuid())}, Phase: "MOUNTING",
+		RootID:       DirectoryIdentity{Device: 1, Inode: 3, UID: uint32(os.Geteuid())},
+		RuntimeID:    DirectoryIdentity{Device: 1, Inode: 4, UID: uint32(os.Geteuid())},
+		StorageID:    DirectoryIdentity{Device: 1, Inode: 5, UID: uint32(os.Geteuid())},
+		StorageDirID: DirectoryIdentity{Device: 1, Inode: 6, UID: uint32(os.Geteuid())}, Phase: "MOUNTING",
 	}
 }
 
@@ -117,6 +119,16 @@ func TestRootfsStoreRejectsForgedSemanticState(t *testing.T) {
 		"missing mount target identity": func(state *diskState) {
 			value := base
 			value.RootID = DirectoryIdentity{}
+			state.Records[identity] = value
+		},
+		"missing runtime directory identity": func(state *diskState) {
+			value := base
+			value.RuntimeID = DirectoryIdentity{}
+			state.Records[identity] = value
+		},
+		"missing storage directory identity": func(state *diskState) {
+			value := base
+			value.StorageDirID = DirectoryIdentity{}
 			state.Records[identity] = value
 		},
 	} {
@@ -220,7 +232,7 @@ func TestRootfsStoreRejectsSymlinkHardlinkAndPermissiveState(t *testing.T) {
 }
 
 func TestRootfsStoreUpgradesOnlyEmptyLegacyState(t *testing.T) {
-	for _, version := range []int{1, 2} {
+	for _, version := range []int{1, 2, 3} {
 		t.Run(fmt.Sprintf("version-%d", version), func(t *testing.T) {
 			directory := t.TempDir()
 			statePath := filepath.Join(directory, "state.json")
@@ -345,5 +357,44 @@ func TestDescriptorAnchoredCleanupDoesNotFollowReplacementRoot(t *testing.T) {
 	}
 	if info, err := os.Stat(filepath.Join(original, ".multikernel")); err != nil || !info.IsDir() {
 		t.Fatalf("replacement root was modified: %v", err)
+	}
+}
+
+func TestDescriptorAnchoredCleanupRejectsReplacedArtifact(t *testing.T) {
+	parent := t.TempDir()
+	artifact := filepath.Join(parent, ".multikernel")
+	if err := os.Mkdir(artifact, 0700); err != nil {
+		t.Fatal(err)
+	}
+	root, rootID, err := inspectStableRoot(parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := root.Lstat(".multikernel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifactID, ok := openedDirectoryIdentity(info)
+	if !ok {
+		t.Fatal("artifact identity unavailable")
+	}
+	if err = root.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(artifact, artifact+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(artifact, 0700); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(artifact, "preserve")
+	if err = os.WriteFile(marker, []byte("replacement"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = removeRelativeTree(parent, ".multikernel", rootID, artifactID); err == nil {
+		t.Fatal("replaced artifact was accepted for cleanup")
+	}
+	if data, err := os.ReadFile(marker); err != nil || string(data) != "replacement" {
+		t.Fatalf("replacement artifact was modified: %q, %v", data, err)
 	}
 }

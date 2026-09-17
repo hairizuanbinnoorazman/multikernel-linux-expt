@@ -35,11 +35,11 @@ type LinuxBackend struct {
 
 const maximumBuilderOutput = 1 << 20
 
-func runBoundedBuilder(ctx context.Context, timeout time.Duration, binary string, arguments, environment []string, maximum int) ([]byte, error) {
+func runBoundedBuilder(ctx context.Context, timeout time.Duration, binary string, arguments, environment []string, maximum int, files ...*os.File) ([]byte, error) {
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
-	output, err := boundedexec.Run(ctx, timeout, binary, arguments, environment, maximum)
+	output, err := boundedexec.RunWithFiles(ctx, timeout, binary, arguments, environment, maximum, files)
 	if errors.Is(err, boundedexec.ErrOutputLimit) {
 		return output, errors.Join(err, errors.New("rootfs builder output exceeds limit"))
 	}
@@ -394,15 +394,41 @@ func loadStorageBuild(path, expectedPath string, expectedPort uint32) (protocol.
 		SizeBytes: value.SizeBytes, QuotaBytes: value.QuotaBytes, InodeLimit: value.InodeLimit, Port: value.Port, SHA256: value.SHA256}, nil
 }
 
-func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, runtimeDir, storageDir string) (PrepareResult, error) {
+func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, roots BuildRoots) (PrepareResult, error) {
 	if b.Builder == "" || !filepath.IsAbs(b.Builder) {
 		return PrepareResult{}, errors.New("rootfs builder must be an absolute path")
 	}
-	initrd := filepath.Join(runtimeDir, "initramfs.cpio.gz")
+	if roots.Bundle == nil || roots.RuntimeDir == nil || roots.StorageDir == nil || roots.BundlePath != request.Bundle ||
+		roots.RuntimeDirPath != filepath.Join(request.Bundle, ".multikernel") ||
+		!filepath.IsAbs(roots.StorageDirPath) || filepath.Clean(roots.StorageDirPath) != roots.StorageDirPath ||
+		filepath.Base(roots.StorageDirPath) != request.TaskIdentity {
+		return PrepareResult{}, errors.New("rootfs build roots do not match the request")
+	}
+	for label, file := range map[string]*os.File{"bundle": roots.Bundle, "runtime": roots.RuntimeDir, "storage": roots.StorageDir} {
+		info, err := file.Stat()
+		if err != nil {
+			return PrepareResult{}, fmt.Errorf("inspect %s build root: %w", label, err)
+		}
+		identity, ok := openedDirectoryIdentity(info)
+		private := label != "bundle" && info.Mode().Perm() != 0700
+		if !ok || !info.IsDir() || identity.UID != uint32(os.Geteuid()) || private {
+			return PrepareResult{}, fmt.Errorf("%s build root is not a caller-owned directory with safe mode", label)
+		}
+	}
+	files := []*os.File{roots.Bundle, roots.RuntimeDir, roots.StorageDir}
+	childBundle := "/proc/self/fd/3"
+	childRuntimeDir := "/proc/self/fd/4"
+	childStorageDir := "/proc/self/fd/5"
+	runtimeDir := fmt.Sprintf("/proc/self/fd/%d", roots.RuntimeDir.Fd())
+	storageDir := fmt.Sprintf("/proc/self/fd/%d", roots.StorageDir.Fd())
+	childInitrd := filepath.Join(childRuntimeDir, "initramfs.cpio.gz")
 	storagePath := filepath.Join(storageDir, "root.ext4")
+	logicalStoragePath := filepath.Join(roots.StorageDirPath, "root.ext4")
 	environment := append(os.Environ(), "MK_TASK_IDENTITY="+request.TaskIdentity,
-		"MK_STORAGE_PORT="+strconv.FormatUint(uint64(request.StoragePort), 10), "MK_STORAGE_OUTPUT="+storagePath)
-	output, err := runBoundedBuilder(ctx, b.BuildTimeout, b.Builder, []string{request.Bundle, initrd}, environment, maximumBuilderOutput)
+		"MK_STORAGE_PORT="+strconv.FormatUint(uint64(request.StoragePort), 10),
+		"MK_STORAGE_OUTPUT="+filepath.Join(childStorageDir, "root.ext4"),
+		"MK_STORAGE_LOGICAL_OUTPUT="+logicalStoragePath, "MK_LOGICAL_BUNDLE="+request.Bundle)
+	output, err := runBoundedBuilder(ctx, b.BuildTimeout, b.Builder, []string{childBundle, childInitrd}, environment, maximumBuilderOutput, files...)
 	if err != nil {
 		return PrepareResult{}, fmt.Errorf("build child root: %w: %s", err, builderDiagnostic(output))
 	}
@@ -414,13 +440,13 @@ func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, runtim
 		private := required == "storage.json" || required == "initramfs.readonly-binds.manifest.json"
 		file, _, openErr := openTrustedArtifact(filepath.Join(runtimeDir, required), maximum, private)
 		if openErr != nil {
-			return PrepareResult{}, fmt.Errorf("builder did not produce safe required %s", required)
+			return PrepareResult{}, fmt.Errorf("builder did not produce safe required %s: %w", required, openErr)
 		}
 		if closeErr := file.Close(); closeErr != nil {
 			return PrepareResult{}, fmt.Errorf("close required artifact %s: %w", required, closeErr)
 		}
 	}
-	storage, err := loadStorageBuild(filepath.Join(runtimeDir, "storage.json"), storagePath, request.StoragePort)
+	storage, err := loadStorageBuild(filepath.Join(runtimeDir, "storage.json"), logicalStoragePath, request.StoragePort)
 	if err != nil {
 		return PrepareResult{}, err
 	}
@@ -440,7 +466,7 @@ func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, runtim
 	if err = writePrivateExclusive(filepath.Join(runtimeDir, "build-result.json"), output); err != nil {
 		return PrepareResult{}, err
 	}
-	if err = writePrivateExclusive(filepath.Join(runtimeDir, "initramfs.path"), []byte(initrd+"\n")); err != nil {
+	if err = writePrivateExclusive(filepath.Join(runtimeDir, "initramfs.path"), []byte(filepath.Join(roots.RuntimeDirPath, "initramfs.cpio.gz")+"\n")); err != nil {
 		return PrepareResult{}, err
 	}
 	return PrepareResult{Storage: storage, BuildResult: append(json.RawMessage(nil), output...)}, nil
