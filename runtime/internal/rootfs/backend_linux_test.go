@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -186,6 +187,98 @@ func TestMountRejectsReplacedTargetIdentityBeforeMount(t *testing.T) {
 	err = backend.Mount(context.Background(), []Mount{{Type: "bind", Source: source}}, target, expected)
 	if err == nil || !errors.Is(err, errMountNotAttempted) || called {
 		t.Fatalf("replaced target reached mount call: err=%v called=%t", err, called)
+	}
+}
+
+func TestBuildUsesInheritedRootsButRecordsLogicalPaths(t *testing.T) {
+	for _, binary := range []string{"fallocate", "sha256sum"} {
+		if _, err := exec.LookPath(binary); err != nil {
+			t.Skipf("%s unavailable", binary)
+		}
+	}
+	base := t.TempDir()
+	bundlePath := filepath.Join(base, "bundle")
+	runtimePath := filepath.Join(bundlePath, ".multikernel")
+	storagePath := filepath.Join(base, "storage", "task-0123456789abcdef0123456789abcdef")
+	for _, path := range []string{runtimePath, storagePath} {
+		if err := os.MkdirAll(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bundle, err := os.Open(bundlePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtimeDir, err := os.Open(runtimePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storageDir, err := os.Open(storagePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bundle.Close()
+	defer runtimeDir.Close()
+	defer storageDir.Close()
+	builder := filepath.Join(base, "builder.sh")
+	script := `#!/bin/sh
+set -eu
+output=$2
+runtime=$(dirname "$output")
+storage=$MK_STORAGE_OUTPUT
+printf initramfs >"$output"
+printf '{}\n' >"${output%.cpio.gz}.manifest.json"
+printf '{}\n' >"${output%.cpio.gz}.source-manifest.json"
+printf '{"schema_version":1,"readonly_binds":[]}\n' >"${output%.cpio.gz}.readonly-binds.manifest.json"
+chmod 0600 "$output" "${output%.cpio.gz}.manifest.json" "${output%.cpio.gz}.source-manifest.json" "${output%.cpio.gz}.readonly-binds.manifest.json"
+fallocate -l 67108864 "$storage"
+chmod 0600 "$storage"
+digest=$(sha256sum "$storage" | awk '{print $1}')
+printf '{"schema_version":1,"path":"%s","image_id":"root-test","filesystem_uuid":"11111111-2222-4333-8444-555555555555","size_bytes":67108864,"quota_bytes":67108864,"inode_limit":4096,"port":4061,"sha256":"%s","offline_check_sha256":"0000000000000000000000000000000000000000000000000000000000000000","allocation":"posix_fallocate","format":"ext4","determinism":{"fake_time":1,"hash_seed":"11111111-2222-4333-8444-555555555555","lazy_initialization":false,"source_metadata_time":1}}\n' "$MK_STORAGE_LOGICAL_OUTPUT" "$digest" >"$runtime/storage.json"
+chmod 0600 "$runtime/storage.json"
+printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s"}\n' "$MK_LOGICAL_BUNDLE" "$MK_STORAGE_LOGICAL_OUTPUT"
+`
+	if err = os.WriteFile(builder, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{bundlePath, storagePath} {
+		if err = os.Rename(path, path+".original"); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.MkdirAll(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = os.Mkdir(runtimePath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	request := PrepareRequest{Version: Version, Bundle: bundlePath,
+		TaskIdentity: "task-0123456789abcdef0123456789abcdef", StoragePort: 4061}
+	result, err := (&LinuxBackend{Builder: builder}).Build(t.Context(), request, BuildRoots{
+		Bundle: bundle, BundlePath: bundlePath, RuntimeDir: runtimeDir, RuntimeDirPath: runtimePath,
+		StorageDir: storageDir, StorageDirPath: storagePath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logicalStorage := filepath.Join(storagePath, "root.ext4")
+	if result.Storage.Path != logicalStorage || !bytes.Contains(result.BuildResult, []byte(`"logical_bundle":"`+bundlePath+`"`)) ||
+		!bytes.Contains(result.BuildResult, []byte(`"logical_storage":"`+logicalStorage+`"`)) {
+		t.Fatalf("logical build result = %+v %s", result.Storage, result.BuildResult)
+	}
+	runtimeAnchored := fmt.Sprintf("/proc/self/fd/%d", runtimeDir.Fd())
+	storageAnchored := fmt.Sprintf("/proc/self/fd/%d", storageDir.Fd())
+	if data, err := os.ReadFile(filepath.Join(runtimeAnchored, "initramfs.path")); err != nil || string(data) != filepath.Join(runtimePath, "initramfs.cpio.gz")+"\n" {
+		t.Fatalf("logical initramfs path = %q, %v", data, err)
+	}
+	if info, err := os.Stat(filepath.Join(storageAnchored, "root.ext4")); err != nil || info.Size() != 64<<20 {
+		t.Fatalf("anchored storage artifact = %+v, %v", info, err)
+	}
+	for _, path := range []string{runtimePath, storagePath} {
+		entries, err := os.ReadDir(path)
+		if err != nil || len(entries) != 0 {
+			t.Fatalf("replacement directory was modified at %s: %v, %v", path, entries, err)
+		}
 	}
 }
 

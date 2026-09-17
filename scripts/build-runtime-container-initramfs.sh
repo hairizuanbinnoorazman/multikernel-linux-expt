@@ -7,6 +7,8 @@ output_manifest=${output%.cpio.gz}.manifest.json
 source_manifest=${output%.cpio.gz}.source-manifest.json
 bind_manifest=${output%.cpio.gz}.readonly-binds.manifest.json
 storage_output=${MK_STORAGE_OUTPUT:-$(dirname "$output")/root.ext4}
+storage_logical_output=${MK_STORAGE_LOGICAL_OUTPUT:-$storage_output}
+logical_bundle=${MK_LOGICAL_BUNDLE:-$bundle}
 storage_metadata=$(dirname "$output")/storage.json
 manifest=${MK_KERNEL_MANIFEST:-/etc/mkruntime/kernels/gce-mk2.json}
 manifest_name=${MK_KERNEL_MANIFEST_NAME:-gce-mk2}
@@ -78,6 +80,11 @@ install -m 0755 "$guest_init" "$root/init"
 # source is mounted read-only by the adapter and scanned before and after copy.
 root_path=$(jq -er '.root.path' "$validated_config")
 source_root=$("$script_dir/validate-runtime-root.py" "$bundle" "$validated_config")
+if [[ $root_path = /* ]]; then
+	reported_source_root=$root_path
+else
+	reported_source_root=$logical_bundle/$root_path
+fi
 "$script_dir/validate-runtime-image.py" "$source_root" "$validated_config" "$bootstrap" \
 	>"$metadata/image-validation.json"
 "$script_dir/build-runtime-rootfs.py" "$source_root" "$metadata/unused" "$source_manifest.before" --manifest-only \
@@ -104,6 +111,7 @@ jq '.root.path = "rootfs"' "$validated_config" >"$root/bundle/config.json"
 
 "$script_dir/build-runtime-storage.py" "$root" "$storage_output" "$storage_metadata" \
 	--image-id "$image_id" --uuid "$filesystem_uuid" --port "$storage_port" \
+	--logical-path "$storage_logical_output" \
 	--size "${MK_STORAGE_SIZE_BYTES:-2147483648}" --inodes "${MK_STORAGE_INODES:-262144}" \
 	--min-free-bytes "${MK_STORAGE_MIN_FREE_BYTES:-1073741824}" >"$metadata/storage-result.json"
 
@@ -122,7 +130,7 @@ jq -e --slurpfile built "$metadata/archive-result.json" --slurpfile verified "$m
 	>/dev/null
 
 jq -n \
-	--arg source_root "$source_root" --arg requested_root "$root_path" \
+	--arg source_root "$reported_source_root" --arg requested_root "$root_path" \
 	--arg nbd_helper "$nbd_helper" --arg nbd_module "$nbd_module" \
 	--arg nbd_helper_sha256 "$(sha256sum "$nbd_helper" | awk '{print $1}')" \
 	--arg nbd_module_sha256 "$(sha256sum "$nbd_module" | awk '{print $1}')" \

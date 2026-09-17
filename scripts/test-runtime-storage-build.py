@@ -70,6 +70,14 @@ class StorageBuildTests(unittest.TestCase):
         self.assertEqual(third.returncode, 0, third.stderr)
         self.assertNotEqual(record_a["sha256"], json.loads(metadata_c.read_text())["sha256"])
 
+    def test_logical_path_is_recorded_without_redirecting_output(self):
+        logical = Path("/var/lib/multikernel/rootfs/task-test/root.ext4")
+        result, output, metadata = self.build("logical", logical_path=logical)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(output.is_file())
+        self.assertEqual(json.loads(metadata.read_text())["path"], str(logical))
+        self.assertEqual(json.loads(result.stdout)["path"], str(logical))
+
     def test_high_water_and_bad_identity_leave_no_artifacts(self):
         for name, overrides, message in (
             ("high", {"min_free_bytes": 16 << 40}, "high-water refusal"),
