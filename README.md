@@ -43,15 +43,15 @@ Docker's bridge, owns the child link.
 | `mkruntimed` restart | running task retained its boot ID | running container retained its boot ID | Passed concurrently |
 | Client daemon restart | system containerd restart retained as an operator observation | Docker daemon restart not proved | Partial; raw restart evidence is absent |
 | Forced shim death | safe reclaim retained as an operator observation | not separately proved through Docker | Partial; raw evidence and running-task reconnect are absent |
-| Process list | Task `Pids` reports the shim PID | Docker metadata can consume it | Partial; guest PID fidelity is not implemented |
+| Process list | Task `Pids` reports validated guest init/exec PIDs | Docker metadata can consume it | Implemented with focused tests; current-revision live proof is pending |
 | Stdin/attach and `CloseIO` | foreground stdin and `tasks attach` | foreground stdin and `docker attach` | Passed; FIFO bytes drain before guest EOF |
 | Terminal and resize | `--tty`, `ResizePty` | `--tty`, resize | Partial; PTYs and initial 91×37 propagation passed live, while deliberate post-start resize has only local agent coverage |
-| Pause and resume | `tasks pause/resume` | `docker pause/unpause` | Not implemented; live rejection proved for both |
-| Metrics/stats | Task `Stats` | `docker stats` | Not implemented |
+| Pause and resume | `tasks pause/resume` | `docker pause/unpause` | Implemented transactionally with focused rollback tests; current-revision live proof is pending |
+| Metrics/stats | Task `Stats` | `docker stats` | Implemented from guest process-group metrics with overflow/reconnect tests; current-revision live proof is pending |
 | Runtime resource update | Task `Update` | `docker update` | Not implemented |
 | Checkpoint/restore | Task `Checkpoint` | Docker checkpoint | Not implemented |
 | Full OCI controls | capabilities, seccomp, namespaces, mounts, hooks, rlimits, read-only root | equivalent Docker flags | Partial: capabilities, rlimits, hostname/path policy, read-only root, standard mounts, and materialized read-only directory binds are enforced; unsupported seccomp, hooks, writable/propagating mounts, and other controls fail closed |
-| CNI `ADD`/`CHECK`/`DEL` | no CNI adapter | no CNI adapter | Not implemented; static mediated networking only |
+| CNI `ADD`/`CHECK`/`DEL` | CNI 1.0 adapter | CNI 1.0 adapter | Implemented with focused identity/rollback tests; current-revision live proof is pending |
 
 The repeatable test is
 [`scripts/test-runtime-g4-g6-feature-matrix.sh`](scripts/test-runtime-g4-g6-feature-matrix.sh),
