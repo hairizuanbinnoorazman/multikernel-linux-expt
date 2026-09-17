@@ -266,6 +266,10 @@ printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s"}
 		!bytes.Contains(result.BuildResult, []byte(`"logical_storage":"`+logicalStorage+`"`)) {
 		t.Fatalf("logical build result = %+v %s", result.Storage, result.BuildResult)
 	}
+	record := Record{RuntimeDir: runtimePath, StorageDir: storagePath, Storage: &result.Storage, BuildResult: result.BuildResult}
+	if err = (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}); err != nil {
+		t.Fatalf("descriptor-anchored prepared verification failed after name replacement: %v", err)
+	}
 	runtimeAnchored := fmt.Sprintf("/proc/self/fd/%d", runtimeDir.Fd())
 	storageAnchored := fmt.Sprintf("/proc/self/fd/%d", storageDir.Fd())
 	if data, err := os.ReadFile(filepath.Join(runtimeAnchored, "initramfs.path")); err != nil || string(data) != filepath.Join(runtimePath, "initramfs.cpio.gz")+"\n" {

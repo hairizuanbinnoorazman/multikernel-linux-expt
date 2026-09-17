@@ -508,17 +508,23 @@ func fileSHA256(ctx context.Context, path string, expectedSize uint64) (string, 
 	return hex.EncodeToString(hash.Sum(nil)), errors.Join(copyErr, stableErr, file.Close())
 }
 
-func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record) error {
+func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record, roots PreparedRoots) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if record.Storage == nil || record.Storage.Path != filepath.Join(record.StorageDir, "root.ext4") {
 		return errors.New("prepared storage path differs from journal")
 	}
+	if roots.RuntimeDir == nil || roots.StorageDir == nil {
+		return errors.New("prepared artifact roots are unavailable")
+	}
+	runtimeDir := fmt.Sprintf("/proc/self/fd/%d", roots.RuntimeDir.Fd())
+	storageDir := fmt.Sprintf("/proc/self/fd/%d", roots.StorageDir.Fd())
+	storagePath := filepath.Join(storageDir, "root.ext4")
 	for path, maximum := range map[string]int64{
-		record.Storage.Path: 16 << 30, filepath.Join(record.RuntimeDir, "initramfs.cpio.gz"): 16 << 30,
-		filepath.Join(record.RuntimeDir, "storage.json"):                           1 << 20,
-		filepath.Join(record.RuntimeDir, "initramfs.readonly-binds.manifest.json"): 128 << 20,
+		storagePath: 16 << 30, filepath.Join(runtimeDir, "initramfs.cpio.gz"): 16 << 30,
+		filepath.Join(runtimeDir, "storage.json"):                           1 << 20,
+		filepath.Join(runtimeDir, "initramfs.readonly-binds.manifest.json"): 128 << 20,
 	} {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -531,18 +537,18 @@ func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record) error 
 			return fmt.Errorf("close prepared artifact %s: %w", path, err)
 		}
 	}
-	digest, err := fileSHA256(ctx, record.Storage.Path, record.Storage.SizeBytes)
+	digest, err := fileSHA256(ctx, storagePath, record.Storage.SizeBytes)
 	if err != nil {
 		return fmt.Errorf("verify prepared storage content: %w", err)
 	}
 	if digest != record.Storage.SHA256 {
 		return errors.New("prepared storage content differs from journal")
 	}
-	metadata, err := loadStorageBuild(filepath.Join(record.RuntimeDir, "storage.json"), record.Storage.Path, record.Storage.Port)
+	metadata, err := loadStorageBuild(filepath.Join(runtimeDir, "storage.json"), record.Storage.Path, record.Storage.Port)
 	if err != nil || metadata != *record.Storage {
 		return errors.New("prepared storage metadata differs from journal")
 	}
-	if err = verifyReadonlyBindManifests(filepath.Join(record.RuntimeDir, "initramfs.readonly-binds.manifest.json"), record.BuildResult); err != nil {
+	if err = verifyReadonlyBindManifests(filepath.Join(runtimeDir, "initramfs.readonly-binds.manifest.json"), record.BuildResult); err != nil {
 		return fmt.Errorf("verify prepared read-only bind manifests: %w", err)
 	}
 	return nil

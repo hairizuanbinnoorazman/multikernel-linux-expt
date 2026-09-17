@@ -223,7 +223,11 @@ current-revision live claim may be marked proved.
   metadata and `initramfs.path` retain canonical logical paths. Focused tests
   replace both names during build, prove writes remain on the originals,
   preserve substitute bytes, refuse `PREPARED`, and retain recoverable
-  ownership. Cleanup also rejects either substitution before backend mutation.
+  ownership. Prepared replay/reconciliation similarly open the exact recorded
+  directories, verify every artifact through held descriptors, and recheck the
+  names afterward; a 100-repetition replacement test proves verification reads
+  the originals but refuses a concurrently substituted name. Cleanup also
+  rejects either substitution before backend mutation.
   Privileged builder output consumption now uses bounded no-follow opens with
   caller-owner, single-link, mode, and stable-identity checks. Exact storage
   metadata is revalidated against the request, and both initial publication
@@ -763,8 +767,9 @@ current-revision live claim may be marked proved.
   explicitly classified so rollback removes private artifacts without
   unmounting the substituted target; uncertain syscall failure still performs
   defensive unmount. Builder-time artifact-path replacement is
-  descriptor-anchored as described above; post-build verification/removal
-  races and the broader disposable-host path-race matrix remain open.
+  descriptor-anchored as described above, as is prepared-artifact verification.
+  Removal-time name races and the broader disposable-host path-race matrix
+  remain open.
   The shim's separate network-namespace projection now reads `config.json`
   through a one-MiB, caller-owned, single-link, stable-identity `openat2`
   boundary as well; hardlink, symlinked-ancestor, and oversized-valid-prefix

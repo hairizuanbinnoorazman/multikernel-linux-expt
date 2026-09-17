@@ -944,5 +944,8 @@ builder. Bundle reads and artifact writes use child `/proc/self/fd` paths while
 published metadata retains canonical logical paths. Focused replacement tests
 prove writes remain on the originals, substitutes remain untouched, and
 `PREPARED` publication is refused with recoverable ownership retained.
-Post-build verification/removal races and privileged disposable-host validation
-remain open.
+Prepared replay and reconciliation also verify manifests, metadata, allocation,
+and digests through the exact recorded directory descriptors, then recheck the
+names. A 100-repetition replacement test proves the originals are read while a
+concurrent substitute is rejected and preserved. Removal-time name races and
+privileged disposable-host validation remain open.
