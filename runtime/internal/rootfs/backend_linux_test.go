@@ -11,10 +11,126 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	containermount "github.com/containerd/containerd/mount"
 )
+
+func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
+	base := t.TempDir()
+	makeSource := func(name, marker string) string {
+		t.Helper()
+		path := filepath.Join(base, name)
+		if err := os.Mkdir(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "marker"), []byte(marker), 0600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	bindSource := makeSource("bind", "bind-original")
+	lowerA := makeSource("lower-a", "lower-a-original")
+	lowerB := makeSource("lower-b", "lower-b-original")
+	upper := makeSource("upper", "upper-original")
+	work := makeSource("work", "work-original")
+	originals := []string{bindSource, lowerA, lowerB, upper, work}
+	wantMarkers := map[string]string{
+		"bind-original": "", "lower-a-original": "", "lower-b-original": "",
+		"upper-original": "", "work-original": "",
+	}
+	var anchoredPaths []string
+	backend := &LinuxBackend{mountAll: func(mounts []containermount.Mount, target string) error {
+		if target != filepath.Join(base, "target") || len(mounts) != 2 {
+			return errors.New("unexpected mount request")
+		}
+		for _, path := range originals {
+			if err := os.Rename(path, path+".original"); err != nil {
+				return err
+			}
+			if err := os.Mkdir(path, 0700); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(path, "marker"), []byte("replacement"), 0600); err != nil {
+				return err
+			}
+		}
+		anchoredPaths = append(anchoredPaths, mounts[0].Source)
+		for _, option := range mounts[1].Options {
+			for _, prefix := range []string{"lowerdir=", "upperdir=", "workdir="} {
+				if strings.HasPrefix(option, prefix) {
+					anchoredPaths = append(anchoredPaths, strings.Split(strings.TrimPrefix(option, prefix), ":")...)
+				}
+			}
+		}
+		if len(anchoredPaths) != 5 {
+			return errors.New("not every mount input was descriptor anchored")
+		}
+		for _, path := range anchoredPaths {
+			if !strings.HasPrefix(path, "/proc/self/fd/") {
+				return errors.New("mount input retained its caller pathname")
+			}
+			marker, err := os.ReadFile(filepath.Join(path, "marker"))
+			if err != nil {
+				return err
+			}
+			if _, ok := wantMarkers[string(marker)]; !ok {
+				return errors.New("descriptor resolved to replacement content")
+			}
+			delete(wantMarkers, string(marker))
+		}
+		if len(wantMarkers) != 0 {
+			return errors.New("descriptor identities were not unique and complete")
+		}
+		for _, required := range []string{"ro", "nodev", "nosuid", "noexec"} {
+			if !slices.Contains(mounts[0].Options, required) || !slices.Contains(mounts[1].Options, required) {
+				return errors.New("required read-only mount policy missing")
+			}
+		}
+		return nil
+	}}
+	input := []Mount{
+		{Type: "bind", Source: bindSource, Options: []string{"bind", "rw", "dev", "suid"}},
+		{Type: "overlay", Source: "overlay", Options: []string{
+			"lowerdir=" + lowerA + ":" + lowerB, "upperdir=" + upper, "workdir=" + work,
+		}},
+	}
+	if err := os.Mkdir(filepath.Join(base, "target"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Mount(context.Background(), input, filepath.Join(base, "target")); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range anchoredPaths {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("descriptor path remained usable after mount: %s: %v", path, err)
+		}
+	}
+}
+
+func TestMountRejectsSymlinkSubstitutionAtDescriptorOpen(t *testing.T) {
+	base := t.TempDir()
+	realSource := filepath.Join(base, "real")
+	if err := os.Mkdir(realSource, 0700); err != nil {
+		t.Fatal(err)
+	}
+	linkedSource := filepath.Join(base, "linked")
+	if err := os.Symlink(realSource, linkedSource); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	backend := &LinuxBackend{mountAll: func([]containermount.Mount, string) error {
+		called = true
+		return nil
+	}}
+	err := backend.Mount(context.Background(), []Mount{{Type: "bind", Source: linkedSource}}, filepath.Join(base, "target"))
+	if err == nil || called {
+		t.Fatalf("symlink source reached mount call: err=%v called=%t", err, called)
+	}
+}
 
 func TestLoadStorageBuildRequiresExactDeterministicIdentity(t *testing.T) {
 	directory := t.TempDir()

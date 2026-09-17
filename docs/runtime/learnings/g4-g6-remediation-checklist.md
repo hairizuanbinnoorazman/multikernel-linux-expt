@@ -173,16 +173,16 @@ current-revision live claim may be marked proved.
   `bind,ro,nodev,nosuid,noexec` policy. The primary rejects writable, shared,
   slave, unknown, protected, overlapping, symlinked, special, or type-mismatched
   destinations. Existing type-matched real objects are replaced only in the
-  private staging copy to reproduce bind-mount hiding semantics. The primary manifests
-  each source before/after archive-semantic materialization, compares the copy,
-  and retains a daemon-verified digest-bearing manifest. Numeric UID/GID and
-  admitted metadata are preserved, propagation is explicitly absent, original
-  host paths are removed from the guest projection, and the agent self-binds
-  the materialized directory read-only before process creation. Focused tests
-  cover copy identity, destination replacement/type rejection, symlinks,
-  mutation, malformed provenance,
-  and guest fail-closed parsing. Writable host volumes, configured persistence,
-  and privileged live read-only enforcement remain open.
+  private staging copy to reproduce bind-mount hiding semantics. The primary
+  manifests each source before/after archive-semantic materialization, compares
+  the copy, and retains a daemon-verified digest-bearing manifest. Numeric
+  UID/GID and admitted metadata are preserved, propagation is explicitly
+  absent, original host paths are removed from the guest projection, and the
+  agent self-binds the materialized directory or file read-only before process
+  creation. Focused tests cover copy identity, destination replacement/type
+  rejection, symlinks, mutation, malformed provenance, and guest fail-closed
+  parsing. Writable host volumes, configured persistence, and privileged live
+  read-only enforcement remain open.
 - [ ] Add capacity accounting, block/inode quotas, a high-water refusal policy,
   and bounded behavior for host and initramfs ENOSPC.
 - [ ] Implement the storage teardown and recovery sequence appropriate to the
@@ -744,7 +744,14 @@ current-revision live claim may be marked proved.
   shim now applies the rootfs service's complete mount contract before sandbox
   allocation, including bounded count/source/options, nil entries, canonical
   no-symlink source paths, supported option syntax, and duplicate rejection;
-  focused adapter and service tests cover the shared boundary.
+  focused adapter and service tests cover the shared boundary. The privileged
+  backend now reopens every bind source and overlay lower/upper/work directory
+  with no-symlink `openat2`, substitutes held `/proc/self/fd` references, and
+  retains every descriptor until the mount call returns. A focused hostile
+  replacement test renames all caller-visible paths inside the mount boundary,
+  proves each reference still resolves to the original distinct inode, and
+  proves all descriptors close afterward. Mount-target replacement and the
+  broader disposable-host path-race matrix remain open.
   The shim's separate network-namespace projection now reads `config.json`
   through a one-MiB, caller-owned, single-link, stable-identity `openat2`
   boundary as well; hardlink, symlinked-ancestor, and oversized-valid-prefix
