@@ -21,7 +21,7 @@ type Backend interface {
 	Mount(context.Context, []Mount, string, DirectoryIdentity) error
 	Unmount(context.Context, string) error
 	Build(context.Context, PrepareRequest, BuildRoots) (PrepareResult, error)
-	VerifyPrepared(context.Context, Record) error
+	VerifyPrepared(context.Context, Record, PreparedRoots) error
 }
 
 type BuildRoots struct {
@@ -31,6 +31,15 @@ type BuildRoots struct {
 	RuntimeDirPath string
 	StorageDir     *os.File
 	StorageDirPath string
+}
+
+type PreparedRoots struct {
+	RuntimeDir *os.File
+	StorageDir *os.File
+}
+
+func (r PreparedRoots) Close() error {
+	return errors.Join(r.RuntimeDir.Close(), r.StorageDir.Close())
 }
 
 type Service struct {
@@ -200,6 +209,43 @@ func (s *Service) verifyArtifactDirectoryIdentities(record Record) error {
 	)
 }
 
+func (s *Service) openPreparedRoots(record Record) (PreparedRoots, error) {
+	bundle, bundleID, err := inspectStableRoot(record.Request.Bundle)
+	if err != nil {
+		return PreparedRoots{}, err
+	}
+	defer bundle.Close()
+	if bundleID != record.BundleID {
+		return PreparedRoots{}, errors.New("artifact root no longer has its recorded identity")
+	}
+	runtimeDir, runtimeID, err := openRelativeDirectory(bundle, ".multikernel", true)
+	if err != nil || runtimeID != record.RuntimeID {
+		if runtimeDir != nil {
+			_ = runtimeDir.Close()
+		}
+		return PreparedRoots{}, errors.Join(errors.New("runtime directory no longer has its recorded identity"), err)
+	}
+	storage, storageID, err := inspectStableRoot(s.storageRoot)
+	if err != nil {
+		_ = runtimeDir.Close()
+		return PreparedRoots{}, err
+	}
+	defer storage.Close()
+	if storageID != record.StorageID {
+		_ = runtimeDir.Close()
+		return PreparedRoots{}, errors.New("artifact root no longer has its recorded identity")
+	}
+	storageDir, storageDirID, err := openRelativeDirectory(storage, record.Request.TaskIdentity, true)
+	if err != nil || storageDirID != record.StorageDirID {
+		_ = runtimeDir.Close()
+		if storageDir != nil {
+			_ = storageDir.Close()
+		}
+		return PreparedRoots{}, errors.Join(errors.New("storage directory no longer has its recorded identity"), err)
+	}
+	return PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}, nil
+}
+
 func NewService(store *Store, backend Backend, storageRoot string) (*Service, error) {
 	if store == nil || backend == nil {
 		return nil, errors.New("rootfs store and backend are required")
@@ -245,8 +291,12 @@ func NewService(store *Store, backend Backend, storageRoot string) (*Service, er
 			return nil, fmt.Errorf("reject replaced rootfs bundle %s: %w", record.Request.TaskIdentity, err)
 		}
 		if record.Phase == "PREPARED" {
-			if err := service.verifyArtifactDirectoryIdentities(record); err != nil {
+			roots, err := service.openPreparedRoots(record)
+			if err != nil {
 				return nil, fmt.Errorf("reject replaced prepared artifact directory %s: %w", record.Request.TaskIdentity, err)
+			}
+			if err = roots.Close(); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -366,10 +416,16 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		if err := s.verifyArtifactRootIdentities(existing); err != nil {
 			return PrepareResult{}, err
 		}
-		if err := s.verifyArtifactDirectoryIdentities(existing); err != nil {
+		roots, err := s.openPreparedRoots(existing)
+		if err != nil {
 			return PrepareResult{}, err
 		}
-		if err := s.backend.VerifyPrepared(ctx, existing); err != nil {
+		verifyErr := s.backend.VerifyPrepared(ctx, existing, roots)
+		closeErr := roots.Close()
+		if err = errors.Join(verifyErr, closeErr); err != nil {
+			return PrepareResult{}, err
+		}
+		if err = s.verifyArtifactDirectoryIdentities(existing); err != nil {
 			return PrepareResult{}, err
 		}
 		return PrepareResult{Storage: *existing.Storage, BuildResult: existing.BuildResult}, nil
@@ -577,10 +633,14 @@ func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string
 			if record.Storage == nil {
 				return errors.New("prepared rootfs has no storage identity")
 			}
-			if err := s.verifyArtifactDirectoryIdentities(record); err != nil {
+			roots, err := s.openPreparedRoots(record)
+			if err != nil {
 				return err
 			}
 			if digest, owned := storageOwners[record.Storage.Path]; !owned || digest != record.Storage.SHA256 {
+				if err := roots.Close(); err != nil {
+					return err
+				}
 				if err := s.backend.Unmount(ctx, record.Root); err != nil {
 					return fmt.Errorf("unmount orphaned rootfs: %w", err)
 				}
@@ -592,8 +652,13 @@ func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string
 				}
 				continue
 			}
-			if err := s.backend.VerifyPrepared(ctx, record); err != nil {
+			verifyErr := s.backend.VerifyPrepared(ctx, record, roots)
+			closeErr := roots.Close()
+			if err := errors.Join(verifyErr, closeErr); err != nil {
 				return fmt.Errorf("verify prepared rootfs: %w", err)
+			}
+			if err := s.verifyArtifactDirectoryIdentities(record); err != nil {
+				return err
 			}
 		default:
 			return fmt.Errorf("unsupported rootfs recovery phase %q", record.Phase)

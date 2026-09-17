@@ -25,6 +25,8 @@ type fakeBackend struct {
 	mountID     DirectoryIdentity
 	buildRoots  BuildRoots
 	buildHook   func()
+	verifyRoots PreparedRoots
+	verifyHook  func()
 }
 
 func (f *fakeBackend) Mount(_ context.Context, _ []Mount, target string, identity DirectoryIdentity) error {
@@ -92,8 +94,63 @@ func TestBuildUsesPinnedArtifactDirectoriesAndRejectsNameReplacement(t *testing.
 		}
 	}
 }
-func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record) error {
+
+func TestPreparedVerificationPinsArtifactsAndRejectsNameReplacement(t *testing.T) {
+	service, backend, request, base := rootfsFixture(t)
+	result, err := service.Prepare(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtimePath := filepath.Join(request.Bundle, ".multikernel")
+	storagePath := filepath.Join(base, "storage", request.TaskIdentity)
+	for _, path := range []string{runtimePath, storagePath} {
+		if err = os.WriteFile(filepath.Join(path, "original-marker"), []byte("original"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	backend.verifyHook = func() {
+		for _, item := range []struct {
+			logical string
+			file    *os.File
+		}{
+			{runtimePath, backend.verifyRoots.RuntimeDir},
+			{storagePath, backend.verifyRoots.StorageDir},
+		} {
+			if err = os.Rename(item.logical, item.logical+".original"); err != nil {
+				t.Fatal(err)
+			}
+			if err = os.Mkdir(item.logical, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err = os.WriteFile(filepath.Join(item.logical, "replacement"), []byte("preserve"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			anchored := fmt.Sprintf("/proc/self/fd/%d/original-marker", item.file.Fd())
+			if data, readErr := os.ReadFile(anchored); readErr != nil || string(data) != "original" {
+				t.Fatalf("verification descriptor was redirected: %q, %v", data, readErr)
+			}
+		}
+	}
+	if replayed, replayErr := service.Prepare(t.Context(), request); replayErr == nil ||
+		replayed.Storage.Path != "" || !strings.Contains(replayErr.Error(), "artifact directory") {
+		t.Fatalf("verification replacement result = %+v, %v", replayed, replayErr)
+	}
+	for _, path := range []string{runtimePath, storagePath} {
+		if data, readErr := os.ReadFile(filepath.Join(path, "replacement")); readErr != nil || string(data) != "preserve" {
+			t.Fatalf("verification replacement was modified at %s: %q, %v", path, data, readErr)
+		}
+	}
+	record, ok := service.store.Get(request.TaskIdentity)
+	if !ok || record.Phase != "PREPARED" || record.Storage == nil || record.Storage.SHA256 != result.Storage.SHA256 {
+		t.Fatalf("verification replacement lost durable ownership: %+v, %v", record, ok)
+	}
+}
+func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record, roots PreparedRoots) error {
 	f.calls = append(f.calls, "verify:"+record.Request.TaskIdentity)
+	f.verifyRoots = roots
+	if f.verifyHook != nil {
+		f.verifyHook()
+	}
 	return f.verifyErr
 }
 
