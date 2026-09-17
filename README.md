@@ -50,7 +50,7 @@ Docker's bridge, owns the child link.
 | Metrics/stats | Task `Stats` | `docker stats` | Not implemented |
 | Runtime resource update | Task `Update` | `docker update` | Not implemented |
 | Checkpoint/restore | Task `Checkpoint` | Docker checkpoint | Not implemented |
-| Full OCI controls | capabilities, seccomp, namespaces, mounts, hooks, rlimits, read-only root | equivalent Docker flags | Not implemented; the current adapter can silently discard unsupported fields, so end-to-end fail-closed handling remains open |
+| Full OCI controls | capabilities, seccomp, namespaces, mounts, hooks, rlimits, read-only root | equivalent Docker flags | Partial: capabilities, rlimits, hostname/path policy, read-only root, standard mounts, and materialized read-only directory binds are enforced; unsupported seccomp, hooks, writable/propagating mounts, and other controls fail closed |
 | CNI `ADD`/`CHECK`/`DEL` | no CNI adapter | no CNI adapter | Not implemented; static mediated networking only |
 
 The repeatable test is

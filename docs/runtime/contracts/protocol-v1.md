@@ -65,6 +65,14 @@ evicts an unresolved result. `AcknowledgeSignal` idempotently retires an exact
 result only after the controller has durably observed it; process deletion also
 retires that process's results. Omitting the field retains legacy one-shot
 behavior and is not reply-loss safe.
+The advertised `readonly-bind-inputs-v1` capability means the projected OCI
+configuration may contain sanitized bind records whose source equals their
+absolute guest destination and whose ordered options are exactly
+`bind,nodev,noexec,nosuid,ro`. These records refer only to primary-materialized
+content in the private guest root; they never authorize guest access to the
+original host source. The agent rejects overlapping or runtime-owned
+destinations and bind-remounts each directory read-only before process
+creation.
 `ExecProcess` names an existing parent process and inherits its already
 validated container root; it cannot supply an arbitrary root path. Process
 state and wait replies contain metadata only. Output is retrieved through

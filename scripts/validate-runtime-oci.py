@@ -58,6 +58,9 @@ DEFAULT_MOUNTS = {
     "/sys": ("sysfs", "sysfs", {"nosuid", "noexec", "nodev", "ro"}),
     "/run": ("tmpfs", "tmpfs", {"nosuid", "strictatime", "mode=755", "size=65536k"}),
 }
+READONLY_BIND_OPTIONS = {"bind", "ro", "nodev", "nosuid", "noexec"}
+PROTECTED_BIND_DESTINATIONS = ("/dev", "/proc", "/run", "/sys")
+MAX_READONLY_BINDS = 8
 
 
 def strict_object(pairs):
@@ -161,23 +164,53 @@ def validate_namespaces(value):
         raise ValueError("exactly one Linux network namespace is required")
 
 
-def validate_default_mounts(value):
+def canonical_absolute_path(value, name):
+    if (not isinstance(value, str) or not value.startswith("/") or "\0" in value or
+            len(value) > 4096 or pathlib.PurePosixPath(value).as_posix() != value or
+            ".." in pathlib.PurePosixPath(value).parts):
+        raise ValueError(f"{name} must be an absolute canonical bounded path")
+
+
+def validate_mounts(value):
     if not isinstance(value, list):
         raise ValueError("mounts must be an array")
-    seen = set()
+    seen_defaults = set()
+    bind_destinations = []
     for index, item in enumerate(value):
         item = require_object(item, f"mounts[{index}]")
         reject_unknown(item, {"destination", "type", "source", "options"}, f"mounts[{index}]")
         destination = item.get("destination")
-        if destination not in DEFAULT_MOUNTS or destination in seen:
-            raise ValueError(f"unsupported or duplicate OCI mount destination {destination!r}")
-        seen.add(destination)
-        mount_type, source, options = DEFAULT_MOUNTS[destination]
         actual_options = item.get("options", [])
-        if (item.get("type") != mount_type or item.get("source") != source or
-                not isinstance(actual_options, list) or len(actual_options) != len(set(actual_options)) or
-                set(actual_options) != options):
-            raise ValueError(f"OCI mount {destination!r} differs from the enforced default contract")
+        if destination in DEFAULT_MOUNTS:
+            if destination in seen_defaults:
+                raise ValueError(f"unsupported or duplicate OCI mount destination {destination!r}")
+            seen_defaults.add(destination)
+            mount_type, source, options = DEFAULT_MOUNTS[destination]
+            if (item.get("type") != mount_type or item.get("source") != source or
+                    not isinstance(actual_options, list) or len(actual_options) != len(set(actual_options)) or
+                    set(actual_options) != options):
+                raise ValueError(f"OCI mount {destination!r} differs from the enforced default contract")
+            continue
+        canonical_absolute_path(destination, f"mounts[{index}].destination")
+        source = item.get("source")
+        canonical_absolute_path(source, f"mounts[{index}].source")
+        if item.get("type") != "bind":
+            raise ValueError(f"unsupported OCI mount type at {destination!r}")
+        if (not isinstance(actual_options, list) or
+                not all(isinstance(option, str) for option in actual_options) or
+                len(actual_options) != len(set(actual_options)) or
+                set(actual_options) != READONLY_BIND_OPTIONS):
+            raise ValueError(f"read-only bind {destination!r} differs from the enforced option contract")
+        if destination == "/" or any(destination == path or destination.startswith(path + "/")
+                                     for path in PROTECTED_BIND_DESTINATIONS):
+            raise ValueError(f"read-only bind destination {destination!r} overlaps a runtime-owned path")
+        if any(destination == prior or destination.startswith(prior + "/") or prior.startswith(destination + "/")
+               for prior in bind_destinations):
+            raise ValueError("read-only bind destinations must be unique and non-overlapping")
+        bind_destinations.append(destination)
+    if len(bind_destinations) > MAX_READONLY_BINDS:
+        raise ValueError(f"at most {MAX_READONLY_BINDS} read-only bind inputs are supported")
+    return [item for item in value if item.get("destination") not in DEFAULT_MOUNTS]
 
 
 def validate_path_policy(values, allowed, name):
@@ -287,7 +320,7 @@ def validate(config):
             raise ValueError("linux.cgroupsPath must be absolute, canonical, and bounded")
     validate_path_policy(linux.get("maskedPaths", []), SAFE_MASKED_PATHS, "maskedPaths")
     validate_path_policy(linux.get("readonlyPaths", []), SAFE_READONLY_PATHS, "readonlyPaths")
-    validate_default_mounts(config.get("mounts", []))
+    validate_mounts(config.get("mounts", []))
     hostname = config.get("hostname", "")
     if not isinstance(hostname, str) or len(hostname) > 63 or (hostname and not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?", hostname)):
         raise ValueError("hostname must be an RFC1123-compatible value of at most 63 bytes")
@@ -308,12 +341,38 @@ def guest_projection(config):
     policy = {name: linux[name] for name in ("maskedPaths", "readonlyPaths") if name in linux}
     if policy:
         result["linux"] = policy
+    readonly_binds = validate_mounts(config.get("mounts", []))
+    if readonly_binds:
+        result["mounts"] = [
+            {
+                "destination": item["destination"],
+                "type": "bind",
+                "source": item["destination"],
+                "options": sorted(READONLY_BIND_OPTIONS),
+            }
+            for item in readonly_binds
+        ]
     return result
 
 
+def bind_projection(config):
+    return {
+        "schema_version": 1,
+        "readonly_binds": [
+            {
+                "destination": item["destination"],
+                "type": "bind",
+                "source": item["source"],
+                "options": ["bind", "ro", "nodev", "nosuid", "noexec"],
+            }
+            for item in validate_mounts(config.get("mounts", []))
+        ],
+    }
+
+
 def main():
-    if len(sys.argv) not in (2, 3):
-        print("usage: validate-runtime-oci.py CONFIG [OUTPUT]", file=sys.stderr)
+    if len(sys.argv) not in (2, 3, 4):
+        print("usage: validate-runtime-oci.py CONFIG [OUTPUT [BIND-OUTPUT]]", file=sys.stderr)
         return 2
     source = pathlib.Path(sys.argv[1])
     try:
@@ -323,6 +382,15 @@ def main():
             destination = pathlib.Path(sys.argv[2])
             destination.write_text(
                 json.dumps(guest_projection(config), separators=(",", ":"), sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        elif len(sys.argv) == 4:
+            pathlib.Path(sys.argv[2]).write_text(
+                json.dumps(guest_projection(config), separators=(",", ":"), sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            pathlib.Path(sys.argv[3]).write_text(
+                json.dumps(bind_projection(config), separators=(",", ":"), sort_keys=True) + "\n",
                 encoding="utf-8",
             )
     except (OSError, ValueError, json.JSONDecodeError) as error:

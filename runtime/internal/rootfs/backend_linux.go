@@ -74,6 +74,91 @@ type storageBuildMetadata struct {
 	} `json:"determinism"`
 }
 
+type readonlyBindSummary struct {
+	Destination    string `json:"destination"`
+	Source         string `json:"source"`
+	ManifestSHA256 string `json:"manifest_sha256"`
+	Ownership      string `json:"ownership"`
+	Propagation    string `json:"propagation"`
+	GuestPolicy    string `json:"guest_policy"`
+}
+
+type readonlyBindManifest struct {
+	Destination    string          `json:"destination"`
+	Source         string          `json:"source"`
+	Manifest       json.RawMessage `json:"manifest"`
+	ManifestSHA256 string          `json:"manifest_sha256"`
+	Ownership      string          `json:"ownership"`
+	Propagation    string          `json:"propagation"`
+	GuestPolicy    string          `json:"guest_policy"`
+}
+
+type readonlyBindManifestSet struct {
+	SchemaVersion int                    `json:"schema_version"`
+	ReadonlyBinds []readonlyBindManifest `json:"readonly_binds"`
+}
+
+func verifyReadonlyBindManifests(path string, buildResult json.RawMessage) error {
+	data, err := readTrustedArtifact(path, 128<<20, true)
+	if err != nil {
+		return err
+	}
+	var manifests readonlyBindManifestSet
+	if err = protocol.StrictDecode(data, &manifests); err != nil || manifests.SchemaVersion != 1 || len(manifests.ReadonlyBinds) > 8 {
+		return errors.New("invalid read-only bind manifest set")
+	}
+	var result map[string]json.RawMessage
+	if err = protocol.StrictDecode(buildResult, &result); err != nil {
+		return errors.New("invalid rootfs builder result")
+	}
+	encodedSummaries, ok := result["readonly_bind_inputs"]
+	if !ok {
+		return errors.New("rootfs builder result omits read-only bind provenance")
+	}
+	var summaries []readonlyBindSummary
+	if err = protocol.StrictDecode(encodedSummaries, &summaries); err != nil || len(summaries) != len(manifests.ReadonlyBinds) {
+		return errors.New("read-only bind summary differs from manifest set")
+	}
+	seenDestinations := make([]string, 0, len(manifests.ReadonlyBinds))
+	for index, manifest := range manifests.ReadonlyBinds {
+		summary := readonlyBindSummary{Destination: manifest.Destination, Source: manifest.Source,
+			ManifestSHA256: manifest.ManifestSHA256, Ownership: manifest.Ownership,
+			Propagation: manifest.Propagation, GuestPolicy: manifest.GuestPolicy}
+		if summary != summaries[index] || !filepath.IsAbs(manifest.Source) || filepath.Clean(manifest.Source) != manifest.Source ||
+			!filepath.IsAbs(manifest.Destination) || filepath.Clean(manifest.Destination) != manifest.Destination || manifest.Destination == "/" ||
+			!sha256RE.MatchString(manifest.ManifestSHA256) || manifest.Ownership != "numeric-uid-gid-preserved" ||
+			manifest.Propagation != "none-materialized-copy" || manifest.GuestPolicy != "bind-remount-ro-nodev-nosuid-noexec" {
+			return errors.New("read-only bind identity differs from the enforced contract")
+		}
+		for _, protected := range []string{"/dev", "/proc", "/run", "/sys"} {
+			if manifest.Destination == protected || strings.HasPrefix(manifest.Destination, protected+"/") {
+				return errors.New("read-only bind destination overlaps a runtime-owned path")
+			}
+		}
+		for _, prior := range seenDestinations {
+			if manifest.Destination == prior || strings.HasPrefix(manifest.Destination, prior+"/") || strings.HasPrefix(prior, manifest.Destination+"/") {
+				return errors.New("read-only bind destinations overlap")
+			}
+		}
+		seenDestinations = append(seenDestinations, manifest.Destination)
+		canonical := append(append([]byte(nil), manifest.Manifest...), '\n')
+		digest := sha256.Sum256(canonical)
+		if hex.EncodeToString(digest[:]) != manifest.ManifestSHA256 {
+			return errors.New("read-only bind manifest digest mismatch")
+		}
+		var normalized struct {
+			SchemaVersion int             `json:"schema_version"`
+			Normalization json.RawMessage `json:"normalization"`
+			Entries       json.RawMessage `json:"entries"`
+		}
+		if err = protocol.StrictDecode(manifest.Manifest, &normalized); err != nil || normalized.SchemaVersion != 1 ||
+			len(normalized.Normalization) == 0 || len(normalized.Entries) == 0 {
+			return errors.New("invalid normalized read-only bind manifest")
+		}
+	}
+	return nil
+}
+
 func openTrustedArtifact(path string, maximum int64, private bool) (*os.File, *syscall.Stat_t, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
@@ -227,9 +312,11 @@ func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, runtim
 	}
 	for required, maximum := range map[string]int64{
 		"initramfs.cpio.gz": 16 << 30, "initramfs.manifest.json": 16 << 20,
-		"initramfs.source-manifest.json": 16 << 20, "storage.json": 1 << 20,
+		"initramfs.source-manifest.json": 16 << 20, "initramfs.readonly-binds.manifest.json": 128 << 20,
+		"storage.json": 1 << 20,
 	} {
-		file, _, openErr := openTrustedArtifact(filepath.Join(runtimeDir, required), maximum, required == "storage.json")
+		private := required == "storage.json" || required == "initramfs.readonly-binds.manifest.json"
+		file, _, openErr := openTrustedArtifact(filepath.Join(runtimeDir, required), maximum, private)
 		if openErr != nil {
 			return PrepareResult{}, fmt.Errorf("builder did not produce safe required %s", required)
 		}
@@ -250,6 +337,9 @@ func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, runtim
 	}
 	if !json.Valid(output) {
 		return PrepareResult{}, errors.New("rootfs builder result is not JSON")
+	}
+	if err = verifyReadonlyBindManifests(filepath.Join(runtimeDir, "initramfs.readonly-binds.manifest.json"), output); err != nil {
+		return PrepareResult{}, fmt.Errorf("verify read-only bind manifests: %w", err)
 	}
 	if err = writePrivateExclusive(filepath.Join(runtimeDir, "build-result.json"), output); err != nil {
 		return PrepareResult{}, err
@@ -305,7 +395,8 @@ func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record) error 
 	}
 	for path, maximum := range map[string]int64{
 		record.Storage.Path: 16 << 30, filepath.Join(record.RuntimeDir, "initramfs.cpio.gz"): 16 << 30,
-		filepath.Join(record.RuntimeDir, "storage.json"): 1 << 20,
+		filepath.Join(record.RuntimeDir, "storage.json"):                           1 << 20,
+		filepath.Join(record.RuntimeDir, "initramfs.readonly-binds.manifest.json"): 128 << 20,
 	} {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -328,6 +419,9 @@ func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record) error 
 	metadata, err := loadStorageBuild(filepath.Join(record.RuntimeDir, "storage.json"), record.Storage.Path, record.Storage.Port)
 	if err != nil || metadata != *record.Storage {
 		return errors.New("prepared storage metadata differs from journal")
+	}
+	if err = verifyReadonlyBindManifests(filepath.Join(record.RuntimeDir, "initramfs.readonly-binds.manifest.json"), record.BuildResult); err != nil {
+		return fmt.Errorf("verify prepared read-only bind manifests: %w", err)
 	}
 	return nil
 }

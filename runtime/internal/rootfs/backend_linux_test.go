@@ -214,6 +214,49 @@ func TestFileSHA256HonorsCancellation(t *testing.T) {
 	}
 }
 
+func TestVerifyReadonlyBindManifestsBindsBuilderSummaryAndContent(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "initramfs.readonly-binds.manifest.json")
+	normalized, err := json.Marshal(map[string]any{
+		"schema_version": 1,
+		"normalization":  map[string]any{"mtime": 0},
+		"entries":        []any{map[string]any{"path": ".", "type": "directory"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(append(append([]byte(nil), normalized...), '\n'))
+	summary := readonlyBindSummary{Destination: "/opt/input", Source: "/srv/input",
+		ManifestSHA256: hex.EncodeToString(digest[:]), Ownership: "numeric-uid-gid-preserved",
+		Propagation: "none-materialized-copy", GuestPolicy: "bind-remount-ro-nodev-nosuid-noexec"}
+	manifest := readonlyBindManifest{Destination: summary.Destination, Source: summary.Source,
+		Manifest: normalized, ManifestSHA256: summary.ManifestSHA256, Ownership: summary.Ownership,
+		Propagation: summary.Propagation, GuestPolicy: summary.GuestPolicy}
+	encoded, err := json.Marshal(readonlyBindManifestSet{SchemaVersion: 1, ReadonlyBinds: []readonlyBindManifest{manifest}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, encoded, 0600); err != nil {
+		t.Fatal(err)
+	}
+	buildResult, err := json.Marshal(map[string]any{"readonly_bind_inputs": []readonlyBindSummary{summary}, "other": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = verifyReadonlyBindManifests(path, buildResult); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest.ManifestSHA256 = strings.Repeat("0", 64)
+	encoded, _ = json.Marshal(readonlyBindManifestSet{SchemaVersion: 1, ReadonlyBinds: []readonlyBindManifest{manifest}})
+	if err = os.WriteFile(path, encoded, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = verifyReadonlyBindManifests(path, buildResult); err == nil {
+		t.Fatal("changed bind manifest identity was accepted")
+	}
+}
+
 func TestRunBoundedBuilderDrainsButRejectsOverflow(t *testing.T) {
 	output, err := runBoundedBuilder(context.Background(), time.Second, "/bin/sh",
 		[]string{"-c", "head -c 4097 /dev/zero"}, os.Environ(), 4096)

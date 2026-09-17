@@ -538,16 +538,15 @@ func TestUnsupportedFailsClosed(t *testing.T) {
 		mutate func(map[string]any)
 		want   string
 	}{
-		{"mounts", func(c map[string]any) { c["mounts"] = []any{map[string]any{}} }, "mounts and hooks"},
-		{"hooks", func(c map[string]any) { c["hooks"] = map[string]any{"prestart": []any{}} }, "mounts and hooks"},
+		{"mounts", func(c map[string]any) { c["mounts"] = []any{map[string]any{}} }, "sanitized materialized path"},
+		{"hooks", func(c map[string]any) { c["hooks"] = map[string]any{"prestart": []any{}} }, "hooks are not implemented"},
 		{"namespaces", func(c map[string]any) {
 			c["linux"] = map[string]any{"namespaces": []any{map[string]any{"type": "pid"}}}
 		}, "namespaces/resources/seccomp"},
 		{"resources", func(c map[string]any) { c["linux"] = map[string]any{"resources": map[string]any{}} }, "namespaces/resources/seccomp"},
 		{"seccomp", func(c map[string]any) { c["linux"] = map[string]any{"seccomp": map[string]any{}} }, "namespaces/resources/seccomp"},
 		{"annotations", func(c map[string]any) { c["annotations"] = map[string]any{} }, "annotations"},
-		{"empty mounts", func(c map[string]any) { c["mounts"] = []any{} }, "mounts and hooks"},
-		{"empty hooks", func(c map[string]any) { c["hooks"] = map[string]any{} }, "mounts and hooks"},
+		{"empty hooks", func(c map[string]any) { c["hooks"] = map[string]any{} }, "hooks are not implemented"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -571,6 +570,53 @@ func TestUnsupportedFailsClosed(t *testing.T) {
 			}
 			if err = m.Create("p1", b); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("Create() error = %v, want rejection containing %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestSanitizedReadonlyBindInputLoadsBeforePrivilegedApplication(t *testing.T) {
+	b := bundle(t, []string{"/probe"}, "")
+	raw, err := os.ReadFile(filepath.Join(b, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err = json.Unmarshal(raw, &config); err != nil {
+		t.Fatal(err)
+	}
+	config["mounts"] = []any{map[string]any{
+		"destination": "/opt/input", "source": "/opt/input", "type": "bind",
+		"options": []any{"bind", "nodev", "noexec", "nosuid", "ro"},
+	}}
+	raw, _ = json.Marshal(config)
+	if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, _, err := LoadBundle(b)
+	if err != nil || len(loaded.Mounts) != 1 || loaded.Mounts[0].Destination != "/opt/input" {
+		t.Fatalf("sanitized bind = %+v, %v", loaded.Mounts, err)
+	}
+	if err = NewManager(true).Create("p1", b); err == nil || !strings.Contains(err.Error(), "root policy cannot be applied") {
+		t.Fatalf("no-chroot bind Create() error = %v", err)
+	}
+}
+
+func TestReadonlyBindInputContractFailsClosed(t *testing.T) {
+	valid := MountSpec{Destination: "/opt/input", Source: "/opt/input", Type: "bind",
+		Options: []string{"bind", "nodev", "noexec", "nosuid", "ro"}}
+	tests := map[string][]MountSpec{
+		"host source retained": {{Destination: valid.Destination, Source: "/srv/input", Type: valid.Type, Options: valid.Options}},
+		"writable":             {{Destination: valid.Destination, Source: valid.Source, Type: valid.Type, Options: []string{"bind", "nodev", "noexec", "nosuid", "rw"}}},
+		"protected":            {{Destination: "/proc/input", Source: "/proc/input", Type: valid.Type, Options: valid.Options}},
+		"noncanonical":         {{Destination: "/opt/../input", Source: "/opt/../input", Type: valid.Type, Options: valid.Options}},
+		"overlap": {valid, {Destination: "/opt/input/nested", Source: "/opt/input/nested", Type: valid.Type,
+			Options: valid.Options}},
+	}
+	for name, mounts := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := validateReadonlyBindMounts(mounts); err == nil {
+				t.Fatal("hostile read-only bind input was accepted")
 			}
 		})
 	}
@@ -1050,7 +1096,7 @@ func TestAuthenticationAndReplay(t *testing.T) {
 			t.Fatalf("unproved feature %q advertised", feature)
 		}
 	}
-	for _, required := range []string{"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts"} {
+	for _, required := range []string{"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts", "readonly-bind-inputs-v1"} {
 		if !slices.Contains(features, required) {
 			t.Fatalf("implemented feature %q not advertised: %v", required, features)
 		}

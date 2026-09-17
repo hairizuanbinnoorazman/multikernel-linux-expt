@@ -91,6 +91,21 @@ and failure responses do not disclose checker diagnostics.
 - Define ownership mapping and propagation rules.
 - Add capacity quotas and high-water refusal before live ENOSPC.
 
+The read-only bind-input v1 subset admits at most eight non-overlapping host
+directories. Each mount must use the exact `bind,ro,nodev,nosuid,noexec`
+contract and may not overlap `/dev`, `/proc`, `/run`, or `/sys`. The primary
+manifests each source before and after an archive-semantic copy into the
+container's private ext4 staging root, requires the copied manifest to match,
+and retains the normalized manifest and digest as a separately verified
+artifact. Host source paths are never mounted or revealed in the child.
+Numeric UID/GID, modes, links, and admitted content are preserved. Propagation
+is deliberately `none`: this is a point-in-time materialized input, not a live
+host bind. Before the first process, the guest bind-mounts the materialized
+destination onto itself and remounts it `ro,nodev,nosuid,noexec`. Existing
+destinations, nested inputs, source symlinks, mutation, writable options, and
+propagation options fail closed. Writable host-path volumes and configured
+persistence remain a later storage format and ownership contract.
+
 ## Tests
 
 - Whiteouts, opaque directories, hardlinks, symlinks, sparse files, xattrs,
