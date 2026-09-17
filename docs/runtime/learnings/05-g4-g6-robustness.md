@@ -873,10 +873,10 @@ whole-directory substitution made before replay or cleanup is rejected before
 backend verification or unmount, and cleanup remains descriptor-anchored after
 opening the recorded roots. Focused bundle and storage-root replacement tests
 prove the substitute remains untouched and the durable cleanup record remains
-available for retry. The identity-bearing store is explicitly version 2. An
-empty version-1 store upgrades atomically; nonempty legacy ownership is
-rejected because its original directory identity cannot be reconstructed
-safely from a pathname.
+available for retry. The identity-bearing store is now explicitly version 3,
+including the pre-mount rootfs device/inode/owner. Empty version-1 or version-2
+stores upgrade atomically; nonempty legacy ownership is rejected because its
+original directory identities cannot be reconstructed safely from pathnames.
 
 Read-only OCI bind inputs now have an implemented v1 subset instead of a
 blanket mount rejection. The adapter accepts only bounded, non-overlapping
@@ -929,9 +929,13 @@ evidence.
 
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
-window. Bind sources and every overlay lower, upper, and work directory are now
-opened with no-symlink `openat2`, rewritten to held `/proc/self/fd` references,
-and retained through the mount call. A focused test replaces every pathname
-inside an injected mount boundary and verifies that all distinct original
-inodes remain selected and that descriptors close after return. Mount-target
-replacement and privileged disposable-host validation remain open.
+window. The identity-bound mountpoint, bind sources, and every overlay lower,
+upper, and work directory are now opened with no-symlink `openat2`, rewritten
+to held `/proc/self/fd` references, and retained through the mount call.
+Focused tests reject mountpoint replacement before the call, replace every
+pathname inside an injected mount boundary, verify that all distinct original
+inodes remain selected, and verify that descriptors close after return.
+Pre-syscall failures are separately classified so rejection never unmounts a
+substituted target, while an uncertain mount syscall still receives defensive
+unmount. Post-mount artifact-path replacement and privileged disposable-host
+validation remain open.

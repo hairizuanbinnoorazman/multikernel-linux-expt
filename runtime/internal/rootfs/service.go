@@ -15,9 +15,10 @@ import (
 )
 
 var identityRE = regexp.MustCompile(`^task-[a-f0-9]{32}$`)
+var errMountNotAttempted = errors.New("rootfs mount was not attempted")
 
 type Backend interface {
-	Mount(context.Context, []Mount, string) error
+	Mount(context.Context, []Mount, string, DirectoryIdentity) error
 	Unmount(context.Context, string) error
 	Build(context.Context, PrepareRequest, string, string) (PrepareResult, error)
 	VerifyPrepared(context.Context, Record) error
@@ -328,6 +329,10 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 	if err != nil || !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
 		return PrepareResult{}, errors.New("bundle rootfs must be a real directory")
 	}
+	rootID, ok := openedDirectoryIdentity(rootInfo)
+	if !ok || rootID.UID != uint32(os.Geteuid()) {
+		return PrepareResult{}, errors.New("bundle rootfs must be owned by the caller")
+	}
 	if _, err := bundleHandle.Lstat(".multikernel"); !errors.Is(err, os.ErrNotExist) {
 		return PrepareResult{}, errors.New("runtime artifact directory already exists")
 	}
@@ -342,7 +347,7 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		return PrepareResult{}, err
 	}
 	record := Record{Version: Version, Request: request, Root: root, RuntimeDir: runtimeDir, StorageDir: storageDir,
-		BundleID: bundleID, StorageID: s.storageID, Phase: "MOUNTING"}
+		BundleID: bundleID, RootID: rootID, StorageID: s.storageID, Phase: "MOUNTING"}
 	if err := s.verifyArtifactRootIdentities(record); err != nil {
 		return PrepareResult{}, errors.Join(err, bundleHandle.RemoveAll(".multikernel"), storageHandle.RemoveAll(request.TaskIdentity))
 	}
@@ -353,7 +358,10 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		return PrepareResult{}, errors.Join(err, bundleHandle.RemoveAll(".multikernel"),
 			storageHandle.RemoveAll(request.TaskIdentity), s.store.Delete(request.TaskIdentity))
 	}
-	if err := s.backend.Mount(ctx, request.Mounts, root); err != nil {
+	if err := s.backend.Mount(ctx, request.Mounts, root, rootID); err != nil {
+		if errors.Is(err, errMountNotAttempted) {
+			return PrepareResult{}, errors.Join(err, s.cleanupFailedPreparation(record))
+		}
 		unmountErr := s.backend.Unmount(context.WithoutCancel(ctx), root)
 		if unmountErr != nil {
 			return PrepareResult{}, errors.Join(err, fmt.Errorf("rollback uncertain rootfs mount: %w", unmountErr))

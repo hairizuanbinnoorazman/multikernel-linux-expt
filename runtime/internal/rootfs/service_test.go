@@ -21,11 +21,13 @@ type fakeBackend struct {
 	unmountErr  error
 	verifyErr   error
 	storagePath string
+	mountID     DirectoryIdentity
 	buildHook   func()
 }
 
-func (f *fakeBackend) Mount(_ context.Context, _ []Mount, target string) error {
+func (f *fakeBackend) Mount(_ context.Context, _ []Mount, target string, identity DirectoryIdentity) error {
 	f.calls = append(f.calls, "mount:"+target)
+	f.mountID = identity
 	return f.mountErr
 }
 func (f *fakeBackend) Unmount(_ context.Context, target string) error {
@@ -83,6 +85,14 @@ func TestPrepareJournalsBuildUnmountAndReplays(t *testing.T) {
 	want := []string{"mount:" + root, "build:" + filepath.Join(request.Bundle, ".multikernel"), "unmount:" + root}
 	if !reflect.DeepEqual(backend.calls, want) || result.Storage.Path != backend.storagePath {
 		t.Fatalf("calls/result = %v %+v", backend.calls, result)
+	}
+	rootInfo, err := os.Stat(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootID, ok := openedDirectoryIdentity(rootInfo)
+	if !ok || backend.mountID != rootID {
+		t.Fatalf("mount target identity = %+v, want %+v", backend.mountID, rootID)
 	}
 	backend.calls = nil
 	replayed, err := service.Prepare(context.Background(), request)
@@ -188,6 +198,25 @@ func TestMountFailureDefensivelyUnmountsAndRemovesArtifacts(t *testing.T) {
 	}
 	if _, ok := service.store.Get(request.TaskIdentity); ok {
 		t.Fatal("failed mount remained journaled")
+	}
+	for _, path := range []string{filepath.Join(request.Bundle, ".multikernel"), filepath.Join(base, "storage", request.TaskIdentity)} {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("artifact survived at %s: %v", path, err)
+		}
+	}
+}
+
+func TestRejectedMountTargetDoesNotUnmountReplacement(t *testing.T) {
+	service, backend, request, base := rootfsFixture(t)
+	backend.mountErr = errors.Join(errMountNotAttempted, errors.New("injected target replacement"))
+	if _, err := service.Prepare(context.Background(), request); err == nil {
+		t.Fatal("mount-target rejection accepted")
+	}
+	if !reflect.DeepEqual(backend.calls, []string{"mount:" + filepath.Join(request.Bundle, "rootfs")}) {
+		t.Fatalf("pre-mount rejection touched the target: %v", backend.calls)
+	}
+	if _, ok := service.store.Get(request.TaskIdentity); ok {
+		t.Fatal("rejected mount remained journaled")
 	}
 	for _, path := range []string{filepath.Join(request.Bundle, ".multikernel"), filepath.Join(base, "storage", request.TaskIdentity)} {
 		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {

@@ -213,9 +213,10 @@ current-revision live claim may be marked proved.
   alias. Cleanup is descriptor-anchored beneath the identity-bound
   bundle/storage-root inodes; focused pre-open replacement, symlink, and
   post-open rename tests prove a replacement tree is not traversed or removed.
-  This identity-bearing disk format is version 2: an empty version-1 store is
-  upgraded atomically, while active legacy records that cannot prove their
-  roots are rejected rather than guessed.
+  The identity-bearing disk format is now version 3 and additionally records
+  the rootfs mountpoint identity before `MOUNTING` publication. Empty version-1
+  or version-2 stores upgrade atomically, while active legacy records that
+  cannot prove their roots or mountpoint are rejected rather than guessed.
   Privileged builder output consumption now uses bounded no-follow opens with
   caller-owner, single-link, mode, and stable-identity checks. Exact storage
   metadata is revalidated against the request, and both initial publication
@@ -745,13 +746,17 @@ current-revision live claim may be marked proved.
   allocation, including bounded count/source/options, nil entries, canonical
   no-symlink source paths, supported option syntax, and duplicate rejection;
   focused adapter and service tests cover the shared boundary. The privileged
-  backend now reopens every bind source and overlay lower/upper/work directory
-  with no-symlink `openat2`, substitutes held `/proc/self/fd` references, and
-  retains every descriptor until the mount call returns. A focused hostile
-  replacement test renames all caller-visible paths inside the mount boundary,
-  proves each reference still resolves to the original distinct inode, and
-  proves all descriptors close afterward. Mount-target replacement and the
-  broader disposable-host path-race matrix remain open.
+  backend now reopens the identity-bound mountpoint, every bind source, and
+  every overlay lower/upper/work directory with no-symlink `openat2`,
+  substitutes held `/proc/self/fd` references, and retains every descriptor
+  until the mount call returns. Focused hostile replacement tests reject a
+  pre-open mountpoint substitution, rename all caller-visible paths inside the
+  mount boundary, prove each reference still resolves to the original distinct
+  inode, and prove all descriptors close afterward. Pre-syscall rejection is
+  explicitly classified so rollback removes private artifacts without
+  unmounting the substituted target; uncertain syscall failure still performs
+  defensive unmount. Post-mount artifact-path replacement and the broader
+  disposable-host path-race matrix remain open.
   The shim's separate network-namespace projection now reads `config.json`
   through a one-MiB, caller-owned, single-link, stable-identity `openat2`
   boundary as well; hardlink, symlinked-ancestor, and oversized-valid-prefix
