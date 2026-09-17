@@ -52,12 +52,18 @@ type Root struct {
 	Path     string `json:"path"`
 	Readonly *bool  `json:"readonly,omitempty"`
 }
+type MountSpec struct {
+	Destination string   `json:"destination"`
+	Type        string   `json:"type"`
+	Source      string   `json:"source"`
+	Options     []string `json:"options"`
+}
 type OCIConfig struct {
 	OCIVersion string                     `json:"ociVersion"`
 	Process    ProcessSpec                `json:"process"`
 	Root       Root                       `json:"root"`
 	Hostname   string                     `json:"hostname,omitempty"`
-	Mounts     []json.RawMessage          `json:"mounts,omitempty"`
+	Mounts     []MountSpec                `json:"mounts,omitempty"`
 	Hooks      map[string]json.RawMessage `json:"hooks,omitempty"`
 	Linux      *struct {
 		Namespaces    []json.RawMessage `json:"namespaces,omitempty"`
@@ -296,8 +302,11 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 	if e := validateProcessSpec(c.Process); e != nil {
 		return c, "", e
 	}
-	if c.Mounts != nil || c.Hooks != nil {
-		return c, "", errors.New("mounts and hooks are not implemented")
+	if c.Hooks != nil {
+		return c, "", errors.New("hooks are not implemented")
+	}
+	if err := validateReadonlyBindMounts(c.Mounts); err != nil {
+		return c, "", err
 	}
 	if c.Linux != nil {
 		if c.Linux.Namespaces != nil || c.Linux.Resources != nil || c.Linux.Seccomp != nil {
@@ -369,7 +378,7 @@ func (m *Manager) Create(id, bundle string) error {
 		return errors.New("process retention limit reached")
 	}
 	if !m.policySet {
-		if m.NoChroot && (c.Hostname != "" || c.Root.Readonly != nil || c.Linux != nil) {
+		if m.NoChroot && (c.Hostname != "" || c.Root.Readonly != nil || c.Linux != nil || len(c.Mounts) != 0) {
 			return errors.New("root policy cannot be applied in no-chroot test mode")
 		}
 		if e = applyRootPolicy(c, root); e != nil {

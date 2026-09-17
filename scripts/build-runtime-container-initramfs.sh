@@ -5,6 +5,7 @@ bundle=${1:?usage: build-runtime-container-initramfs.sh BUNDLE OUTPUT}
 output=${2:?usage: build-runtime-container-initramfs.sh BUNDLE OUTPUT}
 output_manifest=${output%.cpio.gz}.manifest.json
 source_manifest=${output%.cpio.gz}.source-manifest.json
+bind_manifest=${output%.cpio.gz}.readonly-binds.manifest.json
 storage_output=${MK_STORAGE_OUTPUT:-$(dirname "$output")/root.ext4}
 storage_metadata=$(dirname "$output")/storage.json
 manifest=${MK_KERNEL_MANIFEST:-/etc/mkruntime/kernels/gce-mk2.json}
@@ -32,7 +33,7 @@ cleanup() {
 	rm -rf "$scratch"
 	if [[ $complete != true ]]; then
 		rm -f "$output" "$output_manifest" "$source_manifest" "$storage_output" "$storage_metadata" \
-			"$source_manifest.before" "$source_manifest.after"
+			"$source_manifest.before" "$source_manifest.after" "$bind_manifest"
 	fi
 }
 trap cleanup EXIT
@@ -40,7 +41,8 @@ trap cleanup EXIT
 test -f "$bundle/config.json"
 mkdir -p "$root" "$boot" "$metadata"
 validated_config=$metadata/config.json
-"$script_dir/validate-runtime-oci.py" "$bundle/config.json" "$validated_config"
+bind_plan=$metadata/readonly-binds.json
+"$script_dir/validate-runtime-oci.py" "$bundle/config.json" "$validated_config" "$bind_plan"
 : "${task_identity:?MK_TASK_IDENTITY is required}"
 : "${storage_port:?MK_STORAGE_PORT is required}"
 busybox=${BUSYBOX:-$(command -v busybox)}
@@ -87,6 +89,8 @@ filesystem_uuid=$(jq -er '.filesystem_uuid' "$metadata/storage-identity.json")
 printf '%s\n' "$image_id" >"$root/.multikernel/image-id"
 chmod 0600 "$root/.multikernel/image-id"
 cp -a "$source_root/." "$root/bundle/rootfs/"
+"$script_dir/materialize-runtime-binds.py" "$bind_plan" "$root/bundle/rootfs" "$bind_manifest" \
+	--max-bytes "${MK_BIND_INPUT_MAX_BYTES:-1073741824}" --max-inodes "${MK_BIND_INPUT_MAX_INODES:-131072}"
 "$script_dir/build-runtime-rootfs.py" "$source_root" "$metadata/unused" "$source_manifest.after" --manifest-only \
 	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
 	>"$metadata/source-after-result.json"
@@ -124,6 +128,7 @@ jq -n \
 	--arg nbd_module_sha256 "$(sha256sum "$nbd_module" | awk '{print $1}')" \
 	--slurpfile source_before "$metadata/source-before-result.json" \
 	--slurpfile source_after "$metadata/source-after-result.json" \
+	--slurpfile binds "$bind_manifest" \
 	--slurpfile identity "$metadata/storage-identity.json" \
 	--slurpfile image "$metadata/image-validation.json" \
 	--slurpfile storage "$metadata/storage-result.json" \
@@ -132,6 +137,7 @@ jq -n \
 	--slurpfile kernel "$bootstrap" \
 	'{schema_version: 1, requested_root: $requested_root, source_root: $source_root,
 	  source_scan_before: $source_before[0], source_scan_after: $source_after[0], source_identity: $identity[0],
+	  readonly_bind_inputs: ($binds[0] | .readonly_binds | map(del(.manifest))),
 	  image: $image[0], storage: $storage[0], generated_bootstrap: $archive[0],
 	  verified_bootstrap: $verification[0], selected_kernel: $kernel[0],
 	  nbd: {helper: $nbd_helper, helper_sha256: $nbd_helper_sha256, module: $nbd_module, module_sha256: $nbd_module_sha256}}'

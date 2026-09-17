@@ -179,7 +179,7 @@ func capabilityReport() map[string]any {
 		"protocol":          1,
 		"protocol_features": []string{"signal-operation-id-v1", "stdin-offset-v1", "two-phase-shutdown-v1"},
 		"oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize",
-			"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts"},
+			"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts", "readonly-bind-inputs-v1"},
 		"kernel": map[string]any{
 			"architecture": runtime.GOARCH,
 			"release":      read("/proc/sys/kernel/osrelease"),

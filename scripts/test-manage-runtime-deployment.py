@@ -23,6 +23,7 @@ DESTINATIONS = (
     "etc/containerd/conf.d/20-multikernel-runtime.toml",
     "usr/local/libexec/multikernel/build-runtime-container-initramfs.sh",
     "usr/local/libexec/multikernel/validate-runtime-oci.py",
+    "usr/local/libexec/multikernel/materialize-runtime-binds.py",
     "usr/local/libexec/multikernel/validate-runtime-bootstrap.py",
     "usr/local/libexec/multikernel/validate-runtime-root.py",
     "usr/local/libexec/multikernel/validate-runtime-image.py",

@@ -877,3 +877,18 @@ available for retry. The identity-bearing store is explicitly version 2. An
 empty version-1 store upgrades atomically; nonempty legacy ownership is
 rejected because its original directory identity cannot be reconstructed
 safely from a pathname.
+
+Read-only OCI bind inputs now have an implemented v1 subset instead of a
+blanket mount rejection. The adapter accepts only bounded, non-overlapping
+directory inputs with exact `bind,ro,nodev,nosuid,noexec` semantics and emits
+separate host and sanitized guest projections. A primary-side helper manifests
+each source before and after copying it into the private ext4 staging root,
+requires the copied manifest to match, and publishes a normalized manifest
+whose digest and summary are independently checked by the rootfs daemon during
+build and recovery. Host paths never enter the child. The agent advertises the
+subset, validates the sanitized destinations again, then self-binds and
+remounts them read-only before the first process. Local fault tests cover
+metadata/link preservation, existing destinations, symlinked sources, injected
+source mutation, malformed provenance, and unsanitized guest configurations.
+Privileged guest write rejection, writable volumes, configured persistence,
+and current-revision disposable-host evidence remain open.

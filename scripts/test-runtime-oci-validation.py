@@ -55,6 +55,16 @@ def run_case(directory, name, config=None, raw=None, accepted=False):
         policy = {name: config["linux"][name] for name in ("maskedPaths", "readonlyPaths") if name in config["linux"]}
         if policy:
             expected["linux"] = policy
+        readonly_binds = [item for item in config.get("mounts", []) if item["destination"] not in {
+            "/proc", "/dev", "/dev/pts", "/dev/shm", "/dev/mqueue", "/sys", "/run",
+        }]
+        if readonly_binds:
+            expected["mounts"] = [{
+                "destination": item["destination"],
+                "type": "bind",
+                "source": item["destination"],
+                "options": ["bind", "nodev", "noexec", "nosuid", "ro"],
+            } for item in readonly_binds]
         if projected != expected:
             raise AssertionError(f"{name}: unexpected guest projection {projected!r}")
     if not accepted and output.exists():
@@ -107,6 +117,46 @@ def main():
             "readonlyPaths": ["/proc/sys"],
         })
         run_case(directory, "standard-containerd", standard, accepted=True)
+        readonly_bind = copy.deepcopy(BASE)
+        readonly_bind["mounts"] = [{
+            "destination": "/opt/input", "type": "bind", "source": "/srv/input",
+            "options": ["noexec", "ro", "bind", "nosuid", "nodev"],
+        }]
+        run_case(directory, "readonly-bind", readonly_bind, accepted=True)
+        bind_source = directory / "readonly-bind-plan-source.json"
+        bind_guest = directory / "readonly-bind-guest.json"
+        bind_plan = directory / "readonly-bind-plan.json"
+        bind_source.write_text(json.dumps(readonly_bind), encoding="utf-8")
+        bind_source.chmod(0o644)
+        projected = subprocess.run(
+            [str(VALIDATOR), str(bind_source), str(bind_guest), str(bind_plan)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False,
+        )
+        if projected.returncode != 0:
+            raise AssertionError(f"bind projections failed: {projected.stderr!r}")
+        guest_mount = json.loads(bind_guest.read_text(encoding="utf-8"))["mounts"][0]
+        host_mount = json.loads(bind_plan.read_text(encoding="utf-8"))["readonly_binds"][0]
+        if guest_mount["source"] != "/opt/input" or host_mount["source"] != "/srv/input":
+            raise AssertionError("host bind source crossed into the guest projection")
+        if host_mount["options"] != ["bind", "ro", "nodev", "nosuid", "noexec"]:
+            raise AssertionError("host bind plan was not canonicalized")
+        for name, mutate in (
+            ("writable-bind", lambda mount: mount["options"].remove("ro")),
+            ("bind-propagation", lambda mount: mount["options"].append("rprivate")),
+            ("relative-bind-source", lambda mount: mount.update(source="srv/input")),
+            ("noncanonical-bind-destination", lambda mount: mount.update(destination="/opt/../input")),
+            ("protected-bind-destination", lambda mount: mount.update(destination="/proc/input")),
+            ("unsupported-bind-type", lambda mount: mount.update(type="tmpfs")),
+        ):
+            config = copy.deepcopy(readonly_bind)
+            mutate(config["mounts"][0])
+            run_case(directory, name, config)
+        overlapping_binds = copy.deepcopy(readonly_bind)
+        overlapping_binds["mounts"].append({
+            "destination": "/opt/input/nested", "type": "bind", "source": "/srv/nested",
+            "options": ["bind", "ro", "nodev", "nosuid", "noexec"],
+        })
+        run_case(directory, "overlapping-binds", overlapping_binds)
         bad_mount = copy.deepcopy(standard)
         bad_mount["mounts"][0]["options"].append("rw")
         run_case(directory, "modified-default-mount", bad_mount)

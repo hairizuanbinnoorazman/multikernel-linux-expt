@@ -18,7 +18,7 @@ is what remains after those local passes.
 
 | Gate | Demonstrated boundary | Why the gate remains open |
 | --- | --- | --- |
-| G4 | The current tree builds and verifies canonical manifests and deterministic newc roots, rejects observed source mutation and unsafe metadata, produces bounded fully allocated private ext4 images, generation-binds one mediated export, and journals graceful teardown/recovery. Earlier live runs only prove the narrower BusyBox/private-write MVP. | Configured persistence and read-only bind inputs remain incomplete. Exhaustion, corruption, server-loss, host-reset, clone, cross-export, and replacement-instance evidence matrices have not passed on the current revision. |
+| G4 | The current tree builds and verifies canonical manifests and deterministic newc roots, rejects observed source mutation and unsafe metadata, produces bounded fully allocated private ext4 images, generation-binds one mediated export, journals graceful teardown/recovery, and locally verifies a materialized read-only bind-input subset. Earlier live runs only prove the narrower BusyBox/private-write MVP. | Configured persistence and writable host volumes remain incomplete. Read-only bind enforcement still needs privileged live proof. Exhaustion, corruption, server-loss, host-reset, clone, cross-export, and replacement-instance evidence matrices have not passed on the current revision. |
 | G5 | The current tree contains `mknetd`, CNI 1.0 `ADD`/`CHECK`/idempotent `DEL`, generation-bound endpoint state, negotiated MTU/DNS, bounded exchange/counters, restart reconciliation, and exact-address anti-spoof/firewall policy. Earlier live runs only prove static-link networking. | The CNI implementation and complete firewall CHECK have automated coverage but no current-revision live proof. Traffic, MTU/load/fault, restart, spoof/bypass, primary-health, and cleanup evidence matrices remain open. |
 | G6 | The current tree implements the core Task v2 lifecycle, faithful versioned guest PIDs, pause/resume/stats, standard OCI process controls, durable task/process/I/O offsets, a supervised shim worker, and generation-bound task reconstruction. Earlier live runs prove only the narrower lifecycle/I/O MVP. | Current-revision forced-shim reconstruction remains live-unproved. Durable event replay, complete cancellation/FIFO/race matrices, Docker restart, packaging upgrade/rollback, and evidence-grade shared and isolated reruns remain incomplete. |
 
@@ -140,7 +140,17 @@ normative plan is revised with an explicit rationale.
 - [ ] Decide the supported writable-state model. Implement private writable
   layers, read-only bind inputs, persistence/volumes, ownership mapping, and
   propagation semantics, or narrow the G4 plan explicitly if some are outside
-  the intended runtime.
+  the intended runtime. Read-only bind-input v1 now accepts only directory
+  inputs with exact `bind,ro,nodev,nosuid,noexec` options. The primary rejects
+  protected, overlapping, symlinked, or pre-existing destinations, manifests
+  each source before/after archive-semantic materialization, compares the copy,
+  and retains a daemon-verified digest-bearing manifest. Numeric UID/GID and
+  admitted metadata are preserved, propagation is explicitly absent, original
+  host paths are removed from the guest projection, and the agent self-binds
+  the materialized directory read-only before process creation. Focused tests
+  cover copy identity, collisions, symlinks, mutation, malformed provenance,
+  and guest fail-closed parsing. Writable host volumes, configured persistence,
+  and privileged live read-only enforcement remain open.
 - [ ] Add capacity accounting, block/inode quotas, a high-water refusal policy,
   and bounded behavior for host and initramfs ENOSPC.
 - [ ] Implement the storage teardown and recovery sequence appropriate to the
@@ -211,7 +221,9 @@ normative plan is revised with an explicit rationale.
   suite rejects duplicate/truncated JSON and unsupported behavior fields before
   the builder reaches allocation.
 - [ ] Read-only input rejection, private-write isolation, configured
-  persistence, and proof that unconfigured writes do not persist.
+  persistence, and proof that unconfigured writes do not persist. Local tests
+  now cover bind admission/materialization rejection and metadata identity;
+  privileged guest write rejection and all persistence cases remain open.
 - [ ] Block and inode exhaustion, high-water refusal, wrong UUID/generation,
   stale lock, duplicate attach, interrupted copy, and builder failure at every
   allocation boundary. The local ext4 builder now accounts for its private
@@ -743,6 +755,11 @@ normative plan is revised with an explicit rationale.
   duplicate-environment rejection, canonical bounded cwd, and unique bounded
   supplementary groups all fail before allocation or guest process mutation.
   Focused adapter and guest tests cover these hostile shapes.
+  The supported mount subset now additionally includes at most eight
+  non-overlapping materialized read-only directory inputs with fixed
+  `nodev,nosuid,noexec` policy. All writable, propagation, protected-path,
+  noncanonical, conflicting, and unsanitized bind forms remain fail-closed;
+  the agent advertises this additive subset as `readonly-bind-inputs-v1`.
   Both boundaries also open `config.json` without following symlink or magic
   link ancestors, require a private caller-owned single-link regular file,
   cap the complete input at one MiB, and reject identity changes across the
