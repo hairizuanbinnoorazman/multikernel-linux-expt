@@ -892,3 +892,14 @@ metadata/link preservation, existing destinations, symlinked sources, injected
 source mutation, malformed provenance, and unsanitized guest configurations.
 Privileged guest write rejection, writable volumes, configured persistence,
 and current-revision disposable-host evidence remain open.
+
+The shim previously relied on replay-safe stdin, replay-safe signals,
+two-phase shutdown, and the complete projected OCI policy without querying the
+connected agent. Initial connection and reconstruction now require an
+authenticated bounded `Capabilities` exchange before guest network configuration or
+process observation. Protocol v1, runtime identity objects, unique bounded
+feature sets, and every protocol/OCI capability used by this shim revision are
+mandatory. Transport loss can use the existing bounded reconnect path, while
+an authenticated incomplete or malformed peer fails terminally. Focused
+wrong-version, missing-feature, duplicate, missing-identity, success, and full
+reconstruction cases pass 100 race-detector repetitions.
