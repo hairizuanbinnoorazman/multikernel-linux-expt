@@ -880,7 +880,9 @@ safely from a pathname.
 
 Read-only OCI bind inputs now have an implemented v1 subset instead of a
 blanket mount rejection. The adapter accepts only bounded, non-overlapping
-directory inputs with exact `bind,ro,nodev,nosuid,noexec` semantics and emits
+directory inputs using standard read-only `bind`/`rbind` forms (including
+Docker's `rbind,rprivate,ro`), normalizes them to guest
+`bind,ro,nodev,nosuid,noexec` semantics, and emits
 separate host and sanitized guest projections. A primary-side helper manifests
 each source before and after copying it into the private ext4 staging root,
 requires the copied manifest to match, and publishes a normalized manifest

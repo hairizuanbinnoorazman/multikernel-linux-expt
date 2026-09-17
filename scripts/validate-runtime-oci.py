@@ -58,7 +58,9 @@ DEFAULT_MOUNTS = {
     "/sys": ("sysfs", "sysfs", {"nosuid", "noexec", "nodev", "ro"}),
     "/run": ("tmpfs", "tmpfs", {"nosuid", "strictatime", "mode=755", "size=65536k"}),
 }
-READONLY_BIND_OPTIONS = {"bind", "ro", "nodev", "nosuid", "noexec"}
+READONLY_BIND_KINDS = {"bind", "rbind"}
+READONLY_BIND_OPTIONAL = {"private", "rprivate", "nodev", "nosuid", "noexec", "relatime", "noatime", "strictatime"}
+SANITIZED_READONLY_BIND_OPTIONS = {"bind", "ro", "nodev", "nosuid", "noexec"}
 PROTECTED_BIND_DESTINATIONS = ("/dev", "/proc", "/run", "/sys")
 MAX_READONLY_BINDS = 8
 
@@ -196,10 +198,15 @@ def validate_mounts(value):
         canonical_absolute_path(source, f"mounts[{index}].source")
         if item.get("type") != "bind":
             raise ValueError(f"unsupported OCI mount type at {destination!r}")
+        option_set = set(actual_options) if isinstance(actual_options, list) and all(
+            isinstance(option, str) for option in actual_options
+        ) else set()
         if (not isinstance(actual_options, list) or
                 not all(isinstance(option, str) for option in actual_options) or
-                len(actual_options) != len(set(actual_options)) or
-                set(actual_options) != READONLY_BIND_OPTIONS):
+                len(actual_options) != len(option_set) or "ro" not in option_set or
+                len(option_set & READONLY_BIND_KINDS) != 1 or
+                not option_set <= ({"ro"} | READONLY_BIND_KINDS | READONLY_BIND_OPTIONAL) or
+                len(option_set & {"private", "rprivate"}) > 1):
             raise ValueError(f"read-only bind {destination!r} differs from the enforced option contract")
         if destination == "/" or any(destination == path or destination.startswith(path + "/")
                                      for path in PROTECTED_BIND_DESTINATIONS):
@@ -348,7 +355,7 @@ def guest_projection(config):
                 "destination": item["destination"],
                 "type": "bind",
                 "source": item["destination"],
-                "options": sorted(READONLY_BIND_OPTIONS),
+                "options": sorted(SANITIZED_READONLY_BIND_OPTIONS),
             }
             for item in readonly_binds
         ]

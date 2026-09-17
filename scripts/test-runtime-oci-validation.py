@@ -120,9 +120,12 @@ def main():
         readonly_bind = copy.deepcopy(BASE)
         readonly_bind["mounts"] = [{
             "destination": "/opt/input", "type": "bind", "source": "/srv/input",
-            "options": ["noexec", "ro", "bind", "nosuid", "nodev"],
+            "options": ["rprivate", "ro", "rbind"],
         }]
-        run_case(directory, "readonly-bind", readonly_bind, accepted=True)
+        run_case(directory, "docker-readonly-bind", readonly_bind, accepted=True)
+        hardened_bind = copy.deepcopy(readonly_bind)
+        hardened_bind["mounts"][0]["options"] = ["noexec", "ro", "bind", "nosuid", "nodev"]
+        run_case(directory, "hardened-readonly-bind", hardened_bind, accepted=True)
         bind_source = directory / "readonly-bind-plan-source.json"
         bind_guest = directory / "readonly-bind-guest.json"
         bind_plan = directory / "readonly-bind-plan.json"
@@ -142,7 +145,8 @@ def main():
             raise AssertionError("host bind plan was not canonicalized")
         for name, mutate in (
             ("writable-bind", lambda mount: mount["options"].remove("ro")),
-            ("bind-propagation", lambda mount: mount["options"].append("rprivate")),
+            ("shared-bind-propagation", lambda mount: mount["options"].append("rshared")),
+            ("conflicting-private-bind", lambda mount: mount["options"].append("private")),
             ("relative-bind-source", lambda mount: mount.update(source="srv/input")),
             ("noncanonical-bind-destination", lambda mount: mount.update(destination="/opt/../input")),
             ("protected-bind-destination", lambda mount: mount.update(destination="/proc/input")),

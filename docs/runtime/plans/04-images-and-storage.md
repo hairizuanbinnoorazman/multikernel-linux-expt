@@ -92,8 +92,11 @@ and failure responses do not disclose checker diagnostics.
 - Add capacity quotas and high-water refusal before live ENOSPC.
 
 The read-only bind-input v1 subset admits at most eight non-overlapping host
-directories. Each mount must use the exact `bind,ro,nodev,nosuid,noexec`
-contract and may not overlap `/dev`, `/proc`, `/run`, or `/sys`. The primary
+directories. Each mount must be read-only, select exactly one of `bind` or
+`rbind`, and may use private plus standard restrictive/atime flags; writable,
+shared, slave, and unknown options are rejected. The adapter normalizes every
+accepted form to the stricter guest `bind,ro,nodev,nosuid,noexec` policy. A
+destination may not overlap `/dev`, `/proc`, `/run`, or `/sys`. The primary
 manifests each source before and after an archive-semantic copy into the
 container's private ext4 staging root, requires the copied manifest to match,
 and retains the normalized manifest and digest as a separately verified
@@ -103,7 +106,7 @@ is deliberately `none`: this is a point-in-time materialized input, not a live
 host bind. Before the first process, the guest bind-mounts the materialized
 destination onto itself and remounts it `ro,nodev,nosuid,noexec`. Existing
 destinations, nested inputs, source symlinks, mutation, writable options, and
-propagation options fail closed. Writable host-path volumes and configured
+shared/slave or unsupported propagation options fail closed. Writable host-path volumes and configured
 persistence remain a later storage format and ownership contract.
 
 ## Tests

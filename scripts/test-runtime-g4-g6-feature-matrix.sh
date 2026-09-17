@@ -16,14 +16,19 @@ ctr_id=mk-matrix-ctr
 docker_name=mk-matrix-docker
 ctr_attach_id=mk-matrix-ctr-attach
 docker_attach_name=mk-matrix-docker-attach
+ctr_bind_id=mk-matrix-ctr-bind
+docker_bind_name=mk-matrix-docker-bind
+bind_root=
 
 cleanup() {
 	(
 	set +e
 	sudo docker rm -f "$docker_name" >/dev/null 2>&1
 	sudo docker rm -f "$docker_attach_name" >/dev/null 2>&1
+	sudo docker rm -f "$docker_bind_name" >/dev/null 2>&1
 	sudo ctr tasks kill --signal SIGKILL "$ctr_id" >/dev/null 2>&1
 	sudo ctr tasks kill --signal SIGKILL "$ctr_attach_id" >/dev/null 2>&1
+	sudo ctr tasks kill --signal SIGKILL "$ctr_bind_id" >/dev/null 2>&1
 	for _ in $(seq 1 100); do
 		[[ $(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $3}') != RUNNING ]] && break
 		sleep .1
@@ -32,6 +37,11 @@ cleanup() {
 	sudo ctr containers rm "$ctr_id" >/dev/null 2>&1
 	sudo ctr tasks rm -f "$ctr_attach_id" >/dev/null 2>&1
 	sudo ctr containers rm "$ctr_attach_id" >/dev/null 2>&1
+	sudo ctr tasks rm -f "$ctr_bind_id" >/dev/null 2>&1
+	sudo ctr containers rm "$ctr_bind_id" >/dev/null 2>&1
+	if [[ -n ${bind_root:-} && -d $bind_root ]]; then
+		rm -rf -- "$bind_root"
+	fi
 	true
 	)
 }
@@ -165,6 +175,32 @@ test "$ctr_private" = ctr-private
 test "$docker_private" = docker-private
 observe private-root-values "ctr=$ctr_private docker=$docker_private"
 row private-writable-root
+
+# Standard clients emit different read-only bind option sets: ctr supplies an
+# explicit rbind/ro pair, while Docker adds rprivate. The adapter must admit
+# both, remove the host source from the guest projection, preserve the admitted
+# bytes, and enforce a read-only guest mount without changing either host tree.
+bind_root=$(mktemp -d -p /tmp mk-runtime-bind-matrix.XXXXXX)
+chmod 0755 "$bind_root"
+mkdir -m 0755 "$bind_root/ctr" "$bind_root/docker"
+printf 'ctr-host-immutable\n' >"$bind_root/ctr/value"
+printf 'docker-host-immutable\n' >"$bind_root/docker/value"
+chmod 0644 "$bind_root/ctr/value" "$bind_root/docker/value"
+bind_probe='set -eu; before=$(cat /opt/input/value); if printf changed >/opt/input/value 2>/dev/null; then echo writable-bind >&2; exit 90; fi; after=$(cat /opt/input/value); test "$before" = "$after"; printf "%s\n" "$after"'
+ctr_bind_output=$(sudo ctr run --rm --runtime "$runtime" \
+	--mount "type=bind,src=$bind_root/ctr,dst=/opt/input,options=rbind:ro" \
+	"$image" "$ctr_bind_id" /bin/sh -c "$bind_probe")
+docker_bind_output=$(sudo docker run --rm --runtime "$runtime" \
+	--name "$docker_bind_name" --mount "type=bind,src=$bind_root/docker,dst=/opt/input,readonly" \
+	"$image" /bin/sh -c "$bind_probe")
+test "$ctr_bind_output" = ctr-host-immutable
+test "$docker_bind_output" = docker-host-immutable
+test "$(cat "$bind_root/ctr/value")" = ctr-host-immutable
+test "$(cat "$bind_root/docker/value")" = docker-host-immutable
+observe readonly-bind-inputs "ctr=$ctr_bind_output docker=$docker_bind_output ctr_host=$(cat "$bind_root/ctr/value") docker_host=$(cat "$bind_root/docker/value")"
+rm -rf -- "$bind_root"
+bind_root=
+row readonly-bind-inputs
 
 ctr_network=$(sudo ctr task exec --exec-id matrix-ctr-network "$ctr_id" /bin/sh -c \
 	'ip -4 address show dev mkn0; nslookup example.com; wget -T 15 -qO- http://example.com | sha256sum; echo network-ok')
