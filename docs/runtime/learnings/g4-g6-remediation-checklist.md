@@ -141,8 +141,11 @@ normative plan is revised with an explicit rationale.
   layers, read-only bind inputs, persistence/volumes, ownership mapping, and
   propagation semantics, or narrow the G4 plan explicitly if some are outside
   the intended runtime. Read-only bind-input v1 now accepts only directory
-  inputs with exact `bind,ro,nodev,nosuid,noexec` options. The primary rejects
-  protected, overlapping, symlinked, or pre-existing destinations, manifests
+  inputs expressed as standard read-only `bind` or `rbind` mounts, including
+  Docker's `rbind,rprivate,ro` form, and normalizes them to the stricter guest
+  `bind,ro,nodev,nosuid,noexec` policy. The primary rejects writable, shared,
+  slave, unknown, protected, overlapping, symlinked, or pre-existing
+  destinations, manifests
   each source before/after archive-semantic materialization, compares the copy,
   and retains a daemon-verified digest-bearing manifest. Numeric UID/GID and
   admitted metadata are preserved, propagation is explicitly absent, original
