@@ -56,16 +56,43 @@ func TestMain(m *testing.M) {
 }
 
 type fakeAgentClient struct {
-	calls     []string
-	fail      map[string]error
-	stats     agent.ProcessStats
-	statsByID map[string]agent.ProcessStats
+	calls        []string
+	fail         map[string]error
+	stats        agent.ProcessStats
+	statsByID    map[string]agent.ProcessStats
+	capabilities *guestCapabilities
 }
 
 type statsReplyLossAgent struct {
 	calls      int
 	reconnects int
 	stats      agent.ProcessStats
+}
+
+type capabilityReplyLossAgent struct {
+	calls, reconnects int
+}
+
+func (f *capabilityReplyLossAgent) Call(method string, request, response any) error {
+	return f.CallContext(context.Background(), method, request, response)
+}
+
+func (f *capabilityReplyLossAgent) CallContext(_ context.Context, method string, _ any, response any) error {
+	if method != "Capabilities" {
+		return fmt.Errorf("unexpected method %s", method)
+	}
+	f.calls++
+	if f.calls == 1 {
+		return io.ErrUnexpectedEOF
+	}
+	return setJSONResponse(response, validGuestCapabilities())
+}
+
+func (*capabilityReplyLossAgent) Close() error           { return nil }
+func (*capabilityReplyLossAgent) Reconnect(string) error { return nil }
+func (f *capabilityReplyLossAgent) ReconnectContext(context.Context, string) error {
+	f.reconnects++
+	return nil
 }
 
 type signalReplyLossAgent struct {
@@ -753,6 +780,15 @@ func setStoppedResponse(request, response any, pid, exit int) error {
 	return setJSONResponse(response, agent.ProcessState{ID: id, PID: pid, Status: "STOPPED", ExitCode: exit})
 }
 
+func validGuestCapabilities() guestCapabilities {
+	return guestCapabilities{Protocol: 1,
+		ProtocolFeatures: append([]string(nil), requiredAgentProtocolFeatures...),
+		OCIFeatures:      append([]string(nil), requiredAgentOCIFeatures...),
+		Kernel:           map[string]any{"architecture": "amd64"},
+		Agent:            map[string]any{"uid": 0.0},
+	}
+}
+
 func (f *recoveryAgentClient) Call(method string, request, response any) error {
 	return f.CallContext(context.Background(), method, request, response)
 }
@@ -760,6 +796,8 @@ func (f *recoveryAgentClient) Call(method string, request, response any) error {
 func (f *recoveryAgentClient) CallContext(ctx context.Context, method string, request, response any) error {
 	f.record(method)
 	switch method {
+	case "Capabilities":
+		return setJSONResponse(response, validGuestCapabilities())
 	case "StateProcess":
 		f.mu.Lock()
 		fail := f.failFirstState
@@ -901,6 +939,13 @@ func (f *fakeAgentClient) CallContext(_ context.Context, method string, request 
 	f.calls = append(f.calls, method)
 	if err := f.fail[method]; err != nil {
 		return err
+	}
+	if method == "Capabilities" {
+		capabilities := validGuestCapabilities()
+		if f.capabilities != nil {
+			capabilities = *f.capabilities
+		}
+		return setJSONResponse(response, capabilities)
 	}
 	if method == "StatsProcess" {
 		value := f.stats
@@ -1341,6 +1386,70 @@ func TestRootfsMountsAreSanitizedForDaemonAndValidated(t *testing.T) {
 	}
 	if _, err = rootfsMounts(tooMany); err == nil {
 		t.Fatal("too many rootfs mounts accepted")
+	}
+}
+
+func TestAgentCapabilityNegotiationRequiresCompleteUniqueContract(t *testing.T) {
+	valid := validGuestCapabilities()
+	tests := map[string]struct {
+		capabilities guestCapabilities
+		wantError    bool
+	}{
+		"complete": {capabilities: valid},
+		"wrong protocol": {capabilities: func() guestCapabilities {
+			value := validGuestCapabilities()
+			value.Protocol = 2
+			return value
+		}(), wantError: true},
+		"missing replay feature": {capabilities: func() guestCapabilities {
+			value := validGuestCapabilities()
+			value.ProtocolFeatures = value.ProtocolFeatures[1:]
+			return value
+		}(), wantError: true},
+		"missing OCI feature": {capabilities: func() guestCapabilities {
+			value := validGuestCapabilities()
+			value.OCIFeatures = value.OCIFeatures[1:]
+			return value
+		}(), wantError: true},
+		"duplicate": {capabilities: func() guestCapabilities {
+			value := validGuestCapabilities()
+			value.OCIFeatures = append(value.OCIFeatures, value.OCIFeatures[0])
+			return value
+		}(), wantError: true},
+		"malformed feature": {capabilities: func() guestCapabilities {
+			value := validGuestCapabilities()
+			value.ProtocolFeatures[0] = "INVALID FEATURE"
+			return value
+		}(), wantError: true},
+		"missing identity": {capabilities: func() guestCapabilities {
+			value := validGuestCapabilities()
+			value.Kernel = nil
+			return value
+		}(), wantError: true},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := &fakeAgentClient{fail: map[string]error{}, capabilities: &test.capabilities}
+			service := &service{agent: client, ioCallTimeout: time.Second}
+			err := service.negotiateAgentCapabilities(context.Background())
+			if (err != nil) != test.wantError {
+				t.Fatalf("negotiateAgentCapabilities() error = %v, wantError=%v", err, test.wantError)
+			}
+			if !reflect.DeepEqual(client.calls, []string{"Capabilities"}) {
+				t.Fatalf("agent calls = %v", client.calls)
+			}
+		})
+	}
+}
+
+func TestAgentCapabilityNegotiationReconnectsLostReply(t *testing.T) {
+	client := &capabilityReplyLossAgent{}
+	service := &service{agent: client, relaySocket: "/run/test-agent.sock", ioCallTimeout: time.Second}
+	if err := service.negotiateAgentCapabilities(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if client.calls != 2 || client.reconnects != 1 {
+		t.Fatalf("capability calls/reconnects = %d/%d, want 2/1", client.calls, client.reconnects)
 	}
 }
 

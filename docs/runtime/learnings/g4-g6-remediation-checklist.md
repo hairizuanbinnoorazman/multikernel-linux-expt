@@ -760,6 +760,13 @@ normative plan is revised with an explicit rationale.
   `nodev,nosuid,noexec` policy. All writable, propagation, protected-path,
   noncanonical, conflicting, and unsanitized bind forms remain fail-closed;
   the agent advertises this additive subset as `readonly-bind-inputs-v1`.
+  Initial connection and reconstruction now perform an authenticated bounded
+  capability handshake and require unique complete protocol/OCI feature sets,
+  including stdin/signal replay, two-phase shutdown, process controls, root
+  policy, standard mounts, and read-only bind inputs. Mixed-version peers fail
+  before guest network configuration or process reconstruction. Focused success,
+  missing-feature, wrong-version, duplicate, and missing-identity cases plus
+  reconstruction pass 100 race-detector repetitions.
   Both boundaries also open `config.json` without following symlink or magic
   link ancestors, require a private caller-owned single-link regular file,
   cap the complete input at one MiB, and reject identity changes across the

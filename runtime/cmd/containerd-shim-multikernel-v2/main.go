@@ -55,6 +55,44 @@ var runtimeIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 var guestProcessIdentifier = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 var recoveryGeneration = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var recoverySHA256 = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var capabilityName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,127}$`)
+
+var requiredAgentProtocolFeatures = []string{"signal-operation-id-v1", "stdin-offset-v1", "two-phase-shutdown-v1"}
+var requiredAgentOCIFeatures = []string{
+	"argv", "attach", "cwd", "environment", "exit-code", "hostname", "linux-capabilities",
+	"masked-paths", "no-new-privileges", "readonly-bind-inputs-v1", "readonly-paths", "readonly-root",
+	"rlimits", "split-stdio", "standard-mounts", "stdin", "terminal", "terminal-resize",
+}
+
+type guestCapabilities struct {
+	Protocol         int            `json:"protocol"`
+	ProtocolFeatures []string       `json:"protocol_features"`
+	OCIFeatures      []string       `json:"oci_features"`
+	Kernel           map[string]any `json:"kernel"`
+	Agent            map[string]any `json:"agent"`
+}
+
+func requireCapabilitySet(observed, required []string, name string) error {
+	if len(observed) > 128 {
+		return fmt.Errorf("guest %s capability set exceeds its bound", name)
+	}
+	available := make(map[string]struct{}, len(observed))
+	for _, feature := range observed {
+		if !capabilityName.MatchString(feature) {
+			return fmt.Errorf("guest %s capability set contains an invalid feature", name)
+		}
+		if _, duplicate := available[feature]; duplicate {
+			return fmt.Errorf("guest %s capability set contains duplicate %q", name, feature)
+		}
+		available[feature] = struct{}{}
+	}
+	for _, feature := range required {
+		if _, ok := available[feature]; !ok {
+			return fmt.Errorf("guest does not advertise required %s capability %q", name, feature)
+		}
+	}
+	return nil
+}
 
 type process struct {
 	id, stdin, stdout, stderr      string
@@ -244,6 +282,23 @@ func (s *service) dialAgent(ctx context.Context, path string) (agentClient, erro
 		return s.agentDial(ctx, path, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
 	}
 	return agent.DialContext(ctx, path, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+}
+
+func (s *service) negotiateAgentCapabilities(ctx context.Context) error {
+	var capabilities guestCapabilities
+	if err := s.callAgentWithReconnectContext(ctx, "Capabilities", map[string]any{}, &capabilities); err != nil {
+		return fmt.Errorf("query guest capabilities: %w", err)
+	}
+	if capabilities.Protocol != 1 || capabilities.Kernel == nil || capabilities.Agent == nil {
+		return errors.New("guest capabilities omit the required protocol or runtime identity")
+	}
+	if err := requireCapabilitySet(capabilities.ProtocolFeatures, requiredAgentProtocolFeatures, "protocol"); err != nil {
+		return err
+	}
+	if err := requireCapabilitySet(capabilities.OCIFeatures, requiredAgentOCIFeatures, "OCI"); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *service) relayCommand(port uint32, socket string) *exec.Cmd {
@@ -1205,6 +1260,9 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("reconnect recovered guest agent: %w", err)
 	}
+	if err = s.negotiateAgentCapabilities(ctx); err != nil {
+		return fmt.Errorf("negotiate recovered guest agent: %w", err)
+	}
 	type recoveredProcess struct {
 		agentID string
 		process *process
@@ -1909,6 +1967,11 @@ func (s *service) connectAgent(ctx context.Context) error {
 		client, err := s.dialAgent(ctx, sock)
 		if err == nil {
 			s.agent = client
+			if err = s.negotiateAgentCapabilities(ctx); err != nil {
+				_ = s.agent.Close()
+				s.agent = nil
+				return errors.Join(err, s.stopNetwork(), s.stopRelay())
+			}
 			if err = s.configureGuestNetwork(ctx, agent.NetworkConfig{
 				Name: "mkn0", Address: s.netEndpoint.Address, Gateway: s.netEndpoint.Gateway,
 				MTU: s.netEndpoint.MTU, Nameservers: s.netEndpoint.DNS.Nameservers,

@@ -261,6 +261,17 @@ already in flight to become durable and reach the guest, then closes guest
 stdin before the pump accepts another chunk; a continuously writing peer
 therefore cannot postpone `CloseIO` indefinitely.
 
+Every initial or reconstructed agent connection completes an authenticated,
+bounded `Capabilities` exchange before the shim configures guest networking,
+reconstructs a process, or exposes Task service success. The response must
+identify protocol v1, contain unique bounded feature sets, and advertise every
+replay, shutdown, process, terminal, root-policy, standard-mount, and
+materialized-read-only-bind contract on which this shim revision relies. A
+missing, duplicate, oversized, or malformed capability is terminal for that
+connection; transport loss alone may use the normal bounded reconnect path.
+This prevents a mixed-version deployment from silently running without the
+durability or containment semantics assumed by recovery.
+
 Task Kill persists the requested signal and a random operation ID before guest
 contact. The guest's advertised `signal-operation-id-v1` ledger binds that ID
 to one exact process, signal, and result, so relay reconnect can replay a lost
