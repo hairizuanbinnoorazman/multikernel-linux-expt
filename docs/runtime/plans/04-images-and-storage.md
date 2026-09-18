@@ -51,6 +51,13 @@ storage root plus task identity. Recovery validates these derivations again
 immediately before recursive cleanup and removes relative names through
 inode-stable, descriptor-anchored roots; phases advance only from `MOUNTING`
 to `MOUNTED` to `PREPARED`.
+Recursive cleanup first atomically moves the public child with no-replace
+semantics into a deterministic quarantine derived from its recorded device and
+inode. It verifies both the opened and named quarantined inode, walks only
+beneath the held quarantine descriptor, and removes the now-empty top-level
+directory without recursive public-name deletion. A raced substitute is
+restored intact, and reconciliation resumes an identity-matched quarantine
+left by a crash.
 Runtime and per-task storage directories are created exclusively, recorded by
 device/inode/owner, opened relative to the already pinned parent roots, and
 inherited by the bounded builder. The builder accesses bundle input and all

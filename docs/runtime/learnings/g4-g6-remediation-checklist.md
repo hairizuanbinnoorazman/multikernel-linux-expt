@@ -86,14 +86,18 @@ that an interrupted remediation pass does not lose them:
   substitute remains untouched. The combined kernel/rootfs/lifecycle/Kerf
   replacement group passed 100 race-detector repetitions locally on
   2026-09-18.
-- Identity-conditional recursive removal remains open. A check immediately
-  before pathname removal is not sufficient because replacement can occur
-  between the check and unlink; no such cosmetic check should be treated as a
-  fix or as evidence.
+- Identity-conditional recursive removal no longer relies on a check followed
+  by `RemoveAll` of the public name. Cleanup uses `renameat2(RENAME_NOREPLACE)`
+  to move the child into a deterministic identity-derived quarantine, verifies
+  both the opened and named quarantined inode, and removes contents only below
+  that held descriptor. A replacement injected between inspection and rename
+  is detected and restored intact rather than deleted. A quarantine left by a
+  crash between rename and removal is recognized by its recorded identity and
+  resumed. Focused replacement and recovery cases passed 100 race-detector
+  repetitions locally on 2026-09-18.
 
-The remaining local rootfs target recorded here is identity-conditional
-removal. Privileged disposable-host execution remains subject to the exact
-authorization phrase above.
+Privileged disposable-host execution remains subject to the exact authorization
+phrase above.
 
 ## Retained instance runs and evidence quality
 

@@ -952,7 +952,8 @@ the initramfs and generated/source manifests to both generated and independently
 verified digests, and requires the exact durable build result, canonical
 `initramfs.path`, read-only-bind manifest, and storage metadata/image. Focused
 mutations reject every formerly omitted artifact. Removal-time name races and
-privileged disposable-host validation remain open.
+privileged disposable-host validation remained open at that checkpoint; the
+removal race is addressed in the incremental result below.
 
 ## Incremental audit finding: 2026-09-18
 
@@ -973,3 +974,11 @@ descriptor closure. The combined kernel/rootfs/lifecycle/Kerf group passed 100
 race-detector repetitions. GCE reported the disposable instance still
 `RUNNING`; no restart, source upload, deployment, or new evidence retention
 occurred.
+
+Removal no longer performs an identity check followed by recursive deletion of
+the public name. It atomically moves the child with no-replace semantics into
+an identity-derived quarantine, verifies the opened and named inode, and walks
+only beneath the held quarantine descriptor. An injected replacement between
+inspection and rename is restored without modification, while a quarantine
+left by a crash is resumed by recorded identity. Both cases passed 100
+race-detector repetitions locally.
