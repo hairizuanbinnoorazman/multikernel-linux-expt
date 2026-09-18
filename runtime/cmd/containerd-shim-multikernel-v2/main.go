@@ -765,13 +765,38 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 	} else if !errors.Is(statErr, os.ErrNotExist) {
 		failures = append(failures, fmt.Errorf("inspect shim address: %w", statErr))
 	}
-	p, found, err := loadPersistedRecovery(filepath.Join(".multikernel", "sandbox.json"), s.namespace, s.id)
+	runtimeDirectory, err := s.ensureRuntimeDirectory()
+	if errors.Is(err, os.ErrNotExist) {
+		now := timestamppb.Now()
+		return &taskapi.DeleteResponse{ExitedAt: now}, errors.Join(failures...)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("open shim cleanup ownership: %w", err)
+	}
+	p, found, _, err := loadPersistedRecoveryFromDirectory(runtimeDirectory, s.namespace, s.id)
 	if err != nil {
 		return nil, fmt.Errorf("load shim cleanup ownership: %w", err)
 	}
 	if !found {
 		now := timestamppb.Now()
 		return &taskapi.DeleteResponse{ExitedAt: now}, errors.Join(failures...)
+	}
+	if p.BundleIdentity != s.bundleIdentity {
+		return nil, errors.New("cleanup recovery bundle identity differs from the service handoff")
+	}
+	var sandboxes []protocol.Sandbox
+	if apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "shim-cleanup-list-" + s.id, Method: "ListSandboxes"}, &sandboxes); apiErr != nil {
+		return nil, fmt.Errorf("list sandboxes for shim cleanup: %s", apiErr.Message)
+	}
+	authorized := false
+	for _, sandbox := range sandboxes {
+		if sandbox.ID == p.ID && sandbox.Generation == p.Generation && sandbox.Config.BundleIdentity == s.bundleIdentity {
+			authorized = true
+			break
+		}
+	}
+	if !authorized {
+		return nil, errors.New("daemon did not confirm cleanup ownership for the held bundle identity")
 	}
 	s.netEndpoint = p.Network
 	if err = s.stopNetwork(); err != nil {
