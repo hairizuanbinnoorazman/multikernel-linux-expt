@@ -278,6 +278,29 @@ that an interrupted remediation pass does not lose them:
   bundle-identity checkpoint. It does not replace the still-unapproved
   disposable-instance execution and evidence collection.
 
+- Post-checkpoint audit after `52ea8a3` found that the containerd
+  delete/reclaim `Cleanup` path still read `.multikernel/sandbox.json` through
+  a relative pathname and trusted that local record before destructive
+  daemon/network cleanup. This finding is recorded before implementation. The
+  path must reuse held bundle/runtime descriptors and match daemon-journaled
+  bundle identity before stopping ownership.
+
+- Fallback cleanup now loads recovery through the held `.multikernel`
+  descriptor, requires its bundle identity to match the service handoff, and
+  lists daemon sandboxes to confirm the same ID, generation, and journaled
+  bundle identity before network, relay, sandbox, or rootfs cleanup. The
+  focused fallback suite passes: existing stop/rootfs failure propagation is
+  preserved, daemon mismatch performs only `ListSandboxes`, and public bundle
+  replacement performs zero daemon calls. Repeated race and full-tree checks
+  remain pending.
+
+- The complete fallback-cleanup group passed 100 race-detector iterations
+  after descriptor and daemon identity binding.
+
+- The subsequent full repository race suite, `go vet ./...`, documentation/
+  schema/evidence/deployment checks, and `git diff --check` all passed locally
+  on 2026-09-18. Disposable-host validation remains pending authorization.
+
 - `python3 scripts/check-runtime-schemas.py` passed after the contract change:
   7 schemas and 22 fixture cases. The schema result proves structural contract
   consistency only; it is not runtime or disposable-host evidence.
@@ -861,7 +884,7 @@ phrase above.
   or output files. Start and reconstruction use no-symlink `openat2` opens and
   bind device/inode, mode, owner, link count, and ctime; focused tests reject
   unsafe modes, hardlinks, symlinked ancestors, inode replacement, same-inode
-  mode changes, regular-file stdin, and cancelled opens. Recovery format v2
+  mode changes, regular-file stdin, and cancelled opens. Recovery format v3
   now persists the immutable device/inode/owner/group/mode/link identity
   captured before Create or Exec mutation, and Start/reconstruction refuse a
   same-type replacement instead of trusting the recovered pathname. Legacy
@@ -924,7 +947,7 @@ phrase above.
   reference behind after each normal disconnect. Focused tests prove active
   cancellation still unblocks the session and completed sessions unregister
   their callback; 100 race-detector repetitions pass.
-  Stdin now uses the advertised `stdin-offset-v1` contract: recovery v2
+  Stdin now uses the advertised `stdin-offset-v1` contract: recovery v3
   persists each bounded pending chunk before guest mutation, the agent accepts
   only the exact next offset, and an identical most-recent offset/length/SHA-256
   replay is acknowledged without a duplicate write. The shim clears pending

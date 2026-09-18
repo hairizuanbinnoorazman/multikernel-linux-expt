@@ -5327,7 +5327,9 @@ func TestFallbackCleanupPropagatesStopFailureBeforeDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	namespace, task := "default", "task-a"
-	data, err := json.Marshal(validPersistedRecovery(namespace, task))
+	recovery := validPersistedRecovery(namespace, task)
+	recovery.BundleIdentity = testBundleIdentity(t, bundle)
+	data, err := json.Marshal(recovery)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -5343,8 +5345,16 @@ func TestFallbackCleanupPropagatesStopFailureBeforeDelete(t *testing.T) {
 	}
 	defer os.Chdir(previous)
 	var calls []string
-	s := &service{id: task, namespace: namespace, bundle: bundle, daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, _ any) *protocol.Error {
+	sandbox := protocol.Sandbox{ID: recovery.ID, Generation: recovery.Generation, Config: protocol.SandboxConfig{BundleIdentity: recovery.BundleIdentity}}
+	s := &service{id: task, namespace: namespace, bundle: bundle, daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
 		calls = append(calls, request.Method)
+		if request.Method == "ListSandboxes" {
+			encoded, _ := json.Marshal([]protocol.Sandbox{sandbox})
+			if decodeErr := json.Unmarshal(encoded, output); decodeErr != nil {
+				t.Fatal(decodeErr)
+			}
+			return nil
+		}
 		if request.Method == "StopSandbox" {
 			return &protocol.Error{Code: "BACKEND_FAILURE", Message: "injected stop failure"}
 		}
@@ -5354,7 +5364,7 @@ func TestFallbackCleanupPropagatesStopFailureBeforeDelete(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "injected stop failure") || response == nil {
 		t.Fatalf("Cleanup response=%+v error=%v", response, err)
 	}
-	if !reflect.DeepEqual(calls, []string{"StopSandbox"}) {
+	if !reflect.DeepEqual(calls, []string{"ListSandboxes", "StopSandbox"}) {
 		t.Fatalf("cleanup calls after failed stop = %v", calls)
 	}
 }
@@ -5367,6 +5377,7 @@ func TestFallbackCleanupPropagatesRootfsFailureAfterSandboxDelete(t *testing.T) 
 	}
 	namespace, task := "default", "task-a"
 	recovery := validPersistedRecovery(namespace, task)
+	recovery.BundleIdentity = testBundleIdentity(t, bundle)
 	recovery.StorageSHA256 = strings.Repeat("b", 64)
 	data, err := json.Marshal(recovery)
 	if err != nil {
@@ -5384,8 +5395,16 @@ func TestFallbackCleanupPropagatesRootfsFailureAfterSandboxDelete(t *testing.T) 
 	}
 	defer os.Chdir(previous)
 	var calls []string
-	s := &service{id: task, namespace: namespace, bundle: bundle, daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, _ any) *protocol.Error {
+	sandbox := protocol.Sandbox{ID: recovery.ID, Generation: recovery.Generation, Config: protocol.SandboxConfig{BundleIdentity: recovery.BundleIdentity}}
+	s := &service{id: task, namespace: namespace, bundle: bundle, daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
 		calls = append(calls, request.Method)
+		if request.Method == "ListSandboxes" {
+			encoded, _ := json.Marshal([]protocol.Sandbox{sandbox})
+			if decodeErr := json.Unmarshal(encoded, output); decodeErr != nil {
+				t.Fatal(decodeErr)
+			}
+			return nil
+		}
 		if request.Method == "CleanupRootfs" {
 			return &protocol.Error{Code: "BACKEND_FAILURE", Message: "injected rootfs cleanup failure"}
 		}
@@ -5395,8 +5414,76 @@ func TestFallbackCleanupPropagatesRootfsFailureAfterSandboxDelete(t *testing.T) 
 	if err == nil || !strings.Contains(err.Error(), "injected rootfs cleanup failure") || response == nil {
 		t.Fatalf("Cleanup response=%+v error=%v", response, err)
 	}
-	want := []string{"StopSandbox", "DeleteSandbox", "CleanupRootfs"}
+	want := []string{"ListSandboxes", "StopSandbox", "DeleteSandbox", "CleanupRootfs"}
 	if !reflect.DeepEqual(calls, want) {
 		t.Fatalf("cleanup call order = %v, want %v", calls, want)
 	}
+}
+
+func TestFallbackCleanupRequiresHeldAndDaemonBundleIdentity(t *testing.T) {
+	t.Run("daemon mismatch", func(t *testing.T) {
+		bundle := privateTestDirectory(t)
+		runtimeDir := filepath.Join(bundle, ".multikernel")
+		if err := os.Mkdir(runtimeDir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		recovery := validPersistedRecovery("default", "task-a")
+		recovery.BundleIdentity = testBundleIdentity(t, bundle)
+		data, err := json.Marshal(recovery)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		daemonIdentity := recovery.BundleIdentity
+		daemonIdentity.Inode++
+		sandbox := protocol.Sandbox{ID: recovery.ID, Generation: recovery.Generation,
+			Config: protocol.SandboxConfig{BundleIdentity: daemonIdentity}}
+		var calls []string
+		s := &service{id: "task-a", namespace: "default", bundle: bundle,
+			daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
+				calls = append(calls, request.Method)
+				encoded, _ := json.Marshal([]protocol.Sandbox{sandbox})
+				if err := json.Unmarshal(encoded, output); err != nil {
+					t.Fatal(err)
+				}
+				return nil
+			})}
+		if response, err := s.Cleanup(t.Context()); err == nil || response != nil || !strings.Contains(err.Error(), "did not confirm cleanup ownership") {
+			t.Fatalf("daemon mismatch cleanup response=%+v error=%v", response, err)
+		}
+		if !reflect.DeepEqual(calls, []string{"ListSandboxes"}) {
+			t.Fatalf("daemon mismatch cleanup calls = %v", calls)
+		}
+	})
+
+	t.Run("public bundle replacement", func(t *testing.T) {
+		base := privateTestDirectory(t)
+		bundle := filepath.Join(base, "bundle")
+		if err := os.Mkdir(bundle, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		calls := 0
+		s := &service{id: "task-a", namespace: "default", bundle: bundle,
+			daemon: daemonCallFunc(func(context.Context, protocol.Request, any) *protocol.Error { calls++; return nil })}
+		if _, err := s.ensureRuntimeDirectory(); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Rename(bundle, bundle+"-held"); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(bundle, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if response, err := s.Cleanup(t.Context()); err == nil || response != nil || !strings.Contains(err.Error(), "bundle directory identity changed") {
+			t.Fatalf("bundle replacement cleanup response=%+v error=%v", response, err)
+		}
+		if calls != 0 {
+			t.Fatalf("bundle replacement reached daemon %d times", calls)
+		}
+	})
 }

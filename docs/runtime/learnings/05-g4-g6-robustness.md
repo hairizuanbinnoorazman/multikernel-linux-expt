@@ -1205,3 +1205,25 @@ On the final current tree, the complete repository race suite,
 `git diff --check` all passed on 2026-09-18. This establishes the local
 bundle-identity checkpoint. It does not replace the still-unapproved
 disposable-instance execution and evidence collection.
+
+Post-checkpoint audit after `52ea8a3` found that the containerd delete/reclaim
+`Cleanup` path still read `.multikernel/sandbox.json` through a relative
+pathname and trusted that local record before destructive daemon/network
+cleanup. This finding is recorded before implementation. The path must reuse
+held bundle/runtime descriptors and match daemon-journaled bundle identity
+before stopping ownership.
+
+Fallback cleanup now loads recovery through the held `.multikernel` descriptor,
+requires its bundle identity to match the service handoff, and lists daemon
+sandboxes to confirm the same ID, generation, and journaled bundle identity
+before network, relay, sandbox, or rootfs cleanup. The focused fallback suite
+passes: existing stop/rootfs failure propagation is preserved, daemon mismatch
+performs only `ListSandboxes`, and public bundle replacement performs zero
+daemon calls. Repeated race and full-tree checks remain pending.
+
+The complete fallback-cleanup group passed 100 race-detector iterations after
+descriptor and daemon identity binding.
+
+The subsequent full repository race suite, `go vet ./...`, documentation/
+schema/evidence/deployment checks, and `git diff --check` all passed locally on
+2026-09-18. Disposable-host validation remains pending authorization.
