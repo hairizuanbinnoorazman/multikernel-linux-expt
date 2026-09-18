@@ -28,6 +28,7 @@ DESTINATIONS = (
     "usr/local/libexec/multikernel/validate-runtime-root.py",
     "usr/local/libexec/multikernel/validate-runtime-image.py",
     "usr/local/libexec/multikernel/build-runtime-rootfs.py",
+    "usr/local/libexec/multikernel/runtime_safe_publish.py",
     "usr/local/libexec/multikernel/runtime-storage-identity.py",
     "usr/local/libexec/multikernel/build-runtime-storage.py",
     "usr/local/libexec/multikernel/verify-runtime-rootfs.py",

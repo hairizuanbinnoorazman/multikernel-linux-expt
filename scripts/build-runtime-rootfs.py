@@ -10,17 +10,17 @@ reproduce are rejected instead of being silently discarded.
 from __future__ import annotations
 
 import argparse
-import ctypes
 import gzip
 import hashlib
 import json
 import os
 import posixpath
 import stat
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
+
+from runtime_safe_publish import PublicationError, atomic_write, file_identity, remove_if_identity
 
 
 class RootFSError(Exception):
@@ -273,94 +273,6 @@ def write_newc(stream: BinaryIO, entries: list[Entry], contents: dict[str, bytes
     emit("TRAILER!!!", 0, 0, 0, 1, next_inode, b"")
 
 
-def _rename_noreplace(source: Path, destination: Path) -> None:
-    libc = ctypes.CDLL(None, use_errno=True)
-    renameat2 = libc.renameat2
-    renameat2.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
-    renameat2.restype = ctypes.c_int
-    if renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1) != 0:
-        value = ctypes.get_errno()
-        raise OSError(value, os.strerror(value), destination)
-
-
-def _file_identity(path: Path) -> tuple[int, int]:
-    value = path.stat(follow_symlinks=False)
-    return value.st_dev, value.st_ino
-
-
-def _remove_if_identity(path: Path, expected: tuple[int, int]) -> bool:
-    try:
-        if _file_identity(path) != expected:
-            return False
-    except FileNotFoundError:
-        return False
-    quarantine = path.with_name(f".{path.name}.rollback-{expected[0]:x}-{expected[1]:x}")
-    try:
-        _rename_noreplace(path, quarantine)
-    except FileNotFoundError:
-        return False
-    try:
-        if _file_identity(quarantine) != expected:
-            try:
-                _rename_noreplace(quarantine, path)
-            except OSError:
-                pass
-            raise RootFSError("output identity changed during rollback quarantine")
-        quarantine.unlink()
-        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-        return True
-    except BaseException:
-        raise
-
-
-def atomic_write(path: Path, write) -> tuple[int, int]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix="." + path.name + ".", dir=path.parent)
-    temporary_path = Path(temporary)
-    published: tuple[int, int] | None = None
-    expected: tuple[int, int] | None = None
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            write(stream)
-            stream.flush()
-            os.fchmod(stream.fileno(), 0o600)
-            os.fsync(stream.fileno())
-            value = os.fstat(stream.fileno())
-            expected = (value.st_dev, value.st_ino)
-        try:
-            os.link(temporary, path, follow_symlinks=False)
-        except FileExistsError as error:
-            raise RootFSError(f"refusing to overwrite existing output: {path}") from error
-        published = expected
-        if _file_identity(path) != expected:
-            raise RootFSError("published output identity changed before verification")
-        if not _remove_if_identity(temporary_path, expected):
-            try:
-                _file_identity(temporary_path)
-            except FileNotFoundError:
-                pass
-            else:
-                raise RootFSError("temporary output identity changed before cleanup")
-        # Persist the publication as well as the file data so a completed build
-        # cannot disappear after a primary reset.
-        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-        return expected
-    except BaseException:
-        if published is not None:
-            _remove_if_identity(path, published)
-        if expected is not None:
-            _remove_if_identity(temporary_path, expected)
-        raise
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
@@ -403,7 +315,7 @@ def main() -> int:
     try:
         atomic_write(args.manifest, lambda stream: stream.write(encoded_manifest))
     except BaseException:
-        _remove_if_identity(args.output, archive_identity)
+        remove_if_identity(args.output, archive_identity)
         raise
     print(json.dumps({
         "manifest_sha256": hashlib.sha256(encoded_manifest).hexdigest(),
@@ -417,5 +329,5 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except RootFSError as error:
+    except (PublicationError, RootFSError) as error:
         raise SystemExit(f"rootfs validation failed: {error}")

@@ -14,6 +14,15 @@ import stat
 import subprocess
 import tempfile
 
+from runtime_safe_publish import (
+    PublicationError,
+    atomic_write,
+    descriptor_identity,
+    file_identity,
+    publish_existing,
+    remove_if_identity,
+)
+
 
 IDENTITY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 UUID = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")
@@ -68,25 +77,25 @@ def normalize_tree_times(root: Path) -> None:
         )
 
 
-def normalize_imported_ctimes(image: Path, count: int, debugfs: str) -> None:
+def normalize_imported_ctimes(image_parent: Path, image_argument: str, image_fd: int, count: int, debugfs: str) -> None:
     """Normalize ctime fields that mke2fs copies but POSIX cannot set."""
-    descriptor, command_name = tempfile.mkstemp(prefix=".debugfs-normalize.", dir=image.parent)
-    command_path = Path(command_name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="ascii") as commands:
-            # ext4 reserves inodes 1-10, creates lost+found as inode 11, and
-            # mke2fs -d allocates one inode per unique source object from 12.
-            for inode in range(12, 12 + count):
-                commands.write(f"set_inode_field <{inode}> ctime 1\n")
-                commands.write(f"set_inode_field <{inode}> ctime_extra 0\n")
-            commands.flush()
-            os.fsync(commands.fileno())
+    with tempfile.TemporaryFile(mode="w+", encoding="ascii", dir=image_parent) as commands:
+        # ext4 reserves inodes 1-10, creates lost+found as inode 11, and
+        # mke2fs -d allocates one inode per unique source object from 12.
+        for inode in range(12, 12 + count):
+            commands.write(f"set_inode_field <{inode}> ctime 1\n")
+            commands.write(f"set_inode_field <{inode}> ctime_extra 0\n")
+        commands.flush()
+        os.fsync(commands.fileno())
+        commands.seek(0)
+        command_argument = f"/proc/self/fd/{commands.fileno()}"
         result = subprocess.run(
-            [debugfs, "-w", "-f", str(command_path), str(image)],
+            [debugfs, "-w", "-f", command_argument, image_argument],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             check=False,
+            pass_fds=(commands.fileno(), image_fd),
         )
         diagnostic = result.stdout + result.stderr
         failure_markers = (
@@ -97,8 +106,6 @@ def normalize_imported_ctimes(image: Path, count: int, debugfs: str) -> None:
         )
         if result.returncode or any(marker in diagnostic for marker in failure_markers):
             raise StorageBuildError(f"ext4 metadata normalization failed: {diagnostic.strip()}")
-    finally:
-        command_path.unlink(missing_ok=True)
 
 
 def digest(path: Path) -> str:
@@ -131,27 +138,9 @@ def inspect_ext4(path: Path, filesystem_uuid: str, size: int, inodes: int) -> No
         raise StorageBuildError("generated ext4 filesystem is not clean")
 
 
-def atomic_json(path: Path, value: dict) -> None:
-    descriptor, temporary = tempfile.mkstemp(prefix="." + path.name + ".", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            json.dump(value, stream, separators=(",", ":"), sort_keys=True)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.chmod(temporary, 0o600)
-        os.replace(temporary, path)
-        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
+def atomic_json(path: Path, value: dict) -> tuple[int, int]:
+    encoded = (json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n").encode()
+    return atomic_write(path, lambda stream: stream.write(encoded))
 
 
 def build(arguments) -> dict:
@@ -179,6 +168,10 @@ def build(arguments) -> dict:
     staging = Path(tempfile.mkdtemp(prefix=".root-staging.", dir=arguments.output.parent))
     staged_root = staging / "root"
     temporary = None
+    temporary_identity = None
+    image_file = None
+    published_output = None
+    published_metadata = None
     completed = False
     try:
         staged_root.mkdir(mode=0o700)
@@ -200,13 +193,14 @@ def build(arguments) -> dict:
         descriptor, temporary_name = tempfile.mkstemp(
             prefix="." + arguments.output.name + ".", dir=arguments.output.parent
         )
-        os.close(descriptor)
         temporary = Path(temporary_name)
-        os.chmod(temporary, 0o600)
-        with temporary.open("r+b", buffering=0) as stream:
-            os.posix_fallocate(stream.fileno(), 0, arguments.size)
-            stream.flush()
-            os.fsync(stream.fileno())
+        image_file = os.fdopen(descriptor, "r+b", buffering=0)
+        os.fchmod(image_file.fileno(), 0o600)
+        temporary_identity = descriptor_identity(image_file.fileno())
+        os.posix_fallocate(image_file.fileno(), 0, arguments.size)
+        image_file.flush()
+        os.fsync(image_file.fileno())
+        image_argument = f"/proc/self/fd/{image_file.fileno()}"
         environment = {
             "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
             # e2fsprogs treats a zero fake time as "use the wall clock".  One is
@@ -217,24 +211,29 @@ def build(arguments) -> dict:
             arguments.mke2fs, "-q", "-F", "-t", "ext4", "-m", "0",
             "-E", f"nodiscard,lazy_itable_init=0,lazy_journal_init=0,hash_seed={arguments.uuid}",
             "-N", str(arguments.inodes), "-U", arguments.uuid, "-L", "mk-runtime",
-            "-d", str(staged_root), str(temporary),
+            "-d", str(staged_root), image_argument,
         ]
-        result = subprocess.run(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+        result = subprocess.run(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, check=False, pass_fds=(image_file.fileno(),))
         if result.returncode:
             raise StorageBuildError(f"mke2fs failed: {result.stderr.strip()}")
-        normalize_imported_ctimes(temporary, imported_inode_count(staged_root), arguments.debugfs)
-        inspect_ext4(temporary, arguments.uuid, arguments.size, arguments.inodes)
-        check = subprocess.run([arguments.e2fsck, "-fn", str(temporary)], env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+        normalize_imported_ctimes(arguments.output.parent, image_argument, image_file.fileno(),
+                                  imported_inode_count(staged_root), arguments.debugfs)
+        inspect_ext4(Path(image_argument), arguments.uuid, arguments.size, arguments.inodes)
+        check = subprocess.run([arguments.e2fsck, "-fn", image_argument], env=environment,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                               pass_fds=(image_file.fileno(),))
         if check.returncode:
             raise StorageBuildError(f"offline filesystem validation failed with status {check.returncode}")
-        image_digest = digest(temporary)
+        image_digest = digest(Path(image_argument))
         check_digest = hashlib.sha256(check.stdout).hexdigest()
-        os.replace(temporary, arguments.output)
-        directory = os.open(arguments.output.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        image_file.flush()
+        os.fsync(image_file.fileno())
+        if descriptor_identity(image_file.fileno()) != temporary_identity or file_identity(temporary) != temporary_identity:
+            raise StorageBuildError("ext4 temporary image identity changed during construction")
+        published_output = publish_existing(temporary, arguments.output, temporary_identity)
+        image_file.close()
+        image_file = None
         record = {
             "schema_version": 1, "path": str(logical_path), "image_id": arguments.image_id,
             "filesystem_uuid": arguments.uuid, "size_bytes": arguments.size, "quota_bytes": arguments.size,
@@ -247,16 +246,20 @@ def build(arguments) -> dict:
                 "source_metadata_time": 1,
             },
         }
-        atomic_json(arguments.metadata, record)
+        published_metadata = atomic_json(arguments.metadata, record)
         completed = True
         return record
     finally:
         shutil.rmtree(staging, ignore_errors=True)
         if not completed:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
-            arguments.output.unlink(missing_ok=True)
-            arguments.metadata.unlink(missing_ok=True)
+            if image_file is not None:
+                image_file.close()
+            if temporary is not None and temporary_identity is not None:
+                remove_if_identity(temporary, temporary_identity)
+            if published_output is not None:
+                remove_if_identity(arguments.output, published_output)
+            if published_metadata is not None:
+                remove_if_identity(arguments.metadata, published_metadata)
 
 
 def main() -> int:
@@ -277,7 +280,7 @@ def main() -> int:
     arguments = parser.parse_args()
     try:
         print(json.dumps(build(arguments), separators=(",", ":"), sort_keys=True))
-    except (OSError, StorageBuildError) as error:
+    except (OSError, PublicationError, StorageBuildError) as error:
         print(f"storage build failed: {error}", file=os.sys.stderr)
         return 1
     return 0

@@ -677,6 +677,30 @@ phrase above.
   read-only enforcement remain open.
 - [ ] Add capacity accounting, block/inode quotas, a high-water refusal policy,
   and bounded behavior for host and initramfs ENOSPC.
+  A 2026-09-18 storage-builder audit found that the ext4 image and metadata
+  still use replacing renames after an `exists()` precheck, while failure
+  cleanup unconditionally unlinks both public names. A raced pre-existing or
+  substituted artifact can therefore be overwritten or deleted. External
+  `mke2fs`, `debugfs`, and `e2fsck` also reopen the random temp pathname rather
+  than inheriting the exact allocated image descriptor. This finding is
+  recorded before implementation; image construction, publication, metadata,
+  and rollback need descriptor-bound/no-replace identity semantics.
+  Ext4 construction now keeps the allocated image descriptor open and passes
+  inherited `/proc/self/fd` references to `mke2fs`, `debugfs`, and `e2fsck`;
+  the debugfs command stream is anonymous and rewound before inheritance.
+  Image and metadata use the shared no-replace publisher, and failure removes
+  only identities created by that attempt. Focused races preserve a substituted
+  image or metadata file and roll back the paired owned image when metadata
+  collides. The 17 rootfs cases, 7 storage cases, and deployment lifecycle test
+  pass once; the helper is now an immutable deployed asset. Repeated and full
+  checks remain pending.
+  The real ext4 raced-image/raced-metadata transaction then passed 100
+  repetitions. Full repository and documentation verification remain pending.
+  The subsequent complete repository race suite, `go vet ./...`, Python
+  compilation, the full documentation/schema/evidence/deployment chain, and
+  `git diff --check` passed on 2026-09-18. The local descriptor-bound ext4 and
+  exact-publication checkpoint is complete; the G4 row remains open for its
+  broader ENOSPC matrix and disposable-host evidence.
 - [ ] Implement the storage teardown and recovery sequence appropriate to the
   selected persistent backend: quiesce processes, remount read-only, flush,
   disconnect, sync, offline-check, and preserve a diagnosable state on failure.

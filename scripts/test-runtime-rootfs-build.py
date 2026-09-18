@@ -262,11 +262,11 @@ class RootFSBuildTests(unittest.TestCase):
         builder = load_builder()
         output = self.temp / "owned"
         output.write_bytes(b"owned")
-        expected = builder._file_identity(output)
+        expected = builder.file_identity(output)
         original = self.temp / "owned-original"
         output.rename(original)
         output.write_bytes(b"replacement")
-        self.assertFalse(builder._remove_if_identity(output, expected))
+        self.assertFalse(builder.remove_if_identity(output, expected))
         self.assertEqual(output.read_bytes(), b"replacement")
         self.assertEqual(original.read_bytes(), b"owned")
 
