@@ -1318,3 +1318,28 @@ documentation/schema/evidence/deployment chain, and `git diff --check` all
 passed on 2026-09-18. This is the authoritative local result for the
 startup-socket checkpoint; current-source live execution remains unclaimed
 without the required authorization.
+
+The following startup audit found one remaining publication window.
+Containerd's atomic pathname helpers installed `address` and `shim.pid`, and
+the shim only then reopened the public name to capture rollback ownership. A
+same-owner replacement in between could become the recorded rollback target,
+while a pre-existing entry was overwritten without proof. This is recorded
+before code changes: each file must be exclusively published relative to a
+held safe parent and return its exact created identity in the same operation.
+
+Both launch metadata files now use descriptor-relative exclusive regular-file
+publication. An existing name remains intact and aborts launch; a successful
+create returns the precise inode retained for conditional rollback, eliminating
+the capture reopen. The focused shim package passes, including exclusive
+collision, raced replacement preservation, address cleanup after PID failure,
+and the existing address-replacement case. Repeated race and full-tree checks
+remain pending.
+
+The exclusive publication, raced replacement, and partial-launch cleanup
+group passed 100 race-detector repetitions. Full-tree verification remains
+pending.
+
+The subsequent complete repository race suite, `go vet ./...`, the complete
+documentation/schema/evidence/deployment chain, and `git diff --check` passed
+on 2026-09-18. The local exclusive launch-metadata checkpoint is complete;
+current-source disposable-host proof remains unauthorized.
