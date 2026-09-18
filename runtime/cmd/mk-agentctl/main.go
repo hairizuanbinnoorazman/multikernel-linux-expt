@@ -17,6 +17,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -125,8 +126,28 @@ func main() {
 		fmt.Fprintln(os.Stderr, "--unix-socket is required")
 		os.Exit(2)
 	}
+	if authMatrix && relay == "" {
+		fmt.Fprintln(os.Stderr, "--relay is required for reconnect qualification")
+		os.Exit(2)
+	}
+	var relayOwner *unixsocket.Path
 	for attempt := 0; attempt < 300; attempt++ {
-		conn, err = net.Dial("unix", unixSocket)
+		if authMatrix && relayOwner == nil {
+			relayOwner, err = unixsocket.Capture(unixSocket)
+			if errors.Is(err, os.ErrNotExist) {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "capture initial relay socket:", err)
+				os.Exit(1)
+			}
+		}
+		if relayOwner != nil {
+			conn, err = relayOwner.Dial()
+		} else {
+			conn, err = net.Dial("unix", unixSocket)
+		}
 		if err == nil {
 			break
 		}
@@ -230,9 +251,10 @@ func main() {
 	}
 	var ownedRelay *exec.Cmd
 	reconnect := func() {
-		if relay == "" {
-			fmt.Fprintln(os.Stderr, "--relay is required for reconnect qualification")
-			os.Exit(2)
+		currentOwner := relayOwner
+		if currentOwner == nil {
+			fmt.Fprintln(os.Stderr, "reconnect relay socket identity was not captured")
+			os.Exit(1)
 		}
 		_ = conn.Close()
 		if ownedRelay != nil {
@@ -241,7 +263,11 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		_ = os.Remove(unixSocket)
+		if err = currentOwner.Remove(); err != nil {
+			fmt.Fprintln(os.Stderr, "remove reconnect relay socket:", err)
+			os.Exit(1)
+		}
+		relayOwner = nil
 		ownedRelay = exec.Command(relay, "server", fmt.Sprint(port), unixSocket)
 		ownedRelay.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		if err = ownedRelay.Start(); err != nil {
@@ -249,7 +275,19 @@ func main() {
 			os.Exit(1)
 		}
 		for attempt := 0; attempt < 300; attempt++ {
-			conn, err = net.Dial("unix", unixSocket)
+			if relayOwner == nil {
+				relayOwner, err = unixsocket.Capture(unixSocket)
+				if errors.Is(err, os.ErrNotExist) {
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+				if err != nil {
+					_ = terminateRelay(ownedRelay)
+					fmt.Fprintln(os.Stderr, "capture new reconnect relay socket:", err)
+					os.Exit(1)
+				}
+			}
+			conn, err = relayOwner.Dial()
 			if err == nil {
 				return
 			}
@@ -346,6 +384,12 @@ func main() {
 		if err = terminateRelay(ownedRelay); err != nil {
 			fmt.Fprintln(os.Stderr, "stop final relay:", err)
 			os.Exit(1)
+		}
+		if relayOwner != nil {
+			if err = relayOwner.Remove(); err != nil {
+				fmt.Fprintln(os.Stderr, "remove final relay socket:", err)
+				os.Exit(1)
+			}
 		}
 	}
 	b, _ := json.MarshalIndent(results, "", "  ")
