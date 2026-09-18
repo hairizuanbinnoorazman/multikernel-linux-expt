@@ -29,6 +29,7 @@ import (
 	tasktypes "github.com/containerd/containerd/api/types/task"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/events"
+	"github.com/containerd/containerd/namespaces"
 	ctruntime "github.com/containerd/containerd/runtime"
 	"github.com/containerd/containerd/runtime/v2/shim"
 	"github.com/containerd/fifo"
@@ -5486,4 +5487,78 @@ func TestFallbackCleanupRequiresHeldAndDaemonBundleIdentity(t *testing.T) {
 			t.Fatalf("bundle replacement reached daemon %d times", calls)
 		}
 	})
+}
+
+func TestCleanupShimSocketRequiresDeterministicAddress(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	s := &service{id: "task-a", namespace: "default", bundle: bundle}
+	if err := s.ensureBundleIdentity(); err != nil {
+		t.Fatal(err)
+	}
+	containerdAddress := "/run/containerd/containerd.sock"
+	ctx := namespaces.WithNamespace(t.Context(), s.namespace)
+	expected, err := shim.SocketAddress(ctx, containerdAddress, s.id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(bundle, "address"), []byte(expected), 0644); err != nil {
+		t.Fatal(err)
+	}
+	var captured string
+	removed := false
+	s.newShimSocketOwner = func(path string) (relayPathOwner, error) {
+		captured = path
+		return relayOwnerFunc(func() error { removed = true; return nil }), nil
+	}
+	if err = s.cleanupShimSocket(ctx, []string{"-address", containerdAddress}); err != nil {
+		t.Fatal(err)
+	}
+	if captured != strings.TrimPrefix(expected, "unix://") || !removed {
+		t.Fatalf("authenticated socket capture=%q removed=%v", captured, removed)
+	}
+	captured, removed = "", false
+	if err = os.WriteFile(filepath.Join(bundle, "address"), []byte("unix:///run/containerd/s/"+strings.Repeat("f", 64)), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.cleanupShimSocket(ctx, []string{"--address=" + containerdAddress}); err == nil || !strings.Contains(err.Error(), "differs from the deterministic") {
+		t.Fatalf("redirected shim address = %v", err)
+	}
+	if captured != "" || removed {
+		t.Fatalf("redirected address reached socket owner: capture=%q removed=%v", captured, removed)
+	}
+}
+
+func TestInvocationFlagValueRejectsMissingEmptyAndDuplicateAddress(t *testing.T) {
+	if value, err := invocationFlagValue([]string{"-address=/run/containerd.sock"}, "address"); err != nil || value != "/run/containerd.sock" {
+		t.Fatalf("valid address flag = %q, %v", value, err)
+	}
+	for _, arguments := range [][]string{{}, {"-address"}, {"-address="}, {"-address", "one", "--address=two"}} {
+		if _, err := invocationFlagValue(arguments, "address"); err == nil {
+			t.Fatalf("invalid address arguments accepted: %v", arguments)
+		}
+	}
+}
+
+func TestFallbackCleanupRemovesAuthenticatedSocketWithoutRecovery(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	containerdAddress := "/run/containerd/containerd.sock"
+	expected, err := shim.SocketAddress(namespaces.WithNamespace(t.Context(), "default"), containerdAddress, "task-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(bundle, "address"), []byte(expected), 0644); err != nil {
+		t.Fatal(err)
+	}
+	removed := false
+	s := &service{id: "task-a", namespace: "default", bundle: bundle, shimArguments: []string{"-address", containerdAddress},
+		newShimSocketOwner: func(path string) (relayPathOwner, error) {
+			if path != strings.TrimPrefix(expected, "unix://") {
+				t.Fatalf("captured socket path = %q", path)
+			}
+			return relayOwnerFunc(func() error { removed = true; return nil }), nil
+		}}
+	response, err := s.Cleanup(t.Context())
+	if err != nil || response == nil || !removed {
+		t.Fatalf("cleanup without recovery response=%+v removed=%v error=%v", response, removed, err)
+	}
 }

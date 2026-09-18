@@ -1227,3 +1227,28 @@ descriptor and daemon identity binding.
 The subsequent full repository race suite, `go vet ./...`, documentation/
 schema/evidence/deployment checks, and `git diff --check` all passed locally on
 2026-09-18. Disposable-host validation remains pending authorization.
+
+The next fallback audit confirmed that containerd's `ReadAddress` plus
+`RemoveSocket` path ultimately performs raw `os.Remove` on the socket named by
+the bundle file. A same-owner address-file replacement could redirect cleanup
+to another shim socket. This is recorded before implementation; cleanup must
+compare the held address bytes to this task's deterministic containerd address
+and remove only a captured socket inode.
+
+Fallback socket cleanup now reads `address` through the held bundle descriptor,
+parses a unique nonempty containerd `-address` invocation value, recomputes the
+namespace/task-specific socket, requires byte-for-byte equality, and hands the
+canonical path to the shared exact-inode socket owner. Redirected content never
+reaches socket capture. Missing recovery can still remove this authenticated
+startup socket without a daemon call. The combined focused
+address/flag/fallback suite passes once; repeated race and full-tree
+verification remain pending.
+
+The deterministic address parsing, redirected-address rejection, exact-socket
+owner handoff, no-recovery cleanup, and authenticated fallback group passed 100
+race-detector iterations.
+
+The subsequent full repository race suite, `go vet ./...`, documentation/
+schema/evidence/deployment checks, and `git diff --check` passed locally on
+2026-09-18. The local socket-ownership checkpoint is complete; live proof is
+still pending the explicit source/evidence authorization.

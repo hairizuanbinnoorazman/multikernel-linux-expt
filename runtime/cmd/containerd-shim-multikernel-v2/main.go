@@ -196,6 +196,8 @@ type service struct {
 	newRelay              relayFactory
 	relayPath             relayPathFactory
 	newRelayOwner         relayOwnerFactory
+	newShimSocketOwner    relayOwnerFactory
+	shimArguments         []string
 	ioCallTimeout         time.Duration
 	networkCloseTimeout   time.Duration
 	netRXPackets          atomic.Uint64
@@ -751,22 +753,100 @@ func loadPersistedRecoveryFromDirectory(directory *safefile.Directory, namespace
 	return value, true, &identity, nil
 }
 
+func invocationFlagValue(arguments []string, name string) (string, error) {
+	var value string
+	for index := 0; index < len(arguments); index++ {
+		argument := arguments[index]
+		matched := false
+		var candidate string
+		for _, prefix := range []string{"-" + name, "--" + name} {
+			if argument == prefix {
+				if index+1 >= len(arguments) {
+					return "", fmt.Errorf("%s flag has no value", name)
+				}
+				index++
+				candidate, matched = arguments[index], true
+				break
+			}
+			if strings.HasPrefix(argument, prefix+"=") {
+				candidate, matched = strings.TrimPrefix(argument, prefix+"="), true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		if candidate == "" || value != "" {
+			return "", fmt.Errorf("%s flag is empty or duplicated", name)
+		}
+		value = candidate
+	}
+	if value == "" {
+		return "", fmt.Errorf("%s flag is unavailable", name)
+	}
+	return value, nil
+}
+
+func (s *service) cleanupShimSocket(ctx context.Context, arguments []string) error {
+	_, present, err := s.bundleDirectory.EntryIdentity("address")
+	if err != nil || !present {
+		return err
+	}
+	data, _, err := s.bundleDirectory.ReadRegularIdentity("address", 0644, 4096)
+	if err != nil {
+		return err
+	}
+	containerdAddress, err := invocationFlagValue(arguments, "address")
+	if err != nil {
+		return err
+	}
+	expected, err := shim.SocketAddress(namespaces.WithNamespace(ctx, s.namespace), containerdAddress, s.id)
+	if err != nil {
+		return err
+	}
+	if string(data) != expected {
+		return errors.New("shim address file differs from the deterministic task socket")
+	}
+	const unixPrefix = "unix://"
+	if !strings.HasPrefix(expected, unixPrefix) {
+		return errors.New("deterministic shim address is not a pathname Unix socket")
+	}
+	path := strings.TrimPrefix(expected, unixPrefix)
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return errors.New("deterministic shim socket path is not canonical and absolute")
+	}
+	var owner relayPathOwner
+	if s.newShimSocketOwner != nil {
+		owner, err = s.newShimSocketOwner(path)
+	} else {
+		owner, err = unixsocket.Capture(path)
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return owner.Remove()
+}
+
+func (s *service) cleanupInvocationArguments() []string {
+	if s.shimArguments != nil {
+		return s.shimArguments
+	}
+	return os.Args[1:]
+}
+
 func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	var failures []error
-	if address, err := shim.ReadAddress("address"); err == nil {
-		if err = shim.RemoveSocket(address); err != nil {
-			failures = append(failures, fmt.Errorf("remove shim socket: %w", err))
-		}
-	} else if _, statErr := os.Lstat("address"); statErr == nil {
-		failures = append(failures, fmt.Errorf("read existing shim address: %w", err))
-	} else if !errors.Is(statErr, os.ErrNotExist) {
-		failures = append(failures, fmt.Errorf("inspect shim address: %w", statErr))
-	}
 	runtimeDirectory, err := s.ensureRuntimeDirectory()
 	if errors.Is(err, os.ErrNotExist) {
+		if socketErr := s.cleanupShimSocket(ctx, s.cleanupInvocationArguments()); socketErr != nil {
+			failures = append(failures, fmt.Errorf("authenticate and remove shim socket: %w", socketErr))
+		}
 		now := timestamppb.Now()
 		return &taskapi.DeleteResponse{ExitedAt: now}, errors.Join(failures...)
 	}
@@ -778,6 +858,9 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 		return nil, fmt.Errorf("load shim cleanup ownership: %w", err)
 	}
 	if !found {
+		if socketErr := s.cleanupShimSocket(ctx, s.cleanupInvocationArguments()); socketErr != nil {
+			failures = append(failures, fmt.Errorf("authenticate and remove shim socket: %w", socketErr))
+		}
 		now := timestamppb.Now()
 		return &taskapi.DeleteResponse{ExitedAt: now}, errors.Join(failures...)
 	}
@@ -797,6 +880,9 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 	}
 	if !authorized {
 		return nil, errors.New("daemon did not confirm cleanup ownership for the held bundle identity")
+	}
+	if err = s.cleanupShimSocket(ctx, s.cleanupInvocationArguments()); err != nil {
+		return nil, fmt.Errorf("authenticate and remove shim socket: %w", err)
 	}
 	s.netEndpoint = p.Network
 	if err = s.stopNetwork(); err != nil {
