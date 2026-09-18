@@ -1339,6 +1339,43 @@ func TestAcquireStartShimSocketWithRealLiveAndStalePaths(t *testing.T) {
 	}
 }
 
+func TestPublishShimFileIsExclusiveAndOwnsExactCreatedIdentity(t *testing.T) {
+	directory := privateTestDirectory(t)
+	path := filepath.Join(directory, "address")
+	if err := os.WriteFile(path, []byte("pre-existing"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if owner, err := publishShimFile(path, []byte("new")); err == nil || owner != nil {
+		t.Fatalf("exclusive publication = %v, %v", owner, err)
+	}
+	if value, err := os.ReadFile(path); err != nil || string(value) != "pre-existing" {
+		t.Fatalf("pre-existing publication = %q, %v", value, err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := publishShimFile(path, []byte("owned"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := path + ".original"
+	if err = os.Rename(path, original); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, []byte("replacement"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = owner.close(true); err == nil {
+		t.Fatal("rollback removed a replacement")
+	}
+	if value, err := os.ReadFile(path); err != nil || string(value) != "replacement" {
+		t.Fatalf("replacement publication = %q, %v", value, err)
+	}
+	if value, err := os.ReadFile(original); err != nil || string(value) != "owned" {
+		t.Fatalf("owned publication = %q, %v", value, err)
+	}
+}
+
 func TestLaunchShimWorkerCleansProcessGroupAndOwnedArtifactsOnPIDFailure(t *testing.T) {
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {

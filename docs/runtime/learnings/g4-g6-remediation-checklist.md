@@ -395,6 +395,32 @@ that an interrupted remediation pass does not lose them:
   result for the startup-socket checkpoint. Live current-source execution is
   still not claimed without the required authorization.
 
+- The next startup audit found a residual publication window: containerd's
+  atomic pathname writers installed `address` and `shim.pid`, after which the
+  shim separately reopened and captured the public names. A same-owner
+  replacement between those operations could become rollback's recorded
+  object, and an existing entry was overwritten before any ownership proof.
+  This finding is recorded before implementation. Both files must be
+  exclusively published relative to an already-held safe parent and return the
+  exact created identity as part of that one operation.
+
+- `address` and `shim.pid` now use the shared descriptor-relative exclusive
+  regular-file publisher. A pre-existing entry is preserved and rejects the
+  launch, while successful publication returns the exact inode used by
+  rollback without a reopen window. Focused shim tests pass for exclusive
+  collision, exact replacement preservation, post-start PID failure cleanup,
+  and the prior address replacement case. Repeated race and full-tree checks
+  are pending.
+
+- The exclusive publication, raced replacement, and partial-launch cleanup
+  group passed 100 race-detector repetitions. Full-tree verification remains
+  pending.
+
+- The subsequent complete repository race suite, `go vet ./...`, the full
+  documentation/schema/evidence/deployment checks, and `git diff --check`
+  passed on 2026-09-18. The local exclusive launch-metadata checkpoint is
+  complete; current-source disposable-host proof remains unauthorized.
+
 - `python3 scripts/check-runtime-schemas.py` passed after the contract change:
   7 schemas and 22 fixture cases. The schema result proves structural contract
   consistency only; it is not runtime or disposable-host evidence.

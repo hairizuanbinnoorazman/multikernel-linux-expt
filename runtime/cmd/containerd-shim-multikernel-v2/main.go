@@ -429,7 +429,7 @@ type publishedShimFile struct {
 	identity  safefile.Identity
 }
 
-func capturePublishedShimFile(path string) (*publishedShimFile, error) {
+func publishShimFile(path string, data []byte) (*publishedShimFile, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -441,12 +441,19 @@ func capturePublishedShimFile(path string) (*publishedShimFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	identity, err := directory.CaptureRegularIdentity(filepath.Base(absolute), 0644, 4096)
+	name := filepath.Base(absolute)
+	created, identity, err := directory.PublishExclusiveRegularIdentity(name, data, 0644)
+	owner := &publishedShimFile{directory: directory, name: name, identity: identity}
 	if err != nil {
-		_ = directory.Close()
-		return nil, err
+		if created {
+			return nil, errors.Join(err, owner.close(true))
+		}
+		return nil, errors.Join(err, directory.Close())
 	}
-	return &publishedShimFile{directory: directory, name: filepath.Base(absolute), identity: identity}, nil
+	if !created {
+		return nil, errors.Join(errors.New("published shim file already exists"), directory.Close())
+	}
+	return owner, nil
 }
 
 func (p *publishedShimFile) close(remove bool) error {
@@ -483,10 +490,7 @@ func launchShimWorker(ctx context.Context, cmd *exec.Cmd, socket shimSocketFile,
 		}
 		retErr = errors.Join(retErr, errors.Join(failures...))
 	}()
-	if err := shim.WriteAddress(addressPath, address); err != nil {
-		return err
-	}
-	addressFile, retErr = capturePublishedShimFile(addressPath)
+	addressFile, retErr = publishShimFile(addressPath, []byte(address))
 	if retErr != nil {
 		return retErr
 	}
@@ -514,10 +518,7 @@ func launchShimWorker(ctx context.Context, cmd *exec.Cmd, socket shimSocketFile,
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	if err = shim.WritePidFile(pidPath, cmd.Process.Pid); err != nil {
-		return err
-	}
-	pidFile, retErr = capturePublishedShimFile(pidPath)
+	pidFile, retErr = publishShimFile(pidPath, []byte(strconv.Itoa(cmd.Process.Pid)))
 	if retErr != nil {
 		return retErr
 	}
