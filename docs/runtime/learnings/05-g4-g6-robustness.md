@@ -1068,8 +1068,24 @@ original form or absence. A same-mode process substitute is preserved and
 reported, and restoration succeeds after the exact managed inode is returned.
 When setup has already mutated DNS but immediate rollback is blocked, the
 manager retains the descriptor and cleanup state for a later `CloseNetwork`
-retry. The public regular/symlink helper group and the DNS regular/symlink/absent plus
-replacement group each passed 100 race-detector repetitions. The subsequent
+retry. The public regular/symlink helper group and the DNS
+regular/symlink/absent plus replacement group each passed 100 race-detector
+repetitions. The subsequent
 full repository race suite, `go vet ./...`, documentation/schema/evidence/
 deployment checks, and `git diff --check` passed locally on 2026-09-18.
 Disposable-host validation remains pending.
+
+The allocation audit next found that `MK_SHIM_LOCK` was opened with ordinary
+pathname `O_CREATE|O_RDWR`: it followed symlinks, did not validate the object,
+could be replaced to split serializers across inodes, and used a blocking
+`flock` that ignored caller cancellation. The intended fix is a no-symlink,
+caller-owned, non-writable parent descriptor used as the lock object itself,
+with nonblocking retries governed by the caller context. This was recorded
+before implementation. Allocation now locks that descriptor with nonblocking
+context-aware retries and never opens the configured filename. A focused test
+proves bounded cancellation under actual contention, preservation of a
+configured symlink target, reacquisition after close, and group-writable-parent
+rejection in 100 race-detector repetitions. The subsequent full repository
+race suite, `go vet ./...`, documentation/
+schema/evidence/deployment checks, and `git diff --check` passed locally on
+2026-09-18. Disposable-host validation remains pending.

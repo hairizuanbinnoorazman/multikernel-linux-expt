@@ -1325,7 +1325,11 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bundle, "config.json"), []byte(configJSON), 0600); err != nil {
 		t.Fatal(err)
 	}
-	lock := filepath.Join(t.TempDir(), "shim.lock")
+	lockDirectory := t.TempDir()
+	if err := os.Chmod(lockDirectory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	lock := filepath.Join(lockDirectory, "shim.lock")
 	t.Setenv("MK_SHIM_LOCK", lock)
 	runtimeDir := filepath.Join(bundle, ".multikernel")
 	storageHash := strings.Repeat("a", 64)
@@ -1388,6 +1392,53 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 	}
 	if len(service.token) != 0 || len(service.processes) != 0 || service.sandbox.ID != "" {
 		t.Fatalf("shim state survived cancellation: token=%d processes=%d sandbox=%+v", len(service.token), len(service.processes), service.sandbox)
+	}
+}
+
+func TestAllocationLockUsesParentIdentityAndHonorsCancellation(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(directory, "target")
+	if err := os.WriteFile(target, []byte("untouched"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "shim.lock")
+	if err := os.Symlink(target, path); err != nil {
+		t.Fatal(err)
+	}
+	first, err := openAllocationLock(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	started := time.Now()
+	if second, lockErr := openAllocationLock(ctx, path); !errors.Is(lockErr, context.Canceled) || second != nil {
+		t.Fatalf("contended cancelled lock = %v, %v", second, lockErr)
+	}
+	if time.Since(started) > time.Second {
+		t.Fatal("cancelled allocation lock was not bounded")
+	}
+	if value, readErr := os.ReadFile(target); readErr != nil || string(value) != "untouched" {
+		t.Fatalf("configured lock symlink target = %q, %v", value, readErr)
+	}
+	if err = first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	third, err := openAllocationLock(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = third.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Chmod(directory, 0770); err != nil {
+		t.Fatal(err)
+	}
+	if lock, lockErr := openAllocationLock(context.Background(), path); lockErr == nil || lock != nil {
+		t.Fatalf("group-writable lock parent accepted: %v, %v", lock, lockErr)
 	}
 }
 

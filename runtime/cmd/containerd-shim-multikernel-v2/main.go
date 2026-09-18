@@ -1573,13 +1573,36 @@ func parseCPUSet(s string) ([][]int, error) {
 	return sets, nil
 }
 
-func (s *service) allocate(ctx context.Context, bundle string) (protocol.SandboxConfig, *os.File, error) {
-	lock, err := os.OpenFile(getenv("MK_SHIM_LOCK", "/run/multikernel-shim.lock"), os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		return protocol.SandboxConfig{}, nil, err
+func openAllocationLock(ctx context.Context, path string) (*safefile.Directory, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil || filepath.Clean(absolute) != absolute || filepath.Base(absolute) == "." || filepath.Base(absolute) == string(filepath.Separator) {
+		return nil, errors.Join(errors.New("allocation lock path must be canonical and below the filesystem root"), err)
 	}
-	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
-		lock.Close()
+	lock, err := safefile.OpenOwnedDirectory(filepath.Dir(absolute))
+	if err != nil {
+		return nil, err
+	}
+	for {
+		acquired, lockErr := lock.TryLockExclusive()
+		if lockErr != nil {
+			_ = lock.Close()
+			return nil, lockErr
+		}
+		if acquired {
+			return lock, nil
+		}
+		select {
+		case <-ctx.Done():
+			_ = lock.Close()
+			return nil, ctx.Err()
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+func (s *service) allocate(ctx context.Context, bundle string) (protocol.SandboxConfig, *safefile.Directory, error) {
+	lock, err := openAllocationLock(ctx, getenv("MK_SHIM_LOCK", "/run/multikernel-shim.lock"))
+	if err != nil {
 		return protocol.SandboxConfig{}, nil, err
 	}
 	var existing []protocol.Sandbox
@@ -1911,7 +1934,7 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); lock.Close() }()
+	defer lock.Close()
 	identity := storageTaskIdentity(s.namespace, s.id)
 	result, err := s.prepareRootfs(ctx, rootfspkg.PrepareRequest{Version: rootfspkg.Version, Bundle: r.Bundle,
 		TaskIdentity: identity, StoragePort: config.Storage.Port, Mounts: mounts})
