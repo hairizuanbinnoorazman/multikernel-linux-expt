@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -8,9 +9,18 @@ import subprocess
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
+from unittest import mock
 
 
 SCRIPT = Path(__file__).with_name("build-runtime-storage.py")
+
+
+def load_builder():
+    spec = importlib.util.spec_from_file_location("runtime_storage_builder", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class StorageBuildTests(unittest.TestCase):
@@ -38,6 +48,23 @@ class StorageBuildTests(unittest.TestCase):
             command += ["--" + key.replace("_", "-"), str(value)]
         result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
         return result, output, metadata
+
+    def arguments(self, name):
+        return SimpleNamespace(
+            root=self.root,
+            output=self.temp / f"{name}.ext4",
+            metadata=self.temp / f"{name}.json",
+            logical_path=None,
+            image_id="source-manifest-abcd",
+            uuid="11111111-2222-4333-8444-555555555555",
+            size=64 << 20,
+            inodes=4096,
+            port=4061,
+            min_free_bytes=0,
+            mke2fs="/usr/sbin/mke2fs",
+            e2fsck="/usr/sbin/e2fsck",
+            debugfs="/usr/sbin/debugfs",
+        )
 
     def test_reproducible_fully_allocated_and_changed_input_control(self):
         source = self.root / "etc" / "value"
@@ -127,6 +154,35 @@ class StorageBuildTests(unittest.TestCase):
         self.assertFalse(metadata.exists())
         self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
         self.assertEqual(list(self.temp.glob(".debugfs-normalize.*")), [])
+
+    def test_raced_output_and_metadata_collisions_preserve_replacements(self):
+        builder = load_builder()
+
+        arguments = self.arguments("raced-image")
+        original_publish = builder.publish_existing
+
+        def collide_image(source, destination, expected):
+            destination.write_bytes(b"replacement image")
+            return original_publish(source, destination, expected)
+
+        with mock.patch.object(builder, "publish_existing", side_effect=collide_image):
+            with self.assertRaisesRegex(builder.PublicationError, "refusing to overwrite"):
+                builder.build(arguments)
+        self.assertEqual(arguments.output.read_bytes(), b"replacement image")
+        self.assertFalse(arguments.metadata.exists())
+
+        arguments = self.arguments("raced-metadata")
+        original_json = builder.atomic_json
+
+        def collide_metadata(path, value):
+            path.write_bytes(b"replacement metadata")
+            return original_json(path, value)
+
+        with mock.patch.object(builder, "atomic_json", side_effect=collide_metadata):
+            with self.assertRaisesRegex(builder.PublicationError, "refusing to overwrite"):
+                builder.build(arguments)
+        self.assertFalse(arguments.output.exists())
+        self.assertEqual(arguments.metadata.read_bytes(), b"replacement metadata")
 
 
 if __name__ == "__main__":

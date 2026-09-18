@@ -1375,6 +1375,34 @@ documentation/schema/evidence/deployment chain, and `git diff --check` passed
 on 2026-09-18. The local no-replace builder-publication checkpoint is complete;
 G4 closure still requires current-source disposable-host evidence.
 
+The adjacent ext4-builder audit found the same boundary in a more privileged
+form. Image and metadata publication use replacing renames after a racy
+`exists()` check, failure cleanup unconditionally unlinks both public names,
+and `mke2fs`/`debugfs`/`e2fsck` reopen the random temp pathname. A raced entry
+can therefore be overwritten, deleted, or supplied to an external filesystem
+tool. This is recorded before implementation; the image descriptor must remain
+inherited through every tool and both outputs need no-replace, exact-identity
+publication and rollback.
+
+The ext4 builder now retains the exact allocated image descriptor through
+`mke2fs`, `debugfs`, and `e2fsck`, passing only inherited `/proc/self/fd`
+references. Its debugfs commands live in an anonymous inherited file and are
+rewound before execution. Image and metadata publication share the no-replace
+identity-quarantine helper; failure removes only this attempt's inodes.
+Focused raced-image and raced-metadata cases preserve replacements and roll
+back the owned peer. All 17 rootfs, 7 storage, and deployment lifecycle cases
+pass once, and the shared helper is included in immutable deployments.
+Repeated and full checks remain pending.
+
+The real ext4 raced-image/raced-metadata transaction then passed 100
+repetitions. Full repository and documentation verification remain pending.
+
+The subsequent complete repository race suite, `go vet ./...`, Python
+compilation, the full documentation/schema/evidence/deployment chain, and
+`git diff --check` passed on 2026-09-18. The local descriptor-bound ext4 and
+exact-publication checkpoint is complete; broader G4 fault and live evidence
+remain open.
+
 The next handoff review found that only supervisor-to-worker restart was fully
 descriptor-bound. The initial supervisor command still used the public
 `Getwd` pathname from `newCommand`, allowing a same-owner bundle replacement
