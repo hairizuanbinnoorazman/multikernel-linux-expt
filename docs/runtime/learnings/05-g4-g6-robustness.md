@@ -1344,6 +1344,37 @@ documentation/schema/evidence/deployment chain, and `git diff --check` passed
 on 2026-09-18. The local exclusive launch-metadata checkpoint is complete;
 current-source disposable-host proof remains unauthorized.
 
+The next G4 builder audit found that deterministic content did not imply safe
+publication. `build-runtime-rootfs.py` used `os.replace` for archive and
+manifest output, overwriting any pre-existing entry. If the manifest publish
+succeeded and archive publication then collided or failed, the new manifest
+could also remain alone. This is recorded before implementation: output needs
+no-replace publication plus exact-identity rollback across the two-artifact
+transaction.
+
+The builder now links each completed temp inode into place with no-replace
+semantics, verifies that exact publication, and conditionally rolls it back
+through a `renameat2(RENAME_NOREPLACE)` identity quarantine. Archive publishes
+first; manifest collision removes only the archive inode created by that
+attempt. Focused cases preserve pre-existing archive/manifest bytes in every
+collision order, leave no orphan peer, and preserve a same-name rollback
+replacement. All 17 rootfs-builder cases pass once; repeated and full checks
+remain pending.
+
+The no-replace transaction and replacement-preserving rollback cases passed
+100 repetitions. Full repository and documentation verification remain
+pending.
+
+Final semantic review also moved chmod and identity capture onto the open temp
+descriptor and replaced unconditional temp-name unlink with the same
+identity-conditioned quarantine. The 17-case suite and another 100 repetitions
+of both adversarial cases pass after that refinement.
+
+The subsequent complete repository race suite, `go vet ./...`, the full
+documentation/schema/evidence/deployment chain, and `git diff --check` passed
+on 2026-09-18. The local no-replace builder-publication checkpoint is complete;
+G4 closure still requires current-source disposable-host evidence.
+
 The next handoff review found that only supervisor-to-worker restart was fully
 descriptor-bound. The initial supervisor command still used the public
 `Getwd` pathname from `newCommand`, allowing a same-owner bundle replacement

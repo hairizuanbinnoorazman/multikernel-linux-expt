@@ -618,6 +618,32 @@ phrase above.
   cpio metadata, including runtime-file mtimes, uid/gid, modes, xattrs,
   hardlinks, symlinks, sparse extents, and device policy; prove two builds from
   identical inputs have the same digest.
+  A 2026-09-18 publication audit found that the deterministic builder's
+  `atomic_write` still used replacing rename semantics. It could overwrite a
+  pre-existing archive or manifest and could leave a newly published manifest
+  if archive publication subsequently collided or failed. This is recorded
+  before implementation; builder outputs must use no-replace publication and
+  identity-conditional rollback as one artifact transaction.
+  The builder now publishes completed temp inodes with no-replace hard links,
+  verifies the installed identity, and uses `renameat2(RENAME_NOREPLACE)`
+  quarantine for exact rollback. It publishes the archive first and removes
+  only that inode if manifest publication fails. Focused tests preserve
+  pre-existing archive and manifest bytes in every collision order, observe no
+  orphan peer, and preserve a same-name replacement during rollback. The full
+  17-case rootfs-builder suite passes once; repeated execution, docs gates, and
+  disposable-host proof remain pending.
+  The no-replace transaction and replacement-preserving rollback cases then
+  passed 100 repetitions. Full repository and documentation verification
+  remain pending.
+  Final semantic review moved mode assignment and identity capture onto the
+  still-open temp descriptor and made temp-name cleanup identity-conditional
+  too. The complete 17-case suite and the two adversarial cases for another
+  100 repetitions pass after this refinement.
+  The subsequent complete repository race suite, `go vet ./...`, the full
+  documentation/schema/evidence/deployment chain, and `git diff --check`
+  passed on 2026-09-18. The local no-replace builder-publication checkpoint is
+  complete; reproducibility and publication still require disposable-host
+  evidence before the G4 rows may close.
 - [ ] Reject unsafe paths, traversal, escaping symlinks, unsupported file
   types, device nodes, inconsistent hardlinks, malformed metadata, and input
   mutation during the copy/build window.
