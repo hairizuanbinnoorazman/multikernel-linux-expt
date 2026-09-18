@@ -1,6 +1,7 @@
 package unixsocket
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -39,6 +40,21 @@ type Path struct {
 	identity identity
 	mu       sync.Mutex
 	closed   bool
+}
+
+// Close releases a captured path without removing the socket. This is used
+// after Dial proves that a live service already owns the published endpoint.
+func (p *Path) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return nil
+	}
+	err := p.dir.Close()
+	if err == nil {
+		p.closed = true
+	}
+	return err
 }
 
 func socketIdentity(stat unix.Stat_t) identity {
@@ -243,6 +259,16 @@ func EnsureParent(path string) error {
 // Listen removes a safely identifiable stale socket and binds a replacement
 // relative to a held no-symlink parent descriptor.
 func Listen(path string, mode os.FileMode) (*Listener, error) {
+	return listen(path, mode, true)
+}
+
+// ListenExclusive binds only when no socket exists. The returned listener
+// owns exact-identity cleanup, including when its public name is replaced.
+func ListenExclusive(path string, mode os.FileMode) (*Listener, error) {
+	return listen(path, mode, false)
+}
+
+func listen(path string, mode os.FileMode, removeStale bool) (*Listener, error) {
 	if mode.Perm()&0007 != 0 {
 		return nil, errors.New("Unix socket mode may not grant access to other users")
 	}
@@ -258,7 +284,7 @@ func Listen(path string, mode os.FileMode) (*Listener, error) {
 	}()
 	if stale, found, inspectErr := inspectAt(dir, base, mode); inspectErr != nil {
 		return nil, inspectErr
-	} else if found {
+	} else if found && removeStale {
 		if _, err = removeIdentityAt(dir, base, stale); err != nil {
 			return nil, err
 		}
@@ -325,6 +351,11 @@ func (p *Path) Remove() error {
 // Dial connects through the held parent descriptor only while the published
 // socket still has the identity captured by Capture.
 func (p *Path) Dial() (net.Conn, error) {
+	return p.DialContext(context.Background())
+}
+
+// DialContext is Dial with caller-controlled cancellation.
+func (p *Path) DialContext(ctx context.Context) (net.Conn, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.closed {
@@ -338,7 +369,7 @@ func (p *Path) Dial() (net.Conn, error) {
 		return nil, errors.New("refusing to dial replaced Unix socket path")
 	}
 	anchoredPath := fmt.Sprintf("/proc/self/fd/%d/%s", p.dir.Fd(), p.base)
-	connection, err := net.Dial("unix", anchoredPath)
+	connection, err := (&net.Dialer{}).DialContext(ctx, "unix", anchoredPath)
 	if err != nil {
 		return nil, err
 	}
@@ -353,6 +384,7 @@ func (p *Path) Dial() (net.Conn, error) {
 func (l *Listener) Accept() (net.Conn, error) { return l.listener.Accept() }
 func (l *Listener) Addr() net.Addr            { return l.listener.Addr() }
 func (l *Listener) Owner() uint32             { return l.identity.uid }
+func (l *Listener) File() (*os.File, error)   { return l.listener.File() }
 
 func (l *Listener) Close() error {
 	l.once.Do(func() {

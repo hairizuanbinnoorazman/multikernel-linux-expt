@@ -326,6 +326,75 @@ that an interrupted remediation pass does not lose them:
   2026-09-18. The local socket-ownership checkpoint is complete; live proof is
   still pending the explicit source/evidence authorization.
 
+- The adjacent `StartShim` collision path still handled `EADDRINUSE` by
+  unconditionally removing the deterministic socket and binding a new one.
+  That can disrupt a live shim, and the raw remove can delete a same-name
+  replacement installed after the failed bind. Containerd's grouping-aware
+  manager first preserves a connectable socket, but its pathname probe/remove
+  sequence does not close the replacement race. This finding is recorded
+  before implementation. Closure requires capturing the exact socket inode,
+  probing that captured owner, preserving a live listener, and removing only
+  the captured stale inode before one bounded rebind attempt.
+
+- Startup now uses the shared held-parent listener in exclusive mode rather
+  than containerd's pathname listener/remover. On collision it captures one
+  exact socket identity, dials through that held owner, returns the existing
+  address without removal when live, and conditionally quarantines only that
+  inode when stale before one rebind. Failure rollback closes the
+  identity-owning listener and no longer follows it with raw `os.Remove`.
+  Focused shim tests pass for live, stale, and replaced-owner outcomes; focused
+  Unix-socket tests pass for exclusive collision preservation, non-removing
+  owner release, and exact cleanup. The pathname-listener cases are permitted
+  locally in this run and did not skip. Repeated race and full-tree checks are
+  pending.
+
+- The live/stale/replaced startup collision group and the exclusive-bind,
+  captured-owner release, replacement cleanup, and privilege-independent
+  quarantine group each passed 100 race-detector repetitions. The real
+  pathname listener cases again ran without a skip. Full-tree verification is
+  pending.
+
+- The subsequent complete repository race suite, `go vet ./...`, the full
+  documentation/schema/evidence/deployment validation chain, and
+  `git diff --check` passed on 2026-09-18. The documentation chain again
+  covered 7 schemas/22 cases and 17 explicitly classified historical evidence
+  manifests. Its separate Python socket-rejection subcase remained skipped by
+  that sandbox, while the new Go pathname-socket cases above executed. The
+  local startup-socket checkpoint is verified; current-source disposable-host
+  proof remains pending the explicit transfer/evidence authorization.
+
+- Final semantic review tightened the collision probe before checkpointing:
+  it now observes caller cancellation, and only `ECONNREFUSED` authorizes a
+  conditional stale-inode removal. Cancellation or any other probe failure
+  releases capture authority without deleting the endpoint. The new cancelled
+  probe case and the focused shim/socket packages pass once; repeated race and
+  full-tree results above must be rerun for this refinement.
+
+- The refined focused groups passed 100 race-detector repetitions. This run
+  includes an integrated real-path case that reuses a live captured listener,
+  then replaces a closed stale listener through exact conditional removal and
+  exclusive rebind; it did not skip. Cancellation remained non-destructive.
+  Final full-tree verification is pending.
+
+- On the refined tree, the complete repository race suite, `go vet ./...`,
+  documentation/schema/evidence/deployment validation, and
+  `git diff --check` all passed on 2026-09-18. The independent Python
+  socket-rejection subcase retains its documented sandbox skip; the integrated
+  Go collision case did not skip. This supersedes the pre-refinement full-tree
+  result and completes the local startup-socket checkpoint.
+
+- A final cancellation-boundary test now cancels after the captured dial
+  reports refusal and proves removal is not attempted. Context is also checked
+  before the first bind and before rebind. Both focused groups passed another
+  100 race-detector repetitions; the full-tree result immediately above must
+  be rerun once more for these boundary checks.
+
+- The final post-boundary complete repository race suite, `go vet ./...`,
+  documentation/schema/evidence/deployment validation, and
+  `git diff --check` all passed on 2026-09-18. This is the authoritative local
+  result for the startup-socket checkpoint. Live current-source execution is
+  still not claimed without the required authorization.
+
 - `python3 scripts/check-runtime-schemas.py` passed after the contract change:
   7 schemas and 22 fixture cases. The schema result proves structural contract
   consistency only; it is not runtime or disposable-host evidence.

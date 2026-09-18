@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -158,6 +159,17 @@ type relayFactory func(uint32, string) *exec.Cmd
 type relayPathFactory func(uint32, string) string
 type relayPathOwner interface{ Remove() error }
 type relayOwnerFactory func(string) (relayPathOwner, error)
+type startShimSocket interface {
+	shimSocketFile
+	Close() error
+}
+type startShimSocketOwner interface {
+	DialContext(context.Context) (net.Conn, error)
+	Remove() error
+	Close() error
+}
+type startShimSocketFactory func(string) (startShimSocket, error)
+type startShimSocketOwnerFactory func(string) (startShimSocketOwner, error)
 
 type stateFileIdentity struct {
 	device uint64
@@ -528,27 +540,89 @@ func (s *service) StartShim(ctx context.Context, opts shim.StartOpts) (_ string,
 	if err != nil {
 		return "", err
 	}
-	socket, err := shim.NewSocket(address)
+	socket, existing, err := acquireStartShimSocket(ctx, address,
+		func(address string) (startShimSocket, error) {
+			path, pathErr := pathnameShimSocket(address)
+			if pathErr != nil {
+				return nil, pathErr
+			}
+			if pathErr = unixsocket.EnsureParent(path); pathErr != nil {
+				return nil, pathErr
+			}
+			return unixsocket.ListenExclusive(path, 0600)
+		},
+		func(path string) (startShimSocketOwner, error) { return unixsocket.Capture(path) },
+	)
 	if err != nil {
-		if !shim.SocketEaddrinuse(err) {
-			return "", err
-		}
-		_ = shim.RemoveSocket(address)
-		socket, err = shim.NewSocket(address)
-		if err != nil {
-			return "", err
-		}
+		return "", err
+	}
+	if existing {
+		return address, nil
 	}
 	defer func() {
 		if retErr != nil {
-			socket.Close()
-			_ = shim.RemoveSocket(address)
+			retErr = errors.Join(retErr, socket.Close())
 		}
 	}()
 	if err = launchShimWorker(ctx, cmd, socket, address, "address", "shim.pid"); err != nil {
 		return "", err
 	}
 	return address, nil
+}
+
+func pathnameShimSocket(address string) (string, error) {
+	const unixPrefix = "unix://"
+	if !strings.HasPrefix(address, unixPrefix) {
+		return "", errors.New("deterministic shim address is not a pathname Unix socket")
+	}
+	path := strings.TrimPrefix(address, unixPrefix)
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return "", errors.New("deterministic shim socket path is not canonical and absolute")
+	}
+	return path, nil
+}
+
+func acquireStartShimSocket(ctx context.Context, address string, create startShimSocketFactory, capture startShimSocketOwnerFactory) (startShimSocket, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	socket, err := create(address)
+	if err == nil {
+		return socket, false, nil
+	}
+	if !shim.SocketEaddrinuse(err) {
+		return nil, false, err
+	}
+	path, err := pathnameShimSocket(address)
+	if err != nil {
+		return nil, false, err
+	}
+	owner, err := capture(path)
+	if err != nil {
+		return nil, false, fmt.Errorf("capture pre-existing shim socket: %w", err)
+	}
+	connection, dialErr := owner.DialContext(ctx)
+	if dialErr == nil {
+		return nil, true, errors.Join(connection.Close(), owner.Close())
+	}
+	if err = ctx.Err(); err != nil {
+		return nil, false, errors.Join(err, owner.Close())
+	}
+	if !errors.Is(dialErr, syscall.ECONNREFUSED) {
+		return nil, false, errors.Join(fmt.Errorf("probe pre-existing shim socket: %w", dialErr), owner.Close())
+	}
+	if err = owner.Remove(); err != nil {
+		_ = owner.Close()
+		return nil, false, errors.Join(fmt.Errorf("remove stale shim socket: %w", err), dialErr)
+	}
+	if err = ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	socket, err = create(address)
+	if err != nil {
+		return nil, false, fmt.Errorf("bind shim socket after stale cleanup: %w", err)
+	}
+	return socket, false, nil
 }
 
 type persisted struct {
@@ -807,13 +881,9 @@ func (s *service) cleanupShimSocket(ctx context.Context, arguments []string) err
 	if string(data) != expected {
 		return errors.New("shim address file differs from the deterministic task socket")
 	}
-	const unixPrefix = "unix://"
-	if !strings.HasPrefix(expected, unixPrefix) {
-		return errors.New("deterministic shim address is not a pathname Unix socket")
-	}
-	path := strings.TrimPrefix(expected, unixPrefix)
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
-		return errors.New("deterministic shim socket path is not canonical and absolute")
+	path, err := pathnameShimSocket(expected)
+	if err != nil {
+		return err
 	}
 	var owner relayPathOwner
 	if s.newShimSocketOwner != nil {
