@@ -123,6 +123,16 @@ func (d *Directory) Close() error       { return d.file.Close() }
 func (d *Directory) Identity() Identity { return d.identity }
 func (d *Directory) Sync() error        { return d.file.Sync() }
 
+// TryLockExclusive attempts to lock the held directory inode without
+// blocking. Closing Directory releases the lock.
+func (d *Directory) TryLockExclusive() (bool, error) {
+	err := unix.Flock(int(d.file.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+	if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 // EntryIdentity observes a simple name without following it. Callers must use
 // a type-specific capture method before trusting contents or removing it.
 func (d *Directory) EntryIdentity(name string) (Identity, bool, error) {

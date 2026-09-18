@@ -185,6 +185,23 @@ that an interrupted remediation pass does not lose them:
   repository race suite, `go vet ./...`, documentation/schema/evidence/
   deployment checks, and `git diff --check` passed locally on 2026-09-18.
   Disposable-host validation remains pending.
+- The allocation mutex still opened `MK_SHIM_LOCK` with pathname
+  `O_CREATE|O_RDWR`, followed symlinks, accepted an unvalidated object, and
+  blocked in `flock` without observing caller cancellation. Replacement of the
+  public lock name can also split cooperating shims across different inodes.
+  The planned closure is to validate the configured location, open its
+  caller-owned non-writable parent without symlinks, and acquire a cancellable
+  exclusive lock on that held directory descriptor itself. This finding is
+  recorded before implementation. Allocation now normalizes the configured
+  location, opens that exact parent component-by-component with no symlinks,
+  preserves its safe mode, and uses nonblocking `flock` retries governed by the
+  caller context. The filename is never opened, so a symlink there cannot
+  redirect or split the lock. A focused test proves bounded cancellation under
+  real contention, unchanged symlink-target bytes, reacquisition after close,
+  and rejection of a group-writable parent in 100 race-detector repetitions.
+  The subsequent full repository race suite, `go vet ./...`, documentation/
+  schema/evidence/deployment checks, and `git diff --check` passed locally on
+  2026-09-18. Disposable-host validation remains pending.
 
 Privileged disposable-host execution remains subject to the exact authorization
 phrase above.
