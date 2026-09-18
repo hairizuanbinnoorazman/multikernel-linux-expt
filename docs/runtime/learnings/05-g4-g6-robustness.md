@@ -1023,3 +1023,31 @@ listener restriction and remains mandatory on the disposable host; it was not
 counted as proof. The subsequent full repository race suite, `go vet ./...`,
 documentation/schema/evidence/deployment checks, and `git diff --check` all
 passed locally on 2026-09-18.
+
+The following raw-path audit found one remaining relay exception:
+`removeStaleRelaySocket` still validated with `Lstat` and then called
+`os.Remove`, allowing a removal-time replacement to be deleted. Running relay
+ownership did not protect this startup cleanup path. Partial shim-launch
+address/PID cleanup and the supervisor's worker-PID marker also still use raw
+pathname removal; these are tracked as a separate file-publication boundary.
+This paragraph was recorded before implementation. Stale relay startup cleanup
+now no-ops only on an initially missing name and otherwise captures and removes
+the exact safe socket through the shared quarantine owner. Unsafe-path
+rejection and the privilege-independent removal algorithm passed 100
+race-detector repetitions; the real safe-stale socket case remains skipped
+locally and mandatory on the disposable host. Marker-file remediation remains
+open. Containerd's atomic launch address/PID files are now captured immediately
+as exact 0644 regular-file identities beneath a held no-symlink,
+caller-owned, non-writable directory descriptor. Failure cleanup uses the
+identity-conditioned quarantine. Focused tests remove the exact address after
+a later PID failure and preserve a same-name substitute plus the moved
+original. The supervisor's per-restart PID marker now has the same ownership
+discipline: it recovers a bounded exact crash residue, publishes exclusively,
+retains each published identity through the worker lifetime, and removes that
+inode after exit. The descriptor opener preserves safe shared modes but rejects
+group/other write. Its focused helper group and the combined shim
+launch/replacement/restart/stale-relay group each passed 100 race-detector
+repetitions. The subsequent full repository race suite, `go vet ./...`,
+documentation/schema/evidence/deployment checks, and `git diff --check` all
+passed locally on 2026-09-18; the real pathname-socket skip remains excluded
+from the claim.

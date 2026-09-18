@@ -37,6 +37,29 @@ func TestOpenDirectoryCreatesPrivatelyWithoutFollowingSymlinks(t *testing.T) {
 	}
 }
 
+func TestOpenOwnedDirectoryPreservesSafeSharedMode(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0750); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := OpenOwnedDirectory(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = directory.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if info, statErr := os.Stat(base); statErr != nil || info.Mode().Perm() != 0750 {
+		t.Fatalf("owned directory mode = %v, %v", info, statErr)
+	}
+	if err = os.Chmod(base, 0770); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = OpenOwnedDirectory(base); err == nil {
+		t.Fatal("group-writable owned directory was accepted")
+	}
+}
+
 func TestIdentityConditionedRemovalPreservesRacedReplacementAndRecoversQuarantine(t *testing.T) {
 	base := t.TempDir()
 	if err := os.Chmod(base, 0700); err != nil {
@@ -90,6 +113,38 @@ func TestIdentityConditionedRemovalPreservesRacedReplacementAndRecoversQuarantin
 	}
 	if _, err = os.Stat(quarantine); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("recovered quarantine remains: %v", err)
+	}
+}
+
+func TestCaptureRegularIdentityAllowsPublicModeButRejectsReplacement(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := OpenDirectory(base, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	path := filepath.Join(base, "address")
+	if err = os.WriteFile(path, []byte("unix:///owned"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	expected, err := directory.CaptureRegularIdentity("address", 0644, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(path, path+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, []byte("replacement"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if removed, removeErr := directory.RemoveIfIdentity("address", expected); removed || removeErr == nil {
+		t.Fatalf("replacement cleanup = removed:%v error:%v", removed, removeErr)
+	}
+	if value, readErr := os.ReadFile(path); readErr != nil || string(value) != "replacement" {
+		t.Fatalf("replacement = %q, %v", value, readErr)
 	}
 }
 

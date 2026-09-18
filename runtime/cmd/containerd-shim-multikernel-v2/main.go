@@ -45,6 +45,7 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
@@ -366,41 +367,73 @@ type shimSocketFile interface {
 	File() (*os.File, error)
 }
 
+type publishedShimFile struct {
+	directory *safefile.Directory
+	name      string
+	identity  safefile.Identity
+}
+
+func capturePublishedShimFile(path string) (*publishedShimFile, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	if filepath.Clean(absolute) != absolute || filepath.Base(absolute) == "." {
+		return nil, errors.New("published shim file path must be canonical and absolute")
+	}
+	directory, err := safefile.OpenOwnedDirectory(filepath.Dir(absolute))
+	if err != nil {
+		return nil, err
+	}
+	identity, err := directory.CaptureRegularIdentity(filepath.Base(absolute), 0644, 4096)
+	if err != nil {
+		_ = directory.Close()
+		return nil, err
+	}
+	return &publishedShimFile{directory: directory, name: filepath.Base(absolute), identity: identity}, nil
+}
+
+func (p *publishedShimFile) close(remove bool) error {
+	if p == nil {
+		return nil
+	}
+	var removeErr error
+	if remove {
+		_, removeErr = p.directory.RemoveIfIdentity(p.name, p.identity)
+	}
+	return errors.Join(removeErr, p.directory.Close())
+}
+
 func launchShimWorker(ctx context.Context, cmd *exec.Cmd, socket shimSocketFile, address, addressPath, pidPath string) (retErr error) {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	addressWritten := false
-	pidWritten := false
+	var addressFile, pidFile *publishedShimFile
 	started := false
 	var inherited *os.File
 	defer func() {
-		if retErr == nil {
-			return
-		}
 		var failures []error
-		if inherited != nil {
+		if retErr != nil && inherited != nil {
 			failures = append(failures, inherited.Close())
 		}
-		if started {
+		if retErr != nil && started {
 			failures = append(failures, terminateRelay(cmd))
 		}
-		if pidWritten {
-			if err := os.Remove(pidPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-				failures = append(failures, fmt.Errorf("remove partial shim PID file: %w", err))
-			}
+		if err := pidFile.close(retErr != nil); err != nil {
+			failures = append(failures, fmt.Errorf("close partial shim PID ownership: %w", err))
 		}
-		if addressWritten {
-			if err := os.Remove(addressPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-				failures = append(failures, fmt.Errorf("remove partial shim address file: %w", err))
-			}
+		if err := addressFile.close(retErr != nil); err != nil {
+			failures = append(failures, fmt.Errorf("close partial shim address ownership: %w", err))
 		}
 		retErr = errors.Join(retErr, errors.Join(failures...))
 	}()
 	if err := shim.WriteAddress(addressPath, address); err != nil {
 		return err
 	}
-	addressWritten = true
+	addressFile, retErr = capturePublishedShimFile(addressPath)
+	if retErr != nil {
+		return retErr
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -428,7 +461,10 @@ func launchShimWorker(ctx context.Context, cmd *exec.Cmd, socket shimSocketFile,
 	if err = shim.WritePidFile(pidPath, cmd.Process.Pid); err != nil {
 		return err
 	}
-	pidWritten = true
+	pidFile, retErr = capturePublishedShimFile(pidPath)
+	if retErr != nil {
+		return retErr
+	}
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -1437,19 +1473,20 @@ func newRelayCommand(binary string, port uint32, socket string) *exec.Cmd {
 }
 
 func removeStaleRelaySocket(path string) error {
-	info, err := os.Lstat(path)
+	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
+		// A later publisher is not stale and must remain untouched.
+		return nil
+	} else if err != nil {
+		return err
+	}
+	owner, err := unixsocket.Capture(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	identity, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || info.Mode()&os.ModeSocket == 0 || info.Mode().Perm()&0022 != 0 ||
-		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
-		return errors.New("stale relay path is not a caller-owned single-link socket with safe mode")
-	}
-	return os.Remove(path)
+	return owner.Remove()
 }
 
 func terminateRelay(command *exec.Cmd) error {
@@ -3792,8 +3829,35 @@ func superviseShimWorker() int {
 
 func superviseShimWorkerWith(listener *os.File, self string, arguments []string, workingDirectory string, environment []string) int {
 	var err error
-	pidPath := filepath.Join(workingDirectory, ".multikernel-worker.pid")
-	defer os.Remove(pidPath)
+	pidName := ".multikernel-worker.pid"
+	directory, err := safefile.OpenOwnedDirectory(workingDirectory)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: open worker directory: %v\n", err)
+		return 1
+	}
+	defer directory.Close()
+	var pidIdentity safefile.Identity
+	pidOwned := false
+	removePID := func() error {
+		if !pidOwned {
+			return nil
+		}
+		_, removeErr := directory.RemoveIfIdentity(pidName, pidIdentity)
+		if removeErr == nil {
+			pidOwned = false
+		}
+		return removeErr
+	}
+	defer func() { _ = removePID() }()
+	if _, present, _, staleIdentity, readErr := directory.ReadPrivateOrQuarantineIdentity(pidName, 64); readErr != nil {
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: inspect worker PID residue: %v\n", readErr)
+		return 1
+	} else if present {
+		if _, err = directory.RemoveIfIdentity(pidName, staleIdentity); err != nil {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID residue: %v\n", err)
+			return 1
+		}
+	}
 	for attempt := 0; attempt < 10; attempt++ {
 		cmd := exec.Command(self, arguments...)
 		cmd.Dir = workingDirectory
@@ -3805,8 +3869,20 @@ func superviseShimWorkerWith(listener *os.File, self string, arguments []string,
 			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: start worker: %v\n", err)
 			return 1
 		}
-		_ = os.WriteFile(pidPath, []byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0600)
+		created, published, publishErr := directory.PublishExclusiveIdentity(pidName,
+			[]byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0600)
+		if publishErr != nil || !created {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: publish worker PID: created=%v error=%v\n", created, publishErr)
+			return 1
+		}
+		pidIdentity, pidOwned = published, true
 		err = cmd.Wait()
+		if removeErr := removePID(); removeErr != nil {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID: %v\n", removeErr)
+			return 1
+		}
 		if err == nil {
 			return 0
 		}

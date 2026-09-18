@@ -983,6 +983,10 @@ type inheritedFileSocket string
 
 func (path inheritedFileSocket) File() (*os.File, error) { return os.Open(string(path)) }
 
+type shimSocketFileFunc func() (*os.File, error)
+
+func (f shimSocketFileFunc) File() (*os.File, error) { return f() }
+
 func (f *retryPublisher) Publish(_ context.Context, topic string, _ events.Event) error {
 	f.attempts++
 	if f.attempts == 1 {
@@ -1134,6 +1138,9 @@ func TestPreCancelledShimStartupAndRecoveryDoNotCreateOrInspectState(t *testing.
 
 func TestLaunchShimWorkerCleansProcessGroupAndOwnedArtifactsOnPIDFailure(t *testing.T) {
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
 	address := "unix://" + filepath.Join(directory, "shim.sock")
 	inheritedPath := filepath.Join(directory, "inherited-descriptor")
 	if err := os.WriteFile(inheritedPath, []byte("descriptor"), 0600); err != nil {
@@ -1146,11 +1153,12 @@ func TestLaunchShimWorkerCleansProcessGroupAndOwnedArtifactsOnPIDFailure(t *test
 	}
 	cmd := exec.Command("/bin/sh", "-c", "sleep 300 & wait")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	if err := launchShimWorker(context.Background(), cmd, inheritedFileSocket(inheritedPath), address, addressPath, pidPath); err == nil {
+	launchErr := launchShimWorker(context.Background(), cmd, inheritedFileSocket(inheritedPath), address, addressPath, pidPath)
+	if launchErr == nil {
 		t.Fatal("PID-file failure was accepted")
 	}
 	if _, statErr := os.Lstat(addressPath); !errors.Is(statErr, os.ErrNotExist) {
-		t.Fatalf("partial address file survived: %v", statErr)
+		t.Fatalf("partial address file survived: stat=%v launch=%v", statErr, launchErr)
 	}
 	if info, statErr := os.Stat(pidPath); statErr != nil || !info.IsDir() {
 		t.Fatalf("pre-existing PID path was removed or changed: %+v, %v", info, statErr)
@@ -1168,6 +1176,36 @@ func TestLaunchShimWorkerCleansProcessGroupAndOwnedArtifactsOnPIDFailure(t *test
 			t.Fatalf("worker process group survived cleanup: %v", killErr)
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestLaunchShimWorkerPreservesReplacedAddressOnFailure(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	addressPath := filepath.Join(directory, "address")
+	pidPath := filepath.Join(directory, "shim.pid")
+	originalPath := addressPath + ".original"
+	socket := shimSocketFileFunc(func() (*os.File, error) {
+		if err := os.Rename(addressPath, originalPath); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(addressPath, []byte("replacement"), 0644); err != nil {
+			return nil, err
+		}
+		return nil, errors.New("injected inherited-socket failure")
+	})
+	err := launchShimWorker(context.Background(), exec.Command("/bin/true"), socket,
+		"unix:///owned", addressPath, pidPath)
+	if err == nil || !strings.Contains(err.Error(), "file identity changed before removal") {
+		t.Fatalf("launch replacement error = %v", err)
+	}
+	if value, readErr := os.ReadFile(addressPath); readErr != nil || string(value) != "replacement" {
+		t.Fatalf("replacement address = %q, %v", value, readErr)
+	}
+	if value, readErr := os.ReadFile(originalPath); readErr != nil || string(value) != "unix:///owned" {
+		t.Fatalf("original address = %q, %v", value, readErr)
 	}
 }
 
@@ -4592,7 +4630,13 @@ func TestStopNetworkBoundsGuestCloseAndContinuesLocalCleanup(t *testing.T) {
 
 func TestSupervisorRestartsSignaledWorker(t *testing.T) {
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
 	marker := filepath.Join(directory, "worker-signaled")
+	if err := os.WriteFile(filepath.Join(directory, ".multikernel-worker.pid"), []byte("999999\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	listener, err := os.CreateTemp(directory, "listener")
 	if err != nil {
 		t.Fatal(err)
@@ -4715,6 +4759,30 @@ func TestStaleRelayCleanupRejectsNonSocketPathsWithoutRemoval(t *testing.T) {
 				t.Fatalf("rejected path changed: before=%+v after=%+v error=%v", before, after, statErr)
 			}
 		})
+	}
+}
+
+func TestStaleRelayCleanupRemovesExactSafeSocket(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "relay.sock")
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if errors.Is(err, syscall.EPERM) {
+		t.Skip("sandbox forbids Unix pathname listeners")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener.SetUnlinkOnClose(false)
+	if err = os.Chmod(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err = listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = removeStaleRelaySocket(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("stale relay remains: %v", err)
 	}
 }
 
