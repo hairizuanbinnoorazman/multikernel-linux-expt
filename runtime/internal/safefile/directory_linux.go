@@ -121,6 +121,20 @@ func openDirectory(path string, create, requirePrivate bool) (*Directory, error)
 
 func (d *Directory) Close() error       { return d.file.Close() }
 func (d *Directory) Identity() Identity { return d.identity }
+func (d *Directory) Sync() error        { return d.file.Sync() }
+
+// EntryIdentity observes a simple name without following it. Callers must use
+// a type-specific capture method before trusting contents or removing it.
+func (d *Directory) EntryIdentity(name string) (Identity, bool, error) {
+	if filepath.Base(name) != name || name == "." {
+		return Identity{}, false, errors.New("invalid entry name")
+	}
+	entry, err := identityAt(d.file, name)
+	if errors.Is(err, syscall.ENOENT) {
+		return Identity{}, false, nil
+	}
+	return entry, err == nil, err
+}
 
 func inspectPrivate(file *os.File, limit int64) (Identity, error) {
 	if limit <= 0 {
@@ -197,29 +211,66 @@ func (d *Directory) ReadPrivateIdentity(name string, limit int64) ([]byte, bool,
 // requiring the file itself to be private. The containing Directory remains
 // the private ownership boundary.
 func (d *Directory) CaptureRegularIdentity(name string, mode os.FileMode, limit int64) (Identity, error) {
+	_, opened, err := d.ReadRegularIdentity(name, mode, limit)
+	return opened, err
+}
+
+// ReadRegularIdentity reads an exact-mode regular file from the same stable
+// descriptor whose identity it returns.
+func (d *Directory) ReadRegularIdentity(name string, mode os.FileMode, limit int64) ([]byte, Identity, error) {
 	if filepath.Base(name) != name || name == "." || mode.Perm() != mode || limit <= 0 {
-		return Identity{}, errors.New("invalid regular-file capture request")
+		return nil, Identity{}, errors.New("invalid regular-file read request")
 	}
 	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
-		return Identity{}, err
+		return nil, Identity{}, err
 	}
 	file := os.NewFile(uintptr(fd), name)
+	defer file.Close()
 	info, inspectErr := file.Stat()
 	opened, ok := identity(info)
-	closeErr := file.Close()
 	if inspectErr != nil || !ok || !info.Mode().IsRegular() || info.Mode().Perm() != mode.Perm() ||
 		opened.UID != uint32(os.Geteuid()) || opened.Links != 1 || opened.Size < 0 || opened.Size > limit {
-		return Identity{}, errors.Join(errors.New("file must be caller-owned, single-link, regular, exact-mode, and bounded"), inspectErr, closeErr)
+		return nil, Identity{}, errors.Join(errors.New("file must be caller-owned, single-link, regular, exact-mode, and bounded"), inspectErr)
 	}
-	if closeErr != nil {
-		return Identity{}, closeErr
+	data := make([]byte, opened.Size)
+	if len(data) != 0 {
+		if _, err = file.ReadAt(data, 0); err != nil {
+			return nil, Identity{}, err
+		}
+	}
+	afterInfo, err := file.Stat()
+	after, afterOK := identity(afterInfo)
+	if err != nil || !afterOK || opened != after {
+		return nil, Identity{}, errors.Join(errors.New("file identity changed while reading"), err)
 	}
 	named, err := identityAt(d.file, name)
-	if err != nil || !SameObject(named, opened) {
-		return Identity{}, errors.Join(errors.New("file identity changed while capturing"), err)
+	if err != nil || named != opened {
+		return nil, Identity{}, errors.Join(errors.New("file identity changed while reading"), err)
 	}
-	return opened, nil
+	return data, opened, nil
+}
+
+// CaptureSymlinkIdentity returns the exact bounded symlink target and identity
+// without following the link.
+func (d *Directory) CaptureSymlinkIdentity(name string, limit int) (string, Identity, error) {
+	if filepath.Base(name) != name || name == "." || limit <= 0 {
+		return "", Identity{}, errors.New("invalid symlink capture request")
+	}
+	before, err := identityAt(d.file, name)
+	if err != nil || before.Mode&unix.S_IFMT != unix.S_IFLNK || before.UID != uint32(os.Geteuid()) || before.Links != 1 || before.Size < 0 || before.Size > int64(limit) {
+		return "", Identity{}, errors.Join(errors.New("entry must be a caller-owned, single-link, bounded symlink"), err)
+	}
+	buffer := make([]byte, limit+1)
+	n, err := unix.Readlinkat(int(d.file.Fd()), name, buffer)
+	if err != nil || n > limit {
+		return "", Identity{}, errors.Join(errors.New("read bounded symlink target"), err)
+	}
+	after, err := identityAt(d.file, name)
+	if err != nil || before != after {
+		return "", Identity{}, errors.Join(errors.New("symlink identity changed while capturing"), err)
+	}
+	return string(buffer[:n]), before, nil
 }
 
 func removalPrefix(name string) string {
@@ -427,8 +478,24 @@ func (d *Directory) PublishExclusive(name string, data []byte, mode os.FileMode)
 // PublishExclusiveIdentity is PublishExclusive plus the identity of the exact
 // inode published by this call.
 func (d *Directory) PublishExclusiveIdentity(name string, data []byte, mode os.FileMode) (created bool, published Identity, retErr error) {
-	if filepath.Base(name) != name || name == "." || mode.Perm()&0077 != 0 {
+	if mode.Perm()&0077 != 0 {
 		return false, Identity{}, errors.New("invalid private publication name or mode")
+	}
+	return d.publishExclusiveIdentity(name, data, mode)
+}
+
+// PublishExclusiveRegularIdentity publishes a caller-owned regular file with
+// an exact non-writable group/other mode without replacing an existing entry.
+func (d *Directory) PublishExclusiveRegularIdentity(name string, data []byte, mode os.FileMode) (created bool, published Identity, retErr error) {
+	if mode.Perm()&0022 != 0 {
+		return false, Identity{}, errors.New("regular publication mode may not be group/other-writable")
+	}
+	return d.publishExclusiveIdentity(name, data, mode)
+}
+
+func (d *Directory) publishExclusiveIdentity(name string, data []byte, mode os.FileMode) (created bool, published Identity, retErr error) {
+	if filepath.Base(name) != name || name == "." || mode != mode.Perm() {
+		return false, Identity{}, errors.New("invalid publication name or mode")
 	}
 	var temporary *os.File
 	var temporaryName string
@@ -463,6 +530,9 @@ func (d *Directory) PublishExclusiveIdentity(name string, data []byte, mode os.F
 		err = io.ErrShortWrite
 	}
 	if err == nil {
+		err = temporary.Chmod(mode.Perm())
+	}
+	if err == nil {
 		err = temporary.Sync()
 	}
 	if err == nil {
@@ -489,6 +559,24 @@ func (d *Directory) PublishExclusiveIdentity(name string, data []byte, mode os.F
 		return false, Identity{}, err
 	}
 	renamed = true
+	return true, published, d.file.Sync()
+}
+
+// PublishExclusiveSymlinkIdentity creates a bounded symlink without replacing
+// an existing entry and returns its exact identity.
+func (d *Directory) PublishExclusiveSymlinkIdentity(name, target string, limit int) (bool, Identity, error) {
+	if filepath.Base(name) != name || name == "." || target == "" || len(target) > limit || limit <= 0 {
+		return false, Identity{}, errors.New("invalid symlink publication")
+	}
+	if err := unix.Symlinkat(target, int(d.file.Fd()), name); errors.Is(err, syscall.EEXIST) {
+		return false, Identity{}, nil
+	} else if err != nil {
+		return false, Identity{}, err
+	}
+	published, err := identityAt(d.file, name)
+	if err != nil || published.Mode&unix.S_IFMT != unix.S_IFLNK || published.UID != uint32(os.Geteuid()) || published.Links != 1 {
+		return true, published, errors.Join(errors.New("published symlink identity could not be verified"), err)
+	}
 	return true, published, d.file.Sync()
 }
 
@@ -549,7 +637,7 @@ func (d *Directory) removeIfIdentityWithHook(name string, expected Identity, bef
 	} else {
 		return false, quarantineErr
 	}
-	fd, err := unix.Openat(int(d.file.Fd()), quarantine, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	fd, err := unix.Openat(int(d.file.Fd()), quarantine, unix.O_PATH|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return false, err
 	}
