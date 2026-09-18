@@ -628,15 +628,18 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 	if err := bundleHandle.Mkdir(".multikernel", 0700); err != nil {
 		return PrepareResult{}, err
 	}
-	if err := storageHandle.Mkdir(request.TaskIdentity, 0700); err != nil {
-		_ = bundleHandle.Remove(".multikernel")
-		return PrepareResult{}, err
-	}
 	runtimeInfo, err := bundleHandle.Lstat(".multikernel")
 	var runtimeID DirectoryIdentity
 	var runtimeOK bool
 	if err == nil {
 		runtimeID, runtimeOK = openedDirectoryIdentity(runtimeInfo)
+	}
+	if err != nil || !runtimeOK || !runtimeInfo.IsDir() || runtimeInfo.Mode().Perm() != 0700 || runtimeID.UID != uint32(os.Geteuid()) {
+		return PrepareResult{}, errors.New("created runtime artifact directory has an unsafe identity")
+	}
+	if err := storageHandle.Mkdir(request.TaskIdentity, 0700); err != nil {
+		return PrepareResult{}, errors.Join(err,
+			removeRelativeTree(request.Bundle, ".multikernel", bundleID, runtimeID))
 	}
 	storageDirInfo, storageDirErr := storageHandle.Lstat(request.TaskIdentity)
 	var storageDirID DirectoryIdentity

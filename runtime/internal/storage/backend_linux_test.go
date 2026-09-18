@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +19,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 )
 
 func makeExt4(t *testing.T, sparse bool) PreparedImage {
@@ -398,6 +401,51 @@ func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 	}
 	if _, err = readRecord(path, value); err == nil {
 		t.Fatal("hard-linked process record was accepted")
+	}
+}
+
+func TestProcessRecordReadRecoversIdentityBoundQuarantine(t *testing.T) {
+	directoryPath := t.TempDir()
+	if err := os.Chmod(directoryPath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	value := Export{PreparedImage: PreparedImage{Path: "/srv/multikernel/root.ext4", ImageID: "image", Port: 4061},
+		ExportGeneration: "0123456789abcdef0123456789abcdef"}
+	start, err := processStartTime(os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := processRecord{Version: 1, PID: os.Getpid(), StartTime: start, Path: value.Path,
+		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "record.json"
+	path := filepath.Join(directoryPath, name)
+	if err = os.WriteFile(path, append(data, '\n'), 0600); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := safefile.OpenDirectory(directoryPath, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, found, identity, err := directory.ReadPrivateIdentity(name, 4096)
+	if err != nil || !found {
+		t.Fatalf("record identity = %+v, %v, %v", identity, found, err)
+	}
+	if err = directory.Close(); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256([]byte(name))
+	quarantine := filepath.Join(directoryPath, ".mklinux-remove-"+hex.EncodeToString(digest[:8])+"-"+
+		fmt.Sprintf("%016x-%016x", identity.Device, identity.Inode))
+	if err = os.Rename(path, quarantine); err != nil {
+		t.Fatal(err)
+	}
+	observed, err := readRecord(path, value)
+	if err != nil || observed != record {
+		t.Fatalf("quarantined process record = %+v, %v", observed, err)
 	}
 }
 

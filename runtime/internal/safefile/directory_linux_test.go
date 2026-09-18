@@ -37,6 +37,62 @@ func TestOpenDirectoryCreatesPrivatelyWithoutFollowingSymlinks(t *testing.T) {
 	}
 }
 
+func TestIdentityConditionedRemovalPreservesRacedReplacementAndRecoversQuarantine(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := OpenDirectory(base, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	if _, err = directory.PublishExclusive("record", []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, present, expected, err := directory.ReadPrivateIdentity("record", 4096)
+	if err != nil || !present {
+		t.Fatalf("read published identity = %v, %v", present, err)
+	}
+	replaced := false
+	removed, err := directory.removeIfIdentityWithHook("record", expected, func() {
+		replaced = true
+		if renameErr := os.Rename(filepath.Join(base, "record"), filepath.Join(base, "record.original")); renameErr != nil {
+			t.Fatal(renameErr)
+		}
+		if writeErr := os.WriteFile(filepath.Join(base, "record"), []byte("replacement"), 0600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+	})
+	if !replaced || removed || err == nil {
+		t.Fatalf("raced removal = replaced:%v removed:%v err:%v", replaced, removed, err)
+	}
+	if value, readErr := os.ReadFile(filepath.Join(base, "record")); readErr != nil || string(value) != "replacement" {
+		t.Fatalf("replacement file = %q, %v", value, readErr)
+	}
+	if value, readErr := os.ReadFile(filepath.Join(base, "record.original")); readErr != nil || string(value) != "original" {
+		t.Fatalf("original file = %q, %v", value, readErr)
+	}
+	if err = os.Remove(filepath.Join(base, "record")); err != nil {
+		t.Fatal(err)
+	}
+	quarantine := filepath.Join(base, removalQuarantine("record", expected))
+	if err = os.Rename(filepath.Join(base, "record.original"), quarantine); err != nil {
+		t.Fatal(err)
+	}
+	data, present, quarantined, recoveredIdentity, err := directory.ReadPrivateOrQuarantineIdentity("record", 4096)
+	if err != nil || !present || !quarantined || string(data) != "original" || !SameObject(recoveredIdentity, expected) {
+		t.Fatalf("quarantine recovery read = %q present:%v quarantined:%v identity:%+v err:%v", data, present, quarantined, recoveredIdentity, err)
+	}
+	removed, err = directory.RemoveIfIdentity("record", expected)
+	if err != nil || !removed {
+		t.Fatalf("quarantine recovery = %v, %v", removed, err)
+	}
+	if _, err = os.Stat(quarantine); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("recovered quarantine remains: %v", err)
+	}
+}
+
 func TestPrivateReadAndReplaceAreDescriptorAnchored(t *testing.T) {
 	base := t.TempDir()
 	original := filepath.Join(base, "state")

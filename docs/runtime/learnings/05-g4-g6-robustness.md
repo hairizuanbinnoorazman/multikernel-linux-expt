@@ -982,3 +982,26 @@ only beneath the held quarantine descriptor. An injected replacement between
 inspection and rename is restored without modification, while a quarantine
 left by a crash is resumed by recorded identity. Both cases passed 100
 race-detector repetitions locally.
+
+The same audit found that the shared private-file helper and its CNI/storage
+callers still performed unconditional `unlinkat` after reading a pathname.
+Private reads and exclusive publication now return their exact inode identity;
+identity-conditioned removal moves that inode through a no-replace quarantine,
+restores a raced substitute, and resumes a matching crash residue. CNI carries
+the original cache identity across mknetd `DEL` and rejects a same-content inode
+replacement. Storage cleanup retains the identities of its exact published
+record and log. Focused safe-file, storage, same-content CNI replacement,
+repeated `CHECK`, repeated `DEL`, and generation-reuse tests passed 100
+race-detector repetitions. The quarantine name additionally binds the logical
+filename hash so a restarted caller can rediscover exactly one residue; a
+simulated restart with only a quarantined CNI cache reissued the exact
+generation-bound `DEL` and removed it in that focused group. Storage
+process-record reads also rediscover their exact quarantined inode after a
+simulated restart in 100 repetitions.
+
+Stale and shutdown cleanup in the shared Unix-socket owner now uses that same
+no-replace exact-inode quarantine rather than check-then-unlink. The
+privilege-independent replacement algorithm passed 100 race-detector
+repetitions and restores the substitute intact. The real pathname-socket case
+is still skipped under the local sandbox's listener restriction and remains a
+required disposable-host execution.

@@ -2,12 +2,14 @@ package safefile
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -151,23 +153,81 @@ func ReadOpened(file *os.File, limit int64) ([]byte, Identity, error) {
 }
 
 func (d *Directory) ReadPrivate(name string, limit int64) ([]byte, bool, error) {
+	data, present, _, err := d.ReadPrivateIdentity(name, limit)
+	return data, present, err
+}
+
+// ReadPrivateIdentity reads a private file and returns the identity of the
+// exact descriptor from which the bytes were read.
+func (d *Directory) ReadPrivateIdentity(name string, limit int64) ([]byte, bool, Identity, error) {
 	if filepath.Base(name) != name || name == "." || limit <= 0 {
-		return nil, false, errors.New("invalid private file name or size limit")
+		return nil, false, Identity{}, errors.New("invalid private file name or size limit")
 	}
 	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if errors.Is(err, syscall.ENOENT) {
-		return nil, false, nil
+		return nil, false, Identity{}, nil
 	}
 	if errors.Is(err, syscall.ELOOP) {
-		return nil, false, errors.New("file must be a private regular file, not a symlink")
+		return nil, false, Identity{}, errors.New("file must be a private regular file, not a symlink")
 	}
 	if err != nil {
-		return nil, false, err
+		return nil, false, Identity{}, err
 	}
 	file := os.NewFile(uintptr(fd), name)
 	defer file.Close()
-	data, _, err := ReadOpened(file, limit)
-	return data, true, err
+	data, opened, err := ReadOpened(file, limit)
+	return data, true, opened, err
+}
+
+func removalPrefix(name string) string {
+	digest := sha256.Sum256([]byte(name))
+	return ".mklinux-remove-" + hex.EncodeToString(digest[:8]) + "-"
+}
+
+func removalQuarantine(name string, expected Identity) string {
+	return fmt.Sprintf("%s%016x-%016x", removalPrefix(name), expected.Device, expected.Inode)
+}
+
+// ReadPrivateOrQuarantineIdentity recovers an interrupted
+// identity-conditioned removal. A quarantined result is returned only when its
+// encoded name matches the exact file identity read from that entry.
+func (d *Directory) ReadPrivateOrQuarantineIdentity(name string, limit int64) ([]byte, bool, bool, Identity, error) {
+	data, present, opened, err := d.ReadPrivateIdentity(name, limit)
+	if err != nil || present {
+		return data, present, false, opened, err
+	}
+	duplicateFD, err := unix.Openat(int(d.file.Fd()), ".", unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return nil, false, false, Identity{}, err
+	}
+	listing := os.NewFile(uintptr(duplicateFD), d.file.Name())
+	names, readErr := listing.Readdirnames(-1)
+	closeErr := listing.Close()
+	if err = errors.Join(readErr, closeErr); err != nil {
+		return nil, false, false, Identity{}, err
+	}
+	prefix := removalPrefix(name)
+	var candidates []string
+	for _, candidate := range names {
+		if strings.HasPrefix(candidate, prefix) {
+			candidates = append(candidates, candidate)
+		}
+	}
+	sort.Strings(candidates)
+	if len(candidates) == 0 {
+		return nil, false, false, Identity{}, nil
+	}
+	if len(candidates) != 1 {
+		return nil, false, false, Identity{}, errors.New("multiple removal quarantines exist for one private file")
+	}
+	data, present, opened, err = d.ReadPrivateIdentity(candidates[0], limit)
+	if err != nil || !present {
+		return nil, false, false, Identity{}, errors.Join(errors.New("removal quarantine could not be read"), err)
+	}
+	if removalQuarantine(name, opened) != candidates[0] {
+		return nil, false, false, Identity{}, errors.New("removal quarantine name does not match its inode identity")
+	}
+	return data, true, true, opened, nil
 }
 
 // ReadPrivateSnapshot reads the validated prefix present when an append-only
@@ -317,15 +377,22 @@ func (d *Directory) Replace(name string, data []byte, mode os.FileMode) (retErr 
 // PublishExclusive durably creates name without replacing an existing entry.
 // It returns false without error when name already exists.
 func (d *Directory) PublishExclusive(name string, data []byte, mode os.FileMode) (created bool, retErr error) {
+	created, _, retErr = d.PublishExclusiveIdentity(name, data, mode)
+	return created, retErr
+}
+
+// PublishExclusiveIdentity is PublishExclusive plus the identity of the exact
+// inode published by this call.
+func (d *Directory) PublishExclusiveIdentity(name string, data []byte, mode os.FileMode) (created bool, published Identity, retErr error) {
 	if filepath.Base(name) != name || name == "." || mode.Perm()&0077 != 0 {
-		return false, errors.New("invalid private publication name or mode")
+		return false, Identity{}, errors.New("invalid private publication name or mode")
 	}
 	var temporary *os.File
 	var temporaryName string
 	for attempt := 0; attempt < 16; attempt++ {
 		random := make([]byte, 8)
 		if _, retErr = io.ReadFull(rand.Reader, random); retErr != nil {
-			return false, retErr
+			return false, Identity{}, retErr
 		}
 		temporaryName = "." + name + "." + hex.EncodeToString(random)
 		fd, err := unix.Openat(int(d.file.Fd()), temporaryName,
@@ -334,13 +401,13 @@ func (d *Directory) PublishExclusive(name string, data []byte, mode os.FileMode)
 			continue
 		}
 		if err != nil {
-			return false, err
+			return false, Identity{}, err
 		}
 		temporary = os.NewFile(uintptr(fd), temporaryName)
 		break
 	}
 	if temporary == nil {
-		return false, errors.New("could not allocate a unique publication file")
+		return false, Identity{}, errors.New("could not allocate a unique publication file")
 	}
 	renamed := false
 	defer func() {
@@ -355,20 +422,31 @@ func (d *Directory) PublishExclusive(name string, data []byte, mode os.FileMode)
 	if err == nil {
 		err = temporary.Sync()
 	}
+	if err == nil {
+		info, statErr := temporary.Stat()
+		err = statErr
+		if err == nil {
+			var ok bool
+			published, ok = identity(info)
+			if !ok {
+				err = errors.New("published file identity is unavailable")
+			}
+		}
+	}
 	closeErr := temporary.Close()
 	if err != nil {
-		return false, err
+		return false, Identity{}, err
 	}
 	if closeErr != nil {
-		return false, closeErr
+		return false, Identity{}, closeErr
 	}
 	if err = unix.Renameat2(int(d.file.Fd()), temporaryName, int(d.file.Fd()), name, unix.RENAME_NOREPLACE); errors.Is(err, syscall.EEXIST) {
-		return false, nil
+		return false, Identity{}, nil
 	} else if err != nil {
-		return false, err
+		return false, Identity{}, err
 	}
 	renamed = true
-	return true, d.file.Sync()
+	return true, published, d.file.Sync()
 }
 
 // Remove unlinks a simple name relative to the opened directory and syncs the
@@ -383,4 +461,82 @@ func (d *Directory) Remove(name string) (bool, error) {
 		return false, err
 	}
 	return true, d.file.Sync()
+}
+
+func identityAt(directory *os.File, name string) (Identity, error) {
+	var stat unix.Stat_t
+	if err := unix.Fstatat(int(directory.Fd()), name, &stat, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		return Identity{}, err
+	}
+	return Identity{Device: uint64(stat.Dev), Inode: stat.Ino, UID: stat.Uid, Mode: stat.Mode,
+		Links: stat.Nlink, Size: stat.Size,
+		MTime: syscall.Timespec{Sec: stat.Mtim.Sec, Nsec: stat.Mtim.Nsec},
+		CTime: syscall.Timespec{Sec: stat.Ctim.Sec, Nsec: stat.Ctim.Nsec}}, nil
+}
+
+func (d *Directory) removeIfIdentityWithHook(name string, expected Identity, beforeRename func()) (bool, error) {
+	if filepath.Base(name) != name || name == "." || expected.Device == 0 || expected.Inode == 0 {
+		return false, errors.New("invalid identity-conditioned removal")
+	}
+	quarantine := removalQuarantine(name, expected)
+	quarantined, quarantineErr := identityAt(d.file, quarantine)
+	if quarantineErr == nil {
+		if !SameObject(quarantined, expected) {
+			return false, errors.New("removal quarantine has a conflicting identity")
+		}
+	} else if errors.Is(quarantineErr, syscall.ENOENT) {
+		current, inspectErr := identityAt(d.file, name)
+		if errors.Is(inspectErr, syscall.ENOENT) {
+			return false, nil
+		}
+		if inspectErr != nil || !SameObject(current, expected) {
+			return false, errors.Join(errors.New("file identity changed before removal"), inspectErr)
+		}
+		if beforeRename != nil {
+			beforeRename()
+		}
+		if err := unix.Renameat2(int(d.file.Fd()), name, int(d.file.Fd()), quarantine, unix.RENAME_NOREPLACE); err != nil {
+			return false, err
+		}
+		quarantined, quarantineErr = identityAt(d.file, quarantine)
+		if quarantineErr != nil || !SameObject(quarantined, expected) {
+			restoreErr := unix.Renameat2(int(d.file.Fd()), quarantine, int(d.file.Fd()), name, unix.RENAME_NOREPLACE)
+			return false, errors.Join(errors.New("file changed before removal quarantine"), quarantineErr, restoreErr)
+		}
+	} else {
+		return false, quarantineErr
+	}
+	fd, err := unix.Openat(int(d.file.Fd()), quarantine, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return false, err
+	}
+	opened := os.NewFile(uintptr(fd), quarantine)
+	openedInfo, inspectErr := opened.Stat()
+	openedIdentity, ok := identity(openedInfo)
+	closeErr := opened.Close()
+	if inspectErr != nil || !ok || !SameObject(openedIdentity, expected) {
+		return false, errors.Join(errors.New("opened removal quarantine has a conflicting identity"), inspectErr, closeErr)
+	}
+	if closeErr != nil {
+		return false, closeErr
+	}
+	quarantined, err = identityAt(d.file, quarantine)
+	if err != nil || !SameObject(quarantined, expected) {
+		return false, errors.Join(errors.New("removal quarantine changed before unlink"), err)
+	}
+	if err = unix.Unlinkat(int(d.file.Fd()), quarantine, 0); err != nil {
+		return false, err
+	}
+	if current, inspectErr := identityAt(d.file, name); inspectErr == nil {
+		return false, fmt.Errorf("file pathname was replaced during removal by inode %d", current.Inode)
+	} else if !errors.Is(inspectErr, syscall.ENOENT) {
+		return false, inspectErr
+	}
+	return true, d.file.Sync()
+}
+
+// RemoveIfIdentity removes only the exact object represented by expected.
+// A raced replacement is restored or preserved and reported as an error.
+func (d *Directory) RemoveIfIdentity(name string, expected Identity) (bool, error) {
+	return d.removeIfIdentityWithHook(name, expected, nil)
 }
