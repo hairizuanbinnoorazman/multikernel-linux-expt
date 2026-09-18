@@ -1403,6 +1403,30 @@ compilation, the full documentation/schema/evidence/deployment chain, and
 exact-publication checkpoint is complete; broader G4 fault and live evidence
 remain open.
 
+The next staging audit found that the ext4 image descriptor fix did not bind
+the private clone itself. Copy, normalization, filesystem import, and final
+`shutil.rmtree(staging)` still use the random public directory pathname, so a
+same-name replacement can redirect work or be recursively deleted at cleanup.
+This is recorded before implementation; every staging consumer and cleanup
+decision must share one held staging-directory inode and preserve a public
+replacement.
+
+The storage builder now opens staging once, creates its root relative to that
+descriptor, and uses inherited `/proc/self/fd` paths for copy, normalization,
+inode accounting, and filesystem import. Cleanup quarantines only the exact
+public staging inode before recursive removal. In the focused replacement
+test, the original is moved and a marked substitute installed. Construction
+continues only from the held original, but exact cleanup is mandatory: the
+builder fails closed, rolls back its image/metadata, and preserves the
+substitute. The 8-case suite and this real ext4 case for 100 repetitions pass
+after final transaction review. Full verification remains pending.
+
+The subsequent complete repository race suite, `go vet ./...`, the full
+17-case rootfs/8-case storage and documentation/schema/evidence/deployment
+chain, and `git diff --check` passed on 2026-09-18. This completes the local
+staging-identity checkpoint; privileged interruption and ENOSPC evidence remain
+open.
+
 The next handoff review found that only supervisor-to-worker restart was fully
 descriptor-bound. The initial supervisor command still used the public
 `Getwd` pathname from `newCommand`, allowing a same-owner bundle replacement

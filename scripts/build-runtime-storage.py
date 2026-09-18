@@ -20,6 +20,7 @@ from runtime_safe_publish import (
     descriptor_identity,
     file_identity,
     publish_existing,
+    remove_directory_if_identity,
     remove_if_identity,
 )
 
@@ -166,7 +167,10 @@ def build(arguments) -> dict:
         raise StorageBuildError(f"storage high-water refusal: free={free} required={required}")
 
     staging = Path(tempfile.mkdtemp(prefix=".root-staging.", dir=arguments.output.parent))
-    staged_root = staging / "root"
+    staging_fd = os.open(staging, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    staging_identity = descriptor_identity(staging_fd)
+    staging_argument = Path(f"/proc/self/fd/{staging_fd}")
+    staged_root = staging_argument / "root"
     temporary = None
     temporary_identity = None
     image_file = None
@@ -174,13 +178,14 @@ def build(arguments) -> dict:
     published_metadata = None
     completed = False
     try:
-        staged_root.mkdir(mode=0o700)
+        os.mkdir("root", mode=0o700, dir_fd=staging_fd)
         copy = subprocess.run(
             ["/bin/cp", "-a", "--reflink=auto", "--", str(root) + "/.", str(staged_root)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             check=False,
+            pass_fds=(staging_fd,),
         )
         if copy.returncode:
             raise StorageBuildError(f"root staging failed: {copy.stderr.strip()}")
@@ -214,7 +219,7 @@ def build(arguments) -> dict:
             "-d", str(staged_root), image_argument,
         ]
         result = subprocess.run(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, check=False, pass_fds=(image_file.fileno(),))
+                                text=True, check=False, pass_fds=(image_file.fileno(), staging_fd))
         if result.returncode:
             raise StorageBuildError(f"mke2fs failed: {result.stderr.strip()}")
         normalize_imported_ctimes(arguments.output.parent, image_argument, image_file.fileno(),
@@ -247,10 +252,22 @@ def build(arguments) -> dict:
             },
         }
         published_metadata = atomic_json(arguments.metadata, record)
+        if not remove_directory_if_identity(staging, staging_identity):
+            raise StorageBuildError("staging directory identity changed before cleanup")
+        os.close(staging_fd)
+        staging_fd = None
         completed = True
         return record
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
+        staging_cleanup_error = None
+        if staging_fd is not None:
+            try:
+                if not remove_directory_if_identity(staging, staging_identity):
+                    raise StorageBuildError("staging directory identity changed before cleanup")
+            except BaseException as error:
+                staging_cleanup_error = error
+            finally:
+                os.close(staging_fd)
         if not completed:
             if image_file is not None:
                 image_file.close()
@@ -260,6 +277,8 @@ def build(arguments) -> dict:
                 remove_if_identity(arguments.output, published_output)
             if published_metadata is not None:
                 remove_if_identity(arguments.metadata, published_metadata)
+        if staging_cleanup_error is not None:
+            raise staging_cleanup_error
 
 
 def main() -> int:
