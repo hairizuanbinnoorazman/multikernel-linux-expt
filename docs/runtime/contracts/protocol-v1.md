@@ -38,6 +38,10 @@ Daemon methods are `NodeInfo`, `ListSandboxes`, `CreateSandbox`,
 `DeleteSandbox`, `SandboxState`, and `WatchEvents`. `CancelCreateSandbox` is an
 internal rollback operation bound to the exact original create idempotency key
 and full configuration fingerprint; it is not a general deletion shortcut.
+Each sandbox configuration also carries the bundle directory's device, inode,
+and owner UID. Recovery must match this daemon-journaled identity before it
+reconnects resources, so replacement-local state cannot rebind a sandbox to a
+different bundle inode.
 Agent methods are `Capabilities`, `CreateProcess`,
 `ExecProcess`, `StartProcess`, `SignalProcess`, `AcknowledgeSignal`, `ResizeProcess`, `WriteProcess`,
 `CloseProcessStdin`, `ReadProcessOutput`, `WaitProcess`, `StateProcess`,

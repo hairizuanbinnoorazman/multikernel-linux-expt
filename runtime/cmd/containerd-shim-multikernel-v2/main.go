@@ -170,8 +170,13 @@ type stateFileIdentity struct {
 type service struct {
 	mu                    sync.Mutex
 	eventMu               sync.Mutex
+	runtimeMu             sync.Mutex
 	eventRetryStop        sync.Once
+	bundleClose           sync.Once
 	id, namespace, bundle string
+	bundleDirectory       *safefile.Directory
+	bundleIdentity        rootfspkg.DirectoryIdentity
+	runtimeDirectory      *safefile.Directory
 	publisher             shim.Publisher
 	shutdown              func()
 	daemon                daemon.Caller
@@ -200,7 +205,8 @@ type service struct {
 	netErrors             atomic.Uint64
 	processes             map[string]*process
 	events                eventJournal
-	eventJournalIdentity  *stateFileIdentity
+	eventJournalIdentity  *safefile.Identity
+	recoveryIdentity      *safefile.Identity
 	eventRetryCancel      context.CancelFunc
 	eventRetryDone        chan struct{}
 	shuttingDown          bool
@@ -258,17 +264,21 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 	if err != nil {
 		return nil, err
 	}
-	if err = validateServiceIdentity(id, ns, bundle); err != nil {
+	bundleDirectory, bundleIdentity, err := openServiceIdentity(id, ns, bundle)
+	if err != nil {
 		return nil, err
 	}
 	s := &service{id: id, namespace: ns, bundle: bundle, publisher: publisher, shutdown: shutdown,
+		bundleDirectory: bundleDirectory, bundleIdentity: bundleIdentity,
 		daemon:    daemon.Client{Path: getenv("MK_DAEMON_SOCKET", "/run/mkruntimed.sock")},
 		netClient: mknetwork.Client{Path: getenv("MK_NETWORK_SOCKET", "/run/mknetd.sock")}, processes: map[string]*process{},
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	if err = s.loadEventJournal(); err != nil {
+		_ = bundleDirectory.Close()
 		return nil, err
 	}
 	if err = s.recoverExisting(ctx); err != nil {
+		_ = bundleDirectory.Close()
 		return nil, err
 	}
 	if err = s.flushEvents(ctx); err != nil {
@@ -324,24 +334,56 @@ func (s *service) captureRelaySocket(path string) (relayPathOwner, error) {
 }
 
 func validateServiceIdentity(id, namespace, bundle string) error {
+	directory, _, err := openServiceIdentity(id, namespace, bundle)
+	if directory != nil {
+		_ = directory.Close()
+	}
+	return err
+}
+
+func openServiceIdentity(id, namespace, bundle string) (*safefile.Directory, rootfspkg.DirectoryIdentity, error) {
 	if !runtimeIdentifier.MatchString(id) || !runtimeIdentifier.MatchString(namespace) {
-		return fmt.Errorf("%w: invalid task ID or containerd namespace", errdefs.ErrInvalidArgument)
+		return nil, rootfspkg.DirectoryIdentity{}, fmt.Errorf("%w: invalid task ID or containerd namespace", errdefs.ErrInvalidArgument)
 	}
 	if !filepath.IsAbs(bundle) || filepath.Clean(bundle) != bundle {
-		return fmt.Errorf("%w: bundle must be an absolute canonical path", errdefs.ErrInvalidArgument)
+		return nil, rootfspkg.DirectoryIdentity{}, fmt.Errorf("%w: bundle must be an absolute canonical path", errdefs.ErrInvalidArgument)
 	}
-	resolved, err := filepath.EvalSymlinks(bundle)
+	directory, err := safefile.OpenOwnedDirectory(bundle)
 	if err != nil {
-		return fmt.Errorf("%w: resolve bundle: %v", errdefs.ErrInvalidArgument, err)
+		return nil, rootfspkg.DirectoryIdentity{}, fmt.Errorf("%w: open bundle identity: %v", errdefs.ErrInvalidArgument, err)
 	}
-	if resolved != bundle {
-		return fmt.Errorf("%w: symlinked bundle paths are unsupported", errdefs.ErrInvalidArgument)
+	identity := directory.Identity()
+	observed := rootfspkg.DirectoryIdentity{Device: identity.Device, Inode: identity.Inode, UID: identity.UID}
+	expected, err := supervisorBundleIdentity()
+	if err != nil || expected != nil && *expected != observed {
+		_ = directory.Close()
+		return nil, rootfspkg.DirectoryIdentity{}, errors.Join(errors.New("bundle identity differs from the supervisor handoff"), err)
 	}
-	info, err := os.Stat(bundle)
-	if err != nil || !info.IsDir() {
-		return fmt.Errorf("%w: bundle is not a directory", errdefs.ErrInvalidArgument)
+	return directory, observed, nil
+}
+
+func supervisorBundleIdentity() (*rootfspkg.DirectoryIdentity, error) {
+	raw := []string{os.Getenv("MK_SHIM_BUNDLE_DEVICE"), os.Getenv("MK_SHIM_BUNDLE_INODE"), os.Getenv("MK_SHIM_BUNDLE_UID")}
+	if raw[0] == "" && raw[1] == "" && raw[2] == "" {
+		return nil, nil
 	}
-	return nil
+	if raw[0] == "" || raw[1] == "" || raw[2] == "" {
+		return nil, errors.New("supervisor bundle identity is incomplete")
+	}
+	device, err := strconv.ParseUint(raw[0], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	inode, err := strconv.ParseUint(raw[1], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	uid, err := strconv.ParseUint(raw[2], 10, 32)
+	if err != nil || device == 0 || inode == 0 {
+		return nil, errors.Join(errors.New("supervisor bundle identity is invalid"), err)
+	}
+	identity := &rootfspkg.DirectoryIdentity{Device: device, Inode: inode, UID: uint32(uid)}
+	return identity, nil
 }
 
 func newCommand(ctx context.Context, id string, opts shim.StartOpts) (*exec.Cmd, error) {
@@ -508,16 +550,17 @@ func (s *service) StartShim(ctx context.Context, opts shim.StartOpts) (_ string,
 }
 
 type persisted struct {
-	SchemaVersion int                `json:"schema_version"`
-	ID            string             `json:"id"`
-	Generation    string             `json:"generation"`
-	PID           uint32             `json:"pid,omitempty"`
-	Exit          uint32             `json:"exit"`
-	Exited        time.Time          `json:"exited"`
-	Network       mknetwork.Endpoint `json:"network"`
-	TaskIdentity  string             `json:"task_identity"`
-	StorageSHA256 string             `json:"storage_sha256"`
-	Processes     []persistedProcess `json:"processes,omitempty"`
+	SchemaVersion  int                         `json:"schema_version"`
+	BundleIdentity rootfspkg.DirectoryIdentity `json:"bundle_identity"`
+	ID             string                      `json:"id"`
+	Generation     string                      `json:"generation"`
+	PID            uint32                      `json:"pid,omitempty"`
+	Exit           uint32                      `json:"exit"`
+	Exited         time.Time                   `json:"exited"`
+	Network        mknetwork.Endpoint          `json:"network"`
+	TaskIdentity   string                      `json:"task_identity"`
+	StorageSHA256  string                      `json:"storage_sha256"`
+	Processes      []persistedProcess          `json:"processes,omitempty"`
 }
 
 type persistedProcess struct {
@@ -578,7 +621,8 @@ func validProcessIOIdentity(path string, value processIOIdentity, stdin bool) bo
 }
 
 func validatePersistedRecovery(value persisted, namespace, task string) error {
-	if value.SchemaVersion != 2 || value.ID != sandboxID(namespace, task) ||
+	if value.SchemaVersion != 3 || value.BundleIdentity.Device == 0 || value.BundleIdentity.Inode == 0 ||
+		value.BundleIdentity.UID != uint32(os.Geteuid()) || value.ID != sandboxID(namespace, task) ||
 		!recoveryGeneration.MatchString(value.Generation) ||
 		value.TaskIdentity != storageTaskIdentity(namespace, task) ||
 		(value.StorageSHA256 != "" && !recoverySHA256.MatchString(value.StorageSHA256)) ||
@@ -692,6 +736,21 @@ func loadPersistedRecovery(path, namespace, task string) (persisted, bool, error
 	return value, true, nil
 }
 
+func loadPersistedRecoveryFromDirectory(directory *safefile.Directory, namespace, task string) (persisted, bool, *safefile.Identity, error) {
+	var value persisted
+	data, present, identity, err := directory.ReadPrivateIdentity("sandbox.json", 8<<20)
+	if err != nil || !present {
+		return value, present, nil, err
+	}
+	if err = protocol.StrictDecode(data, &value); err != nil {
+		return value, false, nil, fmt.Errorf("decode shim recovery: %w", err)
+	}
+	if err = validatePersistedRecovery(value, namespace, task); err != nil {
+		return value, false, nil, err
+	}
+	return value, true, &identity, nil
+}
+
 func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -730,7 +789,7 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 		} else if _, deleteErr := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil); deleteErr != nil {
 			failures = append(failures, fmt.Errorf("delete recovered sandbox: %w", deleteErr))
 		} else if p.StorageSHA256 != "" {
-			if cleanupErr := s.cleanupRootfs(ctx, rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle, TaskIdentity: p.TaskIdentity, StorageSHA256: p.StorageSHA256}); cleanupErr != nil {
+			if cleanupErr := s.cleanupRootfs(ctx, rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle, BundleIdentity: p.BundleIdentity, TaskIdentity: p.TaskIdentity, StorageSHA256: p.StorageSHA256}); cleanupErr != nil {
 				failures = append(failures, fmt.Errorf("cleanup recovered rootfs: %w", cleanupErr))
 			}
 		}
@@ -788,6 +847,24 @@ func loadExistingToken(runtimeDir string) ([]byte, string, error) {
 	}
 	if !sameProcessIOIdentity(opened, after) {
 		return nil, "", errors.New("runtime token identity changed while reading")
+	}
+	if len(data) != 65 || data[64] != '\n' {
+		return nil, "", errors.New("existing runtime token is malformed")
+	}
+	token, err := hex.DecodeString(string(data[:64]))
+	if err != nil || len(token) != 32 {
+		return nil, "", errors.New("existing runtime token is malformed")
+	}
+	return token, string(data[:64]), nil
+}
+
+func loadExistingTokenFromDirectory(directory *safefile.Directory) ([]byte, string, error) {
+	data, present, _, err := directory.ReadPrivateIdentity("token", 65)
+	if err != nil {
+		return nil, "", err
+	}
+	if !present {
+		return nil, "", os.ErrNotExist
 	}
 	if len(data) != 65 || data[64] != '\n' {
 		return nil, "", errors.New("existing runtime token is malformed")
@@ -862,12 +939,32 @@ func loadOrCreateToken(runtimeDir string) (_ []byte, _ string, retErr error) {
 	return token, encoded, nil
 }
 
+func loadOrCreateTokenFromDirectory(directory *safefile.Directory) ([]byte, string, error) {
+	if token, encoded, err := loadExistingTokenFromDirectory(directory); err == nil {
+		return token, encoded, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, "", err
+	}
+	token, encoded, err := randomToken()
+	if err != nil {
+		return nil, "", err
+	}
+	created, _, err := directory.PublishExclusiveIdentity("token", []byte(encoded+"\n"), 0600)
+	if err != nil {
+		return nil, "", err
+	}
+	if !created {
+		return nil, "", errors.New("runtime token appeared during exclusive creation")
+	}
+	return token, encoded, nil
+}
+
 func (s *service) persistRecovery() error {
 	if s.sandbox.ID == "" {
 		return nil
 	}
 	network := s.networkReport("READY")
-	p := persisted{SchemaVersion: 2, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
+	p := persisted{SchemaVersion: 3, BundleIdentity: s.bundleIdentity, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
 		TaskIdentity: storageTaskIdentity(s.namespace, s.id)}
 	if s.sandbox.Config.Storage != nil {
 		p.StorageSHA256 = s.sandbox.Config.Storage.SHA256
@@ -894,7 +991,19 @@ func (s *service) persistRecovery() error {
 	if err != nil {
 		return err
 	}
-	return atomicWriteFile(filepath.Join(s.bundle, ".multikernel", "sandbox.json"), b, 0600)
+	if err = s.ensureBundleIdentity(); err != nil {
+		return err
+	}
+	runtimeDirectory, err := s.ensureRuntimeDirectory()
+	if err != nil {
+		return err
+	}
+	published, err := runtimeDirectory.ReplaceIdentity("sandbox.json", b, 0600, s.recoveryIdentity)
+	if err != nil {
+		return err
+	}
+	s.recoveryIdentity = &published
+	return nil
 }
 
 func taskGuestPID(pid int) (uint32, error) {
@@ -1203,14 +1312,27 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	runtimeDir := filepath.Join(s.bundle, ".multikernel")
-	recovery, found, err := loadPersistedRecovery(filepath.Join(runtimeDir, "sandbox.json"), s.namespace, s.id)
+	if err := s.ensureBundleIdentity(); err != nil {
+		return fmt.Errorf("verify recovery bundle identity: %w", err)
+	}
+	runtimeDirectory, err := s.ensureRuntimeDirectory()
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("open recovery runtime directory: %w", err)
+	}
+	recovery, found, recoveryIdentity, err := loadPersistedRecoveryFromDirectory(runtimeDirectory, s.namespace, s.id)
 	if err != nil {
 		return fmt.Errorf("read shim recovery state: %w", err)
 	}
 	if !found {
 		return nil
 	}
+	if recovery.BundleIdentity != s.bundleIdentity {
+		return errors.New("persisted recovery bundle identity differs from the service handoff")
+	}
+	s.recoveryIdentity = recoveryIdentity
 	var sandboxes []protocol.Sandbox
 	if apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "shim-recover-list-" + s.id, Method: "ListSandboxes"}, &sandboxes); apiErr != nil {
 		return fmt.Errorf("list sandboxes for shim recovery: %s", apiErr.Message)
@@ -1224,7 +1346,10 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	if s.sandbox.ID == "" {
 		return errors.New("persisted sandbox generation is not owned by mkruntimed")
 	}
-	s.token, _, err = loadExistingToken(runtimeDir)
+	if s.sandbox.Config.BundleIdentity != s.bundleIdentity {
+		return errors.New("daemon sandbox bundle identity differs from the service handoff")
+	}
+	s.token, _, err = loadExistingTokenFromDirectory(runtimeDirectory)
 	if err != nil {
 		return fmt.Errorf("read recovery token: %w", err)
 	}
@@ -1630,7 +1755,8 @@ func (s *service) allocate(ctx context.Context, bundle string) (protocol.Sandbox
 			}
 		}
 		if free {
-			return protocol.SandboxConfig{SchemaVersion: 1, ID: sandboxID(s.namespace, s.id), CPUs: set, MemoryBytes: 3 << 30, KernelManifest: "gce-mk2", Bundle: bundle, AgentPort: uint32(7200 + i), ChildCID: uint32(40 + i), Storage: &protocol.StorageConfig{Port: uint32(4061 + i)}}, lock, nil
+			return protocol.SandboxConfig{SchemaVersion: 1, ID: sandboxID(s.namespace, s.id), CPUs: set, MemoryBytes: 3 << 30, KernelManifest: "gce-mk2", Bundle: bundle,
+				BundleIdentity: s.bundleIdentity, AgentPort: uint32(7200 + i), ChildCID: uint32(40 + i), Storage: &protocol.StorageConfig{Port: uint32(4061 + i)}}, lock, nil
 		}
 	}
 	lock.Close()
@@ -1661,36 +1787,21 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 	return errors.Join(failures...)
 }
 
-func bundleNetworkNamespace(bundle string) (string, error) {
-	path := filepath.Join(bundle, "config.json")
-	info, err := os.Lstat(path)
-	if err != nil {
-		return "", err
+func bundleNetworkNamespaceFrom(directory *safefile.Directory) (string, error) {
+	identity, present, err := directory.EntryIdentity("config.json")
+	if err != nil || !present {
+		return "", errors.Join(errors.New("OCI config.json is missing"), err)
 	}
-	identity, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 || info.Size() > 1<<20 ||
-		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
+	mode := os.FileMode(identity.Mode).Perm()
+	if identity.Mode&unix.S_IFMT != unix.S_IFREG || mode&0022 != 0 || identity.Size > 1<<20 || identity.Size < 0 ||
+		identity.UID != uint32(os.Geteuid()) || identity.Links != 1 {
 		return "", errors.New("OCI config.json must be a bounded private caller-owned single-link regular file")
 	}
-	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
-		Flags:   uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW),
-		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
-	})
+	data, opened, err := directory.ReadRegularIdentity("config.json", mode, 1<<20)
 	if err != nil {
 		return "", err
 	}
-	file := os.NewFile(uintptr(descriptor), path)
-	defer file.Close()
-	opened, err := file.Stat()
-	if err != nil || !sameProcessIOIdentity(info, opened) {
-		return "", errors.New("OCI config.json identity changed while opening")
-	}
-	data, err := io.ReadAll(io.LimitReader(file, (1<<20)+1))
-	if err != nil || len(data) > 1<<20 {
-		return "", errors.New("OCI config.json changed or exceeded its read bound")
-	}
-	after, err := file.Stat()
-	if err != nil || !sameProcessIOIdentity(opened, after) {
+	if !safefile.SameObject(identity, opened) {
 		return "", errors.New("OCI config.json identity changed while reading")
 	}
 	var spec specs.Spec
@@ -1719,6 +1830,74 @@ func bundleNetworkNamespace(bundle string) (string, error) {
 		return "", errors.New("OCI network namespace path must be absolute and canonical")
 	}
 	return result, nil
+}
+
+func bundleNetworkNamespace(bundle string) (string, error) {
+	directory, err := safefile.OpenOwnedDirectory(bundle)
+	if err != nil {
+		return "", err
+	}
+	defer directory.Close()
+	return bundleNetworkNamespaceFrom(directory)
+}
+
+func (s *service) ensureBundleIdentity() error {
+	current, err := safefile.OpenOwnedDirectory(s.bundle)
+	if err != nil {
+		return err
+	}
+	identity := current.Identity()
+	observed := rootfspkg.DirectoryIdentity{Device: identity.Device, Inode: identity.Inode, UID: identity.UID}
+	if s.bundleDirectory == nil {
+		s.bundleDirectory, s.bundleIdentity = current, observed
+		return nil
+	}
+	defer current.Close()
+	if observed != s.bundleIdentity {
+		return errors.New("bundle directory identity changed after shim construction")
+	}
+	return nil
+}
+
+func (s *service) ensureRuntimeDirectory() (*safefile.Directory, error) {
+	if err := s.ensureBundleIdentity(); err != nil {
+		return nil, err
+	}
+	s.runtimeMu.Lock()
+	defer s.runtimeMu.Unlock()
+	current, err := s.bundleDirectory.OpenChildDirectory(".multikernel", 0700)
+	if err != nil {
+		return nil, err
+	}
+	if s.runtimeDirectory == nil {
+		s.runtimeDirectory = current
+		return current, nil
+	}
+	defer current.Close()
+	if !safefile.SameObject(current.Identity(), s.runtimeDirectory.Identity()) {
+		return nil, errors.New("runtime directory identity changed after shim binding")
+	}
+	return s.runtimeDirectory, nil
+}
+
+func verifyRuntimeDirectoryHandoff(directory *safefile.Directory, expected rootfspkg.DirectoryIdentity) error {
+	identity := directory.Identity()
+	observed := rootfspkg.DirectoryIdentity{Device: identity.Device, Inode: identity.Inode, UID: identity.UID}
+	if observed != expected {
+		return errors.New("runtime directory identity differs from the rootfs handoff")
+	}
+	return nil
+}
+
+func (s *service) closeBundleIdentity() {
+	s.bundleClose.Do(func() {
+		if s.runtimeDirectory != nil {
+			_ = s.runtimeDirectory.Close()
+		}
+		if s.bundleDirectory != nil {
+			_ = s.bundleDirectory.Close()
+		}
+	})
 }
 
 func (s *service) provisionNetwork(ctx context.Context, netns string) error {
@@ -1911,7 +2090,10 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if len(s.processes) != 0 {
 		return nil, errdefs.ErrAlreadyExists
 	}
-	netns, err := bundleNetworkNamespace(r.Bundle)
+	if err := s.ensureBundleIdentity(); err != nil {
+		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
+	}
+	netns, err := bundleNetworkNamespaceFrom(s.bundleDirectory)
 	if err != nil {
 		return nil, err
 	}
@@ -1919,7 +2101,6 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err != nil {
 		return nil, err
 	}
-	runtimeDir := filepath.Join(r.Bundle, ".multikernel")
 	var prepared *rootfspkg.CleanupRequest
 	lifecycleAttempted := false
 	fail := true
@@ -1936,14 +2117,21 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	}
 	defer lock.Close()
 	identity := storageTaskIdentity(s.namespace, s.id)
-	result, err := s.prepareRootfs(ctx, rootfspkg.PrepareRequest{Version: rootfspkg.Version, Bundle: r.Bundle,
+	result, err := s.prepareRootfs(ctx, rootfspkg.PrepareRequest{Version: rootfspkg.Version, Bundle: r.Bundle, BundleIdentity: s.bundleIdentity,
 		TaskIdentity: identity, StoragePort: config.Storage.Port, Mounts: mounts})
 	if err != nil {
 		return nil, err
 	}
 	config.Storage = &result.Storage
-	prepared = &rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: r.Bundle, TaskIdentity: identity, StorageSHA256: result.Storage.SHA256}
-	token, tokenHex, err := loadOrCreateToken(runtimeDir)
+	prepared = &rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: r.Bundle, BundleIdentity: s.bundleIdentity, TaskIdentity: identity, StorageSHA256: result.Storage.SHA256}
+	runtimeDirectory, err := s.ensureRuntimeDirectory()
+	if err != nil {
+		return nil, err
+	}
+	if err = verifyRuntimeDirectoryHandoff(runtimeDirectory, result.RuntimeIdentity); err != nil {
+		return nil, err
+	}
+	token, tokenHex, err := loadOrCreateTokenFromDirectory(runtimeDirectory)
 	if err != nil {
 		return nil, err
 	}
@@ -3363,7 +3551,7 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		return abort(fmt.Errorf("flush task delete event: %w", err))
 	}
 	if r.ExecID == "" && s.sandbox.Config.Storage != nil {
-		request := rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle,
+		request := rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle, BundleIdentity: s.bundleIdentity,
 			TaskIdentity: storageTaskIdentity(s.namespace, s.id), StorageSHA256: s.sandbox.Config.Storage.SHA256}
 		if err := s.cleanupRootfs(ctx, request); err != nil {
 			return abort(fmt.Errorf("cleanup prepared rootfs: %w", err))
@@ -3455,6 +3643,7 @@ func (s *service) Shutdown(ctx context.Context, r *taskapi.ShutdownRequest) (*em
 	}
 	go func() {
 		s.stopEventRetry()
+		s.closeBundleIdentity()
 		if shutdown != nil {
 			shutdown()
 		}
@@ -3847,18 +4036,33 @@ func superviseShimWorker() int {
 		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: working directory: %v\n", err)
 		return 1
 	}
-	return superviseShimWorkerWith(listener, self, os.Args[1:], workingDirectory, os.Environ())
+	directory, err := safefile.OpenCurrentOwnedDirectory()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: open current worker directory: %v\n", err)
+		return 1
+	}
+	defer directory.Close()
+	return superviseShimWorkerWithDirectory(listener, self, os.Args[1:], workingDirectory, os.Environ(), directory)
 }
 
 func superviseShimWorkerWith(listener *os.File, self string, arguments []string, workingDirectory string, environment []string) int {
-	var err error
-	pidName := ".multikernel-worker.pid"
 	directory, err := safefile.OpenOwnedDirectory(workingDirectory)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: open worker directory: %v\n", err)
 		return 1
 	}
 	defer directory.Close()
+	return superviseShimWorkerWithDirectory(listener, self, arguments, workingDirectory, environment, directory)
+}
+
+func superviseShimWorkerWithDirectory(listener *os.File, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory) int {
+	var err error
+	pidName := ".multikernel-worker.pid"
+	bundleIdentity := directory.Identity()
+	workerEnvironment := append(environment,
+		"MK_SHIM_BUNDLE_DEVICE="+strconv.FormatUint(bundleIdentity.Device, 10),
+		"MK_SHIM_BUNDLE_INODE="+strconv.FormatUint(bundleIdentity.Inode, 10),
+		"MK_SHIM_BUNDLE_UID="+strconv.FormatUint(uint64(bundleIdentity.UID), 10))
 	var pidIdentity safefile.Identity
 	pidOwned := false
 	removePID := func() error {
@@ -3883,8 +4087,8 @@ func superviseShimWorkerWith(listener *os.File, self string, arguments []string,
 	}
 	for attempt := 0; attempt < 10; attempt++ {
 		cmd := exec.Command(self, arguments...)
-		cmd.Dir = workingDirectory
-		cmd.Env = append(environment, "MK_SHIM_WORKER=1")
+		cmd.Dir = directory.ProcPath()
+		cmd.Env = append(workerEnvironment, "MK_SHIM_WORKER=1")
 		cmd.ExtraFiles = []*os.File{listener}
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 		cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}

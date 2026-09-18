@@ -40,10 +40,49 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
+func privateTestDirectory(t *testing.T) string {
+	t.Helper()
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
+
+func testBundleIdentity(t *testing.T, path string) rootfspkg.DirectoryIdentity {
+	t.Helper()
+	directory, err := safefile.OpenOwnedDirectory(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity := directory.Identity()
+	if err = directory.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return rootfspkg.DirectoryIdentity{Device: identity.Device, Inode: identity.Inode, UID: identity.UID}
+}
+
 func TestMain(m *testing.M) {
+	if output := os.Getenv("MK_SHIM_SUPERVISOR_IDENTITY_OUTPUT"); output != "" && os.Getenv("MK_SHIM_WORKER") == "1" {
+		info, err := os.Stat(".")
+		if err != nil {
+			os.Exit(97)
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			os.Exit(96)
+		}
+		value := fmt.Sprintf("%d %d %d %s %s %s\n", stat.Dev, stat.Ino, stat.Uid,
+			os.Getenv("MK_SHIM_BUNDLE_DEVICE"), os.Getenv("MK_SHIM_BUNDLE_INODE"), os.Getenv("MK_SHIM_BUNDLE_UID"))
+		if os.WriteFile(output, []byte(value), 0600) != nil {
+			os.Exit(95)
+		}
+		os.Exit(0)
+	}
 	if marker := os.Getenv("MK_SHIM_SUPERVISOR_TEST_MARKER"); marker != "" && os.Getenv("MK_SHIM_WORKER") == "1" {
 		if _, err := os.Stat(marker); errors.Is(err, os.ErrNotExist) {
 			_ = os.WriteFile(marker, []byte("first-worker-signaled\n"), 0600)
@@ -1057,7 +1096,7 @@ func TestValidateExecProcessFailsClosed(t *testing.T) {
 }
 
 func TestValidateServiceIdentityRejectsUnsafeValues(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	if err := validateServiceIdentity("task-1", "default", bundle); err != nil {
 		t.Fatalf("valid identity rejected: %v", err)
 	}
@@ -1255,6 +1294,23 @@ func TestLoadOrCreateTokenReusesExactSafeIdentity(t *testing.T) {
 	}
 }
 
+func TestLoadOrCreateTokenFromHeldDirectory(t *testing.T) {
+	directoryPath := privateTestDirectory(t)
+	directory, err := safefile.OpenDirectory(directoryPath, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	first, encoded, err := loadOrCreateTokenFromDirectory(directory)
+	if err != nil || len(first) != 32 || len(encoded) != 64 {
+		t.Fatalf("first held token = %x %q, %v", first, encoded, err)
+	}
+	second, repeated, err := loadOrCreateTokenFromDirectory(directory)
+	if err != nil || !reflect.DeepEqual(second, first) || repeated != encoded {
+		t.Fatalf("repeated held token = %x %q, %v", second, repeated, err)
+	}
+}
+
 func TestLoadOrCreateTokenRejectsMalformedAndSymlinkState(t *testing.T) {
 	for _, test := range []struct {
 		name  string
@@ -1320,7 +1376,7 @@ func TestLoadOrCreateTokenRejectsMalformedAndSymlinkState(t *testing.T) {
 }
 
 func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	configJSON := `{"ociVersion":"1.0.2","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":"/run/netns/test"}]}}`
 	if err := os.WriteFile(filepath.Join(bundle, "config.json"), []byte(configJSON), 0600); err != nil {
 		t.Fatal(err)
@@ -1353,7 +1409,7 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 			if err := os.Mkdir(runtimeDir, 0700); err != nil {
 				t.Fatal(err)
 			}
-			return respond(output, rootfspkg.PrepareResult{Storage: protocol.StorageConfig{
+			return respond(output, rootfspkg.PrepareResult{RuntimeIdentity: testBundleIdentity(t, runtimeDir), Storage: protocol.StorageConfig{
 				Path: "/srv/storage/root.ext4", ImageID: "image", FilesystemUUID: "12345678-1234-4234-8234-123456789abc",
 				SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061, SHA256: storageHash,
 			}})
@@ -1834,7 +1890,7 @@ func TestPendingStdinReplaysLostAcknowledgementExactlyOnce(t *testing.T) {
 }
 
 func TestStdinIntentPersistenceFailurePrecedesGuestMutation(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	path := filepath.Join(bundle, "stdin")
 	if err := syscall.Mkfifo(path, 0600); err != nil {
 		t.Fatal(err)
@@ -1887,7 +1943,7 @@ func TestStdinIntentPersistenceFailurePrecedesGuestMutation(t *testing.T) {
 func TestStdinAcknowledgementPersistenceFailureRetainsReplayIdentity(t *testing.T) {
 	client := &stdinReplayAgent{}
 	p := &process{status: tasktypes.Status_RUNNING, stdinPending: []byte("replay-safe"), done: make(chan struct{})}
-	s := &service{bundle: t.TempDir(), sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+	s := &service{bundle: privateTestDirectory(t), sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
 		agent: client, relaySocket: "/run/multikernel-agent/test.sock", ioCallTimeout: time.Second,
 		processes: map[string]*process{"": p}}
 	// Missing .multikernel makes the post-ack durable update fail. The guest may
@@ -1996,7 +2052,7 @@ func TestWaitProcessRejectsMismatchedStoppedStateUntilExactCompletion(t *testing
 	client := &waitValidationAgent{reads: make(chan struct{}), states: make(chan agent.ProcessState)}
 	p := &process{id: "exec", pid: 41, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
 	publisher := &fakePublisher{}
-	s := &service{id: "task", namespace: "tests", bundle: t.TempDir(), agent: client, publisher: publisher,
+	s := &service{id: "task", namespace: "tests", bundle: privateTestDirectory(t), agent: client, publisher: publisher,
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}, processes: map[string]*process{"exec": p}}
 	go s.waitProcess("exec", "exec", p)
 	<-client.reads
@@ -2095,7 +2151,7 @@ func TestProcessOutputRequiresBoundedContiguousOffsetsAndKnownState(t *testing.T
 }
 
 func TestOutputOffsetRetriesWhenDurableAcknowledgementFails(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	client := &outputAckAgent{offsets: make(chan uint64, 4)}
 	writer := &controlledOutputWriter{writes: make(chan controlledOutputWrite)}
 	p := &process{status: tasktypes.Status_RUNNING, stdoutWriter: writer, done: make(chan struct{})}
@@ -2138,7 +2194,7 @@ func TestOutputOffsetRetriesWhenDurableAcknowledgementFails(t *testing.T) {
 func TestWaitProcessDoesNotFabricateExitAfterReconnectBudget(t *testing.T) {
 	client := &waitOutageAgent{observed: make(chan struct{}), recovered: make(chan struct{})}
 	p := &process{status: tasktypes.Status_RUNNING, done: make(chan struct{})}
-	s := &service{id: "task", namespace: "tests", bundle: t.TempDir(), agent: client,
+	s := &service{id: "task", namespace: "tests", bundle: privateTestDirectory(t), agent: client,
 		ioCallTimeout: 20 * time.Millisecond, processes: map[string]*process{"": p},
 		publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	go s.waitProcess("init", "", p)
@@ -2176,7 +2232,7 @@ func TestWaitProcessDoesNotFabricateExitAfterReconnectBudget(t *testing.T) {
 }
 
 func TestWaitProcessDoesNotCompleteBeforeExitStateIsDurable(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	recovered := make(chan struct{})
 	close(recovered)
 	client := &waitOutageAgent{observed: make(chan struct{}), recovered: recovered}
@@ -2227,7 +2283,7 @@ func TestWaitProcessDoesNotCompleteBeforeExitStateIsDurable(t *testing.T) {
 }
 
 func TestExitEventFlagRollsBackWhenRecoveryAcknowledgementFails(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	runtimeDir := filepath.Join(bundle, ".multikernel")
 	heldDir := filepath.Join(bundle, ".multikernel-held")
 	if err := os.Mkdir(runtimeDir, 0700); err != nil {
@@ -2464,7 +2520,7 @@ func TestExecRollsBackProcessOnAgentFailure(t *testing.T) {
 func TestExecCreationIntentReconcilesAmbiguousGuestMutation(t *testing.T) {
 	newFixture := func(t *testing.T, fake *execCreationAgent) (*service, *fakePublisher, *taskapi.ExecProcessRequest) {
 		t.Helper()
-		bundle := t.TempDir()
+		bundle := privateTestDirectory(t)
 		if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -2559,7 +2615,7 @@ func TestRecoveredCreatedExecRequiresExactGuestOwnership(t *testing.T) {
 		{name: "transport unavailable", stateErr: io.ErrUnexpectedEOF, wantErr: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			bundle := t.TempDir()
+			bundle := privateTestDirectory(t)
 			if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 				t.Fatal(err)
 			}
@@ -2586,7 +2642,7 @@ func TestExecRollbackRetainsOwnershipUntilGuestDeletion(t *testing.T) {
 		"delete failed":  deleteFailure,
 	} {
 		t.Run(name, func(t *testing.T) {
-			bundle := t.TempDir()
+			bundle := privateTestDirectory(t)
 			if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 				t.Fatal(err)
 			}
@@ -2631,7 +2687,7 @@ func TestExecRollbackRetainsOwnershipUntilGuestDeletion(t *testing.T) {
 }
 
 func TestStartReturnsKillFailureAndRetainsMonitorAfterPersistenceFailure(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	killFailure := errors.New("injected started-process kill failure")
 	client := &startCleanupAgent{finish: make(chan struct{}), signalErr: killFailure}
 	p := &process{id: "exec", status: tasktypes.Status_CREATED, done: make(chan struct{})}
@@ -2672,7 +2728,7 @@ func TestStartRejectsGuestPIDOutsideTaskRangeAndRetainsOwnership(t *testing.T) {
 	if ^uint(0)>>32 == 0 {
 		t.Skip("host int cannot represent a PID above the Task v2 range")
 	}
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -2720,7 +2776,7 @@ func TestStartRejectsMismatchedGuestProcessStateAndRetainsOwnership(t *testing.T
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bundle := t.TempDir()
+			bundle := privateTestDirectory(t)
 			if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 				t.Fatal(err)
 			}
@@ -2773,7 +2829,7 @@ func TestStartReconcilesAmbiguousGuestResultWithoutLosingOwnership(t *testing.T)
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bundle := t.TempDir()
+			bundle := privateTestDirectory(t)
 			if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 				t.Fatal(err)
 			}
@@ -3195,7 +3251,7 @@ func TestKillForwardsOnlyForLiveKnownProcess(t *testing.T) {
 }
 
 func TestKillPersistsAndDeduplicatesLostSignalReply(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -3264,8 +3320,42 @@ func TestShutdownWaitsForEmptyOwnershipAndSealsService(t *testing.T) {
 	}
 }
 
+func TestShutdownClosesHeldBundleIdentity(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := safefile.OpenOwnedDirectory(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := make(chan struct{})
+	identity := directory.Identity()
+	s := &service{id: "task", bundle: bundle, bundleDirectory: directory,
+		bundleIdentity: rootfspkg.DirectoryIdentity{Device: identity.Device, Inode: identity.Inode, UID: identity.UID},
+		shutdown:       func() { close(called) }, processes: map[string]*process{}}
+	runtimeDirectory, err := s.ensureRuntimeDirectory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.Shutdown(context.Background(), &taskapi.ShutdownRequest{ID: "task"}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-called:
+	case <-time.After(time.Second):
+		t.Fatal("shutdown callback was not invoked")
+	}
+	if err = directory.Sync(); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("held bundle descriptor after shutdown = %v", err)
+	}
+	if err = runtimeDirectory.Sync(); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("held runtime descriptor after shutdown = %v", err)
+	}
+}
+
 func TestShutdownRetainsOwnershipUntilDurableEventsFlush(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -3404,7 +3494,7 @@ func TestPauseResumeSignalsGuestAndPublishesTransitions(t *testing.T) {
 	fakeAgent := &fakeAgentClient{fail: map[string]error{}}
 	fakeEvents := &fakePublisher{}
 	s := &service{
-		id: "task", namespace: "default", bundle: t.TempDir(), agent: fakeAgent, publisher: fakeEvents,
+		id: "task", namespace: "default", bundle: privateTestDirectory(t), agent: fakeAgent, publisher: fakeEvents,
 		processes: map[string]*process{"": {status: tasktypes.Status_RUNNING}, "exec": {status: tasktypes.Status_RUNNING}},
 	}
 	if _, err := s.Pause(context.Background(), &taskapi.PauseRequest{ID: "task"}); err != nil {
@@ -3463,7 +3553,7 @@ func TestPauseResumeReturnRecoveryRollbackFailure(t *testing.T) {
 		}, "persist resume rollback"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			bundle := t.TempDir()
+			bundle := privateTestDirectory(t)
 			runtimeDir := filepath.Join(bundle, ".multikernel")
 			heldDir := filepath.Join(bundle, ".multikernel-held")
 			if err := os.Mkdir(runtimeDir, 0700); err != nil {
@@ -3526,7 +3616,7 @@ func TestPauseResumeRepublishPriorStateAfterTransitionPersistenceFailure(t *test
 		}, "persist resumed state"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			bundle := t.TempDir()
+			bundle := privateTestDirectory(t)
 			runtimeDir := filepath.Join(bundle, ".multikernel")
 			heldDir := filepath.Join(bundle, ".multikernel-held")
 			if err := os.Mkdir(runtimeDir, 0700); err != nil {
@@ -3666,7 +3756,7 @@ func TestUpdateAndCheckpointAreExcludedWithoutMutation(t *testing.T) {
 }
 
 func TestEventJournalPreservesOrderAndReplaysAfterFailure(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	failed := &fakePublisher{failures: 2}
 	s := &service{bundle: bundle, namespace: "default", publisher: failed,
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
@@ -3699,7 +3789,7 @@ func TestEventJournalPreservesOrderAndReplaysAfterFailure(t *testing.T) {
 
 func TestEventJournalRefusesReplacedPathForWriteAndAcknowledgement(t *testing.T) {
 	publisher := &fakePublisher{failures: 1}
-	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
+	s := &service{bundle: privateTestDirectory(t), namespace: "default", publisher: publisher,
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	if err := s.publish(t.Context(), ctruntime.TaskCreateEventTopic,
 		&eventstypes.TaskCreate{ContainerID: "task"}); err != nil {
@@ -3731,8 +3821,41 @@ func TestEventJournalRefusesReplacedPathForWriteAndAcknowledgement(t *testing.T)
 	}
 }
 
+func TestEventJournalRejectsPublicBundleReplacement(t *testing.T) {
+	base := privateTestDirectory(t)
+	bundle := filepath.Join(base, "bundle")
+	if err := os.Mkdir(bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	publisher := &fakePublisher{failures: 2}
+	s := &service{bundle: bundle, namespace: "default", publisher: publisher,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err := s.publish(t.Context(), ctruntime.TaskCreateEventTopic,
+		&eventstypes.TaskCreate{ContainerID: "task"}); err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(base, "bundle-held")
+	if err := os.Rename(bundle, moved); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.publish(t.Context(), ctruntime.TaskStartEventTopic,
+		&eventstypes.TaskStart{ContainerID: "task", Pid: 7}); err == nil || !strings.Contains(err.Error(), "bundle directory identity changed") {
+		t.Fatalf("event publication after bundle replacement = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(bundle, ".multikernel-events.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("replacement bundle received event journal: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(moved, ".multikernel-events.json"))
+	if err != nil || !bytes.Contains(data, []byte(ctruntime.TaskCreateEventTopic)) {
+		t.Fatalf("held bundle journal = %q, %v", data, err)
+	}
+}
+
 func TestEventJournalLockWaitHonorsCancellationWithoutMutation(t *testing.T) {
-	s := &service{id: "task", namespace: "default", bundle: t.TempDir(), publisher: &fakePublisher{},
+	s := &service{id: "task", namespace: "default", bundle: privateTestDirectory(t), publisher: &fakePublisher{},
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	s.eventMu.Lock()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -3779,7 +3902,7 @@ func TestEventJournalLockWaitHonorsCancellationWithoutMutation(t *testing.T) {
 
 func TestEventJournalRetriesWithoutAnotherLifecycleRequest(t *testing.T) {
 	publisher := &retryPublisher{published: make(chan string, 1)}
-	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
+	s := &service{bundle: privateTestDirectory(t), namespace: "default", publisher: publisher,
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	if err := s.publish(context.Background(), ctruntime.TaskStartEventTopic,
 		&eventstypes.TaskStart{ContainerID: "task", Pid: 7}); err != nil {
@@ -3809,7 +3932,7 @@ func TestEventJournalPersistenceFailurePrecedesPublication(t *testing.T) {
 	jsonMarshal = func(any) ([]byte, error) { return nil, errors.New("injected journal failure") }
 	defer func() { jsonMarshal = originalMarshal }()
 	publisher := &fakePublisher{}
-	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
+	s := &service{bundle: privateTestDirectory(t), namespace: "default", publisher: publisher,
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	if err := s.publish(context.Background(), ctruntime.TaskCreateEventTopic, &eventstypes.TaskCreate{ContainerID: "task"}); err == nil {
 		t.Fatal("journal failure was ignored")
@@ -3824,7 +3947,7 @@ func TestEventJournalPersistenceFailurePrecedesPublication(t *testing.T) {
 
 func TestEventJournalAckFailureRetainsPublishedEventForReplay(t *testing.T) {
 	publisher := &fakePublisher{failures: 2}
-	s := &service{bundle: t.TempDir(), namespace: "default", publisher: publisher,
+	s := &service{bundle: privateTestDirectory(t), namespace: "default", publisher: publisher,
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	for _, item := range []struct {
 		topic string
@@ -3870,7 +3993,7 @@ func TestEventJournalRejectsSymlinkAndPermissiveState(t *testing.T) {
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			s := &service{bundle: t.TempDir(), events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+			s := &service{bundle: privateTestDirectory(t), events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 			if err := test.make(s.eventJournalPath()); err != nil {
 				t.Fatal(err)
 			}
@@ -3907,7 +4030,7 @@ func TestDeleteRepairsMissingExitEventBeforeDeleteEvent(t *testing.T) {
 	p := &process{id: "exec", pid: 23, status: tasktypes.Status_STOPPED, exit: 17,
 		exited: time.Unix(123, 0).UTC(), done: make(chan struct{})}
 	close(p.done)
-	s := &service{id: "task", namespace: "default", bundle: t.TempDir(), publisher: publisher, agent: fake,
+	s := &service{id: "task", namespace: "default", bundle: privateTestDirectory(t), publisher: publisher, agent: fake,
 		processes: map[string]*process{"exec": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	response, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ID: "task", ExecID: "exec"})
 	if err != nil {
@@ -3930,7 +4053,7 @@ func TestDeleteTreatsAuthenticatedGuestAbsenceAsIdempotentSuccess(t *testing.T) 
 	p := &process{id: "exec", pid: 23, status: tasktypes.Status_STOPPED, exit: 17,
 		exited: time.Unix(123, 0).UTC(), exitEventQueued: true, done: make(chan struct{})}
 	close(p.done)
-	s := &service{id: "task", namespace: "default", bundle: t.TempDir(), publisher: publisher, agent: fake,
+	s := &service{id: "task", namespace: "default", bundle: privateTestDirectory(t), publisher: publisher, agent: fake,
 		processes: map[string]*process{"exec": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	response, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ID: "task", ExecID: "exec"})
 	if err != nil {
@@ -4044,7 +4167,7 @@ func TestGuestShutdownRejectsUnprovenOrAuthenticatedFailure(t *testing.T) {
 }
 
 func TestDeleteRetainsRetryOwnershipAcrossGuestAndEventFailures(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	agentFailure := errors.New("injected guest delete failure")
 	fakeAgent := &fakeAgentClient{fail: map[string]error{"DeleteProcess": agentFailure}}
 	publisher := &fakePublisher{}
@@ -4078,7 +4201,7 @@ func TestDeleteRetainsRetryOwnershipAcrossGuestAndEventFailures(t *testing.T) {
 }
 
 func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -4099,7 +4222,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 		t.Fatal(err)
 	}
 	s := &service{
-		bundle:  bundle,
+		bundle: bundle, bundleIdentity: testBundleIdentity(t, bundle),
 		sandbox: protocol.Sandbox{ID: "box", Generation: "0123456789abcdef0123456789abcdef"},
 		processes: map[string]*process{
 			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdin: stdin, stdinIdentity: stdinIdentity,
@@ -4119,12 +4242,73 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	if err = json.Unmarshal(data, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.SchemaVersion != 2 || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdinOffset != 5 || string(saved.Processes[0].StdinPending) != "pending" || saved.Processes[0].StdinIdentity != stdinIdentity || saved.Processes[0].StdoutOffset != 123 || saved.Processes[0].StdoutIdentity != stdoutIdentity {
+	if saved.SchemaVersion != 3 || saved.BundleIdentity != s.bundleIdentity || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdinOffset != 5 || string(saved.Processes[0].StdinPending) != "pending" || saved.Processes[0].StdinIdentity != stdinIdentity || saved.Processes[0].StdoutOffset != 123 || saved.Processes[0].StdoutIdentity != stdoutIdentity {
 		t.Fatalf("persisted recovery = %+v", saved)
 	}
 	temporary, err := filepath.Glob(filepath.Join(bundle, ".multikernel", ".sandbox.json.*"))
 	if err != nil || len(temporary) != 0 {
 		t.Fatalf("temporary recovery files = %v, error = %v", temporary, err)
+	}
+}
+
+func TestRecoveryStateRejectsRuntimeDirectoryReplacement(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	s := &service{bundle: bundle, sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)},
+		processes: map[string]*process{"": {pid: 7, status: tasktypes.Status_RUNNING}}}
+	if err := s.persistRecovery(); err != nil {
+		t.Fatal(err)
+	}
+	held := filepath.Join(bundle, ".multikernel-held")
+	if err := os.Rename(runtimeDir, held); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	s.processes[""].pid = 8
+	if err := s.persistRecovery(); err == nil || !strings.Contains(err.Error(), "runtime directory identity changed") {
+		t.Fatalf("recovery write after runtime directory replacement = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(runtimeDir, "sandbox.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("replacement runtime directory received recovery state: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(held, "sandbox.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved persisted
+	if err = json.Unmarshal(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.PID != 7 {
+		t.Fatalf("held recovery PID = %d, want original 7", saved.PID)
+	}
+}
+
+func TestRuntimeDirectoryHandoffRejectsPreparedReplacement(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	expected := testBundleIdentity(t, runtimeDir)
+	if err := os.Rename(runtimeDir, runtimeDir+"-prepared"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	s := &service{bundle: bundle}
+	directory, err := s.ensureRuntimeDirectory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = verifyRuntimeDirectoryHandoff(directory, expected); err == nil || !strings.Contains(err.Error(), "rootfs handoff") {
+		t.Fatalf("prepared runtime replacement = %v", err)
 	}
 }
 
@@ -4180,7 +4364,7 @@ func TestAtomicStatePublicationIsDescriptorAnchoredAndPrivate(t *testing.T) {
 }
 
 func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	runtimeDir := filepath.Join(bundle, ".multikernel")
 	if err := os.Mkdir(runtimeDir, 0700); err != nil {
 		t.Fatal(err)
@@ -4188,9 +4372,11 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	namespace, task := "default", "task-a"
 	sandboxGeneration := strings.Repeat("a", 32)
 	networkGeneration := strings.Repeat("b", 32)
+	bundleIdentity := testBundleIdentity(t, bundle)
 	sandbox := protocol.Sandbox{ID: sandboxID(namespace, task), Generation: sandboxGeneration, State: "RUNNING",
-		Config: protocol.SandboxConfig{AgentPort: 7200}}
+		Config: protocol.SandboxConfig{AgentPort: 7200, BundleIdentity: bundleIdentity}}
 	recovery := validPersistedRecovery(namespace, task)
+	recovery.BundleIdentity = bundleIdentity
 	recovery.Network = validShimEndpoint(task, sandbox.ID, sandbox.Generation, networkGeneration, "/run/netns/task-a")
 	recovery.Processes[0].Status = tasktypes.Status_RUNNING
 	recovery.Processes[0].PID = 41
@@ -4311,15 +4497,17 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 }
 
 func TestRecoverExistingClosesAcquiredNetworkDescriptorOnRelayStartFailure(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	runtimeDir := filepath.Join(bundle, ".multikernel")
 	if err := os.Mkdir(runtimeDir, 0700); err != nil {
 		t.Fatal(err)
 	}
 	namespace, task := "default", "task-a"
+	bundleIdentity := testBundleIdentity(t, bundle)
 	sandbox := protocol.Sandbox{ID: sandboxID(namespace, task), Generation: strings.Repeat("a", 32), State: "RUNNING",
-		Config: protocol.SandboxConfig{AgentPort: 7200}}
+		Config: protocol.SandboxConfig{AgentPort: 7200, BundleIdentity: bundleIdentity}}
 	recovery := validPersistedRecovery(namespace, task)
+	recovery.BundleIdentity = bundleIdentity
 	recovery.Network = validShimEndpoint(task, sandbox.ID, sandbox.Generation, strings.Repeat("b", 32), "/run/netns/task-a")
 	data, err := json.Marshal(recovery)
 	if err != nil {
@@ -4361,6 +4549,75 @@ func TestRecoverExistingClosesAcquiredNetworkDescriptorOnRelayStartFailure(t *te
 	}
 }
 
+func TestRecoverExistingRejectsBundleIdentityBeforeDaemonCall(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	recovery := validPersistedRecovery("default", "task-a")
+	recovery.BundleIdentity = testBundleIdentity(t, bundle)
+	recovery.BundleIdentity.Inode++
+	data, err := json.Marshal(recovery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	daemonCalls := 0
+	service := &service{id: "task-a", namespace: "default", bundle: bundle, processes: map[string]*process{},
+		daemon: daemonCallFunc(func(context.Context, protocol.Request, any) *protocol.Error {
+			daemonCalls++
+			return nil
+		})}
+	err = service.recoverExisting(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "bundle identity differs") {
+		t.Fatalf("recovery bundle mismatch = %v", err)
+	}
+	if daemonCalls != 0 {
+		t.Fatalf("bundle mismatch reached daemon %d times", daemonCalls)
+	}
+}
+
+func TestRecoverExistingRejectsDaemonBundleIdentityBeforeReconnect(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	runtimeDir := filepath.Join(bundle, ".multikernel")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	recovery := validPersistedRecovery("default", "task-a")
+	recovery.BundleIdentity = testBundleIdentity(t, bundle)
+	data, err := json.Marshal(recovery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	daemonIdentity := recovery.BundleIdentity
+	daemonIdentity.Inode++
+	sandbox := protocol.Sandbox{ID: recovery.ID, Generation: recovery.Generation,
+		Config: protocol.SandboxConfig{BundleIdentity: daemonIdentity}}
+	daemonCalls := 0
+	service := &service{id: "task-a", namespace: "default", bundle: bundle, processes: map[string]*process{},
+		daemon: daemonCallFunc(func(_ context.Context, _ protocol.Request, output any) *protocol.Error {
+			daemonCalls++
+			encoded, _ := json.Marshal([]protocol.Sandbox{sandbox})
+			if decodeErr := json.Unmarshal(encoded, output); decodeErr != nil {
+				t.Fatal(decodeErr)
+			}
+			return nil
+		})}
+	err = service.recoverExisting(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "daemon sandbox bundle identity differs") {
+		t.Fatalf("daemon bundle mismatch = %v", err)
+	}
+	if daemonCalls != 1 || service.agent != nil || service.netDevice != nil || service.relay != nil {
+		t.Fatalf("daemon mismatch calls=%d agent=%v network=%v relay=%v", daemonCalls, service.agent, service.netDevice, service.relay)
+	}
+}
+
 func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 	config := func(path string) []byte {
 		return []byte(fmt.Sprintf(`{"ociVersion":"1.0.2","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":%q}]}}`, path))
@@ -4374,7 +4631,7 @@ func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 		"relative rejected":         {path: "run/netns/pod-one", err: true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			bundle := t.TempDir()
+			bundle := privateTestDirectory(t)
 			if err := os.WriteFile(filepath.Join(bundle, "config.json"), config(test.path), 0600); err != nil {
 				t.Fatal(err)
 			}
@@ -4385,7 +4642,7 @@ func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 		})
 	}
 	t.Run("hardlink rejected", func(t *testing.T) {
-		bundle := t.TempDir()
+		bundle := privateTestDirectory(t)
 		path := filepath.Join(bundle, "config.json")
 		if err := os.WriteFile(path, config(""), 0600); err != nil {
 			t.Fatal(err)
@@ -4415,7 +4672,7 @@ func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 		}
 	})
 	t.Run("oversized valid prefix rejected", func(t *testing.T) {
-		bundle := t.TempDir()
+		bundle := privateTestDirectory(t)
 		data := append(config(""), bytes.Repeat([]byte(" "), (1<<20)+1)...)
 		if err := os.WriteFile(filepath.Join(bundle, "config.json"), data, 0600); err != nil {
 			t.Fatal(err)
@@ -4424,6 +4681,41 @@ func TestBundleNetworkNamespaceRequiresCanonicalOCIPath(t *testing.T) {
 			t.Fatal("oversized OCI config accepted")
 		}
 	})
+}
+
+func TestServiceBundleIdentityPinsConfigAcrossPublicReplacement(t *testing.T) {
+	base := privateTestDirectory(t)
+	bundle := filepath.Join(base, "bundle")
+	if err := os.Mkdir(bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	config := func(namespace string) []byte {
+		return []byte(fmt.Sprintf(`{"ociVersion":"1.0.2","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":%q}]}}`, namespace))
+	}
+	if err := os.WriteFile(filepath.Join(bundle, "config.json"), config("/run/netns/original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	directory, identity, err := openServiceIdentity("task", "default", bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	service := &service{bundle: bundle, bundleDirectory: directory, bundleIdentity: identity}
+	if err = os.Rename(bundle, bundle+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(bundle, "config.json"), config("/run/netns/replacement"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = service.ensureBundleIdentity(); err == nil {
+		t.Fatal("public bundle replacement retained the service identity")
+	}
+	if namespace, readErr := bundleNetworkNamespaceFrom(directory); readErr != nil || namespace != "/run/netns/original" {
+		t.Fatalf("held bundle namespace = %q, %v", namespace, readErr)
+	}
 }
 
 func networkPumpSocket(t *testing.T) (*os.File, int) {
@@ -4705,6 +4997,67 @@ func TestSupervisorRestartsSignaledWorker(t *testing.T) {
 	}
 }
 
+func TestSupervisorWorkerUsesHeldBundleAfterPublicReplacement(t *testing.T) {
+	base := privateTestDirectory(t)
+	bundle := filepath.Join(base, "bundle")
+	if err := os.Mkdir(bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := safefile.OpenOwnedDirectory(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	expected := directory.Identity()
+	moved := filepath.Join(base, "bundle-held")
+	if err = os.Rename(bundle, moved); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	listener, err := os.CreateTemp(base, "listener")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	output := filepath.Join(base, "worker-identity")
+	environment := append(os.Environ(), "MK_SHIM_SUPERVISOR_IDENTITY_OUTPUT="+output)
+	if status := superviseShimWorkerWithDirectory(listener, os.Args[0], []string{"-test.run=^$"}, bundle, environment, directory); status != 0 {
+		t.Fatalf("supervisor status = %d", status)
+	}
+	data, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("%d %d %d %d %d %d\n", expected.Device, expected.Inode, expected.UID,
+		expected.Device, expected.Inode, expected.UID)
+	if string(data) != want {
+		t.Fatalf("worker identity = %q, want %q", data, want)
+	}
+	if _, err = os.Stat(filepath.Join(bundle, ".multikernel-worker.pid")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("replacement bundle received PID marker: %v", err)
+	}
+	if _, err = os.Stat(filepath.Join(moved, ".multikernel-worker.pid")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("held bundle retained PID marker: %v", err)
+	}
+}
+
+func TestOpenServiceIdentityRejectsSupervisorHandoffMismatch(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	identity := testBundleIdentity(t, bundle)
+	t.Setenv("MK_SHIM_BUNDLE_DEVICE", strconv.FormatUint(identity.Device, 10))
+	t.Setenv("MK_SHIM_BUNDLE_INODE", strconv.FormatUint(identity.Inode+1, 10))
+	t.Setenv("MK_SHIM_BUNDLE_UID", strconv.FormatUint(uint64(identity.UID), 10))
+	if directory, _, err := openServiceIdentity("task", "default", bundle); err == nil || directory != nil {
+		t.Fatalf("mismatched supervisor handoff = directory:%v error:%v", directory, err)
+	}
+	t.Setenv("MK_SHIM_BUNDLE_INODE", "")
+	if directory, _, err := openServiceIdentity("task", "default", bundle); err == nil || directory != nil {
+		t.Fatalf("incomplete supervisor handoff = directory:%v error:%v", directory, err)
+	}
+}
+
 func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
 	t.Run("command has private process group", func(t *testing.T) {
 		command := newRelayCommand("/bin/true", 7001, "/tmp/mk-relay-test.sock")
@@ -4839,11 +5192,12 @@ func TestStaleRelayCleanupRemovesExactSafeSocket(t *testing.T) {
 
 func validPersistedRecovery(namespace, task string) persisted {
 	return persisted{
-		SchemaVersion: 2,
-		ID:            sandboxID(namespace, task),
-		Generation:    strings.Repeat("a", 32),
-		TaskIdentity:  storageTaskIdentity(namespace, task),
-		Processes:     []persistedProcess{{ID: "", Status: tasktypes.Status_STOPPED}},
+		SchemaVersion:  3,
+		BundleIdentity: rootfspkg.DirectoryIdentity{Device: 1, Inode: 2, UID: uint32(os.Geteuid())},
+		ID:             sandboxID(namespace, task),
+		Generation:     strings.Repeat("a", 32),
+		TaskIdentity:   storageTaskIdentity(namespace, task),
+		Processes:      []persistedProcess{{ID: "", Status: tasktypes.Status_STOPPED}},
 	}
 }
 
@@ -4967,7 +5321,7 @@ func TestRecoveryStateIsBoundedStrictAndIdentityBound(t *testing.T) {
 }
 
 func TestFallbackCleanupPropagatesStopFailureBeforeDelete(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	runtimeDir := filepath.Join(bundle, ".multikernel")
 	if err := os.Mkdir(runtimeDir, 0700); err != nil {
 		t.Fatal(err)
@@ -5006,7 +5360,7 @@ func TestFallbackCleanupPropagatesStopFailureBeforeDelete(t *testing.T) {
 }
 
 func TestFallbackCleanupPropagatesRootfsFailureAfterSandboxDelete(t *testing.T) {
-	bundle := t.TempDir()
+	bundle := privateTestDirectory(t)
 	runtimeDir := filepath.Join(bundle, ".multikernel")
 	if err := os.Mkdir(runtimeDir, 0700); err != nil {
 		t.Fatal(err)

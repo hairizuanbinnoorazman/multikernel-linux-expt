@@ -84,7 +84,8 @@ func (s *Store) openDirectory() (*safefile.Directory, error) {
 
 func validateStoredRequest(request PrepareRequest) error {
 	if request.Version != Version || !identityRE.MatchString(request.TaskIdentity) || request.StoragePort < 1024 || request.StoragePort > 65535 ||
-		!filepath.IsAbs(request.Bundle) || filepath.Clean(request.Bundle) != request.Bundle || len(request.Mounts) > 8 {
+		!filepath.IsAbs(request.Bundle) || filepath.Clean(request.Bundle) != request.Bundle || len(request.Mounts) > 8 ||
+		request.BundleIdentity.Device == 0 || request.BundleIdentity.Inode == 0 || request.BundleIdentity.UID != uint32(os.Geteuid()) {
 		return errors.New("rootfs request identity, version, bundle, mounts, or port is invalid")
 	}
 	for _, mount := range request.Mounts {
@@ -130,7 +131,7 @@ func validateRootfsRecord(key string, record Record) error {
 		filepath.Base(record.StorageDir) != record.Request.TaskIdentity {
 		return errors.New("rootfs artifact paths are not bound to the request")
 	}
-	if record.BundleID.Device == 0 || record.BundleID.Inode == 0 || record.BundleID.UID != uint32(os.Geteuid()) ||
+	if record.BundleID != record.Request.BundleIdentity || record.BundleID.Device == 0 || record.BundleID.Inode == 0 || record.BundleID.UID != uint32(os.Geteuid()) ||
 		record.RootID.Device == 0 || record.RootID.Inode == 0 || record.RootID.UID != uint32(os.Geteuid()) ||
 		record.RuntimeID.Device == 0 || record.RuntimeID.Inode == 0 || record.RuntimeID.UID != uint32(os.Geteuid()) ||
 		record.StorageID.Device == 0 || record.StorageID.Inode == 0 || record.StorageID.UID != uint32(os.Geteuid()) ||

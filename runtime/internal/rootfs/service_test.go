@@ -95,6 +95,30 @@ func TestBuildUsesPinnedArtifactDirectoriesAndRejectsNameReplacement(t *testing.
 	}
 }
 
+func TestPrepareRejectsShimBundleIdentityReplacementBeforeMutation(t *testing.T) {
+	service, backend, request, _ := rootfsFixture(t)
+	moved := request.Bundle + ".original"
+	if err := os.Rename(request.Bundle, moved); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(request.Bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(request.Bundle, "replacement")
+	if err := os.WriteFile(marker, []byte("preserve"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Prepare(t.Context(), request); err == nil || !strings.Contains(err.Error(), "shim handoff") {
+		t.Fatalf("bundle replacement error = %v", err)
+	}
+	if len(backend.calls) != 0 || len(service.store.List()) != 0 {
+		t.Fatalf("bundle replacement mutated state: calls=%v records=%v", backend.calls, service.store.List())
+	}
+	if value, err := os.ReadFile(marker); err != nil || string(value) != "preserve" {
+		t.Fatalf("replacement marker = %q, %v", value, err)
+	}
+}
+
 func TestPreparedVerificationPinsArtifactsAndRejectsNameReplacement(t *testing.T) {
 	service, backend, request, base := rootfsFixture(t)
 	result, err := service.Prepare(t.Context(), request)
@@ -208,6 +232,13 @@ func rootfsFixture(t *testing.T) (*Service, *fakeBackend, PrepareRequest, string
 	if err := os.Mkdir(bundle, 0700); err != nil {
 		t.Fatal(err)
 	}
+	bundleHandle, bundleIdentity, err := inspectStableRoot(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = bundleHandle.Close(); err != nil {
+		t.Fatal(err)
+	}
 	store, err := OpenStore(filepath.Join(base, "state"))
 	if err != nil {
 		t.Fatal(err)
@@ -221,7 +252,7 @@ func rootfsFixture(t *testing.T) (*Service, *fakeBackend, PrepareRequest, string
 	if err := os.Mkdir(snapshot, 0700); err != nil {
 		t.Fatal(err)
 	}
-	request := PrepareRequest{Version: Version, Bundle: bundle, TaskIdentity: "task-0123456789abcdef0123456789abcdef", StoragePort: 4061,
+	request := PrepareRequest{Version: Version, Bundle: bundle, BundleIdentity: bundleIdentity, TaskIdentity: "task-0123456789abcdef0123456789abcdef", StoragePort: 4061,
 		Mounts: []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=" + snapshot}}}}
 	return service, backend, request, base
 }
@@ -234,7 +265,13 @@ func TestPrepareJournalsBuildUnmountAndReplays(t *testing.T) {
 	}
 	root := filepath.Join(request.Bundle, "rootfs")
 	want := []string{"mount:" + root, "build:" + filepath.Join(request.Bundle, ".multikernel"), "unmount:" + root}
-	if !reflect.DeepEqual(backend.calls, want) || result.Storage.Path != backend.storagePath {
+	runtimeInfo, statErr := os.Stat(filepath.Join(request.Bundle, ".multikernel"))
+	var runtimeIdentity DirectoryIdentity
+	var identityOK bool
+	if statErr == nil {
+		runtimeIdentity, identityOK = openedDirectoryIdentity(runtimeInfo)
+	}
+	if !reflect.DeepEqual(backend.calls, want) || result.Storage.Path != backend.storagePath || statErr != nil || !identityOK || result.RuntimeIdentity != runtimeIdentity {
 		t.Fatalf("calls/result = %v %+v", backend.calls, result)
 	}
 	rootInfo, err := os.Stat(root)
@@ -247,7 +284,7 @@ func TestPrepareJournalsBuildUnmountAndReplays(t *testing.T) {
 	}
 	backend.calls = nil
 	replayed, err := service.Prepare(context.Background(), request)
-	if err != nil || replayed.Storage != result.Storage || !reflect.DeepEqual(backend.calls, []string{"verify:" + request.TaskIdentity}) {
+	if err != nil || replayed.Storage != result.Storage || replayed.RuntimeIdentity != result.RuntimeIdentity || !reflect.DeepEqual(backend.calls, []string{"verify:" + request.TaskIdentity}) {
 		t.Fatalf("replay = %+v %v calls=%v", replayed, err, backend.calls)
 	}
 	conflict := request
@@ -281,7 +318,7 @@ func TestCleanupRejectsWholeRootReplacementBeforeBackendMutation(t *testing.T) {
 			if err = os.WriteFile(marker, []byte("preserve"), 0600); err != nil {
 				t.Fatal(err)
 			}
-			err = service.Cleanup(t.Context(), CleanupRequest{Version: Version, Bundle: request.Bundle,
+			err = service.Cleanup(t.Context(), CleanupRequest{Version: Version, Bundle: request.Bundle, BundleIdentity: request.BundleIdentity,
 				TaskIdentity: request.TaskIdentity, StorageSHA256: result.Storage.SHA256})
 			if err == nil || !strings.Contains(err.Error(), "identity") {
 				t.Fatalf("replacement cleanup error = %v", err)
@@ -322,7 +359,7 @@ func TestCleanupRejectsArtifactDirectoryReplacementBeforeBackendMutation(t *test
 			if err = os.WriteFile(marker, []byte("preserve"), 0600); err != nil {
 				t.Fatal(err)
 			}
-			err = service.Cleanup(t.Context(), CleanupRequest{Version: Version, Bundle: request.Bundle,
+			err = service.Cleanup(t.Context(), CleanupRequest{Version: Version, Bundle: request.Bundle, BundleIdentity: request.BundleIdentity,
 				TaskIdentity: request.TaskIdentity, StorageSHA256: result.Storage.SHA256})
 			if err == nil || !strings.Contains(err.Error(), "artifact directory") {
 				t.Fatalf("replacement cleanup error = %v", err)
@@ -537,7 +574,7 @@ func TestCleanupRequiresExactImageIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cleanup := CleanupRequest{Version: Version, Bundle: request.Bundle, TaskIdentity: request.TaskIdentity, StorageSHA256: strings.Repeat("b", 64)}
+	cleanup := CleanupRequest{Version: Version, Bundle: request.Bundle, BundleIdentity: request.BundleIdentity, TaskIdentity: request.TaskIdentity, StorageSHA256: strings.Repeat("b", 64)}
 	if err = service.Cleanup(context.Background(), cleanup); err == nil {
 		t.Fatal("stale digest accepted")
 	}
@@ -597,7 +634,7 @@ func TestRootfsOperationsRejectPreCancelledContextWithoutMutation(t *testing.T) 
 		calls := len(backend.calls)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		err = service.Cleanup(ctx, CleanupRequest{Version: Version, Bundle: request.Bundle,
+		err = service.Cleanup(ctx, CleanupRequest{Version: Version, Bundle: request.Bundle, BundleIdentity: request.BundleIdentity,
 			TaskIdentity: request.TaskIdentity, StorageSHA256: result.Storage.SHA256})
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("Cleanup cancellation error = %v", err)

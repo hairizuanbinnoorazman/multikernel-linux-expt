@@ -3,7 +3,7 @@
   "$id": "https://multikernel.example/schemas/sandbox-config-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "id", "cpus", "memory_bytes", "kernel_manifest", "bundle", "child_cid", "agent_port"],
+  "required": ["schema_version", "id", "cpus", "memory_bytes", "kernel_manifest", "bundle", "bundle_identity", "child_cid", "agent_port"],
   "properties": {
     "schema_version": {"const": 1},
     "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$"},
@@ -11,6 +11,16 @@
     "memory_bytes": {"type": "integer", "minimum": 536870912},
     "kernel_manifest": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,62}$"},
     "bundle": {"type": "string", "pattern": "^/"},
+    "bundle_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device", "inode", "uid"],
+      "properties": {
+        "device": {"type": "integer", "minimum": 1},
+        "inode": {"type": "integer", "minimum": 1},
+        "uid": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+      }
+    },
     "agent_port": {"type": "integer", "minimum": 1024, "maximum": 4294967295},
     "child_cid": {"type": "integer", "minimum": 1, "maximum": 4294967294},
     "labels": {"type": "object", "propertyNames": {"pattern": "^[a-z][a-z0-9_.-]{0,62}$"}, "additionalProperties": {"type": "string", "maxLength": 256}, "maxProperties": 32}

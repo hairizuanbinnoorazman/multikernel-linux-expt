@@ -56,6 +56,28 @@ func OpenOwnedDirectory(path string) (*Directory, error) {
 	return openDirectory(path, false, false)
 }
 
+// OpenCurrentOwnedDirectory binds the process's actual cwd inode even if its
+// public pathname is concurrently renamed or replaced.
+func OpenCurrentOwnedDirectory() (*Directory, error) {
+	fd, err := unix.Open(".", unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	current := os.NewFile(uintptr(fd), ".")
+	info, err := current.Stat()
+	if err != nil {
+		_ = current.Close()
+		return nil, err
+	}
+	value, ok := identity(info)
+	if !ok || !info.IsDir() || value.UID != uint32(os.Geteuid()) || info.Mode().Perm()&0022 != 0 {
+		_ = current.Close()
+		return nil, errors.New("current directory must be caller-owned and not group/other-writable")
+	}
+	stable := Identity{Device: value.Device, Inode: value.Inode, UID: value.UID, Mode: value.Mode}
+	return &Directory{file: current, identity: stable}, nil
+}
+
 func openDirectory(path string, create, requirePrivate bool) (*Directory, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) {
 		return nil, errors.New("directory must be canonical, absolute, and below the filesystem root")
@@ -122,6 +144,32 @@ func openDirectory(path string, create, requirePrivate bool) (*Directory, error)
 func (d *Directory) Close() error       { return d.file.Close() }
 func (d *Directory) Identity() Identity { return d.identity }
 func (d *Directory) Sync() error        { return d.file.Sync() }
+func (d *Directory) ProcPath() string   { return fmt.Sprintf("/proc/self/fd/%d", d.file.Fd()) }
+
+// OpenChildDirectory opens one exact child directory relative to the held
+// parent and validates its ownership and mode without following it.
+func (d *Directory) OpenChildDirectory(name string, mode os.FileMode) (*Directory, error) {
+	if filepath.Base(name) != name || name == "." || mode != mode.Perm() {
+		return nil, errors.New("invalid child directory request")
+	}
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	child := os.NewFile(uintptr(fd), name)
+	info, err := child.Stat()
+	if err != nil {
+		_ = child.Close()
+		return nil, err
+	}
+	value, ok := identity(info)
+	if !ok || !info.IsDir() || info.Mode().Perm() != mode.Perm() || value.UID != uint32(os.Geteuid()) {
+		_ = child.Close()
+		return nil, errors.New("child directory has an unsafe identity or mode")
+	}
+	stable := Identity{Device: value.Device, Inode: value.Inode, UID: value.UID, Mode: value.Mode}
+	return &Directory{file: child, identity: stable}, nil
+}
 
 // TryLockExclusive attempts to lock the held directory inode without
 // blocking. Closing Directory releases the lock.
@@ -588,6 +636,106 @@ func (d *Directory) PublishExclusiveSymlinkIdentity(name, target string, limit i
 		return true, published, errors.Join(errors.New("published symlink identity could not be verified"), err)
 	}
 	return true, published, d.file.Sync()
+}
+
+// ReplaceIdentity atomically publishes a private regular file. When expected
+// is non-nil, an exchange makes replacement conditional on that exact inode;
+// a raced substitute is exchanged back intact.
+func (d *Directory) ReplaceIdentity(name string, data []byte, mode os.FileMode, expected *Identity) (Identity, error) {
+	return d.replaceIdentityWithHook(name, data, mode, expected, nil)
+}
+
+func (d *Directory) replaceIdentityWithHook(name string, data []byte, mode os.FileMode, expected *Identity, beforeExchange func()) (published Identity, retErr error) {
+	if filepath.Base(name) != name || name == "." || mode != mode.Perm() || mode.Perm()&0077 != 0 {
+		return Identity{}, errors.New("invalid identity-bound replacement")
+	}
+	var temporary *os.File
+	var temporaryName string
+	for attempt := 0; attempt < 16; attempt++ {
+		random := make([]byte, 8)
+		if _, retErr = io.ReadFull(rand.Reader, random); retErr != nil {
+			return Identity{}, retErr
+		}
+		temporaryName = "." + name + ".exchange." + hex.EncodeToString(random)
+		fd, err := unix.Openat(int(d.file.Fd()), temporaryName,
+			unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, uint32(mode.Perm()))
+		if errors.Is(err, syscall.EEXIST) {
+			continue
+		}
+		if err != nil {
+			return Identity{}, err
+		}
+		temporary = os.NewFile(uintptr(fd), temporaryName)
+		break
+	}
+	if temporary == nil {
+		return Identity{}, errors.New("could not allocate identity-bound replacement")
+	}
+	temporaryPresent := true
+	defer func() {
+		if temporaryPresent {
+			_ = unix.Unlinkat(int(d.file.Fd()), temporaryName, 0)
+		}
+	}()
+	written, err := temporary.Write(data)
+	if err == nil && written != len(data) {
+		err = io.ErrShortWrite
+	}
+	if err == nil {
+		err = temporary.Chmod(mode.Perm())
+	}
+	if err == nil {
+		err = temporary.Sync()
+	}
+	if err == nil {
+		info, statErr := temporary.Stat()
+		err = statErr
+		if err == nil {
+			var ok bool
+			published, ok = identity(info)
+			if !ok {
+				err = errors.New("replacement identity is unavailable")
+			}
+		}
+	}
+	closeErr := temporary.Close()
+	if err != nil || closeErr != nil {
+		return Identity{}, errors.Join(err, closeErr)
+	}
+	if expected == nil {
+		if err = unix.Renameat2(int(d.file.Fd()), temporaryName, int(d.file.Fd()), name, unix.RENAME_NOREPLACE); err != nil {
+			return Identity{}, err
+		}
+		temporaryPresent = false
+		return published, d.file.Sync()
+	}
+	current, err := identityAt(d.file, name)
+	if err != nil || !SameObject(current, *expected) {
+		return Identity{}, errors.Join(errors.New("replacement target identity changed"), err)
+	}
+	if beforeExchange != nil {
+		beforeExchange()
+	}
+	if err = unix.Renameat2(int(d.file.Fd()), temporaryName, int(d.file.Fd()), name, unix.RENAME_EXCHANGE); err != nil {
+		return Identity{}, err
+	}
+	// The temporary name now refers to a formerly public inode. Do not unlink it
+	// unless its identity is proved or a compensating exchange succeeds.
+	temporaryPresent = false
+	old, oldErr := identityAt(d.file, temporaryName)
+	installed, installedErr := identityAt(d.file, name)
+	if oldErr != nil || installedErr != nil || !SameObject(old, *expected) || !SameObject(installed, published) {
+		rollbackErr := unix.Renameat2(int(d.file.Fd()), temporaryName, int(d.file.Fd()), name, unix.RENAME_EXCHANGE)
+		if rollbackErr == nil {
+			temporaryPresent = true
+		}
+		return Identity{}, errors.Join(errors.New("replacement target changed during exchange"), oldErr, installedErr, rollbackErr)
+	}
+	removed, err := d.RemoveIfIdentity(temporaryName, *expected)
+	if err != nil || !removed {
+		return Identity{}, errors.Join(errors.New("remove exchanged prior identity"), err)
+	}
+	return published, d.file.Sync()
 }
 
 // Remove unlinks a simple name relative to the opened directory and syncs the

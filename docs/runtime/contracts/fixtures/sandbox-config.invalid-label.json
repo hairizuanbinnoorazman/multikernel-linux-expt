@@ -1,1 +1,1 @@
-{"schema_version":1,"id":"sandbox-a","cpus":[2,4],"memory_bytes":1073741824,"kernel_manifest":"gce-mk2","bundle":"/run/containerd/bundle-a","child_cid":22,"agent_port":7102,"labels":{"Bad Label":"proof"}}
+{"schema_version":1,"id":"sandbox-a","cpus":[2,4],"memory_bytes":1073741824,"kernel_manifest":"gce-mk2","bundle":"/run/containerd/bundle-a","bundle_identity":{"device":2049,"inode":12345,"uid":0},"child_cid":22,"agent_port":7102,"labels":{"Bad Label":"proof"}}

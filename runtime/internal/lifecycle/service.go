@@ -456,6 +456,9 @@ func validateConfig(c protocol.SandboxConfig) error {
 	if !filepath.IsAbs(c.Bundle) {
 		return errors.New("bundle path must be absolute")
 	}
+	if c.BundleIdentity.Device == 0 || c.BundleIdentity.Inode == 0 {
+		return errors.New("bundle identity must contain a nonzero device and inode")
+	}
 	if len(c.Labels) > 32 {
 		return errors.New("at most 32 labels are allowed")
 	}

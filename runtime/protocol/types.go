@@ -37,10 +37,17 @@ type SandboxConfig struct {
 	MemoryBytes    uint64            `json:"memory_bytes"`
 	KernelManifest string            `json:"kernel_manifest"`
 	Bundle         string            `json:"bundle"`
+	BundleIdentity DirectoryIdentity `json:"bundle_identity"`
 	AgentPort      uint32            `json:"agent_port"`
 	ChildCID       uint32            `json:"child_cid"`
 	Storage        *StorageConfig    `json:"storage,omitempty"`
 	Labels         map[string]string `json:"labels,omitempty"`
+}
+
+type DirectoryIdentity struct {
+	Device uint64 `json:"device"`
+	Inode  uint64 `json:"inode"`
+	UID    uint32 `json:"uid"`
 }
 
 type StorageConfig struct {

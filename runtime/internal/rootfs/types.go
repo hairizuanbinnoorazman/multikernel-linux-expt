@@ -15,30 +15,29 @@ type Mount struct {
 }
 
 type PrepareRequest struct {
-	Version      int     `json:"version"`
-	Bundle       string  `json:"bundle"`
-	TaskIdentity string  `json:"task_identity"`
-	StoragePort  uint32  `json:"storage_port"`
-	Mounts       []Mount `json:"mounts"`
+	Version        int               `json:"version"`
+	Bundle         string            `json:"bundle"`
+	BundleIdentity DirectoryIdentity `json:"bundle_identity"`
+	TaskIdentity   string            `json:"task_identity"`
+	StoragePort    uint32            `json:"storage_port"`
+	Mounts         []Mount           `json:"mounts"`
 }
 
 type PrepareResult struct {
-	Storage     protocol.StorageConfig `json:"storage"`
-	BuildResult json.RawMessage        `json:"build_result"`
+	Storage         protocol.StorageConfig `json:"storage"`
+	RuntimeIdentity DirectoryIdentity      `json:"runtime_identity"`
+	BuildResult     json.RawMessage        `json:"build_result"`
 }
 
 type CleanupRequest struct {
-	Version       int    `json:"version"`
-	Bundle        string `json:"bundle"`
-	TaskIdentity  string `json:"task_identity"`
-	StorageSHA256 string `json:"storage_sha256"`
+	Version        int               `json:"version"`
+	Bundle         string            `json:"bundle"`
+	BundleIdentity DirectoryIdentity `json:"bundle_identity"`
+	TaskIdentity   string            `json:"task_identity"`
+	StorageSHA256  string            `json:"storage_sha256"`
 }
 
-type DirectoryIdentity struct {
-	Device uint64 `json:"device"`
-	Inode  uint64 `json:"inode"`
-	UID    uint32 `json:"uid"`
-}
+type DirectoryIdentity = protocol.DirectoryIdentity
 
 type Record struct {
 	Version      int                     `json:"version"`

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -277,5 +278,64 @@ func TestExclusivePublicationAndRemoval(t *testing.T) {
 	removed, err = directory.Remove("record")
 	if err != nil || removed {
 		t.Fatalf("idempotent removal = %v, %v", removed, err)
+	}
+}
+
+func TestReplaceIdentityPublishesExactSuccessor(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := OpenDirectory(base, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	first, err := directory.ReplaceIdentity("state", []byte("first\n"), 0600, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := directory.ReplaceIdentity("state", []byte("second\n"), 0600, &first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, found, observed, err := directory.ReadPrivateIdentity("state", 64)
+	if err != nil || !found || string(data) != "second\n" || !SameObject(observed, second) || SameObject(first, second) {
+		t.Fatalf("replacement data=%q found=%v observed=%+v first=%+v second=%+v err=%v", data, found, observed, first, second, err)
+	}
+}
+
+func TestReplaceIdentityPreservesRacedSubstituteAndOriginal(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := OpenDirectory(base, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	original, err := directory.ReplaceIdentity("state", []byte("original\n"), 0600, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(base, "original-held")
+	var hookErr error
+	_, err = directory.replaceIdentityWithHook("state", []byte("ours\n"), 0600, &original, func() {
+		if hookErr = os.Rename(filepath.Join(base, "state"), moved); hookErr == nil {
+			hookErr = os.WriteFile(filepath.Join(base, "state"), []byte("substitute\n"), 0600)
+		}
+	})
+	if hookErr != nil {
+		t.Fatal(hookErr)
+	}
+	if err == nil || !strings.Contains(err.Error(), "changed during exchange") {
+		t.Fatalf("raced replacement error = %v", err)
+	}
+	if data, readErr := os.ReadFile(filepath.Join(base, "state")); readErr != nil || string(data) != "substitute\n" {
+		t.Fatalf("public substitute = %q, %v", data, readErr)
+	}
+	if data, readErr := os.ReadFile(moved); readErr != nil || string(data) != "original\n" {
+		t.Fatalf("displaced original = %q, %v", data, readErr)
 	}
 }

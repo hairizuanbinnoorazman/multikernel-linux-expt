@@ -243,7 +243,7 @@ processes retry transient acknowledgement failures through the relay within
 the earlier of the caller deadline and the 30-second I/O bound; a stopped
 process cannot gain a new close intent, while an already acknowledged request
 is idempotent.
-Before forwarding each at-most-32-KiB stdin chunk, recovery format v2 persists
+Before forwarding each at-most-32-KiB stdin chunk, recovery format v3 persists
 the bytes and current acknowledged offset. `WriteProcess` uses the advertised
 `stdin-offset-v1` contract: the guest accepts only its exact next offset and
 idempotently acknowledges the immediately preceding offset when its length and

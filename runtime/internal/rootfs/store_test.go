@@ -13,12 +13,13 @@ import (
 )
 
 func validRootfsRecord(bundle, storageRoot, identity string, port uint32) Record {
+	bundleIdentity := DirectoryIdentity{Device: 1, Inode: 2, UID: uint32(os.Geteuid())}
 	return Record{
 		Version: Version,
-		Request: PrepareRequest{Version: Version, Bundle: bundle, TaskIdentity: identity, StoragePort: port,
+		Request: PrepareRequest{Version: Version, Bundle: bundle, BundleIdentity: bundleIdentity, TaskIdentity: identity, StoragePort: port,
 			Mounts: []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=/snapshots/root"}}}},
 		Root: filepath.Join(bundle, "rootfs"), RuntimeDir: filepath.Join(bundle, ".multikernel"),
-		StorageDir: filepath.Join(storageRoot, identity), BundleID: DirectoryIdentity{Device: 1, Inode: 2, UID: uint32(os.Geteuid())},
+		StorageDir: filepath.Join(storageRoot, identity), BundleID: bundleIdentity,
 		RootID:       DirectoryIdentity{Device: 1, Inode: 3, UID: uint32(os.Geteuid())},
 		RuntimeID:    DirectoryIdentity{Device: 1, Inode: 4, UID: uint32(os.Geteuid())},
 		StorageID:    DirectoryIdentity{Device: 1, Inode: 5, UID: uint32(os.Geteuid())},
