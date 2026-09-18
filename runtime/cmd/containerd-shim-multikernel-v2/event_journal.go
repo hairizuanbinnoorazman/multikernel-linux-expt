@@ -7,17 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	eventstypes "github.com/containerd/containerd/api/events"
 	"github.com/containerd/containerd/namespaces"
 	ctruntime "github.com/containerd/containerd/runtime"
 	"github.com/containerd/typeurl/v2"
-	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -106,47 +103,22 @@ func validateEventJournal(value eventJournal) error {
 func (s *service) loadEventJournal() error {
 	s.eventMu.Lock()
 	defer s.eventMu.Unlock()
-	path := s.eventJournalPath()
-	info, err := os.Lstat(path)
-	if errors.Is(err, os.ErrNotExist) {
+	if err := s.ensureBundleIdentity(); err != nil {
+		return fmt.Errorf("verify event journal bundle identity: %w", err)
+	}
+	data, present, loadedIdentity, err := s.bundleDirectory.ReadPrivateIdentity(".multikernel-events.json", 8<<20)
+	if err != nil {
+		return fmt.Errorf("read event journal: %w", err)
+	}
+	if !present {
 		s.eventJournalIdentity = nil
 		if s.events.NextSequence == 0 {
 			s.events = eventJournal{SchemaVersion: 1, NextSequence: 1}
 		}
 		return nil
 	}
-	if err != nil {
-		return fmt.Errorf("inspect event journal: %w", err)
-	}
-	identity, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() <= 0 || info.Size() > 8<<20 ||
-		identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
-		return errors.New("event journal must be a private caller-owned bounded single-link regular file")
-	}
-	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
-		Flags: uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW), Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
-	})
-	if err != nil {
-		return fmt.Errorf("open event journal: %w", err)
-	}
-	file := os.NewFile(uintptr(descriptor), path)
-	opened, err := file.Stat()
-	if err != nil || !sameProcessIOIdentity(info, opened) {
-		_ = file.Close()
-		return errors.New("event journal identity changed while opening")
-	}
-	data, readErr := io.ReadAll(io.LimitReader(file, (8<<20)+1))
-	after, statErr := file.Stat()
-	closeErr := file.Close()
-	if err = errors.Join(readErr, statErr, closeErr); err != nil || len(data) > 8<<20 {
-		return errors.New("event journal changed or exceeded its read bound")
-	}
-	if !sameProcessIOIdentity(opened, after) {
-		return errors.New("event journal identity changed while reading")
-	}
-	loadedIdentity, ok := stateIdentity(opened)
-	if !ok {
-		return errors.New("event journal identity is unavailable")
+	if os.FileMode(loadedIdentity.Mode).Perm() != 0600 || len(data) == 0 {
+		return errors.New("event journal must have exact private mode and nonempty bounded contents")
 	}
 	var value eventJournal
 	if err = protocol.StrictDecode(data, &value); err != nil {
@@ -164,10 +136,19 @@ func (s *service) persistEventJournalLocked() error {
 	if err := validateEventJournal(s.events); err != nil {
 		return err
 	}
-	path := s.eventJournalPath()
+	if err := s.ensureBundleIdentity(); err != nil {
+		return fmt.Errorf("verify event journal bundle identity: %w", err)
+	}
 	if len(s.events.Pending) == 0 {
-		if err := removeStateFile(path, s.eventJournalIdentity, 0600); err != nil {
-			return err
+		if s.eventJournalIdentity == nil {
+			if _, present, err := s.bundleDirectory.EntryIdentity(".multikernel-events.json"); err != nil || present {
+				return errors.Join(errors.New("refusing to remove an unowned event journal"), err)
+			}
+			return nil
+		}
+		removed, err := s.bundleDirectory.RemoveIfIdentity(".multikernel-events.json", *s.eventJournalIdentity)
+		if err != nil || !removed {
+			return errors.Join(errors.New("owned event journal disappeared or changed before removal"), err)
 		}
 		s.eventJournalIdentity = nil
 		return nil
@@ -176,8 +157,8 @@ func (s *service) persistEventJournalLocked() error {
 	if err != nil {
 		return err
 	}
-	var published stateFileIdentity
-	if err = atomicWriteFileOwned(path, data, 0600, s.eventJournalIdentity, &published); err != nil {
+	published, err := s.bundleDirectory.ReplaceIdentity(".multikernel-events.json", data, 0600, s.eventJournalIdentity)
+	if err != nil {
 		return err
 	}
 	s.eventJournalIdentity = &published

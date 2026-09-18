@@ -96,8 +96,10 @@ trap cleanup EXIT
 sudo rm -f "$socket"
 sudo rm -rf "$state"
 mkdir -p /tmp/runtime-g2-bundle /tmp/runtime-g2-b-bundle
+bundle_a_identity=$(stat -Lc '{"device":%d,"inode":%i,"uid":%u}' /tmp/runtime-g2-bundle)
+bundle_b_identity=$(stat -Lc '{"device":%d,"inode":%i,"uid":%u}' /tmp/runtime-g2-b-bundle)
 start_daemon
-create=$(request '{"version":1,"request_id":"1","method":"CreateSandbox","idempotency_key":"g2-create","body":{"schema_version":1,"id":"runtime-g2","cpus":[8,10],"memory_bytes":4294967296,"kernel_manifest":"gce-mk2","bundle":"/tmp/runtime-g2-bundle","agent_port":7102,"child_cid":22}}')
+create=$(request "{\"version\":1,\"request_id\":\"1\",\"method\":\"CreateSandbox\",\"idempotency_key\":\"g2-create\",\"body\":{\"schema_version\":1,\"id\":\"runtime-g2\",\"cpus\":[8,10],\"memory_bytes\":4294967296,\"kernel_manifest\":\"gce-mk2\",\"bundle\":\"/tmp/runtime-g2-bundle\",\"bundle_identity\":$bundle_a_identity,\"agent_port\":7102,\"child_cid\":22}}")
 printf '%s\n' "$create" >"$evidence/g2-create.json"
 generation=$(python3 -c 'import json,sys; x=json.load(sys.stdin); assert not x.get("error"), x; print(x["body"]["sandbox"]["generation"])' <<<"$create")
 if [[ -n $fault_control ]]; then
@@ -124,7 +126,7 @@ request "{\"version\":1,\"request_id\":\"client-gone\",\"method\":\"SandboxState
 sleep 1
 test "$(cat /sys/fs/multikernel/instances/runtime-g2/status)" = active
 printf '%s\n' 'one-shot client exited; child remained active' >"$evidence/g2-client-disappearance.txt"
-create_b=$(request '{"version":1,"request_id":"1b","method":"CreateSandbox","idempotency_key":"g2b-create","body":{"schema_version":1,"id":"runtime-g2-b","cpus":[12,14],"memory_bytes":4294967296,"kernel_manifest":"gce-mk2","bundle":"/tmp/runtime-g2-b-bundle","agent_port":7104,"child_cid":24}}')
+create_b=$(request "{\"version\":1,\"request_id\":\"1b\",\"method\":\"CreateSandbox\",\"idempotency_key\":\"g2b-create\",\"body\":{\"schema_version\":1,\"id\":\"runtime-g2-b\",\"cpus\":[12,14],\"memory_bytes\":4294967296,\"kernel_manifest\":\"gce-mk2\",\"bundle\":\"/tmp/runtime-g2-b-bundle\",\"bundle_identity\":$bundle_b_identity,\"agent_port\":7104,\"child_cid\":24}}")
 printf '%s\n' "$create_b" >"$evidence/g2b-create.json"
 if [[ -n $expected_second_create_error ]]; then
 	EXPECTED_ERROR="$expected_second_create_error" RESPONSE_PATH="$evidence/g2b-create.json" python3 - <<'PY'

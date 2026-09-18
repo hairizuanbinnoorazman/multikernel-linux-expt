@@ -464,6 +464,9 @@ func validateRequest(request PrepareRequest) error {
 	if request.Version != Version || !identityRE.MatchString(request.TaskIdentity) || request.StoragePort < 1024 {
 		return errors.New("invalid rootfs request identity, version, or port")
 	}
+	if request.BundleIdentity.Device == 0 || request.BundleIdentity.Inode == 0 || request.BundleIdentity.UID != uint32(os.Geteuid()) {
+		return errors.New("invalid expected bundle identity")
+	}
 	if !filepath.IsAbs(request.Bundle) || filepath.Clean(request.Bundle) != request.Bundle {
 		return errors.New("bundle must be an absolute canonical path")
 	}
@@ -585,7 +588,7 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		if err = s.verifyArtifactDirectoryIdentities(existing); err != nil {
 			return PrepareResult{}, err
 		}
-		return PrepareResult{Storage: *existing.Storage, BuildResult: existing.BuildResult}, nil
+		return PrepareResult{Storage: *existing.Storage, RuntimeIdentity: existing.RuntimeID, BuildResult: existing.BuildResult}, nil
 	}
 	for _, existing := range s.store.List() {
 		if existing.Request.Bundle == request.Bundle || existing.Request.StoragePort == request.StoragePort {
@@ -600,6 +603,9 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		return PrepareResult{}, err
 	}
 	defer bundleHandle.Close()
+	if bundleID != request.BundleIdentity {
+		return PrepareResult{}, errors.New("bundle identity differs from the shim handoff")
+	}
 	storageHandle, storageID, err := inspectStableRoot(s.storageRoot)
 	if err != nil {
 		return PrepareResult{}, err
@@ -716,6 +722,7 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 	if err := s.verifyArtifactDirectoryIdentities(record); err != nil {
 		return PrepareResult{}, err
 	}
+	result.RuntimeIdentity = runtimeID
 	record.Phase = "PREPARED"
 	record.Storage = &result.Storage
 	record.BuildResult = append([]byte(nil), result.BuildResult...)
@@ -731,14 +738,15 @@ func (s *Service) Cleanup(ctx context.Context, request CleanupRequest) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if request.Version != Version || !identityRE.MatchString(request.TaskIdentity) || !sha256RE.MatchString(request.StorageSHA256) {
+	if request.Version != Version || !identityRE.MatchString(request.TaskIdentity) || !sha256RE.MatchString(request.StorageSHA256) ||
+		request.BundleIdentity.Device == 0 || request.BundleIdentity.Inode == 0 || request.BundleIdentity.UID != uint32(os.Geteuid()) {
 		return errors.New("invalid rootfs cleanup identity")
 	}
 	record, ok := s.store.Get(request.TaskIdentity)
 	if !ok {
 		return nil
 	}
-	if record.Request.Bundle != request.Bundle || record.Storage == nil || record.Storage.SHA256 != request.StorageSHA256 || record.Phase != "PREPARED" {
+	if record.Request.Bundle != request.Bundle || record.BundleID != request.BundleIdentity || record.Storage == nil || record.Storage.SHA256 != request.StorageSHA256 || record.Phase != "PREPARED" {
 		return errors.New("rootfs cleanup identity is stale or conflicting")
 	}
 	if err := s.validateArtifactPaths(record); err != nil {

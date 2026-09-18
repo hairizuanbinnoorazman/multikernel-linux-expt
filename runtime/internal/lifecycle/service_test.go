@@ -542,7 +542,8 @@ func setup(t *testing.T) (*Service, *state.Store, *fake) {
 	return New(st, f, Artifacts{}), st, f
 }
 func config(id string, cpu, port int) protocol.SandboxConfig {
-	return protocol.SandboxConfig{SchemaVersion: 1, ID: id, CPUs: []int{cpu}, MemoryBytes: 1 << 30, KernelManifest: "test", Bundle: "/bundle/" + id, AgentPort: uint32(port), ChildCID: uint32(port - 7000)}
+	return protocol.SandboxConfig{SchemaVersion: 1, ID: id, CPUs: []int{cpu}, MemoryBytes: 1 << 30, KernelManifest: "test", Bundle: "/bundle/" + id,
+		BundleIdentity: protocol.DirectoryIdentity{Device: 1, Inode: uint64(cpu), UID: 1000}, AgentPort: uint32(port), ChildCID: uint32(port - 7000)}
 }
 
 func TestLoadCarriesPreparedBootDescriptorsThroughBackendCall(t *testing.T) {
@@ -752,6 +753,7 @@ func TestCreateInputValidation(t *testing.T) {
 	}{
 		{"manifest", func(c *protocol.SandboxConfig) { c.KernelManifest = "Bad Manifest" }, "key"},
 		{"bundle", func(c *protocol.SandboxConfig) { c.Bundle = "relative/bundle" }, "key"},
+		{"bundle identity", func(c *protocol.SandboxConfig) { c.BundleIdentity = protocol.DirectoryIdentity{} }, "key"},
 		{"label key", func(c *protocol.SandboxConfig) { c.Labels = map[string]string{"Bad Label": "x"} }, "key"},
 		{"label value", func(c *protocol.SandboxConfig) { c.Labels = map[string]string{"app": strings.Repeat("x", 257)} }, "key"},
 		{"idempotency empty", func(*protocol.SandboxConfig) {}, ""},

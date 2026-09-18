@@ -202,6 +202,124 @@ that an interrupted remediation pass does not lose them:
   The subsequent full repository race suite, `go vet ./...`, documentation/
   schema/evidence/deployment checks, and `git diff --check` passed locally on
   2026-09-18. Disposable-host validation remains pending.
+- Service construction still validates the bundle with `EvalSymlinks` plus
+  `Stat` and then retains only its pathname. Later OCI/network reads, recovery
+  state, token/event publication, and the rootfs daemon reopen that public
+  name. Their individual no-follow checks safely bind the directory they open,
+  but do not prove it is the bundle inode originally assigned to this shim. A
+  caller-owned same-mode replacement can therefore cross the service-to-RPC or
+  shim-to-daemon handoff. Restart adds a second boundary because the supervisor
+  sets `cmd.Dir` from the public working-directory pathname. This finding is
+  recorded before implementation; closure requires a service-lifetime bundle
+  descriptor/identity, identity propagation to rootfs, durable restart
+  binding, and replacement tests at each handoff.
+
+- The first focused implementation run on 2026-09-18 passed
+  `internal/safefile` and `internal/rootfs`, including the new rootfs bundle
+  identity handoff rejection. The shim package did not pass: existing unit
+  fixtures generally inherit the environment's `0775` temporary-directory
+  mode, while the new held-bundle opener deliberately rejects
+  group/other-writable directories. The resulting persistence failures cascade
+  into monitor timeouts. This is recorded before fixture repair and is not
+  counted as a passing shim result or complete bundle-identity closure.
+
+- After changing only bundle fixtures to the existing private-directory test
+  helper, `go test -count=1 ./cmd/containerd-shim-multikernel-v2` passed in
+  2.737 seconds. This confirms that the earlier cascade was caused by obsolete
+  fixture permissions. Adversarial replacement, supervisor restart, repeated
+  race, full-repository, and disposable-host evidence are still pending.
+
+- The focused safefile/rootfs/shim group then passed together once. New
+  adversarial tests observed that conditional recovery-file exchange rolls
+  back without deleting either a raced public substitute or the displaced
+  original; a worker launched after public bundle replacement has the held
+  bundle inode as its actual cwd and receives the same device/inode/UID
+  handoff; incomplete or mismatched supervisor handoff is rejected; and a
+  persisted bundle mismatch is rejected before any daemon RPC. Repeated race
+  execution, descriptor-lifetime cleanup, durable binding across a completely
+  new supervisor, and disposable-host proof remain open.
+
+- Successful Task shutdown now releases the held bundle descriptor through a
+  one-shot close, before invoking the shim shutdown callback. The focused
+  shutdown test passed and observed the closed-file error on a subsequent
+  descriptor operation. This closes the in-process descriptor-lifetime leak;
+  it does not solve authoritative identity discovery by a brand-new
+  supervisor.
+
+- Authoritative new-supervisor binding is now carried in the daemon's
+  journaled `SandboxConfig` as bundle device/inode/UID. Lifecycle validation
+  rejects an absent identity, allocation copies it from the held descriptor,
+  and recovery compares the daemon-returned value before token loading or any
+  network, relay, or agent reconnect. The protocol/rootfs/lifecycle/daemon/shim
+  package group passed once. A focused mismatch test observed exactly one
+  `ListSandboxes` RPC and no resource reconnect. Schema validation, repeated
+  race execution, full-repository checks, and disposable-host proof remain
+  pending.
+
+- Descriptor-relative token create/reuse, event-journal bundle replacement,
+  recovery runtime-directory replacement, and two-descriptor shutdown cleanup
+  passed 100 race-detector iterations as a combined focused group. This closes
+  the locally identified bundle-descendant handoff cases; current-revision
+  disposable-host validation remains unauthorized and pending.
+
+- Final semantic review found a rootfs-to-shim window between creation of
+  `.multikernel` and the shim's first held open. `PrepareRootfs` now returns the
+  exact runtime-directory identity on first preparation and replay, and the
+  shim verifies its held child descriptor before token creation. The focused
+  rootfs and shim packages pass, including a prepared-directory replacement
+  rejection. Repeated race and final full-tree verification are pending.
+
+- Rootfs prepare/replay runtime-identity return and shim prepared-directory
+  replacement rejection each passed 100 race-detector iterations.
+
+- On the final current tree, the complete repository race suite,
+  `go vet ./...`, `scripts/check-docs.sh`, G2 shell syntax, and
+  `git diff --check` all passed on 2026-09-18. This establishes the local
+  bundle-identity checkpoint. It does not replace the still-unapproved
+  disposable-instance execution and evidence collection.
+
+- `python3 scripts/check-runtime-schemas.py` passed after the contract change:
+  7 schemas and 22 fixture cases. The schema result proves structural contract
+  consistency only; it is not runtime or disposable-host evidence.
+
+- The conditional exchange tests, rootfs handoff replacement test, and shim
+  held-bundle/supervisor/recovery/shutdown identity group each passed 100
+  race-detector iterations. The shim group took 104.120 seconds because every
+  supervisor case launches a race-instrumented worker subprocess. This is
+  repeated local execution evidence; the full repository suite and authorized
+  disposable-host run remain pending.
+
+- `GOCACHE=/tmp/mklinux-gocache go test -race -count=1 ./...` passed across
+  the complete Go runtime repository on 2026-09-18 after the bundle changes.
+  Vet, documentation/evidence checks, diff review, and disposable-host proof
+  remain pending at this point.
+
+- A post-suite caller audit found that the direct G2 `CreateSandbox` harness
+  still emitted the pre-identity JSON shape. It now captures each prepared
+  bundle with GNU `stat` and sends that exact device/inode/UID. Lifecycle tests
+  explicitly reject a missing identity, and the shim plan now names recovery
+  format v3 rather than stale v2. These compatibility edits were recorded
+  before their verification rerun.
+
+- The compatibility rerun passed: `bash -n scripts/test-runtime-g2.sh`, the
+  complete `scripts/check-docs.sh` chain, and 100 race-detector iterations of
+  lifecycle input validation. The docs chain again covered 7 schemas/22 cases,
+  17 classified historical evidence manifests, OCI/bind/bootstrap/image,
+  release/binary/deployment/resource-ledger/containerd configuration, and the
+  final G4-G6 evidence-audit tests.
+
+- Diff review found two remaining descendants of the bundle boundary before
+  checkpointing: the event journal still reopened the public bundle path, and
+  `.multikernel` plus first token creation were not held across operations. A
+  new child-directory helper also needed a nil-safe `Stat` failure path. The
+  event journal is now read/replaced/removed relative to the held bundle; the
+  exact `.multikernel` descriptor is retained once opened, token creation uses
+  exclusive descriptor-relative publication, and shutdown closes both held
+  directories. The shim package passes once. Replacement tests observed no
+  event journal in a substitute bundle, no recovery file in a substitute
+  runtime directory, and the original recovery remaining at PID 7 rather than
+  the rejected PID 8 update. Repeated race and final full-suite checks remain
+  pending.
 
 Privileged disposable-host execution remains subject to the exact authorization
 phrase above.
