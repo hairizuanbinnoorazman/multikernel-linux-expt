@@ -1,6 +1,7 @@
 package kernelmanifest
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -87,8 +88,40 @@ func TestResolveVerifiesApprovedArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer artifacts.Close()
 	if artifacts.Kernel == "" || artifacts.Initrd == "" {
 		t.Fatalf("artifacts = %+v", artifacts)
+	}
+}
+
+func TestResolveReturnsExactVerifiedArtifactDescriptors(t *testing.T) {
+	resolver, manifestPath := manifestFixture(t)
+	var manifest Manifest
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil || json.Unmarshal(raw, &manifest) != nil {
+		t.Fatalf("read fixture manifest: %v", err)
+	}
+	artifacts, err := resolver.Resolve("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer artifacts.Close()
+	originalKernel, err := os.ReadFile(manifest.Kernel.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(manifest.Kernel.Path, manifest.Kernel.Path+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(manifest.Kernel.Path, []byte("substitute-kernel"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	resolvedKernel, err := io.ReadAll(artifacts.KernelFile)
+	if err != nil || !bytes.Equal(resolvedKernel, originalKernel) {
+		t.Fatalf("resolved kernel changed after pathname replacement: bytes=%d err=%v", len(resolvedKernel), err)
+	}
+	if replacement, err := os.ReadFile(manifest.Kernel.Path); err != nil || string(replacement) != "substitute-kernel" {
+		t.Fatalf("replacement kernel = %q, %v", replacement, err)
 	}
 }
 

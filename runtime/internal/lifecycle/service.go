@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -26,9 +27,27 @@ var idRE = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
 var manifestRE = regexp.MustCompile(`^[a-z][a-z0-9.-]{0,62}$`)
 var labelKeyRE = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,62}$`)
 
-type Artifacts struct{ Kernel, Initrd, Cmdline string }
+type Artifacts struct {
+	Kernel, Initrd, Cmdline string
+	KernelFile, InitrdFile  *os.File
+}
+
+func (a Artifacts) Close() error {
+	var closeErrors []error
+	if a.KernelFile != nil {
+		closeErrors = append(closeErrors, a.KernelFile.Close())
+	}
+	if a.InitrdFile != nil {
+		closeErrors = append(closeErrors, a.InitrdFile.Close())
+	}
+	return errors.Join(closeErrors...)
+}
+
 type ArtifactResolver interface {
 	Resolve(string) (Artifacts, error)
+}
+type PreparedBootResolver interface {
+	OpenPreparedBoot(context.Context, string, *protocol.StorageConfig) (*os.File, *os.File, error)
 }
 type Service struct {
 	store             *statepkg.Store
@@ -39,6 +58,7 @@ type Service struct {
 	poolMemoryBytes   uint64
 	poolMemoryReserve uint64
 	storage           *storagepkg.Service
+	preparedBoot      PreparedBootResolver
 	global            sync.Mutex
 	locks             sync.Map
 	fault             func(string) error
@@ -46,7 +66,10 @@ type Service struct {
 
 func (s *Service) SetArtifactResolver(resolver ArtifactResolver) { s.resolver = resolver }
 func (s *Service) SetStorage(service *storagepkg.Service)        { s.storage = service }
-func (s *Service) SetFaultInjector(injector func(string) error)  { s.fault = injector }
+func (s *Service) SetPreparedBootResolver(resolver PreparedBootResolver) {
+	s.preparedBoot = resolver
+}
+func (s *Service) SetFaultInjector(injector func(string) error) { s.fault = injector }
 func (s *Service) checkpoint(point string) error {
 	if s.fault == nil {
 		return nil
@@ -477,8 +500,12 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 		}
 	}
 	if s.resolver != nil {
-		if _, err := s.artifactsFor(c.KernelManifest); err != nil {
+		artifacts, err := s.artifactsFor(c.KernelManifest)
+		if err != nil {
 			return protocol.MutationResult{}, apierr("FAILED_PRECONDITION", "approved kernel manifest validation failed", false)
+		}
+		if err = artifacts.Close(); err != nil {
+			return protocol.MutationResult{}, apierr("FAILED_PRECONDITION", "approved kernel artifact close failed", false)
 		}
 	}
 	fp := fingerprint("CreateSandbox", c)
@@ -604,7 +631,18 @@ func (s *Service) Load(ctx context.Context, id, gen, key string) (protocol.Mutat
 		if err != nil {
 			return err
 		}
-		return s.backend.Load(ctx, x, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline)
+		defer artifacts.Close()
+		bootFiles := kerf.LoadFiles{Kernel: artifacts.KernelFile, Initramfs: artifacts.InitrdFile}
+		if s.preparedBoot != nil {
+			runtimeDir, initramfs, openErr := s.preparedBoot.OpenPreparedBoot(ctx, x.Config.Bundle, x.Config.Storage)
+			if openErr != nil {
+				return openErr
+			}
+			defer runtimeDir.Close()
+			defer initramfs.Close()
+			bootFiles.RuntimeDir, bootFiles.Initramfs = runtimeDir, initramfs
+		}
+		return s.backend.Load(ctx, x, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline, bootFiles)
 	})
 }
 func (s *Service) Start(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
@@ -797,7 +835,20 @@ func (s *Service) reconcileIncomplete(ctx context.Context, intent statepkg.Journ
 				artifacts, err = s.artifactsFor(sandbox.Config.KernelManifest)
 			}
 			if err == nil {
-				err = s.backend.Load(ctx, sandbox, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline)
+				defer artifacts.Close()
+				bootFiles := kerf.LoadFiles{Kernel: artifacts.KernelFile, Initramfs: artifacts.InitrdFile}
+				if s.preparedBoot != nil {
+					var runtimeDir, initramfs *os.File
+					runtimeDir, initramfs, err = s.preparedBoot.OpenPreparedBoot(ctx, sandbox.Config.Bundle, sandbox.Config.Storage)
+					if err == nil {
+						defer runtimeDir.Close()
+						defer initramfs.Close()
+						bootFiles.RuntimeDir, bootFiles.Initramfs = runtimeDir, initramfs
+					}
+				}
+				if err == nil {
+					err = s.backend.Load(ctx, sandbox, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline, bootFiles)
+				}
 			}
 		}
 		if err == nil {

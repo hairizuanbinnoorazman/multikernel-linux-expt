@@ -182,6 +182,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "rootfs service:", e)
 		os.Exit(1)
 	}
+	svc.SetPreparedBootResolver(rootfsService)
 	svc.SetArtifactResolver(kernelmanifest.Resolver{Directory: hostConfig.KernelManifestDirectory, RequiredUID: 0})
 	svc.SetPoolCPUs(ids)
 	svc.SetPoolMemory(poolBytes, reserveBytes)

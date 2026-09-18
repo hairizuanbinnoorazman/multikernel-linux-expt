@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
 var identityRE = regexp.MustCompile(`^task-[a-f0-9]{32}$`)
@@ -22,6 +24,7 @@ type Backend interface {
 	Unmount(context.Context, string) error
 	Build(context.Context, PrepareRequest, BuildRoots) (PrepareResult, error)
 	VerifyPrepared(context.Context, Record, PreparedRoots) error
+	OpenVerifiedInitramfs(context.Context, Record, PreparedRoots) (*os.File, error)
 }
 
 type BuildRoots struct {
@@ -244,6 +247,55 @@ func (s *Service) openPreparedRoots(record Record) (PreparedRoots, error) {
 		return PreparedRoots{}, errors.Join(errors.New("storage directory no longer has its recorded identity"), err)
 	}
 	return PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}, nil
+}
+
+// OpenPreparedBoot revalidates the complete prepared result and returns the
+// exact journal-bound runtime directory and initramfs. The caller owns both.
+func (s *Service) OpenPreparedBoot(ctx context.Context, bundle string, storage *protocol.StorageConfig) (*os.File, *os.File, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	if storage == nil {
+		return nil, nil, errors.New("prepared storage identity is required")
+	}
+	var record *Record
+	for _, candidate := range s.store.List() {
+		if candidate.Request.Bundle != bundle {
+			continue
+		}
+		if record != nil {
+			return nil, nil, errors.New("bundle has multiple prepared rootfs owners")
+		}
+		copy := candidate
+		record = &copy
+	}
+	if record == nil || record.Phase != "PREPARED" || record.Storage == nil || !reflect.DeepEqual(record.Storage, storage) {
+		return nil, nil, errors.New("sandbox does not match a prepared rootfs identity")
+	}
+	if err := s.verifyArtifactRootIdentities(*record); err != nil {
+		return nil, nil, err
+	}
+	roots, err := s.openPreparedRoots(*record)
+	if err != nil {
+		return nil, nil, err
+	}
+	artifact, verifyErr := s.backend.OpenVerifiedInitramfs(ctx, *record, roots)
+	nameErr := s.verifyArtifactDirectoryIdentities(*record)
+	if err = errors.Join(verifyErr, nameErr); err != nil {
+		if artifact != nil {
+			_ = artifact.Close()
+		}
+		_ = roots.Close()
+		return nil, nil, err
+	}
+	if err = roots.StorageDir.Close(); err != nil {
+		_ = artifact.Close()
+		_ = roots.RuntimeDir.Close()
+		return nil, nil, err
+	}
+	return roots.RuntimeDir, artifact, nil
 }
 
 func NewService(store *Store, backend Backend, storageRoot string) (*Service, error) {

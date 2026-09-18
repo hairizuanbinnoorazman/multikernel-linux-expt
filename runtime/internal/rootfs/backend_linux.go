@@ -481,8 +481,12 @@ func fileSHA256(ctx context.Context, path string, expectedSize uint64) (string, 
 	if err != nil {
 		return "", err
 	}
+	digest, hashErr := openFileSHA256(ctx, file, before, expectedSize)
+	return digest, errors.Join(hashErr, file.Close())
+}
+
+func openFileSHA256(ctx context.Context, file *os.File, before *syscall.Stat_t, expectedSize uint64) (string, error) {
 	if before.Size < 0 || uint64(before.Size) != expectedSize || uint64(before.Blocks)*512 < expectedSize {
-		_ = file.Close()
 		return "", errors.New("storage artifact size or allocation differs from its declared quota")
 	}
 	hash := sha256.New()
@@ -506,7 +510,34 @@ func fileSHA256(ctx context.Context, path string, expectedSize uint64) (string, 
 		}
 	}
 	stableErr := verifyStableArtifact(file, before)
-	return hex.EncodeToString(hash.Sum(nil)), errors.Join(copyErr, stableErr, file.Close())
+	_, seekErr := file.Seek(0, io.SeekStart)
+	return hex.EncodeToString(hash.Sum(nil)), errors.Join(copyErr, stableErr, seekErr)
+}
+
+func (b *LinuxBackend) OpenVerifiedInitramfs(ctx context.Context, record Record, roots PreparedRoots) (*os.File, error) {
+	if err := b.VerifyPrepared(ctx, record, roots); err != nil {
+		return nil, err
+	}
+	if roots.RuntimeDir == nil {
+		return nil, errors.New("prepared runtime directory is unavailable")
+	}
+	path := fmt.Sprintf("/proc/self/fd/%d/initramfs.cpio.gz", roots.RuntimeDir.Fd())
+	file, identity, err := openTrustedArtifact(path, 16<<30, true)
+	if err != nil {
+		return nil, errors.New("prepared initramfs is missing or unsafe")
+	}
+	digest, err := openFileSHA256(ctx, file, identity, uint64(identity.Size))
+	if err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("verify exact prepared initramfs content: %w", err)
+	}
+	generated, generatedErr := buildResultDigest(record.BuildResult, "generated_bootstrap", "initramfs_sha256")
+	verified, verifiedErr := buildResultDigest(record.BuildResult, "verified_bootstrap", "archive_sha256")
+	if generatedErr != nil || verifiedErr != nil || digest != generated || digest != verified {
+		_ = file.Close()
+		return nil, errors.New("exact prepared initramfs digest differs from build result")
+	}
+	return file, nil
 }
 
 func buildResultDigest(buildResult json.RawMessage, section, field string) (string, error) {

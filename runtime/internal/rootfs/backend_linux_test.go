@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -275,6 +276,28 @@ printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s",
 	}
 	runtimeAnchored := fmt.Sprintf("/proc/self/fd/%d", runtimeDir.Fd())
 	storageAnchored := fmt.Sprintf("/proc/self/fd/%d", storageDir.Fd())
+	verifiedInitrd, err := (&LinuxBackend{}).OpenVerifiedInitramfs(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initrdPath := filepath.Join(runtimeAnchored, "initramfs.cpio.gz")
+	if err = os.Rename(initrdPath, initrdPath+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(initrdPath, []byte("substitute"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	verifiedBytes, readErr := io.ReadAll(verifiedInitrd)
+	closeErr := verifiedInitrd.Close()
+	if readErr != nil || closeErr != nil || string(verifiedBytes) != "initramfs" {
+		t.Fatalf("exact verified initramfs = %q, read=%v, close=%v", verifiedBytes, readErr, closeErr)
+	}
+	if err = os.Remove(initrdPath); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(initrdPath+".original", initrdPath); err != nil {
+		t.Fatal(err)
+	}
 	for _, name := range []string{"build-result.json", "initramfs.path", "initramfs.cpio.gz", "initramfs.manifest.json", "initramfs.source-manifest.json"} {
 		path := filepath.Join(runtimeAnchored, name)
 		original, readErr := os.ReadFile(path)

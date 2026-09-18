@@ -145,6 +145,46 @@ func TestPreparedVerificationPinsArtifactsAndRejectsNameReplacement(t *testing.T
 		t.Fatalf("verification replacement lost durable ownership: %+v, %v", record, ok)
 	}
 }
+
+func TestOpenPreparedBootReturnsJournalBoundDescriptors(t *testing.T) {
+	service, _, request, _ := rootfsFixture(t)
+	result, err := service.Prepare(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtimePath := filepath.Join(request.Bundle, ".multikernel")
+	initrdPath := filepath.Join(runtimePath, "initramfs.cpio.gz")
+	if err = os.WriteFile(initrdPath, []byte("original-initramfs\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	runtimeDir, initramfs, err := service.OpenPreparedBoot(t.Context(), request.Bundle, &result.Storage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtimeDir.Close()
+	defer initramfs.Close()
+	if err = os.Rename(runtimePath, runtimePath+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(runtimePath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(initrdPath, []byte("substitute-initramfs\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	value, err := os.ReadFile(fmt.Sprintf("/proc/self/fd/%d", initramfs.Fd()))
+	if err != nil || string(value) != "original-initramfs\n" {
+		t.Fatalf("prepared boot descriptor = %q, %v", value, err)
+	}
+	value, err = os.ReadFile(fmt.Sprintf("/proc/self/fd/%d/initramfs.cpio.gz", runtimeDir.Fd()))
+	if err != nil || string(value) != "original-initramfs\n" {
+		t.Fatalf("prepared runtime descriptor = %q, %v", value, err)
+	}
+	if value, err = os.ReadFile(initrdPath); err != nil || string(value) != "substitute-initramfs\n" {
+		t.Fatalf("substitute initramfs = %q, %v", value, err)
+	}
+}
+
 func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record, roots PreparedRoots) error {
 	f.calls = append(f.calls, "verify:"+record.Request.TaskIdentity)
 	f.verifyRoots = roots
@@ -152,6 +192,13 @@ func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record, roots Pre
 		f.verifyHook()
 	}
 	return f.verifyErr
+}
+
+func (f *fakeBackend) OpenVerifiedInitramfs(ctx context.Context, record Record, roots PreparedRoots) (*os.File, error) {
+	if err := f.VerifyPrepared(ctx, record, roots); err != nil {
+		return nil, err
+	}
+	return os.Open(fmt.Sprintf("/proc/self/fd/%d/initramfs.cpio.gz", roots.RuntimeDir.Fd()))
 }
 
 func rootfsFixture(t *testing.T) (*Service, *fakeBackend, PrepareRequest, string) {

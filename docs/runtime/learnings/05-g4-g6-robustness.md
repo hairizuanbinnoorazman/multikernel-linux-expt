@@ -957,13 +957,19 @@ privileged disposable-host validation remain open.
 ## Incremental audit finding: 2026-09-18
 
 The next boundary was recorded before implementation. After prepared rootfs
-verification, Kerf `Load` reopens `.multikernel/initramfs.path` and the runtime
-token by public pathname, then supplies the resulting initramfs pathname to
-Kerf. A post-verification directory or artifact replacement can consequently
-change the boot bytes. This remains open until the load operation holds and
-inherits a validated artifact descriptor and a concurrent pathname-replacement
-test proves selection of the original inode. The approved kernel-manifest
-resolver's verify-then-return-path flow is also queued for a separate
-descriptor-lifetime audit. GCE reported the disposable instance still
+verification, Kerf `Load` reopened `.multikernel/initramfs.path` and the runtime
+token by public pathname, then supplied the resulting initramfs pathname to
+Kerf. The rootfs service now revalidates the complete prepared result and
+returns the exact journal-bound runtime-directory and initramfs descriptors to
+lifecycle. Kerf reads metadata and the token relative to that directory and
+inherits the exact initramfs as fd 3. The backend hashes the same open archive
+descriptor against both durable build-result digests before returning it, so
+there is no verifier-to-load reopen. The approved kernel-manifest resolver's
+former verify-then-return-path flow is also closed: bounded no-follow stable
+reads retain the exact digest-verified kernel descriptor through lifecycle and
+Kerf. Replacement tests swap both public directory and kernel names before
+`Load`, prove the original inodes are used, preserve substitutes, and verify
+descriptor closure. The combined kernel/rootfs/lifecycle/Kerf group passed 100
+race-detector repetitions. GCE reported the disposable instance still
 `RUNNING`; no restart, source upload, deployment, or new evidence retention
 occurred.
