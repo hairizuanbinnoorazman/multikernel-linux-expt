@@ -16,6 +16,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 )
 
 type configuration struct {
@@ -72,7 +73,7 @@ func run(ctx context.Context, value configuration) error {
 	if err = service.Reconcile(ctx); err != nil {
 		return fmt.Errorf("refuse inconsistent durable network state: %w", err)
 	}
-	if err = os.MkdirAll(filepath.Dir(value.socket), 0755); err != nil {
+	if err = unixsocket.EnsureParent(value.socket); err != nil {
 		return err
 	}
 	server := &network.Server{Service: service, AllowedUID: uint32(value.allowedUID)}

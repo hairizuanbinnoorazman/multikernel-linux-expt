@@ -164,6 +164,13 @@ func TestCapturedPathRemovesOnlyCapturedSocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	connection, err := owner.Dial()
+	if err != nil {
+		t.Fatalf("dial captured socket: %v", err)
+	}
+	if err = connection.Close(); err != nil {
+		t.Fatal(err)
+	}
 	moved := path + ".original"
 	if err = os.Rename(path, moved); err != nil {
 		t.Fatal(err)
@@ -175,6 +182,10 @@ func TestCapturedPathRemovesOnlyCapturedSocket(t *testing.T) {
 	replacement.SetUnlinkOnClose(false)
 	if err = os.Chmod(path, 0755); err != nil {
 		t.Fatal(err)
+	}
+	if connection, dialErr := owner.Dial(); dialErr == nil {
+		_ = connection.Close()
+		t.Fatal("captured owner dialed a replacement")
 	}
 	if err = owner.Remove(); err == nil {
 		t.Fatal("captured owner removed a replacement")
@@ -292,5 +303,42 @@ func TestSocketRemovalQuarantineAlgorithmWithoutListenerPrivilege(t *testing.T) 
 	}
 	if value, readErr := os.ReadFile(moved); readErr != nil || string(value) != "original" {
 		t.Fatalf("synthetic original = %q, %v", value, readErr)
+	}
+}
+
+func TestEnsureParentCreatesWithoutFollowingOrRechmoddingAncestors(t *testing.T) {
+	base := privateTempDir(t)
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(base, "one", "two", "service.sock")
+	if err := EnsureParent(path); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(base); err != nil || info.Mode().Perm() != 0700 {
+		t.Fatalf("existing ancestor mode = %v, %v", info, err)
+	}
+	if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() || info.Mode().Perm() != 0755 {
+		t.Fatalf("created parent = %v, %v", info, err)
+	}
+	target := filepath.Join(base, "target")
+	if err := os.Mkdir(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(base, "linked")
+	if err := os.Symlink(target, linked); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureParent(filepath.Join(linked, "redirected", "service.sock")); err == nil {
+		t.Fatal("symlinked parent ancestry was accepted")
+	}
+	if _, err := os.Stat(filepath.Join(target, "redirected")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("symlink target was mutated: %v", err)
+	}
+}
+
+func TestEnsureParentRejectsRootAsSocketPath(t *testing.T) {
+	if err := EnsureParent("/"); err == nil {
+		t.Fatal("root was accepted as a socket pathname")
 	}
 }

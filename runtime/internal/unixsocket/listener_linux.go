@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -154,7 +155,7 @@ func removeIdentityAt(dir *os.File, base string, expected identity) (bool, error
 }
 
 func openParent(path string) (*os.File, string, error) {
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path || filepath.Base(path) == "." {
+	if !validPath(path) {
 		return nil, "", errors.New("Unix socket path must be canonical and absolute")
 	}
 	parent, base := filepath.Dir(path), filepath.Base(path)
@@ -176,6 +177,67 @@ func openParent(path string) (*os.File, string, error) {
 		return nil, "", errors.New("Unix socket parent must be caller-owned and not group/other-writable")
 	}
 	return dir, base, nil
+}
+
+func validPath(path string) bool {
+	base := filepath.Base(path)
+	return filepath.IsAbs(path) && filepath.Clean(path) == path && base != "." && base != string(filepath.Separator)
+}
+
+// EnsureParent creates missing socket-parent components without following
+// symlinks or changing permissions on pre-existing ancestors.
+func EnsureParent(path string) error {
+	if !validPath(path) {
+		return errors.New("Unix socket path must be canonical and absolute")
+	}
+	parent := filepath.Dir(path)
+	rootFD, err := unix.Open("/", unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return err
+	}
+	current := os.NewFile(uintptr(rootFD), "/")
+	defer func() { _ = current.Close() }()
+	for _, component := range strings.Split(strings.TrimPrefix(parent, "/"), "/") {
+		if component == "" {
+			continue
+		}
+		created := false
+		nextFD, openErr := unix.Openat(int(current.Fd()), component,
+			unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+		if errors.Is(openErr, syscall.ENOENT) {
+			if mkdirErr := unix.Mkdirat(int(current.Fd()), component, 0700); mkdirErr != nil && !errors.Is(mkdirErr, syscall.EEXIST) {
+				return mkdirErr
+			} else if mkdirErr == nil {
+				created = true
+			}
+			nextFD, openErr = unix.Openat(int(current.Fd()), component,
+				unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+		}
+		if openErr != nil {
+			return openErr
+		}
+		if created {
+			if chmodErr := unix.Fchmod(nextFD, 0755); chmodErr != nil {
+				_ = unix.Close(nextFD)
+				return chmodErr
+			}
+		}
+		next := os.NewFile(uintptr(nextFD), component)
+		if err = current.Close(); err != nil {
+			_ = next.Close()
+			return err
+		}
+		current = next
+	}
+	info, err := current.Stat()
+	if err != nil {
+		return err
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.IsDir() || stat.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0022 != 0 {
+		return errors.New("Unix socket parent must be caller-owned and not group/other-writable")
+	}
+	return current.Sync()
 }
 
 // Listen removes a safely identifiable stale socket and binds a replacement
@@ -258,6 +320,34 @@ func (p *Path) Remove() error {
 		p.closed = true
 	}
 	return err
+}
+
+// Dial connects through the held parent descriptor only while the published
+// socket still has the identity captured by Capture.
+func (p *Path) Dial() (net.Conn, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return nil, errors.New("Unix socket path owner is closed")
+	}
+	current, found, err := inspectSafeAt(p.dir, p.base)
+	if err != nil {
+		return nil, err
+	}
+	if !found || current != p.identity {
+		return nil, errors.New("refusing to dial replaced Unix socket path")
+	}
+	anchoredPath := fmt.Sprintf("/proc/self/fd/%d/%s", p.dir.Fd(), p.base)
+	connection, err := net.Dial("unix", anchoredPath)
+	if err != nil {
+		return nil, err
+	}
+	current, found, err = inspectSafeAt(p.dir, p.base)
+	if err != nil || !found || current != p.identity {
+		_ = connection.Close()
+		return nil, errors.Join(errors.New("Unix socket path changed while dialing"), err)
+	}
+	return connection, nil
 }
 
 func (l *Listener) Accept() (net.Conn, error) { return l.listener.Accept() }

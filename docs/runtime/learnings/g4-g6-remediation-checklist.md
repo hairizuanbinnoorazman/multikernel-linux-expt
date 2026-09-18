@@ -116,6 +116,24 @@ that an interrupted remediation pass does not lose them:
   real pathname-socket case remains skipped because this local sandbox denies
   pathname listener creation; it remains mandatory without a skip on the
   disposable host.
+- A continuation audit found two socket-lifecycle callers outside that shared
+  cleanup path. `mknetd` created its socket parent with pathname-recursive
+  `MkdirAll`, which could follow a substituted ancestor and could not express
+  the rule that existing ancestors retain their modes. Its startup now walks
+  from `/` with held directory descriptors and `O_NOFOLLOW`, creates only
+  missing components, preserves existing ancestor modes, and requires the
+  final parent to be caller-owned and not group/other-writable. `mk-agentctl`
+  reconnect and final relay teardown also used pathname removal; it now
+  captures each relay socket before dialing, dials through the held parent
+  descriptor while checking that exact identity before and after connection,
+  and delegates removal to the identity-conditioned quarantine owner. The
+  parent creation, invalid-root rejection, privilege-independent removal, and
+  affected command-package groups passed 100 race-detector repetitions. The
+  real captured-socket dial/replacement case remains skipped under the local
+  pathname-listener restriction and is still a required disposable-host case;
+  it was not counted as local proof. After this change, the full repository
+  race suite, `go vet ./...`, documentation/schema/evidence/deployment checks,
+  and `git diff --check` all passed locally on 2026-09-18.
 
 Privileged disposable-host execution remains subject to the exact authorization
 phrase above.

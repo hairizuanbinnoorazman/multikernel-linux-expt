@@ -1005,3 +1005,21 @@ privilege-independent replacement algorithm passed 100 race-detector
 repetitions and restores the substitute intact. The real pathname-socket case
 is still skipped under the local sandbox's listener restriction and remains a
 required disposable-host execution.
+
+A subsequent caller audit found that `mknetd` still used recursive pathname
+creation for the socket parent and `mk-agentctl` still removed relay sockets by
+pathname during reconnect. The former is being replaced with a root-anchored,
+component-at-a-time `O_NOFOLLOW` walk that creates only missing directories and
+does not chmod existing ancestors. The latter now captures the connected relay
+socket identity before dialing, connects through the held parent descriptor
+only while that identity remains published, and uses the shared no-replace,
+exact-inode quarantine on both reconnect and final teardown. The exact parent
+mode is set through the newly opened descriptor, so umask cannot weaken the
+result and a raced pre-existing directory is not rechmodded. Parent creation,
+root-path rejection, the privilege-independent removal algorithm, and both
+affected command packages passed 100 race-detector repetitions. The real
+captured pathname-socket dial/replacement test is still skipped by the local
+listener restriction and remains mandatory on the disposable host; it was not
+counted as proof. The subsequent full repository race suite, `go vet ./...`,
+documentation/schema/evidence/deployment checks, and `git diff --check` all
+passed locally on 2026-09-18.
