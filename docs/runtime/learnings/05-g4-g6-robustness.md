@@ -1343,3 +1343,27 @@ The subsequent complete repository race suite, `go vet ./...`, the complete
 documentation/schema/evidence/deployment chain, and `git diff --check` passed
 on 2026-09-18. The local exclusive launch-metadata checkpoint is complete;
 current-source disposable-host proof remains unauthorized.
+
+The next handoff review found that only supervisor-to-worker restart was fully
+descriptor-bound. The initial supervisor command still used the public
+`Getwd` pathname from `newCommand`, allowing a same-owner bundle replacement
+before `exec` to become its cwd before the worker identity handoff existed.
+This is recorded before implementation: the first supervisor must chdir via
+the service-lifetime held bundle descriptor as well.
+
+Initial supervisor launch now assigns `cmd.Dir` from the held bundle's
+`/proc/self/fd` path, and `newCommand` no longer snapshots the public cwd.
+Supervisor startup opens its inherited current directory before deriving a
+display path. In the focused test, the public bundle was moved and replaced
+before launch; the supervisor marker appeared only in the held original. The
+existing descriptor-bound worker restart and pre-cancelled-start cases pass
+alongside it. Repeated race and full-tree checks remain pending.
+
+The initial-supervisor replacement, descriptor-bound worker restart, and
+pre-cancelled startup group passed 100 race-detector repetitions in 105.230
+seconds. Full-tree verification remains pending.
+
+The subsequent complete repository race suite, `go vet ./...`, the full
+documentation/schema/evidence/deployment chain, and `git diff --check` passed
+on 2026-09-18. The local initial-supervisor bundle-handoff checkpoint is
+complete; current-source disposable-host proof remains unauthorized.
