@@ -953,3 +953,17 @@ verified digests, and requires the exact durable build result, canonical
 `initramfs.path`, read-only-bind manifest, and storage metadata/image. Focused
 mutations reject every formerly omitted artifact. Removal-time name races and
 privileged disposable-host validation remain open.
+
+## Incremental audit finding: 2026-09-18
+
+The next boundary was recorded before implementation. After prepared rootfs
+verification, Kerf `Load` reopens `.multikernel/initramfs.path` and the runtime
+token by public pathname, then supplies the resulting initramfs pathname to
+Kerf. A post-verification directory or artifact replacement can consequently
+change the boot bytes. This remains open until the load operation holds and
+inherits a validated artifact descriptor and a concurrent pathname-replacement
+test proves selection of the original inode. The approved kernel-manifest
+resolver's verify-then-return-path flow is also queued for a separate
+descriptor-lifetime audit. GCE reported the disposable instance still
+`RUNNING`; no restart, source upload, deployment, or new evidence retention
+occurred.

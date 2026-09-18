@@ -1,6 +1,6 @@
 # G4-G6 remediation and live-evidence checklist
 
-Audit date: 2026-09-02; implementation status refreshed 2026-09-17
+Audit date: 2026-09-02; implementation status refreshed 2026-09-18
 
 This is the implementation and evidence handoff for gates G4, G5, and G6. The
 existing GCE runs demonstrate a useful executable MVP, but they do not close
@@ -52,6 +52,38 @@ paused pending the exact authorization:
 `Approved: upload the source-only archive and retain the described infrastructure evidence.`
 Until that authorization is supplied, local remediation may continue, but no
 current-revision live claim may be marked proved.
+
+## Incremental audit findings: 2026-09-18
+
+These findings were recorded before the corresponding implementation work so
+that an interrupted remediation pass does not lose them:
+
+- GCE again reported `mklinux-g4-g6-final-20260905` `RUNNING` on 2026-09-18,
+  with the same start timestamp and external address recorded above. No restart
+  was required. This is a control-plane observation, not software-execution
+  evidence, and no source or evidence artifact was transferred.
+- Rootfs replay and reconciliation now verify the prepared initramfs through a
+  held, identity-matched runtime-directory descriptor. The subsequent Kerf
+  `Load`, however, reopens `.multikernel/initramfs.path` and `token` through the
+  bundle's public pathname and passes the initramfs pathname to Kerf. A rename
+  or same-name replacement after prepared verification can therefore select
+  unverified boot bytes. This post-verification handoff is an open G4 boot
+  artifact TOCTOU until Kerf receives a held, validated artifact descriptor and
+  focused replacement tests prove that the original inode is selected.
+- The approved kernel-manifest resolver verifies artifact digests and then
+  returns path strings. That broader verified-artifact-to-Kerf pathname handoff
+  requires a separate descriptor-lifetime audit; this checkpoint does not
+  claim it is remediated.
+- Identity-conditional recursive removal remains open. A check immediately
+  before pathname removal is not sufficient because replacement can occur
+  between the check and unlink; no such cosmetic check should be treated as a
+  fix or as evidence.
+
+The next local proof target is a fake-Kerf test that replaces the public
+runtime directory after `Load` has opened it and demonstrates that Kerf reads
+the original initramfs through an inherited descriptor while the substitute is
+preserved. Privileged disposable-host execution remains subject to the exact
+authorization phrase above.
 
 ## Retained instance runs and evidence quality
 
