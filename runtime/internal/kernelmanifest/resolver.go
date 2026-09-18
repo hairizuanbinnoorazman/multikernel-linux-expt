@@ -15,6 +15,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -72,10 +73,7 @@ func (r Resolver) Resolve(name string) (lifecycle.Artifacts, error) {
 	if filepath.Dir(path) != filepath.Clean(r.Directory) {
 		return lifecycle.Artifacts{}, errors.New("manifest path escaped approved directory")
 	}
-	if err := secureRegular(path, r.RequiredUID); err != nil {
-		return lifecycle.Artifacts{}, err
-	}
-	raw, err := os.ReadFile(path)
+	raw, err := readStableRegular(path, r.RequiredUID, 1<<20)
 	if err != nil {
 		return lifecycle.Artifacts{}, err
 	}
@@ -86,7 +84,17 @@ func (r Resolver) Resolve(name string) (lifecycle.Artifacts, error) {
 	if err = validate(manifest, name, r.RequiredUID); err != nil {
 		return lifecycle.Artifacts{}, err
 	}
-	return lifecycle.Artifacts{Kernel: manifest.Kernel.Path, Initrd: manifest.Initramfs.Path}, nil
+	kernel, err := openVerifiedArtifact(manifest.Kernel, r.RequiredUID)
+	if err != nil {
+		return lifecycle.Artifacts{}, err
+	}
+	initrd, err := openVerifiedArtifact(manifest.Initramfs, r.RequiredUID)
+	if err != nil {
+		_ = kernel.Close()
+		return lifecycle.Artifacts{}, err
+	}
+	return lifecycle.Artifacts{Kernel: manifest.Kernel.Path, Initrd: manifest.Initramfs.Path,
+		KernelFile: kernel, InitrdFile: initrd}, nil
 }
 
 func validate(manifest Manifest, name string, uid uint32) error {
@@ -110,19 +118,27 @@ func validate(manifest Manifest, name string, uid uint32) error {
 			return err
 		}
 	}
-	for _, executable := range []string{manifest.Kernel.Path, manifest.Agent.Path, manifest.Relay.Path} {
-		binary, err := elf.Open(executable)
+	for _, executable := range []Artifact{manifest.Kernel, manifest.Agent, manifest.Relay} {
+		file, err := openVerifiedArtifact(executable, uid)
 		if err != nil {
-			return fmt.Errorf("artifact %s is not ELF: %w", executable, err)
+			return err
+		}
+		binary, err := elf.NewFile(file)
+		if err != nil {
+			_ = file.Close()
+			return fmt.Errorf("artifact %s is not ELF: %w", executable.Path, err)
 		}
 		machine := binary.FileHeader.Machine
-		binary.Close()
+		closeErr := errors.Join(binary.Close(), file.Close())
+		if closeErr != nil {
+			return closeErr
+		}
 		if machine != elf.EM_X86_64 {
-			return fmt.Errorf("artifact %s has incompatible ELF machine %s", executable, machine)
+			return fmt.Errorf("artifact %s has incompatible ELF machine %s", executable.Path, machine)
 		}
 	}
 	configPath := filepath.Join(filepath.Dir(manifest.Kernel.Path), "config-"+manifest.KernelRelease)
-	config, err := os.ReadFile(configPath)
+	config, err := readStableRegular(configPath, uid, 16<<20)
 	if err != nil {
 		return fmt.Errorf("read kernel config: %w", err)
 	}
@@ -141,43 +157,96 @@ func validate(manifest Manifest, name string, uid uint32) error {
 	return nil
 }
 
-func secureRegular(path string, uid uint32) error {
+func stableIdentity(info os.FileInfo) (*syscall.Stat_t, bool) {
+	if info == nil {
+		return nil, false
+	}
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	return identity, ok
+}
+
+func sameIdentity(before, after *syscall.Stat_t) bool {
+	return before.Dev == after.Dev && before.Ino == after.Ino && before.Size == after.Size &&
+		before.Mtim == after.Mtim && before.Ctim == after.Ctim
+}
+
+func openStableRegular(path string, uid uint32, maximum int64) (*os.File, *syscall.Stat_t, error) {
 	if !filepath.IsAbs(path) {
-		return fmt.Errorf("artifact path %q is not absolute", path)
+		return nil, nil, fmt.Errorf("artifact path %q is not absolute", path)
 	}
-	info, err := os.Lstat(path)
+	beforeInfo, err := os.Lstat(path)
+	before, ok := stableIdentity(beforeInfo)
+	if err != nil || !ok || before.Uid != uid || !beforeInfo.Mode().IsRegular() || beforeInfo.Mode().Perm()&0022 != 0 ||
+		beforeInfo.Size() <= 0 || beforeInfo.Size() > maximum {
+		return nil, nil, fmt.Errorf("artifact %s has unsafe type, owner, mode, or size", path)
+	}
+	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || stat.Uid != uid || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 {
-		return fmt.Errorf("artifact %s has unsafe type, owner, or mode", path)
+	file := os.NewFile(uintptr(descriptor), path)
+	afterInfo, err := file.Stat()
+	after, afterOK := stableIdentity(afterInfo)
+	if err != nil || !afterOK || !os.SameFile(beforeInfo, afterInfo) || !sameIdentity(before, after) {
+		_ = file.Close()
+		return nil, nil, errors.New("approved artifact identity changed while opening")
+	}
+	return file, before, nil
+}
+
+func verifyStableRegular(file *os.File, before *syscall.Stat_t) error {
+	afterInfo, err := file.Stat()
+	after, ok := stableIdentity(afterInfo)
+	if err != nil || !ok || !sameIdentity(before, after) {
+		return errors.New("approved artifact changed while reading")
 	}
 	return nil
 }
 
-func verifyArtifact(artifact Artifact, uid uint32) error {
-	if len(artifact.SHA256) != 64 {
-		return errors.New("artifact digest is malformed")
-	}
-	if err := secureRegular(artifact.Path, uid); err != nil {
-		return err
-	}
-	file, err := os.Open(artifact.Path)
+func readStableRegular(path string, uid uint32, maximum int64) ([]byte, error) {
+	file, before, err := openStableRegular(path, uid, maximum)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	value, readErr := io.ReadAll(io.LimitReader(file, maximum+1))
+	stableErr := verifyStableRegular(file, before)
+	closeErr := file.Close()
+	if err = errors.Join(readErr, stableErr, closeErr); err != nil {
+		return nil, err
+	}
+	if int64(len(value)) > maximum {
+		return nil, errors.New("approved artifact exceeds size limit")
+	}
+	return value, nil
+}
+
+func openVerifiedArtifact(artifact Artifact, uid uint32) (*os.File, error) {
+	if len(artifact.SHA256) != 64 {
+		return nil, errors.New("artifact digest is malformed")
+	}
+	file, before, err := openStableRegular(artifact.Path, uid, 16<<30)
+	if err != nil {
+		return nil, err
 	}
 	hash := sha256.New()
 	_, copyErr := io.Copy(hash, file)
-	closeErr := file.Close()
-	if copyErr != nil {
-		return copyErr
-	}
-	if closeErr != nil {
-		return closeErr
+	stableErr := verifyStableRegular(file, before)
+	_, seekErr := file.Seek(0, io.SeekStart)
+	if err = errors.Join(copyErr, stableErr, seekErr); err != nil {
+		_ = file.Close()
+		return nil, err
 	}
 	if hex.EncodeToString(hash.Sum(nil)) != artifact.SHA256 {
-		return fmt.Errorf("artifact %s digest mismatch", artifact.Path)
+		_ = file.Close()
+		return nil, fmt.Errorf("artifact %s digest mismatch", artifact.Path)
 	}
-	return nil
+	return file, nil
+}
+
+func verifyArtifact(artifact Artifact, uid uint32) error {
+	file, err := openVerifiedArtifact(artifact, uid)
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }

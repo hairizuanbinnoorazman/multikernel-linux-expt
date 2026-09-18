@@ -3,12 +3,15 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"io"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
 	storagepkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -23,9 +26,35 @@ type fake struct {
 	failures   map[string]error
 	onCall     func()
 	observeErr error
+	loadFiles  int
+	loadInitrd string
+	loadDir    bool
 }
 
 type failingResolver struct{ calls int }
+
+type fakePreparedBootResolver struct {
+	directoryPath string
+	initrdPath    string
+	calls         int
+	directory     *os.File
+	initrd        *os.File
+}
+
+func (r *fakePreparedBootResolver) OpenPreparedBoot(context.Context, string, *protocol.StorageConfig) (*os.File, *os.File, error) {
+	r.calls++
+	var err error
+	r.directory, err = os.Open(r.directoryPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	r.initrd, err = os.Open(r.initrdPath)
+	if err != nil {
+		_ = r.directory.Close()
+		return nil, nil, err
+	}
+	return r.directory, r.initrd, nil
+}
 
 type lifecycleStorageBackend struct {
 	active map[string]string
@@ -441,12 +470,37 @@ func (f *fake) Create(c context.Context, s protocol.Sandbox) error {
 	f.mu.Unlock()
 	return nil
 }
-func (f *fake) Load(c context.Context, s protocol.Sandbox, a, b, d string) error {
+func (f *fake) Load(c context.Context, s protocol.Sandbox, a, b, d string, files kerf.LoadFiles) error {
 	if e := f.call("load", s.ID); e != nil {
 		return e
 	}
+	var loadInitrd string
+	var loadDir bool
+	fileCount := 0
+	if files.RuntimeDir != nil {
+		fileCount++
+		info, err := files.RuntimeDir.Stat()
+		if err != nil {
+			return err
+		}
+		loadDir = info.IsDir()
+	}
+	if files.Initramfs != nil {
+		fileCount++
+		value, err := io.ReadAll(files.Initramfs)
+		if err != nil {
+			return err
+		}
+		loadInitrd = string(value)
+	}
+	if files.Kernel != nil {
+		fileCount++
+	}
 	f.mu.Lock()
 	f.states[s.ID] = "LOADED"
+	f.loadFiles = fileCount
+	f.loadInitrd = loadInitrd
+	f.loadDir = loadDir
 	f.mu.Unlock()
 	return nil
 }
@@ -489,6 +543,34 @@ func setup(t *testing.T) (*Service, *state.Store, *fake) {
 }
 func config(id string, cpu, port int) protocol.SandboxConfig {
 	return protocol.SandboxConfig{SchemaVersion: 1, ID: id, CPUs: []int{cpu}, MemoryBytes: 1 << 30, KernelManifest: "test", Bundle: "/bundle/" + id, AgentPort: uint32(port), ChildCID: uint32(port - 7000)}
+}
+
+func TestLoadCarriesPreparedBootDescriptorsThroughBackendCall(t *testing.T) {
+	service, store, backend := setup(t)
+	defer store.Close()
+	directory := t.TempDir()
+	initrdPath := filepath.Join(directory, "initramfs.cpio.gz")
+	if err := os.WriteFile(initrdPath, []byte("prepared-initramfs"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	resolver := &fakePreparedBootResolver{directoryPath: directory, initrdPath: initrdPath}
+	service.SetPreparedBootResolver(resolver)
+	created, apiErr := service.Create(t.Context(), config("box-a", 8, 7001), "create")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if _, apiErr = service.Load(t.Context(), created.Sandbox.ID, created.Sandbox.Generation, "load"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if resolver.calls != 1 || backend.loadFiles != 2 || !backend.loadDir || backend.loadInitrd != "prepared-initramfs" {
+		t.Fatalf("prepared boot handoff = calls:%d files:%d dir:%v initrd:%q", resolver.calls, backend.loadFiles, backend.loadDir, backend.loadInitrd)
+	}
+	if _, err := resolver.directory.Stat(); err == nil {
+		t.Fatal("prepared runtime-directory descriptor remained open after load")
+	}
+	if _, err := resolver.initrd.Stat(); err == nil {
+		t.Fatal("prepared initramfs descriptor remained open after load")
+	}
 }
 
 func TestStorageOwnershipParticipatesInCreateDeleteAndRollback(t *testing.T) {
