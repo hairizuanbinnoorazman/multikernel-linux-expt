@@ -447,6 +447,32 @@ that an interrupted remediation pass does not lose them:
   passed on 2026-09-18. The local initial-supervisor bundle-handoff checkpoint
   is complete; current-source disposable-host proof remains unauthorized.
 
+- Collision reuse currently proves only that the deterministic socket accepts
+  a connection. It does not bind that listener to this held bundle's published
+  `address`/`shim.pid`, the expected supervisor executable/cwd/process group,
+  or its namespace/task/containerd-address invocation. A same-owner listener
+  at the deterministic name can therefore be returned as this task's shim.
+  This finding is recorded before implementation. Reuse must fail closed unless
+  launch metadata and an anchored `/proc/<pid>` supervisor identity all match.
+
+- Live collision reuse now additionally requires the held bundle's exact
+  `address` and numeric `shim.pid`, then opens and retains `/proc/<pid>` while
+  checking the supervisor cwd against the held bundle, executable inode against
+  `/proc/self/exe`, live process-group leadership, and exact namespace/task/
+  containerd-address command flags. Focused tests accept the exact supervisor
+  and reject a different cwd, executable, process group, task ID, or containerd
+  address. The earlier live/stale/replaced socket cases pass alongside it.
+  Repeated race and full-tree checks remain pending.
+
+- The authenticated existing-supervisor and live/stale/replaced socket group
+  passed 100 race-detector repetitions. Full-tree verification remains
+  pending.
+
+- The subsequent complete repository race suite, `go vet ./...`, the full
+  documentation/schema/evidence/deployment checks, and `git diff --check`
+  passed on 2026-09-18. The local authenticated collision-reuse checkpoint is
+  complete; current-source disposable-host proof remains unauthorized.
+
 - `python3 scripts/check-runtime-schemas.py` passed after the contract change:
   7 schemas and 22 fixture cases. The schema result proves structural contract
   consistency only; it is not runtime or disposable-host evidence.

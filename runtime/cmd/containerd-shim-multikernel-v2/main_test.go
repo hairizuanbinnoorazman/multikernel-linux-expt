@@ -1339,6 +1339,150 @@ func TestAcquireStartShimSocketWithRealLiveAndStalePaths(t *testing.T) {
 	}
 }
 
+func TestExistingShimSupervisorProcess(t *testing.T) {
+	if os.Getenv("MK_TEST_EXISTING_SHIM_SUPERVISOR") != "1" {
+		return
+	}
+	_, _ = io.Copy(io.Discard, os.Stdin)
+}
+
+func TestAuthenticateExistingShimBindsLaunchMetadataAndProcessIdentity(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	directory, err := safefile.OpenOwnedDirectory(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	identity := directory.Identity()
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, childInput, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(self, "-test.run=^TestExistingShimSupervisorProcess$", "--",
+		"-namespace", "authenticated-ns", "-id", "authenticated-task", "-address", "/run/containerd/containerd.sock")
+	command.Dir = directory.ProcPath()
+	command.Env = append(os.Environ(), "MK_TEST_EXISTING_SHIM_SUPERVISOR=1")
+	command.Stdin = input
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err = command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if err = input.Close(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = childInput.Close()
+		_ = command.Process.Kill()
+		_ = command.Wait()
+	}()
+	const address = "unix:///run/containerd/s/authenticated"
+	if created, _, publishErr := directory.PublishExclusiveRegularIdentity("address", []byte(address), 0644); publishErr != nil || !created {
+		t.Fatalf("publish address: created=%v error=%v", created, publishErr)
+	}
+	if created, _, publishErr := directory.PublishExclusiveRegularIdentity("shim.pid", []byte(strconv.Itoa(command.Process.Pid)), 0644); publishErr != nil || !created {
+		t.Fatalf("publish PID: created=%v error=%v", created, publishErr)
+	}
+	s := &service{id: "authenticated-task", namespace: "authenticated-ns", bundleDirectory: directory,
+		bundleIdentity: rootfspkg.DirectoryIdentity{Device: identity.Device, Inode: identity.Inode, UID: identity.UID}}
+	opts := shim.StartOpts{Address: "/run/containerd/containerd.sock"}
+	deadline := time.Now().Add(time.Second)
+	for {
+		err = s.authenticateExistingShim(address, opts)
+		if err == nil || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err != nil {
+		t.Fatalf("authenticate exact supervisor: %v", err)
+	}
+	if err = s.authenticateExistingShim(address, shim.StartOpts{Address: "/run/containerd/other.sock"}); err == nil || !strings.Contains(err.Error(), "address invocation differs") {
+		t.Fatalf("mismatched containerd address error = %v", err)
+	}
+	s.id = "other-task"
+	if err = s.authenticateExistingShim(address, opts); err == nil || !strings.Contains(err.Error(), "id invocation differs") {
+		t.Fatalf("mismatched task error = %v", err)
+	}
+}
+
+func TestAuthenticateExistingShimRejectsWrongProcessOwnership(t *testing.T) {
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name       string
+		executable string
+		wrongCWD   bool
+		setpgid    bool
+		want       string
+	}{
+		{name: "cwd", executable: self, wrongCWD: true, setpgid: true, want: "cwd differs"},
+		{name: "process group", executable: self, setpgid: false, want: "process-group leader"},
+		{name: "executable", executable: "/bin/sh", setpgid: true, want: "executable identity differs"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			bundle := privateTestDirectory(t)
+			directory, openErr := safefile.OpenOwnedDirectory(bundle)
+			if openErr != nil {
+				t.Fatal(openErr)
+			}
+			defer directory.Close()
+			identity := directory.Identity()
+			input, childInput, pipeErr := os.Pipe()
+			if pipeErr != nil {
+				t.Fatal(pipeErr)
+			}
+			arguments := []string{"-test.run=^TestExistingShimSupervisorProcess$", "--",
+				"-namespace", "authenticated-ns", "-id", "authenticated-task", "-address", "/run/containerd/containerd.sock"}
+			if test.executable == "/bin/sh" {
+				arguments = append([]string{"-c", "cat", "--"}, arguments...)
+			}
+			command := exec.Command(test.executable, arguments...)
+			command.Dir = directory.ProcPath()
+			if test.wrongCWD {
+				command.Dir = privateTestDirectory(t)
+			}
+			command.Env = append(os.Environ(), "MK_TEST_EXISTING_SHIM_SUPERVISOR=1")
+			command.Stdin = input
+			command.SysProcAttr = &syscall.SysProcAttr{Setpgid: test.setpgid}
+			if startErr := command.Start(); startErr != nil {
+				t.Fatal(startErr)
+			}
+			_ = input.Close()
+			defer func() {
+				_ = childInput.Close()
+				_ = command.Process.Kill()
+				_ = command.Wait()
+			}()
+			const address = "unix:///run/containerd/s/authenticated"
+			if created, _, publishErr := directory.PublishExclusiveRegularIdentity("address", []byte(address), 0644); publishErr != nil || !created {
+				t.Fatalf("publish address: created=%v error=%v", created, publishErr)
+			}
+			if created, _, publishErr := directory.PublishExclusiveRegularIdentity("shim.pid", []byte(strconv.Itoa(command.Process.Pid)), 0644); publishErr != nil || !created {
+				t.Fatalf("publish PID: created=%v error=%v", created, publishErr)
+			}
+			s := &service{id: "authenticated-task", namespace: "authenticated-ns", bundleDirectory: directory,
+				bundleIdentity: rootfspkg.DirectoryIdentity{Device: identity.Device, Inode: identity.Inode, UID: identity.UID}}
+			deadline := time.Now().Add(time.Second)
+			for {
+				err = s.authenticateExistingShim(address, shim.StartOpts{Address: "/run/containerd/containerd.sock"})
+				if err != nil && strings.Contains(err.Error(), test.want) {
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatalf("ownership rejection = %v, want %q", err, test.want)
+				}
+				time.Sleep(time.Millisecond)
+			}
+		})
+	}
+}
+
 func TestPublishShimFileIsExclusiveAndOwnsExactCreatedIdentity(t *testing.T) {
 	directory := privateTestDirectory(t)
 	path := filepath.Join(directory, "address")

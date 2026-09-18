@@ -1367,3 +1367,27 @@ The subsequent complete repository race suite, `go vet ./...`, the full
 documentation/schema/evidence/deployment chain, and `git diff --check` passed
 on 2026-09-18. The local initial-supervisor bundle-handoff checkpoint is
 complete; current-source disposable-host proof remains unauthorized.
+
+The collision-reuse audit then found that connectivity alone is not an
+authenticated existing shim. The current path does not match the listener to
+the held bundle's `address`/`shim.pid`, supervisor executable/cwd/process
+group, or namespace/task/containerd-address arguments. A same-owner listener
+can therefore occupy the deterministic name and be returned as this task's
+shim. This is recorded before implementation; reuse must require the complete
+launch metadata plus an anchored `/proc/<pid>` identity match.
+
+Collision reuse now reads exact `address` and numeric `shim.pid` metadata
+through the held bundle, retains an open `/proc/<pid>` directory, and verifies
+the supervisor's cwd inode, executable inode, live process-group leadership,
+and exact namespace/task/containerd-address invocation. Focused tests accept
+the exact supervisor and reject mismatched cwd, executable, group ownership,
+task ID, and containerd address; the earlier live/stale/replaced socket cases
+also pass. Repeated race and full-tree checks remain pending.
+
+The authenticated existing-supervisor and live/stale/replaced socket group
+passed 100 race-detector repetitions. Full-tree verification remains pending.
+
+The subsequent complete repository race suite, `go vet ./...`, the full
+documentation/schema/evidence/deployment chain, and `git diff --check` passed
+on 2026-09-18. The local authenticated collision-reuse checkpoint is complete;
+current-source disposable-host proof remains unauthorized.
