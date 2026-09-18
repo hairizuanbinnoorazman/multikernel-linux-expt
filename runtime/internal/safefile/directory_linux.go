@@ -46,6 +46,17 @@ func identity(info os.FileInfo) (Identity, bool) {
 // OpenDirectory walks path from / without following any symlink. Missing
 // components are created only when create is true.
 func OpenDirectory(path string, create bool) (*Directory, error) {
+	return openDirectory(path, create, true)
+}
+
+// OpenOwnedDirectory opens an existing descriptor-anchored directory without
+// changing its mode. Shared read/traverse bits are allowed, but group/other
+// write access is not.
+func OpenOwnedDirectory(path string) (*Directory, error) {
+	return openDirectory(path, false, false)
+}
+
+func openDirectory(path string, create, requirePrivate bool) (*Directory, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) {
 		return nil, errors.New("directory must be canonical, absolute, and below the filesystem root")
 	}
@@ -81,7 +92,7 @@ func OpenDirectory(path string, create bool) (*Directory, error) {
 		return nil, fmt.Errorf("directory must be caller-owned (mode=%#o owner=%d caller=%d)",
 			info.Mode().Perm(), value.UID, os.Geteuid())
 	}
-	if info.Mode().Perm() != 0700 {
+	if requirePrivate && info.Mode().Perm() != 0700 {
 		if !create {
 			_ = current.Close()
 			return nil, fmt.Errorf("directory mode must remain private (mode=%#o)", info.Mode().Perm())
@@ -100,6 +111,9 @@ func OpenDirectory(path string, create bool) (*Directory, error) {
 			_ = current.Close()
 			return nil, errors.New("directory mode could not be bound after opening")
 		}
+	} else if !requirePrivate && info.Mode().Perm()&0022 != 0 {
+		_ = current.Close()
+		return nil, fmt.Errorf("directory must not be group/other-writable (mode=%#o)", info.Mode().Perm())
 	}
 	stable := Identity{Device: value.Device, Inode: value.Inode, UID: value.UID, Mode: value.Mode}
 	return &Directory{file: current, identity: stable}, nil
@@ -177,6 +191,35 @@ func (d *Directory) ReadPrivateIdentity(name string, limit int64) ([]byte, bool,
 	defer file.Close()
 	data, opened, err := ReadOpened(file, limit)
 	return data, true, opened, err
+}
+
+// CaptureRegularIdentity binds later cleanup to an exact regular file without
+// requiring the file itself to be private. The containing Directory remains
+// the private ownership boundary.
+func (d *Directory) CaptureRegularIdentity(name string, mode os.FileMode, limit int64) (Identity, error) {
+	if filepath.Base(name) != name || name == "." || mode.Perm() != mode || limit <= 0 {
+		return Identity{}, errors.New("invalid regular-file capture request")
+	}
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return Identity{}, err
+	}
+	file := os.NewFile(uintptr(fd), name)
+	info, inspectErr := file.Stat()
+	opened, ok := identity(info)
+	closeErr := file.Close()
+	if inspectErr != nil || !ok || !info.Mode().IsRegular() || info.Mode().Perm() != mode.Perm() ||
+		opened.UID != uint32(os.Geteuid()) || opened.Links != 1 || opened.Size < 0 || opened.Size > limit {
+		return Identity{}, errors.Join(errors.New("file must be caller-owned, single-link, regular, exact-mode, and bounded"), inspectErr, closeErr)
+	}
+	if closeErr != nil {
+		return Identity{}, closeErr
+	}
+	named, err := identityAt(d.file, name)
+	if err != nil || !SameObject(named, opened) {
+		return Identity{}, errors.Join(errors.New("file identity changed while capturing"), err)
+	}
+	return opened, nil
 }
 
 func removalPrefix(name string) string {

@@ -134,6 +134,34 @@ that an interrupted remediation pass does not lose them:
   it was not counted as local proof. After this change, the full repository
   race suite, `go vet ./...`, documentation/schema/evidence/deployment checks,
   and `git diff --check` all passed locally on 2026-09-18.
+- The next raw-path audit found that shim startup's
+  `removeStaleRelaySocket` remained a separate `Lstat`-then-`os.Remove` path,
+  outside the shared socket owner. A same-name replacement after validation
+  could therefore be unlinked even though running-relay cleanup was
+  identity-bound. The same audit found raw pathname cleanup for partially
+  written shim address/PID files and the supervisor worker PID marker; those
+  are recorded as a distinct follow-up boundary rather than being implied
+  closed by the socket fix. Stale startup cleanup now treats an initially
+  missing path as a no-op and otherwise captures and removes only the exact
+  safe socket through the shared owner. Unsafe non-socket rejection and the
+  privilege-independent removal algorithm passed 100 race-detector
+  repetitions. The real safe-stale pathname-socket test is skipped locally and
+  remains a disposable-host case. Containerd's atomic address/PID publications
+  are now captured as exact caller-owned, single-link 0644 regular-file inodes
+  beneath a held no-symlink, non-writable working-directory descriptor.
+  Partial-launch rollback quarantines only those captured identities. Focused
+  tests prove normal address removal after a later PID failure and preservation
+  of both an original and a same-name replacement. The supervisor now opens
+  its working directory without following symlinks or changing its safe mode,
+  removes a bounded private crash residue by exact identity, exclusively
+  publishes each new worker PID, and removes that captured inode after the
+  worker exits. It refuses group/other-writable working directories and
+  publication collisions. The safe-directory/capture group and the combined
+  launch/replacement/supervisor/stale-relay group each passed 100 race-detector
+  repetitions. The subsequent full repository race suite, `go vet ./...`,
+  documentation/schema/evidence/deployment checks, and `git diff --check` all
+  passed locally on 2026-09-18. The real pathname-socket skip remains excluded
+  from this proof as stated above.
 
 Privileged disposable-host execution remains subject to the exact authorization
 phrase above.
