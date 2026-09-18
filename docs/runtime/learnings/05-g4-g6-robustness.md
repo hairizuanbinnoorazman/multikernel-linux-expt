@@ -1252,3 +1252,69 @@ The subsequent full repository race suite, `go vet ./...`, documentation/
 schema/evidence/deployment checks, and `git diff --check` passed locally on
 2026-09-18. The local socket-ownership checkpoint is complete; live proof is
 still pending the explicit source/evidence authorization.
+
+The next startup audit found that `StartShim` still treated every
+`EADDRINUSE` as stale, raw-removed the deterministic socket, and rebound it.
+This can unlink a live shim endpoint, while a name replaced after the failed
+bind can be deleted instead of the inode that caused the collision.
+Containerd's grouping-aware manager preserves a connectable socket but still
+uses a pathname probe/remove sequence. This finding is recorded before code
+changes: the remediation must capture the exact socket owner, dial through
+that captured identity, preserve a live listener, and conditionally remove
+only an unchanged stale inode before retrying the bind once.
+
+The focused implementation passes. Shim startup now binds with the shared
+held-parent exact-identity listener in exclusive mode. An `EADDRINUSE`
+collision captures and dials one inode: a live endpoint is preserved and its
+capture descriptor released, a refused endpoint is conditionally quarantined
+and rebound once, and a replacement aborts without a second bind. Error
+rollback closes the identity-owning listener and performs no raw pathname
+remove. Focused Unix-socket coverage also observed that a second exclusive
+bind leaves the first listener connectable and that releasing a captured live
+owner leaves its path intact. These pathname tests ran without a local skip;
+repeated race and full-tree verification remain pending.
+
+The startup-collision group and the Unix-socket exclusive-bind/release/exact-
+cleanup group each passed 100 race-detector repetitions. The real pathname
+cases were exercised rather than skipped. Full repository verification remains
+pending.
+
+The subsequent complete repository race suite, `go vet ./...`, the full
+documentation/schema/evidence/deployment validator, and `git diff --check`
+passed on 2026-09-18. The docs chain again validated 7 schemas/22 cases and 17
+explicitly classified historical manifests. Its independent Python
+socket-rejection subcase was still skipped by that sandbox; unlike it, the Go
+pathname-socket cases in this checkpoint executed. Current-source live proof
+is still gated on the explicit source-transfer/evidence-retention approval.
+
+Final semantic review refined the probe before checkpointing. Captured-socket
+dial now accepts the caller context, and only an observed `ECONNREFUSED` is
+treated as authority to conditionally remove the captured stale inode. A
+cancelled or otherwise failed probe releases the held owner without removal.
+The added cancelled-probe case and both focused packages pass once; the prior
+repeated-race and full-tree results must be rerun against this refinement.
+
+The refined groups passed 100 race-detector repetitions, including an
+integrated real-path test that preserves and reuses a live listener and then
+conditionally removes and exclusively rebinds a closed stale listener. That
+case ran without a skip, and cancellation remained non-destructive. Final
+full-tree verification is pending.
+
+On the refined tree, the complete repository race suite, `go vet ./...`, the
+documentation/schema/evidence/deployment chain, and `git diff --check` all
+passed on 2026-09-18. The separate Python socket-rejection subcase retains its
+documented sandbox skip, while the integrated Go collision case executed.
+This supersedes the earlier pre-refinement full-tree result and completes the
+local startup-socket checkpoint.
+
+A final cancellation-boundary case cancels after the captured dial reports
+refusal and proves removal is never attempted. The helper also checks context
+before initial bind and before rebind. Both focused groups passed another 100
+race-detector repetitions; the preceding full-tree result must be rerun for
+these last boundary checks.
+
+The final post-boundary complete repository race suite, `go vet ./...`, the
+documentation/schema/evidence/deployment chain, and `git diff --check` all
+passed on 2026-09-18. This is the authoritative local result for the
+startup-socket checkpoint; current-source live execution remains unclaimed
+without the required authorization.

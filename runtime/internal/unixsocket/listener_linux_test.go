@@ -123,6 +123,64 @@ func TestListenerReplacesOnlySafeStaleSocket(t *testing.T) {
 	}
 }
 
+func TestExclusiveListenerPreservesLiveSocket(t *testing.T) {
+	path := filepath.Join(privateTempDir(t), "service.sock")
+	live, err := ListenExclusive(path, 0600)
+	if errors.Is(err, syscall.EPERM) {
+		t.Skip("sandbox forbids Unix pathname listeners")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second, secondErr := ListenExclusive(path, 0600); !errors.Is(secondErr, syscall.EADDRINUSE) {
+		if second != nil {
+			_ = second.Close()
+		}
+		t.Fatalf("second exclusive listener error = %v", secondErr)
+	}
+	connection, err := net.Dial("unix", path)
+	if err != nil {
+		t.Fatalf("live listener was disrupted: %v", err)
+	}
+	if err = connection.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = live.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCapturedPathClosePreservesSocket(t *testing.T) {
+	path := filepath.Join(privateTempDir(t), "service.sock")
+	live, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if errors.Is(err, syscall.EPERM) {
+		t.Skip("sandbox forbids Unix pathname listeners")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	live.SetUnlinkOnClose(false)
+	if err = os.Chmod(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := Capture(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = owner.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = os.Lstat(path); err != nil {
+		t.Fatalf("released live socket was removed: %v", err)
+	}
+	if err = live.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestListenerCleanupPreservesReplacement(t *testing.T) {
 	path := filepath.Join(privateTempDir(t), "service.sock")
 	listener, err := Listen(path, 0660)
