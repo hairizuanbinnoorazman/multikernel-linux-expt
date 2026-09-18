@@ -25,6 +25,7 @@ import (
 
 	"github.com/containerd/console"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"golang.org/x/sys/unix"
 )
 
@@ -224,10 +225,7 @@ type Manager struct {
 	networkMTU    int
 	networkConfig NetworkConfig
 	networkExec   func(context.Context, ...string) ([]byte, error)
-	dnsOriginal   []byte
-	dnsSymlink    string
-	dnsMode       os.FileMode
-	dnsExisted    bool
+	dnsOwner      *dnsReplacement
 	dnsManaged    bool
 	dnsPath       string
 	policySet     bool
@@ -1097,51 +1095,125 @@ func (m *Manager) executeNetworkCommand(ctx context.Context, arguments ...string
 	return m.networkExec(ctx, arguments...)
 }
 
-func replaceDNS(path string, nameservers []string) (original []byte, symlink string, mode os.FileMode, existed bool, retErr error) {
-	if info, err := os.Lstat(path); err == nil {
-		existed, mode = true, info.Mode().Perm()
-		switch {
-		case info.Mode().IsRegular():
-			original, retErr = os.ReadFile(path)
-		case info.Mode()&os.ModeSymlink != 0:
-			symlink, retErr = os.Readlink(path)
-		default:
-			retErr = errors.New("resolv.conf must be a regular file or symlink")
-		}
-		if retErr != nil {
-			return
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		retErr = err
-		return
+type dnsReplacement struct {
+	directory       *safefile.Directory
+	name            string
+	original        []byte
+	originalSymlink string
+	originalMode    os.FileMode
+	originalExisted bool
+	originalRemoved bool
+	managed         safefile.Identity
+	managedOwned    bool
+	restored        bool
+}
+
+func replaceDNS(path string, nameservers []string) (owner *dnsReplacement, retErr error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil || filepath.Clean(absolute) != absolute || filepath.Base(absolute) == "." {
+		return nil, errors.Join(errors.New("resolv.conf path must be canonical"), err)
 	}
-	if retErr = os.Remove(path); retErr != nil && !errors.Is(retErr, os.ErrNotExist) {
-		return
+	directory, err := safefile.OpenOwnedDirectory(filepath.Dir(absolute))
+	if err != nil {
+		return nil, err
+	}
+	state := &dnsReplacement{directory: directory, name: filepath.Base(absolute)}
+	cleanup := true
+	defer func() {
+		if cleanup {
+			if restoreErr := state.restore(); restoreErr != nil {
+				owner = state
+				retErr = errors.Join(retErr, restoreErr)
+			} else {
+				retErr = errors.Join(retErr, directory.Close())
+			}
+		}
+	}()
+	entry, present, err := directory.EntryIdentity(state.name)
+	if err != nil {
+		return nil, err
+	}
+	if present {
+		state.originalExisted = true
+		switch entry.Mode & unix.S_IFMT {
+		case unix.S_IFREG:
+			state.originalMode = os.FileMode(entry.Mode).Perm()
+			if state.originalMode&0022 != 0 {
+				return nil, errors.New("resolv.conf may not be group/other-writable")
+			}
+			var opened safefile.Identity
+			state.original, opened, err = directory.ReadRegularIdentity(state.name, state.originalMode, 1<<20)
+			if err != nil {
+				return nil, err
+			}
+			if removed, removeErr := directory.RemoveIfIdentity(state.name, opened); removeErr != nil || !removed {
+				return nil, errors.Join(errors.New("remove exact original resolv.conf"), removeErr)
+			}
+			state.originalRemoved = true
+		case unix.S_IFLNK:
+			state.originalSymlink, entry, err = directory.CaptureSymlinkIdentity(state.name, 4096)
+			if err != nil {
+				return nil, err
+			}
+			if removed, removeErr := directory.RemoveIfIdentity(state.name, entry); removeErr != nil || !removed {
+				return nil, errors.Join(errors.New("remove exact original resolv.conf symlink"), removeErr)
+			}
+			state.originalRemoved = true
+		default:
+			return nil, errors.New("resolv.conf must be a regular file or symlink")
+		}
 	}
 	var resolv strings.Builder
 	for _, server := range nameservers {
 		fmt.Fprintf(&resolv, "nameserver %s\n", server)
 	}
-	retErr = os.WriteFile(path, []byte(resolv.String()), 0644)
-	if retErr != nil {
-		if restoreErr := restoreDNS(path, original, symlink, mode, existed); restoreErr != nil {
-			retErr = errors.Join(retErr, fmt.Errorf("restore DNS after replacement failure: %w", restoreErr))
-		}
+	created, managed, err := directory.PublishExclusiveRegularIdentity(state.name, []byte(resolv.String()), 0644)
+	if created {
+		state.managed, state.managedOwned = managed, true
 	}
-	return
+	if err != nil || !created {
+		return nil, errors.Join(errors.New("publish managed resolv.conf exclusively"), err)
+	}
+	cleanup = false
+	return state, nil
 }
 
-func restoreDNS(path string, original []byte, symlink string, mode os.FileMode, existed bool) error {
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if !existed {
+func (d *dnsReplacement) restore() error {
+	if d == nil || d.directory == nil {
 		return nil
 	}
-	if symlink != "" {
-		return os.Symlink(symlink, path)
+	if d.restored {
+		return d.directory.Sync()
 	}
-	return os.WriteFile(path, original, mode)
+	if d.managedOwned {
+		if _, err := d.directory.RemoveIfIdentity(d.name, d.managed); err != nil {
+			return err
+		}
+		d.managedOwned = false
+	}
+	if d.originalExisted && !d.originalRemoved {
+		d.restored = true
+		return nil
+	}
+	if !d.originalExisted {
+		d.restored = true
+		return nil
+	}
+	var created bool
+	var err error
+	if d.originalSymlink != "" {
+		created, _, err = d.directory.PublishExclusiveSymlinkIdentity(d.name, d.originalSymlink, 4096)
+	} else {
+		created, _, err = d.directory.PublishExclusiveRegularIdentity(d.name, d.original, d.originalMode)
+	}
+	if created {
+		d.restored = true
+		d.originalRemoved = false
+	}
+	if err != nil || !created {
+		return errors.Join(errors.New("restore original resolv.conf exclusively"), err)
+	}
+	return nil
 }
 
 func (m *Manager) ConfigureNetwork(config NetworkConfig) error {
@@ -1212,10 +1284,10 @@ func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkCon
 			return errors.Join(operationErr, cleanupErr)
 		}
 	}
-	m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, err = replaceDNS(m.dnsPath, config.Nameservers)
+	m.dnsOwner, err = replaceDNS(m.dnsPath, config.Nameservers)
 	if err != nil {
 		f.Close()
-		m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, m.dnsManaged = nil, "", 0, false, false
+		m.dnsManaged = m.dnsOwner != nil
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		cleanupOutput, cleanupErr := m.executeNetworkCommand(cleanupCtx, "link", "delete", config.Name)
 		cancel()
@@ -1292,10 +1364,15 @@ func (m *Manager) CloseNetworkContext(ctx context.Context) error {
 		}
 	}
 	if m.dnsManaged {
-		if err := restoreDNS(m.dnsPath, m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted); err != nil {
+		if m.dnsOwner == nil {
+			failures = append(failures, errors.New("restore DNS: ownership state is missing"))
+		} else if err := m.dnsOwner.restore(); err != nil {
 			failures = append(failures, fmt.Errorf("restore DNS: %w", err))
 		} else {
-			m.dnsOriginal, m.dnsSymlink, m.dnsMode, m.dnsExisted, m.dnsManaged = nil, "", 0, false, false
+			if err := m.dnsOwner.directory.Close(); err != nil {
+				failures = append(failures, fmt.Errorf("close DNS ownership: %w", err))
+			}
+			m.dnsOwner, m.dnsManaged = nil, false
 		}
 	}
 	if len(failures) == 0 {

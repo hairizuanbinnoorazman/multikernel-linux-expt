@@ -1301,18 +1301,25 @@ func TestDNSReplacementRestoresRegularSymlinkAndAbsentState(t *testing.T) {
 		"absent":  func(string) error { return nil },
 	} {
 		t.Run(name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "resolv.conf")
+			directory := t.TempDir()
+			if err := os.Chmod(directory, 0700); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(directory, "resolv.conf")
 			if err := setup(path); err != nil {
 				t.Fatal(err)
 			}
-			original, symlink, mode, existed, err := replaceDNS(path, []string{"192.0.2.53", "2001:db8::53"})
+			owner, err := replaceDNS(path, []string{"192.0.2.53", "2001:db8::53"})
 			if err != nil {
 				t.Fatal(err)
 			}
 			if data, err := os.ReadFile(path); err != nil || string(data) != "nameserver 192.0.2.53\nnameserver 2001:db8::53\n" {
 				t.Fatalf("generated DNS=%q error=%v", data, err)
 			}
-			if err = restoreDNS(path, original, symlink, mode, existed); err != nil {
+			if err = owner.restore(); err != nil {
+				t.Fatal(err)
+			}
+			if err = owner.directory.Close(); err != nil {
 				t.Fatal(err)
 			}
 			switch name {
@@ -1330,6 +1337,49 @@ func TestDNSReplacementRestoresRegularSymlinkAndAbsentState(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDNSRestorePreservesSameModeReplacementAndRemainsRetryable(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "resolv.conf")
+	if err := os.WriteFile(path, []byte("nameserver 192.0.2.53\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := replaceDNS(path, []string{"203.0.113.53"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	managed := path + ".managed"
+	if err = os.Rename(path, managed); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, []byte("replacement"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = owner.restore(); err == nil {
+		t.Fatal("same-mode resolver replacement was removed")
+	}
+	if value, readErr := os.ReadFile(path); readErr != nil || string(value) != "replacement" {
+		t.Fatalf("replacement resolver = %q, %v", value, readErr)
+	}
+	if err = os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(managed, path); err != nil {
+		t.Fatal(err)
+	}
+	if err = owner.restore(); err != nil {
+		t.Fatal(err)
+	}
+	if err = owner.directory.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if value, readErr := os.ReadFile(path); readErr != nil || string(value) != "nameserver 192.0.2.53\n" {
+		t.Fatalf("restored resolver = %q, %v", value, readErr)
 	}
 }
 
@@ -1481,14 +1531,21 @@ func TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup(t *testing.T
 	})
 
 	t.Run("repeated close preserves restored file", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "resolv.conf")
+		directory := t.TempDir()
+		if err := os.Chmod(directory, 0700); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(directory, "resolv.conf")
 		if err := os.WriteFile(path, []byte("nameserver 192.0.2.53\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		owner, err := replaceDNS(path, []string{"203.0.113.53"})
+		if err != nil {
 			t.Fatal(err)
 		}
 		m := NewManager(true)
 		m.dnsPath = path
-		m.dnsOriginal = []byte("nameserver 10.0.0.1\n")
-		m.dnsMode, m.dnsExisted, m.dnsManaged = 0600, true, true
+		m.dnsOwner, m.dnsManaged = owner, true
 		if err := m.CloseNetworkContext(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -1496,7 +1553,7 @@ func TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup(t *testing.T
 			t.Fatal(err)
 		}
 		data, err := os.ReadFile(path)
-		if err != nil || string(data) != "nameserver 10.0.0.1\n" {
+		if err != nil || string(data) != "nameserver 192.0.2.53\n" {
 			t.Fatalf("DNS after repeated close = %q, %v", data, err)
 		}
 		if m.dnsManaged {
@@ -1505,20 +1562,46 @@ func TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup(t *testing.T
 	})
 
 	t.Run("failed restore remains retryable", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "resolv.conf")
-		if err := os.Mkdir(path, 0700); err != nil {
+		directory := t.TempDir()
+		if err := os.Chmod(directory, 0700); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(directory, "resolv.conf")
+		if err := os.WriteFile(path, []byte("nameserver 192.0.2.53\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		owner, err := replaceDNS(path, []string{"203.0.113.53"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Rename(path, path+".managed"); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Mkdir(path, 0700); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(filepath.Join(path, "occupied"), []byte("x"), 0600); err != nil {
 			t.Fatal(err)
 		}
 		m := NewManager(true)
-		m.dnsPath, m.dnsManaged = path, true
+		m.dnsPath, m.dnsOwner, m.dnsManaged = path, owner, true
 		if err := m.CloseNetworkContext(context.Background()); err == nil {
 			t.Fatal("non-empty DNS replacement directory was removed")
 		}
 		if !m.dnsManaged {
 			t.Fatal("failed DNS restoration discarded retry ownership")
+		}
+		if err := os.Remove(filepath.Join(path, "occupied")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Rename(path+".managed", path); err != nil {
+			t.Fatal(err)
+		}
+		if err := m.CloseNetworkContext(context.Background()); err != nil {
+			t.Fatal(err)
 		}
 	})
 }

@@ -162,6 +162,29 @@ that an interrupted remediation pass does not lose them:
   documentation/schema/evidence/deployment checks, and `git diff --check` all
   passed locally on 2026-09-18. The real pathname-socket skip remains excluded
   from this proof as stated above.
+- Guest DNS setup and teardown still inspect, remove, write, and restore
+  `/etc/resolv.conf` by public pathname. This is not protected merely by being
+  inside the guest: a running OCI process can replace that name while the
+  agent retains network ownership, after which `CloseNetwork` can delete the
+  process's replacement. Initial setup has the same inspect/remove window for
+  the supported regular-file and symlink forms. The required closure is a held
+  no-symlink parent descriptor, exact original and managed identities,
+  identity-conditioned removal, and exclusive descriptor-relative restore.
+  The agent now opens the caller-owned, non-writable parent without following
+  symlinks, reads a regular original or symlink target from the same stable
+  identity it records, removes only that identity, and exclusively publishes
+  the exact-mode managed resolver. Teardown removes only the managed inode and
+  exclusively restores the original bytes/mode, symlink target, or absence.
+  A same-mode process replacement is preserved and reported; returning the
+  exact managed inode permits a later retry to restore the original. If setup
+  fails after mutation and immediate restoration is blocked, the
+  held descriptor and pending state remain owned by `Manager` for a later
+  `CloseNetwork` retry rather than being discarded with the setup error.
+  Public regular/symlink helper coverage and regular/symlink/absent plus replacement
+  DNS coverage each passed 100 race-detector repetitions. The subsequent full
+  repository race suite, `go vet ./...`, documentation/schema/evidence/
+  deployment checks, and `git diff --check` passed locally on 2026-09-18.
+  Disposable-host validation remains pending.
 
 Privileged disposable-host execution remains subject to the exact authorization
 phrase above.

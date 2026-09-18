@@ -1051,3 +1051,25 @@ repetitions. The subsequent full repository race suite, `go vet ./...`,
 documentation/schema/evidence/deployment checks, and `git diff --check` all
 passed locally on 2026-09-18; the real pathname-socket skip remains excluded
 from the claim.
+
+The next audit found that guest DNS ownership still used pathname-based
+inspection, deletion, replacement, and restoration. A container process can
+replace `/etc/resolv.conf` after configuration and have its inode deleted by
+`CloseNetwork`; setup has an equivalent race for both supported regular and
+symlink originals. Closing this requires retaining the parent descriptor plus
+the exact original and agent-published identities, then using only
+identity-conditioned removal and exclusive descriptor-relative restoration.
+The finding was recorded before implementation. DNS ownership now holds a
+no-symlink, caller-owned, non-writable parent descriptor; captures regular data
+or a symlink target from a stable exact inode; removes that inode
+conditionally; and exclusively publishes the exact-mode managed file.
+Teardown conditionally removes that managed inode and exclusively restores the
+original form or absence. A same-mode process substitute is preserved and
+reported, and restoration succeeds after the exact managed inode is returned.
+When setup has already mutated DNS but immediate rollback is blocked, the
+manager retains the descriptor and cleanup state for a later `CloseNetwork`
+retry. The public regular/symlink helper group and the DNS regular/symlink/absent plus
+replacement group each passed 100 race-detector repetitions. The subsequent
+full repository race suite, `go vet ./...`, documentation/schema/evidence/
+deployment checks, and `git diff --check` passed locally on 2026-09-18.
+Disposable-host validation remains pending.

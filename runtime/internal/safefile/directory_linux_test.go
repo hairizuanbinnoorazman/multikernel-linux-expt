@@ -148,6 +148,40 @@ func TestCaptureRegularIdentityAllowsPublicModeButRejectsReplacement(t *testing.
 	}
 }
 
+func TestPublicRegularAndSymlinkPublicationRetainExactIdentity(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := OpenDirectory(base, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	created, regular, err := directory.PublishExclusiveRegularIdentity("resolv.conf", []byte("nameserver 192.0.2.53\n"), 0644)
+	if err != nil || !created {
+		t.Fatalf("publish regular = %v, %v", created, err)
+	}
+	data, opened, err := directory.ReadRegularIdentity("resolv.conf", 0644, 4096)
+	if err != nil || string(data) != "nameserver 192.0.2.53\n" || !SameObject(opened, regular) {
+		t.Fatalf("read regular = %q %+v, %v", data, opened, err)
+	}
+	if removed, err := directory.RemoveIfIdentity("resolv.conf", regular); err != nil || !removed {
+		t.Fatalf("remove regular = %v, %v", removed, err)
+	}
+	created, symlink, err := directory.PublishExclusiveSymlinkIdentity("resolv.conf", "../run/resolv.conf", 4096)
+	if err != nil || !created {
+		t.Fatalf("publish symlink = %v, %v", created, err)
+	}
+	target, opened, err := directory.CaptureSymlinkIdentity("resolv.conf", 4096)
+	if err != nil || target != "../run/resolv.conf" || !SameObject(opened, symlink) {
+		t.Fatalf("capture symlink = %q %+v, %v", target, opened, err)
+	}
+	if removed, err := directory.RemoveIfIdentity("resolv.conf", symlink); err != nil || !removed {
+		t.Fatalf("remove symlink = %v, %v", removed, err)
+	}
+}
+
 func TestPrivateReadAndReplaceAreDescriptorAnchored(t *testing.T) {
 	base := t.TempDir()
 	original := filepath.Join(base, "state")
