@@ -409,14 +409,18 @@ func newCommand(ctx context.Context, id string, opts shim.StartOpts) (*exec.Cmd,
 	if err != nil {
 		return nil, err
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
 	cmd := exec.Command(self, "-namespace", ns, "-id", id, "-address", opts.Address)
-	cmd.Dir, cmd.Env = cwd, append(os.Environ(), "GOMAXPROCS=2")
+	cmd.Env = append(os.Environ(), "GOMAXPROCS=2")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	return cmd, nil
+}
+
+func bindCommandToBundle(cmd *exec.Cmd, directory *safefile.Directory) error {
+	if cmd == nil || directory == nil {
+		return errors.New("supervisor command or held bundle directory is unavailable")
+	}
+	cmd.Dir = directory.ProcPath()
+	return nil
 }
 
 type shimSocketFile interface {
@@ -535,6 +539,9 @@ func (s *service) StartShim(ctx context.Context, opts shim.StartOpts) (_ string,
 	}
 	cmd, err := newCommand(ctx, opts.ID, opts)
 	if err != nil {
+		return "", err
+	}
+	if err = bindCommandToBundle(cmd, s.bundleDirectory); err != nil {
 		return "", err
 	}
 	address, err := shim.SocketAddress(ctx, opts.Address, opts.ID)
@@ -4213,18 +4220,13 @@ func superviseShimWorker() int {
 		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: executable: %v\n", err)
 		return 1
 	}
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: working directory: %v\n", err)
-		return 1
-	}
 	directory, err := safefile.OpenCurrentOwnedDirectory()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: open current worker directory: %v\n", err)
 		return 1
 	}
 	defer directory.Close()
-	return superviseShimWorkerWithDirectory(listener, self, os.Args[1:], workingDirectory, os.Environ(), directory)
+	return superviseShimWorkerWithDirectory(listener, self, os.Args[1:], directory.ProcPath(), os.Environ(), directory)
 }
 
 func superviseShimWorkerWith(listener *os.File, self string, arguments []string, workingDirectory string, environment []string) int {

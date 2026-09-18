@@ -421,6 +421,32 @@ that an interrupted remediation pass does not lose them:
   passed on 2026-09-18. The local exclusive launch-metadata checkpoint is
   complete; current-source disposable-host proof remains unauthorized.
 
+- Despite descriptor-bound worker restarts, the initial supervisor command
+  still inherited `cmd.Dir` from the public `Getwd` pathname constructed by
+  `newCommand`. A same-owner bundle replacement between service validation and
+  `exec` could therefore start the supervisor in the substitute before any
+  worker identity handoff. This residual initial-handoff finding is recorded
+  before implementation; the supervisor command must chdir through the
+  service-lifetime held bundle descriptor.
+
+- The initial supervisor command now sets `cmd.Dir` to the held bundle's
+  `/proc/self/fd` path; `newCommand` no longer snapshots the public cwd name.
+  Supervisor startup also opens the inherited current directory before
+  deriving any display path. A focused replacement test moved the original
+  bundle, installed a same-mode substitute, and observed the supervisor marker
+  only in the held original. The existing worker-restart identity and
+  pre-cancelled startup cases pass with it. Repeated race and full-tree checks
+  are pending.
+
+- The initial-supervisor replacement, descriptor-bound worker restart, and
+  pre-cancelled startup group passed 100 race-detector repetitions in 105.230
+  seconds. Full-tree verification remains pending.
+
+- The subsequent complete repository race suite, `go vet ./...`, the full
+  documentation/schema/evidence/deployment checks, and `git diff --check`
+  passed on 2026-09-18. The local initial-supervisor bundle-handoff checkpoint
+  is complete; current-source disposable-host proof remains unauthorized.
+
 - `python3 scripts/check-runtime-schemas.py` passed after the contract change:
   7 schemas and 22 fixture cases. The schema result proves structural contract
   consistency only; it is not runtime or disposable-host evidence.

@@ -5198,6 +5198,39 @@ func TestSupervisorRestartsSignaledWorker(t *testing.T) {
 	}
 }
 
+func TestInitialSupervisorCommandUsesHeldBundleAfterPublicReplacement(t *testing.T) {
+	base := privateTestDirectory(t)
+	bundle := filepath.Join(base, "bundle")
+	if err := os.Mkdir(bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := safefile.OpenOwnedDirectory(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	moved := filepath.Join(base, "bundle-held")
+	if err = os.Rename(bundle, moved); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(bundle, 0700); err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command("/bin/sh", "-c", "printf held > initial-supervisor-marker")
+	if err = bindCommandToBundle(command, directory); err != nil {
+		t.Fatal(err)
+	}
+	if err = command.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if value, err := os.ReadFile(filepath.Join(moved, "initial-supervisor-marker")); err != nil || string(value) != "held" {
+		t.Fatalf("held supervisor marker = %q, %v", value, err)
+	}
+	if _, err = os.Stat(filepath.Join(bundle, "initial-supervisor-marker")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("replacement bundle received supervisor marker: %v", err)
+	}
+}
+
 func TestSupervisorWorkerUsesHeldBundleAfterPublicReplacement(t *testing.T) {
 	base := privateTestDirectory(t)
 	bundle := filepath.Join(base, "bundle")
