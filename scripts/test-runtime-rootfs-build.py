@@ -231,6 +231,45 @@ class RootFSBuildTests(unittest.TestCase):
             self.assertFalse(output.exists())
             self.assertFalse(manifest.exists())
 
+    def test_output_publication_is_no_replace_and_rolls_back_its_peer(self):
+        (self.root / "value").write_text("content")
+        output = self.temp / "exclusive.cpio.gz"
+        manifest = self.temp / "exclusive.json"
+
+        output.write_bytes(b"existing archive")
+        manifest.write_bytes(b"existing manifest")
+        result = subprocess.run([str(SCRIPT), str(self.root), str(output), str(manifest)], text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("refusing to overwrite existing output", result.stderr)
+        self.assertEqual(output.read_bytes(), b"existing archive")
+        self.assertEqual(manifest.read_bytes(), b"existing manifest")
+
+        output.unlink()
+        result = subprocess.run([str(SCRIPT), str(self.root), str(output), str(manifest)], text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("refusing to overwrite existing output", result.stderr)
+        self.assertFalse(output.exists())
+        self.assertEqual(manifest.read_bytes(), b"existing manifest")
+
+        manifest.unlink()
+        output.write_bytes(b"existing archive")
+        result = subprocess.run([str(SCRIPT), str(self.root), str(output), str(manifest)], text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(manifest.exists())
+        self.assertEqual(output.read_bytes(), b"existing archive")
+
+    def test_identity_rollback_preserves_replacement(self):
+        builder = load_builder()
+        output = self.temp / "owned"
+        output.write_bytes(b"owned")
+        expected = builder._file_identity(output)
+        original = self.temp / "owned-original"
+        output.rename(original)
+        output.write_bytes(b"replacement")
+        self.assertFalse(builder._remove_if_identity(output, expected))
+        self.assertEqual(output.read_bytes(), b"replacement")
+        self.assertEqual(original.read_bytes(), b"owned")
+
     @unittest.skipUnless(hasattr(os, "setxattr"), "xattrs unavailable")
     def test_rejects_xattrs(self):
         target = self.root / "file"
