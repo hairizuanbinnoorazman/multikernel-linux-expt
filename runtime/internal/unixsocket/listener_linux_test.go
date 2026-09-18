@@ -198,3 +198,99 @@ func TestCapturedPathRemovesOnlyCapturedSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSocketRemovalQuarantineRestoresRemovalTimeReplacement(t *testing.T) {
+	path := filepath.Join(privateTempDir(t), "raced.sock")
+	original, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if errors.Is(err, syscall.EPERM) {
+		t.Skip("sandbox forbids Unix pathname listeners")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	original.SetUnlinkOnClose(false)
+	if err = os.Chmod(path, 0660); err != nil {
+		t.Fatal(err)
+	}
+	directory, base, err := openParent(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	expected, found, err := inspectAt(directory, base, 0660)
+	if err != nil || !found {
+		t.Fatalf("original socket identity = %+v, %v, %v", expected, found, err)
+	}
+	moved := path + ".original"
+	var replacement *net.UnixListener
+	removed, err := removeIdentityAtWithHook(directory, base, expected, func() {
+		if renameErr := os.Rename(path, moved); renameErr != nil {
+			t.Fatal(renameErr)
+		}
+		var listenErr error
+		replacement, listenErr = net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+		if listenErr != nil {
+			t.Fatal(listenErr)
+		}
+		replacement.SetUnlinkOnClose(false)
+		if chmodErr := os.Chmod(path, 0660); chmodErr != nil {
+			t.Fatal(chmodErr)
+		}
+	})
+	if removed || err == nil {
+		t.Fatalf("removal-time socket replacement = removed:%v err:%v", removed, err)
+	}
+	if _, err = os.Lstat(path); err != nil {
+		t.Fatalf("replacement socket was not restored: %v", err)
+	}
+	if _, err = os.Lstat(moved); err != nil {
+		t.Fatalf("original socket was changed: %v", err)
+	}
+	if err = replacement.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err = original.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Remove(moved); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSocketRemovalQuarantineAlgorithmWithoutListenerPrivilege(t *testing.T) {
+	directoryPath := privateTempDir(t)
+	path := filepath.Join(directoryPath, "synthetic.sock")
+	if err := os.WriteFile(path, []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	directory, base, err := openParent(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	expected, found, err := rawIdentityAt(directory, base)
+	if err != nil || !found {
+		t.Fatalf("synthetic identity = %+v, %v, %v", expected, found, err)
+	}
+	moved := path + ".original"
+	removed, err := removeIdentityAtWithHook(directory, base, expected, func() {
+		if renameErr := os.Rename(path, moved); renameErr != nil {
+			t.Fatal(renameErr)
+		}
+		if writeErr := os.WriteFile(path, []byte("replacement"), 0600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+	})
+	if removed || err == nil {
+		t.Fatalf("synthetic removal-time replacement = removed:%v err:%v", removed, err)
+	}
+	if value, readErr := os.ReadFile(path); readErr != nil || string(value) != "replacement" {
+		t.Fatalf("synthetic replacement = %q, %v", value, readErr)
+	}
+	if value, readErr := os.ReadFile(moved); readErr != nil || string(value) != "original" {
+		t.Fatalf("synthetic original = %q, %v", value, readErr)
+	}
+}

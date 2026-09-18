@@ -256,19 +256,19 @@ func processStartTime(pid int) (uint64, error) {
 	return strconv.ParseUint(fields[19], 10, 64)
 }
 
-func atomicRecordAt(directory *safefile.Directory, name string, value processRecord) error {
+func atomicRecordAt(directory *safefile.Directory, name string, value processRecord) (safefile.Identity, error) {
 	data, err := json.Marshal(value)
 	if err != nil {
-		return err
+		return safefile.Identity{}, err
 	}
-	created, err := directory.PublishExclusive(name, append(data, '\n'), 0600)
+	created, identity, err := directory.PublishExclusiveIdentity(name, append(data, '\n'), 0600)
 	if err != nil {
-		return err
+		return safefile.Identity{}, err
 	}
 	if !created {
-		return errors.New("storage process record already exists")
+		return safefile.Identity{}, errors.New("storage process record already exists")
 	}
-	return nil
+	return identity, nil
 }
 
 func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
@@ -292,23 +292,23 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	defer directory.Close()
 	recordPath, logPath := b.paths(value)
 	recordName, logName := filepath.Base(recordPath), filepath.Base(logPath)
-	if _, found, inspectErr := directory.InspectPrivate(recordName, 4096); inspectErr != nil {
+	if _, found, _, _, inspectErr := directory.ReadPrivateOrQuarantineIdentity(recordName, 4096); inspectErr != nil {
 		b.mu.Unlock()
 		return inspectErr
 	} else if found {
 		b.mu.Unlock()
 		return errors.New("storage process record already exists")
 	}
-	if _, found, inspectErr := directory.InspectPrivate(logName, 1<<20); inspectErr != nil {
+	if _, found, _, staleLog, inspectErr := directory.ReadPrivateOrQuarantineIdentity(logName, 1<<20); inspectErr != nil {
 		b.mu.Unlock()
 		return inspectErr
 	} else if found {
-		if _, err = directory.Remove(logName); err != nil {
+		if _, err = directory.RemoveIfIdentity(logName, staleLog); err != nil {
 			b.mu.Unlock()
 			return err
 		}
 	}
-	log, _, err := directory.OpenAppend(logName, 1<<20, 0600)
+	log, logIdentity, err := directory.OpenAppend(logName, 1<<20, 0600)
 	if err != nil {
 		b.mu.Unlock()
 		return err
@@ -323,13 +323,13 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err = ctx.Err(); err != nil {
 		_ = log.Close()
-		_, _ = directory.Remove(logName)
+		_, _ = directory.RemoveIfIdentity(logName, logIdentity)
 		b.mu.Unlock()
 		return err
 	}
 	if err = command.Start(); err != nil {
 		_ = log.Close()
-		_, _ = directory.Remove(logName)
+		_, _ = directory.RemoveIfIdentity(logName, logIdentity)
 		b.mu.Unlock()
 		return err
 	}
@@ -338,17 +338,18 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
 		_ = command.Wait()
 		_ = log.Close()
-		_, _ = directory.Remove(logName)
+		_, _ = directory.RemoveIfIdentity(logName, logIdentity)
 		b.mu.Unlock()
 		return err
 	}
 	record := processRecord{Version: 1, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration}
-	if err = atomicRecordAt(directory, recordName, record); err != nil {
+	recordIdentity, err := atomicRecordAt(directory, recordName, record)
+	if err != nil {
 		_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
 		_ = command.Wait()
 		_ = log.Close()
-		_, _ = directory.Remove(logName)
+		_, _ = directory.RemoveIfIdentity(logName, logIdentity)
 		b.mu.Unlock()
 		return err
 	}
@@ -367,8 +368,8 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	for {
 		select {
 		case err = <-done:
-			_, recordErr := directory.Remove(recordName)
-			_, logErr := directory.Remove(logName)
+			_, recordErr := directory.RemoveIfIdentity(recordName, recordIdentity)
+			_, logErr := directory.RemoveIfIdentity(logName, logIdentity)
 			b.mu.Lock()
 			delete(b.managed, recordPath)
 			b.mu.Unlock()
@@ -402,19 +403,27 @@ func readRecord(path string, expected Export) (processRecord, error) {
 }
 
 func readRecordAt(directory *safefile.Directory, name string, expected Export) (processRecord, error) {
+	value, _, err := readRecordIdentityAt(directory, name, expected)
+	return value, err
+}
+
+func readRecordIdentityAt(directory *safefile.Directory, name string, expected Export) (processRecord, safefile.Identity, error) {
 	var value processRecord
-	data, err := readPrivateRuntimeFileAt(directory, name, 4096, true)
-	if err != nil {
-		return value, err
+	data, found, _, identity, err := directory.ReadPrivateOrQuarantineIdentity(name, 4096)
+	if err != nil || !found {
+		if err == nil {
+			err = os.ErrNotExist
+		}
+		return value, safefile.Identity{}, err
 	}
 	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 1 {
-		return value, errors.New("storage process record is malformed")
+		return value, safefile.Identity{}, errors.New("storage process record is malformed")
 	}
 	if value.PID <= 1 || value.StartTime == 0 || value.Path != expected.Path || value.Port != expected.Port ||
 		value.ImageID != expected.ImageID || value.ExportGeneration != expected.ExportGeneration {
-		return value, errors.New("storage process record differs from its exact export lease")
+		return value, safefile.Identity{}, errors.New("storage process record differs from its exact export lease")
 	}
-	return value, nil
+	return value, identity, nil
 }
 
 func processMatches(record processRecord, binary string) bool {
@@ -450,7 +459,7 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 	}
 	defer directory.Close()
 	recordName, logName := filepath.Base(recordPath), filepath.Base(logPath)
-	record, err := readRecordAt(directory, recordName, value)
+	record, recordIdentity, err := readRecordIdentityAt(directory, recordName, value)
 	if errors.Is(err, os.ErrNotExist) {
 		// A daemon may restart after the server completed its graceful close but
 		// before the QUIESCING lease was finalized. The generation-specific log
@@ -465,7 +474,7 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 		return Observation{}, err
 	}
 	if !processMatches(record, b.Binary) {
-		if _, err = directory.Remove(recordName); err != nil {
+		if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
 			return Observation{}, err
 		}
 		return Observation{}, nil
@@ -543,7 +552,7 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 		return Counters{}, err
 	}
 	recordName, logName := filepath.Base(recordPath), filepath.Base(logPath)
-	record, err := readRecordAt(directory, recordName, value)
+	record, recordIdentity, err := readRecordIdentityAt(directory, recordName, value)
 	if err != nil {
 		return Counters{}, err
 	}
@@ -591,7 +600,7 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 	if err != nil {
 		return Counters{}, errors.New("storage server stopped without a complete counter record")
 	}
-	if _, err = directory.Remove(recordName); err != nil {
+	if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
 		return Counters{}, err
 	}
 	b.mu.Lock()

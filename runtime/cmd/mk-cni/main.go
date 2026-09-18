@@ -123,19 +123,24 @@ func readCache(configuration config, env environment) (cacheRecord, error) {
 }
 
 func readCacheFrom(directory *safefile.Directory, configuration config, env environment) (cacheRecord, error) {
+	record, _, _, err := readCacheIdentityFrom(directory, configuration, env)
+	return record, err
+}
+
+func readCacheIdentityFrom(directory *safefile.Directory, configuration config, env environment) (cacheRecord, safefile.Identity, bool, error) {
 	var record cacheRecord
-	data, found, err := directory.ReadPrivate(cacheName(configuration, env), 4096)
+	data, found, quarantined, identity, err := directory.ReadPrivateOrQuarantineIdentity(cacheName(configuration, env), 4096)
 	if err != nil {
-		return record, err
+		return record, safefile.Identity{}, false, err
 	}
 	if !found {
-		return record, fmt.Errorf("CNI endpoint cache %s: %w", cachePath(configuration, env), os.ErrNotExist)
+		return record, safefile.Identity{}, false, fmt.Errorf("CNI endpoint cache %s: %w", cachePath(configuration, env), os.ErrNotExist)
 	}
 	if err = protocol.StrictDecode(data, &record); err != nil || record.Version != 1 || !endpointGeneration.MatchString(record.Generation) ||
 		!filepath.IsAbs(record.NetNS) || filepath.Clean(record.NetNS) != record.NetNS {
-		return record, errors.New("CNI endpoint cache is malformed")
+		return record, safefile.Identity{}, false, errors.New("CNI endpoint cache is malformed")
 	}
-	return record, nil
+	return record, identity, quarantined, nil
 }
 
 var endpointGeneration = regexp.MustCompile(`^[0-9a-f]{32}$`)
@@ -178,21 +183,21 @@ func readCNIInput(input io.Reader) ([]byte, error) {
 	return data, nil
 }
 
-func deleteCacheFrom(directory *safefile.Directory, configuration config, env environment, expected *cacheRecord) error {
+func deleteCacheFrom(directory *safefile.Directory, configuration config, env environment, expected *cacheRecord, expectedIdentity safefile.Identity) error {
 	if directory == nil {
 		return nil
 	}
-	current, readErr := readCacheFrom(directory, configuration, env)
+	current, currentIdentity, _, readErr := readCacheIdentityFrom(directory, configuration, env)
 	if errors.Is(readErr, os.ErrNotExist) {
 		return nil
 	}
 	if readErr != nil {
 		return readErr
 	}
-	if expected == nil || current != *expected {
+	if expected == nil || current != *expected || !safefile.SameObject(currentIdentity, expectedIdentity) {
 		return errors.New("CNI endpoint cache changed before deletion")
 	}
-	_, err := directory.Remove(cacheName(configuration, env))
+	_, err := directory.RemoveIfIdentity(cacheName(configuration, env), expectedIdentity)
 	return err
 }
 
@@ -262,6 +267,8 @@ func run(ctx context.Context, input []byte, env environment, client caller) (any
 	}
 	endpoint := &network.Endpoint{ContainerID: env.ContainerID, NetworkName: configuration.Name, IfName: env.IfName, NetNS: env.NetNS}
 	var cached *cacheRecord
+	var cachedIdentity safefile.Identity
+	var cachedQuarantined bool
 	var cacheDirectory *safefile.Directory
 	if env.Command == "CHECK" || env.Command == "DEL" {
 		cacheDirectory, err = openCacheDirectory(configuration.CacheDir, false)
@@ -269,9 +276,12 @@ func run(ctx context.Context, input []byte, env environment, client caller) (any
 		cacheErr := err
 		if cacheErr == nil {
 			defer cacheDirectory.Close()
-			record, cacheErr = readCacheFrom(cacheDirectory, configuration, env)
+			record, cachedIdentity, cachedQuarantined, cacheErr = readCacheIdentityFrom(cacheDirectory, configuration, env)
 		}
 		if cacheErr == nil {
+			if env.Command == "CHECK" && cachedQuarantined {
+				return nil, errors.New("CNI endpoint cache deletion is incomplete")
+			}
 			cached = &record
 			endpoint.Generation = record.Generation
 			if endpoint.NetNS == "" {
@@ -286,7 +296,7 @@ func run(ctx context.Context, input []byte, env environment, client caller) (any
 		return nil, err
 	}
 	if env.Command == "DEL" {
-		if err = deleteCacheFrom(cacheDirectory, configuration, env, cached); err != nil {
+		if err = deleteCacheFrom(cacheDirectory, configuration, env, cached, cachedIdentity); err != nil {
 			return nil, err
 		}
 		return nil, nil

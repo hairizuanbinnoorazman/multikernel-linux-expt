@@ -95,6 +95,27 @@ that an interrupted remediation pass does not lose them:
   crash between rename and removal is recognized by its recorded identity and
   resumed. Focused replacement and recovery cases passed 100 race-detector
   repetitions locally on 2026-09-18.
+- The shared private-file helper now returns the exact inode read or published
+  and supports identity-conditioned, no-replace quarantine removal. Storage
+  process logs and records retain those identities across cleanup, so they no
+  longer use unconditional `unlinkat` after validation. CNI carries its exact
+  cache inode across the mknetd `DEL`, rejects even a same-content inode
+  replacement, and preserves both original and substitute. Focused safe-file,
+  storage, and CNI groups passed 100 race-detector repetitions. The CNI group
+  also proves two repeated `CHECK`s, idempotent repeated `DEL`, and same-name
+  reuse with a new generation. Quarantine names bind a hash of the logical
+  filename plus device/inode; a bounded recovery read rediscovers exactly one
+  matching residue. A simulated restart containing only the quarantined CNI
+  cache reissues the exact generation-bound `DEL` and clears the residue in the
+  same 100-repetition group. Storage process-record reads likewise rediscover
+  an identity-bound quarantine after simulated restart in 100 repetitions.
+- The shared Unix-socket owner used by mknetd, mkruntimed, the guest agent, and
+  shim relay paths now applies the same exact-inode quarantine rule to stale
+  replacement and shutdown cleanup. Its privilege-independent removal-time
+  replacement algorithm passed 100 race-detector repetitions. The equivalent
+  real pathname-socket case remains skipped because this local sandbox denies
+  pathname listener creation; it remains mandatory without a skip on the
+  disposable host.
 
 Privileged disposable-host execution remains subject to the exact authorization
 phrase above.
@@ -819,8 +840,9 @@ phrase above.
   unmounting the substituted target; uncertain syscall failure still performs
   defensive unmount. Builder-time artifact-path replacement is
   descriptor-anchored as described above, as is prepared-artifact verification.
-  Removal-time name races and the broader disposable-host path-race matrix
-  remain open.
+  Removal-time public-name cleanup is now quarantined and identity-conditional
+  as recorded in the 2026-09-18 checkpoint; the broader disposable-host
+  path-race matrix remains open.
   The shim's separate network-namespace projection now reads `config.json`
   through a one-MiB, caller-owned, single-link, stable-identity `openat2`
   boundary as well; hardlink, symlinked-ancestor, and oversized-valid-prefix

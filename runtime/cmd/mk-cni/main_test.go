@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -138,6 +140,41 @@ func TestDeleteRefusesChangedGenerationCache(t *testing.T) {
 	}
 }
 
+func TestDeleteRefusesSameContentCacheInodeReplacement(t *testing.T) {
+	input := validConfig(t)
+	configuration, err := validateConfig(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := environment{Command: "DEL", ContainerID: "box", IfName: "eth0"}
+	record := cacheRecord{Version: 1, Generation: "0123456789abcdef0123456789abcdef", NetNS: "/run/netns/box"}
+	if err = writeCache(configuration, env, record); err != nil {
+		t.Fatal(err)
+	}
+	path := cachePath(configuration, env)
+	fake := &fakeCaller{hook: func(network.Request) {
+		if renameErr := os.Rename(path, path+".original"); renameErr != nil {
+			t.Fatal(renameErr)
+		}
+		data, marshalErr := json.Marshal(record)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		if writeErr := os.WriteFile(path, append(data, '\n'), 0600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+	}}
+	if _, err = run(context.Background(), input, env, fake); err == nil || !strings.Contains(err.Error(), "changed before deletion") {
+		t.Fatalf("same-content replacement deletion error = %v", err)
+	}
+	if value, readErr := os.ReadFile(path); readErr != nil || len(value) == 0 {
+		t.Fatalf("replacement cache was modified: %q, %v", value, readErr)
+	}
+	if value, readErr := os.ReadFile(path + ".original"); readErr != nil || len(value) == 0 {
+		t.Fatalf("original cache was modified: %q, %v", value, readErr)
+	}
+}
+
 func TestDeleteRemainsAnchoredAcrossCacheDirectoryRename(t *testing.T) {
 	input := validConfig(t)
 	configuration, err := validateConfig(input)
@@ -194,6 +231,94 @@ func TestCheckAndDeleteProduceNoResultAndDeleteAllowsEmptyNetNS(t *testing.T) {
 	}
 	if len(fake.requests) != 2 || fake.requests[0].Endpoint.Generation == "" || fake.requests[1].Endpoint.NetNS != "/run/netns/box" {
 		t.Fatalf("cached requests = %+v", fake.requests)
+	}
+}
+
+func TestRepeatedCheckDeleteAndNameReuse(t *testing.T) {
+	input := validConfig(t)
+	env := environment{Command: "ADD", ContainerID: "box", IfName: "eth0", NetNS: "/run/netns/box"}
+	endpoint := func(generation string) *network.Endpoint {
+		return &network.Endpoint{ContainerID: "box", NetworkName: "multikernel", IfName: "eth0", NetNS: env.NetNS,
+			Owner: "cni", Generation: generation, Address: "172.31.0.2/30", Gateway: "172.31.0.1", MTU: 1400,
+			State: "READY", DNS: network.DNS{Nameservers: []string{"1.1.1.1"}}}
+	}
+	first := endpoint("0123456789abcdef0123456789abcdef")
+	if _, err := run(context.Background(), input, env, &fakeCaller{response: network.Response{Endpoint: first}}); err != nil {
+		t.Fatal(err)
+	}
+	check := environment{Command: "CHECK", ContainerID: env.ContainerID, IfName: env.IfName, NetNS: env.NetNS}
+	for attempt := 0; attempt < 2; attempt++ {
+		if _, err := run(context.Background(), input, check, &fakeCaller{response: network.Response{Endpoint: first}}); err != nil {
+			t.Fatalf("CHECK attempt %d: %v", attempt, err)
+		}
+	}
+	deleteEnv := environment{Command: "DEL", ContainerID: env.ContainerID, IfName: env.IfName}
+	firstDelete := &fakeCaller{}
+	if _, err := run(context.Background(), input, deleteEnv, firstDelete); err != nil {
+		t.Fatal(err)
+	}
+	if len(firstDelete.requests) != 1 || firstDelete.requests[0].Endpoint.Generation != first.Generation || firstDelete.requests[0].Endpoint.NetNS != env.NetNS {
+		t.Fatalf("first DEL request = %+v", firstDelete.requests)
+	}
+	secondDelete := &fakeCaller{}
+	if _, err := run(context.Background(), input, deleteEnv, secondDelete); err != nil {
+		t.Fatal(err)
+	}
+	if len(secondDelete.requests) != 1 || secondDelete.requests[0].Endpoint.Generation != "" {
+		t.Fatalf("idempotent DEL request = %+v", secondDelete.requests)
+	}
+	second := endpoint("abcdef0123456789abcdef0123456789")
+	if _, err := run(context.Background(), input, env, &fakeCaller{response: network.Response{Endpoint: second}}); err != nil {
+		t.Fatal(err)
+	}
+	configuration, err := validateConfig(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := readCache(configuration, env)
+	if err != nil || record.Generation != second.Generation {
+		t.Fatalf("reused endpoint cache = %+v, %v", record, err)
+	}
+}
+
+func TestDeleteRecoversIdentityBoundCacheQuarantine(t *testing.T) {
+	input := validConfig(t)
+	configuration, err := validateConfig(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := environment{Command: "DEL", ContainerID: "box", IfName: "eth0"}
+	record := cacheRecord{Version: 1, Generation: "0123456789abcdef0123456789abcdef", NetNS: "/run/netns/box"}
+	if err = writeCache(configuration, env, record); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := openCacheDirectory(configuration.CacheDir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := cacheName(configuration, env)
+	_, found, identity, err := directory.ReadPrivateIdentity(name, 4096)
+	if err != nil || !found {
+		t.Fatalf("cache identity = %+v, %v, %v", identity, found, err)
+	}
+	if err = directory.Close(); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256([]byte(name))
+	quarantineName := fmt.Sprintf(".mklinux-remove-%s-%016x-%016x", hex.EncodeToString(digest[:8]), identity.Device, identity.Inode)
+	quarantinePath := filepath.Join(configuration.CacheDir, quarantineName)
+	if err = os.Rename(cachePath(configuration, env), quarantinePath); err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeCaller{}
+	if _, err = run(context.Background(), input, env, fake); err != nil {
+		t.Fatal(err)
+	}
+	if len(fake.requests) != 1 || fake.requests[0].Endpoint.Generation != record.Generation || fake.requests[0].Endpoint.NetNS != record.NetNS {
+		t.Fatalf("recovered DEL request = %+v", fake.requests)
+	}
+	if _, err = os.Stat(quarantinePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("cache quarantine remains: %v", err)
 	}
 }
 

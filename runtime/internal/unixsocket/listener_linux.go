@@ -76,6 +76,83 @@ func inspectSafeAt(dir *os.File, base string) (identity, bool, error) {
 	return socketIdentity(stat), true, nil
 }
 
+func rawIdentityAt(dir *os.File, base string) (identity, bool, error) {
+	var stat unix.Stat_t
+	err := unix.Fstatat(int(dir.Fd()), base, &stat, unix.AT_SYMLINK_NOFOLLOW)
+	if errors.Is(err, syscall.ENOENT) {
+		return identity{}, false, nil
+	}
+	if err != nil {
+		return identity{}, false, err
+	}
+	return socketIdentity(stat), true, nil
+}
+
+func removeIdentityAtWithHook(dir *os.File, base string, expected identity, beforeRename func()) (bool, error) {
+	quarantine := fmt.Sprintf(".mklinux-socket-%016x-%016x", expected.device, expected.inode)
+	quarantined, found, err := rawIdentityAt(dir, quarantine)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		if quarantined != expected {
+			return false, errors.New("Unix socket removal quarantine has a conflicting identity")
+		}
+	} else {
+		current, present, inspectErr := rawIdentityAt(dir, base)
+		if inspectErr != nil {
+			return false, inspectErr
+		}
+		if !present {
+			return false, nil
+		}
+		if current != expected {
+			return false, errors.New("refusing to remove replaced Unix socket path")
+		}
+		if beforeRename != nil {
+			beforeRename()
+		}
+		if err = unix.Renameat2(int(dir.Fd()), base, int(dir.Fd()), quarantine, unix.RENAME_NOREPLACE); err != nil {
+			return false, err
+		}
+		quarantined, found, err = rawIdentityAt(dir, quarantine)
+		if err != nil || !found || quarantined != expected {
+			restoreErr := unix.Renameat2(int(dir.Fd()), quarantine, int(dir.Fd()), base, unix.RENAME_NOREPLACE)
+			return false, errors.Join(errors.New("Unix socket changed before removal quarantine"), err, restoreErr)
+		}
+	}
+	descriptor, err := unix.Openat(int(dir.Fd()), quarantine, unix.O_PATH|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return false, err
+	}
+	var opened unix.Stat_t
+	statErr := unix.Fstat(descriptor, &opened)
+	closeErr := unix.Close(descriptor)
+	if statErr != nil || socketIdentity(opened) != expected {
+		return false, errors.Join(errors.New("opened Unix socket quarantine has a conflicting identity"), statErr, closeErr)
+	}
+	if closeErr != nil {
+		return false, closeErr
+	}
+	quarantined, found, err = rawIdentityAt(dir, quarantine)
+	if err != nil || !found || quarantined != expected {
+		return false, errors.Join(errors.New("Unix socket quarantine changed before unlink"), err)
+	}
+	if err = unix.Unlinkat(int(dir.Fd()), quarantine, 0); err != nil {
+		return false, err
+	}
+	if _, present, inspectErr := rawIdentityAt(dir, base); inspectErr != nil {
+		return false, inspectErr
+	} else if present {
+		return false, errors.New("Unix socket pathname was replaced during removal")
+	}
+	return true, dir.Sync()
+}
+
+func removeIdentityAt(dir *os.File, base string, expected identity) (bool, error) {
+	return removeIdentityAtWithHook(dir, base, expected, nil)
+}
+
 func openParent(path string) (*os.File, string, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path || filepath.Base(path) == "." {
 		return nil, "", errors.New("Unix socket path must be canonical and absolute")
@@ -117,13 +194,10 @@ func Listen(path string, mode os.FileMode) (*Listener, error) {
 			_ = dir.Close()
 		}
 	}()
-	if _, found, inspectErr := inspectAt(dir, base, mode); inspectErr != nil {
+	if stale, found, inspectErr := inspectAt(dir, base, mode); inspectErr != nil {
 		return nil, inspectErr
 	} else if found {
-		if err = unix.Unlinkat(int(dir.Fd()), base, 0); err != nil {
-			return nil, err
-		}
-		if err = dir.Sync(); err != nil {
+		if _, err = removeIdentityAt(dir, base, stale); err != nil {
 			return nil, err
 		}
 	}
@@ -176,22 +250,10 @@ func (p *Path) Remove() error {
 	if p.closed {
 		return nil
 	}
-	current, found, err := inspectSafeAt(p.dir, p.base)
-	if err != nil {
+	if _, err := removeIdentityAt(p.dir, p.base, p.identity); err != nil {
 		return err
 	}
-	if found && current != p.identity {
-		return errors.New("refusing to remove replaced Unix socket path")
-	}
-	if found {
-		if err = unix.Unlinkat(int(p.dir.Fd()), p.base, 0); err != nil {
-			return err
-		}
-		if err = p.dir.Sync(); err != nil {
-			return err
-		}
-	}
-	err = p.dir.Close()
+	err := p.dir.Close()
 	if err == nil {
 		p.closed = true
 	}
@@ -205,17 +267,7 @@ func (l *Listener) Owner() uint32             { return l.identity.uid }
 func (l *Listener) Close() error {
 	l.once.Do(func() {
 		closeErr := l.listener.Close()
-		current, found, inspectErr := inspectAt(l.dir, l.base, os.FileMode(l.identity.mode))
-		var removeErr error
-		if inspectErr != nil {
-			removeErr = inspectErr
-		} else if found && current != l.identity {
-			removeErr = errors.New("refusing to remove replaced Unix socket path")
-		} else if found {
-			if removeErr = unix.Unlinkat(int(l.dir.Fd()), l.base, 0); removeErr == nil {
-				removeErr = l.dir.Sync()
-			}
-		}
+		_, removeErr := removeIdentityAt(l.dir, l.base, l.identity)
 		l.err = errors.Join(closeErr, removeErr, l.dir.Close())
 	})
 	return l.err
