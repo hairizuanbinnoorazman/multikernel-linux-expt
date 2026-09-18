@@ -2,6 +2,7 @@ package rootfs
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -396,5 +397,89 @@ func TestDescriptorAnchoredCleanupRejectsReplacedArtifact(t *testing.T) {
 	}
 	if data, err := os.ReadFile(marker); err != nil || string(data) != "replacement" {
 		t.Fatalf("replacement artifact was modified: %q, %v", data, err)
+	}
+}
+
+func TestCleanupQuarantineRejectsRemovalTimeReplacement(t *testing.T) {
+	parent := t.TempDir()
+	artifact := filepath.Join(parent, ".multikernel")
+	if err := os.Mkdir(artifact, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artifact, "original"), []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	root, rootID, err := inspectStableRoot(parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := root.Lstat(".multikernel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifactID, ok := openedDirectoryIdentity(info)
+	if !ok {
+		t.Fatal("artifact identity unavailable")
+	}
+	if err = root.Close(); err != nil {
+		t.Fatal(err)
+	}
+	replaced := false
+	err = removeRelativeTreeWithHook(parent, ".multikernel", []DirectoryIdentity{rootID, artifactID}, func() {
+		replaced = true
+		if renameErr := os.Rename(artifact, artifact+".original"); renameErr != nil {
+			t.Fatal(renameErr)
+		}
+		if mkdirErr := os.Mkdir(artifact, 0700); mkdirErr != nil {
+			t.Fatal(mkdirErr)
+		}
+		if writeErr := os.WriteFile(filepath.Join(artifact, "preserve"), []byte("replacement"), 0600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+	})
+	if !replaced || err == nil || !strings.Contains(err.Error(), "changed before quarantine") {
+		t.Fatalf("removal-time replacement result = replaced:%v err:%v", replaced, err)
+	}
+	if value, readErr := os.ReadFile(filepath.Join(artifact, "preserve")); readErr != nil || string(value) != "replacement" {
+		t.Fatalf("replacement artifact was not restored intact: %q, %v", value, readErr)
+	}
+	if value, readErr := os.ReadFile(filepath.Join(artifact+".original", "original")); readErr != nil || string(value) != "original" {
+		t.Fatalf("original artifact changed: %q, %v", value, readErr)
+	}
+}
+
+func TestCleanupQuarantineIsCrashRecoverable(t *testing.T) {
+	parent := t.TempDir()
+	artifact := filepath.Join(parent, ".multikernel")
+	if err := os.MkdirAll(filepath.Join(artifact, "nested"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artifact, "nested", "value"), []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	root, rootID, err := inspectStableRoot(parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := root.Lstat(".multikernel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifactID, ok := openedDirectoryIdentity(info)
+	if !ok {
+		t.Fatal("artifact identity unavailable")
+	}
+	if err = root.Close(); err != nil {
+		t.Fatal(err)
+	}
+	quarantine := filepath.Join(parent, fmt.Sprintf(".mklinux-cleanup-%016x-%016x", artifactID.Device, artifactID.Inode))
+	if err = os.Rename(artifact, quarantine); err != nil {
+		t.Fatal(err)
+	}
+	if err = removeRelativeTree(parent, ".multikernel", rootID, artifactID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = os.Stat(quarantine); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("recovered quarantine remains: %v", err)
 	}
 }

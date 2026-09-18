@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+	"golang.org/x/sys/unix"
 )
 
 var identityRE = regexp.MustCompile(`^task-[a-f0-9]{32}$`)
@@ -118,26 +119,130 @@ func verifyRootIdentity(path string, expected DirectoryIdentity) error {
 	return err
 }
 
-func removeRelativeTree(rootPath, name string, expected ...DirectoryIdentity) error {
-	root, observed, err := inspectStableRoot(rootPath)
+func directoryIdentityAt(parent *os.File, name string) (DirectoryIdentity, error) {
+	var stat unix.Stat_t
+	if err := unix.Fstatat(int(parent.Fd()), name, &stat, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		return DirectoryIdentity{}, err
+	}
+	if stat.Mode&unix.S_IFMT != unix.S_IFDIR {
+		return DirectoryIdentity{}, errors.New("cleanup artifact is not a directory")
+	}
+	return DirectoryIdentity{Device: uint64(stat.Dev), Inode: stat.Ino, UID: stat.Uid}, nil
+}
+
+func openCleanupRoot(path string, expected DirectoryIdentity) (*os.File, error) {
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags:   uint64(unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC),
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	root := os.NewFile(uintptr(descriptor), path)
+	var stat unix.Stat_t
+	if err = unix.Fstat(descriptor, &stat); err != nil ||
+		(DirectoryIdentity{Device: uint64(stat.Dev), Inode: stat.Ino, UID: stat.Uid}) != expected {
+		_ = root.Close()
+		return nil, errors.New("cleanup root no longer has its recorded identity")
+	}
+	return root, nil
+}
+
+func removeQuarantinedTree(parent *os.File, quarantine string, expected DirectoryIdentity) error {
+	descriptor, err := unix.Openat2(int(parent.Fd()), quarantine, &unix.OpenHow{
+		Flags:   uint64(unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC),
+		Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
 	if err != nil {
 		return err
 	}
-	if len(expected) > 0 && observed != expected[0] {
-		return errors.Join(errors.New("cleanup root no longer has its recorded identity"), root.Close())
+	directory := os.NewFile(uintptr(descriptor), quarantine)
+	var opened unix.Stat_t
+	if err = unix.Fstat(descriptor, &opened); err != nil ||
+		(DirectoryIdentity{Device: uint64(opened.Dev), Inode: opened.Ino, UID: opened.Uid}) != expected {
+		return errors.Join(errors.New("opened quarantine does not have its recorded identity"), err, directory.Close())
 	}
-	if len(expected) > 1 {
-		info, inspectErr := root.Lstat(name)
-		if errors.Is(inspectErr, os.ErrNotExist) {
-			return root.Close()
-		}
-		child, ok := openedDirectoryIdentity(info)
-		if inspectErr != nil || !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || child != expected[1] {
-			return errors.Join(errors.New("cleanup artifact no longer has its recorded identity"), inspectErr, root.Close())
-		}
+	identity, identityErr := directoryIdentityAt(parent, quarantine)
+	if identityErr != nil || identity != expected {
+		return errors.Join(errors.New("quarantined artifact does not have its recorded identity"), identityErr, directory.Close())
 	}
-	err = root.RemoveAll(name)
-	return errors.Join(err, root.Close())
+	root, err := os.OpenRoot(fmt.Sprintf("/proc/self/fd/%d", directory.Fd()))
+	if err != nil {
+		return errors.Join(err, directory.Close())
+	}
+	listing, err := root.Open(".")
+	if err != nil {
+		return errors.Join(err, root.Close(), directory.Close())
+	}
+	names, readErr := listing.Readdirnames(-1)
+	closeListingErr := listing.Close()
+	var removeErr error
+	for _, entry := range names {
+		removeErr = errors.Join(removeErr, root.RemoveAll(entry))
+	}
+	closeRootErr := root.Close()
+	closeDirectoryErr := directory.Close()
+	if err = errors.Join(readErr, closeListingErr, removeErr, closeRootErr, closeDirectoryErr); err != nil {
+		return err
+	}
+	identity, err = directoryIdentityAt(parent, quarantine)
+	if err != nil || identity != expected {
+		return errors.Join(errors.New("quarantined artifact identity changed before removal"), err)
+	}
+	if err = unix.Unlinkat(int(parent.Fd()), quarantine, unix.AT_REMOVEDIR); err != nil {
+		return err
+	}
+	return nil
+}
+
+func removeRelativeTreeWithHook(rootPath, name string, expected []DirectoryIdentity, beforeRename func()) error {
+	if len(expected) != 2 {
+		return errors.New("cleanup requires recorded root and artifact identities")
+	}
+	root, err := openCleanupRoot(rootPath, expected[0])
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	quarantine := fmt.Sprintf(".mklinux-cleanup-%016x-%016x", expected[1].Device, expected[1].Inode)
+	quarantineIdentity, quarantineErr := directoryIdentityAt(root, quarantine)
+	if quarantineErr == nil {
+		if quarantineIdentity != expected[1] {
+			return errors.New("cleanup quarantine has a conflicting identity")
+		}
+	} else if errors.Is(quarantineErr, syscall.ENOENT) {
+		identity, inspectErr := directoryIdentityAt(root, name)
+		if errors.Is(inspectErr, syscall.ENOENT) {
+			return nil
+		}
+		if inspectErr != nil || identity != expected[1] {
+			return errors.Join(errors.New("cleanup artifact no longer has its recorded identity"), inspectErr)
+		}
+		if beforeRename != nil {
+			beforeRename()
+		}
+		if err = unix.Renameat2(int(root.Fd()), name, int(root.Fd()), quarantine, unix.RENAME_NOREPLACE); err != nil {
+			return err
+		}
+		quarantineIdentity, quarantineErr = directoryIdentityAt(root, quarantine)
+		if quarantineErr != nil || quarantineIdentity != expected[1] {
+			restoreErr := unix.Renameat2(int(root.Fd()), quarantine, int(root.Fd()), name, unix.RENAME_NOREPLACE)
+			return errors.Join(errors.New("cleanup artifact changed before quarantine"), quarantineErr, restoreErr)
+		}
+	} else {
+		return quarantineErr
+	}
+	if err = removeQuarantinedTree(root, quarantine, expected[1]); err != nil {
+		return err
+	}
+	if _, err = directoryIdentityAt(root, name); errors.Is(err, syscall.ENOENT) {
+		return nil
+	}
+	return errors.Join(errors.New("cleanup artifact pathname was replaced during removal"), err)
+}
+
+func removeRelativeTree(rootPath, name string, expected ...DirectoryIdentity) error {
+	return removeRelativeTreeWithHook(rootPath, name, expected, nil)
 }
 
 func (s *Service) removePreparedArtifacts(record Record) error {
