@@ -184,6 +184,30 @@ class StorageBuildTests(unittest.TestCase):
         self.assertFalse(arguments.output.exists())
         self.assertEqual(arguments.metadata.read_bytes(), b"replacement metadata")
 
+    def test_staging_consumers_use_held_directory_and_preserve_public_replacement(self):
+        builder = load_builder()
+        arguments = self.arguments("raced-staging")
+        original_normalize = builder.normalize_tree_times
+        moved = self.temp / "held-staging"
+
+        def replace_staging(staged_root):
+            candidates = list(self.temp.glob(".root-staging.*"))
+            self.assertEqual(len(candidates), 1)
+            candidates[0].rename(moved)
+            candidates[0].mkdir(mode=0o700)
+            (candidates[0] / "replacement-marker").write_text("preserved")
+            original_normalize(staged_root)
+
+        with mock.patch.object(builder, "normalize_tree_times", side_effect=replace_staging):
+            with self.assertRaisesRegex(builder.StorageBuildError, "staging directory identity changed"):
+                builder.build(arguments)
+        self.assertFalse(arguments.output.exists())
+        self.assertFalse(arguments.metadata.exists())
+        replacements = list(self.temp.glob(".root-staging.*"))
+        self.assertEqual(len(replacements), 1)
+        self.assertEqual((replacements[0] / "replacement-marker").read_text(), "preserved")
+        self.assertTrue((moved / "root/etc/value").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

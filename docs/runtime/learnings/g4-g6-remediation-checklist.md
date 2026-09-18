@@ -701,6 +701,27 @@ phrase above.
   `git diff --check` passed on 2026-09-18. The local descriptor-bound ext4 and
   exact-publication checkpoint is complete; the G4 row remains open for its
   broader ENOSPC matrix and disposable-host evidence.
+  A follow-up staging audit found that the private clone still flowed through
+  its random public pathname and final `shutil.rmtree(staging)`. A same-name
+  directory replacement could redirect copy/normalization/import or be
+  recursively deleted during cleanup even though the image descriptor itself
+  was safe. This is recorded before implementation; all staging consumers and
+  exact cleanup must share one held staging-directory inode.
+  The storage builder now opens the newly created staging directory once,
+  creates its root relative to that descriptor, and uses `/proc/self/fd` plus
+  descriptor inheritance for copy, normalization, inode accounting, and
+  `mke2fs` import. Cleanup first moves only the exact public staging inode into
+  a no-replace quarantine. A focused replacement test moves the original,
+  installs a marked substitute, proves construction continues only from the
+  held original, then requires cleanup to fail closed, roll back the published
+  image/metadata, and preserve the substitute. The 8-case suite and this real
+  ext4 boundary for 100 repetitions pass after the final transaction review.
+  Full verification remains pending.
+  The subsequent complete repository race suite, `go vet ./...`, the full
+  17-case rootfs/8-case storage and documentation/schema/evidence/deployment
+  chain, and `git diff --check` passed on 2026-09-18. This completes the local
+  staging-identity checkpoint; privileged interruption and ENOSPC evidence
+  remain open.
 - [ ] Implement the storage teardown and recovery sequence appropriate to the
   selected persistent backend: quiesce processes, remount read-only, flush,
   disconnect, sync, offline-check, and preserve a diagnosable state on failure.

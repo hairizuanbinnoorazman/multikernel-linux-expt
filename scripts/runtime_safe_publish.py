@@ -6,6 +6,8 @@ from __future__ import annotations
 import ctypes
 import os
 from pathlib import Path
+import shutil
+import stat
 import tempfile
 from typing import BinaryIO, Callable
 
@@ -63,6 +65,30 @@ def remove_if_identity(path: Path, expected: Identity) -> bool:
             pass
         raise PublicationError("output identity changed during rollback quarantine")
     quarantine.unlink()
+    sync_directory(path.parent)
+    return True
+
+
+def remove_directory_if_identity(path: Path, expected: Identity) -> bool:
+    try:
+        value = path.stat(follow_symlinks=False)
+        if (value.st_dev, value.st_ino) != expected or not stat.S_ISDIR(value.st_mode):
+            return False
+    except FileNotFoundError:
+        return False
+    quarantine = path.with_name(f".{path.name}.rollback-{expected[0]:x}-{expected[1]:x}")
+    try:
+        _rename_noreplace(path, quarantine)
+    except FileNotFoundError:
+        return False
+    value = quarantine.stat(follow_symlinks=False)
+    if (value.st_dev, value.st_ino) != expected or not stat.S_ISDIR(value.st_mode):
+        try:
+            _rename_noreplace(quarantine, path)
+        except OSError:
+            pass
+        raise PublicationError("directory identity changed during cleanup quarantine")
+    shutil.rmtree(quarantine)
     sync_directory(path.parent)
     return True
 
