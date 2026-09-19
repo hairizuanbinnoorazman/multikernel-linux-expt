@@ -901,6 +901,26 @@ phrase above.
   with `openat`/`renameat`. Focused post-open directory-replacement tests prove
   a substituted pathname is rejected without receiving durable state.
   Live fault evidence remains open.
+  A 2026-09-19 outer-transaction audit found that
+  `build-runtime-container-initramfs.sh` still unconditionally removes its
+  public output names from the failure trap. That can erase a same-name
+  replacement after an inner no-replace builder succeeds and a later step
+  fails. This is recorded before implementation; the trap must either remove
+  only exact identities it owns or defer to the backend's descriptor-anchored
+  directory cleanup.
+  The outer shell now removes only its private `mktemp` workspace. Production
+  failure cleanup remains with the service, which had already recorded and
+  quarantines the exact private runtime/storage directory identities. A
+  focused 2026-09-19 early-failure run pre-populated all 8 former public
+  cleanup targets and proved every replacement byte remained unchanged while
+  all 55 OCI semantic cases and existing namespace/file-identity boundaries
+  passed.
+  After the outer-cleanup change, `bash -n`, the focused OCI/cleanup suite,
+  `git diff --check`, `go test -race -count=1 ./...`, and `go vet ./...` all
+  passed on 2026-09-19; the full documentation gate follows separately.
+  `bash scripts/check-docs.sh` then passed on 2026-09-19 with the outer-cleanup
+  boundary explicitly included, plus the complete builder, validator,
+  evidence, deployment, and resource-ledger suites.
 - [ ] Server loss during read, write, and flush; primary daemon restart;
   primary host reset where durability is claimed; corrupted image; clean and
   dirty recovery; snapshot/clone recovery using disposable copies.

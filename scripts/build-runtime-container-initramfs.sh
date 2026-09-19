@@ -30,13 +30,8 @@ scratch=$(mktemp -d)
 root=$scratch/root
 boot=$scratch/boot
 metadata=$scratch/metadata
-complete=false
 cleanup() {
 	rm -rf "$scratch"
-	if [[ $complete != true ]]; then
-		rm -f "$output" "$output_manifest" "$source_manifest" "$storage_output" "$storage_metadata" \
-			"$source_manifest.before" "$source_manifest.after" "$bind_manifest"
-	fi
 }
 trap cleanup EXIT
 
@@ -149,4 +144,3 @@ jq -n \
 	  image: $image[0], storage: $storage[0], generated_bootstrap: $archive[0],
 	  verified_bootstrap: $verification[0], selected_kernel: $kernel[0],
 	  nbd: {helper: $nbd_helper, helper_sha256: $nbd_helper_sha256, module: $nbd_module, module_sha256: $nbd_module_sha256}}'
-complete=true
