@@ -280,7 +280,17 @@ static void run_server(const char *image, unsigned int port,
 	struct hello_wire hello, response;
 	uint64_t reads = 0, writes = 0, flushes = 0, bytes_read = 0, bytes_written = 0;
 	uint8_t *buffer = malloc(MAX_REQUEST);
-	int image_fd = open(image, O_RDWR | O_CLOEXEC);
+	/*
+	 * mkruntimed passes an already validated and exclusively locked image as
+	 * fd 3.  Duplicating it preserves the same open-file-description lock, so
+	 * there is no unlock/reopen window between validation and serving.  Keep
+	 * pathname mode for the standalone experiment scripts.
+	 */
+	int image_fd;
+	if (!strcmp(image, "/proc/self/fd/3"))
+		image_fd = fcntl(3, F_DUPFD_CLOEXEC, 4);
+	else
+		image_fd = open(image, O_RDWR | O_CLOEXEC);
 	if (image_fd < 0)
 		die("open(image)");
 	if (flock(image_fd, LOCK_EX | LOCK_NB) < 0)

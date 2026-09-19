@@ -43,16 +43,31 @@ type processRecord struct {
 	Port             uint32 `json:"port"`
 	ImageID          string `json:"image_id"`
 	ExportGeneration string `json:"export_generation"`
+	ImageDevice      uint64 `json:"image_device"`
+	ImageInode       uint64 `json:"image_inode"`
+}
+
+type openedPreparedImage struct {
+	file      *os.File
+	directory *safefile.Directory
+	parent    string
+	name      string
+	identity  safefile.Identity
+}
+
+func (o *openedPreparedImage) Close() error {
+	return errors.Join(o.file.Close(), o.directory.Close())
 }
 
 type LinuxBackend struct {
-	Binary       string
-	CheckBinary  string
-	RuntimeDir   string
-	RequiredUID  int
-	ReadyTimeout time.Duration
-	StopTimeout  time.Duration
-	CheckTimeout time.Duration
+	Binary         string
+	CheckBinary    string
+	RuntimeDir     string
+	RequiredUID    int
+	ReadyTimeout   time.Duration
+	StopTimeout    time.Duration
+	CheckTimeout   time.Duration
+	afterImageOpen func()
 
 	mu      sync.Mutex
 	managed map[string]*managedExport
@@ -133,7 +148,7 @@ func readPrivateRuntimeFileAt(directory *safefile.Directory, name string, limit 
 
 func readyMarker(value Export) []byte {
 	return []byte(fmt.Sprintf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=%d port=%d\n",
-		value.Path, value.ImageID, value.ExportGeneration, value.SizeBytes, value.Port))
+		"/proc/self/fd/3", value.ImageID, value.ExportGeneration, value.SizeBytes, value.Port))
 }
 
 func ext4UUID(value []byte) string {
@@ -174,50 +189,75 @@ func inspectExt4(descriptor int, expected PreparedImage) error {
 	return nil
 }
 
-func (b *LinuxBackend) Inspect(ctx context.Context, image PreparedImage) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := validatePrepared(image); err != nil {
-		return err
-	}
-	b.mu.Lock()
-	b.defaults()
-	b.mu.Unlock()
-	resolved, err := filepath.EvalSymlinks(image.Path)
-	if err != nil || resolved != image.Path {
-		return errors.New("storage image path may not contain symlinks")
-	}
-	descriptor, err := unix.Open(image.Path, unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+func (b *LinuxBackend) openPreparedImage(image PreparedImage, writable bool) (*openedPreparedImage, error) {
+	directory, err := safefile.OpenOwnedDirectory(filepath.Dir(image.Path))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer unix.Close(descriptor)
-	var info unix.Stat_t
-	if err = unix.Fstat(descriptor, &info); err != nil {
-		return err
+	file, identity, err := directory.OpenPrivateFile(filepath.Base(image.Path), 16<<30, writable)
+	if err != nil {
+		_ = directory.Close()
+		return nil, err
 	}
-	if info.Mode&unix.S_IFMT != unix.S_IFREG || info.Mode&0077 != 0 || info.Nlink != 1 || int(info.Uid) != b.RequiredUID {
-		return errors.New("storage image must be a private single-link regular file owned by the configured UID")
+	if identity.UID != uint32(b.RequiredUID) || identity.Size < 0 || uint64(identity.Size) != image.SizeBytes ||
+		uint64(identity.Size) != image.QuotaBytes {
+		_ = file.Close()
+		_ = directory.Close()
+		return nil, errors.New("storage image ownership, size, or quota differs from its prepared identity")
 	}
-	if uint64(info.Size) != image.SizeBytes || uint64(info.Blocks)*512 < image.SizeBytes {
-		return errors.New("storage image size/quota differs or the image is sparse")
+	var allocated unix.Stat_t
+	if err = unix.Fstat(int(file.Fd()), &allocated); err != nil || uint64(allocated.Blocks)*512 < image.SizeBytes {
+		_ = file.Close()
+		_ = directory.Close()
+		return nil, errors.Join(errors.New("storage image is sparse or allocation cannot be inspected"), err)
 	}
-	if err = unix.Flock(descriptor, unix.LOCK_EX|unix.LOCK_NB); err != nil {
+	opened := &openedPreparedImage{file: file, directory: directory, parent: filepath.Dir(image.Path),
+		name: filepath.Base(image.Path), identity: identity}
+	if b.afterImageOpen != nil {
+		b.afterImageOpen()
+	}
+	return opened, nil
+}
+
+func (o *openedPreparedImage) verifyNamedIdentity() error {
+	named, found, err := o.directory.EntryIdentity(o.name)
+	if err != nil || !found || named != o.identity {
+		return errors.New("storage image pathname changed while in use")
+	}
+	current, err := safefile.OpenOwnedDirectory(o.parent)
+	if err != nil {
+		return errors.New("storage image parent changed while in use")
+	}
+	defer current.Close()
+	if current.Identity() != o.directory.Identity() {
+		return errors.New("storage image parent changed while in use")
+	}
+	return nil
+}
+
+func lockOpened(opened *openedPreparedImage) error {
+	if err := unix.Flock(int(opened.file.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		return errors.New("storage image already has an owner")
 	}
-	defer unix.Flock(descriptor, unix.LOCK_UN)
-	if err = inspectExt4(descriptor, image); err != nil {
+	return nil
+}
+
+// inspectOpened validates an image while its caller retains an exclusive lock.
+// Start deliberately transfers that locked open file description to fd 3 of
+// the server; Inspect and OfflineCheck release it by closing their descriptor.
+func (b *LinuxBackend) inspectOpened(ctx context.Context, image PreparedImage, opened *openedPreparedImage) error {
+	descriptor := int(opened.file.Fd())
+	if err := inspectExt4(descriptor, image); err != nil {
 		return err
 	}
 	hash := sha256.New()
 	buffer := make([]byte, 4<<20)
-	for offset := int64(0); offset < info.Size; {
-		if err = ctx.Err(); err != nil {
+	for offset := int64(0); offset < opened.identity.Size; {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 		length := len(buffer)
-		if remaining := info.Size - offset; remaining < int64(length) {
+		if remaining := opened.identity.Size - offset; remaining < int64(length) {
 			length = int(remaining)
 		}
 		n, readErr := unix.Pread(descriptor, buffer[:length], offset)
@@ -227,17 +267,44 @@ func (b *LinuxBackend) Inspect(ctx context.Context, image PreparedImage) error {
 		_, _ = hash.Write(buffer[:n])
 		offset += int64(n)
 	}
-	if err = ctx.Err(); err != nil {
+	if err := ctx.Err(); err != nil {
 		return err
 	}
-	var after unix.Stat_t
-	if err = unix.Fstat(descriptor, &after); err != nil || after.Size != info.Size || after.Mtim != info.Mtim || after.Ctim != info.Ctim {
+	after, err := safefile.InspectOpened(opened.file, 16<<30)
+	if err != nil || after != opened.identity {
 		return errors.New("storage image mutated during inspection")
+	}
+	if err = opened.verifyNamedIdentity(); err != nil {
+		return err
 	}
 	if hex.EncodeToString(hash.Sum(nil)) != image.SHA256 {
 		return errors.New("storage image digest differs from prepared identity")
 	}
 	return nil
+}
+
+func (b *LinuxBackend) Inspect(ctx context.Context, image PreparedImage) (ImageIdentity, error) {
+	if err := ctx.Err(); err != nil {
+		return ImageIdentity{}, err
+	}
+	if err := validatePrepared(image); err != nil {
+		return ImageIdentity{}, err
+	}
+	b.mu.Lock()
+	b.defaults()
+	b.mu.Unlock()
+	opened, err := b.openPreparedImage(image, true)
+	if err != nil {
+		return ImageIdentity{}, err
+	}
+	defer opened.Close()
+	if err = lockOpened(opened); err != nil {
+		return ImageIdentity{}, err
+	}
+	if err = b.inspectOpened(ctx, image, opened); err != nil {
+		return ImageIdentity{}, err
+	}
+	return ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}, nil
 }
 
 func processStartTime(pid int) (uint64, error) {
@@ -280,6 +347,22 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	}
 	b.mu.Lock()
 	b.defaults()
+	b.mu.Unlock()
+	opened, err := b.openPreparedImage(value.PreparedImage, true)
+	if err != nil {
+		return err
+	}
+	defer opened.Close()
+	if err = lockOpened(opened); err != nil {
+		return err
+	}
+	if err = b.inspectOpened(ctx, value.PreparedImage, opened); err != nil {
+		return err
+	}
+	if value.ImageIdentity != (ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}) {
+		return errors.New("storage image identity changed before server start")
+	}
+	b.mu.Lock()
 	if err := ctx.Err(); err != nil {
 		b.mu.Unlock()
 		return err
@@ -313,8 +396,9 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		b.mu.Unlock()
 		return err
 	}
-	command := exec.Command(b.Binary, "server", value.Path, strconv.Itoa(int(value.Port)), value.ImageID, value.ExportGeneration)
+	command := exec.Command(b.Binary, "server", "/proc/self/fd/3", strconv.Itoa(int(value.Port)), value.ImageID, value.ExportGeneration)
 	command.Stdout, command.Stderr = log, log
+	command.ExtraFiles = []*os.File{opened.file}
 	command.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
 	// The export outlives mkruntimed so a daemon restart cannot sever a live
 	// child's root disk. Reconciliation adopts it only when PID start time,
@@ -342,8 +426,9 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		b.mu.Unlock()
 		return err
 	}
-	record := processRecord{Version: 1, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
-		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration}
+	record := processRecord{Version: 2, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
+		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
+		ImageDevice: opened.identity.Device, ImageInode: opened.identity.Inode}
 	recordIdentity, err := atomicRecordAt(directory, recordName, record)
 	if err != nil {
 		_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
@@ -416,11 +501,12 @@ func readRecordIdentityAt(directory *safefile.Directory, name string, expected E
 		}
 		return value, safefile.Identity{}, err
 	}
-	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 1 {
+	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 2 {
 		return value, safefile.Identity{}, errors.New("storage process record is malformed")
 	}
 	if value.PID <= 1 || value.StartTime == 0 || value.Path != expected.Path || value.Port != expected.Port ||
-		value.ImageID != expected.ImageID || value.ExportGeneration != expected.ExportGeneration {
+		value.ImageID != expected.ImageID || value.ExportGeneration != expected.ExportGeneration ||
+		value.ImageDevice != expected.ImageIdentity.Device || value.ImageInode != expected.ImageIdentity.Inode {
 		return value, safefile.Identity{}, errors.New("storage process record differs from its exact export lease")
 	}
 	return value, identity, nil
@@ -435,8 +521,16 @@ func processMatches(record processRecord, binary string) bool {
 	if err != nil {
 		return false
 	}
-	want := strings.Join([]string{binary, "server", record.Path, strconv.Itoa(int(record.Port)), record.ImageID, record.ExportGeneration, ""}, "\x00")
-	return string(data) == want
+	want := strings.Join([]string{binary, "server", "/proc/self/fd/3", strconv.Itoa(int(record.Port)), record.ImageID, record.ExportGeneration, ""}, "\x00")
+	if string(data) != want {
+		return false
+	}
+	info, err := os.Stat(filepath.Join("/proc", strconv.Itoa(record.PID), "fd", "3"))
+	if err != nil {
+		return false
+	}
+	value, ok := info.Sys().(*syscall.Stat_t)
+	return ok && uint64(value.Dev) == record.ImageDevice && value.Ino == record.ImageInode
 }
 
 func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, error) {
@@ -619,8 +713,19 @@ func (b *LinuxBackend) OfflineCheck(ctx context.Context, value Export) (string, 
 	b.mu.Lock()
 	b.defaults()
 	b.mu.Unlock()
-	output, err := boundedexec.Run(ctx, b.CheckTimeout, b.CheckBinary, []string{"-fn", value.Path},
-		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, 1<<20)
+	opened, err := b.openPreparedImage(value.PreparedImage, false)
+	if err != nil {
+		return "", err
+	}
+	defer opened.Close()
+	if err = lockOpened(opened); err != nil {
+		return "", err
+	}
+	if value.ImageIdentity != (ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}) {
+		return "", errors.New("storage image identity changed before offline check")
+	}
+	output, err := boundedexec.RunWithFiles(ctx, b.CheckTimeout, b.CheckBinary, []string{"-fn", "/proc/self/fd/3"},
+		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, 1<<20, []*os.File{opened.file})
 	if err != nil {
 		if errors.Is(err, boundedexec.ErrOutputLimit) {
 			return "", errors.New("e2fsck output exceeded evidence bound")
@@ -629,6 +734,10 @@ func (b *LinuxBackend) OfflineCheck(ctx context.Context, value Export) (string, 
 			return "", fmt.Errorf("offline filesystem check interrupted: %w", err)
 		}
 		return "", errors.New("e2fsck reported a non-clean filesystem")
+	}
+	after, inspectErr := safefile.InspectOpened(opened.file, 16<<30)
+	if inspectErr != nil || after != opened.identity || opened.verifyNamedIdentity() != nil {
+		return "", errors.New("storage image identity changed during offline check")
 	}
 	digest := sha256.Sum256(output)
 	return "e2fsck-clean-sha256:" + hex.EncodeToString(digest[:]), nil

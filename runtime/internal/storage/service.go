@@ -19,7 +19,7 @@ var uuidRE = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4
 var digestRE = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Backend interface {
-	Inspect(context.Context, PreparedImage) error
+	Inspect(context.Context, PreparedImage) (ImageIdentity, error)
 	Start(context.Context, Export) error
 	Observe(context.Context, Export) (Observation, error)
 	Stop(context.Context, Export) (Counters, error)
@@ -87,8 +87,12 @@ func (s *Service) recoverPreparation(ctx context.Context, value Export) (Export,
 			return Export{}, fmt.Errorf("stop ambiguous storage preparation: %w", err)
 		}
 	}
-	if err = s.backend.Inspect(ctx, value.PreparedImage); err != nil {
+	identity, err := s.backend.Inspect(ctx, value.PreparedImage)
+	if err != nil {
 		return Export{}, fmt.Errorf("reinspect retained storage preparation: %w", err)
+	}
+	if identity != value.ImageIdentity {
+		return Export{}, errors.New("retained storage image identity changed")
 	}
 	if err = s.backend.Start(ctx, value); err != nil {
 		return Export{}, fmt.Errorf("restart retained storage preparation: %w", err)
@@ -138,7 +142,8 @@ func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration st
 			return Export{}, errors.New("storage owner, path, port, or filesystem UUID is already allocated")
 		}
 	}
-	if err := s.backend.Inspect(ctx, image); err != nil {
+	imageIdentity, err := s.backend.Inspect(ctx, image)
+	if err != nil {
 		return Export{}, fmt.Errorf("inspect prepared image: %w", err)
 	}
 	generation, err := s.generation()
@@ -147,7 +152,7 @@ func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration st
 	}
 	now := s.now().UTC()
 	value := Export{SandboxID: sandboxID, SandboxGeneration: sandboxGeneration, ExportGeneration: generation,
-		PreparedImage: image, State: "PREPARING", CreatedAt: now, UpdatedAt: now}
+		PreparedImage: image, ImageIdentity: imageIdentity, State: "PREPARING", CreatedAt: now, UpdatedAt: now}
 	if err = s.store.Put(value); err != nil {
 		return Export{}, err
 	}
@@ -229,8 +234,14 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			if observation.Active {
 				return errors.New("active storage process has a conflicting generation")
 			}
-			if err = s.backend.Inspect(ctx, value.PreparedImage); err == nil {
+			identity, inspectErr := s.backend.Inspect(ctx, value.PreparedImage)
+			if inspectErr == nil && identity != value.ImageIdentity {
+				inspectErr = errors.New("durable storage image identity changed")
+			}
+			if inspectErr == nil {
 				err = s.backend.Start(ctx, value)
+			} else {
+				err = inspectErr
 			}
 			if err != nil {
 				return fmt.Errorf("restart durable storage export: %w", err)

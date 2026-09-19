@@ -62,9 +62,9 @@ type lifecycleStorageBackend struct {
 	calls  []string
 }
 
-func (b *lifecycleStorageBackend) Inspect(context.Context, storagepkg.PreparedImage) error {
+func (b *lifecycleStorageBackend) Inspect(context.Context, storagepkg.PreparedImage) (storagepkg.ImageIdentity, error) {
 	b.calls = append(b.calls, "inspect")
-	return b.fail
+	return storagepkg.ImageIdentity{Device: 1, Inode: 2}, b.fail
 }
 func (b *lifecycleStorageBackend) Start(_ context.Context, value storagepkg.Export) error {
 	b.calls = append(b.calls, "storage-start")
