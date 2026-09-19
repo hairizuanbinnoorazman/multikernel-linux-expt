@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from runtime_safe_publish import PublicationError, atomic_write, file_identity, remove_if_identity
+from runtime_safe_publish import PublicationError, atomic_write, file_identity, open_directory_nofollow, remove_if_identity
 
 
 class RootFSError(Exception):
@@ -114,7 +114,7 @@ def _revalidate_tree(root: Path, raw: list[tuple[str, Path, os.stat_result]]) ->
 
 def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
     try:
-        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        root_fd = open_directory_nofollow(root)
     except OSError as error:
         raise RootFSError(f"cannot open root directory without following symlinks: {root}: {error}") from error
     try:

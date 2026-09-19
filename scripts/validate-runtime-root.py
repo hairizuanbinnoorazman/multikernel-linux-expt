@@ -68,20 +68,25 @@ def resolve(bundle, configured, allowed_absolute):
     info = candidate.stat(follow_symlinks=False)
     if not stat.S_ISDIR(info.st_mode):
         raise ValueError("root.path is not a directory")
-    return candidate
+    return candidate, info
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("bundle", type=Path)
     parser.add_argument("config", type=Path)
+    parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     try:
         config = json.loads(args.config.read_text(encoding="utf-8"))
         allowed = [item for item in os.environ.get(
             "MK_ALLOWED_ABSOLUTE_ROOTS", "/var/lib/docker:/var/lib/containerd"
         ).split(":") if item]
-        print(resolve(args.bundle, config["root"]["path"], allowed))
+        candidate, info = resolve(args.bundle, config["root"]["path"], allowed)
+        if args.json:
+            print(json.dumps({"path": str(candidate), "device": info.st_dev, "inode": info.st_ino}, sort_keys=True))
+        else:
+            print(candidate)
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SystemExit(f"OCI root path rejected: {error}")
 

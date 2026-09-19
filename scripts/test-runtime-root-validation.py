@@ -71,14 +71,41 @@ class RootValidationTests(unittest.TestCase):
         config.write_text(json.dumps({"root": {"path": "rootfs"}}))
         inherited = f"/proc/self/fd/{descriptor}"
         result = subprocess.run(
-            [str(SCRIPT), inherited, str(config)],
+            [str(SCRIPT), inherited, str(config), "--json"],
             text=True,
             capture_output=True,
             pass_fds=(descriptor,),
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), inherited + "/rootfs")
-        self.assertFalse((Path(result.stdout.strip()) / "replacement").exists())
+        observed = json.loads(result.stdout)
+        expected = (moved / "rootfs").stat()
+        self.assertEqual(observed, {
+            "device": expected.st_dev,
+            "inode": expected.st_ino,
+            "path": inherited + "/rootfs",
+        })
+        self.assertFalse((Path(observed["path"]) / "replacement").exists())
+
+        handshake = (
+            'exec {source_fd}<"$1"; '
+            'read -r device inode < <(stat -Lc "%d %i" "/proc/self/fd/$source_fd"); '
+            'test "$device" = "$2" && test "$inode" = "$3"'
+        )
+        accepted = subprocess.run(
+            ["bash", "-c", handshake, "bash", observed["path"], str(observed["device"]), str(observed["inode"])],
+            pass_fds=(descriptor,),
+            check=False,
+        )
+        self.assertEqual(accepted.returncode, 0)
+        original_root = moved / "validated-root"
+        (moved / "rootfs").rename(original_root)
+        (moved / "rootfs").mkdir()
+        rejected = subprocess.run(
+            ["bash", "-c", handshake, "bash", observed["path"], str(observed["device"]), str(observed["inode"])],
+            pass_fds=(descriptor,),
+            check=False,
+        )
+        self.assertNotEqual(rejected.returncode, 0)
 
 
 if __name__ == "__main__":

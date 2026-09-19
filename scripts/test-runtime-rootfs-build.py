@@ -144,6 +144,19 @@ class RootFSBuildTests(unittest.TestCase):
         self.assertEqual(contents["value"], b"original\n")
         self.assertEqual((self.root / "value").read_text(), "replacement\n")
 
+    def test_scan_accepts_an_exact_inherited_root_descriptor(self):
+        (self.root / "value").write_text("original\n")
+        descriptor = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        self.addCleanup(os.close, descriptor)
+        moved = self.temp / "inherited-root"
+        self.root.rename(moved)
+        self.root.mkdir()
+        (self.root / "value").write_text("replacement\n")
+        builder = load_builder()
+        _, contents = builder.scan(Path(f"/proc/self/fd/{descriptor}"))
+        self.assertEqual(contents["value"], b"original\n")
+        self.assertEqual((self.root / "value").read_text(), "replacement\n")
+
     def test_rejects_fifo(self):
         os.mkfifo(self.root / "fifo")
         result, _, _ = self.build("fifo")

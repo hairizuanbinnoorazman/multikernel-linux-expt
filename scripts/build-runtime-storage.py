@@ -19,6 +19,7 @@ from runtime_safe_publish import (
     atomic_write,
     descriptor_identity,
     file_identity,
+    open_directory_nofollow,
     publish_existing,
     remove_directory_if_identity,
     remove_if_identity,
@@ -146,10 +147,7 @@ def atomic_json(path: Path, value: dict) -> tuple[int, int]:
 
 def build(arguments) -> dict:
     try:
-        root_fd = os.open(
-            arguments.root,
-            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
-        )
+        root_fd = open_directory_nofollow(arguments.root)
     except OSError as error:
         raise StorageBuildError(
             f"cannot open root directory without following symlinks: {arguments.root}: {error}"

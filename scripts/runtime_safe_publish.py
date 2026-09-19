@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import ctypes
+import errno
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import tempfile
@@ -17,6 +19,21 @@ class PublicationError(Exception):
 
 
 Identity = tuple[int, int]
+PROC_FD = re.compile(r"/proc/self/fd/([0-9]+)")
+
+
+def open_directory_nofollow(path: Path) -> int:
+    text = os.fspath(path)
+    inherited = PROC_FD.fullmatch(text)
+    if inherited:
+        descriptor = os.dup(int(inherited.group(1)))
+    else:
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    info = os.fstat(descriptor)
+    if not stat.S_ISDIR(info.st_mode):
+        os.close(descriptor)
+        raise NotADirectoryError(errno.ENOTDIR, "descriptor is not a directory", text)
+    return descriptor
 
 
 def _rename_noreplace(source: Path, destination: Path) -> None:

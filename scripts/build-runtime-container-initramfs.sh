@@ -74,7 +74,17 @@ install -m 0755 "$guest_init" "$root/init"
 # Containerd remains the registry, content, layer, and snapshot owner. The
 # source is mounted read-only by the adapter and scanned before and after copy.
 root_path=$(jq -er '.root.path' "$validated_config")
-source_root=$("$script_dir/validate-runtime-root.py" "$bundle" "$validated_config")
+source_validation=$("$script_dir/validate-runtime-root.py" "$bundle" "$validated_config" --json)
+source_root=$(jq -er '.path' <<<"$source_validation")
+source_device=$(jq -er '.device' <<<"$source_validation")
+source_inode=$(jq -er '.inode' <<<"$source_validation")
+exec {source_root_fd}<"$source_root"
+read -r observed_device observed_inode < <(stat -Lc '%d %i' "/proc/self/fd/$source_root_fd")
+if [[ $observed_device != "$source_device" || $observed_inode != "$source_inode" ]]; then
+	echo 'OCI source root identity changed before descriptor acquisition' >&2
+	exit 1
+fi
+source_root=/proc/self/fd/$source_root_fd
 if [[ $root_path = /* ]]; then
 	reported_source_root=$root_path
 else
