@@ -1549,6 +1549,21 @@ The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and full
 `bash scripts/check-docs.sh` gate passed on 2026-09-19, including the expanded
 19-case rootfs and 10-case storage suites and all evidence/deployment audits.
 
+A subsequent transaction review on 2026-09-19 found that the post-copy source
+manifest is safely built as `.after` but then published with replacing `mv`.
+A same-name final artifact can bypass the inner builder's no-replace guarantee.
+This is recorded before implementation; the post-copy scan must publish
+directly to the final no-replace name before comparison.
+
+The pre-copy manifest now exists only under the private `mktemp` workspace;
+the post-copy scan publishes directly to the retained final name, and the
+shell compares them without replacing `mv` or public temporary cleanup. On
+2026-09-19, shell syntax, the 55-case OCI/transaction suite, and the focused
+rootfs no-replace collision/rollback case passed.
+
+The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and full
+`bash scripts/check-docs.sh` gate all passed on 2026-09-19.
+
 The first descriptor-walker focused run stopped before its new race because
 the fixture still held the preceding `/escape` configuration; the resolver
 correctly rejected it. This harness setup failure is recorded before resetting
