@@ -466,6 +466,34 @@ func (d *Directory) OpenPrivateFile(name string, limit int64, writable bool) (*o
 	return file, opened, nil
 }
 
+// OpenTrustedExecutable opens one exact regular executable beneath a trusted
+// directory. Shared read/execute bits are permitted, but the file must be
+// caller-owned, single-linked, bounded, and not writable by group or others.
+func (d *Directory) OpenTrustedExecutable(name string, limit int64) (*os.File, Identity, error) {
+	if filepath.Base(name) != name || name == "." || limit <= 0 {
+		return nil, Identity{}, errors.New("invalid executable open request")
+	}
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, Identity{}, err
+	}
+	file := os.NewFile(uintptr(fd), name)
+	info, err := file.Stat()
+	value, ok := identity(info)
+	if err != nil || !ok || !info.Mode().IsRegular() || value.UID != uint32(os.Geteuid()) ||
+		value.Links != 1 || value.Size <= 0 || value.Size > limit || info.Mode().Perm()&0022 != 0 ||
+		info.Mode().Perm()&0100 == 0 {
+		_ = file.Close()
+		return nil, Identity{}, errors.Join(errors.New("executable has an unsafe identity, mode, or size"), err)
+	}
+	named, err := identityAt(d.file, name)
+	if err != nil || named != value {
+		_ = file.Close()
+		return nil, Identity{}, errors.Join(errors.New("executable identity changed while opening"), err)
+	}
+	return file, value, nil
+}
+
 // OpenAppend opens or exclusively creates a bounded private append-only file.
 func (d *Directory) OpenAppend(name string, limit int64, mode os.FileMode) (*os.File, Identity, error) {
 	if filepath.Base(name) != name || name == "." || mode.Perm()&0077 != 0 || limit <= 0 {

@@ -61,6 +61,56 @@ func TestOpenOwnedDirectoryPreservesSafeSharedMode(t *testing.T) {
 	}
 }
 
+func TestOpenTrustedExecutableRetainsExactSafeInode(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := OpenOwnedDirectory(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	path := filepath.Join(base, "server")
+	if err = os.WriteFile(path, []byte("original"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	file, identity, err := directory.OpenTrustedExecutable("server", 64)
+	if err != nil || identity.Device == 0 || identity.Inode == 0 {
+		t.Fatalf("open executable identity = %+v, %v", identity, err)
+	}
+	defer file.Close()
+	if err = os.Rename(path, path+".original"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, []byte("replacement"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, len("original"))
+	if _, err = file.ReadAt(data, 0); err != nil || string(data) != "original" {
+		t.Fatalf("held executable = %q, %v", data, err)
+	}
+
+	for name, mode := range map[string]os.FileMode{"nonexec": 0644, "writable": 0775} {
+		unsafePath := filepath.Join(base, name)
+		if err = os.WriteFile(unsafePath, []byte("unsafe"), mode); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Chmod(unsafePath, mode); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err = directory.OpenTrustedExecutable(name, 64); err == nil {
+			t.Fatalf("unsafe executable %s was accepted", name)
+		}
+	}
+	if err = os.Symlink(path+".original", filepath.Join(base, "linked")); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = directory.OpenTrustedExecutable("linked", 64); err == nil {
+		t.Fatal("symlinked executable was accepted")
+	}
+}
+
 func TestIdentityConditionedRemovalPreservesRacedReplacementAndRecoversQuarantine(t *testing.T) {
 	base := t.TempDir()
 	if err := os.Chmod(base, 0700); err != nil {
