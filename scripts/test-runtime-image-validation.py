@@ -54,6 +54,16 @@ def main():
         if observed["architecture"] != "amd64" or observed["kernel_manifest_sha256"] != "1" * 64:
             raise AssertionError(observed)
 
+        inherited_root = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        try:
+            inherited = load_validator().validate(
+                pathlib.Path(f"/proc/self/fd/{inherited_root}"), config_path, bootstrap_path
+            )
+        finally:
+            os.close(inherited_root)
+        if inherited["entrypoint_sha256"] != observed["entrypoint_sha256"]:
+            raise AssertionError("exact inherited root descriptor changed image validation")
+
         (root / "bin" / "wrong").write_bytes(b"\x7fELF\x02\x01" + b"\0" * 12 + (183).to_bytes(2, "little"))
         wrong = copy.deepcopy(config)
         wrong["process"]["args"][0] = "/bin/wrong"

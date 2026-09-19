@@ -11,6 +11,8 @@ import os
 import stat
 from pathlib import Path, PurePosixPath
 
+from runtime_safe_publish import open_directory_nofollow
+
 
 class ImageError(Exception):
     pass
@@ -140,7 +142,7 @@ def executable(root_fd: int, name: str, depth: int = 0) -> tuple[str, bytes]:
 
 def validate(root: Path, config_path: Path, bootstrap_path: Path) -> dict:
     try:
-        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        root_fd = open_directory_nofollow(root)
     except OSError as error:
         raise ImageError(f"cannot open OCI root without following symlinks: {root}: {error}") from error
     try:

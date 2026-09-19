@@ -719,6 +719,27 @@ phrase above.
 - [ ] Preserve the caller snapshot as containerd-owned input. Mount it with the
   least privileges needed, handle every unmount failure, and prove the runtime
   cannot write through an absolute or relative `root.path`.
+  A 2026-09-19 outer-source audit found that `root.path` validation, both
+  manifests, image validation, and the archive copy still acquire separate
+  root descriptors. A same-content root replacement can therefore change the
+  copied inode without changing before/after manifests. This is recorded
+  before implementation. The root validator must return its observed
+  device/inode, and the outer shell must open one matching directory fd and
+  reuse that inherited descriptor for every downstream source consumer.
+  A local shell probe confirmed that Bash retains a directory fd across child
+  commands and that `/proc/self/fd/N` exposes the held inode and contents.
+  The validator now returns its observed path/device/inode as JSON; the shell
+  opens that path once, rejects an `fstat` mismatch, and passes the exact fd
+  path to image validation, both source manifests, and `cp`. Focused
+  2026-09-19 suites passed with 7 root-path cases, 19 rootfs cases, 10 real
+  ext4 cases, and the image suite. The shell-handshake case accepts the exact
+  identity and rejects a `rootfs` replacement installed after validation.
+  The root identity handshake, exact-fd rootfs scan, real ext4 copy, and image
+  validation boundaries then passed 100 consecutive repetitions each on
+  2026-09-19.
+  The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and full
+  `bash scripts/check-docs.sh` gate passed on 2026-09-19, including the expanded
+  19-case rootfs and 10-case storage suites and all evidence/deployment audits.
 - [ ] Define and enforce single-owner writable-root identity, generation,
   duplicate-attach prevention, and stale-lock handling rather than relying
   only on one private initramfs per current shim.

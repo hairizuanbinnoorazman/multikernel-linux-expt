@@ -1525,6 +1525,30 @@ component can redirect traversal outside the OCI root. This is recorded before
 implementation: the kernel must enforce in-root resolution, and ELF/shebang
 bytes must be read from the resulting exact descriptor.
 
+A subsequent outer-source audit on 2026-09-19 found that root-path validation,
+both manifests, image validation, and archive copy still acquire separate root
+descriptors. A same-content replacement can change the copied inode without
+changing either manifest. This is recorded before implementation: root
+validation must return its observed device/inode and the shell must bind every
+consumer to one matching inherited directory fd. A local probe confirmed Bash
+retains a directory fd across child commands and `/proc/self/fd/N` reads the
+held inode.
+
+The validator now returns its observed path/device/inode as JSON. The shell
+opens that path once, rejects an `fstat` mismatch, and supplies the exact fd
+path to image validation, both manifests, and `cp`. Focused 2026-09-19 suites
+passed with 7 root-path cases, 19 rootfs cases, 10 real ext4 cases, and the
+image suite. The shell handshake accepts the exact identity and rejects a
+`rootfs` replacement installed after validation.
+
+The root identity handshake, exact-fd rootfs scan, real ext4 copy, and image
+validation boundaries then passed 100 consecutive repetitions each on
+2026-09-19.
+
+The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and full
+`bash scripts/check-docs.sh` gate passed on 2026-09-19, including the expanded
+19-case rootfs and 10-case storage suites and all evidence/deployment audits.
+
 The first descriptor-walker focused run stopped before its new race because
 the fixture still held the preceding `/escape` configuration; the resolver
 correctly rejected it. This harness setup failure is recorded before resetting

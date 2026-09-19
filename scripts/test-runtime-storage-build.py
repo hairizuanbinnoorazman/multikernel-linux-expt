@@ -233,6 +233,28 @@ class StorageBuildTests(unittest.TestCase):
         self.assertEqual(inspection.stdout, "one\n")
         self.assertEqual((self.root / "etc" / "value").read_text(), "replacement\n")
 
+    def test_source_copy_accepts_an_exact_inherited_root_descriptor(self):
+        builder = load_builder()
+        arguments = self.arguments("inherited-source")
+        descriptor = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        self.addCleanup(os.close, descriptor)
+        arguments.root = Path(f"/proc/self/fd/{descriptor}")
+        moved = self.temp / "inherited-source-held"
+        self.root.rename(moved)
+        (self.root / "etc").mkdir(parents=True)
+        (self.root / "etc" / "value").write_text("replacement\n")
+        builder.build(arguments)
+        inspection = subprocess.run(
+            [arguments.debugfs, "-R", "cat /etc/value", str(arguments.output)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(inspection.returncode, 0, inspection.stderr)
+        self.assertEqual(inspection.stdout, "one\n")
+        self.assertEqual((self.root / "etc" / "value").read_text(), "replacement\n")
+
 
 if __name__ == "__main__":
     unittest.main()
