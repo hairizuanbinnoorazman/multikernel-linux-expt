@@ -1518,6 +1518,30 @@ The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and
 explicitly reports held source/target races together with the complete
 builder, validator, evidence, deployment, and resource-ledger suites.
 
+A subsequent image-validation audit on 2026-09-19 found that a held top-level
+root does not secure child traversal while entrypoint resolution still uses
+separate pathname `lstat`, `readlink`, and open calls. A replaced child
+component can redirect traversal outside the OCI root. This is recorded before
+implementation: the kernel must enforce in-root resolution, and ELF/shebang
+bytes must be read from the resulting exact descriptor.
+
+The first descriptor-walker focused run stopped before its new race because
+the fixture still held the preceding `/escape` configuration; the resolver
+correctly rejected it. This harness setup failure is recorded before resetting
+the fixture to `/bin/program` and rerunning the child replacement.
+
+After resetting it, the focused image suite passed on 2026-09-19. The new race
+replaces `bin` with a symlink to a wrong-architecture executable after opening
+the original directory; validation hashes the original amd64 file through the
+held child descriptor and preserves the replacement.
+
+The complete image-validation suite, including held-root and held-child
+replacements, then passed 100 consecutive repetitions on 2026-09-19.
+
+The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and full
+`bash scripts/check-docs.sh` gate all passed on 2026-09-19; documentation
+output explicitly includes the held root/child image races.
+
 After this change, `bash -n`, the focused OCI/cleanup suite,
 `git diff --check`, `go test -race -count=1 ./...`, and `go vet ./...` all
 passed on 2026-09-19; the full documentation gate follows separately.

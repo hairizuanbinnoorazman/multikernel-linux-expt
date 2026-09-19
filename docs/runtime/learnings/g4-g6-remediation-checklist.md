@@ -697,6 +697,25 @@ phrase above.
   mutation during the copy/build window.
 - [ ] Validate OCI image architecture against the selected child-kernel
   manifest before allocation and record required kernel features.
+  A 2026-09-19 entrypoint-resolution audit found that holding the top-level
+  OCI root is insufficient while `resolve_in_root` still performs child
+  `lstat`, `readlink`, and open operations by pathname. A child component can
+  be replaced between those calls and redirect traversal outside the root.
+  This is recorded before implementation; the kernel must enforce in-root
+  resolution and ELF/shebang reads must use the resulting exact descriptor.
+  The first descriptor-walker focused run stopped before the new race because
+  the test fixture still contained the preceding `/escape` case; the resolver
+  correctly rejected it. This harness setup failure is recorded before rerun,
+  and the fixture must be reset to `/bin/program` for the child race.
+  After resetting it, the focused image suite passed on 2026-09-19. The new
+  race replaces `bin` with a symlink to a wrong-architecture executable after
+  the original directory is opened; validation hashes the original amd64 file
+  through the held child descriptor and leaves the replacement untouched.
+  The complete image-validation suite, including held-root and held-child
+  replacements, then passed 100 consecutive repetitions on 2026-09-19.
+  The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and full
+  `bash scripts/check-docs.sh` gate all passed on 2026-09-19; the documentation
+  output explicitly includes the held root/child image races.
 - [ ] Preserve the caller snapshot as containerd-owned input. Mount it with the
   least privileges needed, handle every unmount failure, and prove the runtime
   cannot write through an absolute or relative `root.path`.
