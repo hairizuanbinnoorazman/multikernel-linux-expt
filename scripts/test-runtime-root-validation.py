@@ -59,6 +59,27 @@ class RootValidationTests(unittest.TestCase):
         self.check(str(self.bundle / "rootfs"), False, allowed)
         self.check(str(root) + "/", False, allowed)
 
+    def test_inherited_bundle_anchor_survives_public_path_replacement(self):
+        descriptor = os.open(self.bundle, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        self.addCleanup(os.close, descriptor)
+        moved = self.temp / "held-bundle"
+        self.bundle.rename(moved)
+        self.bundle.mkdir()
+        (self.bundle / "rootfs").mkdir()
+        (self.bundle / "rootfs" / "replacement").write_text("replacement")
+        config = self.temp / "descriptor-config.json"
+        config.write_text(json.dumps({"root": {"path": "rootfs"}}))
+        inherited = f"/proc/self/fd/{descriptor}"
+        result = subprocess.run(
+            [str(SCRIPT), inherited, str(config)],
+            text=True,
+            capture_output=True,
+            pass_fds=(descriptor,),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), inherited + "/rootfs")
+        self.assertFalse((Path(result.stdout.strip()) / "replacement").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

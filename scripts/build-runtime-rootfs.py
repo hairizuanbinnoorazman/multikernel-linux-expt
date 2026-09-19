@@ -82,6 +82,12 @@ def _read_stable(path: Path, before: os.stat_result) -> bytes:
     return data
 
 
+def _entry_stat(path: Path, relative: str) -> os.stat_result:
+    # The synthetic root is a procfs magic link to an already-held descriptor.
+    # Following that one link observes the held directory, not a public path.
+    return path.stat(follow_symlinks=relative == ".")
+
+
 def _revalidate_tree(root: Path, raw: list[tuple[str, Path, os.stat_result]]) -> None:
     """Reject membership or identity changes anywhere after the initial scan."""
     expected = {relative: _identity(info) for relative, _, info in raw}
@@ -90,7 +96,7 @@ def _revalidate_tree(root: Path, raw: list[tuple[str, Path, os.stat_result]]) ->
     try:
         while stack:
             relative, current = stack.pop()
-            info = current.stat(follow_symlinks=False)
+            info = _entry_stat(current, relative)
             observed[relative] = _identity(info)
             if stat.S_ISDIR(info.st_mode):
                 children = sorted(os.scandir(current), key=lambda item: os.fsencode(item.name), reverse=True)
@@ -107,14 +113,22 @@ def _revalidate_tree(root: Path, raw: list[tuple[str, Path, os.stat_result]]) ->
 
 
 def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
-    root = root.resolve(strict=True)
-    if not root.is_dir():
-        raise RootFSError(f"root is not a directory: {root}")
+    try:
+        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    except OSError as error:
+        raise RootFSError(f"cannot open root directory without following symlinks: {root}: {error}") from error
+    try:
+        return _scan_held(Path(f"/proc/self/fd/{root_fd}"))
+    finally:
+        os.close(root_fd)
+
+
+def _scan_held(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
     raw: list[tuple[str, Path, os.stat_result]] = []
     stack = [(".", root)]
     while stack:
         relative, current = stack.pop()
-        info = current.stat(follow_symlinks=False)
+        info = _entry_stat(current, relative)
         raw.append((relative, current, info))
         if stat.S_ISDIR(info.st_mode):
             try:
@@ -149,7 +163,7 @@ def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
     contents: dict[str, bytes] = {}
     for relative, path, info in raw:
         try:
-            xattrs = os.listxattr(path, follow_symlinks=False)
+            xattrs = os.listxattr(path, follow_symlinks=relative == ".")
         except OSError as error:
             raise RootFSError(f"cannot inspect xattrs for {relative}: {error}") from error
         unsupported_xattrs = set(xattrs) - OVERLAY_OPAQUE_XATTRS
@@ -157,7 +171,7 @@ def scan(root: Path) -> tuple[list[Entry], dict[str, bytes]]:
             raise RootFSError(f"unsupported xattrs on {relative}: {','.join(sorted(unsupported_xattrs))}")
         for name in set(xattrs) & OVERLAY_OPAQUE_XATTRS:
             try:
-                value = os.getxattr(path, name, follow_symlinks=False)
+                value = os.getxattr(path, name, follow_symlinks=relative == ".")
             except OSError as error:
                 raise RootFSError(f"cannot inspect overlay opacity on {relative}: {error}") from error
             if not stat.S_ISDIR(info.st_mode) or value not in (b"y", b"x"):
