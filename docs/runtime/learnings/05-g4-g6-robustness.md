@@ -1484,6 +1484,40 @@ early-failure run pre-populated all 8 former public cleanup targets and proved
 every replacement byte remained unchanged; all 55 OCI semantic cases and the
 existing namespace/file-identity boundaries passed with it.
 
+A follow-on bind-materialization audit on 2026-09-19 found that validation and
+the pre-copy manifest release the source before `cp` reopens its public path,
+then the post-copy manifest reopens it again. A same-content directory
+replacement can change the copied inode while preserving both manifests. The
+private target root is also pathname-only. This is recorded before code
+changes: both roots must be opened component-by-component without following
+symlinks and held across admission, copy, and verification.
+
+The first focused bind run after descriptor conversion failed its regular-file
+case because `cp --archive` preserved the `/proc/self/fd/N` magic link itself;
+copied-target validation then rejected the symlink. Directory sources were
+unaffected. This is recorded before correction: regular sources must
+dereference only the fd magic-link boundary, without dereferencing symlinks in
+directory trees.
+
+The next focused run did reject the symlinked source, but failed the diagnostic
+assertion because raw `ELOOP` text replaced the established “must not traverse”
+message. The rejection remained fail-closed; this is recorded before restoring
+the stable diagnostic contract.
+
+After regular-fd dereference and diagnostic correction, the focused bind suite
+passed on 2026-09-19. Replacing the public source immediately before `cp`
+still copied `original\n` through the held inode and preserved the substitute;
+replacing the public target root before destination creation wrote only into
+the held original root and preserved the marked replacement.
+
+The complete bind-materialization suite, including both descriptor races,
+then passed 100 consecutive repetitions on 2026-09-19.
+
+The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and
+`bash scripts/check-docs.sh` all passed on 2026-09-19. The documentation gate
+explicitly reports held source/target races together with the complete
+builder, validator, evidence, deployment, and resource-ledger suites.
+
 After this change, `bash -n`, the focused OCI/cleanup suite,
 `git diff --check`, `go test -race -count=1 ./...`, and `go vet ./...` all
 passed on 2026-09-19; the full documentation gate follows separately.

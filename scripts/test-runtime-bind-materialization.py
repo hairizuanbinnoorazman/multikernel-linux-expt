@@ -143,6 +143,55 @@ def main() -> None:
         if symlink_result.returncode == 0 or "must not traverse" not in symlink_result.stderr:
             raise AssertionError("symlinked bind source was accepted")
 
+        race_source = base / "race-source"
+        race_source.mkdir()
+        (race_source / "value").write_text("original\n", encoding="utf-8")
+        race_root = base / "race-root"
+        race_root.mkdir()
+        race_result = base / "race.json"
+        race_moved = base / "race-source-held"
+        plan(plan_path, race_source)
+        materializer = load_materializer()
+        real_run = subprocess.run
+
+        def replace_before_copy(command, **kwargs):
+            race_source.rename(race_moved)
+            race_source.mkdir()
+            (race_source / "value").write_text("replacement\n", encoding="utf-8")
+            return real_run(command, **kwargs)
+
+        arguments = [str(SCRIPT), str(plan_path), str(race_root), str(race_result)]
+        with mock.patch.object(materializer.subprocess, "run", side_effect=replace_before_copy), mock.patch.object(sys, "argv", arguments):
+            materializer.main()
+        if (race_root / "opt" / "input" / "value").read_text(encoding="utf-8") != "original\n":
+            raise AssertionError("bind copy escaped the held source descriptor")
+        if (race_source / "value").read_text(encoding="utf-8") != "replacement\n":
+            raise AssertionError("public bind-source replacement was modified")
+
+        target_source = base / "target-race-source"
+        target_source.mkdir()
+        (target_source / "value").write_text("held target\n", encoding="utf-8")
+        target_root = base / "target-race-root"
+        target_root.mkdir()
+        target_moved = base / "target-race-root-held"
+        plan(plan_path, target_source)
+        materializer = load_materializer()
+        real_destination_path = materializer.destination_path
+
+        def replace_target_root(held_root, destination, source_is_directory):
+            target_root.rename(target_moved)
+            target_root.mkdir()
+            (target_root / "replacement-marker").write_text("preserve\n", encoding="utf-8")
+            return real_destination_path(held_root, destination, source_is_directory)
+
+        arguments = [str(SCRIPT), str(plan_path), str(target_root), str(base / "target-race.json")]
+        with mock.patch.object(materializer, "destination_path", side_effect=replace_target_root), mock.patch.object(sys, "argv", arguments):
+            materializer.main()
+        if (target_moved / "opt" / "input" / "value").read_text(encoding="utf-8") != "held target\n":
+            raise AssertionError("bind copy escaped the held target descriptor")
+        if (target_root / "replacement-marker").read_text(encoding="utf-8") != "preserve\n":
+            raise AssertionError("public target-root replacement was modified")
+
         mutation_source = base / "mutation-source"
         mutation_source.mkdir()
         mutation_value = mutation_source / "value"
@@ -168,7 +217,7 @@ def main() -> None:
             else:
                 raise AssertionError("source mutation was accepted")
 
-    print("runtime read-only bind materialization: PASS (copy, metadata, destination semantics, symlinks, mutation)")
+    print("runtime read-only bind materialization: PASS (copy, metadata, destination semantics, symlinks, mutation, held source/target races)")
 
 
 if __name__ == "__main__":

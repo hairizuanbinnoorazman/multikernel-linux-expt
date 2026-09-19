@@ -723,6 +723,34 @@ phrase above.
   rejection, symlinks, mutation, malformed provenance, and guest fail-closed
   parsing. Writable host volumes, configured persistence, and privileged live
   read-only enforcement remain open.
+  A 2026-09-19 bind-materialization audit found that source validation and the
+  pre-copy manifest close before `cp` reopens the public pathname, and the
+  post-copy manifest opens it yet again. A same-content directory replacement
+  could therefore change the copied inode without changing either manifest.
+  The private target root is likewise retained only by pathname. This is
+  recorded before implementation; source and target must be opened
+  component-by-component without following symlinks and held across admission,
+  copy, and verification.
+  The first 2026-09-19 focused run then failed the regular-file bind case:
+  `cp --archive` preserved the `/proc/self/fd/N` magic link itself, and copied
+  target validation rejected that symlink. Directory sources were unaffected.
+  This is recorded before correction; regular sources must dereference only
+  the fd magic-link boundary while directory-tree symlinks remain preserved.
+  The next focused run rejected the symlinked source as intended but failed its
+  diagnostic assertion because the component walker exposed raw `ELOOP` text.
+  This is recorded before correction; the no-follow rejection remains and the
+  established stable diagnostic must be restored.
+  After regular-fd dereference and diagnostic correction, the focused bind
+  suite passed on 2026-09-19. A source replacement immediately before `cp`
+  still copied `original\n` from the held inode and preserved the substitute;
+  a target-root replacement before destination creation wrote only into the
+  held original root and preserved the marked replacement.
+  The complete bind-materialization suite, including both descriptor races,
+  then passed 100 consecutive repetitions on 2026-09-19.
+  The subsequent `go test -race -count=1 ./...`, `go vet ./...`, and
+  `bash scripts/check-docs.sh` all passed on 2026-09-19; the documentation gate
+  explicitly reports held source/target races alongside the complete builder,
+  validator, evidence, deployment, and resource-ledger suites.
 - [ ] Add capacity accounting, block/inode quotas, a high-water refusal policy,
   and bounded behavior for host and initramfs ENOSPC.
   A 2026-09-18 storage-builder audit found that the ext4 image and metadata
