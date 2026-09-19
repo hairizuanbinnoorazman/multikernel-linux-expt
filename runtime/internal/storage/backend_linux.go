@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,6 +46,8 @@ type processRecord struct {
 	ExportGeneration string `json:"export_generation"`
 	ImageDevice      uint64 `json:"image_device"`
 	ImageInode       uint64 `json:"image_inode"`
+	BinaryDevice     uint64 `json:"binary_device"`
+	BinaryInode      uint64 `json:"binary_inode"`
 }
 
 type openedPreparedImage struct {
@@ -55,19 +58,48 @@ type openedPreparedImage struct {
 	identity  safefile.Identity
 }
 
+type openedExecutable struct {
+	file      *os.File
+	directory *safefile.Directory
+	parent    string
+	name      string
+	identity  safefile.Identity
+}
+
+func (o *openedExecutable) Close() error {
+	return errors.Join(o.file.Close(), o.directory.Close())
+}
+
+func (o *openedExecutable) verifyNamedIdentity() error {
+	named, found, err := o.directory.EntryIdentity(o.name)
+	if err != nil || !found || named != o.identity {
+		return errors.New("storage server executable pathname changed while in use")
+	}
+	current, err := safefile.OpenOwnedDirectory(o.parent)
+	if err != nil {
+		return errors.New("storage server executable parent changed while in use")
+	}
+	defer current.Close()
+	if current.Identity() != o.directory.Identity() {
+		return errors.New("storage server executable parent changed while in use")
+	}
+	return nil
+}
+
 func (o *openedPreparedImage) Close() error {
 	return errors.Join(o.file.Close(), o.directory.Close())
 }
 
 type LinuxBackend struct {
-	Binary         string
-	CheckBinary    string
-	RuntimeDir     string
-	RequiredUID    int
-	ReadyTimeout   time.Duration
-	StopTimeout    time.Duration
-	CheckTimeout   time.Duration
-	afterImageOpen func()
+	Binary          string
+	CheckBinary     string
+	RuntimeDir      string
+	RequiredUID     int
+	ReadyTimeout    time.Duration
+	StopTimeout     time.Duration
+	CheckTimeout    time.Duration
+	afterImageOpen  func()
+	afterBinaryOpen func()
 
 	mu      sync.Mutex
 	managed map[string]*managedExport
@@ -219,6 +251,31 @@ func (b *LinuxBackend) openPreparedImage(image PreparedImage, writable bool) (*o
 	return opened, nil
 }
 
+func openExecutable(path string) (*openedExecutable, error) {
+	directory, err := safefile.OpenOwnedDirectory(filepath.Dir(path))
+	if err != nil {
+		return nil, err
+	}
+	file, identity, err := directory.OpenTrustedExecutable(filepath.Base(path), 256<<20)
+	if err != nil {
+		_ = directory.Close()
+		return nil, err
+	}
+	return &openedExecutable{file: file, directory: directory, parent: filepath.Dir(path),
+		name: filepath.Base(path), identity: identity}, nil
+}
+
+func (b *LinuxBackend) openServerBinary() (*openedExecutable, error) {
+	opened, err := openExecutable(b.Binary)
+	if err != nil {
+		return nil, err
+	}
+	if b.afterBinaryOpen != nil {
+		b.afterBinaryOpen()
+	}
+	return opened, nil
+}
+
 func (o *openedPreparedImage) verifyNamedIdentity() error {
 	named, found, err := o.directory.EntryIdentity(o.name)
 	if err != nil || !found || named != o.identity {
@@ -307,11 +364,7 @@ func (b *LinuxBackend) Inspect(ctx context.Context, image PreparedImage) (ImageI
 	return ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}, nil
 }
 
-func processStartTime(pid int) (uint64, error) {
-	data, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
-	if err != nil {
-		return 0, err
-	}
+func parseProcessStartTime(data []byte) (uint64, error) {
 	end := bytes.LastIndexByte(data, ')')
 	if end < 0 {
 		return 0, errors.New("malformed process stat")
@@ -321,6 +374,14 @@ func processStartTime(pid int) (uint64, error) {
 		return 0, errors.New("short process stat")
 	}
 	return strconv.ParseUint(fields[19], 10, 64)
+}
+
+func processStartTime(pid int) (uint64, error) {
+	data, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	if err != nil {
+		return 0, err
+	}
+	return parseProcessStartTime(data)
 }
 
 func atomicRecordAt(directory *safefile.Directory, name string, value processRecord) (safefile.Identity, error) {
@@ -362,6 +423,11 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	if value.ImageIdentity != (ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}) {
 		return errors.New("storage image identity changed before server start")
 	}
+	server, err := b.openServerBinary()
+	if err != nil {
+		return fmt.Errorf("open exact storage server executable: %w", err)
+	}
+	defer server.Close()
 	b.mu.Lock()
 	if err := ctx.Err(); err != nil {
 		b.mu.Unlock()
@@ -396,9 +462,10 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		b.mu.Unlock()
 		return err
 	}
-	command := exec.Command(b.Binary, "server", "/proc/self/fd/3", strconv.Itoa(int(value.Port)), value.ImageID, value.ExportGeneration)
+	command := &exec.Cmd{Path: "/proc/self/fd/4", Args: []string{b.Binary, "server", "/proc/self/fd/3",
+		strconv.Itoa(int(value.Port)), value.ImageID, value.ExportGeneration}}
 	command.Stdout, command.Stderr = log, log
-	command.ExtraFiles = []*os.File{opened.file}
+	command.ExtraFiles = []*os.File{opened.file, server.file}
 	command.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
 	// The export outlives mkruntimed so a daemon restart cannot sever a live
 	// child's root disk. Reconciliation adopts it only when PID start time,
@@ -417,21 +484,30 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		b.mu.Unlock()
 		return err
 	}
-	startTime, err := processStartTime(command.Process.Pid)
-	if err != nil {
-		_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+	if err = server.verifyNamedIdentity(); err != nil {
+		_ = command.Process.Signal(syscall.SIGTERM)
 		_ = command.Wait()
 		_ = log.Close()
 		_, _ = directory.RemoveIfIdentity(logName, logIdentity)
 		b.mu.Unlock()
 		return err
 	}
-	record := processRecord{Version: 2, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
+	startTime, err := processStartTime(command.Process.Pid)
+	if err != nil {
+		_ = command.Process.Signal(syscall.SIGTERM)
+		_ = command.Wait()
+		_ = log.Close()
+		_, _ = directory.RemoveIfIdentity(logName, logIdentity)
+		b.mu.Unlock()
+		return err
+	}
+	record := processRecord{Version: 3, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
-		ImageDevice: opened.identity.Device, ImageInode: opened.identity.Inode}
+		ImageDevice: opened.identity.Device, ImageInode: opened.identity.Inode,
+		BinaryDevice: server.identity.Device, BinaryInode: server.identity.Inode}
 	recordIdentity, err := atomicRecordAt(directory, recordName, record)
 	if err != nil {
-		_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+		_ = command.Process.Signal(syscall.SIGTERM)
 		_ = command.Wait()
 		_ = log.Close()
 		_, _ = directory.RemoveIfIdentity(logName, logIdentity)
@@ -460,15 +536,15 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 			b.mu.Unlock()
 			return errors.Join(fmt.Errorf("storage server exited before ready: %w", err), recordErr, logErr)
 		case <-ctx.Done():
-			_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+			_ = command.Process.Signal(syscall.SIGTERM)
 			return ctx.Err()
 		case <-deadline.C:
-			_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+			_ = command.Process.Signal(syscall.SIGTERM)
 			return errors.New("storage server readiness timeout")
 		case <-ticker.C:
 			data, readErr := readPrivateRuntimeFileAt(directory, logName, 1<<20, false)
 			if readErr != nil {
-				_ = syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+				_ = command.Process.Signal(syscall.SIGTERM)
 				return fmt.Errorf("read storage readiness evidence: %w", readErr)
 			}
 			if bytes.Contains(data, readyMarker(value)) {
@@ -501,36 +577,114 @@ func readRecordIdentityAt(directory *safefile.Directory, name string, expected E
 		}
 		return value, safefile.Identity{}, err
 	}
-	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 2 {
+	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 3 {
 		return value, safefile.Identity{}, errors.New("storage process record is malformed")
 	}
 	if value.PID <= 1 || value.StartTime == 0 || value.Path != expected.Path || value.Port != expected.Port ||
 		value.ImageID != expected.ImageID || value.ExportGeneration != expected.ExportGeneration ||
-		value.ImageDevice != expected.ImageIdentity.Device || value.ImageInode != expected.ImageIdentity.Inode {
+		value.ImageDevice != expected.ImageIdentity.Device || value.ImageInode != expected.ImageIdentity.Inode ||
+		value.BinaryDevice == 0 || value.BinaryInode == 0 {
 		return value, safefile.Identity{}, errors.New("storage process record differs from its exact export lease")
 	}
 	return value, identity, nil
 }
 
-func processMatches(record processRecord, binary string) bool {
-	start, err := processStartTime(record.PID)
-	if err != nil || start != record.StartTime {
-		return false
-	}
-	data, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(record.PID), "cmdline"))
+type processHandle struct {
+	pidfd int
+	proc  *os.File
+}
+
+func (h *processHandle) Close() error {
+	return errors.Join(unix.Close(h.pidfd), h.proc.Close())
+}
+
+func readProcessFileAt(directory *os.File, name string, limit int64) ([]byte, error) {
+	descriptor, err := unix.Openat(int(directory.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
-		return false
+		return nil, err
+	}
+	file := os.NewFile(uintptr(descriptor), name)
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, errors.New("process metadata exceeds limit")
+	}
+	return data, nil
+}
+
+func openProcessHandle(record processRecord, binary string) (*processHandle, bool, error) {
+	pidfd, err := unix.PidfdOpen(record.PID, 0)
+	if err != nil {
+		if errors.Is(err, syscall.ESRCH) {
+			return nil, false, nil
+		}
+		return nil, false, errors.New("cannot retain exact storage server pidfd")
+	}
+	procfd, err := unix.Open(filepath.Join("/proc", strconv.Itoa(record.PID)),
+		unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		probeErr := unix.PidfdSendSignal(pidfd, 0, nil, 0)
+		_ = unix.Close(pidfd)
+		if errors.Is(probeErr, syscall.ESRCH) {
+			return nil, false, nil
+		}
+		return nil, false, errors.New("storage server proc directory is unavailable")
+	}
+	handle := &processHandle{pidfd: pidfd, proc: os.NewFile(uintptr(procfd), "proc")}
+	statData, err := readProcessFileAt(handle.proc, "stat", 4096)
+	if err != nil {
+		probeErr := unix.PidfdSendSignal(handle.pidfd, 0, nil, 0)
+		_ = handle.Close()
+		if errors.Is(probeErr, syscall.ESRCH) {
+			return nil, false, nil
+		}
+		return nil, false, errors.New("storage server process stat is unavailable")
+	}
+	start, err := parseProcessStartTime(statData)
+	if err != nil {
+		_ = handle.Close()
+		return nil, false, errors.New("storage server process stat is malformed")
+	}
+	if start != record.StartTime {
+		_ = handle.Close()
+		return nil, false, nil
+	}
+	data, err := readProcessFileAt(handle.proc, "cmdline", 4096)
+	if err != nil {
+		_ = handle.Close()
+		return nil, false, errors.New("storage server command identity is unavailable")
 	}
 	want := strings.Join([]string{binary, "server", "/proc/self/fd/3", strconv.Itoa(int(record.Port)), record.ImageID, record.ExportGeneration, ""}, "\x00")
 	if string(data) != want {
-		return false
+		_ = handle.Close()
+		return nil, false, errors.New("storage server command identity conflicts with its record")
 	}
-	info, err := os.Stat(filepath.Join("/proc", strconv.Itoa(record.PID), "fd", "3"))
-	if err != nil {
-		return false
+	var image unix.Stat_t
+	if err = unix.Fstatat(int(handle.proc.Fd()), "fd/3", &image, 0); err != nil ||
+		uint64(image.Dev) != record.ImageDevice || image.Ino != record.ImageInode {
+		_ = handle.Close()
+		return nil, false, errors.New("storage server image descriptor conflicts with its record")
 	}
-	value, ok := info.Sys().(*syscall.Stat_t)
-	return ok && uint64(value.Dev) == record.ImageDevice && value.Ino == record.ImageInode
+	var executable unix.Stat_t
+	if err = unix.Fstatat(int(handle.proc.Fd()), "exe", &executable, 0); err != nil ||
+		uint64(executable.Dev) != record.BinaryDevice || executable.Ino != record.BinaryInode {
+		_ = handle.Close()
+		return nil, false, errors.New("storage server executable conflicts with its record")
+	}
+	// The pidfd was opened before the proc directory. If the original process
+	// exited during inspection, signal 0 fails; while it remains live, its
+	// numeric PID cannot be reused for a different proc directory.
+	if err = unix.PidfdSendSignal(handle.pidfd, 0, nil, 0); err != nil {
+		_ = handle.Close()
+		if errors.Is(err, syscall.ESRCH) {
+			return nil, false, nil
+		}
+		return nil, false, errors.New("storage server pidfd liveness check failed")
+	}
+	return handle, true, nil
 }
 
 func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, error) {
@@ -567,7 +721,14 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 	if err != nil {
 		return Observation{}, err
 	}
-	if !processMatches(record, b.Binary) {
+	handle, matches, matchErr := openProcessHandle(record, b.Binary)
+	if handle != nil {
+		_ = handle.Close()
+	}
+	if matchErr != nil {
+		return Observation{}, matchErr
+	}
+	if !matches {
 		if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
 			return Observation{}, err
 		}
@@ -586,6 +747,35 @@ func waitForProcess(ctx context.Context, done <-chan error, timeout time.Duratio
 		return ctx.Err(), false
 	case <-timer.C:
 		return nil, false
+	}
+}
+
+func waitForPidfd(ctx context.Context, pidfd int, timeout time.Duration) (error, bool) {
+	deadline := time.Now().Add(timeout)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err, false
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return nil, false
+		}
+		wait := min(remaining, 20*time.Millisecond)
+		milliseconds := int(wait / time.Millisecond)
+		if milliseconds < 1 {
+			milliseconds = 1
+		}
+		fds := []unix.PollFd{{Fd: int32(pidfd), Events: unix.POLLIN}}
+		count, err := unix.Poll(fds, milliseconds)
+		if errors.Is(err, unix.EINTR) {
+			continue
+		}
+		if err != nil {
+			return err, false
+		}
+		if count > 0 && fds[0].Revents&(unix.POLLIN|unix.POLLHUP|unix.POLLERR) != 0 {
+			return nil, true
+		}
 	}
 }
 
@@ -650,7 +840,13 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 	if err != nil {
 		return Counters{}, err
 	}
-	processIsExact := processMatches(record, b.Binary)
+	handle, processIsExact, identityErr := openProcessHandle(record, b.Binary)
+	if handle != nil {
+		defer handle.Close()
+	}
+	if identityErr != nil {
+		return Counters{}, identityErr
+	}
 	alreadyExited := false
 	if !processIsExact && managed != nil {
 		select {
@@ -667,7 +863,7 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 	}
 	if managed != nil {
 		if !alreadyExited {
-			if err = syscall.Kill(-record.PID, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
+			if err = unix.PidfdSendSignal(handle.pidfd, unix.SIGTERM, nil, 0); err != nil && !errors.Is(err, syscall.ESRCH) {
 				return Counters{}, err
 			}
 			if waitErr, exited := waitForProcess(ctx, managed.done, b.StopTimeout); !exited {
@@ -675,18 +871,13 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 			}
 		}
 	} else {
-		if err = syscall.Kill(-record.PID, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
+		if err = unix.PidfdSendSignal(handle.pidfd, unix.SIGTERM, nil, 0); err != nil && !errors.Is(err, syscall.ESRCH) {
 			return Counters{}, err
 		}
-		deadline := time.Now().Add(15 * time.Second)
-		for processMatches(record, b.Binary) && time.Now().Before(deadline) {
-			select {
-			case <-ctx.Done():
-				return Counters{}, ctx.Err()
-			case <-time.After(20 * time.Millisecond):
+		if waitErr, exited := waitForPidfd(ctx, handle.pidfd, 15*time.Second); !exited {
+			if waitErr != nil {
+				return Counters{}, waitErr
 			}
-		}
-		if processMatches(record, b.Binary) {
 			return Counters{}, errors.New("recovered storage server did not stop")
 		}
 	}

@@ -3,6 +3,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -175,6 +176,52 @@ func TestLinuxBackendRejectsImageParentReplacementAfterOpen(t *testing.T) {
 	}
 }
 
+func TestLinuxBackendRejectsServerExecutableReplacementAfterOpen(t *testing.T) {
+	image := makeExt4(t, false)
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	binaryPath := filepath.Join(directory, "server")
+	sourcePath := filepath.Join(directory, "server.c")
+	if err := os.WriteFile(sourcePath, []byte("#include <unistd.h>\nint main(void) { for (;;) pause(); }\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if output, err := exec.Command("cc", "-O2", "-Wall", "-Wextra", "-Werror", sourcePath, "-o", binaryPath).CombinedOutput(); err != nil {
+		t.Skipf("C compiler unavailable: %v: %s", err, output)
+	}
+	if err := os.Chmod(binaryPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	backend := &LinuxBackend{Binary: binaryPath, RuntimeDir: filepath.Join(directory, "run"), RequiredUID: os.Getuid()}
+	identity, err := backend.Inspect(context.Background(), image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := validBackendLease(image.Path)
+	value.PreparedImage, value.ImageIdentity = image, identity
+	replacement := []byte("replacement-server")
+	backend.afterBinaryOpen = func() {
+		if renameErr := os.Rename(binaryPath, binaryPath+".held"); renameErr != nil {
+			t.Fatal(renameErr)
+		}
+		if writeErr := os.WriteFile(binaryPath, replacement, 0600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+	}
+	err = backend.Start(context.Background(), value)
+	if err == nil || !strings.Contains(err.Error(), "executable pathname changed") {
+		t.Fatalf("server executable replacement error = %v", err)
+	}
+	if data, readErr := os.ReadFile(binaryPath); readErr != nil || !bytes.Equal(data, replacement) {
+		t.Fatalf("replacement executable changed: %q, %v", data, readErr)
+	}
+	entries, readErr := os.ReadDir(backend.RuntimeDir)
+	if readErr != nil || len(entries) != 0 {
+		t.Fatalf("replacement failure artifacts = %v, %v", entries, readErr)
+	}
+}
+
 func TestLinuxBackendOperationsRejectPreCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -248,6 +295,9 @@ func imageLockAvailable(t *testing.T, path string) bool {
 func TestLinuxBackendProcessIdentityGracefulStopAndOfflineCheck(t *testing.T) {
 	image := makeExt4(t, false)
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
 	binaryPath := filepath.Join(directory, "server")
 	sourcePath := filepath.Join(directory, "server.c")
 	source := `#include <signal.h>
@@ -270,6 +320,9 @@ int main(int argc, char **argv) {
 	}
 	if output, err := exec.Command("cc", "-O2", "-Wall", "-Wextra", "-Werror", sourcePath, "-o", binaryPath).CombinedOutput(); err != nil {
 		t.Skipf("C compiler unavailable: %v: %s", err, output)
+	}
+	if err := os.Chmod(binaryPath, 0755); err != nil {
+		t.Fatal(err)
 	}
 	backend := &LinuxBackend{Binary: binaryPath, RuntimeDir: filepath.Join(directory, "run"), RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 20 * time.Millisecond}
 	value := Export{SandboxID: "box", SandboxGeneration: sandboxGeneration,
@@ -295,6 +348,42 @@ int main(int argc, char **argv) {
 	observed, err = recovered.Observe(context.Background(), value)
 	if err != nil || !observed.Active || observed.Generation != value.ExportGeneration {
 		t.Fatalf("recovered observation = %+v, %v", observed, err)
+	}
+	recordPath, _ := backend.paths(value)
+	recordData, err := os.ReadFile(recordPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var conflictingRecord processRecord
+	if err = json.Unmarshal(recordData, &conflictingRecord); err != nil {
+		t.Fatal(err)
+	}
+	conflictingRecord.BinaryInode++
+	conflictingData, err := json.Marshal(conflictingRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(recordPath, append(conflictingData, '\n'), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = recovered.Observe(context.Background(), value); err == nil || !strings.Contains(err.Error(), "executable conflicts") {
+		t.Fatalf("conflicting executable observation error = %v", err)
+	}
+	if data, readErr := os.ReadFile(recordPath); readErr != nil || !bytes.Equal(data, append(conflictingData, '\n')) {
+		t.Fatalf("conflicting process record was not preserved: %q, %v", data, readErr)
+	}
+	if err = os.WriteFile(recordPath, recordData, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(binaryPath, binaryPath+".launched"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(binaryPath, []byte("replacement-server"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	observed, err = recovered.Observe(context.Background(), value)
+	if err != nil || !observed.Active || observed.Generation != value.ExportGeneration {
+		t.Fatalf("public executable replacement observation = %+v, %v", observed, err)
 	}
 	movedRuntime := backend.RuntimeDir + ".original"
 	if err = os.Rename(backend.RuntimeDir, movedRuntime); err != nil {
@@ -351,8 +440,9 @@ func TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures(t *testing.T)
 	}
 	value := validBackendLease(image.Path)
 	value.PreparedImage, value.ImageIdentity = image, identity
+	server := executableScript(t, "exit 0")
 	t.Run("unsafe stale log", func(t *testing.T) {
-		backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
+		backend := &LinuxBackend{Binary: server, RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
 		if err := os.Mkdir(backend.RuntimeDir, 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -373,7 +463,7 @@ func TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures(t *testing.T)
 	})
 
 	t.Run("record collision preserves prior log", func(t *testing.T) {
-		backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
+		backend := &LinuxBackend{Binary: server, RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
 		if err := os.Mkdir(backend.RuntimeDir, 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -393,12 +483,16 @@ func TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures(t *testing.T)
 	})
 
 	t.Run("command start failure leaves no artifacts", func(t *testing.T) {
-		backend := &LinuxBackend{Binary: filepath.Join(t.TempDir(), "missing-server"), RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
+		serverDirectory := t.TempDir()
+		if err := os.Chmod(serverDirectory, 0700); err != nil {
+			t.Fatal(err)
+		}
+		backend := &LinuxBackend{Binary: filepath.Join(serverDirectory, "missing-server"), RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
 		if err := backend.Start(t.Context(), value); err == nil {
 			t.Fatal("missing storage server was started")
 		}
 		entries, err := os.ReadDir(backend.RuntimeDir)
-		if err != nil || len(entries) != 0 {
+		if (err != nil && !errors.Is(err, os.ErrNotExist)) || len(entries) != 0 {
 			t.Fatalf("failed start artifacts = %v, %v", entries, err)
 		}
 	})
@@ -419,7 +513,11 @@ func validBackendLease(path string) Export {
 
 func executableScript(t *testing.T, body string) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "command")
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "command")
 	if err := os.WriteFile(path, []byte("#!/bin/sh\nset -eu\n"+body+"\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -520,9 +618,10 @@ func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 2, PID: os.Getpid(), StartTime: start, Path: value.Path,
+	record := processRecord{Version: 3, PID: os.Getpid(), StartTime: start, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
-		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode}
+		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
+		BinaryDevice: 3, BinaryInode: 4}
 	data, err := json.Marshal(record)
 	if err != nil {
 		t.Fatal(err)
@@ -563,9 +662,10 @@ func TestProcessRecordReadRecoversIdentityBoundQuarantine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 2, PID: os.Getpid(), StartTime: start, Path: value.Path,
+	record := processRecord{Version: 3, PID: os.Getpid(), StartTime: start, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
-		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode}
+		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
+		BinaryDevice: 3, BinaryInode: 4}
 	data, err := json.Marshal(record)
 	if err != nil {
 		t.Fatal(err)
@@ -651,6 +751,9 @@ func TestMissingEphemeralRuntimeDirectoryObservesExportAbsent(t *testing.T) {
 
 func TestManagedBackendSignalsBeforeStopTimeout(t *testing.T) {
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
 	binaryPath := filepath.Join(directory, "server")
 	sourcePath := filepath.Join(directory, "server.c")
 	source := `#include <signal.h>
@@ -672,6 +775,9 @@ int main(int argc, char **argv) {
 	}
 	if output, err := exec.Command("cc", "-O2", "-Wall", "-Wextra", "-Werror", sourcePath, "-o", binaryPath).CombinedOutput(); err != nil {
 		t.Skipf("C compiler unavailable: %v: %s", err, output)
+	}
+	if err := os.Chmod(binaryPath, 0755); err != nil {
+		t.Fatal(err)
 	}
 	backend := &LinuxBackend{Binary: binaryPath, RuntimeDir: filepath.Join(directory, "run"),
 		RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 3 * time.Second}

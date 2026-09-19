@@ -1644,6 +1644,88 @@ containerd, and final-evidence audits; `git diff --check` was clean. This
 completes the local exact-image identity and continuous-lock checkpoint.
 Disposable-host proof remains unauthorized.
 
+The next recovery audit found that process authentication still opens
+`/proc/<pid>/stat`, `cmdline`, and `fd/3` independently and teardown then
+signals the numeric PID/process group. Exit plus PID reuse between those
+operations can cross identities. This is recorded before implementation;
+recovery must retain one pidfd for exact liveness/signaling and one held
+`/proc/<pid>` directory for all metadata inspection.
+
+The first pidfd-backed implementation passed the race-enabled storage suite,
+including daemon-restart adoption and exact stop. Its review found an adjacent
+executable-identity gap: launch still resolves the server binary by pathname
+and recovery trusts argv without authenticating `/proc/<pid>/exe`. This is
+recorded before extending the durable process record and exact recovery check
+to the executable device/inode as well.
+
+The first executable-binding run then stopped at three fixture assumptions:
+two compiled fake-server parents inherited mode `0775` and were correctly
+rejected as group-writable, while the missing-binary cleanup case now fails
+before runtime-directory creation but still assumed that directory existed.
+`safefile` passed; these fixture-boundary failures are recorded before aligning
+the tests with the new pre-launch trust boundary.
+
+After fixing the parents, the compiler's output was observed as mode `0775`
+and was correctly rejected too; production installs the helper as `0755`, so
+the compiled fixtures must explicitly reproduce that deployed mode.
+
+With fixture modes aligned, race-enabled storage and `safefile` suites pass.
+Launch now executes a held server fd, process-record version 3 binds both image
+and executable inodes, recovery reads stat/cmdline/fd 3/exe through one held
+proc directory, and teardown signals only the retained pidfd. Adversarial
+executable-replacement and repeated verification remain pending.
+
+The first adversarial executable-replacement test did not compile because its
+new `bytes.Equal` assertion omitted the `bytes` import; no test executed. This
+harness error is recorded before adding the import and rerunning it.
+
+After restoring the import, the race-enabled executable-replacement,
+recovered-pidfd stop, managed stop, and startup-cleanup group passed. The held
+original reaches the post-exec identity check, the unsafe substitute is
+preserved, launch fails closed, and no runtime artifact remains. Repeated and
+full-tree verification remain pending.
+
+A follow-up recovery review found that the boolean matcher still collapses
+“process absent” and “same recorded process conflicts with executable/image
+metadata.” `Observe` would remove the record in both cases and could abandon a
+live server after executable-path replacement. This is recorded before
+separating proven absence/PID reuse from a diagnosable live conflict.
+
+The split now passes focused race testing. A forged executable inode returns a
+specific conflict and preserves the process record byte-for-byte; after
+restoring it, replacement of the public binary pathname does not break
+adoption because `/proc/<pid>/exe` still matches the durably recorded launched
+inode, and exact pidfd stop succeeds. The combined executable-substitution and
+recovered-process identity group then passed 100 race-detector repetitions in
+55.082 seconds on 2026-09-19.
+
+The expanded race-enabled storage, `safefile`, and lifecycle gate then passed.
+Direct trusted-executable tests retain the original inode after pathname
+replacement and reject non-executable, group-writable, and symlink inputs.
+The subsequent all-package race suite passed (storage: 3.792 seconds), and
+`go vet ./...` completed without diagnostics. Documentation and
+repository-integrity verification remain pending for this checkpoint. The
+full `bash scripts/check-docs.sh` chain then passed across links, schemas,
+evidence, 55 OCI cases, bind/rootfs/image races, release/deployment,
+resource-ledger, command-capture, containerd, and final-evidence audits;
+`git diff --check` was clean. This completes the local exact-process recovery
+checkpoint; disposable-host proof remains unauthorized.
+
+Pre-commit error-path review then found that `pidfd_open` and signal-0 failures
+other than `ESRCH` were treated as absence, so descriptor exhaustion or
+permission/kernel errors could allow stale-record removal. This is recorded
+before correction: only `ESRCH` may prove absence; every other pidfd/proc
+failure must preserve state and surface an error.
+
+After restricting absence to `ESRCH`, race-enabled storage, `safefile`, and
+lifecycle suites passed. Other pidfd/proc errors now preserve the process
+record and return a diagnostic failure. The final all-package race run then
+passed (storage: 3.775 seconds), and `go vet ./...` was clean. The final
+documentation chain then passed across links, schemas, evidence, OCI,
+bind/rootfs/image races, release/deployment, resource-ledger, command-capture,
+containerd, and final-evidence audits; `git diff --check` was clean. The local
+pidfd/executable checkpoint is complete.
+
 The first descriptor-walker focused run stopped before its new race because
 the fixture still held the preceding `/escape` configuration; the resolver
 correctly rejected it. This harness setup failure is recorded before resetting
