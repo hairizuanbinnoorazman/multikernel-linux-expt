@@ -39,6 +39,7 @@ test -f "$bundle/config.json"
 mkdir -p "$root" "$boot" "$metadata"
 validated_config=$metadata/config.json
 bind_plan=$metadata/readonly-binds.json
+source_before_manifest=$metadata/source-before.manifest.json
 "$script_dir/validate-runtime-oci.py" "$bundle/config.json" "$validated_config" "$bind_plan"
 : "${task_identity:?MK_TASK_IDENTITY is required}"
 : "${storage_port:?MK_STORAGE_PORT is required}"
@@ -92,10 +93,10 @@ else
 fi
 "$script_dir/validate-runtime-image.py" "$source_root" "$validated_config" "$bootstrap" \
 	>"$metadata/image-validation.json"
-"$script_dir/build-runtime-rootfs.py" "$source_root" "$metadata/unused" "$source_manifest.before" --manifest-only \
+"$script_dir/build-runtime-rootfs.py" "$source_root" "$metadata/unused" "$source_before_manifest" --manifest-only \
 	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
 	>"$metadata/source-before-result.json"
-"$script_dir/runtime-storage-identity.py" "$task_identity" "$source_manifest.before" >"$metadata/storage-identity.json"
+"$script_dir/runtime-storage-identity.py" "$task_identity" "$source_before_manifest" >"$metadata/storage-identity.json"
 image_id=$(jq -er '.image_id' "$metadata/storage-identity.json")
 filesystem_uuid=$(jq -er '.filesystem_uuid' "$metadata/storage-identity.json")
 printf '%s\n' "$image_id" >"$root/.multikernel/image-id"
@@ -103,15 +104,13 @@ chmod 0600 "$root/.multikernel/image-id"
 cp -a "$source_root/." "$root/bundle/rootfs/"
 "$script_dir/materialize-runtime-binds.py" "$bind_plan" "$root/bundle/rootfs" "$bind_manifest" \
 	--max-bytes "${MK_BIND_INPUT_MAX_BYTES:-1073741824}" --max-inodes "${MK_BIND_INPUT_MAX_INODES:-131072}"
-"$script_dir/build-runtime-rootfs.py" "$source_root" "$metadata/unused" "$source_manifest.after" --manifest-only \
+"$script_dir/build-runtime-rootfs.py" "$source_root" "$metadata/unused" "$source_manifest" --manifest-only \
 	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
 	>"$metadata/source-after-result.json"
-cmp -s "$source_manifest.before" "$source_manifest.after" || {
+cmp -s "$source_before_manifest" "$source_manifest" || {
 	echo 'OCI source root mutated during storage construction' >&2
 	exit 1
 }
-mv "$source_manifest.after" "$source_manifest"
-rm -f "$source_manifest.before"
 jq '.root.path = "rootfs"' "$validated_config" >"$root/bundle/config.json"
 
 "$script_dir/build-runtime-storage.py" "$root" "$storage_output" "$storage_metadata" \

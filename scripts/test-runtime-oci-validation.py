@@ -74,6 +74,11 @@ def run_case(directory, name, config=None, raw=None, accepted=False):
 def main():
     with tempfile.TemporaryDirectory(prefix="mk-oci-validation-") as temporary:
         directory = pathlib.Path(temporary)
+        builder_text = BUILDER.read_text(encoding="utf-8")
+        if '$source_manifest.after' in builder_text or 'mv "$source_manifest' in builder_text:
+            raise AssertionError("outer builder reintroduced replacing source-manifest publication")
+        if '"$source_manifest" --manifest-only' not in builder_text or 'cmp -s "$source_before_manifest" "$source_manifest"' not in builder_text:
+            raise AssertionError("outer builder does not compare a no-replace final source manifest")
         missing_bundle = directory / "missing-config-bundle"
         missing_bundle.mkdir()
         output = directory / "initramfs.cpio.gz"
