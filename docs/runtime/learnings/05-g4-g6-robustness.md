@@ -1469,6 +1469,29 @@ across every runtime package on 2026-09-19.
 cases, schema/evidence audits, deployment lifecycle, and resource-ledger
 checks.
 
+A subsequent outer-transaction audit on 2026-09-19 found that
+`build-runtime-container-initramfs.sh` still unconditionally `rm -f`s public
+output names in its failure trap. An inner builder can safely publish an inode,
+then a later failure and same-name substitution can cause the outer trap to
+delete the substitute. This is recorded before implementation; cleanup must
+be exact-identity conditional or deferred to the backend's descriptor-bound
+directory cleanup.
+
+The outer shell now cleans only its private `mktemp` workspace. Production
+artifact cleanup remains with the service, which records and quarantines the
+exact private runtime/storage directory inodes. A focused 2026-09-19
+early-failure run pre-populated all 8 former public cleanup targets and proved
+every replacement byte remained unchanged; all 55 OCI semantic cases and the
+existing namespace/file-identity boundaries passed with it.
+
+After this change, `bash -n`, the focused OCI/cleanup suite,
+`git diff --check`, `go test -race -count=1 ./...`, and `go vet ./...` all
+passed on 2026-09-19; the full documentation gate follows separately.
+
+`bash scripts/check-docs.sh` then passed on 2026-09-19 with the outer-cleanup
+boundary explicitly included, together with the complete builder, validator,
+evidence, deployment, and resource-ledger suites.
+
 The storage builder now opens staging once, creates its root relative to that
 descriptor, and uses inherited `/proc/self/fd` paths for copy, normalization,
 inode accounting, and filesystem import. Cleanup quarantines only the exact

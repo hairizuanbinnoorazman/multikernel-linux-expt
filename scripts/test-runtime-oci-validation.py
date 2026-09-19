@@ -74,6 +74,39 @@ def run_case(directory, name, config=None, raw=None, accepted=False):
 def main():
     with tempfile.TemporaryDirectory(prefix="mk-oci-validation-") as temporary:
         directory = pathlib.Path(temporary)
+        missing_bundle = directory / "missing-config-bundle"
+        missing_bundle.mkdir()
+        output = directory / "initramfs.cpio.gz"
+        storage = directory / "root.ext4"
+        protected = [
+            output,
+            directory / "initramfs.manifest.json",
+            directory / "initramfs.source-manifest.json",
+            directory / "initramfs.source-manifest.json.before",
+            directory / "initramfs.source-manifest.json.after",
+            directory / "initramfs.readonly-binds.manifest.json",
+            storage,
+            directory / "storage.json",
+        ]
+        for index, path in enumerate(protected):
+            path.write_bytes(f"replacement-{index}\n".encode())
+        environment = os.environ.copy()
+        environment["MK_STORAGE_OUTPUT"] = str(storage)
+        failed_build = subprocess.run(
+            [str(BUILDER), str(missing_bundle), str(output)],
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if failed_build.returncode == 0:
+            raise AssertionError("builder unexpectedly accepted a bundle without config.json")
+        for index, path in enumerate(protected):
+            expected = f"replacement-{index}\n".encode()
+            if path.read_bytes() != expected:
+                raise AssertionError(f"outer failure cleanup modified replacement {path}")
+
         run_case(directory, "valid", copy.deepcopy(BASE), accepted=True)
         supported = copy.deepcopy(BASE)
         supported["ociVersion"] = "1.0.2-dev"
@@ -282,7 +315,10 @@ def main():
         )
         if result.returncode == 0 or "unsupported OCI field(s): hooks" not in result.stderr:
             raise AssertionError(f"builder did not reject before normalization: {result.stderr!r}")
-    print(f"runtime OCI fail-closed validation: PASS ({CASE_COUNT} semantic cases plus namespace and file-identity boundaries)")
+    print(
+        f"runtime OCI fail-closed validation: PASS ({CASE_COUNT} semantic cases plus namespace, "
+        "file-identity, and outer-cleanup boundaries)"
+    )
 
 
 if __name__ == "__main__":
