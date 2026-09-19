@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import stat
 
 
@@ -26,8 +27,25 @@ def reject_symlink_components(path, anchor):
             raise ValueError(f"root path contains symlink component: {current}")
 
 
+def validated_bundle_anchor(bundle):
+    text = os.fspath(bundle)
+    if not os.path.isabs(text) or os.path.normpath(text) != text:
+        raise ValueError("bundle path is not absolute and canonical")
+    inherited = re.fullmatch(r"/proc/self/fd/([0-9]+)", text)
+    if inherited:
+        info = os.fstat(int(inherited.group(1)))
+        if not stat.S_ISDIR(info.st_mode):
+            raise ValueError("inherited bundle descriptor is not a directory")
+        return Path(text)
+    anchor = Path(text)
+    reject_symlink_components(anchor, Path("/"))
+    if not stat.S_ISDIR(anchor.stat(follow_symlinks=False).st_mode):
+        raise ValueError("bundle path is not a directory")
+    return anchor
+
+
 def resolve(bundle, configured, allowed_absolute):
-    bundle = bundle.resolve(strict=True)
+    bundle = validated_bundle_anchor(bundle)
     raw = PurePosixPath(configured)
     if configured == "" or "\x00" in configured:
         raise ValueError("root.path is empty or contains NUL")

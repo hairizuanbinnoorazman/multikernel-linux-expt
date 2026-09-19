@@ -208,6 +208,31 @@ class StorageBuildTests(unittest.TestCase):
         self.assertEqual((replacements[0] / "replacement-marker").read_text(), "preserved")
         self.assertTrue((moved / "root/etc/value").is_file())
 
+    def test_source_copy_uses_held_root_after_public_path_replacement(self):
+        builder = load_builder()
+        arguments = self.arguments("raced-source")
+        original_build = builder._build_held
+        moved = self.temp / "held-source"
+
+        def replace_public_root(build_arguments, held_root, root_fd):
+            self.root.rename(moved)
+            (self.root / "etc").mkdir(parents=True)
+            (self.root / "etc" / "value").write_text("replacement\n")
+            return original_build(build_arguments, held_root, root_fd)
+
+        with mock.patch.object(builder, "_build_held", side_effect=replace_public_root):
+            builder.build(arguments)
+        inspection = subprocess.run(
+            [arguments.debugfs, "-R", "cat /etc/value", str(arguments.output)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(inspection.returncode, 0, inspection.stderr)
+        self.assertEqual(inspection.stdout, "one\n")
+        self.assertEqual((self.root / "etc" / "value").read_text(), "replacement\n")
+
 
 if __name__ == "__main__":
     unittest.main()

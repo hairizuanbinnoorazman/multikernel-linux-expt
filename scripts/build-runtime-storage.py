@@ -145,14 +145,29 @@ def atomic_json(path: Path, value: dict) -> tuple[int, int]:
 
 
 def build(arguments) -> dict:
-    root = arguments.root.resolve(strict=True)
+    try:
+        root_fd = os.open(
+            arguments.root,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+        )
+    except OSError as error:
+        raise StorageBuildError(
+            f"cannot open root directory without following symlinks: {arguments.root}: {error}"
+        ) from error
+    try:
+        return _build_held(arguments, Path(f"/proc/self/fd/{root_fd}"), root_fd)
+    finally:
+        os.close(root_fd)
+
+
+def _build_held(arguments, root: Path, root_fd: int) -> dict:
     logical_path = arguments.logical_path
     if logical_path is None:
         logical_path = arguments.output.resolve()
     if not logical_path.is_absolute() or os.path.normpath(str(logical_path)) != str(logical_path):
         raise StorageBuildError("logical output path must be absolute and canonical")
-    if not root.is_dir() or arguments.output.exists() or arguments.metadata.exists():
-        raise StorageBuildError("root must be a directory and output paths must not already exist")
+    if arguments.output.exists() or arguments.metadata.exists():
+        raise StorageBuildError("output paths must not already exist")
     if not IDENTITY.fullmatch(arguments.image_id) or not UUID.fullmatch(arguments.uuid):
         raise StorageBuildError("image ID or UUID is malformed")
     if (arguments.size < 64 << 20 or arguments.size > 16 << 30 or arguments.size % 4096 or
@@ -185,7 +200,7 @@ def build(arguments) -> dict:
             stderr=subprocess.PIPE,
             text=True,
             check=False,
-            pass_fds=(staging_fd,),
+            pass_fds=(root_fd, staging_fd),
         )
         if copy.returncode:
             raise StorageBuildError(f"root staging failed: {copy.stderr.strip()}")

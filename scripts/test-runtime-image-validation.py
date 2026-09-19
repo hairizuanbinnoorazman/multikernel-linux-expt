@@ -2,15 +2,25 @@
 """Focused pre-allocation image/kernel architecture binding tests."""
 
 import copy
+import hashlib
+import importlib.util
 import json
 import pathlib
 import shutil
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 
 
 VALIDATOR = pathlib.Path(__file__).with_name("validate-runtime-image.py")
+
+
+def load_validator():
+    spec = importlib.util.spec_from_file_location("runtime_image_validator", VALIDATOR)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def main():
@@ -61,7 +71,29 @@ def main():
         escaped["process"]["args"][0] = "/escape"
         if run(escaped).returncode == 0:
             raise AssertionError("escaping entrypoint symlink accepted")
-    print("runtime image architecture binding: PASS (ELF, interpreter, wrong-arch, escape)")
+
+        validator = load_validator()
+        original_validate = validator._validate_held
+        moved = directory / "held-root"
+
+        def replace_public_root(held_root, held_config, held_bootstrap):
+            root.rename(moved)
+            (root / "bin").mkdir(parents=True)
+            (root / "bin" / "program").write_bytes(
+                b"\x7fELF\x02\x01" + b"\0" * 12 + (183).to_bytes(2, "little")
+            )
+            (root / "bin" / "program").chmod(0o755)
+            return original_validate(held_root, held_config, held_bootstrap)
+
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        with mock.patch.object(validator, "_validate_held", side_effect=replace_public_root):
+            held_result = validator.validate(root, config_path, bootstrap_path)
+        expected = hashlib.sha256((moved / "bin" / "program").read_bytes()).hexdigest()
+        if held_result["entrypoint_sha256"] != expected:
+            raise AssertionError("entrypoint validation escaped the held root")
+        if (root / "bin" / "program").read_bytes()[18:20] != (183).to_bytes(2, "little"):
+            raise AssertionError("public replacement was modified")
+    print("runtime image architecture binding: PASS (ELF, interpreter, wrong-arch, escape, held-root race)")
 
 
 if __name__ == "__main__":

@@ -126,6 +126,24 @@ class RootFSBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(builder.RootFSError, "input mutated during build"):
                 builder.scan(self.root)
 
+    def test_scan_uses_held_root_after_public_path_replacement(self):
+        (self.root / "value").write_text("original\n")
+        builder = load_builder()
+        original_scan = builder._scan_held
+        moved = self.temp / "held-root"
+
+        def replace_public_root(held_root):
+            self.root.rename(moved)
+            self.root.mkdir()
+            (self.root / "value").write_text("replacement\n")
+            return original_scan(held_root)
+
+        with mock.patch.object(builder, "_scan_held", side_effect=replace_public_root):
+            entries, contents = builder.scan(self.root)
+        self.assertIn("value", {entry.path for entry in entries})
+        self.assertEqual(contents["value"], b"original\n")
+        self.assertEqual((self.root / "value").read_text(), "replacement\n")
+
     def test_rejects_fifo(self):
         os.mkfifo(self.root / "fifo")
         result, _, _ = self.build("fifo")

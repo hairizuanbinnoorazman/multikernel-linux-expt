@@ -1411,6 +1411,64 @@ This is recorded before implementation; every staging consumer and cleanup
 decision must share one held staging-directory inode and preserve a public
 replacement.
 
+On 2026-09-19, a builder-input audit found that both deterministic rootfs scan
+and ext4 source copy call `Path.resolve()` on their supplied roots. An inherited
+`/proc/self/fd/...` root is thereby converted back into a caller-visible path
+before traversal, invalidating the descriptor-bound input claim. This is
+recorded before code changes: both builders must open the supplied root once
+without following its final component and operate only through a newly held
+fd path.
+
+The first focused rootfs test run after that change produced 10 failures and 3
+errors across 18 cases. No-follow metadata treated the synthetic
+`/proc/self/fd/N` root path as a symlink, so traversal admitted only `.`. This
+was recorded before correction: metadata for the synthetic root must follow
+the already-held descriptor, while every child observation remains no-follow.
+The fail-fast command did not start the ext4 suite.
+
+After applying that distinction, all 18 focused rootfs cases passed on
+2026-09-19. The adversarial case replaced the public root after descriptor
+acquisition; the scan returned the original file bytes through the held inode
+and preserved the replacement tree.
+
+All 9 focused ext4-builder cases then passed on 2026-09-19. In the new source
+replacement case, `debugfs` read the original `one\n` from the emitted image
+while the replacement tree still contained `replacement\n`; `cp` inherited
+the held source descriptor explicitly.
+
+A follow-on validator audit on 2026-09-19 found that root-path validation
+resolved the inherited bundle and returned a public pathname to the parent,
+and image validation resolved its root before executable inspection. This is
+recorded before implementation. Root-path validation must preserve and verify
+the inherited-fd anchor; image validation must acquire and retain a no-follow
+root descriptor through all entrypoint reads.
+
+On 2026-09-19, all 7 focused root-path cases passed. The new descriptor case
+replaced the public bundle while validation retained the exact inherited
+`/proc/self/fd/N/rootfs` result. Image validation also passed the ELF,
+interpreter, wrong-architecture, escape, and held-root race cases; the race
+hashed the original executable and left a wrong-architecture replacement
+untouched.
+
+A 2026-09-19 repetition campaign passed 100 consecutive public-path
+replacement runs at each of the rootfs scan, real ext4 source copy,
+inherited-bundle validation, and image-entrypoint validation boundaries.
+
+The first full race-gate invocation on 2026-09-19 stopped during Go setup
+because it selected the sandbox's read-only default cache. No tests executed;
+this environmental failure is recorded before rerunning with the established
+writable `/tmp/mklinux-gocache` and is not treated as software evidence.
+
+With the writable cache configured, `go test -race -count=1 ./...` passed
+across every runtime package on 2026-09-19.
+
+`go vet ./...` also passed with that writable cache on 2026-09-19.
+
+`bash scripts/check-docs.sh` passed on 2026-09-19, including 18 rootfs cases,
+9 storage cases, 7 root-path cases, the image held-root race, 55 OCI semantic
+cases, schema/evidence audits, deployment lifecycle, and resource-ledger
+checks.
+
 The storage builder now opens staging once, creates its root relative to that
 descriptor, and uses inherited `/proc/self/fd` paths for copy, normalization,
 inode accounting, and filesystem import. Cleanup quarantines only the exact

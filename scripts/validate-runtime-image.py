@@ -86,6 +86,17 @@ def executable(root: Path, name: str, depth: int = 0) -> tuple[Path, bytes]:
 
 
 def validate(root: Path, config_path: Path, bootstrap_path: Path) -> dict:
+    try:
+        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    except OSError as error:
+        raise ImageError(f"cannot open OCI root without following symlinks: {root}: {error}") from error
+    try:
+        return _validate_held(Path(f"/proc/self/fd/{root_fd}"), config_path, bootstrap_path)
+    finally:
+        os.close(root_fd)
+
+
+def _validate_held(root: Path, config_path: Path, bootstrap_path: Path) -> dict:
     config = json.loads(config_path.read_text(encoding="utf-8"), object_pairs_hook=strict_object)
     bootstrap = json.loads(bootstrap_path.read_text(encoding="utf-8"), object_pairs_hook=strict_object)
     if bootstrap.get("architecture") != "amd64":
@@ -94,13 +105,13 @@ def validate(root: Path, config_path: Path, bootstrap_path: Path) -> dict:
         entrypoint = config["process"]["args"][0]
     except (KeyError, IndexError, TypeError) as error:
         raise ImageError("OCI process entrypoint is missing") from error
-    resolved, data = executable(root.resolve(strict=True), entrypoint)
+    resolved, data = executable(root, entrypoint)
     if len(data) < 20 or data[:5] != b"\x7fELF\x02" or data[5] != 1 or int.from_bytes(data[18:20], "little") != 62:
         raise ImageError("OCI entrypoint/interpreter is not a little-endian x86-64 ELF image")
     return {
         "architecture": "amd64",
         "entrypoint": entrypoint,
-        "resolved_entrypoint": "/" + str(resolved.relative_to(root.resolve(strict=True))),
+        "resolved_entrypoint": "/" + str(resolved.relative_to(root)),
         "entrypoint_sha256": hashlib.sha256(data).hexdigest(),
         "kernel_manifest_sha256": bootstrap["manifest_sha256"],
         "kernel_release": bootstrap["kernel_release"],

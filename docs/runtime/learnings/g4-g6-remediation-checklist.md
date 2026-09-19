@@ -613,6 +613,54 @@ phrase above.
 - [ ] Generate a deterministic image/root manifest and verify it before any
   sandbox allocation. Record the manifest digest separately from the source
   OCI image digest and generated initramfs digest.
+  A 2026-09-19 descriptor audit found that `build-runtime-rootfs.py` begins
+  scanning with `root.resolve(strict=True)`. When rootfs passes an inherited
+  `/proc/self/fd/...` input, this resolves it back to a caller-visible pathname
+  and discards the held-directory boundary before manifesting or archiving.
+  The same pattern exists at the ext4 copy boundary. This finding is recorded
+  before implementation; each builder must open the supplied directory once
+  with no-follow semantics and traverse only a new held-fd path.
+  The first 2026-09-19 focused rootfs run exposed an important `/proc` detail:
+  18 cases ran, with 10 failures and 3 errors, because no-follow metadata on
+  `/proc/self/fd/N` classified the synthetic root as a symlink and prevented
+  child traversal. The source descriptor was held correctly, but root metadata
+  must be read through that descriptor while no-follow remains mandatory for
+  every child. The ext4 suite did not run after this fail-fast result.
+  After correcting that distinction, all 18 focused rootfs cases passed on
+  2026-09-19. The new pathname-replacement case changed the public root after
+  open and observed the original bytes through the held descriptor while the
+  replacement remained unchanged.
+  All 9 focused ext4-builder cases also passed on 2026-09-19. Its adversarial
+  case replaced the public source after open, then `debugfs` read the original
+  `one\n` from the emitted image while the replacement retained
+  `replacement\n`; the source fd was explicitly inherited by `cp`.
+  A subsequent 2026-09-19 validator audit found two remaining losses before
+  implementation: `validate-runtime-root.py` resolves the inherited bundle and
+  prints a public path back to its parent, while `validate-runtime-image.py`
+  resolves its supplied root before executable inspection. The former must
+  preserve a verified inherited-fd anchor; the latter must hold its own
+  no-follow root descriptor for the entire validation.
+  On 2026-09-19, all 7 focused root-path validation cases passed, including an
+  inherited descriptor whose public bundle was replaced while the exact
+  `/proc/self/fd/N/rootfs` anchor remained in the result. The image validator
+  also passed its ELF, interpreter, wrong-architecture, escape, and held-root
+  race cases; the race hashed the original executable and preserved the
+  wrong-architecture replacement.
+  A 2026-09-19 repetition campaign then passed 100 consecutive public-path
+  replacement runs for each of the rootfs scan, real ext4 source copy,
+  inherited-bundle validator, and image-entrypoint validator boundaries.
+  The first 2026-09-19 full `go test -race -count=1 ./...` invocation did not
+  execute tests because Go selected the sandbox's read-only default build
+  cache. This environmental setup failure is recorded before rerun and is not
+  evidence of a passing or failing runtime test; the gate must use the
+  established writable `/tmp/mklinux-gocache`.
+  With that cache configured, `go test -race -count=1 ./...` passed across all
+  runtime packages on 2026-09-19.
+  `go vet ./...` also passed with the writable cache on 2026-09-19.
+  `bash scripts/check-docs.sh` passed on 2026-09-19, including 18 rootfs cases,
+  9 storage cases, 7 root-path cases, the image held-root race, 55 OCI semantic
+  cases, schema/evidence audits, deployment lifecycle, and resource-ledger
+  checks.
 - [ ] Make initramfs generation reproducible, not merely sorted with a
   timestamp-free gzip header. Normalize or deliberately preserve and manifest
   cpio metadata, including runtime-file mtimes, uid/gid, modes, xattrs,
