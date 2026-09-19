@@ -1023,6 +1023,50 @@ phrase above.
   races, release/deployment, resource-ledger, command-capture, containerd, and
   final-evidence audits; `git diff --check` was clean. This completes the local
   exact-checker checkpoint; disposable-host proof remains unauthorized.
+  The next guest-teardown audit found that the agent syncs, remounts `/`
+  read-only, syncs again, and powers off, but never issues `NBD_DISCONNECT`;
+  the helper supports it, yet the runtime shutdown path neither calls it nor
+  emits ordered disconnect evidence. This is recorded before implementation.
+  Disconnect must occur after the authenticated Shutdown reply is delivered
+  and immediately before poweroff, using a no-follow, exact `/dev/nbd0`
+  block-device check and fail-closed behavior.
+  The first shutdown test compile found that this platform's `Stat_t.Rdev` is
+  `uint64`, while two fixture assignments used `int64`; mk-agent tests did not
+  run, and the independent agent suite passed. This harness type error is
+  recorded before correcting the fixture assignments.
+  After correction, race-enabled mk-agent and agent suites passed. Tests prove
+  exact `sync -> remount-ro -> sync -> NBD disconnect -> poweroff` ordering,
+  no-follow `/dev/nbd0` block major/minor validation, ordered PASS evidence,
+  and that disconnect failure emits FAIL evidence and prevents poweroff.
+  Header verification, repetition, and full-tree gates remain pending.
+  The first ioctl header probe failed to link because `<linux/nbd.h>` exposes
+  `NBD_DISCONNECT` via `_IO` without including the userspace
+  `<sys/ioctl.h>` definition; no probe binary ran. This harness failure is
+  recorded before rerunning with the header pair used by the production C
+  helper.
+  The corrected host-header probe reported `NBD_DISCONNECT = 0xab08`, exactly
+  matching the Go implementation. The expanded device/order/failure group
+  then passed 100
+  race-detector repetitions in 1.021 seconds on 2026-09-19; remount failure
+  stops before disconnect/poweroff, and disconnect failure stops before
+  poweroff. The complete repository race suite then passed, including
+  mk-agent, and `go vet ./...` completed without diagnostics. Documentation
+  and repository-integrity verification remain pending. The full documentation
+  chain then passed across links, schemas, evidence, OCI, bind/rootfs/image
+  races, release/deployment, resource-ledger, command-capture, containerd, and
+  final-evidence audits; `git diff --check` was clean. A static deployment-form
+  mk-agent build remains to be checked before this local checkpoint closes.
+  `CGO_ENABLED=0 go build -trimpath ./cmd/mk-agent` then produced a statically
+  linked x86-64 ELF, and its version entrypoint ran successfully. The local
+  ordered-disconnect checkpoint is complete; live child/primary proof remains
+  unauthorized.
+  Final diagnostic review changed the generic failure prefix from `poweroff:`
+  to `shutdown:` because a disconnect failure deliberately prevents poweroff;
+  retained console evidence now names the failed phase accurately.
+  The complete repository race suite and `go vet ./...` passed again after
+  that correction. The final documentation/evidence chain and
+  `git diff --check` also passed. Local implementation and verification are
+  complete; privileged live ordering evidence remains open.
 - [ ] Resolve partial-artifact cleanup. Failed `Create` must remove token,
   initramfs, recovery, mount, and runtime-directory state as well as avoiding a
   Kerf allocation. Root preparation now defensively unmounts even when mount

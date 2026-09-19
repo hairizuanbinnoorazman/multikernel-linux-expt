@@ -13,7 +13,6 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
-	"golang.org/x/sys/unix"
 )
 
 func main() {
@@ -46,15 +45,9 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	s := &agent.Server{Manager: agent.NewManager(noChroot), SandboxID: id, Generation: gen, Bundle: "/bundle", Endpoint: uint32(port), Token: key}
+	shutdown := linuxShutdownPlatform()
 	if mediatedRoot {
-		s.BeforeShutdown = func() error {
-			syscall.Sync()
-			if err := unix.Mount("", "/", "", unix.MS_REMOUNT|unix.MS_RDONLY, ""); err != nil {
-				return err
-			}
-			syscall.Sync()
-			return nil
-		}
+		s.BeforeShutdown = func() error { return quiesceMediatedRoot(shutdown) }
 	}
 	if unixSocket == "" {
 		fmt.Fprintln(os.Stderr, "--unix-socket is required; direct Go AF_VSOCK is prohibited")
@@ -68,9 +61,8 @@ func main() {
 	e = s.Serve(ctx, listener)
 	e = errors.Join(e, listener.Close())
 	if errors.Is(e, agent.ErrShutdownRequested) {
-		syscall.Sync()
-		if e = unix.Reboot(unix.LINUX_REBOOT_CMD_POWER_OFF); e != nil {
-			fmt.Fprintln(os.Stderr, "poweroff:", e)
+		if e = finishGuestShutdown(mediatedRoot, shutdown, os.Stdout); e != nil {
+			fmt.Fprintln(os.Stderr, "shutdown:", e)
 			os.Exit(1)
 		}
 		return
