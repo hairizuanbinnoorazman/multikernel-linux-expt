@@ -324,7 +324,19 @@ int main(int argc, char **argv) {
 	if err := os.Chmod(binaryPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	backend := &LinuxBackend{Binary: binaryPath, RuntimeDir: filepath.Join(directory, "run"), RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 20 * time.Millisecond}
+	checkerSource, err := exec.LookPath("e2fsck")
+	if err != nil {
+		t.Skip("e2fsck is unavailable")
+	}
+	checkerData, err := os.ReadFile(checkerSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkerPath := filepath.Join(directory, "e2fsck")
+	if err = os.WriteFile(checkerPath, checkerData, 0755); err != nil {
+		t.Fatal(err)
+	}
+	backend := &LinuxBackend{Binary: binaryPath, CheckBinary: checkerPath, RuntimeDir: filepath.Join(directory, "run"), RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 20 * time.Millisecond}
 	value := Export{SandboxID: "box", SandboxGeneration: sandboxGeneration,
 		ExportGeneration: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PreparedImage: image, State: "ACTIVE"}
 	identity, inspectErr := backend.Inspect(context.Background(), image)
@@ -534,6 +546,25 @@ func TestOfflineCheckIsBoundedAndHashesCombinedEvidence(t *testing.T) {
 	value := validBackendLease(image.Path)
 	value.PreparedImage = image
 	value.ImageIdentity = identity
+	t.Run("rejects checker replacement", func(t *testing.T) {
+		checker := executableScript(t, "printf original-evidence")
+		replacement := []byte("#!/bin/sh\nexit 0\n")
+		backend := &LinuxBackend{CheckBinary: checker, CheckTimeout: time.Second, RequiredUID: os.Getuid()}
+		backend.afterCheckOpen = func() {
+			if renameErr := os.Rename(checker, checker+".held"); renameErr != nil {
+				t.Fatal(renameErr)
+			}
+			if writeErr := os.WriteFile(checker, replacement, 0700); writeErr != nil {
+				t.Fatal(writeErr)
+			}
+		}
+		if _, err := backend.OfflineCheck(context.Background(), value); err == nil || !strings.Contains(err.Error(), "executable pathname changed") {
+			t.Fatalf("checker replacement error = %v", err)
+		}
+		if data, readErr := os.ReadFile(checker); readErr != nil || !bytes.Equal(data, replacement) {
+			t.Fatalf("replacement checker changed: %q, %v", data, readErr)
+		}
+	})
 	t.Run("retains exclusive lock", func(t *testing.T) {
 		control := t.TempDir()
 		started := filepath.Join(control, "started")

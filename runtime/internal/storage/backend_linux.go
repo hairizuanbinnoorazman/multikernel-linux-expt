@@ -100,6 +100,7 @@ type LinuxBackend struct {
 	CheckTimeout    time.Duration
 	afterImageOpen  func()
 	afterBinaryOpen func()
+	afterCheckOpen  func()
 
 	mu      sync.Mutex
 	managed map[string]*managedExport
@@ -272,6 +273,17 @@ func (b *LinuxBackend) openServerBinary() (*openedExecutable, error) {
 	}
 	if b.afterBinaryOpen != nil {
 		b.afterBinaryOpen()
+	}
+	return opened, nil
+}
+
+func (b *LinuxBackend) openCheckBinary() (*openedExecutable, error) {
+	opened, err := openExecutable(b.CheckBinary)
+	if err != nil {
+		return nil, err
+	}
+	if b.afterCheckOpen != nil {
+		b.afterCheckOpen()
 	}
 	return opened, nil
 }
@@ -915,8 +927,19 @@ func (b *LinuxBackend) OfflineCheck(ctx context.Context, value Export) (string, 
 	if value.ImageIdentity != (ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}) {
 		return "", errors.New("storage image identity changed before offline check")
 	}
-	output, err := boundedexec.RunWithFiles(ctx, b.CheckTimeout, b.CheckBinary, []string{"-fn", "/proc/self/fd/3"},
-		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, 1<<20, []*os.File{opened.file})
+	if err = opened.verifyNamedIdentity(); err != nil {
+		return "", err
+	}
+	checker, err := b.openCheckBinary()
+	if err != nil {
+		return "", fmt.Errorf("open exact filesystem checker executable: %w", err)
+	}
+	defer checker.Close()
+	output, err := boundedexec.RunWithFiles(ctx, b.CheckTimeout, "/proc/self/fd/4", []string{"-fn", "/proc/self/fd/3"},
+		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, 1<<20, []*os.File{opened.file, checker.file})
+	if stableErr := checker.verifyNamedIdentity(); stableErr != nil {
+		return "", stableErr
+	}
 	if err != nil {
 		if errors.Is(err, boundedexec.ErrOutputLimit) {
 			return "", errors.New("e2fsck output exceeded evidence bound")

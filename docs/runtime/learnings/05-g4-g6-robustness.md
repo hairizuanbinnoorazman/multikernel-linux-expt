@@ -1726,6 +1726,39 @@ bind/rootfs/image races, release/deployment, resource-ledger, command-capture,
 containerd, and final-evidence audits; `git diff --check` was clean. The local
 pidfd/executable checkpoint is complete.
 
+The next offline-check audit found that the image is descriptor-bound but
+`CheckBinary` is still executed by public pathname; a substituted checker
+could return success and falsely certify a bad filesystem. This is recorded
+before implementation. The deployed checker contract is a regular `0755`,
+single-link executable and must use the same held-executable boundary.
+
+`OfflineCheck` now revalidates the exact image name, executes a held checker as
+fd 4 while the image remains fd 3 and exclusively locked, and rejects and
+preserves a public checker substitute after execution. The focused
+race-enabled parent-replacement and complete bounded-check matrix passed.
+The complete offline-check matrix then passed 100 race-detector repetitions in
+27.721 seconds on 2026-09-19, covering checker substitution, exclusive locking,
+timeout/descendant cleanup, output bounds, evidence hashing, and secret-safe
+failure. Full-tree verification remains pending.
+
+The first full race run then found one environment-specific fixture failure:
+the integrated graceful-stop case used `/usr/sbin/e2fsck`, exposed here as UID
+65534 while the test runs as UID 1000, so the new caller-owned check rejected
+it; all other packages passed and `go vet` was skipped. This is recorded before
+copying the real checker bytes into the fixture's private caller-owned
+directory and rerunning the full gate.
+
+The integrated graceful-stop/offline-check case now passes with an exact byte
+copy of the real `e2fsck` in its private caller-owned fixture directory,
+retaining real checker behavior while matching the production trust contract.
+The corrected all-package race suite then passed (storage: 3.780 seconds), and
+`go vet ./...` completed without diagnostics. Documentation and
+repository-integrity verification remain pending. The full documentation chain
+then passed across links, schemas, evidence, OCI, bind/rootfs/image races,
+release/deployment, resource-ledger, command-capture, containerd, and
+final-evidence audits; `git diff --check` was clean. This completes the local
+exact-checker checkpoint; disposable-host proof remains unauthorized.
+
 The first descriptor-walker focused run stopped before its new race because
 the fixture still held the preceding `/escape` configuration; the resolver
 correctly rejected it. This harness setup failure is recorded before resetting
