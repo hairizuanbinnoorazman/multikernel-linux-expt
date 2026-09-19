@@ -437,6 +437,35 @@ func (d *Directory) InspectPrivate(name string, limit int64) (Identity, bool, er
 	return value, true, err
 }
 
+// OpenPrivateFile opens and retains one exact private regular-file inode.
+// The returned descriptor is bound to the directory entry observed after open;
+// callers own the descriptor and may later recheck the name with EntryIdentity.
+func (d *Directory) OpenPrivateFile(name string, limit int64, writable bool) (*os.File, Identity, error) {
+	if filepath.Base(name) != name || name == "." || limit <= 0 {
+		return nil, Identity{}, errors.New("invalid private file open request")
+	}
+	flags := unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW
+	if writable {
+		flags = unix.O_RDWR | unix.O_CLOEXEC | unix.O_NOFOLLOW
+	}
+	fd, err := unix.Openat(int(d.file.Fd()), name, flags, 0)
+	if err != nil {
+		return nil, Identity{}, err
+	}
+	file := os.NewFile(uintptr(fd), name)
+	opened, err := inspectPrivate(file, limit)
+	if err != nil {
+		_ = file.Close()
+		return nil, Identity{}, err
+	}
+	named, err := identityAt(d.file, name)
+	if err != nil || named != opened {
+		_ = file.Close()
+		return nil, Identity{}, errors.Join(errors.New("file identity changed while opening"), err)
+	}
+	return file, opened, nil
+}
+
 // OpenAppend opens or exclusively creates a bounded private append-only file.
 func (d *Directory) OpenAppend(name string, limit int64, mode os.FileMode) (*os.File, Identity, error) {
 	if filepath.Base(name) != name || name == "." || mode.Perm()&0077 != 0 || limit <= 0 {

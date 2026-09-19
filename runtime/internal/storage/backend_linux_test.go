@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
+	"golang.org/x/sys/unix"
 )
 
 func makeExt4(t *testing.T, sparse bool) PreparedImage {
@@ -28,7 +29,11 @@ func makeExt4(t *testing.T, sparse bool) PreparedImage {
 	if _, err := exec.LookPath("mke2fs"); err != nil {
 		t.Skip("mke2fs is unavailable")
 	}
-	path := filepath.Join(t.TempDir(), "root.ext4")
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "root.ext4")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		t.Fatal(err)
@@ -64,17 +69,18 @@ func makeExt4(t *testing.T, sparse bool) PreparedImage {
 func TestLinuxBackendInspectsExt4IdentityQuotaAndCleanState(t *testing.T) {
 	image := makeExt4(t, false)
 	backend := &LinuxBackend{RequiredUID: os.Getuid()}
-	if err := backend.Inspect(context.Background(), image); err != nil {
+	identity, err := backend.Inspect(context.Background(), image)
+	if err != nil || identity.Device == 0 || identity.Inode == 0 {
 		t.Fatal(err)
 	}
 	wrong := image
 	wrong.FilesystemUUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
-	if err := backend.Inspect(context.Background(), wrong); err == nil {
+	if _, err := backend.Inspect(context.Background(), wrong); err == nil {
 		t.Fatal("wrong UUID accepted")
 	}
 	wrong = image
 	wrong.InodeLimit++
-	if err := backend.Inspect(context.Background(), wrong); err == nil {
+	if _, err := backend.Inspect(context.Background(), wrong); err == nil {
 		t.Fatal("wrong inode capacity accepted")
 	}
 
@@ -93,7 +99,7 @@ func TestLinuxBackendInspectsExt4IdentityQuotaAndCleanState(t *testing.T) {
 	if err = file.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err = backend.Inspect(context.Background(), image); err == nil {
+	if _, err = backend.Inspect(context.Background(), image); err == nil {
 		t.Fatal("dirty filesystem state accepted")
 	}
 }
@@ -101,15 +107,71 @@ func TestLinuxBackendInspectsExt4IdentityQuotaAndCleanState(t *testing.T) {
 func TestLinuxBackendRejectsSparseAndMultiplyLinkedImages(t *testing.T) {
 	backend := &LinuxBackend{RequiredUID: os.Getuid()}
 	sparse := makeExt4(t, true)
-	if err := backend.Inspect(context.Background(), sparse); err == nil {
+	if _, err := backend.Inspect(context.Background(), sparse); err == nil {
 		t.Fatal("sparse backing image accepted")
 	}
 	image := makeExt4(t, false)
 	if err := os.Link(image.Path, image.Path+".other"); err != nil {
 		t.Fatal(err)
 	}
-	if err := backend.Inspect(context.Background(), image); err == nil {
+	if _, err := backend.Inspect(context.Background(), image); err == nil {
 		t.Fatal("multiply-linked backing image accepted")
+	}
+}
+
+func TestLinuxBackendRejectsImageParentReplacementAfterOpen(t *testing.T) {
+	for _, name := range []string{"inspect", "start", "offline-check"} {
+		t.Run(name, func(t *testing.T) {
+			image := makeExt4(t, false)
+			inspector := &LinuxBackend{RequiredUID: os.Getuid()}
+			identity, err := inspector.Inspect(context.Background(), image)
+			if err != nil {
+				t.Fatal(err)
+			}
+			value := validBackendLease(image.Path)
+			value.PreparedImage, value.ImageIdentity = image, identity
+			parent := filepath.Dir(image.Path)
+			moved := parent + ".held"
+			var once sync.Once
+			backend := &LinuxBackend{RequiredUID: os.Getuid(), Binary: "/bin/false", CheckBinary: "/bin/true",
+				RuntimeDir: filepath.Join(t.TempDir(), "run")}
+			backend.afterImageOpen = func() {
+				once.Do(func() {
+					if err := os.Rename(parent, moved); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Mkdir(parent, 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(image.Path, []byte("replacement"), 0600); err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+			switch name {
+			case "inspect":
+				_, err = backend.Inspect(context.Background(), image)
+			case "start":
+				err = backend.Start(context.Background(), value)
+			case "offline-check":
+				_, err = backend.OfflineCheck(context.Background(), value)
+			}
+			if err == nil {
+				t.Fatal("image parent replacement was accepted")
+			}
+			if data, readErr := os.ReadFile(image.Path); readErr != nil || string(data) != "replacement" {
+				t.Fatalf("replacement image changed: %q, %v", data, readErr)
+			}
+			if err = os.Remove(image.Path); err != nil {
+				t.Fatal(err)
+			}
+			if err = os.Remove(parent); err != nil {
+				t.Fatal(err)
+			}
+			if err = os.Rename(moved, parent); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
@@ -118,7 +180,7 @@ func TestLinuxBackendOperationsRejectPreCancelledContext(t *testing.T) {
 	cancel()
 	backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "runtime")}
 	for name, operation := range map[string]func() error{
-		"inspect": func() error { return backend.Inspect(ctx, PreparedImage{}) },
+		"inspect": func() error { _, err := backend.Inspect(ctx, PreparedImage{}); return err },
 		"start":   func() error { return backend.Start(ctx, Export{}) },
 		"observe": func() error { _, err := backend.Observe(ctx, Export{}); return err },
 		"stop":    func() error { _, err := backend.Stop(ctx, Export{}); return err },
@@ -157,12 +219,30 @@ func TestLinuxBackendInspectionChecksCancellationBetweenChunks(t *testing.T) {
 	image := makeExt4(t, false)
 	ctx := &cancelAfterChecks{after: 4, done: make(chan struct{})}
 	backend := &LinuxBackend{RequiredUID: os.Getuid()}
-	if err := backend.Inspect(ctx, image); !errors.Is(err, context.Canceled) {
+	if _, err := backend.Inspect(ctx, image); !errors.Is(err, context.Canceled) {
 		t.Fatalf("mid-inspection cancellation error = %v", err)
 	}
 	if checks := ctx.checks.Load(); checks != ctx.after {
 		t.Fatalf("context checks = %d, want %d", checks, ctx.after)
 	}
+}
+
+func imageLockAvailable(t *testing.T, path string) bool {
+	t.Helper()
+	descriptor, err := unix.Open(path, unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(descriptor)
+	if err = unix.Flock(descriptor, unix.LOCK_EX|unix.LOCK_NB); err == nil {
+		_ = unix.Flock(descriptor, unix.LOCK_UN)
+		return true
+	}
+	if errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EAGAIN) {
+		return false
+	}
+	t.Fatalf("probe image lock: %v", err)
+	return false
 }
 
 func TestLinuxBackendProcessIdentityGracefulStopAndOfflineCheck(t *testing.T) {
@@ -194,8 +274,16 @@ int main(int argc, char **argv) {
 	backend := &LinuxBackend{Binary: binaryPath, RuntimeDir: filepath.Join(directory, "run"), RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 20 * time.Millisecond}
 	value := Export{SandboxID: "box", SandboxGeneration: sandboxGeneration,
 		ExportGeneration: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PreparedImage: image, State: "ACTIVE"}
+	identity, inspectErr := backend.Inspect(context.Background(), image)
+	if inspectErr != nil {
+		t.Fatal(inspectErr)
+	}
+	value.ImageIdentity = identity
 	if err := backend.Start(context.Background(), value); err != nil {
 		t.Fatal(err)
+	}
+	if imageLockAvailable(t, image.Path) {
+		t.Fatal("server did not retain the inspection lock through inherited fd 3")
 	}
 	observed, err := backend.Observe(context.Background(), value)
 	if err != nil || !observed.Active || observed.Generation != value.ExportGeneration {
@@ -241,6 +329,9 @@ int main(int argc, char **argv) {
 	if counters.Reads != 2 || counters.ReadBytes != 8192 || counters.Writes != 3 || counters.WrittenBytes != 12288 || counters.Flushes != 4 {
 		t.Fatalf("counters = %+v", counters)
 	}
+	if !imageLockAvailable(t, image.Path) {
+		t.Fatal("server image lock remained held after exact process stop")
+	}
 	observed, err = recovered.Observe(context.Background(), value)
 	if err != nil || observed.Active || observed.Counters != counters {
 		t.Fatalf("post-stop observation = %+v, %v", observed, err)
@@ -252,9 +343,16 @@ int main(int argc, char **argv) {
 }
 
 func TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures(t *testing.T) {
-	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	image := makeExt4(t, false)
+	inspector := &LinuxBackend{RequiredUID: os.Getuid()}
+	identity, err := inspector.Inspect(context.Background(), image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := validBackendLease(image.Path)
+	value.PreparedImage, value.ImageIdentity = image, identity
 	t.Run("unsafe stale log", func(t *testing.T) {
-		backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "run")}
+		backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
 		if err := os.Mkdir(backend.RuntimeDir, 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -275,7 +373,7 @@ func TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures(t *testing.T)
 	})
 
 	t.Run("record collision preserves prior log", func(t *testing.T) {
-		backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "run")}
+		backend := &LinuxBackend{RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
 		if err := os.Mkdir(backend.RuntimeDir, 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -295,7 +393,7 @@ func TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures(t *testing.T)
 	})
 
 	t.Run("command start failure leaves no artifacts", func(t *testing.T) {
-		backend := &LinuxBackend{Binary: filepath.Join(t.TempDir(), "missing-server"), RuntimeDir: filepath.Join(t.TempDir(), "run")}
+		backend := &LinuxBackend{Binary: filepath.Join(t.TempDir(), "missing-server"), RuntimeDir: filepath.Join(t.TempDir(), "run"), RequiredUID: os.Getuid()}
 		if err := backend.Start(t.Context(), value); err == nil {
 			t.Fatal("missing storage server was started")
 		}
@@ -315,6 +413,7 @@ func validBackendLease(path string) Export {
 			SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061,
 			SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		},
+		ImageIdentity: ImageIdentity{Device: 1, Inode: 2},
 	}
 }
 
@@ -328,9 +427,52 @@ func executableScript(t *testing.T, body string) string {
 }
 
 func TestOfflineCheckIsBoundedAndHashesCombinedEvidence(t *testing.T) {
-	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	image := makeExt4(t, false)
+	inspector := &LinuxBackend{RequiredUID: os.Getuid()}
+	identity, err := inspector.Inspect(context.Background(), image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := validBackendLease(image.Path)
+	value.PreparedImage = image
+	value.ImageIdentity = identity
+	t.Run("retains exclusive lock", func(t *testing.T) {
+		control := t.TempDir()
+		started := filepath.Join(control, "started")
+		release := filepath.Join(control, "release")
+		body := fmt.Sprintf("printf started >%q\nwhile [ ! -e %q ]; do sleep 0.01; done", started, release)
+		backend := &LinuxBackend{CheckBinary: executableScript(t, body), CheckTimeout: time.Second, RequiredUID: os.Getuid()}
+		result := make(chan error, 1)
+		go func() {
+			_, checkErr := backend.OfflineCheck(context.Background(), value)
+			result <- checkErr
+		}()
+		defer os.WriteFile(release, []byte("release"), 0600)
+		deadline := time.Now().Add(time.Second)
+		for {
+			if _, statErr := os.Stat(started); statErr == nil {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("offline checker did not start")
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		if imageLockAvailable(t, image.Path) {
+			t.Fatal("offline checker did not retain the exclusive image lock")
+		}
+		if err := os.WriteFile(release, []byte("release"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := <-result; err != nil {
+			t.Fatal(err)
+		}
+		if !imageLockAvailable(t, image.Path) {
+			t.Fatal("offline image lock remained held after checker exit")
+		}
+	})
 	t.Run("deadline kills descendants", func(t *testing.T) {
-		backend := &LinuxBackend{CheckBinary: executableScript(t, "sleep 60 & wait"), CheckTimeout: 50 * time.Millisecond}
+		backend := &LinuxBackend{CheckBinary: executableScript(t, "sleep 60 & wait"), CheckTimeout: 50 * time.Millisecond, RequiredUID: os.Getuid()}
 		started := time.Now()
 		if _, err := backend.OfflineCheck(context.Background(), value); !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("offline deadline error = %v", err)
@@ -341,14 +483,14 @@ func TestOfflineCheckIsBoundedAndHashesCombinedEvidence(t *testing.T) {
 	})
 
 	t.Run("output overflow", func(t *testing.T) {
-		backend := &LinuxBackend{CheckBinary: executableScript(t, "head -c 1048577 /dev/zero"), CheckTimeout: time.Second}
+		backend := &LinuxBackend{CheckBinary: executableScript(t, "head -c 1048577 /dev/zero"), CheckTimeout: time.Second, RequiredUID: os.Getuid()}
 		if _, err := backend.OfflineCheck(context.Background(), value); err == nil || !strings.Contains(err.Error(), "output exceeded") {
 			t.Fatalf("offline overflow error = %v", err)
 		}
 	})
 
 	t.Run("stderr evidence", func(t *testing.T) {
-		backend := &LinuxBackend{CheckBinary: executableScript(t, "printf 'offline-evidence\\n' >&2"), CheckTimeout: time.Second}
+		backend := &LinuxBackend{CheckBinary: executableScript(t, "printf 'offline-evidence\\n' >&2"), CheckTimeout: time.Second, RequiredUID: os.Getuid()}
 		result, err := backend.OfflineCheck(context.Background(), value)
 		if err != nil {
 			t.Fatal(err)
@@ -360,7 +502,7 @@ func TestOfflineCheckIsBoundedAndHashesCombinedEvidence(t *testing.T) {
 	})
 
 	t.Run("non-clean diagnostic is not disclosed", func(t *testing.T) {
-		backend := &LinuxBackend{CheckBinary: executableScript(t, "printf 'sensitive-checker-detail\\n' >&2; exit 4"), CheckTimeout: time.Second}
+		backend := &LinuxBackend{CheckBinary: executableScript(t, "printf 'sensitive-checker-detail\\n' >&2; exit 4"), CheckTimeout: time.Second, RequiredUID: os.Getuid()}
 		_, err := backend.OfflineCheck(context.Background(), value)
 		if err == nil || strings.Contains(err.Error(), "sensitive-checker-detail") {
 			t.Fatalf("offline non-clean error = %v", err)
@@ -378,8 +520,9 @@ func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 1, PID: os.Getpid(), StartTime: start, Path: value.Path,
-		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration}
+	record := processRecord{Version: 2, PID: os.Getpid(), StartTime: start, Path: value.Path,
+		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
+		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode}
 	data, err := json.Marshal(record)
 	if err != nil {
 		t.Fatal(err)
@@ -396,6 +539,11 @@ func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 	if _, err = readRecord(path, conflict); err == nil {
 		t.Fatal("process record was accepted for a conflicting lease")
 	}
+	conflict = value
+	conflict.ImageIdentity = ImageIdentity{Device: 9, Inode: 10}
+	if _, err = readRecord(path, conflict); err == nil {
+		t.Fatal("process record was accepted for a conflicting image inode")
+	}
 	if err = os.Link(path, path+".other"); err != nil {
 		t.Fatal(err)
 	}
@@ -410,13 +558,14 @@ func TestProcessRecordReadRecoversIdentityBoundQuarantine(t *testing.T) {
 		t.Fatal(err)
 	}
 	value := Export{PreparedImage: PreparedImage{Path: "/srv/multikernel/root.ext4", ImageID: "image", Port: 4061},
-		ExportGeneration: "0123456789abcdef0123456789abcdef"}
+		ImageIdentity: ImageIdentity{Device: 1, Inode: 2}, ExportGeneration: "0123456789abcdef0123456789abcdef"}
 	start, err := processStartTime(os.Getpid())
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 1, PID: os.Getpid(), StartTime: start, Path: value.Path,
-		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration}
+	record := processRecord{Version: 2, PID: os.Getpid(), StartTime: start, Path: value.Path,
+		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
+		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode}
 	data, err := json.Marshal(record)
 	if err != nil {
 		t.Fatal(err)
@@ -524,9 +673,15 @@ int main(int argc, char **argv) {
 	if output, err := exec.Command("cc", "-O2", "-Wall", "-Wextra", "-Werror", sourcePath, "-o", binaryPath).CombinedOutput(); err != nil {
 		t.Skipf("C compiler unavailable: %v: %s", err, output)
 	}
-	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	backend := &LinuxBackend{Binary: binaryPath, RuntimeDir: filepath.Join(directory, "run"),
 		RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 3 * time.Second}
+	image := makeExt4(t, false)
+	identity, err := backend.Inspect(context.Background(), image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := validBackendLease(image.Path)
+	value.PreparedImage, value.ImageIdentity = image, identity
 	if err := backend.Start(context.Background(), value); err != nil {
 		t.Fatal(err)
 	}

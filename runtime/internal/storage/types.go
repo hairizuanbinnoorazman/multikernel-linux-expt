@@ -2,7 +2,12 @@ package storage
 
 import "time"
 
-const StateVersion = 1
+const StateVersion = 2
+
+type ImageIdentity struct {
+	Device uint64 `json:"device"`
+	Inode  uint64 `json:"inode"`
+}
 
 type PreparedImage struct {
 	Path           string `json:"path"`
@@ -28,12 +33,13 @@ type Export struct {
 	SandboxGeneration string `json:"sandbox_generation"`
 	ExportGeneration  string `json:"export_generation"`
 	PreparedImage
-	State        string    `json:"state"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	ReleasedAt   time.Time `json:"released_at,omitempty"`
-	OfflineCheck string    `json:"offline_check,omitempty"`
-	Counters     Counters  `json:"counters"`
+	ImageIdentity ImageIdentity `json:"image_identity"`
+	State         string        `json:"state"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
+	ReleasedAt    time.Time     `json:"released_at,omitempty"`
+	OfflineCheck  string        `json:"offline_check,omitempty"`
+	Counters      Counters      `json:"counters"`
 }
 
 type Observation struct {

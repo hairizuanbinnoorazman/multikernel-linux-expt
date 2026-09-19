@@ -853,6 +853,76 @@ phrase above.
 - [ ] Implement the storage teardown and recovery sequence appropriate to the
   selected persistent backend: quiesce processes, remount read-only, flush,
   disconnect, sync, offline-check, and preserve a diagnosable state on failure.
+  A 2026-09-19 storage-backend audit found that `Inspect` validates a public
+  image pathname, `Start` later passes that public name to `mkvsock-nbd`, and
+  `OfflineCheck` reopens it again. Parent-component replacement can redirect
+  each boundary, and a replacement between inspection and start can become the
+  exported writable disk. This is recorded before implementation. Inspection,
+  server fd 3 plus restart authentication, and offline `e2fsck` must all bind
+  exact descriptors opened beneath a held no-symlink parent directory.
+  The first 2026-09-19 focused compile after the durable-identity conversion
+  found 8 storage-backend test call sites still expecting the old error-only
+  `Inspect` result, so storage tests did not run; `safefile` and lifecycle tests
+  passed. This compatibility failure is recorded before updating fixtures to
+  assert the returned image identity.
+  After signature correction, 6 storage cases failed before their assertions
+  because local `t.TempDir()` parents were mode `0775`; the new no-symlink
+  opener correctly requires a caller-owned, non-group/other-writable image
+  directory. `safefile` and lifecycle remained green. This is recorded before
+  aligning the ext4 fixture with production's private `0700` storage root.
+  That correction left one fixture failure: the command-start cleanup backend
+  retained default required UID 0 and rejected the non-root test image before
+  creating its runtime directory. This pre-start rejection is recorded before
+  assigning the caller UID so each artifact subtest reaches its intended
+  cleanup boundary.
+  Storage state is now version 2 and retains the inspected image device/inode;
+  only empty version-1 state upgrades, while active legacy or identity-less
+  records are rejected. Inspection hashes an exact private fd, server start
+  revalidates and inherits that inode as fd 3, recovery authenticates the
+  process's fd 3, and offline `e2fsck` inherits another exact fd. Public parent
+  identity is rechecked after each operation. The race-enabled storage,
+  `safefile`, and lifecycle packages passed on 2026-09-19, including real ext4
+  parent replacement at inspect/start/offline-check, process-record inode
+  mismatch, and reconciliation refusal before restart.
+  The real-ext4 inspect/start/offline-check parent-replacement group then
+  passed 100 race-detector repetitions in 63.852 seconds on 2026-09-19.
+  The subsequent authoritative full repository gate passed on 2026-09-19:
+  `go test -race -count=1 ./...` passed every package, including storage in
+  3.582 seconds, and `go vet ./...` completed with no diagnostics. The full
+  `bash scripts/check-docs.sh` chain then passed, covering links, schemas, 17
+  current evidence manifests, 55 OCI semantic cases, bind/rootfs/image race
+  suites, release/deployment lifecycle, resource-ledger, command-capture,
+  containerd, and final-evidence audits; `git diff --check` was also clean.
+  A post-gate ownership review then found a remaining lock-transfer defect:
+  `Start` releases the inspection `flock` before `mkvsock-nbd` opens and locks
+  fd 3, leaving a second-owner/content-mutation window, while `OfflineCheck`
+  does not lock the image at all. This is recorded before correction. Server
+  launch must retain one open-file-description lock across exec, and the
+  complete offline check must hold its own exclusive lock.
+  The server now duplicates inherited fd 3 instead of reopening it, preserving
+  the locked open file description from validation through serving; offline
+  checking locks its exact fd for the complete command. The production C
+  server passed `-Wall -Wextra -Werror` syntax compilation, and race-enabled
+  storage, `safefile`, and lifecycle packages passed. Direct contention tests
+  prove the lock is unavailable while either server or checker owns it and is
+  available again after exact server stop or checker exit. The combined
+  server handoff/recovery and offline-check locking/bounds group then passed
+  100 race-detector repetitions in 58.265 seconds on 2026-09-19. Full-tree
+  verification remains pending for this correction.
+  The next full Go race suite passed, but its combined gate harness named
+  `tools/mkvsock-nbd.c` while running from `runtime/`; that nonexistent path
+  made C compilation fail before `go vet` was attempted. This command-path
+  failure is recorded before rerunning the skipped checks from the correct
+  location.
+  The corrected production C compilation and `go vet ./...` then passed with
+  no diagnostics. Together with the immediately preceding all-package race
+  pass (storage: 3.571 seconds), the full code gate is complete; documentation
+  and repository-integrity verification remain pending. The subsequent full
+  `bash scripts/check-docs.sh` chain passed across links, schemas, evidence,
+  OCI, bind/rootfs/image races, release/deployment, resource-ledger,
+  command-capture, containerd, and final-evidence audits; `git diff --check`
+  was clean. This completes the local exact-image identity and continuous-lock
+  checkpoint. Disposable-host proof remains unauthorized.
 - [ ] Resolve partial-artifact cleanup. Failed `Create` must remove token,
   initramfs, recovery, mount, and runtime-directory state as well as avoiding a
   Kerf allocation. Root preparation now defensively unmounts even when mount

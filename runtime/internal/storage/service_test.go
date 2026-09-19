@@ -14,14 +14,15 @@ type fakeBackend struct {
 	calls    []string
 	counters Counters
 	closed   bool
+	identity ImageIdentity
 }
 
 func newFakeBackend() *fakeBackend {
-	return &fakeBackend{active: map[string]string{}, fail: map[string]error{}}
+	return &fakeBackend{active: map[string]string{}, fail: map[string]error{}, identity: ImageIdentity{Device: 1, Inode: 2}}
 }
-func (f *fakeBackend) Inspect(context.Context, PreparedImage) error {
+func (f *fakeBackend) Inspect(context.Context, PreparedImage) (ImageIdentity, error) {
 	f.calls = append(f.calls, "inspect")
-	return f.fail["inspect"]
+	return f.identity, f.fail["inspect"]
 }
 func (f *fakeBackend) Start(_ context.Context, value Export) error {
 	f.calls = append(f.calls, "start")
@@ -248,6 +249,33 @@ func TestReconcileRestartsOnlyAbsentExactActiveExport(t *testing.T) {
 	}
 	if err = service.Reconcile(context.Background()); err == nil {
 		t.Fatal("incomplete quiescence was guessed away")
+	}
+}
+
+func TestReconcileRejectsStorageImageIdentityReplacement(t *testing.T) {
+	service, _, backend, image := fixture(t)
+	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err != nil {
+		t.Fatal(err)
+	}
+	delete(backend.active, image.Path)
+	backend.identity = ImageIdentity{Device: 9, Inode: 10}
+	startsBefore := 0
+	for _, call := range backend.calls {
+		if call == "start" {
+			startsBefore++
+		}
+	}
+	if err := service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "identity changed") {
+		t.Fatalf("image replacement reconcile error = %v", err)
+	}
+	startsAfter := 0
+	for _, call := range backend.calls {
+		if call == "start" {
+			startsAfter++
+		}
+	}
+	if startsAfter != startsBefore {
+		t.Fatalf("image replacement caused another start: calls=%v", backend.calls)
 	}
 }
 

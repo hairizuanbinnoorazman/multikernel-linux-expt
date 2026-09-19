@@ -19,7 +19,8 @@ func validStoredExport(path string) Export {
 			SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061,
 			SHA256: strings.Repeat("a", 64),
 		},
-		CreatedAt: now, UpdatedAt: now,
+		ImageIdentity: ImageIdentity{Device: 1, Inode: 2},
+		CreatedAt:     now, UpdatedAt: now,
 	}
 }
 
@@ -46,6 +47,47 @@ func TestStorePersistsStrictPrivateState(t *testing.T) {
 	}
 }
 
+func TestStoreUpgradesOnlyEmptyLegacyState(t *testing.T) {
+	directory := t.TempDir()
+	legacy := diskState{Version: 1, Exports: map[string]Export{}}
+	data, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "state.json")
+	if err = os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = OpenStore(directory); err != nil {
+		t.Fatalf("empty legacy state did not upgrade: %v", err)
+	}
+	var upgraded diskState
+	if err = json.Unmarshal(mustRead(t, path), &upgraded); err != nil || upgraded.Version != StateVersion {
+		t.Fatalf("upgraded state = %+v, %v", upgraded, err)
+	}
+
+	legacy.Exports[exportKey("box", sandboxGeneration)] = validStoredExport("/var/lib/multikernel/root.ext4")
+	data, err = json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = OpenStore(directory); err == nil {
+		t.Fatal("active legacy state without a version-2 identity contract was guessed")
+	}
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
 func TestStoreRejectsForgedSemanticStateBeforeReconciliation(t *testing.T) {
 	base := validStoredExport("/var/lib/multikernel/root.ext4")
 	for name, mutate := range map[string]func(*diskState){
@@ -65,6 +107,11 @@ func TestStoreRejectsForgedSemanticStateBeforeReconciliation(t *testing.T) {
 		"premature release evidence": func(state *diskState) {
 			value := base
 			value.OfflineCheck = "e2fsck-clean-sha256:" + strings.Repeat("b", 64)
+			state.Exports[exportKey(value.SandboxID, value.SandboxGeneration)] = value
+		},
+		"missing image identity": func(state *diskState) {
+			value := base
+			value.ImageIdentity = ImageIdentity{}
 			state.Exports[exportKey(value.SandboxID, value.SandboxGeneration)] = value
 		},
 	} {

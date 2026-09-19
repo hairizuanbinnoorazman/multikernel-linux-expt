@@ -43,7 +43,19 @@ func OpenStore(dir string) (*Store, error) {
 	if err = protocol.StrictDecode(data, &store.data); err != nil {
 		return nil, err
 	}
-	if store.data.Version != StateVersion || store.data.Exports == nil {
+	if store.data.Exports == nil {
+		return nil, errors.New("unsupported storage state")
+	}
+	if store.data.Version >= 1 && store.data.Version < StateVersion && len(store.data.Exports) == 0 {
+		store.data.Version = StateVersion
+		upgraded, marshalErr := json.MarshalIndent(store.data, "", "  ")
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		if err = directory.Replace("state.json", append(upgraded, '\n'), 0600); err != nil {
+			return nil, fmt.Errorf("upgrade empty storage state: %w", err)
+		}
+	} else if store.data.Version != StateVersion {
 		return nil, errors.New("unsupported storage state")
 	}
 	if err = validateDiskState(store.data); err != nil {
@@ -73,6 +85,9 @@ func validateExport(key string, value Export) error {
 	}
 	if err := validatePrepared(value.PreparedImage); err != nil {
 		return err
+	}
+	if value.ImageIdentity.Device == 0 || value.ImageIdentity.Inode == 0 {
+		return errors.New("storage image inode identity is absent")
 	}
 	if value.CreatedAt.IsZero() || value.UpdatedAt.Before(value.CreatedAt) {
 		return errors.New("storage timestamps are invalid")
