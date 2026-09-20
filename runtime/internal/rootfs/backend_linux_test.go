@@ -274,6 +274,14 @@ printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s",
 	if err = (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}); err != nil {
 		t.Fatalf("descriptor-anchored prepared verification failed after name replacement: %v", err)
 	}
+	var persisted bytes.Buffer
+	if err = json.Indent(&persisted, record.BuildResult, "", "  "); err != nil {
+		t.Fatal(err)
+	}
+	record.BuildResult = persisted.Bytes()
+	if err = (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}); err != nil {
+		t.Fatalf("persisted build-result whitespace was rejected: %v", err)
+	}
 	runtimeAnchored := fmt.Sprintf("/proc/self/fd/%d", runtimeDir.Fd())
 	storageAnchored := fmt.Sprintf("/proc/self/fd/%d", storageDir.Fd())
 	verifiedInitrd, err := (&LinuxBackend{}).OpenVerifiedInitramfs(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir})
