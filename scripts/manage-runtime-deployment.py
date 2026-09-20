@@ -61,6 +61,11 @@ LINKS = {
     Path("/usr/local/libexec/multikernel/guest/runtime-mediated-init"): "libexec/guest/runtime-mediated-init",
 }
 EXECUTABLES = {name for name in ASSETS if name.startswith("libexec/")}
+CURRENT_FILES = frozenset(LINKS.values())
+KNOWN_FILE_SETS = {
+    CURRENT_FILES,
+    CURRENT_FILES - {"libexec/validate-runtime-storage-mount.py"},
+}
 ENV_KEYS = {
     "MKRUNTIME_POOL_CPUS", "MKRUNTIME_POOL_MEMORY", "MKRUNTIME_POOL_MEMORY_RESERVE",
     "MKRUNTIME_CMDLINE", "MKNETWORK_SUBNET", "MKNETWORK_EGRESS", "MKNETWORK_MTU",
@@ -260,26 +265,38 @@ def verify_deployment(root: Path, deployment_id: str):
     manifest = strict_json_bytes(secure_input(directory / "deployment-manifest.json"))
     if set(manifest) != {"schema_version", "deployment", "files"} or manifest["schema_version"] != 1 or manifest["deployment"] != deployment_id:
         raise ValueError("installed deployment manifest identity mismatch")
-    if not isinstance(manifest["files"], dict) or set(manifest["files"]) != set(LINKS.values()):
+    if not isinstance(manifest["files"], dict) or frozenset(manifest["files"]) not in KNOWN_FILE_SETS:
         raise ValueError("installed deployment manifest file set mismatch")
-    for name, expected in manifest["files"].items():
+    identity = hashlib.sha256()
+    for name in sorted(manifest["files"]):
+        expected = manifest["files"][name]
+        if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise ValueError(f"installed deployment file hash is malformed: {name}")
+        identity.update(name.encode() + b"\0" + expected.encode() + b"\n")
         data = secure_input(directory / name)
         if digest(data) != expected:
             raise ValueError(f"installed deployment file hash mismatch: {name}")
+    if identity.hexdigest() != deployment_id:
+        raise ValueError("installed deployment content identity mismatch")
     return manifest
 
 
 def activate(root: Path, deployment_id: str):
     preflight_links(root)
-    verify_deployment(root, deployment_id)
+    manifest = verify_deployment(root, deployment_id)
     preflight_links(root, create_parents=True)
     created = []
+    removed = []
     try:
         for destination, internal in LINKS.items():
             path = rooted(root, destination)
-            if not managed_link(root, destination, internal):
+            if internal in manifest["files"] and not managed_link(root, destination, internal):
                 atomic_symlink(link_target(destination, internal), path)
                 created.append(path)
+            elif internal not in manifest["files"] and managed_link(root, destination, internal):
+                path.unlink()
+                sync_directory(path.parent)
+                removed.append((path, link_target(destination, internal)))
         atomic_symlink(f"deployments/{deployment_id}", rooted(root, BASE / "current"))
     except BaseException:
         for path in reversed(created):
@@ -288,6 +305,8 @@ def activate(root: Path, deployment_id: str):
                 sync_directory(path.parent)
             except FileNotFoundError:
                 pass
+        for path, target in reversed(removed):
+            atomic_symlink(target, path)
         raise
 
 

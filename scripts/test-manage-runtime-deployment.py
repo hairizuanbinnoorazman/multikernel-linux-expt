@@ -2,6 +2,7 @@
 """Exercise deployment install, upgrade, rollback, and ownership boundaries."""
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -95,6 +96,32 @@ def main():
         run(root, "activate", first)
         assert active(root) == f"deployments/{first}"
         assert "MKNETWORK_EGRESS=ens4" in (root / "etc/multikernel/runtime.env").read_text()
+
+        full = root / "etc/multikernel/deployments" / first
+        legacy_staging = root / "etc/multikernel/deployments/legacy-staging"
+        shutil.copytree(full, legacy_staging)
+        legacy_manifest_path = legacy_staging / "deployment-manifest.json"
+        legacy_manifest = json.loads(legacy_manifest_path.read_text(encoding="utf-8"))
+        removed_asset = "libexec/validate-runtime-storage-mount.py"
+        legacy_manifest["files"].pop(removed_asset)
+        identity = hashlib.sha256()
+        for name in sorted(legacy_manifest["files"]):
+            expected = legacy_manifest["files"][name]
+            identity.update(name.encode() + b"\0" + expected.encode() + b"\n")
+        legacy = identity.hexdigest()
+        legacy_manifest["deployment"] = legacy
+        legacy_manifest_path.write_text(
+            json.dumps(legacy_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (legacy_staging / removed_asset).unlink()
+        legacy_directory = legacy_staging.with_name(legacy)
+        legacy_staging.rename(legacy_directory)
+        run(root, "activate", legacy)
+        assert active(root) == f"deployments/{legacy}"
+        assert not os.path.lexists(root / "usr/local/libexec/multikernel/validate-runtime-storage-mount.py")
+        run(root, "activate", second)
+        assert active(root) == f"deployments/{second}"
+        assert (root / "usr/local/libexec/multikernel/validate-runtime-storage-mount.py").resolve().is_file()
+        run(root, "activate", first)
 
         refused = run(root, "remove-deployment", first, "--apply", ok=False)
         assert "active deployment" in refused.stderr

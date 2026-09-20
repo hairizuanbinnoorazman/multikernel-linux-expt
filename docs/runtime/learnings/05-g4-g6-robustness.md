@@ -1331,6 +1331,36 @@ and final-audit chain then passed, including the new mount validator;
 case remains for the guest. Committed exact-source activation and live retry
 remain separate checkpoints.
 
+Committed revision `1124739` was transferred as source-only archive
+`08e22eb1…` together with validated environment `8d6184b8…`; both hashes
+matched on the guest. Its exact build produced release manifest `fde70509…`,
+shim `35ab7058…`, mkruntimed `1ad3d4be…`, mknetd `89091fb9…`, agent
+`f819e3cb…`, and gzip-valid initramfs `7aae45ac…`. These are recorded before
+deployment; no new behavior claim is attached yet.
+
+Activation exposed a deployment-manager evolution bug. The binary release and
+new agent/initramfs/manifest were installed, but support-generation install
+failed closed while verifying the active predecessor: its manifest naturally
+lacks the newly introduced storage-validator asset, while verification demands
+the current exact file set. Both managed services remain stopped and no task
+ran. Historical known-subset verification and link selection must be made
+generation-aware before the upgrade can continue safely.
+
+Upgrade verification is now generation-aware but not open-ended: only the
+current file set and the exact predecessor lacking the storage validator are
+accepted. Deployment IDs are recomputed from sorted recorded file hashes;
+activation links only present assets and transactionally removes/restores the
+optional link. The lifecycle test synthesizes an identity-correct predecessor,
+proves activation has no dangling validator link, upgrades, and rolls back.
+Focused deployment, storage-validator, and diff checks pass; broad verification
+remains pending.
+
+The generation-evolution lifecycle passed 100 repetitions, followed by clean
+full Go race/vet and documentation/schema/evidence, OCI, rootfs/storage/image,
+deployment, containerd, and final-audit gates. The expected permission-gated
+socket subcase remains a live-host check. Exact-source deployment and service
+recovery remain pending.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

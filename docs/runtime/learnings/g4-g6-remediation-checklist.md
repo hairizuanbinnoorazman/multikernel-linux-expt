@@ -2197,6 +2197,34 @@ race-detector repetitions (`1.772s` for the repeated run), and package vet
 passed. Full-repository validation and disposable-host redeployment remain
 pending.
 
+The `1124739` coordinated activation stopped at deployment installation before
+service restart. Binary release and atomically staged agent/initramfs/manifest
+updates succeeded, but the new deployment manager rejected the active older
+generation with `installed deployment manifest file set mismatch` because that
+generation predates the newly managed validator asset. The services remain
+stopped and no workload ran. This exposes an upgrade-compatibility defect in
+the immutable deployment manager: it assumes every historical generation has
+the current asset set. Verification and activation must understand the exact
+file set recorded by a known historical generation without creating links to
+assets it does not contain.
+
+The deployment manager now recognizes only two explicit generation schemas:
+the current complete file set and the immediately preceding set without the
+new storage validator. It recomputes the deployment identity from sorted
+manifest names and hashes, verifies every recorded file, creates links only for
+assets present in the selected generation, and removes/restores the optional
+link transactionally during rollback. A focused lifecycle test constructs an
+identity-correct historical generation, activates it without a dangling new
+link, upgrades to the complete generation, and rolls back; it passes together
+with the storage validator and diff checks. Broad gates remain pending.
+
+That full deployment lifecycle passed 100 consecutive repetitions. The
+subsequent complete Go race/vet and documentation, schema, evidence, OCI,
+bind/bootstrap/rootfs/storage/image, release/deployment/ledger/capture,
+containerd, and final-audit chain passed; `git diff --check` was clean. The
+expected local socket permission skip remains assigned to the guest. Commit,
+exact rebuild, and recovery of the stopped live services remain pending.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,
@@ -2359,6 +2387,14 @@ tests, containerd config tests, final-evidence audit, and `git diff --check`
 also passed. The locally permission-gated socket rejection remains reserved for
 the disposable host. Exact-source commit, rebuild, redeployment, and live retry
 remain pending.
+
+The storage-mount remediation was committed as `1124739`. Its source-only
+archive (`08e22eb1006de8c913184afa1aea5486a0b0c8ba9f04c88d6dd8929c2476ec13`)
+and adapted non-secret runtime environment (`8d6184b8…`) were verified on the
+guest. The full-revision build produced release manifest `fde70509…`, shim
+`35ab7058…`, mkruntimed `1ad3d4be…`, mknetd `89091fb9…`, agent `f819e3cb…`,
+and gzip-valid initramfs `7aae45ac…`. Managed activation and live tests remain
+pending.
 
 The device-default remediation was committed as `c409ad4` (`runtime: accept
 exact containerd device defaults`). Its source-only archive hashes to
