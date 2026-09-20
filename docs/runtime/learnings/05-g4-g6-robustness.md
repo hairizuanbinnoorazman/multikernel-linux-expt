@@ -1111,6 +1111,66 @@ final evidence-audit checks all succeeded, and `git diff --check` was clean.
 The known locally permission-gated socket subcase remains for privileged-host
 execution.
 
+This compatibility fix and the running findings were committed as `0792c9b`.
+The source-only archive for that exact commit hashes to `263ea869…` and was
+transferred to the guest; the pre-existing untracked evidence directory was
+not included or modified.
+
+The guest verified that archive and rebuilt the `0792c9bc…`-stamped release.
+The release manifest is `1529d73b…`, mkruntimed is `b84ffb3a…`, the shim is
+`2a832f17…`, mknetd is `41571385…`, and the current agent is `730826b0…`.
+The regenerated gzip-valid initramfs is `d6af7590…`; helper and transport hashes
+remained unchanged. These bytes still required a coordinated installed
+artifact/manifest upgrade before service restart.
+
+The coordinated upgrade activated release `0.1.0-dev-0792c9bc…`, atomically
+updated the agent/initramfs/private manifest, and passed bootstrap validation
+against manifest `5791ed6c…`. The sequence then stopped before service start
+when an unprivileged hash command was correctly denied access to the mode-0600
+manifest. The artifacts had validated; mkruntimed remained intentionally
+stopped pending the corrected privileged check.
+
+With the hash check run under the required privilege, manifest `5791ed6c…`
+matched and mkruntimed revision `0792c9bc…` started successfully. PID `15246`
+was stable across two delayed observations, private runtime/storage directories
+and the empty journal appeared, and no child existed. The journal window shows
+the old failures and then a clean final start with no repeated config error,
+providing live proof of the corrected generation-link loader.
+
+The exact corrected `mk-host-check` reported `qualified=true`: expected custom
+kernel and Kerf, CPUs `0-15`, 67.4 GB memory, successful 16-GB pool dry-run,
+active guest agent, and no findings/stale resources/instances. All five host
+services were active, workload inventories were empty, and installed shim,
+runtime, network daemon, and CNI hashes matched revision `0792c9bc…`. This is
+the pre-suite clean-state observation.
+
+The first basic live-suite workload failed during ctr task creation, before any
+Docker workload: root construction returned `OCI configuration rejected:
+[Errno 20] Not a directory: 'self'`. Image pull had succeeded and the harness
+cleanup trap ran, but it emitted no gate pass marker. This is a current-source
+runtime failure pointing at the descriptor-backed `/proc/self/fd` validation
+path; cleanup inventories and daemon state must be checked before remediation.
+
+The immediate cleanup audit found every inventory empty: no child, ctr task or
+container, Docker container, runtime link, MK rule, journal entry, prepared
+rootfs, or endpoint record. Services stayed active. The failed create was
+therefore fail-clean and left only the expected private empty state
+directories.
+
+The error came from the OCI validator treating the intentional inherited path
+`/proc/self/fd/3/config.json` as an ordinary pathname and refusing procfs
+`self`. The validator now recognizes only that exact numeric-fd/config form,
+checks the inherited fd is a caller-owned non-writable directory, and opens
+exactly `config.json` relative to it no-follow before retaining the prior
+bounded stable-file validation. A real pass-fd subprocess test and the focused
+55-case OCI suite pass; broad checks and a live retry remain pending.
+
+The full local race and vet suites plus the entire documentation/evidence,
+schema, OCI, bind/bootstrap, rootfs/storage/image/release,
+binary/deployment/ledger/capture/containerd, and final-audit chain passed after
+the fix; `git diff --check` was clean. Only the known locally permission-gated
+socket case remains for the privileged host.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

@@ -113,6 +113,23 @@ def main():
                 raise AssertionError(f"outer failure cleanup modified replacement {path}")
 
         run_case(directory, "valid", copy.deepcopy(BASE), accepted=True)
+        inherited_bundle = directory / "inherited-bundle"
+        inherited_bundle.mkdir(mode=0o700)
+        inherited_config = inherited_bundle / "config.json"
+        inherited_config.write_text(json.dumps(BASE), encoding="utf-8")
+        inherited_config.chmod(0o600)
+        inherited_output = directory / "inherited-output.json"
+        inherited_fd = os.open(inherited_bundle, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            inherited = subprocess.run(
+                [str(VALIDATOR), f"/proc/self/fd/{inherited_fd}/config.json", str(inherited_output)],
+                pass_fds=(inherited_fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, check=False,
+            )
+        finally:
+            os.close(inherited_fd)
+        if inherited.returncode != 0 or json.loads(inherited_output.read_text(encoding="utf-8"))["process"] != BASE["process"]:
+            raise AssertionError(f"inherited bundle config failed: {inherited.stderr!r}")
         supported = copy.deepcopy(BASE)
         supported["ociVersion"] = "1.0.2-dev"
         supported["process"].update({
