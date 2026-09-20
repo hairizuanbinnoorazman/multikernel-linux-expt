@@ -2063,3 +2063,251 @@ failure. Capture evidence before repair, rebuild, reboot, or deletion.
   evidence.
 - [ ] Reissue the G4-G6 summary and update checked project tasks only after each
   claim maps to a schema-valid assertion and actual retained instance output.
+
+## Live continuation checkpoint: 2026-09-20
+
+The operator explicitly authorized transferring the current source to the
+disposable VM and running the live qualification suite. This authorizes source
+transfer and execution on the disposable instance; it does not reproduce the
+separately documented exact sentence authorizing retention of the described
+infrastructure evidence. The run will therefore record its findings in these
+working learnings as they occur, while permanent raw-evidence publication and
+any resulting live-closure claims remain conditional on that distinct
+retention approval.
+
+GCE control-plane inspection then found
+`mklinux-g4-g6-final-20260905` already `RUNNING`; restart or recreation was not
+required. It reported the expected `n2-standard-16` machine type, labels
+`disposable=true` and `purpose=multikernel-g4-g6-final`, an auto-delete 100-GB
+boot disk, internal address `10.148.0.56`, ephemeral external address
+`136.85.103.235`, and last start timestamp
+`2026-09-19T20:36:29.072-07:00`. This is a control-plane observation, not yet
+guest-execution evidence.
+
+The first guest readiness probe succeeded over GCE SSH. The instance reported
+hostname `mklinux-g4-g6-final-20260905`, kernel
+`7.0.0-mk2-gce-lab`, boot ID
+`3b4d5c5d-9436-4bab-9c17-609a4dcd181d`, an active
+`google-guest-agent`, and a present `/sys/fs/multikernel`. The source revision
+selected for transfer is committed revision
+`2051d0131428b3e75ab177b3f3e63bf4b41ad6ea`; the archive is to be produced by
+`git archive`, so `.git`, the pre-existing untracked
+`evidence/runtime-20260907/`, and these uncommitted running notes cannot enter
+the guest payload.
+
+The first transfer orchestration attempt uploaded the archive but stopped
+before extraction: its local SHA-256 was
+`6cae2c16495742dd9f7d9f8b8f579e5a83e199bd0f2431de2bf05d89b1b9972a`,
+whereas the remote command embedded a stale expected value and an incorrectly
+escaped `awk` field. The remote equality test consequently failed with an
+empty computed value. No qualification result is inferred from this operator
+error, and no source directory was created by that command.
+
+The corrected remote check printed and matched the same SHA-256, unpacked the
+archive once into
+`/home/hairizuan-tw/mklinux-src-2051d013-20260920`, confirmed that `.git` and
+`evidence/runtime-20260907/` were absent, and found the expected
+`runtime/go.mod`. The current committed source is therefore present on the
+guest with a locally and remotely matched archive digest.
+
+Running the transferred revision's `scripts/verify-host.sh` passed: the custom
+release was exact, CPUs `0-15` were online, Multikernel sysfs was mounted, and
+`ens4` retained the primary address. The subsequent deployment inspection
+found a fresh runtime state: no active or installed managed binary release, no
+active or installed managed deployment generation, and none of their stable
+command/config links. `mkruntimed`, `mknetd`, `containerd`, and Docker all
+reported `inactive`. Because `systemctl is-active` returned nonzero under
+`set -e`, that command ended before its later idle-inventory and binary-hash
+steps. The host is qualified, but it must be provisioned before a runtime suite
+can execute.
+
+The first prerequisite-inventory command produced no inventory: its
+`dpkg-query` format contained the shell-like token `${binary:Package}`, which
+the remote shell evaluated under `set -u` and rejected as an unbound variable.
+This is another operator-command quoting defect, not a missing-package or
+runtime result; the read-only command made no guest change.
+
+The corrected prerequisite inventory established that this boot image is bare
+beyond the qualified kernel: `docker.io`, `containerd`, `golang-go`, and
+`socat` are not installed; `/opt/mkruntime`, `/etc/mkruntime`,
+`/etc/multikernel`, `/etc/containerd`, and `/etc/docker` are absent. Required
+core tools including BusyBox, cpio, e2fsprogs, GCC, iproute2, iptables, jq,
+make, Python, rsync, and util-linux are installed. The retained 20-GB disk is
+attached at `/dev/sdb` through
+`/dev/disk/by-id/google-mk-mediated-storage-20260830`, has ext4 label
+`mk-mediated-host`, and is not mounted. Provisioning therefore must install
+the missing packages and runtime/Kerf artifacts, mount the mediated disk, and
+install configuration/services before live qualification.
+
+Kernel/artifact inspection found the matching host kernel image and config in
+`/boot`, plus
+`/lib/modules/7.0.0-mk2-gce-lab/kernel/drivers/block/nbd.ko`; neither NBD nor
+`mk_transport` was loaded. The home directory retains pinned Kerf and Linux
+source trees and `~/multikernel-artifacts`, so those inputs can be inspected
+rather than rebuilt blindly. The attached disk reports the exact serial
+`mk-mediated-storage-20260830`, size `21474836480`, ext4 label
+`mk-mediated-host`, UUID `507c0523-8e58-4ae3-9524-3b7513aad344`, and clean
+filesystem state. This supports an identity-checked mount of the existing
+filesystem; the first-format helper must not be used because a valid filesystem
+already exists.
+
+Artifact provenance inspection matched both required upstream pins: Kerf is
+commit `8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec` and reports version `0.2.0`;
+the Linux tree is commit
+`3bdd35b64413da0b4e089ce931bfc2e8b031cbf7`. The retained artifact directory
+contains only the earlier child initramfs, SHA-256
+`487127ea26e4ce4a23cb91bdaaf8bb3229c2aa3146e8d0235785252baa3261ef`.
+It does not contain a ready transport module, relay, mediated-NBD helper, or
+current agent. Built `vmlinux` candidates exist in the pinned Linux tree, but
+the missing runtime-specific artifacts must be rebuilt and validated before
+deployment.
+
+Package provisioning completed successfully from Ubuntu Resolute repositories.
+Observed versions are containerd `2.2.2-0ubuntu1.1`, Docker
+`29.1.3-0ubuntu4.1`, Go `1.26.0`, socat `1.8.1.1-1ubuntu0.1`, and musl-tools
+`1.2.5-3build1`. Package installation enabled containerd and Docker units, but
+the Multikernel runtime has not yet been activated.
+
+The exact-source artifact build completed. `make runtime-manifest` built all
+seven static x86-64 Go components with version `0.1.0-dev` and revision
+`2051d0131428b3e75ab177b3f3e63bf4b41ad6ea`; the generated manifest SHA-256
+is `579ad1e9b69a12aa1cd0415f7ed40f4869410553f0b4c4284e221f6316374825`.
+The current C sources compiled warning-clean and static: `mkvsock-nbd` SHA-256
+`a0259098bba0a4319737f2ca4fca5c8ea39e42c8261c6dd0edadcacaa10f0ca3`
+and `mkvsock-relay` SHA-256
+`293ff1eaa209d16103c7caaa8e8f9a24702e58d979453fad5495c503f76aaf98`.
+The pinned Linux tree built module `mk_transport`, SHA-256
+`bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2`,
+with module name `mk_transport` and exact vermagic
+`7.0.0-mk2-gce-lab SMP preempt mod_unload modversions`. The component
+manifest additionally recorded hashes
+`43ee9154…` (shim), `ecc85bd6…` (agent), `9198e5fa…` (agentctl),
+`1a76a8f4…` (CNI), `320074fc…` (host check), `cb32e8b9…` (mknetd), and
+`02af8cff…` (mkruntimed). No privileged runtime installation had occurred at
+this checkpoint.
+
+Source remediation now makes the deployment and loader contracts compatible
+without weakening the ownership boundary. The host-config loader accepts a
+caller-owned regular file or generation symlink, resolves one canonical
+snapshot, validates both the public and resolved parent chains, then reads a
+bounded exact regular target with owner/mode and pre-open/post-read identity
+checks. A focused generation-link test passes, and a link into a writable
+target parent is rejected. The hostconfig package passed once and 100
+race-detector repetitions (`1.772s` for the repeated run), and package vet
+passed. Full-repository validation and disposable-host redeployment remain
+pending.
+
+The complete local gate then passed: `go test -race -count=1 ./...`, full
+`go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
+classified historical evidence manifests, the 55-case OCI boundary suite,
+bind materialization, bootstrap, 19 rootfs-build tests, 10 storage-build tests,
+7 image-architecture tests, 3 release tests, binary/deployment lifecycle,
+resource ledger, capture, containerd configuration, final evidence audit, and
+`git diff --check`. The already documented local socket-permission subcase
+remained skipped and still requires the privileged VM run.
+
+A fallback child initramfs was then rebuilt from the current agent, current
+relay, exact transport module, current `guest/mk-agent-init`, and BusyBox; it
+passed `gzip -t` and hashes to
+`f8ce18d4cc018dd61611890a2188f8d70b3af9db6239b7dd5d309b4f8f6aae0a`.
+The pinned `vmlinux` is a static x86-64 ELF with SHA-256
+`5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10`,
+and `/boot/config-7.0.0-mk2-gce-lab` hashes to
+`f7a61b040e35d4579d3526122d5803e46a20da2d9b527c7c9c043177b6d9c458`.
+The agent, relay, and module hashes re-matched the exact-source build. These are
+the inputs selected for the strict kernel manifest.
+
+The generated runtime environment, strict host config, and kernel manifest
+passed local JSON checks. Their SHA-256 values are `ea011183…`, `82270b0c…`,
+and `36ebbc7f…`, respectively. Installing the environment/config through the
+current deployment manager into an isolated fake root succeeded as deployment
+generation `227c1fca75470cc7f19298c789b7eb97750ed782266feaf328c40f4c32ede975`,
+and `inspect` confirmed every expected stable link. This preflight did not
+modify the disposable host's privileged installation.
+
+The three validated configuration inputs were transferred to the guest, and
+remote SHA-256 checks exactly matched their local values before any privileged
+copy. This closes the configuration-transfer integrity boundary; it does not
+yet establish that installation or service activation succeeds.
+
+The existing storage filesystem was mounted only after rechecking its by-id
+target, byte size, serial, type, label, and UUID. It mounted from `/dev/sdb` at
+`/srv/multikernel-storage`; its existing top-level content is limited to
+historical `child-a`, `child-b`, and `lost+found`, with no runtime subtree yet.
+Pinned Kerf was installed into a root-owned venv and reports `0.2.0`. The
+kernel, config, current initramfs, current agent/relay, transport module, and
+NBD helper were copied root-owned to their planned paths, and every installed
+SHA-256 re-matched its build input. The current bootstrap validator accepted
+manifest SHA-256 `36ebbc7f…`, the exact kernel release, required config, full
+listed OCI feature set, and all artifact identities. Managed binary/deployment
+generation installation and service activation remained pending at this
+checkpoint.
+
+The binary manager installed and activated immutable release
+`0.1.0-dev-2051d0131428b3e75ab177b3f3e63bf4b41ad6ea`; inspection found its
+single release and all six host/CNI command links managed, and version/hash
+checks reached the exact installed bytes. The subsequent deployment-manager
+call failed closed before creating a deployment because the archive had been
+extracted under the ordinary user's ownership while the installer ran as root;
+it specifically rejected `deploy/systemd/sys-fs-multikernel.mount` as an
+unsafe deployment input. No service was activated. Deployment must be retried
+from a root-owned extraction of the same digest-verified source archive.
+
+The archive digest was rechecked, then the same source archive was extracted
+into private root-owned `/root/mklinux-src-2051d013-20260920`. From that trust
+boundary the deployment manager installed and activated generation
+`227c1fca75470cc7f19298c789b7eb97750ed782266feaf328c40f4c32ede975`.
+Inspection confirmed every systemd, runtime environment, host config, CNI,
+containerd fragment, and runtime support-tool link is managed. The root-owned
+copy also contains neither `.git` nor the pre-existing untracked evidence
+directory. Containerd/Docker integration and service activation remained
+separate subsequent steps.
+
+Before daemon integration, containerd and Docker were active with empty task
+and container inventories and Multikernel sysfs had no child instances.
+Containerd had no explicit main config, but `containerd config dump` reported
+config version 3 and the default import `/etc/containerd/conf.d/*.toml`.
+Docker had no `daemon.json` and reported `runc` as its default and only
+configured runtime. This is the clean point at which the Multikernel fragment
+and opt-in Docker runtime may be activated without displacing a workload or
+changing the default runtime.
+
+The first integration command stopped at its pre-restart check: despite the
+default dump advertising the import glob, with no explicit
+`/etc/containerd/config.toml` the effective dump did not contain the installed
+`multikernel` runtime stanza. The required grep returned nonzero, so containerd
+was not restarted and Docker configuration was not changed. A complete staged
+default main config must be validated with the import fragment before it is
+installed, exactly as the deployment guide requires.
+
+The first attempt to stage that main config did not execute remotely: a nested
+quote in a grep pattern made the local command parser report an unexpected
+end-of-file. It created no candidate and changed no guest configuration. The
+retry must use shell-safe, quote-free structural checks.
+
+The corrected containerd integration passed. A complete default version-3
+candidate explicitly contained the import glob; resolving that candidate
+showed the `multikernel` runtime with type
+`io.containerd.multikernel.v2` and preserved
+`default_runtime_name = 'runc'`. Because the main config was absent and the
+task inventory was empty, the candidate was installed and containerd
+restarted. The post-restart effective dump retained the same Multikernel
+stanza and runc default, and the final task inventory remained empty.
+
+Docker integration also passed its fail-closed path. The merge tool generated
+the candidate from the absent prior config, `dockerd --validate` returned
+`configuration OK`, the candidate was installed only after confirming an empty
+container inventory, and Docker reloaded successfully. Post-reload `docker
+info` advertises `io.containerd.multikernel.v2` while preserving `runc` as the
+default; the container inventory remains empty.
+
+Initial managed-service activation exposed a deployment/runtime contract bug.
+The mount unit and `mknetd` started, and `mk_transport` loaded, but
+`mkruntimed` logged `host configuration must be a regular file with mode 0640
+or stricter` and exited with status 2. The deployment manager publishes
+`/etc/mkruntime/config.json` as a stable symlink, while the runtime's strict
+host-config loader rejects that pathname form. The immediate aggregate
+`is-active` check observed systemd's restart window and is not durable-health
+proof. No `/var/lib/mkruntime` or storage `runtime` subtree was created; only
+the empty mknetd state directory appeared. This must be fixed in source and
+redeployed before any live matrix is attempted.
