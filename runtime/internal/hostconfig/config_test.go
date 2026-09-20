@@ -47,6 +47,46 @@ func TestStrictSafeHostConfiguration(t *testing.T) {
 	}
 }
 
+func TestHostConfigurationAcceptsManagedGenerationSymlink(t *testing.T) {
+	path, uid := fixture(t)
+	root := filepath.Dir(filepath.Dir(path))
+	target := filepath.Join(root, "etc/multikernel/deployments", strings.Repeat("a", 64), "mkruntime/config.json")
+	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(path, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("multikernel/deployments", strings.Repeat("a", 64), "mkruntime/config.json"), path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := load(path, uid, root); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHostConfigurationRejectsSymlinkIntoUnsafeParent(t *testing.T) {
+	path, uid := fixture(t)
+	root := filepath.Dir(filepath.Dir(path))
+	targetDir := filepath.Join(root, "unsafe")
+	if err := os.Mkdir(targetDir, 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(targetDir, 0777); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(targetDir, "config.json")
+	if err := os.Rename(path, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := load(path, uid, root); err == nil {
+		t.Fatal("configuration below unsafe symlink target parent accepted")
+	}
+}
+
 func TestHostConfigurationRejectsUnsafeInput(t *testing.T) {
 	tests := []struct {
 		name   string

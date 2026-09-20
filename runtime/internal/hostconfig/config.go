@@ -3,6 +3,7 @@ package hostconfig
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -35,15 +36,15 @@ func Load(path string) (Config, error) {
 
 func load(path string, requiredUID uint32, boundary string) (Config, error) {
 	var config Config
-	if !filepath.IsAbs(path) {
-		return config, errors.New("host configuration path must be absolute")
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return config, errors.New("host configuration path must be canonical and absolute")
 	}
 	info, err := os.Lstat(path)
 	if err != nil {
 		return config, err
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0137 != 0 {
-		return config, errors.New("host configuration must be a regular file with mode 0640 or stricter")
+	if !info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0 {
+		return config, errors.New("host configuration must be a regular file or managed symlink")
 	}
 	if err = requireOwner(info, requiredUID); err != nil {
 		return config, err
@@ -51,7 +52,17 @@ func load(path string, requiredUID uint32, boundary string) (Config, error) {
 	if err = safeParents(filepath.Dir(path), requiredUID, boundary); err != nil {
 		return config, err
 	}
-	raw, err := os.ReadFile(path)
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return config, err
+	}
+	if !filepath.IsAbs(resolved) || filepath.Clean(resolved) != resolved {
+		return config, errors.New("resolved host configuration path is unsafe")
+	}
+	if err = safeParents(filepath.Dir(resolved), requiredUID, boundary); err != nil {
+		return config, err
+	}
+	raw, err := readStableConfig(resolved, requiredUID)
 	if err != nil {
 		return config, err
 	}
@@ -62,6 +73,48 @@ func load(path string, requiredUID uint32, boundary string) (Config, error) {
 		return config, err
 	}
 	return config, nil
+}
+
+func sameFileState(first, second os.FileInfo) bool {
+	left, leftOK := first.Sys().(*syscall.Stat_t)
+	right, rightOK := second.Sys().(*syscall.Stat_t)
+	return leftOK && rightOK && left.Dev == right.Dev && left.Ino == right.Ino &&
+		left.Size == right.Size && left.Mtim == right.Mtim && left.Ctim == right.Ctim
+}
+
+func readStableConfig(path string, requiredUID uint32) ([]byte, error) {
+	before, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !before.Mode().IsRegular() || before.Mode().Perm()&0137 != 0 || before.Size() < 1 || before.Size() > 1<<20 {
+		return nil, errors.New("host configuration target must be a bounded regular file with mode 0640 or stricter")
+	}
+	if err = requireOwner(before, requiredUID); err != nil {
+		return nil, err
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(before, opened) || !sameFileState(before, opened) {
+		return nil, errors.Join(errors.New("host configuration identity changed while opening"), err)
+	}
+	raw, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
+	if err != nil || len(raw) > 1<<20 {
+		return nil, errors.Join(errors.New("host configuration read failed or exceeded its bound"), err)
+	}
+	after, err := file.Stat()
+	if err != nil || !sameFileState(opened, after) {
+		return nil, errors.Join(errors.New("host configuration identity changed while reading"), err)
+	}
+	named, err := os.Lstat(path)
+	if err != nil || !os.SameFile(opened, named) || !sameFileState(opened, named) {
+		return nil, errors.Join(errors.New("host configuration target changed while reading"), err)
+	}
+	return raw, nil
 }
 
 func (c Config) validate(requiredUID uint32, boundary string) error {
