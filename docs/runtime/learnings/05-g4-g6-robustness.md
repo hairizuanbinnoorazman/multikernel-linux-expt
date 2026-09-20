@@ -1462,6 +1462,73 @@ evidence audit, and `git diff --check`. The one permission-gated socket test is
 still intentionally deferred to the disposable host. No live recovery claim
 is made before exact-source deployment.
 
+The committed correction is
+`04da537332ce018c173ae2351679be5a09b20d81`; its source-only qualification
+archive is
+`479287d56ba6bafd95319a8ca61d7b16df0b365ca6bf7e0385c7658bbf961ab4`.
+The disposable instance remains `RUNNING`. Transfer, independent guest hash
+verification, rebuild, deployment, and recovery of the preserved task remain
+unclaimed until each completes.
+
+The disposable guest independently matched the full archive hash, extracted it
+to a new mode-0700 source directory, and found the expected lifecycle source.
+This closes only the source-transfer boundary; rebuild and live behavior are
+not yet claimed.
+
+All seven exact-source, revision-stamped guest binaries and their manifest now
+build successfully. The release manifest is `122bf1a…`; shim is `f809e51a…`,
+mkruntimed `bae3b11e…`, mknetd `0892a2fd…`, and agent `6600d82b…`. Daemon and
+shim version output independently names the full `04da537…` revision. These
+are build identities only; activation and live recovery are still unclaimed.
+
+An activation precheck retained the original boot ID, found all three relevant
+services active, the diagnostic task still `CREATED`, and `/dev/sdb` mounted
+rw ext4 with `nosuid,nodev`. The command then failed before installation
+because it passed an unsupported `--environment` option to the standalone
+mount validator, whose interface requires explicit identity fields. This was
+a command-use error with no release or service mutation.
+
+The exact release subsequently installed and activated as
+`0.1.0-dev-04da537332ce018c173ae2351679be5a09b20d81`. Restarting only
+mkruntimed produced stable active daemon/network services after five seconds;
+PID `14571` reports the exact revision and the host boot ID did not change.
+This establishes activation only. Cleanup of the preserved old-shim task is
+the next live boundary.
+
+The first cleanup retry did not exercise the lifecycle fix: the preserved old
+shim dialed its recorded `/run/mkruntimed.sock`, which was absent after daemon
+restart, and ctr returned `UNAVAILABLE` before stop/delete. No cleanup is
+claimed and the preserved resources remain live. This exposes an endpoint-
+continuity/restart boundary that must be diagnosed before retry.
+
+The daemon journal explains the absent socket and supersedes the earlier
+five-second health observation: each start passes storage validation, then
+about 18 seconds later rootfs reconciliation exits on `prepared build result
+differs from journal`. Systemd repeatedly restarts it, so a momentary `active`
+state is not durable health. The diagnostic task remains `CREATED` and its
+child remains present. This prepared-rootfs upgrade/reconcile mismatch must be
+remediated before the loaded-stop correction can be exercised live.
+
+The precise cause is representation drift: the build artifact retains the
+builder's compact JSON bytes, but rootfs state persists its `json.RawMessage`
+inside indented JSON. Reloading that state returns an equivalently indented raw
+message, and reconcile incorrectly compares it byte-for-byte with the compact
+file. A safe compatibility check can compact both valid JSON documents before
+byte comparison; unlike generic object equality, this still preserves member
+order and exact number/string spellings and admits only insignificant JSON
+whitespace introduced by persistence.
+
+The resulting comparison and integration regression pass 100 rootfs race-
+detector repetitions. A real compact builder result is indented to reproduce
+durable-state reload and is accepted only after all existing content/digest
+checks; altered artifacts remain rejected. Repository-wide qualification and
+live exact-source recovery are still pending.
+
+The complete local race/vet and documentation/schema/evidence/boundary/
+deployment/final-audit chain then passed, as did `git diff --check`; generated
+Python cache files were removed. An immutable commit and exact-source live
+recovery are still required.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

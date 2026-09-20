@@ -55,6 +55,14 @@ func builderDiagnostic(output []byte) string {
 	return strings.TrimSpace(string(output[:maximum])) + " [truncated]"
 }
 
+func equalJSONExceptWhitespace(left, right []byte) bool {
+	var compactLeft, compactRight bytes.Buffer
+	if json.Compact(&compactLeft, left) != nil || json.Compact(&compactRight, right) != nil {
+		return false
+	}
+	return bytes.Equal(compactLeft.Bytes(), compactRight.Bytes())
+}
+
 type storageBuildMetadata struct {
 	SchemaVersion      int    `json:"schema_version"`
 	Path               string `json:"path"`
@@ -605,7 +613,7 @@ func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record, roots 
 		return errors.New("prepared storage content differs from journal")
 	}
 	buildResult, err := readTrustedArtifact(filepath.Join(runtimeDir, "build-result.json"), 1<<20, true)
-	if err != nil || !bytes.Equal(buildResult, record.BuildResult) {
+	if err != nil || !equalJSONExceptWhitespace(buildResult, record.BuildResult) {
 		return errors.New("prepared build result differs from journal")
 	}
 	initrdPath, err := readTrustedArtifact(filepath.Join(runtimeDir, "initramfs.path"), 1<<20, true)

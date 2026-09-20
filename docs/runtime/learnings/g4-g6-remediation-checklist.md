@@ -2339,6 +2339,78 @@ locally permission-gated socket subcase remains reserved for the disposable
 host. Exact-source deployment and recovery of the preserved live task remain
 pending.
 
+The remediation checkpoint is commit
+`04da537332ce018c173ae2351679be5a09b20d81`. Its source-only archive hashes to
+`479287d56ba6bafd95319a8ca61d7b16df0b365ca6bf7e0385c7658bbf961ab4`.
+The disposable instance is still `RUNNING`; archive transfer, guest hash
+verification, rebuild, deployment, and preserved-task recovery are separate
+pending boundaries.
+
+The guest independently verified that exact archive hash, extracted it into a
+new private source directory, and confirmed the lifecycle source is present.
+No artifact identity or runtime behavior is inferred from transfer success;
+the exact-source rebuild is the next boundary.
+
+The exact guest rebuild completed for all seven revision-stamped components.
+The release manifest is `122bf1a…`; representative identities are shim
+`f809e51a…`, mkruntimed `bae3b11e…`, mknetd `0892a2fd…`, and agent
+`6600d82b…`. Direct version output reports the full `04da537…` revision for
+both daemon and shim. Installation, service restart, and preserved-task
+recovery remain pending and are not implied by the build.
+
+The first activation precheck confirmed the same boot ID, active daemon/
+network/containerd services, the preserved task in `CREATED`, and the qualified
+`/dev/sdb` ext4 mount. It then stopped before installation because the
+standalone storage validator was invoked with a nonexistent `--environment`
+convenience flag instead of its six explicit identity arguments. No release or
+service was changed by that attempt; installation remains pending.
+
+The verified release then installed and became the active immutable release
+`0.1.0-dev-04da537332ce018c173ae2351679be5a09b20d81`. Only mkruntimed was
+restarted; after five seconds it and mknetd were active, mkruntimed PID `14571`
+reported the exact revision, and the boot ID was unchanged. The preserved task
+has not yet been deleted, so this is activation evidence rather than recovery
+evidence.
+
+The first preserved-task retry did not reach the corrected transition. The old
+shim attempted its recorded daemon endpoint `/run/mkruntimed.sock`, but after
+the daemon restart that pathname did not exist, so ctr returned `UNAVAILABLE`
+before stop/delete. The task and child must still be treated as live. This is a
+restart/recovery endpoint-continuity finding; socket paths and daemon journal
+must be inspected before another cleanup attempt.
+
+Journal inspection corrects the earlier five-second activation observation:
+mkruntimed is not stable. Roughly 18 seconds into each start, rootfs reconcile
+fails closed with `prepared build result differs from journal`; systemd then
+restarts it, creating misleading brief `active` windows and periods with no
+daemon socket. The storage prestart check passes on every attempt. The
+preserved task remains `CREATED` and its child remains present. Qualification
+must fix this prepared-rootfs upgrade/reconcile mismatch and use a health
+window longer than the observed failure latency.
+
+Source inspection identifies the mismatch mechanism. The builder writes its
+JSON result bytes verbatim to `build-result.json`, while the durable rootfs
+store embeds the same `json.RawMessage` inside `json.MarshalIndent` output.
+After restart, unmarshalling yields the indented embedded bytes; reconcile then
+uses raw byte equality against the original compact artifact. The JSON value is
+unchanged, but whitespace makes every prepared record fail restart validation.
+The comparison must remove JSON whitespace from both valid documents before
+requiring byte equality, preserving key order and numeric/string lexemes rather
+than weakening the check to an unordered decoded-object comparison.
+
+The whitespace-stable verification correction now passes 100 rootfs race-
+detector repetitions. The integration regression takes a real builder result,
+indents it as durable-state persistence does, and proves all prepared artifact
+and digest checks still succeed; the existing mutation cases continue to
+reject changed artifacts. Full gates and exact-source redeployment remain
+pending.
+
+The subsequent full local gate passed again: repository Go race and vet,
+documentation/link/schema/evidence validation, all boundary simulation suites,
+release/deployment/ledger/capture/containerd tests, final evidence audit, and
+`git diff --check`. The generated Python cache was removed. Commit, exact
+archive rebuild, and live daemon recovery remain pending.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,
