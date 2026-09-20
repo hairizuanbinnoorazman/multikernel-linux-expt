@@ -310,7 +310,7 @@ int main(int argc, char **argv) {
   signal(SIGTERM, stop); signal(SIGINT, stop);
   printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s\n", argv[2], argv[4], argv[5], argv[3]); fflush(stdout);
   while (!done) pause();
-  puts("MKNBD_SERVER_CLOSED reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4"); fflush(stdout);
+  puts("MKNBD_SERVER_CLOSED synced=1 reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4"); fflush(stdout);
   return 0;
 }
 
@@ -736,7 +736,7 @@ func TestCounterEvidenceRequiresExactReadyAndCanonicalTerminalClose(t *testing.T
 	}
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	path := filepath.Join(directory, "server.log")
-	closed := []byte("MKNBD_SERVER_CLOSED reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4\n")
+	closed := []byte("MKNBD_SERVER_CLOSED synced=1 reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4\n")
 	write := func(content []byte) {
 		t.Helper()
 		if err := os.WriteFile(path, content, 0600); err != nil {
@@ -759,6 +759,14 @@ func TestCounterEvidenceRequiresExactReadyAndCanonicalTerminalClose(t *testing.T
 	write(closed)
 	if _, err := parseCounters(path, value); err == nil {
 		t.Fatal("close record without exact readiness evidence was accepted")
+	}
+	write(append(readyMarker(value), []byte("MKNBD_SERVER_CLOSED synced=0 reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4\n")...))
+	if _, err := parseCounters(path, value); err == nil {
+		t.Fatal("unsynced close record was accepted")
+	}
+	write(append(readyMarker(value), []byte("MKNBD_SERVER_CLOSED reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4\n")...))
+	if _, err := parseCounters(path, value); err == nil {
+		t.Fatal("legacy close record without sync proof was accepted")
 	}
 }
 
@@ -797,7 +805,7 @@ int main(int argc, char **argv) {
   signal(SIGTERM, stop);
   printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s\n", argv[2], argv[4], argv[5], argv[3]); fflush(stdout);
   while (!done) pause();
-  puts("MKNBD_SERVER_CLOSED reads=0 read_bytes=0 writes=0 write_bytes=0 flushes=0"); fflush(stdout);
+  puts("MKNBD_SERVER_CLOSED synced=1 reads=0 read_bytes=0 writes=0 write_bytes=0 flushes=0"); fflush(stdout);
   return 0;
 }
 `
