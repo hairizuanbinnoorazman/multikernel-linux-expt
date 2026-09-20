@@ -399,7 +399,7 @@ closed:
 	active_listener = -1;
 	if (fdatasync(image_fd) < 0)
 		die("final fdatasync");
-	printf("MKNBD_SERVER_CLOSED reads=%llu read_bytes=%llu writes=%llu write_bytes=%llu flushes=%llu\n",
+	printf("MKNBD_SERVER_CLOSED synced=1 reads=%llu read_bytes=%llu writes=%llu write_bytes=%llu flushes=%llu\n",
 	       (unsigned long long)reads, (unsigned long long)bytes_read,
 	       (unsigned long long)writes, (unsigned long long)bytes_written,
 	       (unsigned long long)flushes);

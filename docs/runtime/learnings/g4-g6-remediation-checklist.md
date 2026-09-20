@@ -1067,6 +1067,25 @@ phrase above.
   that correction. The final documentation/evidence chain and
   `git diff --check` also passed. Local implementation and verification are
   complete; privileged live ordering evidence remains open.
+  The following server-sync audit found that production calls final
+  `fdatasync` before its close marker, but the marker contains only counters
+  and fake servers can emit an indistinguishable line without syncing. This
+  evidence-contract gap is recorded before implementation. The canonical close
+  record must include `synced=1` emitted only after successful final
+  `fdatasync`; recovery must reject every legacy or forged unsynced line.
+  The production C helper now emits that field only after final `fdatasync` and
+  passes warning-clean compilation. Focused graceful-stop/recovery and
+  canonical parser tests pass; `synced=0` and legacy records without the field
+  are rejected. The graceful-stop, pidfd-recovery, sync-proof parser, and
+  managed-stop group then passed 100 race-detector repetitions in 59.239
+  seconds on 2026-09-19. The production C helper, all-package race suite
+  (storage: 3.910 seconds), and `go vet ./...` then passed. Documentation and
+  repository-integrity verification remain pending. On 2026-09-20, the full
+  documentation chain passed across links, schemas, evidence, OCI,
+  bind/rootfs/image races, release/deployment, resource-ledger,
+  command-capture, containerd, and final-evidence audits; `git diff --check`
+  was clean. The local explicit server-sync evidence checkpoint is complete;
+  live child/primary proof remains open.
 - [ ] Resolve partial-artifact cleanup. Failed `Create` must remove token,
   initramfs, recovery, mount, and runtime-directory state as well as avoiding a
   Kerf allocation. Root preparation now defensively unmounts even when mount

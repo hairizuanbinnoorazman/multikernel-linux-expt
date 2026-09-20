@@ -812,14 +812,15 @@ func parseCountersAt(directory *safefile.Directory, name string, value Export) (
 	}
 	var result Counters
 	var readBytes, writeBytes uint64
+	var synced uint32
 	count, err := fmt.Sscanf(string(data[offset:]),
-		"MKNBD_SERVER_CLOSED reads=%d read_bytes=%d writes=%d write_bytes=%d flushes=%d",
-		&result.Reads, &readBytes, &result.Writes, &writeBytes, &result.Flushes)
-	if err != nil || count != 5 {
+		"MKNBD_SERVER_CLOSED synced=%d reads=%d read_bytes=%d writes=%d write_bytes=%d flushes=%d",
+		&synced, &result.Reads, &readBytes, &result.Writes, &writeBytes, &result.Flushes)
+	if err != nil || count != 6 || synced != 1 {
 		return Counters{}, errors.New("server close counter record is malformed")
 	}
 	result.ReadBytes, result.WrittenBytes = readBytes, writeBytes
-	canonical := fmt.Sprintf("MKNBD_SERVER_CLOSED reads=%d read_bytes=%d writes=%d write_bytes=%d flushes=%d\n",
+	canonical := fmt.Sprintf("MKNBD_SERVER_CLOSED synced=1 reads=%d read_bytes=%d writes=%d write_bytes=%d flushes=%d\n",
 		result.Reads, result.ReadBytes, result.Writes, result.WrittenBytes, result.Flushes)
 	if string(data[offset:]) != canonical {
 		return Counters{}, errors.New("server close counter record is not canonical or terminal")
