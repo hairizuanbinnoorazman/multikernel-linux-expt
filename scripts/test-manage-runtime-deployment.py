@@ -30,6 +30,7 @@ DESTINATIONS = (
     "usr/local/libexec/multikernel/build-runtime-rootfs.py",
     "usr/local/libexec/multikernel/runtime_safe_publish.py",
     "usr/local/libexec/multikernel/runtime-storage-identity.py",
+    "usr/local/libexec/multikernel/validate-runtime-storage-mount.py",
     "usr/local/libexec/multikernel/build-runtime-storage.py",
     "usr/local/libexec/multikernel/verify-runtime-rootfs.py",
     "usr/local/libexec/multikernel/guest/mk-agent-init",
@@ -129,6 +130,22 @@ def main():
         refused = run(invalid_root, "install", os.fspath(invalid_env), os.fspath(first_inputs[1]), ok=False)
         assert "environment" in refused.stderr
         assert not (invalid_root / "etc/multikernel").exists()
+
+        for name, old, new in (
+            ("storage-mount", "MKRUNTIME_STORAGE_MOUNT=/srv/multikernel-storage", "MKRUNTIME_STORAGE_MOUNT=/tmp/storage"),
+            ("storage-bytes", "MKRUNTIME_STORAGE_BYTES=21474836480", "MKRUNTIME_STORAGE_BYTES=513"),
+            ("storage-uuid", "MKRUNTIME_STORAGE_UUID=507c0523-8e58-4ae3-9524-3b7513aad344", "MKRUNTIME_STORAGE_UUID=invalid"),
+        ):
+            invalid_root = work / f"invalid-{name}-root"
+            invalid_root.mkdir()
+            invalid_env = work / f"invalid-{name}.env"
+            invalid_env.write_text(
+                ENVIRONMENT.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
+            invalid_env.chmod(0o600)
+            refused = run(
+                invalid_root, "install", os.fspath(invalid_env),
+                os.fspath(first_inputs[1]), ok=False)
+            assert "storage" in refused.stderr
 
         symlink_root = work / "symlink-root"
         outside = work / "outside"

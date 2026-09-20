@@ -106,6 +106,7 @@ for service in mkruntimed mknetd containerd docker; do
 done
 observe host "kernel=$(uname -r) boot_id=$(cat /proc/sys/kernel/random/boot_id) services=$(systemctl is-active mkruntimed mknetd containerd docker | paste -sd,)"
 mountpoint -q /sys/fs/multikernel
+mountpoint -q /srv/multikernel-storage
 test -x /usr/local/bin/containerd-shim-multikernel-v2
 test -c /dev/net/tun
 cleanup

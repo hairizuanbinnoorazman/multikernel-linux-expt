@@ -1272,6 +1272,65 @@ for the live host. The temporary diagnostic wrapper and captured resources
 file were deleted only after the managed link and empty inventories were
 reverified. A committed exact-source live rerun remains required.
 
+Commit `3598056` was archived as source-only SHA-256 `a4acedb4…`, verified on
+the guest, and rebuilt with the full revision stamp. The output identities are
+release manifest `a60f72a7…`, shim `04daf0b8…`, mkruntimed `40b42a65…`, mknetd
+`d1f2ff6f…`, agent `da6d8e95…`, and gzip-valid initramfs `4f58a729…`. These
+exact outputs are recorded before activation; no new live claim exists yet.
+
+The coherent activation selected release
+`0.1.0-dev-3598056becf7beb698dbdb3388c2e3268b44efdf` and deployment
+`5df65a4b65c5b5bdcc9174098887d8e151998c9fc0f37a21f65b45670b6f7f0d`.
+Prechecks found no workload or child, bootstrap validation and installed hashes
+passed, and both services survived the five-second health check. Live workload
+behavior remains the next separate assertion.
+
+The `3598056` workload retry cleared the prior explicit resource rejection but
+still failed before task creation with an empty builder-error suffix. Its host
+boot ID had changed from `3b4d5c5d…` to `f9d00c5f…`, so an intervening reboot
+or host restart is now part of the evidence boundary and service/storage state
+must be requalified. The suite exited 1; no live behavior is claimed.
+
+Journal history shows an orderly shutdown at 04:34:44 UTC and a later boot at
+09:17:27 UTC, not a runtime-triggered crash. The restarted host passes the
+explicit qualification probe. Its attached `/dev/sdb` still has the approved
+serial, label, and UUID, but it was not mounted: `/srv/multikernel-storage`
+resolved to the root disk, where startup created an empty `runtime` directory.
+Thus the retry uncovered a real reboot-safety defect. Service startup and the
+live harness need an identity-checked storage mount precondition so runtime
+data can never silently fall back to the boot filesystem.
+
+The deployment now includes a pre-start storage-mount validator. It requires
+the configured root-owned by-id device, whole-disk and byte-size identity,
+udev serial, label, UUID, one read-write ext4 mount, matching device numbers,
+and non-aliasing with `/`. Runtime environment storage fields are strictly
+validated before deployment. Focused validator and deployment lifecycle tests
+pass. Against the currently unmounted live disk, the validator failed at the
+mountpoint check with status 1, proving the reboot fallback is closed before
+service startup once this generation is installed.
+
+After stopping the idle runtime, the retained disk's unmounted state and all
+five identity properties were rechecked. Mounting the approved by-id target
+with `nodev,nosuid` made the validator return
+`RUNTIME_STORAGE_MOUNT_VALID`; the observed mount is `/dev/sdb`, read-write
+ext4, at `/srv/multikernel-storage`. Mkruntimed then stayed active for five
+seconds. This supplies both negative and positive live evidence for the new
+precondition before its managed generation is installed.
+
+The validator passed 100 local repetitions; deployment lifecycle and harness
+shell-syntax tests also passed. `systemd-analyze verify` could not be used as a
+standalone workstation gate because the host lacks the production mkruntimed
+and mknetd executable paths, causing its expected executable-existence error.
+Live generation activation is therefore the authoritative systemd check; the
+remaining broad local gates still followed separately.
+
+The entire Go race/vet and documentation, schema, evidence, OCI, bind,
+bootstrap, rootfs, storage, image, release, deployment, ledger, containerd,
+and final-audit chain then passed, including the new mount validator;
+`git diff --check` was clean. Only the expected locally permission-gated socket
+case remains for the guest. Committed exact-source activation and live retry
+remain separate checkpoints.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

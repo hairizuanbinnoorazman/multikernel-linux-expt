@@ -118,6 +118,7 @@ for service in mkruntimed containerd; do
 	[[ $(systemctl is-active "$service") = active ]] || exit 1
 done
 mountpoint -q /sys/fs/multikernel || exit 1
+mountpoint -q /srv/multikernel-storage || exit 1
 [[ -z $(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit) ]] || exit 1
 ! ip -o link show | grep -qE 'mkn[0-9]+' || exit 1
 ! sudo iptables -t nat -S POSTROUTING | grep -q '172\.30\.' || exit 1
