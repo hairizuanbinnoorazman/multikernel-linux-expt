@@ -2225,6 +2225,59 @@ containerd, and final-audit chain passed; `git diff --check` was clean. The
 expected local socket permission skip remains assigned to the guest. Commit,
 exact rebuild, and recovery of the stopped live services remain pending.
 
+The deployment-evolution fix was committed as `3ce80c8`; its uploaded archive
+hash `e4a1cd26741188df2c8df64ddff31ec1dc947c8f168850e9fd8b617b7b19daeb`
+matched on the guest. The exact build produced release manifest `bfa37246…`,
+shim `eb418b63…`, mkruntimed `7d74471f…`, mknetd `a498f963…`, agent
+`6e0a59af…`, and gzip-valid initramfs `0d61926c…`. These identities precede
+the recovery deployment; services remain stopped at this checkpoint.
+
+The recovery deployment passed the historical-generation transition. Exact
+release `0.1.0-dev-3ce80c89e10f8aefcf70c625d232b6705b1f490d` and storage-aware
+generation `01c685c211346c6d8eec3930e8bee84f04348a4461b35938063e1cf4952d97d0`
+became active; bootstrap and installed hashes matched, and both services were
+active after five seconds on the qualified mount. This proves live systemd
+parsing and the positive pre-start validator path. The deliberate unmounted
+negative service-start test remains next.
+
+The managed negative/positive service test passed. After an empty-inventory
+check, mkruntimed was stopped and the disk unmounted. `systemctl start
+mkruntimed` returned 1, its pre-start journal recorded `runtime storage mount
+rejected: runtime storage path is not one distinct mountpoint`, and no child
+appeared. After resetting the failed unit, the same by-id disk was remounted,
+the installed validator returned `RUNTIME_STORAGE_MOUNT_VALID`, and mkruntimed
+held stable PID `10351` for five seconds. This closes the live reboot-fallback
+service boundary; the basic workload suite remains pending.
+
+The post-storage-remediation basic retry still failed before ctr task creation
+with `build child root: exit status 1` and an empty stderr suffix. The stable
+host boot ID remained `f9d00c5f…`, so this is no longer attributable to reboot
+or missing storage, and the earlier OCI resource rejection text did not recur.
+The suite exited 1 and cleanup ran; no workload pass is claimed. A one-shot
+builder-stage trace is required to identify the silent `set -e` boundary.
+
+The one-shot trace proved every OCI, bootstrap, image, source-copy, mediated
+ext4 build, initramfs build, and independent verification stage succeeded. The
+failure is the final equality assertion: `jq -e --slurpfile ...` is invoked
+without `-n` and receives no stdin, so jq exits 4 without evaluating the two
+loaded result documents. The managed builder link was restored immediately and
+the diagnostic container removed. The assertion must use `jq -n -e`, with a
+regression check that the final independent build/verify comparison cannot
+silently lose null input.
+
+The final comparison now uses `jq -n -e`; the OCI/builder contract test
+requires that exact null-input form so removing it fails locally before live
+qualification. Builder shell syntax, the 62-case OCI suite, and diff checks
+pass once. The root-only trace files were deleted after verifying the restored
+managed link, empty inventories, qualified mount, and active services.
+Repeated and broad gates remain pending.
+
+The OCI/builder suite passed 100 repetitions with the final null-input proof
+assertion. The complete Go race/vet and documentation, schema, evidence,
+OCI/bind/bootstrap/rootfs/storage/image, release/deployment/ledger/capture,
+containerd, and final-audit chain then passed, as did `git diff --check`.
+Exact commit, guest rebuild, and live workload retry remain pending.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,

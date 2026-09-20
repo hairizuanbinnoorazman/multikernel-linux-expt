@@ -1361,6 +1361,54 @@ deployment, containerd, and final-audit gates. The expected permission-gated
 socket subcase remains a live-host check. Exact-source deployment and service
 recovery remain pending.
 
+Commit `3ce80c8` was archived as `e4a1cd26…`, verified on the guest, and built
+with the full revision. It produced release manifest `bfa37246…`, shim
+`eb418b63…`, mkruntimed `7d74471f…`, mknetd `a498f963…`, agent `6e0a59af…`,
+and gzip-valid initramfs `0d61926c…`. These are recorded before the recovery
+deployment and do not yet establish service or workload success.
+
+The live schema-evolution recovery succeeded: release
+`0.1.0-dev-3ce80c89e10f8aefcf70c625d232b6705b1f490d` and deployment
+`01c685c211346c6d8eec3930e8bee84f04348a4461b35938063e1cf4952d97d0`
+are active, bootstrap and installed hashes match, and both services remained
+active for five seconds. This is authoritative unit parsing and mounted-path
+startup proof; the deliberate missing-mount startup rejection follows
+separately.
+
+The deliberate service-level fault test passed. With empty inventories,
+unmounting storage made `systemctl start mkruntimed` fail status 1 in the
+pre-start validator, whose journal named the missing distinct mount; no child
+was created. Remounting the same by-id disk produced
+`RUNTIME_STORAGE_MOUNT_VALID`, and the restarted service retained PID `10351`
+for five seconds. The root-disk fallback is therefore rejected by the actual
+managed unit, not only by a standalone validator invocation.
+
+The next basic workload retry again stopped before ctr task creation with a
+blank-stderr `build child root: exit status 1`. The boot ID stayed stable, the
+qualified mount remained present, and the explicit OCI rejection did not
+return. This isolates a later silent builder command rather than the two fixed
+preconditions. Exit status was 1 and no workload success is claimed pending a
+one-shot stage trace.
+
+The trace reached the very end: OCI validation, bootstrap, image validation,
+two source scans, storage image construction, initramfs construction, and
+independent verification all succeeded. The final jq equality check omitted
+`-n`; with no stdin, `jq -e` exits 4 before evaluating its two slurped result
+files, explaining the blank error. The builder link was restored and the
+diagnostic workload removed. This requires a `jq -n -e` correction plus a
+regression assertion before another exact-source live run.
+
+The comparison now supplies null input explicitly with `jq -n -e`, and the
+OCI/builder test asserts that exact form. Shell syntax, all 62 semantic OCI
+cases, and diff checks pass once. The temporary root-only trace artifacts were
+removed only after the managed link, empty inventories, mount, and service
+health were reverified. Repeated and full gates remain pending.
+
+The augmented OCI/builder suite passed 100 repetitions, followed by a clean
+complete Go race/vet and documentation/schema/evidence, builder, deployment,
+containerd, and final-audit chain; `git diff --check` also passed. A committed
+exact-source guest rebuild and workload rerun remain required.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

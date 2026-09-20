@@ -129,7 +129,7 @@ install -m 0755 "$bootstrap_init" "$boot/init"
 	--max-bytes "${MK_BOOTSTRAP_MAX_BYTES:-134217728}" --max-inodes 128 \
 	--min-free-bytes "${MK_INITRAMFS_MIN_FREE_BYTES:-1073741824}" >"$metadata/archive-result.json"
 "$script_dir/verify-runtime-rootfs.py" "$output" "$output_manifest" >"$metadata/verification-result.json"
-jq -e --slurpfile built "$metadata/archive-result.json" --slurpfile verified "$metadata/verification-result.json" \
+jq -n -e --slurpfile built "$metadata/archive-result.json" --slurpfile verified "$metadata/verification-result.json" \
 	'$built[0].initramfs_sha256 == $verified[0].archive_sha256 and $built[0].manifest_sha256 == $verified[0].manifest_sha256' \
 	>/dev/null
 
