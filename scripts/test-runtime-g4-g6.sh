@@ -34,6 +34,10 @@ mountpoint -q /sys/fs/multikernel || {
 	echo '/sys/fs/multikernel is not mounted; install sys-fs-multikernel.mount' >&2
 	exit 1
 }
+mountpoint -q /srv/multikernel-storage || {
+	echo '/srv/multikernel-storage is not a distinct mounted filesystem' >&2
+	exit 1
+}
 test -x /usr/local/bin/containerd-shim-multikernel-v2
 test -c /dev/net/tun
 test -z "$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit)"

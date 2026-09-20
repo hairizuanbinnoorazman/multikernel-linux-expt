@@ -2410,6 +2410,78 @@ skipped for the disposable host. The exact two diagnostic files were removed
 after verifying the managed builder link and empty ctr/task inventories.
 Commit, exact rebuild, redeployment, and live retry remain pending.
 
+The refined resource-contract change was committed as `3598056`. Its uploaded
+source archive hashes to `a4acedb41b51a243a842d8c0caa4ff000e3b61fdba83b4417e226bee82ab3352`
+and the guest reverified it before extraction. The full-revision build produced
+release manifest `a60f72a7…`, shim `04daf0b8…`, mkruntimed `40b42a65…`, mknetd
+`d1f2ff6f…`, agent `da6d8e95…`, and gzip-valid dependent initramfs
+`4f58a729…`. Installation and the live retry remain pending.
+
+The exact `3598056` deployment passed the empty-inventory and hash prechecks,
+then activated release
+`0.1.0-dev-3598056becf7beb698dbdb3388c2e3268b44efdf` and support generation
+`5df65a4b65c5b5bdcc9174098887d8e151998c9fc0f37a21f65b45670b6f7f0d`.
+Bootstrap validation passed, installed agent/initramfs/manifest hashes matched,
+and both services remained active after five seconds. The basic live retry is
+the next unclaimed checkpoint.
+
+The exact `3598056` basic retry advanced beyond the resource-contract message
+but still failed before ctr task creation: `build child root: exit status 1`
+with no forwarded builder stderr. The observed host boot ID was unexpectedly
+`f9d00c5f-6376-4db5-94b7-e66e055748ac`, different from the earlier
+`3b4d5c5d-9436-4bab-9c17-609a4dcd181d`; this reboot boundary must be audited
+before interpreting the new failure. Exit status was 1 and no live pass is
+claimed.
+
+The reboot audit established an orderly stop at 04:34:44 UTC (including clean
+unmount of the storage filesystem), followed by a new boot at 09:17:27 UTC;
+there is no kernel-crash signature. The current host requalifies with guest
+agent active, allocation ready, no pool/instances/stale resources, and no
+findings. However `/dev/sdb` retained the correct serial, ext4 label, and UUID
+but was not remounted at `/srv/multikernel-storage`; that pathname resolved to
+the root disk and mkruntimed had created an empty `runtime` directory there.
+This explains the changed failure boundary and exposes a reboot-safety gap:
+the service and harness can start without the approved storage filesystem.
+They must fail closed on the expected mounted filesystem identity before any
+rootfs construction.
+
+A new deployment-managed storage preflight now binds the mount to a canonical
+root-owned by-id link, whole block device, exact byte size, udev short serial,
+label and UUID symlinks, a single read-write ext4 mount record, mount/device
+numbers, and separation from the root filesystem. The runtime environment
+gains strict storage identity fields and mkruntimed executes this validator
+before startup; unsafe path/token/size/UUID values are rejected by the
+deployment manager. Focused parser, missing-input, service-wiring, and complete
+deployment lifecycle tests pass. On the live unmounted host, the updated
+validator reached the intended boundary and returned
+`runtime storage path is not one distinct mountpoint` with status 1.
+
+With inventories empty and mkruntimed stopped, the live disk's size, serial,
+label, UUID, and unmounted state were rechecked. It was mounted through the
+approved by-id path with `nodev,nosuid`; the new validator returned
+`RUNTIME_STORAGE_MOUNT_VALID`, `findmnt` reported `/dev/sdb` as read-write ext4
+at the exact path, and mkruntimed remained active after five seconds. This is
+the qualified mounted-storage boundary for continued testing. Persistent boot
+ordering remains documented through an exact-UUID fstab entry and the managed
+pre-start validation, but that new deployment generation is not yet installed.
+
+The new storage validator passed 100 repetitions, deployment lifecycle tests
+passed, and all three live harnesses passed `bash -n`. A local
+`systemd-analyze verify` attempt then stopped the aggregate command because the
+developer workstation does not have the production `/usr/local/sbin/mkruntimed`
+or `mknetd` paths installed. This is an environment limitation rather than a
+unit parse error; the immutable deployment test remains the local wiring check,
+and live systemd activation will be the authoritative unit check. The full
+race/vet/docs chain had not run yet at this checkpoint.
+
+The subsequent complete Go race suite, vet, documentation/link/schema/evidence
+chain, 62-case OCI suite, bind/bootstrap/rootfs/storage/image checks, new mount
+validator, release/deployment/ledger/capture/containerd checks, final-evidence
+audit, and `git diff --check` all passed. The expected locally
+permission-gated socket subcase remains for the disposable host. Exact commit,
+managed deployment, negative service-start proof, and live workload retry
+remain pending.
+
 A fallback child initramfs was then rebuilt from the current agent, current
 relay, exact transport module, current `guest/mk-agent-init`, and BusyBox; it
 passed `gzip -t` and hashes to

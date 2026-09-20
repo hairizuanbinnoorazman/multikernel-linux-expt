@@ -11,6 +11,7 @@ EnvironmentFile=/etc/multikernel/runtime.env
 ExecStartPre=/sbin/modprobe vsock
 ExecStartPre=-/sbin/insmod /usr/local/libexec/multikernel/mk_transport.ko
 ExecStartPre=/usr/bin/test -d /sys/module/mk_transport
+ExecStartPre=/usr/local/libexec/multikernel/validate-runtime-storage-mount.py --mountpoint ${MKRUNTIME_STORAGE_MOUNT} --device ${MKRUNTIME_STORAGE_DEVICE} --serial ${MKRUNTIME_STORAGE_SERIAL} --bytes ${MKRUNTIME_STORAGE_BYTES} --label ${MKRUNTIME_STORAGE_LABEL} --uuid ${MKRUNTIME_STORAGE_UUID}
 ExecStart=/usr/local/sbin/mkruntimed --config=/etc/mkruntime/config.json --pool-cpus=${MKRUNTIME_POOL_CPUS} --pool-memory=${MKRUNTIME_POOL_MEMORY} --pool-memory-reserve=${MKRUNTIME_POOL_MEMORY_RESERVE} --storage-state-dir=/var/lib/mkruntimed/storage --storage-runtime-dir=/run/mkstorage --storage-server=/usr/local/libexec/multikernel/mkvsock-nbd --rootfs-state-dir=/var/lib/mkruntimed/rootfs --rootfs-storage-dir=/srv/multikernel-storage/runtime --rootfs-builder=/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh "--cmdline=${MKRUNTIME_CMDLINE}"
 Restart=on-failure
 RestartSec=2s

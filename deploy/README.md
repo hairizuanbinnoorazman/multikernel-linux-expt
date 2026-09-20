@@ -148,6 +148,22 @@ must pass bootstrap validation. `mkruntimed` performs snapshot mounting and dete
 construction; the shim only submits a bounded preparation request and never
 mounts the caller's snapshot itself.
 
+Configure the qualified filesystem for boot-time mounting by its exact UUID
+before enabling `mkruntimed`; for example, stage and validate an `/etc/fstab`
+entry equivalent to:
+
+```text
+UUID=507c0523-8e58-4ae3-9524-3b7513aad344 /srv/multikernel-storage ext4 defaults,nodev,nosuid 0 2
+```
+
+Adapt every `MKRUNTIME_STORAGE_*` value to the same qualified disk. The
+service's pre-start validator cross-checks its persistent by-id path, byte
+size, udev serial, label, UUID, ext4 mount record, and device number. A missing
+mount therefore fails startup instead of allowing `/srv/multikernel-storage`
+to fall through to the root disk. `RequiresMountsFor` orders an `/etc/fstab`
+mount before that validation; verify the exact candidate with `findmnt` and the
+validator before enabling the service.
+
 Install `runtime/bin/mknetd` as `/usr/local/sbin/mknetd`, and adapt
 `MKNETWORK_EGRESS` and `MKNETWORK_DNS` to the qualified host before starting
 the service. Containerd or another orchestrator may invoke CNI `ADD`, `CHECK`,

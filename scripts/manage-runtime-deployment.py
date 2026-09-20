@@ -31,6 +31,7 @@ ASSETS = {
     "libexec/build-runtime-rootfs.py": REPO / "scripts/build-runtime-rootfs.py",
     "libexec/runtime_safe_publish.py": REPO / "scripts/runtime_safe_publish.py",
     "libexec/runtime-storage-identity.py": REPO / "scripts/runtime-storage-identity.py",
+    "libexec/validate-runtime-storage-mount.py": REPO / "scripts/validate-runtime-storage-mount.py",
     "libexec/build-runtime-storage.py": REPO / "scripts/build-runtime-storage.py",
     "libexec/verify-runtime-rootfs.py": REPO / "scripts/verify-runtime-rootfs.py",
     "libexec/guest/mk-agent-init": REPO / "guest/mk-agent-init",
@@ -53,6 +54,7 @@ LINKS = {
     Path("/usr/local/libexec/multikernel/build-runtime-rootfs.py"): "libexec/build-runtime-rootfs.py",
     Path("/usr/local/libexec/multikernel/runtime_safe_publish.py"): "libexec/runtime_safe_publish.py",
     Path("/usr/local/libexec/multikernel/runtime-storage-identity.py"): "libexec/runtime-storage-identity.py",
+    Path("/usr/local/libexec/multikernel/validate-runtime-storage-mount.py"): "libexec/validate-runtime-storage-mount.py",
     Path("/usr/local/libexec/multikernel/build-runtime-storage.py"): "libexec/build-runtime-storage.py",
     Path("/usr/local/libexec/multikernel/verify-runtime-rootfs.py"): "libexec/verify-runtime-rootfs.py",
     Path("/usr/local/libexec/multikernel/guest/mk-agent-init"): "libexec/guest/mk-agent-init",
@@ -62,7 +64,9 @@ EXECUTABLES = {name for name in ASSETS if name.startswith("libexec/")}
 ENV_KEYS = {
     "MKRUNTIME_POOL_CPUS", "MKRUNTIME_POOL_MEMORY", "MKRUNTIME_POOL_MEMORY_RESERVE",
     "MKRUNTIME_CMDLINE", "MKNETWORK_SUBNET", "MKNETWORK_EGRESS", "MKNETWORK_MTU",
-    "MKNETWORK_DNS",
+    "MKNETWORK_DNS", "MKRUNTIME_STORAGE_MOUNT", "MKRUNTIME_STORAGE_DEVICE",
+    "MKRUNTIME_STORAGE_SERIAL", "MKRUNTIME_STORAGE_BYTES", "MKRUNTIME_STORAGE_LABEL",
+    "MKRUNTIME_STORAGE_UUID",
 }
 HOST_FIELDS = {
     "schema_version", "state_directory", "socket_path", "kerf_executable",
@@ -118,6 +122,28 @@ def validate_environment(data: bytes):
         seen.add(key)
     if seen != ENV_KEYS:
         raise ValueError(f"runtime environment fields mismatch: missing={sorted(ENV_KEYS-seen)}")
+    values = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            key, value = line.split("=", 1)
+            values[key] = value
+    for key in ("MKRUNTIME_STORAGE_MOUNT", "MKRUNTIME_STORAGE_DEVICE"):
+        value = values[key]
+        if (not value.startswith("/") or os.path.normpath(value) != value or
+                not re.fullmatch(r"/[A-Za-z0-9/._+-]{1,4095}", value)):
+            raise ValueError(f"runtime storage path is unsafe: {key}")
+    if values["MKRUNTIME_STORAGE_MOUNT"] != "/srv/multikernel-storage":
+        raise ValueError("runtime storage mount must match the managed service path")
+    for key in ("MKRUNTIME_STORAGE_SERIAL", "MKRUNTIME_STORAGE_LABEL"):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", values[key]):
+            raise ValueError(f"runtime storage token is unsafe: {key}")
+    if (not values["MKRUNTIME_STORAGE_BYTES"].isdigit() or
+            not 0 < int(values["MKRUNTIME_STORAGE_BYTES"]) <= (1 << 63) or
+            int(values["MKRUNTIME_STORAGE_BYTES"]) % 512):
+        raise ValueError("runtime storage byte size is invalid")
+    if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", values["MKRUNTIME_STORAGE_UUID"]):
+        raise ValueError("runtime storage UUID is invalid")
 
 
 def validate_host_config(data: bytes):
