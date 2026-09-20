@@ -711,6 +711,41 @@ func TestLifecycleAndReplay(t *testing.T) {
 	}
 }
 
+func TestStopLoadedSandboxDoesNotInvokeBackendStop(t *testing.T) {
+	s, st, backend := setup(t)
+	defer st.Close()
+	ctx := context.Background()
+	created, apiErr := s.Create(ctx, config("box-a", 8, 7001), "create")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if _, apiErr = s.Load(ctx, created.Sandbox.ID, created.Sandbox.Generation, "load"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	stopped, apiErr := s.Stop(ctx, created.Sandbox.ID, created.Sandbox.Generation, "stop-loaded")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if stopped.Sandbox.State != "STOPPED" {
+		t.Fatalf("stop result state = %q, want STOPPED", stopped.Sandbox.State)
+	}
+	backend.mu.Lock()
+	physical := backend.states[created.Sandbox.ID]
+	calls := append([]string(nil), backend.calls...)
+	backend.mu.Unlock()
+	if physical != "LOADED" {
+		t.Fatalf("backend state = %q, want LOADED", physical)
+	}
+	for _, call := range calls {
+		if call == "stop:"+created.Sandbox.ID {
+			t.Fatalf("backend stop called for already-loaded sandbox: %v", calls)
+		}
+	}
+	if _, apiErr = s.Delete(ctx, created.Sandbox.ID, created.Sandbox.Generation, "delete-loaded"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+}
+
 func TestVersionedResumableEvents(t *testing.T) {
 	service, store, _ := setup(t)
 	defer store.Close()

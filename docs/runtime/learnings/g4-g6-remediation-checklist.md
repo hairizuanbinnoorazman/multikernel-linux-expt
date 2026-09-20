@@ -2278,6 +2278,67 @@ OCI/bind/bootstrap/rootfs/storage/image, release/deployment/ledger/capture,
 containerd, and final-audit chain then passed, as did `git diff --check`.
 Exact commit, guest rebuild, and live workload retry remain pending.
 
+The final-proof correction was committed as `2864cff`. The guest verified its
+source archive hash `4ff24454f4051ccefe0d09aa8a0780f74a3e705ba2cc768623466268a224e531`
+and built full-revision outputs: release manifest `ce2426bc…`, shim
+`1de0faae…`, mkruntimed `6d8e5fca…`, mknetd `3c77289d…`, agent `793bcaf9…`,
+and gzip-valid initramfs `8125169d…`. Deployment and live retry remain
+separate pending steps.
+
+The exact correction is active as release
+`0.1.0-dev-2864cff996498f32df0ae1ce5c6bd698fddcff06` and deployment
+`5967012e86593a26b1aae8e184e335e459969c5af2d4fa0ad948c60c5ab6f896`.
+Empty inventories and the qualified mount preceded the switch; bootstrap
+validation passed, and both services remained active with stable mkruntimed PID
+`12242` for five seconds. The basic workload retry is next and not yet claimed.
+
+The `2864cff` retry still returned a blank-stderr builder exit 1 before ctr
+task creation. Because the former jq site would exit 4 and is now corrected,
+this is a distinct later boundary after the independent comparison rather than
+a recurrence of that bug. The boot ID remained stable and cleanup ran; no live
+pass is claimed. A second one-shot stage trace is required beyond the final
+comparison.
+
+The second trace completed every builder command, including the corrected
+comparison and final result JSON. Unlike the earlier failures, the diagnostic
+advanced to a containerd task in `CREATED` state and a live Multikernel child
+`mk-mk-builder-trace-diag2-fc2448f635970bae`; the initiating SSH command
+returned no transcript while task start remained unresolved. This is positive
+builder evidence and a new child-launch/agent-readiness boundary. The live
+objects are intentionally left in place until their state, process, and service
+logs are captured; cleanup has not yet been claimed.
+
+State capture found the host pool initialized, two CPUs and 3 GB assigned, the
+kernel image loaded, the NBD server alive, and no network link yet. Normal
+`ctr tasks rm -f` then failed with `stop sandbox: FAILED_PRECONDITION: invalid
+state LOADED`; the task, child, and loaded image remain for diagnosis. This is
+a cleanup state-machine defect: cancellation or transport loss between load
+and start must be able to unload/delete a `LOADED` sandbox. No clean-state
+claim is made.
+
+Code-level diagnosis narrows that cleanup defect to the public lifecycle
+transition. `DeleteSandbox` already supports non-running `LOADED` sandboxes by
+releasing storage and asking the Kerf backend to unload/delete them, and intent
+recovery already accepts physical `LOADED` as successful completion of a stop.
+Only the public stop entry point rejects durable `LOADED`. The correction must
+therefore treat `LOADED` as already stopped, persist `STOPPED` without issuing
+an invalid `kerf kill`, and retain the real backend stop for `RUNNING`.
+
+The lifecycle correction and regression now pass 100 race-detector
+repetitions. The test proves the durable result is `STOPPED`, the physical
+backend remains safely `LOADED`, no backend stop/kill is invoked, and the
+ordinary delete path subsequently removes the sandbox. Full repository gates
+and exact-source disposable-host recovery remain pending.
+
+The subsequent complete local gate passed: full Go race suite, `go vet ./...`,
+documentation and local-link checks, all 7 schemas/22 cases, all 17 classified
+historical evidence manifests, the 62-case OCI suite, bind/bootstrap/rootfs/
+storage/mount/root/image suites, release/binary/deployment/ledger/capture/
+containerd checks, final-evidence audit, and `git diff --check`. The expected
+locally permission-gated socket subcase remains reserved for the disposable
+host. Exact-source deployment and recovery of the preserved live task remain
+pending.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,
