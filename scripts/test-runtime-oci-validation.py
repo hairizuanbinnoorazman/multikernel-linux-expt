@@ -28,6 +28,18 @@ BASE = {
     "annotations": {"io.example.test": "inert"},
 }
 CASE_COUNT = 0
+CONTAINERD_DEFAULT_DEVICES = [
+    {"allow": False, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 3, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 8, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 7, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 0, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 5, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 9, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 1, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 136, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 2, "access": "rwm"},
+]
 
 
 def run_case(directory, name, config=None, raw=None, accepted=False):
@@ -172,6 +184,18 @@ def main():
             "readonlyPaths": ["/proc/sys"],
         })
         run_case(directory, "standard-containerd", standard, accepted=True)
+        current_containerd = copy.deepcopy(standard)
+        current_containerd["linux"]["resources"]["devices"] = copy.deepcopy(CONTAINERD_DEFAULT_DEVICES)
+        run_case(directory, "current-containerd-default-devices", current_containerd, accepted=True)
+        for name, mutate in (
+            ("containerd-devices-missing", lambda devices: devices.pop()),
+            ("containerd-devices-reordered", lambda devices: devices.reverse()),
+            ("containerd-devices-custom", lambda devices: devices.append(
+                {"allow": True, "type": "b", "major": 8, "access": "rwm"})),
+        ):
+            config = copy.deepcopy(current_containerd)
+            mutate(config["linux"]["resources"]["devices"])
+            run_case(directory, name, config)
         readonly_bind = copy.deepcopy(BASE)
         readonly_bind["mounts"] = [{
             "destination": "/opt/input", "type": "bind", "source": "/srv/input",

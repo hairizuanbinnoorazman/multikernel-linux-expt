@@ -2286,6 +2286,80 @@ rootfs/storage/image/release tests, binary/deployment/ledger/capture/containerd
 checks, final evidence audit, and `git diff --check`. The expected locally
 permission-gated socket subcase remains reserved for the disposable host.
 
+The inherited-OCI-config remediation was committed as `7c94ab1`. Its
+source-only archive hashes to
+`fbeb4eb9fc46ff7b8860f29ee65687c0b4fc7dbb58a6fdca712dbbe3c924c8a4`
+and was transferred to the guest. The next retry will rebuild every
+revision-stamped binary and dependent agent initramfs, rather than mixing this
+support-script revision with the preceding `0792c9b` release.
+
+The guest's exact `7c94ab1` build completed. The release manifest hashes to
+`631f4d29…`; key binaries are `7cdd068d…` (mkruntimed), `a34a5027…` (shim),
+`72717e2f…` (mknetd), and `8ba5738b…` (agent). The corresponding initramfs is
+gzip-valid and hashes to `47129dfc…`. Helper and transport identities remained
+unchanged. These identities must now be installed with a matching private
+kernel manifest and a deployment generation containing the corrected
+validator.
+
+The coordinated `7c94ab1` upgrade then passed its installation boundary. The
+uploaded source archive (`fbeb4eb9…`) and private manifest (`f43ccc23…`) were
+rechecked before mutation, and the candidate agent and initramfs re-matched
+`8ba5738b…` and `47129dfc…`. With both empty runtime services stopped, the
+binary manager atomically selected release
+`0.1.0-dev-7c94ab1448dbabce2df59d2e1a20099b77b01802`; a fresh root-owned
+extraction installed deployment generation
+`c4c1677859455084c197a3a8c37e7cc4f0700b02d77739399dd57f1b037b0636`.
+The agent, initramfs, and mode-0600 private manifest were staged and renamed
+into place, the installed bootstrap validator accepted the complete manifest,
+and both `mknetd` and `mkruntimed` remained active after a three-second health
+check. Installed hashes exactly matched the candidates. This establishes a
+coherent corrected host boundary; the basic live workload suite is the next
+checkpoint and is not yet claimed.
+
+The post-upgrade service PID was stable at `17732` across a five-second check,
+and `mknetd`, `mkruntimed`, containerd, and Docker were active. An initially
+unparameterized `mk-host-check` correctly reported the Kerf allocation probe as
+unperformed; merely loading `runtime.env` does not supply this separate
+read-only probe. Re-running with the pinned Kerf executable and the intended
+APIC IDs 8-15 plus 16 GB returned `qualified=true`, `contiguous_allocation:
+ready`, no configured pool or instances, and no findings. This distinction is
+recorded so the unparameterized diagnostic is not mistaken for a host
+regression.
+
+The first basic workload retry reached the corrected inherited-descriptor path
+but failed closed at the next OCI compatibility boundary before creating the
+ctr task: `OCI configuration rejected: only the default deny-all device
+resource contract is supported`. The suite exited 1 and its cleanup trap ran.
+No basic live pass is claimed. The exact containerd-generated device cgroup
+shape must now be compared with the validator's supported contract before any
+source change.
+
+The post-failure audit found no ctr tasks/containers, named Docker container,
+Multikernel child, or `mkv*` link, so this rejection was fail-clean. A
+containerd metadata-only diagnostic then exposed the exact standard device
+resource list: deny all, followed by `rwm` allows for character devices 1:3,
+1:8, 1:7, 5:0, 1:5, 1:9, 5:1, 136:any, and 5:2. The validator currently
+accepts only the shorter deny-all-only form even though device resources are
+deliberately omitted from the dedicated-child projection. Remediation should
+admit only these two exact ordered default contracts and continue rejecting
+custom device access.
+
+The validator now accepts only the prior deny-all-only list or the exact
+ordered containerd default list observed above. It does not normalize a set:
+missing, reordered, duplicated, block-device, or otherwise custom rules remain
+fatal, and all resource policy remains absent from the child projection. The
+focused suite now has 59 semantic cases and passed once with explicit negative
+coverage for missing, reordered, and custom rules. Repeated and full gates are
+pending.
+
+The expanded OCI suite then passed 100 consecutive repetitions. The subsequent
+complete Go race suite, `go vet ./...`, documentation/link/schema/evidence
+chain, all privileged-boundary simulation suites, release/deployment/ledger
+tests, containerd config tests, final-evidence audit, and `git diff --check`
+also passed. The locally permission-gated socket rejection remains reserved for
+the disposable host. Exact-source commit, rebuild, redeployment, and live retry
+remain pending.
+
 A fallback child initramfs was then rebuilt from the current agent, current
 relay, exact transport module, current `guest/mk-agent-init`, and BusyBox; it
 passed `gzip -t` and hashes to

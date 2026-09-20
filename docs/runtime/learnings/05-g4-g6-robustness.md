@@ -1171,6 +1171,65 @@ binary/deployment/ledger/capture/containerd, and final-audit chain passed after
 the fix; `git diff --check` was clean. Only the known locally permission-gated
 socket case remains for the privileged host.
 
+The fix was committed as `7c94ab1`; its source-only archive is `fbeb4eb9…` and
+was transferred to the guest. Exact-revision qualification requires rebuilding
+the binaries and dependent initramfs as well as deploying the changed support
+script, rather than retaining a mixed-revision installation.
+
+The exact guest build produced release manifest `631f4d29…`, mkruntimed
+`7cdd068d…`, shim `a34a5027…`, mknetd `72717e2f…`, agent `8ba5738b…`, and a
+gzip-valid `47129dfc…` initramfs. A matching private manifest and corrected
+deployment generation remain to be activated before retry.
+
+That coordinated activation passed. The guest rechecked the exact archive,
+manifest, agent, and initramfs hashes before stopping the empty services. It
+selected immutable release
+`0.1.0-dev-7c94ab1448dbabce2df59d2e1a20099b77b01802`, installed the corrected
+support assets from a new root-owned extraction as deployment
+`c4c1677859455084c197a3a8c37e7cc4f0700b02d77739399dd57f1b037b0636`,
+and atomically replaced the agent, initramfs, and private manifest. The active
+bootstrap validator accepted the resulting manifest, installed hashes matched,
+and `mknetd` plus `mkruntimed` were both active after the restart health delay.
+This is the coherent `7c94ab1` pre-workload boundary; it does not yet assert a
+live workload pass.
+
+After activation, mkruntimed retained PID `17732` over a five-second health
+window and all four required services were active. The host check requires its
+allocation probe as explicit flags: a bare invocation truthfully reports that
+probe as unperformed even when `runtime.env` is loaded. With pinned Kerf and
+the intended APIC 8-15/16 GB dry-run, it returned `qualified=true`, allocation
+`ready`, no pool, instances, stale resources, or findings. The basic live suite
+still remained pending at this checkpoint.
+
+The next basic live retry passed the inherited-config-descriptor boundary and
+then failed closed before task creation because containerd's BusyBox OCI spec
+did not match the validator's device-resource allowlist: `only the default
+deny-all device resource contract is supported`. Exit status was 1 and the
+harness cleanup trap ran. This is a new live compatibility finding, not a G4-G6
+pass; diagnosis must retain fail-closed device policy rather than broadly
+accepting arbitrary cgroup device rules.
+
+Cleanup was verified complete: no ctr/Docker workload, Multikernel child, or
+runtime link remained. The generated contract is the conventional ordered
+default list: a global `rwm` deny followed only by character-device allowances
+for null, random, full, tty, zero, urandom, console, PTYs, and ptmx. Since the
+guest projection intentionally drops host cgroup resource policy, compatibility
+can safely recognize that exact list as the second inert default form while
+continuing to reject missing, reordered, duplicated, or custom device grants.
+
+The implementation recognizes exactly those two ordered defaults and retains
+fatal rejection for every other resources object. The expanded 59-case focused
+suite accepts the current containerd form and rejects a missing final rule,
+reversal, and an added block-device grant; `git diff --check` is clean. Broad
+local verification and another exact-source live retry remain pending.
+
+The 59-case OCI suite passed 100 repetitions, followed by a clean full Go race
+suite, vet, documentation/schema/evidence chain, rootfs/storage/image and
+deployment boundaries, containerd configuration tests, final-evidence audit,
+and `git diff --check`. The only local skip is the expected permission-gated
+socket rejection intended for the privileged guest. A new immutable revision
+and live rerun are still required.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

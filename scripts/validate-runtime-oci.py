@@ -64,6 +64,18 @@ SANITIZED_READONLY_BIND_OPTIONS = {"bind", "ro", "nodev", "nosuid", "noexec"}
 PROTECTED_BIND_DESTINATIONS = ("/dev", "/proc", "/run", "/sys")
 MAX_READONLY_BINDS = 8
 INHERITED_CONFIG = re.compile(r"/proc/self/fd/([0-9]+)/config\.json")
+DENY_ALL_DEVICES = [{"allow": False, "access": "rwm"}]
+CONTAINERD_DEFAULT_DEVICES = DENY_ALL_DEVICES + [
+    {"allow": True, "type": "c", "major": 1, "minor": 3, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 8, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 7, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 0, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 5, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 9, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 1, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 136, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 2, "access": "rwm"},
+]
 
 
 def strict_object(pairs):
@@ -338,8 +350,11 @@ def validate(config):
     linux = config.get("linux")
     validate_namespaces(linux)
     if "resources" in linux:
-        if linux["resources"] != {"devices": [{"allow": False, "access": "rwm"}]}:
-            raise ValueError("only the default deny-all device resource contract is supported")
+        resources = linux["resources"]
+        if resources not in (
+                {"devices": DENY_ALL_DEVICES},
+                {"devices": CONTAINERD_DEFAULT_DEVICES}):
+            raise ValueError("only exact default device resource contracts are supported")
     if "cgroupsPath" in linux:
         path = linux["cgroupsPath"]
         if (not isinstance(path, str) or not path.startswith("/") or
