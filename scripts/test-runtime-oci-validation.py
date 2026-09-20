@@ -91,6 +91,8 @@ def main():
             raise AssertionError("outer builder reintroduced replacing source-manifest publication")
         if '"$source_manifest" --manifest-only' not in builder_text or 'cmp -s "$source_before_manifest" "$source_manifest"' not in builder_text:
             raise AssertionError("outer builder does not compare a no-replace final source manifest")
+        if 'jq -n -e --slurpfile built' not in builder_text:
+            raise AssertionError("outer builder final build/verify comparison lacks null input")
         missing_bundle = directory / "missing-config-bundle"
         missing_bundle.mkdir()
         output = directory / "initramfs.cpio.gz"
