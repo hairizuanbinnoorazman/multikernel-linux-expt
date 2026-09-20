@@ -2206,6 +2206,86 @@ resource ledger, capture, containerd configuration, final evidence audit, and
 `git diff --check`. The already documented local socket-permission subcase
 remained skipped and still requires the privileged VM run.
 
+The validated loader/deployment compatibility checkpoint was committed as
+`0792c9b` (`runtime: load managed host config safely`). A new source-only
+`git archive` of that exact commit hashes to
+`263ea86901721f40fbcf946512596694ac43207a454a1c0a748a8a3a35fa7662`
+and was transferred to the disposable guest. The pre-existing untracked local
+evidence directory remained untouched.
+
+The guest verified and unpacked the `0792c9b` archive, then rebuilt all
+revision-stamped components. The new release manifest hashes to `1529d73b…`;
+key component hashes are `b84ffb3a…` for mkruntimed, `2a832f17…` for the shim,
+`41571385…` for mknetd, and `730826b0…` for mk-agent. The regenerated current-
+agent initramfs passed `gzip -t` and hashes to `d6af7590…`. The independently
+rebuilt C helper hashes and copied exact transport-module hash remained
+`a0259098…`, `293ff1ea…`, and `bef1b888…` as expected. A coherent artifact and
+manifest upgrade remains necessary before restarting mkruntimed.
+
+The coordinated upgrade stopped the failing service, activated immutable
+release `0.1.0-dev-0792c9bc…`, atomically replaced the installed agent,
+initramfs, and matching mode-0600 kernel manifest, and passed bootstrap
+validation against manifest SHA-256 `5791ed6c…`. Installed mkruntimed, agent,
+and initramfs hashes matched. The command then stopped before service start
+because its ordinary-user `sha256sum` could not read the intentionally private
+kernel manifest. This is an evidence-command privilege error, not an artifact
+validation failure; mkruntimed remains stopped until the corrected privileged
+hash and health check run.
+
+The corrected privileged manifest hash matched `5791ed6c…`, and mkruntimed
+then started successfully from revision `0792c9bc…`. Its main PID `15246`
+remained unchanged across the three- and five-second health observations, and
+the service remained `active`. It created private `/var/lib/mkruntime` and
+`/srv/multikernel-storage/runtime` directories plus an empty private journal;
+no child instance existed. The collected journal window necessarily includes
+the earlier restart-loop failures, followed by the final 04:01:58 start with no
+new host-config error. This is the first live proof that the deployment-shaped
+config link is accepted by the corrected runtime.
+
+The corrected revision's `mk-host-check` then returned `qualified=true` with
+kernel `7.0.0-mk2-gce-lab`, Kerf `0.2.0`, CPUs `0-15`, 67,416,371,200 bytes of
+memory, a ready contiguous 16-GB pool dry-run, active guest agent, and no
+findings, stale resources, or instances. `mkruntimed`, `mknetd`, containerd,
+Docker, and the Google guest agent were all active; ctr and Docker inventories
+were empty. Installed shim/runtime/network/CNI versions and hashes matched
+revision `0792c9bc…`. This is the clean qualified boundary immediately before
+the live workload suites.
+
+The basic current-revision live proof failed on its first ctr task creation,
+before Docker workload creation. Image pulls completed, but the runtime
+returned `FAILED_PRECONDITION: build child root: exit status 1: OCI
+configuration rejected: [Errno 20] Not a directory: 'self'`. The script's
+cleanup trap then ran. No G4/G5/G6 pass marker was emitted, so this is a live
+implementation failure, not evidence of gate completion. Immediate leak/state
+inspection and diagnosis of the descriptor-backed `/proc/self/fd` validation
+path are required before retry.
+
+Immediate post-failure inspection proved fail-clean behavior. All four runtime
+services remained active; Multikernel child inventory, ctr containers/tasks,
+Docker containers, runtime network links, MK firewall/NAT rules, durable
+runtime journal entries, prepared rootfs files, and mknetd endpoint records
+were empty. Only the expected private empty state directories remained. The
+failure can therefore be investigated without first reclaiming a leaked guest
+or endpoint.
+
+Diagnosis found that `validate-runtime-oci.py` intentionally walked normal
+absolute paths component-by-component with no-follow semantics, but did not
+recognize the builder's deliberate inherited path
+`/proc/self/fd/3/config.json`; it therefore rejected procfs component `self`.
+The validator now admits only the exact
+`/proc/self/fd/<number>/config.json` form, verifies the inherited descriptor is
+a caller-owned directory not writable by group/other, and opens only
+`config.json` relative to it with `O_NOFOLLOW` before applying the existing
+bounded, caller-owned, single-link, stable-file checks. A subprocess test passes
+a real inherited bundle descriptor and the focused 55-case OCI suite passes.
+Full gates and live redeployment remain pending.
+
+The complete local gate passed after this fix: full Go race suite, full vet,
+documentation/evidence/schema checks, the OCI/bind/bootstrap matrices, all
+rootfs/storage/image/release tests, binary/deployment/ledger/capture/containerd
+checks, final evidence audit, and `git diff --check`. The expected locally
+permission-gated socket subcase remains reserved for the disposable host.
+
 A fallback child initramfs was then rebuilt from the current agent, current
 relay, exact transport module, current `guest/mk-agent-init`, and BusyBox; it
 passed `gzip -t` and hashes to

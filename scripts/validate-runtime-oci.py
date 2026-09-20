@@ -63,6 +63,7 @@ READONLY_BIND_OPTIONAL = {"private", "rprivate", "nodev", "nosuid", "noexec", "r
 SANITIZED_READONLY_BIND_OPTIONS = {"bind", "ro", "nodev", "nosuid", "noexec"}
 PROTECTED_BIND_DESTINATIONS = ("/dev", "/proc", "/run", "/sys")
 MAX_READONLY_BINDS = 8
+INHERITED_CONFIG = re.compile(r"/proc/self/fd/([0-9]+)/config\.json")
 
 
 def strict_object(pairs):
@@ -77,6 +78,19 @@ def strict_object(pairs):
 def load_config(source):
     if not source.is_absolute() or pathlib.Path(os.path.normpath(source)) != source:
         raise ValueError("OCI config path must be absolute and canonical")
+    inherited = INHERITED_CONFIG.fullmatch(os.fspath(source))
+    if inherited:
+        directory = int(inherited.group(1))
+        info = os.fstat(directory)
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or
+                info.st_mode & 0o022):
+            raise ValueError("inherited OCI bundle must be a caller-owned non-writable directory")
+        descriptor = os.open(
+            "config.json",
+            os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            dir_fd=directory,
+        )
+        return load_config_descriptor(descriptor)
     directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
     descriptor = None
     try:
@@ -95,6 +109,11 @@ def load_config(source):
         )
     finally:
         os.close(directory)
+
+    return load_config_descriptor(descriptor)
+
+
+def load_config_descriptor(descriptor):
     try:
         before = os.fstat(descriptor)
         if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or
