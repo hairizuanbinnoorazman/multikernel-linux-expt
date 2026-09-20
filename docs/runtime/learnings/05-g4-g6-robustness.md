@@ -1230,6 +1230,48 @@ and `git diff --check`. The only local skip is the expected permission-gated
 socket rejection intended for the privileged guest. A new immutable revision
 and live rerun are still required.
 
+The resulting `c409ad4` source archive (`53c97291…`) was digest-verified on
+the guest and rebuilt with the full commit stamped into every binary. It
+produced release manifest `ba5f2541…`, shim `43a38b7f…`, mkruntimed
+`0db79260…`, mknetd `9340d38e…`, agent `6ac23778…`, and gzip-valid initramfs
+`6d382231…`. No new live workload claim is made until these exact artifacts
+and the matching deployment generation are active.
+
+Those exact artifacts are now active as immutable release
+`0.1.0-dev-c409ad4fe2efef9e5b7e6c2fe98a3a367414ce16` and deployment
+`d2c096937c91f7f06f1ca569e07f12ede2b34a3eb068f272cd10f2f5fb7accef`.
+Pre-stop inventories were empty, bootstrap validation passed, installed hashes
+matched, and both services were active after a five-second restart check. This
+is the corrected pre-workload boundary, not a live pass.
+
+The exact live retry nevertheless failed at the same boundary with the new
+exact-default rejection text. This falsifies the assumption that the device
+array was the only content of the task's resources object; the earlier
+metadata-only diagnostic printed only that nested array. Exit status was 1 and
+no live pass is claimed. Diagnosis must inspect the complete resources object
+before any further compatibility change.
+
+The one-shot live-bundle diagnostic resolved the discrepancy: ctr adds
+`cpu: {shares: 1024}` beside the standard device list only in the task bundle.
+The builder link was atomically restored to the managed deployment target and
+the diagnostic container removed. Shares 1024 is the kernel/cgroup default, so
+it is another inert default contract at this boundary; only that exact CPU
+object may be dropped, while all non-default shares and other CPU/resource
+controls must continue to fail closed.
+
+The validator now permits only an approved exact device list with no CPU
+object or exactly `{shares: 1024}`. The 62-case focused suite accepts the live
+ctr default and rejects shares 512, a quota-bearing CPU object, and all prior
+device mutations. One focused run plus `git diff --check` passes; repeated and
+full verification remain pending.
+
+The expanded suite passed 100 repetitions and the complete Go race/vet plus
+documentation, schema, evidence, builder, deployment, containerd, and final
+audit chain passed afterward. The permission-gated local socket case remains
+for the live host. The temporary diagnostic wrapper and captured resources
+file were deleted only after the managed link and empty inventories were
+reverified. A committed exact-source live rerun remains required.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

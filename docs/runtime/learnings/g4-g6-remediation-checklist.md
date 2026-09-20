@@ -2360,6 +2360,56 @@ also passed. The locally permission-gated socket rejection remains reserved for
 the disposable host. Exact-source commit, rebuild, redeployment, and live retry
 remain pending.
 
+The device-default remediation was committed as `c409ad4` (`runtime: accept
+exact containerd device defaults`). Its source-only archive hashes to
+`53c972911b03c16174e97c2e1250fb88a3afc51b32a1778feb34d2aca4a50b86`;
+the guest verified that digest and built binaries stamped with full revision
+`c409ad4fe2efef9e5b7e6c2fe98a3a367414ce16`. The release manifest is
+`ba5f2541…`, shim `43a38b7f…`, mkruntimed `0db79260…`, mknetd `9340d38e…`,
+agent `6ac23778…`, and the gzip-valid dependent initramfs `6d382231…`.
+Coherent installation and another live retry remain pending.
+
+The coherent `c409ad4` upgrade passed. Empty ctr/task/Docker/child inventories
+were checked first; all four candidate hashes were rechecked before services
+stopped. Release
+`0.1.0-dev-c409ad4fe2efef9e5b7e6c2fe98a3a367414ce16` and deployment
+`d2c096937c91f7f06f1ca569e07f12ede2b34a3eb068f272cd10f2f5fb7accef`
+became active, the agent/initramfs/manifest were atomically replaced, bootstrap
+validation passed, and both managed services remained active after five
+seconds. Installed hashes matched the candidates exactly. The next checkpoint
+is the basic live suite; it is not yet claimed.
+
+The exact `c409ad4` live retry still failed closed at the same resources check,
+now with the updated `only exact default device resource contracts are
+supported` message. Therefore the device list alone was insufficient to
+characterize the actual resources object; another key or representation differs
+in the task bundle. The suite exited 1 and no pass is claimed. Full resources
+metadata must be inspected before revising the validator again.
+
+A one-shot wrapper recorded only the live bundle's resources object and then
+restored the managed builder link to its exact deployment target. The live
+bundle contains the already recognized device list plus `cpu: {shares: 1024}`;
+container metadata had omitted that default CPU object. CPU share 1024 is the
+Linux default, so dropping precisely this value at the dedicated-child boundary
+preserves default behavior. Any other share, quota, period, cpuset, or extra
+resource field must remain rejected. The diagnostic task was removed and the
+stable managed link was verified restored.
+
+Validation now accepts resource objects containing an exact supported default
+device list and, optionally, exactly `cpu: {shares: 1024}`. Resource keys are
+otherwise closed. The focused suite expanded to 62 cases: the live ctr default
+passes, while shares 512 and a quota added beside shares 1024 fail, as do the
+existing device mutations. The focused run and `git diff --check` pass; broad
+verification remains pending.
+
+The 62-case suite passed 100 consecutive repetitions. Full Go race, vet,
+documentation/schema/evidence, OCI/bind/bootstrap, rootfs/storage/image,
+release/deployment/ledger/capture/containerd, final-evidence, and diff gates
+then passed; only the expected locally permission-gated socket subcase was
+skipped for the disposable host. The exact two diagnostic files were removed
+after verifying the managed builder link and empty ctr/task inventories.
+Commit, exact rebuild, redeployment, and live retry remain pending.
+
 A fallback child initramfs was then rebuilt from the current agent, current
 relay, exact transport module, current `guest/mk-agent-init`, and BusyBox; it
 passed `gzip -t` and hashes to
