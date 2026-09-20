@@ -1409,6 +1409,59 @@ complete Go race/vet and documentation/schema/evidence, builder, deployment,
 containerd, and final-audit chain; `git diff --check` also passed. A committed
 exact-source guest rebuild and workload rerun remain required.
 
+Exact commit `2864cff` was transferred as source archive `4ff24454…`, verified,
+and rebuilt on the guest. It produced release manifest `ce2426bc…`, shim
+`1de0faae…`, mkruntimed `6d8e5fca…`, mknetd `3c77289d…`, agent `793bcaf9…`,
+and gzip-valid initramfs `8125169d…`. These identities are recorded before
+activation; no workload claim is inferred from the build.
+
+The exact artifacts are active as release
+`0.1.0-dev-2864cff996498f32df0ae1ce5c6bd698fddcff06` and support generation
+`5967012e86593a26b1aae8e184e335e459969c5af2d4fa0ad948c60c5ab6f896`.
+Pre-switch inventories were empty, storage remained qualified, bootstrap
+validation passed, and mkruntimed held PID `12242` for five seconds alongside
+active mknetd. This is a pre-workload boundary only.
+
+The live retry still failed before ctr task creation with blank builder stderr,
+now as exit 1 rather than the former jq exit 4. This demonstrates a separate
+post-comparison silent command. Host boot stayed stable and cleanup ran. No
+workload claim is made pending a second trace of the remaining builder tail.
+
+The second trace shows the complete builder now succeeds through final result
+publication. The diagnostic progressed to task state `CREATED` and a real
+Multikernel child named `mk-mk-builder-trace-diag2-fc2448f635970bae`; its
+initiating SSH call produced no transcript while start remained unresolved.
+The active objects are being preserved briefly for launch/agent-readiness
+diagnosis before cleanup, so no lifecycle pass or clean-state claim is made.
+
+The preserved state contains an initialized pool, a loaded 3 GB/2-CPU child,
+and its mediated-storage server, but no network link. Normal forced task delete
+failed with `invalid state LOADED`, leaving the task and child intact. Thus a
+lost/cancelled start exposes a real lifecycle gap: cleanup must support the
+post-load/pre-run state by unloading and deleting it. No cleanup success is
+claimed yet.
+
+Inspection localized the cleanup failure to a lifecycle state mismatch.
+Deletion already unloads and deletes a non-running `LOADED` sandbox, and
+journal recovery regards `LOADED` as a completed physical stop. The public
+stop transition alone accepts only `RUNNING`, while the shim intentionally
+uses stop-before-delete. The safe repair is a durable `LOADED -> STOPPED`
+no-op with no `kerf kill`; running guests must continue through the backend
+stop before the existing delete path.
+
+That correction now passes 100 race-detector repetitions. Its regression
+checks the durable `STOPPED` result, retained physical `LOADED` state, absence
+of a backend stop/kill call, and successful subsequent deletion. Repository-
+wide gates and live recovery of the preserved task are still required.
+
+The full local qualification chain then passed: repository-wide Go race and
+vet checks, documentation/link/schema/evidence validation, all privileged-
+boundary simulation suites (including 62 OCI semantic cases), release and
+deployment lifecycle tests, resource-ledger/capture/containerd checks, final
+evidence audit, and `git diff --check`. The one permission-gated socket test is
+still intentionally deferred to the disposable host. No live recovery claim
+is made before exact-source deployment.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

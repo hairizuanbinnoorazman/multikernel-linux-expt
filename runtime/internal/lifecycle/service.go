@@ -612,13 +612,14 @@ func (s *Service) transition(ctx context.Context, id, gen, key, method string, f
 		return protocol.MutationResult{}, apierr("FAILED_PRECONDITION", "invalid state "+sb.State, false)
 	}
 	return s.mutate(ctx, method, key, fp, sb, func(current *protocol.Sandbox) error {
+		operation := *current
 		if intermediate != "" {
 			current.State = intermediate
 			if e := s.store.SetSandbox(*current); e != nil {
 				return e
 			}
 		}
-		if e := fn(*current); e != nil {
+		if e := fn(operation); e != nil {
 			return e
 		}
 		current.State = to
@@ -652,7 +653,12 @@ func (s *Service) Start(ctx context.Context, id, gen, key string) (protocol.Muta
 	return s.transition(ctx, id, gen, key, "StartSandbox", []string{"LOADED", "STOPPED"}, "", "RUNNING", func(x protocol.Sandbox) error { return s.backend.Start(ctx, x) })
 }
 func (s *Service) Stop(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
-	return s.transition(ctx, id, gen, key, "StopSandbox", []string{"RUNNING"}, "STOPPING", "STOPPED", func(x protocol.Sandbox) error { return s.backend.Stop(ctx, x) })
+	return s.transition(ctx, id, gen, key, "StopSandbox", []string{"RUNNING", "LOADED"}, "STOPPING", "STOPPED", func(x protocol.Sandbox) error {
+		if x.State == "LOADED" {
+			return nil
+		}
+		return s.backend.Stop(ctx, x)
+	})
 }
 func (s *Service) Delete(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
 	s.global.Lock()
