@@ -351,10 +351,11 @@ def validate(config):
     validate_namespaces(linux)
     if "resources" in linux:
         resources = linux["resources"]
-        if resources not in (
-                {"devices": DENY_ALL_DEVICES},
-                {"devices": CONTAINERD_DEFAULT_DEVICES}):
-            raise ValueError("only exact default device resource contracts are supported")
+        if (not isinstance(resources, dict) or
+                set(resources) not in ({"devices"}, {"cpu", "devices"}) or
+                resources.get("devices") not in (DENY_ALL_DEVICES, CONTAINERD_DEFAULT_DEVICES) or
+                ("cpu" in resources and resources["cpu"] != {"shares": 1024})):
+            raise ValueError("only exact default resource contracts are supported")
     if "cgroupsPath" in linux:
         path = linux["cgroupsPath"]
         if (not isinstance(path, str) or not path.startswith("/") or

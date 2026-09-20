@@ -187,6 +187,9 @@ def main():
         current_containerd = copy.deepcopy(standard)
         current_containerd["linux"]["resources"]["devices"] = copy.deepcopy(CONTAINERD_DEFAULT_DEVICES)
         run_case(directory, "current-containerd-default-devices", current_containerd, accepted=True)
+        ctr_default = copy.deepcopy(current_containerd)
+        ctr_default["linux"]["resources"]["cpu"] = {"shares": 1024}
+        run_case(directory, "ctr-default-cpu-shares", ctr_default, accepted=True)
         for name, mutate in (
             ("containerd-devices-missing", lambda devices: devices.pop()),
             ("containerd-devices-reordered", lambda devices: devices.reverse()),
@@ -195,6 +198,13 @@ def main():
         ):
             config = copy.deepcopy(current_containerd)
             mutate(config["linux"]["resources"]["devices"])
+            run_case(directory, name, config)
+        for name, cpu in (
+            ("nondefault-cpu-shares", {"shares": 512}),
+            ("cpu-quota", {"shares": 1024, "quota": 10000}),
+        ):
+            config = copy.deepcopy(current_containerd)
+            config["linux"]["resources"]["cpu"] = cpu
             run_case(directory, name, config)
         readonly_bind = copy.deepcopy(BASE)
         readonly_bind["mounts"] = [{
