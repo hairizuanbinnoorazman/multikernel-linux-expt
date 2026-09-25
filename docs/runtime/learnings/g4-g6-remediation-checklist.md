@@ -2411,6 +2411,301 @@ release/deployment/ledger/capture/containerd tests, final evidence audit, and
 `git diff --check`. The generated Python cache was removed. Commit, exact
 archive rebuild, and live daemon recovery remain pending.
 
+The reconcile correction is committed as
+`89aada60b430386b0e5ec51c322006e480e5488e`. Its source-only archive hashes to
+`2d1e93c18d5e92588d9db829ae76b369677cf575783f6ac3aa1f5513ded2cf76`.
+Transfer, guest verification, exact rebuild, activation, and a health window
+beyond the prior 18-second failure remain separate unclaimed steps.
+
+The guest matched the full `89aada6` archive hash and rebuilt all seven
+components. The release manifest is `db262432…`; shim is `66dc651c…`,
+mkruntimed `6f2f2348…`, mknetd `a5ab9e91…`, and agent `31369e71…`.
+Mkruntimed reports the exact full revision. Activation and durable health are
+still unclaimed.
+
+Release `0.1.0-dev-89aada60b430386b0e5ec51c322006e480e5488e` is now active.
+After an explicit restart, mkruntimed retained PID `15958`, its daemon socket,
+and exact version for 35 seconds—well beyond the former approximately
+18-second failure—and the boot ID remained unchanged. The journal's preceding
+failure belongs to the old binary; the new start has not restarted. Preserved-
+task cleanup is the next boundary.
+
+The preserved task cleanup then succeeded through normal `ctr tasks rm -f`.
+The immediate audit found no ctr task, no Multikernel child, and zero durable
+rootfs records. Its process-name search was over-broad and matched the daemon
+and audit shell because their command lines mention `mkvsock-nbd`; the audit
+then stopped when it assumed the lifecycle journal was
+`/var/lib/mkruntimed/state.json`, which is not the configured/default path.
+Thus task/child/rootfs reclamation is established, but exact NBD, lifecycle,
+storage, pool, service, and container-metadata checks still require a corrected
+audit before claiming fully clean state.
+
+The next audit command also stopped early because `find` was given a missing
+`/run/mkruntimed` operand under `pipefail`. Before stopping, it revealed one
+generation-bound NBD log still present in `/run/mkstorage`. This may be a
+runtime-log cleanup leak; it must be correlated with the storage journal and
+exact server process inventory rather than silently ignored.
+
+The corrected full audit confirms: task inventory empty, no child, no exact
+`mkvsock-nbd` process, zero rootfs records/artifacts, all CPUs online, stable
+mkruntimed PID `15958`, active daemon/network/containerd services, and unchanged
+boot ID. However, storage state still contains one export and its runtime log
+remains. Container metadata also remains by design until resource cleanup is
+resolved. Therefore loaded-task cleanup is materially improved but not yet
+fully leak-free.
+
+Non-secret state inspection resolves that residual: the export is deliberately
+retained in terminal `RELEASED` state with a release timestamp, zero counters,
+a successful offline-check result, and exact terminal
+`MKNBD_SERVER_CLOSED synced=1` evidence. There is no NBD process, prepared
+image, child, or rootfs record. The state entry and generation log are durable
+release/audit evidence used for idempotency and restart proof, not a live
+resource leak. Container metadata can now be removed and the clean inventory
+rechecked.
+
+Container metadata removal and the final inventory passed. Ctr task/container,
+Multikernel child, exact NBD process, rootfs record/artifact, and runtime-link
+inventories are empty; all CPUs are online; daemon/network/containerd remain
+active with stable PID `15958`; boot ID is unchanged. Kerf additionally reports
+no memory pool, no instances, and an empty `/proc/kimage`. The preserved
+post-load/pre-run failure is therefore recovered without live resource leaks.
+The ordinary live qualification suite must now be rerun from the exact source.
+
+The first suite invocation did not start: the archive's script is not directly
+executable and this sudo policy ignores `-E`, so sudo returned permission
+denied before the script body ran. No workload or runtime state was changed.
+The retry must invoke the exact archived script explicitly with `bash` and rely
+on its documented configuration rather than wholesale environment retention.
+
+Running the script through root-owned `sudo bash` also stopped before workload
+creation because the suite intentionally requires an ordinary sudo-capable
+operator. Its entry cleanup found nothing to remove. The correct invocation is
+ordinary-user `bash` on the exact archived file; the script itself applies
+sudo only to bounded privileged operations.
+
+Before the corrected ordinary-user invocation could start, GCE reported that
+`mklinux-g4-g6-final-20260905` no longer exists. The suite did not execute and
+no new workload evidence was produced. The previous exact-source recovery
+evidence remains recorded, but continuing live qualification now requires a
+new disposable instance and fresh qualification/provisioning rather than
+assuming the deleted host's state.
+
+Cloud inventory confirms there are currently no instances in the qualification
+zone. The non-auto-delete 20 GB `mk-mediated-storage-20260830` disk remains
+`READY` and unattached, and the qualified 100 GB source snapshot
+`mklinux-lab-pre-daxfs-20260828-2030` remains `READY`. The recorded predecessor
+used `n2-standard-16`, a 100 GB pd-balanced auto-delete boot disk restored from
+that snapshot, the retained disk as a non-boot/non-auto-delete attachment,
+Secure Boot disabled, and disposable/purpose labels. Recreation will reproduce
+that shape rather than inventing a different host.
+
+Recreation succeeded. GCE created the 100 GB pd-balanced boot disk from the
+qualified snapshot, then created `mklinux-g4-g6-final-20260905` as
+`n2-standard-16` with internal address `10.148.0.57`, ephemeral external
+address `34.87.128.162`, the persistent storage attachment, and status
+`RUNNING`. This is control-plane evidence only; guest kernel, boot identity,
+disk identity, cleanliness, and service qualification remain pending.
+
+Fresh guest baseline now confirms hostname, new boot ID
+`e22e4b51-1038-4254-89f8-fc91d57a74a9`, qualified kernel
+`7.0.0-mk2-gce-lab`, x86-64, 16 CPUs, approximately 64 GiB RAM, and an active
+Google guest agent. `/sys/fs/multikernel` and its module are present with no
+children. The retained whole `/dev/sdb` is exact 20 GiB ext4 with label
+`mk-mediated-host`, UUID `507c0523-8e58-4ae3-9524-3b7513aad344`, and serial
+`mk-mediated-storage-20260830`; it is deliberately not yet mounted. Runtime,
+Kerf, container engines, topology, and clean-state qualification remain.
+
+The first prerequisite inventory repeated an earlier quoting pitfall:
+`${Status}` and `${Version}` in dpkg's format were expanded by the remote shell
+under `set -u`, so its `missing` package lines are invalid evidence. The rest
+of the read-only command did establish inactive containerd/Docker/runtime
+services, empty visible workload inventories, retained `~/src/kerf` and
+`~/src/linux`, and only the historical child initramfs in the artifact
+directory. Package inventory must be rerun with shell-safe dpkg arguments.
+
+The corrected installed/missing decision is reliable: containerd, Docker, Go,
+and socat are absent; the remaining listed build/runtime prerequisites are
+installed. Version formatting still printed literal `${Version}` and must not
+be used as version evidence. Kerf is clean at exact revision
+`8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec` and reports 0.2.0; Linux is clean
+at `3bdd35b64413da0b4e089ce931bfc2e8b031cbf7`. CPU topology is one socket,
+cores 0-7 with sibling CPUs 0-7/8-15, matching the pool design.
+
+Default dpkg output then supplied unambiguous installed versions, including
+musl-tools 1.2.5, BusyBox 1.37, cpio 2.15, e2fsprogs 1.47.2, GCC 15.2,
+iproute2 6.19, iptables 1.8.11, jq 1.8.1, make 4.4.1, Python 3.14.3, rsync
+3.4.1, and util-linux 2.41.3. Only the four absent packages now require
+installation.
+
+Missing package installation succeeded from Ubuntu Resolute repositories:
+containerd `2.2.2-0ubuntu1.1`, Docker `29.1.3-0ubuntu4.1`, Go 1.26, and socat
+`1.8.1.1-1ubuntu0.1`. Containerd and Docker are active as package-installed
+defaults. No Multikernel integration or workload claim follows from package
+activation; inventories and defaults must be checked before configuration.
+
+The recreated guest independently matched the exact `89aada6` archive SHA-256
+`2d1e93c18d5e92588d9db829ae76b369677cf575783f6ac3aa1f5513ded2cf76`,
+extracted it into a new private directory without `.git`, and found the
+expected Go module. That revision's `verify-host.sh` then exited successfully.
+This closes source transfer and basic host qualification only; build and
+deployment remain pending.
+
+The recreated guest's exact build is reproducible: release manifest
+`db262432…`, shim `66dc651c…`, mkruntimed `6f2f2348…`, mknetd `a5ab9e91…`,
+and agent `31369e71…` match the earlier `89aada6` guest build byte-for-byte.
+Warning-clean static C builds also reproduce NBD helper `a0259098…` and relay
+`293ff1ea…`; all three guest executables are static x86-64 ELF. The transport
+module, kernel/bootstrap manifest, storage mount, and deployment remain open.
+
+The pinned transport build reproduced module `bef1b888…`; `modinfo` reports
+name `mk_transport` and exact `7.0.0-mk2-gce-lab` vermagic. The child kernel is
+static x86-64 `vmlinux` hash `5cdf26d0…`; running-kernel image and config hashes
+were also captured. This closes the transport/kernel build boundary, not the
+root-owned staging or bootstrap-validation boundary.
+
+The exact agent bootstrap initramfs built successfully and is gzip-valid with
+hash `09314674…`. Archive inspection confirms the required `init`, `mk-agent`,
+`mk_transport.ko`, and `mkvsock-relay` members. It has not yet been installed
+or approved by a root-owned manifest.
+
+With the disk unmounted, read-only `e2fsck -fn` completed all five passes and
+reported a valid filesystem. The exact UUID fstab entry was installed, and the
+by-id disk now mounts at `/srv/multikernel-storage` as rw ext4 with
+`nosuid,nodev`. Retained `child-a`/`child-b` historical images remain outside
+the runtime subtree; the existing `runtime` directory showed no entries in the
+bounded inventory. Runtime storage validation will be repeated after service
+configuration.
+
+Pinned Kerf 0.2.0 is installed non-editably in root-owned
+`/opt/mkruntime/kerf-venv`; dependency imports and the CLI version check pass,
+and the trust-boundary directories/executable are root:root 0755. The generated
+host config, storage-aware runtime environment, and exact artifact manifest are
+valid JSON/text with hashes `82270b0c…`, `8d6184b8…`, and `afdbcc23…`, and were
+transferred to the guest. Remote hash verification and privileged artifact/
+deployment installation remain pending.
+
+Remote configuration hashes matched before mutation. Root-owned kernel,
+initramfs, module, agent, relay, and NBD helper installations exactly re-match
+their build hashes. Immutable runtime release
+`0.1.0-dev-89aada60b430386b0e5ec51c322006e480e5488e` is the sole active release
+with all six managed host/CNI links. The root-owned exact-source extraction
+contains the deployment inputs, and bootstrap validation accepts manifest
+`afdbcc23…`, exact release/config pins, all artifact hashes, and the ten claimed
+OCI features. Managed deployment and service activation remain separate.
+
+Deployment generation
+`5967012e86593a26b1aae8e184e335e459969c5af2d4fa0ad948c60c5ab6f896`
+installed as the sole active generation. Inspection confirms every systemd,
+environment/config, CNI/containerd, builder, validator, guest-init, and helper
+link is managed. The installed storage validator returned
+`RUNTIME_STORAGE_MOUNT_VALID` for the exact disk identity. Container-engine
+integration and service activation remain deliberately separate.
+
+Pre-integration engine audit passed: ctr tasks/containers and Docker containers
+are empty, no explicit containerd main config or Docker daemon config exists,
+containerd's default v3 dump includes `/etc/containerd/conf.d/*.toml` and keeps
+`default_runtime_name = 'runc'`, and Docker reports only runc with runc as
+default. The managed Multikernel fragment is installed but not yet effective
+until a complete main config is staged and the idle daemon restarted.
+
+The first integration command stopped before installation because its fixed-
+string grep searched for literal `\x27` bytes around `runc`. The staged full
+candidate and resolved dump are present and do show the import, Multikernel
+runtime stanza, and exact `default_runtime_name = 'runc'`; neither main config
+nor Docker config was installed, and both services remain active. The retry
+must validate the actual quote characters without the broken escape.
+
+Corrected integration passed. The complete containerd main config was installed
+only after empty-inventory validation; post-restart effective config contains
+the Multikernel handler and exact runc default. Docker's merged config passed
+`dockerd --validate`, reloaded, and now advertises
+`io.containerd.multikernel.v2`, `io.containerd.runc.v2`, and `runc` while
+retaining runc as default. All engine inventories remain empty. Runtime service
+activation is next.
+
+Managed service activation passed a 35-second stability window. Mkruntimed PID
+`12120` and mknetd PID `12095` remained unchanged, both binaries report exact
+revision `89aada6…`, the daemon socket exists, installed storage validation
+passes, child inventory is empty, and boot ID remains
+`e22e4b51-1038-4254-89f8-fc91d57a74a9`. This exceeds the earlier restart-
+reconcile failure latency. The ordinary-user live workload suite is now the
+next boundary.
+
+The exact ordinary-user suite reached its first real ctr task creation but
+failed closed at `build child root: exit status 1` with no diagnostic suffix.
+All service/mount/shim/TUN/empty-child preconditions passed, BusyBox was pulled,
+and the boot/kernel identities were printed before failure. The cleanup trap
+ran. This reproduces the silent builder boundary on a genuinely fresh host,
+despite the earlier jq correction; no G4/G5/G6 pass is claimed. Immediate
+state/leak inspection and a fresh exact-stage trace are required.
+
+The first post-failure audit confirms empty ctr task/container and child
+inventories plus zero rootfs records. It stopped when the storage state file
+was absent—which is expected if preparation never reached export creation—so
+remaining runtime-directory, service, and journal checks must be rerun without
+assuming that optional file exists.
+
+The tolerant audit completes fail-clean proof: storage state is absent, runtime
+storage and runtime-log directories contain no artifacts, all four services
+remain active with unchanged runtime PIDs `12120`/`12095`, and the daemon
+journal contains no crash/restart or additional error. A temporary root-only
+wrapper will now redirect builder xtrace to a root-only file while preserving
+stdout, with the managed builder link restored immediately after one suite
+attempt. Raw trace contents will not be published because runtime inputs may
+contain ephemeral authentication material.
+
+The one-shot trace restored the exact managed link and exposed two distinct
+facts. The builder itself completed every stage through the corrected
+`jq -n -e` comparison and final JSON publication. Task creation then failed at
+approved kernel-manifest validation. Source inspection localizes that failure:
+the daemon requires `config-<kernel_release>` beside the manifest kernel and
+checks every advertised required-config line, while provisioning installed the
+kernel but omitted its config companion. The standalone bootstrap validator
+does not perform this config-file check, so its earlier pass was insufficient.
+Installing the already hashed `/boot/config-7.0.0-mk2-gce-lab` beside vmlinux
+is required before retry; no source-policy weakening is appropriate.
+
+The exact kernel config companion is now root-owned beside vmlinux, re-matches
+hash `f7a61b04…`, and contains all three required lines exactly. The managed
+builder link was verified restored, private trace/output files were deleted,
+and all engine inventories remain empty. The next ordinary suite retry will
+test daemon manifest approval and the unwrapped builder path together.
+
+The unwrapped retry again failed at the silent builder exit even though the
+kernel companion is now complete. This contrasts with the traced wrapper,
+which ran the versioned target by its resolved path and completed. The wrapper
+therefore changed path semantics and is not sufficient evidence that the
+normal public managed path works. After confirming fail-clean state, the next
+diagnostic must keep the public symlink unchanged and add only a temporary ERR
+trap to the exact versioned script, then restore and hash-verify the immutable
+file immediately.
+
+The precision ERR trap identified the exact command: `test ! -L "$artifact"`
+in the bootstrap-artifact loop. When invoked through the production managed
+builder link, `script_dir` is the public link directory, so both managed guest
+init paths are themselves symlinks and correctly rejected. The resolved-path
+wrapper instead selected regular files inside the immutable generation. The
+builder must derive its generation directory from Bash's already-open script
+descriptor (`/proc/$$/fd/255`), not re-resolve the mutable public activation
+path and not relax the no-symlink artifact rule. The diagnostic asset was
+restored to its exact source hash and deployment inspection passed.
+
+The descriptor-pinned builder correction now passes shell syntax and the full
+62-case OCI/builder suite 100 consecutive times. The regression both requires
+the production builder to derive `script_dir` from its open fd 255 and executes
+a real generation-file/public-symlink probe through both the shebang and
+explicit `bash` paths, proving each resolves the immutable generation. The
+strict no-symlink bootstrap-artifact check remains unchanged. Full repository
+gates are next.
+
+The subsequent full local gate passed: repository-wide Go race tests and vet,
+documentation/link/schema/evidence checks, all OCI/bind/bootstrap/rootfs/
+storage/mount/root/image suites, release/binary/deployment/ledger/capture/
+containerd checks, final evidence audit, and `git diff --check`. The expected
+locally permission-gated socket subcase remains assigned to the live guest.
+Generated Python cache was removed. Commit and exact-source live redeployment
+remain pending.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,

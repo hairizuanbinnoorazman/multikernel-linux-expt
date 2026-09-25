@@ -93,6 +93,32 @@ def main():
             raise AssertionError("outer builder does not compare a no-replace final source manifest")
         if 'jq -n -e --slurpfile built' not in builder_text:
             raise AssertionError("outer builder final build/verify comparison lacks null input")
+        if '/proc/$$/fd/255' not in builder_text or 'readlink -f "$script_descriptor"' not in builder_text:
+            raise AssertionError("outer builder does not pin support assets to its open script generation")
+        if 'script_dir=$(cd "$(dirname "$script_path")" && pwd -P)' not in builder_text:
+            raise AssertionError("outer builder support directory does not derive from the pinned script")
+        generation = directory / "generation" / "libexec"
+        public = directory / "public"
+        generation.mkdir(parents=True)
+        public.mkdir()
+        descriptor_probe = generation / "descriptor-probe.sh"
+        descriptor_probe.write_text(
+            "#!/usr/bin/env bash\n"
+            "set -euo pipefail\n"
+            "script_descriptor=/proc/$$/fd/255\n"
+            "test -r \"$script_descriptor\"\n"
+            "script_path=$(readlink -f \"$script_descriptor\")\n"
+            "script_dir=$(cd \"$(dirname \"$script_path\")\" && pwd -P)\n"
+            "printf '%s\\n' \"$script_dir\"\n",
+            encoding="utf-8",
+        )
+        descriptor_probe.chmod(0o755)
+        public_probe = public / "descriptor-probe.sh"
+        public_probe.symlink_to(descriptor_probe)
+        for command in ([str(public_probe)], ["bash", str(public_probe)]):
+            resolved = subprocess.run(command, check=True, text=True, capture_output=True)
+            if resolved.stdout.strip() != str(generation):
+                raise AssertionError(f"open script descriptor resolved to {resolved.stdout!r}")
         missing_bundle = directory / "missing-config-bundle"
         missing_bundle.mkdir()
         output = directory / "initramfs.cpio.gz"
