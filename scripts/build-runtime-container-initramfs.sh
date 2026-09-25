@@ -14,7 +14,12 @@ manifest=${MK_KERNEL_MANIFEST:-/etc/mkruntime/kernels/gce-mk2.json}
 manifest_name=${MK_KERNEL_MANIFEST_NAME:-gce-mk2}
 task_identity=${MK_TASK_IDENTITY:-}
 storage_port=${MK_STORAGE_PORT:-}
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+script_descriptor=/proc/$$/fd/255
+test -r "$script_descriptor" || { echo 'builder script descriptor is unavailable' >&2; exit 1; }
+script_path=$(readlink -f "$script_descriptor")
+test -f "$script_path" && test ! -L "$script_path"
+test "$(stat -c %u "$script_path")" = "$EUID"
+script_dir=$(cd "$(dirname "$script_path")" && pwd -P)
 repo_dir=$(cd "$script_dir/.." && pwd)
 support_root=${MK_RUNTIME_SUPPORT_ROOT:-}
 if [[ -z $support_root ]]; then
