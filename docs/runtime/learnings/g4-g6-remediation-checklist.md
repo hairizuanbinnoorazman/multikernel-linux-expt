@@ -2706,6 +2706,81 @@ locally permission-gated socket subcase remains assigned to the live guest.
 Generated Python cache was removed. Commit and exact-source live redeployment
 remain pending.
 
+The generation-pinning correction is committed as
+`21f772c393ca32be28502ce20730343cdb51ea81`. Its source-only archive hashes to
+`624c29c459ae40e08d7a016a4ac0f7ace4cada8929bbfce8974eb0fe9b24cffe`.
+Guest transfer, independent verification, full revision-stamped rebuild,
+deployment-generation activation, and workload rerun remain unclaimed.
+
+The recreated guest independently matched the full archive hash and rebuilt
+the revision-stamped release. Identities are release manifest `4df065cd…`, shim
+`ca72d720…`, mkruntimed `676131be…`, mknetd `9cf6f6de…`, agent `d244ef6c…`, and
+gzip-valid dependent initramfs `63c6ae5d…`. These precede activation; no live
+behavior is inferred yet.
+
+Exact release `0.1.0-dev-21f772c393ca32be28502ce20730343cdb51ea81`,
+manifest `6bebfc81…`, and deployment generation `ca7bc745…` are active.
+Bootstrap validation passed after activation, and mkruntimed/mknetd PIDs
+`14981`/`14964` remained stable for 35 seconds; the daemon reports the exact
+revision. Both the predecessor and new immutable deployment are retained for
+rollback. The ordinary live suite is the next boundary.
+
+The `21f772c` suite passed the formerly failing builder and approved-manifest
+boundaries and progressed through child launch. It then failed with
+`CNI TUN is absent: stat /sys/class/net/mktun0: no such file or directory`.
+The cleanup trap ran. This is a new network attachment/readiness boundary,
+positive evidence for generation pinning but not a workload pass. Immediate
+host/child/network inventories and mknetd/shim journals must establish whether
+cleanup is complete and why the expected TUN was not visible.
+
+The immediate audit is clean: containerd has no task or container, Multikernel
+has no child, no `mkv*` link or named network namespace remains, mknetd has no
+endpoint state, rootfs records are empty, and storage has no active state.
+mknetd's pre-attach `CHECK` had succeeded by running `ip` inside the endpoint
+namespace, including a link check for `mktun0`. `OpenTUN` then entered that
+same namespace but tested `/sys/class/net/mktun0`; sysfs belongs to the host
+mount namespace and therefore does not provide a reliable namespace-local
+interface lookup after network-only `setns`. This explains the apparently
+contradictory observations and identifies the check, rather than CNI creation,
+as the failed boundary. A namespace-local socket ioctl will replace the sysfs
+lookup before the next live run.
+
+A bounded live probe directly reproduced the distinction. In a temporary
+namespace, `ip -o link show dev mktun0` succeeded both through `ip netns exec`
+and through network-only `nsenter`, while that same `nsenter` reported
+`/sys/class/net/mktun0` absent. The trap removed the namespace and the final
+inventory confirmed it absent. This converts the diagnosis from inference to
+observation without leaving guest state.
+
+The replacement primitive was then exercised on the guest before deployment:
+an `AF_UNIX` datagram descriptor plus `SIOCGIFFLAGS`, created after entering a
+second temporary namespace, successfully returned `mktun0`. The namespace was
+again absent after cleanup. Locally, the focused network race test and vet pass
+with this implementation; using `AF_UNIX` also avoids the local sandbox's
+denial of an otherwise unnecessary IPv4 socket.
+
+The same containerd journal records a separate compatibility warning:
+containerd 2.2.2 probes the runtime binary with `-info`, while the shim rejects
+that flag. The workload path still launches the shim, so this did not cause the
+TUN failure, but it remains a current-host integration defect and must be
+closed before claiming complete qualification.
+
+The shim now handles exactly one `-info` argument before the vendored 1.7 flag
+parser, following containerd 2.2's documented binary protobuf contract. It
+bounds stdin to one MiB, rejects malformed option `Any` messages, echoes valid
+options in `RuntimeInfo`, and reports the revision-stamped runtime identity.
+It deliberately advertises no OCI feature document until each such field is
+independently substantiated. Focused race tests cover empty/exact-option input,
+malformed and oversized rejection; network and shim race tests plus focused vet
+and `git diff --check` pass.
+
+The subsequent complete local gate passed on 2026-09-26: repository-wide Go
+race tests and vet, documentation/link/schema/evidence checks, all OCI, bind,
+bootstrap, rootfs, storage, mount, image, release, deployment, ledger,
+containerd, and final-evidence suites, followed by `git diff --check`. The
+known locally permission-gated socket subcase remains assigned to the guest.
+An immutable commit and exact-source guest deployment are the next boundaries.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,

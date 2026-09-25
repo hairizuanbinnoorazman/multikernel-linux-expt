@@ -36,6 +36,7 @@ import (
 	"github.com/containerd/typeurl/v2"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
@@ -53,6 +54,50 @@ func privateTestDirectory(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return directory
+}
+
+func TestWriteRuntimeInfo(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		options *anypb.Any
+	}{
+		{name: "empty"},
+		{name: "options", options: &anypb.Any{TypeUrl: "types.example/options", Value: []byte("exact")}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var input, output bytes.Buffer
+			if test.options != nil {
+				data, err := proto.Marshal(test.options)
+				if err != nil {
+					t.Fatal(err)
+				}
+				input.Write(data)
+			}
+			if err := writeRuntimeInfo(&input, &output); err != nil {
+				t.Fatal(err)
+			}
+			var info types.RuntimeInfo
+			if err := proto.Unmarshal(output.Bytes(), &info); err != nil {
+				t.Fatal(err)
+			}
+			if info.Name != runtimeName || info.Version == nil || info.Version.Version == "" || info.Version.Revision == "" ||
+				!proto.Equal(info.Options, test.options) {
+				t.Fatalf("runtime info name=%q version=%v options=%v", info.Name, info.Version, info.Options)
+			}
+			if info.Features != nil {
+				t.Fatalf("unsubstantiated OCI features advertised: %+v", info.Features)
+			}
+		})
+	}
+}
+
+func TestWriteRuntimeInfoRejectsMalformedAndOversizedOptions(t *testing.T) {
+	for _, input := range [][]byte{{0xff}, bytes.Repeat([]byte("x"), runtimeInfoInputLimit+1)} {
+		var output bytes.Buffer
+		if err := writeRuntimeInfo(bytes.NewReader(input), &output); err == nil || output.Len() != 0 {
+			t.Fatalf("input length %d: error=%v output=%d", len(input), err, output.Len())
+		}
+	}
 }
 
 func testBundleIdentity(t *testing.T, path string) rootfspkg.DirectoryIdentity {

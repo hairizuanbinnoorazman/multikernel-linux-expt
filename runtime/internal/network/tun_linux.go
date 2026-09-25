@@ -53,7 +53,7 @@ func OpenTUN(endpoint Endpoint) (result *os.File, retErr error) {
 			retErr = errors.Join(retErr, fmt.Errorf("restore primary network namespace: %w", restoreErr))
 		}
 	}()
-	if _, err = os.Stat("/sys/class/net/" + endpoint.IfName); err != nil {
+	if err = interfaceExists(endpoint.IfName); err != nil {
 		return nil, fmt.Errorf("CNI TUN is absent: %w", err)
 	}
 	device, err := os.OpenFile("/dev/net/tun", os.O_RDWR|syscall.O_NONBLOCK, 0)
@@ -71,4 +71,23 @@ func OpenTUN(endpoint Endpoint) (result *os.File, retErr error) {
 		return nil, err
 	}
 	return device, nil
+}
+
+// interfaceExists asks the networking stack on the current thread rather than
+// consulting sysfs. A network-only setns does not change the caller's mount
+// namespace, so /sys/class/net can continue to expose the original namespace.
+func interfaceExists(name string) error {
+	// Network-device ioctls accept any socket descriptor. AF_UNIX avoids
+	// requiring address-family network socket permission merely to query an
+	// interface, while the ioctl still evaluates in the calling thread's netns.
+	descriptor, err := unix.Socket(unix.AF_UNIX, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		return err
+	}
+	defer unix.Close(descriptor)
+	request, err := unix.NewIfreq(name)
+	if err != nil {
+		return err
+	}
+	return unix.IoctlIfreq(descriptor, unix.SIOCGIFFLAGS, request)
 }

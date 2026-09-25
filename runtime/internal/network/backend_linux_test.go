@@ -253,3 +253,12 @@ func TestOpenTUNRejectsUnsafeNamespaceBeforeSetns(t *testing.T) {
 		t.Fatal("unsafe namespace accepted")
 	}
 }
+
+func TestInterfaceExistsUsesCurrentNetworkNamespace(t *testing.T) {
+	if err := interfaceExists("lo"); err != nil {
+		t.Fatalf("loopback interface was not found: %v", err)
+	}
+	if err := interfaceExists("definitelygone"); err == nil {
+		t.Fatal("absent interface was accepted")
+	}
+}
