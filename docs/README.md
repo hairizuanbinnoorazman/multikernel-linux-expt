@@ -8,9 +8,11 @@ This repository has two connected purposes:
 
 ## Guides
 
-- [`guides/gce-lab-runbook.md`](guides/gce-lab-runbook.md) contains the complete
-  GCE build, bring-up, recovery, and cleanup procedure formerly embedded in the
-  root README.
+[`guides/README.md`](guides/README.md) indexes the operational guides. Start
+with the [runtime operator quickstart](guides/runtime-operator-quickstart.md)
+for runtime deployment, the [developer workflow](guides/developer-workflow.md)
+for local changes, or the [GCE laboratory
+runbook](guides/gce-lab-runbook.md) for primary-kernel bring-up.
 
 ## Completed experiments
 
