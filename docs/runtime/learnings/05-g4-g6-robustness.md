@@ -1769,6 +1769,70 @@ clean and generated Python cache is removed. The one permission-gated socket
 case remains for the guest. An immutable commit and exact-source redeployment
 are still required.
 
+The fix is immutable at `21f772c393ca32be28502ce20730343cdb51ea81`; its
+source archive is `624c29c459ae40e08d7a016a4ac0f7ace4cada8929bbfce8974eb0fe9b24cffe`.
+Transfer, guest verification, full rebuild, deployment activation, and live
+rerun remain separate pending boundaries.
+
+Independent guest verification and full rebuild completed: manifest
+`4df065cd…`, shim `ca72d720…`, daemon `676131be…`, network daemon `9cf6f6de…`,
+agent `d244ef6c…`, and dependent initramfs `63c6ae5d…`. Activation and runtime
+behavior remain unclaimed.
+
+The exact `21f772c…` release and manifest `6bebfc81…` are active with new
+deployment `ca7bc745…`; the prior generation remains available for rollback.
+Bootstrap validation passed, and daemon/network PIDs `14981`/`14964` were
+stable for 35 seconds with the exact daemon revision. Live workload execution
+is next.
+
+The exact suite now clears builder and daemon manifest approval, creates and
+launches the child, then fails at network readiness because expected
+`/sys/class/net/mktun0` is absent. Cleanup ran. This proves the generation-
+pinning fix live but exposes the next CNI/TUN attachment boundary; no workload
+pass is claimed before resource audit and network diagnosis.
+
+Post-failure inventories prove cleanup complete: no task/container, child,
+`mkv*` link, named namespace, endpoint state, rootfs record, or active storage
+state remains. The network daemon's preceding `CHECK` successfully inspected
+`mktun0` with `ip` inside the endpoint namespace. The later attach helper used
+`/sys/class/net/mktun0` after only a network-namespace `setns`; because sysfs is
+still the host mount namespace's view, that pathname is not a sound
+namespace-local existence test. The correction will query the interface with
+a socket ioctl on the locked, namespace-entered thread before attaching the
+TUN descriptor.
+
+The disposable host then demonstrated the mechanism in a self-cleaning probe:
+a temporary namespace's `mktun0` was visible to `ip` under both `ip netns
+exec` and network-only `nsenter`, but `/sys/class/net/mktun0` remained absent
+under the latter. Namespace deletion was verified at probe exit. This is direct
+live evidence that the sysfs test, not TUN creation, caused the attachment
+failure.
+
+The proposed exact kernel query also passed live before installation: after
+entering another temporary namespace, an `AF_UNIX` datagram descriptor with
+`SIOCGIFFLAGS` found `mktun0`, and cleanup again left no namespace. Its focused
+local race test and vet pass. This keeps lookup namespace-local without
+requiring an IPv4 socket solely for a device ioctl.
+
+Containerd 2.2.2 also emits an independent runtime-discovery warning because
+it invokes the shim with `-info` and the current CLI rejects that flag. The
+normal shim starts despite the warning, so it is not causal for this failure,
+but it is now an explicit open compatibility item rather than omitted evidence.
+
+The compatibility path now intercepts exact `-info` invocation before the
+older shim runner, consumes a bounded serialized option `Any`, and emits the
+containerd `RuntimeInfo` protobuf with exact build version/revision and echoed
+options. Malformed or over-one-MiB input fails before output. No generic runc
+feature document is copied: unsupported or unproved feature advertising would
+be worse than an absent optional document. Focused race tests and vet pass for
+this path together with the namespace-local TUN correction.
+
+The full local qualification chain then passed on 2026-09-26: all-package Go
+race tests, vet, the complete documentation/schema/evidence and boundary-test
+matrix, final evidence audit, and clean diff checking. The expected local
+socket-permission skip still requires its privileged guest execution. Commit,
+exact archive transfer, activation, and live workload proof remain distinct.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,
