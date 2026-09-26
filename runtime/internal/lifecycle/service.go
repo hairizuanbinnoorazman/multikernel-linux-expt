@@ -880,6 +880,12 @@ func (s *Service) reconcileIncomplete(ctx context.Context, intent statepkg.Journ
 		if actual == "RUNNING" {
 			err = s.backend.Stop(ctx, sandbox)
 		}
+		if err == nil && actual == "ABSENT" {
+			err = s.releaseStorage(ctx, &sandbox)
+			if err == nil {
+				return finish("ABSENT")
+			}
+		}
 		if err == nil {
 			actual, err = s.backend.Observe(ctx, sandbox.ID)
 		}

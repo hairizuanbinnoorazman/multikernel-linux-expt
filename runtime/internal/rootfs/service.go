@@ -255,6 +255,13 @@ func (s *Service) removePreparedArtifacts(record Record) error {
 	)
 }
 
+func (s *Service) removeStorageArtifact(record Record) error {
+	if err := s.validateArtifactPaths(record); err != nil {
+		return err
+	}
+	return removeRelativeTree(s.storageRoot, record.Request.TaskIdentity, record.StorageID, record.StorageDirID)
+}
+
 func (s *Service) cleanupFailedPreparation(record Record) error {
 	var failures []error
 	if err := s.removePreparedArtifacts(record); err != nil {
@@ -441,11 +448,21 @@ func NewService(store *Store, backend Backend, storageRoot string) (*Service, er
 		if err := service.validateArtifactPaths(record); err != nil {
 			return nil, fmt.Errorf("reject unsafe rootfs recovery record %s: %w", record.Request.TaskIdentity, err)
 		}
-		if err := validateRequest(record.Request); err != nil {
+		if err := validateRequestShape(record.Request); err != nil {
 			return nil, fmt.Errorf("reject invalid rootfs recovery request %s: %w", record.Request.TaskIdentity, err)
 		}
-		if err := service.verifyArtifactRootIdentities(record); err != nil {
+		if err := verifyRootIdentity(storageRoot, record.StorageID); err != nil {
+			return nil, fmt.Errorf("reject replaced rootfs storage root %s: %w", record.Request.TaskIdentity, err)
+		}
+		bundle, err := openCleanupRoot(record.Request.Bundle, record.BundleID)
+		if errors.Is(err, syscall.ENOENT) {
+			continue
+		}
+		if err != nil {
 			return nil, fmt.Errorf("reject replaced rootfs bundle %s: %w", record.Request.TaskIdentity, err)
+		}
+		if err = bundle.Close(); err != nil {
+			return nil, err
 		}
 		if record.Phase == "PREPARED" {
 			roots, err := service.openPreparedRoots(record)
@@ -461,6 +478,21 @@ func NewService(store *Store, backend Backend, storageRoot string) (*Service, er
 }
 
 func validateRequest(request PrepareRequest) error {
+	if err := validateRequestShape(request); err != nil {
+		return err
+	}
+	resolved, err := filepath.EvalSymlinks(request.Bundle)
+	if err != nil || resolved != request.Bundle {
+		return errors.New("bundle must exist and may not contain symlinks")
+	}
+	info, err := os.Stat(request.Bundle)
+	if err != nil || !info.IsDir() {
+		return errors.New("bundle is not a directory")
+	}
+	return validateMounts(request.Mounts, true)
+}
+
+func validateRequestShape(request PrepareRequest) error {
 	if request.Version != Version || !identityRE.MatchString(request.TaskIdentity) || request.StoragePort < 1024 {
 		return errors.New("invalid rootfs request identity, version, or port")
 	}
@@ -470,21 +502,17 @@ func validateRequest(request PrepareRequest) error {
 	if !filepath.IsAbs(request.Bundle) || filepath.Clean(request.Bundle) != request.Bundle {
 		return errors.New("bundle must be an absolute canonical path")
 	}
-	resolved, err := filepath.EvalSymlinks(request.Bundle)
-	if err != nil || resolved != request.Bundle {
-		return errors.New("bundle may not contain symlinks")
-	}
-	info, err := os.Stat(request.Bundle)
-	if err != nil || !info.IsDir() {
-		return errors.New("bundle is not a directory")
-	}
-	return ValidateMounts(request.Mounts)
+	return validateMounts(request.Mounts, false)
 }
 
 // ValidateMounts applies the complete rootfs mount contract without allocating
 // any sandbox or storage state. Callers at an earlier trust boundary can use it
 // to reject hostile containerd input before performing external mutations.
 func ValidateMounts(mounts []Mount) error {
+	return validateMounts(mounts, true)
+}
+
+func validateMounts(mounts []Mount, requireExisting bool) error {
 	if len(mounts) > 8 {
 		return errors.New("at most eight rootfs mounts are supported")
 	}
@@ -498,7 +526,7 @@ func ValidateMounts(mounts []Mount) error {
 		if (mount.Type == "bind" || mount.Type == "none") && (!filepath.IsAbs(mount.Source) || filepath.Clean(mount.Source) != mount.Source) {
 			return errors.New("bind rootfs source must be absolute and canonical")
 		}
-		if mount.Type == "bind" || mount.Type == "none" {
+		if requireExisting && (mount.Type == "bind" || mount.Type == "none") {
 			resolved, err := filepath.EvalSymlinks(mount.Source)
 			if err != nil || resolved != mount.Source {
 				return errors.New("bind rootfs source may not contain symlinks")
@@ -520,7 +548,7 @@ func ValidateMounts(mounts []Mount) error {
 			case "shared", "rshared", "slave", "rslave", "private", "rprivate", "unbindable", "runbindable":
 				return errors.New("rootfs propagation changes are unsupported")
 			}
-			if err := validateMountOption(mount.Type, option); err != nil {
+			if err := validateMountOption(mount.Type, option, requireExisting); err != nil {
 				return err
 			}
 		}
@@ -528,7 +556,7 @@ func ValidateMounts(mounts []Mount) error {
 	return nil
 }
 
-func validateMountOption(mountType, option string) error {
+func validateMountOption(mountType, option string, requireExisting bool) error {
 	if mountType == "bind" || mountType == "none" {
 		if slices.Contains([]string{"bind", "rbind", "ro", "rw", "nosuid", "nodev", "noexec", "relatime", "noatime", "strictatime"}, option) {
 			return nil
@@ -550,9 +578,11 @@ func validateMountOption(mountType, option string) error {
 			if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 				return errors.New("overlay rootfs paths must be absolute and canonical")
 			}
-			resolved, err := filepath.EvalSymlinks(path)
-			if err != nil || resolved != path {
-				return errors.New("overlay rootfs paths may not contain symlinks")
+			if requireExisting {
+				resolved, err := filepath.EvalSymlinks(path)
+				if err != nil || resolved != path {
+					return errors.New("overlay rootfs paths may not contain symlinks")
+				}
 			}
 		}
 		return nil
@@ -783,8 +813,30 @@ func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string
 		if err := s.validateArtifactPaths(record); err != nil {
 			return err
 		}
-		if err := s.verifyArtifactRootIdentities(record); err != nil {
+		if err := verifyRootIdentity(s.storageRoot, record.StorageID); err != nil {
 			return err
+		}
+		bundle, bundleErr := openCleanupRoot(record.Request.Bundle, record.BundleID)
+		bundleAbsent := errors.Is(bundleErr, syscall.ENOENT)
+		if bundleErr == nil {
+			bundleErr = bundle.Close()
+		}
+		if bundleErr != nil && !bundleAbsent {
+			return fmt.Errorf("bundle identity: %w", bundleErr)
+		}
+		if bundleAbsent {
+			if record.Storage != nil {
+				if digest, owned := storageOwners[record.Storage.Path]; owned && digest == record.Storage.SHA256 {
+					return errors.New("owned rootfs bundle is absent")
+				}
+			}
+			if err := s.removeStorageArtifact(record); err != nil {
+				return err
+			}
+			if err := s.store.Delete(record.Request.TaskIdentity); err != nil {
+				return err
+			}
+			continue
 		}
 		switch record.Phase {
 		case "MOUNTING", "MOUNTED":

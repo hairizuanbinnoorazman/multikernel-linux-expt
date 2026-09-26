@@ -112,6 +112,44 @@ func TestCommittedNonzeroTransitionsAreObserved(t *testing.T) {
 	}
 }
 
+func TestStopObservesBeforeForceKill(t *testing.T) {
+	for _, test := range []struct {
+		name, status string
+		wantErr      bool
+		wantExecuted bool
+	}{
+		{name: "already-loaded", status: "loaded"},
+		{name: "running", status: "active", wantExecuted: true},
+		{name: "not-started", status: "created", wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			instance := filepath.Join(root, "instances", "box")
+			if err := os.MkdirAll(instance, 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(instance, "status"), []byte(test.status+"\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			marker := filepath.Join(t.TempDir(), "executed")
+			script := filepath.Join(t.TempDir(), "kerf")
+			contents := "#!/bin/sh\nset -eu\ntest \"$#\" = 3\ntest \"$1\" = kill\ntest \"$2\" = box\ntest \"$3\" = --verbose\nprintf executed > '" + marker + "'\nprintf loaded > '" + filepath.Join(instance, "status") + "'\n"
+			if err := os.WriteFile(script, []byte(contents), 0755); err != nil {
+				t.Fatal(err)
+			}
+			client := &CLI{Path: script, Sysfs: root, Timeout: time.Second}
+			err := client.Stop(context.Background(), protocol.Sandbox{ID: "box"})
+			if (err != nil) != test.wantErr {
+				t.Fatalf("Stop() error = %v, wantErr %v", err, test.wantErr)
+			}
+			_, markerErr := os.Stat(marker)
+			if executed := markerErr == nil; executed != test.wantExecuted {
+				t.Fatalf("force kill executed = %v, want %v (stat error %v)", executed, test.wantExecuted, markerErr)
+			}
+		})
+	}
+}
+
 func TestLoadPinsRuntimeInitramfsAcrossPublicDirectoryReplacement(t *testing.T) {
 	bundle := t.TempDir()
 	runtimeDir := filepath.Join(bundle, ".multikernel")
