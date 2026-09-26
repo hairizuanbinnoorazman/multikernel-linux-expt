@@ -3230,6 +3230,71 @@ release/deployment/ledger/capture/containerd checks, final evidence audit, and
 skipped for the privileged guest. Generated `scripts/__pycache__` was removed;
 the pre-existing untracked `evidence/runtime-20260907/` remains untouched.
 
+Commit `cf88beb1c7d61769316fecf7bd33c1a188a5b4a6` freezes the timeout-contract
+correction and the preceding live findings. Its source-only archive SHA-256 is
+`01044ee9885ec5b91aa6a600f28ab6b95ee90434fc3953777d6215d665bfdf8c`;
+archive inspection contains neither Git metadata nor the untouched untracked
+evidence tree. Guest digest verification, exact shim build, activation, and
+live replay remain unclaimed.
+
+The guest matched archive digest `01044ee9…`, extracted it into a private
+root-owned tree, and rechecked the `.git` and untracked-evidence exclusions.
+The first build wrapper then stopped before compilation because it attempted to
+preserve a `runtime/release-manifest.json` that this clean archive does not
+contain. No installed component changed. The exact build can proceed directly
+with explicit revision `cf88beb…`.
+
+The exact guest build then succeeded. Release manifest is `05b86f57…`; shim
+`bf79230d…`, daemon `c3de5ae2…`, mknetd `fe31d09d…`, and agent `056402d6…`
+all report full revision `cf88beb…`. This corrects an earlier planning
+assumption: unchanged agent source still produces a new binary because the
+revision stamp changed, so coherent qualification does require rebuilding its
+dependent initramfs and private kernel manifest before activation.
+
+The coherent `cf88beb…` artifact candidate passed independent bootstrap
+validation. Exact agent is `056402d6…`, gzip-valid initramfs `52ce2b0a…`, and
+private manifest `a3656ae8…`; the pinned kernel, transport module, relay,
+compatibility, and declared feature set all resolve. Installation and active
+service identity remain unclaimed.
+
+Coordinated empty-host activation passed. Immutable release
+`0.1.0-dev-cf88beb…` is active, the final manifest validates at `a3656ae8…`,
+and installed shim hash is `bf79230d…`. After ten seconds mkruntimed PID
+`40581` and mknetd PID `40562` were active with zero restarts and successful
+status; containerd and Docker remained active. Daemon, network daemon, and shim
+all report full revision `cf88beb…`, while boot ID `ce405359…` is unchanged.
+Workload behavior remains a separate checkpoint.
+
+The exact `cf88beb…` live run proved the longer daemon deadlines and captured
+the actual guest failure. Runner `3eaa058b…` created generation `6cba5f75…`,
+the console attached while it was active, the exact kernel booted with two CPUs
+and 3 GiB, NBD attached, ext4 mounted, and
+`MK_STORAGE_BOOTSTRAP_READY` printed. Then `/init` line 5 reported
+`mountpoint: not found`; its fallback `mount` of devtmpfs on the already busy
+`/dev` failed, `set -e` exited PID 1 with 255, and the child panicked at 7.835s.
+The client consequently reported the expected agent timeout and cleanup ran.
+The root cause is bootstrap construction: it installs `/bin/busybox` but does
+not provide a `mountpoint` applet link while `runtime-mediated-init` invokes the
+bare command. The bootstrap must use explicit BusyBox applets (with archive
+tests) rather than suppress the mount failure.
+
+The agent init now detects inherited mounts by reading `/proc/mounts` through
+the controlled `/bin/busybox grep` applet and invokes `/bin/busybox mount` only
+when a fixed mountpoint is absent. It no longer depends on the optional
+`mountpoint` applet and preserves the mediated bootstrap's moved `/dev`,
+`/proc`, and `/sys`. Regression checks forbid reintroducing `mountpoint`, bind
+the detection and devtmpfs behavior to explicit BusyBox paths, and confirm the
+runtime storage builder installs this exact init as `/init`. Shell syntax, the
+62-case OCI/builder suite, and `git diff --check` pass; broad gates remain.
+
+The subsequent full local gate passed: every Go package under the race
+detector, repository-wide vet, the complete documentation/link/schema/evidence
+chain, OCI/bind/bootstrap/rootfs/storage/image/release/deployment/ledger/
+capture/containerd checks, final evidence audit, and diff checking. The known
+local socket-permission skip remains assigned to the privileged guest.
+Generated Python cache was removed and the user-owned untracked evidence tree
+was not changed.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,
