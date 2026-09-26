@@ -5381,6 +5381,37 @@ func TestStopNetworkBoundsGuestCloseAndContinuesLocalCleanup(t *testing.T) {
 	}
 }
 
+func TestStopNetworkReportsCountersOnlyForLiveNetworkOwner(t *testing.T) {
+	endpoint := validShimEndpoint("task", "sandbox", strings.Repeat("a", 32), strings.Repeat("b", 32), "/run/netns/test")
+
+	t.Run("cleanup recovery skips zero counter report", func(t *testing.T) {
+		client := &fakeNetworkClient{endpoint: endpoint}
+		s := &service{netEndpoint: endpoint, netClient: client}
+		if err := s.stopNetwork(); err != nil {
+			t.Fatal(err)
+		}
+		if len(client.calls) != 0 {
+			t.Fatalf("cleanup-only recovery reported unowned counters: %v", client.calls)
+		}
+	})
+
+	t.Run("live TUN owner reports final counters", func(t *testing.T) {
+		device, peer, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer peer.Close()
+		client := &fakeNetworkClient{endpoint: endpoint}
+		s := &service{netEndpoint: endpoint, netClient: client, netDevice: device}
+		if err = s.stopNetwork(); err != nil {
+			t.Fatal(err)
+		}
+		if fmt.Sprint(client.calls) != "[REPORT]" {
+			t.Fatalf("live network final calls = %v", client.calls)
+		}
+	})
+}
+
 func TestSupervisorRestartsSignaledWorker(t *testing.T) {
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {

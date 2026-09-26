@@ -1220,6 +1220,10 @@ func (m *Manager) ConfigureNetwork(config NetworkConfig) error {
 	return m.ConfigureNetworkContext(context.Background(), config)
 }
 
+func networkSetupError(stage string, err error) error {
+	return fmt.Errorf("guest network setup stage %s failed: %w", stage, err)
+}
+
 func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkConfig) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -1253,30 +1257,34 @@ func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkCon
 	}
 	f, err := os.OpenFile("/dev/net/tun", os.O_RDWR|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		return err
+		return networkSetupError("tun-open", err)
 	}
 	request, err := unix.NewIfreq(config.Name)
 	if err != nil {
 		f.Close()
-		return err
+		return networkSetupError("tun-request", err)
 	}
 	request.SetUint16(iffTun | iffNoPI)
 	if err = unix.IoctlIfreq(int(f.Fd()), tunSetIFF, request); err != nil {
 		f.Close()
-		return err
+		return networkSetupError("tun-create", err)
 	}
-	commands := [][]string{
-		{"address", "add", config.Address, "dev", config.Name},
-		{"link", "set", config.Name, "mtu", strconv.Itoa(config.MTU), "up"},
-		{"route", "add", "default", "via", config.Gateway, "dev", config.Name},
+	commands := []struct {
+		stage string
+		args  []string
+	}{
+		{stage: "address", args: []string{"address", "add", config.Address, "dev", config.Name}},
+		{stage: "link", args: []string{"link", "set", config.Name, "mtu", strconv.Itoa(config.MTU), "up"}},
+		{stage: "route", args: []string{"route", "add", "default", "via", config.Gateway, "dev", config.Name}},
 	}
-	for _, args := range commands {
-		if output, commandErr := m.executeNetworkCommand(ctx, args...); commandErr != nil {
+	for _, command := range commands {
+		if output, commandErr := m.executeNetworkCommand(ctx, command.args...); commandErr != nil {
 			f.Close()
 			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			cleanupOutput, cleanupErr := m.executeNetworkCommand(cleanupCtx, "link", "delete", config.Name)
 			cancel()
-			operationErr := fmt.Errorf("ip %s: %w: %s", strings.Join(args, " "), commandErr, strings.TrimSpace(string(output)))
+			operationErr := networkSetupError(command.stage,
+				fmt.Errorf("ip %s: %w: %s", strings.Join(command.args, " "), commandErr, strings.TrimSpace(string(output))))
 			if cleanupErr != nil {
 				m.networkName = config.Name
 				cleanupErr = fmt.Errorf("delete child network after setup failure: %w: %s", cleanupErr, strings.TrimSpace(string(cleanupOutput)))
@@ -1295,7 +1303,7 @@ func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkCon
 			m.networkName = config.Name
 			cleanupErr = fmt.Errorf("delete child network after DNS failure: %w: %s", cleanupErr, strings.TrimSpace(string(cleanupOutput)))
 		}
-		return errors.Join(err, cleanupErr)
+		return errors.Join(networkSetupError("dns", err), cleanupErr)
 	}
 	m.network = f
 	m.networkName = config.Name

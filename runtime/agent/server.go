@@ -82,6 +82,20 @@ func (r *Reply) UnmarshalJSON(data []byte) error {
 func safeAgentError(sequence uint64, raw string) *protocol.Error {
 	code, message := "INTERNAL", "agent operation failed"
 	switch {
+	case strings.Contains(raw, "guest network setup stage tun-open failed"):
+		message = "guest network setup failed at tun-open"
+	case strings.Contains(raw, "guest network setup stage tun-request failed"):
+		message = "guest network setup failed at tun-request"
+	case strings.Contains(raw, "guest network setup stage tun-create failed"):
+		message = "guest network setup failed at tun-create"
+	case strings.Contains(raw, "guest network setup stage address failed"):
+		message = "guest network setup failed at address"
+	case strings.Contains(raw, "guest network setup stage link failed"):
+		message = "guest network setup failed at link"
+	case strings.Contains(raw, "guest network setup stage route failed"):
+		message = "guest network setup failed at route"
+	case strings.Contains(raw, "guest network setup stage dns failed"):
+		message = "guest network setup failed at dns"
 	case strings.Contains(raw, "frame too large"):
 		code, message = "INVALID_ARGUMENT", "agent frame is too large"
 	case strings.Contains(raw, "authentication"), strings.Contains(raw, "identity"), strings.Contains(raw, "replayed sequence"):

@@ -2744,6 +2744,11 @@ func (s *service) startNetworkPump() {
 
 func (s *service) stopNetwork() error {
 	var failures []error
+	// Cleanup-only recovery reconstructs the persisted endpoint so it can be
+	// released, but it does not own the guest, pump, or TUN counter state.  In
+	// that case reporting zero-valued counters would regress mknetd's durable
+	// counters and fail closed with STALE_COUNTER.
+	reportCounters := s.netDone != nil || s.agent != nil || s.netDevice != nil
 	if s.netDone != nil {
 		close(s.netDone)
 		s.netWG.Wait()
@@ -2768,8 +2773,10 @@ func (s *service) stopNetwork() error {
 		}
 		s.netDevice = nil
 	}
-	if err := s.reportNetwork("READY"); err != nil {
-		failures = append(failures, fmt.Errorf("persist network counters: %w", err))
+	if reportCounters {
+		if err := s.reportNetwork("READY"); err != nil {
+			failures = append(failures, fmt.Errorf("persist network counters: %w", err))
+		}
 	}
 	return errors.Join(failures...)
 }
