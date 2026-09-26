@@ -2781,6 +2781,68 @@ containerd, and final-evidence suites, followed by `git diff --check`. The
 known locally permission-gated socket subcase remains assigned to the guest.
 An immutable commit and exact-source guest deployment are the next boundaries.
 
+The two corrections and their contemporaneous findings are immutable at
+`cc56f9a238bbab800fdd0c8c76c091d1ba327eab`. Its source-only archive hashes
+to `0b963bb9a3c200b50612831ef7e681a00600c0cc90edb20fb1f21ce7e3969b0e` and
+contains neither Git metadata nor the pre-existing untracked evidence tree.
+Guest transfer, independent digest verification, rebuild, activation, and live
+qualification remain separate unclaimed boundaries.
+
+The guest independently matched the archive digest, extracted it into private
+root-owned `/root/mklinux-src-cc56f9a-20260926`, verified that every extracted
+object is root-owned and that excluded trees remain absent, then completed the
+full revision-stamped build. Exact identities are release manifest
+`ee93424a…`, shim `8bd0608d…`, mkruntimed `d2dbc17b…`, mknetd `562dc51e…`, and
+mk-agent `f7342e65…`. Installation and activation remain unclaimed.
+
+Binary installation then activated exact release
+`0.1.0-dev-cc56f9a238bbab800fdd0c8c76c091d1ba327eab`; manager inspection found
+all command links managed, and containerd 2.2.2's own `ctr plugins
+inspect-runtime` decoded the repaired response with the exact version/revision,
+null options, and deliberately null feature/annotation fields. The following
+combined deployment/restart command did not reach the guest because a nested
+local quote terminated the `--command` argument; the local shell reported a
+tail fragment as an unknown command. Therefore no deployment or restart claim
+is made from that attempt.
+
+The safely quoted retry reused the identical active deployment generation
+`ca7bc745…` because its support inputs were unchanged, and inspection verified
+every managed link. Only after empty containerd and Docker inventories were
+confirmed, mkruntimed, mknetd, and containerd were restarted. Those services
+and Docker were active immediately and five seconds later; both runtime
+daemons report exact `cc56f9a…` revisions. Containerd still selects `runc` by
+default, registers Multikernel separately, decodes its runtime info after the
+restart, and has zero new `failed to load runtime info` journal records. Live
+workload qualification is the next boundary.
+
+The exact ordinary-user suite passed preflight, builder, child launch, and the
+formerly failing TUN lookup, then stopped at the next boundary:
+`fork/exec /usr/local/libexec/multikernel/mkvsock-relay: no such file or
+directory`. The suite cleanup trap ran. This is positive live proof for the
+network-namespace correction, but not a workload pass; resource cleanup and
+the missing host relay artifact must be audited before retry.
+
+The audit is clean: no containerd/Docker workload, child, host `mkv*` link,
+named namespace, endpoint state, rootfs record, or active storage state remains;
+all four services are active. The relay was not absent from the qualified host:
+root-owned static `/opt/mkruntime/bin/mkvsock-relay` hashes to `293ff1ea…`,
+exactly matching the approved kernel manifest's relay path and digest. The shim
+instead hard-coded an unrelated `/usr/local/libexec/multikernel/...` default.
+This is a path-contract defect. The default must select the manifest-pinned
+`/opt` artifact before another immutable build; copying a second untracked
+binary would conceal rather than fix the mismatch.
+
+The shim default now names `/opt/mkruntime/bin/mkvsock-relay`; `MK_RELAY`
+remains an explicit override. A focused regression proves both the approved
+default and override, and the complete shim race suite, focused vet, and clean
+diff check pass. Full repository qualification remains pending before commit.
+
+The subsequent full local gate passed on 2026-09-26: every Go package under
+the race detector, repository-wide vet, the complete documentation/schema/
+evidence and runtime boundary matrix, final evidence audit, and diff checking.
+The expected local socket-permission skip remains delegated to the privileged
+guest. Commit and exact live redeployment remain separate.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,

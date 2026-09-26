@@ -332,7 +332,7 @@ func (s *service) relayCommand(port uint32, socket string) *exec.Cmd {
 	if s.newRelay != nil {
 		return s.newRelay(port, socket)
 	}
-	return newRelayCommand(getenv("MK_RELAY", "/usr/local/libexec/multikernel/mkvsock-relay"), port, socket)
+	return newRelayCommand(getenv("MK_RELAY", "/opt/mkruntime/bin/mkvsock-relay"), port, socket)
 }
 
 func (s *service) agentRelaySocketPath(port uint32, generation string) string {
