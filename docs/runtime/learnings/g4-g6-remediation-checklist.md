@@ -2843,6 +2843,82 @@ evidence and runtime boundary matrix, final evidence audit, and diff checking.
 The expected local socket-permission skip remains delegated to the privileged
 guest. Commit and exact live redeployment remain separate.
 
+The relay-path correction is immutable at
+`f89dd00b804bdac4ac839baa8736d036f17aca65`. Its source-only archive hashes
+to `77d8fc3231275cd7418934dfc15c8222b6f7d9daab1e6c88773faa7483c2075a` and
+again excludes Git metadata and the untouched untracked evidence tree. Guest
+verification, rebuild, activation, and live retry remain unclaimed.
+
+The guest independently matched the new archive digest, extracted an all-root-
+owned private tree with excluded metadata still absent, and completed the full
+revision-stamped build. Exact hashes are release manifest `ca4c3c08…`, shim
+`45d7f740…`, mkruntimed `2fcd2b3a…`, mknetd `58fd7513…`, and agent
+`db46bac6…`. These are build identities only; installation is next.
+
+The binary manager activated exact release `0.1.0-dev-f89dd00…` on an empty
+host and verified every link. Both restarted daemons and containerd/Docker
+were active immediately and after five seconds, all installed runtime binaries
+report `f89dd00…`, native runtime inspection succeeds, and the approved relay
+hash still exactly matches the kernel manifest. systemd warned that the linked
+unit sources had changed on disk and requested `daemon-reload`; that reload
+must be completed before the live rerun even though service health is stable.
+
+The requested `daemon-reload` completed; all four services remained active
+immediately and three seconds later, with runtime daemon PIDs `22235` and
+`22217`. The exact live suite can now run without an unresolved activation
+warning.
+
+The exact `f89dd00` suite no longer fails to execute the relay. It progresses
+through child, network, and relay setup, then after the agent-connection
+interval the shim closes and ctr reports `ttrpc: closed`; the cleanup trap
+runs. This proves the approved-relay path correction live, but exposes the
+next agent-readiness or shim-liveness boundary. Cause and cleanup completeness
+remain unclaimed until resource inventories and journals are collected.
+
+The journal provides an exact cause: while retrying a not-yet-published relay
+socket, `captureRelaySocket` converted `(*unixsocket.Path)(nil)` plus
+`os.ErrNotExist` into a non-nil interface and stored it. After the child halted
+before agent readiness, timeout cleanup called `Remove` on that typed nil and
+panicked at `main.go:1985`; containerd then could not complete dead-shim delete
+within five seconds. Unlike earlier failures, cleanup is incomplete: the child,
+veth, named namespace, relay process, and storage image remain even though both
+client inventories are empty. The fix must assign relay ownership only after a
+successful capture in both fresh and recovery paths, then explicitly reconcile
+this preserved failure before rerunning.
+
+The preserved recovery record binds sandbox `mk-mk-proof-ctr-592a31dcfc440cd2`,
+generation `0ba4a966…`, network generation `66d25609…`, task/storage digest
+`0a6676ec…`, and bundle inode. mkruntimed still reports it `RUNNING` with active
+storage, while relay PID `22955` has the exact approved executable and matching
+generation-qualified command line. This identity evidence is sufficient for a
+targeted relay termination followed by the shim's authenticated recovery
+cleanup; broad namespace/link deletion will not be used.
+
+Exact relay identity revalidation passed and PID `22955` terminated. The first
+manual cleanup invocation then failed before mutation because it ran from the
+ordinary user's home directory; the shim correctly rejected that mode-0750,
+UID-1001 directory as its root caller's bundle identity. The authenticated
+retry must execute with the preserved bundle as cwd, matching containerd's
+normal invocation contract. No resource-cleanup success is inferred yet.
+
+Running from the correct bundle exposed a second recovery defect before cleanup:
+the recovery dial assigned a failed `(*agent.Client)(nil)` directly into the
+`agentClient` interface, and its error defer called `Close` on that typed nil.
+More fundamentally, containerd's `delete` action should not attempt full guest
+recovery before calling the already authenticated `Cleanup` method; an
+unreachable guest otherwise makes dead-shim cleanup unreachable. Recovery now
+assigns the client only after a successful dial, and exact terminal `delete`
+invocations skip event replay/full recovery so `Cleanup` can use held durable
+identity. Focused regressions cover typed-nil relay publication and strict
+delete-action parsing; the full shim race suite and focused vet pass. The
+preserved guest is intentionally not retried until an immutable build exists.
+
+The full 2026-09-26 local gate now passes for these cleanup corrections: all Go
+packages under race, repository-wide vet, every documentation/schema/evidence
+and runtime boundary suite, final evidence audit, and diff checking. The known
+local socket-permission skip remains assigned to the guest. Commit, exact
+rebuild, and preserved-failure cleanup remain next.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,

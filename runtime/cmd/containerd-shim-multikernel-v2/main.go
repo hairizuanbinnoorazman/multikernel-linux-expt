@@ -289,19 +289,53 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 		daemon:    daemon.Client{Path: getenv("MK_DAEMON_SOCKET", "/run/mkruntimed.sock")},
 		netClient: mknetwork.Client{Path: getenv("MK_NETWORK_SOCKET", "/run/mknetd.sock")}, processes: map[string]*process{},
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
-	if err = s.loadEventJournal(); err != nil {
-		_ = bundleDirectory.Close()
-		return nil, err
+	if !deleteInvocation(os.Args[1:]) {
+		if err = s.loadEventJournal(); err != nil {
+			_ = bundleDirectory.Close()
+			return nil, err
+		}
+		if err = s.recoverExisting(ctx); err != nil {
+			_ = bundleDirectory.Close()
+			return nil, err
+		}
+		if err = s.flushEvents(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "multikernel event replay deferred: %v\n", err)
+		}
+		s.startEventRetry(time.Second)
 	}
-	if err = s.recoverExisting(ctx); err != nil {
-		_ = bundleDirectory.Close()
-		return nil, err
-	}
-	if err = s.flushEvents(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel event replay deferred: %v\n", err)
-	}
-	s.startEventRetry(time.Second)
 	return s, nil
+}
+
+func deleteInvocation(arguments []string) bool {
+	valueFlags := map[string]bool{
+		"-address": true, "-bundle": true, "-id": true, "-namespace": true,
+		"-publish-binary": true, "-socket": true,
+	}
+	for index := 0; index < len(arguments); index++ {
+		argument := arguments[index]
+		if valueFlags[argument] {
+			index++
+			if index >= len(arguments) {
+				return false
+			}
+			continue
+		}
+		if argument == "-debug" || strings.HasPrefix(argument, "-debug=") {
+			continue
+		}
+		matchedValueFlag := false
+		for name := range valueFlags {
+			if strings.HasPrefix(argument, name+"=") {
+				matchedValueFlag = true
+				break
+			}
+		}
+		if matchedValueFlag {
+			continue
+		}
+		return argument == "delete" && index == len(arguments)-1
+	}
+	return false
 }
 
 func (s *service) dialAgent(ctx context.Context, path string) (agentClient, error) {
@@ -347,6 +381,18 @@ func (s *service) captureRelaySocket(path string) (relayPathOwner, error) {
 		return s.newRelayOwner(path)
 	}
 	return unixsocket.Capture(path)
+}
+
+func (s *service) acquireRelaySocketOwner(path string) error {
+	owner, err := s.captureRelaySocket(path)
+	if err != nil {
+		return err
+	}
+	if owner == nil {
+		return errors.New("relay socket capture returned no owner")
+	}
+	s.relayOwner = owner
+	return nil
 }
 
 func validateServiceIdentity(id, namespace, bundle string) error {
@@ -1742,7 +1788,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		if s.relayOwner == nil {
-			s.relayOwner, err = s.captureRelaySocket(s.relaySocket)
+			err = s.acquireRelaySocketOwner(s.relaySocket)
 			if errors.Is(err, os.ErrNotExist) && time.Now().Before(deadline) && ctx.Err() == nil {
 				if err = waitContext(ctx, 50*time.Millisecond); err == nil {
 					continue
@@ -1752,7 +1798,11 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 				return fmt.Errorf("capture recovered agent relay socket: %w", err)
 			}
 		}
-		s.agent, err = s.dialAgent(ctx, s.relaySocket)
+		var client agentClient
+		client, err = s.dialAgent(ctx, s.relaySocket)
+		if err == nil {
+			s.agent = client
+		}
 		if err == nil || time.Now().After(deadline) || ctx.Err() != nil {
 			break
 		}
@@ -2543,7 +2593,7 @@ func (s *service) connectAgent(ctx context.Context) error {
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
 		if s.relayOwner == nil {
-			s.relayOwner, err = s.captureRelaySocket(sock)
+			err = s.acquireRelaySocketOwner(sock)
 			if errors.Is(err, os.ErrNotExist) {
 				if err = waitContext(ctx, 100*time.Millisecond); err != nil {
 					return errors.Join(err, s.stopNetwork(), s.stopRelay())

@@ -5482,6 +5482,19 @@ func TestOpenServiceIdentityRejectsSupervisorHandoffMismatch(t *testing.T) {
 }
 
 func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
+	t.Run("failed capture never publishes typed nil", func(t *testing.T) {
+		service := &service{newRelayOwner: func(string) (relayPathOwner, error) {
+			var owner *unixsocket.Path
+			return owner, os.ErrNotExist
+		}}
+		if err := service.acquireRelaySocketOwner("/run/missing.sock"); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("capture error = %v", err)
+		}
+		if service.relayOwner != nil {
+			t.Fatalf("failed capture published owner %#v", service.relayOwner)
+		}
+	})
+
 	t.Run("default is approved artifact location", func(t *testing.T) {
 		t.Setenv("MK_RELAY", "")
 		command := (&service{}).relayCommand(7001, "/tmp/mk-relay-test.sock")
@@ -5570,6 +5583,19 @@ func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
 			t.Fatalf("socket cleanup retry: error=%v retained=%q", err, s.relaySocket)
 		}
 	})
+}
+
+func TestDeleteInvocationRequiresTerminalExactAction(t *testing.T) {
+	for _, arguments := range [][]string{{"-namespace", "default", "delete"}, {"delete"}} {
+		if !deleteInvocation(arguments) {
+			t.Fatalf("delete invocation rejected: %v", arguments)
+		}
+	}
+	for _, arguments := range [][]string{nil, {"start"}, {"delete", "extra"}, {"-id", "delete"}} {
+		if deleteInvocation(arguments) {
+			t.Fatalf("non-delete invocation accepted: %v", arguments)
+		}
+	}
 }
 
 func TestStaleRelayCleanupRejectsNonSocketPathsWithoutRemoval(t *testing.T) {
