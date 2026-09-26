@@ -2265,6 +2265,74 @@ and final-audit chain then passed; the diff is clean. The expected local socket
 permission skip remains reserved for the guest. Generated Python cache was
 removed without touching the pre-existing untracked evidence directory.
 
+The fix and live diagnosis are immutable at
+`a209f7cb99863a0902afeff19806dbfe2d28d967`. Its clean source archive is
+`5e3408f7…2103a`. Since the changed init is deployment-owned and embedded in
+each runtime storage image, exact qualification needs both a new binary/
+agent/initramfs set and a new managed deployment generation; replay against a
+mixed generation would be invalid.
+
+Guest digest, ownership, and exclusion verification passed, followed by a full
+exact build. The release manifest is `18471bfc…`; shim `b24a4acd…`, daemon
+`4ec33750…`, network daemon `086bdbfe…`, and agent `01c69ee3…` report
+`a209f7c…`. No active behavior is inferred from these build outputs.
+
+Coordinated activation installed binary release `0.1.0-dev-a209f7c…`, managed
+deployment `a8a777e3…`, and validated manifest `6c0f897e…` on an empty host.
+Every managed link verifies; installed init `edc9284c…` matches source and has
+no `mountpoint` dependency. All four services stayed active for ten seconds,
+daemon/network daemon had zero restarts, component revisions match, and boot ID
+`ce405359…` is unchanged. This closes coherence, not the workload matrix.
+
+The exact rerun progresses beyond the fixed panic but does not pass. The child
+remains active, the ctr task reached CREATED, and `ctr run` then surfaced
+`INTERNAL: agent operation failed`. Although the harness cleanup began, a
+concurrent inventory still contained the active child plus ctr task/container;
+both daemons remained healthy. The attached console has not returned, so this
+is explicitly incomplete cleanup pending the guest markers and exact agent
+error.
+
+Console evidence confirms the fixed init reaches `MK_STORAGE_BOOTSTRAP_READY`
+and `MK_AGENT_START` without panic. The first agent operation then fails;
+cleanup closes NBD at guest uptime 24.598 seconds and the mounted filesystem
+reports the resulting write errors. Containerd's delete retries fail at the
+more precise boundary `close guest network: INTERNAL: agent operation failed`,
+leaving the exact shim, relay, child, and recovery files intact. Those retained
+identities must be inspected before targeted cleanup.
+
+After revalidating and ending only the console collector, the wrapper returned
+`RUN_RC=1`. Recovery binds generation `c247ea40…`, network `a2dfb03f…`, storage
+`99c68361…`, bundle inode 6530, worker PID 43122, relay PID 43722, and socket
+inode 6615; lifecycle remains RUNNING. The shim's authenticated dead-worker
+cleanup can bypass guest replay, but process-group identity must be established
+before terminating this failed shim.
+
+The exact supervisor group and relay were revalidated and selectively
+terminated. Containerd's dead-shim path removed the task, child, and all target
+processes, but returned `STALE_COUNTER: network counters cannot decrease` while
+persisting recovered-network status; container metadata remains. The recovery
+file had zero counters even though mknetd had observed newer traffic/error
+counters. This is a cleanup-reconstruction counter regression until the
+remaining endpoint/rootfs/storage inventories prove its exact scope.
+
+The audit bounds the defect: lifecycle sequence 55 has no sandbox, rootfs
+record, active export, mknetd endpoint, namespace, link, firewall rule, or
+runtime storage directory. Only taskless containerd metadata/bundle remains
+because the cleanup process returned nonzero. Thus resource reclamation
+succeeded; recovered counter reporting and final metadata completion need
+correction.
+
+Ordinary containerd metadata removal then emptied the container inventory, but
+the failed task bundle remained due to the earlier nonzero dead-shim result.
+Rather than deleting evidence, the exact inode-bound bundle will be moved to a
+recoverable `/tmp` quarantine after confirming all runtime owners are absent.
+
+After those checks, the bundle content was quarantined at
+`/tmp/mk-proof-ctr-a209f7c-c247ea40.bundle` and the deterministic path became
+absent. Because `/tmp` is on another filesystem, this was a copy/remove move:
+the quarantine inode is 4252 rather than original inode 6530. Content remains
+recoverable, but inode identity was not retained.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,
@@ -2680,6 +2748,31 @@ The subsequent complete repository race suite, `go vet ./...`, the complete
 documentation/schema/evidence/deployment chain, and `git diff --check` passed
 on 2026-09-18. The local exclusive launch-metadata checkpoint is complete;
 current-source disposable-host proof remains unauthorized.
+
+## 2026-09-26 resumed live qualification
+
+The retained live evidence and current source agree on the cleanup-only
+counter failure: recovery has a durable endpoint to release but no live agent,
+pump, or TUN descriptor whose counters it owns. Reporting zero counters from
+that state regresses mknetd's durable values. The implementation now skips
+only that unowned final report and preserves ordinary final reporting for a
+live network owner.
+
+Guest network setup errors were intentionally secret-safe but too coarse to
+qualify the next failure. Setup failures now carry one fixed, non-secret stage
+through the wire redactor, while arbitrary command output, paths, and error
+text remain hidden. No root cause stage is claimed until this instrumentation
+is built from an exact commit and exercised on the disposable VM.
+
+The focused `go test -race` runs for `./agent` and
+`./cmd/containerd-shim-multikernel-v2` pass. Coverage includes both sides of
+the cleanup ownership branch and verifies that the new wire diagnostic does
+not disclose an injected private path or secret value.
+
+Full local qualification also passes under the race detector, `go vet`, and
+the documentation/schema/evidence/deployment chain. The sole skipped check is
+the previously classified socket-permission subcase (`EPERM` in this local
+sandbox). Exact commit creation and disposable-host execution remain next.
 
 The next G4 builder audit found that deterministic content did not imply safe
 publication. `build-runtime-rootfs.py` used `os.replace` for archive and

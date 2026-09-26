@@ -3295,6 +3295,87 @@ local socket-permission skip remains assigned to the privileged guest.
 Generated Python cache was removed and the user-owned untracked evidence tree
 was not changed.
 
+Commit `a209f7cb99863a0902afeff19806dbfe2d28d967` freezes the guest-init fix
+and its direct console evidence. The source-only archive hashes to
+`5e3408f772fe1f4f7b2e0f4058bdff0f393685f9b114c070fc2ab9979a42103a`
+and excludes the untracked evidence tree. Because `mk-agent-init` is both
+embedded in the runtime storage image and owned by the managed deployment,
+qualification requires exact binaries, revision-stamped agent/initramfs/
+manifest, and a new deployment generation before replay.
+
+The guest independently matched archive `5e3408f7…`, rechecked root ownership
+and source-only exclusions, and completed the exact build. Release manifest is
+`18471bfc…`; shim `b24a4acd…`, daemon `4ec33750…`, mknetd `086bdbfe…`, and
+agent `01c69ee3…` all carry revision `a209f7c…`. These are build identities
+only; artifact/deployment staging and activation remain.
+
+The complete exact stack is now active on an empty host: binary release
+`0.1.0-dev-a209f7c…`, deployment `a8a777e3…`, and kernel manifest
+`6c0f897e…`. All managed deployment links verify, and installed agent init
+`edc9284c…` exactly matches source with no `mountpoint` dependency. After ten
+seconds all four services were active; mkruntimed PID `42862` and mknetd PID
+`42843` had zero restarts and successful status, every component reported the
+full revision, and boot ID `ce405359…` was unchanged. The workload rerun remains
+unclaimed.
+
+The `a209f7c…` rerun clears the prior panic but is not yet a pass. The child
+remained active and ctr reached task state CREATED, then `ctr run` returned
+`INTERNAL: agent operation failed`. The harness cleanup started, but a
+concurrent inventory still found the child active and ctr task/container
+present while both daemons remained healthy. The console collector is still
+attached, so cleanup is incomplete at this checkpoint. Live guest markers and
+the exact agent error must be collected before intervening.
+
+The live console proves the mount fix itself: storage mounted, bootstrap became
+ready, and `MK_AGENT_START` appeared without a panic. The first host-to-agent
+operation then failed; cleanup closed the NBD export at guest uptime 24.598s,
+after which ext4 logged expected disconnect/write errors. Containerd's two
+delete attempts identify the retained-cleanup boundary as
+`close guest network: INTERNAL: agent operation failed`. The exact shim,
+relay, child, and recovery files remain for authenticated diagnosis; they must
+not be broadly killed before the recovery record and agent protocol are
+inspected.
+
+The console collector was terminated only after its PID and full command line
+were revalidated; the diagnostic wrapper then returned `RUN_RC=1`. Retained
+recovery identity is generation `c247ea40…`, network generation `a2dfb03f…`,
+storage generation `99c68361…`, bundle inode 6530, worker PID 43122, relay PID
+43722, and relay-socket inode 6615. Lifecycle still records RUNNING. The
+authenticated dead-worker cleanup path can avoid the failing guest RPC, but
+the exact shim process group/executable/cwd must be verified before it is used.
+
+Supervisor/worker/relay identity checks passed, and only those exact processes
+were terminated. Containerd invoked cleanup-only delete, removed the task and
+child, and no target process remains. Dead-shim cleanup nevertheless returned
+`stop recovered network: persist network counters: STALE_COUNTER: network
+counters cannot decrease`; container metadata remains. The recovery snapshot
+held zero counters while mknetd had newer live counters, so reconstruction
+attempted to report zero as READY. Endpoint/rootfs/storage state must be
+inspected before deciding whether this is only a cleanup-reporting defect.
+
+The complete audit shows that it is a reporting/reconstruction defect rather
+than leaked runtime ownership. At lifecycle sequence 55 there are no sandboxes,
+rootfs records, active exports, mknetd endpoints, namespaces, links, runtime
+firewall rules, or storage directories. Only containerd's taskless container
+metadata and bundle remain because its dead-shim command returned nonzero.
+Normal container metadata removal is now safe; counter recovery still needs a
+source correction before another live run.
+
+Normal `ctr containers rm` cleared the remaining metadata and left all four
+services active, but the failed task bundle directory remained because the
+earlier dead-shim cleanup returned nonzero. It will not be recursively deleted:
+after revalidating bundle inode 6530 and absent runtime owners, the exact tree
+will be moved to a named `/tmp` quarantine so its diagnostics remain
+recoverable and the deterministic task path is clean.
+
+The exact source inode and empty-owner preconditions were revalidated, and the
+bundle contents now reside at
+`/tmp/mk-proof-ctr-a209f7c-c247ea40.bundle`; the deterministic runtime path is
+absent. Correction: `/tmp` is a different filesystem, so GNU `mv` copied then
+removed the original tree and the quarantined directory has inode 4252, not
+6530. The diagnostic content is recoverable, but the original directory inode
+was not preserved.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,
@@ -3693,3 +3774,34 @@ host-config loader rejects that pathname form. The immediate aggregate
 proof. No `/var/lib/mkruntime` or storage `runtime` subtree was created; only
 the empty mknetd state directory appeared. This must be fixed in source and
 redeployed before any live matrix is attempted.
+
+## 2026-09-26 live-continuation checkpoint
+
+Source inspection confirms the cleanup-only `Cleanup` path reconstructs the
+persisted network endpoint without reconstructing a guest client, network
+pump, or TUN descriptor. `stopNetwork` nevertheless issued a final `REPORT`
+with fresh zero counters, explaining the observed `STALE_COUNTER` response
+from mknetd. The remediation now conditions that final report on ownership of
+one of those live counter-producing resources; endpoint release remains a
+separate mandatory operation.
+
+The original guest `ConfigureNetwork` failure still has no safe stage detail:
+the agent deliberately redacts arbitrary manager errors to avoid disclosing
+paths or workload data. The remediation adds a fixed whitelist of setup stages
+(`tun-open`, `tun-request`, `tun-create`, `address`, `link`, `route`, `dns`)
+while retaining `INTERNAL` and suppressing the underlying error text. This is
+diagnostic instrumentation, not evidence that any particular stage failed;
+that conclusion requires an exact-revision live rerun.
+
+Focused race-detector tests now pass for both affected packages. They prove
+that cleanup-only recovery makes no mknetd `REPORT`, a service holding a live
+TUN owner still makes its final `REPORT`, bounded guest close still releases
+the local descriptor, and a staged network error exposes only the whitelisted
+stage while suppressing an injected private path and secret token.
+
+The complete local gate now passes: `go test -race -count=1 ./...`,
+`go vet ./...`, and `bash scripts/check-docs.sh`, including all 62 OCI
+semantic cases, read-only-bind races, bootstrap/storage/image validation,
+release/deployment lifecycle tests, resource-ledger and evidence audits. The
+known unprivileged socket-rejection subcase was skipped with `EPERM`; it is not
+a regression in these changes.
