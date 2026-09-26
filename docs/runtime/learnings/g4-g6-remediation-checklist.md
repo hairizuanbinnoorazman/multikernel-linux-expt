@@ -2998,6 +2998,52 @@ passed 100 race-detector repetitions. The complete race suite, vet, full
 documentation/evidence gate, and diff check then passed again; no local claim
 depends on the earlier force-kill wording.
 
+The verified recovery change is immutable at
+`d0bff83845442883e8ebe9ef1e3b477c94defc83`. Its source-only archive hashes
+to `1306898b584fa450937da448ad32e000e38dac750bbeda5927ac08a4965c5391`;
+archive inspection found neither repository metadata nor the untouched
+`evidence/runtime-20260907` tree. Guest digest verification, exact build,
+activation, and recovery replay remain unclaimed.
+
+The guest independently matched archive SHA-256 `1306898b…`, extracted it
+under private root ownership, and confirmed that `.git` and the local untracked
+evidence tree were absent. The exact full-revision build passed. Its release
+manifest is `4fb83d19…`; shim `80bf3a28…`, mkruntimed `b1a0f516…`, mknetd
+`a2dbf46d…`, and agent `60f711ec…` all carry revision `d0bff83…`. Activation
+and preserved-state recovery remain unclaimed.
+
+With mkruntimed inactive and containerd, Docker, and Multikernel instance
+inventories empty, the binary manager installed and activated exact release
+`0.1.0-dev-d0bff83845442883e8ebe9ef1e3b477c94defc83`. Inspection reports all
+six command/CNI links managed, and both mkruntimed and the shim print the exact
+revision. Preserved-state recovery has not yet been started or claimed.
+
+The first exact-daemon recovery start advanced beyond rootfs construction but
+failed in lifecycle's storage reconciliation after roughly six seconds:
+`restart durable storage export: storage image digest differs from prepared
+identity`. Systemd began a restart loop; it was stopped after four retries.
+Lifecycle remains sequence 23/`STOPPING`, rootfs remains `PREPARED`, and the
+recorded storage directory and image remain present. No recovery mutation or
+service-health success is claimed. This exposes a separate contract error:
+the prepared-image digest is being required after a writable guest session,
+although ext4 runtime writes necessarily change whole-image bytes. Recovery
+must authenticate the durable inode/generation and validate the filesystem at
+the proper quiesced boundary rather than compare it to its pre-run digest.
+
+The storage contract is now phase-specific. Provisioning and interrupted
+`PREPARING` recovery still require the pristine digest. Restart of an `ACTIVE`
+export instead requires the same recorded device/inode and stable pathname,
+full size/allocation, caller ownership, clean ext4 state, UUID, inode capacity,
+and block capacity; it does not compare mutable bytes with the pristine hash.
+A changed-byte image passes only current inspection, the pristine inspection
+still rejects its digest, and a wrong UUID remains rejected. This boundary,
+active restart selection, and inode-replacement rejection passed 100
+race-detector repetitions. Full-tree verification remains pending.
+
+The complete repository race suite, vet, documentation/schema/evidence and
+runtime-boundary gate, deployment/final audits, and diff check then passed.
+Exact commit and live recovery replay remain next.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,

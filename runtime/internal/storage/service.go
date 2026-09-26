@@ -20,6 +20,7 @@ var digestRE = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Backend interface {
 	Inspect(context.Context, PreparedImage) (ImageIdentity, error)
+	InspectCurrent(context.Context, PreparedImage) (ImageIdentity, error)
 	Start(context.Context, Export) error
 	Observe(context.Context, Export) (Observation, error)
 	Stop(context.Context, Export) (Counters, error)
@@ -234,7 +235,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			if observation.Active {
 				return errors.New("active storage process has a conflicting generation")
 			}
-			identity, inspectErr := s.backend.Inspect(ctx, value.PreparedImage)
+			identity, inspectErr := s.backend.InspectCurrent(ctx, value.PreparedImage)
 			if inspectErr == nil && identity != value.ImageIdentity {
 				inspectErr = errors.New("durable storage image identity changed")
 			}

@@ -24,6 +24,10 @@ func (f *fakeBackend) Inspect(context.Context, PreparedImage) (ImageIdentity, er
 	f.calls = append(f.calls, "inspect")
 	return f.identity, f.fail["inspect"]
 }
+func (f *fakeBackend) InspectCurrent(context.Context, PreparedImage) (ImageIdentity, error) {
+	f.calls = append(f.calls, "inspect-current")
+	return f.identity, f.fail["inspect-current"]
+}
 func (f *fakeBackend) Start(_ context.Context, value Export) error {
 	f.calls = append(f.calls, "start")
 	if err := f.fail["start"]; err != nil {
@@ -237,6 +241,9 @@ func TestReconcileRestartsOnlyAbsentExactActiveExport(t *testing.T) {
 	}
 	if backend.active[image.Path] != value.ExportGeneration {
 		t.Fatalf("export was not restarted: %v", backend.active)
+	}
+	if !strings.Contains(strings.Join(backend.calls, ","), "observe,inspect-current,start") {
+		t.Fatalf("active recovery did not use current-image inspection: %v", backend.calls)
 	}
 	backend.active[image.Path] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	if err = service.Reconcile(context.Background()); err == nil {

@@ -112,7 +112,7 @@ func TestCommittedNonzeroTransitionsAreObserved(t *testing.T) {
 	}
 }
 
-func TestStopObservesBeforeForceKill(t *testing.T) {
+func TestStopAvoidsForceHalt(t *testing.T) {
 	for _, test := range []struct {
 		name, status string
 		wantErr      bool

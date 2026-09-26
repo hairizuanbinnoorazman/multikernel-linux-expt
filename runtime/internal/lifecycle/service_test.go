@@ -66,6 +66,10 @@ func (b *lifecycleStorageBackend) Inspect(context.Context, storagepkg.PreparedIm
 	b.calls = append(b.calls, "inspect")
 	return storagepkg.ImageIdentity{Device: 1, Inode: 2}, b.fail
 }
+func (b *lifecycleStorageBackend) InspectCurrent(context.Context, storagepkg.PreparedImage) (storagepkg.ImageIdentity, error) {
+	b.calls = append(b.calls, "inspect-current")
+	return storagepkg.ImageIdentity{Device: 1, Inode: 2}, b.fail
+}
 func (b *lifecycleStorageBackend) Start(_ context.Context, value storagepkg.Export) error {
 	b.calls = append(b.calls, "storage-start")
 	if b.fail != nil {

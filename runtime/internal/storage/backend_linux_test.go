@@ -105,6 +105,45 @@ func TestLinuxBackendInspectsExt4IdentityQuotaAndCleanState(t *testing.T) {
 	}
 }
 
+func TestLinuxBackendCurrentInspectionAllowsExpectedWritableImageChange(t *testing.T) {
+	image := makeExt4(t, false)
+	backend := &LinuxBackend{RequiredUID: os.Getuid()}
+	identity, err := backend.Inspect(context.Background(), image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.OpenFile(image.Path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := make([]byte, 1)
+	if _, err = file.ReadAt(last, int64(image.SizeBytes)-1); err != nil {
+		t.Fatal(err)
+	}
+	last[0] ^= 0xff
+	if _, err = file.WriteAt(last, int64(image.SizeBytes)-1); err != nil {
+		t.Fatal(err)
+	}
+	if err = file.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	if err = file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = backend.Inspect(context.Background(), image); err == nil || !strings.Contains(err.Error(), "digest differs") {
+		t.Fatalf("pristine inspection accepted changed image: %v", err)
+	}
+	current, err := backend.InspectCurrent(context.Background(), image)
+	if err != nil || current != identity {
+		t.Fatalf("current writable image = %+v, %v; want %+v", current, err, identity)
+	}
+	wrong := image
+	wrong.FilesystemUUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+	if _, err = backend.InspectCurrent(context.Background(), wrong); err == nil {
+		t.Fatal("current inspection accepted wrong UUID")
+	}
+}
+
 func TestLinuxBackendRejectsSparseAndMultiplyLinkedImages(t *testing.T) {
 	backend := &LinuxBackend{RequiredUID: os.Getuid()}
 	sparse := makeExt4(t, true)

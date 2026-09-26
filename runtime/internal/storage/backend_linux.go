@@ -314,10 +314,17 @@ func lockOpened(opened *openedPreparedImage) error {
 // inspectOpened validates an image while its caller retains an exclusive lock.
 // Start deliberately transfers that locked open file description to fd 3 of
 // the server; Inspect and OfflineCheck release it by closing their descriptor.
-func (b *LinuxBackend) inspectOpened(ctx context.Context, image PreparedImage, opened *openedPreparedImage) error {
+func (b *LinuxBackend) inspectOpened(ctx context.Context, image PreparedImage, opened *openedPreparedImage, pristine bool) error {
 	descriptor := int(opened.file.Fd())
 	if err := inspectExt4(descriptor, image); err != nil {
 		return err
+	}
+	if !pristine {
+		after, err := safefile.InspectOpened(opened.file, 16<<30)
+		if err != nil || after != opened.identity {
+			return errors.New("storage image mutated during inspection")
+		}
+		return opened.verifyNamedIdentity()
 	}
 	hash := sha256.New()
 	buffer := make([]byte, 4<<20)
@@ -370,7 +377,31 @@ func (b *LinuxBackend) Inspect(ctx context.Context, image PreparedImage) (ImageI
 	if err = lockOpened(opened); err != nil {
 		return ImageIdentity{}, err
 	}
-	if err = b.inspectOpened(ctx, image, opened); err != nil {
+	if err = b.inspectOpened(ctx, image, opened, true); err != nil {
+		return ImageIdentity{}, err
+	}
+	return ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}, nil
+}
+
+func (b *LinuxBackend) InspectCurrent(ctx context.Context, image PreparedImage) (ImageIdentity, error) {
+	if err := ctx.Err(); err != nil {
+		return ImageIdentity{}, err
+	}
+	if err := validatePrepared(image); err != nil {
+		return ImageIdentity{}, err
+	}
+	b.mu.Lock()
+	b.defaults()
+	b.mu.Unlock()
+	opened, err := b.openPreparedImage(image, true)
+	if err != nil {
+		return ImageIdentity{}, err
+	}
+	defer opened.Close()
+	if err = lockOpened(opened); err != nil {
+		return ImageIdentity{}, err
+	}
+	if err = b.inspectOpened(ctx, image, opened, false); err != nil {
 		return ImageIdentity{}, err
 	}
 	return ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}, nil
@@ -429,7 +460,7 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	if err = lockOpened(opened); err != nil {
 		return err
 	}
-	if err = b.inspectOpened(ctx, value.PreparedImage, opened); err != nil {
+	if err = b.inspectOpened(ctx, value.PreparedImage, opened, value.State == "PREPARING"); err != nil {
 		return err
 	}
 	if value.ImageIdentity != (ImageIdentity{Device: opened.identity.Device, Inode: opened.identity.Inode}) {
