@@ -1886,6 +1886,69 @@ boundary, deployment, and final-audit chain now passes. The one locally
 permission-gated socket case remains a guest check. Immutable commit and exact
 source guest activation still precede any new live claim.
 
+The fix is committed at `f89dd00b804bdac4ac839baa8736d036f17aca65`.
+Its clean source archive is
+`77d8fc3231275cd7418934dfc15c8222b6f7d9daab1e6c88773faa7483c2075a`;
+transfer, rebuild, activation, and workload rerun remain distinct evidence
+boundaries.
+
+Guest digest/ownership/exclusion checks and the full exact build passed. The
+new manifest is `ca4c3c08…`; shim `45d7f740…`, daemon `2fcd2b3a…`, network
+daemon `58fd7513…`, and agent `db46bac6…` are the exact outputs. No activation
+or behavior is claimed from build hashes alone.
+
+Exact release `0.1.0-dev-f89dd00…` is now active with fully managed links.
+The runtime binaries identify that revision, service health remained active
+across five seconds, containerd's inspection passes, and the `/opt` relay
+still matches its approved digest. systemd emitted a unit-source-change warning
+requiring `daemon-reload`; it will be cleared before workload execution rather
+than ignored.
+
+After `daemon-reload`, all four services remained active across a three-second
+check and the runtime daemon PIDs were stable (`22235`, `22217`). Activation is
+therefore clean for the next exact-source suite.
+
+With exact `f89dd00`, relay execution succeeds and the suite reaches agent
+connection. After waiting at that boundary, the shim closes and ctr returns
+`ttrpc: closed`; its cleanup trap runs. The relay correction is live-proven,
+while workload success remains open pending resource and multi-layer log
+evidence for this new readiness/liveness failure.
+
+Containerd captured the exact panic: `stopRelay` called
+`(*unixsocket.Path).Remove` on a typed-nil interface. The capture function had
+stored its converted nil pointer before handling `os.ErrNotExist`, causing
+subsequent retries to skip capture and timeout cleanup to dereference nil.
+Dead-shim deletion then timed out. Resource audit consequently finds the
+halted child, veth, namespace, relay, and storage image preserved despite empty
+client inventories. Both initial and recovery capture sites must publish the
+owner only after success, followed by explicit reconciliation evidence.
+
+The held bundle/recovery record and daemon agree on sandbox/generation,
+bundle inode, endpoint generation, storage task/digest, and `RUNNING` state.
+The orphan relay is PID `22955` with the exact approved executable and expected
+generation-qualified argv. Cleanup can therefore terminate that exact process
+and invoke authenticated shim recovery rather than deleting resources by
+unbound names.
+
+Relay identity was rechecked immediately before PID `22955` was terminated.
+A first manual shim cleanup correctly failed closed because its cwd was the
+ordinary user's mode-0750 home, not the root-owned held bundle. It performed no
+daemon/network cleanup. The retry must reproduce containerd's bundle cwd.
+
+The correct-cwd retry found another typed-nil panic: a failed recovery dial had
+published `(*agent.Client)(nil)` into the interface before its error defer.
+It also confirms an architectural cleanup issue: the `delete` action cannot
+require successful guest recovery before entering authenticated `Cleanup`.
+Failed dials now leave the agent interface nil, and strictly parsed terminal
+`delete` invocations bypass recovery/event replay while retaining bundle-bound
+cleanup checks. The focused shim race suite and vet pass; live cleanup awaits
+an immutable deployment of these changes.
+
+The subsequent all-package race/vet and complete documentation, schema,
+evidence, runtime-boundary, deployment, and final-audit gate passes. The one
+local permission-gated socket case remains for the guest. The preserved live
+failure will be cleaned only with an immutable exact build.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,
