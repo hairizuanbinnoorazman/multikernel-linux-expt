@@ -2017,6 +2017,42 @@ The corrected non-force stop group passed 100 race-detector repetitions, then
 the complete race suite, vet, documentation/evidence gate, and diff check all
 passed again. Immutable commit and guest execution remain next.
 
+Commit `d0bff83845442883e8ebe9ef1e3b477c94defc83` freezes this recovery
+checkpoint. Its source-only archive SHA-256 is
+`1306898b584fa450937da448ad32e000e38dac750bbeda5927ac08a4965c5391`.
+The disposable-host recovery result remains open.
+
+The disposable guest reverified that archive, extracted it root-owned without
+repository metadata or the local evidence tree, and completed the exact build.
+Release manifest `4fb83d19…` binds mkruntimed `b1a0f516…`, shim `80bf3a28…`,
+mknetd `a2dbf46d…`, and agent `60f711ec…` to revision `d0bff83…`. No live
+recovery claim is made before activation.
+
+On empty live inventories with mkruntimed still inactive, the binary manager
+activated exact release `0.1.0-dev-d0bff83…`; all command links are managed and
+the daemon and shim report the exact revision. Recovery execution remains the
+next checkpoint.
+
+The exact-daemon recovery start passed the formerly blocking rootfs
+constructor, then failed closed in storage reconciliation with `storage image
+digest differs from prepared identity`. Four systemd attempts were stopped;
+the lifecycle intent, rootfs record, and storage directory remain preserved.
+The current recovery code incorrectly treats the initial whole-image digest as
+immutable after writable guest use. Durable inode/generation authentication
+and quiesced filesystem validation must replace that pre-run digest comparison
+before recovery can proceed.
+
+Storage validation is now explicitly phase-bound: pristine SHA-256 remains
+mandatory for provisioning and `PREPARING`, while `ACTIVE` restart authenticates
+the recorded inode/path and checks allocation, clean ext4 state, UUID, inode
+capacity, and block capacity without the obsolete pristine digest. A real ext4
+changed-byte control, active-restart selection, and inode-replacement rejection
+passed 100 race-detector repetitions. Full-tree and live checks remain open.
+
+The subsequent all-package race suite, vet, complete documentation/evidence
+gate, final audit, and diff check passed. Exact-source guest recovery remains
+the outstanding boundary.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,
