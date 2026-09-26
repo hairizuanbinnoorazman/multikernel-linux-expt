@@ -40,12 +40,32 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
+
+func TestLongDaemonTimeoutsCoverServerBoundsWithoutChangingDefault(t *testing.T) {
+	base := daemon.Client{Timeout: 30 * time.Second}
+	rootfsClient := daemonCallerWithTimeout(base, rootfsPrepareDaemonTimeout).(daemon.Client)
+	createClient := daemonCallerWithTimeout(base, createSandboxDaemonTimeout).(daemon.Client)
+	if base.Timeout != 30*time.Second {
+		t.Fatalf("base timeout changed to %s", base.Timeout)
+	}
+	if rootfsClient.Timeout <= 10*time.Minute {
+		t.Fatalf("rootfs timeout %s does not cover the ten-minute builder bound", rootfsClient.Timeout)
+	}
+	if createClient.Timeout <= time.Hour {
+		t.Fatalf("create timeout %s does not cover the one-hour backend bound", createClient.Timeout)
+	}
+	fake := daemonCallFunc(func(context.Context, protocol.Request, any) *protocol.Error { return nil })
+	if _, ok := daemonCallerWithTimeout(fake, rootfsPrepareDaemonTimeout).(daemonCallFunc); !ok {
+		t.Fatal("injected daemon caller was replaced")
+	}
+}
 
 func privateTestDirectory(t *testing.T) string {
 	t.Helper()

@@ -228,6 +228,20 @@ type service struct {
 	shuttingDown          bool
 }
 
+const (
+	rootfsPrepareDaemonTimeout = 11 * time.Minute
+	createSandboxDaemonTimeout = 61 * time.Minute
+)
+
+func daemonCallerWithTimeout(caller daemon.Caller, timeout time.Duration) daemon.Caller {
+	client, ok := caller.(daemon.Client)
+	if !ok {
+		return caller
+	}
+	client.Timeout = timeout
+	return client
+}
+
 func getenv(name, fallback string) string {
 	if v := os.Getenv(name); v != "" {
 		return v
@@ -2411,7 +2425,8 @@ func (s *service) prepareRootfs(ctx context.Context, request rootfspkg.PrepareRe
 		return rootfspkg.PrepareResult{}, err
 	}
 	var result rootfspkg.PrepareResult
-	apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "prepare-rootfs-" + request.TaskIdentity, Method: "PrepareRootfs", Body: body}, &result)
+	client := daemonCallerWithTimeout(s.daemon, rootfsPrepareDaemonTimeout)
+	apiErr := client.Call(ctx, protocol.Request{Version: 1, RequestID: "prepare-rootfs-" + request.TaskIdentity, Method: "PrepareRootfs", Body: body}, &result)
 	if apiErr != nil {
 		return result, errors.New(apiErr.Code + ": " + apiErr.Message)
 	}
@@ -2530,7 +2545,8 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	s.token = token
 	lifecycleAttempted = true
 	createKey := "shim-create-" + s.id + "-" + tokenHex[:12]
-	created, err := daemon.Mutation(ctx, s.daemon, "CreateSandbox", "", "", createKey, &config)
+	createClient := daemonCallerWithTimeout(s.daemon, createSandboxDaemonTimeout)
+	created, err := daemon.Mutation(ctx, createClient, "CreateSandbox", "", "", createKey, &config)
 	if err != nil {
 		cancelContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		cancelErr := s.cancelCreate(cancelContext, config, createKey)
