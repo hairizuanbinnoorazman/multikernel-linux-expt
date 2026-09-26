@@ -1833,6 +1833,59 @@ matrix, final evidence audit, and clean diff checking. The expected local
 socket-permission skip still requires its privileged guest execution. Commit,
 exact archive transfer, activation, and live workload proof remain distinct.
 
+Commit `cc56f9a238bbab800fdd0c8c76c091d1ba327eab` now fixes both boundaries.
+The exact source archive is
+`0b963bb9a3c200b50612831ef7e681a00600c0cc90edb20fb1f21ce7e3969b0e`;
+it excludes repository metadata and the existing untracked evidence directory.
+No guest behavior is inferred from the archive until transfer, rebuild, and
+activation complete.
+
+Guest-side digest verification and a private all-root-owned extraction passed,
+followed by a complete exact-revision build. The release manifest is
+`ee93424a…`; key outputs are shim `8bd0608d…`, daemon `d2dbc17b…`, network
+daemon `562dc51e…`, and agent `f7342e65…`. These hashes precede installation;
+they establish build identity, not active behavior.
+
+The binary manager activated the exact `cc56f9a…` release and verified every
+managed link. Containerd 2.2.2's native runtime inspection now succeeds and
+decodes the exact name/version/revision with null options and no unproved
+features. A first combined deployment/service-restart attempt was rejected by
+the local shell due to a nested quote, before remote execution; it changed no
+guest state and provides no activation evidence beyond the binary-manager
+operation already observed.
+
+The corrected retry passed with deployment `ca7bc745…` unchanged and fully
+managed. After proving empty container inventories, the runtime daemons and
+containerd were restarted; all relevant services, including Docker, remained
+active after five seconds. Both daemons identify exact `cc56f9a…` code,
+containerd preserves `runc` as default, native runtime inspection succeeds,
+and the new journal contains no runtime-info load warning. Workload behavior
+remains a separate proof boundary.
+
+The live suite now clears the fixed namespace-local TUN attachment and reaches
+agent transport setup. It then fails because configured host helper
+`/usr/local/libexec/multikernel/mkvsock-relay` is absent. Cleanup ran. Thus the
+TUN correction is observed live, while the full workload claim remains open
+pending a clean inventory and exact relay provenance/installation.
+
+The cleanup inventory is empty across clients, children, links, namespaces,
+network/rootfs state, and active storage. The qualified host already contains
+root-owned static relay `/opt/mkruntime/bin/mkvsock-relay` at hash `293ff1ea…`,
+and the approved kernel manifest pins that exact path and digest. The failure
+comes from the shim's mismatched `/usr/local/libexec` default. The correct
+remediation is to use the already approved `/opt` artifact, not install an
+untracked duplicate.
+
+The default is corrected to that approved `/opt` path while retaining an
+explicit `MK_RELAY` override. Regression coverage binds both behaviors; the
+shim race suite, focused vet, and diff check pass. This is not yet an immutable
+or guest-active fix.
+
+The entire local race/vet and documentation, schema, evidence, runtime
+boundary, deployment, and final-audit chain now passes. The one locally
+permission-gated socket case remains a guest check. Immutable commit and exact
+source guest activation still precede any new live claim.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

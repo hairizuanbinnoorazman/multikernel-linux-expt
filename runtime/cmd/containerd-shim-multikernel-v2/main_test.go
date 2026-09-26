@@ -5482,6 +5482,19 @@ func TestOpenServiceIdentityRejectsSupervisorHandoffMismatch(t *testing.T) {
 }
 
 func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
+	t.Run("default is approved artifact location", func(t *testing.T) {
+		t.Setenv("MK_RELAY", "")
+		command := (&service{}).relayCommand(7001, "/tmp/mk-relay-test.sock")
+		if command.Path != "/opt/mkruntime/bin/mkvsock-relay" {
+			t.Fatalf("default relay path = %q", command.Path)
+		}
+		t.Setenv("MK_RELAY", "/opt/test/explicit-relay")
+		command = (&service{}).relayCommand(7001, "/tmp/mk-relay-test.sock")
+		if command.Path != "/opt/test/explicit-relay" {
+			t.Fatalf("explicit relay path = %q", command.Path)
+		}
+	})
+
 	t.Run("command has private process group", func(t *testing.T) {
 		command := newRelayCommand("/bin/true", 7001, "/tmp/mk-relay-test.sock")
 		if command.SysProcAttr == nil || !command.SysProcAttr.Setpgid {
