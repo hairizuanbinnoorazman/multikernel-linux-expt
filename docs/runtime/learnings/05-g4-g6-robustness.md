@@ -2210,6 +2210,61 @@ chain; `git diff --check` is clean. The expected locally permission-gated
 socket subcase remains assigned to the guest. Generated Python cache was
 removed and the pre-existing untracked evidence tree remains untouched.
 
+The correction is immutable at
+`cf88beb1c7d61769316fecf7bd33c1a188a5b4a6`. Its clean source archive hashes
+to `01044ee9…8c` and excludes Git metadata plus the untouched untracked evidence
+tree. Transfer, guest verification, exact shim rebuild, activation, and replay
+are distinct remaining checkpoints.
+
+Guest digest, root ownership, and source-only exclusion checks passed. The
+first build wrapper stopped before compilation only because it tried to move a
+pre-existing release manifest that the clean archive does not contain. Active
+runtime state was untouched; the same verified tree can be built directly with
+the explicit `cf88beb…` revision.
+
+The exact build completed with release manifest `05b86f57…`, shim
+`bf79230d…`, daemon `c3de5ae2…`, network daemon `fe31d09d…`, and agent
+`056402d6…`, all stamped `cf88beb…`. Even unchanged agent source changes under
+the new embedded revision, correcting the earlier assumption that its existing
+initramfs could be retained. Exact agent/initramfs/manifest staging is required
+before activation.
+
+The release-specific `cf88beb…` candidate then validated: agent `056402d6…`,
+gzip-valid initramfs `52ce2b0a…`, and private manifest `a3656ae8…`, with every
+pinned kernel, module, relay, compatibility, and feature check intact. These
+are staged identities only; no active-version claim is made yet.
+
+The empty-host coordinated activation passed. Release
+`0.1.0-dev-cf88beb…` and validated manifest `a3656ae8…` are active; all four
+services remained active after ten seconds. Daemon PID `40581` and mknetd PID
+`40562` have zero restarts, and daemon, network daemon, and shim report the full
+revision. Installed shim is `bf79230d…`; host boot ID `ce405359…` did not
+change. This is an exact pre-workload boundary only.
+
+The exact live replay captured the missing cause. Generation `6cba5f75…`
+booted the expected kernel with two CPUs and 3 GiB, attached NBD, mounted the
+correct ext4 UUID, and printed `MK_STORAGE_BOOTSTRAP_READY`. Guest `/init` then
+reported `mountpoint: not found`; the fallback devtmpfs mount found `/dev`
+already busy, `set -e` exited PID 1 with status 255, and the child panicked at
+7.835 seconds. The host later surfaced its agent timeout and cleanup ran. The
+bootstrap includes a BusyBox binary but no `mountpoint` applet link, while
+`runtime-mediated-init` invokes the bare command. This is direct console proof
+for an initramfs construction/command-path bug, not an agent transport defect.
+
+`mk-agent-init` now tests fixed inherited mountpoints through controlled
+`/bin/busybox grep` on `/proc/mounts` and calls `/bin/busybox mount` only when
+needed. It has no optional `mountpoint` dependency and preserves `/dev`,
+`/proc`, and `/sys` moved by the mediated bootstrap. Regression checks bind
+those command paths and verify the runtime builder installs the tested init.
+Shell syntax, the complete 62-case OCI/builder suite, and diff checking pass;
+the full local gate remains.
+
+The full repository race/vet and documentation, schema, evidence, OCI, bind,
+bootstrap, rootfs, storage, image, release/deployment/ledger/capture/containerd,
+and final-audit chain then passed; the diff is clean. The expected local socket
+permission skip remains reserved for the guest. Generated Python cache was
+removed without touching the pre-existing untracked evidence directory.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,

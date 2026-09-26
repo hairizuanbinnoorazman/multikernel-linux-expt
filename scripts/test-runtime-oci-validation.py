@@ -12,6 +12,7 @@ import tempfile
 REPO = pathlib.Path(__file__).resolve().parent.parent
 VALIDATOR = REPO / "scripts/validate-runtime-oci.py"
 BUILDER = REPO / "scripts/build-runtime-container-initramfs.sh"
+AGENT_INIT = REPO / "guest/mk-agent-init"
 BASE = {
     "ociVersion": "1.1.0",
     "process": {
@@ -87,6 +88,15 @@ def main():
     with tempfile.TemporaryDirectory(prefix="mk-oci-validation-") as temporary:
         directory = pathlib.Path(temporary)
         builder_text = BUILDER.read_text(encoding="utf-8")
+        agent_init_text = AGENT_INIT.read_text(encoding="utf-8")
+        if "mountpoint " in agent_init_text:
+            raise AssertionError("agent init depends on the optional BusyBox mountpoint applet")
+        if '/bin/busybox grep -qs " $1 " /proc/mounts' not in agent_init_text:
+            raise AssertionError("agent init does not detect inherited mounts through controlled BusyBox")
+        if 'is_mounted /dev || /bin/busybox mount -t devtmpfs' not in agent_init_text:
+            raise AssertionError("agent init does not preserve an inherited devtmpfs mount")
+        if 'install -m 0755 "$guest_init" "$root/init"' not in builder_text:
+            raise AssertionError("runtime storage builder does not install the tested agent init")
         if '$source_manifest.after' in builder_text or 'mv "$source_manifest' in builder_text:
             raise AssertionError("outer builder reintroduced replacing source-manifest publication")
         if '"$source_manifest" --manifest-only' not in builder_text or 'cmp -s "$source_before_manifest" "$source_manifest"' not in builder_text:
