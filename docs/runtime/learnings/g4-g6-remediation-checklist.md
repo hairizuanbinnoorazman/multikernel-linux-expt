@@ -2919,6 +2919,85 @@ and runtime boundary suite, final evidence audit, and diff checking. The known
 local socket-permission skip remains assigned to the guest. Commit, exact
 rebuild, and preserved-failure cleanup remain next.
 
+The cleanup corrections are immutable at
+`0214f9727baecc94e46c675666477832afdc3cb4`. Their source-only archive hashes
+to `27481fec9baae7e83db1fb47845356467d3e73fb546f9ed29d02b0fdfd1ab4f7` and
+excludes repository metadata and the untouched evidence tree. The live failure
+remains preserved pending exact guest verification/build/activation.
+
+Guest digest, exclusion, and all-root-owned extraction checks passed, followed
+by the exact full build. The release manifest is `6c7fc927…`; shim
+`6a19fffc…`, mkruntimed `b6ae56bb…`, mknetd `bffc2dca…`, and agent
+`9356724f…` are the revision-stamped outputs. Activation and cleanup behavior
+remain unclaimed.
+
+The exact release activated and cleanup-only `delete` ran without either
+typed-nil panic. It exceeded the former five-second boundary and removed the
+child, veth, and namespace. During this operation mkruntimed began a restart
+loop: rootfs startup recovery reported `bundle may not contain symlinks`.
+Subsequent source inspection corrects the initial `work`-symlink inference:
+the containerd bundle had already been removed, so `validateRequest`'s
+`EvalSymlinks` call failed on an absent bundle and collapsed that error into
+the misleading generic symlink message. `NewService` therefore cannot reach
+reconciliation of the still identity-bound storage artifact after its owner
+bundle disappears. The rootfs/storage artifact remains, so cleanup is partial
+rather than clean.
+The long SSH wrapper was locally interrupted only after process inspection
+showed no remote cleanup process; no successful delete response is claimed.
+The failing daemon must be stopped to halt the loop before durable-state
+inspection.
+
+The apparent reboot was then audited from GCE state, both boot journals, and
+the serial console. GCE kept the instance continuously `RUNNING` with its
+original September 25 start timestamp, but the guest changed from boot
+`e22e4b51…` to `ce405359…`. The previous journal ends without an orderly
+shutdown or panic. Serial output is more precise: cleanup's SSH session began
+at 02:13:18 UTC, the managed veth/netns disappeared at 02:13:18.99, and UEFI
+began a fresh boot at 02:13:19.13. No GCE stop/start, orderly shutdown, or
+kernel panic separates those events. The reset is therefore attributable to
+the live child-stop cleanup boundary, not routine VM recreation or cloud
+maintenance; its exact stop primitive requires correction before another
+cleanup retry.
+
+Durable-state inspection then found lifecycle sequence 23 as an incomplete
+`StopSandbox` intent, the sandbox snapshot in `STOPPING`, its exact export
+generation still `ACTIVE`, and the post-reset Kerf instance absent. This means
+rootfs recovery cannot independently discard an apparently owned image.
+Recovery must first treat an absent exact backend during an interrupted stop
+as irrevocable sandbox loss, quiesce and offline-check that generation, and
+commit lifecycle `ABSENT`; only the resulting empty owner map may authorize
+identity-bound rootfs storage removal.
+
+The first implementation checkpoint passes race-enabled Kerf, lifecycle, and
+rootfs suites. Kerf now observes the exact sysfs state before stopping:
+`LOADED` is an idempotent success, only `RUNNING` executes non-force `kill`, and
+other states fail closed. Inspection of pinned Kerf 0.2.0 confirms that
+`--force` deliberately accepts `loaded` and issues the force-halt reboot
+command; the adapter no longer invokes that unsafe path. Non-force Kerf accepts
+only `active`, so a concurrent transition to `loaded` is rejected before its
+syscall and accepted by the adapter's post-observation. An interrupted stop
+with an absent backend now
+performs `storage-stop` followed by `offline-check` and commits `ABSENT`.
+Rootfs startup structurally validates durable requests without requiring their
+expired live paths; reconciliation preserves an exact owner, but once unowned
+it removes only the recorded storage directory by root/artifact identities and
+does not invoke the pathname mount backend.
+
+The subsequent full local gate passed on 2026-09-26: every Go package under
+the race detector, repository-wide vet, all documentation and local links,
+seven schemas with 22 cases, all 17 classified historical evidence manifests,
+the 62-case OCI boundary suite, bind/bootstrap/rootfs/storage/image suites,
+release and deployment lifecycle, resource-ledger and capture checks,
+containerd configuration, final evidence audit, and `git diff --check`. The
+known workstation-only socket-permission subcase remains assigned to the
+privileged guest. Exact commit, guest build, durable recovery replay, and a
+fresh live workload remain pending.
+
+After removing force-halt entirely, the focused Kerf stop/transition group
+passed 100 race-detector repetitions. The complete race suite, vet, full
+documentation/evidence gate, and diff check then passed again; no local claim
+depends on the earlier force-kill wording.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,

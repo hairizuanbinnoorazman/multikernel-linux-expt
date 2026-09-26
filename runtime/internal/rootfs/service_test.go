@@ -568,6 +568,55 @@ func TestReconcileRetainsOnlyExactLifecycleOwner(t *testing.T) {
 	}
 }
 
+func TestReconcileMissingBundleRetiresOnlyUnownedStorage(t *testing.T) {
+	for _, owned := range []bool{false, true} {
+		t.Run(map[bool]string{false: "orphan", true: "owned"}[owned], func(t *testing.T) {
+			service, backend, request, base := rootfsFixture(t)
+			result, err := service.Prepare(context.Background(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			backend.calls = nil
+			if err = os.RemoveAll(request.Bundle); err != nil {
+				t.Fatal(err)
+			}
+			recovered, err := NewService(service.store, backend, filepath.Join(base, "storage"))
+			if err != nil {
+				t.Fatalf("recover absent owner bundle: %v", err)
+			}
+			owners := map[string]string(nil)
+			if owned {
+				owners = map[string]string{result.Storage.Path: result.Storage.SHA256}
+			}
+			err = recovered.Reconcile(context.Background(), owners)
+			if owned {
+				if err == nil || !strings.Contains(err.Error(), "owned rootfs bundle is absent") {
+					t.Fatalf("owned missing-bundle error = %v", err)
+				}
+				if _, ok := service.store.Get(request.TaskIdentity); !ok {
+					t.Fatal("owned recovery record was removed")
+				}
+				if _, err = os.Stat(filepath.Dir(result.Storage.Path)); err != nil {
+					t.Fatalf("owned storage was removed: %v", err)
+				}
+			} else {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, ok := service.store.Get(request.TaskIdentity); ok {
+					t.Fatal("orphan recovery record survived")
+				}
+				if _, err = os.Stat(filepath.Dir(result.Storage.Path)); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("orphan storage survived: %v", err)
+				}
+			}
+			if len(backend.calls) != 0 {
+				t.Fatalf("missing-bundle reconciliation used pathname backend: %v", backend.calls)
+			}
+		})
+	}
+}
+
 func TestCleanupRequiresExactImageIdentity(t *testing.T) {
 	service, _, request, _ := rootfsFixture(t)
 	result, err := service.Prepare(context.Background(), request)

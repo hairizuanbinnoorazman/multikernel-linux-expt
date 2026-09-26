@@ -1840,6 +1840,19 @@ it excludes repository metadata and the existing untracked evidence directory.
 No guest behavior is inferred from the archive until transfer, rebuild, and
 activation complete.
 
+The guest independently verified and privately unpacked that archive, then
+completed the full exact build: manifest `6c7fc927…`, shim `6a19fffc…`, daemon
+`b6ae56bb…`, network daemon `bffc2dca…`, and agent `9356724f…`. These establish
+identity only; the preserved cleanup has not yet been retried.
+
+After exact activation, cleanup-only `delete` no longer panics and removes the
+child/network resources. It is not complete: mkruntimed enters a restart loop
+while recovering the remaining rootfs record because the containerd bundle's
+normal `work` symlink triggers `bundle may not contain symlinks`; the storage
+image remains. No remote cleanup process remained when the stale SSH wrapper
+was interrupted, and no successful delete response is claimed. The daemon
+loop will be stopped before inspecting the exact record.
+
 Guest-side digest verification and a private all-root-owned extraction passed,
 followed by a complete exact-revision build. The release manifest is
 `ee93424a…`; key outputs are shim `8bd0608d…`, daemon `d2dbc17b…`, network
@@ -1948,6 +1961,61 @@ The subsequent all-package race/vet and complete documentation, schema,
 evidence, runtime-boundary, deployment, and final-audit gate passes. The one
 local permission-gated socket case remains for the guest. The preserved live
 failure will be cleaned only with an immutable exact build.
+
+Commit `0214f9727baecc94e46c675666477832afdc3cb4` now makes that cleanup path
+immutable. The clean source archive is
+`27481fec9baae7e83db1fb47845356467d3e73fb546f9ed29d02b0fdfd1ab4f7`;
+the preserved failure remains untouched until guest verification, build, and
+activation complete.
+
+The exact release's cleanup-only delete then avoided both typed-nil panics and
+removed the child, veth, namespace, and containerd bundle, but left the rootfs
+storage generation and recovery record. The daemon restart loop reported
+`bundle may not contain symlinks`. Source inspection disproves the initial
+standard-`work`-symlink explanation: `NewService` calls `validateRequest`, and
+its `EvalSymlinks` fails because the recorded bundle is already absent; that
+failure is folded into the same generic message. Startup consequently blocks
+before `Reconcile` can use the recorded storage identities to retire the
+orphan. This is a partial cleanup, not a successful delete.
+
+GCE state, persistent journals, and the serial console also establish that
+this cleanup reset the primary guest. The instance remained continuously
+`RUNNING`, while its boot ID changed from `e22e4b51…` to `ce405359…`.
+Cleanup's SSH session began at 02:13:18 UTC, veth/netns removal was logged at
+02:13:18.99, and UEFI started at 02:13:19.13, with no intervening orderly
+shutdown, panic, or cloud stop/start. This is a distinct host-safety failure
+in the child-stop boundary and must be traced before the operation is retried.
+
+The lifecycle snapshot and journal retain the interrupted transaction exactly:
+sequence 23 is a `StopSandbox` intent, state is `STOPPING`, the matching
+storage export is `ACTIVE`, and the reset left the Kerf instance absent.
+Recovery must therefore release and offline-check that exact export before it
+commits lifecycle `ABSENT`; rootfs orphan cleanup is authorized only after the
+lifecycle owner map no longer claims the image.
+
+Race-enabled focused Kerf, lifecycle, and rootfs tests now pass for that
+design. Pinned Kerf inspection shows `--force` expressly accepts `loaded` and
+issues its force-halt reboot command, matching the live reset boundary. The
+adapter no longer invokes force-kill: an already-loaded instance returns
+success, while observed `RUNNING` uses non-force kill. Kerf's non-force guard
+accepts only `active`, so a transition to `loaded` before its syscall is safely
+rejected and then accepted through post-observation. An absent backend during
+an interrupted stop releases and
+offline-checks its exact storage generation before committing `ABSENT`.
+Missing-bundle rootfs recovery then preserves a matching owner or, once
+unowned, removes only the identity-bound storage directory without a pathname
+mount operation.
+
+The complete repository race suite, `go vet ./...`, documentation/link/schema/
+evidence and runtime-boundary suites, deployment checks, final evidence audit,
+and `git diff --check` then passed on 2026-09-26. The expected local
+socket-permission skip remains for the privileged guest. This closes the local
+checkpoint only; exact immutable deployment and recovery of the preserved live
+failure remain open.
+
+The corrected non-force stop group passed 100 race-detector repetitions, then
+the complete race suite, vet, documentation/evidence gate, and diff check all
+passed again. Immutable commit and guest execution remain next.
 
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution

@@ -645,6 +645,46 @@ func TestStorageOwnershipParticipatesInCreateDeleteAndRollback(t *testing.T) {
 			t.Fatalf("rollback calls = %v", kerfBackend.calls)
 		}
 	})
+
+	t.Run("interrupted stop with absent backend", func(t *testing.T) {
+		service, lifecycleStore, kerfBackend, storageBackend := newService(t)
+		defer lifecycleStore.Close()
+		created, apiErr := service.Create(context.Background(), withStorage(), "create-interrupted-stop")
+		if apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		if _, apiErr = service.Load(context.Background(), created.Sandbox.ID, created.Sandbox.Generation, "load-interrupted-stop"); apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		running, apiErr := service.Start(context.Background(), created.Sandbox.ID, created.Sandbox.Generation, "start-interrupted-stop")
+		if apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		intent := state.JournalEntry{OperationID: "interrupted-stop", IdempotencyKey: "stop-interrupted", Fingerprint: "fingerprint",
+			SandboxID: running.Sandbox.ID, Generation: running.Sandbox.Generation, Method: "StopSandbox", Phase: "intent", State: "RUNNING", Sandbox: &running.Sandbox}
+		if err := lifecycleStore.Append(intent); err != nil {
+			t.Fatal(err)
+		}
+		stopping := running.Sandbox
+		stopping.State = "STOPPING"
+		if err := lifecycleStore.SetSandbox(stopping); err != nil {
+			t.Fatal(err)
+		}
+		delete(kerfBackend.states, running.Sandbox.ID)
+		if err := service.Reconcile(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if _, exists := service.Get(running.Sandbox.ID); exists {
+			t.Fatal("absent interrupted sandbox retained lifecycle ownership")
+		}
+		if got := storageBackend.calls[len(storageBackend.calls)-2:]; !reflect.DeepEqual(got, []string{"storage-stop", "offline-check"}) {
+			t.Fatalf("recovery storage calls = %v", storageBackend.calls)
+		}
+		result, ok := lifecycleStore.Result("stop-interrupted")
+		if !ok || result.Result.Sandbox.State != "ABSENT" || result.Result.Sandbox.Storage == nil || result.Result.Sandbox.Storage.State != "RELEASED" {
+			t.Fatalf("recovered interrupted stop = %+v, %v", result, ok)
+		}
+	})
 }
 
 func TestLifecycleAndReplay(t *testing.T) {
@@ -1035,6 +1075,7 @@ func TestReconcileResumesEveryIncompleteTransition(t *testing.T) {
 		{"LoadSandbox", "CREATED", "CREATED", "LOADED"},
 		{"StartSandbox", "LOADED", "LOADED", "RUNNING"},
 		{"StopSandbox", "RUNNING", "RUNNING", "STOPPED"},
+		{"StopSandbox", "RUNNING", "ABSENT", "ABSENT"},
 		{"DeleteSandbox", "STOPPED", "STOPPED", "ABSENT"},
 	}
 	for _, test := range tests {
@@ -1052,7 +1093,11 @@ func TestReconcileResumesEveryIncompleteTransition(t *testing.T) {
 			if err = st.Append(intent); err != nil {
 				t.Fatal(err)
 			}
-			backend := &fake{states: map[string]string{"box-a": test.actual}}
+			states := map[string]string{}
+			if test.actual != "ABSENT" {
+				states["box-a"] = test.actual
+			}
+			backend := &fake{states: states}
 			service := New(st, backend, Artifacts{})
 			if err = service.Reconcile(context.Background()); err != nil {
 				t.Fatal(err)

@@ -335,7 +335,17 @@ func (c *CLI) Start(ctx context.Context, s protocol.Sandbox) error {
 	return c.acceptObserved(ctx, s.ID, "RUNNING", err)
 }
 func (c *CLI) Stop(ctx context.Context, s protocol.Sandbox) error {
-	err := c.run(ctx, "kill", s.ID, "--force", "--verbose")
+	state, err := c.Observe(ctx, s.ID)
+	if err != nil {
+		return err
+	}
+	if state == "LOADED" {
+		return nil
+	}
+	if state != "RUNNING" {
+		return fmt.Errorf("refuse to stop Kerf instance %q in state %s", s.ID, state)
+	}
+	err = c.run(ctx, "kill", s.ID, "--verbose")
 	return c.acceptObserved(ctx, s.ID, "LOADED", err)
 }
 func (c *CLI) Delete(ctx context.Context, s protocol.Sandbox) error {
