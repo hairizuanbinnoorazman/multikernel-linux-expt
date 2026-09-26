@@ -3044,6 +3044,192 @@ The complete repository race suite, vet, documentation/schema/evidence and
 runtime-boundary gate, deployment/final audits, and diff check then passed.
 Exact commit and live recovery replay remain next.
 
+The phase-specific storage fix is immutable at
+`265196dac56713758c1c0a8a24e5a4f21d40784e`. Its source-only archive SHA-256
+is `39a9ca5d5682b17a758faeb5cb0e2610560d6e656926b7284d11f7e1dfe61406`;
+archive inspection again excludes repository metadata and the untouched local
+evidence tree. Guest verification, build, activation, and replay are unclaimed.
+
+The guest matched archive digest `39a9ca5d…`, verified all-root ownership and
+both exclusions, and completed the exact build. Release manifest is
+`b939e8da…`; shim `cce5baa0…`, mkruntimed `d9f57820…`, mknetd `67ec4807…`, and
+agent `84164eb0…` carry revision `265196d…`. Activation and replay remain open.
+
+With the daemon stopped and all external inventories still empty, the binary
+manager activated exact release `0.1.0-dev-265196d…`; daemon and shim version
+output match the full revision. Preserved-state replay is the next unclaimed
+operation.
+
+The first orchestration attempt to start and inspect that replay did not reach
+GCE: the local cloud-command approval layer rejected it for account usage
+limits before execution. No guest mutation or runtime result is inferred from
+that failed tool call. The operator subsequently renewed explicit permission
+to transfer source and run the live qualification suite, so replay may be
+retried with separately visible checkpoints.
+
+The renewed replay reached the disposable VM on 2026-09-26. Starting the exact
+`265196d…` service returned durable initial health after a 15-second observation:
+`mkruntimed` was `active`, main PID `35224`, `NRestarts=0`, `Result=success`, and
+`ExecMainStatus=0`. The journal records the start at 14:13:26 local time and a
+successful runtime-storage mount validation; the module-load unit reported only
+that the already-loaded transport module existed. This proves stable process
+startup, but not yet completion of the interrupted sequence-23 stop recovery;
+the durable state and all external inventories are the next checkpoint.
+
+Direct durable-state inspection then confirms that recovery completed the
+interrupted cleanup. The guest boot ID remained
+`ce405359-2f14-4655-9120-277e292af6da`, daemon PID `35224` was unchanged across
+five seconds, and lifecycle `sandboxes` is empty. Existing journal sequence 23
+now has `cleanup-stop-0ba4a966…` recorded as `ABSENT`; recovery completed that
+intent rather than allocating a new sequence. Exact export generation
+`33a8740c…` is `RELEASED` at 14:13:26 with
+`e2fsck-clean-sha256:a37a7dad…`, and the rootfs record map is empty. Host-side
+residue and external inventories remain a separate, still-unclaimed check.
+
+The first residue pass found the exact task storage directory absent,
+containerd task and container inventories empty, Docker's container inventory
+empty, no named network namespace, and no link matching the interrupted task.
+Only the expected `mkruntimed` process was displayed. This boot has no
+`/sys/kernel/multikernel/instances` directory, so that observation is recorded
+literally rather than described as an empty directory. The attempted
+`pgrep mk-storage-server` check was inconclusive because Linux process names
+are limited to 15 characters; a full-command-line process check must replace
+it before storage-server absence is claimed.
+
+The full-command-line retry matched only `mkruntimed` because its configuration
+arguments contain the `mkvsock-nbd` server pathname; no separate child was
+displayed and nothing listened on port 4061. `mk_transport` is loaded, daemon
+health remains active/running with PID `35224`, zero restarts, and no journal
+warnings since startup. Sysfs discovery also corrects the earlier probe: this
+host exposes Multikernel beneath `/sys/fs/multikernel`, not
+`/sys/kernel/multikernel`. Exact executable-name inspection and enumeration of
+that real sysfs root remain before the residue checkpoint is closed.
+
+The final residue probe closes that checkpoint. Both exact `comm` matching and
+`/proc/*/exe` inspection found no `mkvsock-nbd` process. The correct
+`/sys/fs/multikernel` tree contains its control files plus empty `instances`
+and `overlays` directories; there is no child instance. Combined with the
+absent task directory, empty container inventories, absent listener and network
+objects, this directly substantiates complete recovery of the interrupted
+sequence-23 cleanup on the unchanged boot.
+
+Fresh-suite artifact preflight found a deliberate remaining boundary: the
+active kernel manifest still pins agent `d244ef6c…` and initramfs `63c6ae5d…`,
+whereas the exact `265196d…` guest build produced agent `84164eb0…`. The exact
+source archive is still present at its verified `39a9ca5d…` digest and its
+private root-owned extraction remains available. No workload is run against
+this mixed revision; the exact agent, dependent initramfs, and private manifest
+must be rebuilt and activated coherently first.
+
+The first candidate-staging command built a gzip-valid exact-agent initramfs
+at digest `c3d2b9f0…`, then stopped before manifest creation or validation. A
+nested quoting error exposed awk's `$1` to the remote shell under `set -u`,
+which reported an unbound variable. The release-specific staged agent and
+initramfs exist, but the active manifest and running daemon were not changed;
+candidate validation must resume with shell-safe digest extraction.
+
+The digest-extraction retry also stopped before writing the candidate manifest.
+It over-escaped jq's `$ap` named variable, so the remote `set -u` shell tried
+to expand `ap` and rejected it as unbound. The active manifest and service
+again remained untouched; the next retry uses exactly one remote-shell escape
+for each jq variable.
+
+Candidate validation then passed without changing active state. The staged
+release-specific artifacts are exact agent `84164eb0…`, gzip-valid initramfs
+`c3d2b9f0…`, and candidate manifest `fce23175…`; the bootstrap validator
+resolved the pinned kernel, relay, transport module, compatibility, and feature
+set successfully. The active manifest remained `6bebfc81…`, while daemon PID
+`35224` stayed active with zero restarts. Coordinated activation remains next.
+
+Coherent activation then passed on an empty host. Containerd, Docker, and child
+inventories were checked empty before the change; the candidate was copied and
+validated in the target directory before the daemon stopped. The final
+same-filesystem manifest replacement validates at `fce23175…` and selects exact
+agent `84164eb0…` plus initramfs `c3d2b9f0…`. `mkruntimed` restarted as PID
+`37028` and remained active/running after ten seconds with zero restarts and
+successful status. Boot ID `ce405359…` did not change. The qualified-host
+preflight and fresh workload suite remain separate next checkpoints.
+
+The exact-revision read-only host preflight passed. `mk-host-check`,
+`mkruntimed`, and the shim all report full revision `265196d…`; mkruntimed,
+mknetd, containerd, and Docker are active. The report has `qualified=true`,
+Kerf 0.2.0, all 16 CPUs online, the requested APIC 8-15/16 GiB dry-run
+`ready`, Secure Boot disabled, lockdown inactive, and no configured pool,
+instance, stale resource, or finding. This qualifies the empty host; the basic
+ctr/Docker workload suite is still unclaimed.
+
+The exact basic-suite runner hash was `3eaa058b…` and passed all service,
+mount, device, empty-child, and image preconditions. Its first `ctr run`
+connected containerd to the Multikernel shim at 14:22:54, but returned
+`timed out connecting to child agent` after the shim disconnected at 14:24:39.
+The suite cleanup trap ran. A concurrent inventory then showed no ctr task or
+container and no Multikernel child; daemon PID `37028` remained active with
+zero restarts. This is a fail-clean agent-readiness failure, not a basic-suite
+pass. Durable, shim, kernel, and serial evidence must be collected before
+assigning cause.
+
+The next evidence narrows the failure without yet naming its guest error.
+Generation `4067a17f…` durably reached CREATED, LOADED, and RUNNING; the kernel
+created instance 40, assigned CPUs 8 and 10 plus 3 GiB, loaded the exact
+kernel/initramfs, and marked the child active at 14:23:52. The child halted at
+14:24:00, 39 seconds before the shim disconnected and well before the client
+reported its agent timeout. Cleanup completed through sequence 33: live
+sandboxes, rootfs records, active exports, bundle paths, and runtime storage
+paths are all empty. The fault is therefore early guest bootstrap/readiness,
+not allocation or cleanup; the console or relay error remains to be recovered.
+
+The first console-capture repeat did not reproduce that child boundary. It
+never created an instance: after preflight, the shim reported
+`UNAVAILABLE: read unix @->/proc/self/fd/7/mkruntimed.sock: i/o timeout`, and
+the console poll truthfully recorded `CONSOLE_ATTACH_MISSED`. This is a distinct
+post-cleanup daemon-availability finding, not guest-console evidence and not a
+second agent timeout. Daemon/socket/process state must be inspected before any
+restart or further replay.
+
+Direct inspection does not support calling the daemon dead or wedged. PID
+`37028` is active/running with zero restarts, 13 tasks, low current memory, a
+live listening `mkruntimed.sock`, no worker subprocess, and no service-journal
+error. Durable state is clean at sequence 36. Peak service memory reached
+2.5 GiB and accumulated CPU time increased to 1m51s, consistent with the
+second create continuing bounded image construction until caller cancellation
+and then rolling back. Sequences 34-36 and their result must distinguish a
+client deadline from a server failure.
+
+The journal supplies that distinction. Sequences 35-36 contain only the
+create intent/completion for generation `4b2416e0…`; the durable result is
+`ABORTED: create canceled by runtime shim`, with no load or start. Thus the
+socket timeout was the caller deadline expiring during create, followed by a
+successful server-side rollback. It is not listener failure. Build timing and
+the shim's bounded request timeout must be understood before a console repeat.
+
+Exact timestamps reveal a timeout-contract defect. The create intent began at
+14:27:49.892 and durably committed CREATED at 14:28:19.286, a 29.394-second
+backend operation. The shim's daemon client imposes a 30-second deadline, so
+the successful response lost the delivery race and the subsequent cancellation
+released the export. This is not merely an unlucky run: rootfs preparation is
+explicitly permitted up to ten minutes while using the same 30-second client.
+Long rootfs preparation and lifecycle create therefore need distinct bounded
+deadlines that encompass their documented server-side bounds; ordinary daemon
+operations must retain their shorter failure detection.
+
+The timeout correction is now focused and tested. `PrepareRootfs` uses an
+11-minute copied client, covering its ten-minute builder cap; `CreateSandbox`
+uses a 61-minute copied client, covering the host configuration's one-hour
+backend maximum. The base client and every ordinary call retain 30 seconds,
+and the request context can still cancel sooner. The first focused build caught
+that the service stores an injectable `daemon.Caller`; the final helper retimes
+only a concrete production client and preserves test fakes. The complete shim
+package passed once under the race detector. Full repository gates remain.
+
+The broad local gate then passed: all Go packages under the race detector,
+repository-wide vet, documentation and links, 7 schemas/22 cases, all 17
+classified historical evidence manifests, the 62-case OCI suite and namespace/
+identity/cleanup boundaries, bind/bootstrap/rootfs/storage/image suites,
+release/deployment/ledger/capture/containerd checks, final evidence audit, and
+`git diff --check`. Only the known locally permission-gated socket subcase was
+skipped for the privileged guest. Generated `scripts/__pycache__` was removed;
+the pre-existing untracked `evidence/runtime-20260907/` remains untouched.
+
 The complete local gate then passed: `go test -race -count=1 ./...`, full
 `go vet ./...`, documentation structure/links, 7 schemas with 22 cases, all 17
 classified historical evidence manifests, the 55-case OCI boundary suite,

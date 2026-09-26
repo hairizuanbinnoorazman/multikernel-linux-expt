@@ -2053,6 +2053,163 @@ The subsequent all-package race suite, vet, complete documentation/evidence
 gate, final audit, and diff check passed. Exact-source guest recovery remains
 the outstanding boundary.
 
+Commit `265196dac56713758c1c0a8a24e5a4f21d40784e` freezes the correction. Its
+clean source archive hashes to `39a9ca5d…61406`; guest execution remains open.
+
+The guest reverified and root-unpacked that archive and completed the exact
+build: manifest `b939e8da…`, daemon `d9f57820…`, shim `cce5baa0…`, network
+daemon `67ec4807…`, and agent `84164eb0…`. Activation is still unclaimed.
+
+The exact `265196d…` release is now active on empty external inventories, with
+daemon and shim reporting that revision. Recovery replay remains unclaimed.
+
+One replay orchestration call was rejected locally for account usage limits
+before reaching GCE; it provides no guest evidence and changed no claimed
+state. Explicit live-suite authorization was then renewed.
+
+The retried replay did reach GCE on 2026-09-26. After starting the exact
+`265196d…` release and observing it for 15 seconds, systemd reported `active`,
+PID `35224`, zero restarts, `Result=success`, and main-process status zero. Its
+journal records successful runtime-storage mount validation and no daemon
+error. This is an initial process-health checkpoint only: sequence-23
+reconciliation and the external inventories still require direct inspection
+before the interrupted cleanup can be called recovered.
+
+Direct state inspection closes that narrower question. The boot ID remained
+`ce405359…`, PID `35224` remained stable for five seconds, lifecycle has no live
+sandboxes, and the existing sequence-23 cleanup result records generation
+`0ba4a966…` as `ABSENT`. Storage generation `33a8740c…` is `RELEASED` with a
+clean offline-check digest, while the rootfs record map is empty. Sequence 23
+is expected: replay completed the durable intent already in progress instead
+of opening a new transaction. External inventories and pathname/process
+residue remain to be inspected independently.
+
+The first residue pass found the exact task storage directory absent, empty
+containerd task/container and Docker inventories, no named network namespace,
+and no matching task link. Only the expected daemon process was displayed.
+`/sys/kernel/multikernel/instances` is absent on this boot and is recorded as
+such, not rephrased as an empty instance directory. The initial
+`pgrep mk-storage-server` probe exceeded Linux's 15-character process-name
+limit and is therefore inconclusive; full-command-line process inspection is
+required before claiming no storage server remains.
+
+The full-command-line retry displayed only `mkruntimed`; it matched because the
+daemon arguments contain the configured `mkvsock-nbd` pathname. No process was
+shown listening on port 4061. `mk_transport` is loaded and daemon health remains
+active/running with zero restarts and no startup warnings. Sysfs discovery
+corrects the earlier path assumption: the live API is under
+`/sys/fs/multikernel`, not `/sys/kernel/multikernel`. Exact executable-name
+inspection and enumeration of that tree remain open.
+
+Exact process-name and `/proc/*/exe` checks then found no `mkvsock-nbd`
+process. `/sys/fs/multikernel` contains only its control surface and empty
+`instances` and `overlays` directories. Together with the absent exact storage
+directory, port listener, task link, namespace, and container inventories,
+this closes the live interrupted-cleanup recovery checkpoint on the unchanged
+boot.
+
+The next fresh-workload preflight correctly stopped at artifact coherence. The
+active manifest still records agent `d244ef6c…` and initramfs `63c6ae5d…`, but
+the exact `265196d…` build's agent is `84164eb0…`. The digest-verified archive
+and root-owned source extraction remain on the disposable host. The workload
+suite will not run against this mixed set; a coordinated exact agent,
+initramfs, and private-manifest activation is required first.
+
+The initial release-specific staging command produced a gzip-valid candidate
+initramfs (`c3d2b9f0…`) and then failed before candidate-manifest creation: its
+nested awk quoting let `$1` reach the remote `set -u` shell. No active manifest
+or service changed. The staged pair remains available and validation must
+continue using quote-free digest extraction.
+
+The next retry extracted the digests but over-escaped jq's named variables;
+the remote `set -u` shell rejected `ap` as unbound before writing the candidate
+manifest. Active state again remained unchanged. A single remote-shell escape,
+not two, is required around those jq variables.
+
+The corrected construction and independent bootstrap validation passed. The
+release-specific exact artifacts hash to agent `84164eb0…`, initramfs
+`c3d2b9f0…`, and manifest `fce23175…`; all pinned kernel, relay, module,
+compatibility, and feature checks resolved. The active manifest was still the
+old `6bebfc81…`, and PID `35224` remained healthy with zero restarts, proving
+candidate staging itself did not affect the running service.
+
+Coherent activation passed after proving the container, task, Docker, and child
+inventories empty. The manifest was staged and validated within its target
+directory, then replaced on the same filesystem while the daemon was stopped.
+Final validation reports manifest `fce23175…`, exact agent `84164eb0…`, and
+initramfs `c3d2b9f0…`. The daemon restarted as PID `37028`, remained healthy
+for ten seconds with zero restarts, and host boot ID `ce405359…` was unchanged.
+This establishes coherent pre-workload artifacts, not yet workload behavior.
+
+The exact `265196d…` host preflight passed. Host-check, daemon, and shim report
+the full revision; all four required services are active. The report states
+`qualified=true`, Kerf 0.2.0, 16 online CPUs, a ready APIC 8-15/16 GiB dry-run,
+Secure Boot disabled, lockdown inactive, and no pool, child, stale resource,
+or finding. The host is therefore qualified at an empty boundary; live
+ctr/Docker behavior remains to be exercised.
+
+The exact basic runner (`3eaa058b…`) passed preflight and started the first ctr
+workload. Containerd connected to the shim at 14:22:54, then the client
+returned `timed out connecting to child agent` after disconnection at 14:24:39.
+The cleanup trap ran. Concurrent inspection found empty ctr task/container and
+child inventories while daemon PID `37028` remained healthy with zero
+restarts. The run therefore fails cleanly at agent readiness; it does not prove
+the basic workload matrix, and cause remains open pending durable and console
+evidence.
+
+Durable and kernel evidence localizes the failure. New generation `4067a17f…`
+reached CREATED, LOADED, and RUNNING; instance 40 received CPUs 8 and 10 plus
+3 GiB and became active at 14:23:52. It halted at 14:24:00, long before the
+agent timeout. Cleanup then completed through sequence 33, leaving no live
+sandbox, rootfs record, active export, bundle, or storage directory. This is
+an early guest bootstrap/readiness failure rather than host allocation or
+cleanup. The exact guest console/relay error is still needed.
+
+The first console diagnostic repeat stopped at a different boundary before a
+child existed. The shim timed out reading `mkruntimed.sock`, while the polling
+wrapper accurately recorded `CONSOLE_ATTACH_MISSED`. It supplies no guest
+console evidence and is not another agent timeout; it is a separate
+post-cleanup daemon-availability observation that requires direct process and
+socket inspection before retry.
+
+The daemon itself remained active with zero restarts, a live listening socket,
+13 tasks, low current memory, no builder/server child, and no journal error.
+Durable state is clean at sequence 36. Its 2.5 GiB peak memory and increased
+CPU time are consistent with the second create continuing image construction
+until cancellation and rolling back, not with a dead listener. The exact
+sequence-34-to-36 result must determine whether the surfaced timeout is a
+client deadline or a server fault.
+
+Durable sequences 35-36 answer that question: generation `4b2416e0…` has only
+a create intent/completion and the result `ABORTED: create canceled by runtime
+shim`; it never loaded or started. The control-socket timeout was the caller
+deadline during create, followed by complete server rollback, not a failed
+listener. A further console diagnostic needs a justified request-time bound.
+
+The journal timestamps make the bound defect concrete. Create began at
+14:27:49.892 and committed CREATED at 14:28:19.286 (29.394 seconds), but the
+shim daemon client expires every request at 30 seconds. The response therefore
+lost a deadline race and cancellation released the otherwise successful
+allocation. Rootfs preparation separately allows ten minutes behind that same
+30-second client, proving a structural mismatch. Remediation needs
+operation-specific finite bounds for rootfs preparation and create while
+preserving the short default for ordinary calls.
+
+The implemented fix copies and retimes only the concrete production daemon
+client: 11 minutes for `PrepareRootfs` (ten-minute server builder cap) and 61
+minutes for `CreateSandbox` (one-hour configured backend maximum). All ordinary
+calls keep 30 seconds and caller cancellation remains authoritative. An
+initial build exposed the service's injectable `daemon.Caller` abstraction;
+the corrected helper passes fake callers through unchanged. The full shim
+package now passes once under the race detector; broader verification remains.
+
+The complete local race and vet runs then passed, together with the full
+documentation/link/schema/evidence, 62-case OCI, bind/bootstrap, rootfs,
+storage, image, release/deployment/ledger/capture/containerd, and final-audit
+chain; `git diff --check` is clean. The expected locally permission-gated
+socket subcase remains assigned to the guest. Generated Python cache was
+removed and the pre-existing untracked evidence tree remains untouched.
+
 The rootfs mount backend previously validated snapshot paths and later reopened
 them by name in the privileged mount operation, leaving a rename/substitution
 window. The identity-bound mountpoint, bind sources, and every overlay lower,
