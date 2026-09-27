@@ -2197,6 +2197,89 @@ race-detector repetitions (`1.772s` for the repeated run), and package vet
 passed. Full-repository validation and disposable-host redeployment remain
 pending.
 
+Commit `f5d8da448f23710e3777ed011afaad003881877a` freezes the explicit
+device-policy opt-out checkpoint. Its tracked-source-only archive
+`/tmp/mklinux-f5d8da4.tar.gz` hashes to
+`164a1b9d6895a34253fd1b5a6b7107ae748ce62dd9eff523b7dd0e19114586eb`;
+the untracked historical evidence tree remains excluded and untouched. Guest
+transfer and exact live qualification remain pending.
+
+Guest-side hashing reproduces archive `164a1b9d…`, but the VM has rebooted
+since the preceding activation: current boot ID is
+`1151712d-c18e-4e15-9c6d-2d945dcd5bb0`, replacing `e76edca2…`. The uploaded
+archive is present, while `/tmp/audit-runtime-clean.sh` was lost across reboot,
+so the combined command stops there and establishes no clean-runtime claim.
+The syntax-checked audit script must be re-uploaded and current service/
+resource state re-established before build or activation.
+
+The restored audit proves the new boot is clean across both containerd
+namespaces, Docker, children, runtime storage/state, host network, and helper
+processes. All five services are active and exact `298d3de…` selectors/hashes
+survived reboot. mknetd PID 1231 has zero restarts; mkruntimed PID 1505 has one
+restart. Current-boot journal evidence attributes it to the first 12:29:11 UTC
+qualification seeing the Google guest agent as `unknown`; systemd retried at
+12:29:26 and startup passed. This service interval cannot inherit pre-reboot
+PID continuity, but the host is a valid empty build precondition.
+
+The exact root-owned `f5d8da4…` build completes: release manifest
+`d56a0d15…`, shim `1e25d1e2…`, mkruntimed `6d3bc10e…`, mknetd `4daf0150…`,
+agent `9534c5b3…`, and initramfs `ac25694d…`. Privileged/pipefail listing
+confirms agent, transport module, and relay membership. Nothing is selected or
+activated yet.
+
+Managed selection installs binary release `0.1.0-dev-f5d8da4…` and support
+deployment `b8176d6c…`; deployed/source OCI validator hashes match at
+`31bd16b0…`. Current-boot daemon PIDs/restart counts remain 1231/0 and 1505/1,
+so running processes still belong to the previous revision. Manifest staging
+and coordinated restart remain pending.
+
+Root-only revision artifacts `9534c5b3…`/`ac25694d…` are staged, and strict
+bootstrap validation passes for candidate manifest `bfb05789…` with all pinned
+kernel/module/relay/config/feature identities intact. The candidate remains
+inactive pending an immediate clean-host audit.
+
+The immediate audit is fully empty across workloads, children, storage,
+durable active state, network resources, and runtime helper processes. Current
+boot daemon identities remain 1231/0 and 1505/1. Coordinated activation can
+proceed without displacing work.
+
+Coordinated f5 activation succeeds on current boot `1151712d…`, preserving the
+298 manifest for rollback. Active kernel/release/shim hashes are
+`bfb05789…`/`d56a0d15…`/`1e25d1e2…`; all version reports and strict bootstrap
+validation agree on f5. Mount, mknetd, mkruntimed, containerd, and Docker are
+active; PIDs 9314/9333/9343/9378 have zero restarts/status 0 in the new
+interval. Exact basic workload proof is next.
+
+The exact f5 runner hashes to `7fb6cc6e…`. ctr reaches `RUNNING`; Docker clears
+the resource contract and then fails closed on
+`linux.cgroupsPath must be absolute, canonical, and bounded`, exits 125, and
+runs the EXIT trap. The basic suite remains incomplete. Cleanup and Docker's
+exact cgroupsPath form must be observed before deciding whether it is inert
+host placement metadata or requires child enforcement.
+
+Independent cleanup is again complete across every workload/resource/process
+inventory. f5 daemon PIDs 9314/9333 remain active and unrestarted. The only
+new boundary is the requested cgroupsPath representation.
+
+The runc-backed request uses systemd cgroup syntax
+`system.slice:docker:<64-lowercase-hex-container-id>`. This field selects a
+host cgroup location; the runtime already validates then omits absolute
+cgroupsPath from the child projection, and the accepted Docker resource
+contract is explicitly unrestricted. A bounded exact Docker-systemd grammar
+is therefore equivalent host placement metadata. Validation may accept only
+that grammar in addition to the existing canonical absolute path; malformed,
+wrong-slice/prefix, uppercase, short, or extra-component forms remain rejected.
+
+The narrow Docker systemd cgroupsPath grammar is implemented. Focused OCI
+validation passes 78 semantic cases, including wrong slice, short ID, and
+uppercase ID rejection; Python compilation, both shell syntax checks, and
+`git diff --check` pass. Full gates and exact live revision remain pending.
+
+The complete local gate passes: full Go race suite, vet, all documentation/
+schema/evidence/deployment checks with 78 OCI cases, and diff check. Only the
+classified local socket `EPERM` subcase is skipped. The cgroupsPath checkpoint
+is ready to freeze for live proof.
+
 The complete local gate then passes: full Go race suite, `go vet ./...`, the
 entire documentation/schema/evidence/deployment chain (with 72 OCI cases), and
 `git diff --check`. The known unprivileged socket-rejection `EPERM` subcase is
