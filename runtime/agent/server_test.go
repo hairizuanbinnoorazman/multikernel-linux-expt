@@ -242,6 +242,31 @@ func TestAgentWireProcessCreateErrorExposesOnlyStableStage(t *testing.T) {
 	}
 }
 
+func TestAgentWireProcessStartErrorExposesOnlyStableStage(t *testing.T) {
+	raw, err := json.Marshal(Reply{Version: 1, Sequence: 10,
+		Error: "guest process start stage exec failed: fork /private/path: token=super-secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(raw, []byte("/private/path")) || bytes.Contains(raw, []byte("super-secret")) {
+		t.Fatalf("process start reply leaked raw error: %s", raw)
+	}
+	var wire struct {
+		Error struct {
+			Code        string `json:"code"`
+			Message     string `json:"message"`
+			OperationID string `json:"operation_id"`
+		} `json:"error"`
+	}
+	if err = json.Unmarshal(raw, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire.Error.Code != "INTERNAL" || wire.Error.OperationID != "agent-10" ||
+		wire.Error.Message != "guest process start failed at exec" {
+		t.Fatalf("wire process start error = %+v", wire.Error)
+	}
+}
+
 func TestStateReplyExcludesRetainedOutputAndReadIsBounded(t *testing.T) {
 	manager := NewManager(true)
 	done := make(chan struct{})

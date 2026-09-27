@@ -82,6 +82,16 @@ func (r *Reply) UnmarshalJSON(data []byte) error {
 func safeAgentError(sequence uint64, raw string) *protocol.Error {
 	code, message := "INTERNAL", "agent operation failed"
 	switch {
+	case strings.Contains(raw, "guest process start stage executable failed"):
+		message = "guest process start failed at executable"
+	case strings.Contains(raw, "guest process start stage constraints failed"):
+		message = "guest process start failed at constraints"
+	case strings.Contains(raw, "guest process start stage terminal failed"):
+		message = "guest process start failed at terminal"
+	case strings.Contains(raw, "guest process start stage stdio failed"):
+		message = "guest process start failed at stdio"
+	case strings.Contains(raw, "guest process start stage exec failed"):
+		message = "guest process start failed at exec"
 	case strings.Contains(raw, "guest process create stage bundle-load failed"):
 		message = "guest process creation failed at bundle-load"
 	case strings.Contains(raw, "guest process create stage root-policy failed"):
