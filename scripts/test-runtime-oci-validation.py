@@ -92,7 +92,7 @@ def run_case(directory, name, config=None, raw=None, accepted=False):
         if policy:
             expected["linux"] = policy
         readonly_binds = [item for item in config.get("mounts", []) if item["destination"] not in {
-            "/proc", "/dev", "/dev/pts", "/dev/shm", "/dev/mqueue", "/sys", "/run",
+            "/proc", "/dev", "/dev/pts", "/dev/shm", "/dev/mqueue", "/sys", "/sys/fs/cgroup", "/run",
         }]
         if readonly_binds:
             expected["mounts"] = [{
@@ -258,6 +258,15 @@ def main():
         duplicate_policy = copy.deepcopy(docker_policy)
         duplicate_policy["linux"]["maskedPaths"].append("/proc/interrupts")
         run_case(directory, "docker-duplicate-masked-path", duplicate_policy)
+        docker_cgroup_mount = copy.deepcopy(BASE)
+        docker_cgroup_mount["mounts"] = [{
+            "destination": "/sys/fs/cgroup", "type": "cgroup", "source": "cgroup",
+            "options": ["ro", "nosuid", "noexec", "nodev"],
+        }]
+        run_case(directory, "docker-readonly-cgroup-mount", docker_cgroup_mount, accepted=True)
+        modified_cgroup_mount = copy.deepcopy(docker_cgroup_mount)
+        modified_cgroup_mount["mounts"][0]["options"][0] = "rw"
+        run_case(directory, "docker-writable-cgroup-mount", modified_cgroup_mount)
         current_containerd = copy.deepcopy(standard)
         current_containerd["linux"]["resources"]["devices"] = copy.deepcopy(CONTAINERD_DEFAULT_DEVICES)
         run_case(directory, "current-containerd-default-devices", current_containerd, accepted=True)
