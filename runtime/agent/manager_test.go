@@ -1499,6 +1499,15 @@ func TestStartProcessClassifiesExecutableFailure(t *testing.T) {
 	}
 }
 
+func TestConstrainedProcessReexecUsesHeldAgentImageAcrossChroot(t *testing.T) {
+	if ociExecPath != "/proc/self/exe" {
+		t.Fatalf("OCI executor path = %q, want trusted procfs self handle", ociExecPath)
+	}
+	if ociExecPath == "/mk-agent" {
+		t.Fatal("OCI executor depends on an agent copy inside the workload root")
+	}
+}
+
 func TestCloseNetworkRetainsReplayIdentityUntilRetryCompletes(t *testing.T) {
 	descriptor, err := os.CreateTemp(t.TempDir(), "closed-tun")
 	if err != nil {

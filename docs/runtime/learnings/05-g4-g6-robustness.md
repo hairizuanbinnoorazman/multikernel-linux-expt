@@ -2910,6 +2910,44 @@ the wire.
 Full repository race tests, vet, and the documentation/evidence chain pass;
 the already classified local socket `EPERM` is the sole skip.
 
+Exact live candidate `f7c6f475c5c0dc0c35c07e68f51b74f409e211a6` is archived as
+`/tmp/mklinux-f7c6f47.tar.gz`, SHA-256
+`c851cd2541549d272da4c34cab7632933c40b08edbe2c6a84b342e89d9ddf4c4`.
+Only tracked source is included.
+
+Independent guest verification/build passed for `f7c6f47…`: release manifest
+`525cbadb…`, shim `2d252204…`, daemon `da058880…`, mknetd `5c080d9e…`, and
+agent `a727b7ab…`. These remain build-only identities until activation.
+
+The empty-host manager selected release `0.1.0-dev-f7c6f47…`; exact agent and
+dependent initramfs are `a727b7ab…` and `a9b85660…`. Strict bootstrap
+validation accepts manifest `11113950…`; service activation remains pending.
+
+Coordinated activation is healthy: after ten seconds all five services are
+active, mknetd PID 14500 and mkruntimed PID 14520 have zero restarts/status 0,
+manifest/executable identities match `f7c6f47…`, and the boot ID is unchanged.
+
+Exact live execution now returns the fixed stage
+`guest process start failed at exec`. Earlier StartProcess stages passed, and
+raw error data remained redacted. The failure is therefore at final child
+launch, not networking, bundle load, root policy, executable validation,
+constraints encoding, or stdio setup. Cleanup and helper/chroot launch state
+are inspected next.
+
+The exec failure is a chroot/helper path mismatch: constrained starts selected
+`/mk-agent`, but the agent binary is outside the OCI root applied before exec.
+The already trusted procfs is bind-mounted into that root, so the helper now
+re-execs through `/proc/self/exe`, an exact handle to the running agent also
+used by its constraint tests. No helper is copied into the workload root.
+Live confirmation remains pending.
+
+Focused race tests pass, with the constraint executor still applying
+no-new-privileges/rlimits and a new guard pinning the chroot-safe trusted
+re-exec path.
+
+The full repository race/vet/documentation-evidence gate passes, with only the
+previously classified local socket `EPERM` skip.
+
 The post-reboot environment reset uses recoverable root-only quarantine, not
 manual deletion. Exact durable hashes were captured before moving lifecycle,
 network, and storage-task records; container metadata was then removed.

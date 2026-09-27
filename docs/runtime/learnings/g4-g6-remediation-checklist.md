@@ -3971,6 +3971,53 @@ reply; all earlier cleanup and diagnostic tests continue to pass.
 The complete race, vet, documentation/schema/evidence/deployment, 62-case OCI,
 and final-audit gates pass; only the known local socket `EPERM` subcase skips.
 
+Commit `f7c6f475c5c0dc0c35c07e68f51b74f409e211a6` freezes the qualified
+StartProcess staging. Its tracked source archive
+`/tmp/mklinux-f7c6f47.tar.gz` hashes to
+`c851cd2541549d272da4c34cab7632933c40b08edbe2c6a84b342e89d9ddf4c4`;
+the historical evidence tree remains untouched and excluded.
+
+The guest re-matched archive `c851cd25…` and built exact `f7c6f47…` from a
+new root-owned extraction. Build hashes are release manifest `525cbadb…`, shim
+`2d252204…`, mkruntimed `da058880…`, mknetd `5c080d9e…`, and agent
+`a727b7ab…`. Activation remains pending.
+
+On empty inventories, managed release `0.1.0-dev-f7c6f47…` became current.
+The exact agent/initramfs hash to `a727b7ab…`/`a9b85660…`, and strict bootstrap
+validation accepts candidate manifest `11113950…`. Running services have not
+yet been restarted onto this set.
+
+Atomic empty-host activation passed. After ten seconds all five services are
+active; mknetd PID 14500 and mkruntimed PID 14520 have zero restarts/status 0,
+executables report exact `f7c6f47…`, installed manifest re-matches
+`11113950…`, and boot ID remains `a0798b60…`.
+
+The exact `f7c6f47…` live run localizes the remaining failure: unchanged runner
+`3eaa058b…` reaches `ctr run`, then receives
+`INTERNAL: guest process start failed at exec`. This proves executable
+validation, constraint encoding, and stdio setup completed; the error is the
+final child `exec` boundary. EXIT cleanup ran. No raw path or kernel error was
+exposed, as designed. Post-cleanup inventories and the constraint-helper/chroot
+launch design require inspection before remediation.
+
+Source inspection explains the exec-stage failure. Any process with the normal
+OCI constraint contract was re-executed as `/mk-agent` while Go simultaneously
+chrooted it into the container root; the trusted agent exists only outside
+that root, so final exec cannot resolve the path. Guest init already binds the
+trusted procfs at the container's `/proc`, and the constraint executor's own
+tests use `/proc/self/exe`. The launch path now uses that kernel-provided handle
+to the current agent across chroot, avoiding both an untrusted workload-root
+copy and the nonexistent `/mk-agent` path. This source localization still
+requires exact live confirmation.
+
+Focused agent/shim race tests pass, including a regression guard that rejects
+return to a workload-root `/mk-agent` dependency and pins the constrained
+launcher to `/proc/self/exe`. The existing constraint-application re-exec test
+also remains green.
+
+Full race, vet, and documentation/evidence gates pass; the known local socket
+`EPERM` subcase remains the only skip.
+
 For environment reset only, after proving no task process, child, or host
 network resource survived the reboot, the exact stale records were moved—not
 deleted—into root-only quarantine. Lifecycle state/journal hashes are
