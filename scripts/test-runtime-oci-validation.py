@@ -328,6 +328,10 @@ def main():
             run_case(directory, f"process-{field}", config)
         docker_unconfined = copy.deepcopy(BASE)
         docker_unconfined["process"].update(apparmorProfile="unconfined", oomScoreAdj=0)
+        docker_unconfined["linux"]["sysctl"] = {
+            "net.ipv4.ip_unprivileged_port_start": "1024",
+            "net.ipv4.ping_group_range": "1 0",
+        }
         run_case(directory, "docker-explicit-unconfined", docker_unconfined, accepted=True)
         for name, field, value in (
             ("docker-default-apparmor", "apparmorProfile", "docker-default"),
@@ -337,6 +341,28 @@ def main():
         ):
             config = copy.deepcopy(BASE)
             config["process"][field] = value
+            run_case(directory, name, config)
+        for name, sysctl in (
+            ("docker-permissive-sysctls", {
+                "net.ipv4.ip_unprivileged_port_start": "0",
+                "net.ipv4.ping_group_range": "0 2147483647",
+            }),
+            ("partial-child-default-sysctls", {
+                "net.ipv4.ip_unprivileged_port_start": "1024",
+            }),
+            ("extra-child-default-sysctl", {
+                "net.ipv4.ip_unprivileged_port_start": "1024",
+                "net.ipv4.ping_group_range": "1 0",
+                "kernel.hostname": "guest",
+            }),
+            ("typed-child-default-sysctl", {
+                "net.ipv4.ip_unprivileged_port_start": 1024,
+                "net.ipv4.ping_group_range": "1 0",
+            }),
+            ("nonobject-sysctl", []),
+        ):
+            config = copy.deepcopy(BASE)
+            config["linux"]["sysctl"] = sysctl
             run_case(directory, name, config)
         for name, mutate in (
             ("bad-nnp", lambda process: process.update(noNewPrivileges="yes")),

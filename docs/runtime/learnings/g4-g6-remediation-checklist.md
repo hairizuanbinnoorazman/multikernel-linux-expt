@@ -2197,6 +2197,12 @@ race-detector repetitions (`1.772s` for the repeated run), and package vet
 passed. Full-repository validation and disposable-host redeployment remain
 pending.
 
+The complete local gate then passes: full Go race suite, `go vet ./...`, the
+entire documentation/schema/evidence/deployment chain (with 72 OCI cases), and
+`git diff --check`. The known unprivileged socket-rejection `EPERM` subcase is
+the only classified skip. The sysctl/seccomp checkpoint is ready to commit;
+exact-revision deployment and workload behavior are not yet proven.
+
 The `1124739` coordinated activation stopped at deployment installation before
 service restart. Binary release and atomically staged agent/initramfs/manifest
 updates succeeded, but the new deployment manager rejected the active older
@@ -3620,6 +3626,108 @@ with no forwarded builder stderr. The observed host boot ID was unexpectedly
 before interpreting the new failure. Exit status was 1 and no live pass is
 claimed.
 
+The deployment manager reused the prior verified runtime environment and host
+configuration as immutable inputs, installed and selected deployment
+`c9e5b67094f8f4aba5783ea5fcaac57489a62ec9da77507f7d0eb220717a24ce`,
+and reports every managed link valid. The deployed OCI validator exactly
+matches source at SHA-256 `5303e914…`. Service PIDs/restart counts remain
+unchanged, so daemon reload/restart and the revision-specific kernel manifest
+are still pending; this is selected filesystem state, not yet a coherent
+running release.
+
+Pre-staging identity checks show the active kernel manifest is a root-owned
+mode-0600 regular file (not a symlink) in a root-owned mode-0755 directory;
+the artifact parent is likewise root-owned mode 0755. A new revision directory
+and same-directory manifest candidate can therefore be created and validated
+without following an unmanaged selector.
+
+Revision-specific agent `0ee464e9…` (mode 0755) and initramfs `a78778e2…`
+(mode 0600) are now staged in root-only artifact directory `a72c5cb…`.
+Strict bootstrap validation passes for the root-owned candidate manifest
+`8a8322a4…`, resolving the exact kernel, module, relay, compatibility pins,
+required config, and OCI feature set. The candidate has not replaced active
+`gce-mk2.json`; a fresh process/resource preflight is required immediately
+before coordinated activation.
+
+The immediate activation preflight passes on unchanged boot
+`e76edca2-d8d6-4800-9df8-f9ee9dccca8f`: default/moby task and container
+inventories, Docker objects, children, runtime storage, active lifecycle/
+network/rootfs state, runtime links/rules, and shim/relay/storage-server
+processes are all empty. Coordinated stop, atomic manifest replacement,
+daemon reload, and service start may now proceed without displacing work.
+
+Coordinated activation succeeds on the same boot. The previous `444428a…`
+manifest is retained as a root-owned rollback file; active manifest is
+`8a8322a4…`, release manifest `55e4ea88…`, shim `f32e4a1c…`, binary selector
+`a72c5cb…`, and support deployment selector `c9e5b670…`. The mount, mknetd,
+mkruntimed, containerd, and Docker are active; new PIDs are 11328, 11347,
+11357, and 11389 with zero restarts/status 0. Shim, daemon, and mknetd all
+report exact revision `a72c5cb…`, and strict active bootstrap validation
+passes. Exact-revision workload proof is now the next boundary.
+
+The exact archived basic runner hashes to `808df3e0…`. On exact `a72c5cb…`,
+the ctr task again reaches `RUNNING`, and Docker now clears the AppArmor/OOM
+validation boundary with explicit `--network none --security-opt
+apparmor=unconfined`. Docker then fails closed at the next concrete OCI
+boundary: `unsupported linux field(s): seccomp, sysctl`, exiting 125 before
+its task starts; the EXIT trap runs. This is not a suite pass. Independent
+cleanup audit and exact live values/semantics of those two fields are required
+before any remediation decision.
+
+The first post-failure inventory command is invalid: nested quoting exposes
+the jq `| length` filters to the remote shell, which interprets them as
+pipelines/path fragments and aborts. It establishes no cleanup fact and makes
+no intended mutation. The audit must be rerun from a transferred, syntax-
+checked script rather than another dense inline command.
+
+The syntax-checked audit proves cleanup is fully empty: default/moby tasks and
+containers, Docker objects, child instances, runtime storage, active
+lifecycle/network/rootfs records, `mkv*` links, Multikernel firewall rules,
+and shim/relay/storage-server processes are all zero. mknetd PID 11328 and
+mkruntimed PID 11347 remain active with zero restarts/status 0. The failed
+Docker start therefore leaves no resource, but `seccomp`/`sysctl` remain an
+open compatibility and security-design boundary.
+
+Short-lived runc-backed Docker bundle inspection shows the exact request.
+With explicit AppArmor unconfined but Docker's default seccomp, `linux.seccomp`
+is a substantive deny-by-default profile (errno action plus a large allowlist),
+so accepting and stripping it would silently remove a security control. Adding
+explicit `--security-opt seccomp=unconfined` makes the field absent. In both
+cases Docker still requests two sysctls:
+`net.ipv4.ip_unprivileged_port_start="0"` and
+`net.ipv4.ping_group_range="0 2147483647"`. Those change kernel behavior and
+cannot be declared inert without comparing them to the child kernel and/or
+implementing application. Both probe containers are removed. The immediate
+next evidence is the exact clean-child default for these sysctls.
+
+The exact-runtime child probe reports pristine kernel defaults
+`ip_unprivileged_port_start=1024` and `ping_group_range="1 0"`; its normal
+`ctr run --rm` cleanup then returns every audited inventory to zero while
+daemon PIDs/restart counts remain stable. Docker's emitted values are therefore
+not inert. A potentially truthful integration is to make seccomp unconfined
+and both child-default sysctl values explicit in qualification, then accept and
+strip only that exact map. Docker's generated OCI representation of those
+explicit defaults must be observed before implementation.
+
+The narrowed runc probe confirms Docker preserves explicit child-default
+settings exactly as string map
+`{"net.ipv4.ip_unprivileged_port_start":"1024",
+"net.ipv4.ping_group_range":"1 0"}`, while explicit seccomp unconfined leaves
+`linux.seccomp` absent. This permits a narrow fail-closed compatibility rule:
+qualification explicitly requests all three opt-outs/defaults; validation may
+accept and remove only that complete exact sysctl map, because the pristine
+child has already proven identical behavior. Missing, extra, permissive,
+malformed, or differently typed maps and every seccomp object remain rejected.
+
+The implementation now admits only the complete exact child-default sysctl
+map and omits it from the guest projection. Qualification explicitly supplies
+unconfined seccomp and both child-default sysctls on every Docker create/run,
+including the embedded PTY command. Focused validation passes 72 semantic
+cases, covering Docker's permissive map plus partial, extra, typed, and
+non-object rejections; Python compilation, both shell syntax checks, and
+`git diff --check` also pass. Full local gates and an immutable revision remain
+pending.
+
 The reboot audit established an orderly stop at 04:34:44 UTC (including clean
 unmount of the storage filesystem), followed by a new boot at 09:17:27 UTC;
 there is no kernel-crash signature. The current host requalifies with guest
@@ -4302,6 +4410,94 @@ direct qualification `docker create`/`docker run` path carries the explicit
 network and AppArmor options, including piped stdin, detached attach, PTY, and
 live-resize cases. Commit, archive, deployment, and live execution remain the
 next evidence boundary.
+
+The verified checkpoint was committed as
+`a72c5cb97c899bbfb567137ddfa48bf42165a887` (`runtime: support explicit
+unconfined Docker OCI`). Its source-only qualification archive is
+`/tmp/mklinux-a72c5cb.tar.gz`, SHA-256
+`bbc2eb49b0aaa4fe1a4846fd500613f569441276a99d860c0bd9aa9e1d880a6c`.
+Only the pre-existing untracked `evidence/runtime-20260907/` tree remains
+outside the commit; it was not staged or altered. Guest transfer, digest
+verification, build, activation, and live execution are still pending.
+
+The disposable GCE resource still exists and is `RUNNING`: project
+`new-demo-project-462517`, zone `asia-southeast1-b`, instance
+`mklinux-g4-g6-final-20260905`, resource ID `8436995220542526424`, with
+`lastStartTimestamp=2026-09-27T00:26:24.270-07:00`. No recreation or restart is
+needed at this boundary. The exact archive has not yet been transferred.
+
+Transfer succeeded and the guest independently reproduced archive SHA-256
+`bbc2eb49b0aaa4fe1a4846fd500613f569441276a99d860c0bd9aa9e1d880a6c`
+(992193 bytes). The current guest boot is
+`e76edca2-d8d6-4800-9df8-f9ee9dccca8f`, kernel
+`7.0.0-mk2-gce-lab`; mkruntimed, mknetd, and containerd are active and the
+containerd task/container inventories are empty. The combined inventory probe
+then stopped because `/usr/local/bin/kerf` is not the installed Kerf path, so
+child and mknetd inventories are not yet established by this command and must
+be re-run using discovered command paths before deployment.
+
+The corrected preflight proves the host is quiescent: zero child instances,
+Docker objects, `mkv*` links, Multikernel NAT/filter rules, containerd tasks or
+containers, active lifecycle sandboxes, mknetd endpoints, rootfs records, and
+runtime-storage files. Lifecycle sequence 49 retains historical results only;
+all five storage records are `RELEASED` with offline checks, not active
+exports. Service inspection records mknetd PID 1236 with zero restarts,
+containerd PID 1377 with zero restarts, and mkruntimed PID 1466 with one
+successful automatic restart after the already documented boot-time guest
+agent ordering failure. The discovered Kerf executable is
+`/opt/mkruntime/kerf-venv/bin/kerf`; it has no `list` subcommand, so direct
+sysfs and durable-state inventories are the applicable evidence here.
+
+Root-owned extraction of exact `a72c5cb…` source and the complete seven-binary
+revision-stamped build succeeded. Child initramfs assembly then stopped at
+`install: No such file or directory` because the command assumed the transport
+module lived inside the prior revision's agent/initramfs directory. No binary
+release, deployment, kernel manifest, or service was activated. As with the
+earlier bootstrap build, each active manifest-bound input must be resolved and
+verified individually before a narrow assembly retry; this failure is not a
+runtime result.
+
+Active manifest inspection confirms agent and prior initramfs hashes
+`52e81fa1…` and `cb1d9771…`, relay path `/opt/mkruntime/bin/mkvsock-relay`
+with hash `293ff1ea…`, and manifest hash `9e9c1908…`. The first inspection loop
+incorrectly selected the whole `transport.module` object rather than its
+`.path` member and stopped at a synthetic path `{`; module/kernel hashes and
+the absence of a partial candidate still require a corrected direct check.
+
+The corrected direct check resolves root-owned module
+`/opt/mkruntime/artifacts/mk_transport.ko` (`bef1b888…`), kernel
+`/opt/mkruntime/artifacts/vmlinux` (`5cdf26d0…`), and relay (`293ff1ea…`),
+and proves the failed attempt left no candidate initramfs. These match the
+active manifest. A retry limited to initramfs assembly can now use the exact
+module and relay paths without changing active state.
+
+The isolated assembly retry succeeds. Exact build hashes are release manifest
+`55e4ea88…`, shim `f32e4a1c…`, mkruntimed `497ca3f1…`, mknetd `327dcb51…`,
+agent `0ee464e9…`, and root-owned mode-0600 initramfs `a78778e2…` (5637967
+bytes). The subsequent non-root archive-list pipeline cannot read that mode-
+0600 file; because the remote shell lacked `pipefail`, the trailing `sort`
+masked the gzip permission error. Artifact content membership is therefore
+not yet proven and must be rechecked under sudo with pipeline failure
+propagation. Nothing has been installed or activated.
+
+The first sudo/pipefail membership retry exits 1 with no matches because its
+pattern assumes `./` prefixes. It proves neither corruption nor membership;
+the unfiltered archive path spelling must be observed before another exact
+assertion.
+
+The privileged unfiltered cpio listing succeeds and contains exact members
+`mk-agent`, `mk_transport.ko`, and `mkvsock-relay` together with `init`,
+BusyBox, and the fixture bundle. The candidate bootstrap is therefore complete
+at hash `a78778e2…`; managed binary/support installation and manifest staging
+remain separate operations.
+
+The managed binary installer verifies, installs, and selects immutable release
+`0.1.0-dev-a72c5cb97c899bbfb567137ddfa48bf42165a887`; all managed links remain
+valid and shim/mkruntimed/mknetd links report that exact revision. As expected,
+service PIDs remain 1466/1236 with restart counts 1/0, so the running daemon
+processes are still the preceding release. Support deployment, manifest
+validation, and coordinated restart remain mandatory before coherence can be
+claimed.
 
 The `f7c6f47…` failed-start cleanup is independently clean before upgrade:
 containerd, lifecycle, mknetd, child, and runtime-storage inventories are all

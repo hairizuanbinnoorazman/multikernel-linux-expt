@@ -38,7 +38,7 @@ RLIMITS = {
     "RLIMIT_RSS", "RLIMIT_RTPRIO", "RLIMIT_RTTIME", "RLIMIT_SIGPENDING", "RLIMIT_STACK",
 }
 ROOT = {"path", "readonly"}
-LINUX = {"namespaces", "resources", "cgroupsPath", "maskedPaths", "readonlyPaths"}
+LINUX = {"namespaces", "resources", "cgroupsPath", "maskedPaths", "readonlyPaths", "sysctl"}
 NAMESPACE = {"type", "path"}
 CHILD_BOUNDARY_NAMESPACES = {"pid", "ipc", "uts", "mount", "cgroup"}
 SAFE_MASKED_PATHS = {
@@ -47,6 +47,10 @@ SAFE_MASKED_PATHS = {
     "/sys/devices/virtual/powercap", "/proc/scsi",
 }
 SAFE_READONLY_PATHS = {"/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"}
+CHILD_DEFAULT_SYSCTLS = {
+    "net.ipv4.ip_unprivileged_port_start": "1024",
+    "net.ipv4.ping_group_range": "1 0",
+}
 MAX_PROCESS_ARGS = 256
 MAX_PROCESS_ENV = 1024
 MAX_PROCESS_TEXT = 128 << 10
@@ -371,6 +375,8 @@ def validate(config):
                 pathlib.PurePosixPath(path).as_posix() != path or
                 ".." in pathlib.PurePosixPath(path).parts or len(path) > 4096):
             raise ValueError("linux.cgroupsPath must be absolute, canonical, and bounded")
+    if "sysctl" in linux and linux["sysctl"] != CHILD_DEFAULT_SYSCTLS:
+        raise ValueError("linux.sysctl must exactly match the explicit child-kernel defaults")
     validate_path_policy(linux.get("maskedPaths", []), SAFE_MASKED_PATHS, "maskedPaths")
     validate_path_policy(linux.get("readonlyPaths", []), SAFE_READONLY_PATHS, "readonlyPaths")
     validate_mounts(config.get("mounts", []))
