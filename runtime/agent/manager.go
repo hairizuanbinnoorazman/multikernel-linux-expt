@@ -359,13 +359,18 @@ func validProcessID(id string) bool {
 	}
 	return true
 }
+
+func processCreateError(stage string, err error) error {
+	return fmt.Errorf("guest process create stage %s failed: %w", stage, err)
+}
+
 func (m *Manager) Create(id, bundle string) error {
 	if !validProcessID(id) {
 		return errors.New("invalid process ID")
 	}
 	c, root, e := LoadBundle(bundle)
 	if e != nil {
-		return e
+		return processCreateError("bundle-load", e)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -380,7 +385,7 @@ func (m *Manager) Create(id, bundle string) error {
 			return errors.New("root policy cannot be applied in no-chroot test mode")
 		}
 		if e = applyRootPolicy(c, root); e != nil {
-			return e
+			return processCreateError("root-policy", e)
 		}
 		m.policySet = true
 	}
@@ -1357,12 +1362,6 @@ func (m *Manager) CloseNetworkContext(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var failures []error
-	if m.network != nil {
-		if err := m.network.Close(); err != nil {
-			failures = append(failures, err)
-		}
-		m.network = nil
-	}
 	if m.networkName != "" {
 		if output, err := m.executeNetworkCommand(ctx, "link", "delete", m.networkName); err != nil {
 			failures = append(failures, fmt.Errorf("delete child network: %w: %s", err, strings.TrimSpace(string(output))))
@@ -1370,6 +1369,17 @@ func (m *Manager) CloseNetworkContext(ctx context.Context) error {
 			m.networkName = ""
 			m.networkMTU = 0
 		}
+	}
+	// A non-persistent TUN disappears when its final descriptor closes. Delete
+	// the named link while the descriptor still owns it so a successful close
+	// cannot manufacture a spurious "link not found" cleanup failure.
+	if m.network != nil && m.networkName == "" {
+		if err := m.network.Close(); err != nil {
+			failures = append(failures, err)
+		}
+		// Close consumes the descriptor even when it reports a terminal close
+		// error; retain the replay identity, not an unusable *os.File.
+		m.network = nil
 	}
 	if m.dnsManaged {
 		if m.dnsOwner == nil {

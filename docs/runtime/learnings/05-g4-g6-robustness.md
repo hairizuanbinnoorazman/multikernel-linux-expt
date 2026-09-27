@@ -2774,6 +2774,96 @@ the documentation/schema/evidence/deployment chain. The sole skipped check is
 the previously classified socket-permission subcase (`EPERM` in this local
 sandbox). Exact commit creation and disposable-host execution remain next.
 
+The exact qualified source is commit
+`f34b6bbce490b6715d5185f989039bbb155951de`; `git archive` produced
+`/tmp/mklinux-f34b6bb.tar.gz` with SHA-256
+`25ecbc772d003bb6e3db9dac116647394237ceef7b19d7822f549bd085a3cf3a`.
+Only tracked source is present; the historical untracked evidence directory
+was not included or modified.
+
+The existing disposable VM is running and did not require restart. A clean
+pre-transfer check shows the unchanged boot ID
+`ce405359-2f14-4655-9120-277e292af6da`, expected custom kernel, four active
+required units, zero mknetd/mkruntimed restarts, empty containerd task and
+container inventories, no listed `/run/multikernel` residue, and only the
+durable lifecycle state/journal under `/var/lib/mkruntime`.
+
+Remote transfer and build integrity passed. The guest rechecked archive digest
+`25ecbc77…`, extracted into a new root-only source tree without `.git`, and
+produced release manifest `90869f47…`, shim `ac971043…`, mkruntimed
+`e2e65944…`, mknetd `0fcd9b75…`, and agent `a5edf911…`, all for exact revision
+`f34b6bb…`. No activation claim is made at this checkpoint.
+
+The first install command revealed that binary `install` is activating, not
+staging-only. Because the build version had redundantly included the revision,
+it selected an exact-source release whose identifier repeats `f34b6bb…`.
+Services were not restarted and no workload was launched. That release and its
+agent/initramfs (`a5edf911…`/`79b312a2…`) are explicitly excluded from the
+corrected qualification; a clean extraction will rebuild version
+`0.1.0-dev` with the revision supplied only through the revision field.
+
+The corrected rebuild and manager activation now select the conventional
+single-revision release `0.1.0-dev-f34b6bb…`. Exact hashes are release
+manifest `d581bc41…`, shim `dcb023c4…`, mkruntimed `b9d751ca…`, mknetd
+`c64f1fa4…`, agent `8cdb40db…`, initramfs `9b0f2bcd…`, and candidate kernel
+manifest `1650f945…`. The strict bootstrap validator accepts the candidate;
+running services still require an empty-host coordinated restart before these
+identities can support runtime evidence.
+
+The empty-host coordinated activation is healthy. The validated manifest was
+renamed into place while runtime services were stopped; ten seconds after
+restart all four required units are active, mknetd PID 47177 and mkruntimed
+PID 47196 show zero restarts/status 0, installed manifest/agent/initramfs
+re-match their staged hashes, executable identities report `f34b6bb…`, and the
+boot ID is unchanged. Containerd task and container inventories remain empty.
+
+The exact `3eaa058b…` basic runner failed during the first `ctr run` with the
+same generic `INTERNAL: agent operation failed`, after all host preconditions
+passed. Its EXIT cleanup executed. Crucially, no newly whitelisted network
+setup stage reached the client, so the present evidence does not localize the
+failure to `tun-open`/create or an `ip`/DNS stage. State, journal, console, and
+residue collection follows before further implementation.
+
+The retained state now disproves a network-setup root cause. Lifecycle
+generation `efe83a02…` reached `RUNNING`, and mknetd endpoint `185af25c…` is
+`READY` with two received and one transmitted packet and zero errors. Exact
+`f34b6bb…` supervisor/worker PIDs 47443/47448 and relay PID 47657 remain live.
+Cleanup's own generic `CloseNetwork` failure is distinct: it left task state
+`CREATED`, active child/storage, and owned endpoint/link/firewall resources.
+No forced teardown is performed before guest-console evidence is collected.
+
+An intervening VM reboot occurred before the retained guest console could be
+captured; available output does not establish its cause. On the new boot,
+mknetd refused inconsistent durable state because endpoint `185af25c…`
+survived while link `mkv185af25c9ca` did not. This is correct fail-closed
+behavior, but it means pre-reboot live process/console evidence is gone. The
+remaining durable ownership must be reconciled through runtime cleanup rather
+than by deleting state files.
+
+The new boot ID is `a0798b60-d6ff-4490-a176-ff09081f63a9`. Kerf has no pool or
+children and no shim, relay, link, or namespace exists, while lifecycle
+sequence 62, mknetd endpoint ownership, root image, and container metadata are
+durable. mknetd and mkruntimed both restart-loop: the former rejects the
+missing link and the latter rejects the reboot-volatile `/run` bundle's
+absence during rootfs reconciliation. Detection is safe, but automatic owned
+recovery is incomplete; state files remain untouched for source-level repair.
+
+The cleanup error has a separate deterministic source: `CloseNetwork` closed
+the non-persistent TUN before asking `ip` to delete it, allowing descriptor
+close to remove the link first and turn the later command into a false cleanup
+failure. Teardown now deletes while the descriptor is held and retains
+ownership on failure. Since the network pump demonstrably ran, fixed
+secret-safe diagnostic stages are also added at the subsequent process
+`bundle-load` and `root-policy` boundary for the next exact live run.
+
+Focused agent/shim race tests pass, including ordered link-before-descriptor
+teardown, retry retention, bundle-load classification, and proof that injected
+private path/token text does not cross the agent wire boundary.
+
+Repository-wide race tests, vet, and the entire documentation/schema/evidence
+gate pass. The only skip is the already classified unprivileged socket
+rejection (`EPERM`); no new failure is hidden by that skip.
+
 The next G4 builder audit found that deterministic content did not imply safe
 publication. `build-runtime-rootfs.py` used `os.replace` for archive and
 manifest output, overwriting any pre-existing entry. If the manifest publish
