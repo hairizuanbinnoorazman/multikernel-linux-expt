@@ -488,6 +488,8 @@ func processStartError(stage string, err error) error {
 	return fmt.Errorf("guest process start stage %s failed: %w", stage, err)
 }
 
+const ociExecPath = "/proc/self/exe"
+
 func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) error {
 	if width > 65535 || height > 65535 {
 		return errors.New("terminal dimensions exceed the Linux PTY limit")
@@ -527,7 +529,11 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 			m.mu.Unlock()
 			return processStartError("constraints", constraintErr)
 		}
-		commandPath = "/mk-agent"
+		// The agent is intentionally outside the OCI root.  Guest init binds the
+		// trusted procfs into that root, so this magic link remains an exact
+		// handle to the current agent across chroot without copying a helper into
+		// the workload filesystem.
+		commandPath = ociExecPath
 		commandArgs = append([]string{"__oci_exec", constraints}, p.spec.Args...)
 	}
 	cmd := exec.Command(commandPath, commandArgs...)
