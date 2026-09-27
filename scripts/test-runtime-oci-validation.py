@@ -245,6 +245,19 @@ def main():
             "readonlyPaths": ["/proc/sys"],
         })
         run_case(directory, "standard-containerd", standard, accepted=True)
+        docker_policy = copy.deepcopy(BASE)
+        docker_policy["linux"].update({
+            "maskedPaths": [
+                "/proc/acpi", "/proc/asound", "/proc/interrupts", "/proc/kcore", "/proc/keys",
+                "/proc/latency_stats", "/proc/sched_debug", "/proc/scsi", "/proc/timer_list",
+                "/proc/timer_stats", "/sys/devices/virtual/powercap", "/sys/firmware",
+            ],
+            "readonlyPaths": ["/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"],
+        })
+        run_case(directory, "docker-root-path-policy", docker_policy, accepted=True)
+        duplicate_policy = copy.deepcopy(docker_policy)
+        duplicate_policy["linux"]["maskedPaths"].append("/proc/interrupts")
+        run_case(directory, "docker-duplicate-masked-path", duplicate_policy)
         current_containerd = copy.deepcopy(standard)
         current_containerd["linux"]["resources"]["devices"] = copy.deepcopy(CONTAINERD_DEFAULT_DEVICES)
         run_case(directory, "current-containerd-default-devices", current_containerd, accepted=True)

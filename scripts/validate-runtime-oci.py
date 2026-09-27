@@ -42,7 +42,7 @@ LINUX = {"namespaces", "resources", "cgroupsPath", "maskedPaths", "readonlyPaths
 NAMESPACE = {"type", "path"}
 CHILD_BOUNDARY_NAMESPACES = {"pid", "ipc", "uts", "mount", "cgroup"}
 SAFE_MASKED_PATHS = {
-    "/proc/acpi", "/proc/asound", "/proc/kcore", "/proc/keys", "/proc/latency_stats",
+    "/proc/acpi", "/proc/asound", "/proc/interrupts", "/proc/kcore", "/proc/keys", "/proc/latency_stats",
     "/proc/timer_list", "/proc/timer_stats", "/proc/sched_debug", "/sys/firmware",
     "/sys/devices/virtual/powercap", "/proc/scsi",
 }
