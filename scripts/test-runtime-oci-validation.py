@@ -62,6 +62,10 @@ def run_case(directory, name, config=None, raw=None, accepted=False):
     if accepted:
         projected = json.loads(output.read_text(encoding="utf-8"))
         expected = {key: config[key] for key in ("ociVersion", "process", "root")}
+        expected["process"] = {
+            name: value for name, value in config["process"].items()
+            if name not in {"apparmorProfile", "oomScoreAdj"}
+        }
         expected["ociVersion"] = "1.1.0"
         if config.get("hostname"):
             expected["hostname"] = config["hostname"]
@@ -322,6 +326,18 @@ def main():
             config = copy.deepcopy(BASE)
             config["process"][field] = False if field == "noNewPrivileges" else {}
             run_case(directory, f"process-{field}", config)
+        docker_unconfined = copy.deepcopy(BASE)
+        docker_unconfined["process"].update(apparmorProfile="unconfined", oomScoreAdj=0)
+        run_case(directory, "docker-explicit-unconfined", docker_unconfined, accepted=True)
+        for name, field, value in (
+            ("docker-default-apparmor", "apparmorProfile", "docker-default"),
+            ("nonzero-oom-adjustment", "oomScoreAdj", 1),
+            ("boolean-oom-adjustment", "oomScoreAdj", False),
+            ("floating-oom-adjustment", "oomScoreAdj", 0.0),
+        ):
+            config = copy.deepcopy(BASE)
+            config["process"][field] = value
+            run_case(directory, name, config)
         for name, mutate in (
             ("bad-nnp", lambda process: process.update(noNewPrivileges="yes")),
             ("bad-rlimit", lambda process: process.update(rlimits=[{"type": "RLIMIT_NOFILE", "soft": 2, "hard": 1}])),

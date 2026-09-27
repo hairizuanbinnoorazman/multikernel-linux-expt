@@ -16,7 +16,10 @@ import sys
 
 
 TOP_LEVEL = {"ociVersion", "process", "root", "linux", "annotations", "mounts", "hostname"}
-PROCESS = {"terminal", "user", "args", "env", "cwd", "noNewPrivileges", "rlimits", "capabilities"}
+PROCESS = {
+    "terminal", "user", "args", "env", "cwd", "noNewPrivileges", "rlimits", "capabilities",
+    "apparmorProfile", "oomScoreAdj",
+}
 USER = {"uid", "gid", "additionalGids"}
 CAPABILITY_SETS = {"bounding", "effective", "inheritable", "permitted", "ambient"}
 CAPABILITIES = {
@@ -271,6 +274,12 @@ def validate(config):
     reject_unknown(process, PROCESS, "process")
     if "terminal" in process and not isinstance(process["terminal"], bool):
         raise ValueError("process.terminal must be boolean")
+    if "apparmorProfile" in process and process["apparmorProfile"] != "unconfined":
+        raise ValueError("process.apparmorProfile must be the explicit unconfined compatibility value")
+    if "oomScoreAdj" in process:
+        oom_score_adj = process["oomScoreAdj"]
+        if type(oom_score_adj) is not int or oom_score_adj != 0:
+            raise ValueError("process.oomScoreAdj must be the inert integer zero compatibility value")
     args = process.get("args")
     if (not isinstance(args, list) or not args or len(args) > MAX_PROCESS_ARGS or
             not all(isinstance(item, str) and "\0" not in item for item in args) or not args[0]):
@@ -374,9 +383,13 @@ def validate(config):
 
 
 def guest_projection(config):
+    process = {
+        name: value for name, value in config["process"].items()
+        if name not in {"apparmorProfile", "oomScoreAdj"}
+    }
     result = {
         "ociVersion": "1.1.0",
-        "process": config["process"],
+        "process": process,
         "root": config["root"],
     }
     if config.get("hostname"):
