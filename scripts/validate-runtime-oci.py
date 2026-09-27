@@ -397,10 +397,17 @@ def validate(config):
             raise ValueError("only exact default resource contracts are supported")
     if "cgroupsPath" in linux:
         path = linux["cgroupsPath"]
-        if (not isinstance(path, str) or not path.startswith("/") or
-                pathlib.PurePosixPath(path).as_posix() != path or
-                ".." in pathlib.PurePosixPath(path).parts or len(path) > 4096):
-            raise ValueError("linux.cgroupsPath must be absolute, canonical, and bounded")
+        absolute_path = (
+            isinstance(path, str) and path.startswith("/") and
+            pathlib.PurePosixPath(path).as_posix() == path and
+            ".." not in pathlib.PurePosixPath(path).parts and len(path) <= 4096
+        )
+        docker_systemd_path = (
+            isinstance(path, str) and
+            re.fullmatch(r"system\.slice:docker:[0-9a-f]{64}", path) is not None
+        )
+        if not absolute_path and not docker_systemd_path:
+            raise ValueError("linux.cgroupsPath must be canonical absolute or exact Docker systemd form")
     if "sysctl" in linux and linux["sysctl"] != CHILD_DEFAULT_SYSCTLS:
         raise ValueError("linux.sysctl must exactly match the explicit child-kernel defaults")
     validate_path_policy(linux.get("maskedPaths", []), SAFE_MASKED_PATHS, "maskedPaths")

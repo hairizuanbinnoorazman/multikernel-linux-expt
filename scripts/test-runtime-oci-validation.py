@@ -355,6 +355,7 @@ def main():
             "devices": copy.deepcopy(DOCKER_UNRESTRICTED_DEVICES),
             "blockIO": {},
         }
+        docker_unconfined["linux"]["cgroupsPath"] = "system.slice:docker:" + "a" * 64
         run_case(directory, "docker-explicit-unconfined", docker_unconfined, accepted=True)
         for name, field, value in (
             ("docker-default-apparmor", "apparmorProfile", "docker-default"),
@@ -394,6 +395,14 @@ def main():
         ):
             config = copy.deepcopy(docker_unconfined)
             mutate(config["linux"]["resources"])
+            run_case(directory, name, config)
+        for name, path in (
+            ("docker-wrong-systemd-slice", "user.slice:docker:" + "a" * 64),
+            ("docker-short-systemd-id", "system.slice:docker:" + "a" * 63),
+            ("docker-uppercase-systemd-id", "system.slice:docker:" + "A" * 64),
+        ):
+            config = copy.deepcopy(docker_unconfined)
+            config["linux"]["cgroupsPath"] = path
             run_case(directory, name, config)
         for name, mutate in (
             ("bad-nnp", lambda process: process.update(noNewPrivileges="yes")),

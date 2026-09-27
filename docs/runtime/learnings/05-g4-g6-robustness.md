@@ -1785,6 +1785,63 @@ Bootstrap validation passed, and daemon/network PIDs `14981`/`14964` were
 stable for 35 seconds with the exact daemon revision. Live workload execution
 is next.
 
+The guest reproduces archive hash `164a1b9d…`, but current boot is now
+`1151712d…`, proving an intervening reboot. The `/tmp` cleanup-audit script no
+longer exists, so that command yields no resource-state evidence. Current-boot
+service and resource inventories must be re-established before proceeding.
+
+The restored audit is fully clean, all five units are active, and exact
+`298d3de…` persisted through reboot. mknetd PID 1231 is unrestarted;
+mkruntimed PID 1505 has one restart, whose current-boot journal proves the
+known ordering case: initial qualification saw the Google guest agent as
+unknown, then systemd's retry succeeded. The new interval is clean but cannot
+reuse earlier PID-continuity evidence.
+
+The root-owned exact build succeeds with hashes `d56a0d15…` (release),
+`1e25d1e2…` (shim), `6d3bc10e…` (daemon), `4daf0150…` (mknetd),
+`9534c5b3…` (agent), and `ac25694d…` (initramfs). Privileged inspection
+confirms all three embedded bootstrap artifacts. Active state is unchanged.
+
+Managed binary release `f5d8da4…` and support deployment `b8176d6c…` are
+selected; exact-source/deployed validator SHA-256 is `31bd16b0…`. Daemon
+processes 1231/1505 remain unchanged, so this is filesystem selection only.
+
+Root-only f5 agent/initramfs staging preserves hashes
+`9534c5b3…`/`ac25694d…`; strict candidate manifest `bfb05789…` validation
+passes. Immediate clean-host audit remains before activation.
+
+The immediate audit again reports every workload/resource/process inventory
+empty, with current-boot daemon identities stable. Activation can proceed.
+
+Coordinated activation succeeds on boot `1151712d…`, retaining the 298
+manifest for rollback. Active hashes `bfb05789…`/`d56a0d15…`/`1e25d1e2…`,
+version reports, and strict bootstrap validation all agree on f5. New
+mknetd/mkruntimed/containerd/Docker PIDs 9314/9333/9343/9378 have zero
+restarts/status 0. Live workload proof follows.
+
+Exact runner `7fb6cc6e…` proves Docker clears resource validation, then is
+rejected because its cgroupsPath is not the currently accepted absolute form.
+Exit 125 invokes cleanup. Exact path form/semantics and cleanup remain to be
+observed.
+
+The cleanup audit is fully empty and f5 daemons 9314/9333 remain stable with
+zero restarts. The open boundary is isolated to cgroupsPath representation.
+
+Docker emits `system.slice:docker:<64 lowercase hex>` cgroupsPath. It is host
+placement metadata already omitted from the child projection, paired here
+with an explicitly unrestricted resource policy. A narrow bounded grammar can
+be accepted alongside canonical absolute paths; all other systemd forms stay
+fail-closed.
+
+The exact Docker systemd grammar is implemented and the focused suite passes
+78 semantic cases, with wrong-slice, short, and uppercase forms rejected.
+Python compilation, qualification shell syntax, and diff checks pass; full
+gates and live proof remain pending.
+
+The complete race, vet, documentation/schema/evidence/deployment, and diff
+gates pass with 78 OCI cases; only the known local socket `EPERM` subcase is
+skipped. The checkpoint is ready to commit and qualify live.
+
 The exact suite now clears builder and daemon manifest approval, creates and
 launches the child, then fails at network readiness because expected
 `/sys/class/net/mktun0` is absent. Cleanup ran. This proves the generation-
@@ -2592,6 +2649,12 @@ pending.
 The full race, vet, documentation/schema/evidence/deployment, and diff gates
 all pass with 75 OCI cases. The sole skip is the known local socket `EPERM`
 subcase. Commit and exact live proof remain pending.
+
+The immutable checkpoint is `f5d8da448f23710e3777ed011afaad003881877a`;
+its source-only archive SHA-256 is
+`164a1b9d6895a34253fd1b5a6b7107ae748ce62dd9eff523b7dd0e19114586eb`.
+The historical untracked evidence tree remains excluded. Guest verification
+is next.
 
 Descriptor-relative token create/reuse, event-journal bundle replacement,
 recovery runtime-directory replacement, and two-descriptor shutdown cleanup
