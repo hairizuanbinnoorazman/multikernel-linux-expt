@@ -63,6 +63,7 @@ DEFAULT_MOUNTS = {
     "/dev/shm": ("tmpfs", "shm", {"nosuid", "noexec", "nodev", "mode=1777", "size=65536k"}),
     "/dev/mqueue": ("mqueue", "mqueue", {"nosuid", "noexec", "nodev"}),
     "/sys": ("sysfs", "sysfs", {"nosuid", "noexec", "nodev", "ro"}),
+    "/sys/fs/cgroup": ("cgroup", "cgroup", {"ro", "nosuid", "noexec", "nodev"}),
     "/run": ("tmpfs", "tmpfs", {"nosuid", "strictatime", "mode=755", "size=65536k"}),
 }
 READONLY_BIND_KINDS = {"bind", "rbind"}
