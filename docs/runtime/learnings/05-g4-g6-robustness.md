@@ -2864,6 +2864,67 @@ Repository-wide race tests, vet, and the entire documentation/schema/evidence
 gate pass. The only skip is the already classified unprivileged socket
 rejection (`EPERM`); no new failure is hidden by that skip.
 
+The exact next live candidate is commit
+`bbd49c1d88a5e03e5350f80aa6719510518122ee`. Its source-only archive is
+`/tmp/mklinux-bbd49c1.tar.gz`, SHA-256
+`3d93538e1d1a2934a01a7191158ca4f9f8147b39b76b7a33aaf7fc2765effc6e`;
+repository metadata and the untracked evidence directory are absent.
+
+Remote digest/ownership checks and the exact `bbd49c1…` build passed. The
+release manifest hashes to `8092999c…`, shim `6782283c…`, daemon `e13d5164…`,
+mknetd `126782bd…`, and agent `9571b4f2…`. No activation or workload behavior
+is inferred from these build outputs.
+
+With all workload inventories empty, managed release
+`0.1.0-dev-bbd49c1…` became current and all linked executable identities match
+the exact revision. Its revision-matched agent is `9571b4f2…` and dependent
+gzip-valid initramfs is `7f08fca1…`. Service restart and manifest activation
+remain separate, unclaimed steps.
+
+Candidate manifest `4ffc3661…` passed strict validation and was atomically
+activated on empty inventories. After ten seconds all five required services
+are active; mknetd PID 12565 and mkruntimed PID 12584 show zero restarts/status
+0, executable/manifest identities match `bbd49c1…`, and boot ID remains
+`a0798b60…`. Workload behavior is still unclaimed.
+
+Exact `bbd49c1…` still returns generic `INTERNAL` during the first `ctr run`.
+The new process-create stages did not surface, excluding the instrumented
+bundle-load/root-policy paths from the observed error. EXIT cleanup ran; its
+result and the likely later `StartProcess` boundary are audited next.
+
+Cleanup now completes live: lifecycle sequence 9, mknetd, containerd,
+Multikernel, runtime-storage, shim, and relay inventories are all empty, with
+both daemon PIDs unchanged and zero restarts. The previous `CloseNetwork` and
+`STALE_COUNTER` failures are absent. Thus both teardown corrections have exact
+disposable-host evidence; only the later process-start failure remains.
+
+The next diagnostic patch covers only the later `StartProcess` operational
+stages (`executable`, `constraints`, `terminal`, `stdio`, `exec`). The wire
+still carries fixed messages only, never raw paths or workload-controlled error
+text. Live localization remains unclaimed until an exact rebuild/rerun.
+
+Focused race tests pass for the new start stages and the existing shim suite.
+The redaction test confirms private exec-path and token text does not appear on
+the wire.
+
+Full repository race tests, vet, and the documentation/evidence chain pass;
+the already classified local socket `EPERM` is the sole skip.
+
+The post-reboot environment reset uses recoverable root-only quarantine, not
+manual deletion. Exact durable hashes were captured before moving lifecycle,
+network, and storage-task records; container metadata was then removed.
+mknetd starts cleanly (PID 6958, zero restarts), but mkruntimed still fails,
+showing its rootfs ownership store is separate from `/var/lib/mkruntime`.
+Quarantine is explicitly excluded from cleanup qualification and remains
+available for audit.
+
+The separate storage/rootfs store hashes (`f7d4e4b1…`, `231c3776…`) were then
+captured and moved into that quarantine. Empty stores start successfully:
+mknetd PID 6958 and mkruntimed PID 7683 have zero restarts/status 0, and task,
+container, child, and runtime-storage inventories are empty. This is a
+recoverable disposable-environment reset, not evidence that runtime cleanup
+handled the reboot residue.
+
 The next G4 builder audit found that deterministic content did not imply safe
 publication. `build-runtime-rootfs.py` used `os.replace` for archive and
 manifest output, overwriting any pre-existing entry. If the manifest publish

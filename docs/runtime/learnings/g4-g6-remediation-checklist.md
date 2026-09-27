@@ -3914,3 +3914,77 @@ The full local gate passes: repository-wide race tests, `go vet`, and the
 complete documentation/schema/evidence/deployment chain, including all 62 OCI
 cases and final evidence audit. The known sandbox `EPERM` socket-rejection
 subcase is the only skip. Generated Python cache will be removed before commit.
+
+Commit `bbd49c1d88a5e03e5350f80aa6719510518122ee` freezes the fully qualified
+teardown ordering and process-stage diagnostics. Its tracked source-only
+archive `/tmp/mklinux-bbd49c1.tar.gz` hashes to
+`3d93538e1d1a2934a01a7191158ca4f9f8147b39b76b7a33aaf7fc2765effc6e`;
+the untracked historical evidence tree remains excluded and untouched.
+
+The reset guest independently matched archive `3d93538e…`, extracted a new
+all-root-owned source tree without `.git`, and built exact `bbd49c1…` with the
+correct `0.1.0-dev` version. Build hashes are release manifest `8092999c…`,
+shim `6782283c…`, mkruntimed `e13d5164…`, mknetd `126782bd…`, and agent
+`9571b4f2…`. These are pre-activation identities only.
+
+On empty inventories, the binary manager selected exact release
+`0.1.0-dev-bbd49c1d88a5e03e5350f80aa6719510518122ee`. The managed shim,
+mkruntimed, and mknetd links report that revision. Matching agent remains
+`9571b4f2…`; the newly built gzip-valid dependent initramfs is `7f08fca1…`.
+The running services and kernel manifest have not yet been restarted/swapped,
+so workload qualification remains unclaimed.
+
+Strict bootstrap validation accepted candidate manifest `4ffc3661…`.
+Empty-host activation used a same-filesystem rename while services were
+stopped. Ten seconds later the mount, mknetd, mkruntimed, containerd, and
+Docker were active; mknetd PID 12565 and mkruntimed PID 12584 have zero
+restarts/status 0. Installed manifest and every executable identity match
+`bbd49c1…`, task/container inventories remain empty, and boot ID remains
+`a0798b60…`. The exact workload rerun is the next checkpoint.
+
+The exact `bbd49c1…` run of unchanged runner `3eaa058b…` again failed its first
+`ctr run` with generic `INTERNAL: agent operation failed`, then executed EXIT
+cleanup. Neither `bundle-load` nor `root-policy` appeared, so `CreateProcess`
+is no longer the supported localization; the next likely boundary is
+`StartProcess` (including executable validation or `exec`). Cleanup outcome
+and durable state must be audited before changing diagnostics again.
+
+The `bbd49c1…` EXIT cleanup is a live pass for the two teardown fixes. After
+shim disconnect/dead-shim cleanup, lifecycle sequence 9 has no sandboxes,
+mknetd has no endpoints, and containerd task/container, Kerf child, runtime
+storage, shim, and relay inventories are empty. Both daemons remain their
+original healthy PIDs 12565/12584 with zero restarts. No `CloseNetwork` or
+`STALE_COUNTER` error appears. This proves link-before-descriptor teardown and
+cleanup-only counter suppression on the disposable host, while the workload
+start failure remains open.
+
+Because network and `CreateProcess` stages are now excluded, the next
+instrumentation is restricted to operational `StartProcess` boundaries:
+executable validation, OCI constraint encoding, terminal allocation, stdio
+pipe setup, and final exec. Each maps to a fixed `INTERNAL` message; raw
+executable paths, kernel errors, and workload data remain redacted.
+
+Focused agent/shim race tests pass. They directly verify executable-stage
+classification and prove an injected exec path/token is omitted from the wire
+reply; all earlier cleanup and diagnostic tests continue to pass.
+
+The complete race, vet, documentation/schema/evidence/deployment, 62-case OCI,
+and final-audit gates pass; only the known local socket `EPERM` subcase skips.
+
+For environment reset only, after proving no task process, child, or host
+network resource survived the reboot, the exact stale records were moved—not
+deleted—into root-only quarantine. Lifecycle state/journal hashes are
+`3aafca1d…`/`3469d527…`, mknetd state is `baadf93f…`, and the root image
+remains under storage quarantine with its previously recorded hash. Orphaned
+container metadata was removed. mknetd then started cleanly as PID 6958 with
+zero restarts; mkruntimed still failed after three attempts, proving another
+durable rootfs record exists outside `/var/lib/mkruntime`. The reset is not yet
+complete and is not runtime cleanup evidence.
+
+The remaining stores were `/var/lib/mkruntimed/storage` and `rootfs`, with
+state hashes `f7d4e4b1…` and `231c3776…`; both were added to the same root-only
+quarantine before recreating empty service directories. The disposable host is
+now clean: mknetd PID 6958 and mkruntimed PID 7683 are active with zero
+restarts/status 0, containerd task/container inventories, Kerf child inventory,
+and runtime storage directory are empty. All stale data remains recoverable in
+the named quarantine. This reset establishes a test precondition only.

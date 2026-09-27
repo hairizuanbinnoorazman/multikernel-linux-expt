@@ -1487,6 +1487,18 @@ func TestCreateProcessClassifiesBundleLoadFailure(t *testing.T) {
 	}
 }
 
+func TestStartProcessClassifiesExecutableFailure(t *testing.T) {
+	m := NewManager(true)
+	m.processes["init"] = &process{
+		spec: ProcessSpec{Args: []string{"/bin/missing"}, Cwd: "/"},
+		root: t.TempDir(), done: make(chan struct{}), state: ProcessState{ID: "init", Status: "CREATED"},
+	}
+	err := m.Start("init")
+	if err == nil || !strings.Contains(err.Error(), "guest process start stage executable failed") {
+		t.Fatalf("Start executable error = %v", err)
+	}
+}
+
 func TestCloseNetworkRetainsReplayIdentityUntilRetryCompletes(t *testing.T) {
 	descriptor, err := os.CreateTemp(t.TempDir(), "closed-tun")
 	if err != nil {

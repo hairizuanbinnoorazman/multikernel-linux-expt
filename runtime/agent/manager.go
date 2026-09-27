@@ -484,6 +484,10 @@ func (m *Manager) Start(id string) error {
 	return m.StartWithSize(id, 0, 0, false)
 }
 
+func processStartError(stage string, err error) error {
+	return fmt.Errorf("guest process start stage %s failed: %w", stage, err)
+}
+
 func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) error {
 	if width > 65535 || height > 65535 {
 		return errors.New("terminal dimensions exceed the Linux PTY limit")
@@ -513,7 +517,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	}
 	if e := validateExecutableArchitecture(filepath.Join(p.root, exe)); e != nil {
 		m.mu.Unlock()
-		return e
+		return processStartError("executable", e)
 	}
 	commandPath := exe
 	commandArgs := p.spec.Args[1:]
@@ -521,7 +525,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 		constraints, constraintErr := encodeExecConstraints(p.spec)
 		if constraintErr != nil {
 			m.mu.Unlock()
-			return constraintErr
+			return processStartError("constraints", constraintErr)
 		}
 		commandPath = "/mk-agent"
 		commandArgs = append([]string{"__oci_exec", constraints}, p.spec.Args...)
@@ -546,14 +550,14 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 		p.terminal, slavePath, err = console.NewPty()
 		if err != nil {
 			m.mu.Unlock()
-			return err
+			return processStartError("terminal", err)
 		}
 		slave, err = os.OpenFile(slavePath, os.O_RDWR, 0)
 		if err != nil {
 			p.terminal.Close()
 			p.terminal = nil
 			m.mu.Unlock()
-			return err
+			return processStartError("terminal", err)
 		}
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
 		cmd.SysProcAttr.Setpgid = false
@@ -567,7 +571,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 				p.terminal.Close()
 				p.terminal = nil
 				m.mu.Unlock()
-				return err
+				return processStartError("terminal", err)
 			}
 		}
 	} else {
@@ -578,7 +582,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 		p.stdin, err = cmd.StdinPipe()
 		if err != nil {
 			m.mu.Unlock()
-			return err
+			return processStartError("stdio", err)
 		}
 		cmd.Stdout = &p.stdout
 		cmd.Stderr = &p.stderr
@@ -599,7 +603,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 			p.terminal = nil
 		}
 		m.mu.Unlock()
-		return e
+		return processStartError("exec", e)
 	}
 	if slave != nil {
 		slave.Close()
