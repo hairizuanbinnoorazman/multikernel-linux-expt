@@ -2483,7 +2483,7 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err := s.validateTaskRequest(r.ID); err != nil || r.Bundle != s.bundle {
 		return nil, fmt.Errorf("%w: invalid task", errdefs.ErrInvalidArgument)
 	}
-	stdinIdentity, stdoutIdentity, stderrIdentity, err := inspectBoundProcessIOPaths(r.Stdin, r.Stdout, r.Stderr)
+	boundIO, err := inspectBoundProcessIOPaths(r.Stdin, r.Stdout, r.Stderr)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
 	}
@@ -2564,8 +2564,8 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 		return nil, fmt.Errorf("provision primary network endpoint: %w", err)
 	}
 	s.bundle = r.Bundle
-	s.processes[""] = &process{id: "", stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr,
-		stdinIdentity: stdinIdentity, stdoutIdentity: stdoutIdentity, stderrIdentity: stderrIdentity,
+	s.processes[""] = &process{id: "", stdin: boundIO.stdin, stdout: boundIO.stdout, stderr: boundIO.stderr,
+		stdinIdentity: boundIO.stdinIdentity, stdoutIdentity: boundIO.stdoutIdentity, stderrIdentity: boundIO.stderrIdentity,
 		terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	if err = s.persistRecovery(); err != nil {
 		return nil, fmt.Errorf("persist recovery state: %w", err)
@@ -2952,6 +2952,41 @@ func inspectProcessIOPath(path string) (os.FileInfo, error) {
 	return opened, nil
 }
 
+func normalizeProcessIOPathAlias(path, alias, target string) (string, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path ||
+		!filepath.IsAbs(alias) || filepath.Clean(alias) != alias ||
+		!filepath.IsAbs(target) || filepath.Clean(target) != target {
+		return "", errors.New("stdio path must be absolute and canonical")
+	}
+	if !strings.HasPrefix(path, alias+string(os.PathSeparator)) {
+		return path, nil
+	}
+	before, err := os.Lstat(alias)
+	if err != nil {
+		return "", err
+	}
+	identity, ok := before.Sys().(*syscall.Stat_t)
+	if !ok || before.Mode()&os.ModeSymlink == 0 || identity.Uid != uint32(os.Geteuid()) || identity.Nlink != 1 {
+		return "", errors.New("stdio runtime alias is not a caller-owned single-link symlink")
+	}
+	linked, err := os.Readlink(alias)
+	if err != nil {
+		return "", err
+	}
+	after, err := os.Lstat(alias)
+	if err != nil || !sameProcessIOIdentity(before, after) {
+		return "", errors.New("stdio runtime alias identity changed while validating")
+	}
+	if linked != target {
+		return "", errors.New("stdio runtime alias has an unexpected target")
+	}
+	return filepath.Join(target, strings.TrimPrefix(path, alias+string(os.PathSeparator))), nil
+}
+
+func normalizeProcessIOPath(path string) (string, error) {
+	return normalizeProcessIOPathAlias(path, "/var/run", "/run")
+}
+
 func sameProcessIOIdentity(before, after os.FileInfo) bool {
 	left, leftOK := before.Sys().(*syscall.Stat_t)
 	right, rightOK := after.Sys().(*syscall.Stat_t)
@@ -2977,20 +3012,39 @@ func inspectBoundProcessIOPath(path string, stdin bool) (processIOIdentity, erro
 	return value, nil
 }
 
-func inspectBoundProcessIOPaths(stdin, stdout, stderr string) (processIOIdentity, processIOIdentity, processIOIdentity, error) {
-	stdinIdentity, err := inspectBoundProcessIOPath(stdin, true)
-	if err != nil {
-		return processIOIdentity{}, processIOIdentity{}, processIOIdentity{}, fmt.Errorf("inspect stdin: %w", err)
+type boundProcessIOPaths struct {
+	stdin, stdout, stderr                         string
+	stdinIdentity, stdoutIdentity, stderrIdentity processIOIdentity
+}
+
+func inspectNormalizedProcessIOPath(path string, stdin bool) (string, processIOIdentity, error) {
+	if path == "" {
+		return "", processIOIdentity{}, nil
 	}
-	stdoutIdentity, err := inspectBoundProcessIOPath(stdout, false)
+	normalized, err := normalizeProcessIOPath(path)
 	if err != nil {
-		return processIOIdentity{}, processIOIdentity{}, processIOIdentity{}, fmt.Errorf("inspect stdout: %w", err)
+		return "", processIOIdentity{}, err
 	}
-	stderrIdentity, err := inspectBoundProcessIOPath(stderr, false)
+	identity, err := inspectBoundProcessIOPath(normalized, stdin)
+	return normalized, identity, err
+}
+
+func inspectBoundProcessIOPaths(stdin, stdout, stderr string) (boundProcessIOPaths, error) {
+	var result boundProcessIOPaths
+	var err error
+	result.stdin, result.stdinIdentity, err = inspectNormalizedProcessIOPath(stdin, true)
 	if err != nil {
-		return processIOIdentity{}, processIOIdentity{}, processIOIdentity{}, fmt.Errorf("inspect stderr: %w", err)
+		return boundProcessIOPaths{}, fmt.Errorf("inspect stdin: %w", err)
 	}
-	return stdinIdentity, stdoutIdentity, stderrIdentity, nil
+	result.stdout, result.stdoutIdentity, err = inspectNormalizedProcessIOPath(stdout, false)
+	if err != nil {
+		return boundProcessIOPaths{}, fmt.Errorf("inspect stdout: %w", err)
+	}
+	result.stderr, result.stderrIdentity, err = inspectNormalizedProcessIOPath(stderr, false)
+	if err != nil {
+		return boundProcessIOPaths{}, fmt.Errorf("inspect stderr: %w", err)
+	}
+	return result, nil
 }
 
 func openKnownProcessIOPath(ctx context.Context, path string, flags int, expected processIOIdentity) (*os.File, error) {
@@ -3785,7 +3839,7 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 	if !guestProcessIdentifier.MatchString(r.ExecID) {
 		return nil, errdefs.ErrInvalidArgument
 	}
-	stdinIdentity, stdoutIdentity, stderrIdentity, err := inspectBoundProcessIOPaths(r.Stdin, r.Stdout, r.Stderr)
+	boundIO, err := inspectBoundProcessIOPaths(r.Stdin, r.Stdout, r.Stderr)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
 	}
@@ -3820,8 +3874,8 @@ func (s *service) Exec(ctx context.Context, r *taskapi.ExecProcessRequest) (*emp
 		s.mu.Unlock()
 		return nil, errdefs.ErrAlreadyExists
 	}
-	p := &process{id: r.ExecID, stdin: r.Stdin, stdout: r.Stdout, stderr: r.Stderr,
-		stdinIdentity: stdinIdentity, stdoutIdentity: stdoutIdentity, stderrIdentity: stderrIdentity,
+	p := &process{id: r.ExecID, stdin: boundIO.stdin, stdout: boundIO.stdout, stderr: boundIO.stderr,
+		stdinIdentity: boundIO.stdinIdentity, stdoutIdentity: boundIO.stdoutIdentity, stderrIdentity: boundIO.stderrIdentity,
 		terminal: r.Terminal, status: tasktypes.Status_CREATED, done: make(chan struct{})}
 	s.processes[r.ExecID] = p
 	if err = s.persistRecovery(); err != nil {

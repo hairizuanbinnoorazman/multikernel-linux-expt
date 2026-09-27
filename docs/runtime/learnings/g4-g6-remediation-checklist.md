@@ -4018,6 +4018,77 @@ also remains green.
 Full race, vet, and documentation/evidence gates pass; the known local socket
 `EPERM` subcase remains the only skip.
 
+Commit `1e31080a1d3099fec0a0f2f9fa790eff94719779` freezes the chroot-safe
+constraint re-exec fix. Its tracked source archive
+`/tmp/mklinux-1e31080.tar.gz` hashes to
+`9b0b9ac2339ca466923524c394233b5a6e850332df7e7b9e2b6f376c53ae8d5d`;
+the untracked historical evidence tree is excluded.
+
+Guest archive verification and exact `1e31080…` build passed. Hashes are
+release manifest `e695cecb…`, shim `db39bcec…`, mkruntimed `4d3b4609…`, mknetd
+`095e3931…`, and agent `eb3a2dc1…`; activation remains pending.
+
+Managed release `0.1.0-dev-1e31080…` is selected on empty inventories.
+Matching agent/initramfs are `eb3a2dc1…`/`1cd089b1…`, and strict validation
+accepts candidate manifest `cefc96b8…`. Service/manifest activation is still
+separate.
+
+Coordinated activation passes: after ten seconds all five services are active;
+mknetd PID 16385 and mkruntimed PID 16404 have zero restarts/status 0, exact
+revision `1e31080…` and manifest `cefc96b8…` are installed, and boot ID remains
+`a0798b60…`.
+
+The exact `1e31080…` run proves the constraint-helper fix: the first ctr task
+reaches `RUNNING`, clearing the prior exec-stage failure. The next boundary is
+Docker task creation, which fails before its task starts with
+`invalid argument: inspect stdout: too many levels of symbolic links`.
+This comes from host stdio-path inspection, not the guest. The suite then ran
+cleanup. Thus ctr start is newly proven, but the shared basic suite is not a
+pass; Docker's actual stdio pathname ancestry must be captured and handled
+without weakening the identity/race boundary.
+
+The immediate post-failure audit on boot `a0798b60…` finds no lifecycle or
+mknetd state file, empty containerd task/container inventories, and no shim,
+relay, or runtime-root process. mknetd PID 16385 and mkruntimed PID 16404 are
+still active with zero restarts, so this EXIT cleanup is clean. Host path
+inspection also establishes the compatibility boundary: `/var/run` is the
+root-owned four-byte symlink to `/run`, while Docker's root is
+`/var/lib/docker`. This supports—but does not by itself expose the exact
+request string—the diagnosis that the strict no-symlink walk rejects Docker's
+traditional `/var/run/...` spelling.
+
+The same journal contains a separate cleanup diagnostic: after the Docker shim
+disconnected, containerd's configured
+`/usr/local/bin/containerd-shim-multikernel-v2 ... delete` exec returned
+`no such file or directory`. A follow-up inode check finds the managed link
+and exact `1e31080…` target present, so removal is not established; this is a
+transient exec/path-resolution failure requiring reproduction. Runtime-owned
+resources were already empty, so it is not evidence of a leaked workload.
+
+The stdio compatibility fix is intentionally not general symlink traversal.
+Only an exact `/var/run/` prefix is eligible; the shim verifies `/var/run` is
+a caller-owned, single-link symlink with unchanged identity and exact `/run`
+target, rewrites to `/run/...`, and then applies the existing no-symlink,
+no-magic-link, ownership, mode, link-count, and inode checks. Create and Exec
+persist that normalized path, so recovery and later opens cannot return to the
+alias. Focused race tests pass for the accepted exact alias, an unrelated
+prefix, an unexpected alias target, ordinary hostile symlink ancestry,
+replacement, cancellation, and pre-mutation rejection.
+
+The subsequent complete repository race suite passes, including the shim,
+agent, lifecycle, network, rootfs, and storage packages; `go vet ./...` also
+passes without diagnostics. Documentation and exact-revision live gates remain
+pending.
+
+The complete documentation/schema/evidence/OCI/bind/bootstrap/storage/image/
+release/deployment/resource-ledger/containerd/final-audit gate then passes;
+`git diff --check` is clean. The only skip is the already classified local
+socket-rejection `EPERM` subcase. Exact-revision live proof remains pending.
+
+The `f7c6f47…` failed-start cleanup is independently clean before upgrade:
+containerd, lifecycle, mknetd, child, and runtime-storage inventories are all
+empty; daemon PIDs 14500/14520 remain active with zero restarts.
+
 For environment reset only, after proving no task process, child, or host
 network resource survived the reboot, the exact stale records were moved—not
 deleted—into root-only quarantine. Lifecycle state/journal hashes are
