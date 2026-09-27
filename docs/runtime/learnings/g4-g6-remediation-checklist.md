@@ -2203,6 +2203,96 @@ entire documentation/schema/evidence/deployment chain (with 72 OCI cases), and
 the only classified skip. The sysctl/seccomp checkpoint is ready to commit;
 exact-revision deployment and workload behavior are not yet proven.
 
+Commit `298d3debe832696e18c749dd1bbed4d03e64433b` freezes the exact-map
+sysctl/seccomp checkpoint. Its tracked-source-only archive
+`/tmp/mklinux-298d3de.tar.gz` hashes to
+`9520d18ef58d88f0a82b48560ae87a9a5b0ae1fb988c069e59af432e766be2b5`;
+the pre-existing untracked evidence tree remains excluded and untouched.
+Guest transfer and verification remain pending.
+
+Guest-side hashing reproduces `9520d18e…` on unchanged boot `e76edca2…`.
+The immediate pre-build audit is fully empty across both containerd
+namespaces, Docker, children, runtime storage/state, host network resources,
+and runtime helper processes; mknetd/mkruntimed PIDs 11328/11347 remain active
+with zero restarts. Exact root-owned extraction/build can proceed.
+
+The root-owned exact build completes. Hashes are release manifest
+`f302816e…`, shim `33128b4c…`, mkruntimed `13513537…`, mknetd `db1a3dd1…`,
+agent `5aa29a55…`, and initramfs `7b79a2a7…`; privileged/pipefail inspection
+confirms the bootstrap contains agent, transport module, and relay. No new
+release, support deployment, or manifest is selected yet.
+
+Managed installation now selects binary release `0.1.0-dev-298d3de…` and
+support deployment `6508b98f…`; every managed link validates and deployed OCI
+validator hash `65f04894…` matches exact source. Running daemon PIDs remain
+11328/11347 with zero restarts, so they still execute the preceding revision.
+Revision artifacts and strict manifest validation remain mandatory before
+coordinated restart.
+
+Revision-specific agent/initramfs hashes `5aa29a55…`/`7b79a2a7…` are staged
+root-only, and strict bootstrap validation passes for candidate manifest
+`50c74397…`. It retains the pinned kernel/module/relay and exact compatibility,
+config, and feature declaration. The candidate is not active; an immediate
+clean-host preflight remains required.
+
+The immediate activation audit again reports zero across all workload,
+Docker, child, storage, active durable-state, host-network, and runtime-helper
+inventories; daemon PIDs 11328/11347 remain stable with zero restarts.
+Coordinated activation can proceed on unchanged boot without displacing work.
+
+Coordinated activation succeeds on unchanged boot `e76edca2…`, with the a72
+manifest preserved for rollback. Active hashes are `50c74397…` (kernel
+manifest), `f302816e…` (release), and `33128b4c…` (shim); selectors resolve
+exact `298d3de…` and deployment `6508b98f…`. All five units are active;
+mknetd/mkruntimed/containerd/Docker PIDs are 18614/18633/18643/18676 with zero
+restarts/status 0. Version reports and strict bootstrap validation agree.
+Exact basic workload proof is next.
+
+The exact `298d3de…` runner hashes to `ac1d54a7…`. ctr reaches `RUNNING`, and
+Docker now clears AppArmor, OOM, seccomp, and sysctl validation. It next fails
+closed with `only exact default resource contracts are supported`, exits 125,
+and invokes the EXIT trap. The basic suite is still not a pass. Independent
+cleanup plus live inspection of Docker's exact `linux.resources` object are
+required before changing the resource contract.
+
+The independent post-failure audit is fully empty across tasks, containers,
+Docker, children, storage, active durable state, network resources, and helper
+processes. mknetd/mkruntimed PIDs 18614/18633 remain active with zero restarts.
+The next boundary is therefore isolated to Docker's resource projection, not
+cleanup.
+
+The runc-backed bundle shows Docker resources are not the existing containerd
+default: `devices` contains an ordered deny/allow rule program (including an
+explicit deny for character 10:229 and duplicated standard-device rules), and
+`blockIO` is an empty object. The child mounts the full kernel devtmpfs into
+the container root, so merely accepting and stripping Docker's restrictive
+device program would weaken policy. Before validator work, qualification must
+explicitly opt out of device-cgroup restriction and the resulting OCI rule
+program must be observed to end in effective allow-all; otherwise Docker
+support requires implementing device policy in the child.
+
+The explicit `--device-cgroup-rule 'a *:* rwm'` probe appends an OCI rule
+`{allow:true,type:"a",major:-1,minor:-1,access:"rwm"}` after Docker's complete
+default program. Because device rules are ordered, that final all-device rule
+makes the requested policy unrestricted and therefore equivalent to the
+child's devtmpfs exposure; empty `blockIO` is inert. Validation can safely
+accept and strip only this exact observed full object. The restrictive object
+without the terminal allow-all, reordered/modified rules, and nonempty blockIO
+must remain rejected, and qualification must supply the opt-out explicitly.
+
+Exact Docker unrestricted-resource validation and the explicit qualification
+flag are implemented across all Docker paths. The focused suite passes 75
+semantic cases, including rejection of the same program without its terminal
+allow-all, a modified terminal rule, and nonempty blockIO; Python compilation,
+both shell syntax checks, and `git diff --check` pass. Full gates and an exact
+live revision remain pending.
+
+The complete local gate passes again: full Go race suite, vet, all
+documentation/schema/evidence/deployment checks with 75 OCI cases, and diff
+check. Only the already classified local socket `EPERM` subcase is skipped.
+The unrestricted-device checkpoint is ready to freeze; live proof remains
+pending.
+
 The `1124739` coordinated activation stopped at deployment installation before
 service restart. Binary release and atomically staged agent/initramfs/manifest
 updates succeeded, but the new deployment manager rejected the active older

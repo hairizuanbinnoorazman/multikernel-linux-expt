@@ -25,6 +25,7 @@ docker_isolation=(
 	--security-opt seccomp=unconfined
 	--sysctl net.ipv4.ip_unprivileged_port_start=1024
 	--sysctl 'net.ipv4.ping_group_range=1 0'
+	--device-cgroup-rule 'a *:* rwm'
 )
 
 cleanup() {
@@ -367,7 +368,7 @@ row guest-attach
 ctr_tty=$(script -q -e -c \
 	"stty rows 37 cols 91; sudo ctr run --tty --runtime '$runtime' '$image' '$ctr_id' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo ctr-terminal-ok'" /dev/null)
 docker_tty=$(script -q -e -c \
-	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --network none --security-opt apparmor=unconfined --security-opt seccomp=unconfined --sysctl net.ipv4.ip_unprivileged_port_start=1024 --sysctl 'net.ipv4.ping_group_range=1 0' --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
+	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --network none --security-opt apparmor=unconfined --security-opt seccomp=unconfined --sysctl net.ipv4.ip_unprivileged_port_start=1024 --sysctl 'net.ipv4.ping_group_range=1 0' --device-cgroup-rule 'a *:* rwm' --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq ctr-terminal-ok
 printf '%s\n' "$docker_tty" | tr -d '\r' | grep -Fxq docker-terminal-ok
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq '37 91'

@@ -41,6 +41,25 @@ CONTAINERD_DEFAULT_DEVICES = [
     {"allow": True, "type": "c", "major": 136, "access": "rwm"},
     {"allow": True, "type": "c", "major": 5, "minor": 2, "access": "rwm"},
 ]
+DOCKER_UNRESTRICTED_DEVICES = [
+    {"allow": False, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 5, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 3, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 9, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 8, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 0, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 1, "access": "rwm"},
+    {"allow": False, "type": "c", "major": 10, "minor": 229, "access": "rwm"},
+    {"allow": False, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 5, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 3, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 9, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 8, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 0, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 1, "access": "rwm"},
+    {"allow": False, "type": "c", "major": 10, "minor": 229, "access": "rwm"},
+    {"allow": True, "type": "a", "major": -1, "minor": -1, "access": "rwm"},
+]
 
 
 def run_case(directory, name, config=None, raw=None, accepted=False):
@@ -332,6 +351,10 @@ def main():
             "net.ipv4.ip_unprivileged_port_start": "1024",
             "net.ipv4.ping_group_range": "1 0",
         }
+        docker_unconfined["linux"]["resources"] = {
+            "devices": copy.deepcopy(DOCKER_UNRESTRICTED_DEVICES),
+            "blockIO": {},
+        }
         run_case(directory, "docker-explicit-unconfined", docker_unconfined, accepted=True)
         for name, field, value in (
             ("docker-default-apparmor", "apparmorProfile", "docker-default"),
@@ -363,6 +386,14 @@ def main():
         ):
             config = copy.deepcopy(BASE)
             config["linux"]["sysctl"] = sysctl
+            run_case(directory, name, config)
+        for name, mutate in (
+            ("docker-restrictive-devices", lambda resources: resources["devices"].pop()),
+            ("docker-modified-terminal-device", lambda resources: resources["devices"][-1].update(allow=False)),
+            ("docker-nonempty-blockio", lambda resources: resources["blockIO"].update(weight=100)),
+        ):
+            config = copy.deepcopy(docker_unconfined)
+            mutate(config["linux"]["resources"])
             run_case(directory, name, config)
         for name, mutate in (
             ("bad-nnp", lambda process: process.update(noNewPrivileges="yes")),
