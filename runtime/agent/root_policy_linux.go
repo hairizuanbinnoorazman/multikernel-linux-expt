@@ -17,7 +17,7 @@ import (
 var hostnameRE = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$`)
 
 var supportedMaskedPaths = []string{
-	"/proc/acpi", "/proc/asound", "/proc/kcore", "/proc/keys", "/proc/latency_stats",
+	"/proc/acpi", "/proc/asound", "/proc/interrupts", "/proc/kcore", "/proc/keys", "/proc/latency_stats",
 	"/proc/timer_list", "/proc/timer_stats", "/proc/sched_debug", "/sys/firmware",
 	"/sys/devices/virtual/powercap", "/proc/scsi",
 }
