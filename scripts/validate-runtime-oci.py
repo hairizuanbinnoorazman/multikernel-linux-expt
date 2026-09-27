@@ -83,6 +83,25 @@ CONTAINERD_DEFAULT_DEVICES = DENY_ALL_DEVICES + [
     {"allow": True, "type": "c", "major": 136, "access": "rwm"},
     {"allow": True, "type": "c", "major": 5, "minor": 2, "access": "rwm"},
 ]
+DOCKER_UNRESTRICTED_DEVICES = [
+    {"allow": False, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 5, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 3, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 9, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 8, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 0, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 1, "access": "rwm"},
+    {"allow": False, "type": "c", "major": 10, "minor": 229, "access": "rwm"},
+    {"allow": False, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 5, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 3, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 9, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 1, "minor": 8, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 0, "access": "rwm"},
+    {"allow": True, "type": "c", "major": 5, "minor": 1, "access": "rwm"},
+    {"allow": False, "type": "c", "major": 10, "minor": 229, "access": "rwm"},
+    {"allow": True, "type": "a", "major": -1, "minor": -1, "access": "rwm"},
+]
 
 
 def strict_object(pairs):
@@ -364,10 +383,17 @@ def validate(config):
     validate_namespaces(linux)
     if "resources" in linux:
         resources = linux["resources"]
-        if (not isinstance(resources, dict) or
-                set(resources) not in ({"devices"}, {"cpu", "devices"}) or
-                resources.get("devices") not in (DENY_ALL_DEVICES, CONTAINERD_DEFAULT_DEVICES) or
-                ("cpu" in resources and resources["cpu"] != {"shares": 1024})):
+        standard_resources = (
+            isinstance(resources, dict) and
+            set(resources) in ({"devices"}, {"cpu", "devices"}) and
+            resources.get("devices") in (DENY_ALL_DEVICES, CONTAINERD_DEFAULT_DEVICES) and
+            ("cpu" not in resources or resources["cpu"] == {"shares": 1024})
+        )
+        docker_unrestricted_resources = resources == {
+            "devices": DOCKER_UNRESTRICTED_DEVICES,
+            "blockIO": {},
+        }
+        if not standard_resources and not docker_unrestricted_resources:
             raise ValueError("only exact default resource contracts are supported")
     if "cgroupsPath" in linux:
         path = linux["cgroupsPath"]

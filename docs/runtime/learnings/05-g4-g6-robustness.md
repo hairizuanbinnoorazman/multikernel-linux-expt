@@ -2589,6 +2589,10 @@ directory, and the original recovery remaining at PID 7 rather than the
 rejected PID 8 update. Repeated race and final full-suite checks remain
 pending.
 
+The full race, vet, documentation/schema/evidence/deployment, and diff gates
+all pass with 75 OCI cases. The sole skip is the known local socket `EPERM`
+subcase. Commit and exact live proof remain pending.
+
 Descriptor-relative token create/reuse, event-journal bundle replacement,
 recovery runtime-directory replacement, and two-descriptor shutdown cleanup
 passed 100 race-detector iterations as a combined focused group. This closes
@@ -2739,6 +2743,69 @@ the capture reopen. The focused shim package passes, including exclusive
 collision, raced replacement preservation, address cleanup after PID failure,
 and the existing address-replacement case. Repeated race and full-tree checks
 remain pending.
+
+The immutable checkpoint is `298d3debe832696e18c749dd1bbed4d03e64433b`.
+Its source-only archive SHA-256 is
+`9520d18ef58d88f0a82b48560ae87a9a5b0ae1fb988c069e59af432e766be2b5`;
+the historical untracked evidence tree was not staged. Guest verification is
+next.
+
+The exact runner (`ac1d54a7…`) proves Docker passes all four newly addressed
+fields, then stops at `only exact default resource contracts are supported`.
+It exits 125 and runs cleanup. This is not a pass; cleanup and the precise
+Docker resource object must be observed next.
+
+Post-failure cleanup is complete across every audited inventory; daemons
+18614/18633 remain active and unrestarted. The open issue is solely the exact
+Docker resource shape.
+
+Docker emits an ordered device-cgroup program plus inert empty `blockIO`, not
+the accepted containerd default. Because the guest bind-mounts full devtmpfs,
+stripping those restrictive rules would be unsound. The next experiment is an
+explicit Docker device-cgroup allow-all opt-out; absent an effective allow-all
+OCI result, child-side device enforcement is required.
+
+The explicit device-cgroup allow-all probe yields Docker's fixed rule program
+followed by a terminal all-device `rwm` allow and empty `blockIO`. Its effective
+policy now matches child devtmpfs. Exact-full-object acceptance/removal is
+therefore sound only with that final rule; the restrictive, modified,
+reordered, or nonempty-blockIO forms remain rejected.
+
+The exact unrestricted resource object and explicit qualification opt-out are
+implemented. Focused validation passes 75 cases, including restrictive,
+modified-terminal-rule, and nonempty-blockIO rejection, followed by Python
+compilation, shell syntax, and diff checks. Full gates and exact live proof are
+pending.
+
+The guest independently reproduces archive hash `9520d18e…` on unchanged boot
+`e76edca2…`. All workload, child, storage, durable active state, network, and
+helper-process inventories are zero, while daemon PIDs 11328/11347 remain
+stable with zero restarts. Build preconditions pass.
+
+Exact root-owned build hashes are `f302816e…` (release), `33128b4c…` (shim),
+`13513537…` (daemon), `db1a3dd1…` (mknetd), `5aa29a55…` (agent), and
+`7b79a2a7…` (initramfs). Privileged inspection verifies the three required
+bootstrap artifacts. Active state is still the prior revision.
+
+Binary release `0.1.0-dev-298d3de…` and support deployment `6508b98f…` are
+selected with valid links; deployed/source OCI validator SHA-256 is
+`65f04894…`. Daemon PIDs 11328/11347 have not restarted, so filesystem
+selection is not yet a coherent running release.
+
+The root-only `298d3de…` agent/initramfs are staged at hashes
+`5aa29a55…`/`7b79a2a7…`, and strict candidate manifest `50c74397…` validation
+passes. An immediate clean-host audit still precedes activation.
+
+The immediate audit is fully empty across every workload/resource/process
+inventory, with daemon PIDs 11328/11347 stable and unrestarted. Coordinated
+activation is safe on the current boot.
+
+Exact `298d3de…` activation succeeds without reboot, retaining the a72
+manifest for rollback. Active kernel/release/shim hashes are
+`50c74397…`/`f302816e…`/`33128b4c…`; all selectors, version reports, strict
+bootstrap validation, and five active services agree. New daemon/container
+service PIDs 18614/18633/18643/18676 have zero restarts. Workload proof remains
+next.
 
 The exclusive publication, raced replacement, and partial-launch cleanup
 group passed 100 race-detector repetitions. Full-tree verification remains

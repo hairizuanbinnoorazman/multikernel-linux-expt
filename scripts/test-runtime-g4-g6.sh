@@ -18,6 +18,7 @@ docker_isolation=(
 	--security-opt seccomp=unconfined
 	--sysctl net.ipv4.ip_unprivileged_port_start=1024
 	--sysctl 'net.ipv4.ping_group_range=1 0'
+	--device-cgroup-rule 'a *:* rwm'
 )
 
 cleanup() {
