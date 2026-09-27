@@ -267,6 +267,25 @@ def main():
         modified_cgroup_mount = copy.deepcopy(docker_cgroup_mount)
         modified_cgroup_mount["mounts"][0]["options"][0] = "rw"
         run_case(directory, "docker-writable-cgroup-mount", modified_cgroup_mount)
+        docker_shm_mount = copy.deepcopy(BASE)
+        docker_shm_mount["mounts"] = [{
+            "destination": "/dev/shm", "type": "tmpfs", "source": "shm",
+            "options": ["nosuid", "noexec", "nodev", "mode=1777", "size=67108864"],
+        }]
+        run_case(directory, "docker-byte-sized-shm", docker_shm_mount, accepted=True)
+        modified_shm_mount = copy.deepcopy(docker_shm_mount)
+        modified_shm_mount["mounts"][0]["options"][-1] = "size=67108863"
+        run_case(directory, "docker-wrong-sized-shm", modified_shm_mount)
+        docker_readonly_bind = copy.deepcopy(BASE)
+        docker_readonly_bind["mounts"] = [{
+            "destination": "/etc/resolv.conf", "type": "bind",
+            "source": "/var/lib/docker/containers/" + "a" * 64 + "/resolv.conf",
+            "options": ["rbind", "rro", "rprivate"],
+        }]
+        run_case(directory, "docker-recursive-readonly-bind", docker_readonly_bind, accepted=True)
+        docker_writable_bind = copy.deepcopy(docker_readonly_bind)
+        docker_writable_bind["mounts"][0]["options"].remove("rro")
+        run_case(directory, "docker-writable-managed-bind", docker_writable_bind)
         current_containerd = copy.deepcopy(standard)
         current_containerd["linux"]["resources"]["devices"] = copy.deepcopy(CONTAINERD_DEFAULT_DEVICES)
         run_case(directory, "current-containerd-default-devices", current_containerd, accepted=True)

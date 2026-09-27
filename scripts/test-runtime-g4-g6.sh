@@ -14,6 +14,7 @@ ctr_id=mk-proof-ctr
 docker_name=mk-proof-docker
 docker_isolation=(
 	--network none
+	--read-only
 	--security-opt apparmor=unconfined
 	--security-opt seccomp=unconfined
 	--sysctl net.ipv4.ip_unprivileged_port_start=1024
