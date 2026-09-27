@@ -12,6 +12,7 @@ image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}
 runtime=${MK_RUNTIME:-io.containerd.multikernel.v2}
 ctr_id=mk-proof-ctr
 docker_name=mk-proof-docker
+docker_isolation=(--network none --security-opt apparmor=unconfined)
 
 cleanup() {
 	(
@@ -58,7 +59,7 @@ echo "RUNTIME=$runtime"
 # two boot IDs and addresses prove distinct kernels and disjoint network links.
 sudo ctr run -d --runtime "$runtime" "$image" "$ctr_id" /bin/sleep 300
 test "$(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $3}')" = RUNNING
-docker_id=$(sudo docker run -d --runtime "$runtime" --name "$docker_name" "$image" /bin/sleep 300)
+docker_id=$(sudo docker run -d --runtime "$runtime" "${docker_isolation[@]}" --name "$docker_name" "$image" /bin/sleep 300)
 for _ in $(seq 1 100); do
 	docker_status=$(sudo docker inspect --format '{{.State.Status}}' "$docker_name")
 	[[ $docker_status = running ]] && break

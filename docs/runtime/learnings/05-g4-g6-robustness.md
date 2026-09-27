@@ -3002,6 +3002,156 @@ The full documentation, schema, evidence, deployment, and final-audit chain
 also passes, with only the known local socket `EPERM` skip; `git diff --check`
 is clean. Live confirmation remains pending.
 
+The exact implementation checkpoint is
+`444428ae88e0575e1a6a4a915ea9c83c001b6fc5`; its source-only archive
+`/tmp/mklinux-444428a.tar.gz` has SHA-256
+`ed539d24dd58c92300472042795d862403defe20d35b427c98dfeed33026efda`.
+No guest result is inferred yet.
+
+The guest-side first attempt extracts the archive but reaches no compiler: a
+nested `awk` expression is misquoted and trips `set -u`. This is recorded as a
+harness failure; the unique root-only extraction remains available for a
+quoting-free hash check and build.
+
+The retry verifies `ed539d24…` and successfully produces the seven runtime
+binaries and exact release manifest for `444428a…`. Initramfs assembly fails
+closed on a missing `install` input, so activation is not attempted; each
+external initramfs input must be resolved first.
+
+The absent input is the optional `mkvsock-relay`; all required local inputs
+exist. Successful build hashes are retained (`8a9d5f15…` manifest,
+`e176c997…` shim, `199529cb…` daemon, `72db893c…` mknetd, `52e81fa1…`
+agent). The first current-image inspection command itself has unmatched shell
+quotes and executes nothing, so no image-content inference is made.
+
+Quote-safe inspection shows the active initramfs includes agent, transport
+module, and relay. The manifest-bound relay is
+`/opt/mkruntime/bin/mkvsock-relay` (`293ff1ea…`), not the missing libexec path;
+the active module is `bef1b888…` and matches its libexec copy. The next build
+can therefore reuse the exact active transport inputs without ambiguity.
+
+The corrected image is `cb1d9771…` and contains the exact agent, verified
+module, and relay. No activation claim follows from assembly alone.
+
+The managed binary installer reports `installed_and_active` and advances the
+`current` release link to `444428a…`; it does not restart the already-running
+services. This is only a selected-release boundary, not coherent activation;
+the guest artifact manifest and coordinated restarts remain pending.
+
+The release-specific agent/initramfs copies pass exact hash checks, but the
+candidate jq invocation over-escapes its named variables and fails on unbound
+`ap` before writing JSON. Active manifest and services are untouched; only
+candidate construction/validation needs rerun.
+
+With one remote escape, candidate manifest `9e9c1908…` passes the strict
+bootstrap validator against exact agent `52e81fa1…`, initramfs `cb1d9771…`,
+and the pinned kernel/transport set. Active manifest stays `cefc96b8…` and the
+old daemon PIDs remain unrestarted; staging alone changes no running service.
+
+The pre-activation inventory is otherwise empty on boot `a0798b60…`, but its
+shim subcheck uses overlong `pgrep -x` and is therefore inconclusive. Exact
+`/proc/*/exe` resolution is required before the atomic switch.
+
+The exact executable audit is empty. Atomic activation then passes without a
+reboot: all five units are active, daemons are PIDs 20606/20628 with zero
+restarts/status 0, binaries report exact `444428a…`, and manifest/release/shim
+identities are `9e9c1908…`/`8a9d5f15…`/`e176c997…`. This establishes the
+coherent pre-workload boundary only.
+
+Live exact-source execution proves the `/var/run` normalization: ctr reaches
+`RUNNING`, and Docker passes stdio inspection into OCI/rootfs construction.
+Validation then rejects Docker's nonempty process-field presence for
+`apparmorProfile` and `oomScoreAdj`; the runner exits 125 and invokes cleanup.
+Those values and their safe compatibility semantics are the next boundary;
+the shared basic suite remains failed.
+
+EXIT cleanup is live-clean across both namespaces, Docker, child, storage,
+state, networking, and exact runtime-process inventories, with both daemon
+PIDs unchanged and unrestarted. The asynchronous dead-shim exec `ENOENT`
+reproduces despite the installed managed link, but leaves no resource; it is
+tracked independently from the OCI compatibility failure.
+
+Direct inspection of a live Docker-generated OCI bundle establishes the two
+values: `apparmorProfile="docker-default"` and integer `oomScoreAdj=0`. Only
+the latter is semantically inert. The former requires either real child-kernel
+enforcement or an explicit unconfined client contract; silent projection loss
+would violate the fail-closed boundary.
+
+Inside an exact Multikernel child, AppArmor reports enabled, the attr files
+exist, securityfs profiles are unavailable, and current confinement is
+`unconfined`. The probe's immediate kill/delete sequence races convergence and
+gets `task must be stopped`; cleanup must be completed explicitly before this
+observation can be used further.
+
+The task subsequently reports `STOPPED`; task/container/child still exist only
+because delete did not run. A cleanup wrapper then fails before mutation on a
+misquoted `awk` field, so direct deletion from the observed stopped state is
+required.
+
+The direct delete attempt fails inside teardown at
+`close guest network: INTERNAL: agent operation failed`. Cleanup is therefore
+unproven and must be reconciled from durable/runtime state before any new
+probe.
+
+The failed delete leaves the stopped task/container, child, MK filter/NAT
+rules, and storage/rootfs records. Separately, daemon PIDs are now 1236/1466
+and mkruntimed shows one restart after a first later host check could not
+confirm the Google guest agent. Earlier PID continuity cannot be projected
+across this service/boot interval; ownership and boot state need fresh audit.
+
+The interval change is an actual VM reboot to `e76edca2…` at 07:26 UTC. The
+probe's exact `444428a…` shim PIDs 1976/1981 were created afterward and are
+therefore current-boot resources. Durable lifecycle, network, storage, and
+rootfs records—not the older quarantine—must drive reconciliation.
+
+Current records agree on generation `372e816c…`: lifecycle remains `RUNNING`,
+network endpoint `f5152c21…` is `READY` at 5/5 packets with no drops/errors,
+storage export is `ACTIVE`, and rootfs phase is `PREPARED`. Host teardown did
+not advance past guest close; the same idempotent delete may be retried only
+after examining shim recovery/log state.
+
+Recovery records init exit 137 and exact ownership; mknetd counters rose from
+the shim snapshot's 2/1 to 5/5 during close. Both exact shim processes and
+their pinned descriptors/sockets remain live. Because the RPC error is safely
+redacted, bounded console evidence is needed to localize the guest failure.
+
+Console attachment provides no raw guest error: Kerf says the retained
+instance's kernel image is not loaded. With ownership and shim state intact,
+the only justified next action is one retry of the idempotent delete.
+
+The retry reproduces the same CloseNetwork failure. Further identical retries
+are unjustified; the retained stopped task must now exercise the supervised
+worker recovery path before cleanup is attempted again.
+
+The exact worker termination leads the supervisor to exit rather than spawn a
+replacement. Containerd observes disconnect and begins dead-shim cleanup; the
+task disappears but container metadata remains. Recovery outcome is pending
+the cleanup command and resource audit.
+
+Cleanup-only recovery leaves no lifecycle sandbox, network endpoint, child,
+host rule/link, shim, relay, or storage-server process; lifecycle sequence is
+49. The sole visible remainder is containerd container metadata, pending
+storage/rootfs verification and normal removal.
+
+A combined verification/removal command fails at jq parsing before mutation.
+State projection and container-metadata removal remain separate pending steps.
+
+Read-only state confirms a `RELEASED` export, no rootfs record, and no storage
+directory. Removing inert container metadata yields empty task/container/child
+inventories, closing the probe through runtime recovery rather than state-file
+deletion.
+
+Because the guest image contains no AppArmor policy loader or profile and its
+process is unconfined, silently accepting `docker-default` is unsound. Docker
+must explicitly request `apparmor=unconfined`; only integer OOM adjustment zero
+is eligible as a no-op compatibility field.
+
+Docker's explicit unconfined request generates the exact pair
+`apparmorProfile="unconfined"`, `oomScoreAdj=0`. This provides a narrow,
+testable adapter contract: accept and omit only those values, reject every
+requested profile and nonzero/malformed adjustment, and pass the opt-out on
+all Docker qualification creates/runs.
+
 Before upgrade, the `f7c6f47…` failure cleanup rechecks fully empty across all
 runtime/network/container/child/storage inventories, with both daemon PIDs
 unchanged and zero restarts.
@@ -3594,3 +3744,22 @@ The subsequent complete repository race suite, `go vet ./...`, the full
 documentation/schema/evidence/deployment chain, and `git diff --check` passed
 on 2026-09-18. The local authenticated collision-reuse checkpoint is complete;
 current-source disposable-host proof remains unauthorized.
+
+On 2026-09-27 the Docker OCI compatibility boundary was tightened after live
+bundle inspection. Only explicit `apparmorProfile="unconfined"` and exact
+integer `oomScoreAdj=0` are accepted and removed from the child projection;
+Docker's default profile and nonzero, boolean, floating-point, or malformed OOM
+values remain rejected. Every Docker qualification create/run path now makes
+the network and AppArmor decisions explicit with `--network none` and
+`--security-opt apparmor=unconfined`. The focused validator passed 67 semantic
+cases plus namespace, file-identity, and outer-cleanup boundaries, followed by
+Python compilation, both qualification-script syntax checks, and
+`git diff --check`. Exact-revision disposable-host execution remains pending.
+
+The ensuing complete local gate passed on 2026-09-27: the full Go race suite,
+`go vet ./...`, all documentation/schema/evidence/deployment checks, and
+`git diff --check`. A source audit additionally verified that every Docker
+create/run in both live qualification entry points uses the explicit network
+and AppArmor settings, including stdin, attach, PTY, and resize branches. The
+checkpoint is still local until its exact committed archive is activated and
+observed on the disposable host.

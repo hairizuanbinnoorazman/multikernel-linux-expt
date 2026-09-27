@@ -4085,6 +4085,224 @@ release/deployment/resource-ledger/containerd/final-audit gate then passes;
 `git diff --check` is clean. The only skip is the already classified local
 socket-rejection `EPERM` subcase. Exact-revision live proof remains pending.
 
+Commit `444428ae88e0575e1a6a4a915ea9c83c001b6fc5` freezes the narrow
+stdio-alias remediation and all findings above. Its tracked-source-only archive
+`/tmp/mklinux-444428a.tar.gz` hashes to
+`ed539d24dd58c92300472042795d862403defe20d35b427c98dfeed33026efda`;
+the untracked historical evidence tree is excluded. Guest verification/build
+and activation remain pending.
+
+The guest receives the same `ed539d24…` archive on an empty host. The first
+root-only extraction command then stops before compilation because its nested
+`awk` hash expression is expanded as an unset shell parameter. This is a
+harness quoting failure, not a build or runtime result; the unique extraction
+is retained and will be verified without `awk` before use.
+
+The quoting-free retry verifies the archive and builds all seven binaries plus
+the exact release manifest for `444428a…`. Initramfs assembly then stops at an
+`install` input with `No such file or directory`; therefore no coherent
+candidate exists and nothing is activated. The agent, transport-module, relay,
+and init-script inputs must be checked individually before retrying.
+
+Input inspection localizes the missing file to the optional
+`/usr/local/libexec/multikernel/mkvsock-relay`; agent, init, BusyBox, and
+`mk_transport.ko` exist. Exact successful build hashes already include release
+manifest `8a9d5f15…`, shim `e176c997…`, mkruntimed `199529cb…`, mknetd
+`72db893c…`, and agent `52e81fa1…`. A combined current-initramfs inspection
+command then fails at shell parse time due to nested quotes and changes
+nothing; it must be split before deciding whether the optional relay belongs.
+
+The split inspection resolves the correct manifest-bound inputs. The active
+initramfs contains `mk-agent`, `mk_transport.ko`, and `mkvsock-relay`; the
+relay lives at `/opt/mkruntime/bin/mkvsock-relay` with hash `293ff1ea…`, and
+the module artifact hashes to `bef1b888…` (matching its deployed libexec copy).
+Thus the failed assembly used the wrong relay pathname; the coherent rebuild
+must use these active-manifest inputs.
+
+The corrected initramfs build passes and hashes to `cb1d9771…`; listing the
+archive confirms all three expected files are present. The build set is now
+coherent, but managed-release install, candidate manifest creation, strict
+validation, and service activation remain separate pending steps.
+
+`manage-runtime-binaries.py install` both installs and selects immutable
+release `0.1.0-dev-444428a…` (`installed_and_active`); this is earlier than the
+intended install-only checkpoint. No service was restarted, so running daemon
+processes still belong to the preceding set. Exact agent/initramfs manifest
+validation and coordinated service activation remain mandatory before calling
+the host coherent.
+
+Release-specific artifact staging verifies and copies exact agent `52e81fa1…`
+and initramfs `cb1d9771…`, then stops before candidate JSON is written because
+the jq named variables are again over-escaped and remote `set -u` expands
+`ap`. The active manifest and services remain unchanged; retry is restricted
+to manifest construction/validation with one remote escape.
+
+The corrected candidate construction and strict bootstrap validation pass.
+Candidate manifest `9e9c1908…` resolves exact agent `52e81fa1…`, initramfs
+`cb1d9771…`, pinned kernel/module/relay, compatibility, configuration, and OCI
+feature set. Active manifest remains `cefc96b8…`; daemon PIDs 16385/16404
+remain healthy and unrestarted. Coordinated activation is still pending.
+
+The activation preflight finds empty default/moby task and container
+inventories, no Docker containers, child instances, runtime links, durable
+lifecycle/network state, or storage-server process on unchanged boot
+`a0798b60…`. Its shim check is inconclusive because `pgrep -x` warns that the
+executable name exceeds Linux's 15-character comm limit; `/proc/*/exe`
+inspection must replace that subcheck before activation.
+
+Exact `/proc/*/exe` inspection then finds no shim, relay, or storage-server
+process, closing the preflight gap. Coordinated activation succeeds on the
+same boot: all five units are active; mknetd PID 20606 and mkruntimed PID 20628
+have zero restarts/status 0; shim, mknetd, and mkruntimed report exact
+`444428a…`. Active kernel manifest, release manifest, and shim hash to
+`9e9c1908…`, `8a9d5f15…`, and `e176c997…`. Workload proof remains pending.
+
+The unchanged basic runner (`3eaa058b…`) on exact `444428a…` clears the stdio
+alias failure: ctr again reaches `RUNNING`, and Docker advances through shim
+task creation into child-root OCI validation. It then fails closed on
+`unsupported process field(s): apparmorProfile, oomScoreAdj`, exits 125, and
+runs the EXIT cleanup trap. Thus the alias fix is live-proven, but the basic
+suite is still not a pass; cleanup and the concrete values/security contract
+of these two Docker fields must be established next.
+
+The failed-run cleanup audit is fully empty across default/moby task and
+container inventories, Docker objects, child instances, runtime storage,
+lifecycle/network state files, host links/rules, and shim/relay/server
+processes. Daemon PIDs 20606/20628 remain active with zero restarts. The
+containerd dead-shim `ENOENT` also reproduces while the managed runtime link is
+installed; it remains a separate transient cleanup-command diagnostic, not a
+surviving runtime resource.
+
+A short-lived default-runc Docker container exposes the exact generated OCI
+values from its live containerd bundle: `apparmorProfile` is
+`"docker-default"` and `oomScoreAdj` is integer zero. The same process object
+contains only those additions plus already-supported args, capabilities, cwd,
+env, and user. Zero OOM adjustment is inert; the nonempty AppArmor profile is
+not and must not be silently discarded. Child-kernel enforcement availability
+must be observed before defining compatibility.
+
+The exact child-kernel probe reports AppArmor enabled (`Y`) and exposes
+`/proc/self/attr/{current,exec}`, but the securityfs profile interface is
+unavailable and the workload is `unconfined`. Its cleanup sequence then races:
+immediate task deletion after SIGKILL sees the task still `running` and fails
+precondition. This does not establish a leak, but the exact probe must be
+reconciled and removed before further qualification; profile availability also
+requires an actual attr-exec attempt rather than inference from the module bit.
+
+The follow-up inventory shows the probe converged to `STOPPED` while its exact
+task, container, and child still await deletion. The first explicit cleanup
+command executes no mutation because another over-escaped `awk` field trips
+remote `set -u`; cleanup can proceed directly from the already observed
+stopped state without parsing.
+
+Direct deletion then reaches runtime teardown but fails at
+`close guest network: INTERNAL: agent operation failed`. This is a real
+cleanup-path result, not a harness error. No cleanup-success claim follows;
+lifecycle, network, child, retained console, and task state must be audited
+before deciding whether retry is safe.
+
+The audit proves cleanup is incomplete: stopped task/container, exact child
+instance, MK firewall chain/NAT rule, and runtime storage/rootfs records remain.
+It also finds daemon PIDs now 1236/1466 rather than the earlier activation
+PIDs, with mkruntimed at one restart: its first later start failed host
+qualification because the Google guest agent was not yet confirmed, then the
+unit restarted successfully. This is a separate host/service interval and
+invalidates carrying the earlier PID-stability assertion forward; boot ID and
+exact durable ownership must be re-established before teardown retry.
+
+Boot audit confirms an intervening VM reboot: current boot is `e76edca2…`,
+started 07:26 UTC, replacing activation boot `a0798b60…`. The AppArmor probe
+and its exact `444428a…` supervisor/worker (PIDs 1976/1981) were created after
+this reboot, so their resources are current-boot, not stale pre-reboot residue.
+Current durable stores are `/var/lib/mkruntime/state.json`,
+`/var/lib/mknetd/state.json`, and mkruntimed storage/rootfs state; the older
+quarantine remains separate. Record contents must bind the pending cleanup
+before retry.
+
+Durable records bind one current generation `372e816c…`: lifecycle sequence
+45 still says `RUNNING`; mknetd endpoint `f5152c21…` is `READY` with exact
+5/5 RX/TX and zero drops/errors; storage export `e6a18eb0…` is `ACTIVE`; and
+the rootfs record remains `PREPARED`. These identities match the retained
+child and exact source manifest `9e9c1908…`. The failed close did not advance
+host teardown, so shim recovery/log evidence is required before a bounded
+retry of the same idempotent delete.
+
+Shim recovery confirms init exit 137 and preserves generation/network/storage
+ownership; its last persisted counters are 2/1, while mknetd reached 5/5 during
+the failed close attempt. Supervisor and worker remain live with their held
+bundle/runtime descriptors and agent sockets. The public API deliberately
+redacts the guest command error, so a bounded filtered console capture is the
+next evidence step.
+
+The bounded filtered console attempt yields no guest log; Kerf reports
+`Kernel image not loaded for instance` for the retained entry. This is
+inconclusive about `CloseNetwork`. Because the exact shim and durable
+identities remain intact and guest close is designed for retry, one bounded
+repeat of the same task deletion is the next safe action.
+
+That bounded retry fails at the identical
+`close guest network: INTERNAL: agent operation failed` boundary. Repeating
+the same request again is not evidence-producing. The stopped task's exact
+supervisor and pinned recovery remain live, so the next recoverable route is
+the designed shim-worker restart/recovery path—not manual deletion of durable
+state.
+
+Killing exact worker 1981 does not produce a replacement marker. Follow-up
+shows both worker and supervisor 1976 exited, the worker PID file disappeared,
+and containerd logged shim disconnect plus dead-shim cleanup. Its task
+inventory is now empty while container metadata remains. Cleanup-only command
+completion and resource inventories must be observed before removing metadata
+or claiming recovery.
+
+Cleanup-only recovery completes: lifecycle advances to sequence 49 with no
+sandboxes, mknetd has no endpoints, and child, MK links/rules, shim, relay,
+and storage-server process inventories are empty. Only inert containerd
+container metadata remains. Storage/rootfs state and directories still require
+verification before normal metadata removal closes this probe.
+
+The first combined storage/rootfs verification command has malformed jq
+escaping and stops before `ctr containers rm`; no mutation occurs. Read-only
+state projection and metadata removal must be split.
+
+The split projection shows the probe export `RELEASED`, no rootfs records, and
+an empty runtime storage directory. Normal container metadata removal then
+passes with empty task/container/child inventories. This closes recovery of
+the probe without manual durable-state deletion.
+
+The child image has no AppArmor policy loader/profile payload, while live
+processes are unconfined; accepting `docker-default` would therefore discard a
+requested security control. The fail-closed integration direction is explicit
+Docker `apparmor=unconfined`, plus exact acceptance/removal of only integer
+`oomScoreAdj=0`. The generated OCI shape of that explicit request still needs
+live observation before implementation.
+
+Live inspection of a short-lived Docker container with explicit
+`--security-opt apparmor=unconfined` shows the OCI fields remain present as
+exact string `"unconfined"` and integer `oomScoreAdj=0`. Therefore validation
+must accept and strip only that pair, continue rejecting `docker-default` and
+all other/malformed values, and qualification must make both AppArmor and
+Docker-network opt-outs explicit.
+
+The compatibility implementation now accepts only the exact AppArmor string
+`unconfined` and an exact Python integer `oomScoreAdj=0`, removes those two
+host-only compatibility fields from the child projection, and keeps
+`docker-default`, nonzero, boolean, floating-point, and malformed values
+fail-closed. The qualification entry points now explicitly pass both
+`--network none` and `--security-opt apparmor=unconfined` on every Docker
+create/run path. On 2026-09-27 the focused validator completed all 67 semantic
+cases plus namespace, file-identity, and outer-cleanup boundaries; Python
+compilation, both shell syntax checks, and `git diff --check` also passed.
+This is local evidence only; the exact revision has not yet been committed or
+activated on the disposable host.
+
+The complete local gate then passed on 2026-09-27: `go test -race -count=1
+./...`, `go vet ./...`, the full documentation/schema/evidence/deployment
+chain, and `git diff --check`. The Docker invocation audit also confirms every
+direct qualification `docker create`/`docker run` path carries the explicit
+network and AppArmor options, including piped stdin, detached attach, PTY, and
+live-resize cases. Commit, archive, deployment, and live execution remain the
+next evidence boundary.
+
 The `f7c6f47…` failed-start cleanup is independently clean before upgrade:
 containerd, lifecycle, mknetd, child, and runtime-storage inventories are all
 empty; daemon PIDs 14500/14520 remain active with zero restarts.

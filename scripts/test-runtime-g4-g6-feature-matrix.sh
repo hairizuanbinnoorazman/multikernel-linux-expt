@@ -19,6 +19,7 @@ docker_attach_name=mk-matrix-docker-attach
 ctr_bind_id=mk-matrix-ctr-bind
 docker_bind_name=mk-matrix-docker-bind
 bind_root=
+docker_isolation=(--network none --security-opt apparmor=unconfined)
 
 cleanup() {
 	(
@@ -127,7 +128,7 @@ row image-pull-and-inspect
 sudo ctr containers create --runtime "$runtime" "$image" "$ctr_id" /bin/sh -c \
 	'trap "exit 42" TERM; while :; do sleep 1; done'
 sudo ctr tasks start --detach "$ctr_id"
-sudo docker create --runtime "$runtime" --name "$docker_name" \
+sudo docker create --runtime "$runtime" "${docker_isolation[@]}" --name "$docker_name" \
 	"$image" /bin/sh -c 'trap "exit 42" TERM; while :; do sleep 1; done' >/dev/null
 sudo docker start "$docker_name" >/dev/null
 wait_for_state ctr RUNNING
@@ -194,7 +195,7 @@ ctr_bind_output=$(sudo ctr run --rm --runtime "$runtime" \
 	--mount "type=bind,src=$bind_root/ctr,dst=/opt/input,options=rbind:ro" \
 	--mount "type=bind,src=$bind_root/ctr-file,dst=/etc/mk-input.conf,options=bind:ro" \
 	"$image" "$ctr_bind_id" /bin/sh -c "$bind_probe")
-docker_bind_output=$(sudo docker run --rm --runtime "$runtime" \
+docker_bind_output=$(sudo docker run --rm --runtime "$runtime" "${docker_isolation[@]}" \
 	--name "$docker_bind_name" --mount "type=bind,src=$bind_root/docker,dst=/opt/input,readonly" \
 	--mount "type=bind,src=$bind_root/docker-file,dst=/etc/mk-input.conf,readonly" \
 	"$image" /bin/sh -c "$bind_probe")
@@ -291,7 +292,7 @@ for cycle in 1 2; do
 	ctr_output=$(sudo ctr run --runtime "$runtime" "$image" "$ctr_id" \
 		/bin/sh -c "echo ctr-cycle-$cycle; echo ctr-error-$cycle >&2; exit 17" 2>&1)
 	ctr_rc=$?
-	docker_output=$(sudo docker run --runtime "$runtime" \
+	docker_output=$(sudo docker run --runtime "$runtime" "${docker_isolation[@]}" \
 		--name "$docker_name" "$image" /bin/sh -c \
 		"echo docker-cycle-$cycle; echo docker-error-$cycle >&2; exit 17" 2>&1)
 	docker_rc=$?
@@ -321,7 +322,7 @@ row name-reuse
 ctr_stdin=$(printf 'ctr-stdin\n' | sudo ctr run --runtime "$runtime" "$image" "$ctr_id" \
 	/bin/sh -c 'read line; echo guest-$line')
 docker_stdin=$(printf 'docker-stdin\n' | sudo docker run --interactive \
-	--runtime "$runtime" --name "$docker_name" "$image" \
+	--runtime "$runtime" "${docker_isolation[@]}" --name "$docker_name" "$image" \
 	/bin/sh -c 'read line; echo guest-$line')
 printf '%s\n' "$ctr_stdin" | grep -Fxq guest-ctr-stdin
 printf '%s\n' "$docker_stdin" | grep -Fxq guest-docker-stdin
@@ -338,7 +339,7 @@ row guest-stdin
 sudo ctr run --detach --runtime "$runtime" "$image" "$ctr_attach_id" \
 	/bin/sh -c 'read line; echo ctr-attached-$line'
 sudo docker run --detach --interactive --runtime "$runtime" \
-	--name "$docker_attach_name" "$image" \
+	"${docker_isolation[@]}" --name "$docker_attach_name" "$image" \
 	/bin/sh -c 'read line; echo docker-attached-$line' >/dev/null
 ctr_attached=$(printf 'stdin\n' | sudo ctr tasks attach "$ctr_attach_id")
 # Docker detaches as soon as the attaching client's stdin reaches EOF. Keep
@@ -360,7 +361,7 @@ row guest-attach
 ctr_tty=$(script -q -e -c \
 	"stty rows 37 cols 91; sudo ctr run --tty --runtime '$runtime' '$image' '$ctr_id' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo ctr-terminal-ok'" /dev/null)
 docker_tty=$(script -q -e -c \
-	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
+	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --network none --security-opt apparmor=unconfined --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq ctr-terminal-ok
 printf '%s\n' "$docker_tty" | tr -d '\r' | grep -Fxq docker-terminal-ok
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq '37 91'
@@ -383,7 +384,7 @@ sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_id"
 wait_for_clean_host
 "$(dirname "$0")/test-runtime-live-resize.py" -- \
-	sudo docker run --tty --runtime "$runtime" --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
+	sudo docker run --tty --runtime "$runtime" "${docker_isolation[@]}" --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
 observe final-clean-inventory "$(clean_inventory)"
