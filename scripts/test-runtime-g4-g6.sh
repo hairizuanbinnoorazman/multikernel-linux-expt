@@ -12,7 +12,13 @@ image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}
 runtime=${MK_RUNTIME:-io.containerd.multikernel.v2}
 ctr_id=mk-proof-ctr
 docker_name=mk-proof-docker
-docker_isolation=(--network none --security-opt apparmor=unconfined)
+docker_isolation=(
+	--network none
+	--security-opt apparmor=unconfined
+	--security-opt seccomp=unconfined
+	--sysctl net.ipv4.ip_unprivileged_port_start=1024
+	--sysctl 'net.ipv4.ping_group_range=1 0'
+)
 
 cleanup() {
 	(
