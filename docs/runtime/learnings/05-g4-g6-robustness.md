@@ -2948,6 +2948,64 @@ re-exec path.
 The full repository race/vet/documentation-evidence gate passes, with only the
 previously classified local socket `EPERM` skip.
 
+The exact fix is commit `1e31080a1d3099fec0a0f2f9fa790eff94719779`;
+source-only archive `/tmp/mklinux-1e31080.tar.gz` hashes to
+`9b0b9ac2339ca466923524c394233b5a6e850332df7e7b9e2b6f376c53ae8d5d`.
+
+The guest independently verified and built `1e31080…`: release manifest
+`e695cecb…`, shim `db39bcec…`, daemon `4d3b4609…`, mknetd `095e3931…`, and
+agent `eb3a2dc1…`. No activation claim yet follows.
+
+On the empty host, release `0.1.0-dev-1e31080…` became current; exact
+agent/initramfs are `eb3a2dc1…`/`1cd089b1…`, and candidate manifest
+`cefc96b8…` passes strict bootstrap validation. Services remain to be
+coordinated onto this set.
+
+After atomic manifest replacement and service restart, all five units remain
+active; mknetd PID 16385 and mkruntimed PID 16404 show zero restarts/status 0,
+installed identities match `1e31080…`/`cefc96b8…`, and boot ID is unchanged.
+
+Live `1e31080…` advances materially: ctr reaches task state `RUNNING`, proving
+the `/proc/self/exe` constraint re-exec across chroot. Docker then fails its
+host-side task creation at `inspect stdout: too many levels of symbolic links`.
+The error precedes guest launch and points to the strict stdio path ancestry
+check. The full suite remains failed; cleanup and Docker's concrete path
+contract are the next evidence points.
+
+The post-failure audit is clean: lifecycle and mknetd state files are absent,
+containerd task/container and shim/relay/runtime-process inventories are
+empty, and the exact mknetd/mkruntimed PIDs remain active with zero restarts.
+On this host `/var/run` is a root-owned symlink with exact target `/run`, and
+Docker's root is `/var/lib/docker`. That observed compatibility alias supports
+the ancestry diagnosis without justifying general symlink traversal; the
+accepted path must be normalized to a descriptor-checked canonical spelling.
+
+One independent diagnostic is visible in the same journal. Containerd's
+asynchronous dead-shim cleanup got `no such file or directory` while executing
+the configured `/usr/local/bin/containerd-shim-multikernel-v2` path. The
+managed link and exact `1e31080…` target are present at follow-up, so the
+evidence does not establish removal or a harness cause; the transient exec
+failure needs reproduction. No runtime resource remained.
+
+The implementation now treats only the observed exact `/var/run/` spelling as
+a compatibility alias. It checks that alias is caller-owned, single-link,
+identity-stable, and points exactly to `/run`; all inspection, persistence,
+recovery, and opening then use `/run/...` under the original strict
+`openat2` boundary. Focused race tests accept that one alias and continue to
+reject lookalike prefixes, changed targets, arbitrary symlink ancestors,
+identity replacement, and invalid pre-mutation requests.
+
+The full repository race suite and `go vet ./...` pass after the alias change.
+Documentation/integrity and exact live qualification remain separate gates.
+
+The full documentation, schema, evidence, deployment, and final-audit chain
+also passes, with only the known local socket `EPERM` skip; `git diff --check`
+is clean. Live confirmation remains pending.
+
+Before upgrade, the `f7c6f47…` failure cleanup rechecks fully empty across all
+runtime/network/container/child/storage inventories, with both daemon PIDs
+unchanged and zero restarts.
+
 The post-reboot environment reset uses recoverable root-only quarantine, not
 manual deletion. Exact durable hashes were captured before moving lifecycle,
 network, and storage-task records; container metadata was then removed.

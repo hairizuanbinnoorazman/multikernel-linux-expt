@@ -2099,6 +2099,50 @@ func TestProcessIOPathsRejectUnsafeIdentityAndSymlinkAncestors(t *testing.T) {
 	}
 }
 
+func TestProcessIOPathNormalizesOnlyTrustedRuntimeAlias(t *testing.T) {
+	directory := t.TempDir()
+	target := filepath.Join(directory, "run")
+	if err := os.Mkdir(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(directory, "var-run")
+	if err := os.Symlink(target, alias); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(target, "stdout")
+	if err := syscall.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	normalized, err := normalizeProcessIOPathAlias(filepath.Join(alias, "stdout"), alias, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if normalized != path {
+		t.Fatalf("normalized path = %q, want %q", normalized, path)
+	}
+	if _, err = inspectBoundProcessIOPath(normalized, false); err != nil {
+		t.Fatalf("inspect normalized path: %v", err)
+	}
+
+	unrelated := alias + "-other/stdout"
+	if normalized, err = normalizeProcessIOPathAlias(unrelated, alias, target); err != nil || normalized != unrelated {
+		t.Fatalf("unrelated path normalized to %q, err = %v", normalized, err)
+	}
+	if err = os.Remove(alias); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(directory, "other")
+	if err = os.Mkdir(other, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Symlink(other, alias); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = normalizeProcessIOPathAlias(filepath.Join(alias, "stdout"), alias, target); err == nil {
+		t.Fatal("runtime alias with an unexpected target was accepted")
+	}
+}
+
 func TestProcessIOOpenRejectsReplacementAndCancellation(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "output")
