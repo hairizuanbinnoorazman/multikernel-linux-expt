@@ -1479,6 +1479,14 @@ func TestConfigureNetworkAcceptsOnlyExactCompletedReplay(t *testing.T) {
 	}
 }
 
+func TestCreateProcessClassifiesBundleLoadFailure(t *testing.T) {
+	m := NewManager(false)
+	err := m.Create("init", filepath.Join(t.TempDir(), "absent"))
+	if err == nil || !strings.Contains(err.Error(), "guest process create stage bundle-load failed") {
+		t.Fatalf("Create bundle-load error = %v", err)
+	}
+}
+
 func TestCloseNetworkRetainsReplayIdentityUntilRetryCompletes(t *testing.T) {
 	descriptor, err := os.CreateTemp(t.TempDir(), "closed-tun")
 	if err != nil {
@@ -1527,6 +1535,34 @@ func TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup(t *testing.T
 		}
 		if m.networkName != "" || m.networkMTU != 0 || attempts != 2 {
 			t.Fatalf("retried close state: name=%q mtu=%d attempts=%d", m.networkName, m.networkMTU, attempts)
+		}
+	})
+
+	t.Run("deletes named TUN before closing descriptor", func(t *testing.T) {
+		device, peer, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer peer.Close()
+		m := NewManager(true)
+		m.network, m.networkName, m.networkMTU = device, "mk0", 1500
+		m.networkExec = func(_ context.Context, arguments ...string) ([]byte, error) {
+			if fmt.Sprint(arguments) != "[link delete mk0]" {
+				return nil, fmt.Errorf("unexpected command %v", arguments)
+			}
+			if _, statErr := device.Stat(); statErr != nil {
+				return nil, fmt.Errorf("TUN descriptor closed before link deletion: %w", statErr)
+			}
+			return nil, nil
+		}
+		if err = m.CloseNetworkContext(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if m.network != nil || m.networkName != "" || m.networkMTU != 0 {
+			t.Fatalf("successful ordered close retained state: file=%v name=%q mtu=%d", m.network, m.networkName, m.networkMTU)
+		}
+		if _, err = device.Stat(); err == nil {
+			t.Fatal("successful ordered close retained TUN descriptor")
 		}
 	})
 

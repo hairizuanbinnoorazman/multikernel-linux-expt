@@ -3805,3 +3805,112 @@ semantic cases, read-only-bind races, bootstrap/storage/image validation,
 release/deployment lifecycle tests, resource-ledger and evidence audits. The
 known unprivileged socket-rejection subcase was skipped with `EPERM`; it is not
 a regression in these changes.
+
+Commit `f34b6bbce490b6715d5185f989039bbb155951de` freezes the locally qualified
+cleanup and diagnostic changes. Its source-only archive is
+`/tmp/mklinux-f34b6bb.tar.gz`, SHA-256
+`25ecbc772d003bb6e3db9dac116647394237ceef7b19d7822f549bd085a3cf3a`.
+The untracked historical evidence tree was excluded from the archive and
+remains untouched.
+
+The disposable VM already reports `RUNNING`; no restart or recreation was
+needed. The pre-transfer audit retains boot ID
+`ce405359-2f14-4655-9120-277e292af6da` and kernel
+`7.0.0-mk2-gce-lab`. The Multikernel mount, mknetd, mkruntimed, and containerd
+are active; mknetd PID 42843 and mkruntimed PID 42862 each have zero restarts.
+Containerd task/container inventories are empty, `/run/multikernel` has no
+listed residue, and `/var/lib/mkruntime` contains only its state and journal.
+
+The uploaded archive independently re-matched SHA-256 `25ecbc77…`, was
+extracted into a new private root-owned tree with neither `.git` nor non-root
+entries, and built successfully. Exact build hashes are release manifest
+`90869f47…`, shim `ac971043…`, daemon `e2e65944…`, mknetd `0fcd9b75…`, and
+agent `a5edf911…`; every binary is stamped with revision `f34b6bb…`. These are
+build identities only, before activation.
+
+The first remote binary-manager install exposed a command-level staging error:
+`install` activates the new release, and the supplied version already included
+the revision. It therefore created/selected the exact-source but incorrectly
+named release `0.1.0-dev-f34b6bb…-f34b6bb…`. The matching agent/initramfs
+staging hashes are `a5edf911…` and `79b312a2…`. No workload ran and services
+were not restarted in this interval. A fresh extraction/build with version
+`0.1.0-dev` is required before qualification; none of these first-attempt
+artifacts will be used as evidence of the corrected release.
+
+The clean rebuild corrected the version contract. Active managed release is
+now `0.1.0-dev-f34b6bbce490b6715d5185f989039bbb155951de`; shim, daemon, and
+mknetd report version `0.1.0-dev` and exact revision `f34b6bb…`. Corrected
+release manifest is `d581bc41…`, shim `dcb023c4…`, daemon `b9d751ca…`, mknetd
+`c64f1fa4…`, agent `8cdb40db…`, and gzip-valid initramfs `9b0f2bcd…`. Strict
+bootstrap validation accepts candidate kernel manifest `1650f945…` with the
+existing approved kernel, relay, and transport. Services have not yet been
+restarted onto these bytes and no workload claim is made.
+
+Coordinated activation passed its empty-host preconditions. Candidate manifest
+`1650f945…` was installed by same-filesystem rename while mknetd/mkruntimed
+were stopped, then both restarted. After ten seconds the mount, mknetd,
+mkruntimed, and containerd were active; mknetd PID 47177 and mkruntimed PID
+47196 have zero restarts and exit status zero. Installed manifest, agent, and
+initramfs re-match `1650f945…`, `8cdb40db…`, and `9b0f2bcd…`; all three
+runtime executables report exact revision `f34b6bb…`. Boot ID remains
+`ce405359…`, and containerd task/container inventories remain empty.
+
+The exact basic-suite runner (`3eaa058b…`) passed every host precondition and
+entered its first `ctr run`, but exact revision `f34b6bb…` again returned
+`INTERNAL: agent operation failed`; the EXIT cleanup then ran. Because the new
+whitelisted `ConfigureNetwork` stages did not appear, this result disproves the
+working assumption that the surfaced failure necessarily comes from one of
+those staged setup operations. Logs, durable lifecycle state, guest console,
+and post-cleanup inventories must be captured before another change.
+
+The retained failure audit localizes the first error beyond guest network
+configuration. Durable lifecycle sequence 62 records generation
+`efe83a023e8eef5d5ae280b0c4be7fc6` as `RUNNING`; mknetd endpoint generation
+`185af25c9ca0c75ee21eeacacff2d57c` is `READY` with RX/TX counters 2/1 and no
+drops/errors. Thus `ConfigureNetwork` completed and the pump exchanged packets.
+The exact shim supervisor/worker are PIDs 47443/47448 from release
+`0.1.0-dev-f34b6bb…`, and relay PID 47657 is live. The subsequent EXIT cleanup
+failed separately at `CloseNetwork`, leaving the ctr task `CREATED`, child and
+storage generation `c7698cdf…` active, and the endpoint/link/firewall rules
+retained. This state is intentionally preserved pending console capture.
+
+Before the serial query could recover that retained child console, the VM
+rebooted (the cause is not established by this evidence). The new host boot
+began at 2026-09-27 02:12 UTC. mknetd then failed closed with an exact durable
+consistency error: endpoint generation `185af25c…` still existed in state, but
+host link `mkv185af25c9ca` no longer existed after reboot. Consequently the
+pre-reboot guest console and live-process state cannot be claimed as retained
+evidence. Durable lifecycle/network records remain available and must be
+reconciled through owned recovery/cleanup, not manually erased.
+
+New-boot audit records boot ID `a0798b60-d6ff-4490-a176-ff09081f63a9` and no
+Kerf pool, child, shim, relay, host link, or network namespace. Durable state,
+however, remains lifecycle sequence 62 (`RUNNING`/storage `ACTIVE`), the
+mknetd endpoint, its root image, and container metadata. Both services enter
+restart loops: mknetd refuses its missing link, while mkruntimed reports
+`rootfs reconcile: owned rootfs bundle is absent` because the containerd
+bundle lived under reboot-volatile `/run`. This exposes a distinct reboot
+reconciliation gap: fail-closed validation detects the mismatch but provides
+no owned convergence path even though backend absence is authoritative. No
+durable file has been manually changed.
+
+Inspection of the retained cleanup path found why `CloseNetwork` itself failed:
+the agent closed its non-persistent TUN descriptor before invoking `ip link
+delete`. Descriptor close removes that TUN, so the command can report a missing
+link and make otherwise completed cleanup fail. The fix deletes the named link
+while its descriptor is still open, closes only after successful deletion, and
+retains both on deletion failure for retry. Because live counters prove network
+setup completed, new secret-safe stages now cover the next `CreateProcess`
+boundaries (`bundle-load` and `root-policy`) without exposing underlying paths
+or mount errors.
+
+Focused race-detector tests pass for the agent and shim packages. They prove
+the named link is deleted while the TUN descriptor is still open, deletion
+failure retains retry state, descriptor-close failure preserves replay
+identity, missing bundles receive only the fixed `bundle-load` stage, and an
+injected root-policy path/token is absent from the wire reply.
+
+The full local gate passes: repository-wide race tests, `go vet`, and the
+complete documentation/schema/evidence/deployment chain, including all 62 OCI
+cases and final evidence audit. The known sandbox `EPERM` socket-rejection
+subcase is the only skip. Generated Python cache will be removed before commit.
