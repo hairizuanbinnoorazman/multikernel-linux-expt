@@ -66,8 +66,12 @@ DEFAULT_MOUNTS = {
     "/sys/fs/cgroup": ("cgroup", "cgroup", {"ro", "nosuid", "noexec", "nodev"}),
     "/run": ("tmpfs", "tmpfs", {"nosuid", "strictatime", "mode=755", "size=65536k"}),
 }
+DEFAULT_MOUNT_OPTION_ALIASES = {
+    "/dev/shm": ({"nosuid", "noexec", "nodev", "mode=1777", "size=67108864"},),
+}
 READONLY_BIND_KINDS = {"bind", "rbind"}
 READONLY_BIND_OPTIONAL = {"private", "rprivate", "nodev", "nosuid", "noexec", "relatime", "noatime", "strictatime"}
+READONLY_BIND_MARKERS = {"ro", "rro"}
 SANITIZED_READONLY_BIND_OPTIONS = {"bind", "ro", "nodev", "nosuid", "noexec"}
 PROTECTED_BIND_DESTINATIONS = ("/dev", "/proc", "/run", "/sys")
 MAX_READONLY_BINDS = 8
@@ -246,9 +250,10 @@ def validate_mounts(value):
                 raise ValueError(f"unsupported or duplicate OCI mount destination {destination!r}")
             seen_defaults.add(destination)
             mount_type, source, options = DEFAULT_MOUNTS[destination]
+            allowed_options = (options,) + DEFAULT_MOUNT_OPTION_ALIASES.get(destination, ())
             if (item.get("type") != mount_type or item.get("source") != source or
                     not isinstance(actual_options, list) or len(actual_options) != len(set(actual_options)) or
-                    set(actual_options) != options):
+                    set(actual_options) not in allowed_options):
                 raise ValueError(f"OCI mount {destination!r} differs from the enforced default contract")
             continue
         canonical_absolute_path(destination, f"mounts[{index}].destination")
@@ -263,9 +268,9 @@ def validate_mounts(value):
         ) else set()
         if (not isinstance(actual_options, list) or
                 not all(isinstance(option, str) for option in actual_options) or
-                len(actual_options) != len(option_set) or "ro" not in option_set or
+                len(actual_options) != len(option_set) or len(option_set & READONLY_BIND_MARKERS) != 1 or
                 len(option_set & READONLY_BIND_KINDS) != 1 or
-                not option_set <= ({"ro"} | READONLY_BIND_KINDS | READONLY_BIND_OPTIONAL) or
+                not option_set <= (READONLY_BIND_MARKERS | READONLY_BIND_KINDS | READONLY_BIND_OPTIONAL) or
                 len(option_set & {"private", "rprivate"}) > 1):
             raise ValueError(f"read-only bind {destination!r} differs from the enforced option contract")
         if destination == "/" or any(destination == path or destination.startswith(path + "/")
