@@ -668,6 +668,28 @@ func TestSupportedRootPolicyLoadsBeforePrivilegedApplication(t *testing.T) {
 	}
 }
 
+func TestDockerRootPolicyPathsAreBoundedExactly(t *testing.T) {
+	masked := []string{
+		"/proc/acpi", "/proc/asound", "/proc/interrupts", "/proc/kcore", "/proc/keys",
+		"/proc/latency_stats", "/proc/sched_debug", "/proc/scsi", "/proc/timer_list",
+		"/proc/timer_stats", "/sys/devices/virtual/powercap", "/sys/firmware",
+	}
+	readonly := []string{"/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"}
+	if err := validateRootPolicy(masked, readonly); err != nil {
+		t.Fatalf("Docker root policy rejected: %v", err)
+	}
+	for name, values := range map[string][]string{
+		"duplicate":   append(append([]string{}, masked...), "/proc/interrupts"),
+		"unsupported": append(append([]string{}, masked[:2]...), "/proc/not-interrupts"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := validateRootPolicy(values, readonly); err == nil {
+				t.Fatal("invalid Docker masked-path policy was accepted")
+			}
+		})
+	}
+}
+
 func TestWaitRejectsUnstartedProcess(t *testing.T) {
 	m := NewManager(true)
 	b := bundle(t, []string{"/probe"}, "")
