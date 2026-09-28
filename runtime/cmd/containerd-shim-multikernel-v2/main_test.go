@@ -798,6 +798,7 @@ type fakeNetworkClient struct {
 	descriptorPath string
 	descriptor     *os.File
 	calls          []string
+	fail           map[string]error
 }
 
 type fakeNamespaceHolder struct {
@@ -972,6 +973,9 @@ func (f *recoveryAgentClient) ReconnectContext(context.Context, string) error {
 
 func (f *fakeNetworkClient) Call(_ context.Context, request mknetwork.Request) (mknetwork.Response, error) {
 	f.calls = append(f.calls, request.Method)
+	if err := f.fail[request.Method]; err != nil {
+		return mknetwork.Response{}, err
+	}
 	endpoint := f.endpoint
 	return mknetwork.Response{Version: mknetwork.ProtocolVersion, RequestID: request.RequestID, Endpoint: &endpoint}, nil
 }
@@ -5489,6 +5493,17 @@ func TestShimRejectsInvalidNetworkEndpointsBeforeUse(t *testing.T) {
 			t.Fatalf("malformed endpoint reached mknetd: %v", client.calls)
 		}
 	})
+
+	t.Run("release already absent", func(t *testing.T) {
+		client := &fakeNetworkClient{fail: map[string]error{"RELEASE": &mknetwork.APIError{Code: "NOT_FOUND", Message: "endpoint does not exist"}}}
+		s := &service{netEndpoint: valid, netClient: client}
+		if err := s.releaseNetwork(context.Background()); err != nil {
+			t.Fatalf("already-absent RELEASE failed: %v", err)
+		}
+		if !reflect.DeepEqual(s.netEndpoint, mknetwork.Endpoint{}) {
+			t.Fatalf("already-absent endpoint retained: %+v", s.netEndpoint)
+		}
+	})
 }
 
 func TestStopNetworkBoundsGuestCloseAndContinuesLocalCleanup(t *testing.T) {
@@ -6102,11 +6117,60 @@ func TestFallbackCleanupRequiresHeldAndDaemonBundleIdentity(t *testing.T) {
 				}
 				return nil
 			})}
-		if response, err := s.Cleanup(t.Context()); err == nil || response != nil || !strings.Contains(err.Error(), "did not confirm cleanup ownership") {
+		if response, err := s.Cleanup(t.Context()); err == nil || response != nil || !strings.Contains(err.Error(), "conflicting cleanup ownership") {
 			t.Fatalf("daemon mismatch cleanup response=%+v error=%v", response, err)
 		}
 		if !reflect.DeepEqual(calls, []string{"ListSandboxes"}) {
 			t.Fatalf("daemon mismatch cleanup calls = %v", calls)
+		}
+	})
+
+	t.Run("absent sandbox permits identity-bound rootfs cleanup", func(t *testing.T) {
+		bundle := privateTestDirectory(t)
+		runtimeDir := filepath.Join(bundle, ".multikernel")
+		if err := os.Mkdir(runtimeDir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		recovery := validPersistedRecovery("default", "task-a")
+		recovery.BundleIdentity = testBundleIdentity(t, bundle)
+		recovery.StorageSHA256 = strings.Repeat("b", 64)
+		data, err := json.Marshal(recovery)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(filepath.Join(runtimeDir, "sandbox.json"), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		previous, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Chdir(bundle); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(previous)
+		var calls []string
+		s := &service{id: "task-a", namespace: "default", bundle: bundle,
+			daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
+				calls = append(calls, request.Method)
+				if request.Method == "ListSandboxes" {
+					encoded, _ := json.Marshal([]protocol.Sandbox{})
+					if err := json.Unmarshal(encoded, output); err != nil {
+						t.Fatal(err)
+					}
+					return nil
+				}
+				if request.Method == "StopSandbox" || request.Method == "DeleteSandbox" {
+					return &protocol.Error{Code: "NOT_FOUND", Message: "sandbox not found"}
+				}
+				return nil
+			})}
+		if response, err := s.Cleanup(t.Context()); err != nil || response == nil {
+			t.Fatalf("absent-sandbox cleanup response=%+v error=%v", response, err)
+		}
+		want := []string{"ListSandboxes", "StopSandbox", "DeleteSandbox", "CleanupRootfs"}
+		if !reflect.DeepEqual(calls, want) {
+			t.Fatalf("absent-sandbox cleanup calls=%v, want %v", calls, want)
 		}
 	})
 

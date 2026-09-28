@@ -1285,15 +1285,14 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 	if apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "shim-cleanup-list-" + s.id, Method: "ListSandboxes"}, &sandboxes); apiErr != nil {
 		return nil, fmt.Errorf("list sandboxes for shim cleanup: %s", apiErr.Message)
 	}
-	authorized := false
 	for _, sandbox := range sandboxes {
-		if sandbox.ID == p.ID && sandbox.Generation == p.Generation && sandbox.Config.BundleIdentity == s.bundleIdentity {
-			authorized = true
-			break
+		if sandbox.ID != p.ID {
+			continue
 		}
-	}
-	if !authorized {
-		return nil, errors.New("daemon did not confirm cleanup ownership for the held bundle identity")
+		if sandbox.Generation != p.Generation || sandbox.Config.BundleIdentity != s.bundleIdentity {
+			return nil, errors.New("daemon reports conflicting cleanup ownership for the held bundle identity")
+		}
+		break
 	}
 	if err = s.cleanupShimSocket(ctx, s.cleanupInvocationArguments()); err != nil {
 		return nil, fmt.Errorf("authenticate and remove shim socket: %w", err)
@@ -2573,8 +2572,10 @@ func (s *service) releaseNetwork(ctx context.Context) error {
 		SandboxID: s.netEndpoint.SandboxID, SandboxGeneration: s.netEndpoint.SandboxGeneration,
 	}}
 	_, err := s.netClient.Call(ctx, request)
-	if err == nil {
+	var apiErr *mknetwork.APIError
+	if err == nil || errors.As(err, &apiErr) && apiErr.Code == "NOT_FOUND" {
 		s.netEndpoint = mknetwork.Endpoint{}
+		return nil
 	}
 	return err
 }
