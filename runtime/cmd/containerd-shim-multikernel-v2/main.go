@@ -276,7 +276,7 @@ func (h *commandNamespaceHolder) Stop() error {
 	}
 	waitErr := h.command.Wait()
 	var exitErr *exec.ExitError
-	if waitErr == nil || errors.As(waitErr, &exitErr) {
+	if waitErr == nil || errors.As(waitErr, &exitErr) || errors.Is(waitErr, syscall.ECHILD) {
 		return nil
 	}
 	return waitErr
