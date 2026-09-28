@@ -1309,9 +1309,9 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 		failures = append(failures, fmt.Errorf("release recovered network: %w", err))
 	}
 	if p.ID != "" {
-		if _, stopErr := daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil); stopErr != nil {
+		if _, stopErr := daemon.Mutation(ctx, s.daemon, "StopSandbox", p.ID, p.Generation, "cleanup-stop-"+p.Generation, nil); stopErr != nil && !daemonErrorCode(stopErr, "NOT_FOUND") {
 			failures = append(failures, fmt.Errorf("stop recovered sandbox: %w", stopErr))
-		} else if _, deleteErr := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil); deleteErr != nil {
+		} else if _, deleteErr := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", p.ID, p.Generation, "cleanup-delete-"+p.Generation, nil); deleteErr != nil && !daemonErrorCode(deleteErr, "NOT_FOUND") {
 			failures = append(failures, fmt.Errorf("delete recovered sandbox: %w", deleteErr))
 		} else if p.StorageSHA256 != "" {
 			if cleanupErr := s.cleanupRootfs(ctx, rootfspkg.CleanupRequest{Version: rootfspkg.Version, Bundle: s.bundle, BundleIdentity: p.BundleIdentity, TaskIdentity: p.TaskIdentity, StorageSHA256: p.StorageSHA256}); cleanupErr != nil {
@@ -2151,16 +2151,24 @@ func terminateRelay(command *exec.Cmd) error {
 	if command == nil || command.Process == nil {
 		return nil
 	}
+	if command.ProcessState != nil {
+		return nil
+	}
 	err := syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
 	if err != nil && !errors.Is(err, syscall.ESRCH) {
 		return err
 	}
 	waitErr := command.Wait()
 	var exitErr *exec.ExitError
-	if waitErr == nil || errors.As(waitErr, &exitErr) {
+	if waitErr == nil || errors.As(waitErr, &exitErr) || errors.Is(waitErr, syscall.ECHILD) {
 		return nil
 	}
 	return waitErr
+}
+
+func daemonErrorCode(err error, code string) bool {
+	observed, ok := daemon.ErrorCode(err)
+	return ok && observed == code
 }
 
 func (s *service) stopRelay() error {
@@ -2306,7 +2314,7 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 		failures = append(failures, err)
 	}
 	if s.sandbox.ID != "" {
-		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-create-rollback-delete-"+s.sandbox.Generation, nil); err != nil {
+		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-create-rollback-delete-"+s.sandbox.Generation, nil); err != nil && !daemonErrorCode(err, "NOT_FOUND") {
 			failures = append(failures, fmt.Errorf("delete allocated sandbox: %w", err))
 		} else {
 			canCleanupPrepared = true
@@ -4191,10 +4199,10 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		if err := s.releaseNetwork(ctx); err != nil {
 			hostFailures = append(hostFailures, fmt.Errorf("release primary network endpoint: %w", err))
 		}
-		if _, err := daemon.Mutation(ctx, s.daemon, "StopSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-stop-"+s.sandbox.Generation, nil); err != nil {
+		if _, err := daemon.Mutation(ctx, s.daemon, "StopSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-stop-"+s.sandbox.Generation, nil); err != nil && !daemonErrorCode(err, "NOT_FOUND") {
 			hostFailures = append(hostFailures, fmt.Errorf("stop sandbox: %w", err))
 		}
-		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-delete-"+s.sandbox.Generation, nil); err != nil {
+		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-delete-"+s.sandbox.Generation, nil); err != nil && !daemonErrorCode(err, "NOT_FOUND") {
 			hostFailures = append(hostFailures, fmt.Errorf("delete sandbox: %w", err))
 		}
 		if len(hostFailures) != 0 {
