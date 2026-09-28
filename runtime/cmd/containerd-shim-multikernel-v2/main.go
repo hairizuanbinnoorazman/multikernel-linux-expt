@@ -161,6 +161,12 @@ type relayFactory func(uint32, string) *exec.Cmd
 type relayPathFactory func(uint32, string) string
 type relayPathOwner interface{ Remove() error }
 type relayOwnerFactory func(string) (relayPathOwner, error)
+type namespaceHolder interface {
+	PID() uint32
+	Validate(string) error
+	Stop() error
+}
+type namespaceHolderFactory func(string) (namespaceHolder, error)
 type startShimSocket interface {
 	shimSocketFile
 	Close() error
@@ -205,7 +211,9 @@ type service struct {
 	netReports            chan string
 	netWG                 sync.WaitGroup
 	netEndpoint           mknetwork.Endpoint
+	namespaceHolder       namespaceHolder
 	netClient             networkClient
+	newNamespaceHolder    namespaceHolderFactory
 	agentDial             agentDialer
 	newRelay              relayFactory
 	relayPath             relayPathFactory
@@ -226,6 +234,121 @@ type service struct {
 	eventRetryCancel      context.CancelFunc
 	eventRetryDone        chan struct{}
 	shuttingDown          bool
+}
+
+const namespaceHolderMode = "__multikernel_namespace_holder"
+
+type commandNamespaceHolder struct{ command *exec.Cmd }
+
+func (h *commandNamespaceHolder) PID() uint32 {
+	if h == nil || h.command == nil || h.command.Process == nil {
+		return 0
+	}
+	return uint32(h.command.Process.Pid)
+}
+
+func (h *commandNamespaceHolder) Validate(netns string) error {
+	pid := h.PID()
+	if pid == 0 {
+		return errors.New("network namespace holder has no process identity")
+	}
+	target, err := os.Stat(netns)
+	if err != nil {
+		return err
+	}
+	held, err := os.Stat("/proc/" + strconv.Itoa(int(pid)) + "/ns/net")
+	if err != nil {
+		return err
+	}
+	if !os.SameFile(target, held) {
+		return errors.New("network namespace holder entered a different namespace")
+	}
+	return nil
+}
+
+func (h *commandNamespaceHolder) Stop() error {
+	if h == nil || h.command == nil || h.command.Process == nil {
+		return nil
+	}
+	err := h.command.Process.Kill()
+	if err != nil && !errors.Is(err, os.ErrProcessDone) && !errors.Is(err, syscall.ESRCH) {
+		return err
+	}
+	waitErr := h.command.Wait()
+	var exitErr *exec.ExitError
+	if waitErr == nil || errors.As(waitErr, &exitErr) {
+		return nil
+	}
+	return waitErr
+}
+
+func startNamespaceHolder(netns string) (_ namespaceHolder, retErr error) {
+	if !filepath.IsAbs(netns) || filepath.Clean(netns) != netns {
+		return nil, errors.New("network namespace holder requires an absolute canonical path")
+	}
+	self, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	// Enter the namespace before execing the Go helper. setns(2) is
+	// thread-scoped, so calling it after the Go runtime has created threads can
+	// leave /proc/PID/ns/net pointing at the original namespace.
+	command := exec.Command("/usr/bin/nsenter", "--net="+netns, "--", self, namespaceHolderMode)
+	command.ExtraFiles = []*os.File{writer}
+	command.Stderr = os.Stderr
+	command.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
+	if err = command.Start(); err != nil {
+		writer.Close()
+		return nil, err
+	}
+	holder := &commandNamespaceHolder{command: command}
+	defer func() {
+		_ = writer.Close()
+		if retErr != nil {
+			_ = holder.Stop()
+		}
+	}()
+	if err = writer.Close(); err != nil {
+		return nil, err
+	}
+	poll := []unix.PollFd{{Fd: int32(reader.Fd()), Events: unix.POLLIN | unix.POLLHUP}}
+	ready, err := unix.Poll(poll, 5000)
+	if err != nil {
+		return nil, err
+	}
+	if ready != 1 || poll[0].Revents&unix.POLLIN == 0 {
+		return nil, errors.New("network namespace holder did not become ready")
+	}
+	var status [1]byte
+	if _, err = io.ReadFull(reader, status[:]); err != nil || status[0] != 1 {
+		return nil, errors.Join(errors.New("network namespace holder rejected its target"), err)
+	}
+	if err = holder.Validate(netns); err != nil {
+		return nil, err
+	}
+	return holder, nil
+}
+
+func runNamespaceHolder() int {
+	ready := os.NewFile(3, "namespace-holder-ready")
+	if ready == nil {
+		return 1
+	}
+	if _, err := ready.Write([]byte{1}); err != nil {
+		ready.Close()
+		return 1
+	}
+	if err := ready.Close(); err != nil {
+		return 1
+	}
+	for {
+		_ = unix.Pause()
+	}
 }
 
 const (
@@ -1765,6 +1888,9 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	}
 	s.netEndpoint = bound
 	s.netDevice = device
+	if err = s.ensureNamespaceHolder(); err != nil {
+		return fmt.Errorf("recover network namespace holder: %w", err)
+	}
 	recovered := false
 	defer func() {
 		if recovered {
@@ -1782,6 +1908,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			cleanupErrors = append(cleanupErrors, s.netDevice.Close())
 			s.netDevice = nil
 		}
+		cleanupErrors = append(cleanupErrors, s.stopNamespaceHolder())
 		cleanupErrors = append(cleanupErrors, s.stopRelay())
 		retErr = errors.Join(retErr, errors.Join(cleanupErrors...))
 	}()
@@ -2172,6 +2299,9 @@ func (s *service) allocate(ctx context.Context, bundle string) (protocol.Sandbox
 func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.CleanupRequest, lifecycleAttempted bool) error {
 	var failures []error
 	canCleanupPrepared := !lifecycleAttempted
+	if err := s.stopNamespaceHolder(); err != nil {
+		failures = append(failures, fmt.Errorf("stop network namespace holder: %w", err))
+	}
 	if err := s.releaseNetwork(ctx); err != nil {
 		failures = append(failures, err)
 	}
@@ -2326,6 +2456,61 @@ func (s *service) provisionNetwork(ctx context.Context, netns string) error {
 	}
 	s.netEndpoint = *response.Endpoint
 	return nil
+}
+
+func (s *service) ensureNamespaceHolder() error {
+	if s.namespaceHolder != nil {
+		if err := s.namespaceHolder.Validate(s.netEndpoint.NetNS); err == nil {
+			return nil
+		}
+		if err := s.stopNamespaceHolder(); err != nil {
+			return fmt.Errorf("replace invalid network namespace holder: %w", err)
+		}
+	}
+	if s.netEndpoint.NetNS == "" {
+		return errors.New("network endpoint has no namespace for its holder")
+	}
+	factory := s.newNamespaceHolder
+	if factory == nil {
+		factory = startNamespaceHolder
+	}
+	holder, err := factory(s.netEndpoint.NetNS)
+	if err != nil {
+		return fmt.Errorf("start network namespace holder: %w", err)
+	}
+	if holder == nil {
+		return errors.New("network namespace holder factory returned no holder")
+	}
+	if err = holder.Validate(s.netEndpoint.NetNS); err != nil {
+		if holder != nil {
+			_ = holder.Stop()
+		}
+		return fmt.Errorf("validate network namespace holder: %w", err)
+	}
+	s.namespaceHolder = holder
+	return nil
+}
+
+func (s *service) stopNamespaceHolder() error {
+	if s.namespaceHolder == nil {
+		return nil
+	}
+	holder := s.namespaceHolder
+	if err := holder.Stop(); err != nil {
+		return err
+	}
+	s.namespaceHolder = nil
+	return nil
+}
+
+func (s *service) taskPID(execID string, process *process) uint32 {
+	if execID == "" && s.namespaceHolder != nil {
+		return s.namespaceHolder.PID()
+	}
+	if process == nil {
+		return 0
+	}
+	return process.pid
 }
 
 func validateShimNetworkEndpoint(endpoint, expected mknetwork.Endpoint) error {
@@ -2563,6 +2748,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err = s.provisionNetwork(ctx, netns); err != nil {
 		return nil, fmt.Errorf("provision primary network endpoint: %w", err)
 	}
+	if err = s.ensureNamespaceHolder(); err != nil {
+		return nil, err
+	}
 	s.bundle = r.Bundle
 	s.processes[""] = &process{id: "", stdin: boundIO.stdin, stdout: boundIO.stdout, stderr: boundIO.stderr,
 		stdinIdentity: boundIO.stdinIdentity, stdoutIdentity: boundIO.stdoutIdentity, stderrIdentity: boundIO.stderrIdentity,
@@ -2570,7 +2758,7 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err = s.persistRecovery(); err != nil {
 		return nil, fmt.Errorf("persist recovery state: %w", err)
 	}
-	pid := uint32(os.Getpid())
+	pid := s.taskPID("", s.processes[""])
 	if err = s.publish(ctx, ctruntime.TaskCreateEventTopic, &eventstypes.TaskCreate{ContainerID: s.id, Bundle: r.Bundle, Rootfs: r.Rootfs, Pid: pid}); err != nil {
 		return nil, err
 	}
@@ -2811,6 +2999,10 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 		}
 	}
 	if r.ExecID == "" {
+		if err := s.ensureNamespaceHolder(); err != nil {
+			s.mu.Unlock()
+			return nil, err
+		}
 		if err := s.connectAgent(ctx); err != nil {
 			s.mu.Unlock()
 			return nil, err
@@ -2871,7 +3063,7 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 	}
 	p.status = tasktypes.Status_RUNNING
 	p.pid = guestPID
-	pid := p.pid
+	pid := s.taskPID(r.ExecID, p)
 	go s.pumpStdin(processID, p)
 	go s.waitProcess(processID, r.ExecID, p)
 	if err := s.persistRecovery(); err != nil {
@@ -3592,7 +3784,7 @@ func (s *service) publishExit(ctx context.Context, execID string, p *process) er
 		eventID = s.id
 	}
 	return s.publish(ctx, ctruntime.TaskExitEventTopic, &eventstypes.TaskExit{ContainerID: s.id, ID: eventID,
-		Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)})
+		Pid: s.taskPID(execID, p), ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)})
 }
 
 func (s *service) State(ctx context.Context, r *taskapi.StateRequest) (*taskapi.StateResponse, error) {
@@ -3613,7 +3805,7 @@ func (s *service) State(ctx context.Context, r *taskapi.StateRequest) (*taskapi.
 	if !ok {
 		return nil, errdefs.ErrNotFound
 	}
-	return &taskapi.StateResponse{ID: s.id, Bundle: s.bundle, Pid: p.pid, Status: p.status, Stdin: p.stdin, Stdout: p.stdout, Stderr: p.stderr, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited), ExecID: r.ExecID}, nil
+	return &taskapi.StateResponse{ID: s.id, Bundle: s.bundle, Pid: s.taskPID(r.ExecID, p), Status: p.status, Stdin: p.stdin, Stdout: p.stdout, Stderr: p.stderr, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited), ExecID: r.ExecID}, nil
 }
 
 func (s *service) Wait(ctx context.Context, r *taskapi.WaitRequest) (*taskapi.WaitResponse, error) {
@@ -3954,6 +4146,7 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		}
 	}
 	p.deleting = true
+	responsePID := s.taskPID(r.ExecID, p)
 	client := s.agent
 	s.mu.Unlock()
 	abort := func(err error) (*taskapi.DeleteResponse, error) {
@@ -3972,39 +4165,50 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		}
 	}
 	if r.ExecID == "" {
+		var teardownNotes []error
+		var hostFailures []error
 		if client != nil {
 			if err := s.stopNetwork(); err != nil {
-				return abort(err)
+				teardownNotes = append(teardownNotes, err)
 			}
 			if err := s.quiesceAndShutdownGuest(ctx); err != nil {
-				return abort(err)
+				teardownNotes = append(teardownNotes, err)
 			}
 			closeErr := client.Close()
 			s.mu.Lock()
 			s.agent = nil
 			s.mu.Unlock()
 			if closeErr != nil {
-				return abort(fmt.Errorf("close guest agent: %w", closeErr))
+				teardownNotes = append(teardownNotes, fmt.Errorf("close guest agent: %w", closeErr))
 			}
 		}
+		if err := s.stopNamespaceHolder(); err != nil {
+			hostFailures = append(hostFailures, fmt.Errorf("stop network namespace holder: %w", err))
+		}
 		if err := s.stopRelay(); err != nil {
-			return abort(fmt.Errorf("stop agent relay: %w", err))
+			hostFailures = append(hostFailures, fmt.Errorf("stop agent relay: %w", err))
 		}
 		if err := s.releaseNetwork(ctx); err != nil {
-			return abort(fmt.Errorf("release primary network endpoint: %w", err))
+			hostFailures = append(hostFailures, fmt.Errorf("release primary network endpoint: %w", err))
 		}
 		if _, err := daemon.Mutation(ctx, s.daemon, "StopSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-stop-"+s.sandbox.Generation, nil); err != nil {
-			return abort(fmt.Errorf("stop sandbox: %w", err))
+			hostFailures = append(hostFailures, fmt.Errorf("stop sandbox: %w", err))
 		}
 		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-delete-"+s.sandbox.Generation, nil); err != nil {
-			return abort(fmt.Errorf("delete sandbox: %w", err))
+			hostFailures = append(hostFailures, fmt.Errorf("delete sandbox: %w", err))
+		}
+		if len(hostFailures) != 0 {
+			return abort(errors.Join(append(hostFailures, teardownNotes...)...))
+		}
+		if note := errors.Join(teardownNotes...); note != nil {
+			fmt.Fprintf(os.Stderr, "multikernel shim: guest teardown completed through sandbox deletion with warnings: %v\n", note)
 		}
 	}
 	s.mu.Lock()
 	deleteQueued := p.deleteEventQueued
 	s.mu.Unlock()
 	if !deleteQueued {
-		response := &taskapi.DeleteResponse{Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
+		response := &taskapi.DeleteResponse{Pid: responsePID, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
 		if err := s.publish(ctx, ctruntime.TaskDeleteEventTopic, &eventstypes.TaskDelete{ContainerID: s.id, ID: r.ExecID, Pid: response.Pid, ExitStatus: p.exit, ExitedAt: response.ExitedAt}); err != nil {
 			return abort(fmt.Errorf("queue task delete event: %w", err))
 		}
@@ -4037,7 +4241,7 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		}
 	}
 	s.mu.Unlock()
-	resp := &taskapi.DeleteResponse{Pid: p.pid, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
+	resp := &taskapi.DeleteResponse{Pid: responsePID, ExitStatus: p.exit, ExitedAt: timestamppb.New(p.exited)}
 	return resp, nil
 }
 
@@ -4056,9 +4260,9 @@ func (s *service) Pids(ctx context.Context, r *taskapi.PidsRequest) (*taskapi.Pi
 	}
 	defer s.mu.Unlock()
 	processes := make([]*tasktypes.ProcessInfo, 0, len(s.processes))
-	for _, process := range s.processes {
-		if process.pid != 0 {
-			processes = append(processes, &tasktypes.ProcessInfo{Pid: process.pid})
+	for execID, process := range s.processes {
+		if pid := s.taskPID(execID, process); pid != 0 {
+			processes = append(processes, &tasktypes.ProcessInfo{Pid: pid})
 		}
 	}
 	sort.Slice(processes, func(i, j int) bool { return processes[i].Pid < processes[j].Pid })
@@ -4080,9 +4284,12 @@ func (s *service) Connect(ctx context.Context, r *taskapi.ConnectRequest) (*task
 	defer s.mu.Unlock()
 	var taskPID uint32
 	if init, ok := s.processes[""]; ok {
-		taskPID = init.pid
+		if err := s.ensureNamespaceHolder(); err != nil {
+			return nil, err
+		}
+		taskPID = s.taskPID("", init)
 	}
-	return &taskapi.ConnectResponse{ShimPid: uint32(os.Getpid()), TaskPid: taskPID, Version: "multikernel-v1-guest-pid"}, nil
+	return &taskapi.ConnectResponse{ShimPid: uint32(os.Getpid()), TaskPid: taskPID, Version: "multikernel-v2-host-netns-pid"}, nil
 }
 func (s *service) Shutdown(ctx context.Context, r *taskapi.ShutdownRequest) (*emptypb.Empty, error) {
 	if err := ctx.Err(); err != nil {
@@ -4628,6 +4835,9 @@ func writeRuntimeInfo(input io.Reader, output io.Writer) error {
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == namespaceHolderMode {
+		os.Exit(runNamespaceHolder())
+	}
 	if buildinfo.PrintRequested(os.Stdout, "containerd-shim-multikernel-v2", os.Args[1:]) {
 		return
 	}

@@ -800,6 +800,23 @@ type fakeNetworkClient struct {
 	calls          []string
 }
 
+type fakeNamespaceHolder struct {
+	pid     uint32
+	stopped bool
+}
+
+func (h *fakeNamespaceHolder) PID() uint32 { return h.pid }
+func (h *fakeNamespaceHolder) Validate(string) error {
+	if h.pid == 0 || h.stopped {
+		return errors.New("fake holder is not running")
+	}
+	return nil
+}
+func (h *fakeNamespaceHolder) Stop() error {
+	h.stopped = true
+	return nil
+}
+
 func validShimEndpoint(containerID, sandboxID, sandboxGeneration, generation, netns string) mknetwork.Endpoint {
 	return mknetwork.Endpoint{
 		ContainerID: containerID, NetworkName: "multikernel", IfName: "mktun0", NetNS: netns,
@@ -3846,11 +3863,19 @@ func TestShutdownRetainsOwnershipUntilDurableEventsFlush(t *testing.T) {
 	}
 }
 
-func TestStatePidsAndConnectReportGuestProcessIDs(t *testing.T) {
+func TestInitTaskAPIsExposeHostNamespaceHolderAndRetainGuestIdentity(t *testing.T) {
+	holder := &fakeNamespaceHolder{pid: 73}
 	s := &service{bundle: "/bundle", processes: map[string]*process{
 		"":     {pid: 17, status: tasktypes.Status_RUNNING},
 		"exec": {pid: 23, status: tasktypes.Status_RUNNING},
-	}}
+	}, namespaceHolder: holder}
+	initState, err := s.State(context.Background(), &taskapi.StateRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if initState.Pid != 73 || s.processes[""].pid != 17 {
+		t.Fatalf("init State PID=%d guest PID=%d, want holder 73 and guest 17", initState.Pid, s.processes[""].pid)
+	}
 	state, err := s.State(context.Background(), &taskapi.StateRequest{ExecID: "exec"})
 	if err != nil {
 		t.Fatal(err)
@@ -3866,14 +3891,14 @@ func TestStatePidsAndConnectReportGuestProcessIDs(t *testing.T) {
 	for _, process := range pids.Processes {
 		got[process.Pid] = true
 	}
-	if !got[17] || !got[23] || len(got) != 2 {
-		t.Fatalf("Pids = %v, want guest PIDs 17 and 23", got)
+	if !got[73] || !got[23] || len(got) != 2 {
+		t.Fatalf("Pids = %v, want holder PID 73 and exec guest PID 23", got)
 	}
 	connected, err := s.Connect(context.Background(), &taskapi.ConnectRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if connected.TaskPid != 17 || connected.ShimPid != uint32(os.Getpid()) {
+	if connected.TaskPid != 73 || connected.ShimPid != uint32(os.Getpid()) || connected.Version != "multikernel-v2-host-netns-pid" {
 		t.Fatalf("Connect = task:%d shim:%d", connected.TaskPid, connected.ShimPid)
 	}
 }
@@ -4524,6 +4549,43 @@ func TestDeleteTreatsAuthenticatedGuestAbsenceAsIdempotentSuccess(t *testing.T) 
 	}
 }
 
+func TestInitDeleteContinuesHostCleanupAfterGuestNetworkFailure(t *testing.T) {
+	guestFailure := errors.New("injected guest network close failure")
+	fake := &fakeAgentClient{fail: map[string]error{"CloseNetwork": guestFailure}}
+	holder := &fakeNamespaceHolder{pid: 73}
+	p := &process{pid: 17, status: tasktypes.Status_STOPPED, exit: 9, exited: time.Unix(123, 0).UTC(),
+		exitEventQueued: true, deleteEventQueued: true, done: make(chan struct{})}
+	close(p.done)
+	sandbox := protocol.Sandbox{ID: "mk-task", Generation: strings.Repeat("a", 32)}
+	endpoint := validShimEndpoint("task", sandbox.ID, sandbox.Generation, strings.Repeat("b", 32), "/run/netns/mk-task")
+	network := &fakeNetworkClient{endpoint: endpoint}
+	var daemonCalls []string
+	s := &service{id: "task", namespace: "default", bundle: privateTestDirectory(t), agent: fake,
+		namespaceHolder: holder, netEndpoint: endpoint, netClient: network, sandbox: sandbox,
+		processes: map[string]*process{"": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+		daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, _ any) *protocol.Error {
+			daemonCalls = append(daemonCalls, request.Method)
+			return nil
+		})}
+	response, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ID: "task"})
+	if err != nil {
+		t.Fatalf("guest network failure prevented host cleanup: %v", err)
+	}
+	if response.Pid != 73 || response.ExitStatus != 9 {
+		t.Fatalf("delete response = %+v, want holder PID 73 and exit 9", response)
+	}
+	if !holder.stopped || s.namespaceHolder != nil || s.netEndpoint.Generation != "" || s.processes[""] != nil {
+		t.Fatalf("host ownership remains: holderStopped=%v holder=%v endpoint=%+v process=%v",
+			holder.stopped, s.namespaceHolder, s.netEndpoint, s.processes[""])
+	}
+	if !reflect.DeepEqual(daemonCalls, []string{"StopSandbox", "DeleteSandbox"}) {
+		t.Fatalf("sandbox cleanup calls = %v", daemonCalls)
+	}
+	if fmt.Sprint(network.calls) != "[REPORT RELEASE]" {
+		t.Fatalf("network cleanup calls = %v", network.calls)
+	}
+}
+
 func TestGuestShutdownRetriesQuiesceAndAcceptsLostTerminalReply(t *testing.T) {
 	fake := &shutdownBoundaryAgent{loseFirstQuiesce: true, loseShutdown: true}
 	s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}
@@ -4893,6 +4955,7 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 			relayCaptured = true
 			return relayOwnerFunc(func() error { relayRemoved = true; return nil }), nil
 		},
+		newNamespaceHolder: func(string) (namespaceHolder, error) { return &fakeNamespaceHolder{pid: 73}, nil },
 	}
 	if err = service.recoverExisting(context.Background()); err != nil {
 		t.Fatal(err)
@@ -4934,6 +4997,9 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 		t.Fatalf("recovered exit = status:%v exit:%d event:%v", process.status, process.exit, process.exitEventQueued)
 	}
 	if err = service.stopNetwork(); err != nil {
+		t.Fatal(err)
+	}
+	if err = service.stopNamespaceHolder(); err != nil {
 		t.Fatal(err)
 	}
 	if err = service.stopRelay(); err != nil {
@@ -4987,7 +5053,8 @@ func TestRecoverExistingClosesAcquiredNetworkDescriptorOnRelayStartFailure(t *te
 			}
 			return nil
 		}),
-		newRelay: func(uint32, string) *exec.Cmd { return exec.Command(filepath.Join(bundle, "missing-relay")) },
+		newRelay:           func(uint32, string) *exec.Cmd { return exec.Command(filepath.Join(bundle, "missing-relay")) },
+		newNamespaceHolder: func(string) (namespaceHolder, error) { return &fakeNamespaceHolder{pid: 73}, nil },
 	}
 	if err = service.recoverExisting(context.Background()); err == nil || !strings.Contains(err.Error(), "restart recovered agent relay") {
 		t.Fatalf("relay start failure = %v", err)
