@@ -3967,10 +3967,40 @@ func validateExecProcess(p *specs.Process) error {
 	if p == nil || len(p.Args) == 0 || p.Cwd == "" || !filepath.IsAbs(p.Cwd) {
 		return fmt.Errorf("%w: exec args and absolute cwd are required", errdefs.ErrInvalidArgument)
 	}
-	if p.ConsoleSize != nil || p.CommandLine != "" || p.ApparmorProfile != "" ||
-		p.OOMScoreAdj != nil || p.Scheduler != nil || p.SelinuxLabel != "" ||
-		p.IOPriority != nil || p.User.Umask != nil || p.User.Username != "" {
-		return fmt.Errorf("%w: unsupported exec process field", errdefs.ErrNotImplemented)
+	var unsupported []string
+	if p.ConsoleSize != nil {
+		unsupported = append(unsupported, "consoleSize")
+	}
+	if p.CommandLine != "" {
+		unsupported = append(unsupported, "commandLine")
+	}
+	// Docker copies these two container-level opt-out values into exec specs.
+	// They request no child policy: AppArmor is explicitly unconfined and a
+	// zero OOM adjustment is the kernel default.  Omit only those exact values
+	// from the guest projection, matching the validated init-process contract.
+	if p.ApparmorProfile != "" && p.ApparmorProfile != "unconfined" {
+		unsupported = append(unsupported, "apparmorProfile")
+	}
+	if p.OOMScoreAdj != nil && *p.OOMScoreAdj != 0 {
+		unsupported = append(unsupported, "oomScoreAdj")
+	}
+	if p.Scheduler != nil {
+		unsupported = append(unsupported, "scheduler")
+	}
+	if p.SelinuxLabel != "" {
+		unsupported = append(unsupported, "selinuxLabel")
+	}
+	if p.IOPriority != nil {
+		unsupported = append(unsupported, "ioPriority")
+	}
+	if p.User.Umask != nil {
+		unsupported = append(unsupported, "umask")
+	}
+	if p.User.Username != "" {
+		unsupported = append(unsupported, "username")
+	}
+	if len(unsupported) != 0 {
+		return fmt.Errorf("%w: unsupported exec process field(s): %s", errdefs.ErrNotImplemented, strings.Join(unsupported, ", "))
 	}
 	return nil
 }

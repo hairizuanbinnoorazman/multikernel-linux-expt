@@ -1157,6 +1157,17 @@ func TestValidateExecProcessFailsClosed(t *testing.T) {
 		t.Fatalf("standard process controls were not projected: %+v", projected)
 	}
 	zero := 0
+	docker := base()
+	docker.ApparmorProfile = "unconfined"
+	docker.OOMScoreAdj = &zero
+	if err := validateExecProcess(docker); err != nil {
+		t.Fatalf("Docker no-op exec controls rejected: %v", err)
+	}
+	projected = processSpec(docker)
+	if projected.NoNewPrivileges != nil || projected.Rlimits != nil || projected.Capabilities != nil {
+		t.Fatalf("Docker no-op exec controls changed guest projection: %+v", projected)
+	}
+	nonzero := 1
 	umask := uint32(0o22)
 	tests := []struct {
 		name   string
@@ -1165,7 +1176,7 @@ func TestValidateExecProcessFailsClosed(t *testing.T) {
 		{"console-size", func(p *specs.Process) { p.ConsoleSize = &specs.Box{} }},
 		{"command-line", func(p *specs.Process) { p.CommandLine = "true" }},
 		{"apparmor", func(p *specs.Process) { p.ApparmorProfile = "profile" }},
-		{"oom-score", func(p *specs.Process) { p.OOMScoreAdj = &zero }},
+		{"oom-score", func(p *specs.Process) { p.OOMScoreAdj = &nonzero }},
 		{"scheduler", func(p *specs.Process) { p.Scheduler = &specs.Scheduler{} }},
 		{"selinux", func(p *specs.Process) { p.SelinuxLabel = "label" }},
 		{"io-priority", func(p *specs.Process) { p.IOPriority = &specs.LinuxIOPriority{} }},
