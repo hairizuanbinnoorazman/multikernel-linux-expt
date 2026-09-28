@@ -4609,12 +4609,20 @@ func TestInitDeleteAcceptsAlreadyReapedRelayAndAbsentSandboxOnRetry(t *testing.T
 	if err := command.Wait(); err != nil {
 		t.Fatal(err)
 	}
+	holderCommand := exec.Command("/bin/true")
+	if err := holderCommand.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := holderCommand.Process.Wait(); err != nil {
+		t.Fatal(err)
+	}
 	p := &process{pid: 17, status: tasktypes.Status_STOPPED, exitEventQueued: true,
 		deleteEventQueued: true, exited: time.Unix(123, 0).UTC(), done: make(chan struct{})}
 	close(p.done)
 	s := &service{id: "task", namespace: "default", bundle: privateTestDirectory(t), relay: command,
-		sandbox:   protocol.Sandbox{ID: "mk-task", Generation: strings.Repeat("a", 32)},
-		processes: map[string]*process{"": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+		namespaceHolder: &commandNamespaceHolder{command: holderCommand},
+		sandbox:         protocol.Sandbox{ID: "mk-task", Generation: strings.Repeat("a", 32)},
+		processes:       map[string]*process{"": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
 		daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, _ any) *protocol.Error {
 			if request.Method != "StopSandbox" && request.Method != "DeleteSandbox" {
 				t.Fatalf("unexpected daemon method %s", request.Method)
@@ -4624,8 +4632,8 @@ func TestInitDeleteAcceptsAlreadyReapedRelayAndAbsentSandboxOnRetry(t *testing.T
 	if _, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ID: "task"}); err != nil {
 		t.Fatalf("idempotent delete retry failed: %v", err)
 	}
-	if s.relay != nil || s.processes[""] != nil {
-		t.Fatalf("retry retained relay/process: relay=%v process=%v", s.relay, s.processes[""])
+	if s.relay != nil || s.namespaceHolder != nil || s.processes[""] != nil {
+		t.Fatalf("retry retained relay/holder/process: relay=%v holder=%v process=%v", s.relay, s.namespaceHolder, s.processes[""])
 	}
 }
 
