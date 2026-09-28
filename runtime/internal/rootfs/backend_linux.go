@@ -26,7 +26,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var sha256RE = regexp.MustCompile(`^[a-f0-9]{64}$`)
+var (
+	sha256RE            = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	dockerRootRE        = regexp.MustCompile(`^/var/lib/docker/rootfs/overlayfs/([a-f0-9]{64})$`)
+	dockerPrivateSeedRE = regexp.MustCompile(`^/var/lib/docker/containers/([a-f0-9]{64})/(resolv\.conf|hostname|hosts)$`)
+)
 
 type LinuxBackend struct {
 	Builder      string
@@ -121,6 +125,10 @@ func verifyReadonlyBindManifests(path string, buildResult json.RawMessage) error
 	if err = protocol.StrictDecode(buildResult, &result); err != nil {
 		return errors.New("invalid rootfs builder result")
 	}
+	var requestedRoot string
+	if encodedRoot, ok := result["requested_root"]; ok {
+		_ = protocol.StrictDecode(encodedRoot, &requestedRoot)
+	}
 	encodedSummaries, ok := result["readonly_bind_inputs"]
 	if !ok {
 		return errors.New("rootfs builder result omits read-only bind provenance")
@@ -134,10 +142,20 @@ func verifyReadonlyBindManifests(path string, buildResult json.RawMessage) error
 		summary := readonlyBindSummary{Destination: manifest.Destination, Source: manifest.Source,
 			ManifestSHA256: manifest.ManifestSHA256, Ownership: manifest.Ownership,
 			Propagation: manifest.Propagation, GuestPolicy: manifest.GuestPolicy}
+		validGuestPolicy := manifest.GuestPolicy == "bind-remount-ro-nodev-nosuid-noexec" ||
+			manifest.GuestPolicy == "private-writable-seed-copy"
+		if manifest.GuestPolicy == "private-writable-seed-copy" {
+			rootMatch := dockerRootRE.FindStringSubmatch(requestedRoot)
+			sourceMatch := dockerPrivateSeedRE.FindStringSubmatch(manifest.Source)
+			if len(rootMatch) != 2 || len(sourceMatch) != 3 || rootMatch[1] != sourceMatch[1] ||
+				manifest.Destination != "/etc/"+sourceMatch[2] {
+				return errors.New("private writable seed identity differs from the Docker contract")
+			}
+		}
 		if summary != summaries[index] || !filepath.IsAbs(manifest.Source) || filepath.Clean(manifest.Source) != manifest.Source ||
 			!filepath.IsAbs(manifest.Destination) || filepath.Clean(manifest.Destination) != manifest.Destination || manifest.Destination == "/" ||
 			!sha256RE.MatchString(manifest.ManifestSHA256) || manifest.Ownership != "numeric-uid-gid-preserved" ||
-			manifest.Propagation != "none-materialized-copy" || manifest.GuestPolicy != "bind-remount-ro-nodev-nosuid-noexec" {
+			manifest.Propagation != "none-materialized-copy" || !validGuestPolicy {
 			return errors.New("read-only bind identity differs from the enforced contract")
 		}
 		for _, protected := range []string{"/dev", "/proc", "/run", "/sys"} {

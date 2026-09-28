@@ -334,6 +334,43 @@ def main():
             raise AssertionError("host bind source crossed into the guest projection")
         if host_mount["options"] != ["bind", "ro", "nodev", "nosuid", "noexec"]:
             raise AssertionError("host bind plan was not canonicalized")
+        docker_id = "a" * 64
+        docker_seed = copy.deepcopy(BASE)
+        docker_seed["root"]["path"] = f"/var/lib/docker/rootfs/overlayfs/{docker_id}"
+        docker_seed["mounts"] = [{
+            "destination": f"/etc/{name}", "type": "bind",
+            "source": f"/var/lib/docker/containers/{docker_id}/{name}",
+            "options": ["rbind", "rprivate"],
+        } for name in ("resolv.conf", "hostname", "hosts")]
+        seed_source = directory / "docker-private-seed-source.json"
+        seed_guest = directory / "docker-private-seed-guest.json"
+        seed_plan = directory / "docker-private-seed-plan.json"
+        seed_source.write_text(json.dumps(docker_seed), encoding="utf-8")
+        seed_source.chmod(0o644)
+        seeded = subprocess.run(
+            [str(VALIDATOR), str(seed_source), str(seed_guest), str(seed_plan)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False,
+        )
+        if seeded.returncode != 0:
+            raise AssertionError(f"Docker private seed projection failed: {seeded.stderr!r}")
+        if "mounts" in json.loads(seed_guest.read_text(encoding="utf-8")):
+            raise AssertionError("Docker private seeds crossed into the guest as host binds")
+        seed_records = json.loads(seed_plan.read_text(encoding="utf-8"))["readonly_binds"]
+        if len(seed_records) != 3 or any(
+                item["options"] != ["bind", "rw", "nodev", "nosuid", "noexec"]
+                for item in seed_records):
+            raise AssertionError("Docker private seeds were not canonicalized")
+        for name, mutate in (
+            ("docker-private-seed-wrong-root", lambda config: config["root"].update(path="rootfs")),
+            ("docker-private-seed-wrong-id", lambda config: config["mounts"][0].update(
+                source=f"/var/lib/docker/containers/{'b' * 64}/resolv.conf")),
+            ("docker-private-seed-wrong-destination", lambda config: config["mounts"][0].update(
+                destination="/etc/passwd")),
+            ("docker-private-seed-extra-option", lambda config: config["mounts"][0]["options"].append("rw")),
+        ):
+            rejected_seed = copy.deepcopy(docker_seed)
+            mutate(rejected_seed)
+            run_case(directory, name, rejected_seed)
         for name, mutate in (
             ("writable-bind", lambda mount: mount["options"].remove("ro")),
             ("shared-bind-propagation", lambda mount: mount["options"].append("rshared")),

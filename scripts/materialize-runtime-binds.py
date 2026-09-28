@@ -220,9 +220,12 @@ def main() -> int:
         for index, item in enumerate(plan["readonly_binds"]):
             if not isinstance(item, dict) or set(item) != {"destination", "type", "source", "options"}:
                 raise MaterializationError(f"invalid read-only bind record {index}")
-            if (item["type"] != "bind" or item["options"] != ["bind", "ro", "nodev", "nosuid", "noexec"] or
+            readonly_options = ["bind", "ro", "nodev", "nosuid", "noexec"]
+            private_seed_options = ["bind", "rw", "nodev", "nosuid", "noexec"]
+            if (item["type"] != "bind" or item["options"] not in (readonly_options, private_seed_options) or
                     not isinstance(item["source"], str) or not isinstance(item["destination"], str)):
                 raise MaterializationError(f"read-only bind record {index} differs from the enforced contract")
+            private_seed = item["options"] == private_seed_options
             destination = item["destination"]
             if destination == "/" or any(destination == protected or destination.startswith(protected + "/")
                                          for protected in ("/dev", "/proc", "/run", "/sys")):
@@ -235,6 +238,8 @@ def main() -> int:
                 Path(item["source"]), f"read-only bind source {index}"
             )
             try:
+                if private_seed and source_is_directory:
+                    raise MaterializationError("private writable seed must be a regular file")
                 before, payload_bytes, inodes = manifest_descriptor(builder, source_fd, source_is_directory)
                 total_bytes += payload_bytes
                 total_inodes += inodes
@@ -268,7 +273,8 @@ def main() -> int:
                 "manifest_sha256": hashlib.sha256(before).hexdigest(),
                 "ownership": "numeric-uid-gid-preserved",
                 "propagation": "none-materialized-copy",
-                "guest_policy": "bind-remount-ro-nodev-nosuid-noexec",
+                "guest_policy": ("private-writable-seed-copy" if private_seed else
+                                 "bind-remount-ro-nodev-nosuid-noexec"),
             })
         encoded = (json.dumps({"schema_version": 1, "readonly_binds": records}, sort_keys=True, separators=(",", ":")) + "\n").encode()
         if len(encoded) > 128 << 20:

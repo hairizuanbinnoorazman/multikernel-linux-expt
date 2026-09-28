@@ -75,6 +75,8 @@ READONLY_BIND_MARKERS = {"ro", "rro"}
 SANITIZED_READONLY_BIND_OPTIONS = {"bind", "ro", "nodev", "nosuid", "noexec"}
 PROTECTED_BIND_DESTINATIONS = ("/dev", "/proc", "/run", "/sys")
 MAX_READONLY_BINDS = 8
+DOCKER_ROOT = re.compile(r"/var/lib/docker/rootfs/overlayfs/([0-9a-f]{64})")
+DOCKER_PRIVATE_SEEDS = {"/etc/resolv.conf", "/etc/hostname", "/etc/hosts"}
 INHERITED_CONFIG = re.compile(r"/proc/self/fd/([0-9]+)/config\.json")
 DENY_ALL_DEVICES = [{"allow": False, "access": "rwm"}]
 CONTAINERD_DEFAULT_DEVICES = DENY_ALL_DEVICES + [
@@ -235,11 +237,27 @@ def canonical_absolute_path(value, name):
         raise ValueError(f"{name} must be an absolute canonical bounded path")
 
 
-def validate_mounts(value):
+def docker_private_seed(item, root_path):
+    root_match = DOCKER_ROOT.fullmatch(root_path)
+    destination = item.get("destination")
+    if root_match is None or destination not in DOCKER_PRIVATE_SEEDS:
+        return False
+    identity = root_match.group(1)
+    basename = pathlib.PurePosixPath(destination).name
+    return (
+        item.get("type") == "bind" and
+        item.get("source") == f"/var/lib/docker/containers/{identity}/{basename}" and
+        item.get("options") == ["rbind", "rprivate"]
+    )
+
+
+def validate_mounts(value, root_path):
     if not isinstance(value, list):
         raise ValueError("mounts must be an array")
     seen_defaults = set()
     bind_destinations = []
+    readonly_binds = []
+    private_seeds = []
     for index, item in enumerate(value):
         item = require_object(item, f"mounts[{index}]")
         reject_unknown(item, {"destination", "type", "source", "options"}, f"mounts[{index}]")
@@ -266,12 +284,16 @@ def validate_mounts(value):
         option_set = set(actual_options) if isinstance(actual_options, list) and all(
             isinstance(option, str) for option in actual_options
         ) else set()
-        if (not isinstance(actual_options, list) or
+        private_seed = docker_private_seed(item, root_path)
+        readonly_bind = not (
+            not isinstance(actual_options, list) or
                 not all(isinstance(option, str) for option in actual_options) or
                 len(actual_options) != len(option_set) or len(option_set & READONLY_BIND_MARKERS) != 1 or
                 len(option_set & READONLY_BIND_KINDS) != 1 or
                 not option_set <= (READONLY_BIND_MARKERS | READONLY_BIND_KINDS | READONLY_BIND_OPTIONAL) or
-                len(option_set & {"private", "rprivate"}) > 1):
+                len(option_set & {"private", "rprivate"}) > 1
+        )
+        if not readonly_bind and not private_seed:
             raise ValueError(f"read-only bind {destination!r} differs from the enforced option contract")
         if destination == "/" or any(destination == path or destination.startswith(path + "/")
                                      for path in PROTECTED_BIND_DESTINATIONS):
@@ -280,9 +302,10 @@ def validate_mounts(value):
                for prior in bind_destinations):
             raise ValueError("read-only bind destinations must be unique and non-overlapping")
         bind_destinations.append(destination)
+        (private_seeds if private_seed else readonly_binds).append(item)
     if len(bind_destinations) > MAX_READONLY_BINDS:
         raise ValueError(f"at most {MAX_READONLY_BINDS} read-only bind inputs are supported")
-    return [item for item in value if item.get("destination") not in DEFAULT_MOUNTS]
+    return readonly_binds, private_seeds
 
 
 def validate_path_policy(values, allowed, name):
@@ -418,7 +441,7 @@ def validate(config):
         raise ValueError("linux.sysctl must exactly match the explicit child-kernel defaults")
     validate_path_policy(linux.get("maskedPaths", []), SAFE_MASKED_PATHS, "maskedPaths")
     validate_path_policy(linux.get("readonlyPaths", []), SAFE_READONLY_PATHS, "readonlyPaths")
-    validate_mounts(config.get("mounts", []))
+    validate_mounts(config.get("mounts", []), root["path"])
     hostname = config.get("hostname", "")
     if not isinstance(hostname, str) or len(hostname) > 63 or (hostname and not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?", hostname)):
         raise ValueError("hostname must be an RFC1123-compatible value of at most 63 bytes")
@@ -443,7 +466,7 @@ def guest_projection(config):
     policy = {name: linux[name] for name in ("maskedPaths", "readonlyPaths") if name in linux}
     if policy:
         result["linux"] = policy
-    readonly_binds = validate_mounts(config.get("mounts", []))
+    readonly_binds, _ = validate_mounts(config.get("mounts", []), config["root"]["path"])
     if readonly_binds:
         result["mounts"] = [
             {
@@ -458,6 +481,7 @@ def guest_projection(config):
 
 
 def bind_projection(config):
+    readonly_binds, private_seeds = validate_mounts(config.get("mounts", []), config["root"]["path"])
     return {
         "schema_version": 1,
         "readonly_binds": [
@@ -467,7 +491,15 @@ def bind_projection(config):
                 "source": item["source"],
                 "options": ["bind", "ro", "nodev", "nosuid", "noexec"],
             }
-            for item in validate_mounts(config.get("mounts", []))
+            for item in readonly_binds
+        ] + [
+            {
+                "destination": item["destination"],
+                "type": "bind",
+                "source": item["source"],
+                "options": ["bind", "rw", "nodev", "nosuid", "noexec"],
+            }
+            for item in private_seeds
         ],
     }
 
