@@ -144,6 +144,15 @@ static void set_socket_timeout(int fd)
 		die("setsockopt(sndtimeo)");
 }
 
+static void clear_socket_timeout(int fd)
+{
+	struct timeval timeout = { 0 };
+	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+		die("setsockopt(clear rcvtimeo)");
+	if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)
+		die("setsockopt(clear sndtimeo)");
+}
+
 static void set_transport(int fd)
 {
 	int transport = VSOCK_TRANSPORT_MULTIKERNEL;
@@ -335,6 +344,14 @@ static void run_server(const char *image, unsigned int port,
 		exit(2);
 	}
 	xwrite(sock, &response, sizeof(response));
+	/*
+	 * The timeout above bounds the unauthenticated hello exchange.  The NBD
+	 * connection is otherwise expected to remain idle indefinitely between
+	 * filesystem operations.  Leaving SO_RCVTIMEO in place turns 15 seconds
+	 * without a request into a false EOF and destroys a healthy root disk.
+	 * NBD_SET_TIMEOUT on the client still bounds an active stalled request.
+	 */
+	clear_socket_timeout(sock);
 	printf("MKNBD_SERVER_CLIENT_ACCEPTED\n");
 	fflush(stdout);
 
@@ -431,6 +448,7 @@ static void run_client(unsigned int cid, unsigned int port, const char *device,
 			ntohl(response.status));
 		exit(2);
 	}
+	clear_socket_timeout(sock);
 	printf("MKNBD_CLIENT_CONNECTED image_id=%s generation=%s size=%llu\n",
 	       image_id, generation, (unsigned long long)size);
 	fflush(stdout);
