@@ -567,6 +567,34 @@ func TestVerifyReadonlyBindManifestsBindsBuilderSummaryAndContent(t *testing.T) 
 		t.Fatal(err)
 	}
 
+	dockerID := strings.Repeat("a", 64)
+	seedSummary := summary
+	seedSummary.Destination = "/etc/resolv.conf"
+	seedSummary.Source = "/var/lib/docker/containers/" + dockerID + "/resolv.conf"
+	seedSummary.GuestPolicy = "private-writable-seed-copy"
+	seedManifest := manifest
+	seedManifest.Destination = seedSummary.Destination
+	seedManifest.Source = seedSummary.Source
+	seedManifest.GuestPolicy = seedSummary.GuestPolicy
+	encoded, _ = json.Marshal(readonlyBindManifestSet{SchemaVersion: 1, ReadonlyBinds: []readonlyBindManifest{seedManifest}})
+	if err = os.WriteFile(path, encoded, 0600); err != nil {
+		t.Fatal(err)
+	}
+	seedBuildResult, _ := json.Marshal(map[string]any{
+		"requested_root":       "/var/lib/docker/rootfs/overlayfs/" + dockerID,
+		"readonly_bind_inputs": []readonlyBindSummary{seedSummary},
+	})
+	if err = verifyReadonlyBindManifests(path, seedBuildResult); err != nil {
+		t.Fatalf("valid private writable seed rejected: %v", err)
+	}
+	wrongSeedBuildResult, _ := json.Marshal(map[string]any{
+		"requested_root":       "/var/lib/docker/rootfs/overlayfs/" + strings.Repeat("b", 64),
+		"readonly_bind_inputs": []readonlyBindSummary{seedSummary},
+	})
+	if err = verifyReadonlyBindManifests(path, wrongSeedBuildResult); err == nil {
+		t.Fatal("private writable seed with a conflicting Docker identity was accepted")
+	}
+
 	manifest.ManifestSHA256 = strings.Repeat("0", 64)
 	encoded, _ = json.Marshal(readonlyBindManifestSet{SchemaVersion: 1, ReadonlyBinds: []readonlyBindManifest{manifest}})
 	if err = os.WriteFile(path, encoded, 0600); err != nil {

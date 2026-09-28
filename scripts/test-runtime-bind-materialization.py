@@ -15,14 +15,14 @@ SCRIPT = Path(__file__).with_name("materialize-runtime-binds.py")
 OPTIONS = ["bind", "ro", "nodev", "nosuid", "noexec"]
 
 
-def plan(path: Path, source: Path, destination: str = "/opt/input") -> None:
+def plan(path: Path, source: Path, destination: str = "/opt/input", options=None) -> None:
     path.write_text(json.dumps({
         "schema_version": 1,
         "readonly_binds": [{
             "destination": destination,
             "type": "bind",
             "source": str(source),
-            "options": OPTIONS,
+            "options": OPTIONS if options is None else options,
         }],
     }), encoding="utf-8")
 
@@ -114,6 +114,35 @@ def main() -> None:
             raise AssertionError(f"regular-file bind failed: {regular_result.stderr!r}")
         if regular_target.read_text(encoding="utf-8") != "regular immutable input\n" or regular_target.stat().st_mode & 0o777 != 0o640:
             raise AssertionError("regular-file bind bytes or mode differ")
+
+        seed_source = base / "resolv.conf"
+        seed_source.write_text("nameserver 192.0.2.53\n", encoding="utf-8")
+        seed_source.chmod(0o644)
+        seed_root = base / "seed-root"
+        (seed_root / "etc").mkdir(parents=True)
+        seed_target = seed_root / "etc" / "resolv.conf"
+        seed_target.write_text("old\n", encoding="utf-8")
+        plan(plan_path, seed_source, "/etc/resolv.conf",
+             ["bind", "rw", "nodev", "nosuid", "noexec"])
+        seed_result = invoke(plan_path, seed_root, base / "seed.json")
+        if seed_result.returncode != 0:
+            raise AssertionError(f"private writable seed failed: {seed_result.stderr!r}")
+        seed_target.write_text("nameserver 198.51.100.53\n", encoding="utf-8")
+        if seed_source.read_text(encoding="utf-8") != "nameserver 192.0.2.53\n":
+            raise AssertionError("private writable seed wrote through to its host source")
+        seed_record = json.loads((base / "seed.json").read_text(encoding="utf-8"))["readonly_binds"][0]
+        if seed_record["guest_policy"] != "private-writable-seed-copy":
+            raise AssertionError("private writable seed provenance is missing")
+
+        seed_directory = base / "seed-directory"
+        seed_directory.mkdir()
+        seed_directory_root = base / "seed-directory-root"
+        seed_directory_root.mkdir()
+        plan(plan_path, seed_directory, "/etc/seed",
+             ["bind", "rw", "nodev", "nosuid", "noexec"])
+        rejected_seed = invoke(plan_path, seed_directory_root, base / "seed-directory.json")
+        if rejected_seed.returncode == 0 or "must be a regular file" not in rejected_seed.stderr:
+            raise AssertionError("private writable directory seed was accepted")
 
         linked_source = base / "linked-source"
         os.link(regular_source, linked_source)
