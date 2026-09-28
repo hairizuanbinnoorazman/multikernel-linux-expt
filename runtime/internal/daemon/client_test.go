@@ -19,6 +19,21 @@ type shortWriteConn struct {
 	maximum int
 }
 
+type callerFunc func(context.Context, protocol.Request, any) *protocol.Error
+
+func (f callerFunc) Call(ctx context.Context, request protocol.Request, response any) *protocol.Error {
+	return f(ctx, request, response)
+}
+
+func TestMutationPreservesAuthenticatedErrorCode(t *testing.T) {
+	_, err := Mutation(context.Background(), callerFunc(func(context.Context, protocol.Request, any) *protocol.Error {
+		return &protocol.Error{Code: "NOT_FOUND", Message: "sandbox not found"}
+	}), "DeleteSandbox", "sandbox", strings.Repeat("a", 32), "delete", nil)
+	if code, ok := ErrorCode(err); !ok || code != "NOT_FOUND" || err.Error() != "NOT_FOUND: sandbox not found" {
+		t.Fatalf("mutation error code=%q ok=%v error=%v", code, ok, err)
+	}
+}
+
 func (c *shortWriteConn) Write(data []byte) (int, error) {
 	if len(data) > c.maximum {
 		data = data[:c.maximum]

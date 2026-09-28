@@ -4586,6 +4586,34 @@ func TestInitDeleteContinuesHostCleanupAfterGuestNetworkFailure(t *testing.T) {
 	}
 }
 
+func TestInitDeleteAcceptsAlreadyReapedRelayAndAbsentSandboxOnRetry(t *testing.T) {
+	command := exec.Command("/bin/true")
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if err := command.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	p := &process{pid: 17, status: tasktypes.Status_STOPPED, exitEventQueued: true,
+		deleteEventQueued: true, exited: time.Unix(123, 0).UTC(), done: make(chan struct{})}
+	close(p.done)
+	s := &service{id: "task", namespace: "default", bundle: privateTestDirectory(t), relay: command,
+		sandbox:   protocol.Sandbox{ID: "mk-task", Generation: strings.Repeat("a", 32)},
+		processes: map[string]*process{"": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+		daemon: daemonCallFunc(func(_ context.Context, request protocol.Request, _ any) *protocol.Error {
+			if request.Method != "StopSandbox" && request.Method != "DeleteSandbox" {
+				t.Fatalf("unexpected daemon method %s", request.Method)
+			}
+			return &protocol.Error{Code: "NOT_FOUND", Message: "sandbox not found"}
+		})}
+	if _, err := s.Delete(context.Background(), &taskapi.DeleteRequest{ID: "task"}); err != nil {
+		t.Fatalf("idempotent delete retry failed: %v", err)
+	}
+	if s.relay != nil || s.processes[""] != nil {
+		t.Fatalf("retry retained relay/process: relay=%v process=%v", s.relay, s.processes[""])
+	}
+}
+
 func TestGuestShutdownRetriesQuiesceAndAcceptsLostTerminalReply(t *testing.T) {
 	fake := &shutdownBoundaryAgent{loseFirstQuiesce: true, loseShutdown: true}
 	s := &service{agent: fake, relaySocket: "/run/multikernel/relay.sock", ioCallTimeout: time.Second}

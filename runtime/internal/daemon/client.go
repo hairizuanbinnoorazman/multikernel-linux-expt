@@ -11,6 +11,18 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
+type MutationError struct{ Failure protocol.Error }
+
+func (e *MutationError) Error() string { return e.Failure.Code + ": " + e.Failure.Message }
+
+func ErrorCode(err error) (string, bool) {
+	var remote *MutationError
+	if !errors.As(err, &remote) {
+		return "", false
+	}
+	return remote.Failure.Code, true
+}
+
 type Client struct {
 	Path    string
 	Timeout time.Duration
@@ -124,7 +136,7 @@ func Mutation(ctx context.Context, c Caller, method, id, generation, key string,
 	}
 	var result protocol.MutationResult
 	if apiErr := c.Call(ctx, request, &result); apiErr != nil {
-		return result, errors.New(apiErr.Code + ": " + apiErr.Message)
+		return result, &MutationError{Failure: *apiErr}
 	}
 	return result, nil
 }
