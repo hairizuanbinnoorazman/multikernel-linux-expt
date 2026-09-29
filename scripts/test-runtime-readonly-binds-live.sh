@@ -36,13 +36,36 @@ cleanup() {
 trap cleanup EXIT
 
 clean_inventory() {
-	printf 'children=%s links=%s nat_rules=%s filter_rules=%s ctr_tasks=%s docker_containers=%s' \
+	printf 'children=%s links=%s nat_rules=%s filter_rules=%s ctr_tasks=%s moby_tasks=%s moby_containers=%s docker_containers=%s runtime_artifacts=%s rootfs_records=%s endpoints=%s shim_processes=%s helper_processes=%s' \
 		"$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d | wc -l)" \
 		"$(ip -o link show | awk -F': ' '$2 ~ /^mkv[0-9a-f]+$/ {count++} END {print count+0}')" \
 		"$(sudo iptables -t nat -S POSTROUTING | grep -c '172\.31\.' || true)" \
 		"$(sudo iptables -S | grep -c '^\(-N\|-A\) MK-' || true)" \
 		"$(sudo ctr tasks list -q | wc -l)" \
-		"$(sudo docker ps -aq --filter "name=^/${docker_name}$" | wc -l)"
+		"$(sudo ctr -n moby tasks list -q | wc -l)" \
+		"$(sudo ctr -n moby containers list -q | wc -l)" \
+		"$(sudo docker ps -aq --filter "name=^/${docker_name}$" | wc -l)" \
+		"$(sudo find /srv/multikernel-storage/runtime -mindepth 1 -print | wc -l)" \
+		"$(sudo python3 -c 'import json; print(len(json.load(open("/var/lib/mkruntimed/rootfs/state.json"))["records"]))')" \
+		"$(sudo python3 -c 'import json; print(len(json.load(open("/var/lib/mknetd/state.json"))["endpoints"]))')" \
+		"$( (pgrep -f '^/usr/local/lib/multikernel/.*/containerd-shim-multikernel-v2' || true) | wc -l)" \
+		"$( (pgrep -f '^/usr/local/libexec/multikernel/(mkvsock-nbd|mk-agent-relay)' || true) | wc -l)"
+}
+
+clean_expected='children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0'
+
+wait_for_clean_inventory() {
+	local inventory=
+	for _ in $(seq 1 120); do
+		inventory=$(clean_inventory)
+		if [[ $inventory = "$clean_expected" ]]; then
+			printf '%s' "$inventory"
+			return 0
+		fi
+		sleep .25
+	done
+	printf '%s' "$inventory"
+	return 1
 }
 
 test "$(id -u)" -ne 0 || { echo 'run as an ordinary sudo-capable user' >&2; exit 1; }
@@ -50,8 +73,10 @@ for service in mkruntimed mknetd containerd docker; do
 	test "$(systemctl is-active "$service")" = active
 done
 cleanup
-initial=$(clean_inventory)
-test "$initial" = 'children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 docker_containers=0'
+if ! initial=$(wait_for_clean_inventory); then
+	printf 'OBSERVATION initial_inventory=%s\n' "$initial"
+	exit 1
+fi
 printf 'OBSERVATION initial_inventory=%s\n' "$initial"
 
 input_root=$(mktemp -d -p /tmp mk-runtime-bind-live.XXXXXX)
@@ -87,8 +112,10 @@ printf 'OBSERVATION docker=%s host_directory=%s host_file=%s\n' "$docker_output"
 
 rm -rf -- "$input_root"
 input_root=
-final=$(clean_inventory)
-test "$final" = 'children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 docker_containers=0'
+if ! final=$(wait_for_clean_inventory); then
+	printf 'OBSERVATION final_inventory=%s\n' "$final"
+	exit 1
+fi
 printf 'OBSERVATION final_inventory=%s\n' "$final"
 trap - EXIT
 echo RUNTIME_READONLY_BIND_LIVE_PASS
