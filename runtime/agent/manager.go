@@ -41,6 +41,7 @@ type Rlimit struct {
 }
 type ProcessSpec struct {
 	Terminal        bool                `json:"terminal,omitempty"`
+	ConsoleSize     *ConsoleSize        `json:"consoleSize,omitempty"`
 	User            User                `json:"user"`
 	Args            []string            `json:"args"`
 	Env             []string            `json:"env,omitempty"`
@@ -48,6 +49,10 @@ type ProcessSpec struct {
 	NoNewPrivileges *bool               `json:"noNewPrivileges,omitempty"`
 	Rlimits         []Rlimit            `json:"rlimits,omitempty"`
 	Capabilities    map[string][]string `json:"capabilities,omitempty"`
+}
+type ConsoleSize struct {
+	Width  uint32 `json:"width"`
+	Height uint32 `json:"height"`
 }
 type Root struct {
 	Path     string `json:"path"`
@@ -432,6 +437,14 @@ func envList(v []string) error {
 }
 
 func validateProcessSpec(spec ProcessSpec) error {
+	if spec.ConsoleSize != nil {
+		if !spec.Terminal {
+			return errors.New("console size requires a terminal")
+		}
+		if spec.ConsoleSize.Width > 65535 || spec.ConsoleSize.Height > 65535 {
+			return errors.New("console size exceeds the Linux PTY limit")
+		}
+	}
 	if len(spec.Args) == 0 || len(spec.Args) > maxProcessArgs || spec.Args[0] == "" {
 		return errors.New("process args must contain a bounded non-empty argv[0]")
 	}
@@ -507,6 +520,9 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	if p.state.Status != "CREATED" {
 		m.mu.Unlock()
 		return errors.New("process is not created")
+	}
+	if !sizeSet && p.spec.ConsoleSize != nil {
+		width, height, sizeSet = p.spec.ConsoleSize.Width, p.spec.ConsoleSize.Height, true
 	}
 	if e := envList(p.spec.Env); e != nil {
 		m.mu.Unlock()

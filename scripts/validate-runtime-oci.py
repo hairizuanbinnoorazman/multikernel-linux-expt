@@ -17,7 +17,7 @@ import sys
 
 TOP_LEVEL = {"ociVersion", "process", "root", "linux", "annotations", "mounts", "hostname"}
 PROCESS = {
-    "terminal", "user", "args", "env", "cwd", "noNewPrivileges", "rlimits", "capabilities",
+    "terminal", "consoleSize", "user", "args", "env", "cwd", "noNewPrivileges", "rlimits", "capabilities",
     "apparmorProfile", "oomScoreAdj",
 }
 USER = {"uid", "gid", "additionalGids"}
@@ -326,6 +326,17 @@ def validate(config):
     reject_unknown(process, PROCESS, "process")
     if "terminal" in process and not isinstance(process["terminal"], bool):
         raise ValueError("process.terminal must be boolean")
+    if "consoleSize" in process:
+        console_size = require_object(process["consoleSize"], "process.consoleSize")
+        reject_unknown(console_size, {"width", "height"}, "process.consoleSize")
+        if set(console_size) != {"width", "height"}:
+            raise ValueError("process.consoleSize requires width and height")
+        for field in ("width", "height"):
+            value = console_size[field]
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 65535:
+                raise ValueError(f"process.consoleSize.{field} must fit a Linux PTY dimension")
+        if process.get("terminal") is not True:
+            raise ValueError("process.consoleSize requires process.terminal=true")
     if "apparmorProfile" in process and process["apparmorProfile"] != "unconfined":
         raise ValueError("process.apparmorProfile must be the explicit unconfined compatibility value")
     if "oomScoreAdj" in process:

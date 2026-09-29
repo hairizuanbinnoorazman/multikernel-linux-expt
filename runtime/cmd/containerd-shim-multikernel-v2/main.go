@@ -3946,6 +3946,9 @@ func processSpec(p *specs.Process) agent.ProcessSpec {
 	gids := make([]uint32, len(p.User.AdditionalGids))
 	copy(gids, p.User.AdditionalGids)
 	result := agent.ProcessSpec{Terminal: p.Terminal, User: agent.User{UID: p.User.UID, GID: p.User.GID, AdditionalGids: gids}, Args: p.Args, Env: p.Env, Cwd: p.Cwd}
+	if p.ConsoleSize != nil {
+		result.ConsoleSize = &agent.ConsoleSize{Width: uint32(p.ConsoleSize.Width), Height: uint32(p.ConsoleSize.Height)}
+	}
 	if p.NoNewPrivileges {
 		value := true
 		result.NoNewPrivileges = &value
@@ -3968,8 +3971,8 @@ func validateExecProcess(p *specs.Process) error {
 		return fmt.Errorf("%w: exec args and absolute cwd are required", errdefs.ErrInvalidArgument)
 	}
 	var unsupported []string
-	if p.ConsoleSize != nil {
-		unsupported = append(unsupported, "consoleSize")
+	if p.ConsoleSize != nil && (!p.Terminal || p.ConsoleSize.Width > 65535 || p.ConsoleSize.Height > 65535) {
+		return fmt.Errorf("%w: console size requires a terminal and dimensions within the Linux PTY limit", errdefs.ErrInvalidArgument)
 	}
 	if p.CommandLine != "" {
 		unsupported = append(unsupported, "commandLine")

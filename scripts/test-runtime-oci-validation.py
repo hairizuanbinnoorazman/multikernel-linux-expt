@@ -415,7 +415,6 @@ def main():
             config["linux"]["namespaces"] = namespaces
             run_case(directory, name, config)
         process_fields = [
-            "consoleSize",
             "apparmorProfile", "oomScoreAdj", "scheduler", "selinuxLabel",
             "ioPriority", "commandLine",
         ]
@@ -423,6 +422,19 @@ def main():
             config = copy.deepcopy(BASE)
             config["process"][field] = False if field == "noNewPrivileges" else {}
             run_case(directory, f"process-{field}", config)
+        console_size = copy.deepcopy(BASE)
+        console_size["process"].update(terminal=True, consoleSize={"width": 91, "height": 37})
+        run_case(directory, "terminal-console-size", console_size, accepted=True)
+        for name, value, terminal in (
+            ("console-size-without-terminal", {"width": 91, "height": 37}, False),
+            ("console-size-missing-height", {"width": 91}, True),
+            ("console-size-oversized-width", {"width": 65536, "height": 37}, True),
+            ("console-size-boolean-height", {"width": 91, "height": True}, True),
+            ("console-size-unknown-field", {"width": 91, "height": 37, "depth": 1}, True),
+        ):
+            config = copy.deepcopy(BASE)
+            config["process"].update(terminal=terminal, consoleSize=value)
+            run_case(directory, name, config)
         docker_unconfined = copy.deepcopy(BASE)
         docker_unconfined["process"].update(apparmorProfile="unconfined", oomScoreAdj=0)
         docker_unconfined["linux"]["sysctl"] = {
