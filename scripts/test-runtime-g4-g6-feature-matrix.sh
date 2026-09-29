@@ -217,38 +217,6 @@ test "$docker_private" = docker-private
 observe private-root-values "ctr=$ctr_private docker=$docker_private"
 row private-writable-root
 
-# Standard clients emit different read-only bind option sets: ctr supplies an
-# explicit rbind/ro pair, while Docker adds rprivate. The adapter must admit
-# both, remove the host source from the guest projection, preserve the admitted
-# bytes, and enforce a read-only guest mount without changing either host tree.
-bind_root=$(mktemp -d -p /tmp mk-runtime-bind-matrix.XXXXXX)
-chmod 0755 "$bind_root"
-mkdir -m 0755 "$bind_root/ctr" "$bind_root/docker"
-printf 'ctr-host-immutable\n' >"$bind_root/ctr/value"
-printf 'docker-host-immutable\n' >"$bind_root/docker/value"
-printf 'ctr-file-immutable\n' >"$bind_root/ctr-file"
-printf 'docker-file-immutable\n' >"$bind_root/docker-file"
-chmod 0644 "$bind_root/ctr/value" "$bind_root/docker/value" "$bind_root/ctr-file" "$bind_root/docker-file"
-bind_probe='set -eu; directory_before=$(cat /opt/input/value); file_before=$(cat /etc/mk-input.conf); if printf changed >/opt/input/value 2>/dev/null; then echo writable-directory-bind >&2; exit 90; fi; if printf changed >/etc/mk-input.conf 2>/dev/null; then echo writable-file-bind >&2; exit 91; fi; test "$directory_before" = "$(cat /opt/input/value)"; test "$file_before" = "$(cat /etc/mk-input.conf)"; printf "%s|%s\n" "$directory_before" "$file_before"'
-ctr_bind_output=$(sudo ctr run --rm --runtime "$runtime" \
-	--mount "type=bind,src=$bind_root/ctr,dst=/opt/input,options=rbind:ro" \
-	--mount "type=bind,src=$bind_root/ctr-file,dst=/etc/mk-input.conf,options=bind:ro" \
-	"$image" "$ctr_bind_id" /bin/sh -c "$bind_probe")
-docker_bind_output=$(sudo docker run --rm --runtime "$runtime" "${docker_isolation[@]}" \
-	--name "$docker_bind_name" --mount "type=bind,src=$bind_root/docker,dst=/opt/input,readonly" \
-	--mount "type=bind,src=$bind_root/docker-file,dst=/etc/mk-input.conf,readonly" \
-	"$image" /bin/sh -c "$bind_probe")
-test "$ctr_bind_output" = 'ctr-host-immutable|ctr-file-immutable'
-test "$docker_bind_output" = 'docker-host-immutable|docker-file-immutable'
-test "$(cat "$bind_root/ctr/value")" = ctr-host-immutable
-test "$(cat "$bind_root/docker/value")" = docker-host-immutable
-test "$(cat "$bind_root/ctr-file")" = ctr-file-immutable
-test "$(cat "$bind_root/docker-file")" = docker-file-immutable
-observe readonly-bind-inputs "ctr=$ctr_bind_output docker=$docker_bind_output ctr_host=$(cat "$bind_root/ctr/value") ctr_file=$(cat "$bind_root/ctr-file") docker_host=$(cat "$bind_root/docker/value") docker_file=$(cat "$bind_root/docker-file")"
-rm -rf -- "$bind_root"
-bind_root=
-row readonly-bind-inputs
-
 ctr_network=$(sudo ctr task exec --exec-id matrix-ctr-network "$ctr_id" /bin/sh -c \
 	'ip -4 address show dev mkn0; nslookup example.com; wget -T 15 -qO- http://example.com | sha256sum; echo network-ok')
 docker_network=$(sudo docker exec "$docker_name" /bin/sh -c \
@@ -322,6 +290,39 @@ sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
 assert_clean_inventory post-delete-clean-inventory
 row delete-and-resource-cleanup
+
+# Standard clients emit different read-only bind option sets: ctr supplies an
+# explicit rbind/ro pair, while Docker adds rprivate. These independent cases
+# run only after the long-lived isolation pair has returned its roots, avoiding
+# an unrelated third-root capacity overlap while preserving all bind assertions.
+bind_root=$(mktemp -d -p /tmp mk-runtime-bind-matrix.XXXXXX)
+chmod 0755 "$bind_root"
+mkdir -m 0755 "$bind_root/ctr" "$bind_root/docker"
+printf 'ctr-host-immutable\n' >"$bind_root/ctr/value"
+printf 'docker-host-immutable\n' >"$bind_root/docker/value"
+printf 'ctr-file-immutable\n' >"$bind_root/ctr-file"
+printf 'docker-file-immutable\n' >"$bind_root/docker-file"
+chmod 0644 "$bind_root/ctr/value" "$bind_root/docker/value" "$bind_root/ctr-file" "$bind_root/docker-file"
+bind_probe='set -eu; directory_before=$(cat /opt/input/value); file_before=$(cat /etc/mk-input.conf); if printf changed >/opt/input/value 2>/dev/null; then echo writable-directory-bind >&2; exit 90; fi; if printf changed >/etc/mk-input.conf 2>/dev/null; then echo writable-file-bind >&2; exit 91; fi; test "$directory_before" = "$(cat /opt/input/value)"; test "$file_before" = "$(cat /etc/mk-input.conf)"; printf "%s|%s\n" "$directory_before" "$file_before"'
+ctr_bind_output=$(sudo ctr run --rm --runtime "$runtime" \
+	--mount "type=bind,src=$bind_root/ctr,dst=/opt/input,options=rbind:ro" \
+	--mount "type=bind,src=$bind_root/ctr-file,dst=/etc/mk-input.conf,options=bind:ro" \
+	"$image" "$ctr_bind_id" /bin/sh -c "$bind_probe")
+docker_bind_output=$(sudo docker run --rm --runtime "$runtime" "${docker_isolation[@]}" \
+	--name "$docker_bind_name" --mount "type=bind,src=$bind_root/docker,dst=/opt/input,readonly" \
+	--mount "type=bind,src=$bind_root/docker-file,dst=/etc/mk-input.conf,readonly" \
+	"$image" /bin/sh -c "$bind_probe")
+test "$ctr_bind_output" = 'ctr-host-immutable|ctr-file-immutable'
+test "$docker_bind_output" = 'docker-host-immutable|docker-file-immutable'
+test "$(cat "$bind_root/ctr/value")" = ctr-host-immutable
+test "$(cat "$bind_root/docker/value")" = docker-host-immutable
+test "$(cat "$bind_root/ctr-file")" = ctr-file-immutable
+test "$(cat "$bind_root/docker-file")" = docker-file-immutable
+observe readonly-bind-inputs "ctr=$ctr_bind_output docker=$docker_bind_output ctr_host=$(cat "$bind_root/ctr/value") ctr_file=$(cat "$bind_root/ctr-file") docker_host=$(cat "$bind_root/docker/value") docker_file=$(cat "$bind_root/docker-file")"
+rm -rf -- "$bind_root"
+bind_root=
+assert_clean_inventory post-bind-clean-inventory
+row readonly-bind-inputs
 
 # Foreground run, init stdout/stderr, and nonzero exit are proved using the
 # same reusable names twice. This also catches stale generation/idempotency
