@@ -541,7 +541,7 @@ func openFileSHA256(ctx context.Context, file *os.File, before *syscall.Stat_t, 
 }
 
 func (b *LinuxBackend) OpenVerifiedInitramfs(ctx context.Context, record Record, roots PreparedRoots) (*os.File, error) {
-	if err := b.VerifyPrepared(ctx, record, roots); err != nil {
+	if err := b.VerifyPrepared(ctx, record, roots, true); err != nil {
 		return nil, err
 	}
 	if roots.RuntimeDir == nil {
@@ -590,7 +590,7 @@ func buildResultDigest(buildResult json.RawMessage, section, field string) (stri
 	return digest, nil
 }
 
-func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record, roots PreparedRoots) error {
+func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record, roots PreparedRoots, verifyStorageContent bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -623,12 +623,14 @@ func (b *LinuxBackend) VerifyPrepared(ctx context.Context, record Record, roots 
 			return fmt.Errorf("close prepared artifact %s: %w", path, err)
 		}
 	}
-	digest, err := fileSHA256(ctx, storagePath, record.Storage.SizeBytes)
-	if err != nil {
-		return fmt.Errorf("verify prepared storage content: %w", err)
-	}
-	if digest != record.Storage.SHA256 {
-		return errors.New("prepared storage content differs from journal")
+	if verifyStorageContent {
+		digest, err := fileSHA256(ctx, storagePath, record.Storage.SizeBytes)
+		if err != nil {
+			return fmt.Errorf("verify prepared storage content: %w", err)
+		}
+		if digest != record.Storage.SHA256 {
+			return errors.New("prepared storage content differs from journal")
+		}
 	}
 	buildResult, err := readTrustedArtifact(filepath.Join(runtimeDir, "build-result.json"), 1<<20, true)
 	if err != nil || !equalJSONExceptWhitespace(buildResult, record.BuildResult) {

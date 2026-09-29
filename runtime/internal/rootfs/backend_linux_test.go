@@ -271,7 +271,7 @@ printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s",
 		t.Fatalf("logical build result = %+v %s", result.Storage, result.BuildResult)
 	}
 	record := Record{RuntimeDir: runtimePath, StorageDir: storagePath, Storage: &result.Storage, BuildResult: result.BuildResult}
-	if err = (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}); err != nil {
+	if err = (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}, true); err != nil {
 		t.Fatalf("descriptor-anchored prepared verification failed after name replacement: %v", err)
 	}
 	var persisted bytes.Buffer
@@ -279,7 +279,7 @@ printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s",
 		t.Fatal(err)
 	}
 	record.BuildResult = persisted.Bytes()
-	if err = (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}); err != nil {
+	if err = (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}, true); err != nil {
 		t.Fatalf("persisted build-result whitespace was rejected: %v", err)
 	}
 	runtimeAnchored := fmt.Sprintf("/proc/self/fd/%d", runtimeDir.Fd())
@@ -315,7 +315,7 @@ printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s",
 		if err = os.WriteFile(path, []byte("changed"), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if verifyErr := (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}); verifyErr == nil {
+		if verifyErr := (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}, true); verifyErr == nil {
 			t.Fatalf("changed prepared artifact %s was accepted", name)
 		}
 		if err = os.WriteFile(path, original, 0600); err != nil {
@@ -327,6 +327,33 @@ printf '{"readonly_bind_inputs":[],"logical_bundle":"%s","logical_storage":"%s",
 	}
 	if info, err := os.Stat(filepath.Join(storageAnchored, "root.ext4")); err != nil || info.Size() != 64<<20 {
 		t.Fatalf("anchored storage artifact = %+v, %v", info, err)
+	}
+	storageFile, err := os.OpenFile(filepath.Join(storageAnchored, "root.ext4"), os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalByte := []byte{0}
+	if _, err = storageFile.ReadAt(originalByte, 0); err != nil {
+		t.Fatal(err)
+	}
+	changedByte := []byte{originalByte[0] ^ 0xff}
+	if _, err = storageFile.WriteAt(changedByte, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err = storageFile.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	if verifyErr := (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}, true); verifyErr == nil {
+		t.Fatal("mutable storage change passed immutable preparation verification")
+	}
+	if verifyErr := (&LinuxBackend{}).VerifyPrepared(t.Context(), record, PreparedRoots{RuntimeDir: runtimeDir, StorageDir: storageDir}, false); verifyErr != nil {
+		t.Fatalf("owned writable storage change failed static artifact verification: %v", verifyErr)
+	}
+	if _, err = storageFile.WriteAt(originalByte, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err = storageFile.Close(); err != nil {
+		t.Fatal(err)
 	}
 	for _, path := range []string{runtimePath, storagePath} {
 		entries, err := os.ReadDir(path)
