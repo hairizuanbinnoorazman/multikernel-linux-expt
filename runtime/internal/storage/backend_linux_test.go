@@ -809,6 +809,53 @@ func TestCounterEvidenceRequiresExactReadyAndCanonicalTerminalClose(t *testing.T
 	}
 }
 
+func TestStopAcceptsExactGracefulCloseAfterRecoveredProcessExited(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
+	recordPath, logPath := backend.paths(value)
+	record := processRecord{Version: 3, PID: 1 << 30, StartTime: 1, Path: value.Path,
+		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
+		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
+		BinaryDevice: 3, BinaryInode: 4}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(recordPath, append(data, '\n'), 0600); err != nil {
+		t.Fatal(err)
+	}
+	want := Counters{Reads: 2, ReadBytes: 8192, Writes: 3, WrittenBytes: 12288, Flushes: 4}
+	closed := []byte("MKNBD_SERVER_CLOSED synced=1 reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4\n")
+	if err = os.WriteFile(logPath, append(readyMarker(value), closed...), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	observed, err := backend.Observe(t.Context(), value)
+	if err != nil || !observed.Closed || observed.Active || observed.Counters != want {
+		t.Fatalf("closed observation = %+v, %v", observed, err)
+	}
+	if _, err = os.Stat(recordPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("completed process record remains: %v", err)
+	}
+
+	// Recreate the retained record to exercise the direct Release.Stop path
+	// observed when the server exits between lifecycle Stop and Delete.
+	if err = os.WriteFile(recordPath, append(data, '\n'), 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := backend.Stop(t.Context(), value)
+	if err != nil || got != want {
+		t.Fatalf("recovered stop counters = %+v, %v", got, err)
+	}
+	if _, err = os.Stat(recordPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("stopped process record remains: %v", err)
+	}
+}
+
 func TestBackendLeaseValidationPrecedesPathDerivation(t *testing.T) {
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	value.SandboxGeneration = "short"
