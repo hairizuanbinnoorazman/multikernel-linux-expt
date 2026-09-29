@@ -96,13 +96,45 @@ observe() {
 }
 
 clean_inventory() {
-	printf 'children=%s links=%s nat_rules=%s filter_rules=%s ctr_tasks=%s docker_containers=%s' \
+	printf 'children=%s links=%s nat_rules=%s filter_rules=%s ctr_tasks=%s moby_tasks=%s moby_containers=%s docker_containers=%s runtime_artifacts=%s rootfs_records=%s endpoints=%s shim_processes=%s helper_processes=%s' \
 		"$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d | wc -l)" \
 		"$(ip -o link show | awk -F': ' '$2 ~ /^mkv[0-9a-f]+$/ {count++} END {print count+0}')" \
 		"$(sudo iptables -t nat -S POSTROUTING | grep -c '172\.31\.' || true)" \
 		"$(sudo iptables -S | grep -c '^\(-N\|-A\) MK-' || true)" \
 		"$(sudo ctr tasks list -q | wc -l)" \
-		"$(sudo docker ps -aq | wc -l)"
+		"$(sudo ctr -n moby tasks list -q | wc -l)" \
+		"$(sudo ctr -n moby containers list -q | wc -l)" \
+		"$(sudo docker ps -aq | wc -l)" \
+		"$(sudo find /srv/multikernel-storage/runtime -mindepth 1 -print | wc -l)" \
+		"$(sudo python3 -c 'import json; print(len(json.load(open("/var/lib/mkruntimed/rootfs/state.json"))["records"]))')" \
+		"$(sudo python3 -c 'import json; print(len(json.load(open("/var/lib/mknetd/state.json"))["endpoints"]))')" \
+		"$( (pgrep -f '^/usr/local/lib/multikernel/.*/containerd-shim-multikernel-v2' || true) | wc -l)" \
+		"$( (pgrep -f '^/usr/local/libexec/multikernel/(mkvsock-nbd|mk-agent-relay)' || true) | wc -l)"
+}
+
+clean_expected='children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0'
+
+wait_for_clean_inventory() {
+	local inventory=
+	for _ in $(seq 1 120); do
+		inventory=$(clean_inventory)
+		if [[ $inventory = "$clean_expected" ]]; then
+			printf '%s' "$inventory"
+			return 0
+		fi
+		sleep .25
+	done
+	printf '%s' "$inventory"
+	return 1
+}
+
+assert_clean_inventory() {
+	local key=$1 inventory
+	if ! inventory=$(wait_for_clean_inventory); then
+		observe "$key" "$inventory"
+		return 1
+	fi
+	observe "$key" "$inventory"
 }
 
 test "$(id -u)" -ne 0 || {
@@ -119,7 +151,7 @@ test -x /usr/local/bin/containerd-shim-multikernel-v2
 test -c /dev/net/tun
 cleanup
 wait_for_clean_host
-observe initial-clean-inventory "$(clean_inventory)"
+assert_clean_inventory initial-clean-inventory
 
 sudo ctr images pull "$image" >/dev/null
 sudo docker image inspect "$image" >/dev/null 2>&1 || sudo docker pull "$image" >/dev/null
@@ -288,7 +320,7 @@ sudo ctr tasks rm "$ctr_id" >/dev/null
 sudo ctr containers rm "$ctr_id"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
-observe post-delete-clean-inventory "$(clean_inventory)"
+assert_clean_inventory post-delete-clean-inventory
 row delete-and-resource-cleanup
 
 # Foreground run, init stdout/stderr, and nonzero exit are proved using the
@@ -394,7 +426,7 @@ wait_for_clean_host
 	sudo docker run --tty --runtime "$runtime" "${docker_isolation[@]}" --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
-observe final-clean-inventory "$(clean_inventory)"
+assert_clean_inventory final-clean-inventory
 row post-start-terminal-resize
 
 trap - EXIT
