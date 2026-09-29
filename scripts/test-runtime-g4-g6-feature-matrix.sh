@@ -28,25 +28,40 @@ docker_isolation=(
 	--device-cgroup-rule 'a *:* rwm'
 )
 
+cleanup_ctr_id() {
+	local id=$1 status quiet=0
+	sudo ctr tasks kill --signal SIGKILL "$id" >/dev/null 2>&1 || true
+	# A canceled slow CreateTask can publish its shim after the first task-list
+	# query. Keep container metadata until either the task becomes removable or
+	# the exact shim identity has stayed absent for a bounded quiet interval.
+	for _ in $(seq 1 600); do
+		status=$(sudo ctr tasks list | awk -v id="$id" '$1==id {print $3}')
+		if [[ $status = RUNNING || $status = PAUSED ]]; then
+			sudo ctr tasks kill --signal SIGKILL "$id" >/dev/null 2>&1 || true
+		elif [[ -n $status ]]; then
+			break
+		fi
+		if pgrep -f "^/usr/local/lib/multikernel/.*/containerd-shim-multikernel-v2 -namespace default -id ${id} -address " >/dev/null; then
+			quiet=0
+		else
+			((quiet += 1))
+			((quiet >= 10)) && break
+		fi
+		sleep .1
+	done
+	sudo ctr tasks rm -f "$id" >/dev/null 2>&1 || true
+	sudo ctr containers rm "$id" >/dev/null 2>&1 || true
+}
+
 cleanup() {
 	(
 	set +e
 	sudo docker rm -f "$docker_name" >/dev/null 2>&1
 	sudo docker rm -f "$docker_attach_name" >/dev/null 2>&1
 	sudo docker rm -f "$docker_bind_name" >/dev/null 2>&1
-	sudo ctr tasks kill --signal SIGKILL "$ctr_id" >/dev/null 2>&1
-	sudo ctr tasks kill --signal SIGKILL "$ctr_attach_id" >/dev/null 2>&1
-	sudo ctr tasks kill --signal SIGKILL "$ctr_bind_id" >/dev/null 2>&1
-	for _ in $(seq 1 100); do
-		[[ $(sudo ctr tasks list | awk -v id="$ctr_id" '$1==id {print $3}') != RUNNING ]] && break
-		sleep .1
-	done
-	sudo ctr tasks rm -f "$ctr_id" >/dev/null 2>&1
-	sudo ctr containers rm "$ctr_id" >/dev/null 2>&1
-	sudo ctr tasks rm -f "$ctr_attach_id" >/dev/null 2>&1
-	sudo ctr containers rm "$ctr_attach_id" >/dev/null 2>&1
-	sudo ctr tasks rm -f "$ctr_bind_id" >/dev/null 2>&1
-	sudo ctr containers rm "$ctr_bind_id" >/dev/null 2>&1
+	cleanup_ctr_id "$ctr_id"
+	cleanup_ctr_id "$ctr_attach_id"
+	cleanup_ctr_id "$ctr_bind_id"
 	if [[ -n ${bind_root:-} && -d $bind_root ]]; then
 		rm -rf -- "$bind_root"
 	fi

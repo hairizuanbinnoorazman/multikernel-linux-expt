@@ -2,6 +2,7 @@
 """Run a terminal client, then resize its PTY only after guest readiness."""
 
 import argparse
+import errno
 import fcntl
 import os
 import select
@@ -49,9 +50,20 @@ def main():
             if readable:
                 try:
                     chunk = os.read(master, 65536)
-                except OSError:
-                    chunk = b""
+                except OSError as error:
+                    # A PTY master reports EIO while a slow client temporarily
+                    # has no slave open.  The client may open its task console
+                    # later, so treat that gap as EOF only after it exits.
+                    if error.errno != errno.EIO:
+                        raise
+                    if process.poll() is None:
+                        time.sleep(0.05)
+                        continue
+                    break
                 if not chunk:
+                    if process.poll() is None:
+                        time.sleep(0.05)
+                        continue
                     break
                 output.extend(chunk)
                 sys.stdout.buffer.write(chunk)
