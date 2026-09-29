@@ -772,8 +772,12 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 		return Observation{}, matchErr
 	}
 	if !matches {
+		counters, counterErr := parseCountersAt(directory, logName, value)
 		if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
 			return Observation{}, err
+		}
+		if counterErr == nil {
+			return Observation{Closed: true, Counters: counters}, nil
 		}
 		return Observation{}, nil
 	}
@@ -891,28 +895,31 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 	if identityErr != nil {
 		return Counters{}, identityErr
 	}
-	alreadyExited := false
-	if !processIsExact && managed != nil {
-		select {
-		case <-managed.done:
-			alreadyExited = true
-		default:
+	if !processIsExact {
+		// The child can close its NBD client and let the server exit before a
+		// recovered daemon begins release.  Only the exact generation-bound,
+		// synced terminal log authenticates that absence as graceful completion.
+		counters, counterErr := parseCountersAt(directory, logName, value)
+		if counterErr != nil {
+			return Counters{}, errors.New("refuse to stop process without exact storage lease identity or graceful close evidence")
 		}
-	}
-	if !processIsExact && !alreadyExited {
-		return Counters{}, errors.New("refuse to stop process without exact storage lease identity")
+		if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
+			return Counters{}, err
+		}
+		b.mu.Lock()
+		delete(b.managed, recordPath)
+		b.mu.Unlock()
+		return counters, nil
 	}
 	if err = ctx.Err(); err != nil {
 		return Counters{}, err
 	}
 	if managed != nil {
-		if !alreadyExited {
-			if err = unix.PidfdSendSignal(handle.pidfd, unix.SIGTERM, nil, 0); err != nil && !errors.Is(err, syscall.ESRCH) {
-				return Counters{}, err
-			}
-			if waitErr, exited := waitForProcess(ctx, managed.done, b.StopTimeout); !exited {
-				return Counters{}, errors.Join(errors.New("storage server did not stop after graceful signal"), waitErr)
-			}
+		if err = unix.PidfdSendSignal(handle.pidfd, unix.SIGTERM, nil, 0); err != nil && !errors.Is(err, syscall.ESRCH) {
+			return Counters{}, err
+		}
+		if waitErr, exited := waitForProcess(ctx, managed.done, b.StopTimeout); !exited {
+			return Counters{}, errors.Join(errors.New("storage server did not stop after graceful signal"), waitErr)
 		}
 	} else {
 		if err = unix.PidfdSendSignal(handle.pidfd, unix.SIGTERM, nil, 0); err != nil && !errors.Is(err, syscall.ESRCH) {
