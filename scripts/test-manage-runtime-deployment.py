@@ -89,6 +89,8 @@ def main():
         assert_links(root)
         assert (root / "etc/multikernel/deployments" / first / "runtime.env").stat().st_mode & 0o777 == 0o600
         assert (root / "usr/local/libexec/multikernel/build-runtime-container-initramfs.sh").stat().st_mode & 0o777 == 0o755
+        runtime_unit = (root / "etc/systemd/system/mkruntimed.service").resolve().read_text(encoding="utf-8")
+        assert runtime_unit.count("\nKillMode=process\n") == 1
 
         second = json.loads(run(root, "install", *map(os.fspath, second_inputs)).stdout)["installed_and_active"]
         assert second != first and active(root) == f"deployments/{second}"
