@@ -456,4 +456,9 @@ assert_clean_inventory final-clean-inventory
 row post-start-terminal-resize
 
 trap - EXIT
+echo 'EVIDENCE_ASSERTION id=shared-ctr-and-docker-lifecycle-io-matrix passed=true'
+echo 'EVIDENCE_ASSERTION id=post-start-terminal-resize passed=true'
+echo 'EVIDENCE_ASSERTION id=mkruntimed-restart-continuity passed=true'
+echo 'EVIDENCE_ASSERTION id=distinct-network-identity-and-sibling-isolation passed=true'
+echo 'EVIDENCE_ASSERTION id=runtime-resource-cleanup passed=true'
 echo G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS
