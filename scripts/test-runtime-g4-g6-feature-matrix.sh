@@ -29,7 +29,7 @@ docker_isolation=(
 )
 
 cleanup_ctr_id() {
-	local id=$1 status quiet=0
+	local id=$1 status quiet=0 saw_task=0
 	sudo ctr tasks kill --signal SIGKILL "$id" >/dev/null 2>&1 || true
 	# A canceled slow CreateTask can publish its shim after the first task-list
 	# query. Keep container metadata until either the task becomes removable or
@@ -37,8 +37,10 @@ cleanup_ctr_id() {
 	for _ in $(seq 1 600); do
 		status=$(sudo ctr tasks list | awk -v id="$id" '$1==id {print $3}')
 		if [[ $status = RUNNING || $status = PAUSED ]]; then
+			saw_task=1
 			sudo ctr tasks kill --signal SIGKILL "$id" >/dev/null 2>&1 || true
 		elif [[ -n $status ]]; then
+			saw_task=1
 			break
 		fi
 		if pgrep -f "^/usr/local/lib/multikernel/.*/containerd-shim-multikernel-v2 -namespace default -id ${id} -address " >/dev/null; then
@@ -49,6 +51,10 @@ cleanup_ctr_id() {
 		fi
 		sleep .1
 	done
+	if ((saw_task == 0)) && pgrep -f "^/usr/local/lib/multikernel/.*/containerd-shim-multikernel-v2 -namespace default -id ${id} -address " >/dev/null; then
+		echo "refusing to remove $id metadata while its exact shim is still creating a task" >&2
+		return 1
+	fi
 	sudo ctr tasks rm -f "$id" >/dev/null 2>&1 || true
 	sudo ctr containers rm "$id" >/dev/null 2>&1 || true
 }
@@ -437,12 +443,12 @@ row terminal-mode
 # wait for the guest to print its initial size, then mutate the already-live
 # client PTY and retain both values from inside the guest.
 resize_guest='trap '\''echo resized:$(stty size); exit 0'\'' WINCH; echo ready:$(stty size); while :; do sleep 1; done'
-"$(dirname "$0")/test-runtime-live-resize.py" -- \
+"$(dirname "$0")/test-runtime-live-resize.py" --timeout 180 -- \
 	sudo ctr run --tty --runtime "$runtime" "$image" "$ctr_id" /bin/sh -c "$resize_guest"
 sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_id"
 wait_for_clean_host
-"$(dirname "$0")/test-runtime-live-resize.py" -- \
+"$(dirname "$0")/test-runtime-live-resize.py" --timeout 180 -- \
 	sudo docker run --tty --runtime "$runtime" "${docker_isolation[@]}" --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
