@@ -1156,6 +1156,16 @@ func TestValidateExecProcessFailsClosed(t *testing.T) {
 	if projected.NoNewPrivileges == nil || !*projected.NoNewPrivileges || len(projected.Rlimits) != 1 || projected.Capabilities["effective"][0] != "CAP_CHOWN" {
 		t.Fatalf("standard process controls were not projected: %+v", projected)
 	}
+	terminal := base()
+	terminal.Terminal = true
+	terminal.ConsoleSize = &specs.Box{Width: 91, Height: 37}
+	if err := validateExecProcess(terminal); err != nil {
+		t.Fatalf("terminal console size rejected: %v", err)
+	}
+	projected = processSpec(terminal)
+	if projected.ConsoleSize == nil || projected.ConsoleSize.Width != 91 || projected.ConsoleSize.Height != 37 {
+		t.Fatalf("terminal console size was not projected: %+v", projected.ConsoleSize)
+	}
 	zero := 0
 	docker := base()
 	docker.ApparmorProfile = "unconfined"
@@ -1169,11 +1179,25 @@ func TestValidateExecProcessFailsClosed(t *testing.T) {
 	}
 	nonzero := 1
 	umask := uint32(0o22)
+	for _, test := range []struct {
+		name   string
+		mutate func(*specs.Process)
+	}{
+		{"console-size-without-terminal", func(p *specs.Process) { p.ConsoleSize = &specs.Box{Width: 91, Height: 37} }},
+		{"console-size-overflow", func(p *specs.Process) { p.Terminal = true; p.ConsoleSize = &specs.Box{Width: 65536, Height: 37} }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			process := base()
+			test.mutate(process)
+			if err := validateExecProcess(process); !errors.Is(err, errdefs.ErrInvalidArgument) {
+				t.Fatalf("error = %v, want invalid argument", err)
+			}
+		})
+	}
 	tests := []struct {
 		name   string
 		mutate func(*specs.Process)
 	}{
-		{"console-size", func(p *specs.Process) { p.ConsoleSize = &specs.Box{} }},
 		{"command-line", func(p *specs.Process) { p.CommandLine = "true" }},
 		{"apparmor", func(p *specs.Process) { p.ApparmorProfile = "profile" }},
 		{"oom-score", func(p *specs.Process) { p.OOMScoreAdj = &nonzero }},

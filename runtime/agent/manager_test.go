@@ -314,6 +314,32 @@ func TestTerminalAndResize(t *testing.T) {
 	}
 }
 
+func TestTerminalUsesOCIConsoleSizeWhenNoTaskResizePrecedesStart(t *testing.T) {
+	m := NewManager(true)
+	b := bundle(t, []string{"/probe", "-test.run=TestHelperProcess"}, "")
+	c, _, err := LoadBundle(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Process.Terminal = true
+	c.Process.ConsoleSize = &ConsoleSize{Width: 91, Height: 37}
+	c.Process.Env = []string{"MK_AGENT_HELPER=1", "MK_AGENT_TERMINAL_HELPER=1"}
+	raw, _ := json.Marshal(c)
+	if err = os.WriteFile(filepath.Join(b, "config.json"), raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Create("tty", b); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Start("tty"); err != nil {
+		t.Fatal(err)
+	}
+	state, err := m.Wait("tty")
+	if err != nil || state.ExitCode != 0 || !strings.Contains(state.Stdout, "terminal-size=91x37") {
+		t.Fatalf("terminal state: %+v, %v", state, err)
+	}
+}
+
 func TestInvalidTerminalSizesFailClosed(t *testing.T) {
 	m := NewManager(true)
 	if err := m.StartWithSize("missing", 65536, 24, true); err == nil || !strings.Contains(err.Error(), "PTY limit") {
