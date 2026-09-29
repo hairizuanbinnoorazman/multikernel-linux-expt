@@ -91,6 +91,9 @@ def main():
         assert (root / "usr/local/libexec/multikernel/build-runtime-container-initramfs.sh").stat().st_mode & 0o777 == 0o755
         runtime_unit = (root / "etc/systemd/system/mkruntimed.service").resolve().read_text(encoding="utf-8")
         assert runtime_unit.count("\nKillMode=process\n") == 1
+        assert runtime_unit.count("\nRequires=google-guest-agent.service\n") == 1
+        after = next(line for line in runtime_unit.splitlines() if line.startswith("After="))
+        assert after.split().count("google-guest-agent.service") == 1
 
         second = json.loads(run(root, "install", *map(os.fspath, second_inputs)).stdout)["installed_and_active"]
         assert second != first and active(root) == f"deployments/{second}"

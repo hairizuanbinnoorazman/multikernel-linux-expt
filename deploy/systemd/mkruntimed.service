@@ -1,7 +1,11 @@
 [Unit]
 Description=Multikernel container runtime control plane
 Requires=sys-fs-multikernel.mount
-After=local-fs.target sys-fs-multikernel.mount
+# Host qualification requires the GCE guest agent to be active. Order the
+# first daemon start after its Type=notify readiness instead of consuming a
+# predictable Restart=on-failure cycle during boot.
+Requires=google-guest-agent.service
+After=local-fs.target sys-fs-multikernel.mount google-guest-agent.service
 Before=containerd.service docker.service
 RequiresMountsFor=/srv/multikernel-storage
 
