@@ -24,7 +24,7 @@ type Backend interface {
 	Mount(context.Context, []Mount, string, DirectoryIdentity) error
 	Unmount(context.Context, string) error
 	Build(context.Context, PrepareRequest, BuildRoots) (PrepareResult, error)
-	VerifyPrepared(context.Context, Record, PreparedRoots) error
+	VerifyPrepared(context.Context, Record, PreparedRoots, bool) error
 	OpenVerifiedInitramfs(context.Context, Record, PreparedRoots) (*os.File, error)
 }
 
@@ -610,7 +610,7 @@ func (s *Service) Prepare(ctx context.Context, request PrepareRequest) (PrepareR
 		if err != nil {
 			return PrepareResult{}, err
 		}
-		verifyErr := s.backend.VerifyPrepared(ctx, existing, roots)
+		verifyErr := s.backend.VerifyPrepared(ctx, existing, roots, true)
 		closeErr := roots.Close()
 		if err = errors.Join(verifyErr, closeErr); err != nil {
 			return PrepareResult{}, err
@@ -872,7 +872,11 @@ func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string
 				}
 				continue
 			}
-			verifyErr := s.backend.VerifyPrepared(ctx, record, roots)
+			// A lifecycle-owned writable root is expected to differ from its
+			// immutable preparation digest after guest writes. Revalidate its
+			// held roots and immutable bootstrap/build metadata, but do not
+			// mistake expected writable data changes for path replacement.
+			verifyErr := s.backend.VerifyPrepared(ctx, record, roots, false)
 			closeErr := roots.Close()
 			if err := errors.Join(verifyErr, closeErr); err != nil {
 				return fmt.Errorf("verify prepared rootfs: %w", err)

@@ -209,8 +209,12 @@ func TestOpenPreparedBootReturnsJournalBoundDescriptors(t *testing.T) {
 	}
 }
 
-func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record, roots PreparedRoots) error {
-	f.calls = append(f.calls, "verify:"+record.Request.TaskIdentity)
+func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record, roots PreparedRoots, verifyStorageContent bool) error {
+	mode := "owned"
+	if verifyStorageContent {
+		mode = "content"
+	}
+	f.calls = append(f.calls, "verify-"+mode+":"+record.Request.TaskIdentity)
 	f.verifyRoots = roots
 	if f.verifyHook != nil {
 		f.verifyHook()
@@ -219,7 +223,7 @@ func (f *fakeBackend) VerifyPrepared(_ context.Context, record Record, roots Pre
 }
 
 func (f *fakeBackend) OpenVerifiedInitramfs(ctx context.Context, record Record, roots PreparedRoots) (*os.File, error) {
-	if err := f.VerifyPrepared(ctx, record, roots); err != nil {
+	if err := f.VerifyPrepared(ctx, record, roots, true); err != nil {
 		return nil, err
 	}
 	return os.Open(fmt.Sprintf("/proc/self/fd/%d/initramfs.cpio.gz", roots.RuntimeDir.Fd()))
@@ -284,7 +288,7 @@ func TestPrepareJournalsBuildUnmountAndReplays(t *testing.T) {
 	}
 	backend.calls = nil
 	replayed, err := service.Prepare(context.Background(), request)
-	if err != nil || replayed.Storage != result.Storage || replayed.RuntimeIdentity != result.RuntimeIdentity || !reflect.DeepEqual(backend.calls, []string{"verify:" + request.TaskIdentity}) {
+	if err != nil || replayed.Storage != result.Storage || replayed.RuntimeIdentity != result.RuntimeIdentity || !reflect.DeepEqual(backend.calls, []string{"verify-content:" + request.TaskIdentity}) {
 		t.Fatalf("replay = %+v %v calls=%v", replayed, err, backend.calls)
 	}
 	conflict := request
@@ -549,13 +553,17 @@ func TestUnmountFailurePreservesRecoverableState(t *testing.T) {
 }
 
 func TestReconcileRetainsOnlyExactLifecycleOwner(t *testing.T) {
-	service, _, request, _ := rootfsFixture(t)
+	service, backend, request, _ := rootfsFixture(t)
 	result, err := service.Prepare(context.Background(), request)
 	if err != nil {
 		t.Fatal(err)
 	}
+	backend.calls = nil
 	if err = service.Reconcile(context.Background(), map[string]string{result.Storage.Path: result.Storage.SHA256}); err != nil {
 		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(backend.calls, []string{"verify-owned:" + request.TaskIdentity}) {
+		t.Fatalf("owned reconciliation verification = %v", backend.calls)
 	}
 	if _, ok := service.store.Get(request.TaskIdentity); !ok {
 		t.Fatal("owned preparation was removed")
