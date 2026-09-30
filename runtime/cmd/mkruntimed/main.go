@@ -54,6 +54,12 @@ func hasLiveSandboxes(snapshot state.Snapshot) bool {
 	return false
 }
 
+func recoverableIdlePool(report hostcheck.Report) bool {
+	return report.PoolConfigured && len(report.Instances) == 0 &&
+		len(report.StaleResources) == 1 &&
+		report.StaleResources[0] == "configured Kerf pool has no matching instance"
+}
+
 func cpus(s string) ([]int, error) {
 	if s == "" {
 		return nil, nil
@@ -147,6 +153,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer st.Close()
+	b := &kerf.CLI{Path: kpath, Sysfs: sysfs, PoolCPUs: ids, PoolMemory: poolmem, Timeout: timeout}
 	if !hasLiveSandboxes(st.Snapshot()) {
 		hostOptions := hostcheck.DefaultOptions()
 		hostOptions.Kerf = kpath
@@ -156,6 +163,19 @@ func main() {
 		hostOptions.ProbeCPUs = ids
 		hostOptions.ProbeMemory = poolmem
 		report := hostcheck.Check(context.Background(), hostOptions)
+		// An ungraceful daemon exit may leave only its initialized, idle pool.
+		// Durable state plus an empty backend inventory bounds automatic recovery;
+		// any other stale resource remains an operator-visible hard failure.
+		if recoverableIdlePool(report) {
+			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), timeout)
+			e = b.ReleasePool(cleanupCtx)
+			cleanupCancel()
+			if e != nil {
+				fmt.Fprintln(os.Stderr, "recover idle Kerf pool:", e)
+				os.Exit(1)
+			}
+			report = hostcheck.Check(context.Background(), hostOptions)
+		}
 		if e = validatePoolReport(report, ids, hostConfig.ForbiddenAPICIDs, hostConfig.MinPrimaryCPUs, poolBytes, hostConfig.MinPrimaryMemoryBytes); e != nil {
 			encoded, _ := hostcheck.Encode(report)
 			_, _ = os.Stderr.Write(encoded)
@@ -163,7 +183,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	b := &kerf.CLI{Path: kpath, Sysfs: sysfs, PoolCPUs: ids, PoolMemory: poolmem, Timeout: timeout}
 	svc := lifecycle.New(st, b, lifecycle.Artifacts{Cmdline: cmdline})
 	storageStore, e := storage.OpenStore(storageState)
 	if e != nil {
@@ -203,8 +222,16 @@ func main() {
 		os.Exit(1)
 	}
 	srv := &daemon.Server{Service: svc, Rootfs: rootfsService, MaxFrame: hostConfig.MaxFrameSizeBytes}
-	if e = srv.Listen(ctx, socket); e != nil {
-		fmt.Fprintln(os.Stderr, e)
+	listenErr := srv.Listen(ctx, socket)
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), timeout)
+	poolErr := svc.ReleaseIdlePool(cleanupCtx)
+	cleanupCancel()
+	if listenErr != nil {
+		fmt.Fprintln(os.Stderr, listenErr)
+		os.Exit(1)
+	}
+	if poolErr != nil {
+		fmt.Fprintln(os.Stderr, "release idle Kerf pool:", poolErr)
 		os.Exit(1)
 	}
 }

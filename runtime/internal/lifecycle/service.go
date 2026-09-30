@@ -60,6 +60,7 @@ type Service struct {
 	storage           *storagepkg.Service
 	preparedBoot      PreparedBootResolver
 	global            sync.Mutex
+	poolReady         bool
 	locks             sync.Map
 	fault             func(string) error
 }
@@ -91,6 +92,45 @@ func (s *Service) artifactsFor(manifest string) (Artifacts, error) {
 
 func New(st *statepkg.Store, b kerf.Backend, a Artifacts) *Service {
 	return &Service{store: st, backend: b, artifacts: a}
+}
+
+// ensurePool and releasePool are called only while global is held. Keeping the
+// initialized pool across ordinary zero-sandbox intervals avoids repeatedly
+// requesting one large contiguous allocation from an increasingly fragmented
+// host. Failed first creates still roll their new pool back immediately.
+func (s *Service) ensurePool(ctx context.Context) error {
+	if s.poolReady {
+		return nil
+	}
+	if err := s.backend.EnsurePool(ctx); err != nil {
+		return err
+	}
+	s.poolReady = true
+	return nil
+}
+
+func (s *Service) releasePool(ctx context.Context) error {
+	if !s.poolReady {
+		return nil
+	}
+	if err := s.backend.ReleasePool(ctx); err != nil {
+		return err
+	}
+	s.poolReady = false
+	return nil
+}
+
+// ReleaseIdlePool returns daemon-owned CPUs and memory during graceful
+// shutdown, but never while a durable sandbox may still depend on the pool.
+func (s *Service) ReleaseIdlePool(ctx context.Context) error {
+	s.global.Lock()
+	defer s.global.Unlock()
+	for _, sandbox := range s.store.Snapshot().Sandboxes {
+		if sandbox.State != "ABSENT" {
+			return nil
+		}
+	}
+	return s.releasePool(ctx)
 }
 
 func preparedStorage(value *protocol.StorageConfig) storagepkg.PreparedImage {
@@ -290,9 +330,13 @@ func (s *Service) CancelCreate(ctx context.Context, c protocol.SandboxConfig, ke
 	// global allocation lock held, zero or one owner both mean no other
 	// sandbox can depend on the pool.
 	if len(s.store.Snapshot().Sandboxes) <= 1 {
+		// Release directly even when this process never observed EnsurePool
+		// succeed: a failed command can leave pool creation ambiguous, and this
+		// cancellation is the authenticated cleanup owner for that uncertainty.
 		if err = s.backend.ReleasePool(ctx); err != nil {
 			return false, apierr("BACKEND_FAILURE", "release canceled create pool", true)
 		}
+		s.poolReady = false
 	}
 	if err = s.store.AbortCreate(c.ID, key, fp, failure); err != nil {
 		return false, apierr("INTERNAL", "persist canceled create completion", true)
@@ -558,14 +602,14 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 			return e
 		}
 		if firstSandbox {
-			if e := s.backend.EnsurePool(ctx); e != nil {
+			if e := s.ensurePool(ctx); e != nil {
 				return e
 			}
 		}
 		if e := s.backend.Create(ctx, *current); e != nil {
 			var poolErr error
 			if firstSandbox {
-				poolErr = s.backend.ReleasePool(context.WithoutCancel(ctx))
+				poolErr = s.releasePool(context.WithoutCancel(ctx))
 			}
 			return errors.Join(e, poolErr)
 		}
@@ -573,7 +617,7 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 			deleteErr := s.backend.Delete(context.WithoutCancel(ctx), *current)
 			var poolErr error
 			if firstSandbox {
-				poolErr = s.backend.ReleasePool(context.WithoutCancel(ctx))
+				poolErr = s.releasePool(context.WithoutCancel(ctx))
 			}
 			return errors.Join(e, deleteErr, poolErr)
 		}
@@ -693,9 +737,6 @@ func (s *Service) Delete(ctx context.Context, id, gen, key string) (protocol.Mut
 			return e
 		}
 		current.State = "ABSENT"
-		if len(s.store.Snapshot().Sandboxes) == 1 {
-			return s.backend.ReleasePool(ctx)
-		}
 		return nil
 	})
 }
@@ -733,6 +774,14 @@ func (s *Service) Events(after uint64, limit uint32) ([]protocol.Event, *protoco
 	return events, nil
 }
 func (s *Service) Reconcile(ctx context.Context) error {
+	s.global.Lock()
+	defer s.global.Unlock()
+	// A daemon restart with durable sandboxes means the already configured pool
+	// is owned by those sandboxes. Reconciliation below verifies every instance
+	// before the service begins accepting requests.
+	if len(s.store.Snapshot().Sandboxes) != 0 {
+		s.poolReady = true
+	}
 	if s.storage != nil {
 		if err := s.storage.Reconcile(ctx); err != nil {
 			return fmt.Errorf("storage reconcile: %w", err)
@@ -823,7 +872,7 @@ func (s *Service) reconcileIncomplete(ctx context.Context, intent statepkg.Journ
 	switch intent.Method {
 	case "CreateSandbox":
 		if actual == "ABSENT" {
-			if err = s.backend.EnsurePool(ctx); err == nil {
+			if err = s.ensurePool(ctx); err == nil {
 				err = s.backend.Create(ctx, sandbox)
 			}
 		}
