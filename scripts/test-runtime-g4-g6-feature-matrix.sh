@@ -442,7 +442,7 @@ row terminal-mode
 # The earlier terminal row verifies allocation and initial sizing. These runs
 # wait for the guest to print its initial size, then mutate the already-live
 # client PTY and retain both values from inside the guest.
-resize_guest='trap '\''echo resized:$(stty size); exit 0'\'' WINCH; echo ready:$(stty size); while :; do sleep 1; done'
+resize_guest='trap '\''size=$(stty size); if [ "$size" = "37 91" ]; then echo resized:$size; exit 0; else echo ignored-resize:$size; fi'\'' WINCH; echo ready:$(stty size); while :; do sleep 1; done'
 "$(dirname "$0")/test-runtime-live-resize.py" --timeout 180 -- \
 	sudo ctr run --tty --runtime "$runtime" "$image" "$ctr_id" /bin/sh -c "$resize_guest"
 sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
