@@ -12,6 +12,7 @@ fi
 # recorded separately so an expected rejection is never presented as support.
 image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}
 runtime=${MK_RUNTIME:-io.containerd.multikernel.v2}
+kerf=${MK_KERF:-/opt/mkruntime/kerf-venv/bin/kerf}
 ctr_id=mk-matrix-ctr
 docker_name=mk-matrix-docker
 ctr_attach_id=mk-matrix-ctr-attach
@@ -117,7 +118,15 @@ observe() {
 }
 
 clean_inventory() {
-	printf 'children=%s links=%s nat_rules=%s filter_rules=%s ctr_tasks=%s moby_tasks=%s moby_containers=%s docker_containers=%s runtime_artifacts=%s rootfs_records=%s endpoints=%s shim_processes=%s helper_processes=%s' \
+	local kerf_state pool_configured
+	kerf_state=$(sudo "$kerf" show)
+	if grep -Fq 'No memory pool configured' <<<"$kerf_state"; then
+		pool_configured=0
+	else
+		pool_configured=1
+	fi
+	printf 'pool_configured=%s children=%s links=%s nat_rules=%s filter_rules=%s ctr_tasks=%s moby_tasks=%s moby_containers=%s docker_containers=%s runtime_artifacts=%s rootfs_records=%s endpoints=%s shim_processes=%s helper_processes=%s' \
+		"$pool_configured" \
 		"$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d | wc -l)" \
 		"$(ip -o link show | awk -F': ' '$2 ~ /^mkv[0-9a-f]+$/ {count++} END {print count+0}')" \
 		"$(sudo iptables -t nat -S POSTROUTING | grep -c '172\.31\.' || true)" \
@@ -133,13 +142,15 @@ clean_inventory() {
 		"$( (pgrep -f '^/usr/local/libexec/multikernel/(mkvsock-nbd|mk-agent-relay)' || true) | wc -l)"
 }
 
-clean_expected='children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0'
+clean_resources='children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0'
+clean_released="pool_configured=0 $clean_resources"
+clean_retained="pool_configured=1 $clean_resources"
 
 wait_for_clean_inventory() {
-	local inventory=
+	local expected=$1 inventory=
 	for _ in $(seq 1 120); do
 		inventory=$(clean_inventory)
-		if [[ $inventory = "$clean_expected" ]]; then
+		if [[ $inventory = "$expected" ]]; then
 			printf '%s' "$inventory"
 			return 0
 		fi
@@ -150,8 +161,8 @@ wait_for_clean_inventory() {
 }
 
 assert_clean_inventory() {
-	local key=$1 inventory
-	if ! inventory=$(wait_for_clean_inventory); then
+	local key=$1 expected=$2 inventory
+	if ! inventory=$(wait_for_clean_inventory "$expected"); then
 		observe "$key" "$inventory"
 		return 1
 	fi
@@ -172,7 +183,7 @@ test -x /usr/local/bin/containerd-shim-multikernel-v2
 test -c /dev/net/tun
 cleanup
 wait_for_clean_host
-assert_clean_inventory initial-clean-inventory
+assert_clean_inventory initial-clean-inventory "$clean_released"
 
 sudo ctr images pull "$image" >/dev/null
 sudo docker image inspect "$image" >/dev/null 2>&1 || sudo docker pull "$image" >/dev/null
@@ -309,7 +320,7 @@ sudo ctr tasks rm "$ctr_id" >/dev/null
 sudo ctr containers rm "$ctr_id"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
-assert_clean_inventory post-delete-clean-inventory
+assert_clean_inventory post-delete-clean-inventory "$clean_retained"
 row delete-and-resource-cleanup
 
 # Standard clients emit different read-only bind option sets: ctr supplies an
@@ -342,7 +353,7 @@ test "$(cat "$bind_root/docker-file")" = docker-file-immutable
 observe readonly-bind-inputs "ctr=$ctr_bind_output docker=$docker_bind_output ctr_host=$(cat "$bind_root/ctr/value") ctr_file=$(cat "$bind_root/ctr-file") docker_host=$(cat "$bind_root/docker/value") docker_file=$(cat "$bind_root/docker-file")"
 rm -rf -- "$bind_root"
 bind_root=
-assert_clean_inventory post-bind-clean-inventory
+assert_clean_inventory post-bind-clean-inventory "$clean_retained"
 row readonly-bind-inputs
 
 # Foreground run, init stdout/stderr, and nonzero exit are proved using the
@@ -452,7 +463,14 @@ wait_for_clean_host
 	sudo docker run --tty --runtime "$runtime" "${docker_isolation[@]}" --name "$docker_name" "$image" /bin/sh -c "$resize_guest"
 sudo docker rm "$docker_name" >/dev/null
 wait_for_clean_host
-assert_clean_inventory final-clean-inventory
+assert_clean_inventory pre-shutdown-clean-inventory "$clean_retained"
+daemon_pid_before=$(systemctl show -p MainPID --value mkruntimed)
+sudo systemctl restart mkruntimed
+test "$(systemctl is-active mkruntimed)" = active
+daemon_pid_after=$(systemctl show -p MainPID --value mkruntimed)
+test "$daemon_pid_after" != "$daemon_pid_before"
+observe idle-pool-release "mkruntimed_pid_before=$daemon_pid_before mkruntimed_pid_after=$daemon_pid_after"
+assert_clean_inventory final-clean-inventory "$clean_released"
 row post-start-terminal-resize
 
 trap - EXIT
