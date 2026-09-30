@@ -5635,6 +5635,47 @@ func TestSupervisorRestartsSignaledWorker(t *testing.T) {
 	}
 }
 
+func TestShimConnectionBridgeSurvivesWorkerReplacement(t *testing.T) {
+	client, stable := net.Pipe()
+	defer client.Close()
+	defer stable.Close()
+	bridge := newShimConnectionBridge(stable)
+	deadline := time.Now().Add(5 * time.Second)
+	if err := client.SetDeadline(deadline); err != nil {
+		t.Fatal(err)
+	}
+
+	for generation, values := range [][2]string{{"request-one", "response-one"}, {"request-two", "response-two"}} {
+		proxy, worker := net.Pipe()
+		if err := worker.SetDeadline(deadline); err != nil {
+			t.Fatal(err)
+		}
+		done := make(chan error, 1)
+		go func() { done <- bridge.serveWorker(proxy) }()
+
+		if _, err := client.Write([]byte(values[0])); err != nil {
+			t.Fatalf("generation %d client write: %v", generation, err)
+		}
+		request := make([]byte, len(values[0]))
+		if _, err := io.ReadFull(worker, request); err != nil || string(request) != values[0] {
+			t.Fatalf("generation %d worker request = %q, %v", generation, request, err)
+		}
+		go func(value string) { _, _ = worker.Write([]byte(value)) }(values[1])
+		response := make([]byte, len(values[1]))
+		if _, err := io.ReadFull(client, response); err != nil || string(response) != values[1] {
+			t.Fatalf("generation %d client response = %q, %v", generation, response, err)
+		}
+		if err := worker.Close(); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("generation %d proxy did not observe worker close", generation)
+		}
+	}
+}
+
 func TestInitialSupervisorCommandUsesHeldBundleAfterPublicReplacement(t *testing.T) {
 	base := privateTestDirectory(t)
 	bundle := filepath.Join(base, "bundle")
