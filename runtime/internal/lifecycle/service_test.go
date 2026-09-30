@@ -367,6 +367,23 @@ func TestCancelCreateRetriesUncertainFirstPoolRelease(t *testing.T) {
 	}
 }
 
+func TestCancelCreateReleasesAmbiguousPoolInitialization(t *testing.T) {
+	service, store, backend := setup(t)
+	defer store.Close()
+	candidate := config("box-a", 8, 7001)
+	backend.failures = map[string]error{"pool": errors.New("ambiguous pool initialization failure")}
+	if _, apiErr := service.Create(context.Background(), candidate, "create-key"); apiErr == nil || apiErr.Code != "BACKEND_FAILURE" {
+		t.Fatalf("Create() error = %+v", apiErr)
+	}
+	delete(backend.failures, "pool")
+	if safe, apiErr := service.CancelCreate(context.Background(), candidate, "create-key"); apiErr != nil || !safe {
+		t.Fatalf("CancelCreate() = %v, %+v", safe, apiErr)
+	}
+	if !reflect.DeepEqual(backend.calls, []string{"pool:", "release:"}) {
+		t.Fatalf("backend calls = %v", backend.calls)
+	}
+}
+
 func (f *fake) call(n, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -945,6 +962,44 @@ func TestSecondSandboxDoesNotReinitializePool(t *testing.T) {
 	}
 	if poolCalls != 1 {
 		t.Fatalf("pool initialized %d times", poolCalls)
+	}
+}
+
+func TestPoolPersistsAcrossSequentialSandboxesUntilIdleShutdown(t *testing.T) {
+	s, st, backend := setup(t)
+	defer st.Close()
+	ctx := context.Background()
+	for index, id := range []string{"box-a", "box-b"} {
+		created, apiErr := s.Create(ctx, config(id, 8+index*2, 7001+index), "create-"+id)
+		if apiErr != nil {
+			t.Fatal(apiErr)
+		}
+		if _, apiErr = s.Delete(ctx, id, created.Sandbox.Generation, "delete-"+id); apiErr != nil {
+			t.Fatal(apiErr)
+		}
+	}
+	if got := strings.Join(backend.calls, ","); got != "pool:,create:box-a,delete:box-a,create:box-b,delete:box-b" {
+		t.Fatalf("backend calls before shutdown = %s", got)
+	}
+	if err := s.ReleaseIdlePool(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(backend.calls, ","); got != "pool:,create:box-a,delete:box-a,create:box-b,delete:box-b,release:" {
+		t.Fatalf("backend calls after shutdown = %s", got)
+	}
+}
+
+func TestIdlePoolReleasePreservesLiveSandbox(t *testing.T) {
+	s, st, backend := setup(t)
+	defer st.Close()
+	if _, apiErr := s.Create(context.Background(), config("box-a", 8, 7001), "create"); apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	if err := s.ReleaseIdlePool(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(backend.calls, ","); got != "pool:,create:box-a" {
+		t.Fatalf("live sandbox pool was released: %s", got)
 	}
 }
 

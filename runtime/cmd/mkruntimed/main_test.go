@@ -57,3 +57,23 @@ func TestValidatePoolReport(t *testing.T) {
 		t.Fatal("unqualified host accepted")
 	}
 }
+
+func TestRecoverableIdlePool(t *testing.T) {
+	exact := hostcheck.Report{PoolConfigured: true, StaleResources: []string{"configured Kerf pool has no matching instance"}}
+	if !recoverableIdlePool(exact) {
+		t.Fatal("exact idle daemon-owned pool was not recoverable")
+	}
+	for name, report := range map[string]hostcheck.Report{
+		"instance": {PoolConfigured: true, Instances: []string{"box-a"}, StaleResources: exact.StaleResources},
+		"extra-stale": {PoolConfigured: true, StaleResources: []string{
+			"configured Kerf pool has no matching instance", "unmatched /proc/kimage entry box-a",
+		}},
+		"no-pool": {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if recoverableIdlePool(report) {
+				t.Fatal("unsafe idle-pool recovery accepted")
+			}
+		})
+	}
+}
