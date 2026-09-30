@@ -39,6 +39,33 @@ class DockerConfigTests(unittest.TestCase):
         self.assertEqual(removed.returncode, 0, removed.stderr)
         self.assertEqual(json.loads(final.read_text()), {})
 
+    def test_live_restore_is_explicit_idempotent_and_preserves_settings(self):
+        source = {"default-runtime": "runc", "log-level": "warn"}
+        result, output = self.run_merge(json.dumps(source), "--enable-live-restore")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        value = json.loads(output.read_text())
+        self.assertIs(value["live-restore"], True)
+        self.assertEqual(value["default-runtime"], "runc")
+        self.assertEqual(value["log-level"], "warn")
+        self.assertEqual(value["runtimes"][RUNTIME], {"runtimeType": RUNTIME})
+
+        repeated, repeated_output = self.run_merge(output.read_text(), "--enable-live-restore")
+        self.assertEqual(repeated.returncode, 0, repeated.stderr)
+        self.assertEqual(json.loads(repeated_output.read_text()), value)
+
+    def test_live_restore_refuses_conflicting_existing_policy(self):
+        for existing in (False, "true", 1, {}):
+            result, output = self.run_merge(
+                json.dumps({"live-restore": existing}), "--enable-live-restore")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(output.exists())
+
+    def test_live_restore_and_remove_are_mutually_exclusive(self):
+        result, output = self.run_merge(
+            "{}", "--enable-live-restore", "--remove")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(output.exists())
+
     def test_rejects_duplicate_keys_and_conflicting_entry(self):
         for source in (
             '{"runtimes":{},"runtimes":{}}',
