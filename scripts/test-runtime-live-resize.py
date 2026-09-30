@@ -44,6 +44,7 @@ def main():
     ready = f"ready:{args.initial_rows} {args.initial_columns}".encode()
     resized = f"resized:{args.resize_rows} {args.resize_columns}".encode()
     resize_sent = False
+    last_resize_signal = 0.0
     try:
         while time.monotonic() < deadline:
             readable, _, _ = select.select([master], [], [], 0.1)
@@ -73,6 +74,16 @@ def main():
                 set_size(master, args.resize_rows, args.resize_columns)
                 os.killpg(process.pid, signal.SIGWINCH)
                 resize_sent = True
+                last_resize_signal = time.monotonic()
+            # Docker and a guest PTY can each emit an earlier WINCH while the
+            # initial size is still being established. Reapply the idempotent
+            # requested size until the guest observes it instead of treating
+            # one coalesced/asynchronous signal as decisive.
+            if (resize_sent and resized not in normalized and process.poll() is None and
+                    time.monotonic() - last_resize_signal >= 0.5):
+                set_size(master, args.resize_rows, args.resize_columns)
+                os.killpg(process.pid, signal.SIGWINCH)
+                last_resize_signal = time.monotonic()
             if resize_sent and resized in normalized:
                 break
             if process.poll() is not None and not readable:
