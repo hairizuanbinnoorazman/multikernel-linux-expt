@@ -37,7 +37,7 @@ def load(path: Path) -> dict:
     return value
 
 
-def merge(value: dict, remove: bool) -> dict:
+def merge(value: dict, remove: bool, enable_live_restore: bool = False) -> dict:
     value = dict(value)
     runtimes = value.get("runtimes", {})
     if not isinstance(runtimes, dict):
@@ -57,6 +57,11 @@ def merge(value: dict, remove: bool) -> dict:
     else:
         value.pop("runtimes", None)
     # Deliberately do not add, remove, or rewrite default-runtime.
+    if enable_live_restore:
+        existing = value.get("live-restore")
+        if existing is not None and existing is not True:
+            raise ConfigError("conflicting Docker live-restore setting already exists")
+        value["live-restore"] = True
     return value
 
 
@@ -64,10 +69,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--remove", action="store_true")
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument("--remove", action="store_true")
+    operation.add_argument("--enable-live-restore", action="store_true")
     args = parser.parse_args()
     try:
-        result = merge(load(args.input), args.remove)
+        result = merge(load(args.input), args.remove, args.enable_live_restore)
         with args.output.open("x", encoding="utf-8") as stream:
             stream.write(json.dumps(result, sort_keys=True, indent=2) + "\n")
     except (ConfigError, OSError) as error:

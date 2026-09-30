@@ -136,6 +136,21 @@ is the stronger rollback. Do not restart containerd or Docker until their
 current task inventories are empty or the restart-continuity matrix is the
 explicit purpose of the disposable-host run.
 
+Docker daemon restart continuity additionally requires Docker live restore.
+This is an explicit operator policy, not a side effect of registering the
+runtime. On a disposable qualification host, generate and validate a candidate
+with `--enable-live-restore`; the merger accepts an absent or already-true
+setting and refuses a conflicting value:
+
+```bash
+./scripts/merge-runtime-docker-config.py --enable-live-restore \
+  /etc/docker/daemon.json "$candidate"
+sudo dockerd --validate --config-file "$candidate"
+```
+
+Retain the exact previous configuration before installing the candidate so the
+policy change can be rolled back byte-for-byte after qualification.
+
 Install a strict `/etc/mkruntime/config.json` from the documented host-config
 contract, mount the qualified `mk-mediated-storage` filesystem at
 `/srv/multikernel-storage`, and install the rootfs builder, NBD helper, guest

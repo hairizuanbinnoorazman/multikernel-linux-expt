@@ -12,7 +12,9 @@ to a stable remote path. For the thematic mapping, see
   `test-mediated-*`.
 - Runtime gates: `test-runtime-g1.sh`, `test-runtime-g2.sh`,
   `test-runtime-g3.sh`, `test-runtime-g4-g6.sh`,
-  `test-runtime-g4-g6-feature-matrix.sh`, and `test-runtime-recovery.sh`.
+  `test-runtime-g4-g6-feature-matrix.sh`,
+  `test-runtime-containerd-restart-live.sh`,
+  `test-runtime-docker-restart-live.sh`, and `test-runtime-recovery.sh`.
 - Repository checks: `check-docs.sh`.
 
 Destructive and billable operations must remain explicit Makefile targets;
