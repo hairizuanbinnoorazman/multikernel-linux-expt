@@ -4755,7 +4755,200 @@ func superviseShimWorker() int {
 		return 1
 	}
 	defer directory.Close()
-	return superviseShimWorkerWithDirectory(listener, self, os.Args[1:], directory.ProcPath(), os.Environ(), directory)
+	publicListener, err := net.FileListener(listener)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: open inherited listener: %v\n", err)
+		return 1
+	}
+	_ = listener.Close()
+	containerdConnection, err := publicListener.Accept()
+	_ = publicListener.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: accept containerd connection: %v\n", err)
+		return 1
+	}
+	defer containerdConnection.Close()
+	return superviseProxiedShimWorkerWithDirectory(containerdConnection, self, os.Args[1:], directory.ProcPath(), os.Environ(), directory)
+}
+
+type shimConnectionBridge struct {
+	containerd net.Conn
+	requests   chan []byte
+	clientErr  chan error
+}
+
+func newShimConnectionBridge(containerd net.Conn) *shimConnectionBridge {
+	bridge := &shimConnectionBridge{
+		containerd: containerd,
+		requests:   make(chan []byte, 32),
+		clientErr:  make(chan error, 1),
+	}
+	go func() {
+		for {
+			buffer := make([]byte, 32*1024)
+			n, err := containerd.Read(buffer)
+			if n != 0 {
+				bridge.requests <- buffer[:n]
+			}
+			if err != nil {
+				bridge.clientErr <- err
+				return
+			}
+		}
+	}()
+	return bridge
+}
+
+func writeFull(output io.Writer, value []byte) error {
+	for len(value) != 0 {
+		written, err := output.Write(value)
+		if err != nil {
+			return err
+		}
+		if written == 0 {
+			return io.ErrShortWrite
+		}
+		value = value[written:]
+	}
+	return nil
+}
+
+func (b *shimConnectionBridge) serveWorker(worker net.Conn) error {
+	responses := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(b.containerd, worker)
+		responses <- err
+	}()
+	for {
+		select {
+		case request := <-b.requests:
+			if err := writeFull(worker, request); err != nil {
+				return err
+			}
+		case err := <-responses:
+			return err
+		case err := <-b.clientErr:
+			return fmt.Errorf("containerd connection: %w", err)
+		}
+	}
+}
+
+func privateShimListener() (*net.UnixListener, *os.File, string, error) {
+	var nonce [16]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return nil, nil, "", fmt.Errorf("generate private listener identity: %w", err)
+	}
+	address := "\x00multikernel-shim-" + hex.EncodeToString(nonce[:])
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: address, Net: "unix"})
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("listen on private worker socket: %w", err)
+	}
+	file, err := listener.File()
+	if err != nil {
+		_ = listener.Close()
+		return nil, nil, "", fmt.Errorf("duplicate private worker listener: %w", err)
+	}
+	return listener, file, address, nil
+}
+
+func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory) int {
+	bridge := newShimConnectionBridge(containerdConnection)
+	var err error
+	pidName := ".multikernel-worker.pid"
+	bundleIdentity := directory.Identity()
+	workerEnvironment := append(environment,
+		"MK_SHIM_BUNDLE_DEVICE="+strconv.FormatUint(bundleIdentity.Device, 10),
+		"MK_SHIM_BUNDLE_INODE="+strconv.FormatUint(bundleIdentity.Inode, 10),
+		"MK_SHIM_BUNDLE_UID="+strconv.FormatUint(uint64(bundleIdentity.UID), 10))
+	var pidIdentity safefile.Identity
+	pidOwned := false
+	removePID := func() error {
+		if !pidOwned {
+			return nil
+		}
+		_, removeErr := directory.RemoveIfIdentity(pidName, pidIdentity)
+		if removeErr == nil {
+			pidOwned = false
+		}
+		return removeErr
+	}
+	defer func() { _ = removePID() }()
+	if _, present, _, staleIdentity, readErr := directory.ReadPrivateOrQuarantineIdentity(pidName, 64); readErr != nil {
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: inspect worker PID residue: %v\n", readErr)
+		return 1
+	} else if present {
+		if _, err = directory.RemoveIfIdentity(pidName, staleIdentity); err != nil {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID residue: %v\n", err)
+			return 1
+		}
+	}
+	for attempt := 0; attempt < 10; attempt++ {
+		privateListener, listenerFile, address, listenErr := privateShimListener()
+		if listenErr != nil {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: prepare private worker listener: %v\n", listenErr)
+			return 1
+		}
+		cmd := exec.Command(self, arguments...)
+		cmd.Dir = directory.ProcPath()
+		cmd.Env = append(workerEnvironment, "MK_SHIM_WORKER=1")
+		cmd.ExtraFiles = []*os.File{listenerFile}
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+		cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
+		if err = cmd.Start(); err != nil {
+			_ = listenerFile.Close()
+			_ = privateListener.Close()
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: start worker: %v\n", err)
+			return 1
+		}
+		_ = listenerFile.Close()
+		workerConnection, dialErr := net.DialTimeout("unix", address, 5*time.Second)
+		_ = privateListener.Close()
+		if dialErr != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: connect private worker listener: %v\n", dialErr)
+			return 1
+		}
+		created, published, publishErr := directory.PublishExclusiveIdentity(pidName,
+			[]byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0600)
+		if publishErr != nil || !created {
+			_ = workerConnection.Close()
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: publish worker PID: created=%v error=%v\n", created, publishErr)
+			return 1
+		}
+		pidIdentity, pidOwned = published, true
+		proxyDone := make(chan error, 1)
+		go func() { proxyDone <- bridge.serveWorker(workerConnection) }()
+		err = cmd.Wait()
+		_ = workerConnection.Close()
+		proxyErr := <-proxyDone
+		if removeErr := removePID(); removeErr != nil {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID: %v\n", removeErr)
+			return 1
+		}
+		if err == nil {
+			return 0
+		}
+		var exitError *exec.ExitError
+		if !errors.As(err, &exitError) {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: wait worker: %v\n", err)
+			return 1
+		}
+		status, ok := exitError.Sys().(syscall.WaitStatus)
+		if !ok || !status.Signaled() {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker exited without a recoverable signal: %v\n", err)
+			return exitError.ExitCode()
+		}
+		if proxyErr != nil && !errors.Is(proxyErr, net.ErrClosed) && !errors.Is(proxyErr, io.EOF) {
+			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker proxy: %v\n", proxyErr)
+		}
+		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker pid=%d signal=%s restart_attempt=%d\n", cmd.Process.Pid, status.Signal(), attempt+1)
+		time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
+	}
+	fmt.Fprintln(os.Stderr, "multikernel shim supervisor: restart budget exhausted")
+	return 1
 }
 
 func superviseShimWorkerWith(listener *os.File, self string, arguments []string, workingDirectory string, environment []string) int {
