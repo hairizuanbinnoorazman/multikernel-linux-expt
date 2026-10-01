@@ -105,8 +105,14 @@ observe daemon-durable-after "$durable_after"; observe mkruntimed-service-journa
 sudo ctr task exec --exec-id daemon-release "$task_id" /bin/touch /tmp/restart-release
 wait "$attach_pid"; attach_pid=; stream_value=$(<"$stream")
 for marker in daemon-before daemon-before-err daemon-after daemon-after-err; do grep -Fxq "$marker" <<<"$stream_value"; done; observe continuous-stream "$stream_value"
-for _ in $(seq 1 120); do state=$(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $3}'); [[ $state = STOPPED ]] && break; sleep .25; done; [[ $state = STOPPED ]]
-sudo ctr tasks rm "$task_id" >/dev/null; sudo ctr containers rm "$task_id"; sleep 2; stop_reader "$event_pid"; event_pid=
+for _ in $(seq 1 120); do
+	state=$(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $3}')
+	[[ $state = STOPPED ]] && break
+	if ! sudo ctr tasks list -q | grep -Fxq "$task_id"; then state=ABSENT; break; fi
+	sleep .25
+done
+if [[ $state = STOPPED ]]; then sudo ctr tasks rm "$task_id" >/dev/null; else [[ $state = ABSENT ]]; fi
+sudo ctr containers rm "$task_id"; sleep 2; stop_reader "$event_pid"; event_pid=
 for topic in /tasks/create /tasks/start /tasks/exit /tasks/delete; do grep -Fq "$topic" "$events"; done; observe task-events "$(grep -F "$task_id" "$events")"
 observe retained-final "$(wait_inventory "$clean_retained")"
 idle_pid=$(systemctl show -p MainPID --value mkruntimed); sudo systemctl restart mkruntimed; released_pid=$(systemctl show -p MainPID --value mkruntimed); [[ $released_pid != "$idle_pid" ]]
