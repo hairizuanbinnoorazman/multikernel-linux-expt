@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -4772,28 +4773,72 @@ func superviseShimWorker() int {
 }
 
 type shimConnectionBridge struct {
-	containerd net.Conn
-	requests   chan []byte
-	clientErr  chan error
+	containerd  net.Conn
+	requests    chan ttrpcFrame
+	clientErr   chan error
+	pending     map[uint32][][]byte
+	pendingSize int
+}
+
+const (
+	ttrpcHeaderLength = 10
+	ttrpcPayloadMax   = 4 << 20
+	ttrpcRequest      = 0x1
+	ttrpcResponse     = 0x2
+	ttrpcData         = 0x3
+	ttrpcRemoteClosed = 0x1
+	ttrpcPendingMax   = 256
+	ttrpcPendingBytes = 64 << 20
+)
+
+type ttrpcFrame struct {
+	streamID uint32
+	typeID   byte
+	flags    byte
+	encoded  []byte
+}
+
+func readTTRPCFrame(input io.Reader) (ttrpcFrame, error) {
+	header := make([]byte, ttrpcHeaderLength)
+	if _, err := io.ReadFull(input, header); err != nil {
+		return ttrpcFrame{}, err
+	}
+	length := binary.BigEndian.Uint32(header[:4])
+	if length > ttrpcPayloadMax {
+		return ttrpcFrame{}, fmt.Errorf("TTRPC frame length %d exceeds limit", length)
+	}
+	encoded := make([]byte, ttrpcHeaderLength+int(length))
+	copy(encoded, header)
+	if _, err := io.ReadFull(input, encoded[ttrpcHeaderLength:]); err != nil {
+		return ttrpcFrame{}, err
+	}
+	return ttrpcFrame{
+		streamID: binary.BigEndian.Uint32(header[4:8]),
+		typeID:   header[8],
+		flags:    header[9],
+		encoded:  encoded,
+	}, nil
+}
+
+func (f ttrpcFrame) terminalResponse() bool {
+	return f.typeID == ttrpcResponse || f.typeID == ttrpcData && f.flags&ttrpcRemoteClosed != 0
 }
 
 func newShimConnectionBridge(containerd net.Conn) *shimConnectionBridge {
 	bridge := &shimConnectionBridge{
 		containerd: containerd,
-		requests:   make(chan []byte, 32),
+		requests:   make(chan ttrpcFrame, 32),
 		clientErr:  make(chan error, 1),
+		pending:    make(map[uint32][][]byte),
 	}
 	go func() {
 		for {
-			buffer := make([]byte, 32*1024)
-			n, err := containerd.Read(buffer)
-			if n != 0 {
-				bridge.requests <- buffer[:n]
-			}
+			frame, err := readTTRPCFrame(containerd)
 			if err != nil {
 				bridge.clientErr <- err
 				return
 			}
+			bridge.requests <- frame
 		}
 	}()
 	return bridge
@@ -4814,18 +4859,67 @@ func writeFull(output io.Writer, value []byte) error {
 }
 
 func (b *shimConnectionBridge) serveWorker(worker net.Conn) error {
-	responses := make(chan error, 1)
+	streamIDs := make([]uint32, 0, len(b.pending))
+	for streamID := range b.pending {
+		streamIDs = append(streamIDs, streamID)
+	}
+	sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
+	for _, streamID := range streamIDs {
+		for _, encoded := range b.pending[streamID] {
+			if err := writeFull(worker, encoded); err != nil {
+				return err
+			}
+		}
+	}
+	responses := make(chan ttrpcFrame, 32)
+	workerErr := make(chan error, 1)
 	go func() {
-		_, err := io.Copy(b.containerd, worker)
-		responses <- err
+		for {
+			frame, err := readTTRPCFrame(worker)
+			if err != nil {
+				workerErr <- err
+				return
+			}
+			responses <- frame
+		}
 	}()
 	for {
 		select {
-		case request := <-b.requests:
-			if err := writeFull(worker, request); err != nil {
+		case frame := <-b.requests:
+			if frame.typeID == ttrpcRequest {
+				if _, exists := b.pending[frame.streamID]; exists {
+					return fmt.Errorf("duplicate pending TTRPC stream %d", frame.streamID)
+				}
+				if len(b.pending) >= ttrpcPendingMax {
+					return errors.New("pending TTRPC stream limit exceeded")
+				}
+				b.pending[frame.streamID] = nil
+			} else if frame.typeID == ttrpcData {
+				if _, exists := b.pending[frame.streamID]; !exists {
+					return fmt.Errorf("TTRPC data for unknown stream %d", frame.streamID)
+				}
+			}
+			if frame.typeID == ttrpcRequest || frame.typeID == ttrpcData {
+				if len(frame.encoded) > ttrpcPendingBytes-b.pendingSize {
+					return errors.New("pending TTRPC replay byte limit exceeded")
+				}
+				b.pending[frame.streamID] = append(b.pending[frame.streamID], append([]byte(nil), frame.encoded...))
+				b.pendingSize += len(frame.encoded)
+			}
+			if err := writeFull(worker, frame.encoded); err != nil {
 				return err
 			}
-		case err := <-responses:
+		case frame := <-responses:
+			if err := writeFull(b.containerd, frame.encoded); err != nil {
+				return fmt.Errorf("write containerd response: %w", err)
+			}
+			if frame.terminalResponse() {
+				for _, encoded := range b.pending[frame.streamID] {
+					b.pendingSize -= len(encoded)
+				}
+				delete(b.pending, frame.streamID)
+			}
+		case err := <-workerErr:
 			return err
 		case err := <-b.clientErr:
 			return fmt.Errorf("containerd connection: %w", err)

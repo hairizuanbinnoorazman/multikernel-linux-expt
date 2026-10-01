@@ -16,13 +16,23 @@ reconnect_id=mk-shim-reconnect
 reclaim_id=mk-shim-reclaim
 scratch=$(mktemp -d)
 events=$scratch/reconnect-events.log
+stream=$scratch/reconnect-stream.log
 event_pid=
+attach_pid=
 
 stop_event_reader() {
 	if [[ -n ${event_pid:-} ]]; then
 		kill "$event_pid" >/dev/null 2>&1 || true
 		wait "$event_pid" >/dev/null 2>&1 || true
 		event_pid=
+	fi
+}
+
+stop_attach_reader() {
+	if [[ -n ${attach_pid:-} ]]; then
+		kill "$attach_pid" >/dev/null 2>&1 || true
+		wait "$attach_pid" >/dev/null 2>&1 || true
+		attach_pid=
 	fi
 }
 
@@ -41,6 +51,7 @@ cleanup_id() {
 cleanup() {
 	set +e
 	stop_event_reader
+	stop_attach_reader
 	cleanup_id "$reconnect_id"
 	cleanup_id "$reclaim_id"
 	rm -rf -- "$scratch"
@@ -191,13 +202,25 @@ sudo timeout 900 stdbuf -oL ctr events >"$events" 2>&1 &
 event_pid=$!
 sleep 1
 sudo ctr run --detach --runtime "$runtime" "$image" "$reconnect_id" /bin/sh -c \
-	'echo reconnect-init-before; echo reconnect-init-before-err >&2; while [ ! -e /tmp/recovery-release ]; do sleep 1; done; echo reconnect-init-after; echo reconnect-init-after-err >&2'
+	'while [ ! -e /tmp/stream-ready ]; do sleep 1; done; echo reconnect-init-before; echo reconnect-init-before-err >&2; while [ ! -e /tmp/recovery-release ]; do sleep 1; done; echo reconnect-init-after; echo reconnect-init-after-err >&2'
 for _ in $(seq 1 480); do
 	reconnect_state=$(sudo ctr tasks list | awk -v id="$reconnect_id" '$1 == id {print $3}')
 	[[ $reconnect_state = RUNNING ]] && break
 	sleep .25
 done
 [[ $reconnect_state = RUNNING ]]
+sudo timeout 600 ctr tasks attach "$reconnect_id" >"$stream" 2>&1 &
+attach_pid=$!
+sleep 1
+sudo ctr task exec --exec-id shim-stream-ready "$reconnect_id" /bin/touch /tmp/stream-ready
+for _ in $(seq 1 120); do
+	if grep -Fxq reconnect-init-before "$stream" && grep -Fxq reconnect-init-before-err "$stream"; then
+		break
+	fi
+	sleep .25
+done
+grep -Fxq reconnect-init-before "$stream"
+grep -Fxq reconnect-init-before-err "$stream"
 reconnect_holder_before=$(task_holder_pid "$reconnect_id")
 reconnect_worker_before=$(parent_pid "$reconnect_holder_before")
 reconnect_supervisor=$(parent_pid "$reconnect_worker_before")
@@ -248,7 +271,9 @@ observe reconnect-after "supervisor_pid=$reconnect_supervisor old_worker_pid=$re
 observe reconnect-journal "$(filtered_containerd_journal "$reconnect_fault_started" "$reconnect_id")"
 
 sudo ctr task exec --exec-id shim-release "$reconnect_id" /bin/touch /tmp/recovery-release
-reconnect_stream=$(sudo ctr tasks attach "$reconnect_id" 2>&1)
+wait "$attach_pid"
+attach_pid=
+reconnect_stream=$(<"$stream")
 for marker in reconnect-init-before reconnect-init-before-err reconnect-init-after reconnect-init-after-err; do
 	grep -Fxq "$marker" <<<"$reconnect_stream"
 done
