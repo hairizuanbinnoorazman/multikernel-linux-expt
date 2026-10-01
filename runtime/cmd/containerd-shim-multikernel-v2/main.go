@@ -55,6 +55,8 @@ import (
 
 const runtimeName = "io.containerd.multikernel.v2"
 const runtimeInfoInputLimit = 1 << 20
+const fifoKeeperMode = "--multikernel-fifo-keeper"
+const fifoKeeperGrace = 15 * time.Second
 
 var runtimeIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 var guestProcessIdentifier = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
@@ -3300,14 +3302,94 @@ func openOutput(ctx context.Context, path string, expected processIOIdentity) (i
 	if err != nil {
 		return nil, nil, err
 	}
+	keeper, err := startOutputFIFOKeeper(guard, fifoKeeperGrace)
+	if err != nil {
+		_ = guard.Close()
+		return nil, nil, err
+	}
 	w, err := openKnownProcessIOPath(ctx, path, unix.O_WRONLY|unix.O_NONBLOCK, expected)
 	if err != nil {
-		guard.Close()
+		_ = keeper.Close()
 		return nil, nil, err
 	}
 	// A later containerd attach can reopen the same FIFO and consume buffered
-	// and future guest output; this guard never reads from the FIFO.
-	return w, guard, nil
+	// and future guest output.  The helper retains a duplicate of the guard for
+	// a bounded handoff interval if this worker is killed, preventing the
+	// existing containerd reader from observing EOF before a replacement worker
+	// reopens the FIFO.  It never reads from the FIFO.
+	return w, keeper, nil
+}
+
+type outputFIFOKeeper struct {
+	guard   *os.File
+	control *os.File
+	command *exec.Cmd
+	once    sync.Once
+	err     error
+}
+
+func startOutputFIFOKeeper(guard *os.File, grace time.Duration) (*outputFIFOKeeper, error) {
+	if guard == nil || grace < time.Millisecond || grace > time.Minute {
+		return nil, errors.New("invalid output FIFO keeper configuration")
+	}
+	controlReader, controlWriter, err := os.Pipe()
+	if err != nil {
+		return nil, fmt.Errorf("create output FIFO keeper control: %w", err)
+	}
+	self, err := os.Executable()
+	if err != nil {
+		_ = controlReader.Close()
+		_ = controlWriter.Close()
+		return nil, fmt.Errorf("resolve output FIFO keeper executable: %w", err)
+	}
+	command := exec.Command(self, fifoKeeperMode, strconv.FormatInt(grace.Milliseconds(), 10))
+	command.ExtraFiles = []*os.File{guard, controlReader}
+	if err = command.Start(); err != nil {
+		_ = controlReader.Close()
+		_ = controlWriter.Close()
+		return nil, fmt.Errorf("start output FIFO keeper: %w", err)
+	}
+	_ = controlReader.Close()
+	return &outputFIFOKeeper{guard: guard, control: controlWriter, command: command}, nil
+}
+
+func (k *outputFIFOKeeper) Close() error {
+	if k == nil {
+		return nil
+	}
+	k.once.Do(func() {
+		_, signalErr := k.control.Write([]byte{1})
+		controlErr := k.control.Close()
+		guardErr := k.guard.Close()
+		waitErr := k.command.Wait()
+		k.err = errors.Join(signalErr, controlErr, guardErr, waitErr)
+	})
+	return k.err
+}
+
+func runOutputFIFOKeeper(arguments []string) int {
+	if len(arguments) != 1 {
+		return 2
+	}
+	milliseconds, err := strconv.ParseInt(arguments[0], 10, 64)
+	if err != nil || milliseconds < 1 || milliseconds > int64(time.Minute/time.Millisecond) {
+		return 2
+	}
+	guard := os.NewFile(3, "output-fifo-guard")
+	control := os.NewFile(4, "output-fifo-control")
+	if guard == nil || control == nil {
+		return 2
+	}
+	defer guard.Close()
+	defer control.Close()
+	var message [1]byte
+	if count, _ := control.Read(message[:]); count == 1 {
+		return 0
+	}
+	// EOF means the worker died without its explicit close notification.  Keep
+	// the writer endpoint alive only for the bounded replacement interval.
+	time.Sleep(time.Duration(milliseconds) * time.Millisecond)
+	return 0
 }
 
 func (s *service) openProcessIO(ctx context.Context, p *process) (err error) {
@@ -5164,6 +5246,9 @@ func writeRuntimeInfo(input io.Reader, output io.Writer) error {
 }
 
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == fifoKeeperMode {
+		os.Exit(runOutputFIFOKeeper(os.Args[2:]))
+	}
 	if len(os.Args) == 2 && os.Args[1] == namespaceHolderMode {
 		os.Exit(runNamespaceHolder())
 	}
