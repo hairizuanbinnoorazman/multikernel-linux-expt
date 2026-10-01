@@ -130,7 +130,7 @@ sudo ctr containers rm "$task_id"
 sleep 2
 stop_reader "$event_pid"; event_pid=
 event_summary=$(python3 - "$events" "$task_id" "$nonzero_id" "$signal_id" <<'PY'
-import datetime,json,re,sys
+import json,re,sys
 p,task,nonzero,signal=sys.argv[1:]
 rows=[]
 rx=re.compile(r'^(\S+ \S+ \+0000 UTC) \S+ (/tasks/\S+) (\{.*\})$')
@@ -139,7 +139,10 @@ for line in open(p):
     if not m: continue
     body=json.loads(m.group(3)); ident=body.get("id") or body.get("exec_id") or body.get("container_id")
     if body.get("container_id") != task and ident != task: continue
-    stamp=datetime.datetime.strptime(m.group(1),"%Y-%m-%d %H:%M:%S.%f %z UTC")
+    wall,fraction_zone=m.group(1).split(".",1)
+    fraction=fraction_zone.split(" ",1)[0]
+    assert fraction.isdigit() and len(fraction) <= 9, f"invalid fractional timestamp: {m.group(1)!r}"
+    stamp=(wall,int(fraction.ljust(9,"0")))
     rows.append((stamp,m.group(2),ident,line.rstrip()))
 assert rows and all(a[0] <= b[0] for a,b in zip(rows,rows[1:])), "non-monotonic event timestamps"
 topics=[(topic,ident) for _,topic,ident,_ in rows]
