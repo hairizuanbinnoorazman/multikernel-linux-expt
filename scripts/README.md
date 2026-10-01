@@ -20,6 +20,7 @@ to a stable remote path. For the thematic mapping, see
   Focused live Task event ordering and exit semantics are covered by
   `test-runtime-task-events-live.sh`.
 - Repository checks: `check-docs.sh`.
+- Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
 
 Destructive and billable operations must remain explicit Makefile targets;
 they must not be hidden inside default checks.
