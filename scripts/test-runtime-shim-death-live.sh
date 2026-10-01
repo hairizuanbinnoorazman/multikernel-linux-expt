@@ -12,6 +12,7 @@ image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}
 runtime=${MK_RUNTIME:-io.containerd.multikernel.v2}
 kerf=${MK_KERF:-/opt/mkruntime/kerf-venv/bin/kerf}
 case_mode=${MK_SHIM_DEATH_CASE:-matrix}
+worker_signal=${MK_SHIM_WORKER_SIGNAL:-KILL}
 reconnect_id=mk-shim-reconnect
 reclaim_id=mk-shim-reclaim
 scratch=$(mktemp -d)
@@ -185,6 +186,13 @@ case "$case_mode" in
 		exit 2
 		;;
 esac
+case "$worker_signal" in
+	KILL | TERM) ;;
+	*)
+		echo "invalid MK_SHIM_WORKER_SIGNAL: $worker_signal" >&2
+		exit 2
+		;;
+esac
 for service in mkruntimed mknetd containerd docker; do
 	[[ $(systemctl is-active "$service") = active ]]
 done
@@ -192,7 +200,7 @@ cleanup_id "$reconnect_id"
 cleanup_id "$reclaim_id"
 initial=$(wait_inventory "$clean_released")
 observe initial-inventory "$initial"
-observe host "case_mode=$case_mode boot_id=$(cat /proc/sys/kernel/random/boot_id) kernel=$(uname -r) containerd_pid=$(systemctl show -p MainPID --value containerd) mkruntimed_pid=$(systemctl show -p MainPID --value mkruntimed)"
+observe host "case_mode=$case_mode worker_signal=$worker_signal boot_id=$(cat /proc/sys/kernel/random/boot_id) kernel=$(uname -r) containerd_pid=$(systemctl show -p MainPID --value containerd) mkruntimed_pid=$(systemctl show -p MainPID --value mkruntimed)"
 sudo ctr images pull "$image" >/dev/null
 
 # Case 1: only the serving worker dies. The supervisor retains the Task v2
@@ -235,7 +243,7 @@ done
 observe reconnect-before "supervisor_pid=$reconnect_supervisor worker_pid=$reconnect_worker_before namespace_holder_pid=$reconnect_holder_before state=$reconnect_state child_boot=$reconnect_boot_before exec=$reconnect_exec_before recovery=$reconnect_recovery_before"
 
 reconnect_fault_started=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
-sudo kill -KILL "$reconnect_worker_before"
+sudo kill "-$worker_signal" "$reconnect_worker_before"
 reconnect_worker_after=
 reconnect_holder_after=
 [[ ${MK_EVIDENCE_XTRACE:-1} = 1 ]] && set +x
@@ -355,6 +363,8 @@ released=$(wait_inventory "$clean_released")
 observe final-released-inventory "$released"
 if [[ $case_mode = matrix ]]; then
 	printf 'G6_FORCED_SHIM_DEATH_MATRIX_PASS\n'
+elif [[ $case_mode = reconnect && $worker_signal = TERM ]]; then
+	printf 'G6_CLEAN_SHIM_RESTART_PASS\n'
 else
 	printf 'G6_FORCED_SHIM_DEATH_%s_MODE_PASS\n' "${case_mode^^}"
 fi
