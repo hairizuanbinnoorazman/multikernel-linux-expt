@@ -87,7 +87,7 @@ sudo ctr images pull "$image" >/dev/null
 sudo timeout 900 stdbuf -oL ctr events >"$events" 2>&1 & event_pid=$!
 sleep 1
 
-sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c 'while :; do sleep 1; done'
+sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c 'trap "" TERM; while :; do sleep 1; done'
 wait_event /tasks/start "$task_id"
 
 set +e
@@ -101,23 +101,36 @@ wait_event /tasks/delete "$nonzero_id"
 observe exec-nonzero "client_exit=$nonzero_status output=$nonzero_output"
 
 set +e
-sudo ctr task exec --exec-id "$signal_id" "$task_id" /bin/sh -c 'echo exec-signal-ready; trap "" TERM; while :; do sleep 1; done' >"$signal_output" 2>&1 & signal_pid=$!
+sudo ctr task exec --exec-id "$signal_id" "$task_id" /bin/sh -c 'trap "" TERM; (trap "" TERM; while :; do sleep 1; done) & child=$!; echo exec-signal-ready:$child; wait $child' >"$signal_output" 2>&1 & signal_pid=$!
 set -e
 wait_event /tasks/exec-started "$signal_id"
 for _ in $(seq 1 120); do grep -Fq exec-signal-ready "$signal_output" && break; sleep .25; done
 grep -Fq exec-signal-ready "$signal_output"
+descendant_pid=$(sed -n 's/^exec-signal-ready://p' "$signal_output")
+[[ $descendant_pid =~ ^[1-9][0-9]*$ ]]
+sudo ctr tasks kill --exec-id "$signal_id" --signal SIGTERM "$task_id"
+sleep 1
+kill -0 "$signal_pid"
+! grep -F /tasks/exit "$events" | grep -Fq "\"id\":\"$signal_id\""
+observe exec-ignored-sigterm "signal=SIGTERM client_still_waiting=true descendant_pid=$descendant_pid exit_event=false"
 sudo ctr tasks kill --exec-id "$signal_id" --signal SIGKILL "$task_id"
 set +e
 wait "$signal_pid"; signal_status=$?; signal_pid=
 set -e
 [[ $signal_status -eq 137 ]]
 wait_event /tasks/delete "$signal_id"
-observe exec-signaled "signal=SIGKILL client_exit=$signal_status output=$(<"$signal_output")"
+descendant_check=$(sudo ctr task exec --exec-id event-descendant-check "$task_id" /bin/sh -c '! kill -0 "$1" 2>/dev/null' sh "$descendant_pid")
+observe exec-signaled "signal=SIGKILL client_exit=$signal_status descendant_pid=$descendant_pid descendant_gone=true check=$descendant_check output=$(<"$signal_output")"
 
 set +e
 sudo ctr tasks attach "$task_id" >"$init_output" 2>&1 & attach_pid=$!
 set -e
 sleep 1
+sudo ctr tasks kill --signal SIGTERM "$task_id"
+sleep 1
+[[ $(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $3}') = RUNNING ]]
+! grep -F /tasks/exit "$events" | grep -Fq "\"id\":\"$task_id\""
+observe init-ignored-sigterm 'signal=SIGTERM state=RUNNING exit_event=false'
 sudo ctr tasks kill --signal SIGKILL "$task_id"
 set +e
 wait "$attach_pid"; init_status=$?; attach_pid=
@@ -127,6 +140,9 @@ wait_event /tasks/delete "$task_id"
 observe init-signaled "signal=SIGKILL client_exit=$init_status output=$(<"$init_output")"
 
 sudo ctr containers rm "$task_id"
+reuse_output=$(sudo ctr run --rm --runtime "$runtime" "$image" "$task_id" /bin/echo reused-after-signal)
+[[ $reuse_output = reused-after-signal ]]
+observe same-name-reuse-after-signal "task_id=$task_id output=$reuse_output"
 sleep 2
 stop_reader "$event_pid"; event_pid=
 event_summary=$(python3 - "$events" "$task_id" "$nonzero_id" "$signal_id" <<'PY'
@@ -146,6 +162,10 @@ for line in open(p):
     rows.append((stamp,m.group(2),ident,line.rstrip()))
 assert rows and all(a[0] <= b[0] for a,b in zip(rows,rows[1:])), "non-monotonic event timestamps"
 topics=[(topic,ident) for _,topic,ident,_ in rows]
+assert topics.count(("/tasks/create",task)) == 2, topics
+assert topics.count(("/tasks/start",task)) == 2, topics
+assert topics.count(("/tasks/exit",task)) == 2, topics
+assert topics.count(("/tasks/delete",task)) == 2, topics
 expected=[
  ("/tasks/create",task),("/tasks/start",task),
  ("/tasks/exec-added",nonzero),("/tasks/exec-started",nonzero),("/tasks/exit",nonzero),("/tasks/delete",nonzero),
@@ -157,7 +177,7 @@ for wanted in expected:
     while cursor < len(topics) and topics[cursor] != wanted: cursor += 1
     assert cursor < len(topics), f"missing ordered event {wanted!r}: {topics!r}"
     positions.append(cursor); cursor += 1
-print(json.dumps({"event_count":len(rows),"ordered":True,"monotonic_timestamps":True,"required_positions":positions},sort_keys=True,separators=(",",":")))
+print(json.dumps({"event_count":len(rows),"ordered":True,"monotonic_timestamps":True,"required_positions":positions,"same_name_init_lifecycles":2},sort_keys=True,separators=(",",":")))
 for *_,line in rows: print(line)
 PY
 )
