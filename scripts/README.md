@@ -19,6 +19,8 @@ to a stable remote path. For the thematic mapping, see
   `test-runtime-mkruntimed-restart-live.sh`, and `test-runtime-recovery.sh`.
   Focused live Task event ordering and exit semantics are covered by
   `test-runtime-task-events-live.sh`.
+- Clean shim shutdown and same-name recreation are covered by
+  `test-runtime-clean-shim-restart-live.sh`.
 - Repository checks: `check-docs.sh`.
 - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
 
