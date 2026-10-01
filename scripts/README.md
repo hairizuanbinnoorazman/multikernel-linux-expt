@@ -21,6 +21,8 @@ to a stable remote path. For the thematic mapping, see
   `test-runtime-task-events-live.sh`.
 - Clean shim shutdown and same-name recreation are covered by
   `test-runtime-clean-shim-restart-live.sh`.
+- Concurrent ctr/Docker resource identity and churn are covered by
+  `test-runtime-concurrent-churn-live.sh`.
 - Repository checks: `check-docs.sh`.
 - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
 
