@@ -52,7 +52,8 @@ sleep 1
 
 cycle_supervisor= cycle_worker= cycle_holder= cycle_boot=
 run_cycle() {
-	local cycle=$1 stream=$scratch/stream-$cycle holder worker supervisor boot state attach_status
+	local cycle=$1 stream holder worker supervisor boot state attach_status
+	stream=$scratch/stream-$cycle
 	sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c "echo clean-$cycle-start; while [ ! -e /tmp/clean-release ]; do sleep 1; done; echo clean-$cycle-exit"
 	wait_task_running
 	holder=$(task_holder_pid); worker=$(parent_pid "$holder"); supervisor=$(parent_pid "$worker")
