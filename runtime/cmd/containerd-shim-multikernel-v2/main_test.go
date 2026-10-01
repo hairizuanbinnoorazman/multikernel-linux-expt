@@ -4366,6 +4366,81 @@ func TestEventJournalPreservesOrderAndReplaysAfterFailure(t *testing.T) {
 	}
 }
 
+func TestEventJournalCompleteLifecycleOrderAndPersistenceFailureMatrix(t *testing.T) {
+	items := []struct {
+		name  string
+		topic string
+		event any
+	}{
+		{"create", ctruntime.TaskCreateEventTopic, &eventstypes.TaskCreate{ContainerID: "task", Pid: 7}},
+		{"start", ctruntime.TaskStartEventTopic, &eventstypes.TaskStart{ContainerID: "task", Pid: 7}},
+		{"exec-added", ctruntime.TaskExecAddedEventTopic, &eventstypes.TaskExecAdded{ContainerID: "task", ExecID: "exec"}},
+		{"exec-started", ctruntime.TaskExecStartedEventTopic, &eventstypes.TaskExecStarted{ContainerID: "task", ExecID: "exec", Pid: 8}},
+		{"exit", ctruntime.TaskExitEventTopic, &eventstypes.TaskExit{ContainerID: "task", ID: "exec", Pid: 8, ExitStatus: 17}},
+		{"delete", ctruntime.TaskDeleteEventTopic, &eventstypes.TaskDelete{ContainerID: "task", ID: "exec", Pid: 8, ExitStatus: 17}},
+	}
+
+	// Each queue attempt reaches a disconnected broker, so no later event can
+	// bypass its durable predecessor. Reconstruction must replay all six in the
+	// original sequence and remove the fully acknowledged journal.
+	bundle := privateTestDirectory(t)
+	disconnected := &fakePublisher{failures: len(items)}
+	s := &service{bundle: bundle, namespace: "default", publisher: disconnected,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	for _, item := range items {
+		if err := s.publish(t.Context(), item.topic, item.event); err != nil {
+			t.Fatalf("queue %s: %v", item.name, err)
+		}
+	}
+	if len(disconnected.topics) != 0 || len(s.events.Pending) != len(items) || s.events.NextSequence != uint64(len(items)+1) {
+		t.Fatalf("disconnected journal: published=%v events=%+v", disconnected.topics, s.events)
+	}
+	for index, pending := range s.events.Pending {
+		if pending.Sequence != uint64(index+1) || pending.Topic != items[index].topic {
+			t.Fatalf("pending[%d] = sequence %d topic %q", index, pending.Sequence, pending.Topic)
+		}
+	}
+
+	replayed := &fakePublisher{}
+	recovered := &service{bundle: bundle, namespace: "default", publisher: replayed,
+		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err := recovered.loadEventJournal(); err != nil {
+		t.Fatal(err)
+	}
+	if err := recovered.flushEvents(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	wantTopics := make([]string, 0, len(items))
+	for _, item := range items {
+		wantTopics = append(wantTopics, item.topic)
+	}
+	if fmt.Sprint(replayed.topics) != fmt.Sprint(wantTopics) {
+		t.Fatalf("replayed topics = %v, want %v", replayed.topics, wantTopics)
+	}
+	if _, err := os.Stat(recovered.eventJournalPath()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("acknowledged journal remains: %v", err)
+	}
+
+	// Persistence is the pre-publication boundary for every supported lifecycle
+	// event. A failure must publish nothing and roll back both queue and sequence.
+	for _, item := range items {
+		t.Run(item.name+"-persistence", func(t *testing.T) {
+			originalMarshal := jsonMarshal
+			jsonMarshal = func(any) ([]byte, error) { return nil, errors.New("injected journal failure") }
+			t.Cleanup(func() { jsonMarshal = originalMarshal })
+			publisher := &fakePublisher{}
+			candidate := &service{bundle: privateTestDirectory(t), namespace: "default", publisher: publisher,
+				events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+			if err := candidate.publish(t.Context(), item.topic, item.event); err == nil {
+				t.Fatal("journal failure was ignored")
+			}
+			if len(publisher.topics) != 0 || len(candidate.events.Pending) != 0 || candidate.events.NextSequence != 1 {
+				t.Fatalf("failed persistence changed state: topics=%v events=%+v", publisher.topics, candidate.events)
+			}
+		})
+	}
+}
+
 func TestEventJournalRefusesReplacedPathForWriteAndAcknowledgement(t *testing.T) {
 	publisher := &fakePublisher{failures: 1}
 	s := &service{bundle: privateTestDirectory(t), namespace: "default", publisher: publisher,
