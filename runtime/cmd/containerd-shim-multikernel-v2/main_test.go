@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -5653,17 +5654,20 @@ func TestShimConnectionBridgeSurvivesWorkerReplacement(t *testing.T) {
 		done := make(chan error, 1)
 		go func() { done <- bridge.serveWorker(proxy) }()
 
-		if _, err := client.Write([]byte(values[0])); err != nil {
+		streamID := uint32(generation*2 + 1)
+		requestFrame := encodeTestTTRPCFrame(streamID, ttrpcRequest, 0, []byte(values[0]))
+		if _, err := client.Write(requestFrame); err != nil {
 			t.Fatalf("generation %d client write: %v", generation, err)
 		}
-		request := make([]byte, len(values[0]))
-		if _, err := io.ReadFull(worker, request); err != nil || string(request) != values[0] {
-			t.Fatalf("generation %d worker request = %q, %v", generation, request, err)
+		request, err := readTTRPCFrame(worker)
+		if err != nil || string(request.encoded[ttrpcHeaderLength:]) != values[0] {
+			t.Fatalf("generation %d worker request = %q, %v", generation, request.encoded, err)
 		}
-		go func(value string) { _, _ = worker.Write([]byte(value)) }(values[1])
-		response := make([]byte, len(values[1]))
-		if _, err := io.ReadFull(client, response); err != nil || string(response) != values[1] {
-			t.Fatalf("generation %d client response = %q, %v", generation, response, err)
+		responseFrame := encodeTestTTRPCFrame(streamID, ttrpcResponse, 0, []byte(values[1]))
+		go func() { _ = writeFull(worker, responseFrame) }()
+		response, err := readTTRPCFrame(client)
+		if err != nil || string(response.encoded[ttrpcHeaderLength:]) != values[1] {
+			t.Fatalf("generation %d client response = %q, %v", generation, response.encoded, err)
 		}
 		if err := worker.Close(); err != nil {
 			t.Fatal(err)
@@ -5673,6 +5677,68 @@ func TestShimConnectionBridgeSurvivesWorkerReplacement(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("generation %d proxy did not observe worker close", generation)
 		}
+	}
+}
+
+func encodeTestTTRPCFrame(streamID uint32, typeID, flags byte, payload []byte) []byte {
+	encoded := make([]byte, ttrpcHeaderLength+len(payload))
+	binary.BigEndian.PutUint32(encoded[:4], uint32(len(payload)))
+	binary.BigEndian.PutUint32(encoded[4:8], streamID)
+	encoded[8], encoded[9] = typeID, flags
+	copy(encoded[ttrpcHeaderLength:], payload)
+	return encoded
+}
+
+func TestShimConnectionBridgeReplaysInFlightRequest(t *testing.T) {
+	client, stable := net.Pipe()
+	defer client.Close()
+	defer stable.Close()
+	bridge := newShimConnectionBridge(stable)
+	deadline := time.Now().Add(5 * time.Second)
+	if err := client.SetDeadline(deadline); err != nil {
+		t.Fatal(err)
+	}
+	request := encodeTestTTRPCFrame(1, ttrpcRequest, 0, []byte("wait-request"))
+
+	firstProxy, firstWorker := net.Pipe()
+	firstDone := make(chan error, 1)
+	go func() { firstDone <- bridge.serveWorker(firstProxy) }()
+	if _, err := client.Write(request); err != nil {
+		t.Fatal(err)
+	}
+	observed, err := readTTRPCFrame(firstWorker)
+	if err != nil || !bytes.Equal(observed.encoded, request) {
+		t.Fatalf("first worker request = %x, %v", observed.encoded, err)
+	}
+	if err = firstWorker.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-firstDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first worker proxy did not close")
+	}
+
+	secondProxy, secondWorker := net.Pipe()
+	secondDone := make(chan error, 1)
+	go func() { secondDone <- bridge.serveWorker(secondProxy) }()
+	replayed, err := readTTRPCFrame(secondWorker)
+	if err != nil || !bytes.Equal(replayed.encoded, request) {
+		t.Fatalf("replayed request = %x, %v", replayed.encoded, err)
+	}
+	response := encodeTestTTRPCFrame(1, ttrpcResponse, 0, []byte("wait-response"))
+	go func() { _ = writeFull(secondWorker, response) }()
+	forwarded, err := readTTRPCFrame(client)
+	if err != nil || !bytes.Equal(forwarded.encoded, response) {
+		t.Fatalf("forwarded response = %x, %v", forwarded.encoded, err)
+	}
+	if err = secondWorker.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-secondDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("second worker proxy did not close")
 	}
 }
 
