@@ -135,6 +135,9 @@ func testBundleIdentity(t *testing.T, path string) rootfspkg.DirectoryIdentity {
 }
 
 func TestMain(m *testing.M) {
+	if len(os.Args) == 3 && os.Args[1] == fifoKeeperMode {
+		os.Exit(runOutputFIFOKeeper(os.Args[2:]))
+	}
 	if output := os.Getenv("MK_SHIM_SUPERVISOR_IDENTITY_OUTPUT"); output != "" && os.Getenv("MK_SHIM_WORKER") == "1" {
 		info, err := os.Stat(".")
 		if err != nil {
@@ -2116,6 +2119,63 @@ func TestOutputFIFOCanBeReattached(t *testing.T) {
 	}
 	if string(got) != "reattach-ok" {
 		t.Fatalf("attached output = %q, err = %v", got, err)
+	}
+}
+
+func TestOutputFIFOKeeperBridgesWorkerDeath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "stdout")
+	if err := syscall.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := os.NewFile(uintptr(descriptor), path)
+	defer reader.Close()
+	identity, err := inspectBoundProcessIOPath(path, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guard, err := openKnownProcessIOPath(context.Background(), path, unix.O_RDWR|unix.O_NONBLOCK, identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keeper, err := startOutputFIFOKeeper(guard, 500*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate SIGKILL: the worker's descriptors disappear without Close's
+	// explicit byte, while the helper retains its inherited guard.
+	if err = keeper.guard.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = keeper.control.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var empty [1]byte
+	if count, readErr := unix.Read(int(reader.Fd()), empty[:]); count != -1 || !errors.Is(readErr, syscall.EAGAIN) {
+		t.Fatalf("reader observed FIFO gap: count=%d error=%v", count, readErr)
+	}
+	replacement, err := openKnownProcessIOPath(context.Background(), path, unix.O_WRONLY|unix.O_NONBLOCK, identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = replacement.Write([]byte("after-restart")); err != nil {
+		t.Fatal(err)
+	}
+	if err = replacement.Close(); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, len("after-restart"))
+	if _, err = io.ReadFull(reader, got); err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "after-restart" {
+		t.Fatalf("replacement output = %q", got)
+	}
+	if err = keeper.command.Wait(); err != nil {
+		t.Fatal(err)
 	}
 }
 
