@@ -17,6 +17,8 @@ to a stable remote path. For the thematic mapping, see
   `test-runtime-docker-restart-live.sh`,
   `test-runtime-shim-death-live.sh`,
   `test-runtime-mkruntimed-restart-live.sh`, and `test-runtime-recovery.sh`.
+  Focused live Task event ordering and exit semantics are covered by
+  `test-runtime-task-events-live.sh`.
 - Repository checks: `check-docs.sh`.
 
 Destructive and billable operations must remain explicit Makefile targets;
