@@ -2929,6 +2929,116 @@ func TestCloseIORetriesUntilGuestAcknowledges(t *testing.T) {
 	}
 }
 
+func TestCloseIOTerminalAndNonTerminalProcesses(t *testing.T) {
+	for _, terminal := range []bool{false, true} {
+		name := "non-terminal"
+		if terminal {
+			name = "terminal"
+		}
+		t.Run(name, func(t *testing.T) {
+			client := &fakeAgentClient{fail: map[string]error{}}
+			p := &process{id: "exec", terminal: terminal, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+			s := &service{agent: client, processes: map[string]*process{"exec": p}}
+			request := &taskapi.CloseIORequest{ExecID: "exec", Stdin: true}
+			if _, err := s.CloseIO(t.Context(), request); err != nil {
+				t.Fatal(err)
+			}
+			if !p.stdinClosed || !p.stdinCloseAcked || fmt.Sprint(client.calls) != "[CloseProcessStdin]" {
+				t.Fatalf("terminal=%v close state=requested:%v acknowledged:%v calls=%v",
+					terminal, p.stdinClosed, p.stdinCloseAcked, client.calls)
+			}
+			if _, err := s.CloseIO(t.Context(), request); err != nil {
+				t.Fatal(err)
+			}
+			if len(client.calls) != 1 {
+				t.Fatalf("terminal=%v repeated close calls=%v", terminal, client.calls)
+			}
+		})
+	}
+}
+
+func TestProcessIOTeardownWhileFIFOPeersRemainAttached(t *testing.T) {
+	directory := t.TempDir()
+	stdinPath := filepath.Join(directory, "stdin")
+	stdoutPath := filepath.Join(directory, "stdout")
+	for _, path := range []string{stdinPath, stdoutPath} {
+		if err := syscall.Mkfifo(path, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stdinIdentity, err := inspectBoundProcessIOPath(stdinPath, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdoutIdentity, err := inspectBoundProcessIOPath(stdoutPath, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdoutFD, err := unix.Open(stdoutPath, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdoutPeer := os.NewFile(uintptr(stdoutFD), stdoutPath)
+	defer stdoutPeer.Close()
+	p := &process{terminal: true, status: tasktypes.Status_RUNNING, done: make(chan struct{}),
+		stdin: stdinPath, stdinIdentity: stdinIdentity, stdout: stdoutPath, stdoutIdentity: stdoutIdentity}
+	client := &stdinCaptureAgent{writes: make(chan []byte, 1)}
+	s := &service{agent: client, processes: map[string]*process{"": p}}
+	if err = s.openProcessIO(t.Context(), p); err != nil {
+		t.Fatal(err)
+	}
+	stdinFD, err := unix.Open(stdinPath, unix.O_WRONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	if err != nil {
+		closeProcessIO(p)
+		t.Fatal(err)
+	}
+	stdinPeer := os.NewFile(uintptr(stdinFD), stdinPath)
+	defer stdinPeer.Close()
+	pumpDone := make(chan struct{})
+	go func() {
+		s.pumpStdin("init", p)
+		close(pumpDone)
+	}()
+	if _, err = stdinPeer.WriteString("before-teardown"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-client.writes:
+		if string(got) != "before-teardown" {
+			t.Fatalf("guest stdin before teardown = %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("stdin pump did not become active before teardown")
+	}
+
+	s.mu.Lock()
+	closeProcessIO(p)
+	s.mu.Unlock()
+	select {
+	case <-pumpDone:
+	case <-time.After(time.Second):
+		t.Fatal("stdin pump survived teardown with its writer still attached")
+	}
+	if p.stdinReader != nil || p.stdoutWriter != nil || p.stdoutGuard != nil || p.stderrWriter != nil || p.stderrGuard != nil {
+		t.Fatalf("teardown retained I/O handles: %+v", p)
+	}
+	if _, err = stdinPeer.WriteString("after-teardown"); err == nil {
+		t.Fatal("attached stdin writer remained writable after reader teardown")
+	}
+	var value [1]byte
+	deadline := time.Now().Add(time.Second)
+	for {
+		count, readErr := stdoutPeer.Read(value[:])
+		if count == 0 && errors.Is(readErr, io.EOF) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("attached stdout reader did not observe teardown EOF: count=%d error=%v", count, readErr)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestCloseIOReconnectsTransportWithinCallerDeadline(t *testing.T) {
 	client := &outputReconnectAgent{closeFailures: 1}
 	p := &process{id: "", status: tasktypes.Status_RUNNING, done: make(chan struct{})}
