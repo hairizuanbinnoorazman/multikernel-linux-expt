@@ -7,6 +7,7 @@ if [[ ${MK_EVIDENCE_XTRACE:-1} = 1 ]]; then
 fi
 
 source_root=${1:?usage: test-runtime-caller-snapshot-live.sh SOURCE_ROOT}
+qualification_source_root=$source_root
 image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}
 runtime=${MK_RUNTIME:-io.containerd.multikernel.v2}
 expected_index=${MK_EXPECTED_IMAGE_INDEX:-sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662}
@@ -121,6 +122,7 @@ capture_build_result() {
 	local namespace=$1 identity=$2 expected_kind=$3 expected_manifest_sha=$4
 	local bundle="$task_root/$namespace/$identity"
 	local configured_root requested_root source_root before_sha after_sha before_entries after_entries
+	local independent_check source_mount direct_manifest direct_result direct_sha direct_entries
 	configured_root=$(sudo jq -er '.root.path' "$bundle/config.json")
 	requested_root=$(sudo jq -er '.requested_root' "$bundle/.multikernel/build-result.json")
 	source_root=$(sudo jq -er '.source_root' "$bundle/.multikernel/build-result.json")
@@ -129,12 +131,23 @@ capture_build_result() {
 	before_entries=$(sudo jq -er '.source_scan_before.entries' "$bundle/.multikernel/build-result.json")
 	after_entries=$(sudo jq -er '.source_scan_after.entries' "$bundle/.multikernel/build-result.json")
 	[[ $configured_root = "$requested_root" ]]
-	[[ $before_sha = "$after_sha" && $before_sha = "$expected_manifest_sha" ]]
+	[[ $before_sha = "$after_sha" ]]
 	[[ $before_entries = "$after_entries" ]]
 	if [[ $expected_kind = relative ]]; then
 		[[ $configured_root = rootfs && $configured_root != /* ]]
+		[[ $before_sha = "$expected_manifest_sha" ]]
+		independent_check="committed_view_manifest_sha256=$expected_manifest_sha"
 	else
 		[[ $configured_root = /var/lib/docker/rootfs/overlayfs/* && $configured_root = /* ]]
+		direct_manifest=$scratch/docker-source-after-guest-write.json
+		direct_result=$(sudo "$qualification_source_root/scripts/build-runtime-rootfs.py" "$source_root" "$scratch/unused-docker" "$direct_manifest" \
+			--manifest-only --max-bytes 1073741824 --max-inodes 131072)
+		direct_sha=$(sudo sha256sum "$direct_manifest" | awk '{print $1}')
+		direct_entries=$(jq -er '.entries' <<<"$direct_result")
+		[[ $direct_sha = "$before_sha" && $direct_entries = "$before_entries" ]]
+		source_mount=$(sudo findmnt -rn -T "$source_root" -o TARGET,SOURCE,FSTYPE,OPTIONS)
+		independent_check="live_source_after_guest_write=$direct_result
+live_source_mount=$source_mount"
 	fi
 	observe "$namespace-build-result" "bundle=$bundle
 configured_root=$configured_root
@@ -142,7 +155,8 @@ requested_root=$requested_root
 source_root=$source_root
 source_scan_before_sha256=$before_sha
 source_scan_after_sha256=$after_sha
-source_entries=$before_entries"
+source_entries=$before_entries
+$independent_check"
 }
 
 capture_view() {
