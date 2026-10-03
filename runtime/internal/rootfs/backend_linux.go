@@ -40,6 +40,30 @@ type LinuxBackend struct {
 
 const maximumBuilderOutput = 1 << 20
 
+func (b *LinuxBackend) Validate(ctx context.Context, request ValidateRequest, bundle *os.File) error {
+	if b.Builder == "" || !filepath.IsAbs(b.Builder) {
+		return errors.New("rootfs builder must be an absolute path")
+	}
+	if bundle == nil {
+		return errors.New("rootfs validation requires a held bundle")
+	}
+	info, err := bundle.Stat()
+	if err != nil {
+		return err
+	}
+	identity, ok := openedDirectoryIdentity(info)
+	if !ok || !info.IsDir() || identity.UID != uint32(os.Geteuid()) || identity != request.BundleIdentity {
+		return errors.New("validation bundle is not the identity-bound caller-owned directory")
+	}
+	environment := append(os.Environ(), "MK_VALIDATE_ONLY=1")
+	output, err := runBoundedBuilder(ctx, b.BuildTimeout, b.Builder,
+		[]string{"/proc/self/fd/3", "/dev/null"}, environment, maximumBuilderOutput, bundle)
+	if err != nil {
+		return fmt.Errorf("validate OCI bundle: %w: %s", err, builderDiagnostic(output))
+	}
+	return nil
+}
+
 func runBoundedBuilder(ctx context.Context, timeout time.Duration, binary string, arguments, environment []string, maximum int, files ...*os.File) ([]byte, error) {
 	if timeout <= 0 {
 		timeout = 10 * time.Minute

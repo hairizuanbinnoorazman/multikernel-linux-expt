@@ -46,6 +46,10 @@ validated_config=$metadata/config.json
 bind_plan=$metadata/readonly-binds.json
 source_before_manifest=$metadata/source-before.manifest.json
 "$script_dir/validate-runtime-oci.py" "$bundle/config.json" "$validated_config" "$bind_plan"
+if [[ ${MK_VALIDATE_ONLY:-0} == 1 ]]; then
+	printf '{"schema_version":1,"validated":true}\n'
+	exit 0
+fi
 : "${task_identity:?MK_TASK_IDENTITY is required}"
 : "${storage_port:?MK_STORAGE_PORT is required}"
 busybox=${BUSYBOX:-$(command -v busybox)}

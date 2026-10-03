@@ -2630,6 +2630,19 @@ func (s *service) prepareRootfs(ctx context.Context, request rootfspkg.PrepareRe
 	return result, nil
 }
 
+func (s *service) validateRootfs(ctx context.Context, request rootfspkg.ValidateRequest) error {
+	body, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+	apiErr := s.daemon.Call(ctx, protocol.Request{Version: 1, RequestID: "validate-rootfs-" + s.id,
+		Method: "ValidateRootfs", Body: body}, nil)
+	if apiErr != nil {
+		return errors.New(apiErr.Code + ": " + apiErr.Message)
+	}
+	return nil
+}
+
 func (s *service) cleanupRootfs(ctx context.Context, request rootfspkg.CleanupRequest) error {
 	body, err := json.Marshal(request)
 	if err != nil {
@@ -2704,6 +2717,10 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	mounts, err := rootfsMounts(r.Rootfs)
 	if err != nil {
 		return nil, err
+	}
+	if err = s.validateRootfs(ctx, rootfspkg.ValidateRequest{Version: rootfspkg.Version, Bundle: r.Bundle,
+		BundleIdentity: s.bundleIdentity}); err != nil {
+		return nil, fmt.Errorf("validate OCI bundle before allocation: %w", err)
 	}
 	var prepared *rootfspkg.CleanupRequest
 	lifecycleAttempted := false

@@ -23,6 +23,12 @@ type PrepareRequest struct {
 	Mounts         []Mount           `json:"mounts"`
 }
 
+type ValidateRequest struct {
+	Version        int               `json:"version"`
+	Bundle         string            `json:"bundle"`
+	BundleIdentity DirectoryIdentity `json:"bundle_identity"`
+}
+
 type PrepareResult struct {
 	Storage         protocol.StorageConfig `json:"storage"`
 	RuntimeIdentity DirectoryIdentity      `json:"runtime_identity"`

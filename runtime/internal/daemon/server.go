@@ -238,6 +238,21 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		if e != nil {
 			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: e.Error()}
 		}
+	case "ValidateRootfs":
+		if s.Rootfs == nil {
+			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "rootfs validation service is unavailable"}
+			break
+		}
+		var request rootfs.ValidateRequest
+		if e := protocol.StrictDecode(r.Body, &request); e != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: e.Error()}
+			break
+		}
+		if e := s.Rootfs.Validate(ctx, request); e != nil {
+			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: e.Error()}
+		} else {
+			out.Body = map[string]bool{"validated": true}
+		}
 	case "CleanupRootfs":
 		if s.Rootfs == nil {
 			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "rootfs preparation service is unavailable"}
