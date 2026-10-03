@@ -17,6 +17,7 @@ import (
 
 type fakeBackend struct {
 	calls       []string
+	validateErr error
 	mountErr    error
 	buildErr    error
 	unmountErr  error
@@ -27,6 +28,14 @@ type fakeBackend struct {
 	buildHook   func()
 	verifyRoots PreparedRoots
 	verifyHook  func()
+}
+
+func (f *fakeBackend) Validate(_ context.Context, _ ValidateRequest, bundle *os.File) error {
+	f.calls = append(f.calls, "validate")
+	if bundle == nil {
+		return errors.New("missing validation bundle")
+	}
+	return f.validateErr
 }
 
 func (f *fakeBackend) Mount(_ context.Context, _ []Mount, target string, identity DirectoryIdentity) error {
@@ -259,6 +268,30 @@ func rootfsFixture(t *testing.T) (*Service, *fakeBackend, PrepareRequest, string
 	request := PrepareRequest{Version: Version, Bundle: bundle, BundleIdentity: bundleIdentity, TaskIdentity: "task-0123456789abcdef0123456789abcdef", StoragePort: 4061,
 		Mounts: []Mount{{Type: "overlay", Source: "overlay", Options: []string{"lowerdir=" + snapshot}}}}
 	return service, backend, request, base
+}
+
+func TestValidateRunsBeforeArtifactsAndBindsBundleIdentity(t *testing.T) {
+	service, backend, prepare, base := rootfsFixture(t)
+	request := ValidateRequest{Version: Version, Bundle: prepare.Bundle, BundleIdentity: prepare.BundleIdentity}
+	if err := service.Validate(t.Context(), request); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(backend.calls) != "[validate]" || len(service.store.List()) != 0 {
+		t.Fatalf("validation calls=%v records=%v", backend.calls, service.store.List())
+	}
+	for _, path := range []string{filepath.Join(prepare.Bundle, ".multikernel"), filepath.Join(prepare.Bundle, "rootfs"),
+		filepath.Join(base, "storage", prepare.TaskIdentity)} {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("validation created %s: %v", path, err)
+		}
+	}
+	request.BundleIdentity.Inode++
+	if err := service.Validate(t.Context(), request); err == nil {
+		t.Fatal("mismatched bundle identity was accepted")
+	}
+	if fmt.Sprint(backend.calls) != "[validate]" {
+		t.Fatalf("identity mismatch reached backend: %v", backend.calls)
+	}
 }
 
 func TestPrepareJournalsBuildUnmountAndReplays(t *testing.T) {

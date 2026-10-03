@@ -136,6 +136,46 @@ func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
 	}
 }
 
+func TestValidateUsesHeldBundleAndCanonicalValidationMode(t *testing.T) {
+	bundlePath := filepath.Join(t.TempDir(), "bundle")
+	if err := os.Mkdir(bundlePath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bundlePath, "config.json"), []byte("{}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	root, identity, err := inspectStableRoot(bundlePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	bundle, openedIdentity, err := openRelativeDirectory(root, ".", false)
+	if err != nil || openedIdentity != identity {
+		t.Fatalf("open held bundle: identity=%+v error=%v", openedIdentity, err)
+	}
+	defer bundle.Close()
+	builder := filepath.Join(t.TempDir(), "builder.sh")
+	script := `#!/bin/sh
+set -eu
+test "$MK_VALIDATE_ONLY" = 1
+test "$1" = /proc/self/fd/3
+test "$2" = /dev/null
+test -d "$1"
+test -f "$1/config.json"
+`
+	if err = os.WriteFile(builder, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	request := ValidateRequest{Version: Version, Bundle: bundlePath, BundleIdentity: identity}
+	if err = (&LinuxBackend{Builder: builder}).Validate(t.Context(), request, bundle); err != nil {
+		t.Fatal(err)
+	}
+	request.BundleIdentity.Inode++
+	if err = (&LinuxBackend{Builder: builder}).Validate(t.Context(), request, bundle); err == nil {
+		t.Fatal("backend accepted a different bundle identity")
+	}
+}
+
 func TestMountRejectsSymlinkSubstitutionAtDescriptorOpen(t *testing.T) {
 	base := t.TempDir()
 	realSource := filepath.Join(base, "real")

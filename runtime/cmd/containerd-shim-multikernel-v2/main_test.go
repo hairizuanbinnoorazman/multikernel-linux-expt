@@ -1873,6 +1873,8 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 	caller := daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
 		calls = append(calls, request.Method)
 		switch request.Method {
+		case "ValidateRootfs":
+			return respond(output, map[string]bool{"validated": true})
 		case "ListSandboxes":
 			return respond(output, []protocol.Sandbox{})
 		case "PrepareRootfs":
@@ -1909,7 +1911,7 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "ambiguous create") {
 		t.Fatalf("Create() error = %v", err)
 	}
-	wantCalls := []string{"ListSandboxes", "PrepareRootfs", "CreateSandbox", "CancelCreateSandbox", "CleanupRootfs"}
+	wantCalls := []string{"ValidateRootfs", "ListSandboxes", "PrepareRootfs", "CreateSandbox", "CancelCreateSandbox", "CleanupRootfs"}
 	if !reflect.DeepEqual(calls, wantCalls) {
 		t.Fatalf("daemon calls = %v, want %v", calls, wantCalls)
 	}
@@ -1918,6 +1920,39 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 	}
 	if len(service.token) != 0 || len(service.processes) != 0 || service.sandbox.ID != "" {
 		t.Fatalf("shim state survived cancellation: token=%d processes=%d sandbox=%+v", len(service.token), len(service.processes), service.sandbox)
+	}
+}
+
+func TestCreateRejectsOCIValidationBeforeAllocationOrArtifacts(t *testing.T) {
+	bundle := privateTestDirectory(t)
+	config := `{"ociVersion":"1.1.0","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":"/run/netns/test"}]}}`
+	if err := os.WriteFile(filepath.Join(bundle, "config.json"), []byte(config), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var calls []string
+	caller := daemonCallFunc(func(_ context.Context, request protocol.Request, _ any) *protocol.Error {
+		calls = append(calls, request.Method)
+		if request.Method != "ValidateRootfs" {
+			t.Fatalf("validation failure reached daemon method %q", request.Method)
+		}
+		var validate rootfspkg.ValidateRequest
+		if err := protocol.StrictDecode(request.Body, &validate); err != nil || validate.Bundle != bundle || validate.Version != rootfspkg.Version {
+			t.Fatalf("validation request=%+v error=%v", validate, err)
+		}
+		return &protocol.Error{Code: "FAILED_PRECONDITION", Message: "unsupported OCI configuration"}
+	})
+	s := &service{id: "task", namespace: "default", bundle: bundle, daemon: caller, processes: map[string]*process{}}
+	if _, err := s.Create(t.Context(), &taskapi.CreateTaskRequest{ID: "task", Bundle: bundle}); err == nil ||
+		!strings.Contains(err.Error(), "unsupported OCI configuration") {
+		t.Fatalf("Create error = %v", err)
+	}
+	if fmt.Sprint(calls) != "[ValidateRootfs]" || len(s.processes) != 0 || s.sandbox.ID != "" || len(s.token) != 0 {
+		t.Fatalf("rejected validation calls=%v processes=%v sandbox=%+v token=%d", calls, s.processes, s.sandbox, len(s.token))
+	}
+	for _, name := range []string{".multikernel", "rootfs"} {
+		if _, err := os.Lstat(filepath.Join(bundle, name)); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("rejected validation created %s: %v", name, err)
+		}
 	}
 }
 

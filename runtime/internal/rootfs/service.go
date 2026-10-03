@@ -21,11 +21,37 @@ var identityRE = regexp.MustCompile(`^task-[a-f0-9]{32}$`)
 var errMountNotAttempted = errors.New("rootfs mount was not attempted")
 
 type Backend interface {
+	Validate(context.Context, ValidateRequest, *os.File) error
 	Mount(context.Context, []Mount, string, DirectoryIdentity) error
 	Unmount(context.Context, string) error
 	Build(context.Context, PrepareRequest, BuildRoots) (PrepareResult, error)
 	VerifyPrepared(context.Context, Record, PreparedRoots, bool) error
 	OpenVerifiedInitramfs(context.Context, Record, PreparedRoots) (*os.File, error)
+}
+
+func (s *Service) Validate(ctx context.Context, request ValidateRequest) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if request.Version != Version || !filepath.IsAbs(request.Bundle) || filepath.Clean(request.Bundle) != request.Bundle {
+		return errors.New("invalid rootfs validation request")
+	}
+	bundleHandle, bundleID, err := inspectStableRoot(request.Bundle)
+	if err != nil {
+		return err
+	}
+	defer bundleHandle.Close()
+	if bundleID != request.BundleIdentity {
+		return errors.New("bundle identity differs from the shim handoff")
+	}
+	bundle, openedID, err := openRelativeDirectory(bundleHandle, ".", false)
+	if err != nil || openedID != bundleID {
+		return errors.Join(errors.New("bundle identity changed before validation"), err)
+	}
+	defer bundle.Close()
+	return s.backend.Validate(ctx, request, bundle)
 }
 
 type BuildRoots struct {
