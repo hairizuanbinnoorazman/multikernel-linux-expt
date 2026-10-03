@@ -97,7 +97,17 @@ activate_generation() {
 	for service in mkruntimed mknetd containerd docker; do
 		[[ $(systemctl is-active "$service") = active ]]
 	done
+	local ready=0
+	for _ in $(seq 1 120); do
+		if [[ -S /run/mkruntimed.sock && -S /run/mknetd.sock ]]; then
+			ready=1
+			break
+		fi
+		sleep 0.25
+	done
+	((ready))
 	local binary_selector support_selector pid version observed_daemon_sha observed_shim_sha builder_path observed_builder_sha
+	local mkruntimed_socket mknetd_socket
 	binary_selector=$(readlink -f /usr/local/lib/multikernel/current)
 	support_selector=$(readlink -f /etc/multikernel/current)
 	[[ $binary_selector = "/usr/local/lib/multikernel/releases/$release" ]]
@@ -114,6 +124,8 @@ activate_generation() {
 	[[ $observed_builder_sha = "$builder_sha" ]]
 	[[ $(sudo docker info --format '{{.DefaultRuntime}}') = runc ]]
 	sudo containerd config dump | grep -F "runtimes.multikernel" >/dev/null
+	mkruntimed_socket=$(sudo stat -Lc '%F:%a:%U:%G' /run/mkruntimed.sock)
+	mknetd_socket=$(sudo stat -Lc '%F:%a:%U:%G' /run/mknetd.sock)
 	observe "$label" "binary_selector=$binary_selector
 support_selector=$support_selector
 mkruntimed_pid=$pid
@@ -123,7 +135,9 @@ shim_sha256=$observed_shim_sha
 builder_path=$builder_path
 builder_sha256=$observed_builder_sha
 docker_default_runtime=runc
-containerd_named_runtime=multikernel"
+containerd_named_runtime=multikernel
+mkruntimed_socket=$mkruntimed_socket
+mknetd_socket=$mknetd_socket"
 }
 
 restore_candidate() {
