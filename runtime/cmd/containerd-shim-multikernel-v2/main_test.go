@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1953,6 +1954,173 @@ func TestCreateRejectsOCIValidationBeforeAllocationOrArtifacts(t *testing.T) {
 		if _, err := os.Lstat(filepath.Join(bundle, name)); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("rejected validation created %s: %v", name, err)
 		}
+	}
+}
+
+func TestCreatePostValidationFailureRollbackMatrix(t *testing.T) {
+	stages := []string{
+		"prepare-rootfs", "runtime-handoff", "token", "create-sandbox",
+		"load-sandbox", "provision-network", "namespace-holder",
+		"persist-recovery", "persist-create-event",
+	}
+	for _, stage := range stages {
+		t.Run(stage, func(t *testing.T) {
+			bundle := privateTestDirectory(t)
+			configJSON := `{"ociVersion":"1.1.0","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":"/run/netns/test"}]}}`
+			if err := os.WriteFile(filepath.Join(bundle, "config.json"), []byte(configJSON), 0600); err != nil {
+				t.Fatal(err)
+			}
+			lockDirectory := t.TempDir()
+			if err := os.Chmod(lockDirectory, 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("MK_SHIM_LOCK", filepath.Join(lockDirectory, "shim.lock"))
+			runtimeDir := filepath.Join(bundle, ".multikernel")
+			storageHash := strings.Repeat("a", 64)
+			sandboxGeneration := strings.Repeat("b", 32)
+			networkGeneration := strings.Repeat("c", 32)
+			task, namespace := "task-a", "default"
+			sandboxIdentifier := sandboxID(namespace, task)
+			var calls []string
+			cleanupCalls, deleteCalls, cancelCalls := 0, 0, 0
+			respond := func(output any, value any) *protocol.Error {
+				if output == nil {
+					return nil
+				}
+				data, _ := json.Marshal(value)
+				if err := json.Unmarshal(data, output); err != nil {
+					t.Fatal(err)
+				}
+				return nil
+			}
+			caller := daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
+				calls = append(calls, request.Method)
+				switch request.Method {
+				case "ValidateRootfs":
+					return nil
+				case "ListSandboxes":
+					return respond(output, []protocol.Sandbox{})
+				case "PrepareRootfs":
+					if stage == "prepare-rootfs" {
+						return &protocol.Error{Code: "BACKEND_FAILURE", Message: "injected prepare-rootfs failure"}
+					}
+					if err := os.Mkdir(runtimeDir, 0700); err != nil {
+						t.Fatal(err)
+					}
+					if stage == "token" {
+						if err := os.WriteFile(filepath.Join(runtimeDir, "token"), []byte("unsafe"), 0644); err != nil {
+							t.Fatal(err)
+						}
+					}
+					identity := testBundleIdentity(t, runtimeDir)
+					if stage == "runtime-handoff" {
+						identity.Inode++
+					}
+					return respond(output, rootfspkg.PrepareResult{RuntimeIdentity: identity, Storage: protocol.StorageConfig{
+						Path: "/srv/storage/root.ext4", ImageID: "image", FilesystemUUID: "12345678-1234-4234-8234-123456789abc",
+						SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061, SHA256: storageHash,
+					}})
+				case "CreateSandbox":
+					if stage == "create-sandbox" {
+						return &protocol.Error{Code: "BACKEND_FAILURE", Message: "injected create-sandbox failure", Retryable: true}
+					}
+					sandbox := protocol.Sandbox{ID: sandboxIdentifier, Generation: sandboxGeneration, State: "CREATED",
+						Config: protocol.SandboxConfig{BundleIdentity: testBundleIdentity(t, bundle)}}
+					return respond(output, protocol.MutationResult{Sandbox: sandbox})
+				case "CancelCreateSandbox":
+					cancelCalls++
+					return respond(output, map[string]bool{"safe_to_cleanup": true})
+				case "LoadSandbox":
+					if stage == "load-sandbox" {
+						return &protocol.Error{Code: "BACKEND_FAILURE", Message: "injected load-sandbox failure"}
+					}
+					return respond(output, protocol.MutationResult{})
+				case "DeleteSandbox":
+					deleteCalls++
+					return respond(output, protocol.MutationResult{})
+				case "CleanupRootfs":
+					cleanupCalls++
+					var cleanup rootfspkg.CleanupRequest
+					if err := protocol.StrictDecode(request.Body, &cleanup); err != nil || cleanup.StorageSHA256 != storageHash {
+						t.Fatalf("cleanup request = %+v, %v", cleanup, err)
+					}
+					if err := os.RemoveAll(runtimeDir); err != nil {
+						t.Fatal(err)
+					}
+					return nil
+				default:
+					t.Fatalf("unexpected daemon method %q", request.Method)
+					return nil
+				}
+			})
+			network := &fakeNetworkClient{endpoint: validShimEndpoint(task, sandboxIdentifier, sandboxGeneration,
+				networkGeneration, "/run/netns/test"), fail: map[string]error{}}
+			if stage == "provision-network" {
+				network.fail["PROVISION"] = errors.New("injected provision-network failure")
+			}
+			holder := &fakeNamespaceHolder{pid: 73}
+			oldJSONMarshal := jsonMarshal
+			if stage == "persist-create-event" {
+				jsonMarshal = func(any) ([]byte, error) { return nil, errors.New("injected persist-create-event failure") }
+			}
+			defer func() { jsonMarshal = oldJSONMarshal }()
+			service := &service{id: task, namespace: namespace, bundle: bundle, daemon: caller, netClient: network,
+				publisher: &fakePublisher{}, processes: map[string]*process{},
+				events: eventJournal{SchemaVersion: 1, NextSequence: 1},
+				newNamespaceHolder: func(string) (namespaceHolder, error) {
+					if stage == "namespace-holder" {
+						return nil, errors.New("injected namespace-holder failure")
+					}
+					if stage == "persist-recovery" {
+						if err := os.Chmod(runtimeDir, 0750); err != nil {
+							t.Fatal(err)
+						}
+					}
+					return holder, nil
+				},
+			}
+			_, err := service.Create(t.Context(), &taskapi.CreateTaskRequest{ID: task, Bundle: bundle})
+			if err == nil {
+				t.Fatal("injected post-validation failure was accepted")
+			}
+			if len(service.processes) != 0 || service.sandbox.ID != "" || len(service.token) != 0 || service.netEndpoint.SandboxID != "" || service.namespaceHolder != nil {
+				t.Fatalf("rollback retained state: processes=%v sandbox=%+v token=%d endpoint=%+v holder=%v",
+					service.processes, service.sandbox, len(service.token), service.netEndpoint, service.namespaceHolder)
+			}
+			if _, statErr := os.Lstat(runtimeDir); !errors.Is(statErr, os.ErrNotExist) {
+				t.Fatalf("runtime artifacts survived %s: %v; calls=%v", stage, statErr, calls)
+			}
+			prepared := stage != "prepare-rootfs"
+			expectedCleanup := 0
+			if prepared {
+				expectedCleanup = 1
+			}
+			if cleanupCalls != expectedCleanup {
+				t.Fatalf("cleanup calls after %s = %d, want %d; daemon calls=%v", stage, cleanupCalls, expectedCleanup, calls)
+			}
+			created := slices.Contains(stages[4:], stage)
+			expectedDelete := 0
+			if created {
+				expectedDelete = 1
+			}
+			if deleteCalls != expectedDelete {
+				t.Fatalf("delete calls after %s = %d, want %d; daemon calls=%v", stage, deleteCalls, expectedDelete, calls)
+			}
+			expectedCancel := 0
+			if stage == "create-sandbox" {
+				expectedCancel = 1
+			}
+			if cancelCalls != expectedCancel {
+				t.Fatalf("cancel calls after %s = %d", stage, cancelCalls)
+			}
+			endpointOwned := slices.Contains(stages[6:], stage)
+			if slices.Contains(network.calls, "RELEASE") != endpointOwned {
+				t.Fatalf("network calls after %s = %v, expected release=%v", stage, network.calls, endpointOwned)
+			}
+			if holder.stopped != slices.Contains(stages[7:], stage) {
+				t.Fatalf("holder stopped after %s = %v", stage, holder.stopped)
+			}
+		})
 	}
 }
 
