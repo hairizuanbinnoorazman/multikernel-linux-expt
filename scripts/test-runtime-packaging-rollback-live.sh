@@ -113,7 +113,7 @@ activate_generation() {
 	[[ $observed_shim_sha = "$shim_sha" ]]
 	[[ $observed_builder_sha = "$builder_sha" ]]
 	[[ $(sudo docker info --format '{{.DefaultRuntime}}') = runc ]]
-	sudo containerd config dump | grep -Fq "runtimes.multikernel"
+	sudo containerd config dump | grep -F "runtimes.multikernel" >/dev/null
 	observe "$label" "binary_selector=$binary_selector
 support_selector=$support_selector
 mkruntimed_pid=$pid
