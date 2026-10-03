@@ -36,7 +36,7 @@ remove_view() {
 	sudo rmdir "$view" >/dev/null 2>&1 || true
 }
 
-cleanup() {
+cleanup() (
 	set +e
 	sudo docker rm -f "$docker_name" >/dev/null 2>&1 || true
 	sudo ctr tasks kill --signal SIGKILL "$ctr_id" >/dev/null 2>&1 || true
@@ -45,7 +45,7 @@ cleanup() {
 	remove_view "$before_view"
 	remove_view "$after_view"
 	sudo rm -rf -- "$scratch"
-}
+)
 trap cleanup EXIT
 
 inventory() {
@@ -185,7 +185,7 @@ cleanup
 mkdir -p "$scratch"
 observe clean-before "$(wait_clean)"
 
-snapshot_before=$(sudo ctr -n default snapshots ls -q | sort)
+snapshot_before=$(sudo ctr -n default snapshots ls | awk 'NR > 1 && $1 != "" {print $1}' | sort)
 [[ $snapshot_before = "$expected_snapshot" ]]
 snapshot_info=$(sudo ctr -n default snapshots info "$expected_snapshot")
 jq -e --arg snapshot "$expected_snapshot" \
@@ -268,7 +268,7 @@ capture_view after "$after_view" "$after_manifest"
 after_sha=$captured_manifest_sha
 [[ $before_sha = "$after_sha" ]]
 sudo cmp -s "$before_manifest" "$after_manifest"
-snapshot_after=$(sudo ctr -n default snapshots ls -q | sort)
+snapshot_after=$(sudo ctr -n default snapshots ls | awk 'NR > 1 && $1 != "" {print $1}' | sort)
 [[ $snapshot_after = "$snapshot_before" ]]
 observe caller-snapshot-unchanged "before_manifest_sha256=$before_sha
 after_manifest_sha256=$after_sha
