@@ -79,6 +79,8 @@ def main() -> None:
             raise AssertionError("hardlink identity was not preserved")
         if os.readlink(copied / "symbolic") != "value" or (copied / "value").stat().st_mode & 0o777 != 0o640:
             raise AssertionError("symlink or mode was not preserved")
+        if ((copied / "value").stat().st_uid, (copied / "value").stat().st_gid) != (value.stat().st_uid, value.stat().st_gid):
+            raise AssertionError("numeric UID/GID ownership was not preserved")
         record = json.loads(result.read_text(encoding="utf-8"))["readonly_binds"][0]
         if record["destination"] != "/opt/input" or len(record["manifest_sha256"]) != 64:
             raise AssertionError("materialization provenance is incomplete")

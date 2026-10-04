@@ -10,7 +10,7 @@
 | Container process, namespaces, child cgroups | `mk-agent` | Daemon sends authenticated requests |
 | OCI root contents | containerd snapshot owner | Agent does not mutate runtime bootstrap |
 | CNI allocation, primary namespace endpoint, routes, firewall, counters | `mknetd` | Shim generation-binds and pumps bounded frames; child receives only a TUN |
-| Writable root/volume | exactly one sandbox | Primary service retains backing-device ownership |
+| Private writable root | exactly one sandbox generation | Primary service retains backing-device ownership; v1 exposes no persistent or writable host volume |
 | GCE boot disk, NIC, shared controllers | primary kernel | Never assign to a child |
 | Cloud VM, disk, snapshot lifecycle | operator/test harness | Every run records before/after ledger |
 
