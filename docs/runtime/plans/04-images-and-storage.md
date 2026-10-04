@@ -178,7 +178,8 @@ writable host bind remains unsupported.
 - Preservation of a containerd-unpacked BusyBox root without treating it as a
   bootable ISO, disk installer, or source of the child kernel.
 - Read-only image rejection of writes.
-- Writable layer persistence only where configured.
+- Unconfigured private writes disappear after delete/name reuse; persistence,
+  writable-volume, and unsupported propagation requests fail before allocation.
 - Full disk, inode exhaustion, malformed image, wrong UUID, wrong generation,
   stale lock, duplicate attach, server loss during read/write/flush, and
   primary restart.
