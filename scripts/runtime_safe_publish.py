@@ -142,16 +142,16 @@ def atomic_write(path: Path, write: Callable[[BinaryIO], object]) -> Identity:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix="." + path.name + ".", dir=path.parent)
     temporary_path = Path(temporary)
-    expected: Identity | None = None
+    expected = descriptor_identity(descriptor)
     try:
         with os.fdopen(descriptor, "wb") as stream:
             write(stream)
             stream.flush()
             os.fchmod(stream.fileno(), 0o600)
             os.fsync(stream.fileno())
-            expected = descriptor_identity(stream.fileno())
+            if descriptor_identity(stream.fileno()) != expected:
+                raise PublicationError("temporary output identity changed while writing")
         return publish_existing(temporary_path, path, expected)
     except BaseException:
-        if expected is not None:
-            remove_if_identity(temporary_path, expected)
+        remove_if_identity(temporary_path, expected)
         raise

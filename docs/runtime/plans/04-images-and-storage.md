@@ -120,7 +120,8 @@ and failure responses do not disclose checker diagnostics.
 - Give each container a private writable layer.
 - Support read-only bind inputs before writable host-path volumes.
 - Define ownership mapping and propagation rules.
-- Add capacity quotas and high-water refusal before live ENOSPC.
+- Enforce byte and inode capacity quotas plus byte and inode high-water
+  reserves before live ENOSPC.
 
 The read-only bind-input v1 subset admits at most eight non-overlapping host
 directories or private single-link regular files. Each mount must be read-only,

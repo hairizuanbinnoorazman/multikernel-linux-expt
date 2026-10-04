@@ -3,6 +3,7 @@ import gzip
 import hashlib
 import importlib.util
 import json
+import errno
 import os
 from pathlib import Path
 import shutil
@@ -250,6 +251,7 @@ class RootFSBuildTests(unittest.TestCase):
             ("--max-bytes", "4", "payload bytes"),
             ("--max-inodes", "1", "entry count"),
             ("--min-free-bytes", str(1 << 62), "high-water refusal"),
+            ("--min-free-inodes", str(1 << 30), "high-water refusal"),
         ):
             output.unlink(missing_ok=True)
             manifest.unlink(missing_ok=True)
@@ -261,6 +263,31 @@ class RootFSBuildTests(unittest.TestCase):
             self.assertIn(message, result.stderr)
             self.assertFalse(output.exists())
             self.assertFalse(manifest.exists())
+
+    def test_manifest_enospc_rolls_back_published_archive(self):
+        (self.root / "value").write_text("content")
+        output = self.temp / "enospc.cpio.gz"
+        manifest = self.temp / "enospc.json"
+        builder = load_builder()
+        original_write = builder.atomic_write
+        calls = 0
+
+        def fail_manifest(path, write):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError(errno.ENOSPC, "injected manifest ENOSPC")
+            return original_write(path, write)
+
+        arguments = [str(SCRIPT), str(self.root), str(output), str(manifest)]
+        with mock.patch.object(builder, "atomic_write", side_effect=fail_manifest), \
+                mock.patch.object(sys, "argv", arguments):
+            with self.assertRaises(OSError) as raised:
+                builder.main()
+        self.assertEqual(raised.exception.errno, errno.ENOSPC)
+        self.assertFalse(output.exists())
+        self.assertFalse(manifest.exists())
+        self.assertEqual(list(self.temp.glob(".enospc.*")), [])
 
     def test_output_publication_is_no_replace_and_rolls_back_its_peer(self):
         (self.root / "value").write_text("content")
