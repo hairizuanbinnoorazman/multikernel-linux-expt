@@ -47,7 +47,7 @@ func main() {
 	s := &agent.Server{Manager: agent.NewManager(noChroot), SandboxID: id, Generation: gen, Bundle: "/bundle", Endpoint: uint32(port), Token: key}
 	shutdown := linuxShutdownPlatform()
 	if mediatedRoot {
-		s.BeforeShutdown = func() error { return quiesceMediatedRoot(shutdown) }
+		s.BeforeShutdown = func() error { return quiesceMediatedRoot(shutdown, os.Stdout) }
 	}
 	if unixSocket == "" {
 		fmt.Fprintln(os.Stderr, "--unix-socket is required; direct Go AF_VSOCK is prohibited")

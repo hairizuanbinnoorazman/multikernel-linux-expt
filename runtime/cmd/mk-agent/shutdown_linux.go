@@ -65,12 +65,13 @@ func linuxShutdownPlatform() shutdownPlatform {
 	}
 }
 
-func quiesceMediatedRoot(platform shutdownPlatform) error {
+func quiesceMediatedRoot(platform shutdownPlatform, evidence io.Writer) error {
 	platform.syncFilesystem()
 	if err := platform.remountRootReadonly(); err != nil {
 		return err
 	}
 	platform.syncFilesystem()
+	fmt.Fprintln(evidence, "MK_STORAGE_ROOT_QUIESCE_PASS stages=sync,remount-ro,sync device=/dev/nbd0")
 	return nil
 }
 

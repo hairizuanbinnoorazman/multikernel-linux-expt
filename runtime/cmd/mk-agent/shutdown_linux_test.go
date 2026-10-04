@@ -71,26 +71,30 @@ func TestMediatedShutdownOrderingAndFailureBoundaries(t *testing.T) {
 		disconnectRootNBD:   func() error { events = append(events, "disconnect-nbd"); return nil },
 		poweroff:            func() error { events = append(events, "poweroff"); return nil },
 	}
-	if err := quiesceMediatedRoot(platform); err != nil {
+	var evidence bytes.Buffer
+	if err := quiesceMediatedRoot(platform, &evidence); err != nil {
 		t.Fatal(err)
 	}
-	var evidence bytes.Buffer
 	if err := finishGuestShutdown(true, platform, &evidence); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"sync", "remount-ro", "sync", "disconnect-nbd", "poweroff"}
-	if !slices.Equal(events, want) || evidence.String() != "MK_STORAGE_NBD_DISCONNECT_PASS device=/dev/nbd0\n" {
+	if !slices.Equal(events, want) || evidence.String() != "MK_STORAGE_ROOT_QUIESCE_PASS stages=sync,remount-ro,sync device=/dev/nbd0\nMK_STORAGE_NBD_DISCONNECT_PASS device=/dev/nbd0\n" {
 		t.Fatalf("shutdown result = events:%v evidence:%q", events, evidence.String())
 	}
 
 	events = nil
+	evidence.Reset()
 	injected := errors.New("injected disconnect failure")
 	platform.remountRootReadonly = func() error { events = append(events, "remount-ro"); return injected }
-	if err := quiesceMediatedRoot(platform); !errors.Is(err, injected) {
+	if err := quiesceMediatedRoot(platform, &evidence); !errors.Is(err, injected) {
 		t.Fatalf("remount failure = %v", err)
 	}
 	if !slices.Equal(events, []string{"sync", "remount-ro"}) {
 		t.Fatalf("failed remount events = %v", events)
+	}
+	if evidence.Len() != 0 {
+		t.Fatalf("failed remount evidence = %q", evidence.String())
 	}
 
 	events = nil
