@@ -67,6 +67,7 @@ class StorageBuildTests(unittest.TestCase):
             mke2fs="/usr/sbin/mke2fs",
             e2fsck="/usr/sbin/e2fsck",
             debugfs="/usr/sbin/debugfs",
+            cp="/bin/cp",
         )
 
     def test_reproducible_fully_allocated_and_changed_input_control(self):
@@ -159,6 +160,22 @@ class StorageBuildTests(unittest.TestCase):
         self.assertFalse(metadata.exists())
         self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
         self.assertEqual(list(self.temp.glob(".debugfs-normalize.*")), [])
+
+    def test_signaled_staging_copy_is_bounded_and_cleans_partial_artifacts(self):
+        helper = self.temp / "interrupted-copy.sh"
+        helper.write_text(
+            "#!/bin/sh\n"
+            "set -eu\n"
+            "printf partial >\"$5/interrupted\"\n"
+            "kill -KILL $$\n"
+        )
+        helper.chmod(0o700)
+        result, output, metadata = self.build("interrupted-copy", cp=helper)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("root staging failed with status -9", result.stderr)
+        self.assertFalse(output.exists())
+        self.assertFalse(metadata.exists())
+        self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
 
     def test_enospc_at_builder_allocation_boundaries_cleans_attempt(self):
         original_run = subprocess.run

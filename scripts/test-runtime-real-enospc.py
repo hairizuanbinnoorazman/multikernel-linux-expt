@@ -71,6 +71,7 @@ def storage(root: Path, output_dir: Path) -> None:
         mke2fs="/usr/sbin/mke2fs",
         e2fsck="/usr/sbin/e2fsck",
         debugfs="/usr/sbin/debugfs",
+        cp="/bin/cp",
     )
     try:
         with mock.patch.object(builder, "filesystem_capacity", return_value=(1 << 40, 1 << 30)):
