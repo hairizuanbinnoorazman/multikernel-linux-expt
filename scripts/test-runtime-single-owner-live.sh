@@ -171,8 +171,8 @@ store_pattern='^(TestStoreRejectsForgedSemanticStateBeforeReconciliation|TestSto
 backend_pattern='^(TestLinuxBackendProcessIdentityGracefulStopAndOfflineCheck|TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures|TestOfflineCheckIsBoundedAndHashesCombinedEvidence|TestMissingEphemeralRuntimeDirectoryObservesExportAbsent)$'
 (
 	cd "$source_root/runtime"
-	GOCACHE="$scratch/go-cache" go test -race -v -count=1 ./internal/rootfs -run "$rootfs_pattern"
-	GOCACHE="$scratch/go-cache" go test -race -v -count=1 ./internal/storage -run "$service_pattern|$store_pattern|$backend_pattern"
+	TMPDIR="$scratch" GOCACHE="$scratch/go-cache" go test -race -v -count=1 ./internal/rootfs -run "$rootfs_pattern"
+	TMPDIR="$scratch" GOCACHE="$scratch/go-cache" go test -race -v -count=1 ./internal/storage -run "$service_pattern|$store_pattern|$backend_pattern"
 )
 echo FOCUSED_SINGLE_OWNER_GENERATION_LOCK_TESTS_PASS
 
