@@ -106,12 +106,12 @@ assert record['port'] == export['port']
 assert record['image_id'] == export['image_id']
 assert record['export_generation'] == export['export_generation']
 pid=record['pid']
-with open('/proc/%d/comm' % pid) as f:
-    assert f.read().strip() == 'mkvsock-nbd'
 image_stat=os.stat(export['path'])
 fd_stat=os.stat('/proc/%d/fd/3' % pid)
+exe_stat=os.stat('/proc/%d/exe' % pid)
 assert (image_stat.st_dev,image_stat.st_ino) == (fd_stat.st_dev,fd_stat.st_ino)
 assert (record['image_device'],record['image_inode']) == (image_stat.st_dev,image_stat.st_ino)
+assert (record['binary_device'],record['binary_inode']) == (exe_stat.st_dev,exe_stat.st_ino)
 summary={
  'rootfs_version':rootfs['version'], 'rootfs_record_key':root_key,
  'rootfs_phase':root['phase'], 'bundle':root['request']['bundle'],
@@ -123,6 +123,7 @@ summary={
  'image_identity':export['image_identity'], 'process_record':record_path,
  'process_pid':pid, 'process_start_time':record['start_time'],
  'fd3_identity':'%d:%d' % (fd_stat.st_dev,fd_stat.st_ino),
+ 'executable_identity':'%d:%d' % (exe_stat.st_dev,exe_stat.st_ino),
 }
 print(json.dumps(summary,sort_keys=True,separators=(',',':')))
 PY
