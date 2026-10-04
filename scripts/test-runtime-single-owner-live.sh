@@ -210,7 +210,7 @@ printf "post_teardown_lock=acquired held_identity=%s links=%s\n" "$(stat -Lc "%d
 locker_pid=$!
 for _ in $(seq 1 120); do [[ -e $lock_ready ]] && break; sleep .05; done
 [[ -e $lock_ready ]]
-grep -Fxq "live_owner_lock=contended held_identity=$(sudo stat -Lc '%d:%i' "$image_path")" "$lock_result"
+sudo grep -Fxq "live_owner_lock=contended held_identity=$(sudo stat -Lc '%d:%i' "$image_path")" "$lock_result"
 observe live-duplicate-attach-rejected "$(sudo cat "$lock_result")"
 
 sudo ctr task exec --exec-id single-owner-release "$task_id" /bin/touch /tmp/single-owner-release
