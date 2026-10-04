@@ -214,7 +214,7 @@ def _build_held(arguments, root: Path, root_fd: int) -> dict:
     try:
         os.mkdir("root", mode=0o700, dir_fd=staging_fd)
         copy = subprocess.run(
-            ["/bin/cp", "-a", "--reflink=auto", "--", str(root) + "/.", str(staged_root)],
+            [arguments.cp, "-a", "--reflink=auto", "--", str(root) + "/.", str(staged_root)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -222,7 +222,9 @@ def _build_held(arguments, root: Path, root_fd: int) -> dict:
             pass_fds=(root_fd, staging_fd),
         )
         if copy.returncode:
-            raise StorageBuildError(f"root staging failed: {copy.stderr.strip()}")
+            raise StorageBuildError(
+                f"root staging failed with status {copy.returncode}: {copy.stderr.strip()}"
+            )
         normalize_tree_times(staged_root)
         require_capacity(
             arguments.output.parent,
@@ -332,6 +334,7 @@ def main() -> int:
     parser.add_argument("--mke2fs", default="/usr/sbin/mke2fs")
     parser.add_argument("--e2fsck", default="/usr/sbin/e2fsck")
     parser.add_argument("--debugfs", default="/usr/sbin/debugfs")
+    parser.add_argument("--cp", default="/bin/cp")
     arguments = parser.parse_args()
     try:
         print(json.dumps(build(arguments), separators=(",", ":"), sort_keys=True))

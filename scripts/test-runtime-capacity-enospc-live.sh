@@ -66,10 +66,17 @@ real_enospc_helper_sha256=$(sha256sum "$source_root/scripts/test-runtime-real-en
 (
 	cd "$source_root"
 	PYTHONDONTWRITEBYTECODE=1 TMPDIR="$scratch" python3 scripts/test-runtime-safe-publish.py
-	PYTHONDONTWRITEBYTECODE=1 TMPDIR="$scratch" python3 scripts/test-runtime-storage-build.py
+	PYTHONDONTWRITEBYTECODE=1 TMPDIR="$scratch" python3 scripts/test-runtime-storage-build.py -v
 	PYTHONDONTWRITEBYTECODE=1 TMPDIR="$scratch" python3 scripts/test-runtime-rootfs-build.py
 )
 echo FOCUSED_CAPACITY_TESTS_PASS
+
+(
+	cd "$source_root/runtime"
+	storage_fault_pattern='^(TestLinuxBackendInspectsExt4IdentityQuotaAndCleanState|TestLinuxBackendCurrentInspectionAllowsExpectedWritableImageChange|TestRetainedPreparationRefusesConflictingLiveGeneration|TestProvisionIsGenerationBoundIdempotentAndSingleOwner)$'
+	TMPDIR="$scratch" GOCACHE="$scratch/go-cache" go test -race -v -count=1 ./internal/storage -run "$storage_fault_pattern"
+)
+echo FOCUSED_STORAGE_IDENTITY_FAULT_TESTS_PASS
 
 mount_constrained size=96m,nr_inodes=4096
 set +e
