@@ -9,7 +9,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import stat
 import subprocess
 import tempfile
@@ -60,6 +59,22 @@ def imported_inode_count(root: Path) -> int:
             info = (directory / name).lstat()
             observed.add((info.st_dev, info.st_ino))
     return len(observed)
+
+
+def filesystem_capacity(path: Path) -> tuple[int, int]:
+    """Return unprivileged-available bytes and inodes for one filesystem."""
+    value = os.statvfs(path)
+    return value.f_bavail * value.f_frsize, value.f_favail
+
+
+def require_capacity(path: Path, required_bytes: int, required_inodes: int) -> None:
+    free_bytes, free_inodes = filesystem_capacity(path)
+    if free_bytes < required_bytes or free_inodes < required_inodes:
+        raise StorageBuildError(
+            "storage high-water refusal: "
+            f"free_bytes={free_bytes} required_bytes={required_bytes} "
+            f"free_inodes={free_inodes} required_inodes={required_inodes}"
+        )
 
 
 def normalize_tree_times(root: Path) -> None:
@@ -170,14 +185,20 @@ def _build_held(arguments, root: Path, root_fd: int) -> dict:
         raise StorageBuildError("image ID or UUID is malformed")
     if (arguments.size < 64 << 20 or arguments.size > 16 << 30 or arguments.size % 4096 or
             arguments.inodes < 128 or arguments.inodes > 2_097_152 or arguments.port < 1024 or arguments.port > 65535 or
-            arguments.min_free_bytes < 0 or arguments.min_free_bytes > 16 << 40):
+            arguments.min_free_bytes < 0 or arguments.min_free_bytes > 16 << 40 or
+            arguments.min_free_inodes < 0 or arguments.min_free_inodes > 1 << 30):
         raise StorageBuildError("size, inode quota, free-space reserve, or export port is outside the supported bounds")
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.metadata.parent.mkdir(parents=True, exist_ok=True)
-    free = shutil.disk_usage(arguments.output.parent).free
-    required = arguments.size + arguments.min_free_bytes + allocated_bytes(root)
-    if free < required:
-        raise StorageBuildError(f"storage high-water refusal: free={free} required={required}")
+    source_inodes = imported_inode_count(root) + 1
+    # The clone consumes one inode per admitted source object plus its staging
+    # parents. The image and metadata each require one further temporary inode;
+    # no-replace publication adds hard links, not new inodes.
+    require_capacity(
+        arguments.output.parent,
+        arguments.size + arguments.min_free_bytes + allocated_bytes(root),
+        arguments.min_free_inodes + source_inodes + 4,
+    )
 
     staging = Path(tempfile.mkdtemp(prefix=".root-staging.", dir=arguments.output.parent))
     staging_fd = os.open(staging, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
@@ -203,10 +224,11 @@ def _build_held(arguments, root: Path, root_fd: int) -> dict:
         if copy.returncode:
             raise StorageBuildError(f"root staging failed: {copy.stderr.strip()}")
         normalize_tree_times(staged_root)
-        free = shutil.disk_usage(arguments.output.parent).free
-        required = arguments.size + arguments.min_free_bytes
-        if free < required:
-            raise StorageBuildError(f"storage high-water refusal: free={free} required={required}")
+        require_capacity(
+            arguments.output.parent,
+            arguments.size + arguments.min_free_bytes,
+            arguments.min_free_inodes + 2,
+        )
 
         descriptor, temporary_name = tempfile.mkstemp(
             prefix="." + arguments.output.name + ".", dir=arguments.output.parent
@@ -305,6 +327,7 @@ def main() -> int:
     parser.add_argument("--inodes", type=int, default=131072)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--min-free-bytes", type=int, default=1 << 30)
+    parser.add_argument("--min-free-inodes", type=int, default=1024)
     parser.add_argument("--logical-path", type=Path)
     parser.add_argument("--mke2fs", default="/usr/sbin/mke2fs")
     parser.add_argument("--e2fsck", default="/usr/sbin/e2fsck")

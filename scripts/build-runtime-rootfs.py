@@ -296,6 +296,7 @@ def main() -> int:
     parser.add_argument("--max-bytes", type=int, default=0)
     parser.add_argument("--max-inodes", type=int, default=0)
     parser.add_argument("--min-free-bytes", type=int, default=0)
+    parser.add_argument("--min-free-inodes", type=int, default=0)
     args = parser.parse_args()
     entries, contents = scan(args.root)
     payload_bytes = sum(item.size for item in entries if item.kind == "regular")
@@ -304,7 +305,15 @@ def main() -> int:
     if args.max_inodes and len(entries) > args.max_inodes:
         raise RootFSError(f"entry count {len(entries)} exceeds limit {args.max_inodes}")
     encoded_manifest = manifest(entries)
+    if args.min_free_inodes < 0 or args.min_free_inodes > 1 << 30:
+        raise RootFSError("free-inode reserve is outside the supported bounds")
     if args.manifest_only:
+        capacity = os.statvfs(args.manifest.parent)
+        if capacity.f_favail < args.min_free_inodes + 1:
+            raise RootFSError(
+                f"high-water refusal: available inodes {capacity.f_favail}, "
+                f"required inodes {args.min_free_inodes + 1}"
+            )
         atomic_write(args.manifest, lambda stream: stream.write(encoded_manifest))
         print(json.dumps({
             "manifest_sha256": hashlib.sha256(encoded_manifest).hexdigest(),
@@ -312,12 +321,15 @@ def main() -> int:
             "payload_bytes": payload_bytes,
         }, sort_keys=True))
         return 0
-    available = os.statvfs(args.output.parent).f_bavail * os.statvfs(args.output.parent).f_frsize
+    capacity = os.statvfs(args.output.parent)
+    available = capacity.f_bavail * capacity.f_frsize
     worst_case_archive = payload_bytes + len(entries) * 512 + 1024
-    if available - worst_case_archive < args.min_free_bytes:
+    required_inodes = args.min_free_inodes + 2
+    if available - worst_case_archive < args.min_free_bytes or capacity.f_favail < required_inodes:
         raise RootFSError(
             f"high-water refusal: available {available}, worst-case archive {worst_case_archive}, "
-            f"required reserve {args.min_free_bytes}"
+            f"required reserve {args.min_free_bytes}, available inodes {capacity.f_favail}, "
+            f"required inodes {required_inodes}"
         )
     # All admission checks precede both outputs. A refused build therefore does
     # not leave a plausible manifest without its corresponding archive.
@@ -343,5 +355,5 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (PublicationError, RootFSError) as error:
+    except (OSError, PublicationError, RootFSError) as error:
         raise SystemExit(f"rootfs validation failed: {error}")

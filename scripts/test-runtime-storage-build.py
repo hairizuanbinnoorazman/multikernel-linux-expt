@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import errno
 import os
 from pathlib import Path
 import shutil
@@ -41,6 +42,7 @@ class StorageBuildTests(unittest.TestCase):
         values = {
             "image_id": "source-manifest-abcd", "uuid": "11111111-2222-4333-8444-555555555555",
             "size": 64 << 20, "inodes": 4096, "port": 4061, "min_free_bytes": 0,
+            "min_free_inodes": 0,
         }
         values.update(overrides)
         command = [str(SCRIPT), str(self.root), str(output), str(metadata)]
@@ -61,6 +63,7 @@ class StorageBuildTests(unittest.TestCase):
             inodes=4096,
             port=4061,
             min_free_bytes=0,
+            min_free_inodes=0,
             mke2fs="/usr/sbin/mke2fs",
             e2fsck="/usr/sbin/e2fsck",
             debugfs="/usr/sbin/debugfs",
@@ -111,6 +114,8 @@ class StorageBuildTests(unittest.TestCase):
             ("uuid", {"uuid": "bad"}, "malformed"),
             ("size", {"size": 4096}, "outside the supported bounds"),
             ("negative-reserve", {"min_free_bytes": -1}, "outside the supported bounds"),
+            ("inode-high", {"min_free_inodes": 1 << 30}, "high-water refusal"),
+            ("negative-inode-reserve", {"min_free_inodes": -1}, "outside the supported bounds"),
         ):
             result, output, metadata = self.build(name, **overrides)
             self.assertNotEqual(result.returncode, 0)
@@ -154,6 +159,72 @@ class StorageBuildTests(unittest.TestCase):
         self.assertFalse(metadata.exists())
         self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
         self.assertEqual(list(self.temp.glob(".debugfs-normalize.*")), [])
+
+    def test_enospc_at_builder_allocation_boundaries_cleans_attempt(self):
+        original_run = subprocess.run
+
+        def assert_clean(arguments):
+            self.assertFalse(arguments.output.exists())
+            self.assertFalse(arguments.metadata.exists())
+            self.assertEqual(list(self.temp.glob(".root-staging.*")), [])
+            self.assertEqual(list(self.temp.glob(f".{arguments.output.name}.*")), [])
+            self.assertEqual(list(self.temp.glob(f".{arguments.metadata.name}.*")), [])
+
+        for boundary in ("staging", "copy", "allocate", "image-fsync", "mke2fs", "e2fsck", "publish", "metadata"):
+            with self.subTest(boundary=boundary):
+                builder = load_builder()
+                arguments = self.arguments("enospc-" + boundary)
+                patches = []
+                if boundary == "staging":
+                    patches.append(mock.patch.object(
+                        builder.tempfile, "mkdtemp", side_effect=OSError(errno.ENOSPC, "injected staging ENOSPC")
+                    ))
+                elif boundary == "copy":
+                    patches.append(mock.patch.object(
+                        builder.subprocess,
+                        "run",
+                        return_value=subprocess.CompletedProcess(["cp"], 1, "", "No space left on device"),
+                    ))
+                elif boundary == "allocate":
+                    patches.append(mock.patch.object(
+                        builder.os, "posix_fallocate", side_effect=OSError(errno.ENOSPC, "injected allocation ENOSPC")
+                    ))
+                elif boundary == "image-fsync":
+                    calls = 0
+                    original_fsync = os.fsync
+
+                    def fail_first_fsync(descriptor):
+                        nonlocal calls
+                        calls += 1
+                        if calls == 1:
+                            raise OSError(errno.ENOSPC, "injected image fsync ENOSPC")
+                        return original_fsync(descriptor)
+
+                    patches.append(mock.patch.object(builder.os, "fsync", side_effect=fail_first_fsync))
+                elif boundary in ("mke2fs", "e2fsck"):
+                    def fail_tool(command, *args, _boundary=boundary, **kwargs):
+                        if Path(command[0]).name == _boundary:
+                            return subprocess.CompletedProcess(command, 8, "", "No space left on device")
+                        return original_run(command, *args, **kwargs)
+
+                    patches.append(mock.patch.object(builder.subprocess, "run", side_effect=fail_tool))
+                elif boundary == "publish":
+                    patches.append(mock.patch.object(
+                        builder, "publish_existing", side_effect=OSError(errno.ENOSPC, "injected publish ENOSPC")
+                    ))
+                elif boundary == "metadata":
+                    patches.append(mock.patch.object(
+                        builder, "atomic_json", side_effect=OSError(errno.ENOSPC, "injected metadata ENOSPC")
+                    ))
+                for patcher in patches:
+                    patcher.start()
+                try:
+                    with self.assertRaises((OSError, builder.StorageBuildError)):
+                        builder.build(arguments)
+                finally:
+                    for patcher in reversed(patches):
+                        patcher.stop()
+                assert_clean(arguments)
 
     def test_raced_output_and_metadata_collisions_preserve_replacements(self):
         builder = load_builder()
