@@ -18,6 +18,15 @@ deliberate post-start resize has local agent coverage but still needs live
 revalidation. The FIFO/PTY paths also pass the current local unit suite and race
 detector, with broader backpressure/failure coverage still open.
 
+The developer-preview v1 writable-state model is deliberately ephemeral. Each
+task receives one private writable ext4 root which is released and removed on
+delete. Read-only host inputs are materialized copies with no propagation;
+generic writable host binds, UID/GID mappings, shared/slave propagation,
+persistent roots, and writable volumes are unsupported and rejected before
+allocation. Docker's exact three per-container metadata files are copied as
+private writable seeds for compatibility and never mounted through from the
+host. See [`Plan 04`](../docs/runtime/plans/04-images-and-storage.md).
+
 None of G0 through G6 is a closed normative gate. See the
 [G0-G3](../docs/runtime/learnings/g0-g3-remediation-checklist.md) and
 [G4-G6](../docs/runtime/learnings/g4-g6-remediation-checklist.md) remediation

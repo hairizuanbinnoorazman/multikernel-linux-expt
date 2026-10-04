@@ -144,6 +144,31 @@ destinations, nested inputs, source symlinks, mutation, writable options, and
 shared/slave or unsupported propagation options fail closed. Writable host-path volumes and configured
 persistence remain a later storage format and ownership contract.
 
+### Supported writable-state model for the developer-preview v1
+
+The v1 runtime intentionally supports only task-private ephemeral writable
+state. Each task receives one fully allocated private ext4 root, owned by that
+task's sandbox and export generations. Delete releases, checks, and removes the
+root; creating the same container name again creates a new generation and must
+not recover prior unconfigured writes. There is no v1 persistence or writable-
+volume API, no cross-task root reuse, and no writable host-path bind. Such OCI
+mounts fail validation before sandbox or storage allocation.
+
+Read-only bind inputs are point-in-time materialized copies as specified above;
+they do not carry mount propagation. Shared and slave propagation are rejected,
+and accepted private markers are normalized to propagation `none` in the child.
+Numeric UID/GID values are preserved in the private copy. OCI
+`linux.uidMappings` and `linux.gidMappings` are not a supported ownership-
+translation mechanism and fail closed; process UID, GID, and supplementary GID
+selection remains the separate process contract.
+
+Docker compatibility has one narrow non-volume exception. Its exact
+same-container `/etc/resolv.conf`, `/etc/hostname`, and `/etc/hosts` sources,
+with the exact generated option form, are copied into the private root as
+writable seed files. They are not mounted from the host, do not write through,
+and do not persist after task deletion. Everything else that requests a
+writable host bind remains unsupported.
+
 ## Tests
 
 - Whiteouts, opaque directories, hardlinks, symlinks, sparse files, xattrs,

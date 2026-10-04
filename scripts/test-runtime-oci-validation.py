@@ -398,6 +398,8 @@ def main():
         run_case(directory, "unsupported-resource", bad_resource)
         for name, linux_update in (
             ("unsupported-seccomp", {"seccomp": {"defaultAction": "SCMP_ACT_ERRNO"}}),
+            ("unsupported-uid-mapping", {"uidMappings": [{"containerID": 0, "hostID": 100000, "size": 65536}]}),
+            ("unsupported-gid-mapping", {"gidMappings": [{"containerID": 0, "hostID": 100000, "size": 65536}]}),
             ("noncanonical-cgroup", {"cgroupsPath": "/tasks/../escape"}),
             ("unsupported-masked-path", {"maskedPaths": ["/etc/shadow"]}),
         ):
