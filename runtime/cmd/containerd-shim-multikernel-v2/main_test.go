@@ -2098,16 +2098,11 @@ func TestCreatePostValidationFailureRollbackMatrix(t *testing.T) {
 			if cleanupCalls != expectedCleanup {
 				t.Fatalf("cleanup calls after %s = %d, want %d; daemon calls=%v", stage, cleanupCalls, expectedCleanup, calls)
 			}
-			created := slices.Contains(stages[4:], stage)
-			expectedDelete := 0
-			if created {
-				expectedDelete = 1
-			}
-			if deleteCalls != expectedDelete {
-				t.Fatalf("delete calls after %s = %d, want %d; daemon calls=%v", stage, deleteCalls, expectedDelete, calls)
+			if deleteCalls != 0 {
+				t.Fatalf("delete calls after %s = %d, want 0; daemon calls=%v", stage, deleteCalls, calls)
 			}
 			expectedCancel := 0
-			if stage == "create-sandbox" {
+			if slices.Contains(stages[3:], stage) {
 				expectedCancel = 1
 			}
 			if cancelCalls != expectedCancel {
