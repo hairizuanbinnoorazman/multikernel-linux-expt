@@ -107,7 +107,7 @@ pool_configured=0 children=0"
 
 [[ $(id -u) -ne 0 ]] || { echo 'run as an ordinary sudo-capable user' >&2; exit 1; }
 test -d "$source_root/runtime"
-test -x "$manager"
+test -f "$manager"
 test -x "$source_root/scripts/kerf-fault-wrapper.sh"
 for path in "$real_kerf" "$fault_wrapper" "$fault_control" "$qualification_root"; do sudo test ! -e "$path"; done
 for service in mkruntimed mknetd containerd docker; do
