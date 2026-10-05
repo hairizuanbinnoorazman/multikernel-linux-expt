@@ -15,6 +15,7 @@ type fakeBackend struct {
 	counters   Counters
 	closed     bool
 	clientLost bool
+	unknown    bool
 	identity   ImageIdentity
 }
 
@@ -46,7 +47,8 @@ func (f *fakeBackend) Observe(_ context.Context, value Export) (Observation, err
 		return Observation{}, err
 	}
 	generation, active := f.active[value.Path]
-	return Observation{Active: active, Closed: !active && f.closed, ClientLost: !active && f.clientLost, Generation: generation, Counters: f.counters}, nil
+	return Observation{Active: active, Closed: !active && f.closed, ClientLost: !active && f.clientLost,
+		PreAcceptance: !active && !f.closed && !f.clientLost && !f.unknown, Generation: generation, Counters: f.counters}, nil
 }
 func (f *fakeBackend) Stop(_ context.Context, value Export) (Counters, error) {
 	f.calls = append(f.calls, "stop")
@@ -289,6 +291,38 @@ func TestReconcileRefusesAcceptedClientServerLoss(t *testing.T) {
 	retained, ok := store.Get("box-a", sandboxGeneration)
 	if !ok || retained != value || retained.State != "ACTIVE" {
 		t.Fatalf("accepted-client loss changed durable ownership: %+v, %v", retained, ok)
+	}
+}
+
+func TestReconcileRefusesActiveServerLossWithoutPreAcceptanceEvidence(t *testing.T) {
+	service, store, backend, image := fixture(t)
+	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delete(backend.active, image.Path)
+	backend.unknown = true
+	startsBefore := 0
+	for _, call := range backend.calls {
+		if call == "start" {
+			startsBefore++
+		}
+	}
+	if err = service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "without exact pre-acceptance evidence") {
+		t.Fatalf("unknown active-session reconciliation error = %v", err)
+	}
+	startsAfter := 0
+	for _, call := range backend.calls {
+		if call == "start" {
+			startsAfter++
+		}
+	}
+	if startsAfter != startsBefore {
+		t.Fatalf("unknown active-session loss restarted an export: calls=%v", backend.calls)
+	}
+	retained, ok := store.Get("box-a", sandboxGeneration)
+	if !ok || retained != value || retained.State != "ACTIVE" {
+		t.Fatalf("unknown active-session loss changed durable ownership: %+v, %v", retained, ok)
 	}
 }
 
