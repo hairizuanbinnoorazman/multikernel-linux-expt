@@ -2306,7 +2306,7 @@ func (s *service) allocate(ctx context.Context, bundle string) (protocol.Sandbox
 	return protocol.SandboxConfig{}, nil, errors.New("no disjoint Multikernel CPU set is available")
 }
 
-func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.CleanupRequest, lifecycleAttempted bool) error {
+func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.CleanupRequest, lifecycleAttempted bool, config protocol.SandboxConfig, createKey string) error {
 	var failures []error
 	canCleanupPrepared := !lifecycleAttempted
 	if err := s.stopNamespaceHolder(); err != nil {
@@ -2315,7 +2315,14 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 	if err := s.releaseNetwork(ctx); err != nil {
 		failures = append(failures, err)
 	}
-	if s.sandbox.ID != "" {
+	if lifecycleAttempted {
+		if err := s.cancelCreate(ctx, config, createKey); err != nil {
+			failures = append(failures, fmt.Errorf("cancel allocated sandbox: %w", err))
+		} else {
+			canCleanupPrepared = true
+			s.sandbox = protocol.Sandbox{}
+		}
+	} else if s.sandbox.ID != "" {
 		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-create-rollback-delete-"+s.sandbox.Generation, nil); err != nil && !daemonErrorCode(err, "NOT_FOUND") {
 			failures = append(failures, fmt.Errorf("delete allocated sandbox: %w", err))
 		} else {
@@ -2724,10 +2731,12 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	}
 	var prepared *rootfspkg.CleanupRequest
 	lifecycleAttempted := false
+	var config protocol.SandboxConfig
+	var createKey string
 	fail := true
 	defer func() {
 		if fail {
-			if cleanupErr := s.rollbackCreate(context.WithoutCancel(ctx), prepared, lifecycleAttempted); cleanupErr != nil {
+			if cleanupErr := s.rollbackCreate(context.WithoutCancel(ctx), prepared, lifecycleAttempted, config, createKey); cleanupErr != nil {
 				retErr = errors.Join(retErr, fmt.Errorf("create rollback: %w", cleanupErr))
 			}
 		}
@@ -2758,7 +2767,7 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	}
 	s.token = token
 	lifecycleAttempted = true
-	createKey := "shim-create-" + s.id + "-" + tokenHex[:12]
+	createKey = "shim-create-" + s.id + "-" + tokenHex[:12]
 	createClient := daemonCallerWithTimeout(s.daemon, createSandboxDaemonTimeout)
 	created, err := daemon.Mutation(ctx, createClient, "CreateSandbox", "", "", createKey, &config)
 	if err != nil {

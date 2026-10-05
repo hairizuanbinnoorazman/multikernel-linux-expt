@@ -167,6 +167,11 @@ $(grep -E 'BACKEND_FAILURE|retained_output_sha256|exit status 42' <<<"$fault_out
 
 immediate=$(inventory)
 observe immediate-post-failure-inventory "$immediate"
+for _ in $(seq 1 120); do
+	shim_processes=$(ps -eo comm= | awk '$1 == "containerd-shim" {n++} END {print n+0}')
+	[[ $shim_processes -eq 0 ]] && break
+	sleep .25
+done
 assert_clean clean-after-live-load-fault
 after_exports=$(sudo python3 -c 'import json; print(len(json.load(open("/var/lib/mkruntimed/storage/state.json"))["exports"]))')
 [[ $after_exports -eq $((before_exports + 1)) ]]
