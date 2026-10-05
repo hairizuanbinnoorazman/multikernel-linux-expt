@@ -809,6 +809,49 @@ func TestCounterEvidenceRequiresExactReadyAndCanonicalTerminalClose(t *testing.T
 	}
 }
 
+func TestObserveRetainsAcceptedClientCrashForDiagnosis(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
+	recordPath, logPath := backend.paths(value)
+	record := processRecord{Version: 3, PID: 1 << 30, StartTime: 1, Path: value.Path,
+		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
+		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
+		BinaryDevice: 3, BinaryInode: 4}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(recordPath, append(data, '\n'), 0600); err != nil {
+		t.Fatal(err)
+	}
+	log := append(readyMarker(value), []byte("MKNBD_SERVER_CLIENT_ACCEPTED\n")...)
+	if err = os.WriteFile(logPath, log, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	observed, err := backend.Observe(t.Context(), value)
+	if err != nil || !observed.ClientLost || observed.Active || observed.Closed {
+		t.Fatalf("accepted-client crash observation = %+v, %v", observed, err)
+	}
+	if retained, readErr := os.ReadFile(recordPath); readErr != nil || !bytes.Equal(retained, append(data, '\n')) {
+		t.Fatalf("accepted-client crash record was not retained: %q, %v", retained, readErr)
+	}
+	if _, err = backend.Stop(t.Context(), value); err == nil || !strings.Contains(err.Error(), "graceful close evidence") {
+		t.Fatalf("accepted-client crash stop error = %v", err)
+	}
+	if err = os.Remove(recordPath); err != nil {
+		t.Fatal(err)
+	}
+	observed, err = backend.Observe(t.Context(), value)
+	if err != nil || !observed.ClientLost || observed.Active || observed.Closed {
+		t.Fatalf("record-absent accepted-client crash observation = %+v, %v", observed, err)
+	}
+}
+
 func TestStopAcceptsExactGracefulCloseAfterRecoveredProcessExited(t *testing.T) {
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {

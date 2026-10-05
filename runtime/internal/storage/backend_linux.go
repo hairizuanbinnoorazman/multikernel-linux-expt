@@ -759,6 +759,13 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 		if counterErr == nil {
 			return Observation{Closed: true, Counters: counters}, nil
 		}
+		accepted, acceptedErr := clientAcceptedAt(directory, logName, value)
+		if acceptedErr != nil {
+			return Observation{}, acceptedErr
+		}
+		if accepted {
+			return Observation{ClientLost: true}, nil
+		}
 		return Observation{}, nil
 	}
 	if err != nil {
@@ -773,11 +780,21 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 	}
 	if !matches {
 		counters, counterErr := parseCountersAt(directory, logName, value)
+		if counterErr == nil {
+			if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
+				return Observation{}, err
+			}
+			return Observation{Closed: true, Counters: counters}, nil
+		}
+		accepted, acceptedErr := clientAcceptedAt(directory, logName, value)
+		if acceptedErr != nil {
+			return Observation{}, acceptedErr
+		}
+		if accepted {
+			return Observation{ClientLost: true}, nil
+		}
 		if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
 			return Observation{}, err
-		}
-		if counterErr == nil {
-			return Observation{Closed: true, Counters: counters}, nil
 		}
 		return Observation{}, nil
 	}
@@ -861,6 +878,23 @@ func parseCountersAt(directory *safefile.Directory, name string, value Export) (
 		return Counters{}, errors.New("server close counter record is not canonical or terminal")
 	}
 	return result, nil
+}
+
+func clientAcceptedAt(directory *safefile.Directory, name string, value Export) (bool, error) {
+	data, err := readPrivateRuntimeFileAt(directory, name, 1<<20, true)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	marker := readyMarker(value)
+	ready := bytes.LastIndex(data, marker)
+	if ready < 0 {
+		return false, errors.New("exact server ready evidence is absent")
+	}
+	accepted := bytes.Index(data[ready+len(marker):], []byte("MKNBD_SERVER_CLIENT_ACCEPTED\n"))
+	return accepted >= 0, nil
 }
 
 func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error) {

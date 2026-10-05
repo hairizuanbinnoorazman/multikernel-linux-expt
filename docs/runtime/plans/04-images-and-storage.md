@@ -187,6 +187,10 @@ writable host bind remains unsupported.
 - Backend start failure both before mutation and after an exact server becomes
   live; exact retry and daemon reconciliation must retain the same owner and
   export generation.
+- Missing `ACTIVE` server recovery is allowed only before the exact log records
+  client acceptance. Loss after acceptance is a terminal session failure:
+  retain the lease and process record for diagnosis, and never advertise a
+  replacement server as recovery without a new child-side NBD session.
 - Forged, symlinked, hard-linked, oversized, mismatched, or changing process
   records/logs; wrong readiness identity; nonterminal close evidence; PID reuse;
   and immediate bounded signaling of a managed server.
