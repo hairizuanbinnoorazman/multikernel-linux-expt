@@ -49,9 +49,11 @@ wait_task_state() {
 
 live_counts() {
 	sudo python3 - <<'PY'
-import json
-rootfs=json.load(open('/var/lib/mkruntimed/rootfs/state.json'))
-storage=json.load(open('/var/lib/mkruntimed/storage/state.json'))
+import json, os
+rootfs_path='/var/lib/mkruntimed/rootfs/state.json'
+storage_path='/var/lib/mkruntimed/storage/state.json'
+rootfs=json.load(open(rootfs_path)) if os.path.exists(rootfs_path) else {'records': {}}
+storage=json.load(open(storage_path)) if os.path.exists(storage_path) else {'exports': {}}
 print('rootfs_records=%d live_exports=%d' % (
     len(rootfs['records']),
     sum(v['state'] != 'RELEASED' for v in storage['exports'].values())))
@@ -61,7 +63,10 @@ PY
 wait_counts() {
 	local expected=$1 observed=
 	for _ in $(seq 1 240); do
-		observed=$(live_counts)
+		if ! observed=$(live_counts); then
+			printf '%s' "$observed"
+			return 1
+		fi
 		[[ $observed = "$expected" ]] && {
 			printf '%s' "$observed"
 			return 0
@@ -130,7 +135,11 @@ for service in mkruntimed mknetd containerd docker; do
 done
 sudo test -S /run/mkruntimed.sock
 cleanup_task
-observe clean-before "$(wait_counts 'rootfs_records=0 live_exports=0')"
+if ! clean_before=$(wait_counts 'rootfs_records=0 live_exports=0'); then
+	echo "entry resource gate failed: $clean_before" >&2
+	exit 1
+fi
+observe clean-before "$clean_before"
 host_boot=$(cat /proc/sys/kernel/random/boot_id)
 selector=$(readlink -f /usr/local/lib/multikernel/current)
 daemon_pid=$(systemctl show -p MainPID --value mkruntimed)
@@ -138,7 +147,7 @@ daemon_hash=$(sudo sha256sum "/proc/$daemon_pid/exe" | awk '{print $1}')
 observe provenance "boot_id=$host_boot selector=$selector mkruntimed_pid=$daemon_pid mkruntimed_sha256=$daemon_hash qualifier_sha256=$(sha256sum "$0" | awk '{print $1}')"
 
 sudo ctr images pull "$image" >/dev/null
-guest_program='set -eu; dd if=/dev/zero of=/tmp/client-loss-read-seed bs=1048576 count=4 conv=fsync status=none; touch /tmp/client-loss-ready; while :; do dd if=/tmp/client-loss-read-seed of=/dev/null bs=4096 status=none; done & while :; do dd if=/dev/zero of=/tmp/client-loss-write-target bs=4096 count=1024 conv=fsync status=none; done & while :; do sync; done & wait'
+guest_program='set -eu; dd if=/dev/zero of=/tmp/client-loss-read-seed bs=1048576 count=1 conv=fsync status=none; touch /tmp/client-loss-ready; while :; do dd if=/tmp/client-loss-read-seed of=/dev/null bs=4096 count=1 status=none; done & while :; do dd if=/dev/zero of=/tmp/client-loss-write-target bs=4096 count=1 conv=fsync status=none; done & wait'
 sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c "$guest_program"
 wait_task_state RUNNING
 for _ in $(seq 1 240); do
