@@ -37,6 +37,14 @@ record, then runs the offline check and finalizes release. An absent server
 without that close record, a conflicting generation, or a failed check remains
 durably `QUIESCING` for diagnosis instead of being guessed clean.
 
+If an `ACTIVE` server disappears before any client was accepted, reconciliation
+may restart the same generation: no child session existed to lose. Once the
+generation-bound log records `MKNBD_SERVER_CLIENT_ACCEPTED`, server death is
+terminal for that NBD session. Reconciliation retains the exact process record
+and lease and fails closed instead of starting an orphan server that the child
+cannot reconnect to. Only a canonical terminal `MKNBD_SERVER_CLOSED synced=1`
+record converts accepted-client absence into a clean close.
+
 The backend boundary is intentionally injectable. The Linux backend uses the
 qualified primary-mediated NBD transport; service tests exercise inspection,
 start, observation, stop, and offline-check failure boundaries without

@@ -45,6 +45,7 @@ type Export struct {
 type Observation struct {
 	Active     bool
 	Closed     bool
+	ClientLost bool
 	Generation string
 	Counters   Counters
 }
