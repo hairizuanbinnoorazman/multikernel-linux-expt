@@ -233,7 +233,7 @@ observe fail-closed-reconcile "systemctl_start_exit=$start_rc output=$start_outp
 record_retained=1 replacement_servers=0 durable_unchanged=1
 durable=$durable_after
 journal=$journal"
-observe retained-kernel-state "$(sudo "$kerf" show --verbose)"
+observe retained-kernel-state "$(sudo "$kerf" show)"
 
 trap - EXIT
 echo G4_STORAGE_ACCEPTED_CLIENT_LOSS_PASS
