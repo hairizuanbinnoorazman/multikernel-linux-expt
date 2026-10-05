@@ -238,6 +238,9 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			if observation.ClientLost {
 				return errors.New("active storage server disappeared after client acceptance; automatic session recovery is unsafe")
 			}
+			if !observation.PreAcceptance {
+				return errors.New("active storage server is absent without exact pre-acceptance evidence")
+			}
 			identity, inspectErr := s.backend.InspectCurrent(ctx, value.PreparedImage)
 			if inspectErr == nil && identity != value.ImageIdentity {
 				inspectErr = errors.New("durable storage image identity changed")

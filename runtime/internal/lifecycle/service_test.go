@@ -80,7 +80,7 @@ func (b *lifecycleStorageBackend) Start(_ context.Context, value storagepkg.Expo
 }
 func (b *lifecycleStorageBackend) Observe(_ context.Context, value storagepkg.Export) (storagepkg.Observation, error) {
 	generation, ok := b.active[value.Path]
-	return storagepkg.Observation{Active: ok, Generation: generation}, nil
+	return storagepkg.Observation{Active: ok, PreAcceptance: !ok, Generation: generation}, nil
 }
 func (b *lifecycleStorageBackend) Stop(_ context.Context, value storagepkg.Export) (storagepkg.Counters, error) {
 	b.calls = append(b.calls, "storage-stop")

@@ -759,14 +759,14 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 		if counterErr == nil {
 			return Observation{Closed: true, Counters: counters}, nil
 		}
-		accepted, acceptedErr := clientAcceptedAt(directory, logName, value)
-		if acceptedErr != nil {
-			return Observation{}, acceptedErr
+		preAcceptance, accepted, evidenceErr := clientEvidenceAt(directory, logName, value)
+		if evidenceErr != nil {
+			return Observation{}, evidenceErr
 		}
 		if accepted {
 			return Observation{ClientLost: true}, nil
 		}
-		return Observation{}, nil
+		return Observation{PreAcceptance: preAcceptance}, nil
 	}
 	if err != nil {
 		return Observation{}, err
@@ -786,9 +786,9 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 			}
 			return Observation{Closed: true, Counters: counters}, nil
 		}
-		accepted, acceptedErr := clientAcceptedAt(directory, logName, value)
-		if acceptedErr != nil {
-			return Observation{}, acceptedErr
+		preAcceptance, accepted, evidenceErr := clientEvidenceAt(directory, logName, value)
+		if evidenceErr != nil {
+			return Observation{}, evidenceErr
 		}
 		if accepted {
 			return Observation{ClientLost: true}, nil
@@ -796,7 +796,7 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 		if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
 			return Observation{}, err
 		}
-		return Observation{}, nil
+		return Observation{PreAcceptance: preAcceptance}, nil
 	}
 	return Observation{Active: true, Generation: record.ExportGeneration}, nil
 }
@@ -880,21 +880,21 @@ func parseCountersAt(directory *safefile.Directory, name string, value Export) (
 	return result, nil
 }
 
-func clientAcceptedAt(directory *safefile.Directory, name string, value Export) (bool, error) {
+func clientEvidenceAt(directory *safefile.Directory, name string, value Export) (bool, bool, error) {
 	data, err := readPrivateRuntimeFileAt(directory, name, 1<<20, true)
 	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
+		return false, false, nil
 	}
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	marker := readyMarker(value)
 	ready := bytes.LastIndex(data, marker)
 	if ready < 0 {
-		return false, errors.New("exact server ready evidence is absent")
+		return false, false, errors.New("exact server ready evidence is absent")
 	}
 	accepted := bytes.Index(data[ready+len(marker):], []byte("MKNBD_SERVER_CLIENT_ACCEPTED\n"))
-	return accepted >= 0, nil
+	return bytes.Equal(data, marker), accepted >= 0, nil
 }
 
 func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error) {

@@ -998,6 +998,45 @@ func TestObserveRetainsAcceptedClientCrashForDiagnosis(t *testing.T) {
 	}
 }
 
+func TestObserveDistinguishesExactPreAcceptanceFromUnknownAbsence(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	value := validBackendLease("/var/lib/multikernel/root.ext4")
+	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
+	recordPath, logPath := backend.paths(value)
+	record := processRecord{Version: 3, PID: 1 << 30, StartTime: 1, Path: value.Path,
+		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
+		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
+		BinaryDevice: 3, BinaryInode: 4}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(recordPath, append(data, '\n'), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(logPath, readyMarker(value), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	observed, err := backend.Observe(t.Context(), value)
+	if err != nil || !observed.PreAcceptance || observed.Active || observed.Closed || observed.ClientLost {
+		t.Fatalf("pre-acceptance crash observation = %+v, %v", observed, err)
+	}
+	if _, err = os.Stat(recordPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("dead pre-acceptance process record remains: %v", err)
+	}
+	if err = os.Remove(logPath); err != nil {
+		t.Fatal(err)
+	}
+	observed, err = backend.Observe(t.Context(), value)
+	if err != nil || observed != (Observation{}) {
+		t.Fatalf("unknown crash observation = %+v, %v", observed, err)
+	}
+}
+
 func TestStopAcceptsExactGracefulCloseAfterRecoveredProcessExited(t *testing.T) {
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {
