@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -65,6 +66,71 @@ func makeExt4(t *testing.T, sparse bool) PreparedImage {
 	digest := sha256.Sum256(data)
 	return PreparedImage{Path: path, ImageID: "test-image", FilesystemUUID: uuid,
 		SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061, SHA256: hex.EncodeToString(digest[:])}
+}
+
+func digestPreparedImage(t *testing.T, path string) string {
+	t.Helper()
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	hash := sha256.New()
+	if _, err = io.Copy(hash, file); err != nil {
+		t.Fatal(err)
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func clonePreparedImage(t *testing.T, source PreparedImage, name string) PreparedImage {
+	t.Helper()
+	path := filepath.Join(filepath.Dir(source.Path), name+".ext4")
+	input, err := os.Open(source.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer input.Close()
+	output, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = unix.Fallocate(int(output.Fd()), 0, 0, int64(source.SizeBytes)); err == nil {
+		_, err = io.Copy(output, input)
+	}
+	if err == nil {
+		err = output.Sync()
+	}
+	if closeErr := output.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	clone := source
+	clone.Path = path
+	clone.SHA256 = digestPreparedImage(t, path)
+	return clone
+}
+
+func markExt4Dirty(t *testing.T, image *PreparedImage) {
+	t.Helper()
+	debugfs, err := exec.LookPath("debugfs")
+	if err != nil {
+		t.Skip("debugfs is unavailable")
+	}
+	if output, err := exec.Command(debugfs, "-w", "-R", "ssv state 0", image.Path).CombinedOutput(); err != nil {
+		t.Fatalf("mark ext4 clone dirty: %v: %s", err, output)
+	}
+	image.SHA256 = digestPreparedImage(t, image.Path)
+}
+
+func preparedImageIdentity(t *testing.T, path string) ImageIdentity {
+	t.Helper()
+	var stat unix.Stat_t
+	if err := unix.Stat(path, &stat); err != nil {
+		t.Fatal(err)
+	}
+	return ImageIdentity{Device: uint64(stat.Dev), Inode: stat.Ino}
 }
 
 func TestLinuxBackendInspectsExt4IdentityQuotaAndCleanState(t *testing.T) {
@@ -141,6 +207,86 @@ func TestLinuxBackendCurrentInspectionAllowsExpectedWritableImageChange(t *testi
 	wrong.FilesystemUUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
 	if _, err = backend.InspectCurrent(context.Background(), wrong); err == nil {
 		t.Fatal("current inspection accepted wrong UUID")
+	}
+}
+
+func TestLinuxBackendDisposableCloneRecoveryMatrix(t *testing.T) {
+	checkerSource, err := exec.LookPath("e2fsck")
+	if err != nil {
+		t.Skip("e2fsck is unavailable")
+	}
+	base := makeExt4(t, false)
+	baseDigest := digestPreparedImage(t, base.Path)
+	checkerData, err := os.ReadFile(checkerSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkerPath := filepath.Join(filepath.Dir(base.Path), "e2fsck")
+	if err = os.WriteFile(checkerPath, checkerData, 0755); err != nil {
+		t.Fatal(err)
+	}
+	backend := &LinuxBackend{CheckBinary: checkerPath, RequiredUID: os.Getuid()}
+	baseIdentity, err := backend.Inspect(t.Context(), base)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	clean := clonePreparedImage(t, base, "clean-clone")
+	cleanIdentity, err := backend.Inspect(t.Context(), clean)
+	if err != nil {
+		t.Fatalf("byte-identical clean clone rejected: %v", err)
+	}
+	if clean.SHA256 != base.SHA256 || cleanIdentity == baseIdentity {
+		t.Fatalf("clean clone digest/identity = %s/%+v, base = %s/%+v", clean.SHA256, cleanIdentity, base.SHA256, baseIdentity)
+	}
+
+	dirty := clonePreparedImage(t, base, "dirty-clone")
+	markExt4Dirty(t, &dirty)
+	if _, err = backend.Inspect(t.Context(), dirty); err == nil || !strings.Contains(err.Error(), "not marked clean") {
+		t.Fatalf("dirty clone inspection error = %v", err)
+	}
+	dirtyExport := validBackendLease(dirty.Path)
+	dirtyExport.PreparedImage = dirty
+	dirtyExport.ImageIdentity = preparedImageIdentity(t, dirty.Path)
+	if evidence, checkErr := backend.OfflineCheck(t.Context(), dirtyExport); checkErr != nil || !offlineCheckRE.MatchString(evidence) {
+		t.Fatalf("dirty clone offline check = %q, %v", evidence, checkErr)
+	}
+	command := exec.Command(checkerPath, "-fy", dirty.Path)
+	if output, repairErr := command.CombinedOutput(); repairErr != nil {
+		var status *exec.ExitError
+		if !errors.As(repairErr, &status) || status.ExitCode() != 1 {
+			t.Fatalf("repair dirty clone: %v: %s", repairErr, output)
+		}
+	}
+	dirty.SHA256 = digestPreparedImage(t, dirty.Path)
+	if _, err = backend.Inspect(t.Context(), dirty); err != nil {
+		t.Fatalf("repaired dirty clone rejected: %v", err)
+	}
+
+	corrupt := clonePreparedImage(t, base, "corrupt-clone")
+	file, err := os.OpenFile(corrupt.Path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = file.WriteAt([]byte{0, 0}, ext4SuperblockOffset+0x38); err == nil {
+		err = file.Sync()
+	}
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	corrupt.SHA256 = digestPreparedImage(t, corrupt.Path)
+	if _, err = backend.Inspect(t.Context(), corrupt); err == nil || !strings.Contains(err.Error(), "not ext4") {
+		t.Fatalf("corrupt clone inspection error = %v", err)
+	}
+
+	if digest := digestPreparedImage(t, base.Path); digest != baseDigest || digest != base.SHA256 {
+		t.Fatalf("disposable clone matrix mutated source: got %s, want %s", digest, baseDigest)
+	}
+	if identity, inspectErr := backend.Inspect(t.Context(), base); inspectErr != nil || identity != baseIdentity {
+		t.Fatalf("source identity after clone matrix = %+v, %v; want %+v", identity, inspectErr, baseIdentity)
 	}
 }
 
