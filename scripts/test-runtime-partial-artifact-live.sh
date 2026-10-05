@@ -39,6 +39,16 @@ cleanup_task() {
 	sudo ctr containers rm "$task_id" >/dev/null 2>&1 || true
 }
 
+wait_runtime_ready() {
+	for _ in $(seq 1 60); do
+		if systemctl is-active --quiet mkruntimed && sudo test -S /run/mkruntimed.sock; then
+			return 0
+		fi
+		sleep 1
+	done
+	return 1
+}
+
 restore() {
 	local status=$?
 	set +e
@@ -48,7 +58,7 @@ restore() {
 		sudo python3 "$manager" activate "$original_deployment" >/dev/null
 		sudo systemctl daemon-reload
 		sudo systemctl restart mkruntimed
-		for _ in $(seq 1 60); do systemctl is-active --quiet mkruntimed && break; sleep 1; done
+		wait_runtime_ready
 	fi
 	if [[ -n $fault_deployment && $fault_deployment != "$original_deployment" ]]; then
 		sudo python3 "$manager" remove-deployment "$fault_deployment" --apply >/dev/null
@@ -136,7 +146,7 @@ fault_deployment=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["i
 restore_required=1
 sudo systemctl daemon-reload
 sudo systemctl restart mkruntimed
-for _ in $(seq 1 60); do systemctl is-active --quiet mkruntimed && break; sleep 1; done
+wait_runtime_ready
 [[ $(sudo jq -r .kerf_executable /etc/mkruntime/config.json) = "$fault_wrapper" ]]
 observe fault-deployment "original=$original_deployment
 fault=$fault_deployment
@@ -177,7 +187,7 @@ observe released-failed-create-storage "$released"
 sudo python3 "$manager" activate "$original_deployment" >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl restart mkruntimed
-for _ in $(seq 1 60); do systemctl is-active --quiet mkruntimed && break; sleep 1; done
+wait_runtime_ready
 restore_required=0
 [[ $(sudo jq -r .kerf_executable /etc/mkruntime/config.json) = "$kerf" ]]
 sudo python3 "$manager" remove-deployment "$fault_deployment" --apply >/dev/null
