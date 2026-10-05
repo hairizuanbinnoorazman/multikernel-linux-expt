@@ -138,11 +138,13 @@ daemon_hash=$(sudo sha256sum "/proc/$daemon_pid/exe" | awk '{print $1}')
 observe provenance "boot_id=$host_boot selector=$selector mkruntimed_pid=$daemon_pid mkruntimed_sha256=$daemon_hash qualifier_sha256=$(sha256sum "$0" | awk '{print $1}')"
 
 sudo ctr images pull "$image" >/dev/null
-guest_program='set -eu; dd if=/dev/zero of=/tmp/client-loss-read-seed bs=1048576 count=64 conv=fsync status=none; touch /tmp/client-loss-ready; while :; do dd if=/tmp/client-loss-read-seed of=/dev/null bs=4096 status=none; done & while :; do dd if=/dev/zero of=/tmp/client-loss-write-target bs=4096 count=16384 conv=fsync status=none; done & while :; do sync; done & wait'
+guest_program='set -eu; dd if=/dev/zero of=/tmp/client-loss-read-seed bs=1048576 count=4 conv=fsync status=none; touch /tmp/client-loss-ready; while :; do dd if=/tmp/client-loss-read-seed of=/dev/null bs=4096 status=none; done & while :; do dd if=/dev/zero of=/tmp/client-loss-write-target bs=4096 count=1024 conv=fsync status=none; done & while :; do sync; done & wait'
 sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c "$guest_program"
 wait_task_state RUNNING
 for _ in $(seq 1 240); do
 	sudo ctr task exec --exec-id "client-loss-ready-$RANDOM" "$task_id" /bin/test -e /tmp/client-loss-ready >/dev/null 2>&1 && break
+	state=$(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $3}')
+	[[ $state = RUNNING ]]
 	sleep .25
 done
 sudo ctr task exec --exec-id client-loss-ready-final "$task_id" /bin/test -e /tmp/client-loss-ready
