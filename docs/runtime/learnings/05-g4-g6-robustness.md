@@ -1,5 +1,95 @@
 # G4-G6 robustness follow-up
 
+## 2026-10-01 continuation
+
+The retained-pool correction and its clean-boot shared-matrix pass are recorded
+in the remediation checklist. The next live qualification boundary is split
+deliberately: one focused run will restart containerd around a live ctr task,
+and a separate focused run will restart Docker around a live Docker container.
+Both must retain service and child identities, pre/post exec and stdio, event
+observations, exact deletion, and full cleanup inventory before either restart
+row is described as proved. Initial live inspection found Docker live restore
+disabled on the qualified host, so an immediate Docker restart would test
+configured shutdown rather than reconnect continuity. The containerd case can
+proceed separately; Docker needs a validated live-restore configuration first.
+The focused containerd input is frozen at SHA-256 `46fe6437…`; no result is
+claimed until the guest independently matches that hash and the retained run
+closes with exact identity, event, stdio, deletion, and inventory assertions.
+The guest now independently matches that hash and validates Bash syntax; this
+is transfer provenance, not restart evidence.
+
+The first immutable focused run proves the live core—containerd PID changed,
+host and child boot identities did not, the task remained running, pre/post
+exec succeeded, and the original FIFO stream delivered init output from both
+sides of the restart—but exits 1 because attach had already removed the exited
+task while the harness required a visible `STOPPED` row. Exact cleanup is zero
+apart from the intentionally retained pool; an idle mkruntimed restart released
+it. The transcript is retained as a failed run, and the lifecycle assertion
+must be corrected and rerun before marking the row passed.
+
+The narrowly corrected harness is now frozen and guest-verified as
+`dbc4630c…`; its replay starts from the unchanged boot with a released pool and
+empty default namespace. No corrected-run result is claimed yet.
+
+The corrected retained replay passes. Containerd changes PID while the host,
+mkruntimed, running task, and child boot identities remain stable; exec and the
+original init stdout/stderr stream work on both sides; create/start and
+post-restart exec/exit/delete events are retained; cleanup reaches a retained
+pool with every other count zero and then a fully released all-zero state.
+Independent audit agrees. The mode-0600 transcript hashes to `afa9187e…` and
+closes exit 0. This proves only containerd live-task restart continuity;
+Docker-daemon restart remains open because live restore is disabled.
+
+The Docker merger now has a separate explicit live-restore opt-in rather than
+changing runtime-registration defaults. Focused tests pass for preservation,
+idempotence, conflicts, and option exclusivity. This is local configuration
+tooling only; no guest policy or Docker behavior is yet claimed.
+
+The exact live rollback baseline is retained by identity: active Docker config
+SHA-256 `7861303c…`, mode 0644, runtime-only, effective default `runc`, and live
+restore false. No guest config change is claimed at this checkpoint.
+
+The validated opt-in candidate is now active as `a49bee79…`, while the exact
+`7861303c…` prior file is retained for rollback. A reload made live restore
+effective without changing Docker PID or the `runc` default. This is activation
+evidence only, not a daemon-restart continuity result.
+
+The focused Docker-restart input is frozen at `ab0cea4e…` with explicit
+identity, exec/log, continuous event, deletion, and inventory assertions.
+Transfer and execution remain unclaimed.
+
+Guest hash/syntax and the released, empty, live-restore-enabled replay baseline
+now pass on unchanged boot `768706da…`; no restart result is yet claimed.
+
+The Docker restart replay passes separately from containerd. Docker changes
+PID while containerd, mkruntimed, host boot, running state, and child boot stay
+stable; pre/post exec and retained init logs pass; one moby event stream spans
+create/start through post-restart exit/delete; exact removal converges through
+retained-pool cleanup to a released all-zero state. Independent audit agrees.
+The mode-0600 transcript hashes to `fa381592…` and closes exit 0. Combined with
+the `afa9187e…` containerd transcript, the dedicated replacement-instance
+daemon-restart evidence row is complete, without implying exhaustive event,
+forced-shim, FIFO/cancellation, or packaging coverage.
+
+Commit `43ea792a00030e193cf86e3365a0dad0867e0a5b` freezes the
+configuration opt-in, tests, focused live harnesses, and operator guidance.
+The running findings and evidence remain outside that scoped commit. Full
+repository documentation/evidence checks pass; only the already classified
+local socket `EPERM` subcase skips.
+
+The next evidence target is forced shim death. The old recovery harness has
+obsolete network cleanup checks and lacks recovery-record, journal, event, and
+complete inventory evidence. Final qualification will separate recoverable
+worker death from deliberately unrecoverable supervisor death and record both
+without manually deleting runtime ownership state.
+
+The replacement two-case input is frozen at `af51e5a9…`; it has bounded fault
+waits and emits only a sanitized non-secret recovery summary. Guest transfer and
+execution remain unclaimed.
+
+Guest hash/syntax and the released, empty replay baseline now pass on unchanged
+boot `768706da…`; no forced-death behavior is yet claimed.
+
 ## Result
 
 The 2026-09-01 follow-up on disposable GCE instance
@@ -928,6 +1018,21 @@ deployment, and the current-revision matrices remain pending explicit approval
 to upload the source-only archive and retain the described infrastructure
 evidence.
 
+Explicit stopped-task deletion returns `BACKEND_FAILURE: backend operation
+failed` before container deletion or pool return. This is a substantive
+teardown/recovery outcome, not a harness error. The retained state must be
+inspected for canonical close versus active helper before choosing the
+already-qualified daemon-reconcile/delete retry; no destructive state-file
+edit is permitted.
+
+Read-only diagnosis shows the failed delete durably advanced the exact export
+to `QUIESCING` with zero counters/no offline check, while its process record
+names PID 6341 but no `mkvsock-nbd` process exists. The exact log is only
+generation-bound READY→CLIENT_ACCEPTED and has no canonical close. The stopped
+task and child instance remain. This is correctly unrecoverable by ordinary
+release and must fail closed across daemon/host restart; it is not the intended
+ACTIVE-state fault case and does not close that requirement.
+
 On 2026-09-20, the operator explicitly authorized transferring the current
 source to the disposable VM and running the live qualification suite. This
 removes the source-transfer and execution pause. Because the authorization did
@@ -1355,6 +1460,30 @@ proves activation has no dangling validator link, upgrades, and rolls back.
 Focused deployment, storage-validator, and diff checks pass; broad verification
 remains pending.
 
+Independent focused teardown again reaches all 13 inventories zero with all
+runtime services active/status 0 and zero restarts. The next complete retained
+run begins from that clean state under support generation `25e6d343…`.
+
+Capture `g6-shared-matrix-final.log` stops before matrix execution:
+ordinary-user verification correctly cannot read the mode-0600 managed config,
+so the capture closes at `2026-09-30T00:32:01.705852Z` with exit 1. This is a
+capture-command privilege error and provides no runtime result. It is
+preserved; the replacement command elevates only the config hash check and
+uses a new transcript path.
+
+Replacement capture `g6-shared-matrix-final2.log` verifies
+matrix/helper/private-config hashes and passes lifecycle/isolation, including
+mkruntimed PID 36974→39424 with child continuity and all-zero deletion cleanup.
+It then fails Docker's bind CreateTask with `BACKEND_FAILURE` and exits 125 at
+`2026-09-30T00:37:16.888569Z`; no bind or later marker is claimed. Independent
+audit is all 13 zeros and all services healthy. Sanitized kernel evidence
+identifies the cause: ctr bind teardown returns the 16-GiB Multikernel pool to
+the host, and Docker's following create twice fails to reallocate that pool
+with `-ENOMEM`. This is repeated idle pool teardown/recreation and host-memory
+fragmentation, not bind admission or storage. Kernel command-line output
+contained an authentication token and is deliberately neither retained nor
+reproduced. Pool lifetime/ownership must be corrected before another replay.
+
 The generation-evolution lifecycle passed 100 repetitions, followed by clean
 full Go race/vet and documentation/schema/evidence, OCI, rootfs/storage/image,
 deployment, containerd, and final-audit gates. The expected permission-gated
@@ -1475,6 +1604,58 @@ to a new mode-0700 source directory, and found the expected lifecycle source.
 This closes only the source-transfer boundary; rebuild and live behavior are
 not yet claimed.
 
+The VM independently matches the 4,792,320-byte `2b3c836f…` archive and all
+three script hashes in a fresh 648-file extraction. Syntax/compile checks pass
+on unchanged boot `c5537cb9…`, and all four services are active. This is
+transfer provenance, not live capacity evidence; execution remains pending.
+
+The updated full local race suite is retained as
+`g6-task-v2-unit-race-event-matrix.log`, mode 0600, 55,752 bytes, SHA-256
+`54c55b82d1f126151cd4ed91b099ce53461bceebbc90daff4d761d3621cb6949`.
+It passes in 8.509 seconds with 334 run entries and 139 passing groups. Only the
+same two real pathname-socket tests skip locally; the updated VM rerun remains
+pending.
+
+The updated VM tree matches `main_test.go` SHA-256 `12c8d34f…`. Its full race
+suite passes in 8.301 seconds with 334 run entries, 141 passing groups, zero
+skips, and zero failures. The retained mode-0600/55,565-byte transcript
+`g6-task-v2-vm-race-event-matrix.log` hashes to
+`e95e63d1223953ccfdc8dbbd1305db1ce5500db1d16410c6eedf9a724f0b9f8b`.
+Together with containerd-restart transcript `afa9187e…`, which preserves
+create/start and post-restart exec/exit/delete events, this closes the exact
+event ordering/publication-failure automation row under the documented
+at-least-once replay contract.
+
+The FIFO matrix audit identified two missing literal cases: terminal versus
+non-terminal `CloseIO`, and teardown while stdin/stdout peers remain attached.
+The first 20-repetition race run of the added tests failed at test setup: the
+test could teardown before the new pump goroutine captured `p.stdinReader`.
+No product claim is derived from that scheduling race. The test must establish
+an active pump by sending and observing one byte before teardown.
+
+After that correction, both additions pass 20 race-detector repetitions in
+21.541 seconds. Terminal and non-terminal running execs acknowledge CloseIO
+with one guest call and make repetition idempotent. The attached-peer teardown
+test proves stdin delivery before teardown, prompt pump exit, nilled process I/O
+handles, loss of the attached writer's reader, and EOF at the attached stdout
+reader. Full local and VM suite reruns remain pending.
+
+The full updated local package passes under the race detector in 9.567 seconds.
+`g6-task-v2-unit-race-fifo-matrix.log` is mode 0600, 56,274 bytes, SHA-256
+`ea8e826e6fd054bd9f5f6c65aa713e319e2b0a04f6728cbc6ed6f3e47f2f8b77`,
+with 338 run entries, 141 passing groups, and only the two known local socket
+skips. The zero-skip VM rerun is pending.
+
+The VM copy matches updated `main_test.go` SHA-256 `10101b2d…`. Its complete
+race suite passes in 9.335 seconds with 338 run entries, 143 passing groups,
+zero skips, and zero failures. `g6-task-v2-vm-race-fifo-matrix.log` is mode
+0600/56,087 bytes/SHA-256
+`6fb8ffff1e22a32ed288fc6c42922bebe4e75f8d24f1f5812074a3cb26b00a8f`.
+Together with shared live attach and exact post-start 37x91 resize evidence
+`8ee2f800…` and forced worker-death FIFO continuity `fe6eee0d…`, this closes
+both the named FIFO/attach/resize automation row and the broader FIFO hardening
+implementation row.
+
 All seven exact-source, revision-stamped guest binaries and their manifest now
 build successfully. The release manifest is `122bf1a…`; shim is `f809e51a…`,
 mkruntimed `bae3b11e…`, mknetd `0892a2fd…`, and agent `6600d82b…`. Daemon and
@@ -1574,6 +1755,102 @@ generation log are intentional durable release/idempotency evidence, not live
 resource ownership. Only container metadata removal and a final inventory
 remain.
 
+Exact `69e9ea9` starts from an independently proven zero-resource baseline,
+passes all focused races, and records one coherent live owner: version-4
+`PREPARED` rootfs state, version-2 `ACTIVE` storage, distinct validated sandbox
+and export generations, exact fd-3 image inode, and exact pinned executable
+inode. The competing root helper signals only after its nonblocking lock is
+contended, but global evidence `umask 077` creates its result mode 0600/root;
+the next ordinary-user `grep` fails with permission denied before publishing
+the observation. No lock claim is taken from that harness failure. Private log
+is mode 0600/36,289 bytes/SHA-256 `8996f431…`, credential scan empty. After
+zero live owner verification and idle daemon restart, the 19-counter audit
+again passes (SHA-256 `588ab8d1…`). The result assertion now uses `sudo grep`.
+
+That correction is isolated as exact commit
+`65903b8f600e545222daa6138ff3ad68d0d20390`; driver SHA-256 is `505ae529…`,
+and its 4,761,600-byte archive SHA-256 is `22b0bfff…`. Transfer and a fresh
+rerun remain.
+
+Exact `65903b8` qualification exits 0 with
+`G4_SINGLE_OWNER_LIVE_PASS`. Every focused race case passes using ext4-backed
+VM scratch. One live version-4 `PREPARED` rootfs record is tied to one
+version-2 `ACTIVE` export and its exact process record: sandbox generation
+`bc2bf70e…`, distinct export generation `230b0bac…`, image/fd-3 inode
+`2064:524349`, and pinned executable inode `2049:6079391`. An independent
+nonblocking exclusive lock against that inode is contended. Teardown retains
+the same generations in `RELEASED`, supplies nonzero I/O/flush counters plus
+offline check `e2fsck-clean-sha256:d7c3d5d2…`, removes the pathname and all
+live records, and then the same independent descriptor acquires the lock at
+the same inode with link count zero. Private pass transcript is mode 0600/
+46,525 bytes/SHA-256 `5790e421…`; credential scan is empty. Following the
+scoped idle mkruntimed restart, independent private audit is mode 0600/15,232
+bytes/SHA-256 `b6b0b230…` and proves boot `c5537cb9…`, candidate daemon SHA
+`0e1c87c3…`, no Kerf pool or child, all 19 counters zero, and four active/
+running zero-restart services. This closes the single-owner, generation,
+duplicate-attach, and stale-lock requirement; repository gates remain.
+
+The post-closure full repository gate passes documentation and links, all 7
+schemas/22 cases, 17 current manifests, the 95-case OCI boundary, bind/
+bootstrap/rootfs/storage/mount/image fixtures, lifecycle and deployment
+managers, GCE ledger, evidence capture, containerd configuration, and the
+final-evidence audit. The explicit local socket `EPERM` skip is covered by the
+zero-skip VM execution. `git diff --check` is clean, four generated bytecode
+files are removed, and checklist totals are 41 closed and 44 open.
+
+The next-row audit finds that Plan 04 already defines the intended narrow v1
+writable-state model: writable host-path volumes and configured persistence
+belong to a later storage-format and ownership contract. Current code matches
+that boundary. Each task has an ephemeral private ext4 root; generic writable
+binds and shared/slave propagation fail closed; read-only inputs are
+materialized with numeric metadata and no host path or propagation; only the
+three exact Docker metadata files become identity-bound private writable seed
+copies; and OCI UID/GID mapping fields are rejected as unknown Linux fields.
+Closure still needs a single explicit contract, focused mapping-rejection
+assertions, and exact-source live proof that ordinary private writes disappear
+after delete/name reuse and rejected generic writable binds allocate nothing.
+
+The supported-model contract is now explicit in Plan 04, the ownership table,
+and runtime README. V1 roots are ephemeral per sandbox generation; persistence,
+writable volumes, generic writable host binds, UID/GID mappings, and shared/
+slave propagation are unsupported; read-only copies retain numeric ownership
+with propagation `none`; only exact Docker metadata seeds are privately
+writable. Focused validation passes 97 OCI semantic cases with explicit UID and
+GID mapping rejection, and materialization now asserts numeric UID/GID
+preservation. Live name-reuse non-persistence and zero-allocation writable-bind
+rejection remain.
+
+The supported contract, tests, and live qualifier are isolated in exact commit
+`3ae721df0338d2336c3dac3c775fc4e0e61a59e5`. Its 4,771,840-byte archive
+hashes to `20c5b8f1…`; driver, OCI test, and bind test hashes are respectively
+`c6cf3c29…`, `181bd6ae…`, and `df6effc2…`. Fresh transfer, verification, and
+VM execution remain.
+
+Exact `3ae721d` qualification exits 0 with
+`G4_WRITABLE_STATE_MODEL_LIVE_PASS`. The VM passes all 97 OCI/mapping cases and
+numeric-owner bind materialization. Two lifecycles reuse exact ctr name
+`mk-ephemeral-state`: the first writes `generation-one`; the second requires
+that path absent before writing `generation-two`; both converge to 13 zero
+live-state counters. Generic ctr and Docker writable binds fail with statuses 1
+and 125, shared propagation fails with status 1, all three match the bind
+contract, the host control remains `host-immutable`, and every rejection
+converges to zero live state. Private pass transcript is mode 0600/314,832
+bytes/SHA-256 `cd5b328f…`, credential scan empty. Following idle pool release,
+independent private audit is mode 0600/15,072 bytes/SHA-256 `01e0ec0d…`; it
+binds boot `c5537cb9…` and daemon SHA `0e1c87c3…`, proves no Kerf pool/child,
+all 19 counters zero, and four active/running zero-restart services. Combined
+with prior live read-only-bind/no-write-through and caller-snapshot evidence,
+this closes both the supported-model row and its persistence/isolation evidence
+row under the explicit narrow v1 scope.
+
+The post-closure full gate passes documentation/links, 7 schemas/22 cases, 17
+current evidence manifests, the expanded 97-case OCI boundary, bind/bootstrap/
+rootfs/storage/mount/image fixtures, lifecycle and deployment managers, GCE
+ledger, evidence capture, containerd configuration, and final-evidence audit.
+The explicit local socket `EPERM` skip is covered by VM execution. `git diff
+--check` is clean, generated bytecode is removed, and checklist totals are 43
+closed and 42 open.
+
 After removing the now-resource-free container metadata, all ctr task/
 container, child, NBD process, rootfs record/artifact, and runtime-link
 inventories are empty; CPUs `0-15` are online; services and PID `15958` remain
@@ -1672,6 +1949,21 @@ verified. Non-secret host config, storage-aware environment, and current
 artifact manifest hash to `82270b0c…`, `8d6184b8…`, and `afdbcc23…` and have
 been transferred. Their remote integrity and privileged installation are not
 yet claimed.
+
+The guest matches archive SHA-256 `8dccf1fa…` and the complete static build
+finishes with full revision `e396511c…`, including exclusive manifest
+publication. A subsequent verification command exits 2 because it incorrectly
+supplied a nonexistent `--check` mode to a tool that requires an output path.
+This is a post-build harness-interface error: compilation is observed, while
+manifest verification, hashes, installation, and activation remain unclaimed.
+The unique root-owned build tree is retained for corrected verification.
+
+Corrected verification publishes an independent exclusive manifest and
+byte-compares it equal to the build manifest. Exact SHA-256 values are
+`ee31cd3c…` for the manifest, `29dc06dd…` for mkruntimed, `1b245d66…` for the
+shim, and `b57bae66…` for mk-agent; the built daemon prints the full exact
+`e396511c…` revision. The temporary comparison manifest is removed after the
+match. Installation and execution are still unclaimed.
 
 Remote hashes matched before installation. Every root-owned artifact re-matches
 its build identity, the exact `89aada6` binary release is solely active with
@@ -1841,6 +2133,360 @@ gates and live proof remain pending.
 The complete race, vet, documentation/schema/evidence/deployment, and diff
 gates pass with 78 OCI cases; only the known local socket `EPERM` subcase is
 skipped. The checkpoint is ready to commit and qualify live.
+
+The immutable checkpoint is `92531eb6453f72783c63ba3047b8b5c2666fde9b`;
+its source-only archive hashes to `c6d542b9…`. Historical untracked evidence
+remains excluded. Guest verification is pending.
+
+Guest archive hashing matches on unchanged boot `1151712d…`; all audited
+inventories are empty and f5 daemons remain stable/unrestarted. Exact build
+preconditions pass.
+
+The exact build succeeds with release/shim/daemon/mknetd/agent/initramfs
+hashes `95382a6f…`/`c5c3bb28…`/`2ccb1418…`/`902b4a23…`/`8c89b5a3…`/
+`3ed53121…`; required bootstrap membership is verified. Active state is
+unchanged.
+
+Managed release `92531eb…` and deployment `844df6d2…` are selected, with
+deployed/source validator hash `a6f2b969…`. Daemon processes remain unchanged;
+manifest staging and restart are pending.
+
+The root-owned `92531eb…` artifacts are staged without service activation.
+Candidate manifest SHA-256 is `807d1770…`; strict bootstrap validation passes
+and its agent/initramfs pins reproduce exact build hashes `8c89b5a3…` and
+`3ed53121…`. This establishes candidate identity only. A fresh empty-host
+audit must still precede coordinated activation.
+
+That fresh audit passes with zero default/moby tasks or containers, Docker
+objects, children, storage files, active state, endpoint/rootfs records,
+`mkv*` links, firewall rules, and runtime helper processes. The still-running
+f5 mknetd/mkruntimed PIDs 9314/9333 are active with zero restarts. Activation
+can proceed without interrupting a workload.
+
+The first activation script incorrectly required nonexistent unit
+`opt-mkruntime.mount` and exited before the new revision could start. Automatic
+rollback restored the f5 manifest: active, rollback, and preserved copies all
+hash to `bfb05789…` on boot `1151712d…`. The resulting service restart is
+healthy at PIDs 15366/15385/15392/15427 with zero restarts, and the complete
+resource audit remains empty. Because the candidate was moved before the unit
+error, it must be regenerated. This is a deployment-orchestration failure,
+not evidence for or against `92531eb…` workload behavior.
+
+The first idempotent restaging retry made no candidate: it matched the staged
+agent, then attempted to hash the mode-0600 build initramfs as the ordinary
+SSH user and received permission denied. The corrected check must hash both
+root-only inputs under `sudo`; active state is unchanged.
+
+The privileged retry matches both immutable staged artifacts to their build
+outputs and recreates the strictly valid `807d1770…` candidate without
+overwriting either artifact. The corrected activation will omit only the
+nonexistent mount-unit operation and preserve rollback behavior.
+
+The next activation actually started healthy `92531eb…` processes but a bad
+post-check path (`/usr/local/bin/mkruntimed`) falsely failed; the real service
+path is `/usr/local/sbin/mkruntimed`. The trap restored the f5 manifest without
+restarting already-active services, briefly leaving manifest/process identity
+incoherent. Exact path inspection exposed this immediately. Recovery logic now
+stops and restarts the whole service set whenever it restores a manifest.
+
+Candidate regeneration and the corrected coordinated activation then pass on
+the unchanged boot. Active manifest is `807d1770…`, rollback remains
+`bfb05789…`, all three runtime binaries identify exact `92531eb…`, and
+mknetd/mkruntimed/containerd/Docker PIDs 18265/18283/18294/18328 are active
+with zero restarts. Workload behavior remains a separate boundary.
+
+The immediate post-activation audit reports every workload, child,
+storage/state, network, firewall, and helper-process inventory empty while the
+exact-revision daemons remain stable. This is the clean boundary for the next
+ordinary live suite.
+
+The exact runner (`7fb6cc6e…`) proves ctr reaches `RUNNING` and Docker now
+clears cgroupsPath validation. Its next rejection is
+`linux.maskedPaths contains a duplicate or unsupported path`; Docker never
+starts and cleanup is invoked. This is a new fail-closed OCI boundary, not a
+suite pass. Cleanup and the exact requested list require independent evidence
+before deciding whether it is equivalent to the child's fixed isolation.
+
+Independent cleanup is fully empty and exact-revision daemons 18265/18283
+remain stable with zero restarts. The rejection is fail-clean. The next step
+is observation of Docker's exact ordered maskedPaths request, including any
+duplicates, rather than broad field acceptance.
+
+The live runc probe contains 12 unique masked paths (`/proc/acpi`,
+`/proc/asound`, the standard proc sensitive pseudo-files, `/proc/scsi`,
+`/sys/devices/virtual/powercap`, and `/sys/firmware`) and readonly paths
+`/proc/{bus,fs,irq,sys,sysrq-trigger}`. Therefore the validator's combined
+“duplicate or unsupported” message denotes an unsupported-set mismatch, not a
+duplicate. These are access restrictions, so they require comparison with the
+child's actual fixed mounts before any exact compatibility projection.
+
+Inside a real Multikernel child, `/proc/interrupts` is present, mode 0444, and
+readable (1091 bytes in this observation). Docker's mask is therefore a real
+security restriction. Compatibility requires adding precisely this missing
+standard path to the bounded agent policy so the existing mount-based masking
+is applied; host-side stripping would be incorrect.
+
+The implementation extends the bounded set by `/proc/interrupts` only and
+keeps the existing mount-based enforcement. Tests pin Docker's complete exact
+12/5 lists and fail closed on duplicates or unknown paths. Focused agent race
+tests, vet, and diff checking pass; no live claim is made from local tests.
+
+The full Go race suite and vet pass. The following documentation command did
+not run because `scripts/check-docs.sh` was addressed relative to `runtime/`
+instead of the repository root. Its “No such file” result is an invocation
+error, not evidence about documentation validity.
+
+Rerunning from the repository root passes the entire documentation, schema,
+evidence, deployment, boundary, and final-audit chain plus diff checking. The
+known locally permission-gated socket subcase is the only classified skip and
+generated cache is removed. Combined with the full race/vet result, this
+checkpoint is ready to freeze for exact guest qualification.
+
+The immutable checkpoint is
+`9bd7e94e598bb9ba439d2cb51c7911402e972e51`; its source-only archive hashes
+to `49a337ef…`. It excludes repository metadata and the existing untracked
+evidence tree. No guest behavior is inferred until independent digest
+verification, exact rebuild, activation, and workload execution complete.
+
+The active validated manifest pins the reusable transport module and relay at
+hashes `bef1b888…` and `293ff1ea…`. Exact rebuild will consume those manifest-
+approved paths directly, avoiding any assumption that shared bootstrap inputs
+live under the preceding revision's directory.
+
+The guest matches archive digest `49a337ef…`, verifies root-only extraction
+and exclusions, then builds release/shim/daemon/network-daemon/agent/initramfs
+hashes `5028dae7…`/`31fe5c7a…`/`baf0833e…`/`f77e3215…`/`0cbfdf78…`/
+`5ea168b0…`. The initramfs contains all three required bootstrap members.
+These are build identities only; selection and activation remain unclaimed.
+
+Managed selection activates release `9bd7e94…`; unchanged exact-source
+support inputs reproduce deployment `844df6d2…`, with all links managed. A
+subsequent hash comparison was invoked without privilege against the root-only
+source and stopped before service inspection. No service restart was issued;
+the comparison and process-state check must be rerun under `sudo`.
+
+The privileged retry matches source/deployed validator hash `a6f2b969…`.
+Daemons remain PIDs 18265/18283 with zero restarts; direct `/proc` executable
+inspection reports the running mkruntimed is still `92531eb…`. Filesystem
+selection is therefore distinct from activation, as required.
+
+The root-owned agent/initramfs artifacts retain exact build hashes
+`0cbfdf78…`/`5ea168b0…`, and candidate manifest `effb90a2…` passes strict
+bootstrap validation. It is not active; clean-state and coordinated-restart
+boundaries remain.
+
+Fresh pre-activation inventory is zero for every workload/resource category,
+and predecessor daemon PIDs 18265/18283 remain healthy with zero restarts.
+The staged manifest can be switched without interrupting a workload.
+
+Exact activation succeeds without reboot. Manifest `effb90a2…` is active and
+the `92531eb…` manifest remains rollback at `807d1770…`. Service PIDs
+26044/26063/26073/26109 are active with zero restarts, and all runtime binary
+version reports agree on `9bd7e94…`. Live workload qualification is still a
+separate claim.
+
+The immediate post-activation audit is wholly empty and the new daemons remain
+stable. The exact-revision live suite therefore starts from a proven clean
+boundary.
+
+The first suite command stops at `cd`: the deliberately root-only extraction
+is not traversable by the qualification user. No test command ran. The runner
+will be copied alone to a temporary executable, digest-verified against the
+root-owned source, and then run under the required ordinary identity.
+
+The hash-verified runner executes non-root and again proves ctr `RUNNING`, but
+Docker receives the same maskedPaths rejection on exact `9bd7e94…`; cleanup
+runs. This falsifies the assumption that adding only the runc-observed missing
+path fully described the Multikernel-bound request. Capture of that exact list
+is required before another policy change.
+
+Independent inventory confirms zero survivors in every category and stable
+new-revision daemons. The repeated rejection is fail-clean and isolated to the
+policy input/agent boundary.
+
+The precise error ordering identifies the rejecting layer: host Python emits
+“duplicate or unsupported,” whereas the agent emits “unsupported or
+duplicate.” `9bd7e94…` changed only the latter. The host allowlist still omits
+`/proc/interrupts`, so projection never reached the repaired agent. The two
+bounded enforcement sets must be corrected and tested together.
+
+The host set now gains only `/proc/interrupts`, and its tests pin the full
+Docker policy plus duplicate rejection. Python compilation, the focused
+80-case fail-closed suite, and diff checking pass. Full gates and a newly
+stamped exact revision remain separate.
+
+Full Go race/vet and the entire documentation, schema, evidence, deployment,
+80-case OCI, supporting-runtime, final-audit, and diff chain pass. Only the
+known local socket-permission skip remains, and generated cache is removed.
+The synchronized boundary is ready to freeze and qualify live.
+
+The new immutable checkpoint is
+`d0c33cc3e7b28fae45056fe58c88a3773384037d`, with source archive digest
+`67dd2201…`. Exact guest transfer, rebuild, support deployment, activation,
+and workload proof remain unclaimed.
+
+Guest digest/extraction/bootstrap checks pass, followed by a complete exact
+build. Release/shim/daemon/network-daemon/agent/initramfs hashes are
+`fb85f3ce…`/`610a9b0e…`/`d8d66197…`/`2dc31c1f…`/`f3a6c2c3…`/
+`666e30c3…`; required initramfs members are present. Active state is unchanged.
+
+Release `d0c33cc…` and new support deployment `dd3ce8cc…` are selected; the
+deployed validator matches exact source at `70a98070…`. Existing daemon PIDs
+remain unrestarted and directly identify predecessor `9bd7e94…`, so activation
+is still unclaimed.
+
+Candidate manifest `83120879…` strictly validates with exact staged agent and
+initramfs hashes. Every pre-activation inventory is zero and predecessor
+daemons remain stable. The activation boundary is ready.
+
+Exact `d0c33cc…` activation succeeds on unchanged boot. Active/rollback
+manifest hashes are `83120879…`/`effb90a2…`; all four service PIDs are healthy
+with zero restarts and all runtime binaries report the exact new revision.
+This is coherent activation, not yet workload proof.
+
+Immediate post-activation inventory is zero everywhere and the new daemons
+remain stable. Live qualification can start cleanly.
+
+The hash-verified runner proves ctr `RUNNING` and Docker passes the repaired
+root-path policy. The next rejection is
+`mounts[4].source must be an absolute canonical bounded path`; cleanup runs.
+This is positive live proof for the synchronized fix, but not a suite pass.
+Exact indexed mount observation and cleanup audit are next.
+
+Independent inventory is empty in every category and exact daemons remain
+stable, establishing fail-clean behavior at this boundary.
+
+Runc inspection maps rejected index 4 to the exact read-only cgroup mount
+`cgroup -> /sys/fs/cgroup` with `ro,nosuid,noexec,nodev`. Later indices are
+three Docker `/etc` binds and are not conflated with this boundary. Whether
+the cgroup entry is inert host-container metadata depends on the dedicated
+child's observed cgroup view.
+
+The exact child exposes only an empty mode-0555 `/sys/fs/cgroup` directory and
+no cgroup/cgroup2 mount. Thus Docker's host-side read-only cgroup mount can be
+consumed only in its exact fixed-default form and omitted from projection,
+leaving the child strictly less exposed. Any modified form remains fatal.
+
+The initial focused test exposes a stale oracle: runtime projection correctly
+consumes the new exact default, but the expected-output filter treats it as a
+bind because `/sys/fs/cgroup` is absent from its hardcoded default set. The
+oracle, not policy behavior, requires correction and rerun.
+
+The corrected oracle passes the expanded 82-case suite: exact read-only
+cgroup metadata is consumed, while a writable variant remains fail-closed.
+Compilation and diff checks pass; this is still local evidence only.
+
+Full race/vet and documentation/schema/evidence/deployment qualification pass
+with 82 OCI cases. The known socket-permission skip is unchanged and generated
+cache is removed. An immutable revision and live rebuild remain required.
+
+The immutable checkpoint is
+`0a6668e9a9699ec8373321c347dc778a86038e7d`; its source archive hashes to
+`2ae8239c…`. The VM remains clean on predecessor `d0c33cc…`; transfer, exact
+rebuild, support activation, and workload proof for this checkpoint are not
+yet claimed.
+
+Resumed inspection confirms unchanged boot, active `d0c33cc…`, stable
+unrestarted daemons, and a completely empty runtime-resource inventory. The
+`0a6668e…` exact build therefore begins from a revalidated clean host.
+
+The independently verified exact build completes with release/shim/daemon/
+network-daemon/agent/initramfs hashes `964260e0…`/`2b8cbc9b…`/`a5a7d9b2…`/
+`d257448c…`/`b2acc4c5…`/`e9f41b5d…`, and required initramfs membership is
+proven. Active state has not changed.
+
+Binary release `0a6668e…` and changed support deployment `7a2e5a67…` are
+selected with validator hash `74dc8f63…` matching exact source. Existing
+daemon PIDs remain stable and identify predecessor `d0c33cc…`; activation is
+still separate.
+
+The exact change is commit `1f81cb2aec7f4774c89506c71eb8348c37147e9e`;
+its 1,017,425-byte archive hashes to `a06697189cd12606167011745b7b628663f9a090ac7005ea19e796d7734b50f0`.
+Living findings and retained evidence remain outside it. Guest build,
+deployment, and replay are unclaimed.
+
+The guest independently verifies and builds exact `1f81cb2…`; all 16 CPUs are
+back online. Exact manifest/shim/mkruntimed/mknetd/agent hashes are
+`bde83869…`, `d1888952…`, `e10bbdc6…`, `edaf5c59…`, and `c79210c6…`.
+Because this spans shim admission, the rootfs validator, and guest agent,
+binary selection alone is insufficient; support generation and initramfs must
+be staged coherently before replay.
+
+Candidate `747eb832…` strictly validates with exact staged artifact hashes;
+all pre-activation inventories remain zero and predecessor daemons are stable.
+The activation boundary is ready.
+
+Exact activation succeeds without reboot: active/rollback hashes are
+`747eb832…`/`83120879…`, all services are healthy with zero restarts, and all
+runtime version reports identify `0a6668e…`. Live workload proof is next.
+
+Post-activation inventory is wholly empty and the new daemons remain stable.
+The live suite has a clean starting boundary.
+
+Live `0a6668e…` qualification clears cgroup mount validation and next rejects
+Docker's `/dev/shm` default solely because it spells 64 MiB as
+`size=67108864` rather than `size=65536k`. No broader mount drift is observed
+at this boundary. Cleanup runs; only the two exact byte-equivalent forms may
+be accepted.
+
+Independent inventory confirms zero survivors and stable unrestarted exact
+daemons, so the `/dev/shm` rejection is fail-clean.
+
+With explicit `--read-only`, Docker emits all three managed `/etc` binds as
+`rbind,rro,rprivate` and marks the root read-only. Recursive `rro` is stronger
+than `ro`, so accepting exactly one marker and retaining the existing
+sanitized read-only guest projection preserves the security boundary. The
+qualification command will make this intent explicit.
+
+The initial focused 86-case behavior run passes, while `git diff --check`
+finds one trailing fixture space. That formatting defect is corrected and the
+focused gate rerun rather than treating the partial chain as green.
+
+The corrected 86-case suite and full Go race/vet, documentation, schema,
+evidence, deployment, supporting-runtime, final-audit, syntax, and diff chain
+all pass. Only the known local socket-permission skip remains. The combined
+compatibility contract is ready for an immutable revision.
+
+The immutable revision is `1dd73eb091325a7983931c4362fcddbeb350fa4c`; its
+source-only archive hashes to `338429c3…`. Transfer, exact build/deployment,
+activation, and workload execution are not yet claimed.
+
+The exact guest build passes archive, ownership, exclusion, bootstrap, and
+membership checks. Release/shim/daemon/network-daemon/agent/initramfs hashes
+are `c4000e65…`/`350e55ca…`/`3eff3264…`/`376d383b…`/`851e3bd4…`/
+`1c765dee…`. Active state is unchanged.
+
+Release `1dd73eb…` and deployment `bc0517cc…` are selected with exact
+validator hash `830353a5…`. Candidate manifest `4cb7ad22…` validates, every
+pre-activation inventory is zero, and predecessor daemons remain stable.
+
+Activation succeeds without reboot. Manifest `4cb7ad22…` is active,
+`747eb832…` remains rollback, all four services are healthy/unrestarted, and
+all binary identities agree on `1dd73eb…`. Live workload execution is next.
+
+The exact runner (`15e12e19…`) gets ctr to `RUNNING` and Docker past the full
+OCI compatibility chain. Docker then tries to bind `/proc/0/ns/net` and fails,
+showing the shim exposed PID 0 instead of a host-visible namespace owner.
+Cleanup runs. This is a deeper task-service/network-namespace integration
+boundary, not a validator failure or suite pass.
+
+Independent audit finds the runner did not clean: one default task/container,
+child, storage/lifecycle/network/rootfs records, firewall state, two shims, and
+a relay survive. Moby is empty and services remain stable. This is a cleanup
+defect, not merely a failed create; exact state must be captured before bounded
+recovery.
+
+The survivor is exactly stopped default task/container `mk-proof-ctr`, sandbox
+`mk-mk-proof-ctr-592a31dcfc440cd2` generation `4edb8056…`, with matching
+runtime records and no moby object. Journal timing supports cleanup racing the
+still-unwinding Docker create. A post-termination delete retry is bounded to
+that known test ID.
+
+The bounded retry reproduces the defect: forced task removal reports failed
+precondition, and container removal fails at `close guest network: INTERNAL:
+agent operation failed`; all resources remain. This is now current exact-
+revision evidence for the previously open cleanup bug, requiring code-level
+diagnosis before destructive recovery.
 
 The exact suite now clears builder and daemon manifest approval, creates and
 launches the child, then fails at network readiness because expected
@@ -2646,6 +3292,148 @@ directory, and the original recovery remaining at PID 7 rather than the
 rejected PID 8 update. Repeated race and final full-suite checks remain
 pending.
 
+The guest independently matches matrix/wrapper/helper hashes
+`fafc2f80…`/`f9c018c4…`/`484229a…`. The corrected focused Multikernel ctr replay
+completes after roughly 70 seconds, reports exact guest sizes `ready:24 80`
+then `resized:37 91`, and emits both `LIVE_RESIZE_PASS` and
+`FOCUSED_MULTIKERNEL_LIVE_RESIZE_PASS`. This live-proves post-start terminal
+resize and confirms the former 30-second deadline was invalid. Independent
+teardown audit remains pending before the complete matrix.
+
+Independent focused-replay teardown is all 13 inventories zero; mkruntimed,
+mknetd, containerd, and Docker remain active/status 0 with zero restarts. The
+complete matrix can therefore begin from a proven clean state rather than
+inheriting focused-test resources.
+
+The fresh complete ordinary-user matrix confirms host boot `d08895c1…`, all
+four runtime services active, initial all-13-zero inventory, and shared BusyBox
+digest `sha256:73aaf090…` on amd64. It then passes split create/start,
+state/inspect, distinct child boot identities `4b1621c7…`/`0613920a…`, exec
+stdout/stderr, private writable roots, mediated `/30` DNS/HTTP networking,
+bidirectional sibling isolation, deliberate mkruntimed restart continuity with
+unchanged child boots, pause/resume, signal/exit 42, normal deletion, and
+post-delete all-13-zero convergence for ctr and Docker. Read-only-bind and
+subsequent rows remain in progress.
+
+Both read-only-bind cases pass: ctr and Docker read their exact client-specific
+directory/file values, guest writes to both targets fail read-only, and all
+four host sources remain byte-identical. The post-bind checkpoint converges to
+all 13 inventories zero. Repeated nonzero-exit/name-reuse and subsequent rows
+remain in progress.
+
+Both repeated cycles return exact exit status 17 for ctr and Docker, retain
+their client-specific stdout/stderr markers, clean normally, and successfully
+reuse the same names in cycle 2. `foreground-wait-stdio-and-nonzero-exit` and
+`name-reuse` therefore pass for both clients. Stdin forwarding and subsequent
+rows remain in progress.
+
+Guest stdin forwarding passes with exact outputs
+`guest-ctr-stdin`/`guest-docker-stdin`. Detached-task attach also passes with
+exact `ctr-attached-stdin`/`docker-attached-stdin`; both rows tear down
+normally. Initial terminal allocation and post-start resize are now running
+and remain unclaimed.
+
+Initial terminal mode passes for both clients: ctr's classified leading `^@`
+echo is narrowly normalized, while ctr and Docker each report exact `37 91`
+plus their success marker. The ctr post-start resize independently reports
+`ready:24 80`, `resized:37 91`, and `LIVE_RESIZE_PASS`. Docker's resize and the
+combined/final matrix markers remain pending.
+
+Docker independently reports the same exact `ready:24 80`→`resized:37 91`
+transition and `LIVE_RESIZE_PASS`. The suite's final checkpoint is all 13
+inventories zero, `post-start-terminal-resize` passes for ctr and Docker, and
+the run emits `G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS`. This completes the frozen
+full live matrix; an independent post-suite audit remains pending.
+
+Independent post-suite audit confirms the same boot `d08895c1…`, expected
+kernel, and system state `running`; support/binary selectors remain
+`fe456acc…`/`1f81cb2…`. Effective unit, active kernel manifest, matrix, and
+helper retain exact hashes `9d921d2f…`, `1d79c564…`, `fafc2f80…`, and
+`484229a…`. All 13 inventories are zero. Guest agent, mkruntimed, mknetd,
+containerd, and Docker are active/running with status 0 and `NRestarts=0` at
+PIDs 1066/12806/1216/1445/1543. The final live matrix is independently closed
+cleanly.
+
+Gate-closure reconciliation keeps G4–G6 open: the matrix directly closes only
+the shared-client lifecycle/I/O, post-start resize, mkruntimed-restart
+continuity, distinct network identity/sibling isolation, and runtime-cleanup
+slices. It does not prove G4 persistence/exhaustion/corruption/reset/clone, the
+G5 UDP/MTU/load/fault/reconnect/spoof/primary-health matrices, or G6
+containerd/Docker restart, forced-shim reconstruction, event replay,
+FIFO/cancellation, and concurrent-churn requirements. A fresh schema-valid
+mode-0600 resource-before ledger is retained at
+`evidence/runtime-20260930/g4-g6-final-live/resources-before.json` (5,007
+bytes, SHA-256 `fc6eb570…`), recording one running n2-standard-16 instance, two
+disks, three snapshots, no addresses, and six firewall rules. The
+evidence-grade rerun will emit markers only for the five proven slices.
+
+The scoped markers pass Bash syntax, `git diff --check`, and the full
+documentation/schema/evidence/runtime gate. Commit `f41211f2127b3414f503084e39f48d93dcb18512`
+freezes matrix SHA-256 `00204de1…`; generated caches are removed. Exact guest
+upload and retained transcript execution remain pending.
+
+The immutable evidence capture starts at `2026-09-29T23:51:00.495900Z` in
+`evidence/runtime-20260930/g4-g6-final-live/g6-shared-matrix.log`, retaining
+exact gcloud argv. The guest verifies matrix hash `00204de1…`, reports boot
+`d08895c1…`, starts with all 13 inventories zero, and confirms the shared
+BusyBox index digest/amd64 image for ctr and Docker. Later rows and the capture
+exit trailer remain pending on the same live process.
+
+The retained run's lifecycle block passes with new distinct child boots
+`f60ce340…`/`a8d7caf8…`, exact exec I/O, private roots, distinct `/30` endpoints,
+DNS/HTTP, bidirectional sibling rejection, pause/resume, exit 42, and normal
+deletion. Its deliberate mkruntimed restart changes PID 12806→22465 without
+changing either child boot, and post-delete inventory returns all 13 counters
+to zero. Bind and later rows remain in progress in the same transcript.
+
+The in-guest reboot request did not change the boot ID, so no success was
+inferred from it. An explicitly authorized GCE reset produces new boot
+`d08895c1-0d19-4c66-ac7e-c5f77fd23451` on kernel `7.0.0-mk2-gce-lab`. The guest
+agent enters active at monotonic 22,801,501 µs and mkruntimed starts at
+24,201,242 µs, approximately 1.400 seconds later. The effective graph still
+Requires/After the agent and no `GUEST_AGENT` failure appears. Agent,
+mkruntimed, mknetd, containerd, and Docker are active/status 0 with
+`NRestarts=0`; system state is `running`. Persistent selectors and
+unit/matrix/helper hashes remain exact, and all 13 inventories are zero. This
+closes the boot-order defect with live evidence.
+
+The active kernel manifest is resolved from configured directory
+`/etc/mkruntime/kernels` and still hashes exactly `1d79c564…`; the retained
+rollback manifest is not selected. A focused wrapper for the formerly failing
+ctr resize path passes shell syntax and hashes to `a5fd67a0…`; guest
+verification/execution remain pending.
+
+The guest independently matches focused-wrapper/helper hashes
+`a5fd67a0…`/`484229a…`, but the focused Multikernel ctr replay still times out
+before observing `ready:24 80`; no resize success is claimed. Trap cleanup then
+runs for roughly one minute, showing the slow-create boundary is still
+exercised. Independent all-13 inventory, shim/rootfs, and service auditing are
+required before diagnosis or another run.
+
+The independent audit is not clean: `runtime_artifacts=2`,
+`rootfs_records=1`, and `shim_processes=2`, while every other inventory is zero
+and all services stay active/status 0. The retained exact-release
+supervisor/worker are PIDs 2526/2531, parented 1→2526, in one session, and still
+alive after 169 seconds. They hold the deleted `.mk-resize-focused`
+bundle/log/runtime directory; ctr metadata and the visible bundle are absent,
+while rootfs remains `PREPARED`. This proves the 30-second helper deadline can
+cancel a valid cold CreateTask and the 60-second cleanup deadline still removes
+metadata despite an exact shim. Exact orphan recovery is required before retry.
+
+After revalidating both exact PIDs and the worker's parent, SIGTERM to only
+supervisor 2526 removes both shims through parent-death policy. Restarting
+mkruntimed lets authenticated reconciliation remove the absent bundle's
+PREPARED rootfs; the subsequent authoritative audit returns all 13 inventories
+to zero and all five services remain active. The matrix now supplies an
+explicit 180-second live-resize deadline. Cleanup tracks whether any task was
+observed and, when none was, refuses metadata removal if the exact creating
+shim survives its bounded poll. Bash syntax, `git diff --check`, and the full
+documentation/schema/evidence/runtime gate pass with 95 OCI cases; only the
+classified sandbox socket `EPERM` subcase is skipped and generated caches are
+removed. Commit `3eaf828ecce07ee4d1f3eace88b11ee887c5be7c` freezes matrix
+hash `fafc2f80…`; the focused wrapper hashes to `f9c018c4…`. Live retry remains
+pending.
+
 The full race, vet, documentation/schema/evidence/deployment, and diff gates
 all pass with 75 OCI cases. The sole skip is the known local socket `EPERM`
 subcase. Commit and exact live proof remain pending.
@@ -2806,6 +3594,14 @@ the capture reopen. The focused shim package passes, including exclusive
 collision, raced replacement preservation, address cleanup after PID failure,
 and the existing address-replacement case. Repeated race and full-tree checks
 remain pending.
+
+After daemon reload, systemd's effective `Requires` and `After` sets both
+contain `google-guest-agent.service`; deployed and generation unit paths match
+hash `9d921d2f…`. Support/binary selectors are `fe456acc…`/unchanged
+`1f81cb2…`, and the frozen matrix/helper still match `5e850f3…`/`484229a…`.
+All five relevant services are active and all 13 inventories are zero. The
+retained `NRestarts=1` belongs to the pre-fix boot; clean reboot proof remains
+pending.
 
 The immutable checkpoint is `298d3debe832696e18c749dd1bbed4d03e64433b`.
 Its source-only archive SHA-256 is
@@ -4045,3 +4841,4346 @@ probe cleans normally with every inventory zero and stable daemons. Therefore
 Docker's defaults cannot be stripped. The next narrow experiment is whether
 explicitly requesting the child-default values plus unconfined seccomp yields
 an exact OCI map suitable for fail-closed compatibility.
+### 2026-09-28: Docker needs a host namespace PID, and teardown must not short-circuit
+
+- The shim currently uses one `process.pid` field for the child-guest PID returned by the agent and for containerd's host-facing task PID. Docker consumes the latter as `/proc/<pid>/ns/net`; the live `/proc/0/ns/net` failure therefore exposes a model error, not merely a timing error. A correct implementation needs separate guest-process identity and a host-resident namespace-holder identity tied to the mknetd endpoint generation. The ordinary shim PID cannot substitute because its network namespace is the host namespace.
+- Init `Delete` currently treats `CloseNetwork` as a gate for all later cleanup. The live failed deletion consequently retained the relay, shims, mknetd endpoint/firewall rules, sandbox, storage, and rootfs. Teardown should preserve the guest error for reporting but continue bounded host cleanup, because stopping/deleting the dedicated child ultimately closes its guest resources and host ownership must not depend on a successful guest RPC.
+### 2026-09-28: VM restart/recovery removed the task but retained container metadata
+
+- The disposable GCE instance is already running, but its temporary audit helper has disappeared. On first inspection, both Multikernel daemons reported `activating`; containerd and Docker were active. The default namespace contained no task and still contained the `mk-proof-ctr` container. This is a materially different post-recovery state from the earlier live leak and is preserved before further inspection.
+### 2026-09-28: fail-closed reboot recovery currently becomes an infinite restart loop
+
+- Live boot `4bd0f8ce-5c42-48d7-a19d-0379a97949ec` removed `/run` task/netns/link objects, but durable records still describe the leaked task as owned. `mknetd` repeatedly exits because endpoint generation `c315962acb7a9a27638ddb5b448a66d1` has no `mkvc315962acb7` link. `mkruntimed` repeatedly exits because sandbox generation `4edb8056f26c66fcc11e94ce812771b5` is journaled `RUNNING`, backend `ABSENT`, with an absent owned rootfs bundle.
+- Refusing to guess is correct, but automatic restart without an explicit bounded terminal/operator state is not operational recovery: both units exceeded 215 restarts and continued rising. Reboot reconciliation needs a deliberate orphan policy (or a one-shot operator-action state that stops retrying), and qualification must assert bounded restart behavior.
+- The reboot also left no `/opt/mkruntime/current` or `/opt/mkruntime/releases`; only installed system artifacts remain. A fresh exact-revision deployment is required before further live qualification.
+### 2026-09-28: verified host namespace identity replaces the guest-PID overload
+
+- The holder enters the endpoint namespace through `nsenter` before exec, then signals readiness. The shim compares namespace object identity against `/proc/<holder>/ns/net` before returning the PID. This is stronger than calling `setns` inside Go, where only the scheduled OS thread changes and the process-leader namespace may remain wrong.
+- Host-facing init Task v2 responses/events now use the holder PID while durable agent reconciliation continues to use the guest PID. Recovery constructs a fresh holder for the recovered endpoint; rollback and deletion stop it before endpoint release.
+- A failure-injected deletion test demonstrates that a guest `CloseNetwork` error no longer strands host ownership. Full repository race tests, vet, and diff checking pass. The implementation still requires an exact-revision disposable-host build and Docker rerun.
+### 2026-09-28: exact live-candidate revision
+
+The verified namespace-holder and deletion correction is committed as
+`34b1f9cb2ce2bb87241a40449fff97f3ef07b3ba`. The live build must report this
+exact revision; findings remain working-tree notes and are not included in the
+runtime build identity.
+### 2026-09-28: disposable qualification host recreated
+
+The restart-looping instance and auto-delete boot disk were replaced. The new
+instance uses the qualified `mklinux-lab-pre-daxfs-20260828-2030` snapshot,
+the documented `n2-standard-16` shape, and the preserved non-auto-delete
+storage disk. GCE reports it `RUNNING` at `10.148.0.58` / `136.85.39.91`;
+guest-side qualification is not yet implied.
+### 2026-09-28: fresh guest baseline and recoverable storage quarantine
+
+- The new guest independently reports boot `83ef4350-79ea-475f-b73c-5d856040ad5d`, qualified kernel `7.0.0-mk2-gce-lab`, 16 CPUs, approximately 64 GiB RAM, no Multikernel children, and clean pinned Kerf/Linux trees.
+- Read-only fsck passed on the exact retained 20 GiB disk identity. Instead of deleting prior evidence, its active runtime tree was renamed `reboot-quarantine-20260928-83ef4350`; a new empty runtime tree was created, and the disk was mounted with `nodev,nosuid` through its exact UUID.
+- The four absent runtime prerequisites (containerd, Docker, Go, and socat) were installed successfully. Exact-source transfer/build/deployment remains next.
+### 2026-09-28: exact `34b1f9c` build identities
+
+The guest verified tracked-source archive `ba10dcd…` and built the complete
+revision-stamped release. Representative hashes are release manifest
+`0d64cd97…`, shim `8910812c…`, mkruntimed `b3be88f1…`, mknetd `65130b15…`,
+agent `718f6bfc…`, and agent initramfs `9c9ad269…`. The pinned transport module
+reproduced `bef1b888…`; static NBD/relay helpers reproduced `a0259098…` and
+`293ff1ea…`. No installation or activation is implied yet.
+### 2026-09-28: deployment ownership boundary holds live
+
+The exact managed binaries were selected and bootstrap manifest `a072a17f…`
+validated. Support installation then rejected the ordinary-user source tree as
+an unsafe deployment input. This is the intended root-ownership boundary; no
+support generation or service was activated. The retry must use a separately
+verified root-owned extraction of the same archive.
+### 2026-09-28: exact deployment active on the replacement host
+
+Root-owned archive extraction produced support generation `f895d655…`. After
+an empty workload/resource preflight, Docker configuration validation and
+coordinated activation succeeded. The Multikernel filesystem, mkruntimed,
+mknetd, containerd, and Docker are active; mkruntimed/mknetd/containerd each
+show zero restarts and status 0. Docker advertises
+`io.containerd.multikernel.v2`, and exact storage validation passes. No
+workload claim follows yet.
+### 2026-09-28: namespace-holder correction passes live Docker creation
+
+The exact basic runner created a concurrent ctr task and Docker container;
+Docker container `99d3dfa27452…` reached `running`. The previous host lookup of
+`/proc/0/ns/net` is therefore cleared by the verified holder PID. The suite
+next failed at ctr exec startup of `/bin/sh` with the sanitized agent error
+`guest process start failed at executable`, then invoked its cleanup trap.
+Cleanup audit and the deeper rootfs/executable cause remain pending.
+### 2026-09-28: teardown progressed but retry is not idempotent
+
+The failed suite left no child, endpoint, link, firewall rule, or lifecycle
+sandbox, and all daemons remained stable. It did retain both stopped Task v2
+objects, their shim pairs, and two rootfs files. Exact non-force deletion fails
+with `waitid: no child processes` for the already-reaped relay and authenticated
+`NOT_FOUND` for the already-deleted sandbox. These terminal states must be
+accepted on retry so rootfs and Task metadata cleanup can finish.
+### 2026-09-28: terminal teardown states are now typed and idempotent
+
+Daemon mutation errors retain their authenticated code, allowing cleanup to
+accept only exact sandbox `NOT_FOUND`. Relay teardown likewise accepts an
+already-waited command or kernel `ECHILD`. Focused failure tests and the full
+race/vet/diff gates pass; live recovery of the preserved stopped tasks is the
+next check.
+### 2026-09-28: exact retry-recovery candidate
+
+Commit `3fcccc903b92039e9efc1becb0d67166f5e7f10b` freezes the cleanup
+idempotency correction. Its tracked-source archive hashes to `75dc0e7b…` and
+is the sole candidate for the preserved-task recovery attempt.
+### 2026-09-28: exact recovery binary selected
+
+The guest selected immutable release `0.1.0-dev-3fcccc9…`; shim hash is
+`7964770a…` and release-manifest hash is `cf2f58ca…`. Existing stopped-task
+shims still execute the prior immutable release, so selection alone does not
+alter or clean them.
+### 2026-09-28: dead-shim cleanup must distinguish absence from conflict
+
+Containerd invoked the newly selected cleanup binary for both terminated old
+shims, but fallback refused because the sandboxes were already absent. Both
+task objects and shims are now gone; container metadata and exact `PREPARED`
+rootfs records remain. A present same-ID generation mismatch must still fail,
+but true absence can safely continue through the root-owned bundle/recovery
+identity and rootfs service's exact ownership checks.
+### 2026-09-28: fallback authorizes absence without accepting conflict
+
+Fallback now permits a truly absent lifecycle sandbox to proceed through its
+root-owned recovery and rootfs identities, while rejecting a present same-ID
+generation/bundle conflict. Authenticated mknetd `NOT_FOUND` is likewise
+idempotent for release. Focused tests and full race/vet/diff gates pass.
+### 2026-09-28: exact absent-sandbox recovery candidate
+
+Commit `7927f40ff2cf452a752225d1c6105f2802fb8faa` and archive SHA-256
+`971b4bfd…` freeze the second fallback correction.
+
+### 2026-09-28: recovery archive verified at the execution boundary
+
+The recreated disposable guest independently reports SHA-256 `971b4bfd…` for
+the uploaded `7927f40…` tracked-source archive. Build, release selection, and
+identity-bound cleanup remain separate live checks.
+
+The first isolated-build attempt then found that exact archive absent from
+`/tmp` after creating only its unique empty `/var/tmp` extraction directory.
+No extraction or compilation occurred. The same archive must be staged and
+re-verified in durable `/var/tmp` before that empty directory is reused.
+
+The user then confirmed an instance restart. On new boot `162500c3…`, the
+durably restaged archive again verifies as `971b4bfd…`; all services are
+active, though mkruntimed reports one restart. Both task inventories and the
+child inventory are empty, both container metadata records remain, and the
+runtime storage tree now appears empty despite retained daemon state files.
+Because `7927f40…` has not run, this change cannot be attributed to its
+fallback fix; persisted state and the boot journal must explain it first.
+
+The retained ext4 disk is mounted correctly, not obscured. Rootfs and network
+state are empty; storage retains both exports as authenticated `RELEASED`
+audit records with their pre-reboot release timestamps. The live rootfs files
+therefore no longer exist to exercise the new fallback. mkruntimed's single
+restart was instead a boot race: initial host qualification could not yet
+confirm the Google guest agent, then the service succeeded on its first
+systemd retry. This restart does not constitute cleanup-fix evidence.
+
+Durable extraction succeeded, but the first compound verifier/build command
+left no manifest or binaries. Direct inspection localizes the stop before
+compilation: `verify-host.sh` defaults to instance `mklinux-lab`, whereas this
+replacement is `mklinux-g4-g6-final-20260905`. The retry must pass the explicit
+instance identity; the silent command is not counted as a build pass.
+
+The corrected explicit-identity verifier passes, and the guest builds the
+complete `7927f40…` binary set. Exact release-manifest/shim/mkruntimed/mknetd/
+agent hashes are `580e2306…`, `86787271…`, `b06c2590…`, `66043fe1…`, and
+`5403c1d4…`. This proves the candidate build only; selection and live behavior
+remain unclaimed.
+
+Managed release installation selects immutable `0.1.0-dev-7927f40…` while
+retaining both prior releases. Inspection reports every managed link valid,
+and the public shim/mkruntimed/mknetd entry points report the exact revision.
+Running services were not restarted, so this is selection—not daemon or
+workload activation evidence.
+
+An initial metadata-cleanup sequence made no change: its leading Docker
+inventory used unsupported template field `.Runtime`, and `set -e` stopped
+before both removals. This is a harness-format error, not runtime behavior.
+
+The supported Docker inventory is empty. Exact default container metadata was
+removed, while Docker correctly reports no engine object for the orphaned
+moby containerd record. That final record must therefore be removed through
+its containerd namespace before auditing the clean baseline.
+
+Exact moby metadata removal succeeds, leaving both task/container namespace
+tables and Docker empty. The subsequent broad audit used a stale kernel path
+and stopped before its later checks; the live mounted ABI is under
+`/sys/fs/multikernel`, so full baseline proof still requires a corrected run.
+
+The corrected audit is empty across Multikernel instances, runtime storage,
+rootfs/network ownership, Task v2 bundles, managed namespaces, links,
+firewall rules, and shim/relay/storage-server processes. All four services
+remain active, and the managed release resolves to `7927f40…`. Running daemon
+binary identity still needs privileged inspection or coordinated restart;
+selection alone is not activation evidence.
+
+Privileged inspection confirms the old service PIDs still executed
+`3fcccc9…`. After the recorded clean preflight, normal service restart places
+mkruntimed PID 8100 and mknetd PID 8079 on immutable `7927f40…`; both report
+the exact revision with zero restarts and status 0. The kernel manifest's
+already-qualified `34b1f9c…` guest payload remains unchanged because this
+candidate changes host fallback behavior only.
+
+Read-only inspection of cached BusyBox snapshot `97e4ece8…` disproves the
+initial symlink theory: `/bin/sh`, `/bin/sleep`, and `/bin/busybox` are
+mode-0755 regular hardlinks to the same inode, and the x86-64 ELF hashes to
+`f060103f…`. Because init `/bin/sleep` worked from that inode, the earlier
+`/bin/sh` validation failure instead requires live materialized-root and
+exec-time identity evidence.
+
+An isolated live ctr task on activated `7927f40…` now executes
+`/bin/busybox`, `/bin/sh -c`, and `/bin/sleep` successfully. Host `debugfs`
+cannot resolve those paths while the NBD filesystem is live, so that view is
+not authoritative for guest cache/mount contents. Normal teardown leaves
+tasks, containers, rootfs storage, child instances, and endpoints empty. The
+old shell failure is no longer reproducible in isolation; the unchanged
+concurrent ctr+Docker suite remains the decisive test.
+
+The unchanged runner (`15e12e19…`) makes the defect concurrency-specific:
+ctr reaches `RUNNING`, Docker container `42fad574…` reaches `running`, and the
+ctr child's first `/bin/sh` exec then fails at executable validation. This
+reproduces on the clean reboot and exact activated host revision despite the
+same path succeeding in the immediately preceding one-child experiment.
+Second-child activation/rootfs-export interaction is now the evidence-backed
+boundary; cleanup and live export state require the next audit.
+
+The failure trap again leaves every live resource inventory empty, all four
+services stable, and no warning-or-higher service journal entries. Both run
+exports retain clean `RELEASED` audit records with offline-fsck attestations
+and I/O counters (ctr port 4061, Docker port 4062). Teardown is not the
+regression here; the missing evidence is first-export liveness during second-
+child startup.
+
+The controlled two-child probe supplies that evidence. The ctr child executes
+`/bin/sh` before Docker starts. After Docker is running, direct busybox, shell,
+and sleep execs all fail at `executable`; the first child still says `active`
+and its export still says `ACTIVE`, but its port-4061 `mkvsock-nbd` process is
+gone. Only Docker's port-4062 server remains. This is a first-root transport/
+server-lifetime failure with stale durable liveness, not an executable-format
+problem. Kerf could not attach because it considered the active instance's
+kernel image unloaded; retained root-only server logs require a corrected
+privileged read. Final cleanup was empty.
+
+The exact root-owned ctr server log records ready, one accepted client, and a
+canonical `CLOSED synced=1` with nonzero I/O counters—no crash or protocol
+error. Both kernels remained active until explicit cleanup. The second child
+therefore causes a clean close of the first child's mediated-storage client
+while its storage lease remains falsely `ACTIVE`. Rootfs building and ELF
+validation are downstream symptoms; transport connection isolation/lifetime
+is the source boundary to inspect next.
+
+Source inspection makes the cause exact. `mkvsock-nbd` leaves the 15-second
+handshake socket timeout on the authenticated server stream, and its request
+loop converts an idle `EAGAIN` into a clean close. Docker startup simply keeps
+the first root idle past that deadline. The fix is to clear socket send/receive
+timeouts after the hello exchange on both endpoints; the separate guest
+`NBD_SET_TIMEOUT=15` continues to bound active, stalled block requests.
+
+The helper now clears send/receive socket timeouts after successful hello on
+both endpoints, while preserving the bounded handshake and kernel NBD request
+timeout. It compiles warning-clean. A focused option-state probe is added; its
+first local run was permission-gated by exact `EPERM`, so it may skip only that
+known sandbox boundary and must pass unskipped on the disposable guest before
+the live replay.
+
+The complete local race/vet and documentation/evidence chain passes after the
+change, as do warning-clean C compilation, shell syntax, and diff checking.
+The focused option probe and the pre-existing socket test both classify only
+the local `EPERM` restriction; an unskipped guest run remains required.
+
+Commit `b9fe085` freezes only this helper correction and focused probe. Its
+tracked-source archive is 1,012,019 bytes with SHA-256 `2f3a7dc4…`; findings
+and the untouched historical evidence tree are excluded.
+
+The guest independently re-verifies archive `2f3a7dc4…` and the focused probe
+passes unskipped. A warning-clean dynamic helper hashes to `299b9b11…`. This
+proves socket-option state on the guest, not yet production static-helper or
+live mediated-root behavior.
+
+The guest then builds a full release stamped `b9fe085c…` and a static x86-64
+NBD helper. Release/shim/daemon/network-daemon/agent/helper hashes are
+`d4800b4d…`, `639f0d28…`, `102bf351…`, `7e22b58d…`, `50dd8e74…`, and
+`95e886d6…`. They remain build inputs pending coherent initramfs, manifest,
+deployment, and activation.
+
+The dependent agent initramfs passes gzip and archive-content checks, binds
+agent `50dd8e74…` plus pinned module/relay `bef1b888…`/`293ff1ea…`, and hashes
+to `440a0d96…`. It is not active until root-owned staging and strict manifest
+validation complete.
+
+Root-owned immutable staging re-matches the agent/initramfs/helper hashes.
+Strict bootstrap validation accepts candidate manifest `1b31a818…`, binding
+those artifacts to the unchanged pinned kernel, module, relay, compatibility,
+transport, and OCI feature contract. Activation remains unclaimed.
+
+The same-boot activation preflight is fully empty across workload, child,
+storage, rootfs, network, and exact runtime-process inventories. All four
+services are healthy and unrestarted. This authorizes atomic activation; it
+does not itself prove activation.
+
+Coherent activation succeeds on the same boot. The previous helper is retained
+root-only; active helper/manifest hash to `95e886d6…`/`1b31a818…`, all public
+components report `b9fe085c…`, and daemon PIDs 14857/14838 resolve to that
+immutable release with zero restarts/status 0. This is activation evidence;
+the >15-second idle-root replay remains decisive.
+
+The decisive replay passes. Exact-helper PID 15163 survives a 20-second idle,
+then remains the same while Docker startup consumes another 57 seconds and a
+separate port-4062 server appears. First-child busybox, shell, and sleep execs
+all succeed afterward; both exports are concurrently `ACTIVE`. Normal cleanup
+is empty across both namespaces, Docker, child, storage, rootfs, and network
+state. This directly closes the idle-session root cause; the unchanged full
+suite remains the broader qualification gate.
+
+The unchanged suite confirms the fix at its original boundary: concurrent ctr
+network exec returns a distinct child boot ID, `mkn0` address, outbound HTTP,
+and `CTR_NETWORK_PASS` after Docker startup. It then reaches a new host-side
+gap: Docker exec is rejected as `unsupported exec process field`. The exact
+field/value pair must be captured before applying the existing narrow Docker
+init compatibility contract to exec.
+
+The suite trap is fully clean across workload, child, storage, rootfs,
+network, and exact-process inventories. All services remain stable with no
+warnings. The next correction is therefore confined to fail-closed exec OCI
+validation.
+
+Exec validation now mirrors the narrow init contract: only explicit
+`unconfined` AppArmor and zero OOM adjustment are accepted and omitted; every
+requested profile, nonzero adjustment, and other unsupported field still
+fails closed with fixed field names only. Focused and full shim race tests pass;
+full-tree and live Docker exec checks remain.
+
+The full race/vet and documentation/evidence chain passes. Only the known
+local socket `EPERM` paths skip; generated cache is removed and the diff is
+clean. Exact commit/build/live replay remain.
+
+Commit `aa1238b83a06ecac63f1d3786993e201556767e6` freezes the narrow exec
+correction atop the live-proved idle-root fix. Its tracked-source archive is
+1,012,377 bytes and hashes to `4f16e301…`.
+
+Independent guest build succeeds for exact `aa1238b…`: release/shim/daemon/
+network-daemon/agent hashes are `6f67cfe1…`, `18e3a013…`, `fe3fe773…`,
+`9cff4985…`, and `cf73a7e3…`. The static helper reproduces live-proved
+`95e886d6…`; dependent initramfs is `51e0c02e…`. Activation remains separate.
+
+Root-owned staging re-matches all artifacts, and strict validation accepts
+candidate manifest `4627d38b…` with the pinned dependencies and feature set.
+
+Exact `aa1238b…` activation succeeds after empty-state preflight. The active
+manifest/helper hashes are `4627d38b…`/`95e886d6…`; public components report
+the exact revision, and daemon PIDs 19891/19872 execute its immutable binaries
+with zero restarts/status 0. Containerd and Docker remain healthy on unchanged
+PIDs 1341/1472, and boot ID remains `162500c3…`. This is coherent activation;
+the unchanged live suite remains the behavioral qualification gate.
+
+The pinned suite rejected an accidental root-shell invocation at its explicit
+ordinary-user guard before creating workloads; its trap had nothing to clean.
+That attempt carries no qualification result. The suite must run as the SSH
+user and elevate only its own scoped operations.
+
+The unchanged runner `15e12e19…` then passes end to end on exact `aa1238b…`.
+ctr/Docker children have distinct non-host boot IDs `a7d02acc…`/`05157cb3…`,
+independent `mkn0` addresses `172.31.0.2/30`/`172.31.0.6/30`, outbound HTTP,
+and successful ctr plus Docker exec. Direct cross-child ping is blocked.
+SIGKILL yields ctr `STOPPED` and Docker exit 137; normal removal clears the
+runner's child, link/rule, container, task, and Docker inventories. The runner
+exits 0 with all four terminal PASS markers, including `G4_G5_G6_MVP_PROOF_PASS`.
+An independent residual-state and service-health audit is still separate.
+
+The independent audit is clean: both containerd namespaces, Docker, child
+instances, endpoint/rootfs state, active exports and backing artifacts,
+`mkv*` links, MK rules, and exact shim/relay/NBD processes are absent.
+Storage retains only intentional `RELEASED` history; applied configfs nodes
+are transaction history, not live instances. All 16 CPUs are available and
+`MemAvailable` is 64,470,928 kB. All four services retain PIDs
+19891/19872/1341/1472, zero restarts/status 0, and no warning-or-higher journal
+entries in the run window. Cleanup and service stability are corroborated.
+
+This remains an MVP qualification, not full gate closure. The machine-readable
+contract requires 10 G4, 8 G5, and 14 G6 assertion groups beyond this runner.
+The replacement evidence directory currently contains only the before-cloud
+ledger, with no final manifests/transcripts/after-ledger/hash index, so the
+final evidence auditor cannot pass yet. The fuller shared feature matrix is
+the next live boundary; missing assertion groups must be executed, not inferred.
+
+Exact fuller matrix `66bfbe65…` starts clean on `aa1238b…`: zero children,
+links, rules, ctr tasks, and Docker objects. BusyBox resolves to OCI/repository
+digest `sha256:73aaf090…` and Docker reports `amd64`; the shared image pull and
+inspection row passes. Split ctr creation is the next live step.
+
+The fuller matrix then fails closed at Docker start, after ctr split start,
+because Docker's generated read-only `/etc/resolv.conf` bind differs from the
+adapter's enforced option contract. The runner omits the basic suite's global
+read-only root, exposing a distinct generated-mount variant. Its trap removed
+both workloads. Exact options and independent cleanup are required before any
+compatibility change.
+
+Independent failure cleanup is complete across both containerd namespaces,
+Docker, child/network/rootfs state, active exports/artifacts, links/rules, and
+exact runtime processes. All four service PIDs remain unchanged with zero
+restarts/status 0.
+
+Stock-runc capture identifies the exact variant: Docker binds its same-ID
+managed `/etc/resolv.conf`, `/etc/hostname`, and `/etc/hosts` files from
+`/var/lib/docker/containers/<64-hex-id>/…` with `["rbind","rprivate"]`.
+They are deliberately writable inside a writable-root container. Generic
+writable host binds must stay rejected; the safe compatibility model is a
+narrow identity-bound seed copy into the private root with no host write-through.
+
+That model is now implemented. Only the three exact Docker paths with matching
+64-hex root/source identity and exact `rbind,rprivate` options become private
+writable seed copies; they never enter the guest as host mounts. Directory
+seeds, arbitrary writable binds, mismatched identity/name/destination, and
+extra options fail closed. Focused materialization, 90 OCI semantic cases, and
+the privileged rootfs verifier race test pass. Full-tree and live replay remain.
+
+The full race/vet tree and complete documentation/evidence contract chain now
+pass; only the known local socket `EPERM` subcase skips. Exact commit, guest
+build, activation, and fuller-matrix replay remain separate.
+
+Commit `1832e62ad6c54128f0fcd25df6ce7ed16607b3e0` freezes the tested
+private-seed change. Its tracked-source archive is 1,014,109 bytes and hashes
+to `6c6f0b6f…`; findings/evidence are excluded. Guest build and live replay are
+still separate claims.
+
+The guest re-hashes the archive, passes host verification, and builds exact
+`1832e62…`. Release/shim/mkruntimed/mknetd/agent hashes are `d3b4eab8…`,
+`12f01ba7…`, `2f56955e…`, `9cd72078…`, and `23acdcad…`; its dependent
+initramfs is `44a9e493…`. An ad-hoc unchanged-helper build does not reproduce
+the proven helper hash, so it is excluded; activation will preserve exact
+live-proved `95e886d6…`. Staging and activation remain separate.
+
+Binary install selected immutable `1832e62…`, but support installation correctly
+refused the user-owned extracted assets before mutation. Existing daemons still
+execute `aa1238b…`; support and kernel manifest remain old. This mixed selected-
+link/old-process state is not activation and will run no workload before a
+root-owned support stage plus coordinated empty-state restart.
+
+Root-owned staging now succeeds: support generation `809c5033…` is selected,
+and strict privileged validation accepts candidate manifest `3f2300d6…` with
+the exact agent/initramfs and pinned kernel/module/relay. A later non-root hash
+command stopped only on the intended mode-0600 initramfs; privileged re-hash
+and manager inspection are still required before activation.
+
+Privileged re-hash matches `3f2300d6…`/`23acdcad…`/`44a9e493…`, and both
+managers report the intended generations with managed links. The combined
+preflight then stopped on an incorrect `/usr/local/bin` daemon path before its
+inventories; it provides no empty-state or activation result.
+
+The corrected inventory is fully empty, but the user restart establishes a
+new authoritative boot `7d620d19…` and PIDs 1456/1200/1340/1458. Services are
+active/status 0; mkruntimed has one restart while the other three have zero.
+Current-boot journal and executable-path inspection must qualify this fresh
+baseline before activation; earlier boot/PID observations are historical.
+
+The journal explains mkruntimed's one restart: its first boot attempt failed
+closed while the Google guest agent was not yet confirmed active, then the
+single retry passed storage/host startup and remained active. Daemon executable
+paths are still immutable `aa1238b…`; the retry is bounded boot ordering, not
+runtime-state instability. Empty-state coordinated activation may proceed.
+
+Exact `1832e62…` activation is now coherent. Active manifest/helper hashes are
+`3f2300d6…`/preserved proven `95e886d6…`; strict validation resolves the new
+agent/initramfs and pinned dependencies. New daemon PIDs 7423/7404 execute the
+immutable revision with zero restarts/status 0; containerd/Docker stay healthy
+at 1340/1458. Boot remains `7d620d19…`. Fuller matrix replay is still required.
+
+Live replay closes the private-seed defect: normal writable-root Docker reaches
+`running`, exec/stdio works, both children expose distinct non-host boot IDs and
+the exact child kernel, and their private root values remain distinct. The
+matrix then reaches a new environmental boundary: the next bind-input child is
+correctly refused by storage high-water (`2,684,854,272` free versus
+`3,233,402,880` required). The trap removed workloads/temp input. Cleanup and
+disk-ownership audit must precede any capacity change.
+
+Cleanup is otherwise empty and services remain stable. Exact retained disk
+`/dev/sdb`/`mk-mediated-storage-20260830` is 20 GiB; preserved child fixtures
+consume 8 GiB and quarantines 4 GiB, leaving 6.98 GB clean. Two live 2 GiB
+roots explain the 2.68 GB third-root refusal. Evidence will not be deleted;
+the safe correction is exact-disk expansion plus online ext4 growth. A mistyped
+active-export jq projection still needs a separate rerun.
+
+The corrected active-export result is empty, and GCE confirms exact disk
+`mk-mediated-storage-20260830` is the attached 20 GB zonal `pd-balanced`
+device. The attempted 30 GB resize was rejected by the safety reviewer as a
+persistent billable mutation lacking separate explicit approval; nothing was
+changed. Explicit user authorization is required for resize plus online ext4
+growth.
+
+Harness-only commit `958a0f6…` adds focused live read-only-bind qualification,
+hash `a107ed08…`. It runs ctr and Docker sequentially with the same directory/
+file bytes, guest write rejection, host immutability, and clean inventories,
+avoiding only the accidental three-root overlap. Syntax/static checks pass;
+live execution remains pending.
+
+The exact uploaded harness starts with all measured inventories at zero. ctr
+reads the expected directory/file bytes, both guest writes fail read-only, and
+both primary-side sources retain their exact original bytes. ctr materialization
+and no-write-through are live-proven; Docker remains in progress.
+
+Docker also reads its exact directory/file values, both guest writes fail
+read-only, and host sources remain unchanged. Exact harness exits 0 with
+`RUNTIME_READONLY_BIND_LIVE_PASS` and every measured final count zero. Shared
+ctr/Docker read-only materialization and no-write-through are live-proven;
+independent durable/process cleanup remains separate.
+
+The deeper audit finds that cleanup is not complete despite the harness zeros:
+moby retains stopped task/container `7ab0dc6d…`, its prepared rootfs/image, and
+two exact shim processes, while Docker metadata and live child/network/export
+are absent. The harness omitted moby namespace and process/rootfs inventories.
+Bind enforcement remains proved; cleanup is now a diagnosed-open requirement.
+
+The orphan does not converge. Normal Task deletion fails exactly at `stop
+network namespace holder: waitid: no child processes`: cleanup already reaped
+the owned holder, but retry treats `ECHILD` as fatal and stops before rootfs,
+Task acknowledgement, and shim exit. Holder termination needs the same strict-
+identity/already-reaped idempotency semantics as the corrected relay path.
+
+Holder stop now accepts exact `ECHILD` as terminal after owned-process kill/
+already-done handling, while preserving all other wait failures. Delete retry
+tests combine an already-reaped relay, directly reaped holder, and absent
+sandbox, and require all ownership cleared. Twenty race-enabled repetitions
+pass; full gates and live orphan recovery remain.
+
+Full local qualification now passes: race-enabled full-tree Go tests, `go vet`,
+the complete documentation/schema/evidence/runtime checker, and whitespace
+validation. The first Go invocation omitted the required temporary cache and
+failed only against the sandbox's read-only default cache; rerunning with
+`GOCACHE=/tmp/mklinux-gocache` passed. Live orphan recovery and replay remain.
+
+The implementation is committed narrowly as
+`586e3b932857d3e1372fbc93f85b6c592abd44d1`. Its exact 1,015,225-byte archive
+has SHA-256
+`806260d47def435e7a243e5d2de752115085233c45c9e3f46ced5abb539d8087`;
+guest transfer/build/activation and live recovery remain pending.
+
+The restarted disposable VM remains on boot
+`7d620d19-11d5-44fa-816b-0e1cd87c8cf6`, kernel `7.0.0-mk2-gce-lab`, with 16
+CPUs and all four runtime services active. Its independently measured archive
+hash and 1,015,225-byte size exactly match the local candidate. No build or
+activation is claimed yet.
+
+Explicit-instance host verification passes and the guest builds the full exact
+revision. Release manifest/shim/mkruntimed/mknetd/agent hashes are
+`7d3a7a9c…`/`a1eeef5d…`/`9d71a29e…`/`cbd8344f…`/`c7e97f70…`, and the built
+public components report revision `586e3b9…`. Installation, activation, and
+live recovery remain separate claims.
+
+The pre-activation orphan is unchanged: stopped moby task/container `7ab0dc6d…`,
+old immutable `1832e62…` shim PIDs 9687/9692, and the exact 2-GiB prepared
+root. Services remain active, zero-restart/status 0. Since those processes
+cannot consume a new public symlink, recovery will exercise authenticated
+crash/reboot cleanup after activation, without manual state/evidence deletion.
+
+The binary manager installs and selects immutable release `0.1.0-dev-586e3b9…`;
+all managed links validate and public components report the exact new revision.
+Old daemon/orphan processes remain immutable `1832e62…` executables until
+reboot, so selection is not yet coherent process activation or recovery proof.
+
+After controlled reboot the boot ID is `75c6e9b5…`; running daemons resolve to
+exact `586e3b9…`. Built-in recovery removes the stale task, old shim pair,
+child, prepared 2-GiB root, rootfs record, endpoint, helper processes, and MK
+rules without manual state deletion. Only inert moby container metadata
+`7ab0dc6d…` remains (Docker has no object). One nested-SSH `awk` link query was
+misquoted and is explicitly non-evidence pending a direct retry; journal/state
+attribution and normal exact metadata removal remain.
+
+The direct link retry and rootfs JSON prove zero links/records. mkruntimed's
+single retry is the bounded guest-agent boot race, followed by stable service;
+containerd has no current-boot warnings. Normal removal of exact inert metadata
+succeeds and all resource inventories are zero. A `pgrep -f` count of two is
+excluded because it self-matched the remote command text; an anchored process
+query remains required.
+
+Anchored executable queries find no shim, relay, or NBD helper. The new boot
+and four active services remain stable, closing prior-orphan recovery; exact
+focused replay and an independent deep audit remain the regression gate.
+
+The exact pinned focused harness passes on active `586e3b9…`: ctr and Docker
+read both expected inputs, reject all four guest writes as read-only, preserve
+host bytes, and finish with six narrow zero inventories plus
+`RUNTIME_READONLY_BIND_LIVE_PASS`. The independent deep cleanup audit remains
+mandatory because those counters missed the original orphan.
+
+The independent post-replay audit is fully empty across default/moby metadata,
+Docker, children, runtime roots/records, endpoints, anchored shim/helper
+processes, links, and MK rules. Boot and service PIDs/restart counts are
+unchanged from the post-reboot baseline. This live-closes the namespace-holder
+`ECHILD` cleanup regression.
+
+Qualification clean markers now cover both containerd namespaces, Docker,
+runtime artifacts/rootfs records, endpoints, and anchored shim/helper processes.
+The full matrix asserts the all-zero value at all three checkpoints. Bash
+syntax and diff checks pass; ShellCheck is unavailable locally and unclaimed.
+Live execution of the broadened focused harness remains.
+
+Exact broadened harness `4e196108…` begins with all 13 counters zero and both
+bind cases pass, but it correctly withholds its final marker because two shim
+processes remain immediately after Docker cleanup while all durable/resource
+counters are zero. This is not yet classified: bounded convergence must be
+measured before adding a wait or diagnosing a new orphan.
+
+The pair disappears on follow-up while all durable state remains empty, so the
+immediate count is normal asynchronous exit. Both harnesses now wait up to 30
+seconds for the full inventory and retain the last nonzero value on failure.
+Syntax/diff checks pass; focused/matrix hashes are `05a3ca31…`/`0d94685c…`.
+Final focused replay remains.
+
+The guest matches final focused hash `05a3ca31…`. Both bind cases pass; its
+deep checkpoint observes the transient shim pair, converges within 30 seconds,
+then emits all 13 counters zero and `RUNTIME_READONLY_BIND_LIVE_PASS`. The
+stronger marker is live-qualified; full-matrix execution still needs capacity.
+
+The complete documentation/schema/evidence/runtime chain, Bash syntax, and
+diff checks pass. Uploaded hashes match local source. ShellCheck is unavailable
+on both hosts and remains explicitly unclaimed; generated caches were removed.
+
+The independent bind row now runs after the long-lived concurrent pair is
+deleted and deep-cleaned, followed by its own deep-clean assertion. This keeps
+the concurrency/isolation proof intact while avoiding the unrelated third-root
+high-water collision without disk mutation or evidence deletion. Matrix hash
+`26d67e80…` passes syntax/diff checks; live execution remains.
+
+Exact matrix `26d67e80…` starts from all 13 zeros and passes image, split
+lifecycle, state, distinct child/kernel, exec streams, private roots, outbound
+DNS/HTTP, and bidirectional sibling isolation. Immediately after the matrix
+restarts mkruntimed, ctr exec fails at the guest executable boundary. The run
+exits 1 via its trap: capacity is no longer the blocker, but daemon-restart
+continuity is genuinely failing. Cleanup/journal diagnosis remains.
+
+The trap cannot clean while mkruntimed restart-loops: two tasks/containers,
+children, roots, shim pairs, and NBD helpers remain. Every retry rejects the
+owned roots because writable ext4 bytes differ from the immutable preparation
+digest. Reconciliation already has exact lifecycle ownership and held/static
+artifact checks, so verification now skips only the mutable-data digest for an
+exact owner; preparation/boot remain strict. Tests cover both policies,
+mutated writable data, and unchanged rejection of static artifact changes.
+The race-enabled rootfs package passes. A harmless first gofmt path invocation
+changed nothing; its corrected retry succeeded.
+
+The explicit stop ends the loop after 28 failures while preserving both exact
+tasks/roots. Full race tests, vet, and diff checks pass. Fix commit
+`783e15df242dee7240bc69199b3d0a41fb38f596` has a 1,016,223-byte archive with
+SHA-256 `0f627579adfd3d5198c1c0b6cc05549926eca507585caaf0842773e00d4ec543`;
+guest build/deployment/recovery remain.
+
+The guest matches the archive, host-checks with both children still owning
+CPUs, and builds exact `783e15d…`; release/shim/daemon/network/agent hashes are
+`c8db0945…`/`c26e4874…`/`74f51e11…`/`822dc743…`/`927263fe…`. After atomic
+selection, new mkruntimed PID 12956 stays active for 12 seconds with zero
+restarts while reconciling both mutated roots. Child exec and cleanup remain.
+
+The trap had already stopped both tasks, so post-recovery exec correctly returns
+failed precondition and is not claimed. Normal task/container removal succeeds
+with expected exit 137. Deep inventories are fully empty and all services are
+active/zero-restart after reset. Fresh matrix replay must prove continuity.
+
+Capacity-safe ordering is commit `b3894d1`; mknetd is coherently moved to
+`783e15d…`. Fresh matrix replay reaches sibling isolation with new distinct
+children, then exec still fails after deliberate mkruntimed restart. The fixed
+daemon now reconciles stably, narrowing the remaining defect to mediated
+storage/session continuity across daemon/helper replacement. Later rows remain
+unclaimed pending audit and cleanup.
+
+Later authoritative audit finds both task namespaces and NBD-helper inventory
+empty, with mkruntimed active at PID 14651 and zero restarts. The trap therefore
+eventually cleaned the failed run once the daemon stayed serviceable; this is
+cleanup convergence, not live-restart continuity.
+
+The storage backend already requires NBD servers to outlive the daemon and
+authenticates adoption by durable generation plus PID/start-time/argv/image-fd/
+binary identities. The unit's implicit `KillMode=control-group` contradicts
+that design by killing helpers on daemon restart. Replacement servers cannot
+repair the child's dead NBD session. The deployment needs process-only stop
+semantics so exact helpers survive and are adopted.
+
+The managed unit now explicitly uses `KillMode=process`, documented as the
+exact-helper adoption contract. Deployment tests require exactly one installed
+directive. Focused deployment, complete docs/evidence/runtime validation, and
+diff checks pass; managed live installation and restart replay remain.
+
+The unit fix is commit `43d038f`; its exact 1,016,303-byte archive hashes to
+`ebf81becd5a6caa26098c7d350fd66250eff30f95ba0e08cbc7c162c1188c400`.
+Guest verification and managed deployment remain separate.
+
+The guest matches the archive. Root-owned managed deployment `40d4a96e…`
+installs/selects with all links valid; after daemon reload, systemd reports
+`KillMode=process`. Live helper survival/adoption remains the matrix gate.
+
+The decisive replay proves helper adoption: mkruntimed PID changes
+14651→26854 and both clients exec successfully with unchanged child boot IDs.
+Restart continuity, pause/resume, and signal/exit pass. Normal ctr deletion then
+fails at `DeleteSandbox: BACKEND_FAILURE`; later cleanup rows remain unclaimed
+while lifecycle backend deletion after adoption is diagnosed.
+
+The immediate audit shows why this must not be collapsed into an adoption
+failure. Exact NBD helper PIDs 26194/26445 remain in the systemd cgroup during
+the deliberate daemon stop, and systemd warns about those expected leftover
+processes as PID 26854 starts; the daemon stays active with zero restarts.
+Docker's instance 41 then halts, unloads, and is removed with resources
+returned. The ctr instance 40 reaches the kernel's halted state, but the
+captured sequence has no successful unload/removal before `DeleteSandbox`
+returns `BACKEND_FAILURE`; default still contains stopped task
+`mk-matrix-ctr`, while moby is absent. The lifecycle snapshot is not at the
+initially guessed `/var/lib/mkruntimed/state.json` (only rootfs/storage state
+exists there), so diagnosis must locate the configured state directory and
+capture the exact failing backend operation without manually deleting state.
+
+Configuration locates lifecycle state at `/var/lib/mkruntime`, separate from
+the rootfs/storage snapshots. The retained ctr root remains `PREPARED`, while
+its exact export generation `956783ba…` is durably `QUIESCING` and its NBD
+helper has exited. `DeleteSandbox` therefore reached `releaseStorage`, stopped
+the adopted export, and failed before committing `RELEASED`; Kerf unload/delete
+is later in the lifecycle method. The halted-but-not-removed kernel instance is
+a downstream result, not the initiating operation. Services remain healthy and
+mkruntimed has zero post-restart failures.
+
+The retained artifacts make the initiating error concrete. Lifecycle journal
+sequences 299–302 contain two retryable delete failures, and the exact export
+log is canonical and terminal: READY for generation `956783ba…`, client
+accepted, then `MKNBD_SERVER_CLOSED synced=1` with 265 reads, 49 writes, and 12
+flushes. Its process record remains although the helper is absent. A subsequent
+read-only `e2fsck -fn` completes all five passes and exits 0. After adoption,
+the child halt can close NBD and let the server exit before `Release.Stop`;
+because the new daemon has no in-memory `managed` entry, `Stop` rejects the
+absent process without parsing the exact graceful-close record. `Observe`
+already treats that same record as authoritative closed evidence. This
+asymmetry strands an otherwise clean export in `QUIESCING`; retry-safe cleanup
+must validate the terminal log and remove only the exact retained process
+record before the existing offline check.
+
+Recovery now treats that narrowly authenticated terminal state as idempotent.
+`Observe` and `Stop` accept an already-exited server only when the exact
+lease-specific log has both its canonical READY marker and terminal `synced=1`
+close record; they return those counters and remove only the identity-matched
+process record. Missing, malformed, or conflicting evidence remains a hard
+failure. A focused test covers both observation and direct release-stop after
+recovered process exit. Twenty race-enabled repetitions also include the
+existing live-process adoption and counter-integrity tests and pass; formatting
+and diff checks pass, with full-tree qualification still pending.
+
+The complete local gate passes: all Go packages under the race detector,
+repository-wide vet, the documentation/schema/evidence/runtime chain with 90
+OCI semantic cases, and diff checking. The sole checker skip is the already
+classified sandbox-local socket `EPERM` case. Generated Python cache files were
+removed and the user-owned evidence tree was not changed. Commit/build/live
+recovery and a clean matrix replay remain unclaimed.
+
+The exact fix commit is `e37094bd19d15a792eaf802eb49f328a54c60549`;
+its 1,016,611-byte archive hashes to
+`6c49d1714853dbf63887113c3b6dc858ea7474ca5e5b213caf52c859cd5cf638`.
+The living findings remain uncommitted by design and retained evidence is
+unchanged. Guest transfer/build/deployment and live recovery remain separate.
+
+The guest independently matches the archive and passes explicit-instance host
+verification before producing the full revision-stamped release. Exact hashes
+for manifest/shim/mkruntimed/mknetd/agent are `daa7be65…`, `512e2020…`,
+`d9fea9b1…`, `fd687ade…`, and `5dfefe3f…`. This proves the guest build only;
+selection, daemon restart, retained-task recovery, and replay remain unclaimed.
+
+The immutable `e37094bd…` release installs with every managed link valid.
+After the explicit daemon restart, PID 28723 executes that exact release and
+remains active with zero restarts. Startup reconciliation authenticates the
+terminal helper transcript, removes the exact stale process record, completes
+the offline check, and advances export `956783ba…` to `RELEASED`, preserving
+265 reads, 49 writes, and 12 flushes. The stopped lifecycle sandbox, task, and
+halted child are intentionally retained for the normal caller-owned delete
+retry; this is storage recovery, not yet complete task cleanup.
+
+The unchanged normal retry `ctr -n default tasks rm mk-matrix-ctr` then exits
+0. Its warning carries the workload's already-recorded exit status 42;
+lifecycle advances to sequence 303 with no sandbox, the task disappears, and
+the kernel instance is removed. mkruntimed stays active at PID 28723 with zero
+restarts. This live-closes the stranded delete path itself; inert metadata
+removal and an independent deep-clean audit still follow.
+
+Normal ctr metadata removal succeeds, and the independent deep inventory is
+empty across both namespaces, Docker, children, runtime artifacts, rootfs and
+network records, executable-matched shim/relay/NBD processes, host links, and
+MK firewall rules. All four services remain active/status 0 with zero
+restarts. mkruntimed executes exact `e37094bd…`; idle mknetd still executes
+immutable `783e15d…`, so it must be restarted coherently before the full replay.
+
+Idle mknetd restarts as PID 29500. Both runtime daemons now execute exact
+immutable `e37094bd…`, active/status 0 with zero restarts. The guest's matrix
+hash independently matches pinned `26d67e80…`; decisive replay is next.
+
+The first command mistakenly ran the harness itself under `sudo`; its UID
+safety preflight refused before any qualification and its empty-state trap had
+nothing to clean. This operator invocation is excluded. The unchanged harness
+must run as the ordinary SSH user and use its own scoped sudo calls.
+
+The corrected ordinary-user replay begins on boot `75c6e9b5…`, kernel
+`7.0.0-mk2-gce-lab`, with all services active and all 13 initial inventories
+zero. Both clients inspect BusyBox 1.36 at shared digest `73aaf090…` and amd64;
+the image row passes. The same live handle is now in split create/start, so no
+later row is claimed yet.
+
+The same live process passes split lifecycle, inspection, distinct child boot
+IDs (`60dc93e8…`/`a7834fc8…` versus host `75c6e9b5…`), exec streams, private
+writable roots, outbound mediated networking, and sibling isolation. It also
+passes deliberate daemon-restart continuity with unchanged child identities,
+pause/resume, signal/exit 42, and normal deletion for both clients. The
+post-delete deep inventory watches shim processes converge 4→2→0 and ends with
+all 13 fields zero. The fresh-workload delete regression is therefore closed;
+bind and later matrix rows are still running.
+
+The ctr bind child now reads exact values
+`ctr-host-immutable|ctr-file-immutable`, and both guest writes fail read-only.
+Docker's independent bind case is in progress; host-source immutability and the
+combined bind row remain unclaimed until its assertions complete.
+
+Docker independently reads `docker-host-immutable|docker-file-immutable` and
+both writes fail read-only. Every host directory/file source retains its exact
+bytes, and the post-bind deep inventory converges to all 13 zeros. The combined
+bind row passes for both clients; repeated attach/error cycles are now running.
+
+Repeated-exit cycle 1 returns exact status 17 for ctr and Docker, preserves both
+clients' stdout/stderr markers, and Docker inspect/wait agree on 17. Normal
+cleanup returns child/network resources to empty before cycle 2 begins; the
+second cycle is not yet claimed.
+
+Cycle 2 repeats exact status 17, stdout/stderr, Docker inspect/wait, and clean
+teardown. The combined foreground wait/I/O/nonzero-exit row and same-name reuse
+therefore pass for both clients. Stdin forwarding and later terminal/OCI rows
+are still in progress.
+
+Guest stdin forwarding passes with exact outputs `guest-ctr-stdin` and
+`guest-docker-stdin`, followed by normal cleanup. Attach-to-detached-task is
+now running; it and later rows remain unclaimed.
+
+Attach to detached tasks passes with exact outputs `ctr-attached-stdin` and
+`docker-attached-stdin`, followed by clean teardown. Pseudo-terminal allocation
+and resize is in progress; terminal and later OCI rows remain unclaimed.
+
+TTY exposes a new Docker admission boundary. ctr obtains a real terminal at
+requested size `37 91` and prints `ctr-terminal-ok`; Docker is rejected before
+child creation because its OCI request includes `process.consoleSize`, which
+the validator currently labels unsupported. The matrix exits 125 and runs its
+trap. No combined TTY or later row is claimed; cleanup audit and exact bounded
+console-size support are required.
+
+The independent post-failure audit is fully clean across both namespaces,
+Docker, children, durable root/network state, runtime files, exact helper/shim
+executables, links, and MK rules. All services remain active/status 0 with zero
+restarts; mkruntimed PID 30966 is the deliberate restart already proved by the
+matrix. The admission rejection leaked no resource.
+
+Console-size support is now exact rather than permissive. Admission requires
+an integer `{width,height}` object, `terminal=true`, and both dimensions within
+0–65535; malformed, incomplete, boolean, oversized, unknown-field, and
+non-terminal variants fail closed. The guest projection and authenticated
+agent spec preserve it, and the agent applies it only when no Task resize
+overrides it. Init and exec paths share the rule. Twenty race-enabled focused
+repetitions, including an observed 91×37 PTY, and the expanded 95-case OCI
+validation suite pass. Full gates and live replay remain.
+
+The complete local race suite, vet, documentation/schema/evidence/runtime
+chain with 95 OCI cases, and diff checking pass. The only skip is the known
+sandbox-local socket `EPERM` subcase. Generated Python caches were removed and
+retained evidence was not changed. Commit/build/deployment and live replay are
+still separate.
+
+Before deploying the coherent console-size release, reinspection after the VM
+restart records the rollback baseline: all four services are active, managed
+support remains generation `40d4a96ec0ac3c89fc1e5b3b6bcde4d1c4fa2072e76e6ec7755a66840c1cd55a`,
+the loaded unit reports `KillMode=process`, and the active kernel manifest
+hashes to `3f2300d68070d7ca333ecd9711c9ef286cbf78a2b9da976f6e376a292163ab42`.
+The selected runtime and host inputs are root-owned regular mode-0600 files,
+and cleanup inventory reports no finding. No deployment change is claimed yet.
+
+The VM then builds an initramfs from the exact `1f81cb2…` agent together with
+the already pinned transport module and relay. The agent remains
+`c79210c60289e4f4fe14ae14e2c142e109002f96c77949e96a192397b75db83d` and
+the initramfs is
+`2dec85b8ee8d8fb7b4e1b601aacc96f99f63e1ba61e3c2e5478bad295c88b21d`.
+The active manifest is retained as the candidate template so its kernel,
+relay, module, compatibility, protocol, required-config, and feature pins do
+not drift. This is staging only; active state and services are unchanged.
+
+Root-owned exact-source installation selects immutable binary release
+`0.1.0-dev-1f81cb2aec7f4774c89506c71eb8348c37147e9e` and managed-support
+generation `d36b6940116af48cc13668f8443a87f0c69f3eb979f048a071ea11c586e64e3e`.
+The root-owned candidate manifest hashes to
+`1d79c5644caef494e96453495795d83d71d1c35ac9043a84aac3d878e70999f2`
+and passes strict bootstrap validation against the exact new agent/initramfs
+and the preserved kernel/module/relay pins. All services remain active and the
+active manifest is intentionally still `3f2300d6…`; coherent activation and
+process replacement are not yet claimed.
+
+Coordinated empty-host activation stops only mkruntimed/mknetd, retains the
+old `3f2300d6…` manifest under a non-JSON rollback name, atomically activates
+`1d79c56…`, reloads systemd, and starts both daemons. The active path passes
+strict bootstrap validation. PIDs 38582/38547 resolve to immutable
+`1f81cb2…` mkruntimed/mknetd binaries and both report that exact revision;
+they and containerd/Docker are active, with zero runtime-daemon restarts and
+status 0. mkruntimed still loads `KillMode=process`, the active OCI validator
+hashes to `ddd77fb869fb258268fc5d6cadacc6ca664f3753a5b34cf747331dab087b8804`,
+and cleanup inventory emits no finding. Deployment coherence is proved;
+workload qualification remains separate.
+
+The guest copies of the matrix and its live-resize helper match local hashes
+`26d67e809f7d380507cef21b8cc1d1c4ac1551e3485d1c2109a53bbda23e492d`
+and `30c27d36d313a7bc54acfcf1a10a24da31007518220b87be77460401a260d58a`.
+Bash syntax and Python byte-compilation succeed, and all four services are
+active immediately before execution. No new live-matrix result is claimed yet.
+
+The exact matrix starts as ordinary UID 1001 on authoritative host boot
+`75c6e9b5…` and kernel `7.0.0-mk2-gce-lab`, with all four services active.
+Its initial broadened checkpoint has all 13 inventories zero. ctr and Docker
+both pass BusyBox 1.36 inspection at shared digest `sha256:73aaf090…` on
+amd64. The same process is entering ctr split create/start; later rows remain
+unclaimed.
+
+The run then passes split create/start, state/inspect, distinct child boot IDs
+(ctr `c9b0ab66…`, Docker `c91d47c5…`, host `75c6e9b5…`), exec split I/O,
+private writable roots, distinct mediated `/30` links with DNS/HTTP,
+bidirectional sibling isolation, daemon-restart continuity with unchanged
+child identities, pause/resume, signal/exit 42, and normal deletion. The
+post-delete checkpoint waits through transient shims and reaches all 13 zeros.
+Read-only-bind testing is now running; later rows remain unclaimed.
+
+Both read-only-bind cases pass with exact ctr/Docker directory and file bytes;
+all guest writes fail read-only and all four host sources retain their bytes.
+The post-bind checkpoint waits through transient shims and reaches all 13
+zeros. Repeated nonzero-exit/name-reuse cycles are now in progress.
+
+Both repeated cycles return exact status 17 for ctr and Docker, preserve the
+client-specific stdout/stderr markers, agree with Docker inspect/wait, clean
+normally, and successfully reuse the same names. Foreground wait/I/O/nonzero
+exit and name reuse therefore pass for both clients. Stdin forwarding is now
+running.
+
+Guest stdin forwarding passes with exact `guest-ctr-stdin` and
+`guest-docker-stdin` outputs, followed by normal cleanup. Attach to detached
+tasks is now running; terminal/resize and later OCI rows remain pending.
+
+Attach to detached tasks passes with exact `ctr-attached-stdin` and
+`docker-attached-stdin` outputs and clean teardown. At the former boundary,
+ctr obtains a real PTY at `37 91`, while Docker now passes `consoleSize`
+admission and reaches guest execution. Docker's observed size and both live
+resize probes remain required before the terminal row can pass.
+
+The terminal row still fails, now beyond the fixed Docker admission boundary.
+Docker reports exact `37 91` and `docker-terminal-ok`, but ctr's captured
+stream is `$'^@37 91\r\r\nctr-terminal-ok\r\r'`. Its exact size-line assertion
+rejects the unexpected leading literal `^@`; the trap runs before either live
+resize helper or later OCI rows. No combined terminal/resize pass is claimed.
+
+Independent audit is fully clean across the 13 resource inventories; all four
+services are active/status 0 with zero restarts, and mkruntimed PID 40047 is
+the matrix's intentional restart. A focused ctr reproduction captures 28 raw
+bytes at SHA-256
+`23ece05ab748b163823d566a707106fafe4bf8056e0e602bca1170be57aa8bdf`.
+Its byte dump begins `5e 40` (`^@`), proving a literal echoed control notation
+rather than output rendering of a retained NUL. Focused cleanup succeeds.
+
+A guest probe switches the PTY raw and reads the queued byte as exact hex
+`00`: ctr supplied a NUL on terminal stdin, Multikernel forwarded it, and the
+canonical line discipline rendered its echo as `^@`. The identical command
+through standard `io.containerd.runc.v2` has the same `5e 40` prefix; its
+29-byte transcript hashes to
+`45d7ec78c61e8b06e17c323d40782ee400745747c221747917138b7a3f05e061`.
+This is a harness portability defect. Only that known ctr control echo should
+be normalized; the size and success lines must remain exact. Both probes clean.
+
+The matrix now strips only a leading literal `^@` from ctr transcript lines
+before the exact `37 91` comparison. Docker and success-marker checks remain
+exact. Direct probes cover prefixed and unprefixed lines; Bash syntax and diff
+checks pass. Commit `a7b1ad9` (`test: normalize ctr terminal control echo`)
+has exact matrix hash
+`1d1d324b7bdb748da7c1502dcb4e74818bddad82ada1951b00fd192e617d1996`.
+Guest upload and complete replay remain pending.
+
+The guest independently matches corrected matrix hash `1d1d324b…` and the
+unchanged `30c27d36…` resize helper. All services are active; a new complete
+ordinary-user run starts with all 13 inventories zero and passes image
+inspection for both clients. Split create/start is in progress. This is a
+coherent replay from the beginning, not a resume at the failed row.
+
+The corrected replay passes the lifecycle/isolation block with fresh distinct
+child boot IDs `f3a346cf…` and `50ca36c5…`: create/start, inspect, exec I/O,
+private roots, networking, sibling isolation, daemon-restart continuity,
+pause/resume, signal/exit, normal deletion, and all-13-zero post-delete
+convergence. Read-only bind testing is now running.
+
+The replay then passes binds/post-bind convergence, both exit-17/name-reuse
+cycles, stdin, and detached attach. The complete terminal row now passes: the
+known ctr `^@` echo is narrowly normalized, and ctr plus Docker each report
+exact `37 91` with exact success markers. This live-proves Docker console-size
+admission and propagation. The first post-start live-resize helper is running;
+that row and the final suite marker remain unclaimed.
+
+The newly reached ctr live-resize helper times out without observing initial
+marker `ready:24 80` and reports that exact failure; the matrix trap runs.
+Neither post-start resize nor the final suite marker is claimed. The helper
+currently turns any PTY read error or EOF directly into termination, so clean
+audit plus native/runc comparisons must precede runtime attribution.
+
+The helper passes native and identical `io.containerd.runc.v2` commands,
+observing `ready:24 80`, signaling the live PTY, then observing
+`resized:37 91`. Multikernel startup is slower and can temporarily expose no
+open slave to the PTY master; blanket EIO-as-EOF kills ctr before its console
+opens. This also reveals a cleanup race: the trap initially sees no task and
+removes metadata, while in-flight CreateTask later leaves exact
+`mk-matrix-ctr` shims and a `PREPARED` root despite an empty lifecycle map.
+No clean state is claimed. Normal recovery plus EIO and late-create cleanup
+hardening are required.
+
+The retained exact `1f81cb2…` supervisor/worker are PIDs 55368/55373 and hold
+deleted bundle inode 13917; task/container and lifecycle maps are empty.
+After identity-verified supervisor termination, parent-death handling removes
+the worker. Normal trace-metadata removal plus mkruntimed restart lets rootfs
+reconciliation remove the absent, unowned prepared bundle. One immediate read
+races state publication; the subsequent authoritative audit has every runtime
+inventory zero and all services active. Preserved evidence is untouched.
+
+The helper now treats PTY `EIO`/zero reads as transient only while the client
+is alive. Trap cleanup also retains ctr metadata while an exact slow shim is
+present, polling for a late task or a bounded quiet interval before task and
+container removal for every matrix ID. Local native 24×80→37×91 resize, Bash
+and Python syntax, and diff checks pass. Live Multikernel replay is pending.
+
+The complete documentation/schema/evidence/runtime checker passes with 95 OCI
+semantic cases; only the known sandbox-local socket `EPERM` subcase is skipped.
+Generated caches are removed. Commit `6927c70` (`test: tolerate slow terminal
+creation`) freezes helper hash `484229a83e2504c1b22506d0fd895291884cdd1abed953051516845f6e62fbcb`
+and matrix hash `5e850f3f45b8bc25101d9d1394c01cb510d42274c2ba31f2a3bca5bf57b66b69`.
+Findings and retained evidence remain outside the commit.
+
+After the user-restarted VM, the authoritative boot is `c25eebdb…` on kernel
+`7.0.0-mk2-gce-lab`. Persistent selectors remain exact binary `1f81cb2…`,
+support `d36b6940…`, and manifest `1d79c564…`; guest helper/matrix hashes are
+the frozen `484229a…`/`5e850f3…`. All 13 inventories are zero and all four
+services are active/status 0. mkruntimed alone reports `NRestarts=1`, however,
+so its current-boot journal must explain that restart before this baseline is
+called healthy or workloads start.
+
+Current-boot journals prove the ordering defect. mkruntimed starts at
+23:03:20 UTC and fails `GUEST_AGENT`; the guest-agent unit starts at 23:03:25,
+becomes active at 23:03:32, and the sole mkruntimed retry starts at 23:03:38.
+Both required mounts were already ready. The managed unit now Requires and
+orders After `google-guest-agent.service`, matching the existing fail-closed
+host prerequisite. `python3 scripts/test-manage-runtime-deployment.py`, the
+full documentation/schema/evidence/runtime gate (including 95 OCI cases), and
+`git diff --check` pass; only the already-classified sandbox socket `EPERM`
+subcase is skipped, and generated caches were removed. Commit
+`8edc7cc5c653218679ae7cd1d3567c3f38b3a77c` freezes only this unit/test change;
+findings and retained evidence remain outside it. Live support activation and
+a clean reboot observation remain pending.
+
+The exact tracked-source archive for `8edc7cc…` is 1,018,157 bytes with SHA-256
+`efaf3af613fbd41597935bb4a5a36bd0752db0c1aebd4f3006e9e8b2b6646c25`.
+Guest transfer, independent verification, and activation remain unclaimed.
+
+The guest independently matches that exact archive hash/size, extracts it into
+a unique root-owned source tree, and verifies unit-source hash `9d921d2f…`.
+Managed installation selects support generation `fe456acc…`. Systemd reload,
+effective dependency inspection, pre-reboot cleanliness, and reboot proof
+remain pending.
+
+The retained evidence run captures exact read-only binds and post-bind
+all-zero cleanup, both exit-17/name-reuse cycles, stdin, detached attach, exact
+initial 37×91 terminals, and ctr live resize 24×80→37×91. Docker then receives
+a `WINCH` while the guest still reports `24 80`; the unconditional trap prints
+`resized:24 80` and exits before the intended update, so
+`evidence/runtime-20260930/g4-g6-final-live/g6-shared-matrix.log` closes at
+`2026-09-30T00:11:00.288985Z` with exit status 1. This is retained failure
+evidence, not a pass. Because the preceding complete run passed the identical
+runtime path, the immediate hypothesis is a probe race: ignore unchanged-size
+`WINCH` events and exit only after observing 37×91. Independent cleanup is
+required before retry.
+
+Independent post-failure audit is all 13 inventories zero on unchanged boot
+`d08895c1…`; guest agent and all four runtime services remain active/status 0
+with zero restarts. The guest trap now ignores any `WINCH` whose observed size
+is not exact 37×91, while the helper reapplies the idempotent PTY size and
+`SIGWINCH` every 500 ms until the expected observation or bounded deadline.
+Native validation passes both the ordinary 24×80→37×91 path and an injected
+case that deliberately ignores the first correctly sized signal, including 20
+repetitions (`ignored-resize:37 91` followed by `resized:37 91`). The full
+documentation/schema/evidence/runtime gate and diff checks pass with 95 OCI
+cases; only the classified socket `EPERM` skip remains, and generated caches
+are removed. New
+helper/matrix/focused-wrapper hashes are `fe7059cf…`/`4b83a01c…`/`fedf1289…`.
+Live replay remains pending.
+
+Commit `79e97eba2662f96d895de3b67a0d74f7a6142f8d` freezes the helper/matrix
+correction. A Docker-only focused wrapper passes syntax and hashes to
+`b031b9a9…`; exact guest upload and focused Docker replay remain pending before
+another full retained run.
+
+Retained focused capture `g6-docker-resize-focused.log` independently verifies
+helper/wrapper hashes `fe7059cf…`/`b031b9a9…`, observes exact
+`ready:24 80`→`resized:37 91`, emits both resize pass markers, and closes at
+`2026-09-30T00:16:58.814611Z` with exit status 0. Independent teardown remains
+pending before the complete evidence rerun.
+
+Independent focused teardown returns all 13 inventories to zero; mkruntimed,
+mknetd, containerd, and Docker remain active/status 0 with zero restarts. The
+complete retained rerun therefore starts from a clean host.
+
+The next immutable candidate `g6-shared-matrix-pass.log` verifies corrected
+matrix/helper hashes and passes lifecycle/isolation plus bind rows with
+all-zero checkpoints, but exits 1 silently before cycle 1 at
+`2026-09-30T00:25:01.215394Z`; transcript SHA-256 is `4814439c…`. Independent
+audit is all 13 zeros with services healthy and storage at 65% blocks/1%
+inodes, excluding cleanup or ENOSPC. Bounded journals identify Docker
+CreateTask `BACKEND_TIMEOUT` after roughly 71 seconds. Live host config sets
+only 30 seconds, incompatible with measured 70-second cold/private-root
+creation. Containerd's subsequent dead-shim cleanup also logs `fork/exec
+/usr/local/bin/containerd-shim-multikernel-v2: no such file or directory`,
+although immediate identity inspection finds that link valid and resolving to
+exact release inode 6284664/hash `d1888952…`. The timeout must be corrected
+coherently before retry; the cleanup diagnostic remains a separate observation,
+not yet a persistent missing-link finding.
+
+A replacement host config changes only the bounded backend deadline from 30 to
+180 seconds, exceeding the observed ~71-second create without becoming
+unbounded. Retained `host-config-timeout180.json` is schema-valid, mode 0600,
+449 bytes, and SHA-256 `4056c182…`. Managed installation and effective-service
+validation remain pending.
+
+Root-owned exact config installation selects managed generation `25e6d343…`.
+Coordinated empty-host daemon reload/restart makes the effective config/root
+copy match `4056c182…` and report 180 seconds; binary selector remains exact
+`1f81cb2…` and unit hash remains `9d921d2f…`. mkruntimed/mknetd/containerd/
+Docker are active/status 0 with zero restarts at PIDs 36974/36955/1445/1543,
+and all 13 inventories are zero. The exact formerly timing-out Docker boundary
+remains to be focused-replayed before another full capture.
+
+Retained `g6-docker-exit17-timeout180.log` verifies focused-wrapper hash
+`72044c84…`, then the exact Docker boundary completes in 71 seconds with client
+and inspect status 17 plus both stdout/stderr markers. It emits
+`FOCUSED_DOCKER_EXIT17_PASS` and closes at `2026-09-30T00:31:07.311525Z` with
+exit 0. Because 71 seconds exceeds the old 30-second limit, this directly
+attributes the prior `BACKEND_TIMEOUT` to configuration. Independent teardown
+remains pending.
+
+Independent teardown returns all 13 inventories to zero with the runtime
+services healthy. The next retained capture first records a harmless evidence
+command error: an ordinary user cannot hash the deliberately mode-0600 managed
+configuration. Its replacement verifies the privileged hash correctly and
+passes lifecycle/isolation, including daemon-restart continuity, before Docker's
+bind CreateTask fails with `BACKEND_FAILURE`. Sanitized kernel evidence shows
+that the preceding ctr teardown released the 16-GiB pool and the immediate
+reallocation failed twice with `-ENOMEM`. Storage remains healthy and the bind
+row itself had already passed separately. The failure is therefore repeated
+last-sandbox pool teardown/recreation fragmenting host physical memory. A
+kernel command line observed during diagnosis contained an authentication token;
+it is deliberately neither retained nor reproduced.
+
+The user's latest instance restart does not change the authoritative guest boot:
+it remains `d08895c1-0d19-4c66-ac7e-c5f77fd23451` on
+`7.0.0-mk2-gce-lab`. System state is `running`; guest agent, mkruntimed,
+containerd, and Docker are active with zero restarts. The immutable production
+selector remains `1f81cb2…`. The effective config resolves into managed
+generation `25e6d343…`; its target is root-owned mode 0600, 449 bytes, hashes
+exactly to `4056c182…`, and supplies the 180-second deadline. An initial
+0777/44-byte report was the symlink's own metadata, not the target's. This was
+not an OS reboot and supplies no memory-defragmentation proof; the pool-lifetime
+defect remains the next implementation target.
+
+Pool ownership is now daemon-scoped across successful zero-sandbox intervals.
+Last-sandbox Delete retains the already initialized 16-GiB pool, so a following
+sequential Create does not request a second contiguous host allocation. Failed
+first creates and their cancellation path still release immediately. Graceful
+daemon shutdown releases only an idle pool; any durable live sandbox suppresses
+release and preserves restart continuity. For crash recovery, startup may clear
+only the exact residue `configured pool + zero backend instances + zero durable
+sandboxes + no other stale resource`, then reruns full host qualification. More
+ambiguous residue remains fail-closed. Race-enabled focused lifecycle and daemon
+tests, focused vet, and diff validation pass. Full-tree and live qualification
+remain pending.
+
+The complete local qualification gate passes: all Go packages under the race
+detector, full vet, documentation/link/schema/evidence checks, deployment and
+containerd checks, and 95 OCI semantic cases. The only skip is the previously
+classified sandbox-local socket `EPERM` subcase. This establishes source-level
+correctness only; exact guest build, activation, sequential live reuse, graceful
+idle release, and complete retained matrix evidence remain pending.
+
+Commit `e27ab26` freezes only the four daemon/lifecycle source and test files.
+Its exact 1,020,028-byte tracked-source archive hashes to
+`87440b1fe04664d57e7ce95a5467ec779219236f2dc05ea82778e320134e206b`.
+The final focused gate also covers ambiguous pool initialization: authenticated
+Create cancellation releases it even when the original `kerf init` returned an
+error before the process could mark the pool ready. Guest transfer and all live
+claims remain pending.
+
+The guest independently measures the uploaded archive as exactly 1,020,028
+bytes with the same full SHA-256 `87440b1fe04664d57e7ce95a5467ec779219236f2dc05ea82778e320134e206b`
+on unchanged boot `d08895c1…` and kernel `7.0.0-mk2-gce-lab`. This establishes
+transfer identity only; build, selection, and execution remain unclaimed.
+
+The first compilation is rejected before installation: its manually supplied
+linker stamp `e27ab26e3f2dba70fb4f8fc0f981d45dd59614df` differs from authoritative
+commit `e27ab263e12980c670085495f21625e480bcc879`. Compilation success and the
+resulting hashes therefore make no deployable-candidate claim. The independently
+verified root-owned source remains valid and must be rebuilt with the exact
+revision.
+
+The attempted in-place correction stops safely when exclusive manifest
+publication returns `EEXIST`; no mixed manifest/binary set is installed or
+claimed. The rejected directory is preserved. A corrected build must start in
+a second unique root-owned extraction, retaining the publisher's no-overwrite
+guarantee.
+
+The second unique root-owned extraction re-verifies source hash `87440b1f…`
+and builds the complete exact `e27ab263e12980c670085495f21625e480bcc879`
+release. Manifest SHA-256 is `7dccd39f…`; exact mkruntimed, shim, mknetd, and
+agent hashes are `be810c3c…`, `043e94d4…`, `a78392c6…`, and `b0f0ba52…`.
+The candidate daemon reports the exact revision. Installation, selection, and
+live execution remain unclaimed.
+
+Pre-activation inspection on unchanged boot `d08895c1…` resolves Kerf from the
+active configuration and proves no configured pool, Multikernel instance,
+`/proc/kimage` entry, default/moby task or container, Docker object, or sysfs
+child. All four runtime services are active and the selector remains `1f81cb2…`.
+An earlier probe used a nonexistent Kerf path and stopped before mutation. The
+host is clean for installation.
+
+The binary manager installs and selects immutable exact release
+`0.1.0-dev-e27ab263e12980c670085495f21625e480bcc879`. Empty-host mkruntimed
+restart produces active PID 52355 with zero restarts. Its executable resolves
+inside that immutable release and both running/public hashes equal candidate
+`be810c3c…`; the daemon reports the exact revision. mknetd, containerd, and
+Docker remain active. An ordinary-user `/proc/52355/exe` check stopped before
+hashing, so only the successful narrow privileged rerun is authoritative. Live
+behavior remains pending.
+
+The evidence matrix now includes a non-sensitive `pool_configured` inventory.
+It requires pool 0 initially, pool 1 with all other resources zero between
+sequential workloads and after the last workload, then a changed mkruntimed PID
+and pool 0 after an explicit idle-daemon restart. This makes sequential reuse,
+live restart preservation, and graceful idle release observable rather than
+implicit. Bash syntax, the full documentation/schema/evidence/runtime chain,
+and diff checks pass; matrix hash is `3015518c…`, the sole skip remains the
+classified socket `EPERM`, and generated caches are removed.
+
+Commit `94396f7` freezes only the strengthened matrix at exact SHA-256
+`3015518c904a432772d2acf2886d06bb8f48b08472d79e6f2147f7c1d6860db6`.
+Learning records and evidence remain outside it; guest verification and
+execution are pending.
+
+Fresh guest extraction matches the 4,792,320-byte `56140248…` archive and all
+three script hashes across 648 files. Bash syntax passes on unchanged boot
+`c5537cb9…`, with four active services. This is provenance only; the expanded
+fault run remains pending.
+
+Exact `0672fa1` execution exits 0. The verbose VM builder suite names and
+passes the SIGKILL-interrupted copy case; the race subset names and passes
+pristine/current wrong-UUID inspection, quota/clean-state identity, single
+ownership, and conflicting-generation refusal. All constrained-filesystem and
+bracketing all-zero audit cases pass again. Remote transcript is mode 0600/
+86,309 bytes/SHA-256 `1eca1db8…`, wrapper exit 0, with an empty credential
+scan. Local retention remains before row closure.
+
+The local copy exactly matches mode 0600/86,309 bytes/SHA-256 `1eca1db8…`,
+its credential scan is empty, and all required named markers are present.
+Together with the retained `5790e421…` single-owner/lock transcript, the
+composite exhaustion/high-water/identity/lock/attach/interruption/allocation-
+boundary row is closed. The independent server-loss, corruption, and recovery
+row remains open.
+
+The post-closure full repository gate passes with the 12-case storage suite;
+the diff is clean and four generated bytecode files are removed. Checklist
+totals are now 45 closed and 40 open.
+
+The unchecked replacement-instance initramfs row already has strong historical
+proof: retained mode-0600 transcript `5a1d5ae6…` records identical verified
+archive/manifest hashes `2532e1b5…`/`bf6f3e04…` and divergent changed-input
+hashes `5850d990…`/`fd059b19…`; audit `c5748c81…` is all-zero and both
+credential scans are empty. Since current builder commit `0672fa1` includes
+new capacity/cleanup logic, an exact-current replay will precede closure.
+
+Exact-current commit `0672fa1` replay passes. Two independently built and
+verified archive/manifest pairs match at `35771180…`/`416833e3…`; the changed
+control diverges at `3bd844ae…`/`e1408c2a…`; all 20 tests and the qualifier
+exit 0. Local repro evidence is mode 0600/9,171 bytes/SHA `b32b030e…`; the
+independent all-zero audit is mode 0600/15,094 bytes/SHA `314d0b63…`. Both
+wrappers exit 0 and their joint credential scan is empty. The replacement-
+instance initramfs reproducibility row is closed.
+
+The post-closure full repository gate passes; the diff is clean and four
+generated bytecode files are removed. Totals are now 46 closed and 39 open.
+Server-loss, host-reset, corruption, and recovery remain separate unproved
+work rather than being inferred from graceful restart evidence.
+
+The deterministic-manifest implementation row is complete. Current code
+finishes source manifesting, storage identity/build, and generated-versus-
+verified initramfs checks in `PrepareRootfs` before `CreateSandbox`. Exact live
+caller evidence `33e1d92e…` separates OCI index/manifest/config/layer/diff ID
+from source manifests `65714ed0…`/`e9573a41…`; exact-current repro evidence
+`b32b030e…` separately records archive/manifest `35771180…`/`416833e3…`.
+
+Unique guest staging independently matches exact matrix/helper hashes
+`3015518c…`/`fe7059cf…` and passes Bash syntax. Preflight on unchanged boot
+`d08895c1…` confirms all four services active, the exact `e27ab263…` daemon,
+and no configured pool. The retained run therefore begins from a proved
+released state.
+
+Immutable capture `g6-shared-matrix-pool-retained.log` starts at
+`2026-09-30T15:57:47.501147Z` with exact gcloud argv. On boot `d08895c1…`,
+the initial observation is pool 0 with every existing resource/process counter
+zero. The shared BusyBox digest and amd64 identity pass for ctr and Docker;
+lifecycle creation is in progress and later rows remain unclaimed.
+
+The immutable capture closes at `2026-09-30T15:59:03.940856Z` with exit 1:
+the first ctr Task returns `BACKEND_FAILURE`, so no pool-reuse or later feature
+claim is made. The mode-0600, 128,724-byte transcript hashes to `a89f9168…`.
+Initial evidence proved no configured pool, while the guest never actually
+rebooted after the user's instance restart. The immediate hypothesis is failure
+of the first 16-GiB contiguous allocation on the already fragmented boot;
+cleanup and filtered cause evidence are required before reset/retry.
+
+Independent audit is logically clean: pool 0 and zero tasks, containers,
+Docker objects, children, runtime artifacts, rootfs records, and exact shims;
+all four services remain active. Narrow kernel filtering reports `Baseline pool
+allocation failed: -12` twice, directly identifying initial-allocation `ENOMEM`.
+The unchanged boot is physically fragmented despite zero logical residue. A GCE
+reset is required before the candidate's retention behavior can be tested.
+
+Authorized GCE reset advances the authoritative boot to
+`768706da-cc24-486b-8fb1-92d205010c44`. After bounded readiness, system state
+is `running`; guest agent and all four runtime services are active with zero
+restarts. Exact `e27ab263…` remains selected, the effective mode-0600 config
+still hashes to `4056c182…`, and Kerf reports no pool. This is the valid
+post-defragmentation candidate baseline.
+
+Replacement immutable capture `g6-shared-matrix-pool-retained-pass.log`
+starts at `2026-09-30T16:03:59.729374Z` on boot `768706da…`, proving pool 0
+and all other counters zero initially. The paired lifecycle/isolation/network/
+daemon-restart rows pass with distinct child boots `ee457fda…`/`4a731acf…`.
+After normal deletion, the decisive inventory is pool 1 with every logical and
+process resource zero. The next ctr bind begins from that retained pool rather
+than reallocation; bind/Docker and later rows remain in progress.
+
+The former failure boundary is now directly closed. ctr and Docker read-only
+bind rows both pass after lifecycle teardown, preserving host bytes and rejecting
+guest writes. Post-bind inventory again records pool 1 and every other counter
+zero. Docker therefore followed ctr from the retained pool instead of attempting
+the prior `-ENOMEM` reallocation. Later rows remain in progress.
+
+Both repeated ctr/Docker cycles return exact status 17 with their distinct
+stdout/stderr, clean normally, and reuse the same names in cycle 2. Foreground
+wait/I/O/nonzero-exit and name-reuse therefore pass while the retained pool
+remains serviceable. Later rows remain in progress.
+
+ctr/Docker stdin forwarding passes with exact client-specific output, and
+detached attach passes with exact `ctr-attached-stdin`/`docker-attached-stdin`
+before normal cleanup. Terminal and final release rows remain in progress.
+
+Initial terminal allocation passes for ctr and Docker at exact 37×91; the
+classified ctr `^@` prefix is narrowly normalized. Corrected post-start resize
+and final pool release remain in progress.
+
+Corrected live resize passes exact 24×80→37×91 for ctr and Docker. The
+pre-shutdown observation is pool 1 with every other counter zero. Idle daemon
+restart changes PID 3854→10964, after which the final observation is pool 0
+with all 13 existing resource/process counters zero. All five scoped evidence
+assertions and `G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS` emit; the immutable run
+closes at `2026-09-30T16:20:22.902782Z` with exit 0. Its mode-0600, 318,154-byte
+transcript hashes to `9b67a1042f83c7b608b6a4a8d742167b56792c1b70a78b0e464c04f4523361b0`.
+
+Independent audit on unchanged boot `768706da…` confirms system `running`, the
+exact immutable selector and running daemon hash, pool 0, and all 13 counters
+zero. Guest agent plus all four runtime services are active with zero restarts.
+A non-restarting daemon reload clears the stale-unit warning without changing
+PID 10964. The pool-lifetime defect is live-closed: one allocation survived all
+sequential workloads and the live-sandbox daemon restart, then released only at
+empty-daemon shutdown.
+
+The exclusive post-run GCE ledger is schema 1, mode 0600, 5,007 bytes, and
+hashes to `0f5f350812422600c7b506a2aeef2ac473f9d3cdaa9abffb81d25b3080548211`.
+Ledger tests pass. It records the same one instance, two disks, three snapshots,
+zero addresses, and six firewall rules as the pre-run ledger; after removing
+only `captured_at`, the normalized documents are byte-identical. The run leaked
+no GCE resource.
+
+Final local reconciliation passes Bash/diff validation and the complete
+documentation/schema/evidence/runtime chain with 95 OCI cases; only the known
+local socket `EPERM` subcase skips. Direct transcript inspection finds all six
+pool/resource observations, five scoped true assertions, the combined pass,
+and exit-0 trailer, with no token/password/credential/private-key value pattern.
+Generated caches are removed. This closes the pool-lifetime defect and the
+shared-matrix/live-resize slices only. G4 persistence/fault matrices, G5 UDP/
+MTU/load/fault/security matrices, and G6 service-restart, forced-shim, event,
+FIFO/cancellation, and isolated fault matrices remain genuinely open.
+
+The first forced-shim qualification attempt is intentionally retained as
+failed evidence rather than replaced. The mode-0600, 354,963-byte transcript
+`g6-forced-shim-death-matrix.log` hashes to `5a4dedc7…` and closes exit 1 at
+`2026-09-30T23:19:52.150203Z`. Task PID 20697 was actually the namespace
+holder, and bundle PID-file value 20504 was the serving worker. The harness did
+inject the intended worker kill, but then treated the namespace holder's `/proc`
+directory as a stable supervisor anchor; it vanished with the worker, so the
+poll could not observe reconstruction. The narrow containerd journal records
+shim disconnect, disconnect cleanup, and dead-shim cleanup. Consequently no
+reconnect or fallback result is claimed. Trap cleanup and independent audit
+leave the pool retained with every workload/storage/network/process count zero,
+both observed PIDs dead, and all four services active with zero restarts.
+
+Corrected harness SHA-256 is `9e6a697e73bbd0cdf7934cdf329ad6a85f2de6a4e0f748dcb4743dff954e22bf`
+(13,651 bytes). It now verifies Task worker → PPID supervisor → supervisor PID
+file worker as a closed relationship before both fault injections, and omits
+xtrace only inside high-frequency bounded convergence loops. Local Bash syntax
+and diff validation pass; guest identity validation and behavioral replay remain
+unclaimed.
+
+The uniquely staged guest copy independently matches full `9e6a697e…`, is
+13,651 bytes/mode 0755, and passes Bash syntax. Replay preflight on unchanged
+boot `768706da…` proves all four services active, no configured pool, and zero
+default/moby/Docker workload, child, and runtime-artifact counts. No fault
+outcome is claimed from staging or preflight.
+
+The second immutable capture under the provisional `-pass` filename is also a
+failed qualification, not a pass: mode 0600, 20,246 bytes, SHA-256 `f0499c5a…`,
+exit 1 at `2026-09-30T23:25:42.796311Z`. It stopped before fault injection when
+the revised precondition mislabeled Task namespace-holder PID 29425 as worker,
+its parent/actual worker 29239 as supervisor, and then found the PID file also
+contained 29239.
+
+A cleaned isolated role probe establishes the full topology directly:
+supervisor 30366 (PPID 1) → serving worker 30371 → Task namespace holder 30555,
+with `.multikernel-worker.pid=30371`. Reconnect evidence must therefore keep
+the supervisor fixed while requiring replacement worker and namespace-holder
+PIDs; fallback must kill that supervisor. Independent audit after both cleanup
+paths shows pool retained, all scoped logical/process counts zero, unchanged
+boot, and every service active with zero restarts. Neither failed capture closes
+a forced-death outcome.
+
+The third harness revision is frozen at SHA-256 `1a2e557a2adca84bbba84a7aed0a7c502c5466ea81ea5dc8ffa80b71147190e8`
+(14,545 bytes). Its preconditions now prove namespace-holder→worker→supervisor
+parentage and PID-file→worker agreement. Worker reconstruction must retain the
+supervisor while replacing both descendants; supervisor-death fallback must
+remove all three. Bash syntax and diff validation pass; guest replay remains
+unclaimed.
+
+The third-revision guest copy independently matches full `1a2e557a…`, is
+14,545 bytes/mode 0755, and passes Bash syntax. Its unchanged-boot preflight
+shows no pool, zero task/container/child counts, and all four services active.
+No fault result is claimed from this input validation.
+
+Third capture `g6-forced-shim-death-matrix-v3.log` is the first valid behavioral
+result and confirms a product defect. It is mode 0600, 26,806 bytes, hashes to
+`c1670e5b…`, and closes exit 1 at `2026-09-30T23:36:05.473765Z`. Pre-fault
+evidence proves supervisor 31483 → worker 31488 → namespace holder 31675,
+RUNNING state, child boot `1f97a684…`, pre-fault exec I/O, and authenticated
+schema-3 recovery metadata. Killing worker 31488 alone immediately produces
+containerd's shim-disconnected, disconnect-cleanup, and dead-shim-cleanup
+sequence; no replacement worker/holder or RUNNING Task emerges in two minutes,
+and all three PIDs end. Cleanup converges safely to retained pool/all scoped
+resources zero with all services healthy, but worker reconstruction is broken
+on the selected immutable runtime. The later supervisor-death case never ran
+and requires a separate focused qualification.
+
+The live harness now accepts only explicit `matrix`, `reconnect`, or `reclaim`
+selection, records that selection, and leaves the reconnect failure intact
+while allowing independent fallback proof. The revised 14,818-byte input hashes
+to `16fb3a027a568237b7c46847b54492d0c2ee754a3e1b95ffd9e409f4f0f62fd7`;
+Bash syntax and diff checks pass. Its reclaim-mode guest run is pending.
+
+The reclaim-mode guest copy independently matches `16fb3a02…`, is 14,818
+bytes/mode 0755, and passes Bash syntax. Idle mkruntimed restart `30919→44343`
+released the retained pool; unchanged-boot preflight then proves no pool and
+zero task/container/child counts. Behavioral fallback proof remains pending.
+
+Independent fallback capture `g6-forced-shim-reclaim.log` passes: mode 0600,
+47,705 bytes, SHA-256 `e833dcd1…`, exit 0 at
+`2026-09-30T23:40:44.443927Z`. It records supervisor 44895 → worker 44901 →
+namespace holder 45097, child boot `1b3584d3…`, and private schema-3 recovery
+metadata before killing only the supervisor. All three processes die, Task
+state becomes absent, exec fails closed, and the containerd disconnect cleanup
+reclaims every child/storage/network/shim/helper resource. Metadata removal
+reaches pool 1/all-other-zero; mkruntimed `44343→45437` then yields pool 0/all-
+zero. Independent audit confirms unchanged boot and every service active with
+zero restarts; transcript scanning finds no credential pattern. The revision's
+generic matrix marker is explicitly disregarded because reconnect mode did not
+run; source now emits a mode-specific final marker for non-matrix runs. Safe
+fallback is closed, while in-place worker reconstruction remains a proved open
+defect.
+
+The reconstruction ownership defect is now repaired in source. The stable
+supervisor accepts and retains containerd's public TTRPC connection; each
+replaceable worker serves through a fresh random private Unix listener, and a
+supervisor bridge carries the same containerd byte stream across worker
+generations. A worker `SIGKILL` therefore no longer inherently closes the
+connection that triggered immediate dead-shim cleanup. Private workers retain
+same-UID TTRPC handshaking, parent-death policy, held-bundle identity, recovery
+state, exclusive PID-file publication, and the bounded restart budget. The full
+shim package passes; a new same-client/two-worker bridge test plus the existing
+signaled-worker test pass 25 race-detector repetitions. This is source-only
+proof; immutable build, guest activation, rollback identity, and live replay
+remain required.
+
+The marker-corrected harness is 14,925 bytes with SHA-256 `7b77bb91552dbfdbe1e4b54bb07df91cc980cca2c4102af7a155666534eb32ef`.
+It reserves the generic matrix marker for matrix mode and emits a scoped mode
+marker otherwise. The successful fallback transcript remains bound to its
+executed `16fb3a02…` input; evidence is not rewritten.
+
+Commit `7d50218f593eb1b548107eb9d82328e925eab448` (`runtime: preserve shim
+connection across workers`) freezes exactly the supervisor bridge, its focused
+test, the marker-corrected 14,925-byte live harness, and script index. Running
+findings and both historical/live evidence trees remain outside the commit.
+
+The exact committed-source guest-build archive is 1,464,320 bytes/mode 0644,
+SHA-256 `5f5c4fc86eec56262fd8618ceb2c9e6916f53442460294e38fd8d2f8cf499a25`.
+It comes directly from `7d50218f…` and includes only Makefile, runtime source,
+and immutable release tooling. Transfer and build remain unclaimed.
+
+The guest independently matches full archive hash `5f5c4fc…` and extracted it
+into a unique build directory. Before build, exact rollback selector remains
+`0.1.0-dev-e27ab263e12980c670085495f21625e480bcc879`, boot is unchanged
+`768706da…`, no pool is configured, and default/moby/Docker workload counts are
+zero. No build or activation result is yet claimed.
+
+The guest build succeeds for all seven binaries at exact embedded revision
+`7d50218f…`. Release manifest is mode 0644, 1,907 bytes, SHA-256 `70345fb1…`;
+component hashes are shim `65a9256c…`, agent `bdae9b3a…`, agentctl `5057066f…`,
+CNI `1ff91069…`, host check `b96f3d40…`, mknetd `88c1b80e…`, and mkruntimed
+`38a7a2f3…`. The first component-name projection assumed a mapping rather than
+the manifest's list and exited 1 after the hashes/revision were printed; a
+corrected read-only projection confirms all seven names and version outputs.
+Install and activation remain pending.
+
+The immutable manager installs and atomically selects release
+`0.1.0-dev-7d50218f593eb1b548107eb9d82328e925eab448`; every host command link
+remains manager-owned, inspect retains exact rollback `e27ab263…`, and the
+active shim reports `7d50218f…` with build hash `65a9256c…`. Installation did
+not restart services or create a workload. Live behavior is still unclaimed.
+
+The candidate guest harness independently matches full `7b77bb91…`, is 14,925
+bytes/mode 0755, and passes syntax. Replay preflight proves exact active
+selector and shim revision `7d50218f…`, unchanged boot `768706da…`, no pool,
+zero workload/child counts, and all four services active with zero restarts.
+No reconnect behavior is claimed from preflight.
+
+Candidate capture `g6-forced-shim-reconnect-candidate.log` is a harness-only
+exit-1 after successful reconstruction: mode 0600, 36,646 bytes, SHA-256
+`ebfcf749…`, closed `2026-09-30T23:53:45.044495Z`. Supervisor 51313 remains
+fixed; worker `51318→51613` and holder `51504→51637`; Task stays RUNNING; child
+boot `868b0395…`, guest PID/recovery/network identities and offsets are stable;
+post-fault exec stdout/stderr succeeds. The immediate filtered journal is empty,
+so containerd did not enter disconnect cleanup at the fault. After successful
+task release, late attach returns only post-release init output and the harness
+wrongly demands pre-fault bytes that the old pump had already delivered. Trap
+cleanup is retained-pool/all-resource-zero with healthy services. The normal
+completed shim later logs ordinary disconnect cleanup, after the fault-time
+empty observation. A continuous attach reader is required for the replay; no
+pass marker or final reconnect claim comes from this transcript.
+
+Corrected harness SHA-256 is `e47804f5ce942b6de2f294dc1b7676c40de0a63749e439707039e059e03d2135`
+(15,639 bytes). Init waits on a readiness file while one attach reader is opened;
+the harness releases init, requires pre-fault stdout/stderr in that reader,
+retains it across worker replacement, and later requires post-fault stdout/
+stderr from the same stream. Trap cleanup now owns the reader. Bash syntax and
+diff checks pass; guest replay remains pending.
+
+Idle mkruntimed restart `45437→52142` releases the pool and restores zero task/
+container/child counts. Executing `/proc/<pid>/exe --version` unexpectedly
+printed systemd's version, so that probe is explicitly invalidated. A stable
+read-only unit audit instead proves PID 52142 active/running with zero restarts,
+exact candidate release path `7d50218f…`, and binary hash `38a7a2f3…`. The
+replay baseline is therefore both released and candidate-bound.
+
+The corrected guest copy independently matches full `e47804f5…`, is 15,639
+bytes/mode 0755, and passes syntax. Exact candidate `7d50218f…` remains active
+with no pool and zero task/container/child counts. No replay result is inferred
+from staging.
+
+Continuous-attach capture `g6-forced-shim-reconnect-candidate-pass.log` is
+retained as failed evidence: mode 0600, 39,468 bytes, SHA-256 `ab089baf…`, exit
+137 at `2026-10-01T00:04:13.478649Z`. The bridge again preserves supervisor
+52809 while replacing worker `52814→53164` and holder `53012→53189`; Task stays
+RUNNING, child/recovery identities remain stable, post-fault exec succeeds, and
+the immediate disconnect journal is empty. One attach reader receives both
+pre-fault init streams. After release, durable stopped offsets advance exactly
+stdout `22→43` and stderr `26→51`, but no post-fault bytes reach that attach
+file and its client never returns. TERM is ineffective; only the three exact
+attach-client PIDs are KILLed, yielding exit 137 and normal trap cleanup. The
+independent audit is candidate-selected, retained-pool/all-other-zero, unchanged
+boot, and healthy services. Root cause boundary is now precise: the byte bridge
+preserves future RPCs but cannot replay the attach client's in-flight `Wait`
+request consumed by the killed worker. Full Task/FIFO reconnect remains open.
+
+The second source repair makes the supervisor bridge TTRPC-frame aware. It
+retains streams until terminal response and replays outstanding request/data
+frames to a replacement worker in increasing stream-ID order, allowing the
+killed worker's in-flight `Wait` to resume before later RPCs. Replay fails
+closed at 4 MiB per frame, 256 pending streams, and 64 MiB total, and rejects
+duplicate request IDs, unknown-stream data, malformed/oversized frames, and
+bound exhaustion. A new test has worker one consume a request and die, then
+proves worker two receives the exact replay and its response reaches the same
+client. All runtime packages pass; both bridge tests and the signaled-worker
+test pass 25 race-detector repetitions. This remains local-only until rebuilt
+and replayed on the disposable host.
+
+Commit `1dbe2d93ee722e292adfa4169c32eb66974d4847` (`runtime: replay in-flight
+shim RPCs`) freezes exactly the framed replay repair, expanded bridge tests,
+and continuous-attach harness. Running findings and evidence remain outside the
+commit.
+
+Exact second-build archive is 1,474,560 bytes/mode 0644, SHA-256 `00d782d6…`,
+generated directly from `1dbe2d93…`. Transfer and build remain pending.
+
+Guest archive independently matches full `00d782d6…` and is extracted under a
+new path. Idle mkruntimed restart `52142→54167` releases the pool while keeping
+the running daemon/current selector on exact first candidate `7d50218f…`; task,
+container, and child counts are zero. Second build/activation remain pending.
+
+The second guest build succeeds for all seven components with embedded version
+`0.1.0-dev` and exact revision `1dbe2d93ee722e292adfa4169c32eb66974d4847`.
+Its mode-0644, 1,907-byte manifest has SHA-256
+`c21bd04a9faae89fc3d0bfeaf665750cb782e7b185fea0f40604e44949db5422`.
+Binary SHA-256 values are shim `d01237a447b8c9c3fa4e4b91a57bd532731094e475cde83c5ad1f26ca2c178ea`,
+agent `bb2c606803a457076619e7a5503e86fe35e1d1cd384e38252025bbfc7e8d7dfa`,
+agentctl `dfbbe5e0429e06adad3d20efef0e323e9f19a54eea156b6b9192829465842c02`,
+CNI `d08eca6a2b9e961e5053b99cc9af082c86f5f080536c064b535efba9ff140fed`,
+host check `364c832a65aaa23db877c19541c27efcaa64e7ed6877167fe3ece83ec46d230b`,
+mknetd `d2c82c7f3f088b227b47ca30851ef74fcffa1ef6c99e7fc3bff5ee117454ab8e`,
+and mkruntimed `350ea5daea65f65732bb2d9e439e74411d50fe348586bff4c97c2205ebb9e39a`.
+The manifest lists exactly those seven component names and every binary's
+`--version` output agrees. Installation and activation remain unclaimed.
+
+The immutable manager installs and selects exact release
+`0.1.0-dev-1dbe2d93ee722e292adfa4169c32eb66974d4847`; inspect reports all six
+host command links present and manager-owned while retaining the prior
+`7d50218f…` and original `e27ab263…` releases. The active shim reports the full
+new revision and re-hashes to build SHA-256 `d01237a4…`. All four services
+remain active/running with `NRestarts=0`. An ad-hoc pre/post read of the
+nonexistent `/opt/multikernel/runtime/current` path printed blank and is
+explicitly rejected; manager inspect establishes activation, and the real
+`/usr/local/lib/multikernel/current` target still requires preflight capture.
+No live reconnect behavior is claimed from installation.
+
+Read-only replay preflight resolves the real selector to exact release
+`1dbe2d93…`, confirms unchanged boot `768706da…`, zero default/moby containerd
+tasks and containers, zero Docker containers, no shim/agent child processes,
+and all four services active/running with zero restarts. A manual curl guessed
+the wrong mkruntimed socket, failed to connect, and consequently hashed empty
+input; that hash is invalid and excluded. The established harness/API resource
+checks remain authoritative for pool state. Live replay remains unclaimed.
+
+Framed-replay capture `g6-forced-shim-reconnect-framed-pass.log` is retained as
+failed evidence: mode 0600, 38,857 bytes, SHA-256
+`b2f6ca26861616e19da22a855642a821fe0834be4c2af12b1cf2f5397459fce6`,
+exit 1 at `2026-10-01T11:44:49.271150Z`. Supervisor 57905 remains stable while
+worker `57911→58244` and holder `58097→58268`; Task remains RUNNING; child
+boot `68299503…`, guest PID 163, bundle/task/sandbox/network generations, I/O
+offsets, and FIFO identities remain unchanged; post-fault exec succeeds; and
+the immediate filtered containerd journal is empty. After release, the replayed
+attach/Wait call now returns normally, but its file contains only both pre-fault
+markers and neither post-fault marker, so the scoped pass marker is absent.
+Credential scan finds only the Kerf table heading `Cmdline`, not a value.
+Independent audit finds the pool retained with zero allocation and every task,
+container, runtime artifact, rootfs record, endpoint, shim, and helper count
+zero; selector/boot/services remain exact and healthy. The remaining failure is
+FIFO descriptor continuity: killing the old worker closes its stdout/stderr
+writers, the unchanged containerd FIFO readers observe EOF, and reopening the
+same persisted FIFO paths in the replacement cannot resurrect those already-
+ended readers. Framed RPC replay fixes the in-flight Wait but is insufficient;
+the stable supervisor must preserve output FIFO writer lifetime across worker
+replacement (with equivalent bounded ownership/cleanup proof). Combined G6
+forced-shim qualification remains open.
+
+Third source remediation gives every FIFO output guard a minimal helper process
+that inherits only the already identity-checked guard FD and a control pipe.
+Normal `closeProcessIO` writes an explicit byte, closes, and reaps the helper
+immediately. Worker SIGKILL instead closes the control pipe without the byte;
+the helper retains the writer endpoint for a bounded 15-second replacement
+window, never reads FIFO data, then exits. Grace input is constrained to
+1 ms–60 s, launch errors fail the I/O open, and regular-file output is unchanged.
+A focused test simulates descriptor loss without normal close, proves a raw
+nonblocking FIFO reader sees `EAGAIN` rather than EOF, and receives replacement
+output; it passes 10 repetitions and the full shim package passes. Two setup
+failures are excluded: the first command used redundant `runtime/` paths while
+already inside that directory, and the next encountered the read-only default
+Go cache. A first version of the FIFO assertion used Go's poller and waited
+until its 500-ms test grace expired; replacing it with `unix.Read` tests the
+kernel's immediate nonblocking state. No live claim is made yet.
+
+The keeper/reattach, framed-bridge, and signaled-worker tests pass 25
+race-detector repetitions in 93.574 seconds, and every runtime package passes.
+`git diff --check` is clean. This is source-only evidence pending immutable
+commit, guest build, identity capture, and live replay.
+
+Commit `1edd368f640f28e880480c638c0936a5cbaba6b0` (`runtime: preserve
+output fifos across shim workers`) freezes exactly the two source/test files;
+findings and evidence remain outside it. Its exact Makefile/runtime/release-tool
+archive is 1,474,560 bytes/mode 0644 with SHA-256
+`26c5b3d1b4617eb23a2ef33349860f15b98ab35cf622aa1e1f16a663c7a19696`.
+Transfer and guest build remain unclaimed.
+
+The guest independently matches the archive's mode, size, and full `26c5b3d1…`
+hash, extracts it into unique directory `/tmp/multikernel-runtime-build-1edd368`,
+and successfully builds all seven components plus the release manifest with
+exact embedded revision `1edd368f…`. Artifact hashes and activation remain
+unclaimed pending independent inspection.
+
+Independent build inspection confirms the mode-0644, 1,907-byte manifest at
+SHA-256 `95d45ebc5b7f57e8f2ef2bfaeff0ee44f522bc3b2a34c210fa027ee6fe8fadbd`.
+Binary hashes are shim `45fd9f3a26cb1d323d20f9d9a5e56a2e828ab117668007fcc13deaec2cb9def8`,
+agent `30a10c0222c0ffc94d3f553c494f029eb484c2d2d06f4fdeb1c6a8af573cac92`,
+agentctl `b8ca2a5f1277e572cb1ee0a59e0b7a6960fab906ea5d3fb0fa03791ccd0e5d82`,
+CNI `cac1f808a07a3e2980ebf250a549619d640f81ec29370cd0ecdac69cfab14c4c`,
+host check `964e938512fda0cca18b52486267e9087b116986c0ed4e5d30a54cdbc1cd0981`,
+mknetd `d5cd8aff2560f6267a66451357fed4ad5d6cfcb538e0e075755455832c7cfb0c`,
+and mkruntimed `c7090da61fb4b546b7d55d8d0e476098d886c79f0727499f4450e7dc81245048`.
+The manifest lists exactly all seven names and every binary reports revision
+`1edd368f640f28e880480c638c0936a5cbaba6b0`. Activation remains unclaimed.
+
+The immutable manager atomically changes the selector from exact failed
+candidate `1dbe2d93…` to exact release `1edd368f…`, keeps all six command links
+managed, and retains `1dbe2d93…`, `7d50218f…`, and original `e27ab263…` for
+rollback. The selected shim reports the full new revision and hashes to build
+value `45fd9f3a…`; all services remain active with zero restarts. The preceding
+failed run still has an idle retained pool, so a controlled mkruntimed restart
+is required before the harness's released baseline. No live replay is claimed.
+
+Controlled mkruntimed restart `54167→59671` releases the pool. PID 59671 runs
+the exact `1edd368f…/bin/mkruntimed` path and re-hashes to build value
+`c7090da6…`; selector and unchanged boot `768706da…` agree. Kerf reports no
+pool/no instances, default/moby/Docker counts and shim count are zero, and all
+four services are active/running with zero restarts. The replay baseline is
+released, clean, and candidate-bound.
+
+Live reconnect capture `g6-forced-shim-reconnect-fifo-pass.log` closes exit 0
+at `2026-10-01T11:57:02.480703Z`: mode 0600, 179,780 bytes, SHA-256
+`fe6eee0d3711afc79c7153afbaba5f91efb478db139d812537018a9d383d6a18`.
+Stable supervisor 60078 replaces worker `60083→60462` and namespace holder
+`60275→60486` while Task stays RUNNING; child boot `60f644af…`, guest PID
+162, bundle/task/sandbox/network generations, I/O offsets, and FIFO identities
+are unchanged; post-fault exec succeeds; and the fault-time containerd journal
+contains no disconnect cleanup. One unchanged attach stream contains all four
+exact pre/post stdout/stderr markers. Captured events contain Task create/start,
+all exec lifecycles, init exit, and delete in timestamp order. The bounded old
+FIFO keepers are observable briefly as two shim-path processes, expire within
+the harness wait, and retained-pool inventory reaches every other resource
+zero. Both `G6_FORCED_SHIM_RECONNECT_PASS` and the scoped mode marker are
+present. Final mkruntimed restart `59671→62681` releases the pool and yields the
+all-zero inventory. Credential scan has no matches.
+
+Independent post-pass audit binds selector and running mkruntimed PID 62681 to
+exact release `1edd368f…`, executable hash `c7090da6…`, and unchanged host boot
+`768706da…`; Kerf reports no pool/instances, every task/container/artifact/
+record/endpoint/shim/helper count is zero, and mkruntimed, mknetd, containerd,
+and Docker remain active with zero restarts. Together with exit-0 fallback
+transcript `g6-forced-shim-reclaim.log` (`e833dcd1…`), both required forced-shim
+outcomes now have immutable live evidence. Running-task forced-death reconnect
+and the paired transcript requirement are closed; broader G6 event variants,
+mkruntimed restart, and full final-resource matrix remain open.
+
+Focused mkruntimed-restart harness is mode 0755/11,065 bytes/SHA-256
+`c914296e60b4a86eb8fc27ddc49f0c8297d14d2d1772488003c624aeac09610e`.
+It retains a continuous attach stream, exact host/daemon/task/child/shim
+identities, safe hashes and projections of lifecycle snapshot/journal plus
+rootfs/storage records, systemd-journal metadata, events, and retained/released
+inventories without printing kernel command lines. Bash syntax and diff checks
+pass. Commit `19270ec` freezes only this harness and the script index; live
+behavior remains unclaimed.
+
+First focused capture `g6-mkruntimed-restart-continuity-pass.log` is retained
+as harness-only exit 1: mode 0600/128,479 bytes/SHA-256
+`767e79734bbb0b4633caf6a9c837d0449d3a94369cbb078cc9ed87abb830f0ae`,
+closed `2026-10-01T12:05:58.257050Z`. Product behavior through process exit
+passes: mkruntimed `62681→63908`, unchanged host boot/containerd PID, RUNNING
+Task, stable supervisor/holder, unchanged child boot `f11cae16…` and shim
+recovery identity, post-restart exec, byte-identical durable snapshot/journal/
+rootfs/storage summaries, a 13-entry restart journal with zero error-or-higher
+entries, and all four pre/post continuous-stream markers. The harness then
+waits only for STOPPED although `ctr tasks attach` validly removes the exited
+task, producing ABSENT. Trap cleanup leaves retained pool with zero allocation,
+no instances/tasks/containers/artifacts/rootfs/endpoints, and healthy services.
+Credential scan has no matches. No pass marker or row closure is claimed.
+
+Corrected terminal branch accepts STOPPED or attach-driven ABSENT and is frozen
+by commit `00cb1e4`; harness is mode 0755/11,186 bytes/SHA-256
+`23170b264c3463f8b1b37f4ab7aba31bddf4ce50be479d6941e92a202fd9692b`.
+Idle restart `63908→65694` releases the pool and restores no instances/tasks/
+containers. Guest copy independently matches the full hash and passes syntax.
+Corrected live result remains unclaimed.
+
+Corrected capture `g6-mkruntimed-restart-continuity-v2-pass.log` closes exit 0
+at `2026-10-01T12:10:42.454130Z`: mode 0600, 136,321 bytes, SHA-256
+`e99f610e008679cda2dbabf1f615d8fcc09d0ce9d07654d19d79871005bfd6f7`.
+The controlled fault changes mkruntimed PID `65694→66493` without changing host
+boot `768706da…`, containerd PID 14999, shim supervisor 66114, namespace holder
+66313, child boot `0b2413c0…`, guest PID 162, task identity `task-9511…`, recovery
+generation `b8c1a855…`, or network generation `6060fedb…`. Durable lifecycle
+journal (1,490 entries, final StartSandbox complete), snapshot (sequence 1,489,
+743 results), rootfs record, and empty storage projection are byte-identical
+before and after. Post-restart exec succeeds; the restart journal has 13 entries
+and zero error-or-higher entries (SHA-256 `b487687f…`); the original attach
+stream contains both pre- and post-restart stdout/stderr markers. Timestamped
+events retain Task create/start, every exec lifecycle, init exit, and delete.
+Attach-driven task absence is accepted, retained-pool cleanup reaches every
+other counter zero, final idle restart `66493→67287` releases the pool, and the
+all-zero inventory plus scoped pass marker are present. Credential scan has no
+matches.
+
+Independent post-pass inspection resolves running PID 67287 to the exact
+selected `1edd368f…/bin/mkruntimed` and SHA-256 `c7090da6…` on the unchanged
+host boot. Kerf reports no memory pool and no instances; default/moby/Docker,
+runtime artifact, rootfs, endpoint, shim, and FIFO-keeper inventories are zero.
+mkruntimed, containerd, Docker, and mknetd are active/running with zero restarts.
+This closes the focused mkruntimed-restart evidence requirement; broader G6
+event variants and the complete final matrix remain open.
+
+The next focused harness, `test-runtime-task-events-live.sh`, is mode 0755,
+7,214 bytes, SHA-256
+`5ad270835f191adda7cd97e01a19bc7eda8eff1b2b0f67a4b22d95d5660781ae`.
+It couples client-observed exec exit 17 and exec/init SIGKILL exit 137 with an
+exact create/start, exec-added/exec-started, exit/delete subsequence and
+monotonic event timestamps. It also requires retained-pool cleanup followed by
+released all-zero cleanup. Bash syntax and diff checks pass; commit, transfer,
+and live behavior remain unclaimed. Commit `d7e2670` freezes only this harness
+and the script index. Guest `/tmp/test-runtime-task-events-live-5ad27083.sh`
+independently matches mode 0755, size, and full hash and passes Bash syntax.
+The pre-run selector is exact candidate `1edd368f…`; Kerf reports no pool or
+instances. Live result remains unclaimed.
+
+First capture `g6-task-events-live-first.log` is retained as harness-only exit
+1: mode 0600, 22,037 bytes, SHA-256
+`c545888459dfeebbfe950601fe00e2ee68c65efae0cb06ca2e5d3d82eb761ef6`.
+The live runtime reaches exec exit 17 and both exec/init SIGKILL exits 137.
+Only event validation fails: containerd emits a seven-digit fractional second,
+which Python's `%f` parser rejects. No ordering pass is claimed; the correction
+must compare the full fractional timestamp rather than reducing its precision.
+
+Commit `836f39e` corrects only that parser: one-to-nine fractional digits are
+validated and zero-right-padded into an exact nanosecond ordering key. The
+corrected harness is mode 0755/7,362 bytes/SHA-256
+`bb7287e22af518e902873e4d348592676964e5520facb5c2bf94e5de6371dfb2`;
+Bash syntax and diff checks pass. Corrected live replay remains unclaimed.
+
+Guest corrected copy independently matches mode, size, full `bb7287e2…`, and
+syntax. Controlled idle mkruntimed restart `67287→69091` releases the failed
+run's pool; Kerf reports no pool or instances and default task/container plus
+runtime-artifact counts are zero. Corrected replay has a clean baseline.
+
+Corrected capture `g6-task-events-live-pass.log` closes exit 0: mode 0600,
+68,210 bytes, SHA-256
+`43cf0ba4422247b04c282be475e9fc2fcd3b0c42107e642a85a248161d1f3506`.
+It retains exactly 12 Task events with their emitted fractional timestamps:
+init create/start; nonzero exec added/started/exit/delete; signaled exec
+added/started/exit/delete; then init exit/delete. The validator proves the
+sequence exact and timestamps monotonic. The nonzero exec returns 17 to its
+client and carries exit status 17 in both exit/delete events. SIGKILL of the
+exec and init each returns 137 to its attached client and carries 137 in both
+corresponding exit/delete events. Provenance binds selector `1edd368f…`, host
+boot `768706da…`, mkruntimed PID 69091, and containerd PID 14999.
+
+Cleanup reaches retained-pool/all-other-zero, idle restart `69091→70302`, then
+released all-zero and `G6_TASK_EVENT_ORDER_PASS`. Independent post-pass audit
+resolves PID 70302 to candidate mkruntimed hash `c7090da6…`, confirms no Kerf
+pool/instances, zero links/rules/workloads/artifacts/rootfs/endpoints, and exact
+process-name shim/NBD/relay counts zero. All four services are active/running
+with zero restarts. This closes the exact Task v2 event order/timestamp row.
+
+The complete shared matrix is now staged for final-candidate replay from its
+unchanged commit `94396f7`. Guest matrix mode/size/hash are 0775/23,206 bytes/
+`3015518c…`; resize helper is 0775/4,841 bytes/`fe7059cf…`. Both full hashes
+match local frozen sources and Bash/Python checks pass. The exact selector is
+`1edd368f…`; Kerf reports no pool/instances and ctr/Docker workload counts are
+zero. Live replay remains unclaimed.
+
+The in-progress final-candidate transcript has emitted observations through
+image provenance, split lifecycle/state, distinct child identities, exec I/O,
+private roots, mediated networking, sibling isolation, deliberate mkruntimed
+restart, pause/resume, signal exit, normal deletion, and post-delete clean
+inventory. It is currently inside the independent read-only-bind pair. This is
+an execution checkpoint, not a terminal matrix-pass claim.
+
+Both client-specific read-only-bind cases and their post-bind clean inventory
+have now completed in that same session. It has entered repeated foreground
+exit-17/name-reuse cycle 1. The run remains active; no terminal pass is claimed.
+
+Both repeated ctr/Docker cycles now return exact 17 with their stdout/stderr,
+clean normally, and reuse identical names. The same session has advanced into
+guest-stdin forwarding; terminal matrix status remains unclaimed.
+
+Guest stdin forwarding now passes for ctr and Docker. The same live session has
+entered detached-task reattachment; no terminal matrix pass is yet claimed.
+
+Detached reattachment now passes with guest I/O for both clients. The matrix is
+inside PTY allocation and terminal-size verification; no final pass is claimed.
+
+PTY mode now passes with exact `37 91` for both clients. The ctr post-start
+resize has completed and Docker live resize is running; final cleanup and the
+matrix pass marker remain unclaimed.
+
+Complete final-candidate capture `g6-shared-matrix-final-candidate-pass.log`
+closes exit 0: mode 0600, 315,263 bytes, SHA-256
+`8ee2f800c96a7b49f62875f73b1b26f04d99c828570eeb4b40ed956471a10746`.
+All 19 feature rows pass for ctr and Docker with expanded commands and observed
+values. Child boots `5e71eaba…` and `81ddc67b…` are distinct from unchanged
+host boot `768706da…`; deliberate mkruntimed restart `70302→72792` preserves
+both. Both post-start resizes report exact `37 91`. Pre-shutdown inventory is
+retained-pool/all-other-zero; idle restart `72792→80554` yields released
+all-zero. All five scoped assertions plus the matrix marker are true, and the
+credential scan has no matches.
+
+Independent post-pass audit resolves PID 80554 to selected release `1edd368f…`
+and mkruntimed hash `c7090da6…`. Kerf reports no pool/instances; default/moby/
+Docker workload counts, runtime artifacts, rootfs records, endpoints, links,
+NAT/filter rules, and exact shim/NBD/relay process counts are zero. All four
+services remain active/running with zero restarts. This closes the complete
+replacement-instance shared-matrix row. Explicit final mount and FIFO counts
+remain necessary before closing the broader final-resource row.
+
+Dedicated `audit-runtime-final-resources-live.sh` is mode 0755/4,061 bytes,
+SHA-256 `bc5e2f7d52bdf095a26bea6b019187a530fb848cbafb6ff21e95ef554bdecfac`.
+It requires no Kerf pool/instances and explicitly counts runtime mounts,
+storage/bundle artifacts, FIFOs, links/routes/firewall rules, both containerd
+namespaces, Docker, rootfs/network records, and exact shim/NBD/relay process
+names. Bash syntax and diff checks pass; commit and live result are unclaimed.
+Commit `c27bf3b` freezes only the audit and script index; live result remains
+unclaimed.
+
+Final-return capture `g6-final-resource-return-pass.log` closes exit 0: mode
+0600, 12,896 bytes, SHA-256
+`3bc958626d131aa44389eaa9f6fdc3fb694200487890a825aa01fc9e8b9d7ff5`.
+It binds exact selector `1edd368f…`, unchanged boot `768706da…`, PID 80554,
+and executable hash `c7090da6…`. Kerf reports no memory pool and no instances,
+which proves child CPU/memory return. All 19 explicit residual counters are
+zero: runtime mounts, storage/initramfs and bundle artifacts, FIFOs, TUN links,
+routes, NAT/filter rules, default/moby task and container inventories, Docker,
+rootfs/network records, and exact shim/NBD/relay process names. All four
+services remain active/running with zero restarts. The scoped pass marker is
+present and credential scan is empty. This closes the final-resource row.
+
+The remaining aggregate restart gap is clean shim-worker replacement. The
+existing shim harness now accepts only `KILL` (unchanged default) or `TERM`;
+the `TERM` mode runs the same reconstruction, stable identity, continuous I/O,
+events, and cleanup assertions and emits a distinct clean-restart marker. The
+updated harness is mode 0775/15,953 bytes/SHA-256
+`703acc35482b10970b0d1d289c66a360360b712de655dab5280d7173e92a9871`;
+Bash syntax and diff checks pass. Commit and live behavior remain unclaimed.
+Commit `2ce142b` freezes the harness change; live behavior remains unclaimed.
+
+Guest clean-restart copy independently matches mode, size, full `703acc35…`,
+and syntax. The host selects exact `1edd368f…`, Kerf reports no pool/instances,
+and ctr/Docker workload counts are zero. Live result remains unclaimed.
+
+The first `TERM` attempt terminates harness-only exit 1: 27,703 bytes, SHA-256
+`8d1c209cf3952cc76a87733bf1d8898be5c6e2edac5bd61405c8f690addbb445`.
+Orderly worker termination removes the Task instead of reconstructing it in
+place, so reusing forced-death continuity assertions was the wrong clean-shim
+contract. The later host reboot removed this `/tmp` transcript before local
+copy; only terminal metadata and output observed through the live execution
+handle survive. It is not closure evidence. The corrected qualification must
+prove orderly shutdown, shim exit, same-name task/shim recreation, and cleanup.
+
+After the operator restart, the host is on new boot
+`d9cdfa98-df65-4bce-b3a2-08565857c69e` with unchanged kernel and exact selected
+release `1edd368f…`. mkruntimed/containerd/Docker/mknetd are active with zero
+restarts, Kerf reports no pool or instances, and default/moby/Docker workload
+inventories are empty. This is the new live-evidence baseline.
+
+Corrected `test-runtime-clean-shim-restart-live.sh` is mode 0755/6,608 bytes,
+SHA-256 `84e982801a17ec534eaed0d9d97ba4cb785e08de278e0a7320f5d8c41aebafdb`.
+It runs two complete same-name clean lifecycles, requires the first supervisor,
+worker, and namespace holder to exit, requires distinct replacement shim and
+child identities, retains both Task event sequences, and audits retained then
+released cleanup. The forced-death harness is restored byte-for-byte to its
+pre-`TERM` source (`e47804f5…`), separating graceful shutdown/recreation from
+forced continuity. Syntax/diff checks pass; commit/live result are unclaimed.
+Commit `a8cdc1c` freezes the separated harnesses; live result remains unclaimed.
+
+Guest corrected harness independently matches mode, size, full `84e98280…`,
+and syntax on exact selected candidate `1edd368f…`. Kerf has no pool/instances
+and ctr/Docker inventories are empty. Live result remains unclaimed.
+
+First corrected-harness capture `g6-clean-shim-restart-v2-first.log` is retained
+pre-workload exit 1: mode 0600/12,987 bytes/SHA-256
+`54465f4b323f572cfc4a6d9ba1366c43a2b94cb91781ccff70c1994001021724`.
+Bash expanded the stream path before the same `local` statement assigned
+`cycle` under `set -u`. No task was created and cleanup retained the released
+baseline. The split declaration is a harness-only correction; no product claim.
+
+Correction commit `29af02b` produces a mode 0755/6,616-byte harness at SHA-256
+`80ddbd858ae928007fd6b34d03e30c35b7aade008955ec75901c9ac578a18ff5`;
+Bash syntax and diff checks pass. Corrected live result remains unclaimed.
+
+The corrected live run has completed cycle 1 with normal output, confirmed exit
+of its supervisor/worker/namespace holder, and retained-pool/all-other-zero
+inventory. The same task name is accepted for cycle 2; no final pass is claimed.
+
+Corrected capture `g6-clean-shim-restart-pass.log` closes exit 0: mode 0600,
+80,418 bytes, SHA-256
+`754a05f60c0bb906aa9ad2c6c5ff8d2e971b36e10f541f7fde03e69c5f201de8`.
+Cycle 1 supervisor/worker/holder `3012/3017/3213` and child boot `d9282f53…`
+exit cleanly. The identical task name then creates distinct shim identities
+`3514/3519/3763` and child boot `69a9ff52…`. Both attach streams contain exact
+start/exit markers, both Task event lifecycles are retained, and each cleanup
+reaches retained-pool/all-other-zero. Final mkruntimed restart `1466→4061`
+releases the pool to all-zero. Credential scan has no matches.
+
+Independent audit binds PID 4061 to selected `1edd368f…` and executable hash
+`c7090da6…`, with no Kerf pool/instances, workloads, runtime artifacts, or
+shim/NBD/relay processes and four active zero-restart services on boot
+`d9cdfa98…`. Combined with the exact containerd (`afa9187e…`), Docker
+(`fa381592…`), mkruntimed (`e99f610e…`), forced reconnect (`fe6eee0d…`), and
+bounded reclaim (`e833dcd1…`) captures, every named restart variant and the
+cross-process ownership-transfer row now has direct exit-0 evidence.
+
+The focused signal/event harness is expanded to mode 0755/8,800 bytes/SHA-256
+`b09bf5209dcee122d056ea31675cc06201794d10a4a7ddcfe2ff530e3f21a525`.
+It now sends ignored SIGTERM to exec and init and proves they remain live with
+no exit event, SIGKILLs the exec process group and verifies its descendant PID
+is gone, retains attach wait/delete behavior, recreates the same task name after
+init SIGKILL, and requires two exact init event lifecycles plus released
+cleanup. Bash syntax and diff checks pass; commit/live result are unclaimed.
+Commit `1fb265d` freezes the expanded harness; live result remains unclaimed.
+
+The in-progress run has proved exec exit 17, ignored exec SIGTERM with no exit
+event, exec-process-group SIGKILL exit 137 with its descendant gone, ignored
+init SIGTERM while RUNNING, and init SIGKILL exit 137 through the attached
+waiter. Same-name recreation after the signal failure is running; no terminal
+pass is claimed yet.
+
+Expanded capture `g6-signal-lifecycle-pass.log` closes exit 0: mode 0600,
+78,247 bytes, SHA-256
+`6647cc0e15d68dd6b78ed8c29e915ffa685df4f4126938961ba9049654f627b8`.
+Exec SIGTERM leaves the client waiting and publishes no exit event. Exec-group
+SIGKILL returns 137 and guest descendant PID 177 is confirmed absent. Init
+SIGTERM leaves the Task RUNNING with no exit; init SIGKILL returns 137 through
+the attached waiter, whose completion drives delete. The identical task name
+then runs successfully. Twenty monotonic timestamped events include two exact
+init lifecycles. Retained cleanup is all-other-zero and restart `4061→6187`
+releases the pool.
+
+Final-candidate matrix `8ee2f800…` independently supplies repeated nonzero 17
+and same-name reuse. Credential scan is empty. Post-pass audit resolves PID
+6187 to candidate hash `c7090da6…`, finds no pool/instances/workloads/artifacts
+or shim/NBD/relay processes, and all four services healthy with zero restarts.
+Together these close the aggregate signal/exit/descendant/wait-delete/reuse row.
+
+New `test-runtime-concurrent-churn-live.sh` is mode 0755/9,148 bytes/SHA-256
+`d425cc399297954edb34fa6f88104b37f9507bca7f76bb948262d71049982e48`.
+It starts ctr and Docker concurrently, projects safe durable lifecycle/recovery
+state, and requires disjoint CPU sets, memory owners, generations, bundles,
+storage paths/ports, agent ports/CIDs/sockets, task identities, and network
+generations/addresses. It then runs 12+12 parallel execs, simultaneous pause/
+resume, distinct child boots, and retained/released cleanup. Bash syntax and
+diff checks pass; commit and live behavior remain unclaimed.
+Commit `9616398` freezes the harness/index; live behavior remains unclaimed.
+
+Guest concurrency harness independently matches mode, size, full `d425cc39…`,
+and syntax; Kerf has no pool/instances and ctr/Docker inventories are empty.
+Live behavior remains unclaimed.
+
+Concurrent capture `g6-concurrent-churn-pass.log` closes exit 0: mode 0600,
+96,522 bytes, SHA-256
+`09a0c135eeb56c2ac9b1bec45038754e615c444faf66862f689fc612124ec543`.
+The safe durable projection proves ctr/Docker use disjoint CPU sets `[8,10]`
+and `[12,14]`, separate 3-GiB memory allocations, generations `474f49fe…` and
+`12724968…`, distinct bundles, agent ports 7200/7201, child CIDs 40/41, agent
+socket inodes 3116/3189, storage paths/ports 4061/4062, task identities,
+network generations, and addresses `172.31.0.2/30`/`172.31.0.6/30`. Both run
+12 parallel execs, simultaneous pause/resume, and retain distinct child boots.
+
+Cleanup reaches retained-pool/all-other-zero; restart `6187→9410` produces
+released all-zero and the scoped pass marker. Credential scan is empty.
+Independent audit binds PID 9410 to candidate hash `c7090da6…`, finds no pool,
+instances, workloads, runtime artifacts, or shim/NBD/relay processes, and four
+healthy zero-restart services. This closes the concurrent-churn row.
+
+On 2026-10-02, immediately after the operator-reported VM restart, a fresh
+direct checkpoint observes the same boot `d9cdfa98-df65-4bce-b3a2-08565857c69e`,
+kernel `7.0.0-mk2-gce-lab`, exact selector `1edd368f640f28e880480c638c0936a5cbaba6b0`,
+and mkruntimed PID 9410/executable SHA-256 `c7090da6…`. mkruntimed, containerd,
+Docker, and mknetd are active/running with zero service restarts. This records
+continuity before further qualification and makes no new completion claim.
+
+The first resumed focused Go-test enumeration did not reach compilation. Its
+isolated `/tmp` module cache was empty, and sandboxed DNS denied downloads from
+`proxy.golang.org`. This is recorded only as a diagnostic; it is not test
+evidence and requires an approved rerun with dependency access.
+
+With approved access, enumeration finds 128 top-level shim tests. The complete
+package race run is retained in `g6-task-v2-unit-race-baseline.log`, mode 0600,
+53,953 bytes, SHA-256
+`d1b5fa5e6a6e69c037e74d6b614191027a69256bd8e20c388880261ab02614ee`.
+It passes in 8.516 seconds with 327 run entries and 138 passing groups. Only
+`TestAcquireStartShimSocketWithRealLiveAndStalePaths` and
+`TestStaleRelayCleanupRemovesExactSafeSocket` skip because this local sandbox
+forbids pathname Unix listeners. Those tests must run on the disposable VM;
+the clean baseline alone does not satisfy the exhaustive aggregate rows.
+
+Before source transfer, the disposable VM reports Go 1.26.0/linux-amd64,
+32 GiB free on `/tmp`, and no existing
+`/tmp/multikernel-g6-source-9616398`. The qualification copy therefore uses a
+unique temporary path and does not replace the selected installed release.
+
+The transferred tree has 100 files and 45,747,628 bytes. Local and remote
+SHA-256 values match for `main_test.go` (`6051decb…`), `go.mod` (`407622e6…`),
+and `go.sum` (`9f40acd1…`), binding the VM qualification to the same source and
+dependency lockfiles as the local race baseline.
+
+The first full VM race run is preserved rather than overwritten:
+`g6-task-v2-vm-race-first-fail.log`, mode 0600, 55,813 bytes, SHA-256
+`9a80ebc2df7d13c598afc7d5705ec4d99c860165a6515b2114ca34b4e4f6b579`.
+It exits 1 with 327 run entries, 135 passing groups, and no skips. Five tests
+fail at the common safe-file boundary: unsafe token permissions,
+group-accessible FIFO permissions, unsafe journal permissions, deterministic
+socket cleanup, and authenticated fallback socket cleanup. No completion is
+claimed pending diagnosis of fixture behavior and VM `/tmp` filesystem modes.
+
+The common cause is the qualification wrapper, not a filesystem or product
+defect: wrapper `umask 077` reduced requested fixture modes 0644/0660 to 0600.
+That made three intentionally unsafe fixtures safe and made two exact-0644
+containerd address fixtures invalid. The corrected run uses normal umask 022
+for tests and explicitly seals only the resulting transcript to mode 0600.
+
+The corrected VM result is `g6-task-v2-vm-race-pass.log`, mode 0600, 53,765
+bytes, SHA-256
+`ff7cc0e0f49e6334dd7948b1cb12c8df356140cda6aba01c6e31349d849a10db`.
+It exits 0 under `-race -count=1` in 8.294 seconds with 327 run entries, 140
+passing groups, no skips, and no failures. Both real pathname-socket tests that
+the local sandbox skipped run and pass on the disposable VM. This validates the
+present focused suite; exhaustive matrix rows still require exact coverage
+mapping rather than promotion from package success alone.
+
+`TestEventJournalCompleteLifecycleOrderAndPersistenceFailureMatrix` now covers
+the exact create, start, exec-added, exec-started, exit, delete sequence under a
+failed broker attempt for every enqueue. It requires durable sequences 1..6,
+restart reconstruction, exact ordered replay, and journal removal after full
+acknowledgement. Six per-topic subtests inject persistence failure before
+publication and require no broker call and exact in-memory rollback. The new
+matrix passes 20 race-detector repetitions in 1.435 seconds; broader reruns are
+not yet claimed.
+
+The cancellation/deadline inventory maps direct tests to all eight named
+domains: rootfs/storage mutation and hashing, bounded builder descendants,
+daemon dial/write/read/default timeout, Kerf child commands, agent connect and
+call, stdio opens/pumps, Task lock/wait, and teardown/network cleanup. The full
+local `runtime/...` race run passes 22 tested packages with 968 run entries and
+466 passing groups. Its mode-0600/144,982-byte transcript
+`runtime-all-packages-race-cancellation-baseline.log` hashes to
+`939368f0806b3e64a6e0c8d0fa5d20a90e94abc1a628f96ae647ac83b95902ea`.
+Eleven Unix-socket/descriptor tests skip only under the local sandbox; a VM
+zero-skip run and live cross-service leak qualification remain pending.
+
+The first full-module VM run is preserved as
+`runtime-all-packages-vm-race-cancellation-first-fail.log`, mode 0600/143,337
+bytes/SHA-256
+`78117ffdcebcbb018694513cab3bceca425850f5bc657f0914ceef6e9a4f5af1`.
+It exits 1 with 959 run entries, 468 passing groups and no skips. All nine
+failures are `internal/storage` fixtures executed beneath VM tmpfs, where
+allocated image extents cannot be inspected; the backend rejects them as
+sparse/unverifiable before their target assertions. This is an environment
+mismatch, and the same source must be rerun from persistent disk.
+
+Direct filesystem inspection confirms `/tmp` is tmpfs and `/var/tmp` is ext4
+on `/dev/root`. The exact copy at
+`/var/tmp/multikernel-g6-source-dbdaf1b` retains `main_test.go` SHA-256
+`10101b2d…` and totals 45,754,932 bytes. The corrected invocation also sets an
+ext4-backed `TMPDIR`, ensuring test fixtures themselves use inspectable extents.
+
+The ext4-backed rerun is preserved as
+`runtime-all-packages-vm-race-cancellation-ext4-fail.log`, mode 0600/144,996
+bytes/SHA-256
+`87856460975953392b6c1f554db5cc02a1734a248f55112050e1ffa19ee499d5`.
+It reaches 968 run entries and 472 passing groups with no skips; every storage
+test now passes. The only five failures are Unix listeners returning `EINVAL`
+because the long ext4 `TMPDIR` makes generated paths exceed Linux `sun_path`.
+The next run retains ext4 but uses a short unique temp prefix.
+
+With short ext4-backed `TMPDIR=/var/tmp/mkg6t`, the complete runtime module
+passes under `-race`: 968 run entries, 477 passing groups, all 22 tested
+packages, zero skips and zero failures in 12 seconds. The retained transcript
+`runtime-all-packages-vm-race-cancellation-pass.log` is mode 0600/144,078
+bytes/SHA-256
+`94f077c3b6837ef90f8416202f0779c4bd3bba0957c3b9b5b1368f737fc4edb0`.
+This closes the automated every-blocking-boundary cancellation/deadline row;
+the separate live cross-service cancellation/leak requirement remains open.
+
+The next OCI audit identifies a genuine remaining boundary. Exec process shape
+is validated before guest mutation, and rootfs/network inputs are checked before
+allocation, but the complete init OCI contract is still loaded and rejected by
+the guest during Start—after Create can own rootfs, storage, sandbox, and
+network resources. Generic lifecycle crash/cancel rollback does not prove the
+unsupported-OCI matrix. A shared host/guest validator and deterministic failure
+injection at every later application boundary are required before promotion.
+
+Pre-allocation OCI work now introduces `ValidateRootfs` before shim allocation.
+The daemon binds it to the held bundle identity; Linux invokes the canonical
+descriptor-bound builder with `MK_VALIDATE_ONLY=1`; the builder exits directly
+after `validate-runtime-oci.py`, before task/storage requirements or artifacts.
+Bash syntax passes. The first compile run is not a product result: test fake
+backends need the new interface method and one shim daemon fixture must accept
+the added call before focused ordering/no-mutation qualification can run.
+
+The shim pre-allocation rejection case passes 20 race repetitions. The first
+rootfs focused command did not execute behavior because its new test passed the
+`*os.Root` verifier handle where the backend requires the production-style held
+`*os.File`. That non-evidence fixture error is corrected by reopening `.`
+descriptor-relative through the verified root.
+
+With the production-style held descriptor, both rootfs validation tests and the
+shim reject-before-allocation test pass 20 race-detector repetitions. These
+focused results prove local ordering and no artifact/state mutation only. Full
+suites and a disposable-VM deployment/behavioral qualification of the changed
+daemon, shim, and builder are still required.
+
+The canonical Python OCI suite passes 95 semantic cases plus namespace,
+file-identity, and outer-cleanup boundaries, and the changed builder passes
+Bash syntax. The first all-Go invocation came from the repository root, outside
+the `runtime` module, and therefore ran no tests; it is explicitly non-evidence
+pending the same race command from `runtime/`.
+
+From the correct module root, `go test -race -count=1 ./...` passes all tested
+runtime packages. The changed shim, daemon, and rootfs packages pass in 9.537,
+1.191, and 1.717 seconds respectively; storage passes in 3.777 seconds. This is
+a local integration baseline, not yet VM evidence.
+
+The operator restart yields boot `f1d650a2-373b-4fe7-9a96-382e51332172` on
+kernel `7.0.0-mk2-gce-lab`. mkruntimed/containerd/Docker/mknetd are active with
+zero restarts at PIDs 1467/1485/1528/1236, and ctr/Docker have no running
+workloads. The selected release is still control `1edd368f…`; none of the new
+OCI validation code is claimed active yet.
+
+Commit `11a65f0` freezes only the pre-allocation implementation and tests.
+SHA-256 identities are builder `aae6496c…`, shim `0107ddd4…`, rootfs backend
+`0bb75277…`, and daemon server `5c4ca54b…`; the evolving ledgers and evidence
+trees remain separate from that focused code commit.
+
+The exact commit archive is 1,043,133 bytes/SHA-256 `bf8a16d3…`. Its unique VM
+extraction `/var/tmp/mksrc-11a65f0` has 637 files/4,163,480 bytes, and remote
+builder, shim, rootfs-backend, and daemon-server hashes match local byte-for-
+byte. Subsequent VM qualification is therefore bound to `11a65f0`.
+
+Exact-commit VM transcript `g6-oci-preallocation-vm-race-pass.log` is mode
+0600/146,655 bytes/SHA-256
+`f751bdea06bc530852016e748119b0872b67544a7bcb83d725a8519b4c0723fa`.
+It closes exit 0 with all 95 canonical OCI cases plus 971 Go run entries, 480
+passing groups, 22 tested packages, and zero skips/failures. The new shim
+pre-allocation, rootfs identity/no-artifact, and held-descriptor backend tests
+all execute and pass. Installed-service qualification remains unclaimed.
+
+The first root-owned build attempt changed only temporary source ownership and
+then stopped before compilation: the ordinary outer shell could no longer
+enter the root-owned mode-0700 directory. No build or installation claim is
+made. The correction runs directory entry, build, and hashing inside one
+privileged shell.
+
+The corrected privileged build completes for exact full revision
+`11a65f08f07b6bb88a6eb3088301582a37f55005`. SHA-256 values are release
+manifest `e22e76a6…`, mkruntimed `0e1c87c3…`, shim `326a8274…`, mknetd
+`2dbe69d2…`, and agent `c7e61607…`; the built daemon reports that exact stamp.
+No installation or active-service claim is made yet.
+
+The immutable managers install and select exact binary release
+`0.1.0-dev-11a65f08f07b6bb88a6eb3088301582a37f55005` plus support generation
+`b4d185c68b567c8d44882b34978cd18ac29a67d22f264cc9b4d719971a84371f`.
+Inspection reports every managed link present. This is selection evidence only;
+services have not yet been reloaded or shown to execute the candidate.
+
+After daemon reload and empty-host restart, running mkruntimed PID 15863
+resolves into release `11a65f08…`, hashes to candidate `0e1c87c3…`, and reports
+the full revision. Public shim and active builder hash to `326a8274…` and
+`aae6496c…`; the builder resolves under support generation `b4d185c6…`.
+mkruntimed, mknetd, containerd, and Docker are active/running with zero
+restarts. Live workload semantics remain pending.
+
+The installed-service negative case is now fixed precisely. String-valued OCI
+annotations are supported and therefore cannot prove fail-closed behavior.
+Instead, containerd's `--apparmor-profile` produces
+`process.apparmorProfile`; any value other than the explicit inert
+`unconfined` compatibility value is rejected by the canonical validator. The
+restarted VM begins this test with no configured memory pool, child instance,
+containerd/Docker workload, or runtime-tree entry. A retained harness will
+prove that exact rejection leaves the same 19-category zero inventory before
+running the positive control and final pool-release audit.
+
+The first live harness attempt is retained but is not product evidence. It
+stopped before either workload because the harness looked for the public daemon
+under `/usr/local/bin`; this image's unit executes
+`/usr/local/sbin/mkruntimed`. The mode-0600, 3,064-byte transcript hashes to
+`95a5a7207b75bfae14aaee279706627735bd440eef815173b2c9fb088b645d21`.
+The harness now uses the service's actual public path; no runtime allocation or
+mutation occurred in the failed attempt.
+
+The next attempt also stopped during provenance preflight, before injection:
+the installed runtime name is `containerd-shim-multikernel-v2`, not the
+abbreviated `containerd-shim-mk-v2` assumed by the harness. Its mode-0600,
+3,761-byte transcript hashes to
+`7bec72a3b20f87928256159de14d58d082e2cfbed3e64893cf8d5c2a6e0c1334`.
+The actual public symlink resolves into the selected `11a65f08…` generation;
+the harness now hashes and records that path. This remains a harness-only
+failure and supplies no workload claim.
+
+The third attempt proves every candidate provenance assertion, then stops
+before inventory or injection because this containerd build has no
+`ctr images info` command. Its mode-0600, 8,305-byte transcript hashes to
+`863512bd7826f7cef09c6ac604e079f487bf11b1becdeccf6c55725e32f92311`.
+An exact `ctr images list -q` match confirms the required busybox reference is
+present, and replaces that incompatible preflight command. Again, the stop
+precedes product behavior and is not a negative OCI result.
+
+The first behavioral attempt reaches the intended canonical rejection. Its
+error states `validate OCI bundle before allocation`; immediately afterward
+the memory pool remains unconfigured and all allocation-bearing categories are
+zero: children, mounts, storage/bundle artifacts, FIFOs, links/routes/firewall,
+container/task records, rootfs records, endpoints, NBD, and relay processes.
+Two shim processes still existed during that immediate audit and were gone by
+the follow-up inspection, with no task, container, or task-directory residue.
+The harness deliberately failed rather than hiding this asynchronous reaping.
+Its mode-0600, 28,379-byte transcript hashes to
+`6503a004b20fe324d6e3a6306af83229a437777c36d7e418b69fdc4a0eba070c`.
+The corrected contract preserves the immediate no-allocation assertion while
+allowing up to 60 seconds for shim teardown, then demands the exact full zero
+inventory before the positive control.
+
+Corrected live qualification passes on exact `11a65f08…`. Private transcript
+`g6-oci-preallocation-live-pass.log` is mode 0600/129,202 bytes/SHA-256
+`c409237a4041960a6cd0acfb506ba89387a450fe0ba0f6ff8672a4b2da7c7cd3`.
+Its seven observation blocks prove candidate daemon/shim/builder identity,
+empty initial state, canonical pre-allocation AppArmor rejection, no immediate
+allocation-bearing resources, bounded shim reaping to exact 19-category zero,
+supported output `MK_OCI_SUPPORTED_PASS`, and exact final zero after releasing
+the intentionally reusable pool. mkruntimed, mknetd, containerd, and Docker are
+active/running with zero restart counts. The transcript has no credential-
+pattern matches. This closes only the pre-allocation part of the composite
+requirement; injected cleanup after every possible later partial application or
+allocation boundary remains unproved and the checklist row stays open.
+
+Post-pass source audit enumerates the still-open second clause precisely.
+After canonical validation, Create can fail at rootfs preparation, runtime-
+directory handoff, token acquisition, ambiguous sandbox creation/cancellation,
+sandbox load, network provision, namespace-holder creation, recovery
+persistence, or create-event publication. Rollback owns holder stop, endpoint
+release, generation-bound sandbox deletion, prepared-root cleanup, token reset,
+and process removal. Current focused coverage proves the pre-allocation case
+and one ambiguous-create cancellation path, but not a deterministic injected
+matrix across every later ownership stage. No composite completion claim is
+valid until that matrix exists and passes.
+
+The new deterministic Create rollback matrix now compiles and passes once
+under the race detector across all nine enumerated post-validation stages. It
+requires exact cleanup counts and no surviving process, sandbox, token,
+endpoint, holder, or runtime directory; stage-specific assertions require
+create cancellation, generation-bound sandbox deletion, network release, and
+holder stop only after ownership is acquired. Two setup attempts are explicitly
+non-evidence: one used repository-root paths from the module directory and the
+read-only default Go cache, and the next compiled far enough to identify a
+missing test-only `slices` import. Repetition, full suites, commit identity, and
+VM execution remain required before the second clause can close.
+
+The matrix then passes 20 race-detector repetitions: 180 injected stage
+executions complete in 1.431 seconds. The complete shim package also passes
+`-race -count=1` in 9.582 seconds. These results remove focused/package-level
+regression uncertainty; repository-wide execution and disposable-VM zero-skip
+evidence remain pending.
+
+The full local runtime module passes `go test -race -count=1 ./...` across all
+22 tested packages. The changed shim package completes in 9.561 seconds;
+agent/rootfs/storage complete in 10.432/1.722/3.793 seconds. This is the final
+local baseline for the test-only matrix commit, not yet disposable-VM proof.
+
+Commit `3fd1238` freezes only the nine-stage rollback matrix at full revision
+`3fd1238667899b0a6c721f14685cef4253556990`. The resulting shim test file
+SHA-256 is
+`374f8a3ade7ac99964df5c0e3b1d16f57a98ca4a0ad89f6a6cad1feee8f0f763`.
+The living ledgers and evidence remain outside that focused commit; exact-
+commit VM transfer/execution is next.
+
+Exact archive transfer matches locally and remotely at 1,046,372 bytes/SHA-256
+`43e23a00ec23e95073e49edfa4c0a253521a74862070f2341d9e1ed71adfea36`;
+the fresh ext4 extraction has 638 files and the remote test-file hash matches
+`374f8a3a…`. The first full VM run is retained but fails because the wrapper
+repeated the already-known `umask 077` mistake: deliberately permissive mode
+fixtures became 0600, causing unsafe-mode and exact-0644 socket/address tests to
+exercise different inputs. The nine-stage matrix itself passes all subtests.
+Mode-0600 transcript `g6-oci-postvalidation-rollback-vm-race-first-umask-fail.log`
+is 147,009 bytes/SHA-256
+`59b40720f69b02bfc46425418b2b278c3395a301156eddedc7107b1461976197` with
+981 run entries, 965 pass lines, zero skips, and suite exit 1. No completion
+claim is derived; rerun requires `umask 022` and a separately presecured log.
+
+The corrected exact-commit VM suite passes with ordinary fixture umask and a
+presecured mode-0600 transcript. Retained
+`g6-oci-postvalidation-rollback-vm-race-pass.log` is 146,004 bytes/SHA-256
+`20a3f6a2079a7a63536318c4b0ebebf5ed8d1e61318128f84b4f2b54e6e73652`:
+981 run entries, 981 pass lines, 22 successful packages, zero skips, and zero
+failures. All nine rollback stages execute on ext4 and pass. The credential
+scan returns zero matches. Together with installed-service live evidence
+`c409237a…` for canonical pre-allocation rejection, positive-control workload,
+and exact resource return, this closes the composite unsupported-OCI/partial-
+ownership cleanup checklist row.
+
+Independent post-qualification audit also passes. Private transcript
+`g6-oci-final-resource-audit.log` is mode 0600/12,607 bytes/SHA-256
+`29340822f6c5c5078bd078ac3fa1358cc052b52fd1524199e369158b25788e5f`.
+It rebinds running mkruntimed PID 19810 to exact selected `11a65f08…` and hash
+`0e1c87c3…`, proves no pool or child, and reports every one of the 19 audited
+resource categories at zero. mkruntimed, mknetd, containerd, and Docker remain
+active/running at PIDs 19810/15841/1485/1528 with `NRestarts=0`. Credential
+scanning returns zero matches. The checklist now contains 34 closed and 51
+open top-level rows; broader G4-G6 completion remains unfinished.
+
+The repository documentation/evidence gate passes after the closure update:
+local-link structure, 7 runtime schemas/22 cases, 17 current evidence
+manifests, the 95-case OCI validator, bind/bootstrap/rootfs/storage/image
+fixtures, release/deployment lifecycle checks, GCE ledger, evidence capture,
+containerd config, and final G4-G6 evidence audit all pass. One local socket
+fixture remains explicitly skipped for sandbox `EPERM`; the exact VM Go suite
+already runs with zero skips.
+
+Packaging closure audit selects the next concrete gap: immutable binary and
+support managers have full alternate-root tests, but the G6 row still lacks a
+privileged live rollback/forward-restoration transcript. Initial preflight
+correctly changes nothing: manager CLIs are not published under the assumed
+`/usr/local/libexec/multikernel` paths. Current selectors remain binary
+`11a65f08…` and support `b4d185c6…`; mkruntimed PID 31453 hashes to exact
+candidate `0e1c87c3…`, reports full revision `11a65f08…`, and has
+`NRestarts=0` with start timestamp 06:48:49 UTC. Read-only exact-source binary
+manager inspection reports all managed links valid and 15 preserved releases.
+The ordinary-user support inspection is intentionally non-evidence because
+the manager rejects `/etc` ownership; a root-owned hash-verified temporary copy
+is required before privileged inspection or activation.
+
+The coherent retained rollback pair is confirmed before mutation: binary
+revision `1edd368f…` with daemon/shim/mknetd SHA-256 `c7090da6…`/
+`45fd9f3a…`/`d5cd8aff…`, and support deployment `25e6d343…` with builder
+SHA-256 `0ded581c…`. ctr and Docker inventories are empty. Root-owned temporary
+manager copies match exact-source SHA-256 `39026a02…` and `ec38d8d2…`; support
+inspection reports seven deployments and all 21 links valid. Fail-safe live
+harness commit `6194e02` (full `6194e02bc2b9e5596075b2bc5fbf3fd2be311863`)
+has script SHA-256 `642e382b…`; execution remains pending.
+
+The first harness run is retained as a pre-mutation tooling failure. The
+root-owned binary manager lacked its required sibling
+`runtime-release-manifest.py`; `restore_required` was still zero, and follow-up
+proves both selectors, all four service PIDs/states, and zero restart counts
+unchanged. Transcript `g6-packaging-rollback-live-first-manager-dependency-fail.log`
+is mode 0600/4,697 bytes/SHA-256
+`1feda951d90987977926ad6fc18b179d84a58fc72dd495c4f17e413168ecfcf2`.
+The dependency is now root-owned mode 0644 with exact-source SHA-256
+`4ae16ce4…`; binary inspection succeeds with candidate active, 15 releases, and
+all links present/managed. No rollback claim comes from the failed run.
+
+The restarted-instance packaging preflight remains non-mutating and passes.
+Both selectors still name candidate binary `11a65f08…` and support deployment
+`b4d185c6…`; mkruntimed, mknetd, containerd, and Docker are active with
+`NRestarts=0`. The uploaded qualifier exactly matches hardening commit
+`4c33b7198209560d7b36ace692576031158f65cb` and SHA-256 `1c8f836b…`.
+Its root-owned binary/deployment managers remain mode 0755, while sibling
+`runtime-release-manifest.py` is mode 0644 and retains exact SHA-256
+`4ae16ce4…`. Commit `4c33b71` replaces a `grep -q`/`pipefail` combination with
+a consuming fixed-string check so a successful containerd dump cannot be
+misreported as a SIGPIPE failure. Live rollback/forward execution is next.
+
+The next live run uncovers a genuine packaging integration gap after safely
+activating and identifying the rollback generation. Old selectors, full
+revision `1edd368f…`, running daemon SHA `c7090da6…`, public shim SHA
+`45fd9f3a…`, support builder SHA `0ded581c…`, all service states, and Docker
+default `runc` pass. The run then finds no multikernel entry in
+`containerd config dump`; direct inspection shows `/etc/containerd/config.toml`
+does not exist, so the managed `conf.d` fragment is not loaded. The EXIT trap
+restores candidate selectors `11a65f08…`/`b4d185c6…`; independent follow-up
+binds PID 2618 to candidate daemon SHA `0e1c87c3…`, shows all four services
+active with zero restarts, six container/task inventories at zero, and no
+pool or child. Retained non-passing transcript
+`g6-packaging-rollback-live-second-containerd-config-fail.log` is mode 0600,
+27,566 bytes, SHA-256
+`1dc4121d934eeb8b672ae038cb648d5c5bf58a28bafa9b5592e0c8e3cb915aa3`.
+The packaging row remains open pending an installer-level containerd config
+integration fix and a fresh rollback/forward run.
+
+Containerd inspection narrows that gap to the documented fresh-host operator
+step: version 2.2.2's generated full default already imports
+`/etc/containerd/conf.d/*.toml`; no product-side partial-config merger is
+needed. On the idle host, the complete generated candidate is parsed through
+containerd before installation and proves default `runc`, `io.containerd.runc.v2`,
+and named `multikernel` type `io.containerd.multikernel.v2`. Atomic mode-0644
+installation yields `/etc/containerd/config.toml` SHA-256 `54a1d02d…`; its
+selected versioned fragment is mode 0644/SHA-256 `54c85792…`. After restart,
+the live dump proves the same default and named runtime, Docker still reports
+default `runc`, default/moby tasks and containers are all zero, and containerd
+reports `NRestarts=0`. Private transcript
+`g6-containerd-fresh-host-config-pass.log` is mode 0600/3,225 bytes/SHA-256
+`20417ecae26f2c7863bd9742634ddf540e3ef8e816e37207e3ef2ff8a5fb4437`;
+its credential-pattern scan is empty. Full generation rollback/forward
+qualification remains required before packaging closure.
+
+The following full qualifier proves the rollback generation and imported
+containerd runtime, but correctly remains non-passing because the first ctr
+call races daemon socket readiness. Systemd reported the old mkruntimed active
+at monotonic 521.708 s; the ctr create occurred before `/run/mkruntimed.sock`
+was published, and the trap began restoration at 522.132 s. This is a harness
+readiness defect: service `active` is not the runtime RPC readiness boundary.
+The trap restores candidate selectors and daemon SHA `0e1c87c3…`; independent
+follow-up finds both runtime sockets, all four services active with zero
+restarts, all six ctr/Docker inventories zero, and no pool or child. Retained
+`g6-packaging-rollback-live-third-service-readiness-fail.log` is mode 0600,
+30,790 bytes, SHA-256
+`ef40e1cd9323ca3770f8337c0d7b0c3f8ade5d650126de9dd4ce7168a90c22fc`.
+The qualifier must wait for both mkruntimed and mknetd sockets after every
+generation activation before it can substantiate rollback workloads.
+
+Qualifier commit `4db2d9cdf7b1bc8d3be354d636ff82032d3e7541` implements that
+readiness boundary: it waits up to 30 seconds for both Unix sockets, asserts
+both are sockets, and records their type/mode/ownership in each generation
+observation. Bash syntax, shellcheck when available, and diff checks pass; the
+script SHA-256 is `2fa3188d…`. A new live run is still required.
+
+The exact `4db2d9c` qualifier now passes the complete privileged packaging
+cycle. It activates rollback binary/support generations `1edd368f…`/
+`25e6d343…`, verifies their selected paths, full binary revision, running
+daemon/public-shim/support-builder hashes, both ready mode-0660 root-owned RPC
+sockets, active services, named containerd runtime, and Docker default `runc`.
+The old-generation workload prints `MK_PACKAGING_ROLLBACK_PASS`; after exact
+19-category cleanup, the manager atomically restores candidate generations
+`11a65f08…`/`b4d185c6…`, repeats every identity/default/readiness assertion,
+and the candidate workload prints `MK_PACKAGING_FORWARD_PASS`. Its final
+cleanup returns all 19 categories to zero with no pool/child and all four
+services active/running at `NRestarts=0`. Private transcript
+`g6-packaging-rollback-live-pass.log` is mode 0600/126,393 bytes/SHA-256
+`15a1d4d931f8047bafda0dd3f42a55e18a9601723ec3246ce0fc067a8641fb59`;
+the wrapper observed exit 0 and credential scanning is empty.
+
+The independent final auditor also exits 0. Its private transcript
+`g6-packaging-final-resource-audit-pass.log` is mode 0600/12,601 bytes/SHA-256
+`c5748c810df83094cc504207099b42c3ac16ae553cb21b05c16f91c5c0519d6b`.
+It binds mkruntimed PID 6485 to selected candidate `11a65f08…` and exact daemon
+SHA `0e1c87c3…`, proves no pool/child and all 19 categories zero, and records
+mkruntimed, mknetd, containerd, and Docker active/running with zero restarts.
+Its credential-pattern scan is empty. A narrow configuration/service audit is
+still being collected before closing the composite packaging row.
+
+The first narrow configuration audit is retained but not used for closure. It
+passes live containerd/Docker named-runtime and `runc`-default checks plus all
+versioned binary and initial support links, then calls `readlink -f` on the CNI
+link without privilege. Root-private deployment ancestry makes that invocation
+return empty. Privileged follow-up proves the link is valid, resolves into the
+candidate deployment, and selects a mode-0644 asset with SHA-256 `7de30fd1…`;
+selectors, active services, and empty task/container inventories are unchanged.
+The non-passing private transcript
+`g6-packaging-config-service-audit-first-permission-fail.log` is mode 0600/
+21,903 bytes/SHA-256
+`88f4c0607677f364f5e37408e7dffe7c318750cecf1ebf2554c6305ab87dccac`
+with an empty credential scan. The corrected audit must resolve all support
+links under sudo.
+
+The corrected live configuration/service audit exits 0. Containerd's parsed
+live dump retains default `runc` and named type `io.containerd.multikernel.v2`;
+Docker's live inventory and `daemon.json` likewise retain default `runc` and
+the opt-in named runtime. Four public executable/CNI paths resolve into exact
+candidate release `11a65f08…`; the mkruntimed/mknetd units, containerd
+fragment, and CNI config resolve into exact support generation `b4d185c6…`.
+Systemd proves mkruntimed requires and follows the multikernel mount and GCE
+guest agent, requires `/srv/multikernel-storage`, and precedes containerd and
+Docker; mknetd follows network-online and also precedes both engines. All four
+services remain active/running with zero restarts. Private transcript
+`g6-packaging-config-service-audit-pass.log` is mode 0600/14,018 bytes/SHA-256
+`72012fcb4901f8d08df8fcd34675f57f74e4cac54c63391e4515795e11ed2e2f`;
+credential scanning is empty. Repository packaging tests and the full evidence
+gate remain before row closure.
+
+Packaging closure gates pass. Docker configuration has 6/6 tests; release
+manifest, immutable binary lifecycle, immutable support-deployment lifecycle,
+and containerd config parsing all pass. The full documentation/evidence gate
+also passes local links, 7 schemas/22 cases, 17 current evidence manifests,
+the 95-case OCI validator, bind/bootstrap/rootfs/storage/image fixtures, both
+packaging managers, GCE ledger, evidence capture, containerd config, and final
+G4-G6 evidence audit. The local socket fixture retains its explicit sandbox
+`EPERM` skip; the privileged packaging evidence is unaffected. Taken together,
+the immutable manager tests, fresh-host containerd transcript `20417eca…`, live
+rollback/forward transcript `15a1d4d9…`, final resource audit `c5748c81…`, and
+configuration/service audit `72012fcb…` substantiate every clause of the
+composite packaging row, which is now closed. Checklist totals are 35 closed
+and 50 open; overall G4-G6 completion remains unfinished.
+
+The next closure target is G4 initramfs reproducibility. New fail-fast live
+qualifier `scripts/test-runtime-initramfs-repro-live.sh` builds an ext4 input
+twice across mtime and sparse-to-dense changes, independently verifies both,
+requires byte-identical archive and manifest, audits normalization/mode/
+hardlink/symlink metadata, and requires a changed-content control to diverge.
+It then executes all 19 builder tests, including corrupt input, capacity,
+no-replace publication, and replacement-preserving rollback. Local execution
+passes with archive SHA `9b2a4f20…`, manifest SHA `cfca02b0…`, divergent
+control hashes `7febef49…`/`a29b223d…`, and 19/19 tests; only the known local
+sandbox socket subcase reports its explicit `EPERM` skip. Script SHA-256 is
+`f1dabbbf…`; exact-commit disposable-VM execution remains mandatory.
+
+The clean archive for qualifier commit
+`7725e171da2a88deeb8be8d9f7d902084ad96667` is 4,730,880 bytes/SHA-256
+`ecfbf93e…` and matches after VM transfer. Fresh ext4 extraction at
+`/var/tmp/mksrc-7725e17` contains 640 regular files. The extracted qualifier,
+builder, verifier, and 19-case suite hash to `f1dabbbf…`, `e1c7234d…`,
+`2cfe4ad8…`, and `f4ecf345…`; live execution is next.
+
+Exact commit `7725e17` VM qualification exits 0 with zero skips. Two ext4
+builds across different mtimes and sparse-versus-dense allocation independently
+verify and remain byte-identical at archive SHA-256 `2532e1b5…` and manifest
+SHA-256 `bf6f3e04…`; the audited manifest retains normalized newc mtime/inode/
+sparse/xattr/device policy plus exact modes, hardlink group, and symlink target.
+A content change diverges at archive/manifest SHA `5850d990…`/`fd059b19…`.
+All 19 focused tests pass as root, covering escaping paths, mutation, held
+roots, FIFO/socket/device/xattr rejection, overlay opacity, uid/gid/modes,
+hardlinks/symlinks, capacity/high-water refusal, verifier corruption, exclusive
+publication, peer rollback, and replacement preservation. Private transcript
+`g4-initramfs-repro-live-pass.log` is mode 0600/9,148 bytes/SHA-256
+`5a1d5ae6765e6bbbfc16218b5c020cdb7ccdf98c9de92490a5d8c00b6165dbf3`;
+credential scanning is empty.
+
+Independent post-run audit `g4-initramfs-final-resource-audit-pass.log` exits 0
+and is mode 0600/12,601 bytes/SHA-256
+`c5748c810df83094cc504207099b42c3ac16ae553cb21b05c16f91c5c0519d6b`.
+It binds the unchanged candidate PID/hash, reports no pool/child and all 19
+resource categories zero, and retains four active/running zero-restart services.
+Its credential scan is empty. This closes the initramfs reproducibility row;
+the full documentation/evidence gate remains to be rerun.
+
+The post-closure repository gate passes: documentation/local links, 7 schemas/
+22 cases, 17 current manifests, 95 OCI cases, bind/bootstrap/rootfs/storage/
+mount/root/image fixtures, release and both lifecycle managers, GCE ledger,
+evidence capture, containerd config, and final G4-G6 audit all pass. The local
+rootfs socket subcase retains the documented sandbox `EPERM` skip; exact-commit
+VM execution above has zero skips. Checklist totals are now 36 closed and 49
+open. Generated bytecode is removed from the worktree.
+
+The adjacent G4 unsafe-input row is now under a separate breadth audit rather
+than inferred from the reproducibility run. New verbose driver
+`scripts/test-runtime-g4-input-boundaries-live.sh` composes exact root-path,
+rootfs archive, ext4 storage, and bind-materialization suites. Its local run
+passes 7 canonical/traversal/symlink/held-root cases, 19 file-type/metadata/
+hardlink/mutation/publication cases, 10 capacity/copy/collision/held-source
+storage cases, and the bind copy/metadata/symlink/mutation/held-source/target
+matrix. The known sandbox socket subcase prints `EPERM`; the committed driver
+must be rerun as root on the VM. Script SHA-256 is `edd56360…`.
+
+Clean driver commit `e81d8ca2d0a31a1df2cbe8f438021a991006f1c0`
+archives to 4,730,880 bytes/SHA-256 `35b2d4a4…`, matching after transfer.
+Fresh ext4 extraction contains 641 regular files and the driver retains exact
+SHA-256 `edd56360…`. Root VM execution is next.
+
+Exact commit `e81d8ca` root execution on VM ext4 exits 0 with zero skips.
+Verbose output names all 36 unittest cases: 7 root canonicalization, relative
+traversal, symlink-component, allowlist, type, and held-anchor cases; 19 archive
+escaping-symlink, FIFO/socket/device/whiteout/xattr/malformed-opacity,
+external-hardlink, metadata, mutation, inherited/held-root, corruption,
+capacity, and publication cases; and 10 ext4 exhaustion, metadata failure,
+collision/replacement, held-directory, and source-copy cases. The separate bind
+matrix passes copy/type/mode/hardlink/symlink, source and target descriptor
+races, mutation detection, limits, and private writable seed isolation.
+Private transcript `g4-input-boundaries-live-pass.log` is mode 0600/7,091
+bytes/SHA-256
+`81b7078a2b3e084a481312f3a183a0983efbf316b2bb8eb90c0b5fc49cea298f`;
+credential scanning is empty.
+
+Independent post-run transcript
+`g4-input-boundaries-final-resource-audit-pass.log` exits 0 and is mode 0600/
+12,601 bytes/SHA-256
+`c5748c810df83094cc504207099b42c3ac16ae553cb21b05c16f91c5c0519d6b`.
+It retains exact candidate PID/hash, no pool/child, all 19 resource counters at
+zero, and four active/running services with zero restarts; credential scanning
+is empty. This closes the composite unsafe-path/type/metadata/mutation row.
+
+The post-closure full repository gate passes again with the same schema,
+manifest, 95-case OCI, G4 fixture, packaging, GCE-ledger, capture, containerd,
+and final-evidence coverage. The documented local socket `EPERM` is covered by
+the zero-skip VM transcript. Checklist totals are 37 closed and 48 open;
+generated test bytecode is removed.
+
+Architecture-before-allocation is the next G4 target. New live qualifier
+`scripts/test-runtime-image-architecture-live.sh` strictly validates the
+actual selected kernel manifest, records its digest/release and counts of
+required config/OCI features, binds a real x86-64 BusyBox hash to those exact
+values, requires an AArch64 executable control to reject, and runs held-root/
+held-child fixture coverage. Syntax/shellcheck and the local image suite pass;
+script SHA-256 is `6ff46cb5…`. Actual-manifest VM execution is still open.
+
+Clean qualifier commit `f83ff2178738751e87d12cd5e19c4eeec42e8c4a`
+archives to 4,730,880 bytes/SHA-256 `9cfeb51d…`, matching on the VM. Fresh
+ext4 extraction contains 642 regular files and exact qualifier SHA-256
+`6ff46cb5…`; privileged actual-manifest execution is next.
+
+Exact commit `f83ff21` privileged VM qualification exits 0 with zero skips.
+Strict bootstrap validation proves the real selected manifest SHA-256
+`1d79c564…`, amd64 architecture, kernel release `7.0.0-mk2-gce-lab`, four
+required configs (`CONFIG_MULTIKERNEL`, VSOCKETS, EXT4, and modular NBD), and
+18 OCI features while also validating root ownership, artifact hashes, pinned
+compatibility, x86-64 binaries, and transport-module vermagic. Real BusyBox
+SHA `8d4e5a13…` binds to those exact manifest values. An executable AArch64
+control rejects with status 1 and the expected architecture diagnostic; the
+ELF/interpreter/escape/held-root/held-child fixture suite passes. Private
+`g4-image-architecture-live-pass.log` is mode 0600/5,558 bytes/SHA-256
+`7fa430c243ab4d764d9b9866fc1e7e5b0fcea899ac48643886417077c89cc3e2`;
+credential scanning is empty.
+
+Independent `g4-image-architecture-final-resource-audit-pass.log` exits 0 and
+is mode 0600/12,601 bytes/SHA-256
+`c5748c810df83094cc504207099b42c3ac16ae553cb21b05c16f91c5c0519d6b`.
+It proves the rejection created no pool/child or any of 19 residual resource
+types and left the exact candidate plus four zero-restart services unchanged.
+Credential scanning is empty. This closes the architecture/kernel-feature
+binding row.
+
+The post-closure full repository gate passes again across links, schemas,
+17 current manifests, 95 OCI cases, G4 fixture suites, packaging managers,
+GCE ledger, capture, containerd config, and final evidence audit. The local
+socket `EPERM` is covered by the zero-skip VM evidence. Checklist totals are
+38 closed and 47 open; generated bytecode is removed.
+
+Before proceeding to caller-snapshot qualification, GCE reports the retained
+instance `RUNNING` with start timestamp `2026-10-03T06:53:49.759-07:00` and
+boot ID `304feec7…`. Docker, containerd, mkruntimed, and mknetd are active with
+zero recorded restarts. The first readiness command used the nonexistent
+`/run/mkruntime/` socket directory and therefore stopped before its final
+marker; that probe-path mistake is retained as a harness failure and supplies
+no product claim. Privileged enumeration instead proves mode-0660 root-owned
+`/run/mkruntimed.sock` and `/run/mknetd.sock`, held by the expected daemons.
+The caller-snapshot row remains open pending focused fault tests and live
+before/after source identity and digest evidence.
+
+Read-only runtime inventory identifies the exact live subject before any test
+task is created. The `default` and `moby` namespaces both cache BusyBox 1.36 at
+OCI index digest `sha256:73aaf090…`; each snapshotter inventory contains one
+parentless committed snapshot, `sha256:97e4ece8…`, and Docker reports the same
+index. This is candidate identity evidence only. The selected linux/amd64
+manifest, snapshot mount projection, and before/after metadata/Merkle equality
+are still required.
+
+Direct `ctr snapshots mounts` inspection of the committed key rejects with
+`failed precondition` because the command exposes only active or view mounts;
+no snapshot or mount was created. The qualifier will therefore create and
+clean a temporary read-only image view for mount-table and source-manifest
+capture, rather than treating the committed key as directly mountable.
+
+The first temporary view proves the committed filesystem is exposed as an
+ext4 read-only mount and records root inode 6035824, BusyBox inode 6035832, and
+a normalized 442-entry manifest digest `65714ed0…`. Cleanup inspection then
+found that `ctr images unmount` leaves its view snapshot metadata behind. The
+exact test-owned view was explicitly removed and a second inventory proves
+only committed snapshot `97e4ece8…` remains with no probe mount. The final
+harness must trap unmount and snapshot-view removal separately.
+
+The new caller-snapshot qualifier combines OCI index/amd64 manifest/config/
+diff-ID binding, temporary read-only view manifests, descriptor and unmount
+fault tests, both root-path forms, guest mutation, retained build-result
+inspection, and exact cleanup. Syntax and diff checks pass; this workstation
+lacks `shellcheck`. A first local Go command ran no tests because its default
+cache was read-only; an isolated `/tmp` cache then passes all 11 focused rootfs
+cases plus shim mount sanitization under the race detector. A live read-only
+`ctr snapshots info` query additionally showed capitalized `Kind` and `Name`
+and no `Parent` key, which the harness now validates correctly. VM execution
+has not started and the row remains open.
+
+The qualifier-only commit is
+`49bb985182eb4a82164278f0beb29eb706c1dc3a`. Its 4,751,360-byte exact Git
+archive hashes to `32d61a2b…`, while the committed driver hashes to
+`ab52789b…`. Running evidence notes and retained evidence were intentionally
+not included in that source commit. Upload and live execution remain pending.
+
+The VM copy matches archive SHA-256 `32d61a2b…`; its fresh extraction at
+`/var/tmp/mksrc-49bb985` contains 643 regular files. The mode-0775 ordinary-
+user-owned qualifier matches `ab52789b…` and passes VM `bash -n`.
+`shellcheck` is absent there too. No live workload has run yet.
+
+The first live invocation is retained as non-passing. Its explicit preflight
+cleanup used `set +e` in the parent shell, disabling fail-fast; containerd
+2.2.2 also lacks `ctr snapshots ls -q`. The run was interrupted as soon as the
+transcript exposed that combination. Although OCI digest binding, focused VM
+race tests, and the first read-only manifest all succeeded, no closure claim is
+taken from a fail-open driver. The interruption left only named test object
+`mk-snapshot-relative` and its active snapshot, with no child; targeted removal
+and idle daemon restart restored the sole committed snapshot, empty task,
+container, rootfs-record, and child inventories, and four active zero-restart
+services. Private `g4-caller-snapshot-live-first-harness-fail.log` is mode 0600,
+50,894 bytes, SHA-256 `87275953…`. Cleanup is now a subshell and snapshot-list
+capture uses supported table output.
+
+The isolated correction is commit
+`bcd7ad7025417c7a8da0864e0484a3f6c9bc1146`, with driver SHA-256
+`3249db88…`. Its 4,751,360-byte exact archive hashes to `a0dedf40…`; the rerun
+will use a fresh extraction rather than modifying the first VM source tree.
+
+The corrected VM archive and driver match those hashes in a fresh 643-file
+`/var/tmp/mksrc-bcd7ad7` extraction and pass `bash -n`. Rerun remains next.
+
+The second run fails closed only because the harness equated Docker's active
+caller root with the pristine committed base. The relative ctr path completes:
+its build scans equal the independently captured 442-entry `65714ed0…`
+manifest, while private guest mutation changes `/etc/passwd` and creates the
+new root marker. Docker proves the absolute path and equal build before/after
+digest `e9573a41…` across 452 entries; its ten additional entries exist before
+runtime handoff. Trap cleanup returns both namespaces to their sole committed
+snapshot and zero task/container/rootfs/network/child state with all services
+healthy. Private second transcript is mode 0600/71,325 bytes/SHA-256
+`868bc5b8…`. The harness now independently rescans Docker's exact live caller
+root after guest mutation and compares that result to Docker's own retained
+before/after build scans.
+
+That correction is exact commit
+`fe9a2deefffad48ae5aa17c91b3ff6330a7e12e9`, driver SHA-256 `51f98998…`;
+its 4,751,360-byte archive hashes to `e390030a…`. A fresh VM tree and rerun are
+still required.
+
+The archive and driver match in fresh 643-file `/var/tmp/mksrc-fe9a2de`, and
+VM `bash -n` passes. The third run is next.
+
+Exact `fe9a2de` qualification exits 0. It binds the OCI index to selected
+amd64 manifest/config/layer and committed diff-ID snapshot, passes the 11
+focused rootfs failure/recovery cases plus shim sanitization under `-race`, and
+observes both root forms. Relative ctr build scans equal the independently
+captured 442-entry `65714ed0…` manifest. Absolute Docker scans are equal at
+452-entry `e9573a41…`, and a new independent scan of the exact still-live
+caller overlay after guest mutation matches. Both guests demonstrably mutate
+their private `/etc/passwd` and create a new root marker. The committed source
+view remains byte-identical before/after at `65714ed0…`, its sole snapshot key
+stays `97e4ece8…`, and all 19 runtime-resource counters finish zero with four
+healthy zero-restart services. Remote private transcript is mode 0600/136,343
+bytes/SHA-256 `33e1d92e…`; local retention and an independent audit remain.
+
+The local retained pass transcript matches mode 0600/136,343 bytes and SHA-256
+`33e1d92e…`; credential-pattern scanning is empty. A first independent-audit
+launch ran no audit because the restarted host no longer had the old `/tmp`
+script. Its wrapper also omitted `set -e`, continued past the failed existence
+test, and exited 127. No audit claim is taken; the script will be recreated and
+hash-verified before a fail-closed run.
+
+The independent audit then runs from exact `fe9a2de` source after its
+`bc5e2f7d…` script hash is verified. It exits 0 after the operator restart on
+new boot `c5537cb9…`, binds live mkruntimed PID 1522 to candidate SHA
+`0e1c87c3…`, finds no Kerf pool or child and all 19 resource counters zero,
+and records four active/running zero-restart services. Private retained
+`g4-caller-snapshot-final-resource-audit-pass.log` is mode 0600/15,227 bytes/
+SHA-256 `e169a3da…`; its credential scan is empty. Repository gates remain
+before row closure.
+
+The post-closure full repository gate passes documentation/links, all schema
+and current evidence-manifest checks, the 95-case OCI boundary, G4 fixture
+suites, release/deployment managers, GCE ledger, capture, containerd config,
+and final evidence audit. The known local socket `EPERM` is covered by the
+zero-skip VM run. Both the caller-snapshot implementation row and exact
+replacement-instance snapshot-evidence row are now closed; checklist totals
+are 40 closed and 45 open. Generated Python bytecode was removed.
+
+The post-qualification VM remains on boot `d9cdfa98…`; mkruntimed PID 9410,
+containerd 1480, Docker 1519, and mknetd 1227 are active/running with zero
+service restarts. ctr and Docker have zero running tasks. Exact procfs command-
+name enumeration finds zero multikernel shim, `nbdkit`, or `mk-agent-relay`
+processes. A preceding `pgrep -f` value was discarded because the audit command
+matched itself and is not used as evidence.
+
+The next open-row audit confirms that writable-root ownership is explicit,
+durable, and generation-bound rather than an accidental consequence of one
+private initramfs. `rootfs.Store` refuses concurrent records claiming the same
+bundle or storage port. `storage.Service` binds state to sandbox ID/generation,
+mints a distinct export generation, rejects stale release and conflicting live
+generations, and retains ambiguous `PREPARING` and `QUIESCING` ownership for
+exact recovery. The Linux backend validates the exact image inode beneath a
+held private parent, passes the exclusively locked open file description as fd
+3 to `mkvsock-nbd`, and holds a separate exclusive lock for the complete
+offline check. Existing race tests include direct contention and prove the
+lock becomes available only after exact server/checker exit. This inventory is
+not yet disposable-host closure: an exact-source live run must record durable
+generations, actual image-lock contention and later release, stale/conflicting
+generation rejection, cleanup, and an independent post-run resource audit.
+
+A read-only probe on restarted boot `c5537cb9…` confirms that deployed storage
+state is version 2 with top-level `exports`, not `records`. It retains 183
+historical exports while idle, whereas ephemeral `/run/mkstorage` is absent.
+The compound probe exits 1 only because its final `find` receives that expected
+absent directory. This exposes an older evidence helper's ineffective
+`records` lookup before reuse. The replacement qualifier must select exactly
+one non-`RELEASED` object from `exports` during the workload and treat retained
+released history separately from live ownership and resource cleanup.
+
+New `scripts/test-runtime-single-owner-live.sh` composes durable rootfs,
+storage-export, and process-record identity; the deployed server's fd-3 inode;
+a real competing exclusive-lock attempt; later lock acquisition through the
+same descriptor after the pathname has been unlinked; exact release generation
+and offline-check evidence; and cleanup. Its focused local race run passes
+duplicate bundle/port/path/UUID/owner, state transition, stale/conflicting
+generation, ambiguous recovery, server/offline-check contention, stale
+artifact, and absent-runtime-directory cases. Shell syntax and diff checks
+pass; `shellcheck` is unavailable locally. Review found one harness-only issue
+before execution: durable export map keys contain an embedded NUL and cannot be
+carried by a shell variable. The driver now carries sandbox ID and generation
+separately and reconstructs the exact key inside Python. There is no live claim
+from this still-unexecuted script.
+
+The qualifier is isolated as exact commit
+`287a817f73054c8eff0efce980c83e5a6bd28e62`; its executable script hashes to
+`80969159…`, and its 4,761,600-byte Git archive hashes to `ce8dec4e…`. The
+running documentation and existing evidence trees are intentionally outside
+that commit. Fresh VM transfer, hash verification, and execution remain.
+
+Exact-source transfer succeeds on restarted boot `c5537cb9…`: remote archive
+and driver hashes match, the fresh tree has 644 files, and VM shell syntax
+passes. The first run fails closed before creating any task. Rootfs/store/
+service generation tests pass, but three real-ext4 backend fixtures reject
+their images as sparse because Go's default `t.TempDir()` selects VM `/tmp`, a
+tmpfs. Production storage is ext4 on `/dev/sdb`; `/var/tmp` is root ext4. Trap
+cleanup therefore has no workload to remove. Private retained failure log
+`g4-single-owner-live-first-tempfs-sparse-fail.log` is mode 0600/19,236 bytes,
+SHA-256 `56c325e5…`, with an empty credential scan. A first follow-up final-audit
+invocation was incorrectly prefixed with `sudo`, so the explicitly ordinary-
+user-only audit exited 1 and contributes no audit claim; the preceding
+filesystem mount probes are valid. The qualifier now gives Go both an ext4-
+backed `/var/tmp` `TMPDIR` and isolated cache before rerun.
+
+The corrected ordinary-user audit then exits 0: the boot and candidate daemon
+identity are unchanged, Kerf has no pool or child, all 19 resource counters
+are zero, and the four services are active/running with no restarts. The
+two-line ext4-fixture correction is isolated in commit
+`a39896e3dd10e1fe3e567335921ebef8c6596a4f`; driver SHA-256 is `3e121076…`,
+and the 4,761,600-byte archive SHA-256 is `127c7011…`. Transfer and fresh rerun
+remain.
+
+The freshly verified `a39896e` rerun passes all focused race tests and reaches
+one durable rootfs owner plus one active export, then fails closed in evidence
+parsing. `/proc/<pid>/comm` is not guaranteed to say `mkvsock-nbd` because the
+daemon execs the pinned binary through `/proc/self/fd/4`; that display name is
+not part of process authentication. Private retained transcript is mode 0600/
+24,637 bytes/SHA-256 `45c4099a…`, with an empty credential scan. Trap cleanup
+removes the task and all live durable ownership, but the first independent
+audit correctly finds the idle daemon's Kerf pool still configured. After
+confirming zero live exports and rootfs records, an idle mkruntimed restart
+releases the pool; the repeated audit passes all 19 zero counters and four
+healthy zero-restart services (SHA-256 `dcbbe91f…`). The evidence parser now
+asserts the real authentication invariant: `/proc/<pid>/exe` device/inode must
+equal the durable binary identity, alongside fd 3's exact image identity.
+
+The executable-identity correction is isolated as exact commit
+`69e9ea947a22ba3cfc0c72950d4d4631671bf71a`; driver SHA-256 is `5f1f6fce…`
+and its 4,761,600-byte archive SHA-256 is `e77ae19e…`. Fresh transfer and rerun
+remain.
+
+The current capacity/ENOSPC audit records the boundary before further work.
+The storage builder has two host free-byte high-water checks (before staging
+and after the private copy), a fully allocated `posix_fallocate` image, equal
+declared byte quota, a declared and superblock-verified inode limit, and focused
+tests for pre-allocation refusal plus natural ext4 block/inode exhaustion with
+no output, metadata, or staging residue. The initramfs builder separately
+limits payload bytes and entries and checks output-filesystem high water. These
+tests do not yet inject host `ENOSPC` at staging copy, allocation/fsync, ext4
+tool, image publish, metadata write/fsync/publish, or initramfs archive/manifest
+boundaries, and the host side has no free-inode reserve policy. Accordingly no
+new row is closed: boundary-complete failure tests and exact-source live
+qualification remain required.
+
+The first implementation checkpoint adds free-inode high-water reserves to
+both builders and production wrapper defaults. Storage accounts for the
+admitted clone and staging/output objects before copy and rechecks remaining
+output needs after staging; initramfs accounts for its archive/manifest pair or
+single manifest-only output. Refusal tests leave no artifacts. This review also
+found that `runtime_safe_publish.atomic_write` learned its temp inode only after
+write, flush, and fsync, so an earlier ENOSPC could strand the temp. It now
+captures identity immediately after `mkstemp`, revalidates it before publish,
+and removes only that inode on every failure. Injected write, fsync, and link-
+publication ENOSPC tests leave neither public nor private attempt artifacts;
+the 10-case storage and 19-case initramfs suites remain green apart from the
+known local socket-permission skip. Builder-specific boundary injection and
+live qualification are still pending.
+
+The builder-specific injected matrix now passes with 11 storage and 20
+initramfs cases. Storage exercises staging allocation, copy, image allocation,
+image fsync, `mke2fs`, `e2fsck`, image publication, and metadata creation
+ENOSPC, with no public outputs, staging tree, or private temp after each case;
+the existing debugfs failure covers its metadata-normalization step. Initramfs
+metadata ENOSPC after archive publication removes that exact archive, while
+the shared-publisher cases cover write, fsync, and publication failure for
+either output. This is deterministic boundary coverage, not yet real host
+exhaustion or live-runtime evidence. Both rows remain open until a constrained
+filesystem replay and independent resource audit pass.
+
+An unexecuted live qualifier now mounts real byte- and inode-constrained tmpfs
+filesystems. Normal calls must prove both high-water policies leave an empty
+mount. A separate helper overrides only the admission reading, after which the
+unchanged builders must receive real kernel ENOSPC during storage
+`posix_fallocate`, storage copy inode allocation, initramfs archive writing,
+and initramfs manifest inode allocation; success additionally requires that no
+public or private attempt artifact survives. Full 19-counter audits bracket
+the run. The driver hashes to `368ad6d5…`, the helper to `e256d6d6…`, and
+local syntax/compile plus the 1/11/20 focused suites pass. This is candidate
+design provenance only; no VM result is claimed.
+
+The full repository gate passes with 20 initramfs, 11 storage, and one direct
+publisher case, along with all schema, OCI, deployment, and evidence gates.
+Generated bytecode was removed and the diff check is clean. A first attempt to
+freeze only source/tests/Plan 04 made no change because `.git` is read-only in
+the current sandbox and Git could not create `index.lock`; the running ledgers
+and existing evidence trees were not staged.
+
+The identical scoped file list is now frozen as commit `97bcae5`; neither
+running ledger nor evidence tree entered the commit. The exact Git archive
+hash is `2b3c836f…`, and the driver/helper/publisher-test hashes remain
+`368ad6d5…`, `e256d6d6…`, and `21044321…`. Upload and guest verification are
+not yet claimed.
+
+The VM independently matches the 4,792,320-byte `2b3c836f…` archive and all
+three script hashes in a fresh 648-file extraction. Syntax/compile checks pass
+on unchanged boot `c5537cb9…`, and all four services are active. This is
+transfer provenance, not live capacity evidence.
+
+Exact `97bcae5` execution then passes. The focused 1/11/20 suites are green;
+normal calls prove byte/inode high-water refusal, and real constrained mounts
+deliver kernel ENOSPC during storage image allocation, storage staging-copy
+inode allocation, initramfs archive writing, and its second output after 30
+filler inodes. Every case leaves no attempt artifact. Bracketing full audits
+show all 19 counters zero, no Kerf state, candidate `0e1c87c3…`, unchanged
+boot `c5537cb9…`, and four healthy zero-restart services. Remote transcript is
+mode 0600/82,525 bytes/SHA-256 `f216d797…`, exits 0, and has an empty
+credential scan. Local retention remains before any row closes.
+
+The locally retained transcript exactly matches mode 0600, 82,525 bytes and
+SHA-256 `f216d797…`; its second credential scan is empty and every named
+high-water, real-ENOSPC, audit, suite, qualifier, and exit marker is present.
+The focused capacity/accounting checklist row is therefore closed. The broader
+fault matrix stays open for interrupted copy and remaining non-capacity
+corruption/generation combinations.
+
+The post-closure full repository gate passes, the diff check is clean, and
+four generated bytecode files are removed. Checklist totals are now 44 closed
+and 41 open.
+
+The next composite-row audit confirms that prior single-owner evidence already
+covers stale/conflicting generations, duplicate claims/attach, real lock
+contention, and release; the capacity pass supplies block/inode exhaustion,
+high water, and builder allocation failures. What is not yet proved is an
+actual signal-interrupted staging copy (the current injected copy case is a
+generic nonzero result) and VM selection of the existing ext4 wrong-UUID
+backend tests. Those two gaps remain explicit before implementation.
+
+The copy gap is now implemented without a production failpoint: the builder's
+copy executable is selectable for testing but defaults to `/bin/cp`; a helper
+writes one partial staged file and dies by `SIGKILL`. The parent observes
+status `-9` and removes exact staging/output state. All 12 builder cases pass
+and the live driver prints this test by name, then selects wrong-UUID,
+conflicting-generation, and single-owner Go cases under `-race`. A first local
+Go attempt ran no tests because the sandbox default cache is read-only; it will
+be repeated with an isolated writable cache.
+
+The isolated-cache retry passes all four selected storage tests under the race
+detector: pristine/current wrong-UUID inspection, quota/clean-state identity,
+generation-bound single ownership, and conflicting live-generation refusal.
+VM execution and the full repository gate still remain.
+
+The full gate now passes with 12 storage cases. Commit `0672fa1` isolates the
+four changed source/test files; its 4,792,320-byte archive is `56140248…`, and
+driver/helper/storage-test hashes are `6495ebc2…`, `c9b04fca…`, and
+`8a92c62f…`. Findings and evidence remain outside the commit. Upload and VM
+execution are pending.
+
+The current documentation gate passes after the exact-current initramfs row
+closure, with 47 checklist rows closed and 38 open; generated bytecode is
+removed. A fresh source trace of the storage teardown path establishes that
+the shim authenticates guest `Quiesce` before `Shutdown`, and that mediated
+guest shutdown orders sync, read-only root remount, sync, `/dev/nbd0`
+disconnect, and poweroff. Disconnect failure suppresses poweroff. On the
+primary, release accepts counters only from the exact generation's canonical
+terminal `MKNBD_SERVER_CLOSED synced=1` record and then performs the locked
+offline check. Existing live evidence proves final `RELEASED` state, counters,
+offline check, and clean inventory, but does not retain the guest disconnect
+console marker or directly join it to the server close. The teardown row is
+therefore deliberately still open pending an ordered live transcript.
+
+The restarted disposable VM is `RUNNING` on the same `c5537cb9…` boot and
+`0.1.0-dev-11a65f08…` selector. The first read-only service/Kerf probe is not
+evidence: local double-quote expansion erased the remote service-loop variable,
+so systemd rejected an empty unit name before health or Kerf output was
+collected. This is recorded as a qualifier quoting failure and will be rerun
+with literal remote quoting.
+
+The corrected read-only probe finds all four services active with zero
+restarts and no Kerf pool or instance. Kerf is configured at
+`/opt/mkruntime/kerf-venv/bin/kerf` (not sudo's secure PATH), `/dev/mktty` is a
+root-owned 0600 character device, and `kerf console NAME` can attach to the
+running child. The guest now prints a bounded root-quiescence success marker
+only after sync/remount-read-only/sync completes, complementing the existing
+post-ioctl NBD disconnect marker. Ten race-enabled mk-agent repetitions pass.
+The accompanying gofmt invocation had incorrectly doubled the `runtime/`
+prefix from inside that directory and produced three `lstat` errors, so it is
+classified as a local harness-path failure; formatting is not claimed until
+the corrected command runs.
+
+The corrected gofmt and another ten race-enabled package repetitions pass,
+followed by the full documentation/runtime gate and clean diff check. The only
+reported skip is the already classified sandbox-local socket `EPERM`; its live
+VM execution is separately zero-skip. Generated bytecode is removed. The
+three marker source/test files are ready for an isolated commit; ledgers and
+evidence stay outside it.
+
+Commit `e396511` freezes exactly those three mk-agent files. The exact
+tracked-source archive is 4,792,320 bytes/SHA-256 `8dccf1fa…`, stamped from
+full revision `e396511c18ad3faa78c3080de477ce11e265f1d0`; learning documents and
+existing evidence are excluded. No guest build, activation, or live result is
+yet claimed.
+
+Later exact-build notes above retain the corrected manifest hashes. Binary
+installation now selects immutable release
+`0.1.0-dev-e396511c18ad3faa78c3080de477ce11e265f1d0`; empty-host restarts leave
+all four services active with zero restarts, running mkruntimed matches
+`29dc06dd…`, and Kerf remains empty. The focused qualifier (`4b9b84e5…`)
+writes/syncs live mediated-root data, attaches the exact child console, emits
+only fixed safe quiesce/disconnect observations, checks their line order,
+authenticates the generation-specific terminal `synced=1` log and durable
+offline check/counters, proves exact artifacts are removed, and returns the
+idle pool by deliberate daemon restart. Raw console bytes never enter retained
+stdout. Syntax, optional ShellCheck, and diff checks pass; execution remains
+pending.
+
+The first immutable run is retained mode 0600/105,658 bytes/SHA-256
+`8524fff5…` with exit 1. Exact hash, clean pre-state, candidate provenance,
+and an ACTIVE generation are proved, and normal deletion returns, but the
+post-start Kerf console attachment sees neither fixed marker within its bound.
+The trap removes the private raw console without printing it. This is a
+console-capture evidence failure, not proof of a teardown failure; no row is
+closed while initramfs agent provenance and attachment timing are diagnosed.
+
+The bootstrap manifest directly explains the miss: it still selects the
+`1f81cb2…` guest-agent artifact with SHA-256 `c79210c6…`, not new agent
+`b57bae66…`. Host binary activation does not rewrite that independent
+kernel/bootstrap artifact contract. A follow-up read-only command then passed
+the complete `{path,sha256}` JSON object to `sha256sum` instead of
+`.agent.path` and stopped before its remaining audit; that probe-shape error is
+recorded separately. The manifest mismatch itself is conclusive, and a managed
+artifact update plus corrected audit is required before replay.
+
+The corrected audit matches the old agent's declared/observed `c79210c6…`
+against candidate `b57bae66…`. The same failed-capture workload nevertheless
+has an authenticated clean teardown: durable `RELEASED`, offline-check digest
+`bf24cda1…`, 285 reads/10,452,992 bytes, 49 writes/696,320 bytes, nine flushes,
+and an exact generation terminal `synced=1` line with the same counters. All
+services are healthy, no child remains, and the 16-GiB pool is retained idle
+by policy. This proves the runtime teardown occurred but not the new guest
+marker; the row remains open.
+
+The first manifest update fails closed before activation: strict bootstrap
+validation refuses a candidate JSON whose parent is world-writable
+`/var/tmp`. The new root-owned immutable directory already contains the agent
+and rollback manifest, while the active `1d79c564…` manifest is unchanged.
+The rejected temporary JSON will be removed exactly, and candidate validation
+will be repeated from the trusted artifact directory.
+
+Trusted-parent retry validates before and after atomic selection. The active
+manifest is `d4230978…`, rollback is preserved as exact `1d79c564…`, and the
+new immutable agent is a root-owned single-link 0755 regular file whose
+declared and observed hashes both equal `b57bae66…`. The builder resolves this
+manifest anew per task, so replay can proceed without a daemon restart.
+
+The unchanged qualifier then passes with the exact candidate agent. Its safe
+console observations prove quiescence at line 7 before NBD disconnect at line
+9. The exact generation closes with `synced=1`, 281 reads/10,452,992 bytes, 49
+writes/692,224 bytes, and nine flushes; durable `RELEASED` state repeats those
+counters and records clean offline-check digest `bf24cda1…`. Exact record and
+backing image disappear, the pool returns, and services remain healthy.
+Retained transcript is mode 0600/30,921 bytes/SHA `8e7d93e0…`, exit 0, with an
+empty credential scan. Independent mode-0600 audit is 14,362 bytes/SHA
+`49f4e2e2…`, exit 0, empty credential scan, all 19 counters zero, no
+pool/child, candidate daemon exact, and four active zero-restart services.
+Together with the focused failure/recovery tests, this closes the storage
+teardown/recovery row.
+
+The post-closure full repository gate and diff check pass; generated bytecode
+is removed. Checklist totals are now 48 closed and 37 open.
+
+Audit of the next partial-artifact row deliberately does not close it. The
+retained VM race suite proves all nine shim rollback stages plus exact
+ambiguous-create cancellation/tombstoning and lifecycle cancellation
+boundaries. The live preallocation suite proves an unsupported OCI rejection
+before any pool/child/storage/network allocation and a final zero inventory.
+What is still absent is the row's stronger requirement: live post-allocation
+failure injection at every Create stage with immediate no-leak inventory.
+
+The user's instance restart produces new authoritative boot `95e59482…`.
+Runtime selector `e396511c…`, active manifest `d4230978…`, and candidate guest
+agent `b57bae66…` persist exactly. All four services are active with zero
+restarts, and Kerf reports neither pool nor child. Subsequent evidence uses
+this clean post-restart baseline; earlier teardown evidence remains scoped to
+its recorded `c5537cb9…` boot.
+
+Kerf fault-adapter preflight is conflict-free: both fixed binaries and the
+control file are absent. Active support generation is `b4d185c6…` and config
+still points directly at pinned Kerf. A one-shot `load` rejection occurs after
+real Create allocation/preparation, making it the appropriate live complement
+to the nine-stage rollback unit matrix. No mutation or result is yet claimed.
+
+The focused live qualifier now hashes to `4df7634a…`. It activates a temporary
+managed support generation around the one-shot `load` fault, records immediate
+20-field inventory after the real post-allocation failure, requires a new
+durable clean `RELEASED` storage generation, restores/removes the temporary
+generation and adapter paths, then runs the shim/rootfs/lifecycle failure
+matrix under the race detector and re-audits cleanliness. The trap restores
+the original generation on every exit. Syntax, optional ShellCheck, and diff
+checks pass; execution remains unclaimed.
+
+Commit `83b1164` freezes only the 206-line qualifier. Learning documents and
+evidence remain outside the commit; transfer and live execution are pending.
+
+First immutable execution exits 1 before mutation because the qualifier
+incorrectly required executable mode on the intentionally 0644 Python
+deployment manager. The trap confirms no support/adapter staging and removes
+only empty scratch paths. Retained failure is mode 0600/5,103 bytes/SHA
+`6a725b23…`; it proves no rollback behavior. Preflight now requires a regular
+file, consistent with explicit `python3` invocation.
+
+The corrected qualifier passes Bash syntax, optional ShellCheck, and diff
+checks and hashes to
+`5131c04c97fc9847880f9f384f6bd80f9ddd8d6aa27870a13ddfcef438ff32a2`.
+This identity is recorded before transfer. Isolated corrective commit
+`3ce774e` changes only the preflight predicate. The uploaded commit-specific
+path rehashes exactly to `5131c04c…` on restarted boot
+`95e59482-e5c4-4b4c-a520-b96b1943b088`; the source root is present and all
+four runtime services are active. No live result is yet claimed.
+
+The second immutable attempt is a caller error, not a runtime result. It is
+retained as `g4-partial-artifact-live-second-root-invocation-fail.log`, mode
+0600/4,907 bytes/SHA `e2db439c…`, exit 1. Invoking through `sudo` trips the
+qualifier's ordinary-user guard before mutation; the trap shows no staged
+deployment or adapter and cleans only empty scratch paths. The unchanged
+committed script must instead be invoked directly by the sudo-capable SSH
+user.
+
+Direct invocation produces a third pre-mutation staging failure, retained as
+`g4-partial-artifact-live-third-source-access-fail.log`, mode 0600/4,801
+bytes/SHA `a247ed1c…`, exit 1. The qualifier passes its UID guard but cannot
+traverse root-owned mode-0700 `/var/tmp/mksrc-e396511-build`; its `runtime`
+child and deployment manager are mode 0775. The trap again has
+`restore_required=0`. This is not rollback evidence; the exact disposable
+source extraction needs read/traverse staging for the ordinary caller.
+
+The full source-mode audit finds only the extraction root nontraversable and
+no non-world-readable source file. Changing only that disposable directory
+from 0700 to 0755 makes the manager/runtime paths accessible; the uploaded
+qualifier remains byte-identical at `5131c04c…` before retry.
+
+The fourth immutable attempt reaches temporary managed deployment staging but
+not the injected Kerf call. Retained evidence
+`g4-partial-artifact-live-fourth-socket-readiness-fail.log` is mode
+0600/30,100 bytes/SHA `e9907b68…`, exit 1. It proves clean 20-field starting
+inventory and temporary generation `0e1cbc45…`; however, the active-only
+restart wait races `/run/mkruntimed.sock`, so `ctr` fails to connect and the
+fault control remains unconsumed. The trap restores `b4d185c6…`, direct Kerf,
+and removes every test path/deployment. Post-failure inspection finds the
+socket ready, all four services active, and zero `mkruntimed` restarts. The
+qualifier needs active-plus-socket readiness at every managed restart.
+
+A bounded active-plus-socket helper is now used for fault activation, normal
+restoration, and trap restoration. Bash syntax, optional ShellCheck, and diff
+checks pass; the corrected qualifier hashes to
+`a64faea1db586fcc31a369abd5f9e31dfa95cc95f25c1101f73624fb38666e56`.
+Isolated commit `cf5d0d8` contains only this readiness correction. Transfer and
+retry remain pending. The commit-specific upload rehashes exactly to
+`a64faea1…`; the pre-retry check reconfirms original deployment `b4d185c6…`,
+direct Kerf, a ready socket, and no fixed test path.
+
+The fifth immutable attempt finally exercises the intended post-allocation
+fault and exposes a real implementation gap. Evidence
+`g4-partial-artifact-live-fifth-postallocation-leak-fail.log` is mode
+0600/50,706 bytes/SHA `bba1b94c…`, exit 1. The one-shot `load` fault is consumed
+and returns `BACKEND_FAILURE`; immediate inventory has zero child, mounts,
+artifacts, FIFOs, network, containers, rootfs records, live exports, NBD, and
+relay processes. Two disconnecting shim processes are still transiently
+present, and the empty Kerf pool remains configured. Thus the row remains
+open. Trap restoration returns to `b4d185c6…`, removes test state and shims,
+and original-daemon restart releases the pool; services are active and storage
+history advances 190 to 191.
+
+The cause is now localized: post-`CreateSandbox` failure rollback invokes
+ordinary `DeleteSandbox`, whose documented policy retains an idle pool.
+`CancelCreateSandbox` already owns the original Create journal, accepts both
+`ALLOCATING` and `CREATED`, removes storage/backend state, aborts the Create,
+and releases a zero-owner first pool. The shim must use that authenticated
+cancellation path for later Create-stage failures. The qualifier should keep
+the immediate artifact snapshot but give containerd's already-disconnecting
+shim supervisor/worker a bounded convergence interval before asserting final
+process cleanliness.
+
+The implementation now threads the exact config/Create idempotency key into
+deferred rollback and calls `CancelCreateSandbox` for every lifecycle-attempted
+failure. All nine post-validation stages now expect no ordinary delete;
+successful authenticated cancellation is what permits rootfs cleanup and
+clears shim sandbox state. The live qualifier retains its immediate snapshot
+and waits at most 30 seconds for containerd's disconnecting shim processes
+before strict final inventory. Gofmt, Bash syntax, optional ShellCheck, and
+diff checks pass. Focused race tests covering the nine-stage matrix, ambiguous
+cancellation, and four lifecycle pool/cancellation cases pass locally using
+task-specific `/tmp` caches (the default cache is sandbox-read-only). Updated
+qualifier SHA is `7ca683d2…`.
+
+The complete race-enabled shim and lifecycle package suites pass locally in
+`9.559s` and `1.851s`. Commit plus disposable-host rebuild/execution remain
+pending, so this does not yet close the row.
+
+Commit `a32e4dd` freezes only the runtime rollback, matrix expectation, and
+qualifier changes (21 insertions/12 deletions across three files). Its exact
+tracked-source tar is 4,812,800 bytes/SHA-256 `d4d7e48c…`, for full revision
+`a32e4dde49077d4a0b0ee6cdecf8ae362e7741f6`. Ledgers and evidence remain
+outside that commit; guest transfer/build remain unclaimed.
+
+The guest independently verifies the uploaded archive at exact SHA
+`d4d7e48c…` and 4,812,800 bytes, confirms unique build path
+`/var/tmp/mksrc-a32e4dd-build` is absent, and reports no configured Kerf pool.
+Extraction/build remain pending.
+
+Immutable build evidence `g4-partial-artifact-build-a32e4dd.log` is mode
+0600/5,429 bytes/SHA `6d5981e9…`, exit 0, with empty credential scan. The guest
+rechecks the archive and builds a complete static release stamped with full
+revision `a32e4dde…`; manifest SHA is `aed3b718…`, and exact
+mkruntimed/shim/mknetd/agent hashes are `5dde0c70…`, `2ff97961…`,
+`d99acb5e…`, and `87b33ee3…`. Install/execution remain unclaimed.
+
+The first activation capture does install/select release
+`0.1.0-dev-a32e4dde…`, restart both runtime daemons, and observe all four
+services active with zero restarts, but exits 1 on an immediate socket check
+before identity collection. Retained
+`g4-partial-artifact-activate-a32e4dd-socket-race-fail.log` is mode
+0600/2,188 bytes/SHA `5ac4512f…`. This repeats the verifier readiness race;
+selection/restart are mutations, while coherent running identity awaits a
+bounded replacement capture.
+
+The bounded replacement proves socket readiness, four active/zero-restart
+services, and candidate selector/shim link, then exits 127 solely because it
+assumes nonexistent `/usr/local/bin/mkruntimed`. Retained evidence is mode
+0600/2,328 bytes/SHA `3ffe88ac…`. Systemd actually executes
+`/usr/local/sbin/mkruntimed`; PID 9967 resolves into the candidate immutable
+release, and its `/proc` executable reports exact `a32e4dd…`. Exact hashes and
+Kerf state still need the corrected capture.
+
+Corrected activation evidence
+`g4-partial-artifact-activate-a32e4dd-pass.log` is mode 0600/3,956 bytes/SHA
+`4efa82b1…`, exit 0, with empty credential scan. It proves a ready socket, all
+four services active with zero restarts, candidate selector/shim link, exact
+running/public mkruntimed SHA `5dde0c70…`, exact shim SHA `2ff97961…`, full
+revision reports, and no Kerf pool or instance. Live replay remains pending.
+
+Only the new root-owned extraction directory is changed from mode 0700 to
+0755 for ordinary-user traversal. The embedded qualifier rehashes exactly to
+`7ca683d2…`, required manager/wrapper access passes, and every fixed test path
+is absent immediately before replay.
+
+The repaired live qualification passes. Evidence
+`g4-partial-artifact-live-pass.log` is mode 0600/94,007 bytes/SHA
+`4e66461f…`, exit 0, credential-clean, and ends in
+`G4_PARTIAL_ARTIFACT_LIVE_PASS`. Provenance binds boot `95e59482…`, candidate
+revision/hash `a32e4dd…`/`5dde0c70…`, original support generation
+`b4d185c6…`, and qualifier `7ca683d2…`. The consumed `load` fault returns the
+intended `BACKEND_FAILURE`; immediate state has zero child, mounts, artifacts,
+FIFOs, network, containers, rootfs/storage/NBD/relay residue, while only the
+disconnecting shim supervisor/worker remain. Twenty quarter-second samples
+then reach zero shim processes. Strict inventory proves all 20 counters zero
+and no pool/instance. Storage history advances 191→192 with a new clean
+`RELEASED` record and offline-check SHA `5648b3d2…`. Nine shim, six rootfs,
+and four lifecycle race cases pass on the VM, followed by another all-zero/
+no-pool checkpoint and four healthy zero-restart services. The row awaits an
+independent resource audit before closure.
+
+Independent script SHA `bc5e2f7d…` passes in
+`g4-partial-artifact-final-resource-audit-pass.log`, mode 0600/14,185
+bytes/SHA `545ad9ea…`, exit 0, with empty credential scan. It independently
+binds boot `95e59482…`, candidate selector `a32e4dd…`, and running daemon SHA
+`5dde0c70…`; proves no Kerf pool/instance and all 19 resource counters zero;
+and reports all four services active/running with zero restarts. The live
+injected post-allocation pass, durable clean storage record, focused failure
+matrices, and independent clean audit jointly close the partial-artifact row.
+
+The post-closure full documentation/runtime gate and repository diff check
+pass. Four generated bytecode files are removed. Checklist totals are now 49
+closed and 36 open.
+
+Audit has started on the next storage server-loss/recovery row. Existing live
+material proves exact-helper survival/adoption across mkruntimed restart,
+nonzero read/write/flush counters, authenticated already-exited-helper recovery,
+offline checking, and final cleanup. Focused tests cover dirty state, wrong
+UUID, pristine digest mutation, inode replacement, forged close evidence,
+unsafe QUIESCING recovery, exact ACTIVE restart, and generation conflict.
+What remains is materially different: death during an outstanding read/write/
+flush, primary-host reset behavior, and clean/dirty/corrupt recovery using
+disposable copies. V1 makes private writable roots non-persistent, so reset
+qualification must prove fail-closed ownership/reconciliation and cleanup—not
+claim workload-data durability. The row remains open pending a focused live
+qualifier and a documented accepted-client server-loss policy.
+
+Source audit exposed an unsafe recovery claim: every absent `ACTIVE` helper was
+restarted even when its exact log showed the child had already connected, but
+that replacement cannot restore the lost NBD session. The backend now emits a
+distinct `ClientLost` observation only for generation-bound READY→CLIENT_ACCEPTED
+without canonical synced close, retains the exact dead-process record, and
+prevents automatic restart. Pre-acceptance loss still restarts the same
+generation; canonical synced close remains recoverable. The contract now says
+so. Focused race tests prove record retention, Stop rejection without close
+proof, no replacement Start, and unchanged durable ACTIVE ownership; the full
+storage package passes under `-race` in 3.854s. A preceding gofmt invocation
+used duplicate `runtime/` path prefixes and stopped before tests; it made no
+change and supplies no product evidence.
+
+The backend test also deletes the process record and proves the authenticated
+READY→CLIENT_ACCEPTED log by itself still classifies the generation as
+`ClientLost`, never safe absence. The focused three-test race run passes in
+1.022s. The complete runtime tree passes with the race detector (storage
+3.781s) and repository-wide `go vet ./...` also passes. The documentation and
+packaging gate remains next.
+
+The complete documentation/runtime packaging gate now passes: documentation
+and links, 7 schemas/22 cases, 17 current evidence manifests, 97 OCI cases,
+20 initramfs cases, 12 storage cases, safe publisher, bind/bootstrap/mount/
+image checks, release/binary/deployment/ledger/capture/containerd checks, and
+the final audit. `git diff --check` is clean. The gate-created bytecode was
+limited to the four expected validator/builder cache files and all four have
+been removed; no source artifact was deleted. This substantiates the local
+accepted-client-loss change but does not close the live server-loss row.
+
+Commit `65b2528` (`runtime: fail closed after storage client loss`) isolates
+the seven reviewed implementation, test, and contract files. The accumulated
+learning records and evidence trees were deliberately excluded. VM
+qualification must bind its build and running process to this exact revision
+before any live claim is accepted.
+
+The exact `65b25284ad1a0549140d51eecedffbaab731db59` source archive is
+`/tmp/mksrc-65b2528.tar`, 4,823,040 bytes, SHA-256
+`f997ab20502aba0e0f61af01f2b8e1e5d4bdef4cddcabfd12c51bf3f0b312aeb`.
+This immutable identity is the upload/build input for VM qualification.
+
+The first post-restart baseline probe confirms boot `95e59482…`, 40-minute
+uptime, all four services active/running with zero restarts, the prior
+`a32e4dd…` immutable mkruntimed selection, and running PID 11432. The probe
+then stops at a mistaken `/usr/local/sbin/mkshim` hash path; this is a probe
+path error, not a VM/product failure, and leaves the Kerf checks unexecuted.
+The corrected baseline remains required before upload.
+
+A second baseline probe again stops before mutation because unprivileged
+`command -v mkshim` has no result. This is another harness lookup assumption,
+not runtime evidence; even the proposed `/usr/local/bin` fallback was never
+reached. The installed path will be discovered read-only rather than guessed.
+
+Read-only discovery finds no standalone file/link named `mkshim` under
+`/usr/local`; this deployment supplies shim behavior through its installed
+runtime support layout rather than that guessed command name. Boot identity
+remains unchanged. The same probe then exposes an obsolete Kerf CLI guess:
+this version has no `pool` command, so no absence claim is taken from it.
+CLI help must select the deployed command spelling.
+
+The corrected baseline uses deployed `kerf show`: boot is still `95e59482…`,
+there is no memory pool and no multikernel instance, and no loaded
+`/proc/kimage` entry. `/usr/local/sbin/mkruntimed` resolves to the prior
+immutable `a32e4dd…` release and hashes `5dde0c70…`. Its support executable is
+correctly named `containerd-shim-multikernel-v2`, not `mkshim`; every release
+file shown is root-owned and single-linked. The VM is clean for upload.
+
+Upload completes, but the first remote verification command exits before
+printing because its boot-ID command substitution was evaluated by the local
+shell inside the SSH argument. The remote mutation sequence was after that
+failed assertion and therefore did not run. This is a harness quoting failure
+only; archive hash and extraction remain unclaimed until a command without
+substitution verifies them.
+
+Corrected verification binds the remote archive to unchanged boot
+`95e59482…`, exact 4,823,040-byte SHA-256 `f997ab20…`, then extracts it only
+into new `/var/tmp/mksrc-65b2528-build`. The tree is mode 0755, root-owned, and
+stripped of group/other write bits. Extracted `service.go` hashes `a885bbd5…`
+and `backend_linux.go` hashes `09b75e79…`. This is the sole source tree
+authorized for the candidate build.
+
+Exact-source VM build passes on boot `95e59482…`: `runtime-manifest` embeds
+full revision `65b25284ad1a0549140d51eecedffbaab731db59`, and the resulting daemon
+reports that revision. Candidate hashes are manifest `cd2502b3…`, mkruntimed
+`61fe95c8…`, shim `c5263b12…`, mknetd `dfb95b17…`, and agent `caa36a28…`.
+Raw evidence `g4-storage-client-loss-build-65b2528.log` is mode 0600, 5,200
+bytes, SHA-256 `2d6ce0f0…`, exit 0, with an empty credential-pattern scan.
+
+Candidate installation and activation succeed: manager selects immutable
+release `0.1.0-dev-65b25284…`, both daemons restart, the socket appears after
+four 250-ms waits, and all four services are active with zero restarts. The
+verifier then repeats the known public-path mistake by invoking absent
+`/usr/local/bin/mkruntimed`; the service actually uses
+`/usr/local/sbin/mkruntimed`. Thus activation is real, but candidate process
+hash and Kerf cleanliness remain unproven by this failed log. Retained log is
+mode 0600/3,193 bytes/SHA `3de1db6b…`, exit 127, empty credential scan.
+
+Corrected activation audit passes. Current release, public daemon link, public
+shim link, daemon/shim version output, and live PID 20720 executable all bind
+to full revision `65b25284…`; live and linked daemon hashes both equal build
+hash `61fe95c8…`, and shim equals `c5263b12…`. The runtime socket is present,
+all four services remain active/zero-restart, and `kerf show` proves no pool,
+instance, or loaded kernel. Retained audit is mode 0600, 3,590 bytes, SHA-256
+`5d6013f0…`, exit 0, empty credential scan.
+
+The first focused VM test invocation binds to the correct candidate but fails
+during Go package setup because `/tmp/mk-go-cache` was created by the root
+build and is unreadable to the ordinary test user. No test executes and no
+product claim is taken. The retained failure is mode 0600/2,007 bytes, SHA-256
+`916f29ff…`, exit 1, empty credential scan. Retry will use a new user-owned
+cache rather than changing the build cache.
+
+The user-cache retry executes but two generic ext4-inspection cases fail
+because their temporary 64-MiB `fallocate` files on this VM are reported
+sparse/uninspectable; the five non-image accepted-loss/reconcile cases are
+mixed into the same failing run and cannot be claimed independently. Despite
+its premature `-pass` filename, this retained log is a failure: mode 0600,
+2,331 bytes, SHA-256 `5840b414…`, exit 1, empty credential scan. The policy
+cases will be rerun alone; disposable clone testing will choose and record a
+storage filesystem that can satisfy the allocation invariant.
+
+Isolated exact-revision policy qualification passes on the VM under the race
+detector in 1.026s: accepted-client crash retention, fail-closed reconcile,
+safe pre-accept restart, canonical-close recovery, and interrupted-release
+recovery all execute. The mode-0600 1,559-byte log hashes `5484a6a8…`, exits
+0, and has an empty credential scan. Live process death and clone behavior
+remain separate requirements.
+
+The user's subsequent instance restart advances authoritative boot from
+`95e59482…` to `3f80aee1-df81-4fdb-9040-f35afcc73361`. On the new boot, all
+four services are active/running with zero restarts, immutable selector and
+daemon version still bind full `65b25284…`, and `kerf show` reports no pool,
+instance, or loaded kernel. This is direct clean-host-reset evidence for the
+V1 non-persistent writable-root model; it does not invent workload-data
+durability or replace the pending accepted-client-loss reset test.
+
+Allocation probing explains the earlier ext4-test mismatch: `/tmp` is a
+quota-enabled tmpfs, while `/srv/multikernel-storage` is the dedicated ext4
+`/dev/sdb`. A bounded 67,108,864-byte `fallocate` on that storage reports
+exactly 131,072 512-byte blocks (fully allocated), root ownership, one link;
+only the uniquely named probe file/directory were then removed. Disposable
+clone qualification will use this dedicated filesystem.
+
+Re-running the exact production backend ext4 tests with `TMPDIR` on the
+dedicated storage disk passes under `-race` in 2.407s. This directly covers
+clean fully allocated ext4 identity/quota acceptance, wrong UUID/inode limit
+rejection, dirty clean-bit rejection, pristine digest mutation rejection, and
+permitted current-image content mutation with stable identity. The unique test
+directory is removed afterward. Evidence is mode 0600/1,775 bytes/SHA
+`4b4eb6ba…`, exit 0, empty credential scan. Explicit corrupt and recovered
+disposable clones remain pending.
+
+The first local clone-matrix formatting command repeats the already-known
+cwd/path mistake (`runtime/…` while cwd is `runtime`) and stops at `lstat`
+before formatting or tests. It makes no change beyond the preceding patch and
+supplies no product evidence; the corrected relative path is required.
+
+The corrected formatter succeeds, but its chained local test cannot write the
+sandboxed default Go cache under the home directory and stops during setup.
+This is a local harness/cache permission failure, not a test result; retry must
+set `GOCACHE` under `/tmp`.
+
+With a writable cache, the new clone test reaches the dirty-copy offline check
+but strict executable provenance rejects the environment's system `e2fsck`
+parent (owner 65534 versus caller 1000). Clean-clone and dirty inspection steps
+ran first, but the overall test fails and proves no matrix. The test must copy
+the resolved checker bytes into its caller-owned private directory, matching
+the backend's existing provenance test pattern.
+
+The next formatter invocation again uses the repository-root path from the
+`runtime` cwd and stops at `lstat` before tests. This repeated harness error
+changes no source and supports no claim; subsequent commands are issued from
+the repository root to eliminate the ambiguity.
+
+The corrected test now reaches the real copied `e2fsck`; contrary to the draft
+expectation, `OfflineCheck` correctly rejects the dirty clone as non-clean
+rather than returning evidence. This is the desired fail-closed contract. The
+assertion will require that rejection, then prove explicit disposable-copy
+repair and reinspection before claiming recovery.
+
+Explicit repair then reveals the test's raw clean-bit write invalidates the
+ext4 superblock checksum, so `e2fsck -fy` classifies it as corruption (exit 8)
+rather than a merely dirty filesystem. This failure is useful separation:
+dirty and corrupt cases must not be conflated. The dirty clone will instead be
+marked through `debugfs`, which updates ext4 metadata checksums; raw superblock
+damage remains reserved for the corrupt-clone case.
+
+With checksum-correct `debugfs` dirtying, production behavior becomes precise:
+pristine `Inspect` rejects the unclean bit, while read-only forced `e2fsck`
+finds the disposable clone structurally consistent and emits valid
+offline-check evidence. The test fails only because its interim assertion
+expected rejection. It will assert this split explicitly, then require
+writable repair before pristine reinspection.
+
+Corrected clone matrix passes with the accepted-client policy cases under
+`-race` in 1.855s. The full storage package then passes under `-race` in
+4.663s. The chained `go vet` uses the default unwritable sandbox cache and
+fails before analysis, so vet/diff inspection remain unclaimed until retried
+with the explicit `/tmp` cache.
+
+Explicit-cache `go vet ./internal/storage` and `git diff --check` pass after
+review of the 146-line test-only diff. The complete runtime tree then passes
+`go test -race -count=1 ./...` (storage 4.633s) and `go vet ./...`. The clone
+matrix now distinguishes inode identity from byte identity, requires
+fail-closed pristine inspection of dirty/corrupt copies, authenticates
+read-only offline-check evidence for a consistent dirty clone, repairs only
+that disposable copy, and re-proves the source digest and identity unchanged.
+
+Commit `f9971d8` (`test: qualify disposable storage clone recovery`) contains
+only the reviewed 146-line test change. Its parent is the live production
+candidate `65b2528`; no daemon behavior changed. VM execution must still use
+an exact archive of this test commit before the clone claims can close.
+
+Exact test commit `f9971d81da8ae6f8d1ec75159bd6ccf4aa374fea` archives to
+`/tmp/mksrc-f9971d8.tar`, 4,823,040 bytes, SHA-256 `7fd114e4…`. Learning files
+and evidence remain excluded from the archive.
+
+VM verification on new boot `3f80aee1…` matches remote archive SHA-256
+`7fd114e4…` and extracts only into root-owned mode-0755
+`/var/tmp/mksrc-f9971d8-build` with group/other writes removed. The extracted
+test file hashes `995f2c48…`. This exact tree is ready for dedicated-disk
+execution; no runtime service was changed.
+
+Exact VM clone matrix passes on dedicated `/dev/sdb` ext4 under `-race`: the
+named case completes in 3.65s/package 4.669s and its unique temporary image
+tree is removed. It binds active production parent `65b25284…` to exact test
+commit/archive `f9971d8…`/`7fd114e4…`. Retained evidence
+`g4-storage-disposable-clone-matrix-f9971d8-pass.log` is mode 0600, 2,277
+bytes, SHA-256 `96b861aa…`, exit 0, empty credential scan. This completes the
+clean/dirty/corrupt disposable-copy portion; live accepted-client server death
+remains open.
+
+A bounded destructive live qualifier is now implemented and passes `bash -n`,
+available `shellcheck`, and `git diff --check`. It starts from a clean host,
+records exact boot/selector/daemon/script provenance, runs concurrent guest
+read/write/sync loops, authenticates accepted-client state, SIGKILLs only the
+recorded NBD server, and requires restart reconciliation to retain the exact
+record/ACTIVE lease/image with zero replacement servers and the explicit
+unsafe-recovery error. It deliberately leaves the disposable VM in that
+diagnostic state for reset evidence; VM execution is still pending.
+
+Commit `232a49a` (`test: qualify accepted storage client loss`) contains only
+the 228-line live qualifier. Full commit is
+`232a49a91036ceaab1ec66876d6c0f9613cc8a88`; script SHA-256 is `c4d7a5e3…`.
+Its exact 4,833,280-byte archive `/tmp/mksrc-232a49a.tar` hashes `a2da685a…`.
+Learning/evidence files remain excluded and active production code is still
+parent commit `65b2528`.
+
+Remote pre-fault verification on boot `3f80aee1…` matches archive `a2da685a…`
+and script `c4d7a5e3…`, extracted only into root-owned mode-0755
+`/var/tmp/mksrc-232a49a-build` with group/other writes removed. Active daemon
+reports exact production `65b25284…`; Kerf has no pool, instance, or loaded
+image. The destructive qualifier therefore starts from a clean bound state.
+
+First destructive-qualifier attempt never arms the fault: task reaches
+RUNNING, but the initial synced 64-MiB seed never creates readiness within 240
+quarter-second probes and the task becomes STOPPED. Final exec returns `failed
+precondition`; the pre-fault trap removes its task/container. No NBD server is
+killed and no fail-closed claim is made. Retained failure is mode
+0600/109,436 bytes/SHA `684cf368…`, exit 1, empty credential scan. The seed
+exceeds a practical private-root workload bound; retry will use a small seed
+while maintaining continuous read/write/sync loops.
+
+Immediate audit corrects the cleanup assumption: although trap commands
+suppressed their errors, the stopped task/container, one rootfs record, one
+live export, pool, and kernel instance remain; services are still healthy.
+Therefore the host is not clean and retry is forbidden until an explicit
+ordinary stopped-task delete completes durable release. No sensitive kernel
+command-line value from the interactive audit is copied into retained docs or
+evidence.
+
+Explicit stopped-task deletion then returns `BACKEND_FAILURE`; read-only
+diagnosis finds the exact export durably `QUIESCING`, zero counters/no offline
+check, retained process record for absent PID 6341, and exact generation-bound
+READY→CLIENT_ACCEPTED log without canonical close. The stopped task/child
+remain. This is not the intended ACTIVE-state injection and does not close it.
+
+Pre-reset daemon restart supplies an additional fail-closed proof: restart
+command returns before the simple service exits, then systemd records
+`reconcile: ... quiescing storage server is absent without a graceful close
+record`, result `exit-code`, with no helper. Durable generation remains
+`82ce4d15…`, record SHA `eee80879…`, log SHA `b90fec3c…`, and no terminal close.
+Mode-0600 evidence is 2,671 bytes/SHA `e161c742…`, exit 0, empty credential
+scan. Host reset is now safe to observe, not a recovery claim.
+
+GCE reset succeeds in mode-0600 465-byte control evidence (SHA `0dd1a85a…`,
+exit 0, empty credential scan) and advances boot to `2caa6744…`. Post-reset
+audit binds selected daemon `65b25284…`/`61fe95c8…` and proves the durable
+generation remains `QUIESCING` with zero counters/no offline check and one
+rootfs record, while ephemeral `/run/mkstorage`, kernel instances, and ctr
+tasks are zero. Container metadata remains. mkruntimed repeatedly exits on the
+exact no-graceful-close error (28 restarts observed); other three services
+remain healthy. The mode-0600 audit is 25,326 bytes/SHA `5170a8de…`, exit 0,
+empty credential scan. This proves fail-closed ownership across host reset,
+not workload-data durability or automatic cleanup.
+
+Before environment reset, mkruntimed is stopped and every stale durable input
+is hashed: lifecycle state/journal `8b6fb6e…`/`68f2527c…`, rootfs `03f88351…`,
+storage `f78dd205…`; mknetd is independently empty at `7aa7fc47…`. The only
+storage artifact is the exact 2-GiB root image under one mode-0700 task
+directory, and only stopped container metadata remains. These inputs will be
+moved intact to uniquely named root-only quarantine; none will be deleted or
+treated as product cleanup evidence.
+
+Quarantine reset moves all three hashed trees intact, recreates private empty
+directories, removes only orphan container metadata, resets failure
+accounting, starts mkruntimed, observes its socket after three waits, and
+verifies all four services active/zero-restart. Its final audit incorrectly
+assumes an empty lifecycle store eagerly creates `state.json`; the daemon
+validly leaves it absent until first mutation, so the log exits 1 before Kerf
+checks. Retained partial log is mode 0600/5,131 bytes/SHA `f8cc3c05…`, empty
+credential scan. Moves are complete; corrected read-only audit remains.
+
+Corrected audit proves all quarantine directories root-only with the four
+exact pre-move hashes, all services active/zero-restart, socket ready, and zero
+sandbox/rootfs/export/endpoint/storage/kernel/Kerf resources. However, its two
+ctr command substitutions accidentally run unprivileged inside `sudo test`,
+emit permission errors, and collapse to empty strings; the misleading `-pass`
+log (mode 0600/5,098 bytes/SHA `5b061663…`, exit 0, empty credential scan) does
+not prove ctr inventories. A corrected privileged ctr audit is mandatory
+before retry.
+
+The independent exact-source audit validates Kerf and the first 15 resource
+counters, including privileged default/moby ctr inventories all zero, then
+fails because a freshly empty rootfs store has no `state.json`. Retained
+failure is mode 0600/8,902 bytes/SHA `7afb6e5e…`, exit 1, empty credential
+scan. The audit is corrected to count an absent never-created rootfs or
+endpoint state file as zero; its 19-counter contract remains unchanged.
+
+The destructive qualifier retry is reduced from a 64-MiB to a 4-MiB seed and
+4-MiB write iterations, preserving concurrent read/write/sync coverage below
+the observed workload bound. Its readiness loop now aborts immediately if the
+task stops instead of emitting 240 misleading probes.
+
+Both corrected scripts pass syntax validation, available `shellcheck`, and
+`git diff --check`; review confirms the audit's expected 19-counter string is
+unchanged and only empty-store handling plus bounded workload sizing changed.
+
+Commit `33b2afc81457198c3921e728f860b734d1e63e62` (`test: handle fresh runtime
+audit state`) isolates those two script corrections. Audit SHA is `7010e3da…`,
+qualifier SHA `0d6cbec4…`; exact 4,833,280-byte archive
+`/tmp/mksrc-33b2afc.tar` hashes `0a7e0f92…`.
+
+VM verifies archive `0a7e0f92…` and both corrected script hashes in a new
+root-owned exact tree. Corrected independent audit then passes all 19 zero
+counters, empty Kerf pool/instances, exact active daemon `65b25284…` hash
+`61fe95c8…`, and four active zero-restart services with terminal
+`G6_FINAL_RESOURCE_RETURN_PASS`. Mode-0600 evidence is 16,292 bytes/SHA
+`ef641bc6…`, exit 0, empty credential scan. The VM is clean for retry.
+
+The first `33b2afc` retry exposes two additional harness defects and does not
+arm the intended fault. Its entry `live_counts` still opens the absent fresh
+rootfs `state.json` unconditionally; command substitution masks that nonzero
+status, so 240 `FileNotFoundError` probes do not stop execution. The workload
+is then created, but its helper already has a canonical
+`MKNBD_SERVER_CLOSED` before injection, so the explicit guard exits 1 and the
+trap removes the task/container. Retained evidence is mode 0600, 213,948
+bytes, SHA `f3dd782a…`, exit 1, empty credential scan. Immediate read-only
+inspection shows both ctr inventories empty, no kernel instance, all relevant
+services active, and only the closed helper log retained in `/run/mkstorage`;
+therefore this is neither client-loss evidence nor a completed qualification.
+The fresh-state reader and gate error propagation must be corrected before
+retry, and the premature canonical close requires diagnosis rather than
+weakening the guard.
+
+Retained diagnosis binds boot `2caa6744…` to the exact helper log: after READY
+and CLIENT_ACCEPTED it records `MKNBD_SERVER_DISCONNECT_DURING_WRITE
+len=2031616 offset=144769024`, then a canonical synced close with 301
+reads/10,448,896 bytes, 48 writes/15,278,080 bytes, and 7 flushes. Durable
+release preserves the same counters and an offline-clean digest; both ctr
+inventories are empty and all four services active. Mode-0600 evidence is
+2,591 bytes/SHA `f1e0aac0…`, exit 0, empty credential scan. Thus the 4-MiB
+repeated fsync writer plus independent sync loop caused a real guest disconnect
+before injection. The retry now uses a 1-MiB seed and continuous one-block
+reads plus one-block fsynced writes, retaining read/write/flush pressure
+without multi-megabyte write bursts. `live_counts` also treats absent
+never-created state files as empty, tests its own command-substitution status,
+and the top-level entry gate explicitly exits on failure. These are harness
+changes only; the canonical-close guard remains strict.
+
+The revised qualifier passes `bash -n` and `git diff --check`; local
+`shellcheck` is unavailable and is not claimed. Commit
+`31a23181934938484e4225211bf5c03d283316c5` (`test: harden accepted client loss
+qualifier`) contains only the script change. Script SHA is `6207c48a…`; its
+exact 4,833,280-byte archive hashes `8d6c55da…`.
+
+The exact `31a2318` archive/script hashes verify in a new root-owned VM tree.
+The corrected destructive qualifier then passes on boot `2caa6744…` against
+selected production `65b25284…`/daemon `61fe95c8…`. Generation `435cefca…`
+reaches ACTIVE with READY→CLIENT_ACCEPTED and no terminal close; guest process
+evidence shows both continuous read and fsynced-write loops, while server
+`/proc` I/O shows 2,489 reads, 1,390 writes, and 73,383,936 written bytes.
+Killing exact PID 7509 leaves it absent, retains the identical process-record
+SHA `6dcbaba3…`, and still has no close marker. A post-loss guest exec fails
+precondition. Daemon start initially returns 0 but the service immediately
+exits on exact error `active storage server disappeared after client
+acceptance; automatic session recovery is unsafe`; zero replacement helpers
+appear, the root image/record remain, durable ACTIVE generation is byte-for-byte
+unchanged, and the kernel instance/pool remain allocated. Terminal marker is
+`G4_STORAGE_ACCEPTED_CLIENT_LOSS_PASS`, exit 0. This closes the live
+accepted-client-loss/fail-closed behavior before reset; it intentionally does
+not claim cleanup or post-reset durability yet.
+
+Evidence hygiene correction: the raw verbose Kerf/process transcript exposed
+the ephemeral sandbox credential in guest command lines, so it was moved out
+of the evidence tree at mode 0600. The retained mechanical derivative redacts
+both credential spellings and otherwise preserves the successful transcript;
+it is mode 0600, 74,239 bytes, SHA `ab11a88c…`, with an expanded empty
+credential scan and exit 0. Future qualifier output uses non-verbose Kerf
+inventory. After derivative verification, the raw credential-bearing temporary
+file is removed; it is neither retained nor treated as evidence.
+
+Host-reset qualification exposes an unresolved production defect. GCE reset
+control succeeds (mode 0600/460 bytes/SHA `fa723789…`, exit 0, empty credential
+scan) and advances boot to `0fc9d4d8…`. On that boot, durable generation
+`435cefca…` is still ACTIVE, but its pre-reset accepted-client marker was
+ephemeral in `/run`. Storage reconciliation therefore creates a replacement
+mode-0600 record/log for the same generation (new SHAs
+`13a4c568…`/`79e5da23…`) and leaves a child process in the service cgroup.
+Rootfs reconciliation subsequently rejects the missing ephemeral owned bundle
+and drives mkruntimed into an auto-restart loop, so no kernel instance or ctr
+task is recreated and only container metadata remains. That later failure does
+not restore the violated storage invariant: the dirty image was already
+reopened automatically after accepted-client loss. Retained audit is mode
+0600/35,439 bytes/SHA `c49da816…`, exit 0, empty credential scan. The
+accepted-client fact must become durable (or equivalent durable policy must
+distinguish pre-acceptance from post-acceptance absence) before this row can
+close; current host-reset behavior is explicitly not fail-closed.
+
+Focused process evidence removes ambiguity: leftover PID 1481 is exact deployed
+`mkvsock-nbd` SHA `95e886d6…`, argv-bound to the same image, port, and export
+generation `435cefca…`; fd 3 and fd 5 both hold the durable root image, fd 6 is
+its listening socket, and stdout/stderr target the replacement log. The
+replacement record matches PID/start-time 1481/2302 and image inode 1179704.
+Its log contains only the exact READY marker—no client acceptance or
+close—while mkruntimed has reached 119 restart attempts. Mode-0600 evidence is
+2,293 bytes/SHA `a43ea4ff…`, exit 0, empty credential scan. This proves an actual
+image-owning server restart, not merely stale record creation.
+
+Remediation now makes ACTIVE restart conditional on explicit exact
+pre-acceptance evidence. Backend observation distinguishes: live exact process;
+canonical close; accepted-client loss; exact log containing only the
+generation-bound READY marker; and unknown absence. Only that exact-READY-only
+case is restartable. An empty/missing runtime directory, absent log, or
+noncanonical trailing data is unknown and returns `active storage server is
+absent without exact pre-acceptance evidence` before image inspection/start.
+Existing same-boot pre-acceptance recovery is retained; accepted-client and
+unknown host-reset loss both remain owned and fail closed. Focused
+storage/lifecycle packages and the full runtime Go suite pass with a
+workspace-local `/tmp` build cache; qualifier syntax and `git diff --check`
+also pass.
+
+Production remediation is isolated in commit
+`ebbb2db89c70595c4abb5355f97f30bf28cba8d2` (`runtime: require proof before
+active storage restart`); evidence-hygiene-only commit
+`ca7d7d013485a2ddb764707e63fb2c35ab1ed72b` removes verbose Kerf output from
+the qualifier. Final qualifier SHA is `bcef69b9…`; exact combined 4,833,280-byte
+source archive SHA is `a54f8988…`.
+
+VM verifies archive `a54f8988…`, service SHA `ff920f45…`, backend SHA
+`0692f25b…`, and qualifier SHA `bcef69b9…` in a new root-owned tree. Exact VM
+build embeds full revision `ca7d7d013485a2ddb764707e63fb2c35ab1ed72b`.
+Candidate hashes are manifest `a9e5de5e…`, mkruntimed `a4a91006…`, shim
+`baaab3fd…`, mknetd `5eed6606…`, and agent `6ae77e65…`. Mode-0600 build
+evidence is 5,056 bytes/SHA `a48e9343…`, exit 0, empty credential scan.
+
+Candidate installation atomically selects immutable release
+`0.1.0-dev-ca7d7d013485a2ddb764707e63fb2c35ab1ed72b`; linked daemon/shim hashes
+match build values `a4a91006…`/`baaab3fd…`. mkruntimed is deliberately stopped
+before selection and the known unsafe replacement PID 1481 remains until the
+qualification reset, preserving the exact faulted input rather than
+manufacturing clean state. Mode-0600 activation evidence is 3,562 bytes/SHA
+`57431f4b…`, exit 0, empty credential scan.
+
+The first candidate post-reset audit is a harness-only failure: after the
+controlled reset exposed intermediate boot `9819413d…`, an additional operator
+restart advanced the host to `f93f21b6…`. The audit's exact intermediate-boot
+assertion therefore exits 1 immediately, before selector, journal, helper,
+durable-state, ctr, or Kerf assertions. Renamed retained failure is mode
+0600/2,906 bytes/SHA `bf1850b0…`, empty credential scan; it proves no candidate
+behavior and is not a pass. Retry must bind to the current boot while still
+excluding the known pre-candidate boot.
+
+Current-boot retry supplies partial positive product evidence but remains a
+harness failure. On boot `f93f21b6…`, exact candidate revision/hash and selector
+verify; 50 observed daemon restarts all fail on `active storage server is absent
+without exact pre-acceptance evidence`, and the boot journal contains no
+`rootfs reconcile:` entry. `/run/mkstorage` is absent entirely, which is
+stronger than an empty directory, but the audit's unguarded `find` exits 1
+there before helper-count, durable-state, ctr, Kerf, or terminal-pass
+assertions. Renamed mode-0600 failure is 57,262 bytes/SHA `b142ac2d…`, empty
+credential scan. It is not the final pass; corrected audit must count an absent
+never-created runtime directory as zero and complete remaining checks.
+
+Candidate reset control is mode 0600/460 bytes/SHA `2a9e8138…`, exit 0, empty
+credential scan; the operator's subsequent restart advances the final observed
+boot to `f93f21b6…`, adding another restart boundary. Corrected final audit
+passes against exact selected revision `ca7d7d01…` and daemon SHA `a4a91006…`.
+Across the entire boot journal, every reconcile attempt stops at `active
+storage server is absent without exact pre-acceptance evidence`, with no
+`rootfs reconcile:` execution. Runtime files=0 even when `/run/mkstorage` is
+never created; exact storage-server processes=0; durable state SHA remains
+pre-fault `c05b754d…`, with one unchanged ACTIVE generation `435cefca…`,
+sandbox generation `c4b8a9f6…`, zero untrusted terminal counters, and exact
+image device/inode 2064/1179704. ctr tasks=0, Kerf has no pool or instances,
+and container metadata alone remains. Terminal marker
+`G4_STORAGE_HOST_RESET_FAIL_CLOSED_PASS` exits 0. Mode-0600 evidence is 15,346
+bytes/SHA `d895049b…`, empty credential scan. This closes the accepted-client-
+loss behavior across host reset: the candidate retains ownership and never
+reopens the ambiguous image.
+
+Together with disposable clone evidence `96b861aa…` and the accepted-client
+live qualifier `ab11a88c…`, this completes the storage server-loss/corruption/
+recovery row: mixed continuous reads and one-block fsynced writes are active at
+exact helper death; daemon restart and host reset both retain ownership without
+replacement; clean, dirty/repaired, and corrupt disposable copies follow their
+explicit inspection outcomes; and the final reset returns all ephemeral ctr
+and Kerf resources. The claim remains scoped to fail-closed ownership and
+resource return, not V1 workload-data persistence across reset.
+
+To prepare subsequent qualification without erasing the diagnosed state, exact
+lifecycle state/journal (`1e493170…`/`05c36775…`), rootfs state
+(`e359f144…`), storage state (`c05b754d…`), mknetd state (`1b40028d…`), and
+2-GiB root image (`437f2a7c…`) are hashed then moved intact into four unique
+root-only mode-0700 quarantine trees bound to boot `f93f21b6…`. Only orphan ctr
+container metadata is removed; new private empty directories are created and
+all four services become active/running with zero restarts. This is an
+administrative recoverable reset, not product cleanup evidence. Mode-0600 log
+is 3,532 bytes/SHA `31397961…`, exit 0, empty credential scan.
+
+Independent exact-source post-reset audit binds selected candidate
+`ca7d7d01…`, live daemon SHA `a4a91006…`, and boot `f93f21b6…`; all 19
+resource counters are zero, Kerf has no pool/instances, and all four services
+are active/running with zero restarts. Terminal marker
+`G6_FINAL_RESOURCE_RETURN_PASS` exits 0. Mode-0600 evidence is 16,301 bytes/SHA
+`3aeb7b79…`, empty credential scan. The VM is clean for the next storage-
+isolation qualifier, while all fault inputs remain quarantined.
+
+Cross-sandbox storage qualification is now in progress on restarted disposable
+boot `f93f21b6…`, beginning from that independently clean exact candidate
+state. This is not covered by the existing sibling IP-isolation result. Source
+review shows that `mkvsock-nbd` binds the primary Multikernel AF_VSOCK listener
+to `CID_ANY`, authenticates image size, image ID, and random export generation
+before serving any block request, and accepts only one stream, which the
+intended child normally occupies. Those facts are design evidence, not a live
+pass. Closure requires reciprocal peer-port attempts from two concurrent
+sandboxes with both incorrect and exact identities; neither may create or
+mount `/dev/nbd1`, disturb the intended `/dev/nbd0`, alter the peer image or
+durable owner record, or leave primary resources after normal teardown.
+
+Restart preflight observes exact boot
+`f93f21b6-21f1-4fc0-aebc-806347d6b43d`, selected release
+`0.1.0-dev-ca7d7d01…`, live daemon SHA `a4a91006…`, all four services active,
+zero kernel instances, and zero ctr tasks. The ad-hoc command then exits
+nonzero because it tries to open absent fresh
+`/var/lib/mkruntimed/storage/state.json`. The prior administrative cleanup
+correctly left no state file; this is a harness-only assumption and no product
+failure. The cross-sandbox qualifier will explicitly count missing fresh state
+as zero live exports.
+
+The first retained cross-sandbox qualifier is an environment-capacity failure,
+not isolation evidence. It binds the exact boot/release/daemon, installed and
+read-only-injected NBD helper SHA `95e886d6…`, qualifier SHA `66e71807…`, and
+an all-zero initial inventory. On-VM focused tests pass both hello identity
+matching/rejection and post-handshake timeout clearing. The first child root
+build then correctly fails closed because the storage high-water guard observes
+2,684,846,080 free bytes against 3,233,472,512 required; no child and no peer
+attempt starts. Mode-0600 transcript
+`g4-cross-sandbox-storage-live-first.log` is 1,389 bytes/SHA `b3a871b6…`, exits
+1, and has an empty expanded credential scan. Capacity and post-failure
+inventory must be resolved before retry; this run does not close the row.
+
+Post-failure inspection proves cleanup returned zero kernel instances, ctr
+tasks/containers, and storage/relay helpers; only the expected empty 36-byte
+rootfs state remains. The 100-GB boot disk still has 51,274,813,440 bytes free,
+but the dedicated 20-GB storage filesystem has 17,182,076,928 used and only
+2,684,850,176 available. Four retained 2-GiB forensic quarantine images plus
+the earlier dual-root experiment images explain the pressure. Those evidence
+inputs will not be deleted; the authorized disposable data disk/filesystem will
+be expanded before the retry.
+
+GCE maps `/dev/sdb` to the nonboot persistent disk
+`mk-mediated-storage-20260830`; the entire device is ext4 mounted with
+`rw,nosuid,nodev,relatime`. It is expanded in place from 20 to 30 GB, then
+online `resize2fs` grows the filesystem from 20,957,446,144 to 31,526,436,864
+bytes. Used bytes remain exactly 17,182,076,928, while available space rises
+from 2,684,850,176 to 12,802,879,488. Thus no quarantined evidence was deleted,
+and the unchanged qualifier now has capacity for two concurrent 2-GiB roots.
+
+The capacity-fixed second run is a harness-readiness failure, not storage
+isolation evidence. Exact provenance, zero initial inventory, and both focused
+C tests pass, and two tasks allocate. The qualifier then incorrectly treats
+containerd `RUNNING` as proof that the guest workload has created
+`/tmp/storage-isolation-marker`; the first immediate read finds no file and the
+run exits before export extraction or any peer attempt. The exit trap returns
+zero instances, ctr tasks/containers, helpers, rootfs records, and live
+exports. Mode-0600 transcript `g4-cross-sandbox-storage-live-second.log` is
+1,291 bytes/SHA `ac8fc9ea…`, exit 1, with an empty credential scan. The next
+revision must wait boundedly for each guest marker.
+
+Readiness-fixed run three reaches two real ready guests with distinct durable
+owners on ports 4061/4062. It records both full 2-GiB image hashes,
+storage/rootfs state hashes, exact server PIDs/I/O counters, and only SHA-256
+digests—not plaintext—of both bearer export generations. The first peer
+attempt never starts because the harness calls `chmod` before creating its
+private per-attempt log. The exit trap is independently verified to return zero
+instances, ctr tasks/containers, helpers, rootfs records, and live exports.
+Mode-0600 transcript `g4-cross-sandbox-storage-live-third.log` is 2,254
+bytes/SHA `a048dccf…`, exit 1, with an empty credential scan. This is partial
+two-owner setup evidence only; the narrow correction is to create the log
+before applying mode 0600.
+
+Private-log-fixed run four again reaches two distinct live owners, but all four
+nominal reciprocal attempts exit immediately with status 126, duration zero,
+and identical 32-byte output SHA `848f2037…`. `/dev/nbd1` remains zero sectors
+and each mount fails, but these observations result from failure to execute the
+injected helper and do not test the transport boundary. The run later exits
+without post-integrity, final-inventory, or pass markers. Mode-0600 transcript
+`g4-cross-sandbox-storage-live-fourth.log` is 3,555 bytes/SHA `9f13ac7a…`, exit
+1, with an empty credential scan. The classifier must fail immediately on
+status 126/unknown classes, and guest helper mode/execution must be diagnosed.
+
+Source inspection identifies the design-level cause: readonly inputs are
+admitted only with the exact option vector `bind,ro,nodev,nosuid,noexec`, and
+their retained guest policy is explicitly
+`bind-remount-ro-nodev-nosuid-noexec`. A binary injected through this channel
+must not execute. The cross-sandbox retry path is paused rather than weakening
+that production boundary; when resumed it requires a purpose-built OCI test
+image containing the helper.
+
+Independent post-run inspection confirms the paused fourth run returned zero
+kernel instances, ctr tasks, and live exports.
+
+The next G4 provenance row now has an exact source-derived model. The builder
+installs trusted BusyBox, `mk-agent`, relay, and `mk-agent-init` at the outer
+ext4 root, copies the caller OCI snapshot only under `/bundle/rootfs`, and
+rewrites OCI `root.path` to `rootfs`. The separate initramfs contains BusyBox,
+`mkvsock-nbd`, NBD/transport modules, and `runtime-mediated-init`; after NBD
+mount it `switch_root`s into the trusted outer `/init`. `mk-agent` launches OCI
+processes with chroot `/bundle/rootfs`. Thus task `/bin/busybox` and any ELF
+interpreter/libraries must originate in the OCI subtree, while `/mk-agent`,
+relay, outer init, and bootstrap-only tools/modules remain outside it. This is
+not yet a pass: live child-observed hashes, mount/device/inode identities, and
+comparison with exact OCI/bootstrap manifests are still required.
+
+On the current candidate host, `gce-mk2.json` provides exact trusted hashes for
+agent `b57bae66…`, relay `293ff1ea…`, initramfs `2dec85b8…`, kernel
+`5cdf26d0…`, and transport module `bef1b888…`. The selected release directory
+contains only host binaries, so child outer-root observations must be matched
+to this approved manifest and exact builder inputs rather than inferred from a
+same-named file in the runtime release.
+
+The deployed builder resolves to immutable deployment `b4d185c6…` and selects
+`/usr/local/libexec/multikernel/guest/mk-agent-init`; deployed and exact
+candidate-source copies both hash to `edc9284c…`. This supplies a concrete
+comparison target for child outer `/init` in the live qualifier.
+
+The first retained provenance run is a harness false positive even though it
+prints `G4_ROOT_PROVENANCE_LIVE_PASS`. Its `cleanup` helper runs `set +e` in the
+parent shell and leaves assertion exits disabled. Primary reads of root-owned
+containerd bundle/runtime paths fail with `EACCES`; workload traversal of
+`/proc/1/root/...` is also correctly denied; empty values then compare equal
+and execution continues. No provenance claim is accepted. The file is renamed
+`g4-root-provenance-live-first-false-pass.log`; it is mode 0600/3,436 bytes/SHA
+`2da0a7b4…`, wrapper exit 0, empty credential scan. Only the product-level
+proc-root denial and genuine all-zero final inventory are useful. Correction
+requires subshell cleanup, privileged primary reads, mandatory nonempty
+observations, and an explicit assertion that outer proc-root traversal fails.
+
+Corrected provenance run two restores fail-closed assertion behavior and exits
+1 without a pass marker. It proves a clean baseline, exact
+boot/release/daemon/manifest, qualifier SHA `70c51fa…`, and equality of every
+approved trusted artifact on the primary, but ends before live-image or child
+observations. Its redirected command emits no diagnostic, so no provenance
+claim is accepted. Independent inspection finds zero instances, tasks,
+containers, helpers, rootfs records, and live exports. Mode-0600 transcript
+`g4-root-provenance-live-second.log` is 1,890 bytes/SHA `5cf0b81a…`, exit 1,
+empty credential scan. The retry needs a failing-line/status EXIT diagnostic
+and non-precreated private `debugfs` dump targets.
+
+Diagnostic provenance run three also fails closed after only baseline and
+approved-artifact observations. Its EXIT hook prints `line=1`, which does not
+identify the failed command; no live-image/child observation or pass marker is
+present. Mode-0600 `g4-root-provenance-live-third.log` is 1,945 bytes/SHA
+`16581e66…`, exit 1, empty credential scan. A credential-free shell trace of
+the unchanged harness is required to localize the harness failure.
+
+The retained shell trace identifies the exact failure: privileged `test -f`
+of `<containerd-bundle>/rootfs/bin/busybox` returns false because that snapshot
+is mounted only inside the shim's private mount namespace. This is expected
+isolation. Mode-0600 diagnostic is 13,166 bytes/SHA `f43d49d0…`, exit 1, empty
+credential scan, with cleanup completed. The SHA-bound
+`initramfs.source-manifest.json` already captures the held OCI snapshot's
+`bin/busybox` type, mode, owner, size, and content hash; the corrected qualifier
+must use that manifest instead of attempting to cross the shim namespace.
+
+Manifest-based run four provides strong partial product evidence but exits 1
+on its mount-string assumption. Exact live ext4 inspection records outer agent
+inode 59/hash `b57bae66…`, relay `293ff1ea…`, init `edc9284c…`, OCI BusyBox
+inode 21/hash `f060103f…`, and OCI-root inode 19. Inside the workload, `/` is
+device/inode `11008:19`, BusyBox is `11008:21` with the same `f060103f…` hash,
+outer proc-root traversal exits 1, nbd0 is device `43:0` with 4,194,304 sectors,
+and `mk_transport`/`nbd` are live. The assumed `/proc/mounts` form yields an
+empty `root_mount`, so line 226 correctly stops the run. Mode-0600 transcript
+is 4,855 bytes/SHA `6260575e…`, exit 1, empty credential scan. The final
+assertion should bind child `st_dev` to `makedev(43,0)` and retain the actual
+nbd0 mount line; expected cleanup misses must also stop firing the ERR trap.
+
+Device-bound run five repeats the exact hash/inode matches and removes cleanup
+ERR noise, but exits 1 at line 237 because `/proc/mounts` does not name the
+source `/dev/nbd0`. Mode-0600 transcript is 4,693 bytes/SHA `35a2827e…`, empty
+credential scan. The authoritative device proof is already exact: workload
+root `st_dev=11008`; observed nbd0 major/minor `43:0`; Linux `makedev(43,0)` is
+11008. The final revision will retain the complete child mount table and assert
+that device equality rather than assume a mount-source pathname.
+
+Mount-table run six retains that complete table: devtmpfs, proc, read-only
+sysfs, private `/run`, and protected proc/sys projections. It contains no ext4
+row because procfs exposes mounts beneath the workload chroot and omits the
+containing ext4 mount. The residual line-216 `grep ' ext4 '` exits 1 before the
+device-number assertion. Mode-0600 log is 5,807 bytes/SHA `f7f5b5d4…`, empty
+credential scan. The table remains retained; only this contradicted row
+assumption is removed, while `st_dev == makedev(nbd0)` remains mandatory.
+
+Final root-provenance qualifier SHA `1212ad47…` passes on exact boot
+`f93f21b6…`, selected release `ca7d7d01…`, daemon `a4a91006…`, and approved
+manifest `d4230978…`. The held OCI manifest records `bin/busybox` as mode 0755,
+uid/gid 0, 1,013,320 bytes, SHA `f060103f…`; live ext4 inspection assigns it
+inode 21 and the OCI root inode 19, exactly matching child observations
+`11008:21` and `/` `11008:19`. Root device 11008 equals Linux
+`makedev(43,0)` for the child's 4,194,304-sector nbd0. This BusyBox has no ELF
+interpreter or `DT_NEEDED`, hence no dynamic-library provenance remains.
+Outer image hashes exactly match approved agent `b57bae66…`, relay
+`293ff1ea…`, and deployed init `edc9284c…`; trusted paths are absent inside the
+workload and outer proc-root traversal exits 1. Loaded `mk_transport`/`nbd` and
+the complete visible mount table are retained. Teardown returns all tracked
+instances, tasks/containers, records, exports, helpers, links, and firewall
+rules to zero. `G4_ROOT_PROVENANCE_LIVE_PASS` exits 0. Mode-0600 transcript is
+6,827 bytes/SHA `ad9a358e…`, with an empty credential scan. The provenance row
+is closed.
+
+The validated provenance harness and focused hello-identity negative tests are
+preserved in isolated commit `940e21e749f0…` (`test: qualify runtime root
+provenance`). Live runtime binaries remain exact `ca7d7d01…`; the evidence
+separately binds uploaded qualifier SHA `1212ad47…`.
+
+The next G4 evidence-row audit separates already retained facts from the
+remaining claim. Exact-source runs already record generation-bound storage
+ownership, nonzero read/write/flush counters, guest quiesce before NBD
+disconnect, offline-clean `e2fsck`, and byte/inode quota plus high-water
+behavior. Those facts are insufficient to infer physical-device isolation.
+The row stays open because no one retained run binds the live backing image's
+allocation/quota and child mount table to before/after inventories proving that
+all real cloud block devices and allocatable storage controllers remained in
+the primary. A focused replacement-instance qualifier must collect precisely
+that missing evidence and must not attach a cloud disk/controller to the child.
+
+Read-only inspection of restarted boot `f93f21b6…` makes that qualifier
+machine-specific rather than speculative. The 100-GiB boot disk
+`persistent-disk-0` and 30-GiB store `mk-mediated-storage-20260830` are SCSI
+LUNs `0:0:1:0` and `0:0:2:0`; their sysfs ancestry converges on the same
+primary Virtio-SCSI PCI function `0000:00:03.0` (`1af4:1004`). `/dev/sdb`
+remains mounted only at `/srv/multikernel-storage`. Kerf reports an available
+CPU/memory pool, no instances, and an empty `/proc/kimage`. The focused run
+must retain and compare serial/HCTL/sysfs/PCI inventories before, during, and
+after; preserve both primary mounts; prove the child has no physical `sd*`
+device or storage PCI controller; and record its NBD/mount view independently.
+
+That focused qualifier now exists as
+`test-runtime-storage-primary-ownership-live.sh`. It also binds the fully
+allocated image bytes to the declared byte quota and inode limit, records
+post-allocation free-byte/free-inode state against production reserves, and
+requires generation-identical released counters plus offline-check evidence.
+Local Bash syntax and diff checks pass; local `shellcheck` is unavailable. The
+11,324-byte script hashes to `09607c71402d…`, and the transferred copy on boot
+`f93f21b6…` matches that digest and passes VM-side syntax. Execution evidence
+does not yet exist.
+
+The first execution is a fail-closed diagnostic, not a pass. Its private log is
+mode 0600/51,893 bytes/SHA-256 `4bd181c60c3c…`, exits 1, and has an empty
+expanded credential scan. Before the failure it proves unchanged primary
+disk/controller/mount inventories across the live child; a fully allocated
+2-GiB image equal to quota, 262,144-inode limit, distinct owner/export
+generations and healthy remaining high water; no child `sd*` or storage-class
+PCI function; complete child mount data; quiesce-before-disconnect ordering;
+and released nonzero counters with offline-clean SHA `b3b2f0ec…`. The final
+idle-daemon restart exposes real deployment drift caused by the earlier safe
+20→30-GiB data-disk expansion: systemd's storage preflight still expects the
+old byte size, so restart loops on `runtime storage byte size mismatch` even
+though live workload cleanup is complete. At diagnosis the restart count is
+18, Kerf has no pool/instance, durable live counts are zero, and both ctr
+inventories are empty. Correct the expected-size deployment configuration and
+then rerun from a healthy zero-restart service baseline.
+
+The first immutable correction attempt is itself retained. It verifies the
+30-GiB device and candidate environment SHA `7f296d38…`, stops the already
+failing service, and then the deployment manager correctly rejects the
+ordinary-user-owned uploaded input as unsafe. It installs and activates
+nothing. `g4-storage-size-config-correction.log` is private mode 0600/1,990
+bytes/SHA-256 `a5f6114e…`, exits 1, and has an empty credential scan. The same
+bytes must be made root-owned mode 0600 before the managed retry.
+
+The managed retry succeeds. Exact candidate source installs and atomically
+selects immutable support deployment `6182145c5cef…`, whose strict environment
+declares the observed 32,212,254,720 bytes. The storage preflight accepts it;
+mkruntimed is active with zero restarts; selected runtime `ca7d7d01…` and
+daemon SHA `a4a91006…` are unchanged; Kerf has no pool/instance; and both ctr
+inventories are empty. Private correction evidence is mode 0600/3,511 bytes,
+SHA-256 `83ab9edc…`, exit 0, with an empty credential scan. This restores a
+healthy baseline for the focused rerun while preserving the first failure.
+
+The unchanged qualifier rerun reaches the corrected healthy daemon restart and
+then fails only on a harness representation assumption: it requires a
+configured pool with zero allocated bytes, while a clean idle restart properly
+reports `No memory pool configured`. All substantive observations repeat.
+Independent inspection confirms active mkruntimed with zero restarts, no Kerf
+pool/instance, empty ctr inventories, and zero durable live counts. Private
+`g4-storage-primary-ownership-live-second.log` is mode 0600/53,092 bytes,
+SHA-256 `fafcd762…`, exit 1, with an empty credential scan. The final assertion
+must accept either no pool or a configured zero-byte pool, never a nonzero one.
+
+The narrow final-state correction passes local/VM Bash syntax and diff checks.
+Its 11,488-byte SHA-256 is `fa46fb36364a…`, exactly matching the remote
+mode-0700 copy. It changes no storage, isolation, ordering, or cleanup
+assertion; a third execution is still required.
+
+The exact third execution passes with
+`G4_STORAGE_PRIMARY_OWNERSHIP_LIVE_PASS`. Its private transcript is mode 0600/
+54,812 bytes/SHA-256 `028e0733…`, exit 0, with an empty expanded credential
+scan. Boot `f93f21b6…`, runtime `ca7d7d01…`, daemon `a4a91006…`, and qualifier
+`fa46fb36…` are bound. Primary inventories before, during, and after are
+byte-identical: the 100-GiB boot and 30-GiB store remain at SCSI LUNs
+`0:0:1:0`/`0:0:2:0`, mounted at `/` and `/srv/multikernel-storage`, behind
+Virtio-SCSI `0000:00:03.0`. The child contains no `sd*` and no storage PCI
+class, only loop devices, 2-GiB nbd0, empty nbd1, and the retained protected
+mount table. Its fully allocated image is 2,147,483,648 bytes with
+2,147,487,744 allocated bytes, equal byte quota, 262,144-inode limit, and
+10,655,387,648 bytes/1,966,045 inodes free above production reserves. Owner
+`aa2738aa…` and export `40685c89…` generations survive to release; quiesce line
+7 precedes disconnect line 9; counters are 280 reads/10,461,184 bytes, 49
+writes/823,296 bytes, and 9 flushes; offline-clean SHA is `b3b2f0ec…`.
+
+The subsequent independent exact-source audit (`7010e3da…`) also exits 0 with
+`G6_FINAL_RESOURCE_RETURN_PASS`. All 19 child, mount, artifact, FIFO, network,
+ctr/Docker, durable-record, endpoint, and helper-process counters are zero;
+Kerf has no pool/instance; and four services are active/running with zero
+restarts. Its private credential-clean transcript is mode 0600/16,505 bytes,
+SHA-256 `b2f411ea…`, and binds the same boot/release/daemon. Together these
+observations close the composite backing-allocation, accounting, teardown,
+offline-check, and primary physical-storage-ownership evidence row.
+
+The validated qualifier is isolated in commit `9c6c40f` (`test: qualify
+primary storage ownership`). The post-closure repository gate passes every
+documentation, schema, OCI, initramfs, storage, bind, bootstrap, mount, image,
+release, deployment, ledger, capture, containerd, and final-audit check. Five
+generated bytecode files are removed, the diff check is clean, and the running
+checklist now reports 52 closed and 33 open.
+
+Audit of the final open G4 replacement-evidence row finds no need for a new
+injection. Private exact-source `g4-partial-artifact-live-pass.log` (mode 0600,
+94,007 bytes, SHA `4e66461f…`, exit 0, credential-clean) retains the actual
+post-allocation one-shot `load` rejection and its immediate 20-field inventory.
+Child, mount, artifact, FIFO, network/TUN/rule, container, durable-owner,
+endpoint, NBD, and relay counts are zero. Two disconnecting shim processes are
+explicitly visible immediately, sampled at 250 ms, and reach zero before the
+strict checkpoint. The failed storage generation is `RELEASED` with an offline
+clean check. That same raw VM transcript names and passes all nine Create
+rollback stages, six rootfs failure/diagnosability cases, and four lifecycle
+cancellation/pool cases, then repeats the all-zero inventory. Independent
+`g4-partial-artifact-final-resource-audit-pass.log` (14,185 bytes, SHA
+`545ad9ea…`) confirms all 19 counters zero, no Kerf state, and healthy services.
+
+The builder/allocation half is likewise raw rather than summary-only.
+`g4-storage-fault-matrix-live-pass.log` is private mode 0600/86,309 bytes, SHA
+`1eca1db8…`, exit 0, credential-clean, and retains interrupted-copy, wrong-UUID,
+every storage/initramfs ENOSPC allocation/publication boundary, real block and
+inode ENOSPC, and byte/inode high-water cases; each case asserts no public or
+private partial artifact. Bracketing resource audits are zero, and independent
+`g4-storage-post-fault-final-resource-audit.log` is private mode 0600/16,301
+bytes, SHA `3aeb7b79…`, exit 0. Together the raw named failure outputs,
+immediate post-live-fault inventory, convergence observation, durable release,
+and independent audits close the G4 injected-failure evidence row.
+
+Audit of the first open G5 flow row confirms that historical markers are not
+enough. The shared matrix proves a child address and successful hostname HTTP,
+but intentionally discards the resolver answer and HTTP response; it records
+neither a primary-owned listener exchange nor a distinct UDP reply. Focused
+tests establish configuration and counter behavior only. The row therefore
+remains open pending an exact-source live qualifier that retains endpoint
+identity, tokenized child↔primary TCP and UDP request/reply details, configured
+resolver and DNS answers, external TCP destination/status/body digest,
+network counters, and independent clean teardown.
+
+The focused implementation is now
+`test-runtime-network-flows-live.sh`. It uses tokenized one-shot primary-owned
+TCP and UDP listeners, exact child replies and primary peer/payload JSON,
+retained endpoint/DNS data, external HTTP status/body size/digest, identity and
+counter comparison, normal deletion, idle-pool return, and the independent
+19-counter audit. Local Bash syntax and diff checks pass; `shellcheck` is not
+installed. The executable is 9,414 bytes/SHA-256 `25fa8a71dc60…`; execution
+remains pending. Transfer provenance is now established: the running disposable
+VM reports the uploaded `/tmp/test-runtime-network-flows-live-25fa8a71.sh` as
+mode `0755`, owner `hairizuan-tw:hairizuan-tw`, size 9,414 bytes, and complete
+SHA-256
+`25fa8a71dc60c7c9ae78221e1ae116fc2ad07ae372ba352fe9617552e4a9bc98`;
+guest-side `bash -n` passes. This records only the exact-input verification, not
+a live qualification result.
+
+The first live execution is preserved rather than discarded:
+`g5-network-flows-live-first.log` is mode `0600`, 33,436 bytes, SHA-256
+`c8cf853e522147b57cf72ef2c7b4d7a2fd900381e6e105b7d3827821d21cf2d5`,
+exit 1, and credential-pattern clean. Before the failure it proves a clean
+start and exact boot/release/binary/qualifier provenance; stable endpoint
+`172.31.0.2/30`; exact tokenized TCP and UDP request/reply with primary
+`10.148.0.58:18080/18081`; DNS through `169.254.169.254` returning two A and
+two AAAA answers for `example.com`; and outbound HTTP to `172.66.147.243:80`
+returning 200 and a 577-byte body with SHA-256
+`25ddf2c883e0d1958ea971d279a7e4f0fd446724ee3db7db19dadabd4a62e484`.
+The endpoint identity was unchanged, errors stayed zero, and normal release
+returned rootfs/export/endpoint counts to zero. The sole failure occurs after
+the deliberate `mkruntimed` restart, when the embedded final-resource audit
+exits before its first observation. Readiness/audit state is being diagnosed;
+the row remains open and no pass is claimed.
+
+The retained follow-up
+`g5-network-flows-first-post-failure-audit.log` ran 62 seconds later and is mode
+`0600`, 16,298 bytes, SHA-256
+`38f90c26b62d2d7d97ebdd5af18e652f8ca6eebae85de5477badaac80094e370`,
+exit 0, and credential-pattern clean. Its exact-source trace proves the same
+boot/release/daemon, Kerf with neither pool nor instances, all 19 resource
+counters zero, and four active services with zero restarts. The daemon journal
+shows only the intended stop/start plus successful storage-mount validation.
+Thus the failed embedded audit was an after-restart readiness race, not leaked
+state: systemd's active state preceded the Kerf clean response. The qualifier
+now includes an up-to-60-second wait for both clean Kerf assertions, retains the
+response, and invokes the audit only afterward. The revised file passes local
+Bash syntax and diff checks and is 9,807 bytes/SHA-256
+`cfbd71542d84d364d3c302279216635ff37b0fd1ba880fca83d2944360d98940`;
+the guest independently reports the uploaded
+`/tmp/test-runtime-network-flows-live-cfbd7154.sh` as mode `0755`, size 9,807
+bytes, the same complete digest, and guest-side syntax-valid. Its execution
+is retained as `g5-network-flows-live-second.log`: mode `0600`, 36,258 bytes,
+SHA-256
+`85bd5da562521fe66ad807ef1bfa182ae680d5ce1abe6e8a16cfee2a8e298af5`,
+exit 1, credential-pattern clean. It independently repeats all TCP/UDP/DNS/HTTP
+and stable-endpoint assertions, reaches zero rootfs/export/endpoint counts, and
+obtains clean Kerf immediately after restart, yet the full audit immediately
+afterward still exits before emitting an observation. The traced audit begun
+21 seconds later passes in
+`g5-network-flows-second-immediate-audit.log` (mode `0600`, 16,298 bytes,
+SHA-256
+`6372ebaff55876204cddddb20e0321c39f93e94a2f5e67ae6483a126af8f9e1f`,
+exit 0, credential-pattern clean), proving all 19 counters zero and all services
+active with zero restarts. The corrected conclusion is that clean Kerf is only
+one readiness dimension; the qualifier must poll the complete exact-source
+audit contract until it succeeds and retain that eventual output. The script
+now does so for up to 60 seconds, requires the audit's terminal pass, and emits
+the successful output. Local syntax/diff checks pass; this 9,991-byte revision
+has SHA-256
+`80e3327e3333fd71f9fe668534280e3021b723d63fa31ce34305cbf1492ea30c`;
+the uploaded `/tmp/test-runtime-network-flows-live-80e3327e.sh` is independently
+verified by the guest as mode `0755`, size 9,991 bytes, the same full digest,
+and syntax-valid. Its third live execution passes in
+`g5-network-flows-live-third.log`: mode `0600`, 42,937 bytes, SHA-256
+`a380aaf75e60ac3c508acd32cff52e0de8ff37ab9ec20be5ec2ff95aff8c0f67`,
+exit 0, credential-pattern clean, terminal `G5_NETWORK_FLOWS_LIVE_PASS`.
+It retains exact ca7/boot/binary/qualifier provenance; the complete endpoint;
+tokenized primary TCP and UDP exchanges; resolver plus two A/two AAAA answers;
+HTTP 200 from `104.20.23.154:80` with a 577-byte body/SHA-256
+`25ddf2c883e0…`; unchanged identity/zero errors; normal-release zero counts;
+clean Kerf; and the exact-source 19-counter audit after three transient retries,
+with all counters zero and all four services active/zero-restart. A separate
+post-pass audit also passes as
+`g5-network-flows-final-resource-audit.log`: mode `0600`, 16,298 bytes,
+SHA-256
+`40dc7f4ad2ad5e87abbe83011b3f605c965ba0d9ed247cc9073c83ab867d39a1`,
+exit 0, credential-pattern clean, exact provenance, clean Kerf, all 19 counters
+zero, and all services active with zero restarts. This closes the focused G5
+flow row. The post-closure local gate passes documentation/links, all schemas
+and current manifests, 97 OCI cases, read-only-bind/bootstrap/initramfs/storage/
+mount/architecture/release/lifecycle/deployment/GCE-ledger/capture/containerd/
+final-audit checks, qualifier syntax, and `git diff --check`.
