@@ -2246,7 +2246,21 @@ phrase above.
   in 10.905 seconds. Exact-source VM execution and a real kernel-stack MTU/load
   qualifier remain pending. The repository gate remains green across docs,
   schemas/manifests, 97 OCI cases, and all focused runtime suites; the diff is
-  clean.
+  clean. Commit `e4d7c9c0c7b66f5a5b8cb8e574c7ca80a26e87a6` freezes this
+  source coverage. Its deterministic gzip archive is 1,330,103 bytes/SHA-256
+  `3ba8b51764f5fc458a98059d8324cc214d5a362a0b6abf0157f7688304c28ee6`;
+  guest verification matches that size/digest, extraction into unique
+  `/var/tmp/mksrc-e4d7c9c` yields 655 regular files, and the relevant guest
+  `main_test.go` matches the local SHA-256 `0a545d38811f…`. Guest execution is
+  retained in `g5-network-pump-stress-source-live.log`: mode `0600`, 31,692
+  bytes, SHA-256
+  `9a8f6f401ff2f4c1be95f1c29685108a041c2961cb67bea871c3023719583d30`,
+  exit 0, credential-pattern clean. All seven named subcases pass in each of 20
+  race-detector repetitions (10.552 seconds): exact MTU, both oversize
+  directions, disconnect/loss/reconnect, fragment/checksum/malformed opacity,
+  256-packet ordering/load, and slow-reader drop/recovery. This closes the
+  source pump portion only; real child/primary negotiated-MTU and load evidence
+  remains required for the composite row.
 - [ ] Agent transport disconnect/reconnect, child restart, networking-service
   restart, `mkruntimed` restart, shim death, and primary restart. Focused pump
   coverage now proves exchange disconnect detection and authenticated reconnect

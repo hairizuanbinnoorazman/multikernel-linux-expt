@@ -9259,4 +9259,19 @@ it. Repeated race execution and exact-source disposable-VM execution are still
 required before these clauses can support row closure. The combined old/new
 pump selection now passes 20 race-detector repetitions in 10.905 seconds;
 exact-source VM and live kernel-stack evidence remain pending. The full local
-documentation/schema/manifest/runtime gate and diff check remain green.
+documentation/schema/manifest/runtime gate and diff check remain green. Commit
+`e4d7c9c0c7b66f5a5b8cb8e574c7ca80a26e87a6` freezes the source tests; its
+deterministic 1,330,103-byte archive hashes to
+`3ba8b51764f5fc458a98059d8324cc214d5a362a0b6abf0157f7688304c28ee6`.
+The guest independently matches archive size/digest, extracts 655 regular files
+into unique `/var/tmp/mksrc-e4d7c9c`, and reports the same local/guest SHA-256
+`0a545d38811f…` for the changed shim test file. Exact guest execution remains
+captured in `g5-network-pump-stress-source-live.log`: mode `0600`, 31,692
+bytes, SHA-256
+`9a8f6f401ff2f4c1be95f1c29685108a041c2961cb67bea871c3023719583d30`,
+exit 0, credential-pattern clean. On the disposable VM all seven named subcases
+pass in each of 20 race-detector repetitions (10.552 seconds), covering exact
+MTU, both oversize directions, disconnect/loss/reconnect, opaque fragment/
+checksum/malformed bytes, 256-packet order/load, and slow-reader bounded drop
+plus recovery. The source pump slice is now evidenced; the composite row stays
+open for real negotiated-MTU and load traffic through the child/primary stack.
