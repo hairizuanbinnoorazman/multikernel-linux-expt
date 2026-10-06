@@ -9184,3 +9184,46 @@ flow row. The post-closure local gate passes documentation/links, all schemas
 and current manifests, 97 OCI cases, read-only-bind/bootstrap/initramfs/storage/
 mount/architecture/release/lifecycle/deployment/GCE-ledger/capture/containerd/
 final-audit checks, qualifier syntax, and `git diff --check`.
+
+Audit of the next G5 row finds partial but insufficient evidence. The shared
+matrix retained distinct simultaneous `/30` endpoints and bidirectional sibling
+`ping` failures, but its ctr and Docker IDs differ and it never asserts the same
+internal hostname in both children. Its outbound marker also discards a
+tokenized positive-route response for each sandbox. The new flow qualifier has
+such a response for only one child. The row therefore remains open pending a
+focused exact-current run with two simultaneous same-hostname sandboxes,
+distinct endpoint identities, an exact allowed primary exchange from each,
+bidirectional sibling rejection with command results, and the independent
+19-counter cleanup audit.
+
+The focused implementation is now
+`test-runtime-network-isolation-live.sh`. It creates two simultaneous ctr
+sandboxes with the explicit shared hostname, correlates two durable mknetd
+identities with child-reported addresses, requires a distinct tokenized reply
+from a primary-owned listener for each child, retains both directions of
+sibling ICMP rejection, deletes normally, and waits for the complete
+exact-source 19-counter audit. Local Bash syntax and diff checks pass. The
+executable is mode `0755`, 9,547 bytes, SHA-256
+`b49960be4e120b4f4ae3e2cd10c512396577491a08016e1e4b4c03c3cfedc173`;
+the uploaded `/tmp/test-runtime-network-isolation-live-b49960be.sh` is verified
+by the guest as mode `0755`, size 9,547 bytes, the same complete digest, and
+syntax-valid. Its first live run passes in
+`g5-network-isolation-live-first.log`: mode `0600`, 44,193 bytes, SHA-256
+`de553bbb59a635efb71a5684572f7383b6a9b7a95224eaa2159e4435a929f02b`,
+exit 0, credential-pattern clean, terminal
+`G5_NETWORK_ISOLATION_LIVE_PASS`. The retained observations prove the same
+internal hostname in both children; distinct `172.31.0.2/30` and
+`172.31.0.6/30` endpoint/address/generation identities; separate tokenized
+primary-route replies whose peer IPs match those children; bidirectional ping
+exit 1 with 100% loss; clean normal release; and eventual exact-source Kerf/
+19-counter/service audit success after three transient post-restart retries.
+A separately invoked audit passes as
+`g5-network-isolation-final-resource-audit.log`: mode `0600`, 16,298 bytes,
+SHA-256
+`a8bf3216fd63af84f9324529fe92fc05a34483f5dce30828987e4e973382d9c7`,
+exit 0, credential-pattern clean, same exact release/boot/daemon, clean Kerf,
+all 19 counters zero, and four active zero-restart services. This closes the
+overlapping-name/distinct-identity/positive-route/default-isolation row. The
+post-closure repository gate passes documentation/links, all schemas/current
+manifests, 97 OCI cases, all focused runtime suites, qualifier syntax, and
+`git diff --check`.

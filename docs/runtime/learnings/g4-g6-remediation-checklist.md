@@ -2168,8 +2168,52 @@ phrase above.
   mount, 7 architecture, 6 release-manifest, lifecycle, deployment, GCE ledger,
   capture, containerd-config, and final-evidence-audit checks; Bash syntax and
   `git diff --check` are clean.
-- [ ] Two sandboxes with overlapping internal names but distinct network
+- [x] Two sandboxes with overlapping internal names but distinct network
   identity, plus positive allowed routing and negative default isolation.
+  Evidence audit keeps this row open. The retained shared matrix proves two
+  distinct `/30` identities and bidirectional sibling `ping` rejection, but its
+  workloads use different container IDs and never assert an identical internal
+  hostname. Its outbound marker also does not retain a tokenized positive route
+  response for each sandbox. The new single-sandbox flow qualifier cannot fill
+  either two-sandbox gap. A focused current-source qualifier must start two
+  simultaneous children with the same hostname, retain distinct endpoint and
+  child-reported identities, prove a tokenized allowed exchange from each to a
+  primary listener, prove bidirectional sibling TCP/UDP or ICMP rejection with
+  exit/output details, and finish with the exact 19-counter audit.
+  `test-runtime-network-isolation-live.sh` now implements that focused case
+  with two simultaneous ctr sandboxes, explicit shared hostname, durable and
+  child-reported address correlation, two tokenized replies from one
+  primary-owned listener, bidirectional sibling ICMP rejection with raw output,
+  normal deletion, and bounded exact-source final-audit readiness. Local Bash
+  syntax and diff checks pass. The executable is mode `0755`, 9,547 bytes,
+  SHA-256
+  `b49960be4e120b4f4ae3e2cd10c512396577491a08016e1e4b4c03c3cfedc173`;
+  the guest independently reports the uploaded
+  `/tmp/test-runtime-network-isolation-live-b49960be.sh` as mode `0755`, size
+  9,547 bytes, the same complete digest, and syntax-valid. No live result is yet
+  claimed by transfer alone. The first live run passes as
+  `g5-network-isolation-live-first.log`: mode `0600`, 44,193 bytes, SHA-256
+  `de553bbb59a635efb71a5684572f7383b6a9b7a95224eaa2159e4435a929f02b`,
+  exit 0, credential-pattern clean, terminal
+  `G5_NETWORK_ISOLATION_LIVE_PASS`. It retains exact ca7/boot/daemon/qualifier
+  provenance; the same `shared-internal-name` inside both children; distinct
+  `172.31.0.2/30` and `172.31.0.6/30` child/state identities, gateways,
+  generations, and sandbox generations; exact `route-token-a/b` replies from
+  primary `10.148.0.58:18082`, observed there with matching child peer IPs;
+  bidirectional sibling ping exit 1 with one sent/zero received/100% loss; zero
+  post-release rootfs/export/endpoint counts; and an eventual exact-source
+  19-counter-zero audit after three transient retries. A separately invoked
+  audit also passes as
+  `g5-network-isolation-final-resource-audit.log`: mode `0600`, 16,298 bytes,
+  SHA-256
+  `a8bf3216fd63af84f9324529fe92fc05a34483f5dce30828987e4e973382d9c7`,
+  exit 0, credential-pattern clean, same exact release/boot/daemon, clean Kerf,
+  all 19 counters zero, and four active zero-restart services. The overlapping-
+  name/distinct-identity/positive-route/default-isolation row is closed. Its
+  post-closure repository gate passes documentation/links, all schemas/current
+  manifests, 97 OCI cases, bind/bootstrap/initramfs/storage/mount/architecture/
+  release/lifecycle/deployment/ledger/capture/containerd/final-audit checks,
+  qualifier syntax, and `git diff --check`.
 - [ ] MTU boundaries, fragmentation, checksums, malformed/oversized frames,
   loss, reordering, burst traffic, sustained load, and slow readers. A
   socketpair-backed shim pump suite now proves exact-MTU bidirectional
