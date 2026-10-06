@@ -9227,3 +9227,36 @@ overlapping-name/distinct-identity/positive-route/default-isolation row. The
 post-closure repository gate passes documentation/links, all schemas/current
 manifests, 97 OCI cases, all focused runtime suites, qualifier syntax, and
 `git diff --check`.
+
+The broad G5 packet-stress row is now narrowed against current source. The
+packet pump is byte-opaque and single-flight, yet its focused test covers only
+one exact-MTU round trip, oversized ingress/egress drops, and two packets around
+a disconnect/reconnect. It does not execute an ordered sequence, representative
+fragment/checksum/malformed bytes, a burst or sustained loop, or a deliberately
+slow receiver that fills the nonblocking egress queue. Those clauses stay open.
+Focused socketpair coverage should establish the pump invariants first, then a
+smaller disposable-VM run can exercise the real child/primary kernel path at
+the negotiated MTU and under load.
+
+The initial added test run passes byte-exact representative IPv4 fragment/
+checksum/truncated-frame forwarding and a 256-packet ordered burst with exact
+sequence and counters. The slow-reader subcase stops at its attempted
+`SO_RCVBUF` reduction because the local sandbox returns `EPERM`; existing
+exact-MTU, oversized-direction, and disconnect/reconnect subcases also pass.
+No backpressure success is claimed from that run. The socket buffer mutation is
+not required: the retry will fill the default receive queue while withholding
+reads, preserving the intended nonblocking-drop assertion without the denied
+operation.
+
+After removing only the denied buffer-size mutation, the complete focused run
+passes in 0.513 seconds. The new test retains three representative packet
+shapes byte-for-byte, including fragment/checksum fields and a truncated frame;
+preserves the exact order/content of 256 burst packets with exact zero-drop
+counters; fills the default unread receive queue until the shim records a
+nonblocking TX drop; then drains and forwards an exact recovery marker without
+a fatal error. The older exact-MTU/oversize/disconnect test passes alongside
+it. Repeated race execution and exact-source disposable-VM execution are still
+required before these clauses can support row closure. The combined old/new
+pump selection now passes 20 race-detector repetitions in 10.905 seconds;
+exact-source VM and live kernel-stack evidence remain pending. The full local
+documentation/schema/manifest/runtime gate and diff check remain green.

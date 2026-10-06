@@ -2221,6 +2221,32 @@ phrase above.
   increments, disconnected-packet loss accounting, and retry-until-success
   reconnect after two injected failures. Fragmentation, checksum, ordering,
   load, and slow-reader coverage remain open.
+  Current-source audit confirms the precise test gap. The shim's pump is
+  deliberately packet-opaque and single-flight, but its only focused test sends
+  one exact-MTU packet, one oversized packet in each direction, and two packets
+  around a disconnect. There is no ordered multi-packet sequence, fragment/
+  checksum/malformed-byte preservation set, burst or sustained loop, or
+  receiver-backpressure assertion. Add focused socketpair tests for these pump
+  invariants before designing the narrower live kernel-stack MTU/load run; do
+  not infer these clauses from implementation structure alone.
+  The first added source-test attempt passes representative first/last IPv4
+  fragment plus checksum and truncated-frame byte preservation, and a 256-
+  packet ordered burst with exact payloads/counters. Its slow-reader subcase
+  fails before traffic because this local sandbox rejects `SO_RCVBUF` with
+  `EPERM`; the historical exact-MTU/oversize/disconnect subcases still pass.
+  This is a harness portability failure, not a slow-reader result. Remove the
+  unnecessary buffer-size mutation and fill the default nonblocking receive
+  queue instead before retrying. That correction passes: both the historical
+  pump test and new `TestNetworkPumpPacketIntegrityOrderingLoadAndSlowReader`
+  complete in 0.513 seconds. The latter proves three representative opaque
+  packet shapes unchanged, 256 ordered 64-byte packets unchanged with exact
+  counters/no drops, and a default queue filled until a nonblocking TX drop,
+  followed by drain and an exact recovery marker with zero fatal errors.
+  The combined old/new pump selection also passes 20 race-detector repetitions
+  in 10.905 seconds. Exact-source VM execution and a real kernel-stack MTU/load
+  qualifier remain pending. The repository gate remains green across docs,
+  schemas/manifests, 97 OCI cases, and all focused runtime suites; the diff is
+  clean.
 - [ ] Agent transport disconnect/reconnect, child restart, networking-service
   restart, `mkruntimed` restart, shim death, and primary restart. Focused pump
   coverage now proves exchange disconnect detection and authenticated reconnect

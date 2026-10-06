@@ -5873,6 +5873,163 @@ func TestNetworkPumpMTUBoundsCountersAndReconnect(t *testing.T) {
 	})
 }
 
+func TestNetworkPumpPacketIntegrityOrderingLoadAndSlowReader(t *testing.T) {
+	const mtu = 576
+	readPacket := func(t *testing.T, descriptor int, size int) []byte {
+		t.Helper()
+		buffer := make([]byte, size)
+		for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+			n, err := unix.Read(descriptor, buffer)
+			if err == nil {
+				return append([]byte(nil), buffer[:n]...)
+			}
+			if !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
+				t.Fatal(err)
+			}
+			time.Sleep(time.Millisecond)
+		}
+		t.Fatal("timed out reading network-pump packet")
+		return nil
+	}
+	writePacket := func(t *testing.T, descriptor int, packet []byte) {
+		t.Helper()
+		for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+			if _, err := unix.Write(descriptor, packet); err == nil {
+				return
+			} else if !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
+				t.Fatal(err)
+			}
+			time.Sleep(time.Millisecond)
+		}
+		t.Fatal("timed out writing network-pump packet")
+	}
+	checksum := func(header []byte) uint16 {
+		var sum uint32
+		for index := 0; index+1 < len(header); index += 2 {
+			sum += uint32(binary.BigEndian.Uint16(header[index : index+2]))
+		}
+		for sum > 0xffff {
+			sum = (sum & 0xffff) + (sum >> 16)
+		}
+		return ^uint16(sum)
+	}
+	ipv4Packet := func(flagsOffset uint16, payload []byte) []byte {
+		packet := make([]byte, 20+len(payload))
+		packet[0], packet[8], packet[9] = 0x45, 64, 17
+		binary.BigEndian.PutUint16(packet[2:4], uint16(len(packet)))
+		binary.BigEndian.PutUint16(packet[4:6], 0x1234)
+		binary.BigEndian.PutUint16(packet[6:8], flagsOffset)
+		copy(packet[12:16], []byte{192, 0, 2, 1})
+		copy(packet[16:20], []byte{198, 51, 100, 1})
+		binary.BigEndian.PutUint16(packet[10:12], checksum(packet[:20]))
+		copy(packet[20:], payload)
+		return packet
+	}
+
+	t.Run("fragment checksum and malformed bytes remain opaque", func(t *testing.T) {
+		device, peer := networkPumpSocket(t)
+		client := &networkPumpAgent{handler: func(_ int, packet []byte) ([]byte, error) {
+			return packet, nil
+		}}
+		s := &service{agent: client, netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
+		s.startNetworkPump()
+		defer stopNetworkPumpForTest(s)
+		packets := [][]byte{
+			ipv4Packet(0x2000, []byte("first-fragment")),
+			ipv4Packet(0x0002, []byte("last-fragment")),
+			{0x45, 0x00, 0x00, 0x01, 0xff},
+		}
+		for index, packet := range packets {
+			writePacket(t, peer, packet)
+			if observed := readPacket(t, peer, mtu+1); !bytes.Equal(observed, packet) {
+				t.Fatalf("packet %d changed: got %x want %x", index, observed, packet)
+			}
+		}
+		if s.netRXPackets.Load() != uint64(len(packets)) || s.netTXPackets.Load() != uint64(len(packets)) ||
+			s.netRXDrops.Load() != 0 || s.netTXDrops.Load() != 0 || s.netErrors.Load() != 0 {
+			t.Fatalf("opaque-packet counters = rx:%d tx:%d rxdrop:%d txdrop:%d errors:%d",
+				s.netRXPackets.Load(), s.netTXPackets.Load(), s.netRXDrops.Load(), s.netTXDrops.Load(), s.netErrors.Load())
+		}
+	})
+
+	t.Run("ordered burst and sustained traffic", func(t *testing.T) {
+		device, peer := networkPumpSocket(t)
+		client := &networkPumpAgent{handler: func(_ int, packet []byte) ([]byte, error) {
+			return packet, nil
+		}}
+		s := &service{agent: client, netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
+		s.startNetworkPump()
+		defer stopNetworkPumpForTest(s)
+		const packets = 256
+		for index := 0; index < packets; index++ {
+			packet := make([]byte, 64)
+			binary.BigEndian.PutUint32(packet, uint32(index))
+			for offset := 4; offset < len(packet); offset++ {
+				packet[offset] = byte(index + offset)
+			}
+			writePacket(t, peer, packet)
+		}
+		for index := 0; index < packets; index++ {
+			observed := readPacket(t, peer, mtu+1)
+			if len(observed) != 64 || binary.BigEndian.Uint32(observed[:4]) != uint32(index) {
+				t.Fatalf("packet order at %d = %x", index, observed)
+			}
+			for offset := 4; offset < len(observed); offset++ {
+				if observed[offset] != byte(index+offset) {
+					t.Fatalf("packet %d byte %d changed", index, offset)
+				}
+			}
+		}
+		waitNetworkCondition(t, func() bool {
+			return s.netRXPackets.Load() == packets && s.netTXPackets.Load() == packets
+		}, "ordered burst counters")
+		if s.netRXDrops.Load() != 0 || s.netTXDrops.Load() != 0 || s.netErrors.Load() != 0 {
+			t.Fatalf("ordered-burst counters = rxdrop:%d txdrop:%d errors:%d",
+				s.netRXDrops.Load(), s.netTXDrops.Load(), s.netErrors.Load())
+		}
+	})
+
+	t.Run("slow reader drops without stalling and recovers", func(t *testing.T) {
+		device, peer := networkPumpSocket(t)
+		client := &networkPumpAgent{handler: func(_ int, packet []byte) ([]byte, error) {
+			return packet, nil
+		}}
+		s := &service{agent: client, netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
+		s.startNetworkPump()
+		defer stopNetworkPumpForTest(s)
+		packet := bytes.Repeat([]byte{0x5a}, 512)
+		sent := 0
+		for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline) && s.netTXDrops.Load() == 0; {
+			if _, err := unix.Write(peer, packet); err == nil {
+				sent++
+			} else if !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
+				t.Fatal(err)
+			}
+			time.Sleep(100 * time.Microsecond)
+		}
+		if s.netTXDrops.Load() == 0 {
+			t.Fatalf("slow reader produced no bounded drop after %d packets", sent)
+		}
+		waitNetworkCondition(t, func() bool { return s.netRXPackets.Load() == uint64(sent) }, "slow-reader ingress drain")
+		buffer := make([]byte, mtu+1)
+		for {
+			if _, err := unix.Read(peer, buffer); errors.Is(err, syscall.EAGAIN) || errors.Is(err, syscall.EWOULDBLOCK) {
+				break
+			} else if err != nil {
+				t.Fatal(err)
+			}
+		}
+		marker := bytes.Repeat([]byte{0xa5}, 512)
+		writePacket(t, peer, marker)
+		if observed := readPacket(t, peer, mtu+1); !bytes.Equal(observed, marker) {
+			t.Fatalf("post-backpressure packet changed: got %x", observed)
+		}
+		if s.netErrors.Load() != 0 {
+			t.Fatalf("slow reader caused %d fatal pump errors", s.netErrors.Load())
+		}
+	})
+}
+
 func TestNetworkReporterRetriesAndCoalescesLatestState(t *testing.T) {
 	client := &retryNetworkReportClient{failures: 2, attempts: make(chan mknetwork.Endpoint, 4), success: make(chan mknetwork.Endpoint, 2)}
 	endpoint := validShimEndpoint("task", "box", strings.Repeat("b", 32), strings.Repeat("a", 32), "/run/netns/task")
