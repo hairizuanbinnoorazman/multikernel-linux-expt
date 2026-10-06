@@ -19,10 +19,47 @@ static int expect_timeout(int descriptor, int option, long seconds)
 	return 0;
 }
 
+static int test_hello_identity(void)
+{
+	const uint64_t size = 2147483648ULL;
+	const char *image = "image-a";
+	const char *generation = "0123456789abcdef0123456789abcdef";
+	struct hello_wire hello;
+
+	fill_hello(&hello, size, image, generation);
+	if (!hello_matches(&hello, size, image, generation)) {
+		fprintf(stderr, "exact hello identity did not match\n");
+		return 1;
+	}
+	if (hello_matches(&hello, size + 4096, image, generation) ||
+	    hello_matches(&hello, size, "image-b", generation) ||
+	    hello_matches(&hello, size, image,
+			  "fedcba9876543210fedcba9876543210")) {
+		fprintf(stderr, "mismatched hello identity was accepted\n");
+		return 1;
+	}
+	hello.magic = htonl(HELLO_MAGIC ^ 1U);
+	if (hello_matches(&hello, size, image, generation)) {
+		fprintf(stderr, "wrong hello magic was accepted\n");
+		return 1;
+	}
+	fill_hello(&hello, size, image, generation);
+	hello.version = htonl(HELLO_VERSION + 1U);
+	if (hello_matches(&hello, size, image, generation)) {
+		fprintf(stderr, "wrong hello version was accepted\n");
+		return 1;
+	}
+	puts("MKVSOCK_NBD_HELLO_IDENTITY_PASS");
+	return 0;
+}
+
 int main(void)
 {
 	int sockets[2];
 	struct timeval probe = { .tv_sec = 15 };
+
+	if (test_hello_identity())
+		return 1;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) < 0)
 		die("socketpair");
