@@ -2299,6 +2299,151 @@ phrase above.
   coverage now proves exchange disconnect detection and authenticated reconnect
   retry before later traffic succeeds; the cross-process restart matrix remains
   open.
+- Restart-row evidence audit (recorded before a new live attempt): the retained
+  `g6-mkruntimed-restart-continuity-v2-pass.log` proves the daemon PID changes
+  while the task, namespace-holder PID, child boot ID, recovery record, stream,
+  exec, and events remain usable; `g6-forced-shim-reconnect-fifo-pass.log`
+  proves worker/holder replacement, unchanged child boot identity, continuous
+  attach, post-fault exec, and normal teardown. Those are valid evidence for
+  the `mkruntimed` and shim-death members, but neither transcript exercises a
+  network exchange across the fault. The packet-pump source suite proves an
+  injected transport disconnect and authenticated reconnect in-process only.
+  No retained focused transcript proves live packet continuity across an
+  `mknetd` restart, relay/agent transport-process death, child replacement, or
+  restart of the primary-side network service. The composite row therefore
+  remains open specifically for those live boundaries plus packet assertions
+  around the already-proved daemon/shim boundaries; host reboot evidence is
+  not being substituted because earlier reboot observations exposed separate
+  volatile-bundle/orphan reconciliation failures.
+- Disposable-instance restart-row preflight: GCE reports
+  `mklinux-g4-g6-final-20260905` `RUNNING` with start timestamp
+  `2026-10-05T17:58:35.542-07:00`; host boot ID remains
+  `f93f21b6-21f1-4fc0-aebc-806347d6b43d`. `mkruntimed`, `mknetd`, containerd,
+  and Docker are active. Default/moby task inventories, Docker containers,
+  Multikernel children, and mknetd's durable endpoint map are empty, and no
+  anchored shim/relay/NBD workload process is live. The restarted VM is
+  therefore available and clean for a new focused qualifier; this preflight is
+  availability/cleanliness evidence only, not restart-row behavioral proof.
+- New focused implementation `scripts/test-runtime-network-restart-live.sh`
+  creates a real child, performs a token-exact child-to-primary TCP exchange
+  before faults, and repeats it after `mknetd` restart, `mkruntimed` restart,
+  and forced shim-worker reconstruction. It requires unchanged child boot and
+  endpoint ownership/generations across those continuity boundaries, changed
+  daemon or worker/holder PIDs as applicable, then deletes and recreates the
+  same task name and requires new child boot, sandbox generation, and endpoint
+  generation before another exchange. Every generation is normally removed
+  and the final 19-counter resource audit is mandatory. Local Bash syntax,
+  ShellCheck when installed, and diff checking pass; the mode-0755,
+  10,568-byte script hashes to
+  `c4a3bb672fd5166ff5b7e5c4630ebfb3af079bf77162d68f3cae40ceb64d89ec`.
+  This harness intentionally does not claim direct relay-process replacement
+  or primary-host reboot; those remain separate boundaries after this run.
+- Guest upload verification independently reports the exact full SHA-256
+  `c4a3bb672fd5166ff5b7e5c4630ebfb3af079bf77162d68f3cae40ceb64d89ec`
+  and 10,568-byte size for
+  `/tmp/test-runtime-network-restart-live-c4a3bb67.sh`; guest-side `bash -n`
+  passes with `GUEST_UPLOAD_VERIFY_PASS`. The `stat` presentation contains a
+  harmless quoting artifact (`\755 ...'`), so executable mode is established
+  by the preceding successful `chmod 0755` and subsequent direct execution,
+  not by normalizing that displayed string. No live behavior is claimed yet.
+- First live attempt is retained, not overwritten, as
+  `g5-network-restart-live-first.log`: mode `0600`, 11,639 bytes, SHA-256
+  `a438da83021fe6af92b40012ebe936dbd5e79f106512a792f1402135898c4b3c`,
+  exit 1, credential-pattern clean. Clean preflight and exact provenance pass;
+  task creation reaches `RUNNING` with one rootfs, live export, and endpoint.
+  The first boot-ID exec then fails before every restart fault with
+  `INVALID_ARGUMENT: invalid agent request` because the harness supplied
+  `cat` rather than the runtime-required absolute `/bin/cat`. Its trap stops
+  and removes the task. All five boot-ID exec paths are corrected; Bash,
+  ShellCheck when present, and diff checks pass. The corrected mode-0755,
+  10,593-byte script hashes to
+  `4f18aa1dea413825a9119691e546195ddb3c09e68eaea414dbe51e2035b2edf5`.
+- The immediate external audit is also retained as
+  `g5-network-restart-first-post-failure-audit.log`: mode `0600`, 406 bytes,
+  SHA-256
+  `391a4928b529361fbf9aad3f55c59ef3a07c4a43ed50e881923d508186ab6631`,
+  exit 1, credential-pattern clean, with no behavioral output because the
+  auditor rejects the still-configured idle Kerf pool at preflight. A separate
+  inventory confirms this exact classification: Kerf has all 16 GiB available
+  and no instance; ctr tasks/containers, children, rootfs records, and network
+  endpoints are zero; all four services have result `success` and zero
+  restarts. The storage file contains 24 historical export records, not 24
+  live exports. An idle mkruntimed restart and second audit are required before
+  retry; no restart member is claimed from this attempt.
+- That recovery is now captured in
+  `g5-network-restart-first-recovered-audit.log`: mode `0600`, 2,266 bytes,
+  SHA-256
+  `0cd9d87e2bceeb14ec12f59057e2170ad6175ac123ebf6b0ff0003d3225e536f`,
+  exit 0, credential-pattern clean. The deliberate idle mkruntimed restart
+  changes PID 44448→46406, releases the empty pool, and the independent audit
+  ends `G6_FINAL_RESOURCE_RETURN_PASS`: clean Kerf, every one of 19 counters
+  zero, and all four services active with zero restart count. The corrected
+  qualifier may now retry from a proven clean state.
+- Corrected guest upload `/tmp/test-runtime-network-restart-live-4f18aa1d.sh`
+  independently reports exact mode `0755`, size 10,593, and SHA-256
+  `4f18aa1dea413825a9119691e546195ddb3c09e68eaea414dbe51e2035b2edf5`;
+  guest syntax passes with `GUEST_CORRECTED_VERIFY_PASS`. This establishes the
+  retry's script identity only.
+- Corrected behavioral attempt is preserved as
+  `g5-network-restart-live-second.log`: mode `0600`, 94,013 bytes, SHA-256
+  `0681e7151e11b6e1b80d28a2bc1f311d5081450544f84cf78d23fedae508245b`,
+  exit 1, credential-pattern clean. Unlike the first attempt, all intended
+  behavior before the final audit passes. Five exact primary TCP observations
+  see peer `172.31.0.2` and return the distinct baseline/post-fault tokens.
+  `mknetd` changes PID 8326→47224 and mkruntimed 46406→47323; shim recovery
+  changes worker/holder 46897/47096→47426/47450 under unchanged supervisor
+  46892. Across all three, child boot `fb326a9b…`, endpoint `172.31.0.2/30`,
+  sandbox generation `a904f85c…`, endpoint generation `afe9d4df…`, and zero
+  drop/error counters remain stable. Normal deletion reaches zero rootfs/live
+  export/endpoint counts. Same-name replacement then changes child boot to
+  `560753c9…`, sandbox generation to `2f731ec8…`, and endpoint generation to
+  `26889f19…`, completes its exact packet exchange, and again cleans to zero.
+  The attempt exits only because the strict final auditor is called while the
+  now-idle pool is still configured; 60 retries correctly refuse that state.
+  Therefore these four behavioral members are substantiated but the composite
+  row remains open and the run is not a closing pass.
+- The qualifier now performs an explicit idle mkruntimed restart after zero
+  workload counts and before the strict final audit, recording both daemon
+  PIDs. Syntax, ShellCheck when present, and diff checks pass. Revised mode,
+  size, and SHA-256 are `0755`, 10,994 bytes, and
+  `f2f782a9b8c397e72dfc7e544bd45c64e05fa29e493cfdc6d9789e2ded38a855`.
+- Independent recovery after the second attempt passes in
+  `g5-network-restart-second-recovered-audit.log`: mode `0600`, 2,267 bytes,
+  SHA-256
+  `4d32cdbf0934c1b8240cafe6b183618722af2dbc2fd4da7ee2680d71e84a273d`,
+  exit 0, credential-pattern clean. Idle mkruntimed PID changes 47323→48889;
+  clean Kerf, all 19 counters zero, and four active zero-restart services end
+  in `G6_FINAL_RESOURCE_RETURN_PASS`. The final corrected retry again starts
+  from independently proved empty state.
+- Final guest upload `/tmp/test-runtime-network-restart-live-f2f782a9.sh`
+  independently matches mode `0755`, size 10,994, full SHA-256
+  `f2f782a9b8c397e72dfc7e544bd45c64e05fa29e493cfdc6d9789e2ded38a855`,
+  and guest syntax (`GUEST_FINAL_VERIFY_PASS`). Live execution remains separate.
+- Final corrected run passes as `g5-network-restart-live-third.log`: mode
+  `0600`, 76,778 bytes, SHA-256
+  `6bdd7e54a685385ef9612e9f714c9252992166c54c1b6abf73797b8261976d66`,
+  exit 0, credential-pattern clean, terminal
+  `G5_NETWORK_RESTART_LIVE_PASS`. Five token-exact child→primary TCP exchanges
+  are independently observed from peer `172.31.0.2`: baseline, after mknetd
+  PID 47224→49723, after mkruntimed PID 48889→49823, after shim worker/holder
+  49394/49594→49925/49949 beneath unchanged supervisor 49389, and after
+  same-name child replacement. The first three fault boundaries preserve child
+  boot `1a6dc772…`, endpoint `172.31.0.2/30`, sandbox generation `b07bd996…`,
+  endpoint generation `7484d028…`, and zero drops/errors. Replacement changes
+  boot to `2a3e36c7…`, sandbox generation to `e31dd74d…`, and endpoint
+  generation to `1b5e9d2b…`; both generations clean to zero ownership counts.
+  The embedded idle release changes mkruntimed 49823→50524, after which the
+  strict auditor passes clean Kerf, all 19 counters zero, and four active
+  zero-restart services. This closes live packet proof for mknetd restart,
+  mkruntimed restart, shim-worker death/reconstruction, and child replacement.
+  The composite row remains open only for direct agent-transport-process
+  disconnect/replacement and primary-host restart/recovery semantics.
+- Separately invoked `g5-network-restart-final-resource-audit.log` also passes:
+  mode `0600`, 1,910 bytes, SHA-256
+  `f4e9c07596293bad835fd2a198efe0010709fee6fb92fbcee7700d49cebf42f3`,
+  exit 0, credential-pattern clean, exact release/boot/daemon provenance,
+  clean Kerf, all 19 counters zero, and four active zero-restart services. This
+  independently confirms the passing harness left no tracked resource residue.
 - Audit of the still-open composite fault row narrows its missing proof. The
   retained single-owner live run already executes stale/conflicting generation
   and duplicate owner/path/port/UUID claims, demonstrates real second-attach
