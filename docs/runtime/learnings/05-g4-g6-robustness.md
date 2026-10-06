@@ -9275,3 +9275,35 @@ MTU, both oversize directions, disconnect/loss/reconnect, opaque fragment/
 checksum/malformed bytes, 256-packet order/load, and slow-reader bounded drop
 plus recovery. The source pump slice is now evidenced; the composite row stays
 open for real negotiated-MTU and load traffic through the child/primary stack.
+
+The new live-side implementation is
+`test-runtime-network-stress-live.sh`. A real child must pass exact 1,400-byte
+IPv4 ICMP, 3,000-byte fragmented ICMP reassembly, 256 packets at 10ms intervals
+without loss/duplicates, and a one-MiB zero stream to a primary TCP server that
+delays reads for one second and verifies byte count/digest. The qualifier also
+requires stable endpoint identity, increased durable RX/TX counters without
+new drops/errors, normal release, and the exact 19-counter audit. Local Bash
+syntax and diff checks pass; it is mode `0755`, 9,551 bytes, SHA-256
+`336e15ecd63c32cd1bd8984b5f81ebd89e81119449b31d566b5eef1554a137ca`.
+The guest independently reports uploaded
+`/tmp/test-runtime-network-stress-live-336e15ec.sh` with identical mode, size,
+digest, and valid syntax. The first live run passes in
+`g5-network-stress-live-first.log`: mode `0600`, 100,518 bytes, SHA-256
+`31d18fcaae2ec20c2d539ae40022abfa6ee16aa6a7f7a905a19b6dc6cbf18e2e`,
+exit 0, credential-pattern clean, terminal `G5_NETWORK_STRESS_LIVE_PASS`.
+It retains 5/5 exact-1,400-byte ICMP, 3/3 3,000-byte fragmented/reassembled
+ICMP, a 256/256 zero-loss/no-duplicate 10ms burst, and exactly 1,048,576 zero
+bytes delivered through the one-second slow primary reader with matching
+SHA-256 `30e14955ebf1…` and reply. Endpoint identity stays stable while counters
+advance RX/TX 0/0→768/1,024 without drops/errors. Normal cleanup and the
+eventually settled 19-counter audit pass. A separately invoked post-pass audit
+also passes as `g5-network-stress-final-resource-audit.log`: mode `0600`,
+15,686 bytes, SHA-256
+`3f2c735794049ca274154de4305f69776e388121dd703b79771ff410ec11f27c`,
+exit 0, credential-pattern clean, exact provenance, clean Kerf, all 19 counters
+zero, and four active zero-restart services. Together with the exact-source VM
+race suite for checksum/malformed/oversized opacity, disconnect loss/reconnect,
+ordering, burst, and backpressure recovery, this closes the composite G5
+MTU/fragment/load/slow-reader row. The post-closure repository gate passes
+docs/links, schemas/current manifests, 97 OCI cases, all focused runtime suites,
+qualifier syntax, and `git diff --check`.

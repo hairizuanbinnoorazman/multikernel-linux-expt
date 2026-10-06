@@ -2214,7 +2214,7 @@ phrase above.
   manifests, 97 OCI cases, bind/bootstrap/initramfs/storage/mount/architecture/
   release/lifecycle/deployment/ledger/capture/containerd/final-audit checks,
   qualifier syntax, and `git diff --check`.
-- [ ] MTU boundaries, fragmentation, checksums, malformed/oversized frames,
+- [x] MTU boundaries, fragmentation, checksums, malformed/oversized frames,
   loss, reordering, burst traffic, sustained load, and slow readers. A
   socketpair-backed shim pump suite now proves exact-MTU bidirectional
   forwarding, oversized primary ingress and guest egress drops, exact counter
@@ -2261,6 +2261,39 @@ phrase above.
   256-packet ordering/load, and slow-reader drop/recovery. This closes the
   source pump portion only; real child/primary negotiated-MTU and load evidence
   remains required for the composite row.
+  `test-runtime-network-stress-live.sh` now implements that live slice: a real
+  runtime child must complete exact 1,400-byte IPv4 ICMP, 3,000-byte fragmented
+  ICMP reassembly, a 256-packet/10ms-interval zero-loss/no-duplicate burst, and
+  a one-MiB zero stream through a primary TCP server that deliberately waits
+  one second before reading and verifies byte count/SHA-256. It also requires
+  stable endpoint identity, increased RX/TX counters with unchanged drops/
+  errors, normal release, and the exact 19-counter audit. Local Bash syntax and
+  diff checks pass; the mode-0755, 9,551-byte qualifier hashes to
+  `336e15ecd63c32cd1bd8984b5f81ebd89e81119449b31d566b5eef1554a137ca`.
+  The guest reports uploaded
+  `/tmp/test-runtime-network-stress-live-336e15ec.sh` with the same mode, size,
+  full digest, and passing guest-side syntax. Its first run passes as
+  `g5-network-stress-live-first.log`: mode `0600`, 100,518 bytes, SHA-256
+  `31d18fcaae2ec20c2d539ae40022abfa6ee16aa6a7f7a905a19b6dc6cbf18e2e`,
+  exit 0, credential-pattern clean, terminal `G5_NETWORK_STRESS_LIVE_PASS`.
+  Exact 1,400-byte IPv4 traffic completes 5/5 with zero loss; 3,000-byte ICMP
+  completes 3/3 after fragmentation/reassembly; the 256-packet 10ms burst has
+  256/256, zero loss, and no duplicate marker; and the one-second delayed
+  primary reader receives exactly 1,048,576 zero bytes from `172.31.0.2` with
+  SHA-256 `30e14955ebf1…` and returns the same exact result to the child. Durable
+  counters advance from RX/TX 0/0 to 768/1,024 with stable identity and zero
+  drops/errors. Normal release reaches zero counts, and the 19-counter audit
+  passes after three transient retries. Independent
+  `g5-network-stress-final-resource-audit.log` also passes: mode `0600`, 15,686
+  bytes, SHA-256
+  `3f2c735794049ca274154de4305f69776e388121dd703b79771ff410ec11f27c`,
+  exit 0, credential-pattern clean, exact release/boot/daemon, clean Kerf, all
+  19 counters zero, and four active zero-restart services. Combined with the
+  exact-source VM race suite for opaque checksum/malformed/oversized handling,
+  disconnect loss/reconnect, ordering, burst and backpressure recovery, the
+  composite MTU/fragment/load/slow-reader row is closed. The post-closure
+  repository gate passes docs/links, schemas/current manifests, 97 OCI cases,
+  all focused runtime suites, qualifier syntax, and `git diff --check`.
 - [ ] Agent transport disconnect/reconnect, child restart, networking-service
   restart, `mkruntimed` restart, shim death, and primary restart. Focused pump
   coverage now proves exchange disconnect detection and authenticated reconnect
