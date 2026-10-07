@@ -105,6 +105,21 @@ print(json.dumps(result,sort_keys=True,separators=(',',':')))
 PY
 }
 
+endpoint_field() {
+	local inventory=$1 task=$2 field=$3
+	python3 - "$inventory" "$task" "$field" <<'PY'
+import json,sys
+value=json.loads(sys.argv[1])[sys.argv[2]][sys.argv[3]]
+print(value)
+PY
+}
+
+policy_rules() {
+	local chain_a=$1 chain_b=$2
+	sudo iptables -w -L "$chain_a" -v -n -x
+	sudo iptables -w -L "$chain_b" -v -n -x
+}
+
 [[ $(id -u) -ne 0 ]] || { echo 'run as an ordinary sudo-capable user' >&2; exit 1; }
 test -x "$source_root/scripts/audit-runtime-final-resources-live.sh"
 for service in mkruntimed mknetd containerd docker; do
@@ -121,8 +136,8 @@ mknetd_sha256=$(sudo sha256sum /proc/$(systemctl show -p MainPID --value mknetd)
 qualifier_sha256=$(sha256sum "$0" | awk '{print $1}')"
 
 guest_program='set -eu; touch /tmp/isolation-ready; while [ ! -e /tmp/isolation-release ]; do sleep 1; done'
-sudo ctr run --detach --runtime "$runtime" --hostname "$shared_hostname" "$image" "$task_a" /bin/sh -c "$guest_program"
-sudo ctr run --detach --runtime "$runtime" --hostname "$shared_hostname" "$image" "$task_b" /bin/sh -c "$guest_program"
+sudo ctr run --detach --runtime "$runtime" --hostname "$shared_hostname" --cap-add CAP_NET_ADMIN "$image" "$task_a" /bin/sh -c "$guest_program"
+sudo ctr run --detach --runtime "$runtime" --hostname "$shared_hostname" --cap-add CAP_NET_ADMIN "$image" "$task_b" /bin/sh -c "$guest_program"
 wait_task_state "$task_a" RUNNING
 wait_task_state "$task_b" RUNNING
 for task in "$task_a" "$task_b"; do
@@ -148,6 +163,12 @@ state=json.loads(sys.argv[1])
 for task,address in ((sys.argv[2],sys.argv[3]),(sys.argv[4],sys.argv[5])):
     assert state[task]['address'].split('/')[0] == address, (state,task,address)
 PY
+gateway_a=$(endpoint_field "$endpoints" "$task_a" gateway)
+gateway_b=$(endpoint_field "$endpoints" "$task_b" gateway)
+generation_a=$(endpoint_field "$endpoints" "$task_a" generation)
+generation_b=$(endpoint_field "$endpoints" "$task_b" generation)
+chain_a=MK-${generation_a:0:12}
+chain_b=MK-${generation_b:0:12}
 observe overlapping-name-distinct-identity "endpoint_inventory=$endpoints
 task_a=$task_a $identity_a
 task_b=$task_b $identity_b"
@@ -197,6 +218,73 @@ set -e
 [[ $ping_a_to_b_rc -ne 0 && $ping_b_to_a_rc -ne 0 ]]
 observe negative-default-isolation "task_a_to_task_b=$ip_b exit_status=$ping_a_to_b_rc output=$ping_a_to_b
 task_b_to_task_a=$ip_a exit_status=$ping_b_to_a_rc output=$ping_b_to_a"
+
+policy_before=$(policy_rules "$chain_a" "$chain_b")
+metadata_url=http://169.254.169.254/computeMetadata/v1/
+set +e
+metadata_a=$(sudo ctr task exec --exec-id isolation-metadata-a "$task_a" /bin/wget -T 3 -O - "$metadata_url" 2>&1)
+metadata_a_rc=$?
+metadata_b=$(sudo ctr task exec --exec-id isolation-metadata-b "$task_b" /bin/wget -T 3 -O - "$metadata_url" 2>&1)
+metadata_b_rc=$?
+set -e
+[[ $metadata_a_rc -ne 0 && $metadata_b_rc -ne 0 ]]
+
+sudo ctr task exec --exec-id isolation-route-inject-a "$task_a" /bin/ip route replace "$ip_b/32" via "$gateway_a" dev mkn0
+sudo ctr task exec --exec-id isolation-route-inject-b "$task_b" /bin/ip route replace "$ip_a/32" via "$gateway_b" dev mkn0
+set +e
+route_a_to_b=$(sudo ctr task exec --exec-id isolation-route-ping-a-b "$task_a" /bin/ping -c 1 -W 2 "$ip_b" 2>&1)
+route_a_to_b_rc=$?
+route_b_to_a=$(sudo ctr task exec --exec-id isolation-route-ping-b-a "$task_b" /bin/ping -c 1 -W 2 "$ip_a" 2>&1)
+route_b_to_a_rc=$?
+set -e
+[[ $route_a_to_b_rc -ne 0 && $route_b_to_a_rc -ne 0 ]]
+
+spoof_port=18083
+spoof_log=$scratch/spoof-listener.json
+python3 - "$primary_ip" "$spoof_port" "$spoof_log" <<'PY' &
+import json,socket,sys
+host,port,path=sys.argv[1],int(sys.argv[2]),sys.argv[3]
+result={'accepted':False}
+with socket.socket() as server:
+    server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+    server.bind((host,port)); server.listen(2); server.settimeout(5)
+    try:
+        conn,peer=server.accept()
+    except TimeoutError:
+        pass
+    else:
+        with conn:
+            result={'accepted':True,'peer':peer[0],'payload':conn.recv(256).decode(errors='replace')}
+with open(path,'w',encoding='utf-8') as stream:
+    json.dump(result,stream,sort_keys=True)
+PY
+listener_pid=$!
+sleep .25
+spoof_a=198.18.0.1
+spoof_b=198.18.0.2
+sudo ctr task exec --exec-id isolation-spoof-add-a "$task_a" /bin/ip address add "$spoof_a/32" dev mkn0
+sudo ctr task exec --exec-id isolation-spoof-add-b "$task_b" /bin/ip address add "$spoof_b/32" dev mkn0
+set +e
+spoof_a_output=$(sudo ctr task exec --exec-id isolation-spoof-a "$task_a" /bin/sh -c "printf spoof-a | nc -s '$spoof_a' -w 3 '$primary_ip' '$spoof_port'" 2>&1)
+spoof_a_rc=$?
+spoof_b_output=$(sudo ctr task exec --exec-id isolation-spoof-b "$task_b" /bin/sh -c "printf spoof-b | nc -s '$spoof_b' -w 3 '$primary_ip' '$spoof_port'" 2>&1)
+spoof_b_rc=$?
+set -e
+wait "$listener_pid"
+listener_pid=
+[[ $spoof_a_rc -ne 0 && $spoof_b_rc -ne 0 ]]
+grep -Fq '"accepted": false' "$spoof_log"
+policy_after=$(policy_rules "$chain_a" "$chain_b")
+observe policy-bypass-rejection "metadata_url=$metadata_url
+task_a_metadata_exit_status=$metadata_a_rc output=$metadata_a
+task_b_metadata_exit_status=$metadata_b_rc output=$metadata_b
+task_a_injected_route=$ip_b/32-via-$gateway_a exit_status=$route_a_to_b_rc output=$route_a_to_b
+task_b_injected_route=$ip_a/32-via-$gateway_b exit_status=$route_b_to_a_rc output=$route_b_to_a
+task_a_spoof_source=$spoof_a exit_status=$spoof_a_rc output=$spoof_a_output
+task_b_spoof_source=$spoof_b exit_status=$spoof_b_rc output=$spoof_b_output
+primary_spoof_listener=$(cat "$spoof_log")
+policy_before=$policy_before
+policy_after=$policy_after"
 
 for task in "$task_a" "$task_b"; do
 	sudo ctr task exec --exec-id "isolation-release-$task" "$task" /bin/touch /tmp/isolation-release
