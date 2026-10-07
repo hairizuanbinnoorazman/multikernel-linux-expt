@@ -9453,3 +9453,162 @@ SHA-256 `f4e9c07596293bad835fd2a198efe0010709fee6fb92fbcee7700d49cebf42f3`,
 exit 0, credential-pattern clean, with exact provenance, clean Kerf, all 19
 counters zero, and four active zero-restart services. No tracked residue is
 being hidden by the qualifier.
+
+The next evidence strengthening is recorded before running it. Although shim
+reconstruction necessarily replaced the worker-owned relay, the passing log
+did not record relay identities. The qualifier now resolves exactly one direct
+worker child named `mkvsock-relay` or `mk-agent-relay`, requires the old relay
+dead and the replacement PID different before post-fault traffic, and records
+both. It also records and requires a distinct primary TCP listener PID for each
+of the five exchanges. Local syntax, ShellCheck when present, and diff checks
+pass; the revised file is mode `0755`, 11,867 bytes, SHA-256
+`2e998c178597319ea058044ee3ac23dcfa136d8b8b3e7722b3f220c88dbe96d6`.
+No new live claim follows until this exact file runs.
+
+The guest independently matches relay-hardened upload
+`/tmp/test-runtime-network-restart-live-2e998c17.sh` at mode `0755`, size
+11,867, and full SHA-256
+`2e998c178597319ea058044ee3ac23dcfa136d8b8b3e7722b3f220c88dbe96d6`;
+guest syntax ends `GUEST_RELAY_VERIFY_PASS`. This is transfer proof only.
+
+The relay-identity replay is preserved as
+`g5-network-restart-live-relay.log`: mode `0600`, 9,884 bytes, SHA-256
+`40ed0cbd71c02eecdddc5630dccbc65f62c8bb8d833b4ff0d228d034782d0b62`,
+exit 1, credential-pattern clean. Clean preflight and provenance pass, but
+initial child Create returns `BACKEND_FAILURE` before relay discovery or any
+fault. It provides no new restart evidence and does not replace the passing
+`third` run. The bounded containerd journal records shim connection at
+12:37:00Z, then disconnected-shim cleanup at 12:38:23Z; fallback cleanup cannot
+execute absent public pathname
+`/usr/local/bin/containerd-shim-multikernel-v2`. Direct inventory is clean:
+Kerf has no pool/instance and tasks, containers, children, rootfs records, live
+exports, and endpoints are zero; all 28 storage records are released history.
+Following the instruction to skip the latest failed attempt, this replay is not
+retried now. The public-shim-path issue remains explicit for later provenance
+work while qualification moves to another row.
+
+After the user's instance restart, GCE reports `RUNNING` with start timestamp
+`2026-10-06T17:59:57.528-07:00`; the guest has new boot ID
+`cc677283-6e80-4bef-a34d-aac8af61566a`. Exact installed selector
+`0.1.0-dev-ca7d7d0…` and `/var/tmp/mksrc-e4d7c9c` survive. All four services
+are active/running at PIDs 1446/1226/1468/1521, result success, zero restarts.
+Both containerd namespaces, Docker, Kerf instances/pool, rootfs, endpoints, and
+live exports are empty; 28 released export histories remain. The previously
+missing public shim path is again the expected symlink into the selected
+release, with an executable 14,034,425-byte target. This confines the prior
+absence to the old boot but does not explain or pass that failed replay. The
+new boot is a clean CNI qualification baseline.
+
+CNI preflight finds `/opt/cni/bin/multikernel` linked to the selected-release
+`mk-cni`; link and target share SHA-256
+`d8dbaa8018554117a8eacd271d8eb8fb91a0b257ba594fa33b75de221bd201d5`,
+and the target is mode 0755/4,791,080 bytes. The expected CNI config is not
+installed under `/etc/cni/net.d`, while cache, named namespaces, `mkv*` and
+`mkhost*` links, MK chains, and 172.31 NAT rules are empty. A focused qualifier
+will provide and retain its exact config/private cache without claiming CRI
+configuration, exercising the installed binary and live mknetd API only.
+
+`test-runtime-cni-faults-live.sh` now implements the missing replacement-host
+matrix without modifying CRI configuration. It supplies a private exact CNI
+1.0 config/cache, executes seven exact-source rollback/reconcile/reuse tests 20
+times with the race detector, and performs a real partial `ADD`: host veth
+creation precedes a missing-netns move failure which must roll back completely.
+It then exercises successful external-netns `ADD`, two `CHECK`s, deleting the
+namespace before `DEL`, repeated `DEL`, and same-name reuse with the same
+released address but a new generation. Each call retains config, env/argv,
+stdout/stderr/status; live snapshots retain endpoint/cache and host/namespace
+links, addresses, routes, filter/NAT rules, followed by the strict audit. Local
+syntax, ShellCheck when present, and diff checks pass. The mode-0755,
+8,369-byte qualifier hashes to
+`4b6ce3783cdc947ffd3e515a4fcead1a3a61ce34efc630f8252db838d7ce894f`.
+This is implementation evidence only until the exact file runs on the VM.
+
+The guest independently reports the uploaded
+`/tmp/test-runtime-cni-faults-live-4b6ce378.sh` at mode `0755`, size 8,369,
+and full SHA-256
+`4b6ce3783cdc947ffd3e515a4fcead1a3a61ce34efc630f8252db838d7ce894f`;
+guest syntax prints `GUEST_CNI_VERIFY_PASS`. No live behavior is claimed from
+transfer verification.
+
+First CNI execution is retained as `g5-cni-faults-live-first.log`: mode `0600`,
+30,713 bytes, SHA-256
+`204da70e89c8c406dde6c4a75e07e18e3495b5df944252619a0ec6eca1299d54`,
+exit 1, credential-pattern clean. Exact provenance/config pass, followed by 20
+race-detector repetitions in which all seven named source cases pass: every
+Linux ADD command boundary, allocation/final-persist rollback, allocating and
+deleting reconciliation, repeated CHECK/DEL/name reuse, and quarantine
+recovery. Before any live CNI call, Bash rejects expansion of `label` within
+its own `local` declaration under `set -u`; the trap encounters the same issue.
+Inspection proves only exact scratch `/var/tmp/mk-cni-faults.SCB9OC`, its
+142-byte mode-0600 config, and an empty root-owned mode-0700 cache remain;
+endpoints, test namespaces, links, MK rules, and 172.31 NAT rules are zero.
+That verified directory is removed exactly and absence confirmed. Splitting
+the declaration fixes the harness; syntax, ShellCheck when present, and diff
+checks pass. Corrected mode/size/hash are `0755`, 8,376 bytes, and
+`6d3372be3f421d28a1e919aa1b359d7a169526f6a00f2828207f11bfafb5b289`.
+This closes source fault evidence only; live CNI behavior remains pending.
+
+The guest independently verifies corrected upload
+`/tmp/test-runtime-cni-faults-live-6d3372be.sh` at mode `0755`, size 8,376,
+and full SHA-256
+`6d3372be3f421d28a1e919aa1b359d7a169526f6a00f2828207f11bfafb5b289`;
+syntax ends `GUEST_CNI_CORRECTED_VERIFY_PASS`. Live retry is separate.
+
+The second CNI attempt is retained rather than overwritten as
+`g5-cni-faults-live-second.log`: mode `0600`, 42,436 bytes, SHA-256
+`13f2b6e0f8c38175c1a8f91829d95fdedd026f60db6fefec908b557546f07276`,
+exit 1, credential-pattern clean. All seven exact-source cases again pass 20
+race-detector repetitions. The installed plugin reaches the real partial-ADD
+boundary: host-veth creation succeeds, the peer move into the deliberately
+absent namespace fails with CNI code 100, and rollback leaves endpoints,
+cache, links, routes, chains, NAT rules, and test namespaces all zero. The
+next real ADD succeeds with `172.31.0.2/30`, gateway `172.31.0.1`, and DNS
+`169.254.169.254`; the harness then fails because persisted JSON omits the
+false `managed_namespace` field while its parser requires that key. Its trap
+issues both DELs and removes the namespace and exact scratch tree.
+
+Independent post-failure audit `g5-cni-faults-second-post-failure-audit.log`
+passes clean Kerf, all 19 counters zero, and four active zero-restart services:
+mode `0600`, 1,907 bytes, SHA-256
+`3008c6557765e177357da9f113d95ca5d7d1e73ed7cc3bfe56d0c52395319701`,
+exit 0, credential-pattern clean. The evidence parser now interprets an
+omitted `managed_namespace` as false, matching the schema's `omitempty`
+encoding. Local syntax and diff checking pass; ShellCheck is unavailable. The
+corrected qualifier is mode `0755`, 8,386 bytes, SHA-256
+`7eda9ea25bf25bfb3a1098328efe96055ecebf9b4d752f71bf1479cd8a9d5721`.
+Product behavior is unchanged; the complete live matrix remains pending.
+
+Guest upload `/tmp/test-runtime-cni-faults-live-7eda9ea2.sh` independently
+matches mode `0755`, size 8,386, and full SHA-256
+`7eda9ea25bf25bfb3a1098328efe96055ecebf9b4d752f71bf1479cd8a9d5721`;
+guest syntax ends `GUEST_CNI_FINAL_VERIFY_PASS`. This is transfer proof only.
+
+`g5-cni-faults-live-third.log` is a preflight invocation error: the caller
+omitted required `SOURCE_ROOT`, so the script exits before scratch creation or
+any product operation. The retained mode-`0600`, 492-byte transcript has
+SHA-256 `9f3ffb468c21ebf9c2a80db60d49723e2ba780e29a2cba0b10bcea7f8aad0732`,
+exit 1, and an empty credential-pattern scan. It supplies no product claim;
+the corrected invocation passes `/var/tmp/mksrc-e4d7c9c` explicitly.
+
+Correct invocation passes as `g5-cni-faults-live-fourth.log`: mode `0600`,
+105,747 bytes, SHA-256
+`ef37e21c88e3b902d920b76290e45c06fbfc73b04d2534d4aee680dd6a6edccf`,
+exit 0, credential-pattern clean, terminal `G5_CNI_FAULTS_LIVE_PASS`. All seven
+exact-source cases pass 20 race-detector repetitions, including every Linux
+ADD command boundary and allocating/deleting reconciliation. The installed
+plugin's missing-netns ADD returns CNI code 100 and zeroes all seven focused
+inventories. Generation `826bedc1…` then reaches READY at MTU 1400 and address
+`172.31.0.2/30`; two CHECKs return empty stdout/stderr and exit 0. After the
+namespace is deliberately removed, DEL and repeated DEL both return empty
+stdout/stderr and exit 0, and all focused inventories are zero. Same-name reuse
+obtains the same address in distinct READY generation `ee11cff6…`, its
+CHECK/DEL pass, and cleanup is again all zero. The embedded strict audit
+reports clean Kerf, all 19 counters zero, and four active zero-restart
+services. This live execution plus exact-source boundary tests closes the CNI
+partial-failure/repetition/stale-cleanup/reuse row.
+
+Separately invoked `g5-cni-faults-final-resource-audit.log` independently
+confirms the pass did not hide trap residue: mode `0600`, 1,907 bytes, SHA-256
+`9998bad4799aec59f4fb1c8ec0e0fe138f8020fa3596a7d2ec53d138640a60bc`,
+exit 0, credential-pattern clean. It reports the same exact selector/boot,
+clean Kerf, all 19 counters zero, and four active zero-restart services.
