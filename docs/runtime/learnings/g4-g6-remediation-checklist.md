@@ -9693,3 +9693,40 @@ the named quarantine. This reset establishes a test precondition only.
   SHA `62dfe9bb…`. The full non-race runtime suite passes all 22 packages. This
   proves the qualification tooling compiles and preserves the product baseline;
   stale-socket behavior itself remains unclaimed until exact-source VM execution.
+
+- Commit `df1d147566323bc40d553dc8e96a228b1a80005c` freezes the helper,
+  qualifier, checksum delta, and running findings. Its exact Git archive is
+  5,795,840 bytes/SHA-256 `1c71938d3c6b8aa453bc2e82cff489b1fd429a1e7d3021e5318ae9ab285e552b`;
+  the guest verifies the same digest before extracting 661 files/5,243,520
+  bytes into new `/var/tmp/mksrc-df1d147`. Guest helper/qualifier hashes match
+  local `6efb947e…`/`62dfe9bb…`, and guest `go.sum` hashes `bc6646c9…`.
+  This binds the next run to an immutable clean commit; no live result is yet
+  claimed.
+
+- First commit-bound stale-relay attempt is a harness-only failure before
+  installing a stale socket or invoking Task Start. Containerd successfully
+  creates task `mk-stale-relay-live` with holder PID 11948 and emits the helper
+  barrier as lowercase status `created`; the qualifier expected uppercase and
+  exits 1. Retained mode-0600 transcript is 101,206 bytes/SHA-256
+  `b1e9b261eb3f3c2aa42eafb88488c13343576a5dddfc681ea2f99445a55f9075`,
+  credential-pattern clean. `ctr tasks rm -f` cannot drive a CREATED task
+  through the CLI precondition, so the helper now has a scoped
+  `--start-existing` recovery mode and the trap uses it before kill/delete.
+  The verified recovery binary hashes `10408c51…`: it starts the exact retained
+  task, SIGKILL records exit 137, and bounded task/container deletion succeeds.
+  Its first immediate audit sees only two reaping shim wrappers and exits 1;
+  retained recovery transcript is mode 0600, 9,739 bytes/SHA `e33caf23…`,
+  credential-pattern clean. After bounded wrapper reaping, strict audit
+  `20261007-g6-stale-relay-first-cleanup-final-audit.log` is mode 0600, 13,512
+  bytes/SHA `5f17ecd8…`, exit 0 and credential-pattern clean, with empty Kerf, all
+  19 counters zero, and four healthy services. An earlier failed audit printed
+  the ephemeral sandbox token in Kerf command-line output; its mode-0600 raw
+  file (4,506 bytes/SHA `c8385175…`) was quarantined outside the evidence tree
+  and is explicitly excluded. No stale-socket behavior is claimed from this
+  attempt.
+
+- Corrected recovery-safe helper/qualifier hashes are `c2d9c070…` and
+  `0dd9d82f…`. Bash syntax, `git diff --check`, and the complete 22-package
+  local runtime suite pass. A repeated working-directory typo stopped one
+  command before checks and is not evidence; the root-directory rerun above is
+  the valid result. Commit/archive binding and a fresh VM retry remain required.

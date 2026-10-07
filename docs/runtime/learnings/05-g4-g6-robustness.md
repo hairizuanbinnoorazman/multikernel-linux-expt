@@ -9955,3 +9955,39 @@ because containerd is already a direct dependency. The complete local runtime
 suite passes all 22 packages after that delta. These results qualify the helper
 and preserve the code baseline; no stale-socket product claim is made before
 the commit-bound VM run.
+
+The barrier qualifier is frozen in commit
+`df1d147566323bc40d553dc8e96a228b1a80005c`. Its exact 5,795,840-byte Git
+archive hashes to `1c71938d3c6b8aa453bc2e82cff489b1fd429a1e7d3021e5318ae9ab285e552b`
+both locally and after upload. A new `/var/tmp/mksrc-df1d147` contains 661
+files/5,243,520 bytes; helper and qualifier digests independently match
+`6efb947e…` and `62dfe9bb…`, with guest `go.sum` at `bc6646c9…`. The next VM
+transcript is therefore source-bound, but no stale-relay behavior is claimed
+from transfer and hashing alone.
+
+The first exact-commit stale-relay attempt reaches Task Create but stops on a
+case-sensitive harness assertion before placing a stale socket or calling
+Start. Containerd returns lowercase `created` with holder PID 11948, while the
+qualifier expected uppercase. The mode-0600, credential-clean failure is
+101,206 bytes/SHA `b1e9b261…`, exit 1. Its trap also learned that
+`ctr tasks rm -f` enforces a CLI precondition for CREATED tasks. The helper
+now supports a
+scoped start-existing recovery path and the trap uses it before kill/delete.
+Verified recovery binary `10408c51…` starts only that retained task; SIGKILL
+records 137 and deletion succeeds. The recovery transcript is mode 0600, 9,739
+bytes/SHA `e33caf23…`, credential-pattern clean; its immediate audit exits 1
+only while two deleted-task shim wrappers reap. Bounded follow-up
+`20261007-g6-stale-relay-first-cleanup-final-audit.log` is mode 0600, 13,512
+bytes/SHA `5f17ecd8…`, exit 0, credential-pattern clean, with empty Kerf, all 19
+counters zero, and healthy services. A separate failed audit exposed the
+ephemeral sandbox token through Kerf command-line output; that mode-0600
+4,506-byte/SHA `c8385175…` raw file was quarantined outside evidence and is not
+cited. This entire attempt supplies harness/cleanup learning, not stale-socket
+product evidence.
+
+After adding lowercase status handling and CREATED-task recovery, the helper
+and qualifier hash to `c2d9c070…`/`0dd9d82f…`. Bash syntax, diff hygiene, and
+the full 22-package local runtime suite pass. One intervening command repeated
+the earlier subdirectory/root-relative path mistake and ran no checks; it is
+excluded. The successful root-directory rerun is only a local baseline until a
+new commit-bound VM attempt passes.
