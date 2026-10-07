@@ -17,6 +17,11 @@ relay_path=
 
 observe() { local key=$1; shift; printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' "$key" "$*" "$key"; }
 cleanup_task() {
+	local state
+	state=$(sudo ctr tasks list 2>/dev/null | awk -v id="$task_id" '$1 == id {print tolower($3)}')
+	if [[ $state = created && -x $helper ]]; then
+		sudo "$helper" --id "$task_id" --start-existing >/dev/null 2>&1 || true
+	fi
 	sudo ctr tasks kill --signal SIGKILL "$task_id" >/dev/null 2>&1 || true
 	sudo ctr tasks rm -f "$task_id" >/dev/null 2>&1 || true
 	sudo ctr containers rm "$task_id" >/dev/null 2>&1 || true
@@ -63,7 +68,7 @@ for _ in $(seq 1 2400); do sudo test -f "$ready" && break; kill -0 "$helper_pid"
 sudo test -f "$ready"
 created=$(sudo cat "$ready")
 grep -Fq '"phase":"created"' <<<"$created"
-grep -Fq '"status":"CREATED"' <<<"$created"
+grep -Fq '"status":"created"' <<<"$created"
 
 recovery="$task_root/$task_id/.multikernel/sandbox.json"
 sudo test -f "$recovery"
@@ -122,7 +127,7 @@ helper_pid=
 [[ $helper_status -eq 0 ]]
 helper_output=$(<"$helper_log")
 grep -Fq '"phase":"started"' <<<"$helper_output"
-grep -Fq '"status":"RUNNING"' <<<"$helper_output"
+grep -Fq '"status":"running"' <<<"$helper_output"
 
 replacement=$(sudo python3 - "$relay_path" "$stale_inode" <<'PY'
 import json, os, socket, stat, sys

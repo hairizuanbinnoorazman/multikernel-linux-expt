@@ -44,14 +44,17 @@ func emit(value observation) error {
 func main() {
 	var socket, namespace, id, ready, continuation string
 	var timeout time.Duration
+	var startExisting bool
 	flag.StringVar(&socket, "address", "/run/containerd/containerd.sock", "containerd socket")
 	flag.StringVar(&namespace, "namespace", "default", "containerd namespace")
 	flag.StringVar(&id, "id", "", "container ID")
 	flag.StringVar(&ready, "ready", "", "exclusive Task CREATED marker")
 	flag.StringVar(&continuation, "continue", "", "file whose appearance permits Task Start")
 	flag.DurationVar(&timeout, "timeout", 10*time.Minute, "maximum barrier wait")
+	flag.BoolVar(&startExisting, "start-existing", false, "load and start an already-created task without a barrier")
 	flag.Parse()
-	if id == "" || namespace == "" || !filepath.IsAbs(socket) || !filepath.IsAbs(ready) || !filepath.IsAbs(continuation) || timeout <= 0 {
+	if id == "" || namespace == "" || !filepath.IsAbs(socket) || timeout <= 0 ||
+		(!startExisting && (!filepath.IsAbs(ready) || !filepath.IsAbs(continuation))) {
 		fmt.Fprintln(os.Stderr, "id, namespace, absolute address/ready/continue paths, and positive timeout are required")
 		os.Exit(2)
 	}
@@ -68,10 +71,31 @@ func main() {
 		fmt.Fprintf(os.Stderr, "load container: %v\n", err)
 		os.Exit(1)
 	}
-	task, err := container.NewTask(ctx, cio.NullIO)
+	var task containerd.Task
+	if startExisting {
+		task, err = container.Task(ctx, nil)
+	} else {
+		task, err = container.NewTask(ctx, cio.NullIO)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "create task: %v\n", err)
 		os.Exit(1)
+	}
+	if startExisting {
+		if err = task.Start(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "start existing task: %v\n", err)
+			os.Exit(1)
+		}
+		status, statusErr := task.Status(ctx)
+		if statusErr != nil {
+			fmt.Fprintf(os.Stderr, "observe started existing task: %v\n", statusErr)
+			os.Exit(1)
+		}
+		if err = emit(observation{Phase: "started-existing", ID: id, PID: task.Pid(), Status: string(status.Status), Timestamp: time.Now().UTC().Format(time.RFC3339Nano)}); err != nil {
+			fmt.Fprintf(os.Stderr, "emit existing-task observation: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 	status, err := task.Status(ctx)
 	if err != nil {
