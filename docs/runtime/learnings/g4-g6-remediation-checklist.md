@@ -3267,7 +3267,7 @@ phrase above.
   replaced; the pending event remains available for at-least-once replay and a
   focused test proves the substitute bytes are untouched. An empty
   symlinked-parent test separately proves token creation cannot be redirected.
-- [ ] Expand OCI support required by the agreed G6 scope, or keep each omitted
+- [x] Expand OCI support required by the agreed G6 scope, or keep each omitted
   capability, namespace, mount, hook, rlimit, cgroup/resource, seccomp,
   read-only-root, hostname, and path control fail-closed with focused tests and
   truthful capability reporting. The adapter and guest now also share bounded
@@ -3292,6 +3292,15 @@ phrase above.
   link ancestors, require a private caller-owned single-link regular file,
   cap the complete input at one MiB, and reject identity changes across the
   read. Oversized-valid-prefix and hardlink tests prove the added boundary.
+  Restarted-VM exact-source qualification adds 97 semantic cases across every
+  named category plus namespace, file-identity, and outer-cleanup boundaries.
+  Installed-service qualification rejects unsupported AppArmor explicitly at
+  `validate OCI bundle before allocation`, observes no Kerf or durable/runtime/
+  network allocation immediately, reaps the two transient shim wrappers,
+  runs a supported positive control, and returns every one of the 19 counters
+  to zero. Transcript hashes are `019608e7…` for the source matrix,
+  `379a03bc…` for live behavior, and `9e600572…` for the independent final
+  audit; all exit 0 and are credential-pattern clean.
 - [x] Complete packaging: versioned binaries, explicit containerd and Docker
   configuration fragments, service dependencies, fresh-host installation,
   upgrade/rollback behavior, and no default-runtime mutation. Every Go
@@ -9593,3 +9602,65 @@ the named quarantine. This reset establishes a test precondition only.
   15,346 bytes/SHA `d895049b…`, empty credential scan. This closes the
   accepted-client-loss behavior across host reset: the candidate retains
   ownership and never reopens the ambiguous image.
+
+- 2026-10-07 resumed-instance checkpoint: GCE reports disposable instance
+  `mklinux-g4-g6-final-20260905` (resource ID `6701540373796488780`) `RUNNING`,
+  last started `2026-10-07T06:21:49.238-07:00`, at internal/external addresses
+  `10.148.0.58`/`34.126.166.142`. Guest observation binds the new boot ID
+  `8ef29982-c227-45b8-83a6-08b7af3c419b`, kernel
+  `7.0.0-mk2-gce-lab`, hostname, and selected release `ca7d7d013485…`.
+  `mkruntimed`, `mknetd`, containerd, and the Google guest agent were active
+  with PIDs 1452/1235/1464/1083 and zero systemd restarts; Docker had PID 1533
+  and was still `activating` during this first post-restart sample. Both ctr
+  task and running-Docker-container inventories were zero. This is a baseline,
+  not a qualification pass; Docker readiness and an all-resource audit remain
+  to be checked before the next live suite.
+
+- Post-restart follow-up observes Docker `active/running` at the same PID 1533.
+  All four runtime services are now `active/running`, with unchanged PIDs and
+  `NRestarts=0`; the durable storage-file listing and Kerf inventory are empty.
+  The appended exact-process probe is not evidence: its double-quoted remote
+  `awk $1` expanded in the outer `set -u` shell and aborted that final subcheck.
+  A shell-safe strict audit remains required before workload execution.
+
+- Shell-safe post-restart audit closes that baseline prerequisite. Local and
+  guest copies of `audit-runtime-final-resources-live.sh` are byte-identical at
+  SHA-256 `7010e3dae0e4fd6faafa0ff5c405d9874e05e02f6bad021bff83450ef5521821`.
+  Retained transcript `20261007-post-restart-final-resource-audit.log` is mode
+  0600, 13,364 bytes, SHA-256
+  `585449523ecb3548f2dd1343c6d7a82cfeefb3ac0b60a8ed7979823ffa452f6e`,
+  exits 0, and has zero credential-pattern matches. It binds boot
+  `8ef29982…`, selected release `ca7d7d013485…`, daemon PID/hash
+  `1452`/`a4a91006…`, no Kerf pool or instances, all 19 resource counters zero,
+  and four active/running zero-restart services. The VM is clean for the next
+  G6 mutation.
+
+- G6 OCI capability checkpoint: local and VM SHA-256 values match exactly for
+  the validator `ddd77fb8…`, 97-case test matrix `181bd6ae…`, installed-live
+  harness `46000f5f…`, agent server `8afdf699…`, and shim `a1349318…`.
+  Source inspection maps hooks, seccomp, namespaces, mounts, resources/cgroups,
+  rlimits, capabilities, read-only root, hostname, masked/read-only paths, and
+  canonical path controls to explicit accepted or fail-closed cases; guest and
+  shim also share the exact required OCI feature set. VM transcript
+  `20261007-g6-oci-capability-matrix-vm.log` is mode 0600, 510 bytes, SHA-256
+  `019608e701d60056ae1320532e292da83b32e0fe396b6dcbb1197efe7a285daf`,
+  exit 0, credential-pattern clean, and reports 97 semantic cases plus
+  namespace, file-identity, and outer-cleanup boundaries. Installed-service
+  pre-allocation behavior and post-run resource return remain to be observed
+  before closing the OCI-scope row.
+
+- Installed OCI qualification completes that pending observation.
+  `20261007-g6-oci-preallocation-live-pass.log` is mode 0600, 133,211 bytes,
+  SHA-256 `379a03bc23aadfc9a9f96f5d8ef3be90ecb16ed3cbcf15e709b0cf94935e8aa0`,
+  exit 0, and credential-pattern clean. It binds boot/release/daemon/shim/
+  builder identities; records the unsupported-profile exit 1 and exact
+  pre-allocation rejection; shows no child, pool, mount, artifact, network,
+  task, container, rootfs, endpoint, NBD, or relay allocation immediately;
+  reaps the two transient shim wrappers; obtains exact positive-control output
+  `MK_OCI_SUPPORTED_PASS`; and finishes at the all-zero 19-counter inventory
+  with four healthy zero-restart services. Independent post-run transcript
+  `20261007-g6-oci-final-resource-audit.log` is mode 0600, 13,364 bytes,
+  SHA-256 `9e6005722e3e9e207302aa3602329636da600e9692c7ce41ae0963a77a30c475`,
+  exit 0, credential-pattern clean, and independently repeats empty Kerf/all
+  19 zeros. Together with the exact-source 97-case matrix this closes the OCI
+  support/fail-closed row; it does not close the separate hostile path-race row.
