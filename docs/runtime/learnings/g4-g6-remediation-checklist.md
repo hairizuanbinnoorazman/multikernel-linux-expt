@@ -1585,7 +1585,7 @@ phrase above.
   `G6_FINAL_RESOURCE_RETURN_PASS` exits 0. Mode-0600 evidence is 16,301
   bytes/SHA `3aeb7b79…`, empty credential scan. The VM is clean for the next
   storage-isolation qualifier, while all fault inputs remain quarantined.
-- [ ] Cross-sandbox attempts to mount or address another sandbox's export.
+- [x] Cross-sandbox attempts to mount or address another sandbox's export.
   Qualification is in progress on restarted disposable boot `f93f21b6…` from
   the independently clean, exact `ca7d7d01…` candidate state. Source review
   establishes the distinction from the already-passed sibling IP test: the
@@ -1667,6 +1667,95 @@ phrase above.
   must not weaken the production noexec policy.
   Independent post-run inspection confirms the paused fourth run returned zero
   kernel instances, ctr tasks, and live exports.
+  The resumed qualifier preserves that policy. VM inspection proves the exact
+  deployed helper is a statically linked x86-64 ELF, while BusyBox 1.36 is
+  already present in both local Docker and containerd stores. The qualifier
+  now builds locally with `--pull=false --network=none`, copying the helper
+  into `/usr/local/bin` of a purpose-built OCI image, imports the Docker archive
+  into containerd, proves the helper's SHA inside both guests, and removes both
+  image references during cleanup. Peer attempts execute the in-image path;
+  the read-only bind and its `noexec` policy are untouched. It also hashes its
+  executing path rather than assuming the source tree copy. Local Bash syntax
+  and diff checks pass; ShellCheck is unavailable. Mode/size/SHA-256 are
+  `0755`, 14,029 bytes, and
+  `5efcdf0dd95445939d0100e69b36ac3d6a3672164f66b393e7a184dc570079cf`.
+  This is implementation evidence only until the exact qualifier runs live.
+  Guest transfer `/tmp/test-runtime-cross-sandbox-storage-live-5efcdf0d.sh`
+  independently matches mode `0755`, size 14,029, full SHA-256
+  `5efcdf0dd95445939d0100e69b36ac3d6a3672164f66b393e7a184dc570079cf`,
+  and syntax marker `GUEST_STORAGE_ISOLATION_VERIFY_PASS`. No isolation result
+  is inferred from transfer verification.
+  Fifth retained run stops during local image construction before provenance,
+  child creation, or any peer attempt because the VM's legacy Docker builder
+  does not implement Dockerfile `COPY --chmod`. The private transcript
+  `g4-cross-sandbox-storage-live-fifth.log` is mode `0600`, 921 bytes, SHA-256
+  `af6b9cb63405562c93ef601d09fdd751ad0f3d04a9ed5df7ec1e7a9f4ed45ab2`,
+  exit 1, credential-pattern clean. Cleanup removes the scratch context and
+  any provisional image reference. The Dockerfile now uses portable `COPY`
+  followed by `RUN chmod 0755`; this changes only test-image construction and
+  the isolation row remains open. Corrected mode/size/SHA-256 are `0755`,
+  14,058 bytes, and
+  `5c47fe19f64ad0fb8f953beac059108b107d5000378091d91ce9364e1d18b278`;
+  local syntax and diff checks pass.
+  Guest transfer `/tmp/test-runtime-cross-sandbox-storage-live-5c47fe19.sh`
+  matches mode `0755`, size 14,058, and full SHA-256
+  `5c47fe19f64ad0fb8f953beac059108b107d5000378091d91ce9364e1d18b278`;
+  guest syntax ends `GUEST_STORAGE_ISOLATION_PORTABLE_VERIFY_PASS`.
+  Sixth run supplies the first real reciprocal transport evidence but remains
+  a harness failure. Exact image construction/import and helper SHA
+  `95e886d6…` pass; distinct live owners occupy ports 4061/4062 with distinct
+  image and generation digests. All four A→B/B→A wrong/exact attempts execute
+  the in-image helper, fail after 15–16 seconds as
+  `occupied-listener-no-response`, leave `/dev/nbd1` at zero sectors, and fail
+  the peer mount. The run then exits before its integrity marker because it
+  requires online whole-image hashes and server I/O counters to remain exact,
+  even though its own guest commands create a mount directory and read/write
+  the legitimate root. Retained mode-0600 transcript is 4,356 bytes, SHA-256
+  `04437a467eb2efe2931b712d0a8625aa8441ed87dd837d0d53ba43ed9f674b58`,
+  exit 1, credential-pattern clean. The trap removes all tasks, containers,
+  instances, helpers, rootfs/live-export records, and both image references.
+  Two immediate strict audits (mode 0600/406 bytes, SHAs `795e316b…` and
+  `7186710e…`) exit 1 before observations because the empty 16-GiB Kerf pool
+  remains configured; direct inspection confirms allocation zero and no
+  instance. The corrected qualifier instead precreates mountpoints, binds an
+  owner-specific canary in each legitimate root, requires canary/durable-state/
+  process-record/PID identity unchanged, records rather than equates expected
+  live image/I/O movement, and restarts idle mkruntimed to release the pool
+  before its final audit. The row remains open pending that exact retry.
+  Controlled idle release changes mkruntimed PID 1446→11547, leaves it active
+  with zero restarts, and returns Kerf to `No memory pool configured`; retained
+  mode-0600 evidence is 1,143 bytes, SHA-256
+  `1d936a8647a619bf41ea3a20f477f576c21334af683a278a66d5a1d8fdc514bf`,
+  exit 0, credential-pattern clean. The following strict audit passes clean
+  Kerf, all 19 counters zero, and four healthy services: mode `0600`, 1,909
+  bytes, SHA-256
+  `d2d3d9882e79824299c3ef5da778069a959f19a94914b1c4dbfd32b529816896`,
+  exit 0, credential-pattern clean. The canary/idle-release qualifier passes
+  local syntax and diff checks and is now mode `0755`, 15,376 bytes, SHA-256
+  `78b5e81e3d30a287f2d3efae456c98b5546f3b92e9ffab81ad6d6965050d405b`.
+  Guest upload `/tmp/test-runtime-cross-sandbox-storage-live-78b5e81e.sh`
+  independently matches mode `0755`, size 15,376, full SHA-256
+  `78b5e81e3d30a287f2d3efae456c98b5546f3b92e9ffab81ad6d6965050d405b`,
+  and syntax marker `GUEST_STORAGE_ISOLATION_CANARY_VERIFY_PASS`.
+  Seventh run closes the row as `g4-cross-sandbox-storage-live-seventh.log`:
+  mode `0600`, 5,934 bytes, SHA-256
+  `44f12b5a6cf1f1aade556b9f76055a491a1b7c538056d4772f5957bba9f285e9`,
+  exit 0, credential-pattern clean, terminal
+  `G4_CROSS_SANDBOX_STORAGE_ISOLATION_PASS`. The purpose-built Docker and
+  containerd image IDs match; both guests prove in-image helper hash
+  `95e886d6…`. Distinct owners at ports 4061/4062 have distinct image and
+  generation digests. All four reciprocal wrong/exact attempts execute for 15
+  seconds, fail as `occupied-listener-no-response`, leave `/dev/nbd1` at zero
+  sectors, and cannot mount it. Both owner-specific canaries, durable
+  storage/rootfs state, process-record hashes, and server PIDs remain exact;
+  legitimate own-root I/O advances while both health files remain readable.
+  Normal task cleanup plus idle mkruntimed restart changes PID 11547→14106 and
+  returns instances/tasks/rootfs/live exports/helpers to zero with no Kerf
+  pool. Independent `g4-cross-sandbox-storage-final-resource-audit.log` is mode
+  `0600`, 1,909 bytes, SHA-256
+  `e6f499cbb9b4fd9b172acf2da55bf35f657a2e0ab3cbec95c1ded9c1a40b110d`,
+  exit 0, credential-pattern clean; it confirms clean Kerf, all 19 counters
+  zero, and four active zero-restart services.
 
 ### Replacement instance evidence required
 
@@ -2697,6 +2786,10 @@ phrase above.
   SHA-256 `9998bad4799aec59f4fb1c8ec0e0fe138f8020fa3596a7d2ec53d138640a60bc`,
   exit 0, credential-pattern clean. It reports the same exact selector/boot,
   clean Kerf, all 19 counters zero, and four active zero-restart services.
+- Commit `561880f2e7b2a7972596a2f9f76edfae81dc06ee` (`test: qualify G5 CNI
+  fault recovery`) checkpoints the CNI qualifier, relay-identity evidence
+  hardening, and both continuously updated learning records. At this checkpoint
+  the checklist has 58 closed and 27 open rows.
 - [ ] Source spoofing, route injection, metadata-address access policy,
   forwarding-rule bypass, and sibling-link policy bypass.
 - [ ] Before/during/after checks for primary SSH, metadata access, guest agent,
