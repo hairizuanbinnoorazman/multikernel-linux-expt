@@ -9862,3 +9862,7 @@ final-network wrapper is a quoting failure before observation (mode `0600`,
 exit 0, credential-pattern clean: namespaces, managed/TUN/TAP links, routes,
 iptables filter/NAT and nftables matches, shim/relay/NBD processes, endpoints,
 and rootfs records are all zero; NIC/root controller identities remain exact.
+
+Commit `dadb104f2df04878d4d675ce51276ba9eb7bfca0` (`test: qualify G5 primary
+host continuity`) checkpoints the qualifier and both evidence narratives. The
+checklist now has 63 closed and 22 open rows.
