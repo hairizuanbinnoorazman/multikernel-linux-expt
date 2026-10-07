@@ -9789,3 +9789,76 @@ without claiming an anti-spoof counter hit that was not observed.
 Commit `cd3e5c9ef6ff26229cdff122d1e4c8a15248dfef` (`test: qualify G5 policy
 bypass rejection`) checkpoints the expanded qualifier and evidence narrative.
 The checklist now has 60 closed and 25 open rows.
+
+Evidence cross-audit closes the G5 response-detail row without a redundant VM
+run. Retained flow transcript `a380aaf7…` contains tokenized TCP and UDP
+request/reply pairs observed at primary `10.148.0.58`, the configured resolver
+and returned A/AAAA answers, plus external HTTP details. Retained isolation
+transcript `de553bbb…` contains both child identities and complete A→B/B→A ping
+output with exit 1, one transmitted, zero received, and 100% loss. The newer
+policy transcript `4df3969b…` independently repeats legitimate token routes and
+both default and injected-route sibling failures. These are response-bearing
+and raw observations, not summary markers.
+
+Current-boot primary-health preflight identifies the exact stable objects the
+remaining three-phase check must bind: active `ssh.service` and
+`google-guest-agent.service`; two port-22 listeners; default route `via
+10.148.0.1 dev ens4 ... src 10.148.0.58`; NIC `ens4` at PCI
+`0000:00:04.0/virtio1` bound to `virtio_net`; root `/dev/sda1`, base disk
+`sda`, beneath PCI `0000:00:03.0/virtio0/...` bound to the SCSI `sd` driver. A
+primary metadata request returns HTTP 200, 19 bytes, and `Metadata-Flavor:
+Google`. The ad-hoc probe's shell-escaped SHA extraction fails and is not
+claimed; the qualifier will use direct file hashing and compare a normalized
+snapshot before, while two children are active, and after cleanup.
+
+The qualifier now implements that normalized snapshot with direct metadata
+body SHA-256, response status/flavor/size, the live SSH session plus listener
+count, guest-agent PID/executable, exact default route, NIC device/driver, and
+root-source/base-disk device/driver. It requires byte-identical snapshots
+before task creation, after all privileged policy attempts with two children
+live, and after normal cleanup plus strict audit. Local syntax/diff checks pass;
+mode/size/SHA-256 are `0755`, 15,560 bytes, and
+`7cecd2cc5879ebfe4c41ad9c81cf0eadef9628522d19aefa28cd3d3e273f7520`.
+Live execution remains required.
+
+Guest upload `/tmp/test-runtime-network-isolation-live-7cecd2cc.sh`
+independently matches mode `0755`, size 15,560, full SHA-256
+`7cecd2cc5879ebfe4c41ad9c81cf0eadef9628522d19aefa28cd3d3e273f7520`,
+and syntax marker `GUEST_PRIMARY_HEALTH_VERIFY_PASS`.
+
+First three-phase attempt `g5-primary-health-live-first.log` is a
+pre-observation harness failure: mode `0600`, 13,524 bytes, SHA-256
+`1be67cf4d477fe5b09e8c4df0d8932e50dd4bfe3b707a90c2a82feaa58e4e27d`,
+exit 1, credential-pattern clean. Exact provenance and zero-resource preflight
+pass; Bash then expands `phase` inside its own `local` declaration under
+`set -u`, before metadata access or task creation. The trap confirms both task
+identities absent. Splitting the declaration fixes only the qualifier; no
+product claim follows from this attempt.
+Corrected mode/size/SHA-256 are `0755`, 15,575 bytes, and
+`4e08b01af8f49af0cfb74610bfb3725a95ad4f8972b9bb3681f46fc5a9834923`;
+local syntax and diff checks pass.
+
+Guest upload `/tmp/test-runtime-network-isolation-live-4e08b01a.sh` matches mode
+`0755`, size 15,575, that full digest, and syntax marker
+`GUEST_PRIMARY_HEALTH_CORRECTED_VERIFY_PASS`. Corrected run passes as
+`g5-primary-health-live-second.log`: mode `0600`, 103,165 bytes, SHA-256
+`47db93520a48e0c71098b6f13342872289b73632e5980df05e8ee6be8939129d`,
+exit 0, credential-pattern clean. Before, during two active privileged children
+after every policy attempt, and after cleanup, the normalized snapshot is
+byte-identical: current SSH connection/two listeners, guest-agent PID 1079,
+primary metadata 200/Google/19-byte body SHA `2887acc3…`, exact default route,
+NIC PCI/virtio path and driver, and root-disk controller path and driver.
+Independent final audit is mode `0600`, 1,909 bytes, SHA-256
+`425dd620b036de24dcb5086bad0ea79b70a4ae68231c0a41e34bdec25864d638`,
+exit 0, credential-pattern clean, with all 19 counters zero. This closes the
+three-phase host-health/controller-ownership row.
+
+The passing transcript retains pre/during/post ancestry. The first dedicated
+final-network wrapper is a quoting failure before observation (mode `0600`,
+1,985 bytes, SHA `37e58a96…`, exit 1) and is not evidence. Shell-safe retry
+`g5-primary-health-final-network-inventory-second.log` passes at mode `0600`,
+2,303 bytes, SHA-256
+`4d88750064f63370f1897bff1c4dc22790a6333af54c26501be7a22ad59cd67b`,
+exit 0, credential-pattern clean: namespaces, managed/TUN/TAP links, routes,
+iptables filter/NAT and nftables matches, shim/relay/NBD processes, endpoints,
+and rootfs records are all zero; NIC/root controller identities remain exact.

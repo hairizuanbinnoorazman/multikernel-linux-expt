@@ -120,6 +120,35 @@ policy_rules() {
 	sudo iptables -w -L "$chain_b" -v -n -x
 }
 
+primary_snapshot() {
+	local phase=$1 headers body
+	headers=$scratch/metadata-$phase.headers
+	body=$scratch/metadata-$phase.body
+	local metadata_status metadata_flavor metadata_bytes metadata_sha agent_pid root_source root_disk
+	metadata_status=$(curl -sS -D "$headers" -o "$body" -w '%{http_code}' \
+		-H 'Metadata-Flavor: Google' --max-time 5 \
+		http://metadata.google.internal/computeMetadata/v1/instance/id)
+	metadata_flavor=$(tr -d '\r' <"$headers" | awk -F': ' 'tolower($1)=="metadata-flavor" {print $2; exit}')
+	metadata_bytes=$(wc -c <"$body")
+	metadata_sha=$(sha256sum "$body" | awk '{print $1}')
+	[[ $metadata_status = 200 && $metadata_flavor = Google && $metadata_bytes -gt 0 ]]
+	[[ $(systemctl is-active ssh) = active && $(systemctl is-active google-guest-agent) = active ]]
+	agent_pid=$(systemctl show -p MainPID --value google-guest-agent)
+	[[ $agent_pid -gt 0 ]]
+	root_source=$(findmnt -no SOURCE /)
+	root_disk=$(lsblk -no PKNAME "$root_source" | head -1)
+	[[ -n $root_disk ]]
+	printf 'ssh_active=1 ssh_connection=%s ssh_listeners=%s guest_agent_active=1 guest_agent_pid=%s guest_agent_exe=%s metadata_status=%s metadata_flavor=%s metadata_bytes=%s metadata_sha256=%s default_route=%s nic=ens4 nic_device=%s nic_driver=%s root_source=%s root_disk=%s root_device=%s root_driver=%s' \
+		"$([[ -n ${SSH_CONNECTION:-} ]] && echo present || echo absent)" \
+		"$(ss -H -ltn | awk '$4 ~ /:22$/ {n++} END {print n+0}')" \
+		"$agent_pid" "$(readlink -f "/proc/$agent_pid/exe")" \
+		"$metadata_status" "$metadata_flavor" "$metadata_bytes" "$metadata_sha" \
+		"$(ip -4 route show default)" \
+		"$(readlink -f /sys/class/net/ens4/device)" "$(readlink -f /sys/class/net/ens4/device/driver)" \
+		"$root_source" "$root_disk" "$(readlink -f "/sys/class/block/$root_disk/device")" \
+		"$(readlink -f "/sys/class/block/$root_disk/device/driver")"
+}
+
 [[ $(id -u) -ne 0 ]] || { echo 'run as an ordinary sudo-capable user' >&2; exit 1; }
 test -x "$source_root/scripts/audit-runtime-final-resources-live.sh"
 for service in mkruntimed mknetd containerd docker; do
@@ -134,6 +163,8 @@ selector=$(readlink -f /usr/local/lib/multikernel/current)
 mkruntimed_sha256=$(sudo sha256sum /proc/$(systemctl show -p MainPID --value mkruntimed)/exe | awk '{print $1}')
 mknetd_sha256=$(sudo sha256sum /proc/$(systemctl show -p MainPID --value mknetd)/exe | awk '{print $1}')
 qualifier_sha256=$(sha256sum "$0" | awk '{print $1}')"
+primary_before=$(primary_snapshot before)
+observe primary-health-before "$primary_before"
 
 guest_program='set -eu; touch /tmp/isolation-ready; while [ ! -e /tmp/isolation-release ]; do sleep 1; done'
 sudo ctr run --detach --runtime "$runtime" --hostname "$shared_hostname" --cap-add CAP_NET_ADMIN "$image" "$task_a" /bin/sh -c "$guest_program"
@@ -285,6 +316,9 @@ task_b_spoof_source=$spoof_b exit_status=$spoof_b_rc output=$spoof_b_output
 primary_spoof_listener=$(cat "$spoof_log")
 policy_before=$policy_before
 policy_after=$policy_after"
+primary_during=$(primary_snapshot during)
+[[ $primary_during = "$primary_before" ]]
+observe primary-health-during "$primary_during"
 
 for task in "$task_a" "$task_b"; do
 	sudo ctr task exec --exec-id "isolation-release-$task" "$task" /bin/touch /tmp/isolation-release
@@ -306,6 +340,9 @@ for _ in $(seq 1 60); do
 done
 grep -Fq G6_FINAL_RESOURCE_RETURN_PASS <<<"$audit_output"
 printf '%s\n' "$audit_output"
+primary_after=$(primary_snapshot after)
+[[ $primary_after = "$primary_before" ]]
+observe primary-health-after "$primary_after"
 for service in mkruntimed mknetd containerd docker; do
 	[[ $(systemctl is-active "$service") = active ]]
 	[[ $(systemctl show -p NRestarts --value "$service") = 0 ]]
