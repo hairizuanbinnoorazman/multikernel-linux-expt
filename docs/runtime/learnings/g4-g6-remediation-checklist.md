@@ -2859,6 +2859,9 @@ phrase above.
   exit 0, credential-pattern clean, again proving clean Kerf, all counters
   zero, and four active zero-restart services. This closes the policy-bypass
   row without claiming an anti-spoof counter hit that was not observed.
+  Commit `cd3e5c9ef6ff26229cdff122d1e4c8a15248dfef` (`test: qualify G5
+  policy bypass rejection`) checkpoints the expanded qualifier and evidence
+  narrative. The checklist now has 60 closed and 25 open rows.
 - [ ] Before/during/after checks for primary SSH, metadata access, guest agent,
   default route, NIC PCI ownership, and boot-disk/NIC controller ownership.
 
