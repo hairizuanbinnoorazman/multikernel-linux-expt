@@ -9991,3 +9991,82 @@ the full 22-package local runtime suite pass. One intervening command repeated
 the earlier subdirectory/root-relative path mistake and ran no checks; it is
 excluded. The successful root-directory rerun is only a local baseline until a
 new commit-bound VM attempt passes.
+
+Commit `28d1a1023ed26b5bf23248041c35028e5bde31f0` freezes the corrected helper
+and trap. Its exact 5,795,840-byte archive hashes to `fa43e9ee…` locally and on
+the guest; new `/var/tmp/mksrc-28d1a10` contains 661 files/5,249,376 bytes and
+independently matches helper/qualifier hashes `c2d9c070…`/`0dd9d82f…`. The
+preceding `5f17ecd8…` audit establishes a zero-resource start for this
+source-bound retry.
+
+The second exact-commit attempt validates the deterministic create barrier and
+recovery cleanup, but not stale-relay replacement. Task
+`mk-stale-relay-live` reaches status `created` with holder PID 19868 at
+`2026-10-07T13:50:02.618832079Z`. Before a stale socket is derived or placed,
+the qualifier exits 1 because it assumes `/var/lib/mkruntimed/state.json`; the
+installed release has no monolithic state file at that path. The trap then uses
+the helper to start that exact CREATED task and kill/delete its task/container.
+Retained `20261007-g6-stale-relay-live-second.log` is mode 0600, 107,582 bytes,
+SHA-256 `db8b971af97f1afbd78c4a89fbe54ee51005e4b1d32d013ba358ceffe1cce184`,
+exit 1, and credential-pattern clean. This is qualification-harness evidence
+only. A corrected retry must discover the authoritative installed relay
+coordinates without assuming obsolete state layout, and must first prove the
+  VM has returned to the strict all-zero resource baseline.
+
+Read-only installation discovery identifies the mismatch precisely.
+`/etc/mkruntime/config.json` resolves to a strict release config whose decoded
+`state_directory` is `/var/lib/mkruntime`; its mode-0600 `state.json` contains
+the expected `results,sandboxes,sequence,version` schema and presently zero
+sandboxes. `/var/lib/mkruntimed` is instead the parent of the independent
+rootfs/storage stores. Task and container listings are empty after recovery.
+The qualifier should decode the installed host config just as mkruntimed does,
+then read `<state_directory>/state.json`; embedding either path would repeat
+the same provenance error. A separate strict post-failure audit remains
+required before the next mutation.
+
+The first independent audit after that recovery is intentionally retained as
+cleanup-progress evidence. The mode-0600, 2,667-byte transcript has SHA-256
+`e6d2d2ba9dd924b95e933a42c4def1b8cdbbde3c2da61d6e51884e3ab97fcbe0`,
+exit 1, and no credential-pattern match. Kerf reports no instances and zero
+allocated bytes, but its completely available 16-GiB pool remains configured;
+the strict audit therefore stops at the first lifecycle residue. No clean
+baseline is claimed until a bounded follow-up proves that pool is released.
+
+The pool remains configured through the full explicit 120-second follow-up
+(`pool_release_timeout`). This is not ordinary short-lived wrapper reaping and
+therefore blocks the next qualification mutation. Durable daemon state still
+has zero sandboxes and containerd has no task/container. Read-only logs and
+lifecycle-result metadata must now explain the incomplete cleanup; if they
+match the daemon's documented empty-state idle-pool recovery condition, a
+scoped mkruntimed restart may recover it, followed by a new strict audit. This
+observation still says nothing about stale-relay replacement behavior.
+
+The 120-second timeout is expected pool policy, not evidence of a lifecycle
+cleanup defect. `lifecycle.Service` deliberately keeps the initialized pool
+through ordinary zero-sandbox intervals to avoid repeatedly acquiring a large
+contiguous allocation; `ReleaseIdlePool` releases it on graceful daemon
+shutdown. The qualifier's successful epilogue already restarts mkruntimed
+before strict audit, but the path-discovery failure occurred before that
+epilogue. A scoped manual restart now exercises the identical documented
+recovery path, with both daemon PID transition and the subsequent inventory
+captured as evidence.
+
+That scoped recovery succeeds. The mode-0600 transcript
+`20261007-g6-stale-relay-second-cleanup-recovery.log` is 13,162 bytes, SHA-256
+`a27b2fb4716a1d89ddccdb0e7a711e7d526c0e90ef5345724dd2adbba6d245e8`,
+exit 0, and credential-pattern clean. It proves zero sandboxes before restart,
+mkruntimed PID 12829 -> 21126, active state with `NRestarts=0`, and then a
+strict `No memory pool configured`/no-instances/all-19-counters-zero inventory
+with all four services active/running and zero restarts. The revised qualifier
+will decode the installed `state_directory` and make its failure trap perform
+the same idle-pool release only after durable sandbox state is empty.
+
+The third qualifier revision now does that. Both relay-coordinate discovery
+and guarded cleanup decode `/etc/mkruntime/config.json` and join its
+`state_directory` to `state.json`. Failure cleanup restarts mkruntimed only
+when the durable sandbox map is exactly empty and the pool remains configured;
+the Kerf query feeds a quiet predicate directly so no instance command line is
+captured. Bash syntax, available ShellCheck, and diff hygiene pass. The updated
+script hashes to `2611d5c435b39dddeaf99fe85adfe6bfbc06b711b7349c1a5ee5d77e11248e3a`;
+the helper stays `c2d9c070…`. These checks qualify the harness revision but do
+not replace commit/archive binding or the live stale-socket observation.
