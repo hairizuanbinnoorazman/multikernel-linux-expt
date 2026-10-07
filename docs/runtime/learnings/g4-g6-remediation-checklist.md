@@ -1756,6 +1756,9 @@ phrase above.
   `e6f499cbb9b4fd9b172acf2da55bf35f657a2e0ab3cbec95c1ded9c1a40b110d`,
   exit 0, credential-pattern clean; it confirms clean Kerf, all 19 counters
   zero, and four active zero-restart services.
+  Commit `f35de77b4ef159d0f4951032b41f005c27aa4a49` (`test: qualify
+  cross-sandbox storage isolation`) checkpoints the exact qualifier and both
+  learning records. The checklist now has 59 closed and 26 open rows.
 
 ### Replacement instance evidence required
 
@@ -2790,8 +2793,72 @@ phrase above.
   fault recovery`) checkpoints the CNI qualifier, relay-identity evidence
   hardening, and both continuously updated learning records. At this checkpoint
   the checklist has 58 closed and 27 open rows.
-- [ ] Source spoofing, route injection, metadata-address access policy,
+- [x] Source spoofing, route injection, metadata-address access policy,
   forwarding-rule bypass, and sibling-link policy bypass.
+  The already-passing two-sandbox qualifier now targets these remaining live
+  boundaries without changing product policy. For both distinct children it
+  records per-generation iptables counters before/after; rejects HTTP to the
+  metadata address while leaving the already-proved DNS exception intact;
+  installs explicit sibling `/32` routes through each legitimate gateway and
+  requires reciprocal ping failure; adds distinct unallocated source `/32`s
+  and attempts source-bound TCP tokens to a primary listener, requiring both
+  client failure and a five-second no-accept observation. The original
+  same-hostname/distinct-identity, legitimate token routes, default sibling
+  rejection, normal cleanup, and strict audit remain unchanged. Local syntax
+  and diff checks pass; ShellCheck is unavailable. Revised mode/size/SHA-256
+  are `0755`, 13,331 bytes, and
+  `069e6d6c4b9aff5d806cb28a9437f3439c3f670a1400d75346a39c3f9211a917`.
+  This is implementation evidence only; the row remains open until the exact
+  file runs on the disposable VM.
+  Guest upload `/tmp/test-runtime-network-isolation-live-069e6d6c.sh`
+  independently matches mode `0755`, size 13,331, full SHA-256
+  `069e6d6c4b9aff5d806cb28a9437f3439c3f670a1400d75346a39c3f9211a917`,
+  and syntax marker `GUEST_NETWORK_POLICY_VERIFY_PASS`.
+  First policy replay is retained as
+  `g5-network-policy-bypass-live-first.log`: mode `0600`, 45,630 bytes,
+  SHA-256 `15b95d337b94a473e10ac97f6d1f869f8e76e2ec53e621634f9ca38901c23c93`,
+  exit 2, credential-pattern clean. Exact provenance, distinct identities,
+  positive primary routes, default sibling rejection, and both metadata HTTP
+  rejections pass. The first explicit route mutation is rejected inside the
+  default OCI process with `RTNETLINK ... Operation not permitted`, before a
+  bypass packet is sent; this is a real least-privilege barrier but not proof of
+  the primary firewall under a privileged workload. Trap cleanup converges.
+  Post-failure audit plus CLI capability inspection is mode `0600`, 2,452
+  bytes, SHA-256
+  `15e5b96a0157abafd38c6f026714f1d9e80391d71cc22abe847eac5f5bd44331`,
+  exit 0, credential-pattern clean: clean Kerf, all 19 counters zero, four
+  healthy services, and `ctr run` explicitly supports `--cap-add`. The retry
+  grants only `CAP_NET_ADMIN` to both disposable test workloads so mutations
+  reach the primary policy; it does not alter host or product configuration.
+  The capability-scoped qualifier passes local syntax/diff checks and is mode
+  `0755`, 13,379 bytes, SHA-256
+  `7104931bc239b3b9707f9e1b69a566548fd70427087161e94ef98d57f16a2b44`.
+  Guest upload `/tmp/test-runtime-network-isolation-live-7104931b.sh` matches
+  mode `0755`, size 13,379, full SHA-256
+  `7104931bc239b3b9707f9e1b69a566548fd70427087161e94ef98d57f16a2b44`,
+  and syntax marker `GUEST_NETWORK_POLICY_CAP_VERIFY_PASS`.
+  Capability-scoped second run passes as
+  `g5-network-policy-bypass-live-second.log`: mode `0600`, 77,112 bytes,
+  SHA-256 `4df3969bbd7128b8700349ddc40635757a3dbfb12fdcca991c289f61c62812f4`,
+  exit 0, credential-pattern clean, terminal
+  `G5_NETWORK_ISOLATION_LIVE_PASS`. Both privileged guests successfully install
+  explicit sibling `/32` routes and distinct `198.18.0.1/32`/`.2/32` source
+  aliases. Reciprocal routed pings still lose 100%; each chain's sibling-drop
+  counter advances from one to two packets. Both metadata HTTP requests fail
+  with connection refused and each metadata REJECT counter advances 0→1. Both
+  source-bound TCP attempts exit 1 and the primary listener records
+  `{"accepted": false}`. Their primary anti-spoof chain counters remain zero,
+  showing those spoofed flows were rejected before that host-chain rule rather
+  than attributing an unobserved hit to it; exact-source tests separately prove
+  the `/32` rule installation/CHECK contract. Legitimate token routes from both
+  assigned sources still pass first. Cleanup reaches zero endpoints/roots/live
+  exports and the embedded strict audit passes all 19 counters after bounded
+  pool release. Independent `g5-network-policy-final-resource-audit.log` is
+  mode `0600`, 1,909 bytes, SHA-256
+  `6673daf0806a70e4722e2ffb4e5472ac30fef0ce3dea316d5d895df03b2c8c3b`,
+  exit 0, credential-pattern clean, again proving clean Kerf, all counters
+  zero, and four active zero-restart services. This closes the policy-bypass
+  row without claiming an anti-spoof counter hit that was not observed.
 - [ ] Before/during/after checks for primary SSH, metadata access, guest agent,
   default route, NIC PCI ownership, and boot-disk/NIC controller ownership.
 
