@@ -7,6 +7,8 @@ image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}
 runtime=${MK_RUNTIME:-io.containerd.multikernel.v2}
 task_id=mk-stale-relay-live
 task_root=/run/containerd/io.containerd.runtime.v2.task/default
+host_config=/etc/mkruntime/config.json
+kerf=/opt/mkruntime/kerf-venv/bin/kerf
 scratch=$(mktemp -d -p /var/tmp mk-stale-relay.XXXXXX)
 helper=$scratch/runtime-task-barrier
 ready=$scratch/task-created.json
@@ -26,12 +28,26 @@ cleanup_task() {
 	sudo ctr tasks rm -f "$task_id" >/dev/null 2>&1 || true
 	sudo ctr containers rm "$task_id" >/dev/null 2>&1 || true
 }
+release_idle_pool() {
+	local sandbox_count
+	sandbox_count=$(sudo python3 - "$host_config" <<'PY'
+import json, os, sys
+config = json.load(open(sys.argv[1], encoding="utf-8"))
+state = json.load(open(os.path.join(config["state_directory"], "state.json"), encoding="utf-8"))
+print(len(state["sandboxes"]))
+PY
+)
+	if [[ $sandbox_count = 0 ]] && ! sudo "$kerf" show 2>/dev/null | grep -Fq 'No memory pool configured'; then
+		sudo systemctl restart mkruntimed
+	fi
+}
 cleanup() {
 	local status=$?
 	set +e
 	[[ -z $helper_pid ]] || { sudo kill "$helper_pid" >/dev/null 2>&1 || true; wait "$helper_pid" >/dev/null 2>&1 || true; }
 	cleanup_task
 	[[ -z $relay_path ]] || sudo rm -f -- "$relay_path"
+	release_idle_pool
 	rm -rf -- "$scratch"
 	exit "$status"
 }
@@ -72,10 +88,11 @@ grep -Fq '"status":"created"' <<<"$created"
 
 recovery="$task_root/$task_id/.multikernel/sandbox.json"
 sudo test -f "$recovery"
-relay=$(sudo python3 - "$recovery" <<'PY'
+relay=$(sudo python3 - "$host_config" "$recovery" <<'PY'
 import json, os, sys
-recovery = json.load(open(sys.argv[1], encoding="utf-8"))
-state = json.load(open("/var/lib/mkruntimed/state.json", encoding="utf-8"))
+config = json.load(open(sys.argv[1], encoding="utf-8"))
+recovery = json.load(open(sys.argv[2], encoding="utf-8"))
+state = json.load(open(os.path.join(config["state_directory"], "state.json"), encoding="utf-8"))
 matches = [value for value in state["sandboxes"].values()
            if value.get("id") == recovery["id"] and value.get("generation") == recovery["generation"]]
 if len(matches) != 1:
