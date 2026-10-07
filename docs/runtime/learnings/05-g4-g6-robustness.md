@@ -9927,3 +9927,31 @@ exit 0, credential-pattern clean, and independently confirms empty Kerf plus
 all counters zero. The 97-case VM matrix and these installed observations close
 the OCI support/fail-closed scope without overclaiming the separate hostile
 path-race matrix.
+
+The stale-relay live test needs an explicit RPC barrier. The installed `ctr`
+CLI provides `tasks start` but no separate task-create command; it moves from
+container metadata through Task Create to Task Start without an operator
+barrier. Because the relay pathname is derived from the port/generation fixed
+during Create but consumed at Start, a polling watcher would only demonstrate
+a lucky scheduling race. A small source-controlled qualification helper will
+call containerd `NewTask`, emit a CREATED marker, wait for a continuation file,
+and then call `Start`, allowing the harness to place and identify the stale
+root-owned Unix socket deterministically before product code touches it.
+
+The first helper check is a local pre-build failure, not product evidence. It
+ran root-relative chmod/gofmt/syntax names from `runtime/`, so those paths did
+not exist. The build itself found the helper through `../scripts`, then stopped
+without a binary because containerd's high-level client brings in lazily
+excluded transitive modules whose checksums are not yet in `go.sum`. Nothing
+ran on the VM. The correction will use repository-root paths and retain the
+approach only if standard module resolution yields a bounded, reviewable
+checksum delta rather than an uncontrolled dependency expansion.
+
+The corrected check validates the design. Root-level gofmt and Bash syntax
+pass, the helper builds at SHA `c5fa47a7…` from source SHA `6efb947e…`, and the
+mode-0755 live qualifier is 7,625 bytes/SHA `62dfe9bb…`. Standard module
+resolution changes only 30 `go.sum` checksum lines, with no `go.mod` change,
+because containerd is already a direct dependency. The complete local runtime
+suite passes all 22 packages after that delta. These results qualify the helper
+and preserve the code baseline; no stale-socket product claim is made before
+the commit-bound VM run.

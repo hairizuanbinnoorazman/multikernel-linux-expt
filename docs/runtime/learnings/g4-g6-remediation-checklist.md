@@ -9664,3 +9664,32 @@ the named quarantine. This reset establishes a test precondition only.
   exit 0, credential-pattern clean, and independently repeats empty Kerf/all
   19 zeros. Together with the exact-source 97-case matrix this closes the OCI
   support/fail-closed row; it does not close the separate hostile path-race row.
+
+- Stale-relay live-test design finding: installed `ctr tasks start` accepts a
+  created container but exposes no command that stops after Task `Create` and
+  before Task `Start`. The relay pathname is generation-qualified and exists
+  only at Start, while its port/generation become authoritative during Create.
+  A fast filesystem watcher would therefore turn the security claim into a
+  scheduling race. The qualifier will instead use a source-controlled helper
+  that invokes containerd `NewTask`, publishes an exact CREATED barrier, waits
+  for a continuation file while the harness installs the root-owned stale Unix
+  socket at the derived authoritative path, and only then invokes `Start`.
+
+- First local barrier-helper check is not evidence and changed no VM state.
+  The compound command was launched from `runtime/` while its chmod/gofmt/
+  syntax paths were repository-root-relative, so those checks addressed no
+  files. The subsequent build did locate `../scripts/runtime-task-barrier.go`
+  but correctly stopped because the high-level containerd client activates
+  transitive modules whose checksums are absent from the deliberately lazy
+  `go.sum`. The retry must run formatting/syntax from the repository root and
+  accept the helper only if a normal module download produces a reviewable,
+  bounded checksum-only dependency delta.
+
+- Corrected local barrier checkpoint: repository-root gofmt/Bash syntax and
+  build pass. Normal `-mod=mod` resolution adds 30 checksum lines to `go.sum`
+  and no `go.mod` requirement, a bounded consequence of importing the already
+  direct containerd dependency's high-level client. Helper source/binary hashes
+  are `6efb947e…`/`c5fa47a7…`; the live qualifier is mode 0755, 7,625 bytes,
+  SHA `62dfe9bb…`. The full non-race runtime suite passes all 22 packages. This
+  proves the qualification tooling compiles and preserves the product baseline;
+  stale-socket behavior itself remains unclaimed until exact-source VM execution.
