@@ -2444,6 +2444,59 @@ phrase above.
   exit 0, credential-pattern clean, exact release/boot/daemon provenance,
   clean Kerf, all 19 counters zero, and four active zero-restart services. This
   independently confirms the passing harness left no tracked resource residue.
+- Follow-on evidence hardening is recorded before execution: the passing shim
+  reconstruction necessarily replaces its worker-owned relay, but the prior
+  transcript did not name those relay PIDs. The qualifier now resolves exactly
+  one `mkvsock-relay`/`mk-agent-relay` direct child of each worker, requires the
+  old relay to be dead and the replacement PID distinct before the post-fault
+  packet exchange, and records both. It also records and requires distinct
+  primary TCP listener PIDs for each of the five exchanges. Local Bash syntax,
+  ShellCheck when present, and diff checks pass; revised mode/size/SHA-256 are
+  `0755`, 11,867 bytes, and
+  `2e998c178597319ea058044ee3ac23dcfa136d8b8b3e7722b3f220c88dbe96d6`.
+  This is implementation only until the exact revision passes live.
+- Guest transfer of `/tmp/test-runtime-network-restart-live-2e998c17.sh`
+  independently matches mode `0755`, size 11,867, full SHA-256
+  `2e998c178597319ea058044ee3ac23dcfa136d8b8b3e7722b3f220c88dbe96d6`,
+  and guest syntax (`GUEST_RELAY_VERIFY_PASS`). Behavioral proof remains next.
+- Relay-identity replay is retained as
+  `g5-network-restart-live-relay.log`: mode `0600`, 9,884 bytes, SHA-256
+  `40ed0cbd71c02eecdddc5630dccbc65f62c8bb8d833b4ff0d228d034782d0b62`,
+  exit 1, credential-pattern clean. It passes clean preflight and exact
+  provenance but the initial child Create fails before relay discovery or any
+  injected fault with `BACKEND_FAILURE`; therefore it supplies no new restart
+  claim and does not supersede the passing `third` transcript. The bounded
+  containerd journal shows connection to the task shim at 12:37:00Z, followed
+  at 12:38:23Z by a disconnected-shim cleanup whose fallback cannot execute
+  `/usr/local/bin/containerd-shim-multikernel-v2` because that public pathname
+  is absent. Direct post-failure inventory is nevertheless empty: Kerf has no
+  pool or instance; tasks, containers, children, rootfs records, live exports,
+  and endpoints are zero (28 storage entries are released history). Per the
+  instruction to skip the latest failed attempt, no relay replay is attempted
+  again now; the exact public-shim-path issue remains recorded for later
+  ownership/provenance work while qualification moves to another open row.
+- User-restarted-instance baseline: GCE reports `RUNNING`, start timestamp
+  `2026-10-06T17:59:57.528-07:00`; guest boot ID is now
+  `cc677283-6e80-4bef-a34d-aac8af61566a`, so no pre-restart live identity is
+  carried forward. Exact installed selector `0.1.0-dev-ca7d7d0…` and source
+  tree `/var/tmp/mksrc-e4d7c9c` survive. mkruntimed/mknetd/containerd/Docker
+  are active/running at PIDs 1446/1226/1468/1521 with result `success` and
+  zero restarts. Both containerd namespaces and Docker are empty; Kerf has no
+  pool/instance; rootfs/endpoints/live exports are zero (28 released export
+  histories remain). Crucially, the public shim path is present again as the
+  expected symlink to the selected release, whose 14,034,425-byte target is
+  executable. This post-restart observation narrows the prior absent-path
+  failure to the old boot but does not explain or retroactively pass it. The
+  new boot is a clean base for the CNI row.
+- CNI replacement-instance preflight finds the managed executable at
+  `/opt/cni/bin/multikernel`, a symlink to selected-release `mk-cni`; both hash
+  to `d8dbaa8018554117a8eacd271d8eb8fb91a0b257ba594fa33b75de221bd201d5`
+  and the target is mode 0755/4,791,080 bytes. No
+  `/etc/cni/net.d/10-multikernel.conf` is installed, and the CNI cache,
+  named-netns, `mkv*`/`mkhost*`, MK-chain, and 172.31 NAT inventories are empty.
+  The focused qualifier must therefore supply and retain its own exact config
+  and private cache directory rather than claiming CRI wiring; executable and
+  mknetd API qualification can proceed without mutating host configuration.
 - Audit of the still-open composite fault row narrows its missing proof. The
   retained single-owner live run already executes stale/conflicting generation
   and duplicate owner/path/port/UUID claims, demonstrates real second-attach
@@ -2540,14 +2593,110 @@ phrase above.
   `33e1d92e…` separately records OCI content and source-root manifest digests;
   exact-current `b32b030e…` separately records generated archive/manifest
   digests. The implementation row is closed; full gates and totals follow.
-- [ ] CNI failure after every partial `ADD` boundary, repeated `CHECK`, repeated
+- [x] CNI failure after every partial `ADD` boundary, repeated `CHECK`, repeated
   `DEL`, stale namespace/link/rule cleanup, and name/address reuse. CNI stdin
   now rejects a valid JSON prefix followed by bytes beyond its one-MiB limit;
   cache creation rejects a symlinked ancestor before creating redirected
   directories; and no-replace publication makes an exact generation replay
   idempotent while refusing to overwrite a conflicting generation. Focused
   tests prove all three boundaries; the remaining repeated/fault matrix stays
-  open.
+  open. The exact-source race matrix plus installed-plugin run below now close
+  the repeated/fault matrix.
+- New focused implementation `scripts/test-runtime-cni-faults-live.sh`
+  supplies a private exact CNI 1.0 config/cache without altering host CRI
+  configuration. It runs seven exact-source rollback/reconcile/reuse tests 20
+  times under `-race`; performs a real `ADD` against a missing named namespace
+  so veth creation succeeds and the following move fails/rolls back; then runs
+  a successful external-netns `ADD`, two `CHECK`s, namespace removal before
+  `DEL`, repeated idempotent `DEL`, and same-name reuse. Reuse must retain the
+  released address but change the generation. It captures every config/env/
+  argv/stdout/stderr/status plus durable endpoint/cache, primary and namespace
+  link/address/route, iptables/NAT, and final resource state. Local Bash syntax,
+  ShellCheck when present, and diff checks pass; mode/size/SHA-256 are `0755`,
+  8,369 bytes, and
+  `4b6ce3783cdc947ffd3e515a4fcead1a3a61ce34efc630f8252db838d7ce894f`.
+  Live execution remains required before the row changes state.
+- Guest upload `/tmp/test-runtime-cni-faults-live-4b6ce378.sh` independently
+  matches mode `0755`, size 8,369, and full SHA-256
+  `4b6ce3783cdc947ffd3e515a4fcead1a3a61ce34efc630f8252db838d7ce894f`;
+  guest syntax ends `GUEST_CNI_VERIFY_PASS`. This is transfer proof only.
+- First CNI attempt is preserved as `g5-cni-faults-live-first.log`: mode
+  `0600`, 30,713 bytes, SHA-256
+  `204da70e89c8c406dde6c4a75e07e18e3495b5df944252619a0ec6eca1299d54`,
+  exit 1, credential-pattern clean. It proves exact guest provenance, private
+  mode-0600 config identity, and 20 race-detector repetitions of all seven
+  named source cases; all pass, including every Linux ADD command rollback,
+  durable allocation/final-persist failure, allocating/deleting restart
+  reconciliation, repeated CHECK/DEL/name reuse, and cache-quarantine recovery.
+  It stops before the first live CNI call because Bash expands `label` inside
+  the same `local` declaration under `set -u`; the trap reaches the same bug.
+  Exact inspection finds only scratch directory
+  `/var/tmp/mk-cni-faults.SCB9OC`, its 142-byte mode-0600 config, and an empty
+  root-owned mode-0700 cache. Endpoints, test namespaces, `mkv*` links, MK
+  rules, and 172.31 NAT rules are zero. That exact validated scratch directory
+  is removed and absence confirmed. The declaration is split; local Bash,
+  ShellCheck when present, and diff checks pass. Corrected mode/size/SHA-256
+  are `0755`, 8,376 bytes, and
+  `6d3372be3f421d28a1e919aa1b359d7a169526f6a00f2828207f11bfafb5b289`.
+  Source fault coverage is now substantiated, but no live CNI behavior is
+  claimed from this attempt.
+- Corrected upload `/tmp/test-runtime-cni-faults-live-6d3372be.sh`
+  independently matches mode `0755`, size 8,376, full SHA-256
+  `6d3372be3f421d28a1e919aa1b359d7a169526f6a00f2828207f11bfafb5b289`,
+  and guest syntax (`GUEST_CNI_CORRECTED_VERIFY_PASS`). Live retry follows.
+- Second CNI attempt `g5-cni-faults-live-second.log` is retained at mode
+  `0600`, 42,436 bytes, SHA-256
+  `13f2b6e0f8c38175c1a8f91829d95fdedd026f60db6fefec908b557546f07276`,
+  exit 1, credential-pattern clean. All seven exact-source cases again pass 20
+  race-detector repetitions. The installed plugin reaches the real partial-ADD
+  boundary: host-veth creation succeeds, the peer move into the deliberately
+  absent namespace fails with CNI code 100, and rollback leaves endpoints,
+  cache, links, routes, chains, NAT rules, and test namespaces all zero. The
+  next real ADD succeeds with `172.31.0.2/30`, gateway `172.31.0.1`, and DNS
+  `169.254.169.254`; the harness then fails because persisted JSON omits the
+  false `managed_namespace` field while its parser requires that key. Its trap
+  issues both DELs and removes the namespace and exact scratch tree.
+- Independent post-failure audit `g5-cni-faults-second-post-failure-audit.log`
+  passes clean Kerf, all 19 counters zero, and four active zero-restart
+  services: mode `0600`, 1,907 bytes, SHA-256
+  `3008c6557765e177357da9f113d95ca5d7d1e73ed7cc3bfe56d0c52395319701`,
+  exit 0, credential-pattern clean. The evidence parser now interprets an
+  omitted `managed_namespace` as false, matching the schema's `omitempty`
+  encoding. Local syntax and diff checking pass; ShellCheck is unavailable.
+  The corrected qualifier is mode `0755`, 8,386 bytes, SHA-256
+  `7eda9ea25bf25bfb3a1098328efe96055ecebf9b4d752f71bf1479cd8a9d5721`.
+  Product behavior is unchanged; the complete live matrix remains pending.
+- Guest upload `/tmp/test-runtime-cni-faults-live-7eda9ea2.sh` independently
+  matches mode `0755`, size 8,386, and full SHA-256
+  `7eda9ea25bf25bfb3a1098328efe96055ecebf9b4d752f71bf1479cd8a9d5721`;
+  guest syntax ends `GUEST_CNI_FINAL_VERIFY_PASS`. This is transfer proof only.
+- `g5-cni-faults-live-third.log` is a preflight invocation error: the caller
+  omitted required `SOURCE_ROOT`, so the script exits before scratch creation
+  or any product operation. The retained mode-`0600`, 492-byte transcript has
+  SHA-256 `9f3ffb468c21ebf9c2a80db60d49723e2ba780e29a2cba0b10bcea7f8aad0732`,
+  exit 1, and an empty credential-pattern scan. It supplies no product claim;
+  the corrected invocation passes `/var/tmp/mksrc-e4d7c9c` explicitly.
+- Correct invocation passes as `g5-cni-faults-live-fourth.log`: mode `0600`,
+  105,747 bytes, SHA-256
+  `ef37e21c88e3b902d920b76290e45c06fbfc73b04d2534d4aee680dd6a6edccf`,
+  exit 0, credential-pattern clean, terminal `G5_CNI_FAULTS_LIVE_PASS`.
+  All seven exact-source cases pass 20 race-detector repetitions, including
+  every Linux ADD command boundary and allocating/deleting reconciliation. The
+  installed plugin's missing-netns ADD returns CNI code 100 and zeroes all
+  seven focused inventories. Generation `826bedc1…` then reaches READY at MTU
+  1400 and address `172.31.0.2/30`; two CHECKs return empty stdout/stderr and
+  exit 0. After the namespace is deliberately removed, DEL and repeated DEL
+  both return empty stdout/stderr and exit 0, and all focused inventories are
+  zero. Same-name reuse obtains the same address in distinct READY generation
+  `ee11cff6…`, its CHECK/DEL pass, and cleanup is again all zero. The embedded
+  strict audit reports clean Kerf, all 19 counters zero, and four active
+  zero-restart services. This live execution plus exact-source boundary tests
+  closes the CNI partial-failure/repetition/stale-cleanup/reuse row.
+- Separately invoked `g5-cni-faults-final-resource-audit.log` independently
+  confirms the pass did not hide trap residue: mode `0600`, 1,907 bytes,
+  SHA-256 `9998bad4799aec59f4fb1c8ec0e0fe138f8020fa3596a7d2ec53d138640a60bc`,
+  exit 0, credential-pattern clean. It reports the same exact selector/boot,
+  clean Kerf, all 19 counters zero, and four active zero-restart services.
 - [ ] Source spoofing, route injection, metadata-address access policy,
   forwarding-rule bypass, and sibling-link policy bypass.
 - [ ] Before/during/after checks for primary SSH, metadata access, guest agent,
@@ -2555,7 +2704,7 @@ phrase above.
 
 ### Replacement instance evidence required
 
-- [ ] Retain CNI stdin/config, command argv, stdout/stderr, exit status, primary
+- [x] Retain CNI stdin/config, command argv, stdout/stderr, exit status, primary
   namespace/link/route/rule state, child interface state, negotiated MTU, and
   packet counters for each `ADD`, `CHECK`, and `DEL`.
 - [ ] Retain successful DNS, TCP, and UDP exchanges plus failed bidirectional

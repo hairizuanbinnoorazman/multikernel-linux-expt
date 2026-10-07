@@ -12,6 +12,7 @@ image=${MK_TEST_IMAGE:-docker.io/library/busybox:1.36}
 runtime=${MK_RUNTIME:-io.containerd.multikernel.v2}
 scratch=$(mktemp -d -p /var/tmp mk-network-restart.XXXXXX)
 listener_pid=
+previous_listener_pid=
 exchange_index=0
 
 observe() {
@@ -94,6 +95,17 @@ PY
 parent_pid() { sudo awk '{print $4}' "/proc/$1/stat"; }
 holder_pid() { sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $2}'; }
 
+relay_pid_for_worker() {
+	local worker=$1 pid executable matches=()
+	while read -r pid; do
+		[[ -n $pid ]] || continue
+		executable=$(sudo readlink -f "/proc/$pid/exe" 2>/dev/null || true)
+		case ${executable##*/} in mkvsock-relay | mk-agent-relay) matches+=("$pid") ;; esac
+	done < <(sudo pgrep -P "$worker" || true)
+	[[ ${#matches[@]} -eq 1 ]]
+	printf '%s' "${matches[0]}"
+}
+
 process_summary() {
 	local holder worker supervisor
 	holder=$(holder_pid); worker=$(parent_pid "$holder"); supervisor=$(parent_pid "$worker")
@@ -108,7 +120,7 @@ start_task() {
 }
 
 packet_exchange() {
-	local label=$1 primary_ip token reply log port endpoint
+	local label=$1 primary_ip token reply log port endpoint current_listener_pid
 	exchange_index=$((exchange_index + 1))
 	primary_ip=$(ip -4 route get 8.8.8.8 | awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}')
 	[[ $primary_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
@@ -128,12 +140,15 @@ with open(path,'w',encoding='utf-8') as stream:
                'response':response.decode()},stream,sort_keys=True)
 PY
 	listener_pid=$!
+	current_listener_pid=$listener_pid
+	[[ -z $previous_listener_pid || $current_listener_pid != "$previous_listener_pid" ]]
+	previous_listener_pid=$current_listener_pid
 	sleep .25
 	reply=$(sudo ctr task exec --exec-id "network-$label" "$task_id" /bin/sh -c "printf '%s' '$token' | nc -w 10 '$primary_ip' '$port'")
 	[[ $reply = "primary-reply-$token" ]]
 	wait "$listener_pid"; listener_pid=
 	endpoint=$(endpoint_summary)
-	observe "packet-$label" "child_reply=$reply
+	observe "packet-$label" "primary_listener_pid=$current_listener_pid child_reply=$reply
 primary_observation=$(cat "$log")
 endpoint=$endpoint"
 }
@@ -185,8 +200,9 @@ endpoint_after_mkruntimed=$(endpoint_summary); same_endpoint_identity "$endpoint
 observe mkruntimed-restart "pid_before=$mkruntimed_before pid_after=$mkruntimed_after child_boot=$boot_initial endpoint=$endpoint_after_mkruntimed"
 
 holder_before=$(holder_pid); worker_before=$(parent_pid "$holder_before"); supervisor=$(parent_pid "$worker_before")
+relay_before=$(relay_pid_for_worker "$worker_before")
 sudo kill -KILL "$worker_before"
-holder_after=; worker_after=
+holder_after=; worker_after=; relay_after=
 for _ in $(seq 1 480); do
 	holder_after=$(holder_pid); [[ -z $holder_after ]] || worker_after=$(parent_pid "$holder_after" 2>/dev/null || true)
 	if [[ -n $holder_after && -n $worker_after && $holder_after != "$holder_before" && $worker_after != "$worker_before" ]] &&
@@ -194,10 +210,12 @@ for _ in $(seq 1 480); do
 	sleep .25
 done
 [[ -n $holder_after && -n $worker_after && $holder_after != "$holder_before" && $worker_after != "$worker_before" ]]
+relay_after=$(relay_pid_for_worker "$worker_after")
+[[ $relay_after != "$relay_before" && ! -d /proc/$relay_before ]]
 packet_exchange after-shim-worker
 endpoint_after_shim=$(endpoint_summary); same_endpoint_identity "$endpoint_initial" "$endpoint_after_shim"
 boot_after_shim=$(sudo ctr task exec --exec-id boot-after-shim "$task_id" /bin/cat /proc/sys/kernel/random/boot_id); [[ $boot_after_shim = "$boot_initial" ]]
-observe shim-worker-restart "supervisor=$supervisor old_worker=$worker_before replacement_worker=$worker_after old_holder=$holder_before replacement_holder=$holder_after child_boot=$boot_after_shim endpoint=$endpoint_after_shim"
+observe shim-worker-restart "supervisor=$supervisor old_worker=$worker_before replacement_worker=$worker_after old_holder=$holder_before replacement_holder=$holder_after old_relay=$relay_before replacement_relay=$relay_after child_boot=$boot_after_shim endpoint=$endpoint_after_shim"
 
 sudo ctr tasks kill --signal SIGKILL "$task_id" >/dev/null
 wait_task_state STOPPED
