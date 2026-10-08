@@ -6314,7 +6314,7 @@ func TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects(t *testing.T) {
 	var pid int
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
 		data, readErr := os.ReadFile(marker)
-		if readErr == nil {
+		if readErr == nil && strings.TrimSpace(string(data)) != "" {
 			pid, err = strconv.Atoi(strings.TrimSpace(string(data)))
 			break
 		}

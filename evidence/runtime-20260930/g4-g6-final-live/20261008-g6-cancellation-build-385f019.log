@@ -1,0 +1,199 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command=set -euxo pipefail; sha256sum /var/tmp/mksrc-385f019.tar; test ! -e /var/tmp/mksrc-385f019; mkdir /var/tmp/mksrc-385f019; tar -xf /var/tmp/mksrc-385f019.tar -C /var/tmp/mksrc-385f019; cd /var/tmp/mksrc-385f019; bash -n scripts/runtime-cancellation-blocker.sh scripts/test-runtime-cancellation-live.sh; mkdir -p /var/tmp/cancel-go-cache /var/tmp/cancel-go-tmp; cd runtime; GOCACHE=/var/tmp/cancel-go-cache GOTMPDIR=/var/tmp/cancel-go-tmp TMPDIR=/var/tmp go test -race -v -count=20 -run \"^(TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects|TestShimConnectionBridgeSurvivesWorkerReplacement|TestShimConnectionBridgeReplaysInFlightRequest|TestSupervisorRestartsSignaledWorker)$\" ./cmd/containerd-shim-multikernel-v2; cd ..; make runtime-manifest RUNTIME_VERSION=0.1.0-dev RUNTIME_REVISION=385f019905d0309065f065288117df6ecf9914fe; python3 scripts/runtime-release-manifest.py runtime/bin runtime/release-manifest.json --expected-version=0.1.0-dev --expected-revision=385f019905d0309065f065288117df6ecf9914fe >/dev/null; sudo python3 scripts/manage-runtime-binaries.py install runtime/release-manifest.json runtime/bin; sudo python3 scripts/manage-runtime-binaries.py inspect; readlink -f /usr/local/lib/multikernel/current; sha256sum runtime/bin/containerd-shim-multikernel-v2; sudo sha256sum /usr/local/bin/containerd-shim-multikernel-v2; /usr/local/bin/containerd-shim-multikernel-v2 --version"], "started_at": "2026-10-08T13:21:36.579891Z"}}
++ sha256sum /var/tmp/mksrc-385f019.tar
+99bb1941082a855e8cf895141d3d314ecb677b7c68b96479a1dc615d914386c0  /var/tmp/mksrc-385f019.tar
++ test '!' -e /var/tmp/mksrc-385f019
++ mkdir /var/tmp/mksrc-385f019
++ tar -xf /var/tmp/mksrc-385f019.tar -C /var/tmp/mksrc-385f019
++ cd /var/tmp/mksrc-385f019
++ bash -n scripts/runtime-cancellation-blocker.sh scripts/test-runtime-cancellation-live.sh
++ mkdir -p /var/tmp/cancel-go-cache /var/tmp/cancel-go-tmp
++ cd runtime
++ GOCACHE=/var/tmp/cancel-go-cache
++ GOTMPDIR=/var/tmp/cancel-go-tmp
++ TMPDIR=/var/tmp
++ go test -race -v -count=20 -run '^(TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects|TestShimConnectionBridgeSurvivesWorkerReplacement|TestShimConnectionBridgeReplaysInFlightRequest|TestSupervisorRestartsSignaledWorker)$' ./cmd/containerd-shim-multikernel-v2
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=8875 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=8894 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=8913 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=8932 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=8950 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=8970 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=8988 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9006 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9025 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9046 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9065 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9084 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9103 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9121 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+    main_test.go:6327: blocked worker PID = 0, strconv.Atoi: parsing "": invalid syntax
+--- FAIL: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.02s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9141 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9161 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9180 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9198 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9218 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+=== RUN   TestSupervisorRestartsSignaledWorker
+multikernel shim supervisor: worker pid=9237 signal=killed restart_attempt=1
+--- PASS: TestSupervisorRestartsSignaledWorker (1.15s)
+=== RUN   TestShimConnectionBridgeSurvivesWorkerReplacement
+--- PASS: TestShimConnectionBridgeSurvivesWorkerReplacement (0.00s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestShimConnectionBridgeReplaysInFlightRequest
+--- PASS: TestShimConnectionBridgeReplaysInFlightRequest (0.00s)
+FAIL
+FAIL	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	25.417s
+FAIL
+{"evidence_command_result": {"ended_at": "2026-10-08T13:22:20.262697Z", "exit_status": 1}}

@@ -3299,6 +3299,19 @@ phrase above.
   seconds, followed by package vet, Bash syntax, and diff hygiene. These local
   checks validate the implementation but do not prove the installed live path;
   an exact candidate build/activation and zero-skip replay remain required.
+- Commit `385f019905d0309065f065288117df6ecf9914fe` freezes the diagnosed
+  supervisor fix, regression, failed-run evidence, and exact cleanup evidence.
+  Clean archive `/tmp/mksrc-385f019.tar` is 6,850,560 bytes with SHA-256
+  `99bb1941082a855e8cf895141d3d314ecb677b7c68b96479a1dc615d914386c0`.
+  Candidate transfer/build/activation remain unclaimed.
+- First `385f019` VM build gate is retained as
+  `20261008-g6-cancellation-build-385f019.log`, mode 0600/14,177 bytes/SHA-256
+  `df4b0ec6d6f081b89b014959f3f3ff65300c840c8847b86fb56187e0ed1cd16a`,
+  exit 1, with zero skips/race reports and one top-level failure. Nineteen
+  process-level disconnect repetitions pass, but one reads the marker after
+  file creation and before PID bytes are written, producing `Atoi("")`. The
+  gate stops before any build or install, so the active release remains
+  unchanged. The regression now waits for a nonempty complete PID record.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

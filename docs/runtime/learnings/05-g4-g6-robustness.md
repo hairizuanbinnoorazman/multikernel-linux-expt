@@ -10434,3 +10434,17 @@ repetitions in 24.067 seconds, and the full shim package passes `-race` in
 9.985 seconds, followed by package vet, qualifier Bash syntax, and diff hygiene.
 This is local implementation evidence only; the VM must build/activate this
 exact candidate before the live cancellation replay can support a claim.
+
+Commit `385f019905d0309065f065288117df6ecf9914fe` freezes the supervisor
+correction, regression, and first-run/cleanup evidence. Its clean source archive
+`/tmp/mksrc-385f019.tar` is 6,850,560 bytes and hashes to
+`99bb1941082a855e8cf895141d3d314ecb677b7c68b96479a1dc615d914386c0`.
+No VM build or activation is yet claimed.
+
+The first `385f019` VM build gate is retained at mode 0600, 14,177 bytes,
+SHA-256 `df4b0ec6d6f081b89b014959f3f3ff65300c840c8847b86fb56187e0ed1cd16a`,
+exit 1. It has zero skips/race reports and one top-level failure: 19
+process-level disconnect repetitions pass, while one opens the marker between
+exclusive file creation and PID write and attempts `Atoi("")`. Build/install
+never run, leaving the active release unchanged. The test now waits for a
+nonempty PID record before parsing.
