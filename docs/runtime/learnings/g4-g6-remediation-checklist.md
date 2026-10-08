@@ -3330,12 +3330,20 @@ phrase above.
 
 ### Automated tests still required
 
-- [ ] A fake-daemon Task v2 suite for every method, state transition, duplicate
+- [x] A fake-daemon Task v2 suite for every method, state transition, duplicate
   request, invalid transition, event, exit code, and cleanup path. Focused
   coverage now rejects exec start before init, exec creation after init exit,
   kill of absent or non-running processes, init deletion with retained execs,
-  unsafe exec IDs, and duplicate execs before agent contact; the exhaustive
-  method/transition matrix remains open.
+  unsafe exec IDs, and duplicate execs before agent contact. The exact-source
+  disposable-VM aggregate now runs all 87 selected tests across all 17 Task RPC
+  entries for 20 race-detector repetitions. Lifecycle 20, process/I/O 33,
+  control/read 14, and delete/event/recovery 20 all report zero skips and race
+  reports. Transcript `20261008-g6-task-v2-exhaustive-matrix.log` is mode
+  0600/810,938 bytes/SHA-256
+  `d2ab3c84ca4ee92abc5faf5015dc1eb343b88893bd082ff26d7b38a8e6b59b2d`,
+  exits 0, is credential-pattern clean, and contains the aggregate pass marker.
+  Its strict pre/post audits show no Kerf pool or instances, all 19 resource
+  counters zero, and unchanged active zero-restart services.
 - [x] Event ordering and publication failure for create/start/exec/exit/delete,
   including containerd disconnect and restart. Delete persists a queued marker,
   requires the ordered journal to flush before rootfs/process record removal,
@@ -10079,3 +10087,43 @@ the named quarantine. This reset establishes a test precondition only.
   the pending commit against a stale or accidentally repeated test list; the
   guest's compiled `go test -list` check remains the authoritative runtime
   enumeration.
+
+- Commit `fdb15d73cf2625174b3a06633b423121029707b9` freezes the Task v2
+  aggregate. Its exact 5,857,280-byte archive hashes to
+  `fd2a4af4e80ab382c3c65b369c71c1e5dfb7206bf16012636581449d171de583`
+  locally and on the VM. Fresh `/var/tmp/mksrc-fdb15d7` contains 663 files and
+  5,305,432 bytes; guest qualifier/test-source hashes match
+  `4553faf1…`/`32fa942b…`, syntax passes, and the strict preflight again proves
+  no pool/instances plus all 19 counters zero on boot `7db90e79…`. Execution is
+  now exact-source bound; no Task matrix result is yet claimed.
+
+- Active Task v2 checkpoint: the 20-test lifecycle group completes 20
+  race-detector repetitions with zero skips/race reports and status pass. The
+  33-test process/I/O group is active and has reached resize, lost-reply kill,
+  guest-delete reconnect, CloseIO, and FIFO cases without failure. Control/read,
+  delete/event/recovery, aggregate, and final audit remain unclaimed.
+
+- Final Task v2 aggregate result: lifecycle 20, process/I/O 33, control/read
+  14, and delete/event/recovery 20 each complete 20 race-detector repetitions
+  with status pass. The aggregate reports `methods=17 groups=4
+  selected_tests=87 iterations=20 skips=0 races=0 status=pass` and
+  `G6_TASK_V2_EXHAUSTIVE_MATRIX_PASS`. Mode-0600 transcript
+  `20261008-g6-task-v2-exhaustive-matrix.log` is 810,938 bytes, SHA-256
+  `d2ab3c84ca4ee92abc5faf5015dc1eb343b88893bd082ff26d7b38a8e6b59b2d`,
+  and wrapper exit 0. Direct transcript scans find zero top-level failures,
+  skips, race reports, and credential-pattern matches. Strict audits before and
+  after both emit `G6_FINAL_RESOURCE_RETURN_PASS`; the final inventory has no
+  Kerf pool/instances, all 19 counters zero, and mkruntimed/mknetd/containerd/
+  Docker active with unchanged PIDs 1451/1232/1465/1513 and zero restarts.
+  This closes the fake-daemon automated-test row without claiming any separate
+  live fault-injection row.
+
+- Independent post-aggregate audit
+  `20261008-g6-task-v2-final-independent-audit.log` is mode 0600, 13,358
+  bytes, SHA-256
+  `bcba3c7fb4dc9c5406f1377f13725290834483c5cb8220ae4d56befba8d9361d`,
+  exit 0, and credential-pattern clean. It independently repeats no Kerf pool
+  or instances, the exact all-zero 19-counter inventory, and unchanged active
+  zero-restart PIDs 1451/1232/1465/1513, with
+  `G6_FINAL_RESOURCE_RETURN_PASS`. Cleanup evidence therefore survives a
+  separate SSH command after the aggregate has exited.

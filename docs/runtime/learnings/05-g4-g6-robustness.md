@@ -10304,3 +10304,39 @@ A static pre-bind audit resolves exactly 87 unique selections against existing
 shim test functions, with no missing name or duplicate. The guest will still
 perform compiled `go test -list` enumeration before execution; this local check
 prevents committing an obviously stale aggregate list.
+
+Commit `fdb15d73cf2625174b3a06633b423121029707b9` freezes the aggregate.
+Its exact 5,857,280-byte archive hashes to `fd2a4af4…` locally and on the guest.
+Fresh `/var/tmp/mksrc-fdb15d7` has 663 files/5,305,432 bytes; qualifier and
+test-source hashes match `4553faf1…`/`32fa942b…`, syntax passes, and the strict
+preflight again reports no pool/instance and all 19 counters zero on boot
+`7db90e79…`. Transfer/preflight bind the run but do not establish its result.
+
+The active Task v2 run has passed its 20-test lifecycle group through 20 race
+repetitions with zero skips or race reports. The 33-test process/I/O group is
+now active and has exercised resize, kill reply-loss deduplication, guest-delete
+reconnect, CloseIO, and FIFO cases without failure so far. The remaining groups,
+aggregate, and final audit are not yet claimed.
+
+The exact-source Task v2 aggregate completes successfully. Lifecycle 20,
+process/I/O 33, control/read 14, and delete/event/recovery 20 each pass 20
+race-detector repetitions. Its aggregate is `methods=17 groups=4
+selected_tests=87 iterations=20 skips=0 races=0 status=pass`, followed by
+`G6_TASK_V2_EXHAUSTIVE_MATRIX_PASS`. Retained transcript
+`20261008-g6-task-v2-exhaustive-matrix.log` is mode 0600, 810,938 bytes,
+SHA-256 `d2ab3c84ca4ee92abc5faf5015dc1eb343b88893bd082ff26d7b38a8e6b59b2d`,
+and wrapper exit 0. Direct scans find zero top-level failures, skips, race
+reports, or credential-pattern matches. Both strict audits emit
+`G6_FINAL_RESOURCE_RETURN_PASS`; the final state has no Kerf pool/instances,
+all 19 resource counters zero, and mkruntimed/mknetd/containerd/Docker active
+at unchanged PIDs 1451/1232/1465/1513 with zero restarts. This closes the
+fake-daemon every-method/state/duplicate/event/exit/cleanup automated row; it
+does not stand in for any separately required live fault-injection evidence.
+
+Independent post-aggregate audit
+`20261008-g6-task-v2-final-independent-audit.log` is mode 0600, 13,358 bytes,
+SHA-256 `bcba3c7fb4dc9c5406f1377f13725290834483c5cb8220ae4d56befba8d9361d`,
+exit 0, and credential-pattern clean. A separate SSH command again observes no
+Kerf pool or instances, all 19 resource counters zero, and the same active
+zero-restart service PIDs 1451/1232/1465/1513 before emitting
+`G6_FINAL_RESOURCE_RETURN_PASS`. This independently confirms post-suite cleanup.
