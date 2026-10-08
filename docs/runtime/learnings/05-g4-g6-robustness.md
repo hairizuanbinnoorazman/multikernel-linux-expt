@@ -10254,3 +10254,35 @@ Unix-socket tests pass 100 race-detector repetitions in 1.179 seconds. Bash
 syntax, available ShellCheck, and diff hygiene pass, and the revised qualifier
 hashes to `33c62163f1f11c77755649091a895151e64ca4529c26908c5675c2e3f0c1d983`.
 This verifies the path-capacity fix locally, not the still-open VM aggregate.
+
+Commit `b750ec4a2027320f514267930b83fe8565bbf1f4` freezes the short-root
+correction. Its 5,847,040-byte archive hashes to `7716916d…` on both hosts.
+Fresh `/var/tmp/mksrc-b750ec4` contains 662 files/5,291,293 bytes; qualifier
+and fixed test-source hashes match `33c62163…`/`32fa942b…`, and guest syntax
+passes. The complete aggregate must still pass in one execution.
+
+The active `b750ec4` run has passed four groups in sequence: shim 22, rootfs
+17, safefile 7, and Unix-socket 7, all for 100 race-detector repetitions with
+zero skips. The short temp root removes the earlier Unix bind failures. Storage
+is still active, so aggregate and final-audit status remain unclaimed.
+
+The final `b750ec4` aggregate passes. Retained mode-0600 transcript
+`20261008-g6-hostile-path-race-matrix-pass.log` is 1,888,866 bytes, SHA-256
+`e9b9a241b86baec3f56e3294a54956447978b82a5136d3b13478c0147f5270d9`,
+exit 0, and credential-pattern clean. It enumerates and executes all 59 exact
+tests—22 shim, 17 rootfs, seven safefile, seven Unix-socket, six storage—for
+100 race repetitions each with zero failures, skips, or race reports. Strict
+audits before and after show no pool/instance, all 19 counters zero, and four
+unchanged active zero-restart services. Exact group/aggregate markers plus
+`G6_FINAL_RESOURCE_RETURN_PASS` and `G6_HOSTILE_PATH_RACE_MATRIX_PASS` close
+the broader source path-race matrix. The parent hostile-input row remains open
+only for the deferred complete live stale-relay/workload observation.
+
+Independent post-pass transcript
+`20261008-g6-hostile-path-final-independent-audit.log` is mode 0600, 13,022
+bytes, SHA-256 `b972d661960eb5fd0f636363ee01a1114a1812328fd502172cc366e6bc009b59`,
+exit 0, and credential-pattern clean. It independently repeats no pool or
+instances, all 19 counters zero, and unchanged active zero-restart service PIDs
+1451/1232/1465/1513. The source path-race scope is therefore evidence-complete;
+this does not substitute for the separately deferred complete live stale-relay
+workload proof.

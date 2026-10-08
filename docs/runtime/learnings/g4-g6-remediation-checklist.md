@@ -3213,8 +3213,9 @@ phrase above.
   and a task ID different from the per-shim identity before lock acquisition,
   guest contact, events, or state mutation; a full method-table test covers
   both cases. Stdio validation and descriptor acquisition now
-  apply the no-symlink, stable-identity contract described above; the broader
-  hostile-input/failure matrix and disposable-host evidence remain open. The
+  apply the no-symlink, stable-identity contract described above. The broader
+  hostile-input/path matrix now passes on the disposable host as recorded
+  below; complete live stale-relay workload proof remains open. The
   shim now applies the rootfs service's complete mount contract before sandbox
   allocation, including bounded count/source/options, nil entries, canonical
   no-symlink source paths, supported option syntax, and duplicate rejection;
@@ -3231,8 +3232,11 @@ phrase above.
   defensive unmount. Builder-time artifact-path replacement is
   descriptor-anchored as described above, as is prepared-artifact verification.
   Removal-time public-name cleanup is now quarantined and identity-conditional
-  as recorded in the 2026-09-18 checkpoint; the broader disposable-host
-  path-race matrix remains open.
+  as recorded in the 2026-09-18 checkpoint. Exact-source disposable-host
+  qualification now enumerates 59 shim/rootfs/safefile/Unix-socket/storage
+  path cases and passes each for 100 race repetitions with zero skips, failures,
+  or race reports (`e9b9a241…`), followed by all-zero embedded and independent
+  audits (`b972d661…`).
   The shim's separate network-namespace projection now reads `config.json`
   through a one-MiB, caller-owned, single-link, stable-identity `openat2`
   boundary as well; hardlink, symlinked-ancestor, and oversized-valid-prefix
@@ -10018,3 +10022,39 @@ the named quarantine. This reset establishes a test precondition only.
   `33c62163f1f11c77755649091a895151e64ca4529c26908c5675c2e3f0c1d983`.
   This validates the path-capacity correction locally; the VM aggregate is
   still open.
+
+- Commit `b750ec4a2027320f514267930b83fe8565bbf1f4` freezes the short-path
+  qualifier. Its exact 5,847,040-byte archive hashes to
+  `7716916d8408d371556a21389fec77f36ee3383e8b43e899bb4d68276aeea297`
+  locally and on the VM. Fresh `/var/tmp/mksrc-b750ec4` contains 662 files and
+  5,291,293 bytes; guest qualifier/test-source hashes match
+  `33c62163…`/`32fa942b…`, and syntax passes. A complete one-run aggregate is
+  still required despite the prior partial group passes.
+
+- Active `b750ec4` checkpoint: shim 22, rootfs 17, safefile 7, and Unix-socket
+  7 groups have each completed 100 race-detector repetitions with zero skips
+  and explicit pass markers. The short temp root eliminates the prior bind
+  failures. The six-test storage group is active; aggregate and final resource
+  audit remain unclaimed.
+
+- The final exact-source aggregate passes. Mode-0600 transcript
+  `20261008-g6-hostile-path-race-matrix-pass.log` is 1,888,866 bytes, SHA-256
+  `e9b9a241b86baec3f56e3294a54956447978b82a5136d3b13478c0147f5270d9`,
+  exit 0, and credential-pattern clean. It independently enumerates and runs
+  shim 22 + rootfs 17 + safefile 7 + Unix-socket 7 + storage 6 = 59 exact
+  tests for 100 race repetitions each, with zero failures, skips, or race
+  reports. Both embedded strict audits report no pool/instances, all 19 counters
+  zero, and four active zero-restart services at unchanged PIDs. Group markers,
+  `groups=5 selected_tests=59 iterations=100 skips=0 status=pass`,
+  `G6_FINAL_RESOURCE_RETURN_PASS`, and
+  `G6_HOSTILE_PATH_RACE_MATRIX_PASS` are present. This closes the broader
+  source path-race matrix evidence; the parent implementation row stays open
+  only for the separately deferred complete live stale-relay workload proof.
+
+- Independent post-pass audit `20261008-g6-hostile-path-final-independent-audit.log`
+  is mode 0600, 13,022 bytes, SHA-256
+  `b972d661960eb5fd0f636363ee01a1114a1812328fd502172cc366e6bc009b59`,
+  exit 0, and credential-pattern clean. It independently repeats no Kerf pool
+  or instances, all 19 counters zero, and the same active zero-restart service
+  PIDs 1451/1232/1465/1513. This completes the source path-race evidence without
+  overstating the deferred live stale-relay workload check.
