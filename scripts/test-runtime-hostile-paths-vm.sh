@@ -4,11 +4,11 @@ set -euo pipefail
 
 source_root=${1:?usage: test-runtime-hostile-paths-vm.sh SOURCE_ROOT}
 iterations=${MK_RACE_ITERATIONS:-100}
-scratch=$(mktemp -d -p /var/tmp mk-hostile-paths.XXXXXX)
+scratch=$(mktemp -d -p /var/tmp h.XXXXXX)
 trap 'rm -rf -- "$scratch"' EXIT
-mkdir -p "$scratch/cache" "$scratch/tmp"
-chmod 0700 "$scratch" "$scratch/cache" "$scratch/tmp"
-export GOCACHE="$scratch/cache" GOTMPDIR="$scratch/tmp" TMPDIR="$scratch/tmp"
+mkdir -p "$scratch/c"
+chmod 0700 "$scratch" "$scratch/c"
+export GOCACHE="$scratch/c" GOTMPDIR="$scratch" TMPDIR="$scratch"
 
 [[ $iterations =~ ^[1-9][0-9]*$ ]]
 for path in "$source_root/runtime/go.mod" "$source_root/scripts/audit-runtime-final-resources-live.sh"; do

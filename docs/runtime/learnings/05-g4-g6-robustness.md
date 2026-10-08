@@ -10217,3 +10217,40 @@ iterations in 1.241 seconds. The qualifier now hashes to
 `214c801ef71e99d9afb6a824bc5a45535a828aaf8392bf02764fd6695718afc6`.
 This resolves the observed local harness regressions, but the full five-group
 VM result remains open until a newly bound commit passes.
+
+Commit `27ffedc167404bda0b6067c82f9a8fb305029fe1` now freezes that qualifier.
+Its 5,836,800-byte archive hashes to `527783a3…` locally and on the guest. New
+`/var/tmp/mksrc-27ffedc` contains 662 files/5,286,177 bytes; qualifier and fixed
+test-source hashes match `214c801e…`/`32fa942b…`, and guest syntax passes. This
+binds the next complete run to exact source without claiming its outcome.
+
+The active `27ffedc` run has now completed its exact 22-test shim and 17-test
+rootfs groups through 100 race-detector repetitions apiece, with zero skips and
+explicit pass markers. The previously affected socket/I/O/token fixtures pass
+under the guest's native umask. The seven-test safefile group is still running;
+no Unix-socket, storage, final-audit, or aggregate result is claimed yet.
+
+That `27ffedc` run completes shim (22), rootfs (17), and safefile (7) groups at
+100 race repetitions with zero skips, then fails exactly two Unix-socket tests
+on every repeat. Their `bind: invalid argument` occurs before policy behavior:
+the qualifier's `/var/tmp/mk-hostile-paths.XXXXXX/tmp` prefix plus Go's long
+test directory exceeds Linux `sockaddr_un`. Storage and final audit do not run.
+The retained mode-0600 transcript is 1,743,744 bytes, SHA-256
+`f7a5de01e498d4245058fdec32d3343fa12e25bfdf11fb49fb50861fb40f4e1c`,
+exit 1, with 200 top-level failures, zero skips/race reports, and no credential
+pattern. A short ext4 root `/var/tmp/h.XXXXXX`, used directly for TMPDIR and
+GOTMPDIR, preserves both filesystem provenance and Unix path capacity.
+
+The independent post-path-length audit passes. Mode-0600 transcript
+`20261008-g6-hostile-path-third-failure-final-audit.log` is 13,022 bytes,
+SHA-256 `92cf27d895b030e753bcf727d748148ec46bc7c204bb0992ee504ac2a9c85f12`,
+exit 0, credential-pattern clean, and again proves no pool/instance, all 19
+counters zero, and unchanged healthy services. The qualifier now uses the
+short ext4 directory `/var/tmp/h.XXXXXX` directly for TMPDIR/GOTMPDIR with
+only a short `c` cache child. Validation and another commit-bound run remain.
+
+With an equivalently short private local temp root, all seven selected
+Unix-socket tests pass 100 race-detector repetitions in 1.179 seconds. Bash
+syntax, available ShellCheck, and diff hygiene pass, and the revised qualifier
+hashes to `33c62163f1f11c77755649091a895151e64ca4529c26908c5675c2e3f0c1d983`.
+This verifies the path-capacity fix locally, not the still-open VM aggregate.
