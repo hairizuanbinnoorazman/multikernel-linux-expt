@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 [[ ${MK_EVIDENCE_XTRACE:-1} = 1 ]] && { PS4='+${BASH_SOURCE}:${LINENO}: '; set -x; }
-umask 077
 
 source_root=${1:?usage: test-runtime-hostile-paths-vm.sh SOURCE_ROOT}
 iterations=${MK_RACE_ITERATIONS:-100}
 scratch=$(mktemp -d -p /var/tmp mk-hostile-paths.XXXXXX)
 trap 'rm -rf -- "$scratch"' EXIT
 mkdir -p "$scratch/cache" "$scratch/tmp"
+chmod 0700 "$scratch" "$scratch/cache" "$scratch/tmp"
 export GOCACHE="$scratch/cache" GOTMPDIR="$scratch/tmp" TMPDIR="$scratch/tmp"
 
 [[ $iterations =~ ^[1-9][0-9]*$ ]]

@@ -10180,3 +10180,40 @@ An initial syntax command was mistakenly launched from `runtime/` with a
 root-relative script path and therefore checked nothing; it is explicitly
 excluded. The repeated root-level checks are the valid result, and the full
 commit-bound VM matrix is still required.
+
+Commit `595ebbe7dabebbdb86862a7f29270beef7030485` freezes both corrections.
+Its 5,836,800-byte archive hashes to `94b0b1d1…` locally and on the guest. New
+`/var/tmp/mksrc-595ebbe` contains 662 files/5,281,042 bytes; independent guest
+qualifier/test hashes are `f5b2059e…`/`32fa942b…`, syntax passes, and the strict
+preflight again returns all 19 counters to zero on boot `7db90e79…`. This is
+the exact clean starting point for the complete corrected matrix.
+
+The `595ebbe` rerun confirms the socket fixture fix and reveals a separate
+harness-environment error. Its global `umask 077` silently converts deliberately
+permissive test objects to private modes. Thus exactly two tests fail on every
+one of 100 repeats: the unsafe-I/O fixture's requested FIFO 0660 becomes 0600,
+and the unsafe-token fixture's requested 0666 file becomes 0600; both are then
+correctly accepted by production and the tests complain. Other selected cases,
+including safe stale-socket removal, pass; there are zero skips and no race
+report. Mode-0600 transcript
+`20261008-g6-hostile-path-race-matrix-corrected.log` is 1,040,961 bytes,
+SHA-256 `690fd371cff491a5c39645ce2a63d82ff35c12047638bc78bf3c2d466d8c3e9b`,
+exit 1, with 200 top-level failure lines and no credential-pattern match. The
+right correction is to preserve the test process umask and chmod only the
+qualifier-owned scratch/cache directories to 0700.
+
+The independent audit after this second harness failure passes. Transcript
+`20261008-g6-hostile-path-second-failure-final-audit.log` is mode 0600, 13,022
+bytes, SHA-256 `ddf835267d0202d2ed2cd9b0ef6bd9c683b8e680f1bec8ff9ede317a578de3f1`,
+exit 0, and credential-pattern clean. It again shows no pool/instance, all 19
+counters zero, and unchanged healthy zero-restart services. The qualifier now
+preserves the process umask and chmods only its own scratch/cache/tmp
+directories to 0700. Validation and a fresh commit-bound run remain pending.
+
+The final correction passes Bash syntax, available ShellCheck, and diff checks.
+With umask 002 explicitly reproduced, the corrected stale-socket fixture and
+both permissive-mode I/O/token tests pass together through 100 race-detector
+iterations in 1.241 seconds. The qualifier now hashes to
+`214c801ef71e99d9afb6a824bc5a45535a828aaf8392bf02764fd6695718afc6`.
+This resolves the observed local harness regressions, but the full five-group
+VM result remains open until a newly bound commit passes.
