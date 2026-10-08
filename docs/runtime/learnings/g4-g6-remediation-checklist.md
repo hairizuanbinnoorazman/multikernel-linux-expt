@@ -9815,3 +9815,71 @@ the named quarantine. This reset establishes a test precondition only.
   `2611d5c435b39dddeaf99fe85adfe6bfbc06b711b7349c1a5ee5d77e11248e3a`;
   the unchanged helper remains `c2d9c070…`. Commit/archive binding and a fresh
   exact-source VM run remain required before claiming stale-socket behavior.
+
+- Commit `49acc614a30d0316e2f46405c7f9b9bd80bc1038` freezes the third
+  revision and findings. Its exact Git archive is 5,816,320 bytes with SHA-256
+  `0e778c73760cece17788a7157aa6b8a30ab3ffe8821121cf751ecde58e72fdf5`
+  both locally and on the VM. Fresh `/var/tmp/mksrc-49acc61` contains 661 files
+  and 5,260,859 bytes; guest qualifier/helper hashes match
+  `2611d5c4…`/`c2d9c070…`, guest Bash syntax passes, and its pre-run strict audit
+  again reports no pool/instances, all 19 counters zero, and four healthy
+  zero-restart services. This establishes an immutable clean start for the
+  third live attempt; transfer and preflight alone are not behavior evidence.
+
+- The third exact-source attempt reaches the intended hostile-object boundary
+  and supplies partial product evidence, but the qualifier still exits 1. Task
+  Create publishes holder PID 28145; authoritative identity resolves agent
+  port 7200, generation `7fd9e5bac156cc97032cac0d2023fc7a`, and relay path
+  `/run/mk-agent-7200-7fd9e5bac156.sock`. Before Start, the harness installs a
+  root-owned mode-0755 one-link socket at device 28/inode 3321 and proves
+  `ECONNREFUSED`. Task Start then succeeds and the replacement identity check
+  gets past the required socket/root/one-link/different-inode predicates, but
+  its extra second-client `connect()` returns `ECONNREFUSED`, causing exit 1
+  before the live-replacement observation is emitted. Retained
+  `20261007-g6-stale-relay-live-third.log` is mode 0600, 111,256 bytes,
+  SHA-256 `d270af0eea9e6bd2ed5ea15c1483280e72343131c38f3caa88e773e1c982901e`,
+  and credential-pattern clean. The guarded trap kill/deletes the running task,
+  sees zero durable sandboxes, and restarts mkruntimed to release the idle pool.
+  This proves stale-path replacement occurred, but does not yet prove the
+  workload or final strict cleanup; relay accept semantics must be inspected
+  before deciding whether the second-client assertion is valid.
+
+- Source resolves the third failure as another qualifier assertion error. The
+  installed relay is built from `tools/mkvsock-relay.c`: `userver()` binds and
+  listens, accepts exactly the shim's one agent connection, closes the listener,
+  and then pumps that accepted stream. Therefore a second connection after
+  successful Task Start is expected to get `ECONNREFUSED`; it is not a relay
+  health test. The valid live proof is the already-established replacement
+  inode plus successful task workload/agent operations and the running relay
+  pump process. The next revision will retain the identity checks, remove only
+  the invalid second connect, and continue to those behavioral assertions.
+
+- Independent post-third cleanup is fully clean.
+  `20261007-g6-stale-relay-third-cleanup-final-audit.log` is mode 0600, 13,027
+  bytes, SHA-256
+  `cea8a319995ad7c5897951a8dbc19c41b814de07b34b5fa9ce1c2932f3375891`,
+  exit 0, and credential-pattern clean. It records mkruntimed PID 28297, no
+  pool/instances, all 19 counters zero, and all four services active/running
+  with zero restarts (`G6_FINAL_RESOURCE_RETURN_PASS`). The guarded failure
+  cleanup is therefore independently proven and the next run again starts
+  from zero resources.
+
+- Work now pivots from the deferred live stale-relay retry to the still-open
+  hostile-input/path-race matrix. New source-controlled qualifier
+  `scripts/test-runtime-hostile-paths-vm.sh` defines five exact groups with 59
+  named tests: 22 shim namespace/task/OCI/I/O/token/recovery/event/relay cases,
+  17 rootfs mount/bundle/artifact/cleanup cases, seven descriptor-safe file
+  publication cases, seven Unix-socket ownership/replacement cases, and six
+  storage identity/path cases. It lists and verifies every selected test before
+  running 100 race-detector repetitions on VM-local ext4 scratch, rejects any
+  `--- SKIP:`, and brackets execution with the strict 19-counter resource
+  audit. This is qualification design only; the user-restarted VM requires a
+  new boot/identity/clean-baseline record and exact-commit execution before the
+  matrix can close any row.
+
+- Hostile-path qualifier preflight passes locally: mode 0755, 5,526 bytes,
+  SHA-256 `eeffc269623f72f1bd62e2e62fc21e9b121198a9ee6ee8d40898d2b81c15d47a`;
+  Bash syntax, available ShellCheck, and `git diff --check` are clean. These
+  checks validate harness form only, not the selected test names or product
+  behavior; exact test enumeration is deliberately rechecked by `go test
+  -list` inside the guest before its race runs.

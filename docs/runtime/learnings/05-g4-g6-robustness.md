@@ -10070,3 +10070,67 @@ captured. Bash syntax, available ShellCheck, and diff hygiene pass. The updated
 script hashes to `2611d5c435b39dddeaf99fe85adfe6bfbc06b711b7349c1a5ee5d77e11248e3a`;
 the helper stays `c2d9c070…`. These checks qualify the harness revision but do
 not replace commit/archive binding or the live stale-socket observation.
+
+Commit `49acc614a30d0316e2f46405c7f9b9bd80bc1038` now freezes that revision.
+Its 5,816,320-byte Git archive hashes to
+`0e778c73760cece17788a7157aa6b8a30ab3ffe8821121cf751ecde58e72fdf5`
+locally and after upload. New `/var/tmp/mksrc-49acc61` has 661 files/5,260,859
+bytes and independently matches qualifier/helper hashes
+`2611d5c4…`/`c2d9c070…`. Guest syntax passes, and the pre-run strict audit again
+shows no Kerf pool or instance, all 19 counters zero, and all four services
+healthy with zero restarts. This binds a clean third attempt; it does not by
+itself demonstrate relay replacement.
+
+The third exact-source attempt reaches and mutates the actual stale relay path.
+Task Create publishes holder PID 28145 and resolves port 7200, generation
+`7fd9e5bac156cc97032cac0d2023fc7a`, and
+`/run/mk-agent-7200-7fd9e5bac156.sock`. The pre-Start object is root-owned,
+mode 0755, one link, device 28/inode 3321, and returns `ECONNREFUSED`. Start
+succeeds; the post-Start identity logic confirms a socket owned by root with
+one link and an inode different from 3321, then its additional second-client
+connection gets `ECONNREFUSED` and aborts before recording the workload or
+final observation. The mode-0600 transcript is 111,256 bytes, SHA-256
+`d270af0eea9e6bd2ed5ea15c1483280e72343131c38f3caa88e773e1c982901e`,
+exit 1, and credential-pattern clean. Its guarded trap removes task/container
+and restarts mkruntimed after observing zero sandboxes. This is evidence that
+the stale inode was replaced, not yet a complete live/workload/cleanup pass;
+the relay's accept model must determine whether a second connection is a valid
+health assertion.
+
+The relay implementation makes that answer explicit. In
+`tools/mkvsock-relay.c`, `userver()` binds/listens, accepts exactly the shim's
+single agent connection, closes its listener, and pumps the accepted stream.
+A later second client must therefore see `ECONNREFUSED`; requiring acceptance
+misdiagnoses correct single-accept behavior. Replacement inode identity plus
+successful workload/agent operations and the extant relay pump process are the
+appropriate live assertions. The next harness revision removes only the
+invalid extra connect and continues through those checks.
+
+Cleanup after the third attempt is independently complete. Transcript
+`20261007-g6-stale-relay-third-cleanup-final-audit.log` is mode 0600, 13,027
+bytes, SHA-256 `cea8a319995ad7c5897951a8dbc19c41b814de07b34b5fa9ce1c2932f3375891`,
+exit 0, and credential-pattern clean. It binds mkruntimed PID 28297, no Kerf
+pool/instance, all 19 counters zero, and four active/running zero-restart
+services. Thus guarded failure recovery itself is proven and supplies the
+clean baseline for a revised run.
+
+Qualification now moves to the separate hostile-input/path-race gap while the
+next stale-relay live retry is deferred. New
+`scripts/test-runtime-hostile-paths-vm.sh` makes the intended VM scope explicit:
+five groups, 59 named tests, and 100 race-detector repetitions per test. The
+groups cover 22 shim namespace/task/OCI/I/O/token/recovery/event/relay cases,
+17 rootfs mount/bundle/artifact/cleanup cases, seven descriptor-safe file
+publication cases, seven Unix-socket ownership/replacement cases, and six
+storage identity/path cases. The harness proves its selected names before
+execution, fails on any skip, uses VM-local ext4 scratch/cache, and requires the
+strict 19-counter audit both before and after. This records planned evidence
+scope, not a passing result. Because the VM was user-restarted, its new boot,
+installed identities, and zero-resource baseline must be captured anew before
+the matrix runs.
+
+Local harness preflight passes: the executable qualifier is 5,526 bytes with
+SHA-256 `eeffc269623f72f1bd62e2e62fc21e9b121198a9ee6ee8d40898d2b81c15d47a`;
+Bash syntax, available ShellCheck, and diff hygiene are clean. That establishes
+only qualifier form. The guest will independently use `go test -list` to prove
+all 59 names exist before any repeated race run, preventing a stale regex from
+creating a false pass.
