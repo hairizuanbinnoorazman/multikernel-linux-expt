@@ -1,0 +1,174 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command=set -euxo pipefail; ps -C containerd-shim -o pid,ppid,state,lstart,comm,args; for pid in $(pgrep -x containerd-shim); do echo PID=$pid; sudo cat /proc/$pid/status; sudo readlink -f /proc/$pid/exe; sudo tr \"\\000\" \"\\n\" </proc/$pid/cmdline; done; sudo journalctl -u containerd --since \"2026-10-08 01:17:15 UTC\" --no-pager; sudo journalctl -u mkruntimed --since \"2026-10-08 01:17:15 UTC\" --no-pager"], "started_at": "2026-10-08T01:19:18.674025Z"}}
++ ps -C containerd-shim -o pid,ppid,state,lstart,comm,args
+    PID    PPID S                  STARTED COMMAND         COMMAND
+  79062       1 S Thu Oct  8 01:17:22 2026 containerd-shim /usr/local/lib/multikernel/releases/0.1.0-dev-ca7d7d013485a2ddb764707e63fb2c35ab1ed72b/bin/containerd-shim-multikernel-v2 -namespace default -id mk-cancellation-live -address /run/containerd/containerd.sock
+  79067   79062 S Thu Oct  8 01:17:22 2026 containerd-shim /usr/local/lib/multikernel/releases/0.1.0-dev-ca7d7d013485a2ddb764707e63fb2c35ab1ed72b/bin/containerd-shim-multikernel-v2 -namespace default -id mk-cancellation-live -address /run/containerd/containerd.sock
+++ pgrep -x containerd-shim
+PID=79062
++ for pid in $(pgrep -x containerd-shim)
++ echo PID=79062
++ sudo cat /proc/79062/status
+Name:	containerd-shim
+Umask:	0022
+State:	S (sleeping)
+Tgid:	79062
+Ngid:	0
+Pid:	79062
+PPid:	1
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	64
+Groups:	 
+NStgid:	79062
+NSpid:	79062
+NSpgid:	79062
+NSsid:	1465
+Kthread:	0
+VmPeak:	 1267988 kB
+VmSize:	 1267988 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    9956 kB
+VmRSS:	    9956 kB
+RssAnon:	    3020 kB
+RssFile:	    6936 kB
+RssShmem:	       0 kB
+VmData:	   78128 kB
+VmStk:	     132 kB
+VmExe:	    4176 kB
+VmLib:	       8 kB
+VmPTE:	     116 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffffff
+Threads:	4
+SigQ:	1/238478
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000000
+SigCgt:	fffffffd7fc1feff
+CapInh:	0000000000000000
+CapPrm:	000001ffffffffff
+CapEff:	000001ffffffffff
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	thread vulnerable
+SpeculationIndirectBranch:	conditional enabled
+Cpus_allowed:	ffff
+Cpus_allowed_list:	0-15
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	4
+nonvoluntary_ctxt_switches:	0
+x86_Thread_features:	
+x86_Thread_features_locked:	
++ sudo readlink -f /proc/79062/exe
+/usr/local/lib/multikernel/releases/0.1.0-dev-ca7d7d013485a2ddb764707e63fb2c35ab1ed72b/bin/containerd-shim-multikernel-v2
++ sudo tr '\000' '\n'
+/usr/local/lib/multikernel/releases/0.1.0-dev-ca7d7d013485a2ddb764707e63fb2c35ab1ed72b/bin/containerd-shim-multikernel-v2
+-namespace
+default
+-id
+mk-cancellation-live
+-address
+/run/containerd/containerd.sock
+PID=79067
++ for pid in $(pgrep -x containerd-shim)
++ echo PID=79067
++ sudo cat /proc/79067/status
+Name:	containerd-shim
+Umask:	0022
+State:	S (sleeping)
+Tgid:	79067
+Ngid:	0
+Pid:	79067
+PPid:	79062
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	64
+Groups:	 
+NStgid:	79067
+NSpid:	79067
+NSpgid:	79062
+NSsid:	1465
+Kthread:	0
+VmPeak:	 1269152 kB
+VmSize:	 1269152 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	   13084 kB
+VmRSS:	   12440 kB
+RssAnon:	    4392 kB
+RssFile:	    8048 kB
+RssShmem:	       0 kB
+VmData:	   79292 kB
+VmStk:	     132 kB
+VmExe:	    4176 kB
+VmLib:	       8 kB
+VmPTE:	     116 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffffff
+Threads:	7
+SigQ:	1/238478
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	fffffffc3bba2800
+SigIgn:	0000000000000000
+SigCgt:	fffffffd7fc1feff
+CapInh:	0000000000000000
+CapPrm:	000001ffffffffff
+CapEff:	000001ffffffffff
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	thread vulnerable
+SpeculationIndirectBranch:	conditional enabled
+Cpus_allowed:	ffff
+Cpus_allowed_list:	0-15
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	7
+nonvoluntary_ctxt_switches:	0
+x86_Thread_features:	
+x86_Thread_features_locked:	
++ sudo readlink -f /proc/79067/exe
+/usr/local/lib/multikernel/releases/0.1.0-dev-ca7d7d013485a2ddb764707e63fb2c35ab1ed72b/bin/containerd-shim-multikernel-v2
++ sudo tr '\000' '\n'
+/usr/local/lib/multikernel/releases/0.1.0-dev-ca7d7d013485a2ddb764707e63fb2c35ab1ed72b/bin/containerd-shim-multikernel-v2
+-namespace
+default
+-id
+mk-cancellation-live
+-address
+/run/containerd/containerd.sock
++ sudo journalctl -u containerd --since '2026-10-08 01:17:15 UTC' --no-pager
+Oct 08 01:17:23 mklinux-g4-g6-final-20260905 containerd[1465]: time="2026-10-08T01:17:23.243168506Z" level=info msg="connecting to shim mk-cancellation-live" address="unix:///run/containerd/s/dcd699da4b6f8013cdf53c70297ccdfea7fcaf8aab8a33ab0edf686940b3be21" namespace=default protocol=ttrpc version=2
+Oct 08 01:17:28 mklinux-g4-g6-final-20260905 containerd[1465]: time="2026-10-08T01:17:28.446146082Z" level=error msg="failed to delete task" error="rpc error: code = DeadlineExceeded desc = context deadline exceeded" id=mk-cancellation-live
+Oct 08 01:17:33 mklinux-g4-g6-final-20260905 containerd[1465]: time="2026-10-08T01:17:33.447099733Z" level=error msg="ttrpc: received message on inactive stream" stream=5
+Oct 08 01:17:33 mklinux-g4-g6-final-20260905 containerd[1465]: time="2026-10-08T01:17:33.447180420Z" level=info msg="shim disconnected" id=mk-cancellation-live namespace=default
+Oct 08 01:17:33 mklinux-g4-g6-final-20260905 containerd[1465]: time="2026-10-08T01:17:33.447207312Z" level=info msg="cleaning up after shim disconnected" id=mk-cancellation-live namespace=default
+Oct 08 01:17:33 mklinux-g4-g6-final-20260905 containerd[1465]: time="2026-10-08T01:17:33.447213980Z" level=info msg="cleaning up dead shim" id=mk-cancellation-live namespace=default
+Oct 08 01:17:33 mklinux-g4-g6-final-20260905 containerd[1465]: time="2026-10-08T01:17:33.451871116Z" level=error msg="failed to delete dead shim" cmd="/usr/local/bin/containerd-shim-multikernel-v2 -namespace default -address /run/containerd/containerd.sock -publish-binary /usr/bin/containerd -id mk-cancellation-live -bundle /run/containerd/io.containerd.runtime.v2.task/default/mk-cancellation-live delete" error="exit status 1" id=mk-cancellation-live namespace=default
+Oct 08 01:17:33 mklinux-g4-g6-final-20260905 containerd[1465]: time="2026-10-08T01:17:33.451905898Z" level=warning msg="failed to clean up after shim disconnected" error="io.containerd.multikernel.v2: getwd: no such file or directory: exit status 1" id=mk-cancellation-live namespace=default
++ sudo journalctl -u mkruntimed --since '2026-10-08 01:17:15 UTC' --no-pager
+Oct 08 01:17:22 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 08 01:17:22 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 08 01:17:22 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 08 01:18:24 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 08 01:18:24 mklinux-g4-g6-final-20260905 insmod[79459]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 08 01:18:24 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[79463]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 08 01:18:24 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+{"evidence_command_result": {"ended_at": "2026-10-08T01:19:20.438225Z", "exit_status": 0}}

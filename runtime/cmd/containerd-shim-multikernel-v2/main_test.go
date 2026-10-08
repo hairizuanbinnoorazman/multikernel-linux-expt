@@ -163,6 +163,10 @@ func TestMain(m *testing.M) {
 		}
 		os.Exit(0)
 	}
+	if marker := os.Getenv("MK_SHIM_SUPERVISOR_BLOCK_WORKER"); marker != "" && os.Getenv("MK_SHIM_WORKER") == "1" {
+		_ = os.WriteFile(marker, []byte(strconv.Itoa(os.Getpid())+"\n"), 0600)
+		select {}
+	}
 	os.Exit(m.Run())
 }
 
@@ -6277,6 +6281,67 @@ func TestShimConnectionBridgeSurvivesWorkerReplacement(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("generation %d proxy did not observe worker close", generation)
 		}
+	}
+}
+
+func TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects(t *testing.T) {
+	probe, file, _, err := privateShimListener()
+	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+		t.Skipf("abstract Unix listeners unavailable in this environment: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = file.Close()
+	_ = probe.Close()
+	previousGrace := shimWorkerDisconnectGrace
+	shimWorkerDisconnectGrace = 100 * time.Millisecond
+	t.Cleanup(func() { shimWorkerDisconnectGrace = previousGrace })
+	bundle := privateTestDirectory(t)
+	directory, err := safefile.OpenOwnedDirectory(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	client, stable := net.Pipe()
+	marker := filepath.Join(bundle, "blocked-worker-pid")
+	environment := append(os.Environ(), "MK_SHIM_SUPERVISOR_BLOCK_WORKER="+marker)
+	done := make(chan int, 1)
+	go func() {
+		done <- superviseProxiedShimWorkerWithDirectory(stable, os.Args[0], []string{"-test.run=^$"},
+			directory.ProcPath(), environment, directory)
+	}()
+	var pid int
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		data, readErr := os.ReadFile(marker)
+		if readErr == nil {
+			pid, err = strconv.Atoi(strings.TrimSpace(string(data)))
+			break
+		}
+		if !errors.Is(readErr, os.ErrNotExist) {
+			t.Fatal(readErr)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err != nil || pid <= 0 {
+		t.Fatalf("blocked worker PID = %d, %v", pid, err)
+	}
+	if err = client.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case status := <-done:
+		if status != 0 {
+			t.Fatalf("supervisor status = %d", status)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("supervisor did not exit after containerd disconnect")
+	}
+	if killErr := syscall.Kill(pid, 0); !errors.Is(killErr, syscall.ESRCH) {
+		t.Fatalf("worker process survived containerd disconnect: %v", killErr)
+	}
+	if _, err = os.Stat(filepath.Join(bundle, ".multikernel-worker.pid")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("worker PID file remains after disconnect: %v", err)
 	}
 }
 

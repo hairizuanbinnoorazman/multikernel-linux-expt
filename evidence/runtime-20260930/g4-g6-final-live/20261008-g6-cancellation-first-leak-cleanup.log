@@ -1,0 +1,11 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command=set -euxo pipefail; sudo tr \"\\000\" \" \" </proc/79062/cmdline | grep -F \"-id mk-cancellation-live\"; sudo tr \"\\000\" \" \" </proc/79067/cmdline | grep -F \"-id mk-cancellation-live\"; sudo kill -TERM 79062; for i in $(seq 1 80); do test ! -d /proc/79062 && test ! -d /proc/79067 && break; sleep .25; done; if test -d /proc/79062 || test -d /proc/79067; then sudo kill -KILL 79062 79067 2>/dev/null || true; fi; for i in $(seq 1 40); do test ! -d /proc/79062 && test ! -d /proc/79067 && break; sleep .25; done; test ! -d /proc/79062; test ! -d /proc/79067; cd /var/tmp/mksrc-af132d8; scripts/audit-runtime-final-resources-live.sh"], "started_at": "2026-10-08T01:19:55.535295Z"}}
++ sudo tr '\000' ' '
++ grep -F '-id mk-cancellation-live'
+grep: invalid argument ‘ mk-cancellation-live’ for ‘--directories’
+Valid arguments are:
+  - ‘read’
+  - ‘recurse’
+  - ‘skip’
+Usage: grep [OPTION]... PATTERNS [FILE]...
+Try 'grep --help' for more information.
+{"evidence_command_result": {"ended_at": "2026-10-08T01:19:57.685674Z", "exit_status": 1}}

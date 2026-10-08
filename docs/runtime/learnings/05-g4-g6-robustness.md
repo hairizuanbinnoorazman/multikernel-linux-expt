@@ -10355,3 +10355,82 @@ qualification assets. Bash syntax, available ShellCheck, and diff hygiene pass.
 The mode-0755 helper is 829 bytes/SHA-256 `60ee2998…`; the mode-0755 qualifier
 is 6,708 bytes/SHA-256 `524f8d5b…`. No behavior is claimed before exact-source
 VM execution and a separate post-run audit.
+
+Commit `af132d8b75a8a08244ac39a45718a6087180cd6a` freezes those inputs. A clean
+6,696,960-byte `git archive` at `/tmp/mksrc-af132d8.tar` has SHA-256
+`4e91114549ad13ceb079558f9b1228d8e65a18c9c9659fa18281c4829fb9201d`.
+This is source binding for the next transfer, not live cancellation evidence.
+
+Guest preflight `20261008-g6-cancellation-source-preflight.log` is mode 0600,
+17,196 bytes, SHA-256
+`fda143bdfb4761e32076881facc101dd8fcbe1ddd05d4420a6977835e0b1ea71`, and
+exit 0. The guest independently matches archive SHA `4e911145…`, extracts 667
+files/6,145,091 bytes into fresh `/var/tmp/mksrc-af132d8`, matches both script
+digests, and passes Bash syntax. The strict baseline again has no pool or
+instances, all 19 counters zero, and four unchanged active zero-restart
+services. This establishes transfer/baseline only, before fault execution.
+
+The first exact-source cancellation run fails and is retained rather than
+overwritten. `20261008-g6-cancellation-live-first.log` is mode 0600, 73,262
+bytes, SHA-256 `1f59d9f4cd187d40c270c5d1cb6253075c16e18d3f4ee7d7524cc0f44d0e82c5`,
+exit 1, and credential-pattern clean. It reaches the rootfs-build blocker and
+cancels the real ctr Create, but PID 79086 remains present throughout the
+60-second reap assertion. The restoration trap returns the official daemon and
+removes temporary paths, but cannot make this a behavioral pass.
+
+The separate `20261008-g6-cancellation-first-failure-audit.log` is mode 0600,
+9,129 bytes/SHA-256 `94c5f2d274a2051ac513cff25525eb7e6882fc3857d890c0e2a47d9bb7c6e4cd`.
+Its strict audit fails at two residual shim processes while every other one of
+the 19 counters and Kerf pool/instance state is zero. Later diagnostic commands
+mask the capture's aggregate exit to zero, so this transcript is classified
+failed. Corrected process/journal evidence
+`20261008-g6-cancellation-first-leak-diagnostic-corrected.log` is mode 0600,
+8,435 bytes/SHA-256 `17e1300502db4c606d7a58316d31fb6925663c8e4e6df3a61324b0dcddf25f9d`,
+exit 0. PIDs 79062/79067 are live sleeping exact-binary supervisor/worker
+processes with parentage 1→79062→79067 and exact task argv, not zombies.
+Containerd reports Delete deadline expiry, shim disconnect, and fallback delete
+failure because the bundle working directory is already absent. A preliminary
+diagnostic failed on nested awk expansion and is retained at mode 0600/823
+bytes/SHA `38ce2b34…`. The live row stays open pending cleanup, source diagnosis,
+and a corrected exact-source replay.
+
+Source diagnosis finds a real supervisor ordering defect. The proxy ran in a
+goroutine, but the supervisor immediately blocked on `cmd.Wait`; containerd EOF
+therefore sat unread in `proxyDone` while the idle worker and supervisor stayed
+alive. The fix races worker and proxy completion. Proxy-first completion closes
+the private connection, kills/reaps any still-live worker, removes the held
+PID-file identity, and exits without spending the forced-worker restart budget.
+A process test starts a blocking real worker, closes the containerd side, and
+requires bounded supervisor exit plus absent worker PID/PID file.
+
+The first local test invocation stopped before compilation on the read-only
+default Go cache. A private-cache retry compiled the changes, but abstract Unix
+listener creation is forbidden locally with `EPERM`; the process test timed out
+and its cleanup exposed a test-only directory-close race. It now capability-
+probes and skips before any goroutine when abstract listeners are unavailable.
+Neither local failure is pass evidence; corrected private-cache validation and
+the VM's zero-skip execution remain pending.
+
+The first cleanup command is retained as a mode-0600, 1,227-byte, SHA-256
+`77457ff5…` harness failure: grep treated leading `-id` as an option and no
+signal was sent. Corrected cleanup transcript
+`20261008-g6-cancellation-first-leak-cleanup-corrected.log` is mode 0600,
+14,853 bytes, SHA-256
+`2f9ad273ccdd793df98e06241a2695c6695a39e3cb03e39a8fee4ed3e8a743e4`,
+exit 0. It validates both exact task argvs, signals only supervisor 79062,
+observes supervisor/worker 79062/79067 vanish, and passes the strict all-zero
+audit with restored official mkruntimed PID 79465 and healthy services.
+
+With the capability preflight, the private-cache focused race suite passes 20
+repetitions in 24.042 seconds. The new process test skips cleanly only under the
+local abstract-socket restriction; the existing bridge replay/replacement and
+worker-restart tests pass. A zero-skip VM run is still required.
+
+The final supervisor form closes private TTRPC first and grants the worker a
+30-second production grace to finish canceled-Create rollback; it force-kills
+and reaps only after that bound. The deliberately non-serving regression worker
+uses an injected 100 ms grace. The corrected focused matrix passes 20 race
+repetitions in 24.067 seconds, and the full shim package passes `-race` in
+9.985 seconds, followed by package vet, qualifier Bash syntax, and diff hygiene.
+This is local implementation evidence only; the VM must build/activate this
+exact candidate before the live cancellation replay can support a claim.
