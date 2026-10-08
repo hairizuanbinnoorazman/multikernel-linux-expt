@@ -3418,6 +3418,67 @@ phrase above.
   gated parsing and did not continue the poll on this state. The gate stops
   before full-package tests, build, install, or activation; no product failure
   is inferred. Empty successful reads must explicitly continue polling.
+- Commit `a17f10a` (`test: keep polling empty supervisor pid marker`) freezes
+  that test-only correction and the two failed `4fed167` gate transcripts.
+  Local syntax/diff checks and the full shim race suite pass; the focused test
+  capability-skips locally because abstract Unix sockets are unavailable, so
+  only a zero-skip VM stress run can qualify it. Exact tracked-source archive
+  `/tmp/mksrc-a17f10a.tar` is 7,096,320 bytes/SHA-256
+  `6f50c87f610b9fb391b978f2d1e5edbb5f06d4c69bd55c14ff762966dfff3986`.
+  Transfer `20261008-g6-cancellation-transfer-a17f10a.log` is mode 0600/353
+  bytes/SHA-256
+  `45bd46608336032720450fdc1d4f59dc614648dadd091cb3242a4c2d557ecc50`,
+  exit 0. Guest preflight
+  `20261008-g6-cancellation-source-preflight-a17f10a.log` is mode 0600/1,429
+  bytes/SHA-256
+  `064a88b29cfbcd28b96b7330b5279a30e4ae73d06a14f3aea0164bbfb3e7edde`,
+  exit 0. Both credential scans are clean; exact archive/source/qualifier
+  hashes and Bash syntax pass. Build and activation remain unclaimed.
+- First `a17f10a` VM gate `20261008-g6-cancellation-build-a17f10a.log`
+  is retained mode 0600/45,499 bytes, SHA-256
+  `3dc84228caca4cc0f1c6ac715e371f118e2022e9f4394a1648274ffa5680cd8d`,
+  exit 1, with a clean credential-value scan. The two daemon regressions pass
+  200 total invocations (100 each) and the process-level shim disconnect/reap
+  regression passes all 100 zero-skip repetitions. The subsequent full shim
+  package alone fails because the long configured `GOTMPDIR` makes the relay
+  test's Unix socket pathname exceed the kernel limit (`bind: invalid
+  argument`). Vet/build/install never run. This validates the marker correction
+  under the VM authority but remains a build-harness failure; rerun uses a
+  short dedicated temporary directory.
+- Short-path rerun `20261008-g6-cancellation-build-a17f10a-corrected.log` is
+  retained mode 0600/4,778 bytes, SHA-256
+  `745ed0b0fa9196782e8f9c09325781945b4a3a883985b4629f064dd46cd5da30`,
+  exit 1, with a clean credential-value scan. The path-length failure is gone,
+  but the newly created short GOTMPDIR has permissive mode bits and the relay
+  safety test correctly rejects its group/other-writable parent. The other four
+  packages pass race; shim/build/install remain failed/not run. The next rerun
+  explicitly installs the short cache/temp directories at mode 0700.
+- Mode-0700 rerun `20261008-g6-cancellation-build-a17f10a-final.log` is
+  retained mode 0600/4,968 bytes, SHA-256
+  `510539617da92c3393163af7fafd42cd9d09b5c94baf67bf0d7c79cf929ce165`,
+  exit 1, with a clean credential-value scan. Although the immediate GOTMPDIR
+  is 0700, the generated relay socket remains under world-writable ancestor
+  `/tmp`; `stopRelay` correctly rejects that ancestry. Four other packages
+  pass race, and build/install again do not run. The authoritative rerun must
+  use a short caller-owned tree beneath a non-writable ancestor.
+- Caller-owned runtime-tree rerun
+  `20261008-g6-cancellation-build-a17f10a-pass.log` is retained despite its
+  provisional name: mode 0600/5,100 bytes, SHA-256
+  `57468f3689871a4fe1539dabb287b1ed917a630331397c41c2c9694ed42b815f`,
+  exit 1, clean credential-value scan. It proves UID 1001 owns mode-0700
+  `/run/user/1001/t`, yet the relay fixture's generated immediate socket parent
+  is still rejected by `unixsocket.Capture`. Four other packages pass race;
+  vet/build/install do not run. Further environment guessing is stopped; the
+  exact directory identity seen inside the fixture must be diagnosed.
+- Syscall transcript `20261008-g6-relay-fixture-parent-diagnostic.log` is mode
+  0600/3,346 bytes, SHA-256
+  `21eb09b8365f5a203c7abbc810d059573668019101f1a90e720a1e35f91f5a5d`,
+  expected exit 1, with a clean credential-value scan. It proves the exact
+  generated socket parent is caller-owned but mode 0775: Go's `t.TempDir()`
+  inherited the guest user's 0002 umask. `openat2` binds the intended parent
+  without symlink traversal and `fstat` correctly rejects its write bits. The
+  fixture now chmods its private directory to 0700 before binding; production
+  validation is unchanged.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,
