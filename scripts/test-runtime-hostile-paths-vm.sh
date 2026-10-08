@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 [[ ${MK_EVIDENCE_XTRACE:-1} = 1 ]] && { PS4='+${BASH_SOURCE}:${LINENO}: '; set -x; }
+umask 077
 
 source_root=${1:?usage: test-runtime-hostile-paths-vm.sh SOURCE_ROOT}
 iterations=${MK_RACE_ITERATIONS:-100}
