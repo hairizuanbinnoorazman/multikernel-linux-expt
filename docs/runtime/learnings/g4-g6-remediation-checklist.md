@@ -3312,6 +3312,78 @@ phrase above.
   file creation and before PID bytes are written, producing `Atoi("")`. The
   gate stops before any build or install, so the active release remains
   unchanged. The regression now waits for a nonempty complete PID record.
+- Commit `cacec0db6fef21a5721bcdef558dc30703867d89` freezes that test-only
+  correction and failed gate transcript. Its clean 6,860,800-byte archive
+  `/tmp/mksrc-cacec0d.tar` hashes to
+  `b16af3c929a1fe4d34163521fa055799e65fa6e31a155eae5e9ed720ec4b7f79`.
+  The corrected local focused matrix passes 20 repetitions in 24.059 seconds;
+  transfer and VM retry remain unclaimed.
+- Strengthened VM gate/build transcript
+  `20261008-g6-cancellation-build-cacec0d.log` is mode 0600/63,147 bytes,
+  SHA-256
+  `1e16427487eab78a2021d7dce4ef1f09bd0cb9e23b8e4c157335f17476e7be8e`,
+  exit 1. Its product gate passes 100 race-detector repetitions in 128.518
+  seconds: 400 passing groups, zero failures/skips/race reports. All seven
+  revision-stamped binaries build and `make runtime-manifest` creates the
+  manifest. A redundant second exclusive-create generator then correctly
+  refuses the existing manifest with `EEXIST`; install is never invoked and
+  the active release is unchanged. This is a build-command harness failure,
+  not an installed candidate or live pass.
+- Corrected activation transcript
+  `20261008-g6-cancellation-activate-cacec0d.log` is mode 0600/17,873 bytes,
+  SHA-256
+  `91853bab6940d074e2c2c6c104fe9ef24e05d835b6557d8bc482d59f2f729315`,
+  exit 0, and passes the credential-value scan. It installs and selects exact
+  release `0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89`; the installed
+  shim and source shim both hash to
+  `3d1b1b9ff843e7e9ac4f65ffb3a10a415165b4c707db223961c52fa1f866a3ed`.
+  On boot `0404118a-b8a8-4187-89fa-2e45529963c2`, restarted idle
+  mkruntimed/mknetd and unchanged containerd/Docker are active/running with
+  zero restarts. The strict post-activation audit finds no Kerf pool or
+  instances and all 19 tracked resource counters zero. This proves exact
+  candidate activation and a clean baseline only; the cancellation row stays
+  open until the live qualifier and independent post-run audit pass.
+- Exact-source live transcript `20261008-g6-cancellation-live-cacec0d.log` is
+  retained mode 0600/73,286 bytes, SHA-256
+  `2bfba8a852054ebd6884068c7c2a5e798fb0740baf58a22eec938e07d811e25b`,
+  exit 1, with a clean credential-value scan. It proves the clean exact-release
+  preflight and reaches the rootfs builder blocker (parent 16712, deliberately
+  TERM-ignoring child 16715). Canceling the actual `ctr run` returns nonzero
+  status 124, but neither blocker PID disappears within 60 seconds, so the
+  qualifier correctly stops before the child-boot and Task Wait/Attach cases.
+  This is a remaining live cancellation failure, not pass evidence.
+- Immediate read-only diagnostic
+  `20261008-g6-cancellation-cacec0d-failure-diagnostic.log` is mode
+  0600/16,423 bytes, SHA-256
+  `503e92dc176e797cdfb988f60f76fafa2a4370eb16afec2336073015de07b9c9`,
+  exit 0, with a clean credential-value scan. By collection time the trap's
+  transient-service stop had removed both blocker PIDs. Containerd records a
+  Delete deadline at 13:28:56, shim disconnect at 13:29:01, and failed fallback
+  delete due to the already-removed bundle CWD. The restored official daemon
+  is exact candidate PID 17091; all four services are active/running with zero
+  restarts, no Kerf pool/instances exist, and all 19 resource counters are
+  zero. Thus cleanup after harness restoration is proved, but cancellation
+  before service teardown is not; the row remains open.
+- Root cause is the mkruntimed daemon wire contract, not the already-correct
+  bounded command runner: the client half-closed its write side to delimit JSON,
+  so the server consumed EOF before dispatch and had no later socket signal
+  from which to derive caller cancellation. The client now newline-frames the
+  request without half-closing; the server bounds and parses that frame, keeps
+  accepting the former EOF-delimited form, and cancels the per-request dispatch
+  context when the framed caller disconnects. This propagates through
+  Rootfs.Prepare/Kerf into `boundedexec`, which already SIGKILLs the complete
+  private process group on context cancellation.
+- Focused end-to-end tests cover both direct framed disconnect and actual
+  `daemon.Client` context cancellation reaching a blocked server dispatch.
+  Both pass 100 race-detector repetitions. The complete daemon, rootfs,
+  lifecycle, mkruntimed, and shim package race suites pass, followed by vet and
+  diff hygiene. These local results validate the correction but do not close
+  the live row; an exact candidate build, activation, and full live replay are
+  still required.
+  The retained transcript `20261008-g6-daemon-disconnect-local-race.log` is
+  mode 0600/1,369 bytes, SHA-256
+  `d190575d88cc589f014864fc6d34d2a5b2a82e6eec4cee4b4d96ef78300e478e`,
+  exit 0, with a clean credential-value scan.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

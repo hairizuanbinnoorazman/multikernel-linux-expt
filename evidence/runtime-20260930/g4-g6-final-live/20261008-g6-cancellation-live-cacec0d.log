@@ -1,0 +1,963 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "cd /var/tmp/mksrc-cacec0d && scripts/test-runtime-cancellation-live.sh /var/tmp/mksrc-cacec0d"], "started_at": "2026-10-08T13:28:46.144898Z"}}
++scripts/test-runtime-cancellation-live.sh:5: source_root=/var/tmp/mksrc-cacec0d
++scripts/test-runtime-cancellation-live.sh:6: runtime=io.containerd.multikernel.v2
++scripts/test-runtime-cancellation-live.sh:7: image=docker.io/library/busybox:1.36
++scripts/test-runtime-cancellation-live.sh:8: task_id=mk-cancellation-live
++scripts/test-runtime-cancellation-live.sh:9: unit=mkruntimed-cancel-qualification.service
++scripts/test-runtime-cancellation-live.sh:10: install_root=/opt/mkruntime/qualification-cancel
++scripts/test-runtime-cancellation-live.sh:11: blocker=/opt/mkruntime/qualification-cancel/blocker
++scripts/test-runtime-cancellation-live.sh:12: config=/opt/mkruntime/qualification-cancel/config.json
++scripts/test-runtime-cancellation-live.sh:13: control=/run/mkruntime-cancel-qualification
+++scripts/test-runtime-cancellation-live.sh:14: mktemp -d -p /var/tmp mk-cancel.XXXXXX
++scripts/test-runtime-cancellation-live.sh:14: scratch=/var/tmp/mk-cancel.rt5RlX
++scripts/test-runtime-cancellation-live.sh:15: official_running=1
++scripts/test-runtime-cancellation-live.sh:16: client_pid=
++scripts/test-runtime-cancellation-live.sh:53: trap restore EXIT
+++scripts/test-runtime-cancellation-live.sh:116: id -u
++scripts/test-runtime-cancellation-live.sh:116: [[ 1001 -ne 0 ]]
++scripts/test-runtime-cancellation-live.sh:117: for path in "$source_root/scripts/runtime-cancellation-blocker.sh" "$source_root/scripts/audit-runtime-final-resources-live.sh"
++scripts/test-runtime-cancellation-live.sh:117: test -x /var/tmp/mksrc-cacec0d/scripts/runtime-cancellation-blocker.sh
++scripts/test-runtime-cancellation-live.sh:117: for path in "$source_root/scripts/runtime-cancellation-blocker.sh" "$source_root/scripts/audit-runtime-final-resources-live.sh"
++scripts/test-runtime-cancellation-live.sh:117: test -x /var/tmp/mksrc-cacec0d/scripts/audit-runtime-final-resources-live.sh
++scripts/test-runtime-cancellation-live.sh:118: for service in mkruntimed mknetd containerd docker
+++scripts/test-runtime-cancellation-live.sh:118: systemctl is-active mkruntimed
++scripts/test-runtime-cancellation-live.sh:118: [[ active = active ]]
++scripts/test-runtime-cancellation-live.sh:118: for service in mkruntimed mknetd containerd docker
+++scripts/test-runtime-cancellation-live.sh:118: systemctl is-active mknetd
++scripts/test-runtime-cancellation-live.sh:118: [[ active = active ]]
++scripts/test-runtime-cancellation-live.sh:118: for service in mkruntimed mknetd containerd docker
+++scripts/test-runtime-cancellation-live.sh:118: systemctl is-active containerd
++scripts/test-runtime-cancellation-live.sh:118: [[ active = active ]]
++scripts/test-runtime-cancellation-live.sh:118: for service in mkruntimed mknetd containerd docker
+++scripts/test-runtime-cancellation-live.sh:118: systemctl is-active docker
++scripts/test-runtime-cancellation-live.sh:118: [[ active = active ]]
++scripts/test-runtime-cancellation-live.sh:119: cleanup_task
++scripts/test-runtime-cancellation-live.sh:29: sudo ctr tasks kill --signal SIGKILL mk-cancellation-live
++scripts/test-runtime-cancellation-live.sh:29: true
+++scripts/test-runtime-cancellation-live.sh:30: seq 1 120
++scripts/test-runtime-cancellation-live.sh:30: for _ in $(seq 1 120)
+++scripts/test-runtime-cancellation-live.sh:31: sudo ctr tasks list
+++scripts/test-runtime-cancellation-live.sh:31: awk -v id=mk-cancellation-live '$1 == id {print $3}'
++scripts/test-runtime-cancellation-live.sh:31: state=
++scripts/test-runtime-cancellation-live.sh:32: [[ '' != RUNNING ]]
++scripts/test-runtime-cancellation-live.sh:32: [[ '' != PAUSED ]]
++scripts/test-runtime-cancellation-live.sh:32: break
++scripts/test-runtime-cancellation-live.sh:35: sudo ctr tasks rm -f mk-cancellation-live
++scripts/test-runtime-cancellation-live.sh:35: true
++scripts/test-runtime-cancellation-live.sh:36: sudo ctr containers rm mk-cancellation-live
++scripts/test-runtime-cancellation-live.sh:36: true
+++scripts/test-runtime-cancellation-live.sh:120: wait_clean
++++scripts/test-runtime-cancellation-live.sh:56: seq 1 240
+++scripts/test-runtime-cancellation-live.sh:56: for _ in $(seq 1 240)
++++scripts/test-runtime-cancellation-live.sh:57: MK_EVIDENCE_XTRACE=0
++++scripts/test-runtime-cancellation-live.sh:57: /var/tmp/mksrc-cacec0d/scripts/audit-runtime-final-resources-live.sh
+OBSERVATION_BEGIN key=clean-before
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89 boot_id=0404118a-b8a8-4187-89fa-2e45529963c2 mkruntimed_pid=16133 mkruntimed_sha256=9228c947f9345d81234bb75a06f6dca4519d238593c5439665bbcd0e713d52d6
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=16133
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=16112
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=1454
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1508
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
+OBSERVATION_END key=clean-before
+++scripts/test-runtime-cancellation-live.sh:57: output=$'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89 boot_id=0404118a-b8a8-4187-89fa-2e45529963c2 mkruntimed_pid=16133 mkruntimed_sha256=9228c947f9345d81234bb75a06f6dca4519d238593c5439665bbcd0e713d52d6\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=16133\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=16112\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1454\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1508\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
+++scripts/test-runtime-cancellation-live.sh:58: printf '%s\n' $'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89 boot_id=0404118a-b8a8-4187-89fa-2e45529963c2 mkruntimed_pid=16133 mkruntimed_sha256=9228c947f9345d81234bb75a06f6dca4519d238593c5439665bbcd0e713d52d6\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=16133\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=16112\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1454\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1508\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
+++scripts/test-runtime-cancellation-live.sh:59: return
++scripts/test-runtime-cancellation-live.sh:120: observe clean-before $'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89 boot_id=0404118a-b8a8-4187-89fa-2e45529963c2 mkruntimed_pid=16133 mkruntimed_sha256=9228c947f9345d81234bb75a06f6dca4519d238593c5439665bbcd0e713d52d6\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=16133\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=16112\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1454\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1508\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
++scripts/test-runtime-cancellation-live.sh:18: local key=clean-before
++scripts/test-runtime-cancellation-live.sh:18: shift
++scripts/test-runtime-cancellation-live.sh:18: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' clean-before $'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89 boot_id=0404118a-b8a8-4187-89fa-2e45529963c2 mkruntimed_pid=16133 mkruntimed_sha256=9228c947f9345d81234bb75a06f6dca4519d238593c5439665bbcd0e713d52d6\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=16133\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=16112\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1454\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1508\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS' clean-before
+++scripts/test-runtime-cancellation-live.sh:121: cat /proc/sys/kernel/random/boot_id
+++scripts/test-runtime-cancellation-live.sh:121: readlink -f /usr/local/lib/multikernel/current
+++scripts/test-runtime-cancellation-live.sh:121: sha256sum scripts/test-runtime-cancellation-live.sh
+++scripts/test-runtime-cancellation-live.sh:121: awk '{print $1}'
+++scripts/test-runtime-cancellation-live.sh:121: sha256sum /var/tmp/mksrc-cacec0d/scripts/runtime-cancellation-blocker.sh
+++scripts/test-runtime-cancellation-live.sh:121: awk '{print $1}'
++scripts/test-runtime-cancellation-live.sh:121: observe provenance $'boot_id=0404118a-b8a8-4187-89fa-2e45529963c2\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89\nqualifier_sha256=524f8d5bcb6ccb264127878d5ec3f7cf4e2de90fa03e03afb79e7681447115bc\nblocker_sha256=60ee299811c457db22923f47e1cddc0971dbc0f81766d6f4408ad2c16569488d'
++scripts/test-runtime-cancellation-live.sh:18: local key=provenance
++scripts/test-runtime-cancellation-live.sh:18: shift
+OBSERVATION_BEGIN key=provenance
+boot_id=0404118a-b8a8-4187-89fa-2e45529963c2
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89
+qualifier_sha256=524f8d5bcb6ccb264127878d5ec3f7cf4e2de90fa03e03afb79e7681447115bc
+blocker_sha256=60ee299811c457db22923f47e1cddc0971dbc0f81766d6f4408ad2c16569488d
+OBSERVATION_END key=provenance
++scripts/test-runtime-cancellation-live.sh:18: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' provenance $'boot_id=0404118a-b8a8-4187-89fa-2e45529963c2\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89\nqualifier_sha256=524f8d5bcb6ccb264127878d5ec3f7cf4e2de90fa03e03afb79e7681447115bc\nblocker_sha256=60ee299811c457db22923f47e1cddc0971dbc0f81766d6f4408ad2c16569488d' provenance
++scripts/test-runtime-cancellation-live.sh:125: sudo ctr images pull docker.io/library/busybox:1.36
++scripts/test-runtime-cancellation-live.sh:126: sudo install -d -m 0700 /opt/mkruntime/qualification-cancel
++scripts/test-runtime-cancellation-live.sh:127: sudo install -m 0755 /var/tmp/mksrc-cacec0d/scripts/runtime-cancellation-blocker.sh /opt/mkruntime/qualification-cancel/blocker
+++scripts/test-runtime-cancellation-live.sh:128: systemctl show -p ExecStart --value mkruntimed
+++scripts/test-runtime-cancellation-live.sh:128: grep -o -- '--rootfs-builder=[^ ;}]*'
+++scripts/test-runtime-cancellation-live.sh:128: head -1
+++scripts/test-runtime-cancellation-live.sh:128: cut -d= -f2-
++scripts/test-runtime-cancellation-live.sh:128: real_builder=/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh
++scripts/test-runtime-cancellation-live.sh:129: [[ -x /usr/local/libexec/multikernel/build-runtime-container-initramfs.sh ]]
++scripts/test-runtime-cancellation-live.sh:130: start_qualification_daemon rootfs-build /usr/local/libexec/multikernel/build-runtime-container-initramfs.sh false
++scripts/test-runtime-cancellation-live.sh:68: local operation=rootfs-build real=/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh use_config=false arg replaced=0
++scripts/test-runtime-cancellation-live.sh:69: mapfile -d '' original_argv
+++scripts/test-runtime-cancellation-live.sh:69: systemctl show -p MainPID --value mkruntimed
++scripts/test-runtime-cancellation-live.sh:70: qualification_argv=()
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:73: qualification_argv+=("--rootfs-builder=$blocker")
++scripts/test-runtime-cancellation-live.sh:73: replaced=1
++scripts/test-runtime-cancellation-live.sh:71: for arg in "${original_argv[@]}"
++scripts/test-runtime-cancellation-live.sh:72: case "$operation:$arg" in
++scripts/test-runtime-cancellation-live.sh:75: qualification_argv+=("$arg")
++scripts/test-runtime-cancellation-live.sh:78: [[ 1 = 1 ]]
++scripts/test-runtime-cancellation-live.sh:79: sudo systemctl stop mkruntimed
++scripts/test-runtime-cancellation-live.sh:80: official_running=0
++scripts/test-runtime-cancellation-live.sh:81: sudo rm -rf -- /run/mkruntime-cancel-qualification
++scripts/test-runtime-cancellation-live.sh:82: sudo systemd-run --unit=mkruntimed-cancel-qualification.service --collect --property=Type=simple --setenv=MK_CANCEL_REAL=/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh --setenv=MK_CANCEL_OPERATION=rootfs-build --setenv=MK_CANCEL_CONTROL=/run/mkruntime-cancel-qualification -- /usr/local/sbin/mkruntimed --config=/etc/mkruntime/config.json --pool-cpus=8,10,12,14,9,11,13,15 --pool-memory=16GB --pool-memory-reserve=1GB --storage-state-dir=/var/lib/mkruntimed/storage --storage-runtime-dir=/run/mkstorage --storage-server=/usr/local/libexec/multikernel/mkvsock-nbd --rootfs-state-dir=/var/lib/mkruntimed/rootfs --rootfs-storage-dir=/srv/multikernel-storage/runtime --rootfs-builder=/opt/mkruntime/qualification-cancel/blocker '--cmdline=rdinit=/init console=mktty0 panic=-1'
+Running as unit: mkruntimed-cancel-qualification.service; invocation ID: 6a19e62a9fa4403d8a84b6a937deaeb8
+++scripts/test-runtime-cancellation-live.sh:85: seq 1 120
++scripts/test-runtime-cancellation-live.sh:85: for _ in $(seq 1 120)
++scripts/test-runtime-cancellation-live.sh:86: systemctl is-active --quiet mkruntimed-cancel-qualification.service
++scripts/test-runtime-cancellation-live.sh:86: sudo test -S /run/mkruntimed.sock
++scripts/test-runtime-cancellation-live.sh:87: sleep .25
++scripts/test-runtime-cancellation-live.sh:85: for _ in $(seq 1 120)
++scripts/test-runtime-cancellation-live.sh:86: systemctl is-active --quiet mkruntimed-cancel-qualification.service
++scripts/test-runtime-cancellation-live.sh:86: sudo test -S /run/mkruntimed.sock
++scripts/test-runtime-cancellation-live.sh:87: sleep .25
++scripts/test-runtime-cancellation-live.sh:85: for _ in $(seq 1 120)
++scripts/test-runtime-cancellation-live.sh:86: systemctl is-active --quiet mkruntimed-cancel-qualification.service
++scripts/test-runtime-cancellation-live.sh:86: sudo test -S /run/mkruntimed.sock
++scripts/test-runtime-cancellation-live.sh:87: sleep .25
++scripts/test-runtime-cancellation-live.sh:85: for _ in $(seq 1 120)
++scripts/test-runtime-cancellation-live.sh:86: systemctl is-active --quiet mkruntimed-cancel-qualification.service
++scripts/test-runtime-cancellation-live.sh:86: sudo test -S /run/mkruntimed.sock
++scripts/test-runtime-cancellation-live.sh:86: return
++scripts/test-runtime-cancellation-live.sh:131: cancel_blocked_create rootfs-build
++scripts/test-runtime-cancellation-live.sh:100: local label=rootfs-build status parent child
++scripts/test-runtime-cancellation-live.sh:102: client_pid=16656
++scripts/test-runtime-cancellation-live.sh:101: sudo timeout --foreground --kill-after=10 300 ctr run --rm --runtime io.containerd.multikernel.v2 docker.io/library/busybox:1.36 mk-cancellation-live /bin/true
+++scripts/test-runtime-cancellation-live.sh:103: seq 1 240
++scripts/test-runtime-cancellation-live.sh:103: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:103: sudo test -f /run/mkruntime-cancel-qualification/ready
++scripts/test-runtime-cancellation-live.sh:103: kill -0 16656
++scripts/test-runtime-cancellation-live.sh:103: sleep .25
++scripts/test-runtime-cancellation-live.sh:103: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:103: sudo test -f /run/mkruntime-cancel-qualification/ready
++scripts/test-runtime-cancellation-live.sh:103: break
++scripts/test-runtime-cancellation-live.sh:104: sudo test -f /run/mkruntime-cancel-qualification/ready
+++scripts/test-runtime-cancellation-live.sh:105: sudo cat /run/mkruntime-cancel-qualification/parent
++scripts/test-runtime-cancellation-live.sh:105: parent=16712
+++scripts/test-runtime-cancellation-live.sh:105: sudo cat /run/mkruntime-cancel-qualification/child
++scripts/test-runtime-cancellation-live.sh:105: child=16715
++scripts/test-runtime-cancellation-live.sh:106: sudo kill -TERM 16656
++scripts/test-runtime-cancellation-live.sh:107: set +e
++scripts/test-runtime-cancellation-live.sh:107: wait 16656
++scripts/test-runtime-cancellation-live.sh:107: status=124
++scripts/test-runtime-cancellation-live.sh:107: set -e
++scripts/test-runtime-cancellation-live.sh:108: client_pid=
++scripts/test-runtime-cancellation-live.sh:109: [[ 124 -ne 0 ]]
+++scripts/test-runtime-cancellation-live.sh:110: seq 1 240
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:110: for _ in $(seq 1 240)
++scripts/test-runtime-cancellation-live.sh:110: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:110: sleep .25
++scripts/test-runtime-cancellation-live.sh:111: [[ ! -d /proc/16712 ]]
++scripts/test-runtime-cancellation-live.sh:1: restore
++scripts/test-runtime-cancellation-live.sh:40: status=1
++scripts/test-runtime-cancellation-live.sh:41: set +e
++scripts/test-runtime-cancellation-live.sh:42: [[ -z '' ]]
++scripts/test-runtime-cancellation-live.sh:43: cleanup_task
++scripts/test-runtime-cancellation-live.sh:29: sudo ctr tasks kill --signal SIGKILL mk-cancellation-live
++scripts/test-runtime-cancellation-live.sh:29: true
+++scripts/test-runtime-cancellation-live.sh:30: seq 1 120
++scripts/test-runtime-cancellation-live.sh:30: for _ in $(seq 1 120)
+++scripts/test-runtime-cancellation-live.sh:31: sudo ctr tasks list
+++scripts/test-runtime-cancellation-live.sh:31: awk -v id=mk-cancellation-live '$1 == id {print $3}'
++scripts/test-runtime-cancellation-live.sh:31: state=
++scripts/test-runtime-cancellation-live.sh:32: [[ '' != RUNNING ]]
++scripts/test-runtime-cancellation-live.sh:32: [[ '' != PAUSED ]]
++scripts/test-runtime-cancellation-live.sh:32: break
++scripts/test-runtime-cancellation-live.sh:35: sudo ctr tasks rm -f mk-cancellation-live
++scripts/test-runtime-cancellation-live.sh:35: true
++scripts/test-runtime-cancellation-live.sh:36: sudo ctr containers rm mk-cancellation-live
++scripts/test-runtime-cancellation-live.sh:44: sudo systemctl stop mkruntimed-cancel-qualification.service
++scripts/test-runtime-cancellation-live.sh:45: ((  ! official_running  ))
++scripts/test-runtime-cancellation-live.sh:46: sudo systemctl start mkruntimed
++scripts/test-runtime-cancellation-live.sh:47: wait_official
++scripts/test-runtime-cancellation-live.sh:49: sudo rm -rf -- /opt/mkruntime/qualification-cancel /run/mkruntime-cancel-qualification
++scripts/test-runtime-cancellation-live.sh:50: rm -rf -- /var/tmp/mk-cancel.rt5RlX
++scripts/test-runtime-cancellation-live.sh:51: exit 1
+{"evidence_command_result": {"ended_at": "2026-10-08T13:29:53.091746Z", "exit_status": 1}}

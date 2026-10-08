@@ -1,0 +1,8 @@
+{"evidence_command": {"argv": ["bash", "-lc", "cd runtime && GOCACHE=/tmp/mklinux-go-cache go test -race ./internal/daemon -run \"TestDaemon(FramedClientDisconnectCancelsDispatch|ClientCancellationPropagatesToDispatch)$\" -count=100 && GOCACHE=/tmp/mklinux-go-cache go test -race ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2 && GOCACHE=/tmp/mklinux-go-cache go vet ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2 && cd .. && git diff --check -- runtime/internal/daemon/client.go runtime/internal/daemon/client_test.go runtime/internal/daemon/server.go runtime/internal/daemon/server_test.go"], "started_at": "2026-10-08T13:36:46.699552Z"}}
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.063s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	1.740s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	(cached)
+{"evidence_command_result": {"ended_at": "2026-10-08T13:36:50.130916Z", "exit_status": 0}}

@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -25,6 +26,7 @@ type Server struct {
 	mu             sync.Mutex
 	listener       net.Listener
 	activeHandlers atomic.Int64
+	dispatch       func(context.Context, protocol.Request) protocol.Response
 }
 
 func daemonHandlerLimit(configured int) int {
@@ -169,23 +171,52 @@ func (s *Server) Close() error {
 	return s.listener.Close()
 }
 func (s *Server) handle(ctx context.Context, c net.Conn) {
-	defer c.Close()
 	stopCancellation := protocol.CloseOnContext(ctx, c)
 	defer stopCancellation()
 	maximum := daemonFrameLimit(s.MaxFrame)
-	data, e := io.ReadAll(io.LimitReader(c, int64(maximum+1)))
+	reader := bufio.NewReader(io.LimitReader(c, int64(maximum+2)))
+	data, e := reader.ReadBytes('\n')
+	framed := e == nil
+	if framed {
+		data = data[:len(data)-1]
+	} else if errors.Is(e, io.EOF) {
+		e = nil // Continue accepting the former EOF-delimited request form.
+	}
+	requestContext := ctx
+	var cancelRequest context.CancelFunc
+	var disconnectDone chan struct{}
+	if framed {
+		requestContext, cancelRequest = context.WithCancel(ctx)
+		disconnectDone = make(chan struct{})
+		go func() {
+			defer close(disconnectDone)
+			var extra [1]byte
+			_, _ = reader.Read(extra[:])
+			cancelRequest()
+		}()
+	}
+	defer func() {
+		_ = c.Close()
+		if disconnectDone != nil {
+			<-disconnectDone
+			cancelRequest()
+		}
+	}()
+	resp := protocol.Response{Version: 1}
 	if e != nil {
 		return
-	}
-	resp := protocol.Response{Version: 1}
-	if len(data) > maximum {
+	} else if len(data) > maximum {
 		resp.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "frame too large"}
 	} else {
 		var req protocol.Request
 		if e = protocol.StrictDecode(data, &req); e != nil {
 			resp.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: e.Error()}
 		} else {
-			resp = s.Dispatch(ctx, req)
+			if s.dispatch != nil {
+				resp = s.dispatch(requestContext, req)
+			} else {
+				resp = s.Dispatch(requestContext, req)
+			}
 		}
 	}
 	encoded, e := encodeDaemonResponse(resp, 1<<20)
