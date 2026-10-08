@@ -9974,3 +9974,47 @@ the named quarantine. This reset establishes a test precondition only.
   is `214c801ef71e99d9afb6a824bc5a45535a828aaf8392bf02764fd6695718afc6`.
   This closes the observed fixture/harness regressions locally; the five-group
   VM aggregate remains unclaimed until exact-commit execution passes.
+
+- Commit `27ffedc167404bda0b6067c82f9a8fb305029fe1` freezes the final qualifier.
+  Its exact 5,836,800-byte archive SHA-256 is
+  `527783a30b17fa4ff2fbcd4079859babeeba42f9cf27674407472a76d4260f1e`
+  locally and on the VM. Fresh `/var/tmp/mksrc-27ffedc` contains 662 files and
+  5,286,177 bytes; guest qualifier and corrected test-source hashes match
+  `214c801e…` and `32fa942b…`, and guest syntax passes. The next complete run is
+  therefore exact-source bound; no aggregate pass is inferred from transfer.
+
+- Running `27ffedc` matrix checkpoint: exact enumeration and 100 race-detector
+  repetitions have completed for the 22-test shim group and 17-test rootfs
+  group, each with zero skips and status pass. This includes the three formerly
+  distorted fixtures under the VM's native umask. The seven-test safefile group
+  is active; Unix-socket, storage, and final strict audit results remain
+  unclaimed until the same process completes.
+
+- The `27ffedc` run confirms shim (22), rootfs (17), and safefile (7) groups
+  through 100 race repetitions each with zero skips, then fails only two of the
+  seven Unix-socket selections in all 100 repetitions. Both report `bind:
+  invalid argument`, not a policy assertion: the qualifier's long
+  `/var/tmp/mk-hostile-paths.XXXXXX/tmp` prefix plus Go's long test directory
+  exceeds Linux `sockaddr_un` for those names. Storage and final audit are not
+  reached. Retained mode-0600
+  `20261008-g6-hostile-path-race-matrix-final.log` is 1,743,744 bytes, SHA-256
+  `f7a5de01e498d4245058fdec32d3343fa12e25bfdf11fb49fb50861fb40f4e1c`,
+  exit 1, exactly 200 top-level failure lines, zero skips/race reports, and
+  credential-pattern clean. The qualifier must keep ext4 while using a short
+  root such as `/var/tmp/h.XXXXXX` directly as TMPDIR/GOTMPDIR.
+
+- Independent post-path-length audit passes: mode-0600
+  `20261008-g6-hostile-path-third-failure-final-audit.log` is 13,022 bytes,
+  SHA-256 `92cf27d895b030e753bcf727d748148ec46bc7c204bb0992ee504ac2a9c85f12`,
+  exit 0, and credential-pattern clean, with no pool/instances, all 19 counters
+  zero, and unchanged active zero-restart services. The qualifier now uses
+  `/var/tmp/h.XXXXXX` directly for TMPDIR/GOTMPDIR and a short `c` cache child;
+  validation and a new exact-source run are pending.
+
+- Short-root validation passes: all seven selected Unix-socket tests complete
+  100 local race-detector repetitions in 1.179 seconds using an equivalently
+  short private temp root, with Bash syntax, available ShellCheck, and diff
+  hygiene clean. Revised qualifier SHA-256 is
+  `33c62163f1f11c77755649091a895151e64ca4529c26908c5675c2e3f0c1d983`.
+  This validates the path-capacity correction locally; the VM aggregate is
+  still open.
