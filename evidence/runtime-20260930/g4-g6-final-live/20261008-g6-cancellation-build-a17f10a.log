@@ -1,0 +1,665 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "set -euxo pipefail; cd /var/tmp/mksrc-a17f10a; test \"$(sha256sum /var/tmp/mksrc-a17f10a.tar)\" = \"6f50c87f610b9fb391b978f2d1e5edbb5f06d4c69bd55c14ff762966dfff3986  /var/tmp/mksrc-a17f10a.tar\"; mkdir -p /var/tmp/cancel-a17-go-cache /var/tmp/cancel-a17-go-tmp; cd runtime; GOCACHE=/var/tmp/cancel-a17-go-cache GOTMPDIR=/var/tmp/cancel-a17-go-tmp TMPDIR=/var/tmp go test -race -v -count=100 -run \"^TestDaemon(FramedClientDisconnectCancelsDispatch|ClientCancellationPropagatesToDispatch)$\" ./internal/daemon; GOCACHE=/var/tmp/cancel-a17-go-cache GOTMPDIR=/var/tmp/cancel-a17-go-tmp TMPDIR=/var/tmp go test -race -v -count=100 -run \"^TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects$\" ./cmd/containerd-shim-multikernel-v2; GOCACHE=/var/tmp/cancel-a17-go-cache GOTMPDIR=/var/tmp/cancel-a17-go-tmp TMPDIR=/var/tmp go test -race ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2; GOCACHE=/var/tmp/cancel-a17-go-cache GOTMPDIR=/var/tmp/cancel-a17-go-tmp TMPDIR=/var/tmp go vet ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2; cd ..; make runtime-manifest RUNTIME_VERSION=0.1.0-dev RUNTIME_REVISION=a17f10a; jq -e \".version == \\\"0.1.0-dev\\\" and .revision == \\\"a17f10a\\\"\" runtime/release-manifest.json; sha256sum runtime/bin/* runtime/release-manifest.json; echo G6_CANCELLATION_BUILD_A17F10A_PASS"], "started_at": "2026-10-08T13:42:10.549479Z"}}
++ cd /var/tmp/mksrc-a17f10a
+++ sha256sum /var/tmp/mksrc-a17f10a.tar
++ test '6f50c87f610b9fb391b978f2d1e5edbb5f06d4c69bd55c14ff762966dfff3986  /var/tmp/mksrc-a17f10a.tar' = '6f50c87f610b9fb391b978f2d1e5edbb5f06d4c69bd55c14ff762966dfff3986  /var/tmp/mksrc-a17f10a.tar'
++ mkdir -p /var/tmp/cancel-a17-go-cache /var/tmp/cancel-a17-go-tmp
++ cd runtime
++ GOCACHE=/var/tmp/cancel-a17-go-cache
++ GOTMPDIR=/var/tmp/cancel-a17-go-tmp
++ TMPDIR=/var/tmp
++ go test -race -v -count=100 -run '^TestDaemon(FramedClientDisconnectCancelsDispatch|ClientCancellationPropagatesToDispatch)$' ./internal/daemon
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+=== RUN   TestDaemonFramedClientDisconnectCancelsDispatch
+--- PASS: TestDaemonFramedClientDisconnectCancelsDispatch (0.00s)
+=== RUN   TestDaemonClientCancellationPropagatesToDispatch
+--- PASS: TestDaemonClientCancellationPropagatesToDispatch (0.00s)
+PASS
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.078s
++ GOCACHE=/var/tmp/cancel-a17-go-cache
++ GOTMPDIR=/var/tmp/cancel-a17-go-tmp
++ TMPDIR=/var/tmp
++ go test -race -v -count=100 -run '^TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects$' ./cmd/containerd-shim-multikernel-v2
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.12s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.13s)
+=== RUN   TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects
+--- PASS: TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects (0.14s)
+PASS
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	13.804s
++ GOCACHE=/var/tmp/cancel-a17-go-cache
++ GOTMPDIR=/var/tmp/cancel-a17-go-tmp
++ TMPDIR=/var/tmp
++ go test -race ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.196s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	3.898s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	2.257s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.015s
+multikernel stdin intent: no such file or directory
+multikernel process wait validation: guest returned a stopped process with mismatched identity or state
+multikernel process wait validation: guest returned a stopped process with mismatched identity or state
+multikernel process wait validation: guest returned a stopped process with a different PID
+multikernel process wait validation: guest returned an exit status outside the agent contract
+multikernel process wait validation: guest returned an exit status outside the agent contract
+multikernel output acknowledgement: no such file or directory
+multikernel output monitor: context deadline exceeded
+multikernel exit state persistence: no such file or directory
+multikernel exit event acknowledgement: no such file or directory
+multikernel close stdin: injected close failure
+multikernel close stdin: injected close failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected transient disconnect
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel shim: guest teardown completed through sandbox deletion with warnings: close guest network: injected guest network close failure
+quiesce guest agent: unexpected status ""
+multikernel event publication deferred: injected publication failure
+multikernel network report DISCONNECTED: injected network report failure
+multikernel network report READY: injected network report failure
+multikernel shim supervisor: worker pid=33827 signal=killed restart_attempt=1
+--- FAIL: TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup (0.00s)
+    --- FAIL: TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup/stop_kills_group_and_removes_socket (0.00s)
+        main_test.go:6555: listen unix /var/tmp/cancel-a17-go-tmp/TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanupstop_k3447327982/001/relay.sock: bind: invalid argument
+FAIL
+FAIL	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	8.940s
+FAIL
+{"evidence_command_result": {"ended_at": "2026-10-08T13:42:54.214705Z", "exit_status": 1}}

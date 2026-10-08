@@ -10557,3 +10557,69 @@ one successful but empty marker read falls through to `t.Fatal(nil)` at line
 6322. The prior fix gated PID parsing but failed to continue polling on that
 specific state. Full-package tests and build/install never run, so this is a
 test race rather than product evidence.
+
+Commit `a17f10a` (`test: keep polling empty supervisor pid marker`) freezes the
+test-only correction and both failed `4fed167` gate transcripts. Local
+syntax/diff checks and the complete shim race suite pass. The focused process
+test capability-skips under the local abstract-socket restriction, leaving the
+VM as the zero-skip authority. Exact tracked-source archive
+`/tmp/mksrc-a17f10a.tar` is 7,096,320 bytes/SHA-256
+`6f50c87f610b9fb391b978f2d1e5edbb5f06d4c69bd55c14ff762966dfff3986`;
+transfer transcript `20261008-g6-cancellation-transfer-a17f10a.log` is mode
+0600, 353 bytes/SHA-256
+`45bd46608336032720450fdc1d4f59dc614648dadd091cb3242a4c2d557ecc50`,
+exit 0. Guest preflight
+`20261008-g6-cancellation-source-preflight-a17f10a.log` is mode 0600, 1,429
+bytes/SHA-256
+`064a88b29cfbcd28b96b7330b5279a30e4ae73d06a14f3aea0164bbfb3e7edde`,
+exit 0. Both credential scans are clean; archive/source/qualifier hashes and
+Bash syntax pass. Build and activation remain unclaimed.
+
+First `a17f10a` VM gate `20261008-g6-cancellation-build-a17f10a.log` is mode
+0600, 45,499 bytes/SHA-256
+`3dc84228caca4cc0f1c6ac715e371f118e2022e9f4394a1648274ffa5680cd8d`,
+exit 1, with a clean credential-value scan. Both daemon regressions pass 100
+times each and the shim disconnect/reap process regression passes all 100
+zero-skip VM repetitions. The later full shim package fails only because the
+long `GOTMPDIR` pushes its relay socket pathname past the kernel limit and bind
+returns `EINVAL`. Vet and build/install do not run. The marker correction is
+therefore authoritative, while the overall gate remains failed for a harness
+path-length error and will be rerun with a short temporary directory.
+
+Short-path rerun `20261008-g6-cancellation-build-a17f10a-corrected.log` is
+mode 0600, 4,778 bytes/SHA-256
+`745ed0b0fa9196782e8f9c09325781945b4a3a883985b4629f064dd46cd5da30`,
+exit 1, with a clean credential-value scan. It clears the pathname limit, but
+the freshly created short GOTMPDIR retains permissive mode bits; the relay
+security test correctly rejects that group/other-writable socket parent. Four
+other packages pass race, while shim/build/install do not pass/run. A mode-0700
+short cache/temp rerun is required.
+
+Mode-0700 rerun `20261008-g6-cancellation-build-a17f10a-final.log` is mode
+0600, 4,968 bytes/SHA-256
+`510539617da92c3393163af7fafd42cd9d09b5c94baf67bf0d7c79cf929ce165`,
+exit 1, with a clean credential-value scan. The immediate GOTMPDIR is now
+0700, but the relay socket still inherits world-writable ancestor `/tmp`; the
+production path validator correctly rejects that ancestry. Four other
+packages pass race and build/install do not run. The next run must use a short
+caller-owned tree below a non-writable ancestor.
+
+The provisionally named
+`20261008-g6-cancellation-build-a17f10a-pass.log` is actually another retained
+failure: mode 0600, 5,100 bytes/SHA-256
+`57468f3689871a4fe1539dabb287b1ed917a630331397c41c2c9694ed42b815f`,
+exit 1, with a clean credential-value scan. It verifies UID 1001 owns the
+mode-0700 `/run/user/1001/t`, but `unixsocket.Capture` still rejects the relay
+fixture's generated immediate socket parent. Four other packages pass race;
+vet/build/install do not run. The next step is direct fixture identity/mode
+diagnosis, not another unsubstantiated temp-root change.
+
+Syscall diagnostic `20261008-g6-relay-fixture-parent-diagnostic.log` is mode
+0600, 3,346 bytes/SHA-256
+`21eb09b8365f5a203c7abbc810d059573668019101f1a90e720a1e35f91f5a5d`,
+expected exit 1, with a clean credential-value scan. It resolves the ambiguity:
+the exact generated parent is caller-owned but mode 0775 because Go's
+`t.TempDir()` inherited the guest's 0002 umask. `openat2` reaches that intended
+no-symlink directory and `fstat` correctly rejects its write bits. The fixture
+now explicitly chmods its private socket directory to 0700; production path
+validation is untouched.

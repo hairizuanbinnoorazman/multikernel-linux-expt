@@ -1,0 +1,43 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "set -euxo pipefail; install -d -m 0700 /run/user/1001/t; cd /var/tmp/mksrc-a17f10a/runtime; GOCACHE=/tmp/a17g GOTMPDIR=/run/user/1001/t TMPDIR=/run/user/1001/t go test -race -c -o /run/user/1001/t/shim.test ./cmd/containerd-shim-multikernel-v2; GOTMPDIR=/run/user/1001/t TMPDIR=/run/user/1001/t strace -f -e trace=openat2,fstat,newfstatat -s 300 /run/user/1001/t/shim.test -test.run \"^TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup$/^stop_kills_group_and_removes_socket$\" -test.v"], "started_at": "2026-10-08T13:47:53.054726Z"}}
++ install -d -m 0700 /run/user/1001/t
++ cd /var/tmp/mksrc-a17f10a/runtime
++ GOCACHE=/tmp/a17g
++ GOTMPDIR=/run/user/1001/t
++ TMPDIR=/run/user/1001/t
++ go test -race -c -o /run/user/1001/t/shim.test ./cmd/containerd-shim-multikernel-v2
+=== RUN   TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup
+=== RUN   TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup/stop_kills_group_and_removes_socket
++ GOTMPDIR=/run/user/1001/t
++ TMPDIR=/run/user/1001/t
++ strace -f -e trace=openat2,fstat,newfstatat -s 300 /run/user/1001/t/shim.test -test.run '^TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup$/^stop_kills_group_and_removes_socket$' -test.v
+fstat(3, {st_mode=S_IFREG|0644, st_size=22523, ...}) = 0
+fstat(3, {st_mode=S_IFREG|0755, st_size=2206992, ...}) = 0
+fstat(3, {st_mode=S_IFREG|0444, st_size=0, ...}) = 0
+strace: Process 42067 attached
+strace: Process 42068 attached
+strace: Process 42069 attached
+strace: Process 42070 attached
+strace: Process 42071 attached
+[pid 42066] fstat(4, {st_mode=S_IFREG|0775, st_size=28062624, ...}) = 0
+[pid 42066] --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=42066, si_uid=1001} ---
+strace: Process 42072 attached
+[pid 42072] +++ exited with 0 +++
+strace: Process 42073 attached
+[pid 42073] fstat(3, {st_mode=S_IFREG|0644, st_size=22523, ...}) = 0
+[pid 42073] fstat(3, {st_mode=S_IFREG|0755, st_size=2206992, ...}) = 0
+[pid 42073] +++ killed by SIGKILL +++
+    main_test.go:6566: Unix socket parent must be caller-owned and not group/other-writable
+--- FAIL: TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup (0.01s)
+    --- FAIL: TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup/stop_kills_group_and_removes_socket (0.00s)
+FAIL
+[pid 42066] --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_KILLED, si_pid=42073, si_uid=1001, si_status=SIGKILL, si_utime=0, si_stime=0} ---
+[pid 42066] newfstatat(AT_FDCWD, "/run/user/1001/t/TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanupstop_k3594558646/001/relay.sock", {st_mode=S_IFSOCK|0755, st_size=0, ...}, AT_SYMLINK_NOFOLLOW) = 0
+[pid 42066] openat2(AT_FDCWD, "/run/user/1001/t/TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanupstop_k3594558646/001", {flags=O_RDONLY|O_CLOEXEC|O_DIRECTORY, resolve=RESOLVE_NO_MAGICLINKS|RESOLVE_NO_SYMLINKS}, 24) = 4
+[pid 42066] fstat(4, {st_mode=S_IFDIR|0775, st_size=60, ...}) = 0
+[pid 42070] +++ exited with 1 +++
+[pid 42071] +++ exited with 1 +++
+[pid 42069] +++ exited with 1 +++
+[pid 42068] +++ exited with 1 +++
+[pid 42067] +++ exited with 1 +++
++++ exited with 1 +++
+{"evidence_command_result": {"ended_at": "2026-10-08T13:47:56.400019Z", "exit_status": 1}}

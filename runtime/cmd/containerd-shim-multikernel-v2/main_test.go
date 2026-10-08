@@ -6546,7 +6546,11 @@ func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
 			t.Fatal(err)
 		}
 		processGroup := command.Process.Pid
-		socket := filepath.Join(t.TempDir(), "relay.sock")
+		socketDirectory := t.TempDir()
+		if err := os.Chmod(socketDirectory, 0700); err != nil {
+			t.Fatal(err)
+		}
+		socket := filepath.Join(socketDirectory, "relay.sock")
 		listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socket, Net: "unix"})
 		if errors.Is(err, syscall.EPERM) {
 			t.Skip("sandbox forbids Unix pathname listeners")
