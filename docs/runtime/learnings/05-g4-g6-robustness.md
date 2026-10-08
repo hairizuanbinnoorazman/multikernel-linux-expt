@@ -10521,3 +10521,39 @@ The exact transcript `20261008-g6-daemon-disconnect-local-race.log` is mode
 0600, 1,369 bytes, SHA-256
 `d190575d88cc589f014864fc6d34d2a5b2a82e6eec4cee4b4d96ef78300e478e`,
 exit 0, with a clean credential-value scan.
+
+Commit `4fed167` (`runtime: propagate daemon client cancellation`) freezes the
+protocol correction, both regressions, the exact failed-live diagnostics, and
+the findings recorded so far. Its tracked-source archive
+`/tmp/mksrc-4fed167.tar` is 7,055,360 bytes/SHA-256
+`db5110f342fb9ea2fe1ff93443193f766576e975cb72251832d05e629eb042d4`.
+Transfer transcript `20261008-g6-cancellation-transfer-4fed167.log` is mode
+0600, 353 bytes/SHA-256
+`9b6206270181e435fee9f3d1703f72b3be642e84eb64fe1826528485868b9f0b`,
+exit 0. Guest preflight
+`20261008-g6-cancellation-source-preflight-4fed167.log` is mode 0600, 1,422
+bytes/SHA-256
+`94cb2dea0892b7706f3145041b023101bc1b8c524f4537febf40d809337765de`,
+exit 0. Both credential scans are clean. The guest independently matches the
+archive digest, records the daemon-source and unchanged qualifier-script
+digests, passes Bash syntax, and emits its preflight marker. Build and
+activation are not yet claimed.
+
+First `4fed167` build-command transcript
+`20261008-g6-cancellation-build-4fed167.log` is retained mode 0600, 1,935
+bytes/SHA-256
+`e98dc7c00e94185d30ad52984208af9da15f4079768bd58482d4ab7420e2acb0`,
+exit 1, with a clean credential-value scan. Nested quoting expands the awk
+`$1` used for the archive check under `set -u`, so execution stops before any
+test, build, install, or activation. This is only an operator-command failure.
+
+Corrected build-gate transcript
+`20261008-g6-cancellation-build-4fed167-corrected.log` is mode 0600, 30,687
+bytes/SHA-256
+`97b90135a67a350e8f217301907d9a383ae15756fc51e39f58b0f7ea30f426ee`,
+exit 1, with a clean credential-value scan. The two daemon disconnect tests
+pass 100/100 race repetitions. The shim disconnect regression passes 19/20;
+one successful but empty marker read falls through to `t.Fatal(nil)` at line
+6322. The prior fix gated PID parsing but failed to continue polling on that
+specific state. Full-package tests and build/install never run, so this is a
+test race rather than product evidence.

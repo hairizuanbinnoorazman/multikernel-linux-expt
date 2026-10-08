@@ -3384,6 +3384,40 @@ phrase above.
   mode 0600/1,369 bytes, SHA-256
   `d190575d88cc589f014864fc6d34d2a5b2a82e6eec4cee4b4d96ef78300e478e`,
   exit 0, with a clean credential-value scan.
+- Commit `4fed167` (`runtime: propagate daemon client cancellation`) freezes
+  the daemon protocol correction, regressions, exact failed-live diagnostics,
+  and contemporaneous findings. Its tracked-source archive
+  `/tmp/mksrc-4fed167.tar` is 7,055,360 bytes with SHA-256
+  `db5110f342fb9ea2fe1ff93443193f766576e975cb72251832d05e629eb042d4`.
+  Transfer transcript `20261008-g6-cancellation-transfer-4fed167.log` is mode
+  0600/353 bytes/SHA-256
+  `9b6206270181e435fee9f3d1703f72b3be642e84eb64fe1826528485868b9f0b`,
+  exit 0. Guest preflight
+  `20261008-g6-cancellation-source-preflight-4fed167.log` is mode 0600/1,422
+  bytes/SHA-256
+  `94cb2dea0892b7706f3145041b023101bc1b8c524f4537febf40d809337765de`,
+  exit 0. Both pass the credential-value scan; the guest independently matches
+  the archive digest, hashes the two daemon sources and unchanged qualifier
+  scripts, passes Bash syntax, and emits the preflight marker. Build and
+  activation remain unclaimed.
+- First `4fed167` VM build-command transcript
+  `20261008-g6-cancellation-build-4fed167.log` is retained mode 0600/1,935
+  bytes/SHA-256
+  `e98dc7c00e94185d30ad52984208af9da15f4079768bd58482d4ab7420e2acb0`,
+  exit 1, with a clean credential-value scan. Nested shell quoting expands the
+  archive-check awk `$1` under `set -u`; the gate stops before tests, build,
+  install, or activation. No product result is inferred.
+- Corrected build-gate transcript
+  `20261008-g6-cancellation-build-4fed167-corrected.log` is retained mode
+  0600/30,687 bytes, SHA-256
+  `97b90135a67a350e8f217301907d9a383ae15756fc51e39f58b0f7ea30f426ee`,
+  exit 1, with a clean credential-value scan. Both new daemon disconnect tests
+  pass all 100 race repetitions. The shim disconnect regression passes 19 of
+  20 repetitions; one observes a successfully opened but still-empty marker
+  and falls through to `t.Fatal(nil)` at line 6322. The earlier marker fix only
+  gated parsing and did not continue the poll on this state. The gate stops
+  before full-package tests, build, install, or activation; no product failure
+  is inferred. Empty successful reads must explicitly continue polling.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

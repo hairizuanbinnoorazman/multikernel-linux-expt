@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "scp", "/tmp/mksrc-4fed167.tar", "mklinux-g4-g6-final-20260905:/var/tmp/mksrc-4fed167.tar", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b"], "started_at": "2026-10-08T13:37:45.700059Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-08T13:37:48.205800Z", "exit_status": 0}}
