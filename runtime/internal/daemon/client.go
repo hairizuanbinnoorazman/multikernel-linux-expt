@@ -80,12 +80,12 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 	if err != nil {
 		return &protocol.Error{Code: "INVALID_ARGUMENT", Message: err.Error()}
 	}
+	// Terminate the request without half-closing the socket. The server can
+	// then observe a later caller disconnect and cancel in-flight backend work.
+	payload = append(payload, '\n')
 	if err = protocol.WriteFull(conn, payload); err != nil {
 		err = daemonRequestIOError(ctx, err, requestedDeadline, hasRequestedDeadline)
 		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
-	}
-	if unix, ok := conn.(*net.UnixConn); ok {
-		_ = unix.CloseWrite()
 	}
 	data, err := io.ReadAll(io.LimitReader(conn, (1<<20)+1))
 	if err != nil {

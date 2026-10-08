@@ -10448,3 +10448,76 @@ process-level disconnect repetitions pass, while one opens the marker between
 exclusive file creation and PID write and attempts `Atoi("")`. Build/install
 never run, leaving the active release unchanged. The test now waits for a
 nonempty PID record before parsing.
+
+Commit `cacec0db6fef21a5721bcdef558dc30703867d89` freezes the test-only
+correction and its failed-gate record. Clean archive `/tmp/mksrc-cacec0d.tar`
+is 6,860,800 bytes/SHA-256
+`b16af3c929a1fe4d34163521fa055799e65fa6e31a155eae5e9ed720ec4b7f79`.
+The corrected local focused matrix passes 20 repetitions in 24.059 seconds;
+no transfer or VM result is yet claimed.
+
+Strengthened guest transcript `20261008-g6-cancellation-build-cacec0d.log` is
+mode 0600, 63,147 bytes, SHA-256
+`1e16427487eab78a2021d7dce4ef1f09bd0cb9e23b8e4c157335f17476e7be8e`,
+exit 1. The actual regression gate passes 100 race repetitions in 128.518
+seconds—400 passing groups and zero failures, skips, or race reports—and all
+seven version-stamped components build. `make runtime-manifest` creates its
+exclusive manifest; a redundant second generator then correctly fails with
+`EEXIST`, before installer invocation. The active release remains unchanged;
+this is a harness-command failure, not candidate activation or live evidence.
+
+Corrected activation transcript
+`20261008-g6-cancellation-activate-cacec0d.log` is mode 0600, 17,873 bytes,
+SHA-256 `91853bab6940d074e2c2c6c104fe9ef24e05d835b6557d8bc482d59f2f729315`,
+exit 0, with a clean credential-value scan. It installs and selects exact
+release `0.1.0-dev-cacec0db6fef21a5721bcdef558dc30703867d89`; installed and
+source shims independently match SHA-256
+`3d1b1b9ff843e7e9ac4f65ffb3a10a415165b4c707db223961c52fa1f866a3ed`.
+On boot `0404118a-b8a8-4187-89fa-2e45529963c2`, mkruntimed and mknetd are
+coherently restarted while containerd and Docker remain healthy; all four are
+active/running with zero restarts. The strict post-activation audit reports no
+Kerf pool or instances and all 19 resource counters zero. This establishes the
+exact installed baseline, not yet live cancellation behavior.
+
+Exact-source live transcript `20261008-g6-cancellation-live-cacec0d.log` is
+mode 0600, 73,286 bytes, SHA-256
+`2bfba8a852054ebd6884068c7c2a5e798fb0740baf58a22eec938e07d811e25b`,
+exit 1, with a clean credential-value scan. The exact-release preflight is
+clean and the real rootfs Create reaches blocker parent 16712 and deliberately
+TERM-ignoring child 16715. Canceling the actual ctr client returns status 124,
+but both blocker PIDs remain for the full 60-second observation bound. The
+qualifier stops before child-boot and Task Wait/Attach, so this is a reproduced
+live cancellation defect rather than qualifying evidence.
+
+Immediate diagnostic
+`20261008-g6-cancellation-cacec0d-failure-diagnostic.log` is mode 0600,
+16,423 bytes, SHA-256
+`503e92dc176e797cdfb988f60f76fafa2a4370eb16afec2336073015de07b9c9`,
+exit 0, with a clean credential-value scan. The qualifier trap's transient
+service stop has removed both blocker PIDs by collection time. Containerd logs
+a Delete deadline at 13:28:56, shim disconnect at 13:29:01, then fallback
+delete failure because the bundle CWD is already gone. Official exact-candidate
+mkruntimed is restored as PID 17091; all four services are active/running with
+zero restarts, Kerf is empty, and every one of the 19 resource counters is
+zero. Restoration cleanup is therefore sound, while cancellation-induced
+descendant termination before daemon teardown remains unproved and open.
+
+The remaining root cause lies in the mkruntimed daemon protocol. Its client
+formerly half-closed the write side to delimit JSON; the server necessarily
+consumed that EOF before dispatch and therefore could not observe a later
+caller disconnect to cancel backend work. Requests are now newline-framed with
+the socket left open. The bounded server parses that frame, still accepts the
+former EOF-delimited form, and derives a per-request dispatch context that is
+canceled when the framed peer disconnects. Rootfs and Kerf pass this context to
+the existing bounded command runner, whose cancellation kills the entire
+private process group.
+
+Direct framed-disconnect and actual `daemon.Client` cancellation regressions
+both pass 100 race-detector repetitions. Full race suites for daemon, rootfs,
+lifecycle, mkruntimed, and the containerd shim pass, followed by focused vet and
+diff hygiene. This is local correction evidence only; exact-source guest build,
+activation, and the complete live cancellation replay remain required.
+The exact transcript `20261008-g6-daemon-disconnect-local-race.log` is mode
+0600, 1,369 bytes, SHA-256
+`d190575d88cc589f014864fc6d34d2a5b2a82e6eec4cee4b4d96ef78300e478e`,
+exit 0, with a clean credential-value scan.

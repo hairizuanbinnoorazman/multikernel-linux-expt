@@ -85,6 +85,89 @@ func TestDaemonHandlerCancellationClosesIncompleteRequest(t *testing.T) {
 	}
 }
 
+func TestDaemonFramedClientDisconnectCancelsDispatch(t *testing.T) {
+	clientConnection, serverConnection := net.Pipe()
+	entered := make(chan struct{})
+	done := make(chan struct{})
+	server := &Server{MaxFrame: 1024, dispatch: func(ctx context.Context, request protocol.Request) protocol.Response {
+		close(entered)
+		<-ctx.Done()
+		return protocol.Response{Version: protocol.Version, RequestID: request.RequestID,
+			Error: &protocol.Error{Code: "UNAVAILABLE", Message: ctx.Err().Error()}}
+	}}
+	go func() {
+		defer close(done)
+		server.handle(context.Background(), serverConnection)
+	}()
+	if _, err := clientConnection.Write([]byte("{\"version\":1,\"request_id\":\"disconnect\",\"method\":\"NodeInfo\"}\n")); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("daemon dispatch did not begin")
+	}
+	if err := clientConnection.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("daemon dispatch survived caller disconnect")
+	}
+}
+
+func TestDaemonClientCancellationPropagatesToDispatch(t *testing.T) {
+	clientConnection, serverConnection := net.Pipe()
+	entered := make(chan struct{})
+	dispatchDone := make(chan struct{})
+	handlerDone := make(chan struct{})
+	server := &Server{MaxFrame: 1024, dispatch: func(ctx context.Context, request protocol.Request) protocol.Response {
+		close(entered)
+		<-ctx.Done()
+		close(dispatchDone)
+		return protocol.Response{Version: protocol.Version, RequestID: request.RequestID,
+			Error: &protocol.Error{Code: "UNAVAILABLE", Message: ctx.Err().Error()}}
+	}}
+	go func() {
+		defer close(handlerDone)
+		server.handle(context.Background(), serverConnection)
+	}()
+	client := Client{Path: "memory", dial: func(context.Context, string, string) (net.Conn, error) {
+		return clientConnection, nil
+	}}
+	ctx, cancel := context.WithCancel(context.Background())
+	callDone := make(chan *protocol.Error, 1)
+	go func() {
+		callDone <- client.Call(ctx, protocol.Request{Version: protocol.Version,
+			RequestID: "cancel-dispatch", Method: "NodeInfo"}, nil)
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("daemon dispatch did not begin")
+	}
+	cancel()
+	select {
+	case issue := <-callDone:
+		if issue == nil || issue.Code != "UNAVAILABLE" || !issue.Retryable {
+			t.Fatalf("cancelled call issue = %+v", issue)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("client cancellation did not return")
+	}
+	select {
+	case <-dispatchDone:
+	case <-time.After(time.Second):
+		t.Fatal("client cancellation did not reach daemon dispatch")
+	}
+	select {
+	case <-handlerDone:
+	case <-time.After(time.Second):
+		t.Fatal("cancelled daemon handler did not return")
+	}
+}
+
 func TestDaemonHandlerLimitCannotBeDisabledOrMadeUnbounded(t *testing.T) {
 	for configured, expected := range map[int]int{-1: 128, 0: 128, 1: 1, 512: 512, 4096: 1024} {
 		if observed := daemonHandlerLimit(configured); observed != expected {

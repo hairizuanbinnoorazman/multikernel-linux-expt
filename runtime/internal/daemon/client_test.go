@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -115,8 +116,12 @@ func TestClientCompletesShortSuccessfulRequestWrites(t *testing.T) {
 		return &shortWriteConn{Conn: clientConnection, maximum: 3}, nil
 	}}
 	go func() {
+		encodedRequest, err := bufio.NewReader(serverConnection).ReadBytes('\n')
+		if err != nil {
+			return
+		}
 		var request protocol.Request
-		if err := json.NewDecoder(serverConnection).Decode(&request); err != nil {
+		if err = json.Unmarshal(encodedRequest, &request); err != nil {
 			return
 		}
 		encoded, _ := json.Marshal(protocol.Response{Version: 1, RequestID: request.RequestID, Body: map[string]any{"value": "ok"}})
