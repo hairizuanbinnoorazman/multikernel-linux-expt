@@ -20,7 +20,7 @@ is what remains after those local passes.
 | --- | --- | --- |
 | G4 | The current tree builds and verifies canonical manifests and deterministic newc roots, rejects observed source mutation and unsafe metadata, produces bounded fully allocated private ext4 images, generation-binds one mediated export, journals graceful teardown/recovery, and now has privileged live ctr/Docker proof for ephemeral private writable roots, non-persistence after delete/name reuse, materialized read-only directory/file binds with no host write-through, and fail-closed generic writable-volume/propagation rejection. | Persistent and writable host volumes are explicitly outside v1 rather than partially supported. Exhaustion, corruption, server-loss, host-reset, clone, cross-export, and replacement-instance evidence matrices have not passed on the current revision. |
 | G5 | The current tree contains `mknetd`, CNI 1.0 `ADD`/`CHECK`/idempotent `DEL`, generation-bound endpoint state, negotiated MTU/DNS, bounded exchange/counters, restart reconciliation, and exact-address anti-spoof/firewall policy. Current live evidence proves distinct `/30` identities, DNS/HTTP egress, bidirectional sibling rejection, daemon continuity, and clean teardown for shared ctr/Docker workloads. | UDP, MTU/fragmentation, sustained load/backpressure, injected faults/reconnect, spoof/bypass, and comprehensive primary-health evidence matrices remain open. |
-| G6 | The current tree implements the core Task v2 lifecycle, faithful versioned guest PIDs, pause/resume/stats, standard OCI process controls, durable task/process/I/O offsets, a supervised shim worker, and generation-bound task reconstruction. Current retained evidence proves the shared ctr/Docker lifecycle/I/O matrix, exact post-start resize, daemon/containerd/Docker/clean-and-forced-shim restart continuity, durable ordered Task-event replay, concurrent churn, sequential pool reuse, and graceful final pool release. | The exhaustive Task-method/state/duplicate matrix, complete cancellation/FIFO/OCI fault matrices, packaging upgrade/rollback, and remaining isolated fault reruns remain incomplete. |
+| G6 | The current tree implements the core Task v2 lifecycle, faithful versioned guest PIDs, pause/resume/stats, standard OCI process controls, durable task/process/I/O offsets, a supervised shim worker, and generation-bound task reconstruction. Current retained evidence proves the shared ctr/Docker lifecycle/I/O matrix, exact post-start resize, daemon/containerd/Docker/clean-and-forced-shim restart continuity, durable ordered Task-event replay, the exhaustive 17-method fake-daemon matrix, concurrent churn, sequential pool reuse, and graceful final pool release. | The live cross-service cancellation matrix, deferred stale-relay workload observation, complete restart/transport fault scope, final evidence manifests/audit, and remaining isolated fault reruns remain incomplete. |
 
 The canonical gate rows in [`../plans/README.md`](../plans/README.md) and
 [`../../project/TASKS.md`](../../project/TASKS.md) must remain unchecked until
@@ -3202,6 +3202,24 @@ phrase above.
   replies require exactly one body/error and strict typed-body decoding;
   unknown/duplicate fields, missing body, and body-plus-error all fail. The
   adversarial response groups pass 100 race-detector repetitions.
+- A source-controlled live qualifier now targets the remaining cross-service
+  evidence boundary without modifying the installed generation. New
+  `runtime-cancellation-blocker.sh` passes validation/non-target Kerf calls to
+  the exact real executable, but blocks the rootfs build or Kerf `load` with a
+  deliberately signal-resistant descendant. New
+  `test-runtime-cancellation-live.sh` runs `mkruntimed` temporarily under a
+  collected systemd unit with the blocker selected, cancels the real ctr Create,
+  requires both blocker processes to be reaped, and requires the strict
+  all-zero audit after each rootfs-build and child-boot boundary. It then
+  cancels live Task Wait and attach calls, requires the same running task PID,
+  proves a post-cancel exec, deletes normally, and repeats the strict audit.
+  Its trap stops the transient unit, restores the official service, and removes
+  qualification assets on every exit. Bash syntax, available ShellCheck, and
+  diff hygiene pass; blocker/qualifier are mode 0755, 829/6,708 bytes, SHA-256
+  `60ee299811c457db22923f47e1cddc0971dbc0f81766d6f4408ad2c16569488d` /
+  `524f8d5bcb6ccb264127878d5ec3f7cf4e2de90fa03e03afb79e7681447115bc`.
+  This is harness design evidence only; the live cancellation row remains open
+  until an exact-source VM run and independent cleanup audit pass.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,

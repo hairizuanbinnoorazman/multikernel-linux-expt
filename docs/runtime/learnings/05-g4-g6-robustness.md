@@ -10340,3 +10340,18 @@ exit 0, and credential-pattern clean. A separate SSH command again observes no
 Kerf pool or instances, all 19 resource counters zero, and the same active
 zero-restart service PIDs 1451/1232/1465/1513 before emitting
 `G6_FINAL_RESOURCE_RETURN_PASS`. This independently confirms post-suite cleanup.
+
+The next live cancellation input is now source-controlled. Helper
+`runtime-cancellation-blocker.sh` delegates validation and non-target Kerf calls
+to the exact real executable, but holds either the rootfs-build or Kerf-load
+boundary with a signal-resistant descendant. Qualifier
+`test-runtime-cancellation-live.sh` temporarily starts the same mkruntimed argv
+under a collected systemd unit, cancels a real ctr Create at each boundary,
+requires both blocker PIDs to disappear, and runs the strict audit after each.
+It then cancels live Wait and attach RPCs against a running child, requires the
+same Task PID/state and a successful post-cancel exec, deletes normally, and
+audits again. Its exit trap restores the official mkruntimed and removes all
+qualification assets. Bash syntax, available ShellCheck, and diff hygiene pass.
+The mode-0755 helper is 829 bytes/SHA-256 `60ee2998…`; the mode-0755 qualifier
+is 6,708 bytes/SHA-256 `524f8d5b…`. No behavior is claimed before exact-source
+VM execution and a separate post-run audit.
