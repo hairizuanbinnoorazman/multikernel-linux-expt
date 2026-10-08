@@ -10134,3 +10134,49 @@ Bash syntax, available ShellCheck, and diff hygiene are clean. That establishes
 only qualifier form. The guest will independently use `go test -list` to prove
 all 59 names exist before any repeated race run, preventing a stale regex from
 creating a false pass.
+
+The restarted VM now has a fresh authoritative baseline. GCE resource
+`6701540373796488780` is RUNNING from
+`2026-10-07T17:39:59.195-07:00`; boot ID is
+`7db90e79-7bf7-4ff8-befd-a3e1a5aff949`, kernel is
+`7.0.0-mk2-gce-lab`, and addresses are `10.148.0.58`/`34.142.184.77`.
+Release selection remains `0.1.0-dev-ca7d…`, with live daemon SHA
+`a4a91006…` at PID 1451. All four services are active/running at PIDs
+1451/1232/1465/1513 with zero restarts. Retained mode-0600 preflight
+`20261008-post-user-restart-hostile-preflight.log` is 13,795 bytes, SHA-256
+`2ce224c2f7d569be1768b71e82ef923bd592df0554f86e2c73b40c2beb241d75`,
+exit 0, and credential-pattern clean. Its strict audit proves no pool or
+instances and every one of the 19 resource counters at zero.
+
+The first exact-commit hostile-path run exposes a VM-sensitive test fixture,
+not a product defect. Commit `252add21366ab4e07b17c00dc41057bb89087711`
+has a 5,826,560-byte archive/SHA-256 `b6240462…` on both hosts; its new guest
+extraction contains 662 files/5,274,915 bytes and qualifier SHA `eeffc269…`.
+All 22 shim test names enumerate. Across 100 race repetitions, the other
+selected cases pass, while `TestStaleRelayCleanupRemovesExactSafeSocket` fails
+all 100 times because it uniquely uses raw `t.TempDir()`: under the VM's 002
+umask that directory is 0775, and the production Unix-socket guard correctly
+rejects the group-writable parent. The mode-0600 failure transcript is
+1,038,905 bytes, SHA-256
+`a23690c54ca8ec32370e3c0295d88809674d418c22333919f5b6cd2af79a9230`,
+exit 1, with 100 failure lines, zero skips, no race report, and no credential
+pattern. Set-e stops before the remaining four groups. The fix belongs in the
+test—reuse `privateTestDirectory(t)` mode 0700—not in the security policy.
+
+The independent post-failure audit is clean. Mode-0600 transcript
+`20261008-g6-hostile-path-first-failure-final-audit.log` is 13,022 bytes,
+SHA-256 `ec0730ce098dfc2703ee24f6b182a9c1d7260e6fc124c7654640199e21eb0905`,
+exit 0, and credential-pattern clean. It retains the restarted boot/service
+PIDs, shows no pool or instance, all 19 counters at zero, and four active
+zero-restart services. The test now uses `privateTestDirectory(t)`, while the
+qualifier sets umask 077 before creating its own scratch/cache hierarchy.
+Verification and an exact-commit VM rerun remain pending.
+
+The corrected fixture passes 100 local race-detector repetitions in 1.062
+seconds. Repository-root Bash syntax, available ShellCheck, and diff hygiene
+also pass; the updated qualifier SHA-256 is
+`f5b2059e01bae4219fa829d75ef5b0e1aa48d303b36e19637b5c1376e204d31d`.
+An initial syntax command was mistakenly launched from `runtime/` with a
+root-relative script path and therefore checked nothing; it is explicitly
+excluded. The repeated root-level checks are the valid result, and the full
+commit-bound VM matrix is still required.

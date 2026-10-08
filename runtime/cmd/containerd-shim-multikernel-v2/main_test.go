@@ -6584,7 +6584,7 @@ func TestStaleRelayCleanupRejectsNonSocketPathsWithoutRemoval(t *testing.T) {
 }
 
 func TestStaleRelayCleanupRemovesExactSafeSocket(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "relay.sock")
+	path := filepath.Join(privateTestDirectory(t), "relay.sock")
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
 	if errors.Is(err, syscall.EPERM) {
 		t.Skip("sandbox forbids Unix pathname listeners")

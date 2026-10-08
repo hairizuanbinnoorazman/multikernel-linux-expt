@@ -9883,3 +9883,54 @@ the named quarantine. This reset establishes a test precondition only.
   checks validate harness form only, not the selected test names or product
   behavior; exact test enumeration is deliberately rechecked by `go test
   -list` inside the guest before its race runs.
+
+- The user-restarted instance is requalified before mutation. Resource ID
+  `6701540373796488780` is RUNNING with GCE start
+  `2026-10-07T17:39:59.195-07:00`, boot ID
+  `7db90e79-7bf7-4ff8-befd-a3e1a5aff949`, kernel `7.0.0-mk2-gce-lab`, internal
+  IP `10.148.0.58`, and new external IP `34.142.184.77`. The selected release
+  remains `0.1.0-dev-ca7d…`; live daemon SHA remains `a4a91006…` at PID 1451.
+  mkruntimed/mknetd/containerd/Docker are active/running with zero restarts at
+  PIDs 1451/1232/1465/1513. Mode-0600 preflight transcript
+  `20261008-post-user-restart-hostile-preflight.log` is 13,795 bytes, SHA-256
+  `2ce224c2f7d569be1768b71e82ef923bd592df0554f86e2c73b40c2beb241d75`,
+  exit 0, and credential-pattern clean; it proves no pool/instances and all 19
+  resource counters zero (`G6_FINAL_RESOURCE_RETURN_PASS`).
+
+- First exact-commit hostile-path execution is a deterministic fixture failure,
+  not a product failure and not a passing matrix. Commit
+  `252add21366ab4e07b17c00dc41057bb89087711` archives to 5,826,560 bytes/SHA-256
+  `b6240462e1059ef720f1f1b09e707e5c2510a1c0e026683959a82e37d7608bfb`
+  locally and on the VM; fresh extraction has 662 files/5,274,915 bytes and
+  exact qualifier SHA `eeffc269…`. The qualifier enumerates all 22 shim tests,
+  then the 100-repeat race run passes the other selected hostile cases but
+  fails `TestStaleRelayCleanupRemovesExactSafeSocket` in every repetition. That
+  test alone uses raw `t.TempDir()`, which inherits mode 0775 from the VM's 002
+  umask; production correctly rejects its group-writable Unix-socket parent.
+  Retained `20261008-g6-hostile-path-race-matrix.log` is mode 0600, 1,038,905
+  bytes, SHA-256
+  `a23690c54ca8ec32370e3c0295d88809674d418c22333919f5b6cd2af79a9230`,
+  exit 1, with exactly 100 failure lines, zero skips, no race report, and no
+  credential-pattern match. Later groups do not run after the shim command
+  fails. The correction is to use existing `privateTestDirectory(t)` mode 0700;
+  product socket policy must not be weakened.
+
+- Independent cleanup after that mutation-free test failure is clean.
+  `20261008-g6-hostile-path-first-failure-final-audit.log` is mode 0600,
+  13,022 bytes, SHA-256
+  `ec0730ce098dfc2703ee24f6b182a9c1d7260e6fc124c7654640199e21eb0905`,
+  exit 0, and credential-pattern clean. It preserves the restarted boot/service
+  PIDs, reports no pool or instance, all 19 counters zero, and all four services
+  active with zero restarts (`G6_FINAL_RESOURCE_RETURN_PASS`). The fixture now
+  uses `privateTestDirectory(t)`, and the qualifier itself sets umask 077 before
+  creating scratch/cache directories; verification and exact-commit rerun are
+  pending.
+
+- The corrected safe-socket fixture passes 100 race-detector repetitions
+  locally in 1.062 seconds. Root-level Bash syntax, available ShellCheck, and
+  `git diff --check` pass; the revised qualifier hashes to
+  `f5b2059e01bae4219fa829d75ef5b0e1aa48d303b36e19637b5c1376e204d31d`.
+  One preliminary syntax invocation repeated the known subdirectory/root-path
+  mistake and found no script; it is excluded, while the immediately repeated
+  repository-root checks above are authoritative. Full exact-source VM matrix
+  execution remains required.
