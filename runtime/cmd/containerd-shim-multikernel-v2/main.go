@@ -58,6 +58,8 @@ const runtimeInfoInputLimit = 1 << 20
 const fifoKeeperMode = "--multikernel-fifo-keeper"
 const fifoKeeperGrace = 15 * time.Second
 
+var shimWorkerDisconnectGrace = 30 * time.Second
+
 var runtimeIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 var guestProcessIdentifier = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 var recoveryGeneration = regexp.MustCompile(`^[0-9a-f]{32}$`)
@@ -5123,12 +5125,37 @@ func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self
 		pidIdentity, pidOwned = published, true
 		proxyDone := make(chan error, 1)
 		go func() { proxyDone <- bridge.serveWorker(workerConnection) }()
-		err = cmd.Wait()
-		_ = workerConnection.Close()
-		proxyErr := <-proxyDone
+		workerDone := make(chan error, 1)
+		go func() { workerDone <- cmd.Wait() }()
+		var proxyErr error
+		proxyEndedFirst := false
+		select {
+		case err = <-workerDone:
+			_ = workerConnection.Close()
+			proxyErr = <-proxyDone
+		case proxyErr = <-proxyDone:
+			proxyEndedFirst = true
+			_ = workerConnection.Close()
+			timer := time.NewTimer(shimWorkerDisconnectGrace)
+			select {
+			case err = <-workerDone:
+				if !timer.Stop() {
+					<-timer.C
+				}
+			case <-timer.C:
+				_ = cmd.Process.Kill()
+				err = <-workerDone
+			}
+		}
 		if removeErr := removePID(); removeErr != nil {
 			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID: %v\n", removeErr)
 			return 1
+		}
+		if proxyEndedFirst {
+			if proxyErr != nil && !errors.Is(proxyErr, net.ErrClosed) && !errors.Is(proxyErr, io.EOF) {
+				fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker proxy ended: %v\n", proxyErr)
+			}
+			return 0
 		}
 		if err == nil {
 			return 0

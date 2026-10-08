@@ -3220,6 +3220,85 @@ phrase above.
   `524f8d5bcb6ccb264127878d5ec3f7cf4e2de90fa03e03afb79e7681447115bc`.
   This is harness design evidence only; the live cancellation row remains open
   until an exact-source VM run and independent cleanup audit pass.
+- Commit `af132d8b75a8a08244ac39a45718a6087180cd6a` freezes the cancellation
+  qualifier and blocker. Its clean 6,696,960-byte source archive
+  `/tmp/mksrc-af132d8.tar` hashes to
+  `4e91114549ad13ceb079558f9b1228d8e65a18c9c9659fa18281c4829fb9201d`.
+  This binds the pending transfer; no live result is yet claimed.
+- Guest preflight transcript `20261008-g6-cancellation-source-preflight.log`
+  is mode 0600, 17,196 bytes, SHA-256
+  `fda143bdfb4761e32076881facc101dd8fcbe1ddd05d4420a6977835e0b1ea71`,
+  and exit 0. The VM independently matches archive SHA-256 `4e911145…`,
+  extracts 667 files/6,145,091 bytes into fresh `/var/tmp/mksrc-af132d8`,
+  matches blocker/qualifier hashes `60ee2998…`/`524f8d5b…`, and passes guest
+  Bash syntax. Its strict starting audit reports no pool/instances, all 19
+  counters zero, and unchanged active zero-restart services. Transfer and clean
+  baseline are proved; cancellation behavior is not yet claimed.
+- First exact-source cancellation run is retained as
+  `20261008-g6-cancellation-live-first.log`, mode 0600/73,262 bytes/SHA-256
+  `1f59d9f4cd187d40c270c5d1cb6253075c16e18d3f4ee7d7524cc0f44d0e82c5`,
+  exit 1 and credential-pattern clean. It reaches the rootfs-build blocker and
+  cancels the real ctr Create, but blocker PID 79086 remains visible for the
+  complete 60-second assertion window. The trap restores the official daemon
+  and removes qualification paths, but this is not a pass.
+- The first independent audit
+  `20261008-g6-cancellation-first-failure-audit.log` is mode 0600/9,129
+  bytes/SHA-256
+  `94c5f2d274a2051ac513cff25525eb7e6882fc3857d890c0e2a47d9bb7c6e4cd`.
+  Its strict audit actually fails with `shim_processes=2` despite every other
+  counter, Kerf instance, and pool being zero; later diagnostic commands mask
+  the wrapper exit to 0, so it is explicitly classified failed. Corrected
+  diagnostic `20261008-g6-cancellation-first-leak-diagnostic-corrected.log`
+  is mode 0600/8,435 bytes/SHA-256
+  `17e1300502db4c606d7a58316d31fb6925663c8e4e6df3a61324b0dcddf25f9d`,
+  exit 0. It proves live sleeping supervisor/worker PIDs 79062/79067 for exact
+  task `mk-cancellation-live`, not zombies: parentage 1→79062→79067, exact
+  installed binary/argv, 4/7 threads. Containerd records Delete deadline
+  exceeded, shim disconnect, then fallback delete failure because its bundle
+  working directory was already absent. The earlier diagnostic transcript is
+  retained separately as a mode-0600/823-byte/SHA `38ce2b34…` harness failure
+  caused by nested awk expansion. Product/harness remediation and cleanup are
+  required before rerun; the cancellation row remains open.
+- Source diagnosis identifies the leak in the proxied supervisor: after starting
+  `bridge.serveWorker` asynchronously it blocked synchronously in `cmd.Wait`, so
+  a containerd EOF could not be consumed and the idle worker had no reason to
+  exit. The correction races worker completion against proxy completion; a
+  proxy-first result closes the private connection, kills/reaps a still-live
+  worker, removes its identity-bound PID file, and exits without treating the
+  deliberate reap as a recoverable worker crash. A process-level regression
+  holds an actual worker and closes the containerd side, then requires bounded
+  supervisor exit, absent worker PID, and absent PID file.
+- The first local focused test command never compiled because the managed
+  default Go cache is read-only. Its private-cache retry compiled the fix but
+  the new process test hit the known local abstract-Unix-socket `EPERM`; its
+  timeout then produced a test-only directory-close race. The test now probes
+  abstract-listener capability and skips before spawning any goroutine when it
+  is unavailable. This is not pass evidence; private-cache validation and a
+  zero-skip VM run remain required.
+- Cleanup transcript `20261008-g6-cancellation-first-leak-cleanup.log` is a
+  retained mode-0600/1,227-byte/SHA `77457ff5…` harness failure: leading `-id`
+  was parsed as a grep option, so no signal was sent. Corrected
+  `20261008-g6-cancellation-first-leak-cleanup-corrected.log` is mode 0600,
+  14,853 bytes, SHA-256
+  `2f9ad273ccdd793df98e06241a2695c6695a39e3cb03e39a8fee4ed3e8a743e4`,
+  exit 0. It first binds both PIDs to exact `-id mk-cancellation-live` argvs,
+  sends SIGTERM only to supervisor 79062, observes 79062/79067 disappear, and
+  then proves no pool/instances, all 19 counters zero, official mkruntimed PID
+  79465 at the exact installed hash, and four active zero-restart services.
+- After the abstract-listener preflight correction, the private-cache focused
+  race matrix passes 20 repetitions in 24.042 seconds. The new process test is
+  cleanly skipped only under the local abstract-socket restriction; bridge
+  replay/replacement and signaled-worker restart tests pass. This validates the
+  correction locally without substituting for the required zero-skip VM run.
+- The supervisor correction now gives a disconnected worker up to 30 seconds
+  after closing private TTRPC to return normally, preserving Create's context-
+  cancellation rollback; only a worker that exceeds that bound is SIGKILLed
+  and reaped. The regression injects 100 ms for its intentionally non-serving
+  worker. The corrected four-test focused matrix passes 20 race repetitions in
+  24.067 seconds; the complete shim package passes under `-race` in 9.985
+  seconds, followed by package vet, Bash syntax, and diff hygiene. These local
+  checks validate the implementation but do not prove the installed live path;
+  an exact candidate build/activation and zero-skip replay remain required.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,
