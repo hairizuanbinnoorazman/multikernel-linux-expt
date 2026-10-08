@@ -10286,3 +10286,21 @@ instances, all 19 counters zero, and unchanged active zero-restart service PIDs
 1451/1232/1465/1513. The source path-race scope is therefore evidence-complete;
 this does not substitute for the separately deferred complete live stale-relay
 workload proof.
+
+The next open automated scope is consolidated in new
+`scripts/test-runtime-task-v2-exhaustive-vm.sh`: 87 exact focused tests split
+into lifecycle 20, process/I/O 33, control/read 14, and delete/event/recovery
+20. The selection covers every one of the 17 Task RPC entries, including
+supported and explicitly excluded methods, state guards, retry/duplicate
+semantics, ordered events, exact exits, and normal/fallback cleanup. The
+qualifier proves every name with `go test -list`, requires 20 race-detector
+repetitions with zero skips/race reports, and audits resources before/after.
+Local Bash syntax, available ShellCheck, and diff hygiene pass; the mode-0755,
+7,128-byte script hashes to
+`4553faf1a0af607f55776f79cc641fe175fad34d28aad0b6ad2e8eb858ff48c7`.
+This is design/preflight evidence only until the exact source passes on the VM.
+
+A static pre-bind audit resolves exactly 87 unique selections against existing
+shim test functions, with no missing name or duplicate. The guest will still
+perform compiled `go test -list` enumeration before execution; this local check
+prevents committing an obviously stale aggregate list.

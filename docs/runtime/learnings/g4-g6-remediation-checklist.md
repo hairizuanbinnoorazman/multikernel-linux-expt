@@ -10058,3 +10058,24 @@ the named quarantine. This reset establishes a test precondition only.
   or instances, all 19 counters zero, and the same active zero-restart service
   PIDs 1451/1232/1465/1513. This completes the source path-race evidence without
   overstating the deferred live stale-relay workload check.
+
+- The next open G6 automated gap is now represented by source-controlled
+  `scripts/test-runtime-task-v2-exhaustive-vm.sh`. It aggregates 87 exact tests
+  into lifecycle (20), process/I/O (33), control/read (14), and
+  delete/event/recovery (20) groups. Together they exercise all 17 implemented
+  Task RPC entry points, supported and explicitly excluded methods, valid and
+  invalid transitions, retry/duplicate semantics, ordered events, exact exit
+  state, and normal/fallback cleanup. Every name is checked with `go test
+  -list`; each selected test must pass 20 race-detector repetitions with zero
+  skips/race reports, bracketed by strict resource audits. Local qualifier
+  preflight passes Bash syntax, available ShellCheck, and diff hygiene; mode is
+  0755, size 7,128 bytes, SHA-256
+  `4553faf1a0af607f55776f79cc641fe175fad34d28aad0b6ad2e8eb858ff48c7`.
+  This records scope and harness form only; exact-source VM execution remains
+  required before closing the fake-daemon row.
+
+- Static pre-bind audit finds exactly 87 unique selected names, zero missing
+  functions in the shim test source, and zero duplicate selections. This guards
+  the pending commit against a stale or accidentally repeated test list; the
+  guest's compiled `go test -list` check remains the authoritative runtime
+  enumeration.
