@@ -9934,3 +9934,43 @@ the named quarantine. This reset establishes a test precondition only.
   mistake and found no script; it is excluded, while the immediately repeated
   repository-root checks above are authoritative. Full exact-source VM matrix
   execution remains required.
+
+- Commit `595ebbe7dabebbdb86862a7f29270beef7030485` freezes the fixture and
+  qualifier corrections. Its exact 5,836,800-byte archive has SHA-256
+  `94b0b1d1b6fff3a22d208ff6c37ffbcab3116318c8b8a35f30c8431587d8216b`
+  locally and on the VM. Fresh `/var/tmp/mksrc-595ebbe` has 662 files/5,281,042
+  bytes; guest qualifier/test hashes are `f5b2059e…`/`32fa942b…`, guest syntax
+  passes, and another strict preflight is all-zero on boot `7db90e79…`. The
+  corrected complete matrix can now run from an exact clean source/baseline.
+
+- The `595ebbe` rerun proves the safe-socket fixture correction but finds a
+  qualifier-level environment error: global `umask 077` changes intentionally
+  permissive fixtures into private objects. Consequently exactly two selected
+  tests fail in all 100 repetitions—unsafe I/O reports “group-accessible FIFO
+  was accepted” because requested 0660 became 0600, and permissive token state
+  reports “unsafe existing token accepted” because requested 0666 became 0600.
+  The corrected stale-socket test and other selected cases pass; there are zero
+  skips and no race report. Retained mode-0600 transcript
+  `20261008-g6-hostile-path-race-matrix-corrected.log` is 1,040,961 bytes,
+  SHA-256 `690fd371cff491a5c39645ce2a63d82ff35c12047638bc78bf3c2d466d8c3e9b`,
+  exit 1, with exactly 200 top-level failure lines and no credential-pattern
+  match. The global umask must be removed; only qualifier-owned scratch/cache
+  directories should be explicitly chmod 0700 so product rejection fixtures
+  retain their requested modes.
+
+- Independent post-umask-failure audit again passes. Mode-0600 transcript
+  `20261008-g6-hostile-path-second-failure-final-audit.log` is 13,022 bytes,
+  SHA-256 `ddf835267d0202d2ed2cd9b0ef6bd9c683b8e680f1bec8ff9ede317a578de3f1`,
+  exit 0, and credential-pattern clean, with no pool/instances, all 19 counters
+  zero, and unchanged four active zero-restart services. The qualifier now
+  leaves process umask untouched and explicitly sets only its three owned
+  scratch/cache/tmp directories to 0700; validation and a new exact-commit run
+  remain pending.
+
+- The final qualifier correction passes Bash syntax, available ShellCheck, and
+  diff hygiene. Under an explicitly reproduced umask 002, the fixed stale
+  socket case and both intentionally permissive I/O/token cases pass together
+  for 100 race-detector repetitions in 1.241 seconds. Revised qualifier SHA-256
+  is `214c801ef71e99d9afb6a824bc5a45535a828aaf8392bf02764fd6695718afc6`.
+  This closes the observed fixture/harness regressions locally; the five-group
+  VM aggregate remains unclaimed until exact-commit execution passes.
