@@ -10623,3 +10623,39 @@ the exact generated parent is caller-owned but mode 0775 because Go's
 no-symlink directory and `fstat` correctly rejects its write bits. The fixture
 now explicitly chmods its private socket directory to 0700; production path
 validation is untouched.
+
+Commit `2935595` (`test: secure relay fixture socket directory`) freezes the
+test-only correction and its complete VM diagnostic trail. The full local shim
+race suite and vet pass. Exact tracked-source archive
+`/tmp/mksrc-2935595.tar` is 7,168,000 bytes/SHA-256
+`26454162c43e4eacbd8018b1846551cf6f119299db57c868ab98a943f27b4f24`;
+transfer `20261008-g6-cancellation-transfer-2935595.log` is mode 0600, 353
+bytes/SHA-256
+`3dec17f936d66c59dffff1eff158e6ffc4893f2ef4f64c44e4e55fe3033a9e15`,
+exit 0. Guest preflight
+`20261008-g6-cancellation-source-preflight-2935595.log` is mode 0600, 1,429
+bytes/SHA-256
+`7afe19a6fca26248d6146740a0654c5fa0d4fe92164893157fb1cc367ddded3d`,
+exit 0. Both scans are clean; exact archive/source/qualifier hashes and Bash
+syntax pass. Build and activation remain unclaimed.
+
+Exact `2935595` VM gate `20261008-g6-cancellation-build-2935595.log` is mode
+0600, 6,193 bytes/SHA-256
+`9c42a4bba2087bd0b0762027d824a14d8d01803c5e34718f09aa2df8f6141114`,
+exit 2, with a clean credential-value scan. Both daemon tests and the shim
+disconnect test pass 100 race repetitions apiece; all five complete package
+race suites and vet pass. Seven binaries build, then strict manifest validation
+correctly rejects abbreviated revision `2935595` rather than accepting weak
+provenance. Nothing is installed or activated; build/manifest must use full
+revision `293559519a09e574265686b1cd59598556f6eca7`.
+
+Corrected full-revision build
+`20261008-g6-cancellation-build-2935595-corrected.log` is mode 0600, 6,072
+bytes/SHA-256
+`24037397d193293951c78c6e9fd94967d35eebfdb3ea7023f1005cac4166f768`,
+exit 0, with a clean credential-value scan and explicit pass marker. Starting
+without a manifest, it rebuilds all seven static binaries stamped with full
+revision `293559519a09e574265686b1cd59598556f6eca7`, creates and validates the
+strict manifest, runs every binary's matching version output, and records all
+hashes. Together with the preceding 100-repeat/full-race/vet transcript, this
+completes the exact guest build gate; install/activation and live replay remain.

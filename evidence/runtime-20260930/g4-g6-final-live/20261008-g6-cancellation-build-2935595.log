@@ -1,0 +1,46 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "set -euxo pipefail; cd /var/tmp/mksrc-2935595; test \"$(sha256sum /var/tmp/mksrc-2935595.tar)\" = \"26454162c43e4eacbd8018b1846551cf6f119299db57c868ab98a943f27b4f24  /var/tmp/mksrc-2935595.tar\"; test \"$(id -u)\" = 1001; install -d -m 0700 /run/user/1001/t; cd runtime; GOCACHE=/tmp/a17g GOTMPDIR=/run/user/1001/t TMPDIR=/run/user/1001/t go test -race -count=100 -run \"^TestDaemon(FramedClientDisconnectCancelsDispatch|ClientCancellationPropagatesToDispatch)$\" ./internal/daemon; GOCACHE=/tmp/a17g GOTMPDIR=/run/user/1001/t TMPDIR=/run/user/1001/t go test -race -count=100 -run \"^TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects$\" ./cmd/containerd-shim-multikernel-v2; GOCACHE=/tmp/a17g GOTMPDIR=/run/user/1001/t TMPDIR=/run/user/1001/t go test -race ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2; GOCACHE=/tmp/a17g GOTMPDIR=/run/user/1001/t TMPDIR=/run/user/1001/t go vet ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2; cd ..; make runtime-manifest RUNTIME_VERSION=0.1.0-dev RUNTIME_REVISION=2935595; jq -e \".version == \\\"0.1.0-dev\\\" and .revision == \\\"2935595\\\"\" runtime/release-manifest.json; test \"$(find runtime/bin -maxdepth 1 -type f -perm -0100 | wc -l)\" = 7; sha256sum runtime/bin/* runtime/release-manifest.json; echo G6_CANCELLATION_BUILD_2935595_PASS"], "started_at": "2026-10-08T13:49:58.228732Z"}}
++ cd /var/tmp/mksrc-2935595
+++ sha256sum /var/tmp/mksrc-2935595.tar
++ test '26454162c43e4eacbd8018b1846551cf6f119299db57c868ab98a943f27b4f24  /var/tmp/mksrc-2935595.tar' = '26454162c43e4eacbd8018b1846551cf6f119299db57c868ab98a943f27b4f24  /var/tmp/mksrc-2935595.tar'
+++ id -u
++ test 1001 = 1001
++ install -d -m 0700 /run/user/1001/t
++ cd runtime
++ GOCACHE=/tmp/a17g
++ GOTMPDIR=/run/user/1001/t
++ TMPDIR=/run/user/1001/t
++ go test -race -count=100 -run '^TestDaemon(FramedClientDisconnectCancelsDispatch|ClientCancellationPropagatesToDispatch)$' ./internal/daemon
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.069s
++ GOCACHE=/tmp/a17g
++ GOTMPDIR=/run/user/1001/t
++ TMPDIR=/run/user/1001/t
++ go test -race -count=100 -run '^TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects$' ./cmd/containerd-shim-multikernel-v2
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	13.893s
++ GOCACHE=/tmp/a17g
++ GOTMPDIR=/run/user/1001/t
++ TMPDIR=/run/user/1001/t
++ go test -race ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.195s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	3.671s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	1.252s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.017s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	9.657s
++ GOCACHE=/tmp/a17g
++ GOTMPDIR=/run/user/1001/t
++ TMPDIR=/run/user/1001/t
++ go vet ./internal/daemon ./internal/rootfs ./internal/lifecycle ./cmd/mkruntimed ./cmd/containerd-shim-multikernel-v2
++ cd ..
++ make runtime-manifest RUNTIME_VERSION=0.1.0-dev RUNTIME_REVISION=2935595
+mkdir -p runtime/bin
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=2935595" -o bin/mk-host-check ./cmd/mk-host-check
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=2935595" -o bin/mkruntimed ./cmd/mkruntimed
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=2935595" -o bin/mk-agent ./cmd/mk-agent
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=2935595" -o bin/mk-agentctl ./cmd/mk-agentctl
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=2935595" -o bin/mknetd ./cmd/mknetd
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=2935595" -o bin/mk-cni ./cmd/mk-cni
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=2935595" -o bin/containerd-shim-multikernel-v2 ./cmd/containerd-shim-multikernel-v2
+python3 scripts/runtime-release-manifest.py runtime/bin runtime/release-manifest.json \
+	--expected-version=0.1.0-dev --expected-revision=2935595
+runtime release manifest: expected revision must be a lowercase 40-hex commit
+make: *** [Makefile:47: runtime-manifest] Error 1
+{"evidence_command_result": {"ended_at": "2026-10-08T13:50:40.114838Z", "exit_status": 2}}

@@ -1,0 +1,7 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "set -e; test ! -e /var/tmp/mksrc-2935595; test \"$(sha256sum /var/tmp/mksrc-2935595.tar)\" = \"26454162c43e4eacbd8018b1846551cf6f119299db57c868ab98a943f27b4f24  /var/tmp/mksrc-2935595.tar\"; mkdir -m 0700 /var/tmp/mksrc-2935595; tar -xf /var/tmp/mksrc-2935595.tar -C /var/tmp/mksrc-2935595; cd /var/tmp/mksrc-2935595; sha256sum runtime/internal/daemon/client.go runtime/internal/daemon/server.go runtime/cmd/containerd-shim-multikernel-v2/main_test.go scripts/test-runtime-cancellation-live.sh; bash -n scripts/test-runtime-cancellation-live.sh scripts/runtime-cancellation-blocker.sh; echo G6_CANCELLATION_SOURCE_PREFLIGHT_2935595_PASS"], "started_at": "2026-10-08T13:49:21.347992Z"}}
+1bf8848cf8de5e06f2564ea1468439821257b1428d5d55d6d348e72bbd16db2f  runtime/internal/daemon/client.go
+fb1f0b8e537b8a0ff91dcbc292b7c8af41ac395ef79c545e2f6378a37d390109  runtime/internal/daemon/server.go
+8dff92a475796160b865efec56a6e4adb5ebe654724957850da286ee6af2a812  runtime/cmd/containerd-shim-multikernel-v2/main_test.go
+524f8d5bcb6ccb264127878d5ec3f7cf4e2de90fa03e03afb79e7681447115bc  scripts/test-runtime-cancellation-live.sh
+G6_CANCELLATION_SOURCE_PREFLIGHT_2935595_PASS
+{"evidence_command_result": {"ended_at": "2026-10-08T13:49:27.014522Z", "exit_status": 0}}

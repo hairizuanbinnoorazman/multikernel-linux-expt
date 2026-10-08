@@ -1,0 +1,52 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "set -euxo pipefail; cd /var/tmp/mksrc-2935595; test ! -e runtime/release-manifest.json; make runtime-manifest RUNTIME_VERSION=0.1.0-dev RUNTIME_REVISION=293559519a09e574265686b1cd59598556f6eca7; jq -e \".version == \\\"0.1.0-dev\\\" and .revision == \\\"293559519a09e574265686b1cd59598556f6eca7\\\"\" runtime/release-manifest.json; test \"$(find runtime/bin -maxdepth 1 -type f -perm -0100 | wc -l)\" = 7; for binary in runtime/bin/*; do \"$binary\" --version; done; sha256sum runtime/bin/* runtime/release-manifest.json; echo G6_CANCELLATION_BUILD_2935595_PASS"], "started_at": "2026-10-08T13:51:08.644604Z"}}
++ cd /var/tmp/mksrc-2935595
++ test '!' -e runtime/release-manifest.json
++ make runtime-manifest RUNTIME_VERSION=0.1.0-dev RUNTIME_REVISION=293559519a09e574265686b1cd59598556f6eca7
+mkdir -p runtime/bin
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=293559519a09e574265686b1cd59598556f6eca7" -o bin/mk-host-check ./cmd/mk-host-check
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=293559519a09e574265686b1cd59598556f6eca7" -o bin/mkruntimed ./cmd/mkruntimed
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=293559519a09e574265686b1cd59598556f6eca7" -o bin/mk-agent ./cmd/mk-agent
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=293559519a09e574265686b1cd59598556f6eca7" -o bin/mk-agentctl ./cmd/mk-agentctl
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=293559519a09e574265686b1cd59598556f6eca7" -o bin/mknetd ./cmd/mknetd
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=293559519a09e574265686b1cd59598556f6eca7" -o bin/mk-cni ./cmd/mk-cni
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=293559519a09e574265686b1cd59598556f6eca7" -o bin/containerd-shim-multikernel-v2 ./cmd/containerd-shim-multikernel-v2
+python3 scripts/runtime-release-manifest.py runtime/bin runtime/release-manifest.json \
+	--expected-version=0.1.0-dev --expected-revision=293559519a09e574265686b1cd59598556f6eca7
++ jq -e '.version == "0.1.0-dev" and .revision == "293559519a09e574265686b1cd59598556f6eca7"' runtime/release-manifest.json
+true
+++ find runtime/bin -maxdepth 1 -type f -perm -0100
+++ wc -l
++ test 7 = 7
++ for binary in runtime/bin/*
++ runtime/bin/containerd-shim-multikernel-v2 --version
+containerd-shim-multikernel-v2 version=0.1.0-dev revision=293559519a09e574265686b1cd59598556f6eca7
++ for binary in runtime/bin/*
++ runtime/bin/mk-agent --version
+mk-agent version=0.1.0-dev revision=293559519a09e574265686b1cd59598556f6eca7
++ for binary in runtime/bin/*
++ runtime/bin/mk-agentctl --version
+mk-agentctl version=0.1.0-dev revision=293559519a09e574265686b1cd59598556f6eca7
++ for binary in runtime/bin/*
++ runtime/bin/mk-cni --version
+mk-cni version=0.1.0-dev revision=293559519a09e574265686b1cd59598556f6eca7
++ for binary in runtime/bin/*
++ runtime/bin/mk-host-check --version
+mk-host-check version=0.1.0-dev revision=293559519a09e574265686b1cd59598556f6eca7
++ for binary in runtime/bin/*
++ runtime/bin/mknetd --version
+mknetd version=0.1.0-dev revision=293559519a09e574265686b1cd59598556f6eca7
++ for binary in runtime/bin/*
++ runtime/bin/mkruntimed --version
+mkruntimed version=0.1.0-dev revision=293559519a09e574265686b1cd59598556f6eca7
++ sha256sum runtime/bin/containerd-shim-multikernel-v2 runtime/bin/mk-agent runtime/bin/mk-agentctl runtime/bin/mk-cni runtime/bin/mk-host-check runtime/bin/mknetd runtime/bin/mkruntimed runtime/release-manifest.json
+9a39c01731d58748b1007f7d29bb57b99d09702828c7707701e173762ab590aa  runtime/bin/containerd-shim-multikernel-v2
+ad44ba541c74b5ea8d99957a194eaf7d7ae6414e07e58ab5f7822ac3ae1f7033  runtime/bin/mk-agent
+708ff358cf1bcb4fb58ff892455ffdca6347ac0a99f75fbf86f073898d615612  runtime/bin/mk-agentctl
+f4a4f397cfbbc9f44443d5a8bbd8047df4d5f0dcea6541787ada104311046a93  runtime/bin/mk-cni
+4b7ee1b3f4ebab592b4b5680a6dbc7f148d60d7f7d66ed0475cd6a7b9801f09e  runtime/bin/mk-host-check
+e55f73f10ade6433b458ef61d492b8d6eb84e2b91cb104fb355601e75c9562a2  runtime/bin/mknetd
+a58b09d99506e1181a6361a32d5391ef4122e6ca35c9c2579168745d4e7e226f  runtime/bin/mkruntimed
+6bed8da1b0d200fbf9568cdec43792790c89fe99ed358ba6240dc388246ec74c  runtime/release-manifest.json
++ echo G6_CANCELLATION_BUILD_2935595_PASS
+G6_CANCELLATION_BUILD_2935595_PASS
+{"evidence_command_result": {"ended_at": "2026-10-08T13:51:13.160994Z", "exit_status": 0}}
