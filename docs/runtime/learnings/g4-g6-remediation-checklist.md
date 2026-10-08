@@ -3479,6 +3479,41 @@ phrase above.
   without symlink traversal and `fstat` correctly rejects its write bits. The
   fixture now chmods its private directory to 0700 before binding; production
   validation is unchanged.
+- Commit `2935595` (`test: secure relay fixture socket directory`) freezes that
+  test-only correction and its complete VM diagnostic trail. The full local
+  shim race suite and vet pass. Exact tracked-source archive
+  `/tmp/mksrc-2935595.tar` is 7,168,000 bytes/SHA-256
+  `26454162c43e4eacbd8018b1846551cf6f119299db57c868ab98a943f27b4f24`;
+  Transfer `20261008-g6-cancellation-transfer-2935595.log` is mode 0600/353
+  bytes/SHA-256
+  `3dec17f936d66c59dffff1eff158e6ffc4893f2ef4f64c44e4e55fe3033a9e15`,
+  exit 0. Guest preflight
+  `20261008-g6-cancellation-source-preflight-2935595.log` is mode 0600/1,429
+  bytes/SHA-256
+  `7afe19a6fca26248d6146740a0654c5fa0d4fe92164893157fb1cc367ddded3d`,
+  exit 0. Both credential scans are clean; archive/source/qualifier hashes and
+  Bash syntax pass. Build and activation remain unclaimed.
+- Exact `2935595` VM gate `20261008-g6-cancellation-build-2935595.log` is
+  retained mode 0600/6,193 bytes, SHA-256
+  `9c42a4bba2087bd0b0762027d824a14d8d01803c5e34718f09aa2df8f6141114`,
+  exit 2, with a clean credential-value scan. Both daemon tests and the shim
+  disconnect test pass 100 race repetitions each; all five complete package
+  race suites and vet pass. All seven binaries build, but strict manifest
+  validation rejects the abbreviated revision `2935595` because it requires
+  lowercase 40-hex provenance. No manifest/install/activation is claimed; the
+  build stage must be rerun with full revision
+  `293559519a09e574265686b1cd59598556f6eca7`.
+- Corrected full-revision build
+  `20261008-g6-cancellation-build-2935595-corrected.log` is mode 0600/6,072
+  bytes, SHA-256
+  `24037397d193293951c78c6e9fd94967d35eebfdb3ea7023f1005cac4166f768`,
+  exit 0, with a clean credential-value scan and explicit pass marker. It
+  starts with no manifest, rebuilds all seven static binaries stamped with
+  exact full revision `293559519a09e574265686b1cd59598556f6eca7`, creates
+  and validates the strict manifest, executes every binary's matching version
+  output, and records all component/manifest hashes. Combined with the
+  immediately preceding 100-repeat/full-race/vet transcript, the exact guest
+  build gate is complete. Install/activation and live replay remain open.
 - [ ] Validate containerd namespace, task ID, bundle path, rootfs mounts, OCI
   process, and runtime paths before allocation; protect against symlink/path
   races and hostile mount inputs. Service construction rejects unsafe task,
