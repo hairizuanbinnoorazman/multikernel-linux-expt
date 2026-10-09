@@ -159,12 +159,15 @@ endpoint=$endpoint"
 }
 
 same_endpoint_identity() {
-	python3 - "$1" "$2" <<'PY'
+	python3 - "$1" "$2" "${3:-clean}" <<'PY'
 import json,sys
-a,b=map(json.loads,sys.argv[1:])
+a,b=map(json.loads,sys.argv[1:3]); mode=sys.argv[3]
 for key in ('container_id','sandbox_id','sandbox_generation','generation','address','gateway','mtu'):
     assert a[key] == b[key], (key,a,b)
-assert b['errors'] == a['errors'] and b['rx_drops'] == a['rx_drops'] and b['tx_drops'] == a['tx_drops'],(a,b)
+assert b['rx_drops'] == a['rx_drops'] and b['tx_drops'] == a['tx_drops'],(a,b)
+if mode == 'clean': assert b['errors'] == a['errors'],(a,b)
+elif mode == 'agent-fault': assert b['errors'] == a['errors'] + 1,(a,b)
+else: raise AssertionError(mode)
 PY
 }
 
@@ -237,7 +240,7 @@ done
 relay_reconnect=$(sudo ctr task exec --exec-id relay-reconnect "$task_id" /bin/echo relay-reconnected)
 [[ $relay_reconnect = relay-reconnected ]]
 packet_exchange after-direct-relay
-endpoint_after_direct_relay=$(endpoint_summary); same_endpoint_identity "$endpoint_initial" "$endpoint_after_direct_relay"
+endpoint_after_direct_relay=$(endpoint_summary); same_endpoint_identity "$endpoint_initial" "$endpoint_after_direct_relay" agent-fault
 boot_after_direct_relay=$(sudo ctr task exec --exec-id boot-after-direct-relay "$task_id" /bin/cat /proc/sys/kernel/random/boot_id); [[ $boot_after_direct_relay = "$boot_initial" ]]
 observe direct-relay-replacement "supervisor=$supervisor_before_relay worker=$worker_before_relay holder=$holder_before_relay old_relay=$relay_before_direct old_relay_stop_state=$relay_stop_state replacement_relay=$relay_after_direct reconnect_exec=$relay_reconnect child_boot=$boot_after_direct_relay endpoint=$endpoint_after_direct_relay"
 
@@ -255,7 +258,7 @@ done
 relay_after=$(relay_pid_for_worker "$worker_after")
 [[ $relay_after != "$relay_before" && ! -d /proc/$relay_before ]]
 packet_exchange after-shim-worker
-endpoint_after_shim=$(endpoint_summary); same_endpoint_identity "$endpoint_initial" "$endpoint_after_shim"
+endpoint_after_shim=$(endpoint_summary); same_endpoint_identity "$endpoint_after_direct_relay" "$endpoint_after_shim"
 boot_after_shim=$(sudo ctr task exec --exec-id boot-after-shim "$task_id" /bin/cat /proc/sys/kernel/random/boot_id); [[ $boot_after_shim = "$boot_initial" ]]
 observe shim-worker-restart "supervisor=$supervisor old_worker=$worker_before replacement_worker=$worker_after old_holder=$holder_before replacement_holder=$holder_after old_relay=$relay_before replacement_relay=$relay_after child_boot=$boot_after_shim endpoint=$endpoint_after_shim"
 
