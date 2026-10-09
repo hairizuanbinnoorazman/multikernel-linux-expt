@@ -10659,3 +10659,83 @@ revision `293559519a09e574265686b1cd59598556f6eca7`, creates and validates the
 strict manifest, runs every binary's matching version output, and records all
 hashes. Together with the preceding 100-repeat/full-race/vet transcript, this
 completes the exact guest build gate; install/activation and live replay remain.
+
+Current unchecked-row reconciliation is exact rather than percentage-based.
+The checklist has 20 open rows: three independent behavioral requirements and
+17 dependent closure obligations. The independent requirements are direct
+agent/relay transport plus primary-restart packet continuity, installed exact-
+candidate cancellation/deadline cleanup, and the explicitly deferred live
+stale-relay workload slice. The dependent set is seven evidence-quality rules,
+six cross-cutting final-bundle/tooling rows, and four gate-summary rows.
+
+Revision `293559519a09e574265686b1cd59598556f6eca7` has already passed its
+exact-source VM 100-repeat cancellation races, complete package races, vet,
+seven-binary build, strict manifest, versions, and hashes. Only activation and
+the real rootfs/Kerf/Task cancellation replay plus independent audit remain for
+that behavioral row. The environment declined the persistent VM install and
+daemon restart without a fresh explicit approval, so no activation side effect
+occurred.
+
+Existing restart evidence proves packet continuity across mknetd, mkruntimed,
+shim-worker, and child replacement. It does not prove the failed/deferred direct
+relay case or a primary-host restart. The hostile-path source matrix proves 59
+cases for 100 zero-skip race repetitions but not the deferred live stale-relay
+workload. Finally, historical transcripts span multiple commits and boots;
+the final auditor intentionally requires common source, host, installed
+components, and ledgers. They therefore cannot be relabelled into final pass
+manifests. One cohesive exact-release run, post-deletion ledger, and immutable
+bundle index remain mandatory after the three behavioral gaps close.
+
+### 2026-10-08: direct relay death is an implementation gap
+
+The shim source lives at
+`runtime/cmd/containerd-shim-multikernel-v2/main.go`; an earlier shorthand
+path in working notes was stale. The RPC retry loop and packet pump both
+redial only the current `relaySocket`. The service owns the relay `exec.Cmd`
+and an identity-bound socket owner, but no monitor or reconnect-failure path
+reaps and replaces an exited relay. Killing the relay directly therefore
+leaves a stale socket and cannot recover. This is a product behavior gap, not
+only an evidence gap. The next implementation must serialize replacement,
+remove only the captured socket inode, avoid duplicate replacement when
+multiple callers observe the same outage, and remain bounded by cancellation.
+
+The implemented recovery is deliberately failure-triggered and conservative.
+A relay lock and generation serialize ownership; after reconnect failure the
+shim reads bounded `/proc/PID/stat` and replaces only an absent, exited, or
+zombie owned relay. It reaps the old process group, removes the captured socket
+identity, starts the same generation-bound relay, captures the new identity,
+and advances the generation once. A live relay is not churned merely because
+the guest agent is temporarily unavailable.
+
+Focused command `go test -race ./cmd/containerd-shim-multikernel-v2 -run
+'Test(ExitedRelayReplacement|AgentReconnectFailureReplacesExitedRelay)'
+-count=20` passes. In every repetition, 16 concurrent observers produce
+exactly one restart, one old-owner removal, and one new-owner capture. A
+replacement that never publishes its socket proves deadline cancellation
+kills and reaps that process without advancing ownership. A retry-path test
+also proves an RPC failure plus failed reconnect replaces the exited relay
+exactly once, reconnects, and completes the original RPC. The complete
+non-race shim package passes after the implementation. These are source-level
+results only; live packet continuity across direct relay death remains open.
+
+The post-change complete shim package passes `go test -race
+./cmd/containerd-shim-multikernel-v2` in 9.944 seconds, and `go vet
+./cmd/containerd-shim-multikernel-v2` exits zero. The commands use the pinned
+module dependencies and disposable caches below `/tmp` because the managed
+home cache is read-only. They do not mutate or qualify the VM installation.
+
+The focused network-restart qualifier now adds the direct-relay boundary while
+leaving the separately deferred stale-relay script untouched. It kills the
+relay and requires a distinct replacement with unchanged supervisor, shim
+worker, namespace holder, child boot, and endpoint identity before a new
+token-exact child-to-primary packet exchange. Bash syntax and repository diff
+checks pass; ShellCheck is unavailable locally. The executable is mode 0755,
+13,312 bytes, SHA-256
+`c1dd717113ff050342ea8436425e2db4c880b7910ee9d7e49a28bcbcfdf5a2c7`.
+This is harness readiness, not VM behavioral evidence.
+
+After the relay implementation and qualifier update, `go test -race ./...`
+passes across the complete runtime module; `mk-host-check` has no test files.
+`git diff --check` is clean. The authoritative open count remains 20: local
+source qualification cannot close direct-relay live packet continuity or any
+of the other independent/dependent evidence obligations.
