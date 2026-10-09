@@ -98,6 +98,7 @@ PY
 
 parent_pid() { sudo awk '{print $4}' "/proc/$1/stat"; }
 holder_pid() { sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $2}'; }
+worker_pidfile() { sudo cat "/proc/$1/cwd/.multikernel-worker.pid"; }
 
 relay_pid_for_worker() {
 	local worker=$1 pid executable matches=()
@@ -249,9 +250,12 @@ relay_before=$(relay_pid_for_worker "$worker_before")
 sudo kill -KILL "$worker_before"
 holder_after=; worker_after=; relay_after=
 for _ in $(seq 1 480); do
-	holder_after=$(holder_pid); [[ -z $holder_after ]] || worker_after=$(parent_pid "$holder_after" 2>/dev/null || true)
+	worker_after=$(worker_pidfile "$supervisor" 2>/dev/null || true)
+	holder_after=$(holder_pid)
 	if [[ -n $holder_after && -n $worker_after && $holder_after != "$holder_before" && $worker_after != "$worker_before" ]] &&
-	   [[ $(parent_pid "$worker_after" 2>/dev/null || true) = "$supervisor" ]]; then break; fi
+	   [[ -d /proc/$holder_after && -d /proc/$worker_after ]] &&
+	   [[ $(parent_pid "$worker_after" 2>/dev/null || true) = "$supervisor" ]] &&
+	   [[ $(parent_pid "$holder_after" 2>/dev/null || true) = "$worker_after" ]]; then break; fi
 	sleep .25
 done
 [[ -n $holder_after && -n $worker_after && $holder_after != "$holder_before" && $worker_after != "$worker_before" ]]
