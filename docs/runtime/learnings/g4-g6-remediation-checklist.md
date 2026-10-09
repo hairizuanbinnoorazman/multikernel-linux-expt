@@ -10661,3 +10661,119 @@ the named quarantine. This reset establishes a test precondition only.
   installed and the local container forbids sudo via `no new privileges`, so
   successful root-owned fallback execution remains explicitly unclaimed until
   the exact-source VM run.
+
+- Commit `6c3fb8162a0ed11f5ff0af5b10b80c8743858d34` freezes the two harness
+  corrections and all findings through the first failed attempt. Its
+  tracked-files-only archive `/tmp/mksrc-6c3fb81.tar` is mode 0600, 7,229,440
+  bytes, SHA-256
+  `eb82d0d45647dea8a336f158e395dd2c797c323349e75745bb7ab3af51ed17c6`,
+  and carries that exact commit in its tar metadata. The deferred modified
+  stale-relay script and all untracked evidence are excluded.
+
+- Exact archive/preflight transfer succeeds. Transcript
+  `20261009-cancellation-candidate-transfer-6c3fb81.log` is mode 0600, 368
+  bytes, SHA-256
+  `403b0cff59a05dc77a1dd93a20a421d85a5a972f7827ea6bb64a13a6932771c6`,
+  exit 0, and credential-value clean. Guest-side hash, commit extraction,
+  fallback execution, and resource cleanliness remain unclaimed until the
+  preflight runs.
+
+- The first `6c3fb81` preflight is a retained assertion failure. Transcript
+  `20261009-cancellation-candidate-preflight-6c3fb81.log` is mode 0600, 731
+  bytes, SHA-256
+  `5292159ff56b341d9dd68d891262e1d17b4576c01bf479bc9e9ca5745b663671`,
+  exit 1, and credential-value clean. The runner verifies the archive mode,
+  size, SHA-256, and embedded revision, then extracts the mode-0700 source. Its
+  fallback probe uses `/bin/echo --version` but incorrectly expects literal
+  `--version`; GNU echo emits its version banner, so the assertion fails.
+  Diagnostic `20261009-cancellation-candidate-preflight-first-diagnostic-6c3fb81.log`
+  is mode 0600, 1,064 bytes, SHA-256
+  `04dea1fe3f626ed917a115c70e7669a1ff9663126cb5a7b98955ca7fdc49405e`,
+  exit 0, and credential-value clean. It independently reconfirms the archive
+  and commit, the extracted directory's mode/owner, and all four active
+  services. No runtime service was mutated.
+
+- Correction to the preceding local-gate note: the ad-hoc environment-path
+  assertion also used `/bin/echo --version`, and its shell did not enable
+  `errexit`, allowing later commands to mask that failed comparison. Bash
+  syntax, diff hygiene, missing-config rejection, and unprivileged-config
+  rejection remain valid; successful environment and root-owned fallback
+  execution are not claimed from that command. The corrected VM probe uses
+  `/bin/true` and checks its exit status directly.
+
+- Corrected preflight upload
+  `20261009-cancellation-candidate-preflight-corrected-upload-6c3fb81.log`
+  is mode 0600, 352 bytes, SHA-256
+  `b8a4083a3bfa46c95852201df3eaf28c3fde1e9497771ac24971a615bca7d518`,
+  exit 0. Corrected execution
+  `20261009-cancellation-candidate-preflight-corrected-6c3fb81.log` is mode
+  0600, 2,850 bytes, SHA-256
+  `3b1b59c39951c1e595120f97393512e100539eed65294ff2c6c33bd92fd93f06`,
+  exit 0. Both are credential-value clean. On boot `3e1246fd…`, it re-verifies
+  archive and embedded revision `6c3fb816…`, exact source-script hashes and
+  syntax, then successfully executes the blocker through a UID-0/mode-0600
+  fallback config under an environment containing only `MK_CANCEL_CONFIG`.
+  The active selector remains `3827ace…`; Kerf is empty, all 19 counters are
+  zero, and all four services are active with zero restarts. The exact-source
+  candidate is ready for build; no candidate binaries are installed yet.
+
+- Exact `6c3fb816…` build upload
+  `20261009-cancellation-candidate-build-upload-6c3fb81.log` is mode 0600,
+  338 bytes, SHA-256
+  `8289a92e3b9078e3ea3a9efc0802b327d7c04f72cc76c96714dc4c1571e65a32`,
+  exit 0. Build transcript
+  `20261009-cancellation-candidate-build-6c3fb81.log` is mode 0600, 6,619
+  bytes, SHA-256
+  `cd7e9e162aae57ddef66a8dbb04dcef7067adb691e324ddc0a6bf9d07907681a`,
+  exit 0. Both are credential-value clean. On ext4-backed temporary storage,
+  the three relay-recovery tests pass 100 race repetitions, every runtime
+  package passes under the race detector including storage, and full vet
+  passes. All seven static binaries report exact revision `6c3fb816…`; strict
+  manifest validation passes. Binary hashes are shim `96cd54db…`, mk-agent
+  `71770e6e…`, mk-agentctl `17858dc8…`, mk-cni `4da08f76…`, mk-host-check
+  `c669f20f…`, mknetd `45219e71…`, mkruntimed `23ea9386…`, and manifest
+  `df77d88e…`. Installation remains a separate transactional step.
+
+- Transactional `6c3fb816…` activation succeeds. Upload
+  `20261009-cancellation-candidate-activation-upload-6c3fb81.log` is mode
+  0600, 341 bytes, SHA-256
+  `a7637e45da6cc7d21fbecc1000bbb29b8b9d9388a82f07c1df252b7e1ffb12ad`,
+  exit 0. Execution
+  `20261009-cancellation-candidate-activation-6c3fb81.log` is mode 0600,
+  7,589 bytes, SHA-256
+  `702ff68795c27d57069431b576370044337414a232ecf9b62c866f16d41a2c06`,
+  exit 0. Both are credential-value clean. The runner starts and ends with
+  empty Kerf and all 19 counters zero, installs the exact release, matches all
+  seven installed hashes and version strings, and restarts only mkruntimed and
+  mknetd. Their running hashes match `23ea9386…` and `45219e71…`; containerd
+  and Docker PIDs remain 1478/1519. All four services are active with zero
+  restarts. Rollback is not invoked; live cancellation behavior is still a
+  separate claim.
+
+- The first live attempt at exact revision `6c3fb816…` is another retained
+  harness-ordering failure. Transcript
+  `20261009-g6-cancellation-live-6c3fb81.log` is mode 0600, 169,419 bytes,
+  SHA-256
+  `5c5de33ede4cc9e540b82534d4aad4d0b0d03d2c9376b634c866d0d93dc6cb78`,
+  exit 1, and credential-value clean. It proves rootfs-build cancellation with
+  client status 124 and reaping of blocker parent 33104/child 33107. After the
+  official daemon is restored, the strict audit still cannot pass because the
+  canceled `ctr run --rm` left its container record and the harness has not yet
+  called `cleanup_task`. This cause is an inference from the trace: the initial
+  cleanup's container removal is allowed to fail, while the EXIT-trap removal
+  after the audit timeout succeeds. The Kerf and task-RPC phases are not run.
+
+- Independent post-failure audit
+  `20261009-g6-cancellation-second-failure-final-audit-6c3fb81.log` is mode
+  0600, 1,902 bytes, SHA-256
+  `318d4f4a39b306079b616b0131cd13835a01b70476abefde16da1bc4a6aa87b7`,
+  exit 0, and credential-value clean. It confirms exact selector/running hash,
+  empty Kerf, all 19 counters zero, and all four services active with zero
+  restarts after the EXIT trap. The correction must invoke `cleanup_task`
+  after each canceled create and before its strict cleanup audit.
+
+- The third harness correction now calls `cleanup_task` after restoring the
+  official daemon and before each per-phase strict audit. Bash syntax, diff
+  hygiene, and explicit static ordering checks for both rootfs-build and
+  child-boot phases pass locally. Live behavior remains unclaimed until a new
+  exact-source revision is built, activated, and exercised.

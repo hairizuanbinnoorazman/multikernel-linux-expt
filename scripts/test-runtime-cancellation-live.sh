@@ -133,6 +133,7 @@ real_builder=$(systemctl show -p ExecStart --value mkruntimed | grep -o -- '--ro
 start_qualification_daemon rootfs-build "$real_builder"
 cancel_blocked_create rootfs-build
 stop_qualification_daemon
+cleanup_task
 observe rootfs-build-cleanup "$(wait_clean)"
 
 real_kerf=$(sudo jq -r .kerf_executable /etc/mkruntime/config.json)
@@ -141,6 +142,7 @@ sudo chmod 0600 "$config"
 start_qualification_daemon kerf-load "$real_kerf"
 cancel_blocked_create child-boot
 stop_qualification_daemon
+cleanup_task
 observe child-boot-cleanup "$(wait_clean)"
 
 sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c 'echo cancellation-ready; while :; do sleep 1; done'
