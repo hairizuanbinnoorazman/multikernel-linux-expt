@@ -10994,3 +10994,66 @@ the named quarantine. This reset establishes a test precondition only.
   zero-resource audit. Bash syntax and diff hygiene pass; ShellCheck is not
   installed locally. These are harness lifecycle corrections only and remain
   live-unclaimed pending a new exact revision.
+
+- Commit `4882b8e904beb028e878d682c5aee6b10f1e9bb0` freezes both final harness
+  lifecycle corrections and their recorded evidence. Its tracked-files-only
+  archive `/tmp/mksrc-4882b8e.tar` is mode 0600, 7,280,640 bytes, SHA-256
+  `9556ba39fd320dfe1fab542d678f7357417746bbabe31e8deb4eee3852603f81`,
+  with the exact revision embedded. The corrected qualifier hashes to
+  `b02070fd72be64c76057873cb19e560e049cc6310c3eedad2c4e8330e34350bc`;
+  the exact runner hashes to
+  `1906050549b7fdd2dbf73683dd5fdf72c067a44b395a90dd1e0461b2f47d0d0b`.
+
+- Exact archive/runner transfer transcript
+  `20261009-cancellation-final-transfer-4882b8e.log` is mode 0600, 364 bytes,
+  SHA-256
+  `4b3f4a5b2987e9f92c7bc7bd0a5a53d326562550e661e1c8aa4359f056a35cd4`,
+  exit 0. Guest verification and live behavior remain separate claims.
+
+- Exact `4882b8e…` workflow
+  `20261009-g6-cancellation-final-exact-workflow-4882b8e.log` is mode 0600,
+  15,621 bytes, SHA-256
+  `a5a3251e01464b5b2a0d6e9098ed08849937501c90aaa7a2622bfd84f04f4b75`,
+  exit 1. It passes all exact-source gates, activation, rootfs-build
+  cancellation/cleanup, and—under the corrected bound—child-boot
+  cancellation/cleanup with both blocker process trees reaped and every
+  strict inventory zero. It then exits in task-RPC before an observation.
+  The immediate strict audit is retained as an expected non-clean result
+  (`20261009-g6-cancellation-4882b8e-task-rpc-failure-audit.log`, mode 0600,
+  398 bytes, SHA-256
+  `874b84bac5fe128dda8e0ade907651f646fc4439b957f2482eaf27763ded7adb`,
+  exit 1): the failure trap deletes the task but does not gracefully restart
+  the official daemon to release its intentionally retained idle pool.
+
+- Instrumented KILL diagnostic
+  `20261009-g6-cancellation-4882b8e-task-rpc-kill-diagnostic.log` is mode
+  0600, 782 bytes, SHA-256
+  `42ef43a192b3c7346d1c842592abba3f25e9abe00e4416566038d7160edbbb12`,
+  exit 1; upload transcript is mode 0600, 361 bytes, SHA-256
+  `f46c0621436155f07fa81e989e183d54076edd363dcf55dc16d3d67b7236cef8`,
+  exit 0. It proves both task-group aliases lack a standalone `wait`: singular
+  still exits 3 with `No help topic for 'wait'`. It also proves the usable
+  primitive: SIGKILL-timeout of `ctr tasks attach` returns GNU timeout status
+  124, preserves PID 69984 in RUNNING state, and a subsequent exec returns
+  `cancellation-still-usable`. Containerd v1.7.28 `ctr tasks attach` invokes
+  `task.Wait(ctx)` before blocking, so this one supported command exercises
+  the Wait RPC plus attachment; the invalid standalone probe and expected 137
+  must be removed.
+
+- The qualifier now uses only supported `ctr tasks attach` as its Wait-RPC
+  client, expects GNU timeout status 124 after SIGKILL, and preserves the
+  same-PID/RUNNING/post-cancel-exec assertions. Its failure trap tracks entry
+  into the ordinary task phase and gracefully restarts mkruntimed after task
+  cleanup, preventing known idle-pool residue on any later assertion failure.
+  Bash syntax and diff hygiene pass locally; live proof remains required.
+
+- Scoped recovery after the diagnostic is recorded separately. Restart
+  transcript `20261009-g6-cancellation-4882b8e-task-rpc-recovery-restart.log`
+  is mode 0600, 341 bytes, SHA-256
+  `0123583c86b812bc288ea758bc4eee8333b80465b48c985091f0e5c60f96e0c6`,
+  exit 0. Audit
+  `20261009-g6-cancellation-4882b8e-task-rpc-recovery-audit.log` is mode
+  0600, 1,902 bytes, SHA-256
+  `88064b260bb8ea51f5391d3c2d754a7a56c42786d5a9f8594d326876f1c30434`,
+  exit 0, and proves the exact selector, empty Kerf, all 19 counters zero, and
+  all four services active with zero restarts.
