@@ -207,10 +207,11 @@ observe mkruntimed-restart "pid_before=$mkruntimed_before pid_after=$mkruntimed_
 holder_before_relay=$(holder_pid); worker_before_relay=$(parent_pid "$holder_before_relay"); supervisor_before_relay=$(parent_pid "$worker_before_relay")
 relay_before_direct=$(relay_pid_for_worker "$worker_before_relay")
 sudo kill -KILL "$relay_before_direct"
-# Relay replacement is demand-driven by the next agent operation. This exec
-# must reconnect through a newly started relay while preserving the task.
-relay_reconnect=$(sudo ctr task exec --exec-id relay-reconnect "$task_id" /bin/echo relay-reconnected)
-[[ $relay_reconnect = relay-reconnected ]]
+# Relay replacement is demand-driven by the next agent operation. Use the
+# read-only Stats RPC to trigger reconnect: an Exec creation interrupted by
+# transport loss is intentionally treated as an ambiguous mutation.
+relay_metrics=$(sudo ctr tasks metrics --format json "$task_id")
+[[ -n $relay_metrics ]]
 relay_after_direct=
 for _ in $(seq 1 480); do
 	relay_after_direct=$(relay_pid_for_worker "$worker_before_relay" 2>/dev/null || true)
@@ -219,10 +220,12 @@ for _ in $(seq 1 480); do
 done
 [[ -n $relay_after_direct && $relay_after_direct != "$relay_before_direct" && ! -d /proc/$relay_before_direct ]]
 [[ $(holder_pid) = "$holder_before_relay" && $(parent_pid "$holder_before_relay") = "$worker_before_relay" && $(parent_pid "$worker_before_relay") = "$supervisor_before_relay" ]]
+relay_reconnect=$(sudo ctr task exec --exec-id relay-reconnect "$task_id" /bin/echo relay-reconnected)
+[[ $relay_reconnect = relay-reconnected ]]
 packet_exchange after-direct-relay
 endpoint_after_direct_relay=$(endpoint_summary); same_endpoint_identity "$endpoint_initial" "$endpoint_after_direct_relay"
 boot_after_direct_relay=$(sudo ctr task exec --exec-id boot-after-direct-relay "$task_id" /bin/cat /proc/sys/kernel/random/boot_id); [[ $boot_after_direct_relay = "$boot_initial" ]]
-observe direct-relay-replacement "supervisor=$supervisor_before_relay worker=$worker_before_relay holder=$holder_before_relay old_relay=$relay_before_direct replacement_relay=$relay_after_direct child_boot=$boot_after_direct_relay endpoint=$endpoint_after_direct_relay"
+observe direct-relay-replacement "supervisor=$supervisor_before_relay worker=$worker_before_relay holder=$holder_before_relay old_relay=$relay_before_direct replacement_relay=$relay_after_direct reconnect_exec=$relay_reconnect child_boot=$boot_after_direct_relay endpoint=$endpoint_after_direct_relay"
 
 holder_before=$(holder_pid); worker_before=$(parent_pid "$holder_before"); supervisor=$(parent_pid "$worker_before")
 relay_before=$(relay_pid_for_worker "$worker_before")

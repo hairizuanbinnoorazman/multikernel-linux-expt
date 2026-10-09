@@ -11350,3 +11350,47 @@ relay PID. Its failure trap also gracefully restarts mkruntimed after any
 started workload so an intentionally retained idle pool cannot contaminate the
 next baseline. Bash syntax and diff hygiene pass; live behavior remains
 unclaimed pending an exact revision.
+
+Trace-recovery restart/audit are retained separately: mode 0600, 341 bytes,
+SHA-256
+`b22e764146d5e74fe6be64a13899e8a5a2e562a57d3fc6dfcbac4ce1c0e45312` and
+mode 0600, 1,902 bytes, SHA-256
+`31a177a2bb3babfef3af7d761c726c423e5b99ed0bc8a865cbda3e800520717e`, both
+exit 0. The audit proves a zero-resource, four-service healthy baseline.
+
+Commit `d61a8bbc613c780b30762d42b960abae078e9aa9` freezes the direct-relay
+qualifier correction. Exact archive `/tmp/mksrc-d61a8bb.tar` is mode 0600,
+7,301,120 bytes, SHA-256
+`4f6874e49512113914ff837b0e6aa20cfaeb7f04ac13c6bc4d95363309829f1f`;
+qualifier SHA-256 is
+`cab91159c6080ccfe7644a71796c0649a4b76623503efd4f6e8717b3139a590b`; exact
+cohesive runner SHA-256 is
+`bb307673e18819da32d4b8900e9a4163efbc6bf739d23655b7e88639896bc26e`.
+
+Exact transfer `20261009-g5-network-restart-transfer-d61a8bb.log` is mode 0600,
+364 bytes, SHA-256
+`ed55c1d86af24fc670051dddc4ee21f1e098bd6884f8c4746c2e71057892ddb1`, exit
+0. Guest verification and behavior remain separate claims.
+
+Exact `d61a8bb…` workflow
+`20261009-g5-network-restart-final-exact-workflow-d61a8bb.log` is mode 0600,
+14,269 bytes, SHA-256
+`187b6bb04178f210caf485a7e0be5041b10cd60cd473c757de051ea0d0972f1c`, exit
+1. Exact gates/activation and the three baseline/mknetd/mkruntimed packet
+exchanges pass. After exact relay death, the new Exec trigger loses its guest
+CreateProcess write on the broken pipe; the shim fails closed and its
+reconciliation reports `NOT_FOUND` rather than replaying an ambiguous
+mutation. This is correct mutation safety but an invalid reconnect trigger.
+The corrected failure trap is independently clean:
+`20261009-g5-network-restart-d61a8bb-failure-audit.log` is mode 0600, 1,904
+bytes, SHA-256
+`a6ad4b135d2a2ff117d62a4fee1ec8ceed9c870c7b33ed4af900dfbb0ee2f03b`, exit
+0, with empty Kerf, all 19 counters zero, and four active zero-restart
+services.
+
+The qualifier now triggers demand-driven relay reconnect through read-only
+Task Stats, polls the replacement PID, and only then requires a
+`relay-reconnected` exec. This separates safe transport recovery from mutation
+ambiguity while preserving the same PID/topology/boot/endpoint and packet
+assertions. Bash syntax and diff hygiene pass; live behavior remains unclaimed
+pending a new exact revision.
