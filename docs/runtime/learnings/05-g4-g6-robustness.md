@@ -10739,3 +10739,140 @@ passes across the complete runtime module; `mk-host-check` has no test files.
 `git diff --check` is clean. The authoritative open count remains 20: local
 source qualification cannot close direct-relay live packet continuity or any
 of the other independent/dependent evidence obligations.
+
+Post-user-restart control-plane transcript
+`20261009-relay-candidate-instance-describe.log` is mode 0600, 33,267 bytes,
+SHA-256
+`a852785b9b24e92003e642b8bab855d831ffa2e07d525d6ce4fff753d1cd6d7e`,
+exit 0, and credential-value clean. It identifies running disposable GCE
+instance `mklinux-g4-g6-final-20260905` as ID `6701540373796488780`, last
+started `2026-10-08T18:22:51.719-07:00`, with the expected auto-delete boot
+disk and retained non-auto-delete mediated-storage disk. This is availability
+and identity evidence only, not guest cleanliness or runtime qualification.
+
+Tracked-files-only archive `/tmp/mksrc-3827ace.tar` represents exact full
+revision `3827ace62d3cbf620ae77025b4be1b9621dfc9ba`; the deferred modified
+stale-relay script and untracked evidence are excluded. It is mode 0600,
+7,208,960 bytes, SHA-256
+`fdcdb3731a43528a14eb630cdeb21fc808dbef173554f2654566680886ed25d8`.
+Transfer transcript `20261009-relay-candidate-transfer-3827ace.log` is mode
+0600, 343 bytes, SHA-256
+`b85bae90a6568bf24a751eb31171576ecd6ee484aecd271237567e3260512141`,
+exit 0, and credential-value clean. Guest-side hash and extraction remain a
+separate preflight step.
+
+The first guest preflight is an explicit harness failure. Upload transcript
+`20261009-relay-candidate-preflight-upload-3827ace.log` is mode 0600, 381
+bytes/SHA-256
+`c98c6287170161dd8f15878f7d87eda774c9890f5e3c753dbd32b0330520651e`,
+exit 0. Execution transcript
+`20261009-relay-candidate-guest-preflight-3827ace.log` is mode 0600, 898
+bytes/SHA-256
+`9a69e636fb93bbcf8db08fc2dad2491d2a46a5e026859af74da4b34b2a700133`,
+exit 127. Both are credential-value clean. It proves new boot ID
+`3e1246fd-385d-4dbb-8484-7b489d4996e6` and exact guest archive
+mode/size/hash/commit extraction, then fails because the runner used obsolete
+name `test-runtime-cross-service-cancellation-live.sh`; the actual tracked
+script is `test-runtime-cancellation-live.sh`. No resource audit or runtime
+mutation followed. The corrected preflight preserves the already verified
+extraction rather than deleting it.
+
+Corrected upload transcript
+`20261009-relay-candidate-preflight-upload-3827ace-corrected.log` is mode 0600,
+391 bytes/SHA-256
+`36c51e7e32c029b86eb6ee07e1d1fb5e65537045e8c17af8b057219c792ee4ab`,
+exit 0. Corrected execution
+`20261009-relay-candidate-guest-preflight-3827ace-corrected.log` is mode 0600,
+2,431 bytes/SHA-256
+`3a227b9aeee9eba6e9a07ad853525b00898712bd39959b38625bba3a12a42916`,
+exit 0. Both are credential-value clean. The guest re-verifies exact archive
+mode/size/hash and commit metadata, uses a new mode-0700 extraction, and
+syntax-checks the two qualifiers. Boot ID is
+`3e1246fd-385d-4dbb-8484-7b489d4996e6`; the active selector remains old
+`0.1.0-dev-cacec0d…`. All four services are active with zero restarts, Kerf is
+empty, and all 19 resource counters are zero. The candidate remains
+uninstalled at this point.
+
+The first exact-source build gate is an environment failure, retained rather
+than overwritten. Upload `20261009-relay-candidate-build-upload-3827ace.log`
+is mode 0600, 373 bytes/SHA-256
+`8d6421326184f2f16f5cf3b9b94897cc07fa0e55b6a8c9680ddf86b3b3612c2e`,
+exit 0. Execution `20261009-relay-candidate-build-3827ace.log` is mode 0600,
+4,695 bytes/SHA-256
+`86dbba272204ca51977d4e07eb09be784ccda8c3ea15c5202ce7e251c91a88c9`,
+exit 1. Both are credential-value clean. All three relay tests pass 100 race
+repetitions in 19.278 seconds and every non-storage package passes. Ten
+storage tests reject tmpfs fixtures as sparse/uninspectable; vet and build do
+not run. This repeats a documented VM filesystem boundary. The correction
+must rerun the entire gate with a short ext4-backed `TMPDIR`, without excluding
+storage or changing its assertions.
+
+Corrected short-ext4 upload
+`20261009-relay-candidate-build-upload-3827ace-ext4.log` is mode 0600, 378
+bytes/SHA-256
+`b4c7d3b1a6c2dde6f25ba8e7a69388d7d107992c53be3b6ffa534fce06e06d06`,
+exit 0. Execution `20261009-relay-candidate-build-3827ace-ext4.log` is mode
+0600, 6,684 bytes/SHA-256
+`c9f2bf3fbe2fd71f130e34ddd64a01e6a5149cccd4f48691e3f4e79faef2835e`,
+exit 0. Both are credential-value clean. The runner confirms ext4, passes all
+three relay tests for 100 race repetitions in 19.286 seconds, every runtime
+package under the race detector including storage, and full vet. Seven static
+binaries carry exact revision `3827ace62d3cbf620ae77025b4be1b9621dfc9ba`;
+strict manifest and version checks pass. SHA-256 values are shim `b2ea69f9…`,
+mk-agent `248db48a…`, mk-agentctl `3d9f0d7c…`, mk-cni `7ab95db4…`,
+mk-host-check `fe314c51…`, mknetd `de1868c6…`, mkruntimed `3696b03e…`, and
+manifest `aef76877…`. Nothing is installed yet.
+
+Transactional activation succeeds. Upload
+`20261009-relay-candidate-activation-upload-3827ace.log` is mode 0600, 379
+bytes/SHA-256
+`1462ce847514d7bc0f24bf8a63c364c4ec1d3b53bb6481020aeb246c5c589020`,
+exit 0. Execution `20261009-relay-candidate-activation-3827ace.log` is mode
+0600, 7,572 bytes/SHA-256
+`cf51fa0c45191d21f53c7a1356d6a2e19b4e1f633158e9008e6ae693f0a8e200`,
+exit 0. Both are credential-value clean. From a clean Kerf/19-counter baseline,
+the runner installs exact release
+`0.1.0-dev-3827ace62d3cbf620ae77025b4be1b9621dfc9ba`, matches all seven
+installed binaries to the build and full version strings, and restarts only
+mkruntimed and mknetd. Their running hashes match installed values
+`3696b03e…` and `de1868c6…`; containerd and Docker PIDs are unchanged. All
+services are active with zero restarts and the post-activation resource audit
+passes. Rollback is not invoked. Workload behavior remains unclaimed here.
+
+The first exact-revision cancellation qualification is retained as a failed
+harness attempt, not product evidence. Mode-0600 transcript
+`20261009-g6-cancellation-live-3827ace.log` is 224,164 bytes, SHA-256
+`7bf929ab42dde91a40b2e8f1da355be621cdc28353d98dc4be0e6fbfdaff5d58`,
+wrapper exit 1, and credential-value clean. Its rootfs-build phase does prove
+client timeout status 124 and reaping of blocker parent PID 25218 and child PID
+25221. It then calls the strict final audit while the official
+`mkruntimed.service` is intentionally stopped and the temporary qualification
+unit is active, so the audit necessarily fails for 60 seconds. The later Kerf
+phase cannot start because the host-qualification probe invokes the blocker
+without its transient `MK_CANCEL_*` environment and the blocker exits
+fail-closed. Neither defect is a product-runtime failure, and the cancellation
+qualification remains open pending a corrected exact-source live run.
+
+Independent diagnostic
+`20261009-g6-cancellation-first-diagnostic-3827ace.log` is mode 0600, 27,154
+bytes, SHA-256
+`00e3c977108a60aa8066767351d2b39364e73b1f31cfd6a22873f2f76506b428`,
+exit 0, and credential-value clean. The journal records the exact fail-closed
+error `MK_CANCEL_REAL is required` during Kerf host qualification. After the
+qualifier trap, the active selector is again exact revision `3827ace…`, all
+four services are active, the running mkruntimed hash is `3696b03e…`, Kerf has
+no pool or instances, and all 19 resource counters are zero. This proves
+restoration and cleanup after the failed attempt; it does not close the
+cancellation qualification.
+
+The cancellation qualifier correction is now implemented locally. Strict
+resource audits run only after `stop_qualification_daemon` has restored the
+official mkruntimed service. The blocker also accepts its three values from
+`/opt/mkruntime/qualification-cancel/blocker.config` when host qualification
+removes the environment, but only when that path is a non-symlink regular file
+owned by UID 0 with exact mode 0600; malformed values fail closed. Bash syntax,
+diff hygiene, the environment path, missing-config rejection, and rejection of
+an unprivileged mode-0600 config pass locally. ShellCheck is not installed and
+the local container forbids sudo via `no new privileges`, so successful
+root-owned fallback execution remains explicitly unclaimed until the
+exact-source VM run.

@@ -9,6 +9,7 @@ task_id=mk-cancellation-live
 unit=mkruntimed-cancel-qualification.service
 install_root=/opt/mkruntime/qualification-cancel
 blocker=$install_root/blocker
+blocker_config=$install_root/blocker.config
 config=$install_root/config.json
 control=/run/mkruntime-cancel-qualification
 scratch=$(mktemp -d -p /var/tmp mk-cancel.XXXXXX)
@@ -65,7 +66,7 @@ wait_clean() {
 }
 
 start_qualification_daemon() {
-	local operation=$1 real=$2 use_config=$3 arg replaced=0
+	local operation=$1 real=$2 arg replaced=0
 	mapfile -d '' original_argv <"/proc/$(systemctl show -p MainPID --value mkruntimed)/cmdline"
 	qualification_argv=()
 	for arg in "${original_argv[@]}"; do
@@ -79,6 +80,9 @@ start_qualification_daemon() {
 	sudo systemctl stop mkruntimed
 	official_running=0
 	sudo rm -rf -- "$control"
+	printf '%s\n%s\n%s\n' "$real" "$operation" "$control" | sudo tee "$blocker_config" >/dev/null
+	sudo chown root:root "$blocker_config"
+	sudo chmod 0600 "$blocker_config"
 	sudo systemd-run --unit="$unit" --collect --property=Type=simple \
 		--setenv="MK_CANCEL_REAL=$real" --setenv="MK_CANCEL_OPERATION=$operation" \
 		--setenv="MK_CANCEL_CONTROL=$control" -- "${qualification_argv[@]}"
@@ -110,7 +114,6 @@ cancel_blocked_create() {
 	for _ in $(seq 1 240); do [[ ! -d /proc/$parent && ! -d /proc/$child ]] && break; sleep .25; done
 	[[ ! -d /proc/$parent && ! -d /proc/$child ]]
 	observe "$label-cancellation" "client_status=$status blocker_parent=$parent blocker_child=$child parent_reaped=true child_reaped=true"
-	observe "$label-cleanup" "$(wait_clean)"
 }
 
 [[ $(id -u) -ne 0 ]] || { echo 'run as an ordinary sudo-capable user' >&2; exit 1; }
@@ -127,16 +130,18 @@ sudo install -d -m 0700 "$install_root"
 sudo install -m 0755 "$source_root/scripts/runtime-cancellation-blocker.sh" "$blocker"
 real_builder=$(systemctl show -p ExecStart --value mkruntimed | grep -o -- '--rootfs-builder=[^ ;}]*' | head -1 | cut -d= -f2-)
 [[ -x $real_builder ]]
-start_qualification_daemon rootfs-build "$real_builder" false
+start_qualification_daemon rootfs-build "$real_builder"
 cancel_blocked_create rootfs-build
 stop_qualification_daemon
+observe rootfs-build-cleanup "$(wait_clean)"
 
 real_kerf=$(sudo jq -r .kerf_executable /etc/mkruntime/config.json)
 sudo jq --arg blocker "$blocker" '.kerf_executable=$blocker' /etc/mkruntime/config.json | sudo tee "$config" >/dev/null
 sudo chmod 0600 "$config"
-start_qualification_daemon kerf-load "$real_kerf" true
+start_qualification_daemon kerf-load "$real_kerf"
 cancel_blocked_create child-boot
 stop_qualification_daemon
+observe child-boot-cleanup "$(wait_clean)"
 
 sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c 'echo cancellation-ready; while :; do sleep 1; done'
 before_pid=$(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $2}')
