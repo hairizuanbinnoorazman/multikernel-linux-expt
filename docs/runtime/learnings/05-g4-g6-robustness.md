@@ -11061,3 +11061,100 @@ ownership. Three new durability regressions and the existing ambiguity and
 tombstone matrices pass 20 race repetitions; the complete runtime package race
 suite, full vet, and diff hygiene also pass locally. Exact-source VM rebuild
 and live cancellation remain required before closing the row.
+
+Commit `abf593f6a3162b4dc455708443e2872226c9ae45` freezes the server-side
+canceled-Load correction and its regression coverage. The tracked-files-only
+archive `/tmp/mksrc-abf593f.tar` is mode 0600, 7,260,160 bytes, SHA-256
+`8c92223d46e995239ba2b053c05b2677f009f71b1f953fbcd3270ddbcf9214e4`,
+and carries that exact revision in its tar metadata. The user-restarted VM
+requires a fresh boot/cleanliness preflight before any new live claim.
+
+Exact archive/workflow transfer succeeds. Transcript
+`20261009-cancellation-final-transfer-abf593f.log` is mode 0600, 364 bytes,
+SHA-256
+`12abc901ea9c079c5d1964e9f39a6a744aefc8fde4b692736e93d745b233693f`,
+exit 0, and credential-value clean. Guest archive verification, restarted boot
+identity, cleanliness, build, activation, and behavior remain unclaimed until
+the cohesive runner executes.
+
+The exact `abf593f6a3162b4dc455708443e2872226c9ae45` cohesive workflow is
+retained as a partial failure, not a pass. Transcript
+`20261009-g6-cancellation-final-exact-workflow-abf593f.log` is mode 0600,
+15,618 bytes, SHA-256
+`97d483d3c8805dc2becb7fa45044e9658ddd6f707f2546f45709b7c4bd478ada`, and
+exits 1. On restarted boot `78f000d4-1d10-437f-8618-0137e4ca7ce2`, it verifies
+the exact archive, passes clean preflight, 100 relay race repetitions, the
+full runtime race suite and vet, builds and activates the exact release, then
+proves both rootfs-build and child-boot cancellation reap their blocker
+parent/child. Each completed phase's strict cleanup proves empty Kerf, all 19
+inventory counters zero, and mkruntimed, mknetd, containerd, and Docker active
+with zero restarts. The runner exits immediately after child-boot cleanup and
+before emitting the task-RPC observation or overall pass marker. G6
+cancellation therefore remains open pending diagnosis and completion; this
+artifact does not show a cleanup leak.
+
+Immediate read-only boundary diagnostic
+`20261009-g6-cancellation-abf593f-boundary-diagnostic.log` is mode 0600, 2,173
+bytes, SHA-256
+`c638d91862e9fc13d0e104788bac8f42a177b5ba98107fad38fa6901dae41aef`, exit
+0. Its upload transcript is mode 0600, 387 bytes, SHA-256
+`9c2a6a7b8a80828f9623b5c2464ae611f744f58cfbf6176c7c83a08f09cda7a0`, exit
+0. It confirms the same boot and exact selector, empty default/moby containerd
+inventories, and all four services active with zero restarts. Containerd
+records a new `mk-cancellation-live` shim connection at 07:34:20 UTC, then a
+disconnect and dead-shim cleanup exactly 60 seconds later as the workflow
+exits. The initial inference that the detached `ctr run` itself failed is
+superseded by the durable journal below: the run succeeded and a later
+task-RPC assertion triggered cleanup. The diagnostic's bare `kerf` lookup is
+unavailable in root's PATH, so empty Kerf is supported by the immediately
+preceding strict audit rather than that diagnostic subcommand.
+
+A bounded unique-ID task probe stops at its strict preflight and exposes state
+missed by the first boundary inventory. Transcript
+`20261009-g6-cancellation-abf593f-task-probe.log` is mode 0600, 3,633 bytes,
+SHA-256
+`5efe1c038a80b45b73cac1524fbf9940a1386f991f502340c106e606a365f6b3`, exit
+1; its upload transcript is mode 0600, 357 bytes, SHA-256
+`7f19f1d7b669edf1ff975b224002de549a08f5803dfdb36698b9552370d518d8`, exit
+0. The exact audit observes no Kerf instances but a configured 16 GiB pool
+with all eight pool CPUs available and no allocated memory, so it correctly
+refuses to start the probe. The initial interpretation that this was a
+failed-create pool leak is superseded by the durable-state diagnostic below:
+the ordinary create succeeded, and the running daemon intentionally retains an
+idle pool across ordinary zero-sandbox intervals.
+
+Durable-state diagnostic
+`20261009-g6-cancellation-abf593f-state-diagnostic.log` is mode 0600, 48,104
+bytes, SHA-256
+`b462f67c3febc0b5e54cb4f30f6dc4483d637918982fcac38ddda57280108bf0`, exit
+0; its upload transcript is mode 0600, 381 bytes, SHA-256
+`cca9f22d0a56ef1f2019f4d5229a2bccaa32da239899c4831c242b1a97c99f59`, exit
+0. It shows no durable sandbox and journal sequence 431-440 proves the
+ordinary task completed Create, Load, and Start, remained RUNNING for about
+ten seconds, then the harness EXIT trap completed Stop and Delete. The pool is
+therefore expected daemon-owned idle-pool retention, not leaked task
+ownership. The failure is narrowed to a task wait/attach/exec assertion after
+successful start; an isolated task-RPC run is still required.
+
+Isolated task-RPC diagnostic
+`20261009-g6-cancellation-abf593f-task-rpc-diagnostic.log` is mode 0600, 845
+bytes, SHA-256
+`50786f08f56ec86013c3d1030866ae89505fdbd1b1832a8ba02a56031c0b3e57`, exit
+1; its upload transcript is mode 0600, 361 bytes, SHA-256
+`533fbba97eb54d2e45f2ca95eff9697c1c7b69d7f120c33ea0a1c1c58c2101f5`, exit
+0. The task starts RUNNING at PID 37195. `ctr tasks wait` exits 3 with `No help
+topic for 'wait'`, proving the cohesive runner failed on an invalid plural
+command before testing cancellation. The diagnostic continues and shows
+TERM-timeout of `ctr tasks attach` exits 124 but forwards termination into the
+guest: the task vanishes and post-cancel exec reports no running task. The
+harness must use singular `ctr task wait` and kill only the wait and attach
+clients with uncatchable SIGKILL before it can claim that task RPC
+cancellation preserves the task.
+
+The task-RPC harness correction is implemented locally: wait now uses the
+valid singular `ctr task wait`; wait and attach clients are bounded with
+SIGKILL so the client disappears without a catchable signal that `ctr` can
+forward to the guest; both expect status 137 and retain the existing PID,
+RUNNING-state, and post-cancel exec assertions. Bash syntax and diff hygiene
+pass. Live behavior remains unclaimed until the corrected exact revision is
+frozen and exercised.

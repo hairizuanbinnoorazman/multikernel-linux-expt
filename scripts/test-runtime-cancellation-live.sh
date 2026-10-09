@@ -147,12 +147,12 @@ observe child-boot-cleanup "$(wait_clean)"
 
 sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c 'echo cancellation-ready; while :; do sleep 1; done'
 before_pid=$(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $2}')
-set +e; sudo timeout --foreground --signal=TERM 2 ctr tasks wait "$task_id" >"$scratch/wait" 2>&1; wait_status=$?; set -e
-[[ $wait_status = 124 ]]
+set +e; sudo timeout --foreground --signal=KILL 2 ctr task wait "$task_id" >"$scratch/wait" 2>&1; wait_status=$?; set -e
+[[ $wait_status = 137 ]]
 [[ $(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $3}') = RUNNING ]]
 [[ $(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $2}') = "$before_pid" ]]
-set +e; sudo timeout --foreground --signal=TERM 2 ctr tasks attach "$task_id" >"$scratch/attach" 2>&1; attach_status=$?; set -e
-[[ $attach_status = 124 ]]
+set +e; sudo timeout --foreground --signal=KILL 2 ctr tasks attach "$task_id" >"$scratch/attach" 2>&1; attach_status=$?; set -e
+[[ $attach_status = 137 ]]
 [[ $(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $3}') = RUNNING ]]
 probe=$(sudo ctr task exec --exec-id cancellation-probe "$task_id" /bin/echo cancellation-still-usable)
 [[ $probe = cancellation-still-usable ]]
