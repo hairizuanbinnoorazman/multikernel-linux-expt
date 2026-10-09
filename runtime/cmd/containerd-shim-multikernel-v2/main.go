@@ -3032,15 +3032,8 @@ func (s *service) startNetworkPump() {
 						return
 					case <-time.After(100 * time.Millisecond):
 					}
-					reconnectCtx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
-					relaySocket, relayGeneration := s.relaySnapshot()
-					reconnectErr := s.agent.ReconnectContext(reconnectCtx, relaySocket)
-					if reconnectErr != nil {
-						_, replaceErr := s.replaceExitedRelay(reconnectCtx, relayGeneration)
-						if replaceErr != nil {
-							reconnectErr = errors.Join(reconnectErr, replaceErr)
-						}
-					}
+					reconnectCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					reconnectErr := s.probeAgentTransport(reconnectCtx)
 					cancel()
 					if reconnectErr == nil {
 						s.queueNetworkReport("READY")
@@ -3573,6 +3566,14 @@ func closeProcessIO(p *process) {
 		_ = p.stderrGuard.Close()
 		p.stderrGuard = nil
 	}
+}
+
+// probeAgentTransport uses an authenticated, read-only RPC through the common
+// reconnect path. The network pump must not dial independently: another agent
+// caller may already own the sole connection accepted by a replacement relay.
+func (s *service) probeAgentTransport(ctx context.Context) error {
+	var capabilities map[string]any
+	return s.callAgentWithReconnectContext(ctx, "Capabilities", map[string]any{}, &capabilities)
 }
 
 func (s *service) pumpStdin(agentID string, p *process) {

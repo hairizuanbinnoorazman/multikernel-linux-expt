@@ -753,12 +753,14 @@ func (f *stdinReplayAgent) ReconnectContext(context.Context, string) error {
 }
 
 type networkPumpAgent struct {
-	mu                sync.Mutex
-	exchanges         int
-	reconnects        int
-	reconnectFailures int
-	handler           func(int, []byte) ([]byte, error)
-	packets           chan []byte
+	mu                               sync.Mutex
+	exchanges                        int
+	reconnects                       int
+	reconnectFailures                int
+	transportBroken                  bool
+	preserveTransportOnExchangeError bool
+	handler                          func(int, []byte) ([]byte, error)
+	packets                          chan []byte
 }
 
 func (f *networkPumpAgent) Call(method string, request, response any) error {
@@ -766,6 +768,14 @@ func (f *networkPumpAgent) Call(method string, request, response any) error {
 }
 
 func (f *networkPumpAgent) CallContext(_ context.Context, method string, request, response any) error {
+	if method == "Capabilities" {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if f.transportBroken {
+			return errors.New("injected disconnected transport")
+		}
+		return setJSONResponse(response, map[string]any{})
+	}
 	if method != "ExchangeNetwork" {
 		return fmt.Errorf("unexpected network pump method %s", method)
 	}
@@ -779,6 +789,11 @@ func (f *networkPumpAgent) CallContext(_ context.Context, method string, request
 	}
 	output, err := f.handler(call, packet)
 	if err != nil {
+		f.mu.Lock()
+		if !f.preserveTransportOnExchangeError {
+			f.transportBroken = true
+		}
+		f.mu.Unlock()
 		return err
 	}
 	return setJSONResponse(response, map[string][]byte{"packet": output})
@@ -793,6 +808,7 @@ func (f *networkPumpAgent) ReconnectContext(context.Context, string) error {
 	if f.reconnects <= f.reconnectFailures {
 		return errors.New("injected reconnect failure")
 	}
+	f.transportBroken = false
 	return nil
 }
 
@@ -5895,7 +5911,7 @@ func TestNetworkPumpMTUBoundsCountersAndReconnect(t *testing.T) {
 			}
 			return nil, nil
 		}
-		s := &service{agent: client, netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
+		s := &service{agent: client, relaySocket: "/run/multikernel/relay.sock", netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
 		if _, err := unix.Write(peer, bytes.Repeat([]byte{4}, mtu)); err != nil {
 			t.Fatal(err)
 		}
@@ -5908,6 +5924,41 @@ func TestNetworkPumpMTUBoundsCountersAndReconnect(t *testing.T) {
 		waitNetworkCondition(t, func() bool { return s.netRXPackets.Load() == 1 }, "post-reconnect packet")
 		if s.netRXDrops.Load() != 1 || s.netErrors.Load() != 1 {
 			t.Fatalf("disconnect counters = drops:%d errors:%d", s.netRXDrops.Load(), s.netErrors.Load())
+		}
+	})
+
+	t.Run("shared transport recovery avoids a competing redial", func(t *testing.T) {
+		device, peer := networkPumpSocket(t)
+		client := &networkPumpAgent{preserveTransportOnExchangeError: true}
+		failed := false
+		client.handler = func(_ int, packet []byte) ([]byte, error) {
+			if len(packet) != 0 && !failed {
+				failed = true
+				return nil, errors.New("injected exchange failure after shared recovery")
+			}
+			return packet, nil
+		}
+		s := &service{agent: client, netDevice: device, netEndpoint: mknetwork.Endpoint{MTU: mtu}}
+		s.startNetworkPump()
+		defer stopNetworkPumpForTest(s)
+		if _, err := unix.Write(peer, bytes.Repeat([]byte{6}, mtu)); err != nil {
+			t.Fatal(err)
+		}
+		waitNetworkCondition(t, func() bool { return s.netErrors.Load() == 1 }, "shared transport failure")
+		if reconnects := client.reconnectCount(); reconnects != 0 {
+			t.Fatalf("shared recovered transport triggered %d competing redials", reconnects)
+		}
+		marker := bytes.Repeat([]byte{7}, mtu)
+		if _, err := unix.Write(peer, marker); err != nil {
+			t.Fatal(err)
+		}
+		buffer := make([]byte, mtu+1)
+		waitNetworkCondition(t, func() bool {
+			n, err := unix.Read(peer, buffer)
+			return err == nil && n == len(marker) && bytes.Equal(buffer[:n], marker)
+		}, "packet after shared transport recovery")
+		if s.netRXDrops.Load() != 1 || s.netRXPackets.Load() != 1 || s.netTXPackets.Load() != 1 {
+			t.Fatalf("shared recovery counters = rx:%d tx:%d rxdrop:%d", s.netRXPackets.Load(), s.netTXPackets.Load(), s.netRXDrops.Load())
 		}
 	})
 }
