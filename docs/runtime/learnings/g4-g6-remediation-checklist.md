@@ -10946,3 +10946,51 @@ the named quarantine. This reset establishes a test precondition only.
   RUNNING-state, and post-cancel exec assertions. Bash syntax and diff hygiene
   pass. Live behavior remains unclaimed until the corrected exact revision is
   frozen and exercised.
+
+- Commit `51b2600b4fe1a9ab4666e88ce2db05ddf9b4c9ba` freezes the corrected
+  task-RPC qualifier and all findings through its diagnosis. Its
+  tracked-files-only archive `/tmp/mksrc-51b2600.tar` is mode 0600,
+  7,270,400 bytes, SHA-256
+  `8fe2baa4f417aae39a57578074eba0f16e5edaf72987ddcda642d8ca9cac7879`,
+  with the exact revision embedded in tar metadata. Strict preflight
+  `20261009-cancellation-51b2600-preflight.log` is mode 0600, 1,902 bytes,
+  SHA-256
+  `17834601161b02668eebe2a630d52250c56c5c9769958cd50c54e95c8e7ca523`,
+  exit 0. It proves the diagnostic cleanup restarted mkruntimed cleanly: no
+  Kerf pool or instances, all 19 inventory counters zero, and all four
+  services active with zero restarts on boot
+  `78f000d4-1d10-437f-8618-0137e4ca7ce2`.
+
+- Exact `51b2600…` archive/runner transfer succeeds. Transcript
+  `20261009-cancellation-final-transfer-51b2600.log` is mode 0600, 364 bytes,
+  SHA-256
+  `dcdabb14a0aa0cb1e19c53f1083e69144f6b2a26f0d7bb7e6297ab6739ef2f7b`,
+  exit 0. The cohesive runner hashes to
+  `41f0691db4b4fd566b395bd6ab568ffafe32f0aea211bb13d976a67b888903d9`;
+  guest-side verification and behavior remain separate claims.
+
+- Exact `51b2600…` cohesive attempt
+  `20261009-g6-cancellation-final-exact-workflow-51b2600.log` is mode 0600,
+  14,102 bytes, SHA-256
+  `530e4dd0cd87191248f268bd8ee237c913653f4ce0b7e1b2949b72b2a7b165c1`,
+  exit 1. It passes exact archive verification, clean preflight, 100 relay
+  race repetitions, the complete runtime race suite, vet, build, activation,
+  rootfs-build cancellation, and strict rootfs-build cleanup. The child-boot
+  qualifier then fails its 60-second blocker-ready bound while the `ctr`
+  client is still running; the EXIT trap kills that client and restores the
+  official daemon. This attempt does not reach the corrected task-RPC phase.
+  Independent audit
+  `20261009-g6-cancellation-51b2600-ready-timeout-final-audit.log` is mode
+  0600, 1,902 bytes, SHA-256
+  `b43f1b6acd3b6268c8de93a2f06d7013d6168fa80fd3cfcca221daa39011c314`,
+  exit 0, and proves empty Kerf, all 19 counters zero, the exact active
+  revision, and all four services active with zero restarts. The readiness
+  bound needs to cover normal rootfs preparation before Kerf Load is reached.
+
+- The qualifier now gives the child-boot blocker up to 180 seconds to reach
+  Kerf Load within its existing 300-second outer create bound. It also
+  gracefully restarts mkruntimed after ordinary task deletion so the daemon's
+  intentionally retained idle pool is released before the strict final
+  zero-resource audit. Bash syntax and diff hygiene pass; ShellCheck is not
+  installed locally. These are harness lifecycle corrections only and remain
+  live-unclaimed pending a new exact revision.

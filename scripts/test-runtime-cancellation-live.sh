@@ -104,7 +104,10 @@ cancel_blocked_create() {
 	local label=$1 status parent child
 	sudo timeout --foreground --kill-after=10 300 ctr run --rm --runtime "$runtime" "$image" "$task_id" /bin/true >"$scratch/$label.client" 2>&1 &
 	client_pid=$!
-	for _ in $(seq 1 240); do sudo test -f "$control/ready" && break; kill -0 "$client_pid" 2>/dev/null || break; sleep .25; done
+	# Kerf-load blocking is reached only after normal rootfs preparation. Give
+	# that prerequisite the same production-scale allowance as the outer create
+	# deadline instead of treating a slow cold build as a cancellation failure.
+	for _ in $(seq 1 720); do sudo test -f "$control/ready" && break; kill -0 "$client_pid" 2>/dev/null || break; sleep .25; done
 	sudo test -f "$control/ready"
 	parent=$(sudo cat "$control/parent"); child=$(sudo cat "$control/child")
 	sudo kill -TERM "$client_pid"
@@ -158,6 +161,11 @@ probe=$(sudo ctr task exec --exec-id cancellation-probe "$task_id" /bin/echo can
 [[ $probe = cancellation-still-usable ]]
 observe task-rpc-cancellation "wait_status=$wait_status attach_status=$attach_status task_pid=$before_pid state=RUNNING post_cancel_exec=$probe"
 cleanup_task
+# Ordinary DeleteSandbox deliberately retains the initialized pool. Exercise
+# the graceful daemon-shutdown contract before demanding a zero-resource final
+# inventory, exactly as the other live workload qualifiers do.
+sudo systemctl restart mkruntimed
+wait_official
 observe clean-after "$(wait_clean)"
 for service in mkruntimed mknetd containerd docker; do [[ $(systemctl is-active "$service") = active ]]; done
 
