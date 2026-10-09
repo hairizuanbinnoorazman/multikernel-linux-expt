@@ -167,6 +167,21 @@ func TestMain(m *testing.M) {
 		_ = os.WriteFile(marker, []byte(strconv.Itoa(os.Getpid())+"\n"), 0600)
 		select {}
 	}
+	if marker := os.Getenv("MK_SHIM_SUPERVISOR_PROXY_FIRST_MARKER"); marker != "" && os.Getenv("MK_SHIM_WORKER") == "1" {
+		if _, err := os.Stat(marker); errors.Is(err, os.ErrNotExist) {
+			_ = os.WriteFile(marker, []byte("first-worker-proxy-first\n"), 0600)
+			_ = syscall.Close(3)
+			time.Sleep(50 * time.Millisecond)
+			_ = syscall.Kill(os.Getpid(), syscall.SIGKILL)
+			os.Exit(99)
+		}
+		file, _ := os.OpenFile(marker, os.O_APPEND|os.O_WRONLY, 0600)
+		if file != nil {
+			_, _ = file.WriteString("second-worker-clean\n")
+			_ = file.Close()
+		}
+		os.Exit(0)
+	}
 	os.Exit(m.Run())
 }
 
@@ -6432,6 +6447,48 @@ func TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects(t *testing.T) {
 	}
 	if _, err = os.Stat(filepath.Join(bundle, ".multikernel-worker.pid")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("worker PID file remains after disconnect: %v", err)
+	}
+}
+
+func TestProxiedSupervisorRestartsSignaledWorkerAfterProxyEOF(t *testing.T) {
+	probe, file, _, err := privateShimListener()
+	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+		t.Skipf("abstract Unix listeners unavailable in this environment: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = file.Close()
+	_ = probe.Close()
+	bundle := privateTestDirectory(t)
+	directory, err := safefile.OpenOwnedDirectory(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	client, stable := net.Pipe()
+	defer client.Close()
+	marker := filepath.Join(bundle, "proxy-first-worker")
+	environment := append(os.Environ(), "MK_SHIM_SUPERVISOR_PROXY_FIRST_MARKER="+marker)
+	done := make(chan int, 1)
+	go func() {
+		done <- superviseProxiedShimWorkerWithDirectory(stable, os.Args[0], []string{"-test.run=^$"},
+			directory.ProcPath(), environment, directory)
+	}()
+	select {
+	case status := <-done:
+		if status != 0 {
+			t.Fatalf("supervisor status = %d", status)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("supervisor did not recover proxy-first worker death")
+	}
+	value, err := os.ReadFile(marker)
+	if err != nil || string(value) != "first-worker-proxy-first\nsecond-worker-clean\n" {
+		t.Fatalf("worker generations = %q, %v", value, err)
+	}
+	if _, err = os.Stat(filepath.Join(bundle, ".multikernel-worker.pid")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("worker PID file remains after recovery: %v", err)
 	}
 }
 

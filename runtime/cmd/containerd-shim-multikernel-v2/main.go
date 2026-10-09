@@ -5244,6 +5244,7 @@ func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self
 		go func() { workerDone <- cmd.Wait() }()
 		var proxyErr error
 		proxyEndedFirst := false
+		workerEndedDuringGrace := false
 		select {
 		case err = <-workerDone:
 			_ = workerConnection.Close()
@@ -5254,6 +5255,7 @@ func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self
 			timer := time.NewTimer(shimWorkerDisconnectGrace)
 			select {
 			case err = <-workerDone:
+				workerEndedDuringGrace = true
 				if !timer.Stop() {
 					<-timer.C
 				}
@@ -5270,6 +5272,8 @@ func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self
 			if proxyErr != nil && !errors.Is(proxyErr, net.ErrClosed) && !errors.Is(proxyErr, io.EOF) {
 				fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker proxy ended: %v\n", proxyErr)
 			}
+		}
+		if proxyEndedFirst && !workerEndedDuringGrace {
 			return 0
 		}
 		if err == nil {
