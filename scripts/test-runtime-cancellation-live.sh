@@ -14,6 +14,7 @@ config=$install_root/config.json
 control=/run/mkruntime-cancel-qualification
 scratch=$(mktemp -d -p /var/tmp mk-cancel.XXXXXX)
 official_running=1
+task_phase=0
 client_pid=
 
 observe() { local key=$1; shift; printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' "$key" "$*" "$key"; }
@@ -45,6 +46,12 @@ restore() {
 	sudo systemctl stop "$unit" >/dev/null 2>&1 || true
 	if (( ! official_running )); then
 		sudo systemctl start mkruntimed >/dev/null 2>&1 || true
+		wait_official >/dev/null 2>&1 || true
+	elif (( task_phase )); then
+		# A failed ordinary-task assertion still leaves the intentionally
+		# retained idle pool owned by the official daemon. Exercise graceful
+		# shutdown in the failure path as well as the success epilogue.
+		sudo systemctl restart mkruntimed >/dev/null 2>&1 || true
 		wait_official >/dev/null 2>&1 || true
 	fi
 	sudo rm -rf -- "$install_root" "$control"
@@ -148,24 +155,27 @@ stop_qualification_daemon
 cleanup_task
 observe child-boot-cleanup "$(wait_clean)"
 
+task_phase=1
 sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sh -c 'echo cancellation-ready; while :; do sleep 1; done'
 before_pid=$(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $2}')
-set +e; sudo timeout --foreground --signal=KILL 2 ctr task wait "$task_id" >"$scratch/wait" 2>&1; wait_status=$?; set -e
-[[ $wait_status = 137 ]]
+# containerd v1.7 ctr has no standalone wait command. Its supported attach
+# command invokes task.Wait(ctx) before blocking on attached I/O, so killing
+# only this client exercises Wait cancellation without a catchable signal that
+# ctr can forward into the guest.
+set +e; sudo timeout --foreground --signal=KILL 2 ctr tasks attach "$task_id" >"$scratch/attach" 2>&1; attach_status=$?; set -e
+[[ $attach_status = 124 ]]
 [[ $(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $3}') = RUNNING ]]
 [[ $(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $2}') = "$before_pid" ]]
-set +e; sudo timeout --foreground --signal=KILL 2 ctr tasks attach "$task_id" >"$scratch/attach" 2>&1; attach_status=$?; set -e
-[[ $attach_status = 137 ]]
-[[ $(sudo ctr tasks list | awk -v id="$task_id" '$1 == id {print $3}') = RUNNING ]]
 probe=$(sudo ctr task exec --exec-id cancellation-probe "$task_id" /bin/echo cancellation-still-usable)
 [[ $probe = cancellation-still-usable ]]
-observe task-rpc-cancellation "wait_status=$wait_status attach_status=$attach_status task_pid=$before_pid state=RUNNING post_cancel_exec=$probe"
+observe task-rpc-cancellation "attach_wait_status=$attach_status task_pid=$before_pid state=RUNNING post_cancel_exec=$probe"
 cleanup_task
 # Ordinary DeleteSandbox deliberately retains the initialized pool. Exercise
 # the graceful daemon-shutdown contract before demanding a zero-resource final
 # inventory, exactly as the other live workload qualifiers do.
 sudo systemctl restart mkruntimed
 wait_official
+task_phase=0
 observe clean-after "$(wait_clean)"
 for service in mkruntimed mknetd containerd docker; do [[ $(systemctl is-active "$service") = active ]]; done
 
