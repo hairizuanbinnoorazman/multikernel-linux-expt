@@ -199,6 +199,22 @@ endpoint_after_mkruntimed=$(endpoint_summary); same_endpoint_identity "$endpoint
 [[ $(sudo ctr task exec --exec-id boot-after-mkruntimed "$task_id" /bin/cat /proc/sys/kernel/random/boot_id) = "$boot_initial" ]]
 observe mkruntimed-restart "pid_before=$mkruntimed_before pid_after=$mkruntimed_after child_boot=$boot_initial endpoint=$endpoint_after_mkruntimed"
 
+holder_before_relay=$(holder_pid); worker_before_relay=$(parent_pid "$holder_before_relay"); supervisor_before_relay=$(parent_pid "$worker_before_relay")
+relay_before_direct=$(relay_pid_for_worker "$worker_before_relay")
+sudo kill -KILL "$relay_before_direct"
+relay_after_direct=
+for _ in $(seq 1 480); do
+	relay_after_direct=$(relay_pid_for_worker "$worker_before_relay" 2>/dev/null || true)
+	if [[ -n $relay_after_direct && $relay_after_direct != "$relay_before_direct" && ! -d /proc/$relay_before_direct ]]; then break; fi
+	sleep .25
+done
+[[ -n $relay_after_direct && $relay_after_direct != "$relay_before_direct" && ! -d /proc/$relay_before_direct ]]
+[[ $(holder_pid) = "$holder_before_relay" && $(parent_pid "$holder_before_relay") = "$worker_before_relay" && $(parent_pid "$worker_before_relay") = "$supervisor_before_relay" ]]
+packet_exchange after-direct-relay
+endpoint_after_direct_relay=$(endpoint_summary); same_endpoint_identity "$endpoint_initial" "$endpoint_after_direct_relay"
+boot_after_direct_relay=$(sudo ctr task exec --exec-id boot-after-direct-relay "$task_id" /bin/cat /proc/sys/kernel/random/boot_id); [[ $boot_after_direct_relay = "$boot_initial" ]]
+observe direct-relay-replacement "supervisor=$supervisor_before_relay worker=$worker_before_relay holder=$holder_before_relay old_relay=$relay_before_direct replacement_relay=$relay_after_direct child_boot=$boot_after_direct_relay endpoint=$endpoint_after_direct_relay"
+
 holder_before=$(holder_pid); worker_before=$(parent_pid "$holder_before"); supervisor=$(parent_pid "$worker_before")
 relay_before=$(relay_pid_for_worker "$worker_before")
 sudo kill -KILL "$worker_before"

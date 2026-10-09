@@ -194,6 +194,7 @@ type stateFileIdentity struct {
 
 type service struct {
 	mu                    sync.Mutex
+	relayMu               sync.Mutex
 	eventMu               sync.Mutex
 	runtimeMu             sync.Mutex
 	eventRetryStop        sync.Once
@@ -211,6 +212,7 @@ type service struct {
 	relay                 *exec.Cmd
 	relaySocket           string
 	relayOwner            relayPathOwner
+	relayGeneration       uint64
 	netDevice             *os.File
 	netDone               chan struct{}
 	netReports            chan string
@@ -2170,12 +2172,113 @@ func terminateRelay(command *exec.Cmd) error {
 	return waitErr
 }
 
+func relayProcessLive(command *exec.Cmd) (bool, error) {
+	if command == nil || command.Process == nil || command.ProcessState != nil {
+		return false, nil
+	}
+	fd, err := unix.Open(filepath.Join("/proc", strconv.Itoa(command.Process.Pid)), unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if errors.Is(err, syscall.ENOENT) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	directory := os.NewFile(uintptr(fd), "relay-process")
+	defer directory.Close()
+	stat, err := readProcEntry(directory, "stat", 4096)
+	if errors.Is(err, syscall.ENOENT) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	close := bytes.LastIndex(stat, []byte(") "))
+	if close < 0 {
+		return false, errors.New("relay process stat is malformed")
+	}
+	fields := strings.Fields(string(stat[close+2:]))
+	if len(fields) == 0 {
+		return false, errors.New("relay process stat omits state")
+	}
+	return fields[0] != "Z" && fields[0] != "X", nil
+}
+
+func (s *service) relaySnapshot() (string, uint64) {
+	s.relayMu.Lock()
+	defer s.relayMu.Unlock()
+	return s.relaySocket, s.relayGeneration
+}
+
+func (s *service) replaceExitedRelay(ctx context.Context, observedGeneration uint64) (bool, error) {
+	s.relayMu.Lock()
+	defer s.relayMu.Unlock()
+	if observedGeneration != s.relayGeneration {
+		return true, nil
+	}
+	if s.relay == nil {
+		return false, nil
+	}
+	live, err := relayProcessLive(s.relay)
+	if err != nil {
+		return false, fmt.Errorf("inspect agent relay process: %w", err)
+	}
+	if live {
+		return false, nil
+	}
+	if s.relaySocket == "" {
+		return false, errors.New("agent relay socket is unavailable")
+	}
+	if err = terminateRelay(s.relay); err != nil {
+		return false, fmt.Errorf("reap exited agent relay: %w", err)
+	}
+	s.relay = nil
+	if s.relayOwner != nil {
+		err = s.relayOwner.Remove()
+	} else {
+		err = removeStaleRelaySocket(s.relaySocket)
+	}
+	if err != nil {
+		return false, fmt.Errorf("remove exited agent relay socket: %w", err)
+	}
+	s.relayOwner = nil
+	command := s.relayCommand(s.sandbox.Config.AgentPort, s.relaySocket)
+	if err = command.Start(); err != nil {
+		return false, fmt.Errorf("restart exited agent relay: %w", err)
+	}
+	s.relay = command
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		owner, captureErr := s.captureRelaySocket(s.relaySocket)
+		if captureErr == nil {
+			if owner == nil {
+				captureErr = errors.New("relay socket capture returned no owner")
+			} else {
+				s.relayOwner = owner
+				s.relayGeneration++
+				return true, nil
+			}
+		}
+		if !errors.Is(captureErr, os.ErrNotExist) || time.Now().After(deadline) || ctx.Err() != nil {
+			cleanupErr := terminateRelay(command)
+			s.relay = nil
+			return false, errors.Join(fmt.Errorf("capture restarted agent relay socket: %w", captureErr), ctx.Err(), cleanupErr)
+		}
+		if err = waitContext(ctx, 50*time.Millisecond); err != nil {
+			cleanupErr := terminateRelay(command)
+			s.relay = nil
+			return false, errors.Join(err, cleanupErr)
+		}
+	}
+}
+
 func daemonErrorCode(err error, code string) bool {
 	observed, ok := daemon.ErrorCode(err)
 	return ok && observed == code
 }
 
 func (s *service) stopRelay() error {
+	s.relayMu.Lock()
+	defer s.relayMu.Unlock()
 	if s.relay != nil {
 		if err := terminateRelay(s.relay); err != nil {
 			return err
@@ -2930,7 +3033,14 @@ func (s *service) startNetworkPump() {
 					case <-time.After(100 * time.Millisecond):
 					}
 					reconnectCtx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
-					reconnectErr := s.agent.ReconnectContext(reconnectCtx, s.relaySocket)
+					relaySocket, relayGeneration := s.relaySnapshot()
+					reconnectErr := s.agent.ReconnectContext(reconnectCtx, relaySocket)
+					if reconnectErr != nil {
+						_, replaceErr := s.replaceExitedRelay(reconnectCtx, relayGeneration)
+						if replaceErr != nil {
+							reconnectErr = errors.Join(reconnectErr, replaceErr)
+						}
+					}
 					cancel()
 					if reconnectErr == nil {
 						s.queueNetworkReport("READY")
@@ -3787,11 +3897,15 @@ func (s *service) callAgentWithReconnectContext(parent context.Context, method s
 			lastErr = err
 		}
 		var remoteError *agent.RemoteError
-		if errors.As(lastErr, &remoteError) || s.relaySocket == "" || ctx.Err() != nil {
+		relaySocket, relayGeneration := s.relaySnapshot()
+		if errors.As(lastErr, &remoteError) || relaySocket == "" || ctx.Err() != nil {
 			return lastErr
 		}
-		if err := s.agent.ReconnectContext(ctx, s.relaySocket); err != nil {
+		if err := s.agent.ReconnectContext(ctx, relaySocket); err != nil {
 			lastErr = errors.Join(lastErr, fmt.Errorf("reconnect guest agent transport: %w", err))
+			if _, replaceErr := s.replaceExitedRelay(ctx, relayGeneration); replaceErr != nil {
+				lastErr = errors.Join(lastErr, replaceErr)
+			}
 		}
 		if err := waitContext(ctx, 50*time.Millisecond); err != nil {
 			return errors.Join(lastErr, err)

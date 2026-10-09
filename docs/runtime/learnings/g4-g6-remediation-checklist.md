@@ -2407,6 +2407,57 @@ phrase above.
   around the already-proved daemon/shim boundaries; host reboot evidence is
   not being substituted because earlier reboot observations exposed separate
   volatile-bundle/orphan reconciliation failures.
+- Direct relay-death source audit (2026-10-08): the implementation is in
+  `runtime/cmd/containerd-shim-multikernel-v2/main.go` (not the earlier
+  shorthand `runtime/shim/main.go`). Both `callAgentWithReconnectContext` and
+  `startNetworkPump` only call `ReconnectContext` against the existing
+  `relaySocket`. Although the service owns the relay `exec.Cmd` and a captured,
+  identity-bound socket owner, no monitor or reconnect failure path reaps and
+  replaces an exited relay. A directly killed relay therefore leaves a stale
+  socket path and cannot recover in the current implementation. This is a
+  product behavior gap, not merely missing live evidence; the composite row
+  stays open while a synchronized, ownership-safe replacement path is added
+  and qualified.
+- Direct relay-death implementation checkpoint (2026-10-08): the service now
+  serializes relay ownership with a dedicated lock and generation. A reconnect
+  failure inspects the owned relay through bounded `/proc/PID/stat`; only an
+  absent/exited/zombie process is eligible for replacement. Replacement reaps
+  the old process group, removes only the captured socket owner, starts the
+  same generation-bound relay, captures the new socket identity, and advances
+  the generation once. Healthy relay/guest-agent outages do not cause churn.
+  `go test -race ./cmd/containerd-shim-multikernel-v2 -run
+  'Test(ExitedRelayReplacement|AgentReconnectFailureReplacesExitedRelay)'
+  -count=20` passes: 16 concurrent observers
+  cause exactly one restart, old-owner removal, and new-owner capture in every
+  repetition; cancellation while the replacement never publishes its socket
+  kills/reaps the new process and leaves no relay or generation advance; and
+  an RPC failure plus failed reconnect replaces the dead relay exactly once,
+  reconnects, and completes the original RPC. The earlier complete non-race
+  shim package also passes. This is source evidence only; live relay-death
+  packet continuity is still unclaimed.
+- Post-implementation package gates pass locally: full `go test -race
+  ./cmd/containerd-shim-multikernel-v2` completes successfully in 9.944s and
+  `go vet ./cmd/containerd-shim-multikernel-v2` exits zero. Dependencies were
+  the repository-pinned module versions; disposable Go caches were placed
+  under `/tmp` because the managed home cache is read-only. No VM state or
+  installed release changed during these gates.
+- The focused restart qualifier now includes a direct-relay phase without
+  changing the separately deferred stale-relay harness. It kills the relay,
+  requires a distinct replacement while supervisor, shim worker, namespace
+  holder, child boot, and endpoint identity remain unchanged, then requires a
+  fresh token-exact child-to-primary packet exchange. Local Bash syntax and
+  `git diff --check` pass; ShellCheck is unavailable. The mode-0755,
+  13,312-byte script has SHA-256
+  `c1dd717113ff050342ea8436425e2db4c880b7910ee9d7e49a28bcbcfdf5a2c7`.
+  This records qualifier readiness only; no VM execution or live claim has
+  occurred against the unactivated source.
+- Full local runtime regression gate passes after the relay change: `go test
+  -race ./...` succeeds for every runtime package (with `mk-host-check`
+  correctly reporting no test files). `git diff --check` remains clean. The
+  checklist still has exactly 20 unchecked rows because this source result
+  does not substitute for direct-relay live packet evidence, primary-host
+  restart evidence, candidate cancellation activation/replay, deferred
+  stale-relay live observation, or their dependent final-bundle obligations.
 - Disposable-instance restart-row preflight: GCE reports
   `mklinux-g4-g6-final-20260905` `RUNNING` with start timestamp
   `2026-10-05T17:58:35.542-07:00`; host boot ID remains
@@ -4115,6 +4166,39 @@ failure. Capture evidence before repair, rebuild, reboot, or deletion.
    closed. Publish a final claim-to-assertion-to-file matrix for G4, G5, and G6.
 
 ## Gate closure
+
+### Authoritative open-row reconciliation: 2026-10-08
+
+The current file contains exactly 20 unchecked rows. Three are independent
+behavioral requirements: (1) direct agent/relay transport plus primary-restart
+packet continuity in the G5 restart row, (2) installed-candidate live
+cancellation/deadline cleanup in G6, and (3) the explicitly deferred live
+stale-relay workload slice in the hostile-path row. The other 17 are dependent
+closure obligations: seven evidence-quality rules, six cross-cutting final
+bundle/tooling rows, and four gate-summary rows. No unchecked implementation
+row is silently counted as complete.
+
+Cancellation source revision `293559519a09e574265686b1cd59598556f6eca7`
+has passed its exact-source VM 100-repeat races, full package races, vet,
+seven-binary build, strict manifest, version, and hash checks. Its remaining
+requirement is activation plus the real rootfs/Kerf/Task RPC cancellation
+replay and independent cleanup audit. Activation was not attempted because the
+execution environment required a new explicit approval for the persistent VM
+install and `mkruntimed`/`mknetd` restarts.
+
+The retained passing restart transcript closes live mknetd, mkruntimed,
+shim-worker, and child-replacement packet slices, but the direct relay replay
+failed before workload creation and was explicitly deferred; no primary-host
+restart packet replay exists. The hostile-path matrix passes 59 cases for 100
+zero-skip race repetitions, but its live stale-relay workload slice remains
+deferred. These limitations are not interchangeable.
+
+The historical transcripts cannot be repackaged into final pass manifests:
+they intentionally span multiple repository revisions and host boot IDs, while
+`audit-g4-g6-evidence.py` requires common repository, host, installed-component,
+and cloud-ledger identities for G4/G5/G6. Final manifests therefore require one
+cohesive exact-release run after the three behavioral gaps close, followed by
+the post-deletion resource ledger and immutable bundle index.
 
 - [ ] G4 may close only after every G4 plan requirement has implementation,
   automated coverage, and replacement-instance evidence, or an approved plan
