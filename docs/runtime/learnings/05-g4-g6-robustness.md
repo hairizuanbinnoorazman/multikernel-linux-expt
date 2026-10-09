@@ -10991,3 +10991,73 @@ official daemon and before each per-phase strict audit. Bash syntax, diff
 hygiene, and explicit static ordering checks for both rootfs-build and
 child-boot phases pass locally. Live behavior remains unclaimed until a new
 exact-source revision is built, activated, and exercised.
+
+Commit `db7e28a613699a20d0f9e66f4f2260d9c096faa9` freezes the cleanup-order
+correction. Its mode-0600, 7,249,920-byte tracked archive hashes to
+`8506134f9ed08d56fcee32bee33d6fec0493a3659863d6c99bfbf47b89956f89`.
+Transfer transcript `20261009-cancellation-final-transfer-db7e28a.log` is mode
+0600, 364 bytes, SHA-256
+`c2d136e5a99d42b1a530b384a99a1edd43689a148189d13a339d41be5fa9ce52`,
+exit 0, and credential-value clean. Guest verification and execution remain
+separate claims.
+
+Exact workflow `20261009-g6-cancellation-final-exact-workflow-db7e28a.log` is
+mode 0600, 14,037 bytes, SHA-256
+`ca5f982866bebca29b0b5cf38d633ee53987ef6041f8e1f5d9d338eefc14bd0e`,
+exit 1, and credential-value clean. It passes exact archive/fallback preflight,
+full race/vet/build, activation, rootfs-build cancellation and cleanup, and
+child-boot cancellation with both blocker processes reaped. It then exposes a
+product recovery defect: the canceled child boot leaves a PREPARED rootfs
+record after container metadata and its bundle disappear. Official mkruntimed
+restart fails closed with `owned rootfs bundle is absent` and enters
+auto-restart. This is not a harness-only failure; G6 cancellation remains open
+and the VM requires controlled stale-record recovery before further
+qualification.
+
+Follow-up state inventory corrects the initial failure interpretation.
+`20261009-g6-cancellation-stale-state-diagnostic-db7e28a.log` is mode 0600,
+1,800 bytes, SHA-256
+`8b55737331799f4bc9751a40b02e4e3c3f0e452b07b2cb3801b61b83928220b7`,
+exit 0, and credential-value clean. It shows one live Kerf instance in `ready`
+state, one PREPARED rootfs image, no containerd task/container, and mkruntimed
+auto-restarting. Therefore CreateSandbox had completed and the blocked/canceled
+operation was its dependent LoadSandbox; the missing bundle made the retained
+exact ownership impossible to reconcile automatically.
+
+Two controlled recovery attempts are retained as non-mutating failures.
+`20261009-g6-cancellation-controlled-recovery-db7e28a.log` (mode 0600, 2,795
+bytes, SHA-256 `6d2dc7f…`, exit 1) correctly refused recovery because the
+precondition incorrectly expected no Kerf instance. The backed-up v2 attempt
+(mode 0600, 1,680 bytes, SHA-256 `febfda4d…`, exit 1) found that restart
+reconciliation had already completed the Load journal entry and refused its
+too-strict expectation of exactly one incomplete Load. Both are
+credential-value clean and performed no state mutation.
+
+Controlled recovery v3 succeeds through production lifecycle, mediated
+storage, Kerf, and rootfs APIs after exact sandbox/bundle/journal checks;
+pre-recovery state files remain backed up on the disposable VM. Transcript
+`20261009-g6-cancellation-controlled-recovery-v3-db7e28a.log` is mode 0600,
+2,783 bytes, SHA-256
+`98f80d9f8b4a513a2fd28fbc18d0e2461af3d091cd648f1d56107d0417d92596`,
+exit 0, and credential-value clean. It retires exact sandbox
+`mk-mk-cancellation-live-971e77cfb68364b3`, releases its instance/pool and
+storage, removes the orphan rootfs record, resets the failed unit state, and
+starts exact `db7e28a…`. The embedded strict audit proves empty Kerf, all 19
+counters zero, and all four services active with zero restarts.
+
+Product correction in progress: lifecycle Create now durably self-cancels when
+its own request context is canceled, and authenticated CancelCreate completes
+an interrupted dependent Load journal entry before retiring Create ownership.
+Focused lifecycle tests covering both cases plus the prior ambiguity/tombstone
+matrix pass 20 race-detector repetitions. This is local implementation evidence
+only; full gates and live proof remain required.
+
+The correction now covers the observed boundary directly: a LoadSandbox whose
+request context is canceled locates its exact originating Create intent by
+sandbox generation and performs authenticated CancelCreate server-side,
+without relying on the dying shim to send a follow-up RPC. CancelCreate also
+terminally completes an interrupted dependent Load before retiring Create
+ownership. Three new durability regressions and the existing ambiguity and
+tombstone matrices pass 20 race repetitions; the complete runtime package race
+suite, full vet, and diff hygiene also pass locally. Exact-source VM rebuild
+and live cancellation remain required before closing the row.

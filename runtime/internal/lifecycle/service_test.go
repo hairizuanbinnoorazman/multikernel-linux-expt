@@ -31,6 +31,32 @@ type fake struct {
 	loadDir    bool
 }
 
+type cancelOnCreateBackend struct {
+	*fake
+	cancel context.CancelFunc
+}
+
+type cancelOnLoadBackend struct {
+	*fake
+	cancel context.CancelFunc
+}
+
+func (b *cancelOnLoadBackend) Load(ctx context.Context, sandbox protocol.Sandbox, _, _, _ string, _ kerf.LoadFiles) error {
+	b.fake.mu.Lock()
+	b.fake.calls = append(b.fake.calls, "load:"+sandbox.ID)
+	b.fake.mu.Unlock()
+	b.cancel()
+	return ctx.Err()
+}
+
+func (b *cancelOnCreateBackend) Create(ctx context.Context, sandbox protocol.Sandbox) error {
+	b.fake.mu.Lock()
+	b.fake.calls = append(b.fake.calls, "create:"+sandbox.ID)
+	b.fake.mu.Unlock()
+	b.cancel()
+	return ctx.Err()
+}
+
 type failingResolver struct{ calls int }
 
 type fakePreparedBootResolver struct {
@@ -271,6 +297,101 @@ func TestCancelCreateTombstonesBeforeExternalCleanup(t *testing.T) {
 	}
 	if _, exists := service.Get(candidate.ID); exists {
 		t.Fatal("canceled ownership survived successful retry")
+	}
+}
+
+func TestCancelCreateCompletesInterruptedDependentLoad(t *testing.T) {
+	service, store, backend := setup(t)
+	defer store.Close()
+	candidate := config("box-a", 8, 7001)
+	created, apiErr := service.Create(context.Background(), candidate, "create-key")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	injected := false
+	service.SetFaultInjector(func(point string) error {
+		if point == "before-external-mutation" && !injected {
+			injected = true
+			return errors.New("injected interrupted load")
+		}
+		return nil
+	})
+	if _, apiErr = service.Load(context.Background(), candidate.ID, created.Sandbox.Generation, "load-key"); apiErr == nil {
+		t.Fatal("interrupted load unexpectedly succeeded")
+	}
+	service.SetFaultInjector(nil)
+	if safe, cancelErr := service.CancelCreate(context.Background(), candidate, "create-key"); cancelErr != nil || !safe {
+		t.Fatalf("CancelCreate() = %v, %+v", safe, cancelErr)
+	}
+	if incomplete := state.Incomplete(mustJournal(t, store)); len(incomplete) != 0 {
+		t.Fatalf("dependent load intent survived cancellation: %+v", incomplete)
+	}
+	if _, exists := service.Get(candidate.ID); exists {
+		t.Fatal("canceled sandbox ownership survived dependent load cancellation")
+	}
+	if actual, err := backend.Observe(context.Background(), candidate.ID); err != nil || actual != "ABSENT" {
+		t.Fatalf("canceled backend = %q, %v", actual, err)
+	}
+}
+
+func TestCreateContextCancellationIsDurablySelfCleaning(t *testing.T) {
+	store, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	base := &fake{states: map[string]string{}, failures: map[string]error{}}
+	ctx, cancel := context.WithCancel(context.Background())
+	backend := &cancelOnCreateBackend{fake: base, cancel: cancel}
+	service := New(store, backend, Artifacts{})
+	candidate := config("box-a", 8, 7001)
+	if _, apiErr := service.Create(ctx, candidate, "create-key"); apiErr == nil {
+		t.Fatal("canceled create unexpectedly succeeded")
+	}
+	if _, exists := service.Get(candidate.ID); exists {
+		t.Fatal("context-canceled create retained sandbox ownership")
+	}
+	if incomplete := state.Incomplete(mustJournal(t, store)); len(incomplete) != 0 {
+		t.Fatalf("context-canceled create retained incomplete intent: %+v", incomplete)
+	}
+	if _, replayErr := service.Create(context.Background(), candidate, "create-key"); replayErr == nil || replayErr.Code != "ABORTED" || replayErr.Retryable {
+		t.Fatalf("context-canceled create replay = %+v, want terminal ABORTED", replayErr)
+	}
+	if safe, cancelErr := service.CancelCreate(context.Background(), candidate, "create-key"); cancelErr != nil || !safe {
+		t.Fatalf("repeated cancellation = %v, %+v", safe, cancelErr)
+	}
+}
+
+func TestLoadContextCancellationRetiresOriginatingCreate(t *testing.T) {
+	store, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	base := &fake{states: map[string]string{}, failures: map[string]error{}}
+	backend := &cancelOnLoadBackend{fake: base}
+	service := New(store, backend, Artifacts{})
+	candidate := config("box-a", 8, 7001)
+	created, apiErr := service.Create(context.Background(), candidate, "create-key")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	backend.cancel = cancel
+	if _, apiErr = service.Load(ctx, candidate.ID, created.Sandbox.Generation, "load-key"); apiErr == nil {
+		t.Fatal("canceled load unexpectedly succeeded")
+	}
+	if _, exists := service.Get(candidate.ID); exists {
+		t.Fatal("canceled load retained originating create ownership")
+	}
+	if incomplete := state.Incomplete(mustJournal(t, store)); len(incomplete) != 0 {
+		t.Fatalf("canceled load retained incomplete intent: %+v", incomplete)
+	}
+	if _, replayErr := service.Create(context.Background(), candidate, "create-key"); replayErr == nil || replayErr.Code != "ABORTED" || replayErr.Retryable {
+		t.Fatalf("originating create replay = %+v, want terminal ABORTED", replayErr)
+	}
+	if actual, observeErr := backend.Observe(context.Background(), candidate.ID); observeErr != nil || actual != "ABSENT" {
+		t.Fatalf("canceled-load backend = %q, %v", actual, observeErr)
 	}
 }
 

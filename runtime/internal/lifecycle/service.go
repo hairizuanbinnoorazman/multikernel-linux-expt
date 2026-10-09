@@ -247,7 +247,12 @@ func (s *Service) CancelCreate(ctx context.Context, c protocol.SandboxConfig, ke
 	s.global.Lock()
 	defer s.global.Unlock()
 	defer s.lock(c.ID)()
+	return s.cancelCreateLocked(ctx, c, key, fp)
+}
 
+// cancelCreateLocked is shared with Create's context-cancellation path. The
+// caller must hold both the global allocation lock and the sandbox lock.
+func (s *Service) cancelCreateLocked(ctx context.Context, c protocol.SandboxConfig, key, fp string) (bool, *protocol.Error) {
 	if previous, ok := s.store.Result(key); ok {
 		if previous.Fingerprint != fp {
 			return false, apierr("IDEMPOTENCY_CONFLICT", "create cancellation fingerprint differs", false)
@@ -300,6 +305,21 @@ func (s *Service) CancelCreate(ctx context.Context, c protocol.SandboxConfig, ke
 		completion.State = sandbox.State
 		if err = s.store.Append(completion); err != nil {
 			return false, apierr("INTERNAL", "persist create cancellation intent", true)
+		}
+	}
+	for _, pending := range statepkg.Incomplete(entries) {
+		if pending.SandboxID != c.ID || pending.Method == "CreateSandbox" {
+			continue
+		}
+		if pending.Method != "LoadSandbox" {
+			return false, apierr("FAILED_PRECONDITION", "create cancellation found a non-load dependent operation", false)
+		}
+		completion := pending
+		completion.Phase = "complete"
+		completion.State = sandbox.State
+		completion.Error = &protocol.Error{Code: "ABORTED", Message: "operation canceled with its create", Retryable: false, OperationID: pending.OperationID}
+		if err = s.store.Append(completion); err != nil {
+			return false, apierr("INTERNAL", "persist dependent create cancellation", true)
 		}
 	}
 	if err = s.store.Tombstone(key, fp, failure); err != nil {
@@ -597,7 +617,7 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 	now := time.Now().UTC()
 	sb := protocol.Sandbox{ID: c.ID, Generation: g, State: "ALLOCATING", Config: c, CreatedAt: now, UpdatedAt: now}
 	firstSandbox := len(s.store.Snapshot().Sandboxes) == 0
-	return s.mutate(ctx, "CreateSandbox", key, fp, sb, func(current *protocol.Sandbox) error {
+	result, apiErr := s.mutate(ctx, "CreateSandbox", key, fp, sb, func(current *protocol.Sandbox) error {
 		if e := s.store.SetSandbox(*current); e != nil {
 			return e
 		}
@@ -629,6 +649,17 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 		current.State = "CREATED"
 		return nil
 	})
+	if apiErr != nil && ctx.Err() != nil {
+		// The request owner is gone and cannot be relied upon to issue the
+		// follow-up cancellation RPC. Complete the same authenticated durable
+		// cancellation while the original locks are still held, so restart
+		// reconciliation cannot resurrect a canceled create or retain its
+		// prepared-storage ownership.
+		if _, cancelErr := s.cancelCreateLocked(context.WithoutCancel(ctx), c, key, fp); cancelErr != nil {
+			return result, apierr("INTERNAL", "persist automatic create cancellation", true)
+		}
+	}
+	return result, apiErr
 }
 func (s *Service) transition(ctx context.Context, id, gen, key, method string, from []string, intermediate, to string, fn func(protocol.Sandbox) error) (protocol.MutationResult, *protocol.Error) {
 	defer s.lock(id)()
@@ -671,7 +702,7 @@ func (s *Service) transition(ctx context.Context, id, gen, key, method string, f
 	})
 }
 func (s *Service) Load(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
-	return s.transition(ctx, id, gen, key, "LoadSandbox", []string{"CREATED"}, "", "LOADED", func(x protocol.Sandbox) error {
+	result, apiErr := s.transition(ctx, id, gen, key, "LoadSandbox", []string{"CREATED"}, "", "LOADED", func(x protocol.Sandbox) error {
 		if err := s.provisionStorage(ctx, &x); err != nil {
 			return err
 		}
@@ -692,6 +723,32 @@ func (s *Service) Load(ctx context.Context, id, gen, key string) (protocol.Mutat
 		}
 		return s.backend.Load(ctx, x, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline, bootFiles)
 	})
+	if apiErr == nil || ctx.Err() == nil {
+		return result, apiErr
+	}
+	// Load is the final externally blocking step of the shim's Task Create.
+	// If its caller disappears, the shim may itself be terminated before it can
+	// issue CancelCreateSandbox. Recover the exact originating Create intent by
+	// generation and perform the same authenticated cancellation server-side.
+	entries, err := s.store.JournalEntries()
+	if err != nil {
+		return result, apierr("INTERNAL", "read create ownership after canceled load", true)
+	}
+	var create *statepkg.JournalEntry
+	for i := range entries {
+		entry := entries[i]
+		if entry.Method == "CreateSandbox" && entry.Phase == "intent" && entry.SandboxID == id && entry.Sandbox != nil && entry.Sandbox.Generation == gen {
+			copy := entry
+			create = &copy
+		}
+	}
+	if create == nil {
+		return result, apierr("INTERNAL", "create ownership is unavailable after canceled load", true)
+	}
+	if safe, cancelErr := s.CancelCreate(context.WithoutCancel(ctx), create.Sandbox.Config, create.IdempotencyKey); cancelErr != nil || !safe {
+		return result, apierr("INTERNAL", "automatic canceled-load cleanup failed", true)
+	}
+	return result, apiErr
 }
 func (s *Service) Start(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
 	return s.transition(ctx, id, gen, key, "StartSandbox", []string{"LOADED", "STOPPED"}, "", "RUNNING", func(x protocol.Sandbox) error { return s.backend.Start(ctx, x) })
