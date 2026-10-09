@@ -11266,3 +11266,87 @@ mode 0600, 341 bytes, SHA-256
 `88064b260bb8ea51f5391d3c2d754a7a56c42786d5a9f8594d326876f1c30434`, exit
 0, and proves the exact selector, empty Kerf, all 19 counters zero, and all
 four services active with zero restarts.
+
+Commit `5a6b9f0e688431f4d8a4dbdcfe45504e843c665c` freezes the supported
+attach/Wait qualifier and failure-path cleanup. Its exact archive
+`/tmp/mksrc-5a6b9f0.tar` is mode 0600, 7,290,880 bytes, SHA-256
+`872d532b21939538d0762288ed116bc3ed27ef3500285c79508d10a6f7f2ee1c`; the
+embedded revision matches. Qualifier SHA-256 is
+`237ea2895fbb03d5eaea186f8032c4505d5863c29d41641c52a63f82d627a6f8`; exact
+runner SHA-256 is
+`0588f1bb45959b43422693f927ac472ef3c6e9ef1a171a096321d440f3e168c8`.
+
+Transfer transcript `20261009-cancellation-final-transfer-5a6b9f0.log` is mode
+0600, 364 bytes, SHA-256
+`3837b27fba717f4d421500989bfbc307000d1fea9b2f6f1411a7ce396c264178`, exit
+0. Guest verification and live behavior remain unclaimed until run.
+
+Exact cohesive workflow
+`20261009-g6-cancellation-final-exact-workflow-5a6b9f0.log` is mode 0600,
+18,941 bytes, SHA-256
+`027924e6b3a04310724c81994d7dfdc62c8f0c590b5dbc3548fe911e9661c458`, exit
+0, and credential-pattern clean. On boot
+`78f000d4-1d10-437f-8618-0137e4ca7ce2`, it verifies the exact archive and
+revision, passes 100 relay race repetitions, the complete runtime race suite
+and vet, builds/installs the exact seven binaries, and activates selector
+`0.1.0-dev-5a6b9f0e688431f4d8a4dbdcfe45504e843c665c`. Rootfs-build and
+child-boot cancellation both return client status 124 and reap blocker
+parent/child processes. The supported attach/Wait RPC cancellation returns
+status 124 while task PID 89612 remains RUNNING, and post-cancel exec returns
+`cancellation-still-usable`. Every per-phase audit and the final embedded audit
+report empty Kerf, all 19 counters zero, and all four services active with zero
+restarts. Both `G6_CANCELLATION_LIVE_PASS` and
+`CANCELLATION_FINAL_EXACT_WORKFLOW_PASS` are present. A separate independent
+post-workflow audit remains required before checklist closure.
+
+Independent post-workflow audit
+`20261009-g6-cancellation-final-independent-audit-5a6b9f0.log` is mode 0600,
+1,902 bytes, SHA-256
+`c56fa601848ff9c530860570bb2b9cd6a6d2c39eaa06c5f9244a955600899bba`, exit
+0, and credential-pattern clean. It independently confirms the exact selector
+and mkruntimed hash, empty Kerf, all 19 resource counters zero, and mkruntimed,
+mknetd, containerd, and Docker active with zero restarts. This closes the live
+cross-service cancellation/leak sub-boundary; broader remaining fault-injection
+scope is not claimed complete.
+
+Exact-source G5 restart attempt
+`20261009-g5-network-restart-exact-5a6b9f0.log` is mode 0600, 4,579 bytes,
+SHA-256
+`383343390f6606171943e1e288be0be548edf560c9486fd60c9b8bc756d752eb`, exit
+1. It proves a baseline child-to-primary token exchange and subsequent
+exchanges across mknetd PID 75117→91643 and mkruntimed PID 89790→91745, with
+unchanged child boot ID, endpoint/sandbox generations, `/30` address, gateway,
+MTU, zero drops/errors, and exact peer `172.31.0.2`. It exits before the
+direct-relay observation, narrowing the failure to relay discovery,
+replacement, or its subsequent invariant/packet checks. The transcript
+contains only synthetic `restart-token-*` payloads, not credential values.
+Direct-relay and later phases remain unclaimed pending traced diagnosis.
+
+Scoped mkruntimed recovery transcript after that partial run is mode 0600, 341
+bytes, SHA-256
+`8d289c1797c0f49e5b54f0f1d35d771e0f411c29a282c1491568a3bbff7758ca`, exit
+0. Independent audit `20261009-g5-network-restart-first-failure-audit.log` is
+mode 0600, 1,902 bytes, SHA-256
+`6e3b17b0475d8100d59df520b54f2d005140c26c779a5481b2545234d5fb2e03`, exit
+0, proving empty Kerf, all 19 counters zero, and four active zero-restart
+services before diagnosis.
+
+Traced exact rerun
+`20261009-g5-network-restart-traced-diagnostic-5a6b9f0.log` is mode 0600,
+50,263 bytes, SHA-256
+`36d727e169d68eb6315fc6d01950ed18f46f259aaa5b5ccf45b928d473df57eb`, exit
+1. It binds worker 92417 and relay 92639, kills that exact relay, then fails on
+the first empty replacement poll because `relay_pid_for_worker` evaluates
+`${matches[0]}` under `set -u` even when its count assertion failed; stderr was
+intentionally suppressed by the polling caller. Replacement is demand-driven
+by the next agent operation, so a benign exact exec must trigger reconnect
+before polling. This is a qualifier defect, not evidence that the relay
+product path failed.
+
+The G5 qualifier correction now returns cleanly from an empty relay match,
+uses a successful `relay-reconnected` exec to drive the production
+reconnect/replacement path after exact relay SIGKILL, then polls for a new
+relay PID. Its failure trap also gracefully restarts mkruntimed after any
+started workload so an intentionally retained idle pool cannot contaminate the
+next baseline. Bash syntax and diff hygiene pass; live behavior remains
+unclaimed pending an exact revision.

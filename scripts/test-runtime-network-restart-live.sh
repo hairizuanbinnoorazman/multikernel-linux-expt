@@ -14,6 +14,7 @@ scratch=$(mktemp -d -p /var/tmp mk-network-restart.XXXXXX)
 listener_pid=
 previous_listener_pid=
 exchange_index=0
+workload_started=0
 
 observe() {
 	local key=$1
@@ -38,6 +39,9 @@ cleanup() (
 	[[ -z $listener_pid ]] || kill "$listener_pid" >/dev/null 2>&1 || true
 	[[ -z $listener_pid ]] || wait "$listener_pid" >/dev/null 2>&1 || true
 	cleanup_task
+	if (( workload_started )); then
+		sudo systemctl restart mkruntimed >/dev/null 2>&1 || true
+	fi
 	rm -rf -- "$scratch"
 )
 trap cleanup EXIT
@@ -102,7 +106,7 @@ relay_pid_for_worker() {
 		executable=$(sudo readlink -f "/proc/$pid/exe" 2>/dev/null || true)
 		case ${executable##*/} in mkvsock-relay | mk-agent-relay) matches+=("$pid") ;; esac
 	done < <(sudo pgrep -P "$worker" || true)
-	[[ ${#matches[@]} -eq 1 ]]
+	[[ ${#matches[@]} -eq 1 ]] || return 1
 	printf '%s' "${matches[0]}"
 }
 
@@ -114,6 +118,7 @@ process_summary() {
 }
 
 start_task() {
+	workload_started=1
 	sudo ctr run --detach --runtime "$runtime" "$image" "$task_id" /bin/sleep 900
 	wait_task_state RUNNING
 	wait_counts 'rootfs_records=1 live_exports=1 endpoints=1' >/dev/null
@@ -202,6 +207,10 @@ observe mkruntimed-restart "pid_before=$mkruntimed_before pid_after=$mkruntimed_
 holder_before_relay=$(holder_pid); worker_before_relay=$(parent_pid "$holder_before_relay"); supervisor_before_relay=$(parent_pid "$worker_before_relay")
 relay_before_direct=$(relay_pid_for_worker "$worker_before_relay")
 sudo kill -KILL "$relay_before_direct"
+# Relay replacement is demand-driven by the next agent operation. This exec
+# must reconnect through a newly started relay while preserving the task.
+relay_reconnect=$(sudo ctr task exec --exec-id relay-reconnect "$task_id" /bin/echo relay-reconnected)
+[[ $relay_reconnect = relay-reconnected ]]
 relay_after_direct=
 for _ in $(seq 1 480); do
 	relay_after_direct=$(relay_pid_for_worker "$worker_before_relay" 2>/dev/null || true)
@@ -262,6 +271,7 @@ sudo systemctl restart mkruntimed
 [[ $(systemctl is-active mkruntimed) = active ]]
 idle_mkruntimed_after=$(systemctl show -p MainPID --value mkruntimed)
 [[ $idle_mkruntimed_after != "$idle_mkruntimed_before" ]]
+workload_started=0
 observe idle-pool-release "mkruntimed_pid_before=$idle_mkruntimed_before mkruntimed_pid_after=$idle_mkruntimed_after"
 
 audit_output=
