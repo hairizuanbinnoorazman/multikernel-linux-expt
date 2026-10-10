@@ -56,7 +56,13 @@ import (
 const runtimeName = "io.containerd.multikernel.v2"
 const runtimeInfoInputLimit = 1 << 20
 const fifoKeeperMode = "--multikernel-fifo-keeper"
-const fifoKeeperGrace = 15 * time.Second
+const defaultAgentIOCallTimeout = 30 * time.Second
+
+// A replacement worker can spend one complete agent I/O timeout proving that
+// the inherited guest transport is stale before it replaces the relay. Keep
+// the FIFO writer guard beyond that bounded recovery window so an existing
+// containerd attach does not observe a transient EOF during reconstruction.
+const fifoKeeperGrace = defaultAgentIOCallTimeout + 15*time.Second
 
 var shimWorkerDisconnectGrace = 30 * time.Second
 
@@ -3886,7 +3892,7 @@ func (s *service) callAgentWithReconnect(method string, request, output any) err
 func (s *service) callAgentWithReconnectContext(parent context.Context, method string, request, output any) error {
 	timeout := s.ioCallTimeout
 	if timeout <= 0 {
-		timeout = 30 * time.Second
+		timeout = defaultAgentIOCallTimeout
 	}
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()

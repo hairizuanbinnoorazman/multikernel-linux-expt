@@ -2447,6 +2447,16 @@ func TestOutputFIFOKeeperBridgesWorkerDeath(t *testing.T) {
 	}
 }
 
+func TestProductionFIFOKeeperGraceCoversWorkerRecoveryTimeout(t *testing.T) {
+	if fifoKeeperGrace <= defaultAgentIOCallTimeout {
+		t.Fatalf("FIFO keeper grace %s does not cover agent recovery timeout %s",
+			fifoKeeperGrace, defaultAgentIOCallTimeout)
+	}
+	if fifoKeeperGrace > time.Minute {
+		t.Fatalf("FIFO keeper grace %s exceeds the helper's bounded maximum", fifoKeeperGrace)
+	}
+}
+
 func TestProcessIOPathsRejectUnsafeIdentityAndSymlinkAncestors(t *testing.T) {
 	directory := t.TempDir()
 	unsafeFIFO := filepath.Join(directory, "unsafe")
