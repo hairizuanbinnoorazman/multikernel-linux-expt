@@ -6450,6 +6450,89 @@ func TestProxiedSupervisorReapsWorkerWhenContainerdDisconnects(t *testing.T) {
 	}
 }
 
+func TestProxiedSupervisorAcceptsContainerdReconnectBeforeReapingWorker(t *testing.T) {
+	probe, file, _, err := privateShimListener()
+	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+		t.Skipf("abstract Unix listeners unavailable in this environment: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = file.Close()
+	_ = probe.Close()
+	previousGrace := shimWorkerDisconnectGrace
+	shimWorkerDisconnectGrace = 100 * time.Millisecond
+	t.Cleanup(func() { shimWorkerDisconnectGrace = previousGrace })
+	bundle := privateTestDirectory(t)
+	directory, err := safefile.OpenOwnedDirectory(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	firstClient, firstStable := net.Pipe()
+	secondClient, secondStable := net.Pipe()
+	defer firstClient.Close()
+	defer secondClient.Close()
+	reconnections := make(chan net.Conn, 1)
+	reconnections <- secondStable
+	reconnect := func(timeout time.Duration) (net.Conn, error) {
+		select {
+		case connection := <-reconnections:
+			return connection, nil
+		case <-time.After(timeout):
+			return nil, os.ErrDeadlineExceeded
+		}
+	}
+	marker := filepath.Join(bundle, "blocked-worker-pid")
+	environment := append(os.Environ(), "MK_SHIM_SUPERVISOR_BLOCK_WORKER="+marker)
+	done := make(chan int, 1)
+	go func() {
+		done <- superviseReconnectableShimWorkerWithDirectory(firstStable, reconnect, os.Args[0], []string{"-test.run=^$"},
+			directory.ProcPath(), environment, directory)
+	}()
+	var pid int
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		data, readErr := os.ReadFile(marker)
+		if readErr == nil {
+			pid, err = strconv.Atoi(strings.TrimSpace(string(data)))
+			break
+		}
+		if !errors.Is(readErr, os.ErrNotExist) {
+			t.Fatal(readErr)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err != nil || pid <= 0 {
+		t.Fatalf("blocked worker PID = %d, %v", pid, err)
+	}
+	if err = firstClient.Close(); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	select {
+	case status := <-done:
+		t.Fatalf("supervisor exited during containerd reconnect with status %d", status)
+	default:
+	}
+	if killErr := syscall.Kill(pid, 0); killErr != nil {
+		t.Fatalf("worker did not survive containerd reconnect: %v", killErr)
+	}
+	if err = secondClient.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case status := <-done:
+		if status != 0 {
+			t.Fatalf("supervisor status after reconnect grace = %d", status)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("supervisor did not apply bounded orphan reap after reconnect")
+	}
+	if killErr := syscall.Kill(pid, 0); !errors.Is(killErr, syscall.ESRCH) {
+		t.Fatalf("worker survived exhausted reconnect grace: %v", killErr)
+	}
+}
+
 func TestProxiedSupervisorRestartsSignaledWorkerAfterProxyEOF(t *testing.T) {
 	probe, file, _, err := privateShimListener()
 	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {

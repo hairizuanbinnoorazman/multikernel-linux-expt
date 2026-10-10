@@ -4987,15 +4987,26 @@ func superviseShimWorker() int {
 		return 1
 	}
 	_ = listener.Close()
+	defer publicListener.Close()
 	containerdConnection, err := publicListener.Accept()
-	_ = publicListener.Close()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: accept containerd connection: %v\n", err)
 		return 1
 	}
-	defer containerdConnection.Close()
-	return superviseProxiedShimWorkerWithDirectory(containerdConnection, self, os.Args[1:], directory.ProcPath(), os.Environ(), directory)
+	reconnect := func(timeout time.Duration) (net.Conn, error) {
+		deadline := time.Now().Add(timeout)
+		if deadlineListener, ok := publicListener.(interface{ SetDeadline(time.Time) error }); ok {
+			if err := deadlineListener.SetDeadline(deadline); err != nil {
+				return nil, err
+			}
+			defer deadlineListener.SetDeadline(time.Time{})
+		}
+		return publicListener.Accept()
+	}
+	return superviseReconnectableShimWorkerWithDirectory(containerdConnection, reconnect, self, os.Args[1:], directory.ProcPath(), os.Environ(), directory)
 }
+
+type shimContainerdReconnect func(time.Duration) (net.Conn, error)
 
 type shimConnectionBridge struct {
 	containerd  net.Conn
@@ -5171,7 +5182,12 @@ func privateShimListener() (*net.UnixListener, *os.File, string, error) {
 }
 
 func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory) int {
+	return superviseReconnectableShimWorkerWithDirectory(containerdConnection, nil, self, arguments, workingDirectory, environment, directory)
+}
+
+func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn, reconnect shimContainerdReconnect, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory) int {
 	bridge := newShimConnectionBridge(containerdConnection)
+	defer func() { _ = containerdConnection.Close() }()
 	var err error
 	pidName := ".multikernel-worker.pid"
 	bundleIdentity := directory.Identity()
@@ -5238,30 +5254,76 @@ func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self
 			return 1
 		}
 		pidIdentity, pidOwned = published, true
-		proxyDone := make(chan error, 1)
-		go func() { proxyDone <- bridge.serveWorker(workerConnection) }()
 		workerDone := make(chan error, 1)
 		go func() { workerDone <- cmd.Wait() }()
 		var proxyErr error
 		proxyEndedFirst := false
 		workerEndedDuringGrace := false
-		select {
-		case err = <-workerDone:
-			_ = workerConnection.Close()
-			proxyErr = <-proxyDone
-		case proxyErr = <-proxyDone:
-			proxyEndedFirst = true
-			_ = workerConnection.Close()
-			timer := time.NewTimer(shimWorkerDisconnectGrace)
+		restartForContainerd := false
+	connectionLoop:
+		for {
+			proxyDone := make(chan error, 1)
+			go func(connection net.Conn) { proxyDone <- bridge.serveWorker(connection) }(workerConnection)
 			select {
 			case err = <-workerDone:
-				workerEndedDuringGrace = true
-				if !timer.Stop() {
-					<-timer.C
+				_ = workerConnection.Close()
+				proxyErr = <-proxyDone
+				break connectionLoop
+			case proxyErr = <-proxyDone:
+				proxyEndedFirst = true
+				_ = workerConnection.Close()
+				if reconnect == nil {
+					timer := time.NewTimer(shimWorkerDisconnectGrace)
+					select {
+					case err = <-workerDone:
+						workerEndedDuringGrace = true
+						if !timer.Stop() {
+							<-timer.C
+						}
+					case <-timer.C:
+						_ = cmd.Process.Kill()
+						err = <-workerDone
+					}
+					break connectionLoop
 				}
-			case <-timer.C:
-				_ = cmd.Process.Kill()
-				err = <-workerDone
+
+				// The public shim listener must outlive containerd itself. Give a
+				// replacement daemon one bounded restart window to reconnect before
+				// applying the existing orphan-reap policy.
+				workerExited := false
+				select {
+				case err = <-workerDone:
+					workerExited = true
+					workerEndedDuringGrace = true
+				case <-time.After(250 * time.Millisecond):
+				}
+				nextConnection, reconnectErr := reconnect(shimWorkerDisconnectGrace)
+				if reconnectErr != nil {
+					if !workerExited {
+						_ = cmd.Process.Kill()
+						err = <-workerDone
+					}
+					break connectionLoop
+				}
+				_ = containerdConnection.Close()
+				containerdConnection = nextConnection
+				bridge = newShimConnectionBridge(containerdConnection)
+				if workerExited {
+					restartForContainerd = true
+					break connectionLoop
+				}
+				workerConnection, err = net.DialTimeout("unix", address, 5*time.Second)
+				if err != nil {
+					_ = cmd.Process.Kill()
+					err = <-workerDone
+					workerEndedDuringGrace = true
+					if err == nil {
+						restartForContainerd = true
+					}
+					break connectionLoop
+				}
+				proxyEndedFirst = false
+				workerEndedDuringGrace = false
 			}
 		}
 		if removeErr := removePID(); removeErr != nil {
@@ -5275,6 +5337,12 @@ func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self
 		}
 		if proxyEndedFirst && !workerEndedDuringGrace {
 			return 0
+		}
+		if restartForContainerd && err == nil {
+			// A clean worker exit following the old daemon's disconnect is a
+			// handoff, not a consumed crash-restart attempt.
+			attempt--
+			continue
 		}
 		if err == nil {
 			return 0
