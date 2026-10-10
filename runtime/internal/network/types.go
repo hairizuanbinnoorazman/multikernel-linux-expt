@@ -20,6 +20,7 @@ type Endpoint struct {
 	ManagedNamespace  bool      `json:"managed_namespace,omitempty"`
 	SandboxID         string    `json:"sandbox_id,omitempty"`
 	SandboxGeneration string    `json:"sandbox_generation,omitempty"`
+	PrimaryBootID     string    `json:"primary_boot_id,omitempty"`
 	Generation        string    `json:"generation"`
 	Address           string    `json:"address"`
 	Gateway           string    `json:"gateway"`

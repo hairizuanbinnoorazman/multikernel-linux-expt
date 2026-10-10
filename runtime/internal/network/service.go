@@ -14,6 +14,7 @@ import (
 )
 
 var identifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
+var primaryBootID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 type Backend interface {
 	Add(context.Context, Endpoint) error
@@ -28,17 +29,18 @@ type NamespaceBackend interface {
 }
 
 type Service struct {
-	Store       *Store
-	Backend     Backend
-	Subnet      *net.IPNet
-	MTU         int
-	DNS         DNS
-	now         func() time.Time
-	mu          sync.Mutex
-	orchestrate sync.Mutex
+	Store         *Store
+	Backend       Backend
+	Subnet        *net.IPNet
+	MTU           int
+	DNS           DNS
+	PrimaryBootID string
+	now           func() time.Time
+	mu            sync.Mutex
+	orchestrate   sync.Mutex
 }
 
-func NewService(store *Store, backend Backend, subnet string, mtu int, dns DNS) (*Service, error) {
+func NewService(store *Store, backend Backend, subnet string, mtu int, dns DNS, bootID string) (*Service, error) {
 	ip, network, err := net.ParseCIDR(subnet)
 	if err != nil || ip.To4() == nil || network.String() != subnet {
 		return nil, errors.New("mknetd subnet must be a canonical IPv4 CIDR")
@@ -56,6 +58,9 @@ func NewService(store *Store, backend Backend, subnet string, mtu int, dns DNS) 
 	if store == nil || backend == nil {
 		return nil, errors.New("mknetd store and backend are required")
 	}
+	if !primaryBootID.MatchString(bootID) {
+		return nil, errors.New("mknetd primary boot ID is invalid")
+	}
 	if len(dns.Nameservers) > 8 || len(dns.Search) > 8 || len(dns.Options) > 8 {
 		return nil, errors.New("mknetd DNS lists are bounded to eight entries")
 	}
@@ -64,7 +69,7 @@ func NewService(store *Store, backend Backend, subnet string, mtu int, dns DNS) 
 			return nil, errors.New("mknetd DNS server must be an IP address")
 		}
 	}
-	return &Service{Store: store, Backend: backend, Subnet: network, MTU: mtu, DNS: dns, now: func() time.Time { return time.Now().UTC() }}, nil
+	return &Service{Store: store, Backend: backend, Subnet: network, MTU: mtu, DNS: dns, PrimaryBootID: bootID, now: func() time.Time { return time.Now().UTC() }}, nil
 }
 
 func validateEndpoint(endpoint *Endpoint, requireNetNS bool) *APIError {
@@ -177,6 +182,7 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 	}
 	now := s.now()
 	requested.Generation, requested.Address, requested.Gateway = gen, address, gateway
+	requested.PrimaryBootID = s.PrimaryBootID
 	requested.MTU, requested.DNS, requested.State = s.MTU, s.DNS, "ALLOCATING"
 	requested.CreatedAt, requested.UpdatedAt = now, now
 	if requested.ManagedNamespace {
@@ -491,6 +497,16 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	defer s.mu.Unlock()
 	var failures []error
 	for _, endpoint := range s.Store.List() {
+		if endpoint.PrimaryBootID != "" && endpoint.PrimaryBootID != s.PrimaryBootID {
+			// Linux network namespaces, links, routes, and firewall rules cannot
+			// survive a primary kernel boot. Retire only records that prove they
+			// belong to a different boot; legacy records remain fail-closed below.
+			if err := s.discardAllocationRecord(endpoint); err != nil {
+				failures = append(failures, fmt.Errorf("retire prior-boot endpoint %s/%s/%s generation %s: %w",
+					endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName, endpoint.Generation, err))
+			}
+			continue
+		}
 		if endpoint.State == "ALLOCATING" || endpoint.State == "DELETING" {
 			if err := s.rollbackAllocation(endpoint); err != nil {
 				failures = append(failures, fmt.Errorf("complete transitional endpoint %s/%s/%s generation %s: %w",
