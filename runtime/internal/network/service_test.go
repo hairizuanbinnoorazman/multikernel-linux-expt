@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+const testPrimaryBootID = "11111111-1111-4111-8111-111111111111"
+
 type fakeBackend struct {
 	mu                sync.Mutex
 	adds              []Endpoint
@@ -63,7 +65,7 @@ func service(t *testing.T, subnet string, backend *fakeBackend) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := NewService(store, backend, subnet, 1400, DNS{Nameservers: []string{"169.254.169.254"}})
+	result, err := NewService(store, backend, subnet, 1400, DNS{Nameservers: []string{"169.254.169.254"}}, testPrimaryBootID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,6 +74,16 @@ func service(t *testing.T, subnet string, backend *fakeBackend) *Service {
 
 func endpoint(id string) Endpoint {
 	return Endpoint{ContainerID: id, NetworkName: "multikernel", IfName: "eth0", NetNS: "/run/netns/" + id}
+}
+
+func TestNewServiceRejectsInvalidPrimaryBootID(t *testing.T) {
+	store, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = NewService(store, &fakeBackend{}, "172.31.0.0/30", 1400, DNS{}, "not-a-boot-id"); err == nil {
+		t.Fatal("invalid primary boot ID was accepted")
+	}
 }
 
 func TestAddCheckDeleteAreGenerationBoundAndIdempotent(t *testing.T) {
@@ -192,7 +204,7 @@ func TestConcurrentAllocationIsCollisionFreeAndDurable(t *testing.T) {
 		t.Fatal(err)
 	}
 	backend := &fakeBackend{}
-	s, err := NewService(store, backend, "172.31.0.0/24", 1400, DNS{})
+	s, err := NewService(store, backend, "172.31.0.0/24", 1400, DNS{}, testPrimaryBootID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,6 +275,59 @@ func TestRestartReconciliationChecksEveryDurableEndpoint(t *testing.T) {
 	backend.failCheck = errors.New("injected missing route")
 	if err := s.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "generation") {
 		t.Fatalf("reconcile error=%v", err)
+	}
+}
+
+func TestReconcileRetiresOnlyProvenPriorBootEndpoint(t *testing.T) {
+	directory := t.TempDir()
+	store, err := OpenStore(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &fakeBackend{}
+	oldService, err := NewService(store, backend, "172.31.0.0/30", 1400, DNS{}, testPrimaryBootID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allocated, issue := oldService.Add(context.Background(), endpoint("prior-boot"))
+	if issue != nil {
+		t.Fatal(issue)
+	}
+	if allocated.PrimaryBootID != testPrimaryBootID {
+		t.Fatalf("allocated boot ID = %q", allocated.PrimaryBootID)
+	}
+
+	backend.checks, backend.deletes = nil, nil
+	newService, err := NewService(store, backend, "172.31.0.0/30", 1400, DNS{}, "22222222-2222-4222-8222-222222222222")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = newService.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(newService.List()) != 0 || len(backend.checks) != 0 || len(backend.deletes) != 0 {
+		t.Fatalf("prior-boot reconcile state=%+v checks=%d deletes=%d", newService.List(), len(backend.checks), len(backend.deletes))
+	}
+	fresh, issue := newService.Add(context.Background(), endpoint("fresh"))
+	if issue != nil || fresh.Generation == allocated.Generation || fresh.PrimaryBootID == allocated.PrimaryBootID {
+		t.Fatalf("fresh endpoint=%+v issue=%v prior=%+v", fresh, issue, allocated)
+	}
+}
+
+func TestReconcileRetainsLegacyEndpointWithoutBootIdentity(t *testing.T) {
+	backend := &fakeBackend{failCheck: errors.New("injected missing route")}
+	s := service(t, "172.31.0.0/30", backend)
+	legacy := endpoint("legacy")
+	legacy.Owner, legacy.Generation, legacy.Address, legacy.Gateway, legacy.MTU, legacy.State =
+		"cni", "0123456789abcdef0123456789abcdef", "172.31.0.2/30", "172.31.0.1", 1400, "READY"
+	if err := s.Store.Put(legacy); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "injected missing route") {
+		t.Fatalf("legacy reconcile error = %v", err)
+	}
+	if len(s.List()) != 1 || len(backend.checks) != 1 || len(backend.deletes) != 0 {
+		t.Fatalf("legacy reconcile state=%+v checks=%d deletes=%d", s.List(), len(backend.checks), len(backend.deletes))
 	}
 }
 

@@ -77,6 +77,9 @@ func validateStoredEndpoint(key string, endpoint Endpoint) error {
 	if endpoint.Owner != "cni" && endpoint.Owner != "runtime" {
 		return errors.New("endpoint owner is invalid")
 	}
+	if endpoint.PrimaryBootID != "" && !primaryBootID.MatchString(endpoint.PrimaryBootID) {
+		return errors.New("endpoint primary boot ID is invalid")
+	}
 	if endpoint.ManagedNamespace != (endpoint.Owner == "runtime") {
 		return errors.New("managed namespace ownership is inconsistent")
 	}

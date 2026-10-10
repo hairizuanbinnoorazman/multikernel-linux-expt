@@ -66,7 +66,11 @@ func run(ctx context.Context, value configuration) error {
 		return err
 	}
 	backend := network.LinuxBackend{Egress: value.egress}
-	service, err := network.NewService(store, backend, value.subnet, value.mtu, value.dns)
+	bootIDBytes, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
+	if err != nil {
+		return fmt.Errorf("read primary boot ID: %w", err)
+	}
+	service, err := network.NewService(store, backend, value.subnet, value.mtu, value.dns, strings.TrimSpace(string(bootIDBytes)))
 	if err != nil {
 		return err
 	}
