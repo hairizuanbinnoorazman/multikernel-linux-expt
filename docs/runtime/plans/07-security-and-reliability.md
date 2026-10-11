@@ -1,4 +1,4 @@
-# Plan 08: Security and reliability qualification
+# Plan 07: Security and reliability qualification
 
 ## Purpose
 
@@ -45,7 +45,7 @@ resources, reconciliation action, and final cleanup.
 - Log pressure and slow/unread clients.
 - Clock changes and timeout behavior.
 
-## Gate G8
+## Gate G7
 
 Pass when there are no silent resource leaks in the tested failure matrix,
 protocol fuzzing finds no unresolved high-severity issue, privilege boundaries

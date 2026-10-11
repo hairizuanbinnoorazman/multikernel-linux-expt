@@ -1,4 +1,4 @@
-# Plan 07: Kubernetes and CRI integration
+# Plan 12: Kubernetes distribution and CRI integration
 
 ## Purpose
 
@@ -37,7 +37,7 @@ Kubernetes millicpu requests do not map directly to dedicated Multikernel
 CPUs. The preview runtime must require an explicit sandbox resource policy and
 must not silently round allocations in a way that permits node overcommit.
 
-## Gate G7
+## Gate G12
 
 Pass when a normal pod manifest using `runtimeClassName` completes its full
 lifecycle, two containers share one child correctly, node services survive,

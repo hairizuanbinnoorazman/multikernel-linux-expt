@@ -22,6 +22,8 @@ storage and lifecycle theme.
 
 ## Runtime development
 
+- [`runtime/status.md`](runtime/status.md) summarizes proved experiment results,
+  the current `ctr`/Docker feature matrix, and the runtime safety boundary.
 - [`runtime/architecture.md`](runtime/architecture.md) defines the target
   system, trust boundary, component ownership, and lifecycle.
 - [`runtime/decisions/0001-build-a-new-runtime.md`](runtime/decisions/0001-build-a-new-runtime.md)
@@ -36,7 +38,7 @@ storage and lifecycle theme.
 ## Project tracking
 
 - [`project/TASKS.md`](project/TASKS.md) preserves completed experiment tasks
-  and tracks runtime gates G0 through G10.
+  and tracks runtime gates G0 through G12.
 
 New runtime evidence should be stored under `evidence/runtime-YYYYMMDD/` with
 an index describing the source revision, environment, command, result, and

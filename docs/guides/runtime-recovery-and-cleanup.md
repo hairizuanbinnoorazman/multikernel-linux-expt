@@ -5,8 +5,8 @@ not complete normally. Recovery must preserve evidence first and mutate only
 resources whose ownership is established.
 
 These procedures are for a disposable, trusted test host. They are not a
-general disaster-recovery promise: the full G8 failure matrix and several G6
-reconnect cases remain open.
+general disaster-recovery promise: the broader G7 security, reliability, and
+soak matrix remains open.
 
 ## First response
 

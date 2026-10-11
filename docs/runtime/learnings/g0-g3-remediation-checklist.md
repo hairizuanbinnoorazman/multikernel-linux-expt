@@ -2,10 +2,10 @@
 
 Audit date: 2026-09-04
 
-This is the handoff checklist for the next implementation session. The original
-G0-G3 run remains useful evidence for narrow milestones, but the gates must not
-be treated as fully closed until the unchecked items below are either completed
-or the normative plan/contract is explicitly revised with a rationale.
+This is the completed remediation record for G0-G3. The original run remains
+useful historical evidence, and the later implementation, tests, and retained
+proof close all 108 checklist rows. Findings below are preserved in discovery
+order as an audit trail.
 
 The audit compared the original gate plans, frozen v1 contracts, implementation,
 unit tests, live scripts, retained GCE evidence, and the earlier DAXFS/direct-

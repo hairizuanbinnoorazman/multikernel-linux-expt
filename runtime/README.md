@@ -2,21 +2,17 @@
 
 This directory contains the G0-G6 Multikernel runtime MVP described
 in [`../docs/runtime/architecture.md`](../docs/runtime/architecture.md). Host
-qualification, the Kerf control-plane happy path, and the minimal child OCI
-agent reached provisional local and GCE milestones. Earlier live runs passed a
-private OCI-root prototype, authenticated primary-mediated TUN networking, and
-the containerd Runtime v2 shim through both `ctr` and Docker. The current tree
-instead builds a deterministic bootstrap initramfs and a private, quota-sized
-mediated ext4 OCI root; that replacement plus the CNI-owned network design
-still require current-revision GCE proof. The broader failure/recovery matrices
-remain open.
+qualification, the Kerf control plane, child OCI agent, deterministic private
+root, primary-mediated CNI network, and containerd Runtime v2 shim have passed
+the G0-G6 gates. The final G4-G6 qualification exercised both `ctr` and Docker
+on a common runtime revision and retained audited machine-readable evidence.
+Security, operability, compatibility, performance, and release qualification
+remain open before the standalone developer preview.
 
 Guest stdin, detach/reattach, terminal execution, and Runtime v2 resize are
-implemented. Stdin/attach, PTY execution, and initial terminal-size propagation
-passed through both `ctr` and Docker on a qualified disposable GCE host; a
-deliberate post-start resize has local agent coverage but still needs live
-revalidation. The FIFO/PTY paths also pass the current local unit suite and race
-detector, with broader backpressure/failure coverage still open.
+implemented and live-qualified through both `ctr` and Docker, including
+deliberate post-start resize, FIFO pressure, restart continuity, and
+detach/reattach. The local suite also passes under the race detector.
 
 The developer-preview v1 writable-state model is deliberately ephemeral. Each
 task receives one private writable ext4 root which is released and removed on
@@ -27,11 +23,12 @@ allocation. Docker's exact three per-container metadata files are copied as
 private writable seeds for compatibility and never mounted through from the
 host. See [`Plan 04`](../docs/runtime/plans/04-images-and-storage.md).
 
-None of G0 through G6 is a closed normative gate. See the
+G0 through G6 are closed normative gates. See the
 [G0-G3](../docs/runtime/learnings/g0-g3-remediation-checklist.md) and
 [G4-G6](../docs/runtime/learnings/g4-g6-remediation-checklist.md) remediation
-audits for the demonstrated boundary and remaining contract, implementation,
-test, and evidence work.
+audits for the implementation history and retained evidence. The ordered
+standalone roadmap continues at G7; Kubernetes distribution is deferred to
+G12.
 
 ## Intended layout
 
