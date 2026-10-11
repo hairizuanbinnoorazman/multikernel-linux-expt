@@ -1,0 +1,15 @@
+{
+  "backend_timeout_seconds": 180,
+  "forbidden_apic_ids": [
+    0
+  ],
+  "kerf_executable": "/opt/mkruntime/kerf-venv/bin/kerf",
+  "kernel_manifest_directory": "/etc/mkruntime/kernels",
+  "max_frame_size_bytes": 1048576,
+  "min_primary_cpus": 4,
+  "min_primary_memory_bytes": 8589934592,
+  "multikernel_sysfs_root": "/sys/fs/multikernel",
+  "schema_version": 1,
+  "socket_path": "/run/mkruntimed.sock",
+  "state_directory": "/var/lib/mkruntime"
+}

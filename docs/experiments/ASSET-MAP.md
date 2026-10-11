@@ -51,4 +51,4 @@ the same files by experiment theme.
 
 The future container-runtime source belongs under [`../../runtime/`](../../runtime/README.md).
 Experiment helpers should move into runtime packages only after their behavior
-is covered by the corresponding G0–G10 contract tests.
+is covered by the corresponding G0–G12 contract tests.

@@ -37,8 +37,8 @@ concepts reviewed for interface design are Apache-2.0. The new C relay carries
 GPL-2.0-or-later consistently with the existing transport helpers. A future
 release still needs a generated dependency/SBOM audit.
 
-That deferred work is explicitly assigned to G8's dependency/license inventory
-and G10's release SBOM, license, and provenance artifacts. It has not been
+That deferred work is explicitly assigned to G7's dependency/license inventory
+and G9/G11 release SBOM, license, and provenance artifacts. It has not been
 counted as completed by G0.
 
 ## Revalidation proof (2026-08-31)
@@ -86,20 +86,20 @@ condition for that gate.
 | Contract section | Implementing gate(s) | Status after this session |
 | --- | --- | --- |
 | Lifecycle identity and idempotency | G2, G6 | G2 contract implemented; generation, validation, exact replay, and absent-delete semantics have focused coverage. Broader clients remain G6 work. |
-| Lifecycle states, journaling, reconciliation, and locks | G2, G8 | G2 contract implemented with full intent/checkpoint reconciliation; hostile fault campaigns remain G8 work. |
-| Error taxonomy and secret-safe errors | G2, G3, G8 | G0-G3 boundary complete: stable operation IDs, backend-timeout classification, structured agent errors, focused leakage tests, and the safe live negative matrix pass. Broader hostile campaigns remain G8 work. |
+| Lifecycle states, journaling, reconciliation, and locks | G2, G7 | G2 contract implemented with full intent/checkpoint reconciliation; hostile fault campaigns remain G7 work. |
+| Error taxonomy and secret-safe errors | G2, G3, G7 | G0-G3 boundary complete: stable operation IDs, backend-timeout classification, structured agent errors, focused leakage tests, and the safe live negative matrix pass. Broader hostile campaigns remain G7 work. |
 | Ownership table: containerd/shim inputs | G6 | Future gate. |
-| Ownership table: daemon/Kerf resources and protected host devices | G1, G2, G8 | G1/G2 boundary implemented; device allocation is absent and strict configuration prohibits protected-controller input. Adversarial proof remains G8 work. |
-| Ownership table: agent/process/cgroups | G3, G8 | G3 process ownership/limits implemented; OCI cgroup application remains explicitly mandatory at G6. |
+| Ownership table: daemon/Kerf resources and protected host devices | G1, G2, G7 | G1/G2 boundary implemented; device allocation is absent and strict configuration prohibits protected-controller input. Adversarial proof remains G7 work. |
+| Ownership table: agent/process/cgroups | G3, G7 | G3 process ownership/limits implemented; OCI cgroup application remains explicitly mandatory at G6. |
 | Ownership table: writable roots/storage | G4 | Future gate. |
-| Ownership table: cloud ledgers | Every live gate, audited again at G10 | Replacement proof and continuing remediation have before/after cleanup ledgers; both disposable VMs and their auto-delete disks are gone. |
-| Threat statement and isolation boundary | G1, G8 | G1 pinned-source audit and resource matrix complete; hostile-workload hardening remains G8. |
-| Agent authentication/session binding | G3, G8 | G3 implementation, focused tests, and the safe live negative/reconnect matrix pass; adversarial campaigns remain G8 work. |
+| Ownership table: cloud ledgers | Every live gate, audited again at G11 | Replacement proof and continuing remediation have before/after cleanup ledgers; both disposable VMs and their auto-delete disks are gone. |
+| Threat statement and isolation boundary | G1, G7 | G1 pinned-source audit and resource matrix complete; hostile-workload hardening remains G7. |
+| Agent authentication/session binding | G3, G7 | G3 implementation, focused tests, and the safe live negative/reconnect matrix pass; adversarial campaigns remain G7 work. |
 | Kernel/image ownership and approved-manifest validation | G2, G3, G4, G6 | Strict production manifest resolution verifies artifacts, versions, relay, module, and exact transport roles before allocation. Image-root production work remains G4/G6. |
-| OCI supported/rejected fields | G3, G6, G8 | G3 direct-agent and adapter boundaries fail closed with a 25-case matrix; expanded production support remains G6. |
+| OCI supported/rejected fields | G3, G6, G7, G9 | G3 direct-agent and adapter boundaries fail closed with a 25-case matrix; the standalone compatibility contract is frozen at G9. |
 | Host and sandbox configuration | G0 schema; G1/G2 enforcement | Strict root ownership, safe parents, daemon loading, socket/state permissions, and field bounds are implemented. |
 | Daemon/agent wire envelopes and method set | G0 schema; G2/G3 implementation; G6 evolution | Schemas cover the implemented v1 method set and structured replies; remaining method semantics are gate work. |
-| Evidence manifest, resource ledgers, and redaction | Every gate; G10 release audit | Separate schema-valid G0-G3 manifests, indexed raw evidence, checksums, cloud ledgers, and exact-token redaction proof exist; release-wide audit remains open. |
+| Evidence manifest, resource ledgers, and redaction | Every gate; G11 release audit | Separate schema-valid G0-G3 manifests, indexed raw evidence, checksums, cloud ledgers, and exact-token redaction proof exist; release-wide audit remains open. |
 
 ## Contract drift found by the 2026-09-02 synchronization audit
 

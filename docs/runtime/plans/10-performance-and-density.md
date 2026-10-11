@@ -1,4 +1,4 @@
-# Plan 09: Performance and density
+# Plan 10: Performance and density
 
 ## Purpose
 
@@ -40,7 +40,7 @@ bare metal.
 - Record primary overhead as well as child workload results.
 - Publish negative results and capacity cliffs.
 
-## Gate G9
+## Gate G10
 
 Pass when results are repeatable, raw evidence is retained, comparisons are
 like-for-like, and the project can identify at least one workload class where

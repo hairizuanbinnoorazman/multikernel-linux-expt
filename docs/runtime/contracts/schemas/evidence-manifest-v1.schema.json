@@ -6,7 +6,7 @@
   "required": ["schema_version", "gate", "run_id", "result", "started_at", "ended_at", "repository", "components", "host", "commands", "assertions", "limitations", "cleanup"],
   "properties": {
     "schema_version": {"const": 1},
-    "gate": {"type": "string", "pattern": "^G(?:[0-9]|10)$"},
+    "gate": {"type": "string", "pattern": "^G(?:[0-9]|1[0-2])$"},
     "run_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
     "result": {"enum": ["pass", "fail", "blocked", "partial", "provisional"]},
     "started_at": {"type": "string", "format": "date-time"},

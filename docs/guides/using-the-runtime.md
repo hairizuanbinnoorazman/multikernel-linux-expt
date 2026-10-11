@@ -190,7 +190,7 @@ and materialized read-only binds have narrower implementation coverage.
 
 Dynamic resource `Update` and checkpoint/restore are not implemented.
 Unsupported seccomp, hooks, writable or propagating mounts, and unapproved OCI
-fields fail closed. Kubernetes `RuntimeClass` is a future G7 gate, not a
+fields fail closed. Kubernetes `RuntimeClass` is a deferred G12 gate, not a
 supported workflow in this guide.
 
 For the current claim-by-claim status, consult the root

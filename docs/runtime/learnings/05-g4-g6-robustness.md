@@ -176,7 +176,7 @@ remain unimplemented or partial. Containerd 2.2.2 does not expose a standalone
 `ctr tasks wait`; the blocking `ctr run` path exercised Task `Wait`, while
 Docker was additionally checked with `docker wait`.
 
-The exact command mapping is kept in the [top-level feature matrix](../../../README.md#g4-g6-ctr-and-docker-feature-matrix).
+The exact command mapping is kept in the [runtime status feature matrix](../status.md#g4-g6-ctr-and-docker-feature-matrix).
 Raw proof, component hashes, image digest, qualified-host report, and the final
 clean inventory are indexed in the
 [feature-matrix evidence](../../../evidence/runtime-20260901/g4-g6-feature-matrix/README.md).

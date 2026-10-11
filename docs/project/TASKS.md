@@ -1,6 +1,6 @@
 # Implementation tasks
 
-Last updated: 2026-09-02
+Last updated: 2026-10-11
 
 ## Live GCE proof
 
@@ -151,49 +151,57 @@ The detailed exit criteria and ordering are in
 - [x] G3 milestone: run one minimal direct OCI process lifecycle through
   `mk-agent`; full process, containment, shutdown, and protocol semantics remain
   open.
-- [ ] Close the
+- [x] Close the
   [G0-G3 remediation and revalidation checklist](../runtime/learnings/g0-g3-remediation-checklist.md)
   before treating the four historical milestone passes as full conformance to
   their plans and frozen contracts.
-- [ ] G4: provide deterministic OCI images and safe single-owner storage.
+- [x] G4: provide deterministic OCI images and safe single-owner storage.
   - [x] MVP: consume containerd/Docker-prepared BusyBox roots, create a private
     per-sandbox initramfs, and prove narrow write isolation and cleanup.
-  - [ ] Prove caller snapshot immutability with before/after metadata or Merkle
-    digests; the current copy path does not itself establish this claim.
-- [ ] G5: provide primary-mediated CNI-compatible networking.
+  - [x] Prove caller snapshot immutability with before/after metadata or Merkle
+    digests.
+- [x] G5: provide primary-mediated CNI-compatible networking.
   - [x] MVP: provide isolated static `/30` TUN links, primary NAT, DNS and
     outbound HTTP without assigning the GCE NIC to a child.
-  - [ ] Add normal CNI `ADD`, `CHECK`, and `DEL` operations.
-- [ ] G6: pass containerd Runtime v2 lifecycle tests through `ctr`.
+  - [x] Add and live-qualify normal CNI `ADD`, `CHECK`, and `DEL` operations.
+- [x] G6: pass containerd Runtime v2 lifecycle tests through `ctr` and Docker.
   - [x] MVP: pass concurrent `ctr` and Docker create/start/exec/signal/wait/
     delete with distinct child-kernel boot IDs and narrow tested-resource
     teardown.
-  - [ ] Retain evidence-grade containerd restart/reconnect proof; the historical
-    result is an operator observation without raw output.
+  - [x] Retain evidence-grade containerd and Docker restart/reconnect proof.
   - [x] Preserve running child boot identities across an `mkruntimed` restart in
     the hashed shared-client harness.
-  - [ ] Retain evidence-grade forced-shim reclaim proof; the historical result
-    is an operator observation and running-task reconnect is absent.
+  - [x] Retain evidence-grade forced-shim reclaim and running-task reconnect
+    proof.
   - [x] Pass and retain a command-by-command shared `ctr`/Docker feature
     matrix covering every currently supported lifecycle, root, network,
     restart, name-reuse, and cleanup path.
-  - [ ] Preserve/reconnect the running task after forced shim death.
+  - [x] Preserve/reconnect the running task after forced shim death.
   - [x] Implement child PTY terminal mode and Task v2 terminal resize, including
     resize requests received before process start.
   - [x] Implement and live-test guest stdin, `CloseIO`, and detach/reattach
     through both `ctr` and Docker.
   - [x] Revalidate terminal mode and initial-size propagation through `ctr` and
     Docker on a disposable qualified Multikernel host.
-  - [ ] Revalidate a deliberate post-start terminal resize through both clients
+  - [x] Revalidate a deliberate post-start terminal resize through both clients
     and retain the before/after guest sizes.
-- [ ] Close the
+- [x] Close the
   [G4-G6 remediation and live-evidence checklist](../runtime/learnings/g4-g6-remediation-checklist.md)
   before treating the checked MVP and feature rows as full G4, G5, or G6 gate
   conformance.
-- [ ] G7: run a multi-container Kubernetes pod through `RuntimeClass`.
-- [ ] G8: pass the security, fuzzing, failure, and resource-leak matrix.
-- [ ] G9: publish reproducible performance and density comparisons.
-- [ ] G10: produce and validate the opt-in developer-preview release.
+- [ ] G7: pass the security, fuzzing, failure, soak, and resource-leak matrix.
+- [ ] G8: add bounded health, diagnostics, structured logging, tested recovery,
+  service hardening, and a maintainable shim layout.
+- [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
+  release artifacts, dependency/license inventories, SBOM, provenance, and
+  tested install/upgrade/rollback/uninstall paths.
+- [ ] G10: publish reproducible performance, recovery-latency, and density
+  comparisons with retained raw evidence.
+- [ ] G11: produce and validate the opt-in standalone containerd/Docker
+  developer-preview release on a fresh qualified host.
+- [ ] G12, deferred: distribute the standalone runtime through Kubernetes and
+  pass the multi-container `RuntimeClass`, CRI, volume, probe, scheduling, and
+  node-recovery matrix.
 
 ## Safety constraints
 

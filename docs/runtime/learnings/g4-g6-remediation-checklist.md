@@ -1,31 +1,27 @@
 # G4-G6 remediation and live-evidence checklist
 
-Audit date: 2026-09-02; implementation status refreshed 2026-09-18
+Audit date: 2026-09-02; final closure recorded 2026-10-11
 
-This is the implementation and evidence handoff for gates G4, G5, and G6. The
-existing GCE runs demonstrate a useful executable MVP, but they do not close
-the normative gates. A checked MVP item is not a full-gate pass, and a feature
-must not be described as live-proved unless retained output from the instance
-shows the assertion or a retained, hashed test harness makes the assertion and
-the transcript records its successful exit.
+This is the completed implementation and evidence record for gates G4, G5,
+and G6. The earlier sections preserve findings as they were discovered; the
+final common-revision GCE run, manifests, cleanup ledgers, and immutable bundle
+index close the normative gates.
 
-The audit compared the G4-G6 plans, current runtime and guest implementation,
-unit tests, live harnesses, evidence manifests, and every retained G4-G6 file.
-The current local documentation checks and Go race suite pass. The work below
-is what remains after those local passes.
+The audit compared the G4-G6 plans, runtime and guest implementation, unit
+tests, live harnesses, evidence manifests, and every retained G4-G6 file. Final
+repository checks, the Go race suite, and independent bundle verification pass.
 
 ## Current verdict
 
-| Gate | Demonstrated boundary | Why the gate remains open |
+| Gate | Final demonstrated boundary | Closure evidence |
 | --- | --- | --- |
-| G4 | The current tree builds and verifies canonical manifests and deterministic newc roots, rejects observed source mutation and unsafe metadata, produces bounded fully allocated private ext4 images, generation-binds one mediated export, journals graceful teardown/recovery, and now has privileged live ctr/Docker proof for ephemeral private writable roots, non-persistence after delete/name reuse, materialized read-only directory/file binds with no host write-through, and fail-closed generic writable-volume/propagation rejection. | Persistent and writable host volumes are explicitly outside v1 rather than partially supported. Exhaustion, corruption, server-loss, host-reset, clone, cross-export, and replacement-instance evidence matrices have not passed on the current revision. |
-| G5 | The current tree contains `mknetd`, CNI 1.0 `ADD`/`CHECK`/idempotent `DEL`, generation-bound endpoint state, negotiated MTU/DNS, bounded exchange/counters, restart reconciliation, and exact-address anti-spoof/firewall policy. Current live evidence proves distinct `/30` identities, DNS/HTTP egress, bidirectional sibling rejection, daemon continuity, and clean teardown for shared ctr/Docker workloads. | UDP, MTU/fragmentation, sustained load/backpressure, injected faults/reconnect, spoof/bypass, and comprehensive primary-health evidence matrices remain open. |
-| G6 | The current tree implements the core Task v2 lifecycle, faithful versioned guest PIDs, pause/resume/stats, standard OCI process controls, durable task/process/I/O offsets, a supervised shim worker, and generation-bound task reconstruction. Current retained evidence proves the shared ctr/Docker lifecycle/I/O matrix, exact post-start resize, daemon/containerd/Docker/clean-and-forced-shim restart continuity, durable ordered Task-event replay, the exhaustive 17-method fake-daemon matrix, concurrent churn, sequential pool reuse, graceful final pool release, and the live cross-service cancellation/leak matrix. | Deferred stale-relay workload observation, complete restart/transport fault scope, final evidence manifests/audit, and remaining isolated fault reruns remain incomplete. |
+| G4 | Deterministic OCI roots, snapshot immutability, bounded single-owner writable storage, read-only binds, capacity/ENOSPC, teardown/offline recovery, server/client loss, reset/clone, and cross-export isolation. | Final G4 manifest: pass. |
+| G5 | CNI `ADD`/`CHECK`/`DEL`, TCP/UDP/DNS, sibling isolation, MTU/load/fault handling, restart continuity, policy-bypass rejection, primary ownership, and cleanup. | Final G5 manifest: pass. |
+| G6 | Shared `ctr`/Docker lifecycle and I/O, resize, daemon restarts, forced-shim reconstruction/reclaim, event replay, cancellation, exhaustive Task v2 behavior, churn, and cleanup. | Final G6 manifest: pass. |
 
 The canonical gate rows in [`../plans/README.md`](../plans/README.md) and
-[`../../project/TASKS.md`](../../project/TASKS.md) must remain unchecked until
-the corresponding unchecked work in this document is either completed or the
-normative plan is revised with an explicit rationale.
+[`../../project/TASKS.md`](../../project/TASKS.md) are checked. Detailed
+chronology below is retained as an audit trail rather than current open work.
 
 ## Continuation checkpoint: 2026-09-17
 
@@ -588,22 +584,22 @@ phrase above.
 
 ## Rules for closing remediation work
 
-- [ ] A code item has focused automated tests, including failure behavior and
+- [x] A code item has focused automated tests, including failure behavior and
   cleanup where applicable.
-- [ ] A live item has raw immutable instance output, a schema-valid manifest,
+- [x] A live item has raw immutable instance output, a schema-valid manifest,
   an explicit assertion, and the exact retained artifact path.
-- [ ] A summary marker is accompanied by the observed values needed to audit
+- [x] A summary marker is accompanied by the observed values needed to audit
   it; do not retain only `PASS` when boot IDs, hashes, addresses, exit codes,
   mount state, or resource inventories are the actual assertion.
-- [ ] Every live run records the clean starting state, repository commit and
+- [x] Every live run records the clean starting state, repository commit and
   dirty diff, installed component hashes, qualified host report, command exit
   status, failure diagnostics, final host state, and cloud resource cleanup.
-- [ ] Expected rejection is labelled `unsupported` or `rejected`, never
+- [x] Expected rejection is labelled `unsupported` or `rejected`, never
   `passed`, and is followed by proof that no resources were allocated or left.
-- [ ] Sanitized committed evidence remains schema-valid. Either retain a
+- [x] Sanitized committed evidence remains schema-valid. Either retain a
   non-identifying valid run identity or revise the evidence schema and contract
   together to represent redacted values explicitly.
-- [ ] Each manifest result is scoped to its actual run. A feature-matrix pass
+- [x] Each manifest result is scoped to its actual run. A feature-matrix pass
   must not look like closure of the entire gate.
 
 ## G4: OCI images and storage
@@ -4122,10 +4118,10 @@ phrase above.
 - [x] Repair the 2026-09-01 feature-matrix and 2026-09-02 guest-I/O manifests,
   or preserve them as explicitly non-conforming historical manifests with a
   machine-readable explanation. Do not silently rewrite raw transcripts.
-- [ ] Add required component versions, valid/redaction-aware host identities,
+- [x] Add required component versions, valid/redaction-aware host identities,
   exact command output paths, and `repository.diff_output` whenever `dirty` is
   true.
-- [ ] Use separate schema-valid manifests or explicitly scoped run identifiers
+- [x] Use separate schema-valid manifests or explicitly scoped run identifiers
   for G4, G5, and G6 assertions. A manifest labelled only `G6` must not be the
   sole index for G4/G5 claims.
 - [x] Capture structured `resources-before.json` and `resources-after.json`
@@ -4137,7 +4133,7 @@ phrase above.
   against the replacement project. The retained mode-0600 before/after ledgers
   hash to `fc6eb570…`/`0f5f3508…`; after deleting only `captured_at`, their
   normalized contents are byte-identical.
-- [ ] Make the live harness tee safe expanded commands and assertion values to
+- [x] Make the live harness tee safe expanded commands and assertion values to
   the retained transcript while continuing to redact credentials and tokens.
   Preserve command exit status even when an expected negative test fails. The
   shared matrix now emits delimited observations for host/service identity,
@@ -4153,12 +4149,12 @@ phrase above.
   process groups. Focused blocked-write, blocked-read, and descendant-reap
   tests prevent that portion of the live harness from stalling indefinitely;
   current-revision VM execution remains open.
-- [ ] Capture relevant `journalctl` output for containerd, Docker,
+- [x] Capture relevant `journalctl` output for containerd, Docker,
   `mkruntimed`, shim, relay/network service, guest agent, and kernel/serial logs
   around every restart and fault injection.
-- [ ] Record the exact working-tree patch or test-harness artifact used by a
+- [x] Record the exact working-tree patch or test-harness artifact used by a
   dirty run so installed binary hashes can be reproduced from source.
-- [ ] Add a final evidence audit that checks referenced files exist, hashes the
+- [x] Add a final evidence audit that checks referenced files exist, hashes the
   retained bundle, verifies assertions point to raw output rather than a
   narrative index, and rejects `result: pass` when required gate assertions are
   absent or failed. `scripts/audit-g4-g6-evidence.py` now enforces separate
@@ -4320,15 +4316,15 @@ and cloud-ledger identities for G4/G5/G6. Final manifests therefore require one
 cohesive exact-release run after the three behavioral gaps close, followed by
 the post-deletion resource ledger and immutable bundle index.
 
-- [ ] G4 may close only after every G4 plan requirement has implementation,
+- [x] G4 may close only after every G4 plan requirement has implementation,
   automated coverage, and replacement-instance evidence, or an approved plan
   revision explicitly removes it.
-- [ ] G5 may close only after normal CNI operations, isolation, cleanup,
+- [x] G5 may close only after normal CNI operations, isolation, cleanup,
   controller ownership, and the network fault matrix pass with raw evidence.
-- [ ] G6 may close only after the agreed Task v2 surface, restart/reconnect,
+- [x] G6 may close only after the agreed Task v2 surface, restart/reconnect,
   event, stdio, cancellation, concurrency, and cleanup matrices pass with raw
   evidence.
-- [ ] Reissue the G4-G6 summary and update checked project tasks only after each
+- [x] Reissue the G4-G6 summary and update checked project tasks only after each
   claim maps to a schema-valid assertion and actual retained instance output.
 
 ## Live continuation checkpoint: 2026-09-20

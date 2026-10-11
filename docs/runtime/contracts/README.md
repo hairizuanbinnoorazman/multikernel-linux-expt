@@ -27,10 +27,11 @@ changes require a new protocol or schema major version.
 ## Frozen MVP boundary
 
 G0 through G3 provide host qualification, resource lifecycle, and one managed
-OCI process in one child. Storage, networking, containerd, and Kubernetes are
-G4 through G7 and are not implied by a G3 result. The child agent may use a
-test-owned root directory for G3; production root delivery remains a G4
-contract.
+OCI process in one child. Storage, networking, and containerd/Docker are G4
+through G6 and are not implied by a G3 result. Security through standalone
+release qualification continue through G11; Kubernetes distribution is
+deferred to G12. The child agent may use a test-owned root directory for G3;
+production root delivery remains a G4 contract.
 
 No open decision changes this boundary. AF_VSOCK transport details, storage
 selection, networking, and the containerd shim can evolve behind the v1

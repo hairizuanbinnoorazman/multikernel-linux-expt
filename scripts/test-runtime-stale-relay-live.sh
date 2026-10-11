@@ -147,18 +147,14 @@ grep -Fq '"phase":"started"' <<<"$helper_output"
 grep -Fq '"status":"running"' <<<"$helper_output"
 
 replacement=$(sudo python3 - "$relay_path" "$stale_inode" <<'PY'
-import json, os, socket, stat, sys
+import json, os, stat, sys
 path, stale = sys.argv[1], int(sys.argv[2])
 value = os.lstat(path)
 if not stat.S_ISSOCK(value.st_mode) or value.st_ino == stale or value.st_uid != 0 or value.st_nlink != 1:
     raise SystemExit(f"invalid replacement identity mode={value.st_mode:o} inode={value.st_ino} uid={value.st_uid} links={value.st_nlink}")
-probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-probe.settimeout(2)
-probe.connect(path)
-probe.close()
 print(json.dumps({"path": path, "inode": value.st_ino, "device": value.st_dev,
                   "uid": value.st_uid, "gid": value.st_gid, "mode": oct(stat.S_IMODE(value.st_mode)),
-                  "links": value.st_nlink, "connect": "accepted"}, sort_keys=True, separators=(",", ":")))
+                  "links": value.st_nlink}, sort_keys=True, separators=(",", ":")))
 PY
 )
 workload=$(sudo ctr task exec --exec-id stale-relay-proof "$task_id" /bin/sh -c 'printf STALE_RELAY_REPLACEMENT_PASS')

@@ -9,7 +9,12 @@ required_paths=(
   docs/runtime/architecture.md
   docs/runtime/decisions/0001-build-a-new-runtime.md
   docs/runtime/plans/README.md
-  docs/runtime/plans/10-final-build-and-release.md
+  docs/runtime/plans/07-security-and-reliability.md
+  docs/runtime/plans/08-operability-and-diagnostics.md
+  docs/runtime/plans/09-compatibility-and-release-engineering.md
+  docs/runtime/plans/10-performance-and-density.md
+  docs/runtime/plans/11-standalone-preview.md
+  docs/runtime/plans/12-kubernetes-distribution.md
   runtime/README.md
 )
 

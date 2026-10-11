@@ -1,5 +1,7 @@
 # Runtime design documentation
 
+- [`status.md`](status.md): proved results, current client feature matrix, and
+  safety boundary.
 - [`architecture.md`](architecture.md): target components, lifecycle, and trust
   boundary.
 - [`decisions/`](decisions/): architecture decision records.
