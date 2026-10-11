@@ -1,0 +1,106 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "sudo chmod 600 /tmp/mksrc-d7c5301.tar; sudo bash /tmp/run-candidate-build-d7c5301.sh"], "started_at": "2026-10-10T14:47:34.512986Z"}}
+G6_STREAM_KEEPER_CANDIDATE_BUILD_BEGIN
++ archive=/tmp/mksrc-d7c5301.tar
++ source_root=/var/tmp/mksrc-d7c5301
++ test_tmp=/var/tdd
++ revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
++ archive_sha=d8dae4a4f7669c600a42921433918d84d9d6b881d7574f8e0a0fa0f4d7ed25d5
++ echo G6_STREAM_KEEPER_CANDIDATE_BUILD_BEGIN
++ date -u +%FT%TZ
+2026-10-10T14:47:37Z
+++ cat /proc/sys/kernel/random/boot_id
+boot_id=1572735b-c57e-4b99-88f5-213c74c71e77
++ printf 'boot_id=%s\n' 1572735b-c57e-4b99-88f5-213c74c71e77
+++ stat -c %a /tmp/mksrc-d7c5301.tar
++ test 600 = 600
+++ stat -c %s /tmp/mksrc-d7c5301.tar
++ test 7321600 = 7321600
+++ sha256sum /tmp/mksrc-d7c5301.tar
+++ awk '{print $1}'
++ test d8dae4a4f7669c600a42921433918d84d9d6b881d7574f8e0a0fa0f4d7ed25d5 = d8dae4a4f7669c600a42921433918d84d9d6b881d7574f8e0a0fa0f4d7ed25d5
+++ findmnt -n -o FSTYPE -T /var
++ test ext4 = ext4
++ test '!' -e /var/tmp/mksrc-d7c5301
++ test '!' -e /var/tdd
++ test '!' -e /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3
++ install -d -m 0755 /var/tmp/mksrc-d7c5301
++ install -d -m 0700 -o 1001 -g 1002 /var/tdd
++ trap 'rm -rf -- "$test_tmp"' EXIT
++ tar -xf /tmp/mksrc-d7c5301.tar -C /var/tmp/mksrc-d7c5301
++ chown -R 1001:1002 /var/tmp/mksrc-d7c5301
++ chmod -R go-w /var/tmp/mksrc-d7c5301
++ sudo -u hairizuan-tw env TMPDIR=/var/tdd GOCACHE=/tmp/mk-go-cache bash -c 'cd '\''/var/tmp/mksrc-d7c5301/runtime'\'' && go test -race ./...'
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	10.782s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	12.262s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	1.014s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	1.116s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.096s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	1.016s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.020s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.075s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	1.015s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.203s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.250s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.038s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.073s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	1.711s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	2.326s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	1.533s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	4.202s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.052s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.057s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	11.833s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	1.028s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	1.037s
+make: Entering directory '/var/tmp/mksrc-d7c5301'
+mkdir -p runtime/bin
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3" -o bin/mk-host-check ./cmd/mk-host-check
++ sudo -u hairizuan-tw env TMPDIR=/var/tdd make -C /var/tmp/mksrc-d7c5301 runtime-manifest RUNTIME_VERSION=0.1.0-dev RUNTIME_REVISION=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3" -o bin/mkruntimed ./cmd/mkruntimed
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3" -o bin/mk-agent ./cmd/mk-agent
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3" -o bin/mk-agentctl ./cmd/mk-agentctl
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3" -o bin/mknetd ./cmd/mknetd
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3" -o bin/mk-cni ./cmd/mk-cni
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-dev -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3" -o bin/containerd-shim-multikernel-v2 ./cmd/containerd-shim-multikernel-v2
+python3 scripts/runtime-release-manifest.py runtime/bin runtime/release-manifest.json \
+	--expected-version=0.1.0-dev --expected-revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+make: Leaving directory '/var/tmp/mksrc-d7c5301'
+++ stat -c %a /var/tmp/mksrc-d7c5301/runtime/release-manifest.json
++ test 644 = 644
++ python3 /var/tmp/mksrc-d7c5301/scripts/runtime-release-manifest.py /var/tmp/mksrc-d7c5301/runtime/bin /var/tdd/release-manifest-duplicate.json --expected-version=0.1.0-dev --expected-revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+containerd-shim-multikernel-v2 version=0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+mk-agent version=0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
++ cmp /var/tmp/mksrc-d7c5301/runtime/release-manifest.json /var/tdd/release-manifest-duplicate.json
++ for binary in "$source_root"/runtime/bin/*
++ /var/tmp/mksrc-d7c5301/runtime/bin/containerd-shim-multikernel-v2 --version
++ for binary in "$source_root"/runtime/bin/*
++ /var/tmp/mksrc-d7c5301/runtime/bin/mk-agent --version
+mk-agentctl version=0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
++ for binary in "$source_root"/runtime/bin/*
++ /var/tmp/mksrc-d7c5301/runtime/bin/mk-agentctl --version
++ for binary in "$source_root"/runtime/bin/*
+mk-cni version=0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+mk-host-check version=0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+mknetd version=0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+mkruntimed version=0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
++ /var/tmp/mksrc-d7c5301/runtime/bin/mk-cni --version
++ for binary in "$source_root"/runtime/bin/*
++ /var/tmp/mksrc-d7c5301/runtime/bin/mk-host-check --version
++ for binary in "$source_root"/runtime/bin/*
++ /var/tmp/mksrc-d7c5301/runtime/bin/mknetd --version
++ for binary in "$source_root"/runtime/bin/*
++ /var/tmp/mksrc-d7c5301/runtime/bin/mkruntimed --version
++ sha256sum /var/tmp/mksrc-d7c5301/runtime/bin/containerd-shim-multikernel-v2 /var/tmp/mksrc-d7c5301/runtime/bin/mk-agent /var/tmp/mksrc-d7c5301/runtime/bin/mk-agentctl /var/tmp/mksrc-d7c5301/runtime/bin/mk-cni /var/tmp/mksrc-d7c5301/runtime/bin/mk-host-check /var/tmp/mksrc-d7c5301/runtime/bin/mknetd /var/tmp/mksrc-d7c5301/runtime/bin/mkruntimed /var/tmp/mksrc-d7c5301/runtime/release-manifest.json
+8ad23ba2e3fe7c6fda6df51f873682fd6aac74306dcb68e227d612dc38df16b2  /var/tmp/mksrc-d7c5301/runtime/bin/containerd-shim-multikernel-v2
+16eb2d9849edecd5cd93011b9c60f65f66b0347e9ded3a57811d3dd64109ccbf  /var/tmp/mksrc-d7c5301/runtime/bin/mk-agent
+d9c82616e6e05662160a8eab917f5927871bfc9aaab09b8b475c7701e4be7f12  /var/tmp/mksrc-d7c5301/runtime/bin/mk-agentctl
+3e97bd96f4b37be7f9ae4e69ec6acd78f4b9004cbf28de7124286f0e16bd7602  /var/tmp/mksrc-d7c5301/runtime/bin/mk-cni
+b2f330919ea941e098b1b156ac90886289bb3ccafa2b99de930fd615c01ae474  /var/tmp/mksrc-d7c5301/runtime/bin/mk-host-check
+9fb4479cc04a3d25f660b726a020a50d9838ba58d242223fd01c88dad2d4a2a5  /var/tmp/mksrc-d7c5301/runtime/bin/mknetd
+f0634fbed5e70f6bb2464a27dc32fe80d0645dd784a42b38d508b23943425d97  /var/tmp/mksrc-d7c5301/runtime/bin/mkruntimed
+612f1165f93ac7d5f2ee4e3d71db493824605c8b678c811f9e5be14b48bb9cd1  /var/tmp/mksrc-d7c5301/runtime/release-manifest.json
+G6_STREAM_KEEPER_CANDIDATE_BUILD_PASS
++ echo G6_STREAM_KEEPER_CANDIDATE_BUILD_PASS
++ rm -rf -- /var/tdd
+{"evidence_command_result": {"ended_at": "2026-10-10T14:47:57.613646Z", "exit_status": 0}}

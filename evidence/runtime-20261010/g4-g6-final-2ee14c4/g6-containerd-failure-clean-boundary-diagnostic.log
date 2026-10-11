@@ -1,0 +1,41 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "set -u; date -u +%FT%TZ; cat /proc/sys/kernel/random/boot_id; timeout 10 systemctl is-active mkruntimed mknetd containerd docker; timeout 10 systemctl show mkruntimed -p ActiveState -p SubState -p MainPID -p NRestarts -p TimeoutStopUSec; timeout 10 sudo systemctl status mkruntimed --no-pager -n 30; timeout 10 ps -eo pid,ppid,stat,wchan:28,comm,args | grep -E \"mkruntimed|mk-agent-relay|containerd-shim|mkvsock-nbd\" | grep -v grep; timeout 10 sudo journalctl -u mkruntimed --since \"2026-10-10 14:00:30 UTC\" --no-pager -n 100"], "started_at": "2026-10-10T14:02:37.568405Z"}}
+2026-10-10T14:02:47Z
+1572735b-c57e-4b99-88f5-213c74c71e77
+active
+active
+active
+active
+ActiveState=active
+SubState=running
+TimeoutStopUSec=1min 30s
+MainPID=19712
+NRestarts=0
+● mkruntimed.service - Multikernel container runtime control plane
+     Loaded: loaded (/etc/systemd/system/mkruntimed.service; enabled; preset: enabled)
+     Active: active (running) since Sat 2026-10-10 14:01:23 UTC; 1min 24s ago
+ Invocation: 54978040b50e46a9b08b5eb7fdd9b75b
+    Process: 19703 ExecStartPre=/sbin/modprobe vsock (code=exited, status=0/SUCCESS)
+    Process: 19705 ExecStartPre=/sbin/insmod /usr/local/libexec/multikernel/mk_transport.ko (code=exited, status=1/FAILURE)
+    Process: 19707 ExecStartPre=/usr/bin/test -d /sys/module/mk_transport (code=exited, status=0/SUCCESS)
+    Process: 19708 ExecStartPre=/usr/local/libexec/multikernel/validate-runtime-storage-mount.py --mountpoint ${MKRUNTIME_STORAGE_MOUNT} --device ${MKRUNTIME_STORAGE_DEVICE} --serial ${MKRUNTIME_STORAGE_SERIAL} --bytes ${MKRUNTIME_STORAGE_BYTES} --label ${MKRUNTIME_STORAGE_LABEL} --uuid ${MKRUNTIME_STORAGE_UUID} (code=exited, status=0/SUCCESS)
+   Main PID: 19712 (mkruntimed)
+      Tasks: 13 (limit: 71543)
+     Memory: 10.3M (peak: 32.6M)
+        CPU: 795ms
+     CGroup: /system.slice/mkruntimed.service
+             └─19712 /usr/local/sbin/mkruntimed --config=/etc/mkruntime/config.json --pool-cpus=8,10,12,14,9,11,13,15 --pool-memory=16GB --pool-memory-reserve=1GB --storage-state-dir=/var/lib/mkruntimed/storage --storage-runtime-dir=/run/mkstorage --storage-server=/usr/local/libexec/multikernel/mkvsock-nbd --rootfs-state-dir=/var/lib/mkruntimed/rootfs --rootfs-storage-dir=/srv/multikernel-storage/runtime --rootfs-builder=/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh "--cmdline=rdinit=/init console=mktty0 panic=-1"
+
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 insmod[19705]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[19708]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+  19712       1 Ssl  -                            mkruntimed      /usr/local/sbin/mkruntimed --config=/etc/mkruntime/config.json --pool-cpus=8,10,12,14,9,11,13,15 --pool-memory=16GB --pool-memory-reserve=1GB --storage-state-dir=/var/lib/mkruntimed/storage --storage-runtime-dir=/run/mkstorage --storage-server=/usr/local/libexec/multikernel/mkvsock-nbd --rootfs-state-dir=/var/lib/mkruntimed/rootfs --rootfs-storage-dir=/srv/multikernel-storage/runtime --rootfs-builder=/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh --cmdline=rdinit=/init console=mktty0 panic=-1
+Oct 10 14:01:22 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Consumed 1min 3.805s CPU time over 4h 22min 15.012s wall clock time, 2.5G memory peak.
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 insmod[19705]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[19708]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 14:01:23 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+{"evidence_command_result": {"ended_at": "2026-10-10T14:02:48.286624Z", "exit_status": 0}}

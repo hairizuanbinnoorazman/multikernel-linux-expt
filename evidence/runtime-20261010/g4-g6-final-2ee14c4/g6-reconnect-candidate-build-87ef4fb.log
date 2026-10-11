@@ -1,0 +1,76 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "sudo /tmp/run-candidate-build-87ef4fb.sh"], "started_at": "2026-10-10T14:06:49.354340Z"}}
++ archive=/tmp/mksrc-87ef4fb.tar
++ source_root=/var/tmp/mksrc-87ef4fb
+G6_RECONNECT_CANDIDATE_BUILD_BEGIN
++ revision=87ef4fbcf47f7dc41c17c774a5490b3fa2b1312a
++ archive_sha=4072bbe1c6f2b79bf93074c5276b9466a1288f819b95217eb8c8981bde924cf5
++ echo G6_RECONNECT_CANDIDATE_BUILD_BEGIN
++ date -u +%FT%TZ
+2026-10-10T14:06:50Z
+++ cat /proc/sys/kernel/random/boot_id
+boot_id=1572735b-c57e-4b99-88f5-213c74c71e77
++ printf 'boot_id=%s\n' 1572735b-c57e-4b99-88f5-213c74c71e77
+++ stat -c %a /tmp/mksrc-87ef4fb.tar
++ test 600 = 600
+++ stat -c %s /tmp/mksrc-87ef4fb.tar
++ test 7311360 = 7311360
+++ sha256sum /tmp/mksrc-87ef4fb.tar
+++ awk '{print $1}'
++ test 4072bbe1c6f2b79bf93074c5276b9466a1288f819b95217eb8c8981bde924cf5 = 4072bbe1c6f2b79bf93074c5276b9466a1288f819b95217eb8c8981bde924cf5
++ test '!' -e /var/tmp/mksrc-87ef4fb
++ install -d -m 0755 /var/tmp/mksrc-87ef4fb
++ tar -xf /tmp/mksrc-87ef4fb.tar -C /var/tmp/mksrc-87ef4fb
++ chown -R 1001:1002 /var/tmp/mksrc-87ef4fb
++ chmod -R go-w /var/tmp/mksrc-87ef4fb
++ sudo -u hairizuan-tw env GOCACHE=/tmp/mk-go-cache bash -c 'cd '\''/var/tmp/mksrc-87ef4fb/runtime'\'' && go test -race ./...'
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	10.661s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	11.721s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	1.015s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	1.114s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.049s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	1.018s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.021s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.073s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	1.014s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.201s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.125s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.024s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.057s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	1.702s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	1.268s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	1.210s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	3.717s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.016s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.020s
+--- FAIL: TestLinuxBackendInspectsExt4IdentityQuotaAndCleanState (0.33s)
+    backend_linux_test.go:141: storage image is sparse or allocation cannot be inspected
+--- FAIL: TestLinuxBackendCurrentInspectionAllowsExpectedWritableImageChange (0.33s)
+    backend_linux_test.go:179: storage image is sparse or allocation cannot be inspected
+--- FAIL: TestLinuxBackendDisposableCloneRecoveryMatrix (0.54s)
+    backend_linux_test.go:231: storage image is sparse or allocation cannot be inspected
+--- FAIL: TestLinuxBackendRejectsImageParentReplacementAfterOpen (0.99s)
+    --- FAIL: TestLinuxBackendRejectsImageParentReplacementAfterOpen/inspect (0.32s)
+        backend_linux_test.go:315: storage image is sparse or allocation cannot be inspected
+    --- FAIL: TestLinuxBackendRejectsImageParentReplacementAfterOpen/start (0.33s)
+        backend_linux_test.go:315: storage image is sparse or allocation cannot be inspected
+    --- FAIL: TestLinuxBackendRejectsImageParentReplacementAfterOpen/offline-check (0.34s)
+        backend_linux_test.go:315: storage image is sparse or allocation cannot be inspected
+--- FAIL: TestLinuxBackendRejectsServerExecutableReplacementAfterOpen (0.36s)
+    backend_linux_test.go:384: storage image is sparse or allocation cannot be inspected
+--- FAIL: TestLinuxBackendInspectionChecksCancellationBetweenChunks (0.33s)
+    backend_linux_test.go:455: mid-inspection cancellation error = storage image is sparse or allocation cannot be inspected
+--- FAIL: TestLinuxBackendProcessIdentityGracefulStopAndOfflineCheck (0.37s)
+    backend_linux_test.go:529: storage image is sparse or allocation cannot be inspected
+--- FAIL: TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures (0.33s)
+    backend_linux_test.go:636: storage image is sparse or allocation cannot be inspected
+--- FAIL: TestOfflineCheckIsBoundedAndHashesCombinedEvidence (0.33s)
+    backend_linux_test.go:729: storage image is sparse or allocation cannot be inspected
+--- FAIL: TestManagedBackendSignalsBeforeStopTimeout (0.37s)
+    backend_linux_test.go:1140: storage image is sparse or allocation cannot be inspected
+FAIL
+FAIL	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	4.968s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	1.015s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	1.037s
+FAIL
+{"evidence_command_result": {"ended_at": "2026-10-10T14:07:19.942940Z", "exit_status": 1}}

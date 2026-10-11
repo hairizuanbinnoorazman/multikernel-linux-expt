@@ -1,0 +1,100 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "sudo /tmp/run-candidate-build-v2-87ef4fb.sh"], "started_at": "2026-10-10T14:08:33.953755Z"}}
+G6_RECONNECT_CANDIDATE_BUILD_V2_BEGIN
++ archive=/tmp/mksrc-87ef4fb.tar
++ source_root=/var/tmp/mksrc-87ef4fb-v2
++ test_tmp=/var/tmp/mk-go-tmp-87ef4fb
++ revision=87ef4fbcf47f7dc41c17c774a5490b3fa2b1312a
++ archive_sha=4072bbe1c6f2b79bf93074c5276b9466a1288f819b95217eb8c8981bde924cf5
++ echo G6_RECONNECT_CANDIDATE_BUILD_V2_BEGIN
++ date -u +%FT%TZ
+2026-10-10T14:08:35Z
+++ cat /proc/sys/kernel/random/boot_id
+boot_id=1572735b-c57e-4b99-88f5-213c74c71e77
++ printf 'boot_id=%s\n' 1572735b-c57e-4b99-88f5-213c74c71e77
+++ stat -c %a /tmp/mksrc-87ef4fb.tar
++ test 600 = 600
+++ stat -c %s /tmp/mksrc-87ef4fb.tar
++ test 7311360 = 7311360
+++ sha256sum /tmp/mksrc-87ef4fb.tar
+++ awk '{print $1}'
++ test 4072bbe1c6f2b79bf93074c5276b9466a1288f819b95217eb8c8981bde924cf5 = 4072bbe1c6f2b79bf93074c5276b9466a1288f819b95217eb8c8981bde924cf5
+++ findmnt -n -o FSTYPE -T /var/tmp
++ test ext4 = ext4
++ test '!' -e /var/tmp/mksrc-87ef4fb-v2
++ test '!' -e /var/tmp/mk-go-tmp-87ef4fb
++ install -d -m 0755 /var/tmp/mksrc-87ef4fb-v2
++ install -d -m 0700 -o 1001 -g 1002 /var/tmp/mk-go-tmp-87ef4fb
++ trap 'rm -rf -- "$test_tmp"' EXIT
++ tar -xf /tmp/mksrc-87ef4fb.tar -C /var/tmp/mksrc-87ef4fb-v2
++ chown -R 1001:1002 /var/tmp/mksrc-87ef4fb-v2
++ chmod -R go-w /var/tmp/mksrc-87ef4fb-v2
++ sudo -u hairizuan-tw env TMPDIR=/var/tmp/mk-go-tmp-87ef4fb GOCACHE=/tmp/mk-go-cache bash -c 'cd '\''/var/tmp/mksrc-87ef4fb-v2/runtime'\'' && go test -race ./...'
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	10.733s
+multikernel stdin intent: no such file or directory
+multikernel process wait validation: guest returned a stopped process with mismatched identity or state
+multikernel process wait validation: guest returned a stopped process with mismatched identity or state
+multikernel process wait validation: guest returned a stopped process with a different PID
+multikernel process wait validation: guest returned an exit status outside the agent contract
+multikernel process wait validation: guest returned an exit status outside the agent contract
+multikernel output acknowledgement: no such file or directory
+multikernel output monitor: context deadline exceeded
+multikernel exit state persistence: no such file or directory
+multikernel exit event acknowledgement: no such file or directory
+multikernel close stdin: injected close failure
+multikernel close stdin: injected close failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected transient disconnect
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel shim: guest teardown completed through sandbox deletion with warnings: close guest network: injected guest network close failure
+quiesce guest agent: unexpected status ""
+multikernel event publication deferred: injected publication failure
+multikernel network report DISCONNECTED: injected network report failure
+multikernel network report READY: injected network report failure
+multikernel shim supervisor: worker pid=30884 signal=killed restart_attempt=1
+multikernel shim supervisor: worker proxy ended: read unix @->@multikernel-shim-3d0aeb9fda40dca808be0475110c89f4: read: connection reset by peer
+multikernel shim supervisor: worker proxy: read unix @->@multikernel-shim-3d0aeb9fda40dca808be0475110c89f4: read: connection reset by peer
+multikernel shim supervisor: worker pid=30924 signal=killed restart_attempt=1
+multikernel shim supervisor: worker proxy ended: read unix @->@multikernel-shim-0fc27e2132ca079da880d0d21ed2930c: read: connection reset by peer
+--- FAIL: TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup (0.00s)
+    --- FAIL: TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup/stop_kills_group_and_removes_socket (0.00s)
+        main_test.go:6785: listen unix /var/tmp/mk-go-tmp-87ef4fb/TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanupstop_k3736441574/001/relay.sock: bind: invalid argument
+FAIL
+FAIL	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	11.229s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	1.012s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	1.114s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.095s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	1.014s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.018s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.073s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	1.012s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.204s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.260s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.038s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.079s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	1.729s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	2.349s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	1.559s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	4.183s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.057s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.057s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	11.799s
+--- FAIL: TestSocketRemovalQuarantineRestoresRemovalTimeReplacement (0.00s)
+    listener_linux_test.go:278: listen unix /var/tmp/mk-go-tmp-87ef4fb/TestSocketRemovalQuarantineRestoresRemovalTimeReplacement1572151438/001/raced.sock: bind: invalid argument
+FAIL
+FAIL	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	0.025s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	1.037s
+FAIL
++ rm -rf -- /var/tmp/mk-go-tmp-87ef4fb
+{"evidence_command_result": {"ended_at": "2026-10-10T14:08:52.917001Z", "exit_status": 1}}

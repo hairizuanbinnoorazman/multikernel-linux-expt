@@ -1,0 +1,42 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command=bash /var/tmp/diagnose-oci-builder-2ee14c4.sh"], "started_at": "2026-10-10T03:56:00.300350Z"}}
+++ mktemp -d -p /var/tmp diagnose-oci-builder.XXXXXX
++ root=/var/tmp/diagnose-oci-builder.1ZyikZ
++ trap 'rm -rf -- "$root"' EXIT
++ mkdir -p /var/tmp/diagnose-oci-builder.1ZyikZ/bundle/rootfs
++ python3 - /var/tmp/diagnose-oci-builder.1ZyikZ/bundle/config.json
++ chmod 0644 /var/tmp/diagnose-oci-builder.1ZyikZ/bundle/config.json
++ set +e
++ /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py /var/tmp/diagnose-oci-builder.1ZyikZ/bundle/config.json /var/tmp/diagnose-oci-builder.1ZyikZ/direct.json
++ direct_status=1
++ /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh /var/tmp/diagnose-oci-builder.1ZyikZ/bundle /var/tmp/diagnose-oci-builder.1ZyikZ/initramfs
++ builder_status=1
++ set -e
++ printf 'direct_status=%s builder_status=%s\n' 1 1
+direct_status=1 builder_status=1
+DIRECT_STDOUT
++ printf '%s\n' DIRECT_STDOUT
++ cat /var/tmp/diagnose-oci-builder.1ZyikZ/direct.out
+DIRECT_STDERR
++ printf '%s\n' DIRECT_STDERR
++ cat /var/tmp/diagnose-oci-builder.1ZyikZ/direct.err
+OCI configuration rejected: unsupported OCI field(s): hooks
+BUILDER_STDOUT
++ printf '%s\n' BUILDER_STDOUT
++ cat /var/tmp/diagnose-oci-builder.1ZyikZ/builder.out
+BUILDER_STDERR
++ printf '%s\n' BUILDER_STDERR
++ cat /var/tmp/diagnose-oci-builder.1ZyikZ/builder.err
++ find /var/tmp/diagnose-oci-builder.1ZyikZ -maxdepth 2 -printf '%y %m %p\n'
++ sort
+d 700 /var/tmp/diagnose-oci-builder.1ZyikZ
+d 775 /var/tmp/diagnose-oci-builder.1ZyikZ/bundle
+d 775 /var/tmp/diagnose-oci-builder.1ZyikZ/bundle/rootfs
+f 644 /var/tmp/diagnose-oci-builder.1ZyikZ/bundle/config.json
+f 664 /var/tmp/diagnose-oci-builder.1ZyikZ/builder.err
+f 664 /var/tmp/diagnose-oci-builder.1ZyikZ/builder.out
+f 664 /var/tmp/diagnose-oci-builder.1ZyikZ/direct.err
+f 664 /var/tmp/diagnose-oci-builder.1ZyikZ/direct.out
++ test 1 -ne 0
++ test 1 -ne 0
++ rm -rf -- /var/tmp/diagnose-oci-builder.1ZyikZ
+{"evidence_command_result": {"ended_at": "2026-10-10T03:56:02.105557Z", "exit_status": 0}}

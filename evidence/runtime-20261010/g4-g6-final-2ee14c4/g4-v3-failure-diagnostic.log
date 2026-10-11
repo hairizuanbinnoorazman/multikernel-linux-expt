@@ -1,0 +1,554 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "mklinux-g4-g6-final-20260905", "--command", "chmod 700 /var/tmp/diagnose-g4-v3-failure-2ee14c4.sh && /var/tmp/diagnose-g4-v3-failure-2ee14c4.sh"], "started_at": "2026-10-10T08:40:47.567058Z"}}
++ source_root=/var/tmp/mksrc-2ee14c4
++ date --utc --iso-8601=seconds
+2026-10-10T08:40:50+00:00
++ cat /proc/sys/kernel/random/boot_id
+772c6339-6ed7-494b-8d7f-71f3cb7394eb
++ readlink -f /usr/local/lib/multikernel/current
+/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
++ systemctl show mkruntimed.service -p Id -p LoadState -p ActiveState -p SubState -p Result -p ExecMainCode -p ExecMainStatus -p MainPID -p NRestarts -p ActiveEnterTimestamp -p InactiveEnterTimestamp --no-pager
+Id=mkruntimed.service
+LoadState=loaded
+ActiveState=activating
+SubState=auto-restart
+ActiveEnterTimestamp=Sat 2026-10-10 08:40:48 UTC
+InactiveEnterTimestamp=Sat 2026-10-10 08:40:48 UTC
+MainPID=0
+Result=exit-code
+NRestarts=51
+ExecMainCode=1
+ExecMainStatus=1
++ sudo test -S /run/mkruntimed.sock
+socket_present=0
++ echo socket_present=0
++ sudo ls -la /run/mkruntimed.sock /run/mkruntimed
+ls: cannot access '/run/mkruntimed.sock': No such file or directory
+ls: cannot access '/run/mkruntimed': No such file or directory
++ true
++ sudo journalctl -u mkruntimed.service --since '15 minutes ago' --no-pager
+Oct 10 08:26:45 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:26:45 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:26:45 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:26:45 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:26:45 mklinux-g4-g6-final-20260905 insmod[2241]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:26:45 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[2245]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:26:45 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:28:11 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:28:11 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:28:11 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:28:11 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:28:11 mklinux-g4-g6-final-20260905 insmod[2899]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:28:11 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[2902]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:28:11 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:30:44 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:30:45 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:30:45 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:30:45 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Consumed 1min 40.873s CPU time over 2min 33.551s wall clock time, 3G memory peak.
+Oct 10 08:30:45 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:30:45 mklinux-g4-g6-final-20260905 insmod[11677]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:30:45 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[11681]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:30:45 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:30:48 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:30:48 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:30:48 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:30:48 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:30:48 mklinux-g4-g6-final-20260905 insmod[12292]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:30:48 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[12296]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:30:48 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:30:52 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:30:52 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:30:52 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:30:52 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:30:52 mklinux-g4-g6-final-20260905 insmod[12543]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:30:52 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[12548]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:30:52 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:31:01 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:31:01 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:31:01 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:31:01 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:31:01 mklinux-g4-g6-final-20260905 insmod[12873]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:31:01 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[12877]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:31:01 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:31:05 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:31:05 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:31:05 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:31:05 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:31:05 mklinux-g4-g6-final-20260905 insmod[13078]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:31:05 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[13082]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:31:05 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:33:54 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:33:55 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:33:55 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:33:55 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Consumed 1min 55.350s CPU time over 2min 49.742s wall clock time, 2.5G memory peak.
+Oct 10 08:33:55 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:33:55 mklinux-g4-g6-final-20260905 insmod[19885]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:33:55 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[19889]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:33:55 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:36:02 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:36:02 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:36:02 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:36:02 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Consumed 1min 39.130s CPU time over 2min 7.635s wall clock time, 2.5G memory peak.
+Oct 10 08:36:02 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:36:02 mklinux-g4-g6-final-20260905 insmod[21905]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:36:03 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[21909]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:36:03 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:36:23 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:36:23 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:36:23 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:36:23 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:36:23 mklinux-g4-g6-final-20260905 insmod[25731]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:36:23 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[25735]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:36:23 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:37:30 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Consumed 51.472s CPU time over 1min 7.848s wall clock time, 2.5G memory peak.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 insmod[26473]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[26477]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Unit process 26499 (kerf) remains running after unit stopped.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Found left-over process 26499 (kerf) in control group while starting unit. Ignoring.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 insmod[26515]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[26519]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:37:31 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Consumed 1min 5.493s CPU time over 1min 20.294s wall clock time, 2.5G memory peak.
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 insmod[27485]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27489]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 mkruntimed[27491]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:38:51 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:38:52 mklinux-g4-g6-final-20260905 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:38:53 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:38:53 mklinux-g4-g6-final-20260905 insmod[27542]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:38:53 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27546]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:38:53 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:38:53 mklinux-g4-g6-final-20260905 mkruntimed[27549]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:38:53 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:38:53 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:38:55 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 1.
+Oct 10 08:38:55 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:38:55 mklinux-g4-g6-final-20260905 insmod[27602]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:38:55 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27607]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:38:55 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:38:55 mklinux-g4-g6-final-20260905 mkruntimed[27609]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:38:55 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:38:55 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:38:57 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 2.
+Oct 10 08:38:57 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:38:57 mklinux-g4-g6-final-20260905 insmod[27662]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:38:57 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27666]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:38:57 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:38:57 mklinux-g4-g6-final-20260905 mkruntimed[27668]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:38:57 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:38:57 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:38:59 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 3.
+Oct 10 08:38:59 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:38:59 mklinux-g4-g6-final-20260905 insmod[27715]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:00 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27719]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:00 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:00 mklinux-g4-g6-final-20260905 mkruntimed[27725]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:00 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:00 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:02 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 4.
+Oct 10 08:39:02 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:02 mklinux-g4-g6-final-20260905 insmod[27774]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:02 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27778]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:02 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:02 mklinux-g4-g6-final-20260905 mkruntimed[27780]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:02 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:02 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:04 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 5.
+Oct 10 08:39:04 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:04 mklinux-g4-g6-final-20260905 insmod[27832]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:04 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27836]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:04 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:04 mklinux-g4-g6-final-20260905 mkruntimed[27838]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:04 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:04 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:06 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 6.
+Oct 10 08:39:06 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:06 mklinux-g4-g6-final-20260905 insmod[27885]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:06 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27889]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:06 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:06 mklinux-g4-g6-final-20260905 mkruntimed[27895]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:06 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:06 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:08 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 7.
+Oct 10 08:39:08 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:08 mklinux-g4-g6-final-20260905 insmod[27945]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:09 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[27949]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:09 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:09 mklinux-g4-g6-final-20260905 mkruntimed[27951]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:09 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:09 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:11 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 8.
+Oct 10 08:39:11 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:11 mklinux-g4-g6-final-20260905 insmod[28003]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:11 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28007]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:11 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:11 mklinux-g4-g6-final-20260905 mkruntimed[28009]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:11 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:11 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:13 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 9.
+Oct 10 08:39:13 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:13 mklinux-g4-g6-final-20260905 insmod[28056]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:13 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28060]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:13 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:13 mklinux-g4-g6-final-20260905 mkruntimed[28066]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:13 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:13 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:15 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 10.
+Oct 10 08:39:15 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:15 mklinux-g4-g6-final-20260905 insmod[28114]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:15 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28118]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:15 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:15 mklinux-g4-g6-final-20260905 mkruntimed[28120]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:15 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:15 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:17 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 11.
+Oct 10 08:39:17 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:17 mklinux-g4-g6-final-20260905 insmod[28171]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:17 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28175]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:17 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:18 mklinux-g4-g6-final-20260905 mkruntimed[28177]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:18 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:18 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:20 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 12.
+Oct 10 08:39:20 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:20 mklinux-g4-g6-final-20260905 insmod[28224]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:20 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28228]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:20 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:20 mklinux-g4-g6-final-20260905 mkruntimed[28234]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:20 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:20 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:22 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 13.
+Oct 10 08:39:22 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:22 mklinux-g4-g6-final-20260905 insmod[28281]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:22 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28284]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:22 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:22 mklinux-g4-g6-final-20260905 mkruntimed[28287]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:22 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:22 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:24 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 14.
+Oct 10 08:39:24 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:24 mklinux-g4-g6-final-20260905 insmod[28338]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:24 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28342]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:24 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:24 mklinux-g4-g6-final-20260905 mkruntimed[28344]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:24 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:24 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:26 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 15.
+Oct 10 08:39:26 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:26 mklinux-g4-g6-final-20260905 insmod[28391]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:27 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28395]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:27 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:27 mklinux-g4-g6-final-20260905 mkruntimed[28398]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:27 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:27 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:29 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 16.
+Oct 10 08:39:29 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:29 mklinux-g4-g6-final-20260905 insmod[28448]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:29 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28452]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:29 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:29 mklinux-g4-g6-final-20260905 mkruntimed[28454]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:29 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:29 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 17.
+Oct 10 08:39:31 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:31 mklinux-g4-g6-final-20260905 insmod[28506]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:31 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28511]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:31 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:31 mklinux-g4-g6-final-20260905 mkruntimed[28513]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:31 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:33 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 18.
+Oct 10 08:39:33 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:33 mklinux-g4-g6-final-20260905 insmod[28560]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:33 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28564]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:33 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:33 mklinux-g4-g6-final-20260905 mkruntimed[28570]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:33 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:33 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:35 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 19.
+Oct 10 08:39:35 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:35 mklinux-g4-g6-final-20260905 insmod[28618]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:36 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28622]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:36 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:36 mklinux-g4-g6-final-20260905 mkruntimed[28624]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:36 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:36 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:38 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 20.
+Oct 10 08:39:38 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:38 mklinux-g4-g6-final-20260905 insmod[28675]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:38 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28679]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:38 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:38 mklinux-g4-g6-final-20260905 mkruntimed[28681]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:38 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:38 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:40 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 21.
+Oct 10 08:39:40 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:40 mklinux-g4-g6-final-20260905 insmod[28729]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:40 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28733]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:40 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:40 mklinux-g4-g6-final-20260905 mkruntimed[28735]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:40 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:40 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:42 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 22.
+Oct 10 08:39:42 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:42 mklinux-g4-g6-final-20260905 insmod[28786]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:42 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28790]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:42 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:42 mklinux-g4-g6-final-20260905 mkruntimed[28791]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:42 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:42 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:44 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 23.
+Oct 10 08:39:44 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:44 mklinux-g4-g6-final-20260905 insmod[28842]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:45 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28848]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:45 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:45 mklinux-g4-g6-final-20260905 mkruntimed[28850]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:45 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:45 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:47 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 24.
+Oct 10 08:39:47 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:47 mklinux-g4-g6-final-20260905 insmod[28898]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:47 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28902]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:47 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:47 mklinux-g4-g6-final-20260905 mkruntimed[28905]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:47 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:47 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:49 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 25.
+Oct 10 08:39:49 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:49 mklinux-g4-g6-final-20260905 insmod[28956]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:49 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[28960]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:49 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:49 mklinux-g4-g6-final-20260905 mkruntimed[28962]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:49 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:49 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:51 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 26.
+Oct 10 08:39:51 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:51 mklinux-g4-g6-final-20260905 insmod[29009]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:51 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29017]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:51 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:51 mklinux-g4-g6-final-20260905 mkruntimed[29019]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:51 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:51 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:53 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 27.
+Oct 10 08:39:53 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:53 mklinux-g4-g6-final-20260905 insmod[29066]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:54 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29070]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:54 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:54 mklinux-g4-g6-final-20260905 mkruntimed[29072]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:54 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:54 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:56 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 28.
+Oct 10 08:39:56 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:56 mklinux-g4-g6-final-20260905 insmod[29113]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:56 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29117]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:56 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:56 mklinux-g4-g6-final-20260905 mkruntimed[29119]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:56 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:56 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:39:58 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 29.
+Oct 10 08:39:58 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:39:58 mklinux-g4-g6-final-20260905 insmod[29133]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:39:58 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29137]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:39:58 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:39:58 mklinux-g4-g6-final-20260905 mkruntimed[29140]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:39:58 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:39:58 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:00 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 30.
+Oct 10 08:40:00 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:00 mklinux-g4-g6-final-20260905 insmod[29156]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:00 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29162]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:00 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:00 mklinux-g4-g6-final-20260905 mkruntimed[29164]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:00 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:00 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:02 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 31.
+Oct 10 08:40:02 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:02 mklinux-g4-g6-final-20260905 insmod[29181]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:03 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29185]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:03 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:03 mklinux-g4-g6-final-20260905 mkruntimed[29187]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:03 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:03 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:05 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 32.
+Oct 10 08:40:05 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:05 mklinux-g4-g6-final-20260905 insmod[29200]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:05 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29204]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:05 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:05 mklinux-g4-g6-final-20260905 mkruntimed[29205]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:05 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:05 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:07 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 33.
+Oct 10 08:40:07 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:07 mklinux-g4-g6-final-20260905 insmod[29238]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:07 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29242]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:07 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:07 mklinux-g4-g6-final-20260905 mkruntimed[29244]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:07 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:07 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:09 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 34.
+Oct 10 08:40:09 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:09 mklinux-g4-g6-final-20260905 insmod[29259]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:09 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29263]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:09 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:09 mklinux-g4-g6-final-20260905 mkruntimed[29265]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:09 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:09 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:11 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 35.
+Oct 10 08:40:11 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:11 mklinux-g4-g6-final-20260905 insmod[29280]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:12 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29283]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:12 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:12 mklinux-g4-g6-final-20260905 mkruntimed[29286]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:12 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:12 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:14 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 36.
+Oct 10 08:40:14 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:14 mklinux-g4-g6-final-20260905 insmod[29302]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:14 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29306]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:14 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:14 mklinux-g4-g6-final-20260905 mkruntimed[29308]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:14 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:14 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:16 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 37.
+Oct 10 08:40:16 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:16 mklinux-g4-g6-final-20260905 insmod[29323]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:16 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29327]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:16 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:16 mklinux-g4-g6-final-20260905 mkruntimed[29329]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:16 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:16 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:18 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 38.
+Oct 10 08:40:18 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:18 mklinux-g4-g6-final-20260905 insmod[29343]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:18 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29347]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:18 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:18 mklinux-g4-g6-final-20260905 mkruntimed[29349]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:18 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:18 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:20 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 39.
+Oct 10 08:40:20 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:20 mklinux-g4-g6-final-20260905 insmod[29364]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:21 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29368]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:21 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:21 mklinux-g4-g6-final-20260905 mkruntimed[29370]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:21 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:21 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:23 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 40.
+Oct 10 08:40:23 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:23 mklinux-g4-g6-final-20260905 insmod[29386]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:23 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29390]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:23 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:23 mklinux-g4-g6-final-20260905 mkruntimed[29392]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:23 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:23 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:25 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 41.
+Oct 10 08:40:25 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:25 mklinux-g4-g6-final-20260905 insmod[29407]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:25 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29411]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:25 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:25 mklinux-g4-g6-final-20260905 mkruntimed[29413]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:25 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:25 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:27 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 42.
+Oct 10 08:40:27 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:27 mklinux-g4-g6-final-20260905 insmod[29428]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:27 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29432]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:27 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:27 mklinux-g4-g6-final-20260905 mkruntimed[29434]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:27 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:27 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:29 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 43.
+Oct 10 08:40:29 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:29 mklinux-g4-g6-final-20260905 insmod[29450]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:30 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29454]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:30 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:30 mklinux-g4-g6-final-20260905 mkruntimed[29456]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:30 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:30 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:32 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 44.
+Oct 10 08:40:32 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:32 mklinux-g4-g6-final-20260905 insmod[29471]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:32 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29475]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:32 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:32 mklinux-g4-g6-final-20260905 mkruntimed[29477]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:32 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:32 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:34 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 45.
+Oct 10 08:40:34 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:34 mklinux-g4-g6-final-20260905 insmod[29493]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:34 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29497]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:34 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:34 mklinux-g4-g6-final-20260905 mkruntimed[29499]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:34 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:34 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:36 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 46.
+Oct 10 08:40:36 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:36 mklinux-g4-g6-final-20260905 insmod[29515]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:36 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29519]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:36 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:36 mklinux-g4-g6-final-20260905 mkruntimed[29521]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:36 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:36 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:38 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 47.
+Oct 10 08:40:38 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:38 mklinux-g4-g6-final-20260905 insmod[29536]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:39 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29540]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:39 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:39 mklinux-g4-g6-final-20260905 mkruntimed[29542]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:39 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:39 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:41 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 48.
+Oct 10 08:40:41 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:41 mklinux-g4-g6-final-20260905 insmod[29560]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:41 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29569]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:41 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:41 mklinux-g4-g6-final-20260905 mkruntimed[29575]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:41 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:41 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:43 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 49.
+Oct 10 08:40:43 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:43 mklinux-g4-g6-final-20260905 insmod[29658]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:43 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29662]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:43 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:43 mklinux-g4-g6-final-20260905 mkruntimed[29664]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:43 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:43 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:45 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 50.
+Oct 10 08:40:45 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:45 mklinux-g4-g6-final-20260905 insmod[29680]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:45 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29684]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:45 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:45 mklinux-g4-g6-final-20260905 mkruntimed[29686]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:45 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:45 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 10 08:40:47 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 51.
+Oct 10 08:40:47 mklinux-g4-g6-final-20260905 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 10 08:40:47 mklinux-g4-g6-final-20260905 insmod[29701]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 10 08:40:48 mklinux-g4-g6-final-20260905 validate-runtime-storage-mount.py[29705]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 10 08:40:48 mklinux-g4-g6-final-20260905 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 10 08:40:48 mklinux-g4-g6-final-20260905 mkruntimed[29707]: reconcile: storage reconcile: active storage server disappeared after client acceptance; automatic session recovery is unsafe
+Oct 10 08:40:48 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 10 08:40:48 mklinux-g4-g6-final-20260905 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+  27046       1 Sl   containerd-shim /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 -namespace default -id mk-storage-client-loss -address /run/containerd/containerd.sock
+  27051   27046 Sl   containerd-shim /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 -namespace default -id mk-storage-client-loss -address /run/containerd/containerd.sock
+  27249   27051 Sl   containerd-shim /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 __multikernel_namespace_holder
++ ps -eo pid=,ppid=,stat=,comm=,args=
++ awk '$4 ~ /^(mkruntimed|containerd-shim|mkvsock-nbd|mk-agent-relay)$/ {print}'
++ MK_EVIDENCE_XTRACE=0
++ bash /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-2ee14c4
+{"evidence_command_result": {"ended_at": "2026-10-10T08:40:50.338201Z", "exit_status": 1}}

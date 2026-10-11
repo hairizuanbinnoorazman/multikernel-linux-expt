@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "gate": "G4",
+  "run_id": "g4-d7c5301-final",
+  "result": "pass",
+  "started_at": "2026-10-11T02:19:08.424344Z",
+  "ended_at": "2026-10-11T02:42:41.363722Z",
+  "repository": {"commit": "d7c530103b43c63d97518b0d6f5aa5442e7b15a3", "dirty": false},
+  "components": [
+    {"name": "containerd-shim-multikernel-v2", "version": "0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3", "sha256": "8ad23ba2e3fe7c6fda6df51f873682fd6aac74306dcb68e227d612dc38df16b2"},
+    {"name": "mk-agent", "version": "0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3", "sha256": "16eb2d9849edecd5cd93011b9c60f65f66b0347e9ded3a57811d3dd64109ccbf"},
+    {"name": "mk-agentctl", "version": "0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3", "sha256": "d9c82616e6e05662160a8eab917f5927871bfc9aaab09b8b475c7701e4be7f12"},
+    {"name": "mk-cni", "version": "0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3", "sha256": "3e97bd96f4b37be7f9ae4e69ec6acd78f4b9004cbf28de7124286f0e16bd7602"},
+    {"name": "mk-host-check", "version": "0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3", "sha256": "b2f330919ea941e098b1b156ac90886289bb3ccafa2b99de930fd615c01ae474"},
+    {"name": "mknetd", "version": "0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3", "sha256": "9fb4479cc04a3d25f660b726a020a50d9838ba58d242223fd01c88dad2d4a2a5"},
+    {"name": "mkruntimed", "version": "0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3", "sha256": "f0634fbed5e70f6bb2464a27dc32fe80d0645dd784a42b38d508b23943425d97"}
+  ],
+  "host": {"provider": "gce", "project": "new-demo-project-462517", "zone": "asia-southeast1-b", "instance": "mklinux-g4-g6-final-20260905", "machine_type": "n2-standard-16", "boot_id": "ca1337df-2163-4621-a931-be59076b2683"},
+  "commands": [
+    {"id": "g4-main", "argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "chmod 700 /var/tmp/run-g4-final-d7c5301.sh && /var/tmp/run-g4-final-d7c5301.sh"], "exit_status": 1, "output_path": "g4-final-live-d7c5301.log"},
+    {"id": "g4-cross-export", "argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "chmod 700 /var/tmp/run-g4-cross-export-final-d7c5301.sh && /var/tmp/run-g4-cross-export-final-d7c5301.sh"], "exit_status": 1, "output_path": "g4-cross-export-final-d7c5301.log"},
+    {"id": "g4-terminal-audit", "argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "for _ in $(seq 1 240); do test $(ps -eo comm= | awk '$1==\"containerd-shim\" {n++} END {print n+0}') = 0 && break; sleep .25; done; MK_EVIDENCE_XTRACE=0 bash /var/tmp/mksrc-d7c5301/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-d7c5301; echo G4_FINAL_D7C5301_PASS"], "exit_status": 0, "output_path": "g4-cross-export-final-audit-d7c5301.log"}
+  ],
+  "assertions": [
+    {"id": "oci-source-digests-and-snapshot-immutability", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "deterministic-root-rebuild-and-change-control", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "root-metadata-and-hostile-input-matrix", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "architecture-and-kernel-compatibility", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "writable-root-owner-generation-and-isolation", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "readonly-bind-and-persistence-semantics", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "capacity-quota-high-water-and-enospc", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "storage-teardown-offline-check-and-recovery", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "corruption-server-loss-host-reset-and-clone", "passed": true, "evidence_paths": ["g4-final-live-d7c5301.log"]},
+    {"id": "cross-export-isolation-and-cleanup", "passed": true, "evidence_paths": ["g4-cross-export-final-d7c5301.log"]}
+  ],
+  "limitations": [],
+  "cleanup": {"completed": true, "resources_before": "resources-before.json", "resources_after": "resources-after.json", "retained_resources": ["mk-mediated-storage-20260830: non-auto-delete persistent test data disk retained unattached"], "operator_acknowledged": true}
+}

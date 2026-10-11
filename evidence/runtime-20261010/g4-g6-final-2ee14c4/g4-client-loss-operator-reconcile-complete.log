@@ -1,0 +1,45 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "mklinux-g4-g6-final-20260905", "--command", "chmod 700 /var/tmp/continue-g4-client-loss-reconcile-2ee14c4.sh && /var/tmp/continue-g4-client-loss-reconcile-2ee14c4.sh"], "started_at": "2026-10-10T08:48:48.829699Z"}}
++ source_root=/var/tmp/mksrc-2ee14c4
++ boot=772c6339-6ed7-494b-8d7f-71f3cb7394eb
++ sandbox_id=mk-mk-storage-client-loss-216e4611aa588b7e
++ sandbox_generation=c5106654766ab44b1af0bc9b1ab7a7f0
++ endpoint_generation=f5758a5bbfd04c4dfeebd0f224eb7280
++ task_key=task-216e4611aa588b7e8436be9484e3f8cd
++ container_id=mk-storage-client-loss
++ recovery=/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4
++ disk_recovery=/srv/multikernel-storage/quarantine/g4-client-loss-772c6339-2ee14c4
+++ id -u
++ test 1001 -ne 0
+++ cat /proc/sys/kernel/random/boot_id
++ test 772c6339-6ed7-494b-8d7f-71f3cb7394eb = 772c6339-6ed7-494b-8d7f-71f3cb7394eb
+++ readlink -f /usr/local/lib/multikernel/current
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 = /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
++ sudo test -f /var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/SHA256SUMS
++ sudo sha256sum -c /var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/SHA256SUMS
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/lifecycle-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/lifecycle-journal.before.jsonl: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/rootfs-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/storage-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/network-state.before.json: OK
++ sudo test -f /srv/multikernel-storage/quarantine/g4-client-loss-772c6339-2ee14c4/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
++ sudo test '!' -e /sys/fs/multikernel/instances/mk-mk-storage-client-loss-216e4611aa588b7e
+++ sudo jq '.sandboxes|length' /var/lib/mkruntime/state.json
++ test 0 = 0
+++ sudo jq '.records|length' /var/lib/mkruntimed/rootfs/state.json
++ test 0 = 0
+++ sudo jq '[.exports[]|select(.state!="RELEASED")]|length' /var/lib/mkruntimed/storage/state.json
++ test 0 = 0
+++ sudo ctr tasks list
+++ awk -v id=mk-storage-client-loss '$1==id {print $3}'
++ test STOPPED = STOPPED
+++ sudo ctr containers list
+++ awk -v id=mk-storage-client-loss '$1==id {print $1}'
++ test mk-storage-client-loss = mk-storage-client-loss
++ sudo python3 - mk-mk-storage-client-loss-216e4611aa588b7e c5106654766ab44b1af0bc9b1ab7a7f0 f5758a5bbfd04c4dfeebd0f224eb7280 mk-storage-client-loss
+G4_CLIENT_LOSS_CONTINUATION_PRECONDITIONS_PASS
++ sudo timeout 60 ctr tasks rm mk-storage-client-loss
+time="2026-10-10T08:49:20Z" level=error msg="unable to delete mk-storage-client-loss" error="failed to delete task: delete guest process: write unix @->/run/mk-agent-7200-c5106654766a.sock: write: broken pipe\nreconnect guest agent transport: dial unix /run/mk-agent-7200-c5106654766a.sock: connect: no such file or directory\ncontext deadline exceeded"
+ctr: failed to delete task: delete guest process: write unix @->/run/mk-agent-7200-c5106654766a.sock: write: broken pipe
+reconnect guest agent transport: dial unix /run/mk-agent-7200-c5106654766a.sock: connect: no such file or directory
+context deadline exceeded
+{"evidence_command_result": {"ended_at": "2026-10-10T08:49:20.636780Z", "exit_status": 1}}

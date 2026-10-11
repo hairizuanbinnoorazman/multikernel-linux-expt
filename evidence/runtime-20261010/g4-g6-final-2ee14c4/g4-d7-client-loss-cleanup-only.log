@@ -1,0 +1,180 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "chmod 700 /var/tmp/cleanup-only-g4-client-loss-d7c5301.sh && /var/tmp/cleanup-only-g4-client-loss-d7c5301.sh"], "started_at": "2026-10-11T02:36:42.195856Z"}}
++ source_root=/var/tmp/mksrc-d7c5301
++ boot=ca1337df-2163-4621-a931-be59076b2683
++ container_id=mk-storage-client-loss
++ sandbox_id=mk-mk-storage-client-loss-216e4611aa588b7e
++ task_key=task-216e4611aa588b7e8436be9484e3f8cd
++ recovery=/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301
++ disk_recovery=/srv/multikernel-storage/quarantine/g4-client-loss-ca1337df-d7c5301
++ expected_exe=/usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3/bin/containerd-shim-multikernel-v2
+++ cat /proc/sys/kernel/random/boot_id
++ test ca1337df-2163-4621-a931-be59076b2683 = ca1337df-2163-4621-a931-be59076b2683
++ sudo sha256sum -c /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/SHA256SUMS
+/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/journal.jsonl: OK
+/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.log: OK
+/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/state.json: OK
++ sudo test -f /srv/multikernel-storage/quarantine/g4-client-loss-ca1337df-d7c5301/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
++ sudo test '!' -e /sys/fs/multikernel/instances/mk-mk-storage-client-loss-216e4611aa588b7e
+++ sudo jq '.sandboxes|length' /var/lib/mkruntime/state.json
++ test 0 = 0
+++ sudo jq '.records|length' /var/lib/mkruntimed/rootfs/state.json
++ test 0 = 0
+++ sudo jq '[.exports[]|select(.state!="RELEASED")]|length' /var/lib/mkruntimed/storage/state.json
++ test 0 = 0
+++ sudo jq '.endpoints|length' /var/lib/mknetd/state.json
++ test 1 = 1
+++ sudo ctr tasks list
+++ awk -v id=mk-storage-client-loss '$1==id && $3=="STOPPED" {print $2}'
++ holder=124623
++ test -n 124623
+++ sudo awk '{print $4}' /proc/124623/stat
++ worker=124424
+++ sudo awk '{print $4}' /proc/124424/stat
++ supervisor=124419
++ for pid in "$holder" "$worker" "$supervisor"
+++ sudo readlink -f /proc/124623/exe
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3/bin/containerd-shim-multikernel-v2 = /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3/bin/containerd-shim-multikernel-v2
++ for pid in "$holder" "$worker" "$supervisor"
+++ sudo readlink -f /proc/124424/exe
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3/bin/containerd-shim-multikernel-v2 = /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3/bin/containerd-shim-multikernel-v2
++ for pid in "$holder" "$worker" "$supervisor"
+++ sudo readlink -f /proc/124419/exe
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3/bin/containerd-shim-multikernel-v2 = /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3/bin/containerd-shim-multikernel-v2
++ sudo tr '\0' ' '
++ grep -Fq -- '-id mk-storage-client-loss'
++ sudo tr '\0' ' '
++ grep -Fq -- '-id mk-storage-client-loss'
+OBSERVATION cleanup_only_roles supervisor=124419 worker=124424 holder=124623
++ echo 'OBSERVATION cleanup_only_roles supervisor=124419 worker=124424 holder=124623'
+++ date -u '+%Y-%m-%d %H:%M:%S UTC'
++ fault_started='2026-10-11 02:36:43 UTC'
++ sudo kill -KILL 124419
+++ seq 1 720
++ for _ in $(seq 1 720)
+++ sudo ctr tasks list -q
+++ wc -l
++ tasks=0
+++ sudo jq '.endpoints|length' /var/lib/mknetd/state.json
++ endpoints=1
+++ sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d
+++ wc -l
++ children=0
+++ ps -eo comm=
+++ awk '$1=="containerd-shim" {n++} END {print n+0}'
++ shims=1
++ [[ 0 = 0 ]]
++ [[ 1 = 0 ]]
++ sleep .25
++ for _ in $(seq 1 720)
+++ sudo ctr tasks list -q
+++ wc -l
++ tasks=0
+++ sudo jq '.endpoints|length' /var/lib/mknetd/state.json
++ endpoints=0
+++ sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d
+++ wc -l
++ children=0
+++ ps -eo comm=
+++ awk '$1=="containerd-shim" {n++} END {print n+0}'
++ shims=0
++ [[ 0 = 0 ]]
++ [[ 0 = 0 ]]
++ [[ 0 = 0 ]]
++ [[ 0 = 0 ]]
++ break
++ test '0 0 0 0' = '0 0 0 0'
++ sudo ctr tasks rm -f mk-storage-client-loss
++ true
++ sudo ctr containers rm mk-storage-client-loss
+++ sudo ctr containers list -q
++ test -z ''
++ sudo systemctl restart mkruntimed.service
+++ seq 1 240
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ break
++ sudo test -S /run/mkruntimed.sock
+++ systemctl show mkruntimed.service -p MainPID --value
++ pid=127978
++ test 127978 -gt 0
+++ systemctl show mkruntimed.service -p NRestarts --value
++ test 0 = 0
++ sleep 3
+++ systemctl show mkruntimed.service -p MainPID --value
+OBSERVATION_BEGIN key=g4-d7-client-loss-cleanup-only-reclaim
+boot=ca1337df-2163-4621-a931-be59076b2683 old_supervisor=124419 old_worker=124424 old_holder=124623 service_pid=127978
+Oct 11 02:36:43 mklinux-g4-g6-final-20260905 containerd[1469]: time="2026-10-11T02:36:43.723975292Z" level=info msg="shim disconnected" id=mk-storage-client-loss namespace=default
+Oct 11 02:36:43 mklinux-g4-g6-final-20260905 containerd[1469]: time="2026-10-11T02:36:43.724011657Z" level=info msg="cleaning up after shim disconnected" id=mk-storage-client-loss namespace=default
+Oct 11 02:36:43 mklinux-g4-g6-final-20260905 containerd[1469]: time="2026-10-11T02:36:43.724020437Z" level=info msg="cleaning up dead shim" id=mk-storage-client-loss namespace=default
++ test 127978 = 127978
++ echo 'OBSERVATION_BEGIN key=g4-d7-client-loss-cleanup-only-reclaim'
++ printf 'boot=%s old_supervisor=%s old_worker=%s old_holder=%s service_pid=%s\n' ca1337df-2163-4621-a931-be59076b2683 124419 124424 124623 127978
++ sudo journalctl -u containerd.service --since '2026-10-11 02:36:43 UTC' --no-pager -n 120
++ grep -E '(mk-storage-client-loss|shim disconnected|cleanup)'
+/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/journal.jsonl: OK
+/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.log: OK
+/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/state.json: OK
++ sudo sha256sum -c /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/SHA256SUMS
++ sudo sha256sum /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/SHA256SUMS /srv/multikernel-storage/quarantine/g4-client-loss-ca1337df-d7c5301/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
+dd8a2ef42c9be280743b27ad52d6bad5b7670c744248f08c3e328b2494e46fce  /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/SHA256SUMS
+65caa0f5f53e437e5ec8e157c08ca92eba87c178207829af3f5cc136347d751a  /srv/multikernel-storage/quarantine/g4-client-loss-ca1337df-d7c5301/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
+OBSERVATION_END key=g4-d7-client-loss-cleanup-only-reclaim
++ echo 'OBSERVATION_END key=g4-d7-client-loss-cleanup-only-reclaim'
++ MK_EVIDENCE_XTRACE=0
++ bash /var/tmp/mksrc-d7c5301/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-d7c5301
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3 boot_id=ca1337df-2163-4621-a931-be59076b2683 mkruntimed_pid=127978 mkruntimed_sha256=f0634fbed5e70f6bb2464a27dc32fe80d0645dd784a42b38d508b23943425d97
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=127978
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=1231
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=1469
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1517
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
+G4_D7_CLIENT_LOSS_CLEANUP_ONLY_RECLAIM_PASS
++ echo G4_D7_CLIENT_LOSS_CLEANUP_ONLY_RECLAIM_PASS
+{"evidence_command_result": {"ended_at": "2026-10-11T02:37:04.457203Z", "exit_status": 0}}

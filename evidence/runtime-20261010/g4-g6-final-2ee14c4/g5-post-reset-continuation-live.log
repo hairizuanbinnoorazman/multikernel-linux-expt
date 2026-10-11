@@ -1,0 +1,959 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "chmod 700 /var/tmp/run-g5-post-reset-continuation-2ee14c4.sh && /var/tmp/run-g5-post-reset-continuation-2ee14c4.sh"], "started_at": "2026-10-10T09:19:32.410014Z"}}
++ source_root=/var/tmp/mksrc-2ee14c4
++ expected=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
++ stress_evidence=/var/tmp/g5-network-stress-post-reset.log
++ stress_sha=c5baafb654e660fc784ac18d4bc5b42563e7837447c30d4202bc213ac8264287
+++ readlink -f /usr/local/lib/multikernel/current
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 = /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
+++ sha256sum /var/tmp/g5-network-stress-post-reset.log
+++ awk '{print $1}'
++ test c5baafb654e660fc784ac18d4bc5b42563e7837447c30d4202bc213ac8264287 = c5baafb654e660fc784ac18d4bc5b42563e7837447c30d4202bc213ac8264287
++ grep -Fxq G5_NETWORK_STRESS_LIVE_PASS /var/tmp/g5-network-stress-post-reset.log
+OBSERVATION_BEGIN key=prior-stress-evidence
+sha256=c5baafb654e660fc784ac18d4bc5b42563e7837447c30d4202bc213ac8264287 terminal=G5_NETWORK_STRESS_LIVE_PASS exit_status=0
+OBSERVATION_END key=prior-stress-evidence
+EVIDENCE_ASSERTION id=mtu-frame-fault-and-load-matrix passed=true
++ grep -Fq '"exit_status": 0' /var/tmp/g5-network-stress-post-reset.log
++ echo 'OBSERVATION_BEGIN key=prior-stress-evidence'
++ echo 'sha256=c5baafb654e660fc784ac18d4bc5b42563e7837447c30d4202bc213ac8264287 terminal=G5_NETWORK_STRESS_LIVE_PASS exit_status=0'
++ echo 'OBSERVATION_END key=prior-stress-evidence'
++ echo 'EVIDENCE_ASSERTION id=mtu-frame-fault-and-load-matrix passed=true'
++ clean_boundary
++ local output=
++ sudo systemctl restart mkruntimed
+++ seq 1 240
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
+++ MK_EVIDENCE_XTRACE=0
+++ bash /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-2ee14c4
++ output=$'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=3686 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=3686\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=1259\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1480\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1570\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
++ printf '%s\n' $'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=3686 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=3686\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=1259\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1480\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1570\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=3686 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=3686
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=1259
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=1480
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1570
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
++ return 0
++ bash /var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh /var/tmp/mksrc-2ee14c4
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:9: source_root=/var/tmp/mksrc-2ee14c4
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:10: task_id=mk-network-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:11: image=docker.io/library/busybox:1.36
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:12: runtime=io.containerd.multikernel.v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:13: mktemp -d -p /var/tmp mk-network-restart.XXXXXX
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:13: scratch=/var/tmp/mk-network-restart.LezFol
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:14: listener_pid=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:15: previous_listener_pid=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:16: exchange_index=0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:17: workload_started=0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:47: trap cleanup EXIT
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:175: id -u
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:175: [[ 1001 -ne 0 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:176: test -x /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: systemctl is-active mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: systemctl is-active mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: systemctl is-active containerd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: systemctl is-active docker
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:177: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:178: cleanup_task
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:26: sudo ctr tasks kill --signal SIGKILL mk-network-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:26: true
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:27: seq 1 120
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:27: for _ in $(seq 1 120)
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:28: local state
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:29: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:29: awk -v id=mk-network-restart '$1 == id {print $3}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:29: state=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:30: [[ '' != RUNNING ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:30: [[ '' != PAUSED ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:30: break
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:33: sudo ctr tasks rm -f mk-network-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:33: true
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:34: sudo ctr containers rm mk-network-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:34: true
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:179: wait_counts 'rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:74: local 'expected=rootfs_records=0 live_exports=0 endpoints=0' observed=
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: seq 1 480
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: for _ in $(seq 1 480)
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: live_counts
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:60: sudo python3 -
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: observed='rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: [[ rootfs_records=0 live_exports=0 endpoints=0 = rootfs_records\=0 live_exports\=0 endpoints\=0 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: printf %s 'rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: return 0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:179: observe clean-before 'rootfs_records=0 live_exports=0 endpoints=0'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=clean-before
+OBSERVATION_BEGIN key=clean-before
+rootfs_records=0 live_exports=0 endpoints=0
+OBSERVATION_END key=clean-before
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' clean-before 'rootfs_records=0 live_exports=0 endpoints=0' clean-before
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: cat /proc/sys/kernel/random/boot_id
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: readlink -f /usr/local/lib/multikernel/current
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: awk '{print $1}'
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: systemctl show -p MainPID --value mkruntimed
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: sudo sha256sum /proc/3686/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: awk '{print $1}'
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: systemctl show -p MainPID --value mknetd
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: sudo sha256sum /proc/1259/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: sha256sum /var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: awk '{print $1}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:180: observe provenance $'boot_id=1572735b-c57e-4b99-88f5-213c74c71e77\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1\nmkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nmknetd_sha256=1ad2d918f3d3646faab8083579f225bed92f6f4b7ab913fd7ee7be0bdb8fa971\nqualifier_sha256=aca197ea1623a4961ffecbc84de9f0b539897f12886635b9653a8cb501bb3c1d'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=provenance
+OBSERVATION_BEGIN key=provenance
+boot_id=1572735b-c57e-4b99-88f5-213c74c71e77
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
+mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+mknetd_sha256=1ad2d918f3d3646faab8083579f225bed92f6f4b7ab913fd7ee7be0bdb8fa971
+qualifier_sha256=aca197ea1623a4961ffecbc84de9f0b539897f12886635b9653a8cb501bb3c1d
+OBSERVATION_END key=provenance
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' provenance $'boot_id=1572735b-c57e-4b99-88f5-213c74c71e77\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1\nmkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nmknetd_sha256=1ad2d918f3d3646faab8083579f225bed92f6f4b7ab913fd7ee7be0bdb8fa971\nqualifier_sha256=aca197ea1623a4961ffecbc84de9f0b539897f12886635b9653a8cb501bb3c1d' provenance
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:185: sudo ctr images pull docker.io/library/busybox:1.36
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:187: start_task
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:122: workload_started=1
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:123: sudo ctr run --detach --runtime io.containerd.multikernel.v2 docker.io/library/busybox:1.36 mk-network-restart /bin/sleep 900
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:124: wait_task_state RUNNING
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:50: local expected=RUNNING state=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: seq 1 480
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: awk -v id=mk-network-restart '$1 == id {print $3}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: state=RUNNING
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: [[ RUNNING = RUNNING ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: return 0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:125: wait_counts 'rootfs_records=1 live_exports=1 endpoints=1'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:74: local 'expected=rootfs_records=1 live_exports=1 endpoints=1' observed=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: seq 1 480
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: live_counts
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:60: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: observed='rootfs_records=1 live_exports=1 endpoints=1'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: [[ rootfs_records=1 live_exports=1 endpoints=1 = rootfs_records\=1 live_exports\=1 endpoints\=1 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: printf %s 'rootfs_records=1 live_exports=1 endpoints=1'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: return 0
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:188: sudo ctr task exec --exec-id boot-initial mk-network-restart /bin/cat /proc/sys/kernel/random/boot_id
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:188: boot_initial=fffc4250-470c-4ffe-85a5-0944f62db485
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:189: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:189: endpoint_initial='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:189: process_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:115: local holder worker supervisor
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:116: holder_pid
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: sudo ctr tasks list
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: awk -v id=mk-network-restart '$1 == id {print $2}'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:116: holder=4168
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:116: parent_pid 4168
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:99: sudo awk '{print $4}' /proc/4168/stat
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:116: worker=3963
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:116: parent_pid 3963
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:99: sudo awk '{print $4}' /proc/3963/stat
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:116: supervisor=3958
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:117: [[ -d /proc/4168 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:117: [[ -d /proc/3963 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:117: [[ -d /proc/3958 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:118: printf 'supervisor=%s worker=%s holder=%s' 3958 3963 4168
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:189: processes_initial='supervisor=3958 worker=3963 holder=4168'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:190: packet_exchange baseline
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:129: local label=baseline primary_ip token reply log port endpoint current_listener_pid
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:130: exchange_index=1
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: ip -4 route get 8.8.8.8
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: primary_ip=10.148.0.58
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:132: [[ 10.148.0.58 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: port=18101
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: token=restart-token-baseline
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: log=/var/tmp/mk-network-restart.LezFol/baseline.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:148: listener_pid=4260
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:149: current_listener_pid=4260
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ -z '' ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:151: previous_listener_pid=4260
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:152: sleep .25
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:134: python3 - 10.148.0.58 18101 restart-token-baseline /var/tmp/mk-network-restart.LezFol/baseline.json
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: sudo ctr task exec --exec-id network-baseline mk-network-restart /bin/sh -c 'printf '\''%s'\'' '\''restart-token-baseline'\'' | nc -w 10 '\''10.148.0.58'\'' '\''18101'\'''
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: reply=primary-reply-restart-token-baseline
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:154: [[ primary-reply-restart-token-baseline = primary\-reply\-restart\-token\-baseline ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: wait 4260
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: listener_pid=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: cat /var/tmp/mk-network-restart.LezFol/baseline.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: observe packet-baseline $'primary_listener_pid=4260 child_reply=primary-reply-restart-token-baseline\nprimary_observation={"destination": "10.148.0.58:18101", "peer": "172.31.0.2", "request": "restart-token-baseline", "response": "primary-reply-restart-token-baseline"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
+OBSERVATION_BEGIN key=packet-baseline
+primary_listener_pid=4260 child_reply=primary-reply-restart-token-baseline
+primary_observation={"destination": "10.148.0.58:18101", "peer": "172.31.0.2", "request": "restart-token-baseline", "response": "primary-reply-restart-token-baseline"}
+endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}
+OBSERVATION_END key=packet-baseline
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=packet-baseline
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' packet-baseline $'primary_listener_pid=4260 child_reply=primary-reply-restart-token-baseline\nprimary_observation={"destination": "10.148.0.58:18101", "peer": "172.31.0.2", "request": "restart-token-baseline", "response": "primary-reply-restart-token-baseline"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' packet-baseline
+OBSERVATION_BEGIN key=initial-identities
+child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 processes=supervisor=3958 worker=3963 holder=4168 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}
+OBSERVATION_END key=initial-identities
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:191: observe initial-identities 'child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 processes=supervisor=3958 worker=3963 holder=4168 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=initial-identities
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' initial-identities 'child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 processes=supervisor=3958 worker=3963 holder=4168 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' initial-identities
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:193: systemctl show -p MainPID --value mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:193: mknetd_before=1259
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:194: sudo systemctl restart mknetd
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:195: systemctl is-active mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:195: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:196: systemctl show -p MainPID --value mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:196: mknetd_after=4295
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:196: [[ 4295 != 1259 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:197: packet_exchange after-mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:129: local label=after-mknetd primary_ip token reply log port endpoint current_listener_pid
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:130: exchange_index=2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: ip -4 route get 8.8.8.8
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: primary_ip=10.148.0.58
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:132: [[ 10.148.0.58 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: port=18102
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: token=restart-token-after-mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: log=/var/tmp/mk-network-restart.LezFol/after-mknetd.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:148: listener_pid=4312
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:149: current_listener_pid=4312
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ -z 4260 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ 4312 != 4260 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:151: previous_listener_pid=4312
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:152: sleep .25
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:134: python3 - 10.148.0.58 18102 restart-token-after-mknetd /var/tmp/mk-network-restart.LezFol/after-mknetd.json
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: sudo ctr task exec --exec-id network-after-mknetd mk-network-restart /bin/sh -c 'printf '\''%s'\'' '\''restart-token-after-mknetd'\'' | nc -w 10 '\''10.148.0.58'\'' '\''18102'\'''
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: reply=primary-reply-restart-token-after-mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:154: [[ primary-reply-restart-token-after-mknetd = primary\-reply\-restart\-token\-after\-mknetd ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: wait 4312
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: listener_pid=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: cat /var/tmp/mk-network-restart.LezFol/after-mknetd.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: observe packet-after-mknetd $'primary_listener_pid=4312 child_reply=primary-reply-restart-token-after-mknetd\nprimary_observation={"destination": "10.148.0.58:18102", "peer": "172.31.0.2", "request": "restart-token-after-mknetd", "response": "primary-reply-restart-token-after-mknetd"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=packet-after-mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' packet-after-mknetd $'primary_listener_pid=4312 child_reply=primary-reply-restart-token-after-mknetd\nprimary_observation={"destination": "10.148.0.58:18102", "peer": "172.31.0.2", "request": "restart-token-after-mknetd", "response": "primary-reply-restart-token-after-mknetd"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' packet-after-mknetd
+OBSERVATION_BEGIN key=packet-after-mknetd
+primary_listener_pid=4312 child_reply=primary-reply-restart-token-after-mknetd
+primary_observation={"destination": "10.148.0.58:18102", "peer": "172.31.0.2", "request": "restart-token-after-mknetd", "response": "primary-reply-restart-token-after-mknetd"}
+endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}
+OBSERVATION_END key=packet-after-mknetd
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:198: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:198: endpoint_after_mknetd='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:198: same_endpoint_identity '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:163: python3 - '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' clean
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:199: sudo ctr task exec --exec-id boot-after-mknetd mk-network-restart /bin/cat /proc/sys/kernel/random/boot_id
+OBSERVATION_BEGIN key=mknetd-restart
+pid_before=1259 pid_after=4295 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}
+OBSERVATION_END key=mknetd-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:199: [[ fffc4250-470c-4ffe-85a5-0944f62db485 = fffc4250\-470c\-4ffe\-85a5\-0944f62db485 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:200: observe mknetd-restart 'pid_before=1259 pid_after=4295 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=mknetd-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' mknetd-restart 'pid_before=1259 pid_after=4295 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' mknetd-restart
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:202: systemctl show -p MainPID --value mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:202: mkruntimed_before=3686
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:203: sudo systemctl restart mkruntimed
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:204: systemctl is-active mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:204: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:205: systemctl show -p MainPID --value mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:205: mkruntimed_after=4396
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:205: [[ 4396 != 3686 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:206: packet_exchange after-mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:129: local label=after-mkruntimed primary_ip token reply log port endpoint current_listener_pid
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:130: exchange_index=3
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: ip -4 route get 8.8.8.8
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: primary_ip=10.148.0.58
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:132: [[ 10.148.0.58 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: port=18103
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: token=restart-token-after-mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: log=/var/tmp/mk-network-restart.LezFol/after-mkruntimed.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:148: listener_pid=4406
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:149: current_listener_pid=4406
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ -z 4312 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ 4406 != 4312 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:151: previous_listener_pid=4406
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:152: sleep .25
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:134: python3 - 10.148.0.58 18103 restart-token-after-mkruntimed /var/tmp/mk-network-restart.LezFol/after-mkruntimed.json
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: sudo ctr task exec --exec-id network-after-mkruntimed mk-network-restart /bin/sh -c 'printf '\''%s'\'' '\''restart-token-after-mkruntimed'\'' | nc -w 10 '\''10.148.0.58'\'' '\''18103'\'''
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: reply=primary-reply-restart-token-after-mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:154: [[ primary-reply-restart-token-after-mkruntimed = primary\-reply\-restart\-token\-after\-mkruntimed ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: wait 4406
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: listener_pid=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: cat /var/tmp/mk-network-restart.LezFol/after-mkruntimed.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: observe packet-after-mkruntimed $'primary_listener_pid=4406 child_reply=primary-reply-restart-token-after-mkruntimed\nprimary_observation={"destination": "10.148.0.58:18103", "peer": "172.31.0.2", "request": "restart-token-after-mkruntimed", "response": "primary-reply-restart-token-after-mkruntimed"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=packet-after-mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
+OBSERVATION_BEGIN key=packet-after-mkruntimed
+primary_listener_pid=4406 child_reply=primary-reply-restart-token-after-mkruntimed
+primary_observation={"destination": "10.148.0.58:18103", "peer": "172.31.0.2", "request": "restart-token-after-mkruntimed", "response": "primary-reply-restart-token-after-mkruntimed"}
+endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}
+OBSERVATION_END key=packet-after-mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' packet-after-mkruntimed $'primary_listener_pid=4406 child_reply=primary-reply-restart-token-after-mkruntimed\nprimary_observation={"destination": "10.148.0.58:18103", "peer": "172.31.0.2", "request": "restart-token-after-mkruntimed", "response": "primary-reply-restart-token-after-mkruntimed"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' packet-after-mkruntimed
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:207: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:207: endpoint_after_mkruntimed='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:207: same_endpoint_identity '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:163: python3 - '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' clean
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:208: sudo ctr task exec --exec-id boot-after-mkruntimed mk-network-restart /bin/cat /proc/sys/kernel/random/boot_id
+OBSERVATION_BEGIN key=mkruntimed-restart
+pid_before=3686 pid_after=4396 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}
+OBSERVATION_END key=mkruntimed-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:208: [[ fffc4250-470c-4ffe-85a5-0944f62db485 = fffc4250\-470c\-4ffe\-85a5\-0944f62db485 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:209: observe mkruntimed-restart 'pid_before=3686 pid_after=4396 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=mkruntimed-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' mkruntimed-restart 'pid_before=3686 pid_after=4396 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' mkruntimed-restart
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:211: holder_pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: awk -v id=mk-network-restart '$1 == id {print $2}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:211: holder_before_relay=4168
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:211: parent_pid 4168
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:99: sudo awk '{print $4}' /proc/4168/stat
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:211: worker_before_relay=3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:211: parent_pid 3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:99: sudo awk '{print $4}' /proc/3963/stat
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:211: supervisor_before_relay=3958
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:212: relay_pid_for_worker 3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:104: matches=()
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:104: local worker=3963 pid executable matches
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:103: sudo pgrep -P 3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4168 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4168/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4188 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4188/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/opt/mkruntime/bin/mkvsock-relay
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: matches+=("$pid")
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4190 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4190/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4191 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4191/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:110: [[ 1 -eq 1 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:111: printf %s 4188
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:212: relay_before_direct=4188
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:213: sudo kill -KILL 4188
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:217: relay_stop_state=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:218: seq 1 200
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:218: for _ in $(seq 1 200)
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:219: [[ ! -r /proc/4188/stat ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:220: relay_stop_state=absent
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:221: break
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:227: case $relay_stop_state in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:231: sudo ctr tasks metrics --format json mk-network-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:231: relay_metrics=$'{\n  "pids": {\n    "current": 1,\n    "limit": 1024\n  },\n  "cpu": {\n    "usage": {}\n  },\n  "memory": {\n    "rss": 1949696,\n    "total_rss": 1949696,\n    "usage": {\n      "limit": 3221225472,\n      "usage": 1949696\n    }\n  }\n}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:232: [[ -n {
+  "pids": {
+    "current": 1,
+    "limit": 1024
+  },
+  "cpu": {
+    "usage": {}
+  },
+  "memory": {
+    "rss": 1949696,
+    "total_rss": 1949696,
+    "usage": {
+      "limit": 3221225472,
+      "usage": 1949696
+    }
+  }
+} ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:233: relay_after_direct=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:234: seq 1 480
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:234: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:235: relay_pid_for_worker 3963
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:235: relay_after_direct=4520
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:236: [[ -n 4520 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:236: [[ 4520 != 4188 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:236: [[ ! -d /proc/4188 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:236: break
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:239: [[ -n 4520 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:239: [[ 4520 != 4188 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:239: [[ ! -d /proc/4188 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:240: holder_pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: awk -v id=mk-network-restart '$1 == id {print $2}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:240: [[ 4168 = 4168 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:240: parent_pid 4168
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:99: sudo awk '{print $4}' /proc/4168/stat
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:240: [[ 3963 = 3963 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:240: parent_pid 3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:99: sudo awk '{print $4}' /proc/3963/stat
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:240: [[ 3958 = 3958 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:241: sudo ctr task exec --exec-id relay-reconnect mk-network-restart /bin/echo relay-reconnected
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:241: relay_reconnect=relay-reconnected
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:242: [[ relay-reconnected = relay-reconnected ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:243: packet_exchange after-direct-relay
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:129: local label=after-direct-relay primary_ip token reply log port endpoint current_listener_pid
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:130: exchange_index=4
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: ip -4 route get 8.8.8.8
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: primary_ip=10.148.0.58
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:132: [[ 10.148.0.58 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: port=18104
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: token=restart-token-after-direct-relay
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: log=/var/tmp/mk-network-restart.LezFol/after-direct-relay.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:148: listener_pid=4586
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:149: current_listener_pid=4586
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ -z 4406 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ 4586 != 4406 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:151: previous_listener_pid=4586
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:152: sleep .25
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:134: python3 - 10.148.0.58 18104 restart-token-after-direct-relay /var/tmp/mk-network-restart.LezFol/after-direct-relay.json
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: sudo ctr task exec --exec-id network-after-direct-relay mk-network-restart /bin/sh -c 'printf '\''%s'\'' '\''restart-token-after-direct-relay'\'' | nc -w 10 '\''10.148.0.58'\'' '\''18104'\'''
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: reply=primary-reply-restart-token-after-direct-relay
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:154: [[ primary-reply-restart-token-after-direct-relay = primary\-reply\-restart\-token\-after\-direct\-relay ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: wait 4586
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: listener_pid=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: cat /var/tmp/mk-network-restart.LezFol/after-direct-relay.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: observe packet-after-direct-relay $'primary_listener_pid=4586 child_reply=primary-reply-restart-token-after-direct-relay\nprimary_observation={"destination": "10.148.0.58:18104", "peer": "172.31.0.2", "request": "restart-token-after-direct-relay", "response": "primary-reply-restart-token-after-direct-relay"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=packet-after-direct-relay
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' packet-after-direct-relay $'primary_listener_pid=4586 child_reply=primary-reply-restart-token-after-direct-relay\nprimary_observation={"destination": "10.148.0.58:18104", "peer": "172.31.0.2", "request": "restart-token-after-direct-relay", "response": "primary-reply-restart-token-after-direct-relay"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' packet-after-direct-relay
+OBSERVATION_BEGIN key=packet-after-direct-relay
+primary_listener_pid=4586 child_reply=primary-reply-restart-token-after-direct-relay
+primary_observation={"destination": "10.148.0.58:18104", "peer": "172.31.0.2", "request": "restart-token-after-direct-relay", "response": "primary-reply-restart-token-after-direct-relay"}
+endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}
+OBSERVATION_END key=packet-after-direct-relay
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:244: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:244: endpoint_after_direct_relay='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:244: same_endpoint_identity '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' agent-fault
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:163: python3 - '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' agent-fault
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:245: sudo ctr task exec --exec-id boot-after-direct-relay mk-network-restart /bin/cat /proc/sys/kernel/random/boot_id
+OBSERVATION_BEGIN key=direct-relay-replacement
+supervisor=3958 worker=3963 holder=4168 old_relay=4188 old_relay_stop_state=absent replacement_relay=4520 reconnect_exec=relay-reconnected child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}
+OBSERVATION_END key=direct-relay-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:245: boot_after_direct_relay=fffc4250-470c-4ffe-85a5-0944f62db485
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:245: [[ fffc4250-470c-4ffe-85a5-0944f62db485 = fffc4250\-470c\-4ffe\-85a5\-0944f62db485 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:246: observe direct-relay-replacement 'supervisor=3958 worker=3963 holder=4168 old_relay=4188 old_relay_stop_state=absent replacement_relay=4520 reconnect_exec=relay-reconnected child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=direct-relay-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' direct-relay-replacement 'supervisor=3958 worker=3963 holder=4168 old_relay=4188 old_relay_stop_state=absent replacement_relay=4520 reconnect_exec=relay-reconnected child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' direct-relay-replacement
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:248: holder_pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: awk -v id=mk-network-restart '$1 == id {print $2}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:248: holder_before=4168
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:248: parent_pid 4168
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:99: sudo awk '{print $4}' /proc/4168/stat
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:248: worker_before=3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:248: parent_pid 3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:99: sudo awk '{print $4}' /proc/3963/stat
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:248: supervisor=3958
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:249: relay_pid_for_worker 3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:104: matches=()
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:104: local worker=3963 pid executable matches
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:103: sudo pgrep -P 3963
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4168 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4168/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4190 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4190/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4191 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4191/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4520 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4520/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/opt/mkruntime/bin/mkvsock-relay
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: matches+=("$pid")
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:110: [[ 1 -eq 1 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:111: printf %s 4520
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:249: relay_before=4520
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:250: sudo kill -KILL 3963
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:251: holder_after=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:251: worker_after=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:251: relay_after=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:252: seq 1 480
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:252: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:253: worker_pidfile 3958
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:253: true
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:253: worker_after=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:254: holder_pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: awk -v id=mk-network-restart '$1 == id {print $2}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:254: holder_after=4723
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:255: [[ -n 4723 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:255: [[ -n '' ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:259: sleep .25
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:252: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:253: worker_pidfile 3958
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:253: worker_after=4699
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:254: holder_pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:100: awk -v id=mk-network-restart '$1 == id {print $2}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:254: holder_after=4723
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:255: [[ -n 4723 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:255: [[ -n 4699 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:255: [[ 4723 != 4168 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:255: [[ 4699 != 3963 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:256: [[ -d /proc/4723 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:256: [[ -d /proc/4699 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:257: parent_pid 4699
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:257: [[ 3958 = 3958 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:258: parent_pid 4723
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:258: [[ 4699 = 4699 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:258: break
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:261: [[ -n 4723 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:261: [[ -n 4699 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:261: [[ 4723 != 4168 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:261: [[ 4699 != 3963 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:262: relay_pid_for_worker 4699
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:104: matches=()
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:104: local worker=4699 pid executable matches
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:103: sudo pgrep -P 4699
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4723 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4723/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4727 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4727/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/opt/mkruntime/bin/mkvsock-relay
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: matches+=("$pid")
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4728 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4728/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:106: [[ -n 4729 ]]
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: sudo readlink -f /proc/4729/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:107: executable=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:108: case ${executable##*/} in
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:105: read -r pid
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:110: [[ 1 -eq 1 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:111: printf %s 4727
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:262: relay_after=4727
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:263: [[ 4727 != 4520 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:263: [[ ! -d /proc/4520 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:264: packet_exchange after-shim-worker
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:129: local label=after-shim-worker primary_ip token reply log port endpoint current_listener_pid
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:130: exchange_index=5
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: ip -4 route get 8.8.8.8
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: primary_ip=10.148.0.58
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:132: [[ 10.148.0.58 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: port=18105
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: token=restart-token-after-shim-worker
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: log=/var/tmp/mk-network-restart.LezFol/after-shim-worker.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:148: listener_pid=4783
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:149: current_listener_pid=4783
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ -z 4586 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ 4783 != 4586 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:151: previous_listener_pid=4783
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:152: sleep .25
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:134: python3 - 10.148.0.58 18105 restart-token-after-shim-worker /var/tmp/mk-network-restart.LezFol/after-shim-worker.json
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: sudo ctr task exec --exec-id network-after-shim-worker mk-network-restart /bin/sh -c 'printf '\''%s'\'' '\''restart-token-after-shim-worker'\'' | nc -w 10 '\''10.148.0.58'\'' '\''18105'\'''
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: reply=primary-reply-restart-token-after-shim-worker
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:154: [[ primary-reply-restart-token-after-shim-worker = primary\-reply\-restart\-token\-after\-shim\-worker ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: wait 4783
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: listener_pid=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
+OBSERVATION_BEGIN key=packet-after-shim-worker
+primary_listener_pid=4783 child_reply=primary-reply-restart-token-after-shim-worker
+primary_observation={"destination": "10.148.0.58:18105", "peer": "172.31.0.2", "request": "restart-token-after-shim-worker", "response": "primary-reply-restart-token-after-shim-worker"}
+endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}
+OBSERVATION_END key=packet-after-shim-worker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: cat /var/tmp/mk-network-restart.LezFol/after-shim-worker.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: observe packet-after-shim-worker $'primary_listener_pid=4783 child_reply=primary-reply-restart-token-after-shim-worker\nprimary_observation={"destination": "10.148.0.58:18105", "peer": "172.31.0.2", "request": "restart-token-after-shim-worker", "response": "primary-reply-restart-token-after-shim-worker"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=packet-after-shim-worker
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' packet-after-shim-worker $'primary_listener_pid=4783 child_reply=primary-reply-restart-token-after-shim-worker\nprimary_observation={"destination": "10.148.0.58:18105", "peer": "172.31.0.2", "request": "restart-token-after-shim-worker", "response": "primary-reply-restart-token-after-shim-worker"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' packet-after-shim-worker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:265: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:265: endpoint_after_shim='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:265: same_endpoint_identity '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:163: python3 - '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' clean
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:266: sudo ctr task exec --exec-id boot-after-shim mk-network-restart /bin/cat /proc/sys/kernel/random/boot_id
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:266: boot_after_shim=fffc4250-470c-4ffe-85a5-0944f62db485
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:266: [[ fffc4250-470c-4ffe-85a5-0944f62db485 = fffc4250\-470c\-4ffe\-85a5\-0944f62db485 ]]
+OBSERVATION_BEGIN key=shim-worker-restart
+supervisor=3958 old_worker=3963 replacement_worker=4699 old_holder=4168 replacement_holder=4723 old_relay=4520 replacement_relay=4727 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}
+OBSERVATION_END key=shim-worker-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:267: observe shim-worker-restart 'supervisor=3958 old_worker=3963 replacement_worker=4699 old_holder=4168 replacement_holder=4723 old_relay=4520 replacement_relay=4727 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=shim-worker-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' shim-worker-restart 'supervisor=3958 old_worker=3963 replacement_worker=4699 old_holder=4168 replacement_holder=4723 old_relay=4520 replacement_relay=4727 child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":1,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":17,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":18}' shim-worker-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:269: sudo ctr tasks kill --signal SIGKILL mk-network-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:270: wait_task_state STOPPED
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:50: local expected=STOPPED state=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: seq 1 480
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: awk -v id=mk-network-restart '$1 == id {print $3}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: state=STOPPED
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: [[ STOPPED = STOPPED ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: return 0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:271: sudo ctr tasks rm mk-network-restart
+time="2026-10-10T09:20:44Z" level=warning msg="task mk-network-restart exit with non-zero exit code 137"
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:272: sudo ctr containers rm mk-network-restart
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:273: wait_counts 'rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:74: local 'expected=rootfs_records=0 live_exports=0 endpoints=0' observed=
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: seq 1 480
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: for _ in $(seq 1 480)
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: live_counts
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:60: sudo python3 -
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: observed='rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: [[ rootfs_records=0 live_exports=0 endpoints=0 = rootfs_records\=0 live_exports\=0 endpoints\=0 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: printf %s 'rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: return 0
+OBSERVATION_BEGIN key=between-child-generations
+rootfs_records=0 live_exports=0 endpoints=0
+OBSERVATION_END key=between-child-generations
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:273: observe between-child-generations 'rootfs_records=0 live_exports=0 endpoints=0'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=between-child-generations
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' between-child-generations 'rootfs_records=0 live_exports=0 endpoints=0' between-child-generations
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:274: start_task
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:122: workload_started=1
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:123: sudo ctr run --detach --runtime io.containerd.multikernel.v2 docker.io/library/busybox:1.36 mk-network-restart /bin/sleep 900
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:124: wait_task_state RUNNING
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:50: local expected=RUNNING state=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: seq 1 480
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: awk -v id=mk-network-restart '$1 == id {print $3}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: state=RUNNING
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: [[ RUNNING = RUNNING ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: return 0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:125: wait_counts 'rootfs_records=1 live_exports=1 endpoints=1'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:74: local 'expected=rootfs_records=1 live_exports=1 endpoints=1' observed=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: seq 1 480
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: live_counts
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:60: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: observed='rootfs_records=1 live_exports=1 endpoints=1'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: [[ rootfs_records=1 live_exports=1 endpoints=1 = rootfs_records\=1 live_exports\=1 endpoints\=1 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: printf %s 'rootfs_records=1 live_exports=1 endpoints=1'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: return 0
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:275: sudo ctr task exec --exec-id boot-replacement mk-network-restart /bin/cat /proc/sys/kernel/random/boot_id
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:275: boot_replacement=d5dabb95-3767-4b9c-9714-a1a75d54ae71
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:276: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:276: endpoint_replacement='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:277: [[ d5dabb95-3767-4b9c-9714-a1a75d54ae71 != fffc4250\-470c\-4ffe\-85a5\-0944f62db485 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:278: python3 - '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' '{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:284: packet_exchange after-child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:129: local label=after-child-replacement primary_ip token reply log port endpoint current_listener_pid
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:130: exchange_index=6
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: ip -4 route get 8.8.8.8
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:131: primary_ip=10.148.0.58
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:132: [[ 10.148.0.58 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: port=18106
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: token=restart-token-after-child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:133: log=/var/tmp/mk-network-restart.LezFol/after-child-replacement.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:148: listener_pid=5210
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:149: current_listener_pid=5210
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ -z 4783 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:150: [[ 5210 != 4783 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:151: previous_listener_pid=5210
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:152: sleep .25
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:134: python3 - 10.148.0.58 18106 restart-token-after-child-replacement /var/tmp/mk-network-restart.LezFol/after-child-replacement.json
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: sudo ctr task exec --exec-id network-after-child-replacement mk-network-restart /bin/sh -c 'printf '\''%s'\'' '\''restart-token-after-child-replacement'\'' | nc -w 10 '\''10.148.0.58'\'' '\''18106'\'''
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:153: reply=primary-reply-restart-token-after-child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:154: [[ primary-reply-restart-token-after-child-replacement = primary\-reply\-restart\-token\-after\-child\-replacement ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: wait 5210
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:155: listener_pid=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint_summary
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:85: sudo python3 -
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:156: endpoint='{"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: cat /var/tmp/mk-network-restart.LezFol/after-child-replacement.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:157: observe packet-after-child-replacement $'primary_listener_pid=5210 child_reply=primary-reply-restart-token-after-child-replacement\nprimary_observation={"destination": "10.148.0.58:18106", "peer": "172.31.0.2", "request": "restart-token-after-child-replacement", "response": "primary-reply-restart-token-after-child-replacement"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=packet-after-child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
+OBSERVATION_BEGIN key=packet-after-child-replacement
+primary_listener_pid=5210 child_reply=primary-reply-restart-token-after-child-replacement
+primary_observation={"destination": "10.148.0.58:18106", "peer": "172.31.0.2", "request": "restart-token-after-child-replacement", "response": "primary-reply-restart-token-after-child-replacement"}
+endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}
+OBSERVATION_END key=packet-after-child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' packet-after-child-replacement $'primary_listener_pid=5210 child_reply=primary-reply-restart-token-after-child-replacement\nprimary_observation={"destination": "10.148.0.58:18106", "peer": "172.31.0.2", "request": "restart-token-after-child-replacement", "response": "primary-reply-restart-token-after-child-replacement"}\nendpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' packet-after-child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:285: observe child-replacement 'old_child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 replacement_child_boot=d5dabb95-3767-4b9c-9714-a1a75d54ae71 old_endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0} replacement_endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
+OBSERVATION_BEGIN key=child-replacement
+old_child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 replacement_child_boot=d5dabb95-3767-4b9c-9714-a1a75d54ae71 old_endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0} replacement_endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}
+OBSERVATION_END key=child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' child-replacement 'old_child_boot=fffc4250-470c-4ffe-85a5-0944f62db485 replacement_child_boot=d5dabb95-3767-4b9c-9714-a1a75d54ae71 old_endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"d97e6f65530917ed5c71059cf6bde1c7","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"14cf66bee42c880e9807012104e09ba9","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0} replacement_endpoint={"address":"172.31.0.2/30","container_id":"mk-network-restart","errors":0,"gateway":"172.31.0.1","generation":"a6911244d9459f17037fe7a6031959c5","mtu":1400,"rx_drops":0,"rx_packets":0,"sandbox_generation":"f86f738aaecf9b1eed941614074a7db3","sandbox_id":"mk-mk-network-restart-8993697666910603","state":"READY","tx_drops":0,"tx_packets":0}' child-replacement
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:287: sudo ctr tasks kill --signal SIGKILL mk-network-restart
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:288: wait_task_state STOPPED
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:50: local expected=STOPPED state=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: seq 1 480
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: awk -v id=mk-network-restart '$1 == id {print $3}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: state=RUNNING
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: [[ RUNNING = STOPPED ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:54: sleep .25
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:51: for _ in $(seq 1 480)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: awk -v id=mk-network-restart '$1 == id {print $3}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:52: state=STOPPED
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: [[ STOPPED = STOPPED ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:53: return 0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:289: sudo ctr tasks rm mk-network-restart
+time="2026-10-10T09:21:43Z" level=warning msg="task mk-network-restart exit with non-zero exit code 137"
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:290: sudo ctr containers rm mk-network-restart
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:291: wait_counts 'rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:74: local 'expected=rootfs_records=0 live_exports=0 endpoints=0' observed=
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: seq 1 480
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:75: for _ in $(seq 1 480)
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: live_counts
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:60: sudo python3 -
+OBSERVATION_BEGIN key=clean-after
+rootfs_records=0 live_exports=0 endpoints=0
+OBSERVATION_END key=clean-after
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:76: observed='rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: [[ rootfs_records=0 live_exports=0 endpoints=0 = rootfs_records\=0 live_exports\=0 endpoints\=0 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: printf %s 'rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:77: return 0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:291: observe clean-after 'rootfs_records=0 live_exports=0 endpoints=0'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=clean-after
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' clean-after 'rootfs_records=0 live_exports=0 endpoints=0' clean-after
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:293: systemctl show -p MainPID --value mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:293: idle_mkruntimed_before=4396
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:294: sudo systemctl restart mkruntimed
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:295: systemctl is-active mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:295: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:296: systemctl show -p MainPID --value mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:296: idle_mkruntimed_after=5339
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:297: [[ 5339 != 4396 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:298: workload_started=0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:299: observe idle-pool-release 'mkruntimed_pid_before=4396 mkruntimed_pid_after=5339'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:20: local key=idle-pool-release
+OBSERVATION_BEGIN key=idle-pool-release
+mkruntimed_pid_before=4396 mkruntimed_pid_after=5339
+OBSERVATION_END key=idle-pool-release
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:21: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:22: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' idle-pool-release 'mkruntimed_pid_before=4396 mkruntimed_pid_after=5339' idle-pool-release
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:301: audit_output=
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:302: seq 1 60
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:302: for _ in $(seq 1 60)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: MK_EVIDENCE_XTRACE=0
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: audit_output=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:304: sleep 1
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:302: for _ in $(seq 1 60)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: MK_EVIDENCE_XTRACE=0
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: audit_output=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:304: sleep 1
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:302: for _ in $(seq 1 60)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: MK_EVIDENCE_XTRACE=0
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: audit_output=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:304: sleep 1
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:302: for _ in $(seq 1 60)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: MK_EVIDENCE_XTRACE=0
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: audit_output=$'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=5339 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=5339\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=4295\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1480\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1570\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:303: break
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:306: grep -Fq G6_FINAL_RESOURCE_RETURN_PASS
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=5339 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=5339
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=4295
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=1480
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1570
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:307: printf '%s\n' $'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=5339 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=5339\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=4295\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1480\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1570\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: systemctl is-active mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: systemctl is-active mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: systemctl is-active containerd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: systemctl is-active docker
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:308: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:310: trap - EXIT
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:311: rm -rf -- /var/tmp/mk-network-restart.LezFol
+G5_NETWORK_RESTART_LIVE_PASS
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-restart-live.sh:312: echo G5_NETWORK_RESTART_LIVE_PASS
+EVIDENCE_ASSERTION id=transport-child-service-daemon-and-primary-restarts passed=true
+EVIDENCE_ASSERTION id=primary-health-and-controller-ownership passed=true
++ echo 'EVIDENCE_ASSERTION id=transport-child-service-daemon-and-primary-restarts passed=true'
++ echo 'EVIDENCE_ASSERTION id=primary-health-and-controller-ownership passed=true'
++ clean_boundary
++ local output=
++ sudo systemctl restart mkruntimed
+++ seq 1 240
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
+++ MK_EVIDENCE_XTRACE=0
+++ bash /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-2ee14c4
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=5895 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=5895
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=4295
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=1480
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1570
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
++ output=$'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=5895 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=5895\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=4295\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1480\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1570\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
+EVIDENCE_ASSERTION id=network-resource-cleanup passed=true
+G5_FINAL_EXACT_RELEASE_PASS
++ printf '%s\n' $'OBSERVATION_BEGIN key=provenance\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=5895 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nOBSERVATION_END key=provenance\nOBSERVATION_BEGIN key=kerf-resource-return\n\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------\nOBSERVATION_END key=kerf-resource-return\nOBSERVATION_BEGIN key=final-resource-inventory\nchildren=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0\nOBSERVATION_END key=final-resource-inventory\nId=mkruntimed.service\nActiveState=active\nSubState=running\nMainPID=5895\nNRestarts=0\nId=mknetd.service\nActiveState=active\nSubState=running\nMainPID=4295\nNRestarts=0\nId=containerd.service\nActiveState=active\nSubState=running\nMainPID=1480\nNRestarts=0\nId=docker.service\nActiveState=active\nSubState=running\nMainPID=1570\nNRestarts=0\nG6_FINAL_RESOURCE_RETURN_PASS'
++ return 0
++ echo 'EVIDENCE_ASSERTION id=network-resource-cleanup passed=true'
++ echo G5_FINAL_EXACT_RELEASE_PASS
+{"evidence_command_result": {"ended_at": "2026-10-10T09:21:50.368737Z", "exit_status": 0}}

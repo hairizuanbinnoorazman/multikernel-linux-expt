@@ -1,0 +1,83 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "mklinux-g4-g6-final-20260905", "--command", "chmod 700 /var/tmp/run-g4-cross-export-final-2ee14c4.sh && /var/tmp/run-g4-cross-export-final-2ee14c4.sh"], "started_at": "2026-10-10T08:52:02.309277Z"}}
++ source_root=/var/tmp/mksrc-2ee14c4
++ expected_selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
+++ id -u
++ test 1001 -ne 0
+++ readlink -f /usr/local/lib/multikernel/current
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 = /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
++ MK_EVIDENCE_XTRACE=0
++ bash /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-2ee14c4
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=772c6339-6ed7-494b-8d7f-71f3cb7394eb mkruntimed_pid=35026 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=35026
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=1218
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=1469
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1507
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
++ bash /var/tmp/mksrc-2ee14c4/scripts/test-runtime-cross-sandbox-storage-live.sh /var/tmp/mksrc-2ee14c4
+Sending build context to Docker daemon   76.8kB
+Step 1/3 : FROM docker.io/library/busybox:1.36
+ ---> 73aaf090f3d8
+Step 2/3 : COPY mkvsock-nbd /usr/local/bin/mkvsock-nbd
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+ ---> 06feb68df96e
+Step 3/3 : RUN chmod 0755 /usr/local/bin/mkvsock-nbd
+ ---> Running in 110779ffd0f6
+ ---> Removed intermediate container 110779ffd0f6
+ ---> f11f011e14a3
+Successfully built f11f011e14a3
+Successfully tagged mk-storage-isolation:g4-live
+OBSERVATION_BEGIN key=provenance
+boot_id=772c6339-6ed7-494b-8d7f-71f3cb7394eb
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
+mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+installed_nbd_sha256=95e886d625a33de702989907f442f98a1812d315f2c6a4195214d60852be43ac
+image_nbd_sha256=95e886d625a33de702989907f442f98a1812d315f2c6a4195214d60852be43ac
+docker_image_id=sha256:f11f011e14a3e5100e741bb044dc1125c356b78e6e1e458c51cc4e4b4481fd4e
+containerd_image_digest=sha256:f11f011e14a3e5100e741bb044dc1125c356b78e6e1e458c51cc4e4b4481fd4e
+qualifier_sha256=78b5e81e3d30a287f2d3efae456c98b5546f3b92e9ffab81ad6d6965050d405b
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=initial-inventory
+instances=0 ctr_tasks=0 rootfs_records=0 live_exports=0 storage_state_files=1 helpers=0
+OBSERVATION_END key=initial-inventory
+MKVSOCK_NBD_HELLO_IDENTITY_PASS
+MKVSOCK_NBD_POST_HANDSHAKE_TIMEOUT_CLEAR_PASS
+Traceback (most recent call last):
+  File "<stdin>", line 8, in <module>
+AssertionError: [('/run/mkstorage/mk-mk-storage-isolation-a-dcb1afb867e22197-6675306d4f45.json', {'version': 3, 'pid': 35957, 'start_time': 175680, 'path': '/srv/multikernel-storage/runtime/task-dcb1afb867e22197e5cbccdb289cc5a6/root.ext4', 'port': 4061, 'image_id': 'root-fc33d5a5e5edb71690e8918273a7bc7c', 'export_generation': '2fb742e108e4baca5229f0305cd13d53', 'image_device': 2064, 'image_inode': 655426, 'binary_device': 2049, 'binary_inode': 6079391}), ('/run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-c5106654766a.json', {'version': 3, 'pid': 27158, 'start_time': 87223, 'path': '/srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4', 'port': 4061, 'image_id': 'root-65714ed0553a3b57aad3a59757bfbd10', 'export_generation': '6a6e1c0a7de7fa9472d800dcacdda8ac', 'image_device': 2064, 'image_inode': 655421, 'binary_device': 2049, 'binary_inode': 6079391})]
+{"evidence_command_result": {"ended_at": "2026-10-10T08:54:37.038826Z", "exit_status": 1}}

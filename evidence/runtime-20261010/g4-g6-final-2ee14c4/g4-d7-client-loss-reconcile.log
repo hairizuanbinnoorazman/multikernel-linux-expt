@@ -1,0 +1,97 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "chmod 700 /var/tmp/reconcile-g4-client-loss-d7c5301.sh && /var/tmp/reconcile-g4-client-loss-d7c5301.sh"], "started_at": "2026-10-11T02:36:06.970066Z"}}
++ source_root=/var/tmp/mksrc-d7c5301
++ boot=ca1337df-2163-4621-a931-be59076b2683
++ sandbox_id=mk-mk-storage-client-loss-216e4611aa588b7e
++ generation=2c602eaec39a361b3e1066210b261b68
++ export_generation=a061f9b735093774fcf3ee898ae001f5
++ task_key=task-216e4611aa588b7e8436be9484e3f8cd
++ container_id=mk-storage-client-loss
++ disk_dir=/srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd
++ record=/run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.json
++ server_log=/run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.log
++ recovery=/var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301
++ disk_recovery=/srv/multikernel-storage/quarantine/g4-client-loss-ca1337df-d7c5301
++ kerf=/opt/mkruntime/kerf-venv/bin/kerf
+++ cat /proc/sys/kernel/random/boot_id
++ test ca1337df-2163-4621-a931-be59076b2683 = ca1337df-2163-4621-a931-be59076b2683
+++ readlink -f /usr/local/lib/multikernel/current
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3 = /usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3
++ sudo test '!' -e /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301
++ sudo test '!' -e /srv/multikernel-storage/quarantine/g4-client-loss-ca1337df-d7c5301
++ sudo test -f /srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
+++ sudo ctr tasks list
+++ awk -v id=mk-storage-client-loss '$1==id {print $3}'
++ test STOPPED = STOPPED
++ sudo test -f /run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.json
++ sudo test -f /run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.log
++ sudo grep -Fxq MKNBD_SERVER_CLIENT_ACCEPTED /run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.log
++ sudo grep -Fq MKNBD_SERVER_CLOSED /run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.log
++ sudo python3 - mk-mk-storage-client-loss-216e4611aa588b7e 2c602eaec39a361b3e1066210b261b68 a061f9b735093774fcf3ee898ae001f5 task-216e4611aa588b7e8436be9484e3f8cd
+G4_D7_CLIENT_LOSS_RECONCILE_PRECONDITIONS_PASS
++ sudo systemctl stop mkruntimed.service
++ sudo systemctl reset-failed mkruntimed.service
++ sudo install -d -m 0700 -o root -g root /var/lib/multikernel-recovery /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301
++ sudo install -d -m 0700 -o root -g root /srv/multikernel-storage/quarantine /srv/multikernel-storage/quarantine/g4-client-loss-ca1337df-d7c5301
++ for item in /var/lib/mkruntime/state.json /var/lib/mkruntime/journal.jsonl /var/lib/mkruntimed/rootfs/state.json /var/lib/mkruntimed/storage/state.json /var/lib/mknetd/state.json "$record" "$server_log"
++ sudo cp --preserve=mode,ownership,timestamps /var/lib/mkruntime/state.json /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/
++ for item in /var/lib/mkruntime/state.json /var/lib/mkruntime/journal.jsonl /var/lib/mkruntimed/rootfs/state.json /var/lib/mkruntimed/storage/state.json /var/lib/mknetd/state.json "$record" "$server_log"
++ sudo cp --preserve=mode,ownership,timestamps /var/lib/mkruntime/journal.jsonl /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/
++ for item in /var/lib/mkruntime/state.json /var/lib/mkruntime/journal.jsonl /var/lib/mkruntimed/rootfs/state.json /var/lib/mkruntimed/storage/state.json /var/lib/mknetd/state.json "$record" "$server_log"
++ sudo cp --preserve=mode,ownership,timestamps /var/lib/mkruntimed/rootfs/state.json /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/
++ for item in /var/lib/mkruntime/state.json /var/lib/mkruntime/journal.jsonl /var/lib/mkruntimed/rootfs/state.json /var/lib/mkruntimed/storage/state.json /var/lib/mknetd/state.json "$record" "$server_log"
++ sudo cp --preserve=mode,ownership,timestamps /var/lib/mkruntimed/storage/state.json /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/
++ for item in /var/lib/mkruntime/state.json /var/lib/mkruntime/journal.jsonl /var/lib/mkruntimed/rootfs/state.json /var/lib/mkruntimed/storage/state.json /var/lib/mknetd/state.json "$record" "$server_log"
++ sudo cp --preserve=mode,ownership,timestamps /var/lib/mknetd/state.json /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/
++ for item in /var/lib/mkruntime/state.json /var/lib/mkruntime/journal.jsonl /var/lib/mkruntimed/rootfs/state.json /var/lib/mkruntimed/storage/state.json /var/lib/mknetd/state.json "$record" "$server_log"
++ sudo cp --preserve=mode,ownership,timestamps /run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.json /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/
++ for item in /var/lib/mkruntime/state.json /var/lib/mkruntime/journal.jsonl /var/lib/mkruntimed/rootfs/state.json /var/lib/mkruntimed/storage/state.json /var/lib/mknetd/state.json "$record" "$server_log"
++ sudo cp --preserve=mode,ownership,timestamps /run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.log /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/
++ sudo find /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301 -maxdepth 1 -type f -print0
++ sudo sort -z
++ sudo xargs -0 sha256sum
++ sudo tee /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/SHA256SUMS
++ sudo chmod 0600 /var/lib/multikernel-recovery/g4-client-loss-ca1337df-d7c5301/SHA256SUMS
++ sudo /opt/mkruntime/kerf-venv/bin/kerf kill mk-mk-storage-client-loss-216e4611aa588b7e --force
+Shutting down instance 'mk-mk-storage-client-loss-216e4611aa588b7e' (ID: 40) (force)...
+✓ Shutdown command executed successfully
++ sudo /opt/mkruntime/kerf-venv/bin/kerf unload mk-mk-storage-client-loss-216e4611aa588b7e
+Unloading kernel for instance 'mk-mk-storage-client-loss-216e4611aa588b7e' (ID: 40)...
+✓ Kernel unloaded successfully
++ sudo /opt/mkruntime/kerf-venv/bin/kerf delete mk-mk-storage-client-loss-216e4611aa588b7e
+✓ Deleted instance 'mk-mk-storage-client-loss-216e4611aa588b7e' (transaction 37)
++ sudo test '!' -e /sys/fs/multikernel/instances/mk-mk-storage-client-loss-216e4611aa588b7e
++ sudo mv /srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd /srv/multikernel-storage/quarantine/g4-client-loss-ca1337df-d7c5301/task-216e4611aa588b7e8436be9484e3f8cd
++ sudo python3 - mk-mk-storage-client-loss-216e4611aa588b7e 2c602eaec39a361b3e1066210b261b68 a061f9b735093774fcf3ee898ae001f5 task-216e4611aa588b7e8436be9484e3f8cd
++ sudo unlink /run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.json
++ sudo unlink /run/mkstorage/mk-mk-storage-client-loss-216e4611aa588b7e-2c602eaec39a.log
++ sudo systemctl start mkruntimed.service
+++ seq 1 240
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ break
++ sudo test -S /run/mkruntimed.sock
++ sudo timeout 60 ctr tasks rm -f mk-storage-client-loss
+time="2026-10-11T02:36:11Z" level=error msg="unable to delete mk-storage-client-loss" error="failed precondition"
+ctr: failed precondition
+{"evidence_command_result": {"ended_at": "2026-10-11T02:36:11.564407Z", "exit_status": 1}}

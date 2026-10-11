@@ -1,0 +1,9 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "set -euo pipefail; date -u +%FT%TZ; cat /proc/sys/kernel/random/boot_id; readlink -f /usr/local/lib/multikernel/current; /usr/local/sbin/mkruntimed --version; sha256sum /proc/$(systemctl show -p MainPID --value mkruntimed)/exe /usr/local/bin/containerd-shim-multikernel-v2 $(readlink -f /usr/local/libexec/multikernel/build-runtime-container-initramfs.sh); systemctl is-active mkruntimed mknetd containerd docker; MK_EVIDENCE_XTRACE=0 timeout 180 bash /var/tmp/mksrc-d7c5301/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-d7c5301; echo POST_USER_RESTART_PREFLIGHT_PASS"], "started_at": "2026-10-11T01:58:24.830861Z"}}
+2026-10-11T01:58:27Z
+ca1337df-2163-4621-a931-be59076b2683
+/usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+mkruntimed version=0.1.0-dev revision=d7c530103b43c63d97518b0d6f5aa5442e7b15a3
+sha256sum: /proc/1449/exe: Permission denied
+8ad23ba2e3fe7c6fda6df51f873682fd6aac74306dcb68e227d612dc38df16b2  /usr/local/bin/containerd-shim-multikernel-v2
+633fcfc08206840a3546f824a5f2a0d27508e2cfcc78499fa01a193ece52ccb9  /etc/multikernel/deployments/6182145c5cef6f7ebc12546387a65572656eb204c99e0f3d42534f6189b4380a/libexec/build-runtime-container-initramfs.sh
+{"evidence_command_result": {"ended_at": "2026-10-11T01:58:27.592285Z", "exit_status": 1}}

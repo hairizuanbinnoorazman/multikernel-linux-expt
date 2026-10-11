@@ -1,0 +1,36 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "mklinux-g4-g6-final-20260905", "--command", "set -x; systemctl show mkruntimed.service -p ActiveState -p SubState -p MainPID -p NRestarts -p Result --no-pager; sudo ctr tasks list; sudo ctr tasks info mk-storage-client-loss || true; sudo ctr containers list; ps -eo pid=,ppid=,stat=,comm=,args= | awk '$4 ~ /^(mkruntimed|containerd-shim|mkvsock-nbd|mk-agent-relay)$/ {print}'; sudo jq -c '{endpoints}' /var/lib/mknetd/state.json; sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -printf '%f\\n'; sudo jq -c '{sandboxes:(.sandboxes|length)}' /var/lib/mkruntime/state.json; sudo jq -c '{records:(.records|length)}' /var/lib/mkruntimed/rootfs/state.json; sudo jq -c '{live:([.exports[]|select(.state!=\"RELEASED\")]|length)}' /var/lib/mkruntimed/storage/state.json; sudo journalctl -u containerd.service --since '5 minutes ago' --no-pager -n 120; MK_EVIDENCE_XTRACE=0 bash /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-2ee14c4"], "started_at": "2026-10-10T08:47:09.951512Z"}}
++ systemctl show mkruntimed.service -p ActiveState -p SubState -p MainPID -p NRestarts -p Result --no-pager
+ActiveState=active
+SubState=running
+MainPID=34086
+Result=success
+NRestarts=0
++ sudo ctr tasks list
+TASK                      PID      STATUS    
+mk-storage-client-loss    27249    STOPPED
++ sudo ctr tasks info mk-storage-client-loss
+No help topic for 'info'
++ true
++ sudo ctr containers list
+CONTAINER                 IMAGE                             RUNTIME                         
+mk-storage-client-loss    docker.io/library/busybox:1.36    io.containerd.multikernel.v2    
++ ps -eo pid=,ppid=,stat=,comm=,args=
++ awk '$4 ~ /^(mkruntimed|containerd-shim|mkvsock-nbd|mk-agent-relay)$/ {print}'
+  27046       1 Sl   containerd-shim /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 -namespace default -id mk-storage-client-loss -address /run/containerd/containerd.sock
+  27051   27046 Sl   containerd-shim /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 -namespace default -id mk-storage-client-loss -address /run/containerd/containerd.sock
+  27249   27051 Sl   containerd-shim /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 __multikernel_namespace_holder
+  34086       1 Ssl  mkruntimed      /usr/local/sbin/mkruntimed --config=/etc/mkruntime/config.json --pool-cpus=8,10,12,14,9,11,13,15 --pool-memory=16GB --pool-memory-reserve=1GB --storage-state-dir=/var/lib/mkruntimed/storage --storage-runtime-dir=/run/mkstorage --storage-server=/usr/local/libexec/multikernel/mkvsock-nbd --rootfs-state-dir=/var/lib/mkruntimed/rootfs --rootfs-storage-dir=/srv/multikernel-storage/runtime --rootfs-builder=/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh --cmdline=rdinit=/init console=mktty0 panic=-1
++ sudo jq -c '{endpoints}' /var/lib/mknetd/state.json
+{"endpoints":{"multikernel\u0000mk-storage-client-loss\u0000mktun0":{"container_id":"mk-storage-client-loss","network_name":"multikernel","if_name":"mktun0","netns":"/run/netns/mk-f5758a5bbfd0","owner":"runtime","managed_namespace":true,"sandbox_id":"mk-mk-storage-client-loss-216e4611aa588b7e","sandbox_generation":"c5106654766ab44b1af0bc9b1ab7a7f0","primary_boot_id":"772c6339-6ed7-494b-8d7f-71f3cb7394eb","generation":"f5758a5bbfd04c4dfeebd0f224eb7280","address":"172.31.0.2/30","gateway":"172.31.0.1","mtu":1400,"dns":{"nameservers":["169.254.169.254"]},"state":"DISCONNECTED","created_at":"2026-10-10T08:38:39.998871704Z","updated_at":"2026-10-10T08:46:18.695578924Z","rx_packets":7,"tx_packets":8,"rx_drops":0,"tx_drops":0,"errors":1}}}
++ sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -printf '%f\n'
++ sudo jq -c '{sandboxes:(.sandboxes|length)}' /var/lib/mkruntime/state.json
+{"sandboxes":0}
++ sudo jq -c '{records:(.records|length)}' /var/lib/mkruntimed/rootfs/state.json
+{"records":0}
++ sudo jq -c '{live:([.exports[]|select(.state!="RELEASED")]|length)}' /var/lib/mkruntimed/storage/state.json
+{"live":0}
++ sudo journalctl -u containerd.service --since '5 minutes ago' --no-pager -n 120
+-- No entries --
++ MK_EVIDENCE_XTRACE=0
++ bash /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-2ee14c4
+{"evidence_command_result": {"ended_at": "2026-10-10T08:47:12.749084Z", "exit_status": 1}}

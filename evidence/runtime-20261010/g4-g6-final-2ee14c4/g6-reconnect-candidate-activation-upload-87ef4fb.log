@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "scp", "evidence/runtime-20261010/g4-g6-final-2ee14c4/run-candidate-activate-87ef4fb.sh", "mklinux-g4-g6-final-20260905:/tmp/", "--project=new-demo-project-462517", "--zone=asia-southeast1-b"], "started_at": "2026-10-10T14:11:15.470576Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-10T14:11:18.903631Z", "exit_status": 0}}

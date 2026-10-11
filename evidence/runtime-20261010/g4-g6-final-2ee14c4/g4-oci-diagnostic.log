@@ -1,0 +1,9 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command=env -u MK_VALIDATE_ONLY -u MK_RUNTIME_SUPPORT_ROOT python3 /var/tmp/mksrc-2ee14c4/scripts/test-runtime-oci-validation.py"], "started_at": "2026-10-10T03:55:07.088467Z"}}
+Traceback (most recent call last):
+  File "/var/tmp/mksrc-2ee14c4/scripts/test-runtime-oci-validation.py", line 593, in <module>
+    main()
+    ~~~~^^
+  File "/var/tmp/mksrc-2ee14c4/scripts/test-runtime-oci-validation.py", line 585, in main
+    raise AssertionError(f"builder did not reject before normalization: {result.stderr!r}")
+AssertionError: builder did not reject before normalization: ''
+{"evidence_command_result": {"ended_at": "2026-10-10T03:55:12.357675Z", "exit_status": 1}}

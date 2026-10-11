@@ -1,0 +1,623 @@
+{
+  "algorithm": "sha256",
+  "audited_at": "2026-10-11T09:17:53.324898Z",
+  "files": [
+    {
+      "path": "cleanup-only-g4-client-loss-2ee14c4.sh",
+      "sha256": "a449cd0dad9c1a542192887cbe24a8d653c5807c97c85604000bf0c7b02aec84",
+      "size_bytes": 3439
+    },
+    {
+      "path": "cleanup-only-g4-client-loss-d7c5301.sh",
+      "sha256": "1f11a113b5f8e86e21ee4f931980573914ca9d4ae3c45e81f0687d8378283a97",
+      "size_bytes": 3408
+    },
+    {
+      "path": "continue-g4-client-loss-reconcile-2ee14c4.sh",
+      "sha256": "883e2dcd96c1cb581b80fb69b970c8478df772ceaacaa490b7ec19901d68105e",
+      "size_bytes": 3814
+    },
+    {
+      "path": "diagnose-g4-v3-failure-2ee14c4.sh",
+      "sha256": "0caeeedbbcd3562089886a87164cc8cc3d6eb4454e7a92183a642b68909e43de",
+      "size_bytes": 866
+    },
+    {
+      "path": "disposable-instance-delete.log",
+      "sha256": "85a443f6d955c0ea81c9a8175da0ff7a47ce95af12c6c6c2eb0a788771533cc0",
+      "size_bytes": 466
+    },
+    {
+      "path": "g4-client-loss-cleanup-only-reclaim.log",
+      "sha256": "8bbb603f68040511c789c0fe77cf519040674734c4d72eb5d253deba8710cff8",
+      "size_bytes": 23059
+    },
+    {
+      "path": "g4-client-loss-operator-reconcile-complete.log",
+      "sha256": "c3a4f6c72c042145b217e5ed3b72814423020cdc80603f50c772ba2716e7a85e",
+      "size_bytes": 3549
+    },
+    {
+      "path": "g4-client-loss-operator-reconcile-pass.log",
+      "sha256": "942ff93e20500c42990c2fd0a5c325b29809ad4d8452aa081963f0c612f88576",
+      "size_bytes": 7162
+    },
+    {
+      "path": "g4-client-loss-operator-reconcile.log",
+      "sha256": "e7b2071a92768a7055b97d160c478e4238d1c39adc81e5be7ae4d7f0c0f96fc1",
+      "size_bytes": 2318
+    },
+    {
+      "path": "g4-client-loss-post-partial-reconcile-audit.log",
+      "sha256": "c9222387a722cc9d4d030914f2a6f3215c97ac352037326602575dc00f90a256",
+      "size_bytes": 4593
+    },
+    {
+      "path": "g4-client-loss-retained-inspection-pass.log",
+      "sha256": "aa1a7188dd2a3c50bbe62558de6fb52d1d3952ac6849eed0e2c2f0d3cb3de848",
+      "size_bytes": 652631
+    },
+    {
+      "path": "g4-client-loss-retained-inspection.log",
+      "sha256": "66c12f027147f84dbcf6dc88f0eac12f5a180b100ce20f8480ff98a16968cf9d",
+      "size_bytes": 2123
+    },
+    {
+      "path": "g4-client-loss-volatile-record-retire.log",
+      "sha256": "ae7d1243261ccb1afc93b84d29ce8b6c35d342a0e4d77091f74d19ed9b038327",
+      "size_bytes": 21170
+    },
+    {
+      "path": "g4-cross-export-d7-upload.log",
+      "sha256": "6a29e14a5833509ae4b1469d29e45dae2aa8af0165706fdb01d7c15e2242a1e1",
+      "size_bytes": 390
+    },
+    {
+      "path": "g4-cross-export-failure-audit.log",
+      "sha256": "67e7f55bdd361e11ee48bf6da6d951667a0e7de2e4d7127cce8a9ec74ec442e1",
+      "size_bytes": 3348
+    },
+    {
+      "path": "g4-cross-export-final-audit-d7c5301.log",
+      "sha256": "760d3aedd3fee979c80ddc80a1381c9463f65905c5299e6847857c4ed7f850d0",
+      "size_bytes": 2115
+    },
+    {
+      "path": "g4-cross-export-final-d7c5301.log",
+      "sha256": "1cda2c7ce4a589b107e9a52a4dcf50eccde9cc92cde562b4fbb74b412813ef38",
+      "size_bytes": 8774
+    },
+    {
+      "path": "g4-cross-export-final-pass.log",
+      "sha256": "8a1f62b2d274c140451c85cb55917ccfed95ce0acbf8a312f892a83abfb9a697",
+      "size_bytes": 15933
+    },
+    {
+      "path": "g4-cross-export-final.log",
+      "sha256": "77b87c987dc7e035bb2ec106924388abad3e3aab397f5d86eb649872e49095a9",
+      "size_bytes": 5116
+    },
+    {
+      "path": "g4-cross-export-post-pass-audit-d7c5301.log",
+      "sha256": "53c2d8cdce17e035d4a20ed8eac5870d38b869153f880a5ca4aa99341ca6c52c",
+      "size_bytes": 10688
+    },
+    {
+      "path": "g4-d7-client-loss-cleanup-only-upload.log",
+      "sha256": "98c6392ef723cb3222cc1ebf82f102982efc847be68399e449b0e5dc55ead34d",
+      "size_bytes": 392
+    },
+    {
+      "path": "g4-d7-client-loss-cleanup-only.log",
+      "sha256": "d1cb61ec8596a4d4c7f91ffc9be4835ac1906259337a54cd97cbc0dfc57c52fa",
+      "size_bytes": 9390
+    },
+    {
+      "path": "g4-d7-client-loss-reconcile-upload.log",
+      "sha256": "93403aaec2f55bce58edc778d22cf2648ced7049f9fc1330248fa85919101628",
+      "size_bytes": 389
+    },
+    {
+      "path": "g4-d7-client-loss-reconcile.log",
+      "sha256": "ff90350afd18cb5c340d8f8da8f5d0d57775022cc922c53aaccc8f88cceb21e6",
+      "size_bytes": 7841
+    },
+    {
+      "path": "g4-d7-client-loss-retained-inspection.log",
+      "sha256": "b9ca4c458522fa2ec3a19032e2cfe228c1bbb4720de760fdc373af4d6e86439b",
+      "size_bytes": 3523
+    },
+    {
+      "path": "g4-d7-post-client-loss-diagnostic.log",
+      "sha256": "6cf15237e36a3c7166efd4a1f62741030d1d69545728b6b227bcc26e41118219",
+      "size_bytes": 20449
+    },
+    {
+      "path": "g4-final-live-d7c5301.log",
+      "sha256": "ee0436ac0c65498d43e00e819403493874e153596221402c9642815523531484",
+      "size_bytes": 2679482
+    },
+    {
+      "path": "g4-final-live-pass.log",
+      "sha256": "6f4db9b61f413f79a20484e08d7a3d31024f251f32c33a4b389663f915f3cd80",
+      "size_bytes": 586876
+    },
+    {
+      "path": "g4-final-live.log",
+      "sha256": "3b993a809be1fd234d50807eb6b28a4f9b2a872341adba6495d13840f2402f66",
+      "size_bytes": 193448
+    },
+    {
+      "path": "g4-final-v2-live.log",
+      "sha256": "edc703ca75418e3304c59cead12236ea1a3217babaac32a8dd69f547debbed84",
+      "size_bytes": 13676
+    },
+    {
+      "path": "g4-final-v3-live.log",
+      "sha256": "196298bb6275242e15447e0605a066e5490877cdfb7471d985e012670ef48371",
+      "size_bytes": 804990
+    },
+    {
+      "path": "g4-first-failure-audit.log",
+      "sha256": "3b574588835e3df8b4837dac450f5079cdb6175d8ee166cf99f54dbd908ad56a",
+      "size_bytes": 15548
+    },
+    {
+      "path": "g4-g5-d7-runners-upload.log",
+      "sha256": "488cfca6df6996210367312ebc8b9c6e00457344b2bdb08e68dd4af149dbcdf6",
+      "size_bytes": 450
+    },
+    {
+      "path": "g4-oci-after-ownership-pass.log",
+      "sha256": "9fc9e29a687ca9502b31797846fab2e3d1cc4634150bb53c9ca9d3aa7b507d62",
+      "size_bytes": 498
+    },
+    {
+      "path": "g4-oci-builder-focused-diagnostic.log",
+      "sha256": "ff8dacb2d5ebb5f73e48fb415c3507d4a0aa92671ab170292b668e41a650905b",
+      "size_bytes": 2195
+    },
+    {
+      "path": "g4-oci-diagnostic.log",
+      "sha256": "cfe630f5b0f4bc30dcbcc2663c1b24757aab661f4ddf2cdd35584d98ce359719",
+      "size_bytes": 825
+    },
+    {
+      "path": "g4-source-ownership-correction.log",
+      "sha256": "51aa15cae9cda54d66874b9108281a250de232d8e84f712cdf2e1c8c3de0b878",
+      "size_bytes": 1046
+    },
+    {
+      "path": "g4-source-ownership-diagnostic.log",
+      "sha256": "7a6a2658defad2c4eefeff532063869def977b3e8259d0690da79eb92ed5531a",
+      "size_bytes": 888
+    },
+    {
+      "path": "g4-v2-failure-audit.log",
+      "sha256": "1cf7577cf62008764369fa959835f2e0609a5f1c8fee3e8d79d46f9d49a32ba2",
+      "size_bytes": 15735
+    },
+    {
+      "path": "g4-v3-failure-diagnostic.log",
+      "sha256": "4b0af9c2d0535dadd03e27c9b0422c9f038f7e302b212a96efae1cab4702d0f4",
+      "size_bytes": 72716
+    },
+    {
+      "path": "g5-final-live-d7c5301.log",
+      "sha256": "6daa0ad9f52cff3601f2b62d7a32fcb007493e92b3fafe0cc4deb986f9e3ee68",
+      "size_bytes": 577387
+    },
+    {
+      "path": "g5-final-v3-live.log",
+      "sha256": "281c83783429d6779d47d627daca6f22df28ce84a984d326f4919f715cbc16c9",
+      "size_bytes": 306579
+    },
+    {
+      "path": "g5-installed-shim-path-inspection.log",
+      "sha256": "e2ec3e61611bc5b3199bd08a1bfeca93619799998749d69e56109c37e9ac03c4",
+      "size_bytes": 2781
+    },
+    {
+      "path": "g5-memory-recovery-instance-reset.log",
+      "sha256": "b87d65a216a7ddc3e1ad5aa30e168cd0f93437e2bfce8abfcd48700c14165d97",
+      "size_bytes": 471
+    },
+    {
+      "path": "g5-network-stress-compacted-retry.log",
+      "sha256": "97a8a27edd2edeaf69a48a5344944a1762f5aab7d598c8ac3ee8dbd6f44320b2",
+      "size_bytes": 12725
+    },
+    {
+      "path": "g5-network-stress-failure-diagnostic.log",
+      "sha256": "b9e99d3d28d8354019a7aa59030ea8b2dc045fe331b36195b091d269957282ab",
+      "size_bytes": 22231
+    },
+    {
+      "path": "g5-network-stress-focused-retry.log",
+      "sha256": "05d69cc08079d051bc731447f0f9aa0379befa118dfed292dbab33a2da9b57f6",
+      "size_bytes": 12725
+    },
+    {
+      "path": "g5-network-stress-post-reset.log",
+      "sha256": "c5baafb654e660fc784ac18d4bc5b42563e7837447c30d4202bc213ac8264287",
+      "size_bytes": 105036
+    },
+    {
+      "path": "g5-network-stress-second-diagnostic.log",
+      "sha256": "01021fd20cad456ac3291ce93943d5089fbe63a5ba743a215ef38198fecc8f49",
+      "size_bytes": 28789
+    },
+    {
+      "path": "g5-post-reset-continuation-live.log",
+      "sha256": "086fbd0d1e97a76fc0b6954f78069f3993ba4bc87509db3469974ec0fd92c674",
+      "size_bytes": 126683
+    },
+    {
+      "path": "g5-post-reset-continuation-upload.log",
+      "sha256": "85cc2e34f5308e0db2a3b869c9e5590e1c5e3fc692b9abc53151226bb3c8c027",
+      "size_bytes": 494
+    },
+    {
+      "path": "g5-post-reset-preflight.log",
+      "sha256": "fa33b34aa9152bdefe4f7bbb4f53a41fe670c063ba9e16f973561f4a595256eb",
+      "size_bytes": 3310
+    },
+    {
+      "path": "g5-post-reset-ready-audit.log",
+      "sha256": "e31096cf2800e65c2c916936fd9a38a539ee480154f28ac69332e446a766a546",
+      "size_bytes": 15977
+    },
+    {
+      "path": "g5-runtime-unit-inspection.log",
+      "sha256": "5b9173dce863ab1e9679a41f8ba566e03857879fca2b5e9eb729052c8aa77af5",
+      "size_bytes": 13319
+    },
+    {
+      "path": "g6-containerd-failure-clean-boundary-diagnostic.log",
+      "sha256": "420547e35927ca6fea3ef4a74007665fdd421ee2daa2db9588ae4d1fc69d3065",
+      "size_bytes": 4857
+    },
+    {
+      "path": "g6-containerd-failure-clean-boundary-final.log",
+      "sha256": "a69d48c364f042fc1cc5317e7b513df7aab168bc1b20c5cd49f840e7ba75f187",
+      "size_bytes": 16003
+    },
+    {
+      "path": "g6-containerd-failure-clean-boundary-pass.log",
+      "sha256": "22614ca70c5728849a7fc95244d9ab2c0b0e6210750a10f6ebeebbce9eff8ec3",
+      "size_bytes": 1604
+    },
+    {
+      "path": "g6-containerd-failure-clean-boundary.log",
+      "sha256": "c25065c74bc47212e74ab6d78e8f85ec003596ba61414fb3385c3d43bb3fbb32",
+      "size_bytes": 1784
+    },
+    {
+      "path": "g6-containerd-restart-failure-diagnostic.log",
+      "sha256": "cec17a45a33cf69001c4c54362192793b92b7bfb4cc85a137e334632c4805016",
+      "size_bytes": 51481
+    },
+    {
+      "path": "g6-containerd-restart-remediation-live-87ef4fb.log",
+      "sha256": "538768403ee604a5acc00e6110a570dad8002a02710906614670b0024583249a",
+      "size_bytes": 376155
+    },
+    {
+      "path": "g6-final-continuation-live-87ef4fb.log",
+      "sha256": "e1354c375ab609cc7403573d69dd9b1b034a918fbf74e856189efc72817c9eee",
+      "size_bytes": 2396713
+    },
+    {
+      "path": "g6-final-continuation-live-d7c5301.log",
+      "sha256": "8ba465dba5cc39b0e0f076a5f9dfe8251f875e54764f4eaf5448df4a43f75adb",
+      "size_bytes": 3000001
+    },
+    {
+      "path": "g6-final-continuation-upload-87ef4fb.log",
+      "sha256": "99de79380b899163f4cccaa6487d38bed4d614b1ab027a03db123fbb348b2ca9",
+      "size_bytes": 386
+    },
+    {
+      "path": "g6-final-continuation-upload-d7c5301.log",
+      "sha256": "b3f7098fce018a9c3e14b6245565a5077e2022ccdd1cf2e84f8fb25ef801ce10",
+      "size_bytes": 386
+    },
+    {
+      "path": "g6-final-remaining-captured-d7c5301.log",
+      "sha256": "1449b196b4a8a52bf3e787c2da87e021cdff8e9331ed2a6c4fc633476f65a1d0",
+      "size_bytes": 1724644
+    },
+    {
+      "path": "g6-final-remaining-live-d7c5301.log",
+      "sha256": "ee8eef4555328bbdaf7a9d3b824193b6b55516f6f2b2282c67bedfb78f79520b",
+      "size_bytes": 1739898
+    },
+    {
+      "path": "g6-final-remaining-upload-d7c5301.log",
+      "sha256": "35aa75907fdac1007c920cb39e1eb6347faae27afe1a2efc3df1c64a38a8f757",
+      "size_bytes": 541
+    },
+    {
+      "path": "g6-final-v3-live.log",
+      "sha256": "2b9b50913d09a744060fb7f829afdd9e2730ef7d4eaaad031c14bacb5356a211",
+      "size_bytes": 439103
+    },
+    {
+      "path": "g6-reconnect-build-filesystem-diagnostic.log",
+      "sha256": "47b8f60a2d01e33d7c8ad7776ffe904a91a749976d971b7398bbd57fdde5a066",
+      "size_bytes": 1730
+    },
+    {
+      "path": "g6-reconnect-candidate-activation-87ef4fb.log",
+      "sha256": "09523eb6497c3ed4a3b0ebfd650061cc239f398facb2c2de9f4f832c7236973a",
+      "size_bytes": 43159
+    },
+    {
+      "path": "g6-reconnect-candidate-activation-upload-87ef4fb.log",
+      "sha256": "faef99176f2057546152ab3b2e155c14d99a12958d1a3533b7f133e6c1bfbeca",
+      "size_bytes": 383
+    },
+    {
+      "path": "g6-reconnect-candidate-build-87ef4fb.log",
+      "sha256": "dbaccfbc7b160feb6298cfa1e90914db8a94ae573eebf43270562beff08625a0",
+      "size_bytes": 5468
+    },
+    {
+      "path": "g6-reconnect-candidate-build-v2-87ef4fb.log",
+      "sha256": "4ac732fd2b0390b6a6d82fb8f1743f2e7ece78e54e9572590237d9ee8625a75d",
+      "size_bytes": 7146
+    },
+    {
+      "path": "g6-reconnect-candidate-build-v2-upload-87ef4fb.log",
+      "sha256": "0ac87b762081e31a009ea097dfd8765e0fefb62fc503621b29a013a4c2041b13",
+      "size_bytes": 383
+    },
+    {
+      "path": "g6-reconnect-candidate-build-v3-87ef4fb.log",
+      "sha256": "eed941cdb0bd565d2b6d52189d90344f7bb91e51ccb0bdd33d994b30e2a6c8cd",
+      "size_bytes": 9923
+    },
+    {
+      "path": "g6-reconnect-candidate-build-v3-upload-87ef4fb.log",
+      "sha256": "8519d871189347eb8e37524b5139c05d49af64d3bc3b71161d5a9fbf31f48140",
+      "size_bytes": 383
+    },
+    {
+      "path": "g6-reconnect-candidate-upload-87ef4fb.log",
+      "sha256": "a75becec6c3643a3f66f5ce915a8bd41c5c88e1ec17bb83f0a735f251199eafd",
+      "size_bytes": 406
+    },
+    {
+      "path": "g6-shim-stream-continuity-focused-live-d7c5301.log",
+      "sha256": "86711f42fc123ab0b7a8ac8256976491d74c1d2458a4116032724bca87b8d710",
+      "size_bytes": 383034
+    },
+    {
+      "path": "g6-shim-stream-failure-clean-boundary-87ef4fb.log",
+      "sha256": "c22c07091310a7ae75ef03ce516022a176005b9e58a5293843789d646d4639b3",
+      "size_bytes": 2517
+    },
+    {
+      "path": "g6-shim-stream-keeper-focused-race.log",
+      "sha256": "988b9d8cc322d6becd2dde0ee6981ceb0bfa385f61b57c701d87769d94ba5598",
+      "size_bytes": 418
+    },
+    {
+      "path": "g6-stream-keeper-candidate-activation-d7c5301.log",
+      "sha256": "a7a7324344b11ded3b74da29c2a3e4a71f4d309c65276dfa4899dc931b813bcb",
+      "size_bytes": 42612
+    },
+    {
+      "path": "g6-stream-keeper-candidate-activation-upload-d7c5301.log",
+      "sha256": "a26c883f4d181722428203e56bd1fc5fe17604f3223483664c2fd225f5aa419b",
+      "size_bytes": 383
+    },
+    {
+      "path": "g6-stream-keeper-candidate-build-d7c5301.log",
+      "sha256": "fdc08a806892c0774f81290a4debe1779658b2bdf5de9ae64b130e6122b7205f",
+      "size_bytes": 9857
+    },
+    {
+      "path": "g6-stream-keeper-candidate-upload-d7c5301.log",
+      "sha256": "b7ca0fc1cd9b94a26c0cc46881db251c3017f083e9bdf76ee20dd7bef7fd163b",
+      "size_bytes": 406
+    },
+    {
+      "path": "inspect-g4-client-loss-retained-2ee14c4.sh",
+      "sha256": "9f77fcd04adf6a17fd77f006eb16e913343944d996c5d56aeffde6907f6f166c",
+      "size_bytes": 1406
+    },
+    {
+      "path": "manifest-g4.json",
+      "sha256": "381292c88ed60996db1be7943d61dbe31051146f3ba1d4d3627d6ab15dc52bce",
+      "size_bytes": 4563
+    },
+    {
+      "path": "manifest-g5.json",
+      "sha256": "08b7de214686fb785b5c4d47dd9bb81d9d7dba26c87cb4fbb9c84e21b5d2fbd9",
+      "size_bytes": 3404
+    },
+    {
+      "path": "manifest-g6.json",
+      "sha256": "c95f790f02685907bf80b94e7b75ff15bcd688b592227dcf2691a3d89ddf33fa",
+      "size_bytes": 4589
+    },
+    {
+      "path": "post-user-restart-g4-audit.log",
+      "sha256": "f26f4e94fcb012545f386d2ddf73f4b3d95bfcc177e00fda87759ea425af5417",
+      "size_bytes": 15703
+    },
+    {
+      "path": "post-user-restart-preflight-corrected-d7c5301.log",
+      "sha256": "47071f5f5129f2cecc208ffa05e24baa597298ea48f93d7d1d99b0d5c2c8bbef",
+      "size_bytes": 3082
+    },
+    {
+      "path": "post-user-restart-preflight-d7c5301.log",
+      "sha256": "1c721eb122fa985a27b56f1d37b57f24274a7cd724cf3de09017e4a214bc4ffb",
+      "size_bytes": 1479
+    },
+    {
+      "path": "reconcile-g4-client-loss-2ee14c4.sh",
+      "sha256": "e0413216d5442d3a55d0c483a12d0708a24fda424a6967e12b79fb2932c6a608",
+      "size_bytes": 9239
+    },
+    {
+      "path": "reconcile-g4-client-loss-d7c5301.sh",
+      "sha256": "027220340d8142d704936ae7595f126b94223edafc42978d4f4061ee70863017",
+      "size_bytes": 6127
+    },
+    {
+      "path": "resources-after.json",
+      "sha256": "fe794fa9d58140cbacb75632a692135aec633d0155227757365f4f8ebef26cf5",
+      "size_bytes": 3968
+    },
+    {
+      "path": "resources-before.json",
+      "sha256": "f99be2862e47b594859c9402fb7b81a9058137307879d01142d09c509d3c0c88",
+      "size_bytes": 5005
+    },
+    {
+      "path": "retire-g4-client-loss-volatile-record-2ee14c4.sh",
+      "sha256": "747188b7991781736968709f2dcac145b6fb15d4893e6fabce6292a03113a86a",
+      "size_bytes": 2934
+    },
+    {
+      "path": "run-candidate-activate-87ef4fb.sh",
+      "sha256": "1e6b4b4878a10b200132077734b02675ffb54542c506fc55f05c71f53ff0f7c8",
+      "size_bytes": 2510
+    },
+    {
+      "path": "run-candidate-activate-d7c5301.sh",
+      "sha256": "25d3eb542b5427e9850f90bdc59de23592be9d909d83cf465a6b839a2e69051c",
+      "size_bytes": 2515
+    },
+    {
+      "path": "run-candidate-build-87ef4fb.sh",
+      "sha256": "a82bbb19420257333512d44e5c00b51d14dd68dcb2661372274c2932873914c9",
+      "size_bytes": 1499
+    },
+    {
+      "path": "run-candidate-build-d7c5301.sh",
+      "sha256": "5474654d72b52d03b79279cd7735fed8bd0ad458fbeccfc0f862fab8a9eca031",
+      "size_bytes": 1766
+    },
+    {
+      "path": "run-candidate-build-v2-87ef4fb.sh",
+      "sha256": "fcb7f17e91ffbcb22f9b6fcd444574e1a755059f6589126db67ece85d518d970",
+      "size_bytes": 1721
+    },
+    {
+      "path": "run-candidate-build-v3-87ef4fb.sh",
+      "sha256": "23fe0d63b1417586cd3d486f0941d2224bc59ed3e8eaa119b5c85f8c4fed1ceb",
+      "size_bytes": 1767
+    },
+    {
+      "path": "run-g4-cross-export-final-2ee14c4.sh",
+      "sha256": "f0662e7ee92d8125c718b0afd717b66c7fc96ddd7a4a7df2cf6465bc070aa6aa",
+      "size_bytes": 1047
+    },
+    {
+      "path": "run-g4-cross-export-final-d7c5301.sh",
+      "sha256": "06357779bbf127ae239e5e32fd8043833e27b7c6377750f48314f2378072c7c6",
+      "size_bytes": 797
+    },
+    {
+      "path": "run-g4-final-2ee14c4.sh",
+      "sha256": "f1e95fb4057768dc9d8ae5024c199172690d4842d382665de42a3b8d3e18b629",
+      "size_bytes": 2081
+    },
+    {
+      "path": "run-g4-final-d7c5301.sh",
+      "sha256": "015f70a06ccf2b04125a72dec98e79e52841ad1fa9ac8c43919058307d322b5e",
+      "size_bytes": 2463
+    },
+    {
+      "path": "run-g4-final-v2-2ee14c4.sh",
+      "sha256": "b00e918dd06f6e32bd31dc2486ab9e574bdd8b66af1137500dc09a2b73533182",
+      "size_bytes": 2429
+    },
+    {
+      "path": "run-g4-final-v3-2ee14c4.sh",
+      "sha256": "91c8c8ef7e8dc8f7b05c4bfb057e645b8b2ea017c4ddb0225dff9a24d2a777ab",
+      "size_bytes": 2466
+    },
+    {
+      "path": "run-g5-final-2ee14c4.sh",
+      "sha256": "8a0a887ae374160c0f356ff8dd7f3c0cb249636c61dbd2bb4d055a04893ce1f5",
+      "size_bytes": 1474
+    },
+    {
+      "path": "run-g5-final-d7c5301.sh",
+      "sha256": "26b15256e8dccb4717fd440594440a838ad9584eef5601ba2f7336cbc2b1af09",
+      "size_bytes": 1781
+    },
+    {
+      "path": "run-g5-final-v2-2ee14c4.sh",
+      "sha256": "76962b7a350793c9fd1febffb0a4f1e74435f498819cf29da0a316ce00f32857",
+      "size_bytes": 1732
+    },
+    {
+      "path": "run-g5-final-v3-2ee14c4.sh",
+      "sha256": "3154374b7505c0c2145d247264e2f8106248e5e56624b07837612fb8a4e29d97",
+      "size_bytes": 1769
+    },
+    {
+      "path": "run-g5-post-reset-continuation-2ee14c4.sh",
+      "sha256": "e2c8a8a14e0c9d2d883d2f6209e7532184f5d419e028fae56a855e25fb95edca",
+      "size_bytes": 1557
+    },
+    {
+      "path": "run-g6-final-2ee14c4.sh",
+      "sha256": "113b246269004316b9158825e762e6817e0ea9b1455ccbc1fa0fbfd0b5af33e6",
+      "size_bytes": 2216
+    },
+    {
+      "path": "run-g6-final-continuation-87ef4fb.sh",
+      "sha256": "bef3ae837b27c5868842b7f1a36e5346aa2f15560b61a2d3c340ec84dcbd036a",
+      "size_bytes": 2602
+    },
+    {
+      "path": "run-g6-final-continuation-d7c5301.sh",
+      "sha256": "7e61e0e12b51d32d3d0c64ec7c1b513b263512b3813f847145aaa6c8d28363a3",
+      "size_bytes": 2599
+    },
+    {
+      "path": "run-g6-final-remaining-d7c5301.sh",
+      "sha256": "9df022654ef062437fa087d9f82aac6028267b0a07b5492ce9a76f6df0cdcc98",
+      "size_bytes": 2190
+    },
+    {
+      "path": "run-g6-final-v2-2ee14c4.sh",
+      "sha256": "3c695238390e967691d86a930cb0a53d3ef8f435f8aafc9a2c38e02bb2dd85d2",
+      "size_bytes": 2534
+    },
+    {
+      "path": "run-g6-final-v3-2ee14c4.sh",
+      "sha256": "d57b9ecc73262e14eb556ca1ccd657b55578665e066e8de052036b750824e359",
+      "size_bytes": 2571
+    },
+    {
+      "path": "runtime-all-packages-race-reconnect-remediation-v2.log",
+      "sha256": "a4a02899865ec6aecd6e4d030212f18bd5a3fb3abc7941c5f6beb0a901ca2fe2",
+      "size_bytes": 2158
+    },
+    {
+      "path": "runtime-all-packages-race-reconnect-remediation.log",
+      "sha256": "eef3d0e0c5e16bfda48bc0425e5bef03d8514c6dcfdd1cbb44a456d6fe3b4395",
+      "size_bytes": 2130
+    },
+    {
+      "path": "runtime-all-packages-race-stream-keeper-remediation.log",
+      "sha256": "feff402c604f20243dcbf114a2f605c15c21d3194c71c142bdcc6ab4776eb845",
+      "size_bytes": 2161
+    }
+  ],
+  "gates": [
+    "G4",
+    "G5",
+    "G6"
+  ],
+  "requirements_sha256": "e7b6c36900ecfffbc218a80e7c377ea5b3d6c72e9ffffa778ab084b18a67950b",
+  "schema_version": 1
+}

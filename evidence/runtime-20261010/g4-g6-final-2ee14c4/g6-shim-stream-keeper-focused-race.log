@@ -1,0 +1,3 @@
+{"evidence_command": {"argv": ["env", "GOCACHE=/tmp/mk-gocache-root", "GOTMPDIR=/tmp/mk-gotmp-root", "go", "-C", "runtime", "test", "-race", "./cmd/containerd-shim-multikernel-v2"], "started_at": "2026-10-10T14:44:40.466661Z"}}
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	9.997s
+{"evidence_command_result": {"ended_at": "2026-10-10T14:45:01.048792Z", "exit_status": 0}}

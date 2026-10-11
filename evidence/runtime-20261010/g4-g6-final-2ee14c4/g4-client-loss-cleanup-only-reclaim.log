@@ -1,0 +1,279 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "mklinux-g4-g6-final-20260905", "--command", "chmod 700 /var/tmp/cleanup-only-g4-client-loss-2ee14c4.sh && /var/tmp/cleanup-only-g4-client-loss-2ee14c4.sh"], "started_at": "2026-10-10T08:50:44.523396Z"}}
++ source_root=/var/tmp/mksrc-2ee14c4
++ boot=772c6339-6ed7-494b-8d7f-71f3cb7394eb
++ container_id=mk-storage-client-loss
++ sandbox_id=mk-mk-storage-client-loss-216e4611aa588b7e
++ task_key=task-216e4611aa588b7e8436be9484e3f8cd
++ recovery=/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4
++ disk_recovery=/srv/multikernel-storage/quarantine/g4-client-loss-772c6339-2ee14c4
++ expected_exe=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
+++ id -u
++ test 1001 -ne 0
+++ cat /proc/sys/kernel/random/boot_id
++ test 772c6339-6ed7-494b-8d7f-71f3cb7394eb = 772c6339-6ed7-494b-8d7f-71f3cb7394eb
++ sudo sha256sum -c /var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/SHA256SUMS
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/lifecycle-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/lifecycle-journal.before.jsonl: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/rootfs-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/storage-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/network-state.before.json: OK
++ sudo test -f /srv/multikernel-storage/quarantine/g4-client-loss-772c6339-2ee14c4/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
++ sudo test '!' -e /sys/fs/multikernel/instances/mk-mk-storage-client-loss-216e4611aa588b7e
+++ sudo jq '.sandboxes|length' /var/lib/mkruntime/state.json
++ test 0 = 0
+++ sudo jq '.records|length' /var/lib/mkruntimed/rootfs/state.json
++ test 0 = 0
+++ sudo jq '[.exports[]|select(.state!="RELEASED")]|length' /var/lib/mkruntimed/storage/state.json
++ test 0 = 0
+++ sudo jq '.endpoints|length' /var/lib/mknetd/state.json
++ test 1 = 1
+++ sudo ctr tasks list
+++ awk -v id=mk-storage-client-loss '$1==id && $3=="STOPPED" {print $2}'
++ holder=27249
++ test -n 27249
+++ sudo awk '{print $4}' /proc/27249/stat
++ worker=27051
+++ sudo awk '{print $4}' /proc/27051/stat
++ supervisor=27046
++ for pid in "$holder" "$worker" "$supervisor"
+++ sudo readlink -f /proc/27249/exe
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 = /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
++ for pid in "$holder" "$worker" "$supervisor"
+++ sudo readlink -f /proc/27051/exe
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 = /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
++ for pid in "$holder" "$worker" "$supervisor"
+++ sudo readlink -f /proc/27046/exe
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 = /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2
++ sudo tr '\0' ' '
++ grep -Fq -- '-id mk-storage-client-loss'
++ sudo tr '\0' ' '
++ grep -Fq -- '-id mk-storage-client-loss'
+OBSERVATION cleanup_only_roles supervisor=27046 worker=27051 holder=27249
++ echo 'OBSERVATION cleanup_only_roles supervisor=27046 worker=27051 holder=27249'
+++ date -u '+%Y-%m-%d %H:%M:%S UTC'
++ fault_started='2026-10-10 08:50:45 UTC'
++ sudo kill -KILL 27046
+++ seq 1 720
++ for _ in $(seq 1 720)
+++ sudo ctr tasks list -q
+++ wc -l
++ tasks=0
+++ sudo jq '.endpoints|length' /var/lib/mknetd/state.json
++ endpoints=1
+++ sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d
+++ wc -l
++ children=0
+++ ps -eo comm=
+++ awk '$1=="containerd-shim" {n++} END {print n+0}'
++ shims=1
++ [[ 0 = 0 ]]
++ [[ 1 = 0 ]]
++ sleep .25
++ for _ in $(seq 1 720)
+++ sudo ctr tasks list -q
+++ wc -l
++ tasks=0
+++ sudo jq '.endpoints|length' /var/lib/mknetd/state.json
++ endpoints=0
+++ sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d
+++ wc -l
++ children=0
+++ ps -eo comm=
+++ awk '$1=="containerd-shim" {n++} END {print n+0}'
++ shims=0
++ [[ 0 = 0 ]]
++ [[ 0 = 0 ]]
++ [[ 0 = 0 ]]
++ [[ 0 = 0 ]]
++ break
++ test '0 0 0 0' = '0 0 0 0'
++ sudo ctr tasks rm -f mk-storage-client-loss
++ true
++ sudo ctr containers rm mk-storage-client-loss
+++ sudo ctr containers list -q
++ test -z ''
++ sudo systemctl restart mkruntimed.service
+++ seq 1 240
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ sleep .25
++ for _ in $(seq 1 240)
++ sudo test -S /run/mkruntimed.sock
++ break
++ sudo test -S /run/mkruntimed.sock
+++ systemctl show mkruntimed.service -p MainPID --value
++ pid=35026
++ test 35026 -gt 0
+++ systemctl show mkruntimed.service -p NRestarts --value
++ test 0 = 0
++ sleep 3
+++ systemctl show mkruntimed.service -p MainPID --value
++ test 35026 = 35026
++ echo 'OBSERVATION_BEGIN key=g4-client-loss-cleanup-only-reclaim'
+OBSERVATION_BEGIN key=g4-client-loss-cleanup-only-reclaim
+boot=772c6339-6ed7-494b-8d7f-71f3cb7394eb old_supervisor=27046 old_worker=27051 old_holder=27249 service_pid=35026
++ printf 'boot=%s old_supervisor=%s old_worker=%s old_holder=%s service_pid=%s\n' 772c6339-6ed7-494b-8d7f-71f3cb7394eb 27046 27051 27249 35026
++ sudo journalctl -u containerd.service --since '2026-10-10 08:50:45 UTC' --no-pager -n 120
++ grep -E '(mk-storage-client-loss|multikernel shim supervisor|shim disconnected|cleanup)'
+Oct 10 08:50:45 mklinux-g4-g6-final-20260905 containerd[1469]: time="2026-10-10T08:50:45.971687802Z" level=info msg="shim disconnected" id=mk-storage-client-loss namespace=default
+Oct 10 08:50:45 mklinux-g4-g6-final-20260905 containerd[1469]: time="2026-10-10T08:50:45.971734893Z" level=info msg="cleaning up after shim disconnected" id=mk-storage-client-loss namespace=default
+Oct 10 08:50:45 mklinux-g4-g6-final-20260905 containerd[1469]: time="2026-10-10T08:50:45.971747089Z" level=info msg="cleaning up dead shim" id=mk-storage-client-loss namespace=default
++ sudo sha256sum -c /var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/SHA256SUMS
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/lifecycle-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/lifecycle-journal.before.jsonl: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/rootfs-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/storage-state.before.json: OK
+/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/network-state.before.json: OK
++ sudo sha256sum /var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/SHA256SUMS /srv/multikernel-storage/quarantine/g4-client-loss-772c6339-2ee14c4/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
+0537598f2dd0394f09c6d93f34cb680dd3e37d9b52cc00cd9c2b39abcd54fc6c  /var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4/SHA256SUMS
+5144c9bf7e03d871f5c93340781fc834d9d9cc8270d2c193cf4ee55bc182267e  /srv/multikernel-storage/quarantine/g4-client-loss-772c6339-2ee14c4/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
+OBSERVATION_END key=g4-client-loss-cleanup-only-reclaim
++ echo 'OBSERVATION_END key=g4-client-loss-cleanup-only-reclaim'
++ bash /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-2ee14c4
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:5: kerf=/opt/mkruntime/kerf-venv/bin/kerf
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:6: task_root=/run/containerd/io.containerd.runtime.v2.task
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:7: storage_root=/srv/multikernel-storage/runtime
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:9: id -u
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:9: [[ 1001 -ne 0 ]]
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: systemctl is-active mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: systemctl is-active mknetd
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: systemctl is-active containerd
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: systemctl is-active docker
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:12: sudo /opt/mkruntime/kerf-venv/bin/kerf show
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:12: kerf_state=$'\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:13: grep -Fq 'No memory pool configured'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:14: grep -Fq 'No instances found'
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:16: sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:16: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:16: children=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:18: findmnt -rn -o TARGET,SOURCE
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:18: awk -v storage=/srv/multikernel-storage/runtime -v tasks=/run/containerd/io.containerd.runtime.v2.task 'index($1,storage "/") == 1 || index($1,tasks "/default/") == 1 || index($1,tasks "/moby/") == 1 || $2 ~ /^\/dev\/nbd[0-9]+(p[0-9]+)?$/ {n++} END {print n+0}'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:18: runtime_mounts=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:19: sudo find /srv/multikernel-storage/runtime -mindepth 1 -print
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:19: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:19: runtime_artifacts=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:20: sudo find /run/containerd/io.containerd.runtime.v2.task/default /run/containerd/io.containerd.runtime.v2.task/moby -path '*/.multikernel/*' -print
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:20: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:20: bundle_artifacts=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:21: sudo find /run/containerd/io.containerd.runtime.v2.task/default /run/containerd/io.containerd.runtime.v2.task/moby -type p -print
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:21: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:21: fifos=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:22: ip -o link show
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:22: awk '-F: ' '$2 ~ /^mkv[0-9a-f]+$/ {n++} END {print n+0}'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:22: links=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:23: ip -o route show table all
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:23: awk '$0 ~ /(^| )mkv[0-9a-f]+( |$)/ || $0 ~ /(^| )172\.31\./ {n++} END {print n+0}'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:23: routes=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:24: sudo iptables -t nat -S POSTROUTING
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:24: grep -c '172\.31\.'
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:24: true
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:24: nat_rules=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:25: sudo iptables -S
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:25: grep -c '^\(-N\|-A\) MK-'
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:25: true
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:25: filter_rules=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:26: sudo ctr tasks list -q
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:26: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:26: default_tasks=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:27: sudo ctr containers list -q
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:27: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:27: default_containers=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:28: sudo ctr -n moby tasks list -q
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:28: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:28: moby_tasks=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:29: sudo ctr -n moby containers list -q
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:29: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:29: moby_containers=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:30: sudo docker ps -aq
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:30: wc -l
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:30: docker_containers=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:31: sudo python3 -c 'import json,os; p="/var/lib/mkruntimed/rootfs/state.json"; print(len(json.load(open(p))["records"]) if os.path.exists(p) else 0)'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:31: rootfs_records=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:32: sudo python3 -c 'import json,os; p="/var/lib/mknetd/state.json"; print(len(json.load(open(p))["endpoints"]) if os.path.exists(p) else 0)'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:32: endpoints=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:33: ps -eo comm=
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:33: awk '$1 == "containerd-shim" {n++} END {print n+0}'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:33: shim_processes=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:34: ps -eo comm=
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:34: awk '$1 == "mkvsock-nbd" {n++} END {print n+0}'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:34: nbd_processes=0
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:35: ps -eo comm=
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:35: awk '$1 == "mk-agent-relay" {n++} END {print n+0}'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:35: relay_processes=0
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:37: inventory='children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:38: expected='children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:39: [[ children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0 = children\=0 runtime_mounts\=0 runtime_artifacts\=0 bundle_artifacts\=0 fifos\=0 links\=0 routes\=0 nat_rules\=0 filter_rules\=0 default_tasks\=0 default_containers\=0 moby_tasks\=0 moby_containers\=0 docker_containers\=0 rootfs_records\=0 endpoints\=0 shim_processes\=0 nbd_processes\=0 relay_processes\=0 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:41: systemctl show -p MainPID --value mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:41: pid=35026
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:42: readlink -f /usr/local/lib/multikernel/current
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:42: cat /proc/sys/kernel/random/boot_id
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:42: sudo sha256sum /proc/35026/exe
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:42: awk '{print $1}'
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 boot_id=772c6339-6ed7-494b-8d7f-71f3cb7394eb mkruntimed_pid=35026 mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+OBSERVATION_END key=provenance
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:42: printf 'OBSERVATION_BEGIN key=provenance\nselector=%s boot_id=%s mkruntimed_pid=%s mkruntimed_sha256=%s\nOBSERVATION_END key=provenance\n' /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 772c6339-6ed7-494b-8d7f-71f3cb7394eb 35026 51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:45: printf 'OBSERVATION_BEGIN key=kerf-resource-return\n%s\nOBSERVATION_END key=kerf-resource-return\n' $'\nNo memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:46: printf 'OBSERVATION_BEGIN key=final-resource-inventory\n%s\nOBSERVATION_END key=final-resource-inventory\n' 'children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0'
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:47: for service in mkruntimed mknetd containerd docker
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:48: systemctl show mkruntimed.service -p Id -p ActiveState -p SubState -p NRestarts -p MainPID --no-pager
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=35026
+NRestarts=0
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:47: for service in mkruntimed mknetd containerd docker
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:48: systemctl show mknetd.service -p Id -p ActiveState -p SubState -p NRestarts -p MainPID --no-pager
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=1218
+NRestarts=0
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:47: for service in mkruntimed mknetd containerd docker
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:48: systemctl show containerd.service -p Id -p ActiveState -p SubState -p NRestarts -p MainPID --no-pager
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=1469
+NRestarts=0
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:47: for service in mkruntimed mknetd containerd docker
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:48: systemctl show docker.service -p Id -p ActiveState -p SubState -p NRestarts -p MainPID --no-pager
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1507
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
+G4_ACCEPTED_CLIENT_OPERATOR_RECONCILE_PASS
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:50: echo G6_FINAL_RESOURCE_RETURN_PASS
++ echo G4_ACCEPTED_CLIENT_OPERATOR_RECONCILE_PASS
+{"evidence_command_result": {"ended_at": "2026-10-10T08:51:06.393505Z", "exit_status": 0}}

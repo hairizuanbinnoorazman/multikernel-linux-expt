@@ -1,0 +1,302 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "set -o pipefail; echo OBSERVATION_BEGIN key=post-failure-audit; /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-2ee14c4; audit_status=$?; echo audit_status=$audit_status; echo OBSERVATION_END key=post-failure-audit; echo OBSERVATION_BEGIN key=containerd-journal; sudo journalctl -u containerd --since '2026-10-10 09:38:00 UTC' --until '2026-10-10 09:41:30 UTC' --no-pager -o short-iso; echo OBSERVATION_END key=containerd-journal; echo OBSERVATION_BEGIN key=kernel-journal; sudo journalctl -k --since '2026-10-10 09:38:00 UTC' --until '2026-10-10 09:41:30 UTC' --no-pager -o short-iso | grep -Ei 'multikernel|error|fail|oom|killed' || true; echo OBSERVATION_END key=kernel-journal; echo OBSERVATION_BEGIN key=service-units; systemctl show containerd -p MainPID -p ActiveState -p SubState -p NRestarts -p KillMode -p ControlGroup; systemctl show mkruntimed mknetd docker -p Id -p MainPID -p ActiveState -p SubState -p NRestarts; echo OBSERVATION_END key=service-units; exit $audit_status"], "started_at": "2026-10-10T13:56:01.954813Z"}}
+OBSERVATION_BEGIN key=post-failure-audit
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:5: kerf=/opt/mkruntime/kerf-venv/bin/kerf
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:6: task_root=/run/containerd/io.containerd.runtime.v2.task
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:7: storage_root=/srv/multikernel-storage/runtime
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:9: id -u
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:9: [[ 1001 -ne 0 ]]
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: systemctl is-active mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: systemctl is-active mknetd
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: systemctl is-active containerd
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: [[ active = active ]]
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: systemctl is-active docker
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:10: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:12: sudo /opt/mkruntime/kerf-venv/bin/kerf show
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:12: kerf_state=$'\n================================================================================\nBaseline Hardware Resources\n================================================================================\n\n  CPUs:\n    Total:           16\n    Pool CPUs:       8 cpus: [9, 11, 12, 13, 14, 15, 10, 8]\n    Available CPUs:  8 cpus: [9, 11, 12, 13, 14, 15, 10, 8]\n\n  Memory:\n    Total:           16.00 GB (17179869184 bytes)\n\n  Memory Pool:\n    Chunk:           0x99f400000  16.00 GB node 0\n    Pool Allocated:  0.00 GB (0 bytes)\n    Pool Available:  16.00 GB (17179869184 bytes)\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------'
+audit_status=1
+OBSERVATION_END key=post-failure-audit
+OBSERVATION_BEGIN key=containerd-journal
++/var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh:13: grep -Fq 'No memory pool configured'
+2026-10-10T09:38:02+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:38:02.890044523Z" level=info msg="shim disconnected" id=mk-matrix-ctr namespace=default
+2026-10-10T09:38:02+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:38:02.890079882Z" level=info msg="cleaning up after shim disconnected" id=mk-matrix-ctr namespace=default
+2026-10-10T09:38:02+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:38:02.890090082Z" level=info msg="cleaning up dead shim" id=mk-matrix-ctr namespace=default
+2026-10-10T09:38:03+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:38:03.113161613Z" level=info msg="connecting to shim 650ae0d288a6c84876cc0a238246b3ebca56cee412f014336d5ada5660b7edde" address="unix:///run/containerd/s/04d7feaa4c6d4de026d2fece092205d303780654fdf0f55808c580f71c8a875c" namespace=moby protocol=ttrpc version=2
+2026-10-10T09:39:01+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:39:01.865062330Z" level=info msg="shim disconnected" id=650ae0d288a6c84876cc0a238246b3ebca56cee412f014336d5ada5660b7edde namespace=moby
+2026-10-10T09:39:01+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:39:01.865101222Z" level=info msg="cleaning up after shim disconnected" id=650ae0d288a6c84876cc0a238246b3ebca56cee412f014336d5ada5660b7edde namespace=moby
+2026-10-10T09:39:01+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:39:01.865109916Z" level=info msg="cleaning up dead shim" id=650ae0d288a6c84876cc0a238246b3ebca56cee412f014336d5ada5660b7edde namespace=moby
+2026-10-10T09:39:12+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:39:12.318850151Z" level=info msg="connecting to shim mk-containerd-restart" address="unix:///run/containerd/s/8fd42e14a238d33f49243a1a5cc99261b97542469970c9d5b3d4ffcc6befd43a" namespace=default protocol=ttrpc version=2
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: Stopping containerd.service - containerd container runtime...
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:40:24.776879374Z" level=info msg="Stop CRI service"
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:40:24.776952085Z" level=info msg="Stop CRI service"
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:40:24.777037356Z" level=info msg="Event monitor stopped"
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[1480]: time="2026-10-10T09:40:24.777045966Z" level=info msg="Stream server stopped"
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Deactivated successfully.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Unit process 15823 (containerd-shim) remains running after unit stopped.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Unit process 15829 (containerd-shim) remains running after unit stopped.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Unit process 16032 (containerd-shim) remains running after unit stopped.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Unit process 16052 (mkvsock-relay) remains running after unit stopped.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Unit process 16054 (containerd-shim) remains running after unit stopped.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Unit process 16055 (containerd-shim) remains running after unit stopped.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: Stopped containerd.service - containerd container runtime.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Consumed 17.264s CPU time over 23min 53.745s wall clock time, 138.7M memory peak.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 15823 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 15829 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 16032 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 16052 (mkvsock-relay) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 16054 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 16055 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: Starting containerd.service - containerd container runtime...
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 15823 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 15829 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 16032 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 16052 (mkvsock-relay) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 16054 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: Found left-over process 16055 (containerd-shim) in control group while starting unit. Ignoring.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.812241171Z" level=info msg="starting containerd" revision= version=2.2.2
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.821883328Z" level=info msg="loading plugin" id=io.containerd.content.v1.content type=io.containerd.content.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822026134Z" level=info msg="loading plugin" id=io.containerd.image-verifier.v1.bindir type=io.containerd.image-verifier.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822066534Z" level=info msg="loading plugin" id=io.containerd.internal.v1.opt type=io.containerd.internal.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822091357Z" level=info msg="loading plugin" id=io.containerd.warning.v1.deprecations type=io.containerd.warning.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822100141Z" level=info msg="loading plugin" id=io.containerd.mount-handler.v1.erofs type=io.containerd.mount-handler.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822110091Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.blockfile type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822135626Z" level=info msg="skip loading plugin" error="no scratch file generator: skip plugin" id=io.containerd.snapshotter.v1.blockfile type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822143121Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.btrfs type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822279464Z" level=info msg="skip loading plugin" error="path /var/lib/containerd/io.containerd.snapshotter.v1.btrfs (ext4) must be a btrfs filesystem to be used with the btrfs snapshotter: skip plugin" id=io.containerd.snapshotter.v1.btrfs type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822292265Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.devmapper type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822314751Z" level=info msg="skip loading plugin" error="devmapper not configured: skip plugin" id=io.containerd.snapshotter.v1.devmapper type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.822321057Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.erofs type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825069382Z" level=info msg="skip loading plugin" error="EROFS unsupported, please `modprobe erofs`: skip plugin" id=io.containerd.snapshotter.v1.erofs type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825085669Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.native type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825116071Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.overlayfs type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825188207Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.zfs type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825217502Z" level=info msg="skip loading plugin" error="lstat /var/lib/containerd/io.containerd.snapshotter.v1.zfs: no such file or directory: skip plugin" id=io.containerd.snapshotter.v1.zfs type=io.containerd.snapshotter.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825224912Z" level=info msg="loading plugin" id=io.containerd.event.v1.exchange type=io.containerd.event.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825246486Z" level=info msg="loading plugin" id=io.containerd.monitor.task.v1.cgroups type=io.containerd.monitor.task.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825391249Z" level=info msg="loading plugin" id=io.containerd.metadata.v1.bolt type=io.containerd.metadata.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825417649Z" level=info msg="metadata content store policy set" policy=shared
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825600505Z" level=info msg="loading plugin" id=io.containerd.gc.v1.scheduler type=io.containerd.gc.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825670332Z" level=info msg="loading plugin" id=io.containerd.nri.v1.nri type=io.containerd.nri.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825752915Z" level=info msg="built-in NRI default validator is disabled"
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825763525Z" level=info msg="runtime interface created"
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825767434Z" level=info msg="created NRI interface"
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825784688Z" level=info msg="loading plugin" id=io.containerd.differ.v1.erofs type=io.containerd.differ.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825906791Z" level=info msg="skip loading plugin" error="failed to check mkfs.erofs availability: failed to run mkfs.erofs --help: exec: \"mkfs.erofs\": executable file not found in $PATH: skip plugin" id=io.containerd.differ.v1.erofs type=io.containerd.differ.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825917400Z" level=info msg="loading plugin" id=io.containerd.differ.v1.walking type=io.containerd.differ.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825930817Z" level=info msg="loading plugin" id=io.containerd.lease.v1.manager type=io.containerd.lease.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825940932Z" level=info msg="loading plugin" id=io.containerd.mount-manager.v1.bolt type=io.containerd.mount-manager.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.825993659Z" level=info msg="loading plugin" id=io.containerd.service.v1.containers-service type=io.containerd.service.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826007955Z" level=info msg="loading plugin" id=io.containerd.service.v1.content-service type=io.containerd.service.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826020103Z" level=info msg="loading plugin" id=io.containerd.service.v1.diff-service type=io.containerd.service.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826052679Z" level=info msg="loading plugin" id=io.containerd.service.v1.images-service type=io.containerd.service.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826062349Z" level=info msg="loading plugin" id=io.containerd.service.v1.introspection-service type=io.containerd.service.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826070238Z" level=info msg="loading plugin" id=io.containerd.service.v1.namespaces-service type=io.containerd.service.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826077569Z" level=info msg="loading plugin" id=io.containerd.service.v1.snapshots-service type=io.containerd.service.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826083565Z" level=info msg="loading plugin" id=io.containerd.shim.v1.manager type=io.containerd.shim.v1
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826096998Z" level=info msg="loading plugin" id=io.containerd.runtime.v2.task type=io.containerd.runtime.v2
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826316119Z" level=info msg="connecting to shim mk-containerd-restart" address="unix:///run/containerd/s/8fd42e14a238d33f49243a1a5cc99261b97542469970c9d5b3d4ffcc6befd43a" namespace=default protocol=ttrpc version=2
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826374109Z" level=info msg="cleaning up after shim disconnected" id=mk-containerd-restart namespace=default
+2026-10-10T09:40:24+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:24.826391186Z" level=info msg="cleaning up dead shim" id=mk-containerd-restart namespace=default
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.442159721Z" level=error msg="failed to load shim /run/containerd/io.containerd.runtime.v2.task/default/mk-containerd-restart" error="unable to load shim \"mk-containerd-restart\": unable to make connection: failed to create TTRPC connection: dial unix /run/containerd/s/8fd42e14a238d33f49243a1a5cc99261b97542469970c9d5b3d4ffcc6befd43a: connect: connection refused" namespace=default
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443435161Z" level=info msg="loading plugin" id=io.containerd.service.v1.tasks-service type=io.containerd.service.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443491499Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.containers type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443507953Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.content type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443522232Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.diff type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443544502Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.events type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443558297Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.images type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443572651Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.introspection type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443590277Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.leases type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443605968Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.mounts type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443624408Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.namespaces type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443639868Z" level=info msg="loading plugin" id=io.containerd.sandbox.store.v1.local type=io.containerd.sandbox.store.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443662912Z" level=info msg="loading plugin" id=io.containerd.transfer.v1.local type=io.containerd.transfer.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443720929Z" level=info msg="loading plugin" id=io.containerd.cri.v1.images type=io.containerd.cri.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443819341Z" level=info msg="Get image filesystem path \"/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs\" for snapshotter \"overlayfs\""
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443833924Z" level=info msg="Start snapshots syncer"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.443857638Z" level=info msg="loading plugin" id=io.containerd.cri.v1.runtime type=io.containerd.cri.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444408726Z" level=info msg="starting cri plugin" config="{\"containerd\":{\"defaultRuntimeName\":\"runc\",\"runtimes\":{\"multikernel\":{\"runtimeType\":\"io.containerd.multikernel.v2\",\"runtimePath\":\"\",\"PodAnnotations\":[],\"ContainerAnnotations\":[],\"options\":null,\"privileged_without_host_devices\":false,\"privileged_without_host_devices_all_devices_allowed\":false,\"cgroupWritable\":false,\"baseRuntimeSpec\":\"\",\"cniConfDir\":\"/etc/cni/net.d\",\"cniMaxConfNum\":1,\"snapshotter\":\"\",\"sandboxer\":\"podsandbox\",\"io_type\":\"\"},\"runc\":{\"runtimeType\":\"io.containerd.runc.v2\",\"runtimePath\":\"\",\"PodAnnotations\":[],\"ContainerAnnotations\":[],\"options\":{\"BinaryName\":\"\",\"CriuImagePath\":\"\",\"CriuWorkPath\":\"\",\"IoGid\":0,\"IoUid\":0,\"NoNewKeyring\":false,\"Root\":\"\",\"ShimCgroup\":\"\",\"SystemdCgroup\":false},\"privileged_without_host_devices\":false,\"privileged_without_host_devices_all_devices_allowed\":false,\"cgroupWritable\":false,\"baseRuntimeSpec\":\"\",\"cniConfDir\":\"\",\"cniMaxConfNum\":0,\"snapshotter\":\"\",\"sandboxer\":\"podsandbox\",\"io_type\":\"\"}},\"ignoreBlockIONotEnabledErrors\":false,\"ignoreRdtNotEnabledErrors\":false},\"cni\":{\"binDir\":\"\",\"binDirs\":[\"/opt/cni/bin\"],\"confDir\":\"/etc/cni/net.d\",\"maxConfNum\":1,\"setupSerially\":false,\"confTemplate\":\"\",\"ipPref\":\"\",\"useInternalLoopback\":false},\"enableSelinux\":false,\"selinuxCategoryRange\":1024,\"maxContainerLogLineSize\":16384,\"disableApparmor\":false,\"restrictOOMScoreAdj\":false,\"disableProcMount\":false,\"unsetSeccompProfile\":\"\",\"tolerateMissingHugetlbController\":true,\"disableHugetlbController\":true,\"device_ownership_from_security_context\":false,\"ignoreImageDefinedVolumes\":false,\"netnsMountsUnderStateDir\":false,\"enableUnprivilegedPorts\":true,\"enableUnprivilegedICMP\":true,\"enableCDI\":true,\"cdiSpecDirs\":[\"/etc/cdi\",\"/var/run/cdi\"],\"drainExecSyncIOTimeout\":\"0s\",\"ignoreDeprecationWarnings\":[],\"containerdRootDir\":\"/var/lib/containerd\",\"containerdEndpoint\":\"/run/containerd/containerd.sock\",\"rootDir\":\"/var/lib/containerd/io.containerd.grpc.v1.cri\",\"stateDir\":\"/run/containerd/io.containerd.grpc.v1.cri\"}"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444520547Z" level=info msg="loading plugin" id=io.containerd.podsandbox.controller.v1.podsandbox type=io.containerd.podsandbox.controller.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444596798Z" level=info msg="loading plugin" id=io.containerd.sandbox.controller.v1.shim type=io.containerd.sandbox.controller.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444668147Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.sandbox-controllers type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444715119Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.sandboxes type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444733851Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.snapshots type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444755258Z" level=info msg="loading plugin" id=io.containerd.streaming.v1.manager type=io.containerd.streaming.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444771103Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.streaming type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444787319Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.tasks type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.444803089Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.transfer type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445012206Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.version type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445033723Z" level=info msg="loading plugin" id=io.containerd.monitor.container.v1.restart type=io.containerd.monitor.container.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445105895Z" level=info msg="loading plugin" id=io.containerd.tracing.processor.v1.otlp type=io.containerd.tracing.processor.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445132852Z" level=info msg="skip loading plugin" error="skip plugin: tracing endpoint not configured" id=io.containerd.tracing.processor.v1.otlp type=io.containerd.tracing.processor.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445149358Z" level=info msg="loading plugin" id=io.containerd.internal.v1.tracing type=io.containerd.internal.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445171331Z" level=info msg="skip loading plugin" error="skip plugin: tracing endpoint not configured" id=io.containerd.internal.v1.tracing type=io.containerd.internal.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445185382Z" level=info msg="loading plugin" id=io.containerd.ttrpc.v1.otelttrpc type=io.containerd.ttrpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445197687Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.healthcheck type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445215152Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.cri type=io.containerd.grpc.v1
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445290232Z" level=info msg="Connect containerd service"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.445329358Z" level=info msg="using experimental NRI integration - disable nri plugin to prevent this"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.452899539Z" level=info msg="Start subscribing containerd event"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.452942704Z" level=info msg="Start recovering state"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453000950Z" level=info msg=serving... address=/run/containerd/containerd.sock.ttrpc
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453007980Z" level=info msg="Start event monitor"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453062698Z" level=info msg="Start cni network conf syncer for default"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453070888Z" level=info msg="Start cni network conf syncer for multikernel"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453078770Z" level=info msg="Start streaming server"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453089291Z" level=info msg="Registered namespace \"k8s.io\" with NRI"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453102117Z" level=info msg="runtime interface starting up..."
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453110500Z" level=info msg="starting plugins..."
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453122500Z" level=info msg="Synchronizing NRI (plugin) with current runtime state"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453053041Z" level=info msg=serving... address=/run/containerd/containerd.sock
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 containerd[16127]: time="2026-10-10T09:40:25.453222997Z" level=info msg="containerd successfully booted in 0.641654s"
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 systemd[1]: Started containerd.service - containerd container runtime.
+OBSERVATION_END key=containerd-journal
+OBSERVATION_BEGIN key=kernel-journal
+2026-10-10T09:38:02+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Unloading kernel from multikernel instance 40
+2026-10-10T09:38:02+00:00 mklinux-g4-g6-final-20260905 kernel: Releasing multikernel instance 40 (mk-mk-matrix-ctr-98d5100f8a5ae888), returning resources to root
+2026-10-10T09:38:02+00:00 mklinux-g4-g6-final-20260905 kernel: Returning 0xc0000000 bytes from instance 40 (mk-mk-matrix-ctr-98d5100f8a5ae888) back to multikernel pool
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_file_load: multikernel load - flags=0x510, extracted mk_id=40
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Associated kimage with multikernel instance 40
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Allocated 4096 bytes from multikernel pool at 0xada420000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec-vmlinux: multikernel: entry=0x3d5efd4
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Allocated 8192 bytes from multikernel pool at 0xada418000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Allocated 65011712 bytes from multikernel pool at 0xada600000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x1bc000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Allocated 1818624 bytes from multikernel pool at 0xada421000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec-vmlinux: Multikernel: entry=0xadd35efd4 boot_params=0xada418000
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0xada420000, memsz=0x1000, kbuf=0xffff8ea03ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0xada418000, memsz=0x2000, kbuf=0xffff8e910afa8000, buf=0x0000000000000000, bufsz=0x1590, file_mode=1
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0xada600000, memsz=0x3e00000, kbuf=0xffffcf1f08000000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+2026-10-10T09:38:48+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0xada421000, memsz=0x1bc000, kbuf=0xffffcf1f04465000, buf=0x0000000000000000, bufsz=0x1bb838, file_mode=1
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 2 CPUs assigned
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0xada420000, memsz=0x1000, kbuf=0xffff8ea03ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0xada418000, memsz=0x2000, kbuf=0xffff8e910afa8000, buf=0x0000000000000000, bufsz=0x1590, file_mode=1
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0xada600000, memsz=0x3e00000, kbuf=0xffffcf1f08000000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0xada421000, memsz=0x1bc000, kbuf=0xffffcf1f04465000, buf=0x0000000000000000, bufsz=0x1bb838, file_mode=1
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: Preserving multikernel DTB for instance 40
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: multikernel: added IPI buffer to manifest: phys=0x152380000, pages=65 (263696 bytes)
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: multikernel: finalized manifest for instance 40 (size: 670 bytes)
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Manifest finalized for multikernel instance
+2026-10-10T09:38:50+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel instance 40 is now active
+2026-10-10T09:39:01+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Unloading kernel from multikernel instance 40
+2026-10-10T09:39:01+00:00 mklinux-g4-g6-final-20260905 kernel: Releasing multikernel instance 40 (mk-650ae0d288a6c84876cc0a238246b3eb-061af0b9d59365c3), returning resources to root
+2026-10-10T09:39:01+00:00 mklinux-g4-g6-final-20260905 kernel: Returning 0xc0000000 bytes from instance 40 (mk-650ae0d288a6c84876cc0a238246b3eb-061af0b9d59365c3) back to multikernel pool
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Physical CPU 8 not found in present CPUs
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully added CPU 4 (phys 8)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Adding CPU 9 (numa=-1, flags=0x0)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Physical CPU 9 not found in present CPUs
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully added CPU 12 (phys 9)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Physical CPU 10 not found in present CPUs
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully added CPU 5 (phys 10)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Adding CPU 11 (numa=-1, flags=0x0)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Physical CPU 11 not found in present CPUs
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully added CPU 13 (phys 11)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Physical CPU 12 not found in present CPUs
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully added CPU 6 (phys 12)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Adding CPU 13 (numa=-1, flags=0x0)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Physical CPU 13 not found in present CPUs
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully added CPU 14 (phys 13)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Physical CPU 14 not found in present CPUs
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully added CPU 7 (phys 14)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Adding CPU 15 (numa=-1, flags=0x0)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Physical CPU 15 not found in present CPUs
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully added CPU 15 (phys 15)
+2026-10-10T09:39:07+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel pool: removed 0x0000000ada400000-0x0000000eda3fffff (16384 MB)
+2026-10-10T09:39:34+00:00 mklinux-g4-g6-final-20260905 kernel: Baseline CPUs validated: 8 CPUs available for multikernel pool
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel pool: added 0x000000099f400000 (16384 MB) on node 0
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Moving 8 CPUs into the multikernel pool
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully removed CPU 4 (phys 8)
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully removed CPU 12 (phys 9)
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully removed CPU 5 (phys 10)
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully removed CPU 13 (phys 11)
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully removed CPU 6 (phys 12)
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully removed CPU 14 (phys 13)
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully removed CPU 7 (phys 14)
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel hotplug: Successfully removed CPU 15 (phys 15)
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Moved 8 CPUs into the multikernel pool
+2026-10-10T09:39:49+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel baseline initialized successfully
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_file_load: multikernel load - flags=0x510, extracted mk_id=40
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Associated kimage with multikernel instance 40
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Allocated 4096 bytes from multikernel pool at 0x99f420000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec-vmlinux: multikernel: entry=0x3d5efd4
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Allocated 8192 bytes from multikernel pool at 0x99f418000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Allocated 65011712 bytes from multikernel pool at 0x99f600000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x1bc000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Allocated 1818624 bytes from multikernel pool at 0x99f421000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec-vmlinux: Multikernel: entry=0x9a235efd4 boot_params=0x99f418000
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0x99f420000, memsz=0x1000, kbuf=0xffff8ea03ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0x99f418000, memsz=0x2000, kbuf=0xffff8e910afaa000, buf=0x0000000000000000, bufsz=0x1590, file_mode=1
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0x99f600000, memsz=0x3e00000, kbuf=0xffffcf1f08000000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+2026-10-10T09:40:12+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0x99f421000, memsz=0x1bc000, kbuf=0xffffcf1f048e9000, buf=0x0000000000000000, bufsz=0x1bb838, file_mode=1
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 2 CPUs assigned
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0x99f420000, memsz=0x1000, kbuf=0xffff8ea03ffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0x99f418000, memsz=0x2000, kbuf=0xffff8e910afaa000, buf=0x0000000000000000, bufsz=0x1590, file_mode=1
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0x99f600000, memsz=0x3e00000, kbuf=0xffffcf1f08000000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Loading multikernel segment: mem=0x99f421000, memsz=0x1bc000, kbuf=0xffffcf1f048e9000, buf=0x0000000000000000, bufsz=0x1bb838, file_mode=1
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: Preserving multikernel DTB for instance 40
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: multikernel: added IPI buffer to manifest: phys=0x302300000, pages=65 (263696 bytes)
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: multikernel: finalized manifest for instance 40 (size: 658 bytes)
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_core: Manifest finalized for multikernel instance
+2026-10-10T09:40:14+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel instance 40 is now active
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 kernel: Multikernel instance 40 halted (graceful)
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 kernel: kexec_file: Unloading kernel from multikernel instance 40
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 kernel: Releasing multikernel instance 40 (mk-mk-containerd-restart-5de76e3ecc0a7e8c), returning resources to root
+2026-10-10T09:40:25+00:00 mklinux-g4-g6-final-20260905 kernel: Returning 0xc0000000 bytes from instance 40 (mk-mk-containerd-restart-5de76e3ecc0a7e8c) back to multikernel pool
+2026-10-10T09:40:54+00:00 mklinux-g4-g6-final-20260905 kernel: Failed to send multikernel message: -22
+OBSERVATION_END key=kernel-journal
+OBSERVATION_BEGIN key=service-units
+ActiveState=active
+SubState=running
+MainPID=16127
+NRestarts=0
+ControlGroup=/system.slice/containerd.service
+KillMode=process
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=15474
+NRestarts=0
+
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=4295
+NRestarts=0
+
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1570
+NRestarts=0
+OBSERVATION_END key=service-units
+{"evidence_command_result": {"ended_at": "2026-10-10T13:56:04.463746Z", "exit_status": 1}}

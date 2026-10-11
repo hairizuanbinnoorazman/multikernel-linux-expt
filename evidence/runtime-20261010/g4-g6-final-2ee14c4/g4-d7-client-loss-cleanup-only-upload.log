@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "scp", "evidence/runtime-20261010/g4-g6-final-2ee14c4/cleanup-only-g4-client-loss-d7c5301.sh", "mklinux-g4-g6-final-20260905:/var/tmp/", "--project=new-demo-project-462517", "--zone=asia-southeast1-b"], "started_at": "2026-10-11T02:36:35.530775Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-11T02:36:37.234359Z", "exit_status": 0}}

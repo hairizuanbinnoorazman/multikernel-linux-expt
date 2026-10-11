@@ -1,0 +1,35 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "mklinux-g4-g6-final-20260905", "--command", "chmod 700 /var/tmp/reconcile-g4-client-loss-2ee14c4.sh && /var/tmp/reconcile-g4-client-loss-2ee14c4.sh"], "started_at": "2026-10-10T08:45:10.486720Z"}}
++ source_root=/var/tmp/mksrc-2ee14c4
++ boot=772c6339-6ed7-494b-8d7f-71f3cb7394eb
++ sandbox_id=mk-mk-storage-client-loss-216e4611aa588b7e
++ sandbox_generation=c5106654766ab44b1af0bc9b1ab7a7f0
++ export_generation=6a6e1c0a7de7fa9472d800dcacdda8ac
++ task_key=task-216e4611aa588b7e8436be9484e3f8cd
++ container_id=mk-storage-client-loss
++ disk_dir=/srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd
++ recovery=/var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4
++ disk_recovery=/srv/multikernel-storage/quarantine/g4-client-loss-772c6339-2ee14c4
++ kerf=/opt/mkruntime/kerf-venv/bin/kerf
+++ id -u
++ test 1001 -ne 0
+++ cat /proc/sys/kernel/random/boot_id
++ test 772c6339-6ed7-494b-8d7f-71f3cb7394eb = 772c6339-6ed7-494b-8d7f-71f3cb7394eb
+++ readlink -f /usr/local/lib/multikernel/current
++ test /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1 = /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
++ sudo test '!' -e /var/lib/multikernel-recovery/g4-client-loss-772c6339-2ee14c4
++ sudo test '!' -e /srv/multikernel-storage/quarantine/g4-client-loss-772c6339-2ee14c4
++ sudo test -f /srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
+++ sudo stat -c %s /srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
++ test 2147483648 = 2147483648
+++ sudo ctr tasks list
+++ awk -v id=mk-storage-client-loss '$1==id {print $3}'
++ test STOPPED = STOPPED
+++ sudo ctr containers list
+++ awk -v id=mk-storage-client-loss '$1==id {print $1}'
++ test mk-storage-client-loss = mk-storage-client-loss
++ sudo test -d /sys/fs/multikernel/instances/mk-mk-storage-client-loss-216e4611aa588b7e
+++ sudo cat /sys/fs/multikernel/instances/mk-mk-storage-client-loss-216e4611aa588b7e/status
++ test active = active
+++ sudo jq '.endpoints|length' /var/lib/mknetd/state.json
++ test 1 = 0
+{"evidence_command_result": {"ended_at": "2026-10-10T08:45:12.201710Z", "exit_status": 1}}

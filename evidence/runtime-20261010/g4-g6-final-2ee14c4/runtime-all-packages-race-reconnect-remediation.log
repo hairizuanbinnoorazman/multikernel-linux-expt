@@ -1,0 +1,25 @@
+{"evidence_command": {"argv": ["bash", "-lc", "cd runtime && GOCACHE=/tmp/mk-go-cache go test -race ./..."], "started_at": "2026-10-10T14:02:27.519560Z"}}
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	10.453s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	10.012s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.079s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	1.017s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.069s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.178s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.031s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.062s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	1.333s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	1.989s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	1.398s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	1.804s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.047s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.056s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	4.571s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	1.019s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	(cached)
+{"evidence_command_result": {"ended_at": "2026-10-10T14:02:38.440854Z", "exit_status": 0}}

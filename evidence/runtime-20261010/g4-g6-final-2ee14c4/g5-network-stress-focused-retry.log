@@ -1,0 +1,114 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "bash /var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh /var/tmp/mksrc-2ee14c4"], "started_at": "2026-10-10T09:11:03.121810Z"}}
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:9: source_root=/var/tmp/mksrc-2ee14c4
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:10: task_id=mk-network-stress
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:11: image=docker.io/library/busybox:1.36
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:12: runtime=io.containerd.multikernel.v2
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:13: mktemp -d -p /var/tmp mk-network-stress.XXXXXX
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:13: scratch=/var/tmp/mk-network-stress.eY67mD
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:14: server_log=/var/tmp/mk-network-stress.eY67mD/server.json
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:15: server_pid=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:42: trap cleanup EXIT
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:97: id -u
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:97: [[ 1001 -ne 0 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:98: test -x /var/tmp/mksrc-2ee14c4/scripts/audit-runtime-final-resources-live.sh
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:99: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:100: systemctl is-active mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:100: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:101: systemctl show -p NRestarts --value mkruntimed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:101: [[ 0 = 0 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:99: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:100: systemctl is-active mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:100: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:101: systemctl show -p NRestarts --value mknetd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:101: [[ 0 = 0 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:99: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:100: systemctl is-active containerd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:100: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:101: systemctl show -p NRestarts --value containerd
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:101: [[ 0 = 0 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:99: for service in mkruntimed mknetd containerd docker
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:100: systemctl is-active docker
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:100: [[ active = active ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:101: systemctl show -p NRestarts --value docker
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:101: [[ 0 = 0 ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:103: cleanup_task
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:24: local state=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:25: sudo ctr tasks kill --signal SIGKILL mk-network-stress
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:25: true
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:26: seq 1 120
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:26: for _ in $(seq 1 120)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:27: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:27: awk -v id=mk-network-stress '$1 == id {print $3}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:27: state=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:28: [[ '' != RUNNING ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:28: [[ '' != PAUSED ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:28: break
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:31: sudo ctr tasks rm -f mk-network-stress
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:31: true
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:32: sudo ctr containers rm mk-network-stress
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:32: true
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:104: wait_counts 'rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:70: local 'expected=rootfs_records=0 live_exports=0 endpoints=0' observed=
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:71: seq 1 240
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:71: for _ in $(seq 1 240)
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:72: live_counts
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:55: sudo python3 -
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:72: observed='rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:73: [[ rootfs_records=0 live_exports=0 endpoints=0 = rootfs_records\=0 live_exports\=0 endpoints\=0 ]]
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:73: printf %s 'rootfs_records=0 live_exports=0 endpoints=0'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:73: return 0
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:104: observe clean-before 'rootfs_records=0 live_exports=0 endpoints=0'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:18: local key=clean-before
+OBSERVATION_BEGIN key=clean-before
+rootfs_records=0 live_exports=0 endpoints=0
+OBSERVATION_END key=clean-before
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:19: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:20: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' clean-before 'rootfs_records=0 live_exports=0 endpoints=0' clean-before
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: cat /proc/sys/kernel/random/boot_id
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: readlink -f /usr/local/lib/multikernel/current
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: awk '{print $1}'
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: systemctl show -p MainPID --value mkruntimed
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: sudo sha256sum /proc/45626/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: awk '{print $1}'
++++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: systemctl show -p MainPID --value mknetd
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: sudo sha256sum /proc/1218/exe
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: sha256sum /var/tmp/mksrc-2ee14c4/runtime/cmd/containerd-shim-multikernel-v2/main_test.go
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: awk '{print $1}'
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: sha256sum /var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: awk '{print $1}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:105: observe provenance $'boot_id=772c6339-6ed7-494b-8d7f-71f3cb7394eb\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1\nmkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nmknetd_sha256=1ad2d918f3d3646faab8083579f225bed92f6f4b7ab913fd7ee7be0bdb8fa971\nsource_test_sha256=0581eff2c98729a0f7b3c4c3345acb09e9a080a67b8688ae83209f713763361e\nqualifier_sha256=336e15ecd63c32cd1bd8984b5f81ebd89e81119449b31d566b5eef1554a137ca'
+OBSERVATION_BEGIN key=provenance
+boot_id=772c6339-6ed7-494b-8d7f-71f3cb7394eb
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
+mkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e
+mknetd_sha256=1ad2d918f3d3646faab8083579f225bed92f6f4b7ab913fd7ee7be0bdb8fa971
+source_test_sha256=0581eff2c98729a0f7b3c4c3345acb09e9a080a67b8688ae83209f713763361e
+qualifier_sha256=336e15ecd63c32cd1bd8984b5f81ebd89e81119449b31d566b5eef1554a137ca
+OBSERVATION_END key=provenance
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:18: local key=provenance
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:19: shift
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:20: printf 'OBSERVATION_BEGIN key=%s\n%s\nOBSERVATION_END key=%s\n' provenance $'boot_id=772c6339-6ed7-494b-8d7f-71f3cb7394eb\nselector=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1\nmkruntimed_sha256=51eebe4775888aaf4cf8ea95ab4b6ed5c59bf8a4f56806c500072284d1df4b4e\nmknetd_sha256=1ad2d918f3d3646faab8083579f225bed92f6f4b7ab913fd7ee7be0bdb8fa971\nsource_test_sha256=0581eff2c98729a0f7b3c4c3345acb09e9a080a67b8688ae83209f713763361e\nqualifier_sha256=336e15ecd63c32cd1bd8984b5f81ebd89e81119449b31d566b5eef1554a137ca' provenance
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:112: guest_program='set -eu; touch /tmp/network-stress-ready; while [ ! -e /tmp/network-stress-release ]; do sleep 1; done'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:113: sudo ctr run --detach --runtime io.containerd.multikernel.v2 docker.io/library/busybox:1.36 mk-network-stress /bin/sh -c 'set -eu; touch /tmp/network-stress-ready; while [ ! -e /tmp/network-stress-release ]; do sleep 1; done'
+ctr: failed to create shim task: BACKEND_FAILURE: backend operation failed
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:1: cleanup
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:36: set +e
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:37: [[ -z '' ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:38: [[ -z '' ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:39: cleanup_task
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:24: local state=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:25: sudo ctr tasks kill --signal SIGKILL mk-network-stress
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:25: true
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:26: seq 1 120
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:26: for _ in $(seq 1 120)
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:27: sudo ctr tasks list
+++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:27: awk -v id=mk-network-stress '$1 == id {print $3}'
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:27: state=
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:28: [[ '' != RUNNING ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:28: [[ '' != PAUSED ]]
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:28: break
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:31: sudo ctr tasks rm -f mk-network-stress
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:31: true
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:32: sudo ctr containers rm mk-network-stress
++/var/tmp/mksrc-2ee14c4/scripts/test-runtime-network-stress-live.sh:40: rm -rf -- /var/tmp/mk-network-stress.eY67mD
+{"evidence_command_result": {"ended_at": "2026-10-10T09:12:42.010086Z", "exit_status": 1}}

@@ -1,0 +1,18 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "set -euo pipefail; date -u +%FT%TZ; cat /proc/sys/kernel/random/boot_id; findmnt -T /tmp -o TARGET,SOURCE,FSTYPE,OPTIONS; findmnt -T /var/tmp -o TARGET,SOURCE,FSTYPE,OPTIONS; findmnt -T /srv/multikernel-storage -o TARGET,SOURCE,FSTYPE,OPTIONS; df -hT /tmp /var/tmp /srv/multikernel-storage; stat -c \"%a %U:%G %s %n\" /tmp/mksrc-87ef4fb.tar /tmp/run-candidate-build-87ef4fb.sh /var/tmp/mksrc-87ef4fb; test ! -e /var/tmp/mksrc-87ef4fb/runtime/release-manifest.json; test ! -e /usr/local/lib/multikernel/releases/0.1.0-dev-87ef4fbcf47f7dc41c17c774a5490b3fa2b1312a; echo BUILD_NOT_ACTIVATED_PASS"], "started_at": "2026-10-10T14:07:47.877677Z"}}
+2026-10-10T14:07:49Z
+1572735b-c57e-4b99-88f5-213c74c71e77
+TARGET SOURCE FSTYPE OPTIONS
+/tmp   tmpfs  tmpfs  rw,nosuid,nodev,size=32918156k,nr_inodes=1048576,inode64,usrquota
+TARGET SOURCE    FSTYPE OPTIONS
+/      /dev/sda1 ext4   rw,relatime,discard,errors=remount-ro,commit=30
+TARGET                   SOURCE   FSTYPE OPTIONS
+/srv/multikernel-storage /dev/sdb ext4   rw,nosuid,nodev,relatime
+Filesystem     Type   Size  Used Avail Use% Mounted on
+tmpfs          tmpfs   32G  211M   32G   1% /tmp
+/dev/root      ext4    96G   51G   46G  54% /
+/dev/sdb       ext4    30G   21G  8.0G  72% /srv/multikernel-storage
+600 hairizuan-tw:hairizuan-tw 7311360 /tmp/mksrc-87ef4fb.tar
+700 hairizuan-tw:hairizuan-tw 1499 /tmp/run-candidate-build-87ef4fb.sh
+755 hairizuan-tw:hairizuan-tw 4096 /var/tmp/mksrc-87ef4fb
+BUILD_NOT_ACTIVATED_PASS
+{"evidence_command_result": {"ended_at": "2026-10-10T14:07:50.069445Z", "exit_status": 0}}

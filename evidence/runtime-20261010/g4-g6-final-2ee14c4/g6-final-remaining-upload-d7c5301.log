@@ -1,0 +1,4 @@
+Script started on 2026-10-11 10:02:26+08:00 [COMMAND="gcloud compute scp evidence/runtime-20261010/g4-g6-final-2ee14c4/run-g6-final-remaining-d7c5301.sh mklinux-g4-g6-final-20260905:/var/tmp/run-g6-final-remaining-d7c5301.sh --project=new-demo-project-462517 --zone=asia-southeast1-b" <not executed on terminal>]
+run-g6-final-remaining-d7c5301.sh               0%    0     0.0KB/s   --:-- ETArun-g6-final-remaining-d7c5301.sh             100% 2190   436.6KB/s   00:00    
+
+Script done on 2026-10-11 10:02:29+08:00 [COMMAND_EXIT_CODE="0"]

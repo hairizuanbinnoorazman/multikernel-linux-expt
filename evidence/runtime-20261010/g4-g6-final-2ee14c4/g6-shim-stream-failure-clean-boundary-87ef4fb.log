@@ -1,0 +1,49 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "set -euo pipefail; sudo systemctl restart mkruntimed; for i in $(seq 1 240); do sudo test -S /run/mkruntimed.sock && break; sleep .25; done; date -u +%FT%TZ; cat /proc/sys/kernel/random/boot_id; readlink -f /usr/local/lib/multikernel/current; systemctl is-active mkruntimed mknetd containerd docker; MK_EVIDENCE_XTRACE=0 timeout 180 bash /var/tmp/mksrc-87ef4fb-v3/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-87ef4fb-v3; echo G6_SHIM_STREAM_FAILURE_CLEAN_BOUNDARY_PASS"], "started_at": "2026-10-10T14:43:14.817307Z"}}
+2026-10-10T14:43:18Z
+1572735b-c57e-4b99-88f5-213c74c71e77
+/usr/local/lib/multikernel/releases/0.1.0-dev-87ef4fbcf47f7dc41c17c774a5490b3fa2b1312a
+active
+active
+active
+active
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-87ef4fbcf47f7dc41c17c774a5490b3fa2b1312a boot_id=1572735b-c57e-4b99-88f5-213c74c71e77 mkruntimed_pid=83527 mkruntimed_sha256=e8a278f4b477da49a821e2d80dec19af1a9e5fe9d438171df592d46099cec0cf
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=83527
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=37655
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=65376
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=71012
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
+G6_SHIM_STREAM_FAILURE_CLEAN_BOUNDARY_PASS
+{"evidence_command_result": {"ended_at": "2026-10-10T14:43:18.828614Z", "exit_status": 0}}

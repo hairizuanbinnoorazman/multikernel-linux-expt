@@ -1,0 +1,6 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command=sudo chown -R 1001:1002 /var/tmp/mksrc-2ee14c4 && stat -c %u:%g\\ %a\\ %n /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py && sha256sum /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py"], "started_at": "2026-10-10T03:57:05.715065Z"}}
+1001:1002 755 /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh
+1001:1002 755 /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py
+633fcfc08206840a3546f824a5f2a0d27508e2cfcc78499fa01a193ece52ccb9  /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh
+ddd77fb869fb258268fc5d6cadacc6ca664f3753a5b34cf747331dab087b8804  /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py
+{"evidence_command_result": {"ended_at": "2026-10-10T03:57:07.853293Z", "exit_status": 0}}

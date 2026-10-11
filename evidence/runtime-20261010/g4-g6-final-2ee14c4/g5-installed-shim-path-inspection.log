@@ -1,0 +1,39 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--command", "set -eu; echo OBSERVATION_BEGIN key=shim-paths; for path in /usr/local/bin/containerd-shim-multikernel-v2 /usr/local/lib/multikernel/current/bin/containerd-shim-multikernel-v2 /usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2; do if sudo test -e $path || sudo test -L $path; then sudo stat -c 'path=%n mode=%a uid=%u gid=%g type=%F size=%s' $path; sudo readlink $path || true; sudo sha256sum -L $path || true; else echo path=$path state=absent; fi; done; echo OBSERVATION_END key=shim-paths; echo OBSERVATION_BEGIN key=other-installed-paths; for name in mk-agent mk-agentctl mk-cni mk-host-check mknetd mkruntimed; do path=/usr/local/bin/$name; if sudo test -e $path || sudo test -L $path; then sudo stat -c 'path=%n mode=%a uid=%u gid=%g type=%F size=%s' $path; sudo readlink $path || true; else echo path=$path state=absent; fi; done; echo OBSERVATION_END key=other-installed-paths"], "started_at": "2026-10-10T09:09:46.345310Z"}}
+OBSERVATION_BEGIN key=shim-paths
+path=/usr/local/bin/containerd-shim-multikernel-v2 mode=777 uid=0 gid=0 type=symbolic link size=61
+../lib/multikernel/current/bin/containerd-shim-multikernel-v2
+error: unexpected argument '-L' found
+
+  tip: to pass '-L' as a value, use '-- -L'
+
+Usage: sha256sum [OPTIONS] [FILE]...
+
+For more information, try '--help'.
+path=/usr/local/lib/multikernel/current/bin/containerd-shim-multikernel-v2 mode=755 uid=0 gid=0 type=regular file size=14054962
+error: unexpected argument '-L' found
+
+  tip: to pass '-L' as a value, use '-- -L'
+
+Usage: sha256sum [OPTIONS] [FILE]...
+
+For more information, try '--help'.
+path=/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1/bin/containerd-shim-multikernel-v2 mode=755 uid=0 gid=0 type=regular file size=14054962
+error: unexpected argument '-L' found
+
+  tip: to pass '-L' as a value, use '-- -L'
+
+Usage: sha256sum [OPTIONS] [FILE]...
+
+For more information, try '--help'.
+OBSERVATION_END key=shim-paths
+OBSERVATION_BEGIN key=other-installed-paths
+path=/usr/local/bin/mk-agent state=absent
+path=/usr/local/bin/mk-agentctl mode=777 uid=0 gid=0 type=symbolic link size=42
+../lib/multikernel/current/bin/mk-agentctl
+path=/usr/local/bin/mk-cni state=absent
+path=/usr/local/bin/mk-host-check mode=777 uid=0 gid=0 type=symbolic link size=44
+../lib/multikernel/current/bin/mk-host-check
+path=/usr/local/bin/mknetd state=absent
+path=/usr/local/bin/mkruntimed state=absent
+OBSERVATION_END key=other-installed-paths
+{"evidence_command_result": {"ended_at": "2026-10-10T09:09:48.381912Z", "exit_status": 0}}

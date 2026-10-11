@@ -1,0 +1,25 @@
+{"evidence_command": {"argv": ["bash", "-lc", "cd runtime && GOCACHE=/tmp/mk-go-cache go test -race ./..."], "started_at": "2026-10-10T14:05:01.949091Z"}}
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	9.979s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	(cached)
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	(cached)
+{"evidence_command_result": {"ended_at": "2026-10-10T14:05:13.973639Z", "exit_status": 0}}

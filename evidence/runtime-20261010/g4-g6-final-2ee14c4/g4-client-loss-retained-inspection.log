@@ -1,0 +1,30 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "mklinux-g4-g6-final-20260905", "--command", "chmod 700 /var/tmp/inspect-g4-client-loss-retained-2ee14c4.sh && /var/tmp/inspect-g4-client-loss-retained-2ee14c4.sh"], "started_at": "2026-10-10T08:41:57.463700Z"}}
++ cat /proc/sys/kernel/random/boot_id
+772c6339-6ed7-494b-8d7f-71f3cb7394eb
++ readlink -f /usr/local/lib/multikernel/current
+/usr/local/lib/multikernel/releases/0.1.0-dev-2ee14c49a6dd674629ba18a0ca618c1870311ca1
++ systemctl show mkruntimed.service -p ActiveState -p SubState -p Result -p MainPID -p NRestarts --no-pager
+ActiveState=activating
+SubState=auto-restart
+MainPID=0
+Result=exit-code
+NRestarts=82
++ sudo ctr tasks list
+TASK                      PID      STATUS    
+mk-storage-client-loss    27249    STOPPED
++ sudo ctr containers list
+CONTAINER                 IMAGE                             RUNTIME                         
+mk-storage-client-loss    docker.io/library/busybox:1.36    io.containerd.multikernel.v2    
++ sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -printf '%f\n'
++ sort
+mk-mk-storage-client-loss-216e4611aa588b7e
++ sudo find /srv/multikernel-storage/runtime -mindepth 1 -maxdepth 2 -printf '%y %m %u:%g %s %p\n'
++ sort
+d 700 root:root 4096 /srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd
+f 600 root:root 2147483648 /srv/multikernel-storage/runtime/task-216e4611aa588b7e8436be9484e3f8cd/root.ext4
++ sudo sha256sum /var/lib/mkruntime/state.json /var/lib/mkruntime/journal.json /var/lib/mkruntimed/rootfs/state.json /var/lib/mkruntimed/storage/state.json
+eb76164c8527cd1e763dd3443ceb9032238f7460abc376a6523c6e8d3c47ae5b  /var/lib/mkruntime/state.json
+sha256sum: /var/lib/mkruntime/journal.json: No such file or directory
+648f83088a3e800148cd5fd3868ad3ece13b7d74c501bc077bc45827944fde89  /var/lib/mkruntimed/rootfs/state.json
+f94b90993f74fd73cd8918f9d848c627f1e43e597cf2ab79c31702b0de2518b9  /var/lib/mkruntimed/storage/state.json
+{"evidence_command_result": {"ended_at": "2026-10-10T08:41:59.138151Z", "exit_status": 1}}

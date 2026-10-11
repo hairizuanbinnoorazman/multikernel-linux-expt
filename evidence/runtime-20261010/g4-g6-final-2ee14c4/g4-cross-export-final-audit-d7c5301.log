@@ -1,0 +1,42 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-g4-g6-final-20260905", "--project=new-demo-project-462517", "--zone=asia-southeast1-b", "--command", "for _ in $(seq 1 240); do test $(ps -eo comm= | awk '$1==\"containerd-shim\" {n++} END {print n+0}') = 0 && break; sleep .25; done; MK_EVIDENCE_XTRACE=0 bash /var/tmp/mksrc-d7c5301/scripts/audit-runtime-final-resources-live.sh /var/tmp/mksrc-d7c5301; echo G4_FINAL_D7C5301_PASS"], "started_at": "2026-10-11T02:42:31.429039Z"}}
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-dev-d7c530103b43c63d97518b0d6f5aa5442e7b15a3 boot_id=ca1337df-2163-4621-a931-be59076b2683 mkruntimed_pid=130712 mkruntimed_sha256=f0634fbed5e70f6bb2464a27dc32fe80d0645dd784a42b38d508b23943425d97
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=130712
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=1231
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=1469
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=1517
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
+G4_FINAL_D7C5301_PASS
+{"evidence_command_result": {"ended_at": "2026-10-11T02:42:41.363722Z", "exit_status": 0}}

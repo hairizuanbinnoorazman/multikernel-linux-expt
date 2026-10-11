@@ -1,0 +1,8 @@
++ id
+uid=1001(hairizuan-tw) gid=1002(hairizuan-tw) groups=1002(hairizuan-tw),4(adm),20(dialout),24(cdrom),25(floppy),29(audio),30(dip),44(video),46(plugdev),102(lxd),108(netdev),1000(ubuntu),1001(google-sudoers)
++ stat -c '%u:%g %a %n' /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py
+0:0 755 /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh
+0:0 755 /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py
++ sha256sum /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py
+633fcfc08206840a3546f824a5f2a0d27508e2cfcc78499fa01a193ece52ccb9  /var/tmp/mksrc-2ee14c4/scripts/build-runtime-container-initramfs.sh
+ddd77fb869fb258268fc5d6cadacc6ca664f3753a5b34cf747331dab087b8804  /var/tmp/mksrc-2ee14c4/scripts/validate-runtime-oci.py

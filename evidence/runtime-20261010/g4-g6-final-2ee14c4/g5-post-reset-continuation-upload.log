@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "scp", "evidence/runtime-20261010/g4-g6-final-2ee14c4/run-g5-post-reset-continuation-2ee14c4.sh", "evidence/runtime-20261010/g4-g6-final-2ee14c4/g5-network-stress-post-reset.log", "mklinux-g4-g6-final-20260905:/var/tmp/", "--project", "new-demo-project-462517", "--zone", "asia-southeast1-b", "--quiet"], "started_at": "2026-10-10T09:19:21.249227Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-10T09:19:24.225723Z", "exit_status": 0}}
