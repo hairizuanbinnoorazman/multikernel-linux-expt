@@ -1,0 +1,51 @@
+go: downloading github.com/containerd/cgroups v1.1.0
+go: downloading github.com/containerd/containerd/api v1.8.0
+go: downloading github.com/containerd/console v1.0.3
+go: downloading github.com/containerd/containerd v1.7.28
+go: downloading golang.org/x/sys v0.34.0
+go: downloading github.com/containerd/typeurl/v2 v2.1.1
+go: downloading github.com/opencontainers/runtime-spec v1.1.0
+go: downloading google.golang.org/protobuf v1.35.2
+go: downloading github.com/containerd/fifo v1.1.0
+go: downloading github.com/gogo/protobuf v1.3.2
+go: downloading github.com/containerd/ttrpc v1.2.7
+go: downloading github.com/opencontainers/image-spec v1.1.0
+go: downloading github.com/containerd/errdefs v0.3.0
+go: downloading google.golang.org/grpc v1.59.0
+go: downloading github.com/containerd/log v0.1.0
+go: downloading github.com/sirupsen/logrus v1.9.3
+go: downloading github.com/containerd/continuity v0.4.4
+go: downloading github.com/moby/sys/mountinfo v0.6.2
+go: downloading github.com/moby/sys/userns v0.1.0
+go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20240401170217-c3f982113cda
+go: downloading google.golang.org/genproto v0.0.0-20231211222908-989df2bf70f3
+go: downloading github.com/opencontainers/go-digest v1.0.0
+go: downloading golang.org/x/sync v0.16.0
+go: downloading github.com/google/go-cmp v0.6.0
+go: downloading github.com/containerd/go-runc v1.0.0
+go: downloading github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c
+go: downloading github.com/pkg/errors v0.9.1
+go: downloading github.com/golang/protobuf v1.5.4
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	14.277s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	13.266s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	1.021s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	1.123s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.126s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	1.026s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.028s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.081s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	1.022s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.228s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.237s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.044s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.084s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	2.529s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	3.578s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	2.032s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	6.081s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.057s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.066s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	19.902s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	1.046s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	1.047s

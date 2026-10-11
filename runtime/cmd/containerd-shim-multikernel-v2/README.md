@@ -30,3 +30,21 @@ worker. Agent calls have bounded deadlines and honor request cancellation.
 `Checkpoint` remain explicit `NotImplemented` operations: Kerf does not yet
 offer safe live CPU/memory reassignment or whole-child checkpoint/restore, and
 the minimum G6 surface does not advertise either operation.
+
+## Source ownership
+
+The shim remains one Go package so the Runtime v2 protocol surface and shared
+state are unchanged, but operational subsystems have explicit file owners:
+
+- `main.go` owns the Task v2 service, lifecycle orchestration, process state,
+  recovery, and the executable entrypoint;
+- `network.go` owns endpoint validation, namespace-holder lifecycle, the packet
+  pump, counter reporting, and bounded network shutdown;
+- `rootfs.go` owns rootfs request normalization and daemon adapters;
+- `supervisor.go` owns worker restart, containerd connection replay, private
+  worker listeners, and supervisor PID publication; and
+- `event_journal.go` owns durable event ordering, replay, and publication.
+
+All files share the same generation-bound ownership rules: persisted identities
+must be validated before mutation, recovery must not invent ownership, and
+cleanup must remove only artifacts whose recorded identity still matches.
