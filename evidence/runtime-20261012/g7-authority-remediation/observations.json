@@ -1,0 +1,82 @@
+[
+  {
+    "case": "nonroot",
+    "status": "STOPPED",
+    "exit_code": 0,
+    "observations": {
+      "Uid": "1234\t1234\t1234\t1234",
+      "Gid": "1234\t1234\t1234\t1234",
+      "CapInh": "0000000000000000",
+      "CapPrm": "0000000000000000",
+      "CapEff": "0000000000000000",
+      "CapBnd": "000001ffffffffff",
+      "CapAmb": "0000000000000000",
+      "NoNewPrivs": "1",
+      "Seccomp": "0",
+      "KERNEL_COMMAND_LINE_TOKEN_VISIBLE": "no",
+      "AGENT_ARGUMENT_TOKEN_VISIBLE": "no",
+      "CHILD_BOOTSTRAP_CANARY_READ": "no",
+      "CHILD_BOOTSTRAP_CANARY_WRITE": "no"
+    }
+  },
+  {
+    "case": "root-empty-caps",
+    "status": "STOPPED",
+    "exit_code": 0,
+    "observations": {
+      "Uid": "0\t0\t0\t0",
+      "Gid": "0\t0\t0\t0",
+      "CapInh": "0000000000000000",
+      "CapPrm": "0000000000000000",
+      "CapEff": "0000000000000000",
+      "CapBnd": "0000000000000000",
+      "CapAmb": "0000000000000000",
+      "NoNewPrivs": "1",
+      "Seccomp": "0",
+      "KERNEL_COMMAND_LINE_TOKEN_VISIBLE": "no",
+      "AGENT_ARGUMENT_TOKEN_VISIBLE": "no",
+      "CHILD_BOOTSTRAP_CANARY_READ": "no",
+      "CHILD_BOOTSTRAP_CANARY_WRITE": "no"
+    }
+  },
+  {
+    "case": "root-default",
+    "status": "STOPPED",
+    "exit_code": 0,
+    "observations": {
+      "Uid": "0\t0\t0\t0",
+      "Gid": "0\t0\t0\t0",
+      "CapInh": "0000000000000000",
+      "CapPrm": "0000000000000000",
+      "CapEff": "0000000000000000",
+      "CapBnd": "0000000000000000",
+      "CapAmb": "0000000000000000",
+      "NoNewPrivs": "1",
+      "Seccomp": "0",
+      "KERNEL_COMMAND_LINE_TOKEN_VISIBLE": "no",
+      "AGENT_ARGUMENT_TOKEN_VISIBLE": "no",
+      "CHILD_BOOTSTRAP_CANARY_READ": "no",
+      "CHILD_BOOTSTRAP_CANARY_WRITE": "no"
+    }
+  },
+  {
+    "case": "root-ordinary-caps",
+    "status": "STOPPED",
+    "exit_code": 0,
+    "observations": {
+      "Uid": "0\t0\t0\t0",
+      "Gid": "0\t0\t0\t0",
+      "CapInh": "0000000000000000",
+      "CapPrm": "00000000a80425fb",
+      "CapEff": "00000000a80425fb",
+      "CapBnd": "00000000a80425fb",
+      "CapAmb": "0000000000000000",
+      "NoNewPrivs": "1",
+      "Seccomp": "0",
+      "KERNEL_COMMAND_LINE_TOKEN_VISIBLE": "no",
+      "AGENT_ARGUMENT_TOKEN_VISIBLE": "no",
+      "CHILD_BOOTSTRAP_CANARY_READ": "no",
+      "CHILD_BOOTSTRAP_CANARY_WRITE": "no"
+    }
+  }
+]

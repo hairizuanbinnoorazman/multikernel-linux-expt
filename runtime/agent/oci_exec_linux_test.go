@@ -77,3 +77,32 @@ func TestOCIConstraintValidationRejectsUnsafeValues(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkloadPolicyRejectsPrivilegeEscalationAndBootstrapAuthority(t *testing.T) {
+	disabled := false
+	if err := validateExecConstraints(ProcessSpec{NoNewPrivileges: &disabled}); err == nil {
+		t.Fatal("privilege escalation accepted")
+	}
+	for name := range linuxCapabilities {
+		if workloadCapabilities[name] {
+			continue
+		}
+		for _, set := range []string{"bounding", "effective", "permitted", "inheritable", "ambient"} {
+			if err := validateExecConstraints(ProcessSpec{Capabilities: map[string][]string{set: {name}}}); err == nil {
+				t.Fatalf("unsafe %s in %s accepted", name, set)
+			}
+		}
+	}
+	spec := workloadDefaults(ProcessSpec{})
+	if spec.NoNewPrivileges == nil || !*spec.NoNewPrivileges || spec.Capabilities == nil || len(spec.Capabilities) != 0 {
+		t.Fatal("unsafe root defaults")
+	}
+	ordinary := ProcessSpec{Capabilities: map[string][]string{"bounding": {"CAP_CHOWN"}, "permitted": {"CAP_CHOWN"}, "effective": {"CAP_CHOWN"}}}
+	if err := validateExecConstraints(ordinary); err != nil {
+		t.Fatal("ordinary intentional capability rejected", err)
+	}
+	ordinary.Capabilities["effective"] = nil
+	if err := validateExecConstraints(ordinary); err == nil {
+		t.Fatal("narrower root effective contract accepted")
+	}
+}

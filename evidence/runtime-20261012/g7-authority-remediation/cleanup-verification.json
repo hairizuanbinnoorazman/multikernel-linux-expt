@@ -1,0 +1,6 @@
+{
+  "resources_equal_except_capture_time": true,
+  "test_instance_absent": true,
+  "test_boot_disk_absent": true,
+  "test_resources_retained": []
+}

@@ -24,6 +24,10 @@ not evidence that the affected run passed a gate.
 - [`runtime-20261011/`](runtime-20261011/README.md): maintainability source
   provenance, portable and live GCE checks, restart/isolation coverage, and
   cloud cleanup.
+- [`runtime-20261012/`](runtime-20261012/README.md): partial G7 boundary
+  assessment, pinned-source reproduction, portable agent checks, live authority
+  collection in three profiles, confirmed credential exposure and child-bootstrap
+  canary access, retained failed attempts, and cloud cleanup.
 
 Evidence captures historical state and may contain terminal formatting such as
 CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely

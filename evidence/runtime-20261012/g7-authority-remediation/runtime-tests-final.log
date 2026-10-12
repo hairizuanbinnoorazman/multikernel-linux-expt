@@ -1,0 +1,24 @@
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	10.421s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	9.970s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	1.025s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	1.121s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.072s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	1.020s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.021s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.076s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	1.020s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.194s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.169s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.031s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.063s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	1.324s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	1.919s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	1.404s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	1.767s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.036s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.038s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	4.576s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	1.015s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	1.037s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/tools/g7-credential-load	[no test files]

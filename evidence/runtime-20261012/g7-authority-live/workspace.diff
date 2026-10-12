@@ -1,0 +1,143 @@
+diff --git a/docs/project/TASKS.md b/docs/project/TASKS.md
+index 5676c5c..a76a383 100644
+--- a/docs/project/TASKS.md
++++ b/docs/project/TASKS.md
+@@ -1,6 +1,6 @@
+ # Implementation tasks
+ 
+-Last updated: 2026-10-11
++Last updated: 2026-10-12
+ 
+ ## Live GCE proof
+ 
+@@ -190,6 +190,11 @@ The detailed exit criteria and ordering are in
+   before treating the checked MVP and feature rows as full G4, G5, or G6 gate
+   conformance.
+ - [ ] G7: pass the security, fuzzing, failure, soak, and resource-leak matrix.
++  - [ ] Execute the [STRIDE security checklist](../runtime/plans/g7-security-checklist.md),
++    mapping threats to reviewed findings and retained evidence.
++  - [ ] Evaluate the separate-kernel workload-escape hypothesis against a pinned
++    gVisor configuration; document compromised-child limitations and avoid
++    claiming an isolation advantage without supporting evidence.
+ - [ ] G8: add bounded health, diagnostics, structured logging, tested recovery,
+   service hardening, and a maintainable shim layout.
+ - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
+diff --git a/docs/runtime/README.md b/docs/runtime/README.md
+index 1238d12..ef5ce5d 100644
+--- a/docs/runtime/README.md
++++ b/docs/runtime/README.md
+@@ -6,6 +6,12 @@
+   boundary.
+ - [`decisions/`](decisions/): architecture decision records.
+ - [`research/`](research/): related-work audits.
++- [`research/stride-threat-model.md`](research/stride-threat-model.md): STRIDE
++  threats, workload-escape hypothesis, and the gVisor comparison boundary.
++- [`plans/g7-security-checklist.md`](plans/g7-security-checklist.md): proposed
++  security reviews, negative tests, fuzzing, and comparative research tasks.
++- [`research/g7-security-boundary-assessment.md`](research/g7-security-boundary-assessment.md):
++  SEC-01/SEC-02/SEC-11 findings, evidence scope, and claim-specific confidence.
+ - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
+ - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
+   boundaries.
+diff --git a/docs/runtime/plans/07-security-and-reliability.md b/docs/runtime/plans/07-security-and-reliability.md
+index 05ca99b..fe4c964 100644
+--- a/docs/runtime/plans/07-security-and-reliability.md
++++ b/docs/runtime/plans/07-security-and-reliability.md
+@@ -6,6 +6,17 @@ Define a defensible preview security posture and prove recovery under component
+ failure. This gate does not attempt to turn Multikernel into a KVM-equivalent
+ security boundary.
+ 
++## Threat-model method and security backlog
++
++Use [STRIDE across data flows and trust boundaries](../research/stride-threat-model.md)
++and execute the [G7 security task checklist](g7-security-checklist.md).
++The model includes the project's hypothesis that separate Linux kernels could
++make workload escape harder than gVisor. That comparative claim is unproven;
++child-kernel compromise must be evaluated separately from process compromise,
++and the existing lack of a demonstrated hostile-child hardware boundary remains
++an architectural limitation. Closing G7 qualifies the documented trusted preview,
++not a claim of superiority to gVisor or hostile multi-tenant isolation.
++
+ ## Security work
+ 
+ - Threat-model primary daemon, shim, child agent, workload, image, control
+diff --git a/docs/runtime/status.md b/docs/runtime/status.md
+index b300d7e..bd31f13 100644
+--- a/docs/runtime/status.md
++++ b/docs/runtime/status.md
+@@ -64,6 +64,14 @@ retained and remains billable.
+ 
+ ## Safety boundary
+ 
++The [G7 boundary assessment](research/g7-security-boundary-assessment.md)
++reproduces the pinned source audit and records fresh portable agent checks.
++It identifies an architectural limitation after child-kernel compromise and
++live-confirmed bootstrap credential exposure in three authority profiles.
++Default root also read/wrote a synthetic child-bootstrap file outside its OCI
++chroot. Credential and authority-policy remediation remain open; full G7 and a security advantage over gVisor are
++not established.
++
+ The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels
+ do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
+ Never assign the primary boot disk, NIC, or a shared controller to a child, and
+diff --git a/evidence/README.md b/evidence/README.md
+index 0ea999e..c8dc8e1 100644
+--- a/evidence/README.md
++++ b/evidence/README.md
+@@ -24,6 +24,10 @@ not evidence that the affected run passed a gate.
+ - [`runtime-20261011/`](runtime-20261011/README.md): maintainability source
+   provenance, portable and live GCE checks, restart/isolation coverage, and
+   cloud cleanup.
++- [`runtime-20261012/`](runtime-20261012/README.md): partial G7 boundary
++  assessment, pinned-source reproduction, portable agent checks, live authority
++  collection in three profiles, confirmed credential exposure and child-bootstrap
++  canary access, retained failed attempts, and cloud cleanup.
+ 
+ Evidence captures historical state and may contain terminal formatting such as
+ CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely
+diff --git a/guest/README.md b/guest/README.md
+index a75c3dd..fe2594e 100644
+--- a/guest/README.md
++++ b/guest/README.md
+@@ -4,6 +4,8 @@
+ - `daxfs-*` and `docker-proof.sh`: DAXFS and Docker-derived root proofs.
+ - `ext4-bootstrap-init`: bounded rejection of a missing direct ext4 root.
+ - `mediated-*`: AF_VSOCK transport and primary-mediated ext4 roots.
++- `security-authority-probe.sh`: diagnostic workload for G7 privilege and
++  synthetic child-bootstrap canary checks. Never included in production images.
+ 
+ See the [experiment asset map](../docs/experiments/ASSET-MAP.md) for the
+ matching builders, tests, reports, and evidence.
+diff --git a/guest/mk-agent-init b/guest/mk-agent-init
+index 9350ab4..8abcc3a 100755
+--- a/guest/mk-agent-init
++++ b/guest/mk-agent-init
+@@ -6,7 +6,7 @@ is_mounted() {
+ 	/bin/busybox grep -qs " $1 " /proc/mounts 2>/dev/null
+ }
+ is_mounted /dev || /bin/busybox mount -t devtmpfs devtmpfs /dev
+-mkdir -p /dev/pts
++mkdir -p /dev/pts /dev/shm /dev/mqueue
+ is_mounted /dev/pts || /bin/busybox mount -t devpts devpts /dev/pts -o mode=620,ptmxmode=666
+ is_mounted /dev/shm || /bin/busybox mount -t tmpfs shm /dev/shm -o nosuid,noexec,nodev,mode=1777,size=65536k
+ is_mounted /dev/mqueue || /bin/busybox mount -t mqueue mqueue /dev/mqueue -o nosuid,noexec,nodev
+diff --git a/scripts/README.md b/scripts/README.md
+index e04795a..f0b9dca 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -24,6 +24,15 @@ to a stable remote path. For the thematic mapping, see
+ - Concurrent ctr/Docker resource identity and churn are covered by
+   `test-runtime-concurrent-churn-live.sh`.
+ - Repository checks: `check-docs.sh`.
++- G7 security boundary assessment: `audit-runtime-isolation-source.py` verifies
++  the pinned review files. `build-security-authority-initramfs.sh` and
++  `test-runtime-security-authority-live.sh` provide explicit, disposable-host
++  diagnostic fixtures; they are not included in default checks. See the
++  [assessment](../docs/runtime/research/g7-security-boundary-assessment.md).
++  `verify-g7-boundary-evidence.py` checks the scoped source archives and cloud
++  cleanup ledger comparison without running privileged probes.
++  `verify-g7-authority-evidence.py` checks the subsequent live bundle's exact
++  fixture sources, observed authority profiles, and cleanup evidence.
+ - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
+ 
+ Destructive and billable operations must remain explicit Makefile targets;

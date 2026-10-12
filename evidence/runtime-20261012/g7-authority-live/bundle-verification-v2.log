@@ -1,0 +1,9 @@
+{"evidence_command": {"argv": ["python3", "scripts/verify-g7-authority-evidence.py", "evidence/runtime-20261012/g7-authority-live"], "started_at": "2026-10-12T06:15:24.053701Z"}}
+{
+  "source_bytes_verified": 137,
+  "fixture_profiles_verified": 3,
+  "credential_exposure_confirmed": true,
+  "default_root_child_bootstrap_access_confirmed": true,
+  "cloud_cleanup_verified": true
+}
+{"evidence_command_result": {"ended_at": "2026-10-12T06:15:24.090055Z", "exit_status": 0}}

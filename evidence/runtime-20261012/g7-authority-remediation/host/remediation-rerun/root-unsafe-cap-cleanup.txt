@@ -1,0 +1,8 @@
+Shutting down instance 'runtime-g7-authority' (ID: 27) (force)...
+✓ Shutdown command executed successfully
+Unloading kernel for instance 'runtime-g7-authority' (ID: 27)...
+✓ Kernel unloaded successfully
+✓ Deleted instance 'runtime-g7-authority' (transaction 18)
+  CPUs to host: 8, 10, 12, 14
+  Memory to host: 0xc59a00000 (8192 MB)
+✓ Pool updated (transaction 19)

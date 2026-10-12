@@ -1,0 +1,326 @@
+Booting instance 'runtime-g7-authority' (ID: 27)...
+✓ Boot command executed successfully
+Connecting to console for instance 'runtime-g7-authority' (ID: 27)...
+Escape sequence: Ctrl+] followed by . to detach
+
+[    0.000000] platform-quirks: hardware_subarch=5 (MULTIKERNEL=5)
+[    0.000000] Linux version 7.0.0-mk2-gce-lab (hairizuan-tw@mklinux-lab.asia-southeast1-b.c.${MK_PROJECT}.internal) (gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #1 SMP PREEMPT Fri Aug 28 04:50:50 UTC 2026
+[    0.000000] Command line: rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=runtime-g7-authority mk.generation=5f2fe7dc4f4bf0333f81ce31ada37ff6 mk.agent_port=7717
+[    0.000000] KERNEL supported cpus:
+[    0.000000]   Intel GenuineIntel
+[    0.000000]   AMD AuthenticAMD
+[    0.000000]   Hygon HygonGenuine
+[    0.000000]   Centaur CentaurHauls
+[    0.000000]   zhaoxin   Shanghai  
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] MULTIKERNEL: [mem 0x0000000000000000-0x0000000000000fff]  device reserved
+[    0.000000] MULTIKERNEL: [gap 0x0000000000001000-0x0000000c59a0ffff]
+[    0.000000] MULTIKERNEL: [mem 0x0000000c59a10000-0x0000000d59a0ffff]  System RAM
+[    0.000000] random: crng init done
+[    0.000000] multikernel: processing manifest at 0x1024be000 (size: 4096)
+[    0.000000] multikernel: manifest accepted
+[    0.000000] KHO: disabling KHO revival
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] APIC: Static calls initialized
+[    0.000000] DMI not present or invalid.
+[    0.000000] Hypervisor detected: KVM
+[    0.000000] last_pfn = 0x0 max_arch_pfn = 0x400000000
+[    0.000000] kvm-clock: Using msrs 4b564d01 and 4b564d00
+[    0.000001] kvm-clock: using sched offset of 460743366052 cycles
+[    0.000002] clocksource: kvm-clock: mask: 0xffffffffffffffff max_cycles: 0x1cd42e4dffb, max_idle_ns: 881590591483 ns
+[    0.000005] tsc: Detected 2799.998 MHz processor
+[    0.000020] last_pfn = 0xd59a10 max_arch_pfn = 0x400000000
+[    0.000067] MTRR map: 3 entries (2 fixed + 1 variable; max 18), built from 8 variable MTRRs
+[    0.000070] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.000125] x2apic: enabled by BIOS, switching to x2apic ops
+[    0.000128] last_pfn = 0x0 max_arch_pfn = 0x400000000
+[    0.010707] Using GB pages for direct mapping
+[    0.010783] RAMDISK: [mem 0xc5da00000-0xc5df62fff]
+[    0.010847] NUMA turned off
+[    0.010847] Faking a node at [mem 0x0000000000000000-0x0000000d59a0ffff]
+[    0.010858] NODE_DATA(0) allocated [mem 0xd599e5280-0xd59a0ffff]
+[    0.011419] APIC: Switched APIC routing to: physical x2apic
+[    0.011426] APIC: wakeup_secondary_cpu_64() replaced with multikernel_wakeup_cpu()
+[    0.011434] CPU topo: Max. logical packages:   1
+[    0.011435] CPU topo: Max. logical nodes:      1
+[    0.011435] CPU topo: Num. nodes per package:  1
+[    0.011437] CPU topo: Max. logical dies:       1
+[    0.011437] CPU topo: Max. dies per package:   1
+[    0.011441] CPU topo: Max. threads per core:   1
+[    0.011442] CPU topo: Num. cores per package:     4
+[    0.011442] CPU topo: Num. threads per package:   4
+[    0.011443] CPU topo: Allowing 4 present CPUs plus 0 hotplug CPUs
+[    0.011457] PM: hibernation: Registered nosave memory: [mem 0x00000000-0xc59a0ffff]
+[    0.011459] [gap 0x00001000-0xffffffff] available for PCI devices
+[    0.011460] Booting paravirtualized kernel on KVM
+[    0.011462] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns
+[    0.011481] Zone ranges:
+[    0.011481]   DMA      empty
+[    0.011482]   DMA32    empty
+[    0.011483]   Normal   [mem 0x0000000c59a10000-0x0000000d59a0ffff]
+[    0.011484]   Device   empty
+[    0.011485] Movable zone start for each node
+[    0.011488] Early memory node ranges
+[    0.011489]   node   0: [mem 0x0000000c59a10000-0x0000000d59a0ffff]
+[    0.011495] Initmem setup node 0 [mem 0x0000000c59a10000-0x0000000d59a0ffff]
+[    0.017800] On node 0, zone Normal: 6672 pages in unavailable ranges
+[    0.017972] On node 0, zone Normal: 26096 pages in unavailable ranges
+[    0.017985] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:4 nr_cpu_ids:4 nr_node_ids:1
+[    0.111631] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111632] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111633] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111634] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111635] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111636] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111636] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111637] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111638] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111639] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111640] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111641] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111641] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111642] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111643] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111644] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111645] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111646] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111647] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111648] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111649] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111650] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111651] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111652] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111653] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111653] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111654] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111655] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111656] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111657] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111657] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111658] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111659] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111660] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111661] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111662] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111662] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111663] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111664] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111665] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111666] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111666] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111667] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111668] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111669] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111670] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111670] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111671] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111672] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111673] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111674] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111675] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111676] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111677] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111678] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111679] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111680] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111681] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111681] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111682] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111683] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111684] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111685] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111685] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111686] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111687] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111688] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111689] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111690] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111690] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111691] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111692] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111693] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111694] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111694] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111695] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111696] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111697] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111698] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111699] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111700] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111701] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111702] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111703] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111703] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111704] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111705] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111706] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111707] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111708] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111709] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111710] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111711] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111712] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111712] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111713] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111714] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111715] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111716] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111717] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111717] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111718] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111719] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111720] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111721] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111722] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111722] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111723] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111724] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111725] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111726] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111727] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111727] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111728] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111729] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111730] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111731] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111732] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111732] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111733] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111734] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111735] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111736] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111737] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111737] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111738] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111739] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111740] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111741] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111742] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111743] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111744] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111745] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111745] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111746] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111747] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111748] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111749] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111749] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111750] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111751] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111752] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111752] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111753] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111754] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111755] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111756] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111756] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111757] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111758] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111759] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111760] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111760] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111761] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111762] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111763] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111764] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111764] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111765] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111766] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111767] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111768] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111769] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111770] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111771] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111772] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111772] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111773] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111774] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111775] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111776] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111776] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111777] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111778] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111779] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111780] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111780] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111781] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111782] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111783] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111784] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111784] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111785] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111786] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111787] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111788] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111788] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111789] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111790] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111791] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111792] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111793] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111793] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111794] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.111795] multikernel: IPI ring full for instance 0 (head=53, tail=54)
+[    0.112213] mktty: spawn ready (/dev/mktty0)
+[    0.112332] Linux agpgart interface v0.103
+[    0.114110] loop: module loaded
+[    0.114266] Key type psk registered
+[    0.115404] tun: Universal TUN/TAP device driver, 1.6
+[    0.115497] PPP generic driver version 2.4.2
+[    0.115626] mousedev: PS/2 mouse device common for all mice
+[    0.115671] i2c_dev: i2c /dev entries driver
+[    0.115694] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[    0.115711] device-mapper: uevent: version 1.0.3
+[    0.115769] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[    0.115778] intel_pstate: CPU model not supported
+[    0.115821] drop_monitor: Initializing network drop monitor service
+[    0.116087] NET: Registered PF_INET6 protocol family
+[    0.118344] Segment Routing with IPv6
+[    0.118358] In-situ OAM (IOAM) with IPv6
+[    0.118390] NET: Registered PF_PACKET protocol family
+[    0.119283] Key type dns_resolver registered
+[    0.120294] NET: Registered PF_VSOCK protocol family
+[    0.121418] resctrl: No MBM correction factor available
+[    0.121436] IPI shorthand broadcast: enabled
+[    0.122853] sched_clock: Marking stable (122004250, 253938)->(252536859, -130278671)
+[    0.122995] multikernel heap: registered /dev/dma_heap/multikernel
+[    0.123040] registered taskstats version 1
+[    0.124403] Loading compiled-in X.509 certificates
+[    0.125684] Loaded X.509 cert 'Build time autogenerated kernel key: d8b765dd3cc8d0f42aad135a5cd9987f8a7efbfe'
+[    0.128705] Demotion targets for Node 0: null
+[    0.128773] Key type .fscrypt registered
+[    0.128778] Key type fscrypt-provisioning registered
+[    0.128822] Key type big_key registered
+[    0.146653] Freeing initrd memory: 5516K
+[    0.147126] Key type encrypted registered
+[    0.147134] AppArmor: AppArmor sha256 policy hashing enabled
+[    0.147140] ima: No TPM chip found, activating TPM-bypass!
+[    0.147152] Loading compiled-in module X.509 certificates
+[    0.147579] Loaded X.509 cert 'Build time autogenerated kernel key: d8b765dd3cc8d0f42aad135a5cd9987f8a7efbfe'
+[    0.147584] ima: Allocated hash algorithm: sha256
+[    0.147604] ima: No architecture policies found
+[    0.147620] evm: Initialising EVM extended attributes:
+[    0.147624] evm: security.selinux
+[    0.147627] evm: security.SMACK64
+[    0.147630] evm: security.SMACK64EXEC
+[    0.147633] evm: security.SMACK64TRANSMUTE
+[    0.147636] evm: security.SMACK64MMAP
+[    0.147639] evm: security.apparmor
+[    0.147642] evm: security.ima
+[    0.147645] evm: security.capability
+[    0.147648] evm: HMAC attrs: 0x1
+[    0.148105] RAS: Correctable Errors collector initialized.
+[    0.148280] clk: Disabling unused clocks
+[    0.148285] PM: genpd: Disabling unused power domains
+[    0.164588] Freeing unused decrypted memory: 2028K
+[    0.165514] Freeing unused kernel image (initmem) memory: 5244K
+[    0.165547] Write protecting the kernel read-only data: 40960k
+[    0.165861] Freeing unused kernel image (text/rodata gap) memory: 720K
+[    0.165941] Freeing unused kernel image (rodata/data gap) memory: 204K
+[    0.176959] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[    0.176971] Run /init as init process
+[    0.190453] mk_transport: module verification failed: signature and/or required key missing - tainting kernel
+[    0.190717] Multikernel vsock transport registered
+MK_AGENT_START sandbox=runtime-g7-authority generation=5f2fe7dc4f4bf0333f81ce31ada37ff6 port=7717
+[    0.337565] reboot: Power off not available: System halted instead
+[    0.337579] Multikernel instance 27 shutting down

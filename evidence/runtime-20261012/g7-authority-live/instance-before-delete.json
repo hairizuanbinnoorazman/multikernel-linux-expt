@@ -1,0 +1,18 @@
+{
+  "name": "mklinux-g7-authority-20261012",
+  "zone": "asia-southeast1-b",
+  "machine_type": "n2-standard-16",
+  "disks": [
+    {
+      "name": "mklinux-g7-authority-20261012",
+      "boot": true,
+      "auto_delete": true
+    }
+  ],
+  "service_accounts": [],
+  "shielded_instance_config": {
+    "enableIntegrityMonitoring": true,
+    "enableSecureBoot": false,
+    "enableVtpm": true
+  }
+}

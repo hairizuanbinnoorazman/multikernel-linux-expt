@@ -1,0 +1,19 @@
+{
+  "observed_kernel_revision": "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7",
+  "observed_kernel_release": "7.0.0-mk2-gce-lab",
+  "observed_vmlinux_sha256": "5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10",
+  "observed_kerf_revision": "8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec",
+  "capture_method": "Structured transcription of successful read-only gcloud tool outputs; source/configuration stdout is retained separately in host-source-audit.log.",
+  "kernel_hash_command": [
+    "gcloud",
+    "compute",
+    "ssh",
+    "mklinux-g7-authority-20261012",
+    "--zone=asia-southeast1-b",
+    "--command=sudo sha256sum ${OPERATOR_HOME}/src/linux/vmlinux"
+  ],
+  "comparison_source": "evidence/runtime-20261011/maintainability-live/component-audit-v2.log",
+  "historical_digest_matches": true,
+  "transport_module_present_at_initial_check": false,
+  "transport_module_built_or_deployed": false
+}

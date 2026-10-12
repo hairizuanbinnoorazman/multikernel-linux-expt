@@ -1,0 +1,5 @@
+{
+  "user_request": "introduce the fixes for them; redo it and collect evidence accordingly",
+  "scope": "Local security fixes and disposable live verification with resource cleanup",
+  "security_update_services": "Left enabled"
+}

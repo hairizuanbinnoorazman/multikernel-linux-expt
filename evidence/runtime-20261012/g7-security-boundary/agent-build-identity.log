@@ -1,0 +1,13 @@
+{"evidence_command": {"argv": ["python3", "-c", "import subprocess,hashlib,pathlib,json; files=[pathlib.Path(\"/tmp/mk-g7-bin\")/name for name in [\"mk-agent\",\"mk-agentctl\"]]; print(json.dumps({\"go_version\":subprocess.check_output([\"go\",\"version\"],text=True).strip(),\"components\":[{\"name\":p.name,\"sha256\":hashlib.sha256(p.read_bytes()).hexdigest(),\"identity\":json.loads(subprocess.check_output([str(p),\"--version\"],text=True))} for p in files]},indent=2))"], "started_at": "2026-10-12T05:48:28.518757Z"}}
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/usr/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+{"evidence_command_result": {"ended_at": "2026-10-12T05:48:28.601455Z", "exit_status": 1}}

@@ -1,0 +1,984 @@
+diff --git a/docs/project/TASKS.md b/docs/project/TASKS.md
+index 5676c5c..a76a383 100644
+--- a/docs/project/TASKS.md
++++ b/docs/project/TASKS.md
+@@ -1,6 +1,6 @@
+ # Implementation tasks
+ 
+-Last updated: 2026-10-11
++Last updated: 2026-10-12
+ 
+ ## Live GCE proof
+ 
+@@ -190,6 +190,11 @@ The detailed exit criteria and ordering are in
+   before treating the checked MVP and feature rows as full G4, G5, or G6 gate
+   conformance.
+ - [ ] G7: pass the security, fuzzing, failure, soak, and resource-leak matrix.
++  - [ ] Execute the [STRIDE security checklist](../runtime/plans/g7-security-checklist.md),
++    mapping threats to reviewed findings and retained evidence.
++  - [ ] Evaluate the separate-kernel workload-escape hypothesis against a pinned
++    gVisor configuration; document compromised-child limitations and avoid
++    claiming an isolation advantage without supporting evidence.
+ - [ ] G8: add bounded health, diagnostics, structured logging, tested recovery,
+   service hardening, and a maintainable shim layout.
+ - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
+diff --git a/docs/runtime/README.md b/docs/runtime/README.md
+index 1238d12..ef5ce5d 100644
+--- a/docs/runtime/README.md
++++ b/docs/runtime/README.md
+@@ -6,6 +6,12 @@
+   boundary.
+ - [`decisions/`](decisions/): architecture decision records.
+ - [`research/`](research/): related-work audits.
++- [`research/stride-threat-model.md`](research/stride-threat-model.md): STRIDE
++  threats, workload-escape hypothesis, and the gVisor comparison boundary.
++- [`plans/g7-security-checklist.md`](plans/g7-security-checklist.md): proposed
++  security reviews, negative tests, fuzzing, and comparative research tasks.
++- [`research/g7-security-boundary-assessment.md`](research/g7-security-boundary-assessment.md):
++  SEC-01/SEC-02/SEC-11 findings, evidence scope, and claim-specific confidence.
+ - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
+ - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
+   boundaries.
+diff --git a/docs/runtime/plans/07-security-and-reliability.md b/docs/runtime/plans/07-security-and-reliability.md
+index 05ca99b..fe4c964 100644
+--- a/docs/runtime/plans/07-security-and-reliability.md
++++ b/docs/runtime/plans/07-security-and-reliability.md
+@@ -6,6 +6,17 @@ Define a defensible preview security posture and prove recovery under component
+ failure. This gate does not attempt to turn Multikernel into a KVM-equivalent
+ security boundary.
+ 
++## Threat-model method and security backlog
++
++Use [STRIDE across data flows and trust boundaries](../research/stride-threat-model.md)
++and execute the [G7 security task checklist](g7-security-checklist.md).
++The model includes the project's hypothesis that separate Linux kernels could
++make workload escape harder than gVisor. That comparative claim is unproven;
++child-kernel compromise must be evaluated separately from process compromise,
++and the existing lack of a demonstrated hostile-child hardware boundary remains
++an architectural limitation. Closing G7 qualifies the documented trusted preview,
++not a claim of superiority to gVisor or hostile multi-tenant isolation.
++
+ ## Security work
+ 
+ - Threat-model primary daemon, shim, child agent, workload, image, control
+diff --git a/docs/runtime/status.md b/docs/runtime/status.md
+index b300d7e..eeb4ff0 100644
+--- a/docs/runtime/status.md
++++ b/docs/runtime/status.md
+@@ -64,6 +64,13 @@ retained and remains billable.
+ 
+ ## Safety boundary
+ 
++The [G7 boundary assessment](research/g7-security-boundary-assessment.md)
++reproduces the pinned source audit and records fresh portable agent checks.
++It identifies an architectural limitation after child-kernel compromise and
++source paths that may expose bootstrap credentials. Live authority collection
++and remediation remain open; full G7 and a security advantage over gVisor are
++not established.
++
+ The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels
+ do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
+ Never assign the primary boot disk, NIC, or a shared controller to a child, and
+diff --git a/evidence/README.md b/evidence/README.md
+index 0ea999e..4965243 100644
+--- a/evidence/README.md
++++ b/evidence/README.md
+@@ -24,6 +24,9 @@ not evidence that the affected run passed a gate.
+ - [`runtime-20261011/`](runtime-20261011/README.md): maintainability source
+   provenance, portable and live GCE checks, restart/isolation coverage, and
+   cloud cleanup.
++- [`runtime-20261012/`](runtime-20261012/README.md): partial G7 boundary
++  assessment, pinned-source reproduction, portable agent checks, live authority
++  test preparation, findings, and cloud cleanup.
+ 
+ Evidence captures historical state and may contain terminal formatting such as
+ CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely
+diff --git a/guest/README.md b/guest/README.md
+index a75c3dd..fe2594e 100644
+--- a/guest/README.md
++++ b/guest/README.md
+@@ -4,6 +4,8 @@
+ - `daxfs-*` and `docker-proof.sh`: DAXFS and Docker-derived root proofs.
+ - `ext4-bootstrap-init`: bounded rejection of a missing direct ext4 root.
+ - `mediated-*`: AF_VSOCK transport and primary-mediated ext4 roots.
++- `security-authority-probe.sh`: diagnostic workload for G7 privilege and
++  synthetic child-bootstrap canary checks. Never included in production images.
+ 
+ See the [experiment asset map](../docs/experiments/ASSET-MAP.md) for the
+ matching builders, tests, reports, and evidence.
+diff --git a/scripts/README.md b/scripts/README.md
+index e04795a..eadf38b 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -24,6 +24,13 @@ to a stable remote path. For the thematic mapping, see
+ - Concurrent ctr/Docker resource identity and churn are covered by
+   `test-runtime-concurrent-churn-live.sh`.
+ - Repository checks: `check-docs.sh`.
++- G7 security boundary assessment: `audit-runtime-isolation-source.py` verifies
++  the pinned review files. `build-security-authority-initramfs.sh` and
++  `test-runtime-security-authority-live.sh` provide explicit, disposable-host
++  diagnostic fixtures; they are not included in default checks. See the
++  [assessment](../docs/runtime/research/g7-security-boundary-assessment.md).
++  `verify-g7-boundary-evidence.py` checks the scoped source archives and cloud
++  cleanup ledger comparison without running privileged probes.
+ - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
+ 
+ Destructive and billable operations must remain explicit Makefile targets;
+diff --git a/docs/runtime/plans/g7-security-checklist.md b/docs/runtime/plans/g7-security-checklist.md
+new file mode 100644
+index 0000000..5d1e889
+--- /dev/null
++++ b/docs/runtime/plans/g7-security-checklist.md
+@@ -0,0 +1,175 @@
++# G7 STRIDE security review and comparison tasks
++
++Status: assessment in progress, 2026-10-12. SEC-01 and SEC-11 have completed
++source assessments with an architectural limitation; SEC-02 has source and
++portable coverage but remains open for live inventory and remediation. See the
++[boundary assessment](../research/g7-security-boundary-assessment.md). Checked
++assessment tasks do not signify that the security property passed. Use the
++[STRIDE threat model](../research/stride-threat-model.md),
++[G7 plan](07-security-and-reliability.md), and
++[G1 audit](../research/g1-pinned-isolation-audit.md) together.
++
++## Execution and evidence rules
++
++Assign an owner before starting each task. Retain exact source/binary/kernel
++hashes, configuration, initial attacker privileges, assertions, observed access,
++failures, and final ownership/resource inventory. Label portable tests and
++privileged tests separately. Run hostile-child, crash, reset, and exhaustion
++experiments only on disposable hosts with synthetic data and a recovery path;
++cloud runs require before/after cost and cleanup ledgers.
++
++Do not run security probes as an implicit consequence of writing this checklist.
++For active testing, first define bounded fixtures and specific stop conditions.
++A negative result means the tested route failed under that configuration, not
++that escape is impossible. Findings need reproduction, impact, remediation or
++explicit disposition, and a verification rerun.
++
++## First priority: evaluate the escape hypothesis
++
++- [x] **SEC-01 — Freeze the claim and attacker tiers (TM-09/TM-12).**
++  Owner/source reviewer: Codex. Outcome: source assessment completed;
++  hostile-child containment is an architectural limitation. Independent review
++  remains pending in the completion review.
++  Re-audit direct boot, page-table control, E820, shared memory/IPI, CPU handoff,
++  APIC/MSR/I/O, and DMA behavior at the deployed kernel revision. Separate
++  process compromise, child root, and child-kernel execution. Deliver a reviewed
++  claim matrix identifying software policy versus independently enforced
++  barriers. Decision criterion: retain trusted-single-tenant scope wherever
++  hostile-child barriers are missing; do not claim superiority to gVisor.
++
++- [ ] **SEC-02 — Inventory actual workload authority (TM-05).**
++  Owner/source reviewer: Codex. Source review and agent race suite complete;
++  live collection and credential-exposure remediation remain open.
++  Inspect [agent execution](../../../runtime/agent/oci_exec_linux.go),
++  [OCI validation](../../../runtime/agent/manager.go), root policy, and bootstrap.
++  In non-root and supported root fixtures, enumerate effective capabilities,
++  mounts, accessible devices, `/proc`, `/sys`, agent endpoints, module-loading
++  interfaces, token/command-line exposure, and inherited file descriptors.
++  Attempt bounded reads of synthetic credentials and writes to runtime-owned
++  canaries. Acceptance: every exposed authority is documented; unintended
++  credential/descriptor exposure is fixed; unsupported OCI controls fail closed.
++  Seccomp and namespace/resource projection are currently rejected rather than
++  enforced by the agent, so proposed confinement must account for that limit.
++
++- [ ] **SEC-03 — Audit authentication and operation authorization (TM-01).**
++  Review [daemon RPC](../../../runtime/internal/daemon/server.go),
++  [network RPC](../../../runtime/internal/network/rpc.go),
++  [agent server](../../../runtime/agent/server.go), and shim reconnection.
++  Test wrong UID/token/version/endpoint, reused sandbox names, stale generation,
++  unauthenticated data paths, and reconnect after restart. Include authenticated
++  peers requesting unauthorized operations. Acceptance: requests fail before
++  mutation, returned descriptors belong to the expected generation, and no
++  rejected request leaks credentials or changes another sandbox.
++
++## Repository and protocol review
++
++- [ ] **SEC-04 — Review privileged input conversion (TM-02).**
++  Trace OCI fields through shim rootfs preparation, root/image builders,
++  [safe-file helpers](../../../runtime/internal/safefile/),
++  [rootfs service](../../../runtime/internal/rootfs/),
++  [Kerf adapter](../../../runtime/internal/kerf/), and subprocess execution.
++  Test traversal, symlink substitution/races, special files, hostile IDs,
++  mount options, environment/PATH influence, and argument injection.
++  Acceptance: caller input cannot mutate host canaries, approved boot artifacts,
++  or caller snapshots, and subprocesses use approved executables and bounded
++  arguments/time/resources. Review unsafe code, cgo, and native helpers too.
++
++- [ ] **SEC-05 — Add a targeted fuzzing campaign (TM-03).**
++  Cover [protocol JSON/framing](../../../runtime/protocol/), OCI conversion,
++  state decoding, network RPC/frame parsing, and
++  [native NBD transport](../../../tools/mkvsock-nbd.c).
++  Seed with valid contracts and existing boundary fixtures; mutate truncation,
++  duplicates, lengths, offsets, integer limits, sequencing, and disconnects.
++  Use a suitable native harness/sanitizers for C and Go fuzz targets for Go.
++  Acceptance: no unresolved high-severity finding, panic, out-of-bounds access,
++  unchecked allocation, unauthorized mutation, or unbounded wait in the tested
++  corpus. Record budgets, coverage, harness limitations, and regression seeds.
++
++- [ ] **SEC-06 — Audit lifecycle and recovery authorization (TM-04).**
++  Review state, lifecycle, storage/rootfs/network journals, shim recovery, and
++  generation reuse. Inject crashes before/after durable writes and resource
++  mutations, concurrent create/delete, replay, corrupt records, and changed live
++  ownership. Acceptance: stale state never authorizes another generation's
++  teardown; ambiguity is reported; recovery is bounded and repeatable;
++  resources reconcile or remain explicitly accounted for.
++
++- [ ] **SEC-07 — Verify storage and network mediation (TM-06).**
++  Extend existing cross-sandbox storage and network-isolation suites with wrong
++  export identity, range overflow, read/write-policy violations, descriptor
++  reuse, reconnect, malformed packet, and forged source-address fixtures.
++  Inspect primary/metadata-service reachability and required policy separately
++  from sibling reachability. Acceptance: only configured paths are reachable,
++  no primary device/controller is assigned, and host/sibling canaries and
++  firewall/export ownership remain intact through restart and cleanup.
++
++- [ ] **SEC-08 — Verify audit records and secret handling (TM-07).**
++  Trace tokens through bootstrap, command lines, state, errors, stdout/stderr,
++  evidence collectors, and diagnostic archives. Use synthetic distinct secrets
++  so redaction can be asserted without publishing real credentials.
++  Acceptance: unauthorized readers cannot obtain secrets; records identify
++  component/operation/sandbox/generation/outcome; bounded logs preserve useful
++  evidence under pressure. Coordinate diagnostic implementation with G8.
++
++- [ ] **SEC-09 — Execute the G7 failure and soak matrix (TM-08).**
++  Test shim, daemon, agent, child kernel, storage/network server and connection,
++  containerd, primary userspace restart, and GCE stop/start/reset, idle and under
++  I/O. Add parallel churn, exhaustion, slow readers, log pressure, clock changes,
++  and bounded sustained load. Acceptance: record detection time, workload/data
++  effect, reconciliation, and final inventory for every case; no silent leaks
++  or cross-generation release; primary management stays within specified
++  availability bounds. Existing G6 restart tests are inputs, not this full pass.
++
++- [ ] **SEC-10 — Establish least-privilege requirements (TM-10).**
++  Inventory UIDs, capabilities, sysfs/device/filesystem access, subprocesses,
++  descriptors, and network access for every daemon and helper. Review
++  [systemd units](../../../deploy/systemd/) and actual deployed confinement.
++  Acceptance: every retained privilege has a concrete need; propose reductions
++  and test compatible hardening with restart/recovery on a qualified host.
++  G7 records the boundaries; full operational service hardening remains G8.
++
++## Controlled comparison and architectural decision
++
++- [x] **SEC-11 — Evaluate post-compromise containment (TM-09/TM-12).**
++  Owner/source reviewer: Codex. Outcome: pinned source establishes the missing
++  barrier; no live primary-memory exploit is required or claimed. Continue the
++  existing trusted-child scope; any expanded isolation claim needs a new design.
++  First review SEC-01; if the source audit establishes a missing barrier, record
++  it without requiring an exploit demonstration. If a live confirmation is
++  useful, design a bounded approved child-kernel fixture that accesses only
++  explicitly reserved synthetic primary/sibling memory canaries. Preserve
++  management access and abort on unexpected access or host instability. Do not
++  scan arbitrary host memory or publish real data. Distinguish a fixture that
++  assumes kernel compromise from a demonstration that a workload can achieve it.
++  Acceptance: retain observed reads/writes and exact assumptions; confirmed
++  unauthorized access refutes that containment claim and triggers an architecture
++  decision about hardware-backed isolation or the continued trusted-child scope.
++
++- [ ] **SEC-12 — Review dependencies and artifact trust (TM-11).**
++  Inventory Go, Python, C, kernel/module, Kerf, CNI, and deployment dependencies;
++  record versions, licenses, known vulnerabilities, and reachable-code triage.
++  Verify hashes and ownership at install and boot, including a mismatched
++  kernel/module/initramfs fixture. Acceptance: unresolved material vulnerabilities
++  and provenance gaps are explicit; wrong artifacts fail before allocation.
++  Feed inventory/provenance automation into G9 rather than declaring G9 complete.
++
++- [ ] **SEC-13 — Produce the pinned gVisor comparison report.**
++  Pin gVisor release, platform, host kernel, privileges, filesystem/network modes,
++  and resource policy. Match workload/root privileges and permitted external
++  access; document unavoidable differences. Compare reachable interfaces,
++  memory-safety exposure, independent containment after kernel/Sentry compromise,
++  helper compromise, sibling access, and availability. Use equivalent synthetic
++  assets and matched adversary starting conditions; do not compare a compromised
++  child kernel only against an uncompromised Sentry. Report compatibility and
++  performance separately from security. Acceptance: every claim has source or
++  reproducible evidence and explicit scope; publish adverse results and avoid
++  a general superiority claim from finite negative tests or exploit counts.
++
++## Completion review
++
++- [ ] Assign reviewers, map every TM row to findings/tests/evidence, and record
++  residual risks with explicit rationale and acceptance ownership.
++- [ ] Publish the trusted-single-tenant security statement, including the
++  consequences of child-kernel compromise and the comparison's limitations.
++- [ ] Review the full G7 exit criteria independently. Keep G7 unchecked until
++  fuzzing, failure-matrix, privilege-boundary, and resource-leak requirements
++  pass; a completed threat-model document alone does not close the gate.
+diff --git a/docs/runtime/research/g7-security-boundary-assessment.md b/docs/runtime/research/g7-security-boundary-assessment.md
+new file mode 100644
+index 0000000..52ad1cb
+--- /dev/null
++++ b/docs/runtime/research/g7-security-boundary-assessment.md
+@@ -0,0 +1,138 @@
++# G7 security boundary assessment: SEC-01, SEC-02, SEC-11
++
++Assessment started: 2026-10-12. Executor and source reviewer: Codex.
++Independent reviewer: not yet assigned. This is an engineering assessment,
++not an independent penetration test or full G7 qualification.
++
++## Conclusion and confidence statement
++
++The pinned architecture supports approved child kernels and trusted workloads
++on a single-tenant node. It does not establish containment after arbitrary
++child-kernel execution. No evidence presently supports a claim that this
++runtime is harder to escape than gVisor.
++
++Confidence must be attached to an individual claim and its evidence. Passing
++unit tests is evidence about those behaviors, not a percentage probability
++that the repository is secure. The review below records both protective
++behavior and the reasons stronger security claims are blocked.
++
++| Claim | Assessment | Evidence basis / limit |
++| --- | --- | --- |
++| The audited boot path enters the child at kernel privilege with child-controlled first-level page tables | High confidence in the source conclusion | Exact pinned assembly and spawn source, with hashes also checked on a restored qualified host |
++| Assigned E820 regions and initial mappings independently contain a malicious child kernel | Unsupported | These are software ownership/discovery mechanisms; the direct boot path does not install a separate child-specific second-level boundary |
++| The restored host matches the previously qualified kernel binary | Verified artifact identity | `vmlinux` SHA-256 matches the retained October 11 manifest; this is not a fresh full host qualification |
++| OCI validation and selected execution constraints behave as tested | Verified portable behavior | Fresh agent race-suite results; many lifecycle tests use no-chroot fixtures and cannot establish child confinement |
++| A non-root or root workload cannot obtain the bootstrap credential | Pending live authority results; source indicates exposure | Token appears in kernel and agent command lines; workload procfs is the child procfs |
++| A root workload with omitted capabilities is confined to the OCI filesystem | Unsupported as a general security claim | Credential/chroot setup does not add PID/mount isolation inside the child or impose a default capability reduction |
++| This runtime provides stronger escape resistance than gVisor | Unproven | No matched, pinned comparison has been performed; the post-child-kernel-compromise boundary is missing |
++
++## Evidence identity and reproducibility
++
++The [evidence bundle](../../../evidence/runtime-20261012/g7-security-boundary/README.md)
++records the exact dirty workspace, reviewed file hashes, compiled agent hashes,
++command outcomes, and limitations. The kernel pin is
++`3bdd35b64413da0b4e089ce931bfc2e8b031cbf7`, Kerf pin is
++`8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec`, and the restored host's
++`vmlinux` digest is
++`5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10`.
++
++The [source-audit helper](../../../scripts/audit-runtime-isolation-source.py)
++verifies nine immutable upstream files and emits review anchors. The original
++seven G1 file hashes reproduced exactly, including the host's copies. This
++binds conclusions to reviewed source rather than a mutable upstream branch.
++The transport module's local build-safety patch is separate from the direct
++boot/memory audit and must be recorded for a live transport fixture.
++
++## SEC-01: attacker tiers and source re-audit
++
++The attacker tiers are process execution, child root with the actually granted
++capabilities, and arbitrary child-kernel execution. Primary administrative
++compromise is outside containment guarantees. Root inside an OCI chroot is not
++automatically arbitrary kernel execution, but granted kernel-administration
++capabilities and accessible kernel interfaces can shorten that transition.
++
++The assembly reloads `__KERNEL_CS`, writes CR3, and jumps to the child entry.
++The spawn code builds ordinary identity mappings for allocated memory; E820
++lists assigned regions as RAM. Both guide a cooperative Linux instance.
++Neither prevents an attacker already executing in that kernel from replacing
++its first-level mappings. The outer GCE hypervisor bounds the VM, which contains
++both primary and child; it does not supply separate EPT domains for them.
++
++CPU parking, membership checks, receiver ring-index masking, packet bounds, and
++child-specific shutdown handlers are useful correctness and fault-containment
++controls. They do not mediate every privileged instruction or protect shared
++memory against arbitrary ring-0 writes. The DMA heap explicitly exposes shared
++physical buffers; device mediation avoids assigning the primary controller but
++does not create CPU memory isolation.
++
++Disposition: source assessment completed with an architectural limitation.
++Retain the existing trusted-child contract. A hostile-child security claim
++requires an independently enforced memory/instruction boundary and a new
++review; it cannot be achieved by stronger RPC authentication alone.
++
++## SEC-02: workload authority review
++
++The source review establishes these paths to measure:
++
++- `guest/mk-agent-init` mounts child procfs/devtmpfs/sysfs and binds them into
++  the OCI root. The proc bind has `nosuid,noexec,nodev`, which does not make
++  ordinary proc files confidential or introduce a PID namespace. Sysfs is
++  remounted read-only, but privileged workloads may have other kernel interfaces.
++- `mk.token` is passed in the child kernel command line, then supplied to
++  `mk-agent` through `--token-hex`. The private Unix socket directory is outside
++  the workload root and mode 0700; these command-line paths can expose the
++  credential independently of direct socket access.
++- `Manager.StartWithSize` applies chroot and UID/GID/groups and supplies the
++  requested environment. It does not request new child PID/mount/user namespaces.
++- When OCI capabilities are omitted, the manager does not require a default
++  reduced set. Explicit sets use bounding-set drops, capset, and ambient handling.
++  `noNewPrivileges` is applied only when requested. Confirm the actual result
++  after exec rather than inferring it solely from UID.
++- Agent projection rejects namespaces/resources/seccomp. The primary converter
++  handles selected standard OCI inputs for a dedicated child; rejection or
++  translation is not proof of an independently enforced hostile-child boundary.
++- The restored kernel enables modules, `/dev/mem`, and x86 I/O privilege support;
++  enforced module signing is disabled in its configuration. Configuration alone
++  does not prove that a workload can use these facilities: permissions,
++  capabilities, lockdown, and device visibility must also be measured.
++
++The diagnostic harness boots separate children for non-root, root with explicit
++empty capabilities plus `noNewPrivileges`, and root with omitted capabilities.
++It collects identity, capabilities, mounts, device permissions, descriptors,
++credential-visibility booleans, and exact synthetic child-bootstrap canary
++access. It never prints tokens or scans arbitrary primary/sibling memory.
++It uses the current production agent/bootstrap with a diagnostic initramfs;
++mediated-root and Docker-specific policy need separate qualification.
++
++Disposition: source review and portable tests completed; live workload inventory
++and any necessary credential remediation remain open until results are recorded.
++
++## SEC-11: containment after child-kernel compromise
++
++The source re-audit is sufficient to identify the missing architectural barrier.
++A live primary-memory overwrite is not needed to establish that E820 and
++first-level page tables are controlled by the child kernel itself.
++
++No arbitrary-kernel payload, primary/sibling memory read, module-loading test,
++APIC/MSR abuse, or destructive host probe is part of this assessment. The
++child-bootstrap filesystem canary is a SEC-02 workload-authority fixture; access
++to it must never be described as a demonstrated escape to the primary host.
++
++Disposition: post-compromise source assessment completed. Primary-memory attack
++reachability is not live-demonstrated. Security confidence rests on the explicit
++trusted-child assumption, not on a claim that a compromised child remains contained.
++
++## Findings and next decisions
++
++| Finding | Priority and disposition | Required follow-up |
++| --- | --- | --- |
++| G7-BOUNDARY-01: no child-specific hardware boundary after child-kernel execution | Architectural blocker for hostile-child claims; existing supported scope excludes this attacker | Keep trusted-single-tenant scope or design an independently enforced boundary and requalify |
++| G7-AUTHORITY-01: bootstrap credential exposed through command-line paths | High-priority source finding, live verification pending | Remove workload-readable credential paths, test non-root and supported root policy, and retain a verification rerun |
++| G7-AUTHORITY-02: omitted capabilities and shared child proc/device visibility make broad root confinement unsafe to assume | High-priority policy review, live inventory pending | Define supported authority profiles, require intentional grants, and audit kernel-administration/device access |
++| G7-EVIDENCE-01: full G7 and matched gVisor comparison remain incomplete | Release-claim limitation | Execute remaining G7 checks and SEC-13 before making comparative or broad security claims |
++
++Until those follow-ups pass, the defensible statement is: "G4-G6 validate the
++supported lifecycle for trusted workloads. A pinned-source security assessment
++identifies no independently enforced hostile-child boundary. Portable security
++checks cover selected validation and execution behavior; full G7 qualification
++and stronger-than-gVisor escape resistance are not established."
+diff --git a/docs/runtime/research/stride-threat-model.md b/docs/runtime/research/stride-threat-model.md
+new file mode 100644
+index 0000000..1a68574
+--- /dev/null
++++ b/docs/runtime/research/stride-threat-model.md
+@@ -0,0 +1,173 @@
++# STRIDE threat model and workload-escape hypothesis
++
++Status: initial model, 2026-10-12, with a
++[SEC-01/SEC-02/SEC-11 assessment](g7-security-boundary-assessment.md).
++This document does not report a security qualification pass. G7 remains open. The normative
++[ownership and trust contract](../contracts/ownership-and-trust.md) and
++[pinned G1 isolation audit](g1-pinned-isolation-audit.md) remain authoritative.
++The linked assessment distinguishes reproduced source findings, portable tests,
++pending live checks, and architectural limitations.
++
++## Motivation and claim to evaluate
++
++The project's security motivation is to give workloads separate Linux kernels
++so a compromised workload has a harder path to the primary host. Treat
++"harder to escape than gVisor" as a research hypothesis requiring evidence.
++Separate boot identities and private roots establish useful separation of
++runtime state; they do not establish resistance to malicious kernel execution.
++
++Distinguish three starting conditions:
++
++1. An attacker controls a workload process, including its inputs and syscalls.
++2. An attacker obtains workload root or capabilities inside the child. This
++   does not automatically mean arbitrary child-kernel execution; accessible
++   devices, modules, capabilities, and kernel vulnerabilities decide that step.
++3. An attacker obtains arbitrary execution in the child kernel. The current
++   trusted-child assumption has failed at this point.
++
++The existing G1 source audit found direct ring-0 child execution, no EPT-style
++second-level translation, software-coordinated memory ownership, shared
++control memory, and no demonstrated interception of arbitrary APIC, MSR, or
++I/O-port access. A hostile child kernel can construct mappings beyond its
++assigned E820 regions. Tokens cannot protect secrets from a child kernel
++capable of accessing the memory containing them. The exact reachability on a
++deployment remains a qualification question; the architecture already blocks
++a general hostile-child isolation claim.
++
++Running both kernels inside a GCE VM does not supply an isolation boundary
++between those kernels. The cloud hypervisor bounds the VM relative to other
++VMs; this project must establish its own boundary inside that VM.
++
++Consequently the present design may redirect workload syscall handling away
++from the primary kernel and provide compatibility and cooperative fault
++containment. It has not established that exploiting the child Linux kernel
++leaves an independently enforced barrier to primary compromise. Using the
++same Linux revision in both kernels may also expose correlated vulnerabilities.
++
++## Comparison with gVisor
++
++gVisor implements workload-facing Linux interfaces in its Sentry userspace
++application kernel. It constrains the Sentry's host-facing interfaces and uses
++helper processes for selected operations. A fair comparison must include
++those restrictions rather than treating gVisor as ordinary shared-kernel
++containers. See its [security model](https://gvisor.dev/docs/architecture_guide/security/)
++and [architecture introduction](https://gvisor.dev/docs/architecture_guide/intro/),
++reviewed 2026-10-12. Configuration and platform affect the comparison; pin
++them for experiments rather than treating the current docs as a versioned baseline.
++
++| Question | This Multikernel runtime | gVisor comparison baseline |
++| --- | --- | --- |
++| Workload syscall implementation | Approved child Linux kernel | Sentry's implementation of Linux interfaces |
++| Workload-facing implementation exposure | Full configured child Linux surface; reduce and inventory enabled features | Implemented Sentry surface; inventory supported interfaces for pinned release |
++| After workload-facing kernel compromise | Hostile child ring-0 execution has no demonstrated hardware barrier to the primary | Compromised Sentry remains subject to its host sandbox restrictions; review helper and host interfaces |
++| Host-facing paths | Agent/control transport, shared memory/IPI, mediated storage/network, primary helpers | Restricted host syscalls, helpers, filesystem/network interfaces; configuration dependent |
++| Current comparative conclusion | Escape-resistance advantage unproven; compromised-child containment has an architectural gap | Existing design supplies a different defense in depth; no universal ranking inferred |
++
++Evaluate both direct paths through host-facing services and the path through
++child-kernel compromise. Counting kernels, counting exploit stages, or timing
++one exploit does not establish which design is more secure. A single confirmed
++unauthorized host access refutes the corresponding containment claim; a finite
++negative test suite supports only its tested scope.
++
++## Method: four questions and STRIDE
++
++Use the [OWASP four-question process](https://cheatsheetseries.owasp.org/cheatsheets/Threat_Modeling_Cheat_Sheet.html):
++what are we building, what can go wrong, what will we do about it, and did we
++do enough? Apply [Microsoft STRIDE](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats)
++to each process, data store, flow, and boundary crossing. STRIDE categorizes
++threats; prioritization and verification are separate project decisions.
++
++Record each threat's starting privileges, reachable interface, asset affected,
++mitigation, residual risk, owner, and evidence. Review lifecycle transitions
++as well as steady-state flows: identity reuse, rollback, crash recovery, and
++cleanup can turn an otherwise valid request into unauthorized resource access.
++
++## Assets, actors, and assumptions
++
++Protect primary and sibling memory, management CPUs, runtime credentials,
++approved boot artifacts, primary disks/NIC/controllers, workload roots,
++network policy, durable ownership records, host availability, and audit evidence.
++
++For the supported preview, trust the operator, primary kernel, approved child
++kernel/initramfs, Kerf, privileged runtime services, and node configuration.
++Treat OCI metadata/content, workload-controlled requests, incoming protocol
++bytes, identifiers, and stale durable state as untrusted inputs. This model
++examines how bugs could violate the trusted-component assumptions; it does not
++silently expand the supported preview to hostile tenants.
++
++Actors to examine are a compromised workload process, child root with the
++actually granted capabilities, an unauthorized local host user, a malicious
++or stale transport peer, and an attacker with child-kernel execution. Primary
++administrator compromise is outside containment guarantees. Malicious approved
++boot artifacts and dependency compromise are supply-chain risks to inspect.
++
++## Data flows and enforcement boundaries
++
++```mermaid
++flowchart TD
++  OCI[Untrusted OCI metadata and root content] --> CD[containerd / Docker]
++  CD --> SH[Runtime v2 shim]
++  SH -->|Unix socket requests| MD[mkruntimed]
++  MD -->|allocation and lifecycle| K[Kerf / primary kernel]
++  K --> CK[Approved child kernel]
++  SH <-->|agent control and process I/O| AG[mk-agent]
++  AG --> W[Workload process]
++  W -->|syscalls| CK
++  MD --> RS[Primary rootfs / storage helpers]
++  CK <-->|mediated storage| RS
++  SH <-->|Unix socket and TUN descriptor| ND[mknetd]
++  CK <-->|network transport through shim| SH
++  MD <--> J[Durable ownership journal]
++  CK <-.->|shared memory / IPI: no hostile-kernel barrier proved| K
++```
++
++The arrows show interfaces, not uniformly enforced security boundaries.
++Inventory the following boundary checks against the implementation:
++
++| Boundary | Required enforcement or limitation |
++| --- | --- |
++| OCI input to shim/root preparation | Strict feature rejection, bounded decoding, safe paths, immutable caller snapshot, no caller-controlled privileged hooks |
++| Local clients to primary daemons | Socket ownership, peer UID checks, operation authorization, sandbox/generation binding |
++| Shim/daemon to agent | Version, token, endpoint, and generation validation; bounded frames; tokens inaccessible to ordinary workload processes |
++| Workload to agent/bootstrap | Credentials, process rights, filesystem/device exposure, inherited descriptors; child root access must be measured |
++| Child to primary storage/network | Export ownership, request/frame bounds, generation checks, restricted descriptors and routes |
++| Journal to reconciliation actions | Validate identity and live ownership before destructive mutations; stale state cannot authorize deletion |
++| Child kernel to primary/sibling kernel | Software ownership only at audited revision; no hostile-child memory or platform isolation claim |
++
++## Initial STRIDE threat register
++
++Every row is open for review. Existing regression coverage can be reused after
++its exact assertions are mapped; a listed control is a requirement to verify,
++not a statement that it is implemented everywhere. Multiple categories can apply.
++
++| ID | STRIDE | Scenario and impact | Control to verify / proposed task |
++| --- | --- | --- | --- |
++| TM-01 | Spoofing | Wrong UID, stolen token, or stale peer controls a sandbox | Peer authentication and per-operation generation binding; SEC-03 |
++| TM-02 | Tampering, elevation | OCI paths, links, mount inputs, or executable arguments redirect a privileged host operation | Descriptor-based path safety, strict OCI policy, bounded subprocesses; SEC-04 |
++| TM-03 | Tampering, denial | Malformed frames, lengths, offsets, JSON, or storage requests corrupt state or stall helpers | Decoder/framing validation and bounded allocation/time; SEC-05 |
++| TM-04 | Tampering, elevation | Stale journal or racing delete acts on a replacement sandbox's resources | Live identity verification, generation-bound rollback/recovery; SEC-06 |
++| TM-05 | Information disclosure, elevation | Workload reads bootstrap tokens, agent state, privileged descriptors, or runtime-owned files | Effective permissions, capabilities, descriptor and mount inventory; SEC-02 |
++| TM-06 | Information disclosure, tampering | A child requests another generation's root, block ranges, endpoint, or reconnect | Single-owner exports, bounded ranges, network isolation; SEC-07 |
++| TM-07 | Repudiation, disclosure | Missing identity obscures destructive actions, or logs/diagnostics expose credentials | Stable operation records, redaction, bounded collection; SEC-08 and G8 |
++| TM-08 | Denial of service | Churn, log pressure, blocked I/O, or malformed peers exhaust primary resources | Primary headroom, quotas, bounded queues/timeouts, leak checks; SEC-09 |
++| TM-09 | Elevation, disclosure, tampering | Workload obtains child-kernel execution and crosses software memory ownership | Architectural limitation; source re-audit and bounded canary experiment; SEC-01/SEC-11 |
++| TM-10 | Elevation, denial | Compromised primary helper uses unnecessary host privileges | Privilege inventory and isolation of helpers; SEC-10 and G8 |
++| TM-11 | Tampering, elevation | Altered kernel/module/initramfs/helper or vulnerable dependency becomes approved code | Pinning, provenance, deployment verification, vulnerability triage; SEC-12 |
++| TM-12 | Denial of service | Hostile child controls interrupts/MSRs/I/O or abuses shared CPU/cache/memory resources | Explicit unsupported boundary and architectural decision; SEC-01/SEC-11 |
++
++## Prioritization and closure
++
++Address unauthorized primary/sibling access, privileged host operations,
++credential exposure, and cross-generation destruction first. Next address
++bounded availability and auditability. Record reachability and impact separately;
++do not lower impact because a component is currently assumed trusted.
++
++Threat disposition must be one of verified mitigation, unresolved finding,
++accepted risk with named reviewer and rationale, or architectural limitation.
++No row is closed solely because an existing happy-path test passes. Freeze
++versions and retain exact commands, assertions, failed attempts, findings,
++and cleanup under the [evidence contract](../contracts/evidence.md).
++
++The [security task checklist](../plans/g7-security-checklist.md) supplies the
++execution backlog. G7 qualification and a gVisor-superiority claim are separate
++decisions: passing trusted-preview G7 does not prove hostile-child containment.
+diff --git a/guest/security-authority-probe.sh b/guest/security-authority-probe.sh
+new file mode 100755
+index 0000000..5b70442
+--- /dev/null
++++ b/guest/security-authority-probe.sh
+@@ -0,0 +1,54 @@
++#!/bin/busybox sh
++# Diagnostic workload: read inventories and touch only explicit synthetic canaries.
++# Never print kernel/process command lines, environments, or credential values.
++set -eu
++bb=/bin/busybox
++echo SECURITY_AUTHORITY_BEGIN
++$bb id
++$bb uname -r
++for field in Uid Gid Groups CapInh CapPrm CapEff CapBnd CapAmb NoNewPrivs Seccomp; do
++    $bb grep "^$field:" /proc/self/status || true
++done
++if $bb grep -q 'mk.token=' /proc/cmdline 2>/dev/null; then
++    echo KERNEL_COMMAND_LINE_TOKEN_VISIBLE=yes
++else
++    echo KERNEL_COMMAND_LINE_TOKEN_VISIBLE=no
++fi
++agent_argument_visible=no
++for path in /proc/[0-9]*/cmdline; do
++    if $bb grep -q -e '--token-hex=' "$path" 2>/dev/null; then
++        agent_argument_visible=yes
++    fi
++done
++echo AGENT_ARGUMENT_TOKEN_VISIBLE=$agent_argument_visible
++for path in /dev/mem /dev/kmem /dev/port /dev/nbd0 /dev/kmsg /dev/multikernel \
++    /proc/modules /proc/sys/kernel/modules_disabled /proc/sys/kernel/yama/ptrace_scope \
++    /run/multikernel-agent/control.sock /proc/1/root/run/multikernel-agent/control.sock; do
++    exists=no; readable=no; writable=no
++    [ ! -e "$path" ] || exists=yes
++    [ ! -r "$path" ] || readable=yes
++    [ ! -w "$path" ] || writable=yes
++    echo "PATH_AUTHORITY path=$path exists=$exists readable=$readable writable=$writable"
++done
++echo MOUNTS_BEGIN
++$bb cat /proc/self/mountinfo
++echo MOUNTS_END
++echo DESCRIPTORS_BEGIN
++for fd in /proc/self/fd/*; do
++    echo "FD ${fd##*/} $($bb readlink "$fd" || true)"
++done
++echo DESCRIPTORS_END
++# The marker lives in the child bootstrap, outside the OCI chroot. It is not
++# a primary-host file and is never a real secret. Limit access to this exact path.
++canary=/proc/1/root/security-canary
++if [ "$($bb cat "$canary" 2>/dev/null || true)" = MK_SYNTHETIC_BOOTSTRAP_CANARY ]; then
++    echo CHILD_BOOTSTRAP_CANARY_READ=yes
++else
++    echo CHILD_BOOTSTRAP_CANARY_READ=no
++fi
++if (printf '%s\n' MK_SYNTHETIC_WORKLOAD_WRITE > "$canary") 2>/dev/null; then
++    echo CHILD_BOOTSTRAP_CANARY_WRITE=yes
++else
++    echo CHILD_BOOTSTRAP_CANARY_WRITE=no
++fi
++echo SECURITY_AUTHORITY_END
+diff --git a/scripts/audit-runtime-isolation-source.py b/scripts/audit-runtime-isolation-source.py
+new file mode 100755
+index 0000000..2a4ac76
+--- /dev/null
++++ b/scripts/audit-runtime-isolation-source.py
+@@ -0,0 +1,56 @@
++#!/usr/bin/env python3
++"""Reproduce the pinned-source identity and anchors for SEC-01/SEC-11.
++
++This verifies reviewed bytes and emits source excerpts. It does not infer the
++absence of a hardware boundary merely from an unsuccessful keyword search.
++Fetch files from the recorded immutable raw URLs into SOURCE before running.
++"""
++import argparse
++import hashlib
++import json
++from pathlib import Path
++
++REVISION = "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7"
++FILES = {
++    "arch/x86/multikernel/direct_boot.S": ("7b0b5ccda22591986ea73baf8cb2166f4a1513663cca13b39e5f924a8472e89e", ["SYM_CODE_START_NOALIGN(multikernel_relocate_kernel)", "pushq\t$__KERNEL_CS", "jmp\t*%r14"]),
++    "arch/x86/multikernel/e820.c": ("ca374ca55792a8e97500144f8bd5eee82c22fb3af9fb2005aadb0ce3be6203e2", ["list_for_each_entry(region", "E820_TYPE_RAM"]),
++    "arch/x86/multikernel/spawn.c": ("6a7f5412afa43f36fb645f3c457e6135b7cbd741623707ec5b8880b8cc48c883", ["pgt = mk_build_identity_pgtable(instance)", "mk_ident_map_range(pgt", "machine_ops.power_off = mk_machine_halt"]),
++    "kernel/multikernel/mem.c": ("07c0436128eb7a3d91437589b682d3dd4d65e51e75f727edf2d5d8030b8f68cb", ["phys_addr = multikernel_alloc(size, node)"]),
++    "kernel/multikernel/hotplug.c": ("de0633bb71bb318aab8278db4ac9cf4418cd7f8bb494f0537b75b8f04784c7eb", ["ret = mk_do_cpu_remove(cpu_id)", "MK_RES_ACK"]),
++    "kernel/multikernel/ipi.c": ("4154dc981fb3c4cc57c1c383e73fdd2a2d0231089f5df5bda23fb1add02d0fe1", ["return i & (MK_IPI_RING_SIZE - 1)", "memcpy"]),
++    "kernel/multikernel/dma_heap.c": ("5b87403b1672efcaa8b21b3ed287b1ef174b26de6a472e77a0763d9f90aadfcb", ["return remap_pfn_range", "dma_map_sgtable"]),
++    "kernel/multikernel/core.c": ("74ba0a63d8f761683a74a81503d9ea27c3871fa7d0e4268a95b26b0c7e1d76ba", ["mk_halt_to_pool"]),
++    "net/vmw_vsock/mk_transport.c": ("37a9e02cff4e08688a3a7be33fefbc2aa7b6efc86858fc27768e5282c3240c59", ["skb_put_data"]),
++}
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("source", type=Path)
++    args = parser.parse_args()
++    files = []
++    for name, (expected, anchors) in FILES.items():
++        data = (args.source / name).read_bytes()
++        digest = hashlib.sha256(data).hexdigest()
++        if digest != expected:
++            raise SystemExit(f"reviewed source hash mismatch: {name}")
++        lines = data.decode().splitlines()
++        excerpts = []
++        for anchor in anchors:
++            matches = [i for i, line in enumerate(lines) if anchor in line]
++            if not matches:
++                raise SystemExit(f"review anchor missing: {name}: {anchor}")
++            index = matches[0]
++            first, last = max(0, index - 3), min(len(lines), index + 6)
++            excerpts.append({"anchor": anchor, "first_line": first + 1,
++                             "lines": lines[first:last]})
++        files.append({"path": name, "sha256": digest, "size_bytes": len(data),
++                      "url": f"https://raw.githubusercontent.com/multikernel/linux/{REVISION}/{name}",
++                      "excerpts": excerpts})
++    print(json.dumps({"revision": REVISION, "reviewed_file_count": len(files),
++                      "hashes_verified": True, "files": files,
++                      "scope": "Identity and source anchors; architectural conclusions require source review."}, indent=2))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/build-security-authority-initramfs.sh b/scripts/build-security-authority-initramfs.sh
+new file mode 100755
+index 0000000..58436bf
+--- /dev/null
++++ b/scripts/build-security-authority-initramfs.sh
+@@ -0,0 +1,36 @@
++#!/usr/bin/env bash
++# Build a visibly diagnostic child fixture using the production agent/bootstrap.
++set -euo pipefail
++agent=${1:?usage: build-security-authority-initramfs.sh AGENT RELAY MODULE CASE OUTPUT}
++relay=${2:?}
++module=${3:?}
++fixture=${4:?}
++output=${5:?}
++repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
++case "$fixture" in nonroot|root-empty-caps|root-default) ;; *) exit 2 ;; esac
++scratch=$(mktemp -d)
++trap 'rm -rf "$scratch"' EXIT
++mkdir -p "$scratch"/{bin,dev,proc,sys,tmp,bundle/rootfs/bin,bundle/rootfs/work}
++chmod 0777 "$scratch/bundle/rootfs/work"
++install -m 0755 "${BUSYBOX:-$(command -v busybox)}" "$scratch/bin/busybox"
++install -m 0755 "${BUSYBOX:-$(command -v busybox)}" "$scratch/bundle/rootfs/bin/busybox"
++install -m 0755 "$agent" "$scratch/mk-agent"
++install -m 0755 "$relay" "$scratch/mkvsock-relay"
++install -m 0644 "$module" "$scratch/mk_transport.ko"
++install -m 0755 "$repo_dir/guest/mk-agent-init" "$scratch/init"
++install -m 0755 "$repo_dir/guest/security-authority-probe.sh" "$scratch/bundle/rootfs/probe.sh"
++printf '%s\n' MK_SYNTHETIC_BOOTSTRAP_CANARY > "$scratch/security-canary"
++chmod 0600 "$scratch/security-canary"
++python3 - "$scratch/bundle/config.json" "$fixture" <<'PY'
++import json,sys,pathlib
++uid=1234 if sys.argv[2]=='nonroot' else 0
++process={'user':{'uid':uid,'gid':uid},'args':['/bin/busybox','sh','/probe.sh'],
++         'env':['PATH=/bin'],'cwd':'/work'}
++if sys.argv[2]=='root-empty-caps':
++    process.update(noNewPrivileges=True,capabilities={name:[] for name in
++        ['bounding','effective','permitted','inheritable','ambient']})
++pathlib.Path(sys.argv[1]).write_text(json.dumps({'ociVersion':'1.1.0',
++    'process':process,'root':{'path':'rootfs'}},indent=2)+'\n')
++PY
++(cd "$scratch" && find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 > "$output"
++sha256sum "$output"
+diff --git a/scripts/test-runtime-security-authority-live.sh b/scripts/test-runtime-security-authority-live.sh
+new file mode 100755
+index 0000000..d0144a6
+--- /dev/null
++++ b/scripts/test-runtime-security-authority-live.sh
+@@ -0,0 +1,104 @@
++#!/usr/bin/env bash
++# Privileged, disposable-host-only diagnostic. No hostile-kernel memory probe.
++set -euo pipefail
++: "${MK_SECURITY_DISPOSABLE:?set MK_SECURITY_DISPOSABLE=yes on the disposable host}"
++[[ $MK_SECURITY_DISPOSABLE == yes ]]
++repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
++kerf=${KERF:?set KERF to the pinned executable}
++kernel=${KERNEL:?set KERNEL to the pinned vmlinux}
++module=${MK_TRANSPORT_MODULE:?}
++relay=${MK_RELAY:?}
++agent=${MK_AGENT:?}
++ctl=${MK_AGENTCTL:?}
++evidence=${EVIDENCE_DIR:?}
++mkdir -p "$evidence"
++[[ $(uname -r) == 7.0.0-mk2-gce-lab ]]
++[[ -d /sys/fs/multikernel/instances ]]
++[[ -z $(find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d -print -quit) ]]
++before_cpus=$(cat /sys/devices/system/cpu/online)
++[[ $before_cpus == 0-15 ]]
++scratch=$(mktemp -d)
++chmod 0700 "$scratch"
++name=runtime-g7-authority
++port=7717
++relay_pid=; console_pid=; token=
++cleanup_fixture() {
++    local status
++    if [[ -n $relay_pid ]]; then kill "$relay_pid" 2>/dev/null || true; wait "$relay_pid" 2>/dev/null || true; relay_pid=; fi
++    if [[ -d /sys/fs/multikernel/instances/$name ]]; then
++        status=$(cat "/sys/fs/multikernel/instances/$name/status")
++        [[ $status != active ]] || sudo "$kerf" kill "$name" --force
++        status=$(cat "/sys/fs/multikernel/instances/$name/status")
++        [[ $status != loaded ]] || sudo "$kerf" unload "$name"
++        sudo "$kerf" delete "$name"
++    fi
++    if [[ -n $console_pid ]]; then wait "$console_pid" 2>/dev/null || true; console_pid=; fi
++    sudo "$kerf" init --cpus=none --memory=none --devices=none
++}
++cleanup_all() {
++    local status=$?
++    trap - EXIT
++    set +e
++    if [[ $status != 0 ]]; then
++        python3 - "$scratch" "$evidence" "${fixture:-setup}" "$token" "$status" <<'PY'
++import pathlib,sys,json
++scratch,out=map(pathlib.Path,sys.argv[1:3]);fixture,token,status=sys.argv[3:]
++for name in ['console.log','control.err','relay.log','kerf.log']:
++    if (scratch/name).exists():
++        data=(scratch/name).read_text(errors='replace')
++        if token:
++            data=data.replace(token,'[REDACTED_TEST_TOKEN]')
++        (out/(fixture+'-failed-'+name)).write_text(data)
++(out/'failed-attempt.json').write_text(json.dumps({'fixture':fixture,'exit_status':int(status)})+'\n')
++PY
++    fi
++    cleanup_fixture
++    rm -rf "$scratch"
++    exit "$status"
++}
++trap cleanup_all EXIT
++sudo modprobe vsock
++lsmod | grep -q '^mk_transport ' || sudo insmod "$module"
++sha256sum "$kernel" "$module" "$relay" "$agent" "$ctl" > "$evidence/component-hashes.txt"
++uname -r > "$evidence/kernel-release.txt"
++for fixture in nonroot root-empty-caps root-default; do
++    generation=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
++    token=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
++    initrd=$scratch/$fixture.cpio.gz
++    bash "$repo_dir/scripts/build-security-authority-initramfs.sh" "$agent" "$relay" "$module" "$fixture" "$initrd" \
++        > "$evidence/$fixture-initramfs.txt"
++    sudo "$kerf" init --cpus=8,10,12,14 --memory=8GB --devices=none > "$scratch/kerf.log" 2>&1
++    sudo "$kerf" create "$name" --id=27 --cpus=8,10 --memory=4GB >> "$scratch/kerf.log" 2>&1
++    sudo "$kerf" load "$name" --kernel="$kernel" --initrd="$initrd" \
++        --cmdline="rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=$name mk.generation=$generation mk.token=$token mk.agent_port=$port" \
++        >> "$scratch/kerf.log" 2>&1
++    "$relay" server "$port" "$scratch/relay.sock" > "$scratch/relay.log" 2>&1 &
++    relay_pid=$!
++    sudo timeout 60s script -qefc "$kerf exec $name --console" /dev/null > "$scratch/console.log" 2>&1 &
++    console_pid=$!
++    # The probe emits only booleans for credential visibility. Raw console can
++    # contain the boot command line; redact before moving it into evidence.
++    timeout 60s "$ctl" --port="$port" --unix-socket="$scratch/relay.sock" \
++        --sandbox-id="$name" --generation="$generation" --token-hex="$token" --bundle=/bundle \
++        > "$scratch/result.json" 2> "$scratch/control.err"
++    python3 - "$scratch" "$evidence" "$fixture" "$token" <<'PY'
++import pathlib,sys,json
++scratch,out,fixture=map(pathlib.Path,sys.argv[1:4]);token=sys.argv[4]
++raw=json.loads((scratch/'result.json').read_text())
++result=raw['WaitProcess']
++assert result['exit_code']==0,result['exit_code']
++assert 'SECURITY_AUTHORITY_END' in result['stdout']
++assert token not in json.dumps(raw), 'probe printed a credential'
++(out/(str(fixture)+'-result.json')).write_text(json.dumps(raw,indent=2)+'\n')
++for name in ['console.log','control.err','relay.log','kerf.log']:
++    data=(scratch/name).read_text(errors='replace').replace(token,'[REDACTED_TEST_TOKEN]')
++    (out/(str(fixture)+'-'+name)).write_text(data)
++PY
++    cleanup_fixture > "$evidence/$fixture-cleanup.txt" 2>&1
++    rm -f "$scratch/relay.sock"
++    [[ $(cat /sys/devices/system/cpu/online) == "$before_cpus" ]]
++    [[ ! -d /sys/fs/multikernel/instances/$name ]]
++    echo "SECURITY_AUTHORITY_FIXTURE_COMPLETED case=$fixture"
++done
++printf '{"online_cpus":"%s","active_test_children":0,"fixture_count":3}\n' "$before_cpus" > "$evidence/final-inventory.json"
++echo SECURITY_AUTHORITY_COLLECTION_COMPLETED
+diff --git a/scripts/verify-g7-boundary-evidence.py b/scripts/verify-g7-boundary-evidence.py
+new file mode 100755
+index 0000000..d0362de
+--- /dev/null
++++ b/scripts/verify-g7-boundary-evidence.py
+@@ -0,0 +1,74 @@
++#!/usr/bin/env python3
++"""Verify the source archives and cleanup claims in a G7 boundary bundle."""
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import tarfile
++
++
++def digest(data):
++    return hashlib.sha256(data).hexdigest()
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("bundle", type=Path)
++    args = parser.parse_args()
++    bundle = args.bundle
++    identity = json.loads((bundle / "source-identity.json").read_text())
++    for name, key in [("tested-source.tar.gz", "source_archive_sha256"),
++                      ("kernel-reviewed-source.tar.gz", "kernel_source_archive_sha256")]:
++        if digest((bundle / name).read_bytes()) != identity[key]:
++            raise SystemExit(f"archive identity mismatch: {name}")
++    sources = json.loads((bundle / "source-hashes.json").read_text())
++    # Capture transcripts wrap the pretty-printed audit JSON in two JSON lines.
++    audit_text = (bundle / 'source-audit.log').read_text().split('\n', 1)[1]
++    audit, _ = json.JSONDecoder().raw_decode(audit_text)
++    with tarfile.open(bundle / 'kernel-reviewed-source.tar.gz') as archive:
++        names = [member.name for member in archive.getmembers()]
++        if len(set(names)) != len(names):
++            raise SystemExit('duplicate kernel source archive member')
++        for source in audit['files']:
++            member = archive.getmember(source['path'])
++            if not member.isfile():
++                raise SystemExit('kernel source member is not a regular file')
++            data = archive.extractfile(member).read()
++            if digest(data) != source['sha256'] or len(data) != source['size_bytes']:
++                raise SystemExit(f"kernel source bytes mismatch: {source['path']}")
++    if identity['live_probe_status'] != 'not executed: upload authorization pending':
++        raise SystemExit('unexpected authority-probe status for this scoped bundle')
++    if 'G7_NO_FIXTURE_UPLOADED_OR_CHILD_STARTED' not in (bundle / 'pre-delete-audit.log').read_text():
++        raise SystemExit('missing pre-delete scope assertion')
++    with tarfile.open(bundle / "tested-source.tar.gz") as archive:
++        members = archive.getmembers()
++        if len({m.name for m in members}) != len(members):
++            raise SystemExit("duplicate source archive member")
++        if {m.name for m in members} != {s['path'] for s in sources}:
++            raise SystemExit("source archive inventory mismatch")
++        for source in sources:
++            member = archive.getmember(source['path'])
++            if not member.isfile():
++                raise SystemExit("source member is not a regular file")
++            data = archive.extractfile(member).read()
++            if digest(data) != source['sha256'] or len(data) != source['size_bytes']:
++                raise SystemExit(f"source bytes mismatch: {source['path']}")
++    before = json.loads((bundle / "resources-before.json").read_text())
++    after = json.loads((bundle / "resources-after.json").read_text())
++    before.pop('captured_at', None)
++    after.pop('captured_at', None)
++    if before != after:
++        raise SystemExit("project resource inventories differ")
++    for name in ['instance-after-delete.json', 'disk-after-delete.json']:
++        if json.loads((bundle / name).read_text()) != []:
++            raise SystemExit(f"test resource remains: {name}")
++    print(json.dumps({'source_archives_verified': True,
++                      'source_file_count': len(sources),
++                      'kernel_source_file_count': len(audit['files']),
++                      'cloud_cleanup_verified': True,
++                      'live_authority_probes_executed': False,
++                      'g7_qualified': False}, indent=2))
++
++
++if __name__ == '__main__':
++    main()

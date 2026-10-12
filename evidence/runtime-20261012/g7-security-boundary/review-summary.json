@@ -1,0 +1,46 @@
+{
+  "scope": "SEC-01/SEC-02/SEC-11; partial G7",
+  "executor_and_source_reviewer": "Codex",
+  "independent_reviewer": null,
+  "tasks": {
+    "SEC-01": {
+      "status": "completed-source-assessment",
+      "outcome": "architectural limitation; trusted-child scope retained"
+    },
+    "SEC-02": {
+      "status": "partial",
+      "outcome": "source and portable tests collected; live authority inventory and remediation pending"
+    },
+    "SEC-11": {
+      "status": "completed-source-assessment",
+      "outcome": "missing independently enforced barrier identified; no live primary-memory exploit required or performed"
+    }
+  },
+  "findings": [
+    {
+      "id": "G7-BOUNDARY-01",
+      "basis": "pinned source review",
+      "confidence": "high for direct ring-0 boot and software-owned first-level mappings",
+      "claim": "Hostile-child hardware containment is not established."
+    },
+    {
+      "id": "G7-AUTHORITY-01",
+      "basis": "current bootstrap and agent source",
+      "confidence": "source exposure paths identified; live result pending",
+      "claim": "Agent credential is passed in kernel and process command lines exposed through child procfs."
+    },
+    {
+      "id": "G7-AUTHORITY-02",
+      "basis": "current manager/exec/bootstrap source",
+      "confidence": "authority policy reviewed; actual per-profile inventory pending",
+      "claim": "Do not assume root with omitted capabilities is confined to the OCI root."
+    }
+  ],
+  "live_authority_tests": {
+    "executed": false,
+    "reason": "Automatic approval review requires explicit authorization for repository-derived file transfer."
+  },
+  "primary_host_escape_demonstrated": false,
+  "gvisor_comparison_performed": false,
+  "g7_passed": false
+}

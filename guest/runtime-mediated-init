@@ -76,6 +76,12 @@ if [ "$observed_image" != "$image_id" ]; then
 	exec sh -c 'while true; do sleep 3600; done'
 fi
 cp /tmp/nbd-client.log /newroot/.multikernel/nbd-client.log
+# Keep the one-shot credential off the mediated disk and outside the OCI root.
+mkdir -p /newroot/.mk-agent
+mount -t tmpfs -o mode=700,nosuid,nodev,noexec tmpfs /newroot/.mk-agent
+cp /.mk-agent/token /newroot/.mk-agent/token
+chmod 0600 /newroot/.mk-agent/token
+rm /.mk-agent/token
 sync
 echo "MK_STORAGE_BOOTSTRAP_READY sandbox=$sandbox_id image=$image_id uuid=$observed_uuid"
 mount --move /dev /newroot/dev

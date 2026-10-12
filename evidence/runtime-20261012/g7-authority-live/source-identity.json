@@ -1,0 +1,26 @@
+{
+  "repository_commit": "04be6fd986e42daec622117e2e61d99d6b4d472a",
+  "dirty": true,
+  "go_version": "go version go1.26.1 linux/amd64",
+  "build_argv": [
+    "env",
+    "CGO_ENABLED=0",
+    "GOCACHE=/tmp/mk-go-cache",
+    "go",
+    "build",
+    "-trimpath",
+    "-buildvcs=false"
+  ],
+  "source_hashes": "source-hashes.json",
+  "tested_agent_sha256": "cceb10c508516e380cc23546515de2537a62961a7d3ae223c337809f6a5d0cec",
+  "tested_agentctl_sha256": "31e216915317dd1651e298001746f8f940a38bdff2a7850555cb980c179253ff",
+  "source_archive": "tested-source.tar.gz",
+  "source_archive_sha256": "914aade6aa7471a4ea12ed15d293b4909d896aec08907fec6ee1f52a86ca76f8",
+  "kernel_source_archive_sha256": "b8dd96900287c4216b37b37e2b40fa5ccada76dac2e5125aa40d0ac6796926f2",
+  "live_probe_status": "three profiles completed; credential confidentiality failed; root-default child-bootstrap canary read/write demonstrated",
+  "source_archive_scope": "All production/test Go files and module pins plus reviewed bootstrap, fixture, audit, verification, and patch inputs; not a full repository archive.",
+  "binary_build_identity": "Development defaults (revision=unknown); exact provenance is bound by source/archive hashes, not a stamped release revision.",
+  "kernel_source_reference": "../g7-security-boundary/kernel-reviewed-source.tar.gz",
+  "fixture_archive": "fixtures-v4.tar.gz",
+  "fixture_archive_sha256": "a4257316042f98799644fb8e5438582377dfef1c275fed2db2cda9f3b382ff85"
+}

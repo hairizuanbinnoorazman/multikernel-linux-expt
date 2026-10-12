@@ -498,6 +498,12 @@ def main():
             run_case(directory, name, config)
         for name, mutate in (
             ("bad-nnp", lambda process: process.update(noNewPrivileges="yes")),
+            ("disable-nnp", lambda process: process.update(noNewPrivileges=False)),
+            ("unequal-root-capabilities", lambda process: process.update(capabilities={"bounding": ["CAP_CHOWN"], "permitted": ["CAP_CHOWN"], "effective": []})),
+            ("bootstrap-ptrace-capability", lambda process: process.update(capabilities={"bounding": ["CAP_SYS_PTRACE"]})),
+            ("kernel-admin-capability", lambda process: process.update(capabilities={"bounding": ["CAP_SYS_ADMIN"]})),
+            ("kernel-module-capability", lambda process: process.update(capabilities={"bounding": ["CAP_SYS_MODULE"]})),
+            ("raw-io-capability", lambda process: process.update(capabilities={"bounding": ["CAP_SYS_RAWIO"]})),
             ("bad-rlimit", lambda process: process.update(rlimits=[{"type": "RLIMIT_NOFILE", "soft": 2, "hard": 1}])),
             ("unknown-capability", lambda process: process.update(capabilities={"effective": ["CAP_UNKNOWN"]})),
             ("duplicate-capability", lambda process: process.update(capabilities={"effective": ["CAP_CHOWN", "CAP_CHOWN"]})),

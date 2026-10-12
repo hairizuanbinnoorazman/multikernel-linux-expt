@@ -1,0 +1,13 @@
+{
+  "name": "mklinux-g7-remediation-20261012",
+  "machine_type": "n2-standard-16",
+  "zone": "asia-southeast1-b",
+  "disks": [
+    {
+      "name": "mklinux-g7-remediation-20261012",
+      "boot": true,
+      "auto_delete": true
+    }
+  ],
+  "service_accounts": []
+}

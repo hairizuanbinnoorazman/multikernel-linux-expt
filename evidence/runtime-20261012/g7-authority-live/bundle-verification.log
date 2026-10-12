@@ -1,0 +1,9 @@
+{"evidence_command": {"argv": ["python3", "scripts/verify-g7-authority-evidence.py", "evidence/runtime-20261012/g7-authority-live"], "started_at": "2026-10-12T06:14:58.950902Z"}}
+Traceback (most recent call last):
+  File "${OPERATOR_HOME}/Documents/multikernel-linux-expt/scripts/verify-g7-authority-evidence.py", line 79, in <module>
+    main()
+  File "${OPERATOR_HOME}/Documents/multikernel-linux-expt/scripts/verify-g7-authority-evidence.py", line 34, in main
+    assert digest(archive.extractfile(member).read()) == source_hashes[member.name]
+                                                         ~~~~~~~~~~~~~^^^^^^^^^^^^^
+KeyError: 'tools/mkvsock-relay.c'
+{"evidence_command_result": {"ended_at": "2026-10-12T06:14:59.037718Z", "exit_status": 1}}

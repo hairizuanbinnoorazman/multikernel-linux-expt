@@ -1,0 +1,18 @@
+{
+  "repository_commit": "04be6fd986e42daec622117e2e61d99d6b4d472a",
+  "dirty": true,
+  "go_version": "go version go1.26.1 linux/amd64",
+  "build_argv": [
+    "env",
+    "CGO_ENABLED=0",
+    "GOCACHE=/tmp/mk-go-cache",
+    "go",
+    "build",
+    "-trimpath",
+    "-buildvcs=false"
+  ],
+  "source_archive_sha256": "f119569975e4691dd4e696ad650e1cd8edacf355921399afc73bf5e419bde92a",
+  "fixture_archive_sha256": "9a293b421a8035c03406dd4ca16a669a733cd930a0f8f2f1bf144dfd092943fd",
+  "source_archive_scope": "All current Go runtime source/tests and module pins plus credential, authority, builder, probe, validation, transport and verification sources. Not a full repository archive.",
+  "binary_identity": "Development version defaults; exact hashes and source archive bind this assessment, not release-stamped metadata."
+}

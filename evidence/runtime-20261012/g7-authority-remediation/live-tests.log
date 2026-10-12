@@ -1,0 +1,4 @@
+✓ Deleted instance 'runtime-g7-authority' (transaction 3)
+  CPUs to host: 8, 10, 12, 14
+  Memory to host: 0xdf9600000 (8192 MB)
+✓ Pool updated (transaction 4)

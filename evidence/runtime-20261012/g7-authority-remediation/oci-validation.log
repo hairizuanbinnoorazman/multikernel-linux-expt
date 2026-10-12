@@ -1,0 +1,1 @@
+runtime OCI fail-closed validation: PASS (103 semantic cases plus namespace, file-identity, and outer-cleanup boundaries)

@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "gate": "G7",
+  "run_id": "g7-authority-live",
+  "result": "partial",
+  "started_at": "2026-10-12T05:54:57.804830Z",
+  "ended_at": "2026-10-12T06:15:45.057931Z",
+  "repository": {
+    "commit": "04be6fd986e42daec622117e2e61d99d6b4d472a",
+    "dirty": true,
+    "diff_output": "workspace.diff"
+  },
+  "components": [
+    {
+      "name": "mk-agent",
+      "version": "0.0.0-dev; revision=unknown; source/archive hashes bind provenance",
+      "sha256": "cceb10c508516e380cc23546515de2537a62961a7d3ae223c337809f6a5d0cec"
+    },
+    {
+      "name": "mk-agentctl",
+      "version": "0.0.0-dev; revision=unknown; source/archive hashes bind provenance",
+      "sha256": "31e216915317dd1651e298001746f8f940a38bdff2a7850555cb980c179253ff"
+    },
+    {
+      "name": "vmlinux",
+      "version": "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7",
+      "sha256": "5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10"
+    },
+    {
+      "name": "mk_transport.ko",
+      "version": "7.0.0-mk2-gce-lab; pinned source with retained build-safety patch",
+      "sha256": "bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2"
+    },
+    {
+      "name": "mkvsock-relay",
+      "version": "workspace tools/mkvsock-relay.c; musl static build",
+      "sha256": "293ff1eaa209d16103c7caaa8e8f9a24702e58d979453fad5495c503f76aaf98"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-g7-authority-20261012",
+    "machine_type": "n2-standard-16",
+    "boot_id": "00000000-0000-0000-0000-000000000013"
+  },
+  "commands": [
+    {
+      "id": "prepare-host",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "${TEST_INSTANCE}",
+        "--command=bash /var/tmp/mk-g7-bin/prepare-host.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "prepare-host.log"
+    },
+    {
+      "id": "authority-baseline",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-authority-20261012",
+        "--zone=asia-southeast1-b",
+        "--command=env MK_SECURITY_DISPOSABLE=yes KERF=${OPERATOR_HOME}/src/kerf/.venv/bin/kerf KERNEL=${OPERATOR_HOME}/src/linux/vmlinux MK_TRANSPORT_MODULE=${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko MK_RELAY=/var/tmp/mk-g7-bin/mkvsock-relay MK_AGENT=/var/tmp/mk-g7-bin/mk-agent MK_AGENTCTL=/var/tmp/mk-g7-bin/mk-agentctl EVIDENCE_DIR=/var/tmp/mk-g7-evidence/authority-baseline bash /var/tmp/mk-g7-src/scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests.log"
+    },
+    {
+      "id": "authority-rerun",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-authority-20261012",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-g7-src && tar -xzf /var/tmp/mk-g7-bin/fixtures-v2.tar.gz && env MK_SECURITY_DISPOSABLE=yes KERF=${OPERATOR_HOME}/src/kerf/.venv/bin/kerf KERNEL=${OPERATOR_HOME}/src/linux/vmlinux MK_TRANSPORT_MODULE=${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko MK_RELAY=/var/tmp/mk-g7-bin/mkvsock-relay MK_AGENT=/var/tmp/mk-g7-bin/mk-agent MK_AGENTCTL=/var/tmp/mk-g7-bin/mk-agentctl EVIDENCE_DIR=/var/tmp/mk-g7-evidence/authority-rerun bash scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-rerun.log"
+    },
+    {
+      "id": "bundle-diagnostic",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-authority-20261012",
+        "--zone=asia-southeast1-b",
+        "--command=cp /var/tmp/mk-g7-bin/build-diagnostic-initramfs.sh /var/tmp/mk-g7-src/scripts/build-security-authority-initramfs.sh && env MK_SECURITY_DISPOSABLE=yes KERF=${OPERATOR_HOME}/src/kerf/.venv/bin/kerf KERNEL=${OPERATOR_HOME}/src/linux/vmlinux MK_TRANSPORT_MODULE=${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko MK_RELAY=/var/tmp/mk-g7-bin/mkvsock-relay MK_AGENT=/var/tmp/mk-g7-bin/mk-agent MK_AGENTCTL=/var/tmp/mk-g7-bin/mk-agentctl EVIDENCE_DIR=/var/tmp/mk-g7-evidence/bundle-diagnostic bash /var/tmp/mk-g7-src/scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "bundle-diagnostic.log"
+    },
+    {
+      "id": "authority-parser-failure",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-authority-20261012",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-g7-src && tar -xzf /var/tmp/mk-g7-bin/fixtures-v3.tar.gz && env MK_SECURITY_DISPOSABLE=yes KERF=${OPERATOR_HOME}/src/kerf/.venv/bin/kerf KERNEL=${OPERATOR_HOME}/src/linux/vmlinux MK_TRANSPORT_MODULE=${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko MK_RELAY=/var/tmp/mk-g7-bin/mkvsock-relay MK_AGENT=/var/tmp/mk-g7-bin/mk-agent MK_AGENTCTL=/var/tmp/mk-g7-bin/mk-agentctl EVIDENCE_DIR=/var/tmp/mk-g7-evidence/authority-final bash scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-final.log"
+    },
+    {
+      "id": "authority-completed",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-authority-20261012",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-g7-src && tar -xzf /var/tmp/mk-g7-bin/fixtures-v4.tar.gz && env MK_SECURITY_DISPOSABLE=yes KERF=${OPERATOR_HOME}/src/kerf/.venv/bin/kerf KERNEL=${OPERATOR_HOME}/src/linux/vmlinux MK_TRANSPORT_MODULE=${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko MK_RELAY=/var/tmp/mk-g7-bin/mkvsock-relay MK_AGENT=/var/tmp/mk-g7-bin/mk-agent MK_AGENTCTL=/var/tmp/mk-g7-bin/mk-agentctl EVIDENCE_DIR=/var/tmp/mk-g7-evidence/authority-completed bash scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "live-completed.log"
+    },
+    {
+      "id": "pre-delete-audit",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "${TEST_INSTANCE}",
+        "--command=inventory; kerf status; helper/service/hash inventory"
+      ],
+      "exit_status": 0,
+      "output_path": "pre-delete-audit.log"
+    },
+    {
+      "id": "pre-delete-audit-v2",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "${TEST_INSTANCE}",
+        "--command=assert cpu and child inventory; kerf show --verbose; assert no helpers"
+      ],
+      "exit_status": 0,
+      "output_path": "pre-delete-audit-v2.log"
+    },
+    {
+      "id": "delete-host",
+      "argv": [
+        "gcloud",
+        "compute",
+        "instances",
+        "delete",
+        "mklinux-g7-authority-20261012",
+        "--zone=asia-southeast1-b",
+        "--quiet"
+      ],
+      "exit_status": 0,
+      "output_path": "delete-instance.log"
+    },
+    {
+      "id": "verify-live-evidence",
+      "argv": [
+        "python3",
+        "scripts/verify-g7-authority-evidence.py",
+        "evidence/runtime-20261012/g7-authority-live"
+      ],
+      "exit_status": 1,
+      "output_path": "bundle-verification.log"
+    },
+    {
+      "id": "docs-check",
+      "argv": [
+        "make",
+        "docs-check"
+      ],
+      "exit_status": 0,
+      "output_path": "docs-check.log"
+    },
+    {
+      "id": "verify-live-evidence-v2",
+      "argv": [
+        "python3",
+        "scripts/verify-g7-authority-evidence.py",
+        "evidence/runtime-20261012/g7-authority-live"
+      ],
+      "exit_status": 0,
+      "output_path": "bundle-verification-v2.log"
+    },
+    {
+      "id": "fixture-syntax",
+      "argv": [
+        "bash",
+        "-n",
+        "guest/mk-agent-init",
+        "guest/security-authority-probe.sh",
+        "scripts/build-security-authority-initramfs.sh",
+        "scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "fixture-syntax.log"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "three-authority-profiles-collected",
+      "passed": true,
+      "evidence_paths": [
+        "observations.json",
+        "host/authority-completed/final-inventory.json",
+        "live-completed.log"
+      ]
+    },
+    {
+      "id": "explicit-empty-capabilities-and-nnp-applied",
+      "passed": true,
+      "evidence_paths": [
+        "host/authority-completed/root-empty-caps-result.json"
+      ]
+    },
+    {
+      "id": "bootstrap-credential-confidentiality",
+      "passed": false,
+      "evidence_paths": [
+        "observations.json"
+      ]
+    },
+    {
+      "id": "default-root-confined-to-oci-filesystem",
+      "passed": false,
+      "evidence_paths": [
+        "host/authority-completed/root-default-result.json"
+      ]
+    },
+    {
+      "id": "cloud-and-host-cleanup-complete",
+      "passed": true,
+      "evidence_paths": [
+        "cleanup-verification.json",
+        "pre-delete-audit-v2.log",
+        "host/authority-completed/final-inventory.json"
+      ]
+    },
+    {
+      "id": "exact-fixture-source-bytes-verified",
+      "passed": true,
+      "evidence_paths": [
+        "bundle-verification-v2.log",
+        "source-hashes.json",
+        "source-identity.json"
+      ]
+    }
+  ],
+  "limitations": [
+    "Successful collection is not a G7 pass: unintended credential exposure and default-root child-bootstrap access remain unresolved.",
+    "Child-bootstrap canary access is not a demonstrated primary-host or sibling escape. No arbitrary memory/module/I/O attack was run.",
+    "Diagnostics use a dedicated initramfs; production mediated roots, Docker policy, and remaining G7 tests need separate qualification.",
+    "Device readability/writability predicates establish file permission results only, not successful open/ioctl/sysctl/module operations.",
+    "Four failed attempts and an initial SSH boot transient are retained or explicitly described in attempt-history.json; earlier failure traps did not retain result JSON.",
+    "The first pre-delete audit used an invalid Kerf command and returned zero because later commands succeeded; the corrected audit independently asserts cleanup.",
+    "Binary development identity and portable agent tests refer to the previous bundle; current fixture sources, full kernel config and local build diff are retained here.",
+    "Executor/source reviewer: Codex. No independent security review or matched pinned gVisor comparison completed.",
+    "Sensitive project/home/boot identifiers are pseudonymized; credential values are redacted. Command argv entries summarize remote invocation; fixture source and attempt history define exact run behavior.",
+    "The initial live-bundle verifier found a missing relay C source in the scoped archive; it was included before the corrected verification capture.",
+    "docs-check passed with one privileged socket-rejection subcase skipped because this local sandbox denied the operation.",
+    "host/kernel.config is the transport-module build configuration; the full original restored vmlinux configuration was not separately extracted. Its qualified binary hash is unchanged."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "resources-before.json",
+    "resources_after": "resources-after.json",
+    "retained_resources": [],
+    "operator_acknowledged": false
+  }
+}

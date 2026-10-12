@@ -1,0 +1,10 @@
+{
+  "project_ledgers_equal_excluding_capture_time": true,
+  "created_instance_absent": true,
+  "created_disk_absent": true,
+  "preexisting_resources_preserved": true,
+  "child_started": false,
+  "fixture_uploaded": false,
+  "retained_created_cloud_resources": [],
+  "attachment_record_omission": "Public UEFI certificate blobs omitted; boot disk identity and autoDelete preserved."
+}

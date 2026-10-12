@@ -1,0 +1,11 @@
+0-15
+Usage: kerf [OPTIONS] COMMAND [ARGS]...
+Try 'kerf --help' for help.
+
+Error: No such command 'status'.
+active
+active
+active
+a4257316042f98799644fb8e5438582377dfef1c275fed2db2cda9f3b382ff85  /var/tmp/mk-g7-bin/fixtures-v4.tar.gz
+414eab13e29ab41d2282de2ed5d60c92fccb4a0f6974e13b1ebe9511ecc1b6c9  /var/tmp/mk-g7-bin/bundle-audit
+00000000-0000-0000-0000-000000000013

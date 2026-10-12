@@ -1,0 +1,7 @@
+{
+  "hostile_child_hardware_boundary_added": false,
+  "architectural_source_reference": "../g7-security-boundary/source-audit.log",
+  "reason": "Process privilege and credential controls do not replace child-controlled first-level mappings with an independent memory/instruction boundary.",
+  "production_mediated_root_docker_live_requalified": false,
+  "diagnostic_scope": "Four initramfs workload profiles and two rejected requests using production Kerf credential handoff."
+}

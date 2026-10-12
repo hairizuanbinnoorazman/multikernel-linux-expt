@@ -539,8 +539,12 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	}
 	commandPath := exe
 	commandArgs := p.spec.Args[1:]
-	if p.spec.NoNewPrivileges != nil || p.spec.Rlimits != nil || p.spec.Capabilities != nil {
-		constraints, constraintErr := encodeExecConstraints(p.spec)
+	executionSpec := p.spec
+	if !m.NoChroot {
+		executionSpec = workloadDefaults(executionSpec)
+	}
+	if executionSpec.NoNewPrivileges != nil || executionSpec.Rlimits != nil || executionSpec.Capabilities != nil {
+		constraints, constraintErr := encodeExecConstraints(executionSpec)
 		if constraintErr != nil {
 			m.mu.Unlock()
 			return processStartError("constraints", constraintErr)

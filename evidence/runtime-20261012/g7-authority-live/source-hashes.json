@@ -1,0 +1,687 @@
+[
+  {
+    "path": "guest/mk-agent-init",
+    "sha256": "21b5b176a4704479cbd915151054f3d9e4a704441c9a71bc6f869ad3bcaa3956",
+    "size_bytes": 2809
+  },
+  {
+    "path": "guest/runtime-mediated-init",
+    "sha256": "7673226173ecd8a41fb311cfbcaefabc364af88784a3e17ae247eaa6794aacbe",
+    "size_bytes": 2656
+  },
+  {
+    "path": "guest/security-authority-probe.sh",
+    "sha256": "0d18cf60af72cd1af25464efd383786736c6875ecb3b6cc13f5711600f68bf69",
+    "size_bytes": 2056
+  },
+  {
+    "path": "patches/linux-v7.0-mk2-vsock-build-safety.patch",
+    "sha256": "2f3af41b1da0ef06a447aec4793f6b87111c15ffaa3c82675d47443dd8307126",
+    "size_bytes": 1493
+  },
+  {
+    "path": "runtime/agent/client.go",
+    "sha256": "175d7089dfed096d2f91e939c928c0dad8b0bc64ec82f4ca2d7db014be73f33b",
+    "size_bytes": 4769
+  },
+  {
+    "path": "runtime/agent/client_test.go",
+    "sha256": "d3f34dad5725e8b4df3b6f557cb4441d12e2902f5cd0d98586e18d70400488a4",
+    "size_bytes": 11407
+  },
+  {
+    "path": "runtime/agent/errors.go",
+    "sha256": "8a315a7a9a574509693dd5a1719713166978a8c7f00e05c259f55ce74594678d",
+    "size_bytes": 3185
+  },
+  {
+    "path": "runtime/agent/errors_test.go",
+    "sha256": "1e31eb2292657f8d636b06c41e5a2a3647e3f6563eb4f747257557cb33e33b65",
+    "size_bytes": 5671
+  },
+  {
+    "path": "runtime/agent/manager.go",
+    "sha256": "d9830f01db0c070addae260c62518b4b3c39e1f73978ae03718b5ad9a894ef78",
+    "size_bytes": 44174
+  },
+  {
+    "path": "runtime/agent/manager_test.go",
+    "sha256": "95c6f049ab7f17dcd166a69ea13db96675923306142b57c2c6edc01043a1fdd4",
+    "size_bytes": 59046
+  },
+  {
+    "path": "runtime/agent/oci_exec_linux.go",
+    "sha256": "938b83c58be4d6147a76b65a535be688ecd44b9797f6e296fc9ce5306dc6d866",
+    "size_bytes": 7488
+  },
+  {
+    "path": "runtime/agent/oci_exec_linux_test.go",
+    "sha256": "734e2e0737e268488e99e588999373bf9e97d61cdd5877631d2b6246cc509b69",
+    "size_bytes": 2331
+  },
+  {
+    "path": "runtime/agent/root_policy_linux.go",
+    "sha256": "1c8beb350e9a9183a89fcd2a32e11f5414fbd18e3b30833b0e5d6cabf7cc1237",
+    "size_bytes": 7005
+  },
+  {
+    "path": "runtime/agent/server.go",
+    "sha256": "7bbbce87457729689f21373cdf9444219e63c3de2e4606cb5c9e5b5f342b83e3",
+    "size_bytes": 13703
+  },
+  {
+    "path": "runtime/agent/server_test.go",
+    "sha256": "568a8caa4de8467a25b8ae3ac60758be342d9d156db37fd5b95e3d5217125c58",
+    "size_bytes": 17763
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_rpc_fakes_test.go",
+    "sha256": "98f6c46524c0c88cc8753eba6f44b5b4e4ca8157365e22745e60baa74bf6dac8",
+    "size_bytes": 4570
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_transport.go",
+    "sha256": "ab3c220b6067fd3d340db31d41d1e9a333b0e5a0b5736ced0845a215ebf4ad72",
+    "size_bytes": 16013
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_transport_test.go",
+    "sha256": "c8880d7321b549901e3d9d6ef7d8576235400b648d3f13ce59454badcb53289d",
+    "size_bytes": 7208
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/bundle_test.go",
+    "sha256": "1d95df0803032ea1035ccc9c7fcaec31683197274a87a9ec44be3502d9e17cd0",
+    "size_bytes": 3899
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/cleanup.go",
+    "sha256": "61d4a7e16cc90908dae087d50adaccde4cbeb0be57e739df4b78318f1e69c1bd",
+    "size_bytes": 12205
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/cleanup_test.go",
+    "sha256": "b72e1dfce5b05c6c1d3c142624b50a46fdd05ed2305df95286631fc2cb2f84c1",
+    "size_bytes": 11497
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/create_test.go",
+    "sha256": "249254e118e8f7873ae2f8fa366f51ba45c03adddcef5882375945771ed32f1b",
+    "size_bytes": 16645
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/event_journal.go",
+    "sha256": "acf03fd9155b55e3208ee01a11947c02ec61b54e22bc8b8fdef0a5f3b5977d7e",
+    "size_bytes": 8727
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/event_journal_test.go",
+    "sha256": "05dc1c4bbe2f2d70b9a4598039f38ec9c6cd455c118ae924f357502099d270ec",
+    "size_bytes": 14431
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/main.go",
+    "sha256": "ef9b3f414932bd27877e411b9727f872958812d1e402bf980888e955861f3e0e",
+    "size_bytes": 2234
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/main_test.go",
+    "sha256": "286b0ab1cd8a3931b66a2c142987aef0818e32ceb2145c42ae09071684f74cb7",
+    "size_bytes": 5267
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/namespace_holder.go",
+    "sha256": "8123c4134035eb0cb055523d66d92f90b9a11f505366b184265178269047413d",
+    "size_bytes": 3306
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network.go",
+    "sha256": "0286d9ba66e93adfdd4114199edf03c78a8e65d01d1b70afb13b6d25f44ebb7c",
+    "size_bytes": 11001
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network_fakes_test.go",
+    "sha256": "d5e22d3f517763049f664bebc3442070837b095e27dc6fd859344dc66a05f2df",
+    "size_bytes": 5510
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network_test.go",
+    "sha256": "041f48459739d68f8c6d96227bdf333b8141f671164de8bf2560dd5d1ac29666",
+    "size_bytes": 19026
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_close_test.go",
+    "sha256": "79054b91f63d7bb1ff98d627d6e95c08d8be65c0d08ca9541992425841292818",
+    "size_bytes": 11159
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_delete_test.go",
+    "sha256": "8749c8528b42a618ef4b5ed0fb4ed50faca5bd2c13a13f1923127212077604c2",
+    "size_bytes": 8103
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_exec_test.go",
+    "sha256": "299c26f84ea2efc3e62b7c4fac02064cca0ac257dc830f6a26fc8a5c2677d3db",
+    "size_bytes": 8722
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_io.go",
+    "sha256": "b3d971062c70d5071b334af696c125ff3d26ce296c6372226958c43210ff43eb",
+    "size_bytes": 10353
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_io_test.go",
+    "sha256": "1fa48538893a1ec959be0c5601b90799112b4819b58468aeb70d5a086fb02045",
+    "size_bytes": 9220
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_output_test.go",
+    "sha256": "449b0307326a2cfe49b4773f0aaeb5b486f9b19df3eb1af472532c07038698d4",
+    "size_bytes": 14633
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_start_test.go",
+    "sha256": "9d148d11e6005493dd66edaf57c7ebe8c77b23f6d565433f91276665987376fc",
+    "size_bytes": 13373
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_stdin_test.go",
+    "sha256": "9322defc15b7020c346a4183281e6eda39fd9237c7897f82cff2a5dd418f67cf",
+    "size_bytes": 8712
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_streams.go",
+    "sha256": "334d17f5f593c23d3de447374de5519e3093ccf4f8165fd3c99829b28a1f606c",
+    "size_bytes": 11792
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery.go",
+    "sha256": "24b98f5d88f2361789341aad9383fe8d3c3b6c380eb0dec449f40a4be1077770",
+    "size_bytes": 22906
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_fakes_test.go",
+    "sha256": "5d3ae286e0a25e32b121e8bf22b7263be244cc00c9505a8f0c9c16201520f870",
+    "size_bytes": 3188
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_state_test.go",
+    "sha256": "53e26727d95f6f1ed2085eaa329d83e0c999413f2466504ebf277ec6ab4fdce9",
+    "size_bytes": 9741
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_test.go",
+    "sha256": "4dc80de8304ca2d6167ffbff503acdff456f7b8979d3f7370363fe061b76dcf3",
+    "size_bytes": 11587
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/relay_test.go",
+    "sha256": "f90eed6bdf9aa4ee6f2e8d7edefa91a4e56e35e73c3c49d01f97fb6feb907027",
+    "size_bytes": 11334
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/rootfs.go",
+    "sha256": "e482361acf18b7fced19646a0a3e582a67ba02790e25d0d4b76ab5a88664d2b3",
+    "size_bytes": 3071
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/service.go",
+    "sha256": "6a0aadef3c23c1bc9676a4cfc5edd8ca9625bc6a5ec4b060aedbf787a4c2b607",
+    "size_bytes": 10921
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup.go",
+    "sha256": "6568fe23f3d25b5a214fe7513a8347f454dbe2119bd8da84493957df3dc946d4",
+    "size_bytes": 12711
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup_auth_test.go",
+    "sha256": "df40ad6ad757b5216d7320e576da086a20654b64c183f56bd163d1bdce29001c",
+    "size_bytes": 11655
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup_test.go",
+    "sha256": "ccb3df6a45466b684ff8b272e726b04337f136a31131d219e8c2bd2f2e16d911",
+    "size_bytes": 4218
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/state_files.go",
+    "sha256": "fc697be1554f56ba618e33cf9be0cae912884d15cac005ededd6601ca6d74e40",
+    "size_bytes": 10613
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/state_files_test.go",
+    "sha256": "a331fb2275e5e8258c4bdb691833460d3d3f0adc935187daa5168d267885ec33",
+    "size_bytes": 5610
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/stream_fakes_test.go",
+    "sha256": "20da421e48c1d4333cb4e007556ddb182efc35ad4ade0de64889c6d7491d6e3c",
+    "size_bytes": 8800
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/supervisor.go",
+    "sha256": "1e2a4250a924f735a6fd270a3cdc91cc27805bb5ee325c23166ce8d764f66a26",
+    "size_bytes": 17317
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/supervisor_test.go",
+    "sha256": "3bb4c8308666f33c85c074754934d49e25d6e6d2f29cf6a7817726aa87f040c8",
+    "size_bytes": 14776
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/support_fakes_test.go",
+    "sha256": "00e4c2e81ec38428a817994b19c966f3aa2718a3ecb83589f50c385caef8d20d",
+    "size_bytes": 2396
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_cancellation_test.go",
+    "sha256": "0443f102773e08484e4a69072df40b3bf9a5b8368bf77ec31b627ba0df1760b6",
+    "size_bytes": 9741
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_control.go",
+    "sha256": "0e04948b00c27e6535c152f6a2320c2586b3cd8fb4a6fdbeef17fbdba5595766",
+    "size_bytes": 19275
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_control_test.go",
+    "sha256": "593a64b75a2ae9ca9decd583826651af0eb2b9f20d7135ae81818e7a99d25ade",
+    "size_bytes": 12233
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_fakes_test.go",
+    "sha256": "7b6e69282e83e5070c10938341ca464b9ee977ef26820fd8fbfadd5baa2cb04e",
+    "size_bytes": 8356
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_metrics_test.go",
+    "sha256": "1a71113937c2951566d48ce68be3f79e1edf311ce5b912d49e277182e7cc85ac",
+    "size_bytes": 11673
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/tasks_create.go",
+    "sha256": "dea8b5024e94c049ee18ec48df1837cf65c6405373f54fe3e2357b1f24e76b06",
+    "size_bytes": 15336
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/tasks_process.go",
+    "sha256": "81870f58e1cbfb0306ca8a0ab5188b1b759f808e616d437ce2fc031be3af25f1",
+    "size_bytes": 13555
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/validation_test.go",
+    "sha256": "1004f9b3820d55211cf0f3ec01ab1a06d2502e630386388f9ce2525769bdfab5",
+    "size_bytes": 7251
+  },
+  {
+    "path": "runtime/cmd/mk-agent/main.go",
+    "sha256": "4fd22ef0964c0908547883a6c95f6746d3b66d8149f1d024d61ebc199d3def11",
+    "size_bytes": 2433
+  },
+  {
+    "path": "runtime/cmd/mk-agent/shutdown_linux.go",
+    "sha256": "1334fdd3e98c512887e68a9303493fd7ebfe2a962a0af1bd4462d508ba611f40",
+    "size_bytes": 2610
+  },
+  {
+    "path": "runtime/cmd/mk-agent/shutdown_linux_test.go",
+    "sha256": "9ce72aa00079bbdef87c0e03ec6260b597f54cdc907c717037a3bcd097f08758",
+    "size_bytes": 4487
+  },
+  {
+    "path": "runtime/cmd/mk-agentctl/main.go",
+    "sha256": "feb1769f04a5bb2b06852422206c903f4c8b290f3c3a9ebde177f41763be7a28",
+    "size_bytes": 12849
+  },
+  {
+    "path": "runtime/cmd/mk-agentctl/main_test.go",
+    "sha256": "ed6c14d34c51ea35e406e0c59189902fdb2d296ce10f38121e84d4e69ec6cfb8",
+    "size_bytes": 2350
+  },
+  {
+    "path": "runtime/cmd/mk-cni/main.go",
+    "sha256": "354a4832e68303351aef19dde0f250e07b01bee0c4828b24a40ebe6759db8e5b",
+    "size_bytes": 12993
+  },
+  {
+    "path": "runtime/cmd/mk-cni/main_test.go",
+    "sha256": "be76623b216382138bd6c1fdc7a34bfb45a71e437431fe4cda9f612b3da84f96",
+    "size_bytes": 18147
+  },
+  {
+    "path": "runtime/cmd/mk-host-check/main.go",
+    "sha256": "c158d7705f27b2360938c86b8bbd3223095df0728738641a0b4d96487a942bc7",
+    "size_bytes": 1732
+  },
+  {
+    "path": "runtime/cmd/mknetd/main.go",
+    "sha256": "ade0f755f3bc106b54cf1e922ff2ca1c5fa2ebd6027c2d1fb28370cf44511cc0",
+    "size_bytes": 3545
+  },
+  {
+    "path": "runtime/cmd/mknetd/main_test.go",
+    "sha256": "5316bfa797fe469bb627635184a4a88e7ba99b03e9b3bf5ff1cb0b5d26ad5ab9",
+    "size_bytes": 1201
+  },
+  {
+    "path": "runtime/cmd/mkruntimed/main.go",
+    "sha256": "4dd4e9f882ac2441649207f5e12a35ed8e369026e9061d491747f0968d897872",
+    "size_bytes": 8919
+  },
+  {
+    "path": "runtime/cmd/mkruntimed/main_test.go",
+    "sha256": "d7b724141a6c2c978ca266a0241c3212e1192b8ea1ad378d818665552255e05b",
+    "size_bytes": 2459
+  },
+  {
+    "path": "runtime/go.mod",
+    "sha256": "407622e6b3f49c3e5c18149c92b708adc3f212ff0654d868bd3e89ecefdbc531",
+    "size_bytes": 1727
+  },
+  {
+    "path": "runtime/go.sum",
+    "sha256": "bc6646c9eab4f829010e70930cbbd2a9977ec41d0d3a0e990cc2919baa4429da",
+    "size_bytes": 21801
+  },
+  {
+    "path": "runtime/internal/boundedexec/boundedexec_linux.go",
+    "sha256": "4d455281077ce0c9e2311995f39f2c420b08091f3f5d16106456a2b00ce796db",
+    "size_bytes": 2660
+  },
+  {
+    "path": "runtime/internal/boundedexec/boundedexec_linux_test.go",
+    "sha256": "20aa8ed6b95fed1846bb3b85723b7d38a9200ec2838666d4eb3fdacc42a8ab59",
+    "size_bytes": 2780
+  },
+  {
+    "path": "runtime/internal/buildinfo/buildinfo.go",
+    "sha256": "4388404cdfe819b681d9e5269acfa5f5829845ccb3faf9d2f5c4c841496068d0",
+    "size_bytes": 762
+  },
+  {
+    "path": "runtime/internal/buildinfo/buildinfo_test.go",
+    "sha256": "1baa2acc42501649a4c0f5bcfdf3773fe6c2947547cccbef4a4f520a9f6a957c",
+    "size_bytes": 858
+  },
+  {
+    "path": "runtime/internal/daemon/client.go",
+    "sha256": "1bf8848cf8de5e06f2564ea1468439821257b1428d5d55d6d348e72bbd16db2f",
+    "size_bytes": 4611
+  },
+  {
+    "path": "runtime/internal/daemon/client_test.go",
+    "sha256": "5c9e82f7d0f43fe54ae916e587c99c4916c0229097ccead8fce26f74b8a1ba19",
+    "size_bytes": 8455
+  },
+  {
+    "path": "runtime/internal/daemon/server.go",
+    "sha256": "fb1f0b8e537b8a0ff91dcbc292b7c8af41ac395ef79c545e2f6378a37d390109",
+    "size_bytes": 9768
+  },
+  {
+    "path": "runtime/internal/daemon/server_test.go",
+    "sha256": "c91c5f421b457414fe2754a9488db28bcb7be6f6f73fe6ff83bdbab7aaef9802",
+    "size_bytes": 9658
+  },
+  {
+    "path": "runtime/internal/hostcheck/hostcheck.go",
+    "sha256": "4e6dc6d9e0c4a9e53bf92f783aca42d6c9c2e511f38b0dc03e5e250c4c13b482",
+    "size_bytes": 19552
+  },
+  {
+    "path": "runtime/internal/hostcheck/hostcheck_test.go",
+    "sha256": "cb990f08d70f6843d2f868e16e31936d5a982aea1ad73c63851a08548a7b3b0b",
+    "size_bytes": 10914
+  },
+  {
+    "path": "runtime/internal/hostconfig/config.go",
+    "sha256": "67b6ac7b3b71c1c1cab58eca722127cf29c34df8391a3de1d387f647d1e63093",
+    "size_bytes": 6656
+  },
+  {
+    "path": "runtime/internal/hostconfig/config_test.go",
+    "sha256": "3caffee1c99441fa3f9abdd0b00394f204316c1aca6225d2663b6f9ffa68e8a1",
+    "size_bytes": 4237
+  },
+  {
+    "path": "runtime/internal/kerf/kerf.go",
+    "sha256": "46453249596afc8c83f662ef2ee1594ff4b38c1f6ab6bf69d46f16d62ac4957b",
+    "size_bytes": 12452
+  },
+  {
+    "path": "runtime/internal/kerf/kerf_test.go",
+    "sha256": "767930376fe1643577c45ae5f12f0603c80efa1eb3ac50078ba44203b62deca7",
+    "size_bytes": 15837
+  },
+  {
+    "path": "runtime/internal/kernelmanifest/resolver.go",
+    "sha256": "913ef6c6de9ba3c5798ff88d9ff6943364fe4e8fe64eda1b0614563cadfd0336",
+    "size_bytes": 8649
+  },
+  {
+    "path": "runtime/internal/kernelmanifest/resolver_test.go",
+    "sha256": "f6bfdb5ac2827fa88ad758aa34c46d0317d0e228e95fdae21bbbe8d07ece3d5e",
+    "size_bytes": 5099
+  },
+  {
+    "path": "runtime/internal/lifecycle/service.go",
+    "sha256": "db136eda0e743a637ed80e5b90c4c619d6ce2d72437388acb478b80be4207c3e",
+    "size_bytes": 35219
+  },
+  {
+    "path": "runtime/internal/lifecycle/service_test.go",
+    "sha256": "a5f1782f38a337f9d9dbbf187c9f0a6e034e2a73eba6af3bb580607f31c50e48",
+    "size_bytes": 49427
+  },
+  {
+    "path": "runtime/internal/network/backend_linux.go",
+    "sha256": "3eaa0a3bd8b08f6c9aa8b98b1964c24ab09c8b7b43a583ffb0068bea7385d08f",
+    "size_bytes": 12043
+  },
+  {
+    "path": "runtime/internal/network/backend_linux_test.go",
+    "sha256": "65e05da307b28c468ac6881930da2631823330e7888113e1ccef97f930b8a765",
+    "size_bytes": 9481
+  },
+  {
+    "path": "runtime/internal/network/rpc.go",
+    "sha256": "c8b22bb9977cc4b6349d7ca297837c785981c3614a9dac8fa8072122e58c50ff",
+    "size_bytes": 9752
+  },
+  {
+    "path": "runtime/internal/network/rpc_test.go",
+    "sha256": "fb929c03a3c722955b54829c603f98bcc3e92a2fa5cf3d1f1602355154a6ae97",
+    "size_bytes": 10248
+  },
+  {
+    "path": "runtime/internal/network/service.go",
+    "sha256": "3bc160733927945b6ce05d4ec17edd66b19eb07f3d6d5bcca92968fda46ef5f7",
+    "size_bytes": 24096
+  },
+  {
+    "path": "runtime/internal/network/service_test.go",
+    "sha256": "1e45ba149a095baecc7e35e7ff1dad230337b7e2386a7d108dc7fd9aa56b3a1e",
+    "size_bytes": 17483
+  },
+  {
+    "path": "runtime/internal/network/store.go",
+    "sha256": "0b839219cfa4e2770fc7e8f22410b39e2e64d40cfa6be4c0b855ce9c563779f6",
+    "size_bytes": 6544
+  },
+  {
+    "path": "runtime/internal/network/store_test.go",
+    "sha256": "60a8aa7fb5e284dfddb4c4e8f084e2a9fd31299bcbe1af9a945cfd2eac6657e6",
+    "size_bytes": 5099
+  },
+  {
+    "path": "runtime/internal/network/tun_linux.go",
+    "sha256": "5e24397609deac9c929dc9341eecba19edfdcd5aa57e078c763cd4c7ceb29eb4",
+    "size_bytes": 2656
+  },
+  {
+    "path": "runtime/internal/network/types.go",
+    "sha256": "6429d2ebe8c3a181f590d28d6e463f82a333a3dc7ad535674e979aea9ffdf5b8",
+    "size_bytes": 2047
+  },
+  {
+    "path": "runtime/internal/rootfs/backend_linux.go",
+    "sha256": "0bb75277976c2e8a8dc424667304a51eef27b241d50ac33e2c54d428cb628c90",
+    "size_bytes": 29206
+  },
+  {
+    "path": "runtime/internal/rootfs/backend_linux_test.go",
+    "sha256": "e81278b5806e44c2f6f3ed3cc36664de97492ce4d3089c4a2e5dbfaf018c2016",
+    "size_bytes": 27161
+  },
+  {
+    "path": "runtime/internal/rootfs/service.go",
+    "sha256": "2cabd2ba45880506e3ead9d5ea7a2e35c292d367eb277e381cabdc08866bd363",
+    "size_bytes": 34718
+  },
+  {
+    "path": "runtime/internal/rootfs/service_test.go",
+    "sha256": "d6871e90dcfba9a5e5d728123cf13385f827a6bafc9580fbebb7e0647a33c60d",
+    "size_bytes": 28818
+  },
+  {
+    "path": "runtime/internal/rootfs/store.go",
+    "sha256": "704f381fbbefd3f3c24ac8bb5d9eadc4c21b3172a20e90d3ac2977fbc27965ac",
+    "size_bytes": 10322
+  },
+  {
+    "path": "runtime/internal/rootfs/store_test.go",
+    "sha256": "3f9150cc9cb726448eccc77ac7734c5934c730489a3c01e3ee528e406092ebca",
+    "size_bytes": 16880
+  },
+  {
+    "path": "runtime/internal/rootfs/types.go",
+    "sha256": "33bc8a24bbbd0a06ba12e423d2b254b55c9b2065dc573743e4fee4661a694da1",
+    "size_bytes": 2209
+  },
+  {
+    "path": "runtime/internal/safefile/directory_linux.go",
+    "sha256": "ea716da56cb729485dc6475ab817efdd5dced50936228f67de334bdcd9b1a63b",
+    "size_bytes": 33413
+  },
+  {
+    "path": "runtime/internal/safefile/directory_linux_test.go",
+    "sha256": "a78958ecf3a0571f0acd4da4688757e1387fbcd80ed1d77a3fba2090a6ba8221",
+    "size_bytes": 13268
+  },
+  {
+    "path": "runtime/internal/state/store.go",
+    "sha256": "f335b6c53df52e19ce21a56565451373f9538621206fabc341dd972f0d06a026",
+    "size_bytes": 11157
+  },
+  {
+    "path": "runtime/internal/state/store_test.go",
+    "sha256": "4cd683a843b0f93e62e3f632952d9d78094f0663df8a4d6934cfd26a8cdddbc0",
+    "size_bytes": 7943
+  },
+  {
+    "path": "runtime/internal/storage/backend_linux.go",
+    "sha256": "0692f25bf8aceb086e42c47997c532012b1ac3e99850b9400b43de1a94bd2e81",
+    "size_bytes": 33724
+  },
+  {
+    "path": "runtime/internal/storage/backend_linux_test.go",
+    "sha256": "21bede4377175b2580dc8e0a1617e5a4ed9513ff9ff3b38fe37b6c802e873bec",
+    "size_bytes": 42375
+  },
+  {
+    "path": "runtime/internal/storage/service.go",
+    "sha256": "ff920f4500251424809f3771d5ee585d49c5c7e304260c10e5d052304f82e2e3",
+    "size_bytes": 10016
+  },
+  {
+    "path": "runtime/internal/storage/service_test.go",
+    "sha256": "f2c204bfed37a0ab1b95a7ed73a43c15863c168ebfb96a7563344903fb60baf8",
+    "size_bytes": 17229
+  },
+  {
+    "path": "runtime/internal/storage/store.go",
+    "sha256": "2a88ea25e016588ea2dfdc0c61bb69af1d3b9f0aa05b034686f4253684c6729c",
+    "size_bytes": 7328
+  },
+  {
+    "path": "runtime/internal/storage/store_test.go",
+    "sha256": "c83ecd43968bb35859edc265e92899ea75b5c6d3160d38fa280856ac821af4d0",
+    "size_bytes": 8479
+  },
+  {
+    "path": "runtime/internal/storage/types.go",
+    "sha256": "73655299fc33bd84ee6777e50f59678dfe741a21a48ff8e4bbad2438d68e3f69",
+    "size_bytes": 1444
+  },
+  {
+    "path": "runtime/internal/unixsocket/listener_linux.go",
+    "sha256": "c1f0478bd7059d5525bdca86a35a7e07227a8dbcfc87a92ef9edd1698e08a9fa",
+    "size_bytes": 12365
+  },
+  {
+    "path": "runtime/internal/unixsocket/listener_linux_test.go",
+    "sha256": "f7b2560c900059cfab0af66ecd7ffd10f40621fd8d0db58b2b4e9a1cf79e20cf",
+    "size_bytes": 11129
+  },
+  {
+    "path": "runtime/protocol/io.go",
+    "sha256": "94a5a280ca89d9bccf4a81b477e49432520f57b9e79ddb5634b5d84f9fcaae0d",
+    "size_bytes": 1138
+  },
+  {
+    "path": "runtime/protocol/io_test.go",
+    "sha256": "94f62f67cc6fd23664df810ba9baee9ca9cf1ddc09ab558da7f5ba7422484662",
+    "size_bytes": 1685
+  },
+  {
+    "path": "runtime/protocol/json.go",
+    "sha256": "ae09cbc62d6757571ab2d2134ede9e1b7bdc09ea9aa8dde614647d057a0788b3",
+    "size_bytes": 2046
+  },
+  {
+    "path": "runtime/protocol/json_test.go",
+    "sha256": "375555a42f1e536417edb3037e504779047c8b5ea18ed7a52fc7f4a836345c10",
+    "size_bytes": 1233
+  },
+  {
+    "path": "runtime/protocol/types.go",
+    "sha256": "a31898ad6d376962d77529765687bddcaa8f1817382d3d25e58d0c0198faa38c",
+    "size_bytes": 3513
+  },
+  {
+    "path": "scripts/audit-runtime-isolation-source.py",
+    "sha256": "505a85f43403c8a20ca28e9f48b412daa97592f16ad1e0014d89eb5e7fb22100",
+    "size_bytes": 3363
+  },
+  {
+    "path": "scripts/build-runtime-vsock.sh",
+    "sha256": "753434244c7499bb3769e17a0032cb578c51904441afdb9f10b7768fe653eda9",
+    "size_bytes": 1073
+  },
+  {
+    "path": "scripts/build-security-authority-initramfs.sh",
+    "sha256": "5dfcc78428985c610b0e38d1edfe5ffc68b92b9bcabdbb775f2dfbaf686bd568",
+    "size_bytes": 1915
+  },
+  {
+    "path": "scripts/test-runtime-security-authority-live.sh",
+    "sha256": "d8209f76bbf51dc015a4261063016b17f9abcdb3fc21965d55395aebae97d7bc",
+    "size_bytes": 5553
+  },
+  {
+    "path": "scripts/verify-g7-authority-evidence.py",
+    "sha256": "78e0972e142968e75720867b07dc9461b4f66407e07000a2a88c15bbff6c1692",
+    "size_bytes": 4343
+  },
+  {
+    "path": "scripts/verify-g7-boundary-evidence.py",
+    "sha256": "420a62a2d954631132462c36743121b8ad776f808f90313840fdc18f4f7b58a7",
+    "size_bytes": 3766
+  },
+  {
+    "path": "tools/mkvsock-relay.c",
+    "sha256": "4fd9f25ea48c3319f7ed9e7269e7aca92de970fd6e08701d817343a8c44f0c29",
+    "size_bytes": 2826
+  }
+]

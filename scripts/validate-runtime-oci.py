@@ -362,6 +362,8 @@ def validate(config):
         raise ValueError("process.cwd must be absolute, canonical, and bounded")
     if "noNewPrivileges" in process and not isinstance(process["noNewPrivileges"], bool):
         raise ValueError("process.noNewPrivileges must be boolean")
+    if process.get("noNewPrivileges") is False:
+        raise ValueError("disabling no-new-privileges is not supported")
     rlimits = process.get("rlimits", [])
     if not isinstance(rlimits, list) or len(rlimits) > 32:
         raise ValueError("process.rlimits must be an array of at most 32 limits")
@@ -388,6 +390,11 @@ def validate(config):
                 raise ValueError(f"process.capabilities.{name} must be a bounded string array")
             if len(values) != len(set(values)) or any(item not in CAPABILITIES for item in values):
                 raise ValueError(f"process.capabilities.{name} contains an unknown or duplicate capability")
+            supported = {"CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_FOWNER", "CAP_FSETID", "CAP_KILL",
+                         "CAP_SETGID", "CAP_SETUID", "CAP_SETPCAP", "CAP_NET_BIND_SERVICE", "CAP_NET_RAW",
+                         "CAP_SYS_CHROOT", "CAP_MKNOD", "CAP_AUDIT_WRITE", "CAP_SETFCAP"}
+            if any(item not in supported for item in values):
+                raise ValueError("requested capability is outside the supported workload policy")
         if process.get("user", {}).get("uid") != 0:
             raise ValueError("non-root processes may not provide a Linux capability contract")
         bounding = set(capabilities.get("bounding", []))
@@ -397,6 +404,8 @@ def validate(config):
         ambient = set(capabilities.get("ambient", []))
         if not permitted <= bounding or not effective <= permitted or not ambient <= (permitted & inheritable):
             raise ValueError("process capability sets violate containment")
+        if bounding != permitted or permitted != effective:
+            raise ValueError("root bounding, permitted, and effective capabilities must match")
 
     user = require_object(process.get("user"), "process.user")
     reject_unknown(user, USER, "process.user")

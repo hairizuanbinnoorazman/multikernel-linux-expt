@@ -1,0 +1,70 @@
+{
+  "Capabilities": {
+    "agent": {
+      "bounding_capabilities": "000001ffffffffff",
+      "effective_capabilities": "000001ffffffffff",
+      "gid": 0,
+      "no_new_privileges": "0",
+      "uid": 0
+    },
+    "kernel": {
+      "architecture": "amd64",
+      "cgroup_v2": true,
+      "mk_transport": true,
+      "multikernel": true,
+      "namespaces": [
+        "cgroup",
+        "ipc",
+        "mnt",
+        "net",
+        "pid",
+        "time",
+        "user",
+        "uts"
+      ],
+      "release": "7.0.0-mk2-gce-lab"
+    },
+    "oci_features": [
+      "argv",
+      "environment",
+      "cwd",
+      "split-stdio",
+      "exit-code",
+      "stdin",
+      "attach",
+      "terminal",
+      "terminal-resize",
+      "no-new-privileges",
+      "rlimits",
+      "linux-capabilities",
+      "hostname",
+      "masked-paths",
+      "readonly-paths",
+      "readonly-root",
+      "standard-mounts",
+      "readonly-bind-inputs-v1"
+    ],
+    "protocol": 1,
+    "protocol_features": [
+      "signal-operation-id-v1",
+      "stdin-offset-v1",
+      "two-phase-shutdown-v1"
+    ]
+  },
+  "CreateProcess": {},
+  "DeleteProcess": {},
+  "Quiesce": {
+    "status": "quiesced"
+  },
+  "Shutdown": {
+    "status": "quiesced"
+  },
+  "StartProcess": {},
+  "WaitProcess": {
+    "id": "p1",
+    "pid": 134,
+    "status": "STOPPED",
+    "stderr": "",
+    "stdout": "SECURITY_AUTHORITY_BEGIN\nuid=0 gid=0\n7.0.0-mk2-gce-lab\nUid:\t0\t0\t0\t0\nGid:\t0\t0\t0\t0\nGroups:\t \nCapInh:\t0000000000000000\nCapPrm:\t00000000a80425fb\nCapEff:\t00000000a80425fb\nCapBnd:\t00000000a80425fb\nCapAmb:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t0\nKERNEL_COMMAND_LINE_TOKEN_VISIBLE=no\nAGENT_ARGUMENT_TOKEN_VISIBLE=no\nPATH_AUTHORITY path=/dev/mem exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/kmem exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/port exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/nbd0 exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/kmsg exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/multikernel exists=no readable=no writable=no\nPATH_AUTHORITY path=/proc/modules exists=yes readable=yes writable=yes\nPATH_AUTHORITY path=/proc/sys/kernel/modules_disabled exists=yes readable=yes writable=yes\nPATH_AUTHORITY path=/proc/sys/kernel/yama/ptrace_scope exists=yes readable=yes writable=yes\nPATH_AUTHORITY path=/run/multikernel-agent/control.sock exists=no readable=no writable=no\nPATH_AUTHORITY path=/proc/1/root/run/multikernel-agent/control.sock exists=no readable=no writable=no\nMOUNTS_BEGIN\n34 2 0:29 / /dev rw,nosuid,noexec,relatime - tmpfs tmpfs rw,size=16384k,mode=755,inode64\n35 34 0:24 / /dev/pts rw,relatime - devpts devpts rw,mode=620,ptmxmode=666\n36 34 0:25 / /dev/shm rw,nosuid,nodev,noexec,relatime - tmpfs shm rw,size=65536k,inode64\n37 34 0:23 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw\n38 2 0:26 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw\n39 2 0:27 / /sys ro,nosuid,nodev,noexec,relatime - sysfs sysfs rw\n40 2 0:30 / /run rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64\nMOUNTS_END\nDESCRIPTORS_BEGIN\nFD 0 pipe:[803]\nFD 1 pipe:[804]\nFD 10 /probe.sh\nFD 2 pipe:[805]\nFD 3 pipe:[1286]\nDESCRIPTORS_END\nCHILD_BOOTSTRAP_CANARY_READ=no\nCHILD_BOOTSTRAP_CANARY_WRITE=no\nSECURITY_AUTHORITY_END\n"
+  }
+}

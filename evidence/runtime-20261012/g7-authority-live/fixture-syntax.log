@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["bash", "-n", "guest/mk-agent-init", "guest/security-authority-probe.sh", "scripts/build-security-authority-initramfs.sh", "scripts/test-runtime-security-authority-live.sh"], "started_at": "2026-10-12T06:17:20.332029Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-12T06:17:20.333771Z", "exit_status": 0}}

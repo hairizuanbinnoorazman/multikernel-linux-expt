@@ -1,0 +1,59 @@
+{
+  "creationTimestamp": "2026-10-11T22:33:58.913-07:00",
+  "disks": [
+    {
+      "architecture": "X86_64",
+      "autoDelete": true,
+      "boot": true,
+      "deviceName": "persistent-disk-0",
+      "diskSizeGb": "100",
+      "guestOsFeatures": [
+        {
+          "type": "VIRTIO_SCSI_MULTIQUEUE"
+        },
+        {
+          "type": "SEV_CAPABLE"
+        },
+        {
+          "type": "SEV_SNP_CAPABLE"
+        },
+        {
+          "type": "SEV_LIVE_MIGRATABLE"
+        },
+        {
+          "type": "SEV_LIVE_MIGRATABLE_V2"
+        },
+        {
+          "type": "SNP_SVSM_CAPABLE"
+        },
+        {
+          "type": "IDPF"
+        },
+        {
+          "type": "TDX_CAPABLE"
+        },
+        {
+          "type": "UEFI_COMPATIBLE"
+        },
+        {
+          "type": "GVNIC"
+        }
+      ],
+      "index": 0,
+      "interface": "SCSI",
+      "kind": "compute#attachedDisk",
+      "licenses": [
+        "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/licenses/ubuntu-2604-lts"
+      ],
+      "mode": "READ_WRITE",
+      "source": "https://www.googleapis.com/compute/v1/projects/${MK_PROJECT}/zones/asia-southeast1-b/disks/mklinux-g7-authority-20261012",
+      "type": "PERSISTENT"
+    }
+  ],
+  "labels": {
+    "purpose": "g7-security"
+  },
+  "machineType": "https://www.googleapis.com/compute/v1/projects/${MK_PROJECT}/zones/asia-southeast1-b/machineTypes/n2-standard-16",
+  "name": "mklinux-g7-authority-20261012",
+  "status": "RUNNING"
+}

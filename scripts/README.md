@@ -24,6 +24,21 @@ to a stable remote path. For the thematic mapping, see
 - Concurrent ctr/Docker resource identity and churn are covered by
   `test-runtime-concurrent-churn-live.sh`.
 - Repository checks: `check-docs.sh`.
+- G7 security boundary assessment: `audit-runtime-isolation-source.py` verifies
+  the pinned review files. `build-security-authority-initramfs.sh` and
+  `test-runtime-security-authority-live.sh` provide explicit, disposable-host
+  diagnostic fixtures; they are not included in default checks. See the
+  [assessment](../docs/runtime/research/g7-security-boundary-assessment.md).
+  `verify-g7-boundary-evidence.py` checks the scoped source archives and cloud
+  cleanup ledger comparison without running privileged probes.
+  `verify-g7-authority-evidence.py` checks the subsequent live bundle's exact
+  fixture sources, observed authority profiles, and cleanup evidence.
+  The remediation fixture requires `MK_SECURITY_LOAD`, built from
+  `runtime/tools/g7-credential-load`, to exercise production Kerf credential
+  delivery. It runs four authority profiles and two rejection cases.
+  `verify-g7-remediation-evidence.py` checks those results offline. Direct G3
+  initramfs builders require a private `MK_AGENT_TOKEN_FILE`; credentials must
+  never be included in child kernel or agent command lines.
 - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
 
 Destructive and billable operations must remain explicit Makefile targets;

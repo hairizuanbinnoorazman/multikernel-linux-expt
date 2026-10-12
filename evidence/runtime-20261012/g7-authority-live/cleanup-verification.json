@@ -1,0 +1,7 @@
+{
+  "project_resources_equal_except_capture_time": true,
+  "exact_instance_query_empty": true,
+  "exact_boot_disk_query_empty": true,
+  "baseline_resources_unchanged": true,
+  "test_resources_retained": []
+}

@@ -1,0 +1,12 @@
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+CLEANUP_ASSERTIONS_PASSED cpus=0-15 children=0 helpers=0

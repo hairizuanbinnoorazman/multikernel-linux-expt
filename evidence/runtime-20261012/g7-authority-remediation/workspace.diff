@@ -1,0 +1,564 @@
+diff --git a/docs/project/TASKS.md b/docs/project/TASKS.md
+index 5676c5c..a76a383 100644
+--- a/docs/project/TASKS.md
++++ b/docs/project/TASKS.md
+@@ -1,6 +1,6 @@
+ # Implementation tasks
+ 
+-Last updated: 2026-10-11
++Last updated: 2026-10-12
+ 
+ ## Live GCE proof
+ 
+@@ -190,6 +190,11 @@ The detailed exit criteria and ordering are in
+   before treating the checked MVP and feature rows as full G4, G5, or G6 gate
+   conformance.
+ - [ ] G7: pass the security, fuzzing, failure, soak, and resource-leak matrix.
++  - [ ] Execute the [STRIDE security checklist](../runtime/plans/g7-security-checklist.md),
++    mapping threats to reviewed findings and retained evidence.
++  - [ ] Evaluate the separate-kernel workload-escape hypothesis against a pinned
++    gVisor configuration; document compromised-child limitations and avoid
++    claiming an isolation advantage without supporting evidence.
+ - [ ] G8: add bounded health, diagnostics, structured logging, tested recovery,
+   service hardening, and a maintainable shim layout.
+ - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
+diff --git a/docs/runtime/README.md b/docs/runtime/README.md
+index 1238d12..ef5ce5d 100644
+--- a/docs/runtime/README.md
++++ b/docs/runtime/README.md
+@@ -6,6 +6,12 @@
+   boundary.
+ - [`decisions/`](decisions/): architecture decision records.
+ - [`research/`](research/): related-work audits.
++- [`research/stride-threat-model.md`](research/stride-threat-model.md): STRIDE
++  threats, workload-escape hypothesis, and the gVisor comparison boundary.
++- [`plans/g7-security-checklist.md`](plans/g7-security-checklist.md): proposed
++  security reviews, negative tests, fuzzing, and comparative research tasks.
++- [`research/g7-security-boundary-assessment.md`](research/g7-security-boundary-assessment.md):
++  SEC-01/SEC-02/SEC-11 findings, evidence scope, and claim-specific confidence.
+ - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
+ - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
+   boundaries.
+diff --git a/docs/runtime/contracts/README.md b/docs/runtime/contracts/README.md
+index 143b94f..720aa57 100644
+--- a/docs/runtime/contracts/README.md
++++ b/docs/runtime/contracts/README.md
+@@ -13,6 +13,8 @@ The normative documents are:
+ - [`kernel-and-image-policy.md`](kernel-and-image-policy.md): runtime boot
+   artifacts, OCI inputs, compatibility, and feature rejection;
+ - [`configuration.md`](configuration.md): host and sandbox configuration;
++- [`workload-authority.md`](workload-authority.md): private agent credentials,
++  mandatory process privilege policy, device exposure, and security limits;
+ - [`protocol-v1.md`](protocol-v1.md): daemon and agent wire envelopes; and
+ - [`evidence.md`](evidence.md): evidence manifest and cloud resource ledgers.
+ 
+diff --git a/docs/runtime/plans/07-security-and-reliability.md b/docs/runtime/plans/07-security-and-reliability.md
+index 05ca99b..fe4c964 100644
+--- a/docs/runtime/plans/07-security-and-reliability.md
++++ b/docs/runtime/plans/07-security-and-reliability.md
+@@ -6,6 +6,17 @@ Define a defensible preview security posture and prove recovery under component
+ failure. This gate does not attempt to turn Multikernel into a KVM-equivalent
+ security boundary.
+ 
++## Threat-model method and security backlog
++
++Use [STRIDE across data flows and trust boundaries](../research/stride-threat-model.md)
++and execute the [G7 security task checklist](g7-security-checklist.md).
++The model includes the project's hypothesis that separate Linux kernels could
++make workload escape harder than gVisor. That comparative claim is unproven;
++child-kernel compromise must be evaluated separately from process compromise,
++and the existing lack of a demonstrated hostile-child hardware boundary remains
++an architectural limitation. Closing G7 qualifies the documented trusted preview,
++not a claim of superiority to gVisor or hostile multi-tenant isolation.
++
+ ## Security work
+ 
+ - Threat-model primary daemon, shim, child agent, workload, image, control
+diff --git a/docs/runtime/status.md b/docs/runtime/status.md
+index b300d7e..46b53f1 100644
+--- a/docs/runtime/status.md
++++ b/docs/runtime/status.md
+@@ -64,6 +64,19 @@ retained and remains billable.
+ 
+ ## Safety boundary
+ 
++The [G7 boundary assessment](research/g7-security-boundary-assessment.md)
++reproduces the pinned source audit and records fresh portable agent checks.
++It identifies an architectural limitation after child-kernel compromise and
++baseline bootstrap credential exposure and default-root access to a synthetic
++child-bootstrap file outside its OCI chroot. The
++[remediation rerun](../../evidence/runtime-20261012/g7-authority-remediation/README.md)
++verifies private credential handoff, least-privilege root defaults, mandatory
++no-new-privileges, selected devices, and fail-closed privilege requests in six
++bounded cases. See the [authority policy](contracts/workload-authority.md) for
++compatibility changes. Mediated-root/Docker requalification and remaining
++authority review are open; full G7 and a security advantage over gVisor are
++not established. Historical G4-G6 passes apply to their recorded source versions.
++
+ The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels
+ do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
+ Never assign the primary boot disk, NIC, or a shared controller to a child, and
+diff --git a/evidence/README.md b/evidence/README.md
+index 0ea999e..c8dc8e1 100644
+--- a/evidence/README.md
++++ b/evidence/README.md
+@@ -24,6 +24,10 @@ not evidence that the affected run passed a gate.
+ - [`runtime-20261011/`](runtime-20261011/README.md): maintainability source
+   provenance, portable and live GCE checks, restart/isolation coverage, and
+   cloud cleanup.
++- [`runtime-20261012/`](runtime-20261012/README.md): partial G7 boundary
++  assessment, pinned-source reproduction, portable agent checks, live authority
++  collection in three profiles, confirmed credential exposure and child-bootstrap
++  canary access, retained failed attempts, and cloud cleanup.
+ 
+ Evidence captures historical state and may contain terminal formatting such as
+ CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely
+diff --git a/guest/README.md b/guest/README.md
+index a75c3dd..fe2594e 100644
+--- a/guest/README.md
++++ b/guest/README.md
+@@ -4,6 +4,8 @@
+ - `daxfs-*` and `docker-proof.sh`: DAXFS and Docker-derived root proofs.
+ - `ext4-bootstrap-init`: bounded rejection of a missing direct ext4 root.
+ - `mediated-*`: AF_VSOCK transport and primary-mediated ext4 roots.
++- `security-authority-probe.sh`: diagnostic workload for G7 privilege and
++  synthetic child-bootstrap canary checks. Never included in production images.
+ 
+ See the [experiment asset map](../docs/experiments/ASSET-MAP.md) for the
+ matching builders, tests, reports, and evidence.
+diff --git a/guest/mk-agent-init b/guest/mk-agent-init
+index 9350ab4..e3f5e61 100755
+--- a/guest/mk-agent-init
++++ b/guest/mk-agent-init
+@@ -6,7 +6,7 @@ is_mounted() {
+ 	/bin/busybox grep -qs " $1 " /proc/mounts 2>/dev/null
+ }
+ is_mounted /dev || /bin/busybox mount -t devtmpfs devtmpfs /dev
+-mkdir -p /dev/pts
++mkdir -p /dev/pts /dev/shm /dev/mqueue
+ is_mounted /dev/pts || /bin/busybox mount -t devpts devpts /dev/pts -o mode=620,ptmxmode=666
+ is_mounted /dev/shm || /bin/busybox mount -t tmpfs shm /dev/shm -o nosuid,noexec,nodev,mode=1777,size=65536k
+ is_mounted /dev/mqueue || /bin/busybox mount -t mqueue mqueue /dev/mqueue -o nosuid,noexec,nodev
+@@ -14,7 +14,22 @@ is_mounted /proc || /bin/busybox mount -t proc proc /proc
+ is_mounted /sys || /bin/busybox mount -t sysfs sysfs /sys
+ is_mounted /sys/fs/cgroup || /bin/busybox mount -t cgroup2 none /sys/fs/cgroup
+ mkdir -p /bundle/rootfs/dev /bundle/rootfs/proc /bundle/rootfs/sys /bundle/rootfs/run /bundle/rootfs/tmp
+-mount --bind /dev /bundle/rootfs/dev
++# Export ordinary workload devices, keeping bootstrap disks and privileged
++# memory, I/O and kernel-log interfaces out of the workload device tree.
++mount -t tmpfs -o nosuid,noexec,mode=755,size=16384k tmpfs /bundle/rootfs/dev
++for device in 'null 1 3' 'zero 1 5' 'full 1 7' 'random 1 8' 'urandom 1 9' 'tty 5 0'; do
++	set -- $device
++	mknod -m 666 "/bundle/rootfs/dev/$1" c "$2" "$3"
++done
++mkdir -p /bundle/rootfs/dev/pts /bundle/rootfs/dev/shm /bundle/rootfs/dev/mqueue
++mount --bind /dev/pts /bundle/rootfs/dev/pts
++mount --bind /dev/shm /bundle/rootfs/dev/shm
++mount --bind /dev/mqueue /bundle/rootfs/dev/mqueue
++ln -s pts/ptmx /bundle/rootfs/dev/ptmx
++ln -s /proc/self/fd /bundle/rootfs/dev/fd
++ln -s /proc/self/fd/0 /bundle/rootfs/dev/stdin
++ln -s /proc/self/fd/1 /bundle/rootfs/dev/stdout
++ln -s /proc/self/fd/2 /bundle/rootfs/dev/stderr
+ mount --bind /proc /bundle/rootfs/proc
+ mount --bind /sys /bundle/rootfs/sys
+ mount -o remount,bind,nosuid,noexec,nodev /bundle/rootfs/proc
+@@ -26,18 +41,17 @@ fi
+ 
+ sandbox_id=
+ generation=
+-token=
+ port=
+ for arg in $(cat /proc/cmdline); do
+ 	case "$arg" in
+ 		mk.sandbox_id=*) sandbox_id=${arg#*=} ;;
+ 		mk.generation=*) generation=${arg#*=} ;;
+-		mk.token=*) token=${arg#*=} ;;
++		mk.token=*) echo MK_AGENT_INSECURE_BOOT_CREDENTIAL; exit 1 ;;
+ 		mk.agent_port=*) port=${arg#*=} ;;
+ 	esac
+ done
+ 
+-if [ -z "$sandbox_id" ] || [ -z "$generation" ] || [ -z "$token" ] || [ -z "$port" ]; then
++if [ -z "$sandbox_id" ] || [ -z "$generation" ] || [ ! -f /.mk-agent/token ] || [ -z "$port" ]; then
+ 	echo MK_AGENT_BOOT_CONFIG_MISSING
+ 	exec sh -c 'while true; do sleep 3600; done'
+ fi
+@@ -50,7 +64,7 @@ agent_socket=$agent_socket_dir/control.sock
+ mkdir -p "$agent_socket_dir"
+ chmod 0700 "$agent_socket_dir"
+ /mk-agent --sandbox-id="$sandbox_id" --generation="$generation" \
+-	--token-hex="$token" --port="$port" --unix-socket="$agent_socket" $mediated &
++	--token-file=/.mk-agent/token --port="$port" --unix-socket="$agent_socket" $mediated &
+ agent_pid=$!
+ while kill -0 "$agent_pid" 2>/dev/null; do
+ 	/mkvsock-relay client 0 "$port" "$agent_socket" || true
+diff --git a/guest/runtime-mediated-init b/guest/runtime-mediated-init
+index 4714331..7e19295 100755
+--- a/guest/runtime-mediated-init
++++ b/guest/runtime-mediated-init
+@@ -76,6 +76,12 @@ if [ "$observed_image" != "$image_id" ]; then
+ 	exec sh -c 'while true; do sleep 3600; done'
+ fi
+ cp /tmp/nbd-client.log /newroot/.multikernel/nbd-client.log
++# Keep the one-shot credential off the mediated disk and outside the OCI root.
++mkdir -p /newroot/.mk-agent
++mount -t tmpfs -o mode=700,nosuid,nodev,noexec tmpfs /newroot/.mk-agent
++cp /.mk-agent/token /newroot/.mk-agent/token
++chmod 0600 /newroot/.mk-agent/token
++rm /.mk-agent/token
+ sync
+ echo "MK_STORAGE_BOOTSTRAP_READY sandbox=$sandbox_id image=$image_id uuid=$observed_uuid"
+ mount --move /dev /newroot/dev
+diff --git a/runtime/agent/manager.go b/runtime/agent/manager.go
+index 17d6e08..8e1c476 100644
+--- a/runtime/agent/manager.go
++++ b/runtime/agent/manager.go
+@@ -539,8 +539,12 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
+ 	}
+ 	commandPath := exe
+ 	commandArgs := p.spec.Args[1:]
+-	if p.spec.NoNewPrivileges != nil || p.spec.Rlimits != nil || p.spec.Capabilities != nil {
+-		constraints, constraintErr := encodeExecConstraints(p.spec)
++	executionSpec := p.spec
++	if !m.NoChroot {
++		executionSpec = workloadDefaults(executionSpec)
++	}
++	if executionSpec.NoNewPrivileges != nil || executionSpec.Rlimits != nil || executionSpec.Capabilities != nil {
++		constraints, constraintErr := encodeExecConstraints(executionSpec)
+ 		if constraintErr != nil {
+ 			m.mu.Unlock()
+ 			return processStartError("constraints", constraintErr)
+diff --git a/runtime/agent/oci_exec_linux.go b/runtime/agent/oci_exec_linux.go
+index c77b750..49f9fe9 100644
+--- a/runtime/agent/oci_exec_linux.go
++++ b/runtime/agent/oci_exec_linux.go
+@@ -34,6 +34,24 @@ var linuxCapabilities = map[string]uint{
+ 	"CAP_PERFMON": 38, "CAP_BPF": 39, "CAP_CHECKPOINT_RESTORE": 40,
+ }
+ 
++// Ordinary workload grants only; kernel administration, bootstrap ptrace,
++// raw I/O and filesystem-handle bypasses are outside the supported policy.
++var workloadCapabilities = map[string]bool{
++	"CAP_CHOWN": true, "CAP_DAC_OVERRIDE": true, "CAP_FOWNER": true,
++	"CAP_FSETID": true, "CAP_KILL": true, "CAP_SETGID": true, "CAP_SETUID": true,
++	"CAP_SETPCAP": true, "CAP_NET_BIND_SERVICE": true, "CAP_NET_RAW": true,
++	"CAP_SYS_CHROOT": true, "CAP_MKNOD": true, "CAP_AUDIT_WRITE": true, "CAP_SETFCAP": true,
++}
++
++func workloadDefaults(spec ProcessSpec) ProcessSpec {
++	nnp := true
++	spec.NoNewPrivileges = &nnp
++	if spec.User.UID == 0 && spec.Capabilities == nil {
++		spec.Capabilities = map[string][]string{}
++	}
++	return spec
++}
++
+ var rlimitResources = map[string]int{
+ 	"RLIMIT_AS": unix.RLIMIT_AS, "RLIMIT_CORE": unix.RLIMIT_CORE, "RLIMIT_CPU": unix.RLIMIT_CPU,
+ 	"RLIMIT_DATA": unix.RLIMIT_DATA, "RLIMIT_FSIZE": unix.RLIMIT_FSIZE, "RLIMIT_LOCKS": unix.RLIMIT_LOCKS,
+@@ -59,6 +77,9 @@ func capabilityMask(values []string) ([2]uint32, error) {
+ }
+ 
+ func validateExecConstraints(process ProcessSpec) error {
++	if process.NoNewPrivileges != nil && !*process.NoNewPrivileges {
++		return errorf(unsupported, "disabling no-new-privileges is not supported")
++	}
+ 	if len(process.Rlimits) > 32 {
+ 		return errorf(invalidArgument, "too many process rlimits")
+ 	}
+@@ -81,6 +102,11 @@ func validateExecConstraints(process ProcessSpec) error {
+ 		if _, err := capabilityMask(values); err != nil {
+ 			return err
+ 		}
++		for _, value := range values {
++			if !workloadCapabilities[value] {
++				return errorf(unsupported, "capability %s is outside the supported workload policy", value)
++			}
++		}
+ 	}
+ 	if process.User.UID != 0 {
+ 		return errorf(invalidArgument, "non-root processes may not provide a Linux capability contract")
+@@ -94,6 +120,11 @@ func validateExecConstraints(process ProcessSpec) error {
+ 		if permitted[i]&^bounding[i] != 0 || effective[i]&^permitted[i] != 0 || ambient[i]&^(permitted[i]&inheritable[i]) != 0 {
+ 			return errorf(invalidArgument, "Linux capability sets violate bounding, permitted, effective, or ambient containment")
+ 		}
++		// UID 0 exec restores capabilities from the bounding set. Reject a
++		// narrower contract rather than silently granting more than requested.
++		if bounding[i] != permitted[i] || permitted[i] != effective[i] {
++			return errorf(unsupported, "root bounding, permitted, and effective capabilities must match")
++		}
+ 	}
+ 	return nil
+ }
+diff --git a/runtime/agent/oci_exec_linux_test.go b/runtime/agent/oci_exec_linux_test.go
+index 46ba5bc..8755488 100644
+--- a/runtime/agent/oci_exec_linux_test.go
++++ b/runtime/agent/oci_exec_linux_test.go
+@@ -77,3 +77,32 @@ func TestOCIConstraintValidationRejectsUnsafeValues(t *testing.T) {
+ 		}
+ 	}
+ }
++
++func TestWorkloadPolicyRejectsPrivilegeEscalationAndBootstrapAuthority(t *testing.T) {
++	disabled := false
++	if err := validateExecConstraints(ProcessSpec{NoNewPrivileges: &disabled}); err == nil {
++		t.Fatal("privilege escalation accepted")
++	}
++	for name := range linuxCapabilities {
++		if workloadCapabilities[name] {
++			continue
++		}
++		for _, set := range []string{"bounding", "effective", "permitted", "inheritable", "ambient"} {
++			if err := validateExecConstraints(ProcessSpec{Capabilities: map[string][]string{set: {name}}}); err == nil {
++				t.Fatalf("unsafe %s in %s accepted", name, set)
++			}
++		}
++	}
++	spec := workloadDefaults(ProcessSpec{})
++	if spec.NoNewPrivileges == nil || !*spec.NoNewPrivileges || spec.Capabilities == nil || len(spec.Capabilities) != 0 {
++		t.Fatal("unsafe root defaults")
++	}
++	ordinary := ProcessSpec{Capabilities: map[string][]string{"bounding": {"CAP_CHOWN"}, "permitted": {"CAP_CHOWN"}, "effective": {"CAP_CHOWN"}}}
++	if err := validateExecConstraints(ordinary); err != nil {
++		t.Fatal("ordinary intentional capability rejected", err)
++	}
++	ordinary.Capabilities["effective"] = nil
++	if err := validateExecConstraints(ordinary); err == nil {
++		t.Fatal("narrower root effective contract accepted")
++	}
++}
+diff --git a/runtime/cmd/mk-agent/main.go b/runtime/cmd/mk-agent/main.go
+index b5aad2b..d57c46e 100644
+--- a/runtime/cmd/mk-agent/main.go
++++ b/runtime/cmd/mk-agent/main.go
+@@ -2,7 +2,6 @@ package main
+ 
+ import (
+ 	"context"
+-	"encoding/hex"
+ 	"errors"
+ 	"flag"
+ 	"fmt"
+@@ -13,6 +12,7 @@ import (
+ 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+ 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
+ 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
++	"golang.org/x/sys/unix"
+ )
+ 
+ func main() {
+@@ -26,20 +26,28 @@ func main() {
+ 		}
+ 		return
+ 	}
+-	var id, gen, token, unixSocket string
++	var id, gen, tokenFile, unixSocket string
+ 	var port uint
+ 	var noChroot, mediatedRoot bool
+ 	flag.StringVar(&id, "sandbox-id", "", "sandbox ID")
+ 	flag.StringVar(&gen, "generation", "", "sandbox generation")
+-	flag.StringVar(&token, "token-hex", "", "256-bit authentication token")
++	flag.StringVar(&tokenFile, "token-file", "", "private one-shot authentication credential file")
+ 	flag.UintVar(&port, "port", 0, "AF_VSOCK port")
+ 	flag.BoolVar(&noChroot, "test-no-chroot", false, "disable chroot for explicit local tests")
+ 	flag.BoolVar(&mediatedRoot, "mediated-root", false, "remount the mediated ext4 root read-only before shutdown")
+ 	flag.StringVar(&unixSocket, "unix-socket", "", "child-local Unix control socket")
+ 	flag.Parse()
+-	key, e := hex.DecodeString(token)
+-	if e != nil || len(key) != 32 || id == "" || gen == "" || port < 1024 {
+-		fmt.Fprintln(os.Stderr, "sandbox identity, port, and 32-byte token are required")
++	if id == "" || gen == "" || port < 1024 || tokenFile == "" {
++		fmt.Fprintln(os.Stderr, "sandbox identity, port, and private credential file are required")
++		os.Exit(2)
++	}
++	if err := unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0); err != nil {
++		fmt.Fprintln(os.Stderr, "agent process protection failed")
++		os.Exit(1)
++	}
++	key, e := consumeAgentToken(tokenFile)
++	if e != nil {
++		fmt.Fprintln(os.Stderr, "private agent credential validation failed")
+ 		os.Exit(2)
+ 	}
+ 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+diff --git a/runtime/internal/kerf/kerf.go b/runtime/internal/kerf/kerf.go
+index 09f110f..82bf581 100644
+--- a/runtime/internal/kerf/kerf.go
++++ b/runtime/internal/kerf/kerf.go
+@@ -304,8 +304,14 @@ func (c *CLI) Load(ctx context.Context, s protocol.Sandbox, kernel, initrd, cmdl
+ 			if decodeErr != nil || len(decoded) != 32 || len(tokenValue) != 65 || tokenValue[64] != '\n' {
+ 				return errors.New("invalid runtime agent token")
+ 			}
++			privateInitrd, handoffErr := credentialInitrd(initrdFile, tokenValue)
++			if handoffErr != nil {
++				return fmt.Errorf("prepare private agent credential: %w", handoffErr)
++			}
++			defer privateInitrd.Close()
++			inherited[0] = privateInitrd
+ 			cmdline += " mk.sandbox_id=" + s.ID + " mk.generation=" + s.Generation +
+-				" mk.token=" + token + " mk.agent_port=" + strconv.FormatUint(uint64(s.Config.AgentPort), 10)
++				" mk.agent_port=" + strconv.FormatUint(uint64(s.Config.AgentPort), 10)
+ 		} else if !errors.Is(tokenErr, syscall.ENOENT) {
+ 			return fmt.Errorf("read runtime agent token: %w", tokenErr)
+ 		}
+@@ -327,6 +333,9 @@ func (c *CLI) Load(ctx context.Context, s protocol.Sandbox, kernel, initrd, cmdl
+ 			" mk.storage_port=" + strconv.FormatUint(uint64(s.Config.Storage.Port), 10) +
+ 			" mk.storage_size=" + strconv.FormatUint(s.Config.Storage.SizeBytes, 10)
+ 	}
++	if strings.Contains(cmdline, "mk.token=") {
++		return errors.New("agent credentials are prohibited in the kernel command line")
++	}
+ 	err = c.runWithFiles(ctx, inherited, "load", s.ID, "--kernel="+kernel, "--initrd="+initrd, "--cmdline="+cmdline, "--verbose")
+ 	return c.acceptObserved(ctx, s.ID, "LOADED", err)
+ }
+diff --git a/runtime/internal/kerf/kerf_test.go b/runtime/internal/kerf/kerf_test.go
+index 1f3b0f9..4775c45 100644
+--- a/runtime/internal/kerf/kerf_test.go
++++ b/runtime/internal/kerf/kerf_test.go
+@@ -208,8 +208,8 @@ func TestLoadPinsRuntimeInitramfsAcrossPublicDirectoryReplacement(t *testing.T)
+ 		"test \"$3\" = '--kernel=/proc/self/fd/4'\n" +
+ 		"test \"$(cat /proc/self/fd/4)\" = 'original-kernel'\n" +
+ 		"test \"$4\" = '--initrd=/proc/self/fd/3'\n" +
+-		"test \"$(cat /proc/self/fd/3)\" = 'original-initramfs'\n" +
+-		"case \"$5\" in *'mk.token=" + token + "'*) ;; *) exit 41 ;; esac\n" +
++		"test \"$(head -c 18 /proc/self/fd/3)\" = 'original-initramfs'\n" +
++		"case \"$5\" in *'mk.token='*|*'" + token + "'*) exit 41 ;; esac\n" +
+ 		"printf observed > '" + marker + "'\n"
+ 	if err := os.WriteFile(script, []byte(contents), 0755); err != nil {
+ 		t.Fatal(err)
+diff --git a/scripts/README.md b/scripts/README.md
+index e04795a..37d07dd 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -24,6 +24,21 @@ to a stable remote path. For the thematic mapping, see
+ - Concurrent ctr/Docker resource identity and churn are covered by
+   `test-runtime-concurrent-churn-live.sh`.
+ - Repository checks: `check-docs.sh`.
++- G7 security boundary assessment: `audit-runtime-isolation-source.py` verifies
++  the pinned review files. `build-security-authority-initramfs.sh` and
++  `test-runtime-security-authority-live.sh` provide explicit, disposable-host
++  diagnostic fixtures; they are not included in default checks. See the
++  [assessment](../docs/runtime/research/g7-security-boundary-assessment.md).
++  `verify-g7-boundary-evidence.py` checks the scoped source archives and cloud
++  cleanup ledger comparison without running privileged probes.
++  `verify-g7-authority-evidence.py` checks the subsequent live bundle's exact
++  fixture sources, observed authority profiles, and cleanup evidence.
++  The remediation fixture requires `MK_SECURITY_LOAD`, built from
++  `runtime/tools/g7-credential-load`, to exercise production Kerf credential
++  delivery. It runs four authority profiles and two rejection cases.
++  `verify-g7-remediation-evidence.py` checks those results offline. Direct G3
++  initramfs builders require a private `MK_AGENT_TOKEN_FILE`; credentials must
++  never be included in child kernel or agent command lines.
+ - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
+ 
+ Destructive and billable operations must remain explicit Makefile targets;
+diff --git a/scripts/build-agent-initramfs.sh b/scripts/build-agent-initramfs.sh
+index c81531c..e005505 100755
+--- a/scripts/build-agent-initramfs.sh
++++ b/scripts/build-agent-initramfs.sh
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env bash
+ set -euo pipefail
++umask 022
+ 
+ agent=${1:?usage: build-agent-initramfs.sh MK_AGENT OUTPUT}
+ output=${2:?usage: build-agent-initramfs.sh MK_AGENT OUTPUT}
+@@ -11,6 +12,8 @@ work=$(mktemp -d)
+ trap 'rm -rf "$work"' EXIT
+ 
+ mkdir -p "$work"/{bin,dev,proc,sys,tmp,bundle/rootfs/bin,bundle/rootfs/work}
++mkdir -m 0700 "$work/.mk-agent"
++install -m 0600 "${MK_AGENT_TOKEN_FILE:?provide the private token input file}" "$work/.mk-agent/token"
+ chmod 0777 "$work/bundle/rootfs/work"
+ install -m 0755 "$busybox" "$work/bin/busybox"
+ install -m 0755 "$busybox" "$work/bundle/rootfs/bin/busybox"
+@@ -34,6 +37,7 @@ cat >"$work/bundle/config.json" <<'EOF'
+   "root": {"path": "rootfs"}
+ }
+ EOF
++chmod 0600 "$work/bundle/config.json"
+ 
+ (cd "$work" && find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 >"$output"
+ sha256sum "$output"
+diff --git a/scripts/test-runtime-g3.sh b/scripts/test-runtime-g3.sh
+index 26a0928..0ac9008 100755
+--- a/scripts/test-runtime-g3.sh
++++ b/scripts/test-runtime-g3.sh
+@@ -22,19 +22,21 @@ ctl_pid=
+ relay_pid=
+ 
+ mkdir -p "$evidence"
++token_file=$(mktemp)
++printf '%s\n' "$token" > "$token_file"
+ 
+-cleanup(){ set +e; [[ -z ${ctl_pid:-} ]]||kill "$ctl_pid" 2>/dev/null; [[ -z ${relay_pid:-} ]]||kill "$relay_pid" 2>/dev/null; if [[ -d /sys/fs/multikernel/instances/$name ]];then status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != active ]]||sudo "$kerf" kill "$name" --force;status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != loaded ]]||sudo "$kerf" unload "$name";sudo "$kerf" delete "$name";fi;sudo "$kerf" init --cpus=none --memory=none --devices=none; if [[ -f $console ]]; then sed -i "s/$token/[REDACTED_TEST_TOKEN]/g" "$console"; fi; }
++cleanup(){ set +e; rm -f "$token_file"; [[ -z ${ctl_pid:-} ]]||kill "$ctl_pid" 2>/dev/null; [[ -z ${relay_pid:-} ]]||kill "$relay_pid" 2>/dev/null; if [[ -d /sys/fs/multikernel/instances/$name ]];then status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != active ]]||sudo "$kerf" kill "$name" --force;status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != loaded ]]||sudo "$kerf" unload "$name";sudo "$kerf" delete "$name";fi;sudo "$kerf" init --cpus=none --memory=none --devices=none; if [[ -f $console ]]; then sed -i "s/$token/[REDACTED_TEST_TOKEN]/g" "$console"; fi; }
+ trap cleanup EXIT
+ sudo modprobe vsock
+ lsmod | grep -q '^mk_transport ' || sudo insmod "$module"
+ if [[ -z ${MK_RELAY:-} ]]; then
+ 	musl-gcc -static -O2 -Wall -Wextra -Werror "$lab/tools/mkvsock-relay.c" -o "$relay"
+ fi
+-"$lab/scripts/build-agent-initramfs.sh" "$agent" "$initrd" "$module" "$relay"
++MK_AGENT_TOKEN_FILE="$token_file" "$lab/scripts/build-agent-initramfs.sh" "$agent" "$initrd" "$module" "$relay"
+ sudo "$kerf" init --cpus=8,10,12,14 --memory=8GB --devices=none
+ sudo "$kerf" create "$name" --id="$cid" --cpus=8,10 --memory=4GB
+ sudo "$kerf" load "$name" --kernel="$kernel" --initrd="$initrd" \
+-	--cmdline="rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=$name mk.generation=$generation mk.token=$token mk.agent_port=$port"
++	--cmdline="rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=$name mk.generation=$generation mk.agent_port=$port"
+ rm -f /tmp/g3-relay.sock
+ "$relay" server "$port" /tmp/g3-relay.sock >"$relay_log" 2>&1 &
+ relay_pid=$!
+diff --git a/scripts/test-runtime-oci-validation.py b/scripts/test-runtime-oci-validation.py
+index 65ebbc1..bede962 100755
+--- a/scripts/test-runtime-oci-validation.py
++++ b/scripts/test-runtime-oci-validation.py
+@@ -498,6 +498,12 @@ def main():
+             run_case(directory, name, config)
+         for name, mutate in (
+             ("bad-nnp", lambda process: process.update(noNewPrivileges="yes")),
++            ("disable-nnp", lambda process: process.update(noNewPrivileges=False)),
++            ("unequal-root-capabilities", lambda process: process.update(capabilities={"bounding": ["CAP_CHOWN"], "permitted": ["CAP_CHOWN"], "effective": []})),
++            ("bootstrap-ptrace-capability", lambda process: process.update(capabilities={"bounding": ["CAP_SYS_PTRACE"]})),
++            ("kernel-admin-capability", lambda process: process.update(capabilities={"bounding": ["CAP_SYS_ADMIN"]})),
++            ("kernel-module-capability", lambda process: process.update(capabilities={"bounding": ["CAP_SYS_MODULE"]})),
++            ("raw-io-capability", lambda process: process.update(capabilities={"bounding": ["CAP_SYS_RAWIO"]})),
+             ("bad-rlimit", lambda process: process.update(rlimits=[{"type": "RLIMIT_NOFILE", "soft": 2, "hard": 1}])),
+             ("unknown-capability", lambda process: process.update(capabilities={"effective": ["CAP_UNKNOWN"]})),
+             ("duplicate-capability", lambda process: process.update(capabilities={"effective": ["CAP_CHOWN", "CAP_CHOWN"]})),
+diff --git a/scripts/validate-runtime-oci.py b/scripts/validate-runtime-oci.py
+index e3c5240..09e5b32 100755
+--- a/scripts/validate-runtime-oci.py
++++ b/scripts/validate-runtime-oci.py
+@@ -362,6 +362,8 @@ def validate(config):
+         raise ValueError("process.cwd must be absolute, canonical, and bounded")
+     if "noNewPrivileges" in process and not isinstance(process["noNewPrivileges"], bool):
+         raise ValueError("process.noNewPrivileges must be boolean")
++    if process.get("noNewPrivileges") is False:
++        raise ValueError("disabling no-new-privileges is not supported")
+     rlimits = process.get("rlimits", [])
+     if not isinstance(rlimits, list) or len(rlimits) > 32:
+         raise ValueError("process.rlimits must be an array of at most 32 limits")
+@@ -388,6 +390,11 @@ def validate(config):
+                 raise ValueError(f"process.capabilities.{name} must be a bounded string array")
+             if len(values) != len(set(values)) or any(item not in CAPABILITIES for item in values):
+                 raise ValueError(f"process.capabilities.{name} contains an unknown or duplicate capability")
++            supported = {"CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_FOWNER", "CAP_FSETID", "CAP_KILL",
++                         "CAP_SETGID", "CAP_SETUID", "CAP_SETPCAP", "CAP_NET_BIND_SERVICE", "CAP_NET_RAW",
++                         "CAP_SYS_CHROOT", "CAP_MKNOD", "CAP_AUDIT_WRITE", "CAP_SETFCAP"}
++            if any(item not in supported for item in values):
++                raise ValueError("requested capability is outside the supported workload policy")
+         if process.get("user", {}).get("uid") != 0:
+             raise ValueError("non-root processes may not provide a Linux capability contract")
+         bounding = set(capabilities.get("bounding", []))
+@@ -397,6 +404,8 @@ def validate(config):
+         ambient = set(capabilities.get("ambient", []))
+         if not permitted <= bounding or not effective <= permitted or not ambient <= (permitted & inheritable):
+             raise ValueError("process capability sets violate containment")
++        if bounding != permitted or permitted != effective:
++            raise ValueError("root bounding, permitted, and effective capabilities must match")
+ 
+     user = require_object(process.get("user"), "process.user")
+     reject_unknown(user, USER, "process.user")

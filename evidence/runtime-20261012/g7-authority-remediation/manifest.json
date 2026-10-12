@@ -1,0 +1,285 @@
+{
+  "schema_version": 1,
+  "gate": "G7",
+  "run_id": "g7-authority-remediation",
+  "result": "partial",
+  "started_at": "2026-10-12T06:38:37.723660Z",
+  "ended_at": "2026-10-12T06:58:03.431903Z",
+  "repository": {
+    "commit": "04be6fd986e42daec622117e2e61d99d6b4d472a",
+    "dirty": true,
+    "diff_output": "workspace.diff"
+  },
+  "components": [
+    {
+      "name": "mk-agent",
+      "version": "0.0.0-dev; revision=unknown; remediation source archive binds provenance",
+      "sha256": "57fd23ac9ed68e4961fce716ab30b0c28e0b6588ef61a1507a8bd8688a9292d6"
+    },
+    {
+      "name": "mk-agentctl",
+      "version": "0.0.0-dev; revision=unknown; remediation source archive binds provenance",
+      "sha256": "5b8c2956210141c04f5a45d5bc776e87b747d2d2c03d9d0a3f5a3c9812727491"
+    },
+    {
+      "name": "vmlinux",
+      "version": "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7",
+      "sha256": "5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10"
+    },
+    {
+      "name": "mk_transport.ko",
+      "version": "7.0.0-mk2-gce-lab; pinned source with retained build-safety patch",
+      "sha256": "bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2"
+    },
+    {
+      "name": "mkvsock-relay",
+      "version": "workspace tools/mkvsock-relay.c; musl static build",
+      "sha256": "293ff1eaa209d16103c7caaa8e8f9a24702e58d979453fad5495c503f76aaf98"
+    },
+    {
+      "name": "g7-credential-load",
+      "version": "diagnostic driver for production Kerf Load; source archived",
+      "sha256": "f9f45bae5059dda5820586e9d4925b337b5ec096297dc17dcdcc65831bf9d657"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-g7-remediation-20261012",
+    "machine_type": "n2-standard-16",
+    "boot_id": "00000000-0000-0000-0000-000000000014"
+  },
+  "commands": [
+    {
+      "id": "portable-tests-intermediate",
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "-count=1",
+        "-v",
+        "./agent",
+        "./internal/kerf",
+        "./cmd/mk-agent"
+      ],
+      "exit_status": 1,
+      "output_path": "tests-attempt-1.log"
+    },
+    {
+      "id": "runtime-race-suite",
+      "argv": [
+        "env",
+        "GOCACHE=/tmp/mk-go-cache",
+        "go",
+        "test",
+        "-race",
+        "-count=1",
+        "./..."
+      ],
+      "exit_status": 0,
+      "output_path": "runtime-tests-final.log"
+    },
+    {
+      "id": "oci-validation",
+      "argv": [
+        "python3",
+        "scripts/test-runtime-oci-validation.py"
+      ],
+      "exit_status": 0,
+      "output_path": "oci-validation.log"
+    },
+    {
+      "id": "prepare-host",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-remediation-20261012",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-g7-bin/prepare-host.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "prepare-host.log"
+    },
+    {
+      "id": "live-kernel-policy-rejection",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-remediation-20261012",
+        "--zone=asia-southeast1-b",
+        "--command=env MK_SECURITY_DISPOSABLE=yes KERF=${OPERATOR_HOME}/src/kerf/.venv/bin/kerf KERNEL=${OPERATOR_HOME}/src/linux/vmlinux MK_TRANSPORT_MODULE=${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko MK_RELAY=/var/tmp/mk-g7-bin/mkvsock-relay MK_AGENT=/var/tmp/mk-g7-bin/mk-agent MK_AGENTCTL=/var/tmp/mk-g7-bin/mk-agentctl MK_SECURITY_LOAD=/var/tmp/mk-g7-bin/g7-credential-load EVIDENCE_DIR=/var/tmp/mk-g7-evidence/remediation bash /var/tmp/mk-g7-src/scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests.log"
+    },
+    {
+      "id": "live-remediation-rerun",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-remediation-20261012",
+        "--zone=asia-southeast1-b",
+        "--command=env MK_SECURITY_DISPOSABLE=yes KERF=${OPERATOR_HOME}/src/kerf/.venv/bin/kerf KERNEL=/var/tmp/mk-g7-bin/vmlinux MK_TRANSPORT_MODULE=${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko MK_RELAY=/var/tmp/mk-g7-bin/mkvsock-relay MK_AGENT=/var/tmp/mk-g7-bin/mk-agent MK_AGENTCTL=/var/tmp/mk-g7-bin/mk-agentctl MK_SECURITY_LOAD=/var/tmp/mk-g7-bin/g7-credential-load EVIDENCE_DIR=/var/tmp/mk-g7-evidence/remediation-rerun bash /var/tmp/mk-g7-src/scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "live-rerun.log"
+    },
+    {
+      "id": "pre-delete-audit",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-g7-remediation-20261012",
+        "--command=assert cpu/child/helper inventory; kerf show --verbose; service/hash inventory"
+      ],
+      "exit_status": 0,
+      "output_path": "pre-delete-audit.log"
+    },
+    {
+      "id": "delete-test-host",
+      "argv": [
+        "gcloud",
+        "compute",
+        "instances",
+        "delete",
+        "mklinux-g7-remediation-20261012",
+        "--zone=asia-southeast1-b",
+        "--quiet"
+      ],
+      "exit_status": 0,
+      "output_path": "delete-instance.log"
+    },
+    {
+      "id": "bundle-verification",
+      "argv": [
+        "python3",
+        "scripts/verify-g7-remediation-evidence.py",
+        "evidence/runtime-20261012/g7-authority-remediation"
+      ],
+      "exit_status": 0,
+      "output_path": "bundle-verification.log"
+    },
+    {
+      "id": "docs-check",
+      "argv": [
+        "make",
+        "docs-check"
+      ],
+      "exit_status": 0,
+      "output_path": "docs-check.log"
+    },
+    {
+      "id": "fixture-syntax",
+      "argv": [
+        "bash",
+        "-n",
+        "guest/mk-agent-init",
+        "guest/runtime-mediated-init",
+        "scripts/build-agent-initramfs.sh",
+        "scripts/test-runtime-g3.sh",
+        "scripts/build-security-authority-initramfs.sh",
+        "scripts/test-runtime-security-authority-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "fixture-syntax.log"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "tested-command-line-credential-exposure-fixed",
+      "passed": true,
+      "evidence_paths": [
+        "observations.json",
+        "host/remediation-rerun/nonroot-result.json",
+        "host/remediation-rerun/root-default-result.json"
+      ]
+    },
+    {
+      "id": "tested-bootstrap-canary-route-denied",
+      "passed": true,
+      "evidence_paths": [
+        "observations.json",
+        "host/remediation-rerun/root-ordinary-caps-result.json"
+      ]
+    },
+    {
+      "id": "root-default-zero-capabilities-and-nnp",
+      "passed": true,
+      "evidence_paths": [
+        "host/remediation-rerun/root-default-result.json"
+      ]
+    },
+    {
+      "id": "unsafe-privilege-requests-fail-closed",
+      "passed": true,
+      "evidence_paths": [
+        "host/remediation-rerun/root-unsafe-cap-rejection.json",
+        "host/remediation-rerun/root-disable-nnp-rejection.json"
+      ]
+    },
+    {
+      "id": "production-private-credential-handoff-exercised",
+      "passed": true,
+      "evidence_paths": [
+        "host/remediation-rerun/nonroot-kerf.log",
+        "host/remediation-rerun/nonroot-loaded-initramfs.sha256"
+      ]
+    },
+    {
+      "id": "changed-runtime-race-suite-passed",
+      "passed": true,
+      "evidence_paths": [
+        "runtime-tests-final.log"
+      ]
+    },
+    {
+      "id": "cloud-and-host-cleanup-complete",
+      "passed": true,
+      "evidence_paths": [
+        "cleanup-verification.json",
+        "pre-delete-audit.log",
+        "host/remediation-rerun/final-inventory.json"
+      ]
+    },
+    {
+      "id": "hostile-child-hardware-containment-established",
+      "passed": false,
+      "evidence_paths": [
+        "scope.json"
+      ]
+    },
+    {
+      "id": "production-mediated-root-docker-requalified",
+      "passed": false,
+      "evidence_paths": [
+        "scope.json"
+      ]
+    }
+  ],
+  "limitations": [
+    "Passes are scoped to four diagnostic workload profiles and two rejected requests; full G7 remains open.",
+    "No primary/sibling escape or arbitrary child-kernel attack was run; process hardening does not add an independent hostile-child boundary.",
+    "Mediated-root credential tmpfs transfer is implemented but not live-qualified here. Production Docker/mediated-root compatibility requires new qualification; prior G4-G6 source identities are historical.",
+    "Supported privilege policy intentionally rejects false NNP, excluded capabilities, and unequal root bounding/permitted/effective sets.",
+    "Child procfs remains shared. Root signals/DoS, other credential routes, and remaining authority review are open; denying one canary route does not prove universal confinement.",
+    "The non-root bounding set remains populated with zero effective capabilities and NNP=1. Explicit CAP_MKNOD can recreate nodes; kernel capability checks remain relevant.",
+    "The privileged snapshot kernel was mode 0775; production validation correctly rejected it. Verification used a protected byte-identical approved copy without weakening checks.",
+    "An intermediate portable token test correctly failed because its fixture parent was not private; corrected tests passed. Intermediate source was not separately archived.",
+    "host/kernel.config is the transport-module build configuration; the original full vmlinux build configuration was not separately extracted. The kernel was not rebuilt.",
+    "Source archives bind dirty workspace and development binaries; no independent reviewer, signed attestation, or matched gVisor comparison was completed.",
+    "Project/operator/boot identifiers are pseudonymized; credential values are redacted. Actual loaded initramfs hashes are retained, but credential-bearing images were deliberately not published.",
+    "docs-check passed; one privileged socket-rejection subcase was skipped because the local sandbox denied the operation."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "resources-before.json",
+    "resources_after": "resources-after.json",
+    "retained_resources": [],
+    "operator_acknowledged": false
+  }
+}

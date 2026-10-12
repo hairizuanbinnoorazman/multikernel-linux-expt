@@ -208,8 +208,8 @@ func TestLoadPinsRuntimeInitramfsAcrossPublicDirectoryReplacement(t *testing.T) 
 		"test \"$3\" = '--kernel=/proc/self/fd/4'\n" +
 		"test \"$(cat /proc/self/fd/4)\" = 'original-kernel'\n" +
 		"test \"$4\" = '--initrd=/proc/self/fd/3'\n" +
-		"test \"$(cat /proc/self/fd/3)\" = 'original-initramfs'\n" +
-		"case \"$5\" in *'mk.token=" + token + "'*) ;; *) exit 41 ;; esac\n" +
+		"test \"$(head -c 18 /proc/self/fd/3)\" = 'original-initramfs'\n" +
+		"case \"$5\" in *'mk.token='*|*'" + token + "'*) exit 41 ;; esac\n" +
 		"printf observed > '" + marker + "'\n"
 	if err := os.WriteFile(script, []byte(contents), 0755); err != nil {
 		t.Fatal(err)

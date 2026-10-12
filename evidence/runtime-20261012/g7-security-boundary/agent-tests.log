@@ -1,0 +1,280 @@
+{"evidence_command": {"argv": ["env", "GOCACHE=/tmp/mk-go-cache", "go", "test", "-race", "-count=1", "-v", "./agent"], "started_at": "2026-10-12T05:38:50.422372Z"}}
+=== RUN   TestClientRejectsMismatchedReplyBinding
+=== RUN   TestClientRejectsMismatchedReplyBinding/version
+=== RUN   TestClientRejectsMismatchedReplyBinding/sequence
+--- PASS: TestClientRejectsMismatchedReplyBinding (0.00s)
+    --- PASS: TestClientRejectsMismatchedReplyBinding/version (0.00s)
+    --- PASS: TestClientRejectsMismatchedReplyBinding/sequence (0.00s)
+=== RUN   TestClientStrictlyRejectsMalformedTypedReplyBodies
+=== RUN   TestClientStrictlyRejectsMalformedTypedReplyBodies/unknown_typed_field
+=== RUN   TestClientStrictlyRejectsMalformedTypedReplyBodies/duplicate_typed_field
+=== RUN   TestClientStrictlyRejectsMalformedTypedReplyBodies/omitted_body
+=== RUN   TestClientStrictlyRejectsMalformedTypedReplyBodies/body_and_error
+--- PASS: TestClientStrictlyRejectsMalformedTypedReplyBodies (0.00s)
+    --- PASS: TestClientStrictlyRejectsMalformedTypedReplyBodies/unknown_typed_field (0.00s)
+    --- PASS: TestClientStrictlyRejectsMalformedTypedReplyBodies/duplicate_typed_field (0.00s)
+    --- PASS: TestClientStrictlyRejectsMalformedTypedReplyBodies/omitted_body (0.00s)
+    --- PASS: TestClientStrictlyRejectsMalformedTypedReplyBodies/body_and_error (0.00s)
+=== RUN   TestAgentFrameCompletesShortSuccessfulWritesInBothDirections
+--- PASS: TestAgentFrameCompletesShortSuccessfulWritesInBothDirections (0.00s)
+=== RUN   TestFreshDialSequenceCanReconnectAfterPriorClient
+--- PASS: TestFreshDialSequenceCanReconnectAfterPriorClient (0.00s)
+=== RUN   TestAuthenticatedReconnectPreservesSequenceAndShutdownEndsSession
+--- PASS: TestAuthenticatedReconnectPreservesSequenceAndShutdownEndsSession (0.00s)
+=== RUN   TestCallContextCancellationInterruptsBlockedPeer
+--- PASS: TestCallContextCancellationInterruptsBlockedPeer (0.00s)
+=== RUN   TestDialAndReconnectHonorContextCancellation
+--- PASS: TestDialAndReconnectHonorContextCancellation (0.00s)
+=== RUN   TestCallUsesBoundedDefaultDeadline
+--- PASS: TestCallUsesBoundedDefaultDeadline (0.02s)
+=== RUN   TestWireErrorCategoriesSurviveWrappingAndWordingChanges
+=== RUN   TestWireErrorCategoriesSurviveWrappingAndWordingChanges/INVALID_ARGUMENT0
+=== RUN   TestWireErrorCategoriesSurviveWrappingAndWordingChanges/UNSUPPORTED1
+=== RUN   TestWireErrorCategoriesSurviveWrappingAndWordingChanges/NOT_FOUND2
+=== RUN   TestWireErrorCategoriesSurviveWrappingAndWordingChanges/ALREADY_EXISTS3
+=== RUN   TestWireErrorCategoriesSurviveWrappingAndWordingChanges/FAILED_PRECONDITION4
+=== RUN   TestWireErrorCategoriesSurviveWrappingAndWordingChanges/UNAUTHENTICATED5
+=== RUN   TestWireErrorCategoriesSurviveWrappingAndWordingChanges/INVALID_ARGUMENT6
+--- PASS: TestWireErrorCategoriesSurviveWrappingAndWordingChanges (0.00s)
+    --- PASS: TestWireErrorCategoriesSurviveWrappingAndWordingChanges/INVALID_ARGUMENT0 (0.00s)
+    --- PASS: TestWireErrorCategoriesSurviveWrappingAndWordingChanges/UNSUPPORTED1 (0.00s)
+    --- PASS: TestWireErrorCategoriesSurviveWrappingAndWordingChanges/NOT_FOUND2 (0.00s)
+    --- PASS: TestWireErrorCategoriesSurviveWrappingAndWordingChanges/ALREADY_EXISTS3 (0.00s)
+    --- PASS: TestWireErrorCategoriesSurviveWrappingAndWordingChanges/FAILED_PRECONDITION4 (0.00s)
+    --- PASS: TestWireErrorCategoriesSurviveWrappingAndWordingChanges/UNAUTHENTICATED5 (0.00s)
+    --- PASS: TestWireErrorCategoriesSurviveWrappingAndWordingChanges/INVALID_ARGUMENT6 (0.00s)
+=== RUN   TestUntypedErrorsCannotSelectWireClassification
+--- PASS: TestUntypedErrorsCannotSelectWireClassification (0.00s)
+=== RUN   TestStageErrorsPreserveCauseAndRestrictPublicStages
+--- PASS: TestStageErrorsPreserveCauseAndRestrictPublicStages (0.00s)
+=== RUN   TestDispatchProducesTypedWireErrors
+=== RUN   TestDispatchProducesTypedWireErrors/unknown_method
+=== RUN   TestDispatchProducesTypedWireErrors/malformed_JSON
+=== RUN   TestDispatchProducesTypedWireErrors/unknown_field
+=== RUN   TestDispatchProducesTypedWireErrors/missing_process
+=== RUN   TestDispatchProducesTypedWireErrors/invalid_process
+=== RUN   TestDispatchProducesTypedWireErrors/missing_process_on_start
+=== RUN   TestDispatchProducesTypedWireErrors/wrong_state
+=== RUN   TestDispatchProducesTypedWireErrors/duplicate_process
+--- PASS: TestDispatchProducesTypedWireErrors (0.01s)
+    --- PASS: TestDispatchProducesTypedWireErrors/unknown_method (0.00s)
+    --- PASS: TestDispatchProducesTypedWireErrors/malformed_JSON (0.00s)
+    --- PASS: TestDispatchProducesTypedWireErrors/unknown_field (0.00s)
+    --- PASS: TestDispatchProducesTypedWireErrors/missing_process (0.00s)
+    --- PASS: TestDispatchProducesTypedWireErrors/invalid_process (0.00s)
+    --- PASS: TestDispatchProducesTypedWireErrors/missing_process_on_start (0.00s)
+    --- PASS: TestDispatchProducesTypedWireErrors/wrong_state (0.00s)
+    --- PASS: TestDispatchProducesTypedWireErrors/duplicate_process (0.00s)
+=== RUN   TestSignalReplayPreservesTypedFailureAndCause
+--- PASS: TestSignalReplayPreservesTypedFailureAndCause (0.00s)
+=== RUN   TestHelperProcess
+--- PASS: TestHelperProcess (0.00s)
+=== RUN   TestStdinAndIncrementalOutput
+--- PASS: TestStdinAndIncrementalOutput (1.03s)
+=== RUN   TestStdinWriteOffsetsMakeLostReplyReplayIdempotent
+--- PASS: TestStdinWriteOffsetsMakeLostReplyReplayIdempotent (0.00s)
+=== RUN   TestStdinWriteOffsetReplayResumesAfterPartialLocalWrite
+--- PASS: TestStdinWriteOffsetReplayResumesAfterPartialLocalWrite (0.00s)
+=== RUN   TestTerminalAndResize
+--- PASS: TestTerminalAndResize (1.14s)
+=== RUN   TestTerminalUsesOCIConsoleSizeWhenNoTaskResizePrecedesStart
+--- PASS: TestTerminalUsesOCIConsoleSizeWhenNoTaskResizePrecedesStart (1.13s)
+=== RUN   TestInvalidTerminalSizesFailClosed
+--- PASS: TestInvalidTerminalSizesFailClosed (0.02s)
+=== RUN   TestSignalReachesContainerProcessGroup
+--- PASS: TestSignalReachesContainerProcessGroup (0.03s)
+=== RUN   TestSignalOnceCachesExactResultAndRejectsChangedReplay
+--- PASS: TestSignalOnceCachesExactResultAndRejectsChangedReplay (0.00s)
+=== RUN   TestSignalOnceRefusesFullLedgerBeforeMutation
+--- PASS: TestSignalOnceRefusesFullLedgerBeforeMutation (0.01s)
+=== RUN   TestProcessAndOutputRetentionBounds
+--- PASS: TestProcessAndOutputRetentionBounds (0.12s)
+=== RUN   TestBoundedStreamingBackpressureAndIndependentOffsets
+--- PASS: TestBoundedStreamingBackpressureAndIndependentOffsets (0.05s)
+=== RUN   TestLifecycle
+--- PASS: TestLifecycle (0.03s)
+=== RUN   TestUnsupportedFailsClosed
+=== RUN   TestUnsupportedFailsClosed/mounts
+=== RUN   TestUnsupportedFailsClosed/hooks
+=== RUN   TestUnsupportedFailsClosed/namespaces
+=== RUN   TestUnsupportedFailsClosed/resources
+=== RUN   TestUnsupportedFailsClosed/seccomp
+=== RUN   TestUnsupportedFailsClosed/annotations
+=== RUN   TestUnsupportedFailsClosed/empty_hooks
+--- PASS: TestUnsupportedFailsClosed (0.11s)
+    --- PASS: TestUnsupportedFailsClosed/mounts (0.02s)
+    --- PASS: TestUnsupportedFailsClosed/hooks (0.02s)
+    --- PASS: TestUnsupportedFailsClosed/namespaces (0.01s)
+    --- PASS: TestUnsupportedFailsClosed/resources (0.01s)
+    --- PASS: TestUnsupportedFailsClosed/seccomp (0.01s)
+    --- PASS: TestUnsupportedFailsClosed/annotations (0.02s)
+    --- PASS: TestUnsupportedFailsClosed/empty_hooks (0.02s)
+=== RUN   TestSanitizedReadonlyBindInputLoadsBeforePrivilegedApplication
+--- PASS: TestSanitizedReadonlyBindInputLoadsBeforePrivilegedApplication (0.01s)
+=== RUN   TestReadonlyBindInputContractFailsClosed
+=== RUN   TestReadonlyBindInputContractFailsClosed/protected
+=== RUN   TestReadonlyBindInputContractFailsClosed/noncanonical
+=== RUN   TestReadonlyBindInputContractFailsClosed/overlap
+=== RUN   TestReadonlyBindInputContractFailsClosed/host_source_retained
+=== RUN   TestReadonlyBindInputContractFailsClosed/writable
+--- PASS: TestReadonlyBindInputContractFailsClosed (0.00s)
+    --- PASS: TestReadonlyBindInputContractFailsClosed/protected (0.00s)
+    --- PASS: TestReadonlyBindInputContractFailsClosed/noncanonical (0.00s)
+    --- PASS: TestReadonlyBindInputContractFailsClosed/overlap (0.00s)
+    --- PASS: TestReadonlyBindInputContractFailsClosed/host_source_retained (0.00s)
+    --- PASS: TestReadonlyBindInputContractFailsClosed/writable (0.00s)
+=== RUN   TestReadonlyBindTargetAcceptsOnlyRealDirectoriesAndRegularFiles
+--- PASS: TestReadonlyBindTargetAcceptsOnlyRealDirectoriesAndRegularFiles (0.00s)
+=== RUN   TestSupportedRootPolicyLoadsBeforePrivilegedApplication
+--- PASS: TestSupportedRootPolicyLoadsBeforePrivilegedApplication (0.01s)
+=== RUN   TestDockerRootPolicyPathsAreBoundedExactly
+=== RUN   TestDockerRootPolicyPathsAreBoundedExactly/duplicate
+=== RUN   TestDockerRootPolicyPathsAreBoundedExactly/unsupported
+--- PASS: TestDockerRootPolicyPathsAreBoundedExactly (0.00s)
+    --- PASS: TestDockerRootPolicyPathsAreBoundedExactly/duplicate (0.00s)
+    --- PASS: TestDockerRootPolicyPathsAreBoundedExactly/unsupported (0.00s)
+=== RUN   TestWaitRejectsUnstartedProcess
+--- PASS: TestWaitRejectsUnstartedProcess (0.02s)
+=== RUN   TestUnsupportedOCIVersionFailsBeforeCreate
+--- PASS: TestUnsupportedOCIVersionFailsBeforeCreate (0.01s)
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation/empty_argv0
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation/nul_argument
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation/too_many_arguments
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation/oversized_text
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation/invalid_environment
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation/duplicate_environment
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation/noncanonical_cwd
+=== RUN   TestProcessShapeFailsBeforeGuestStateMutation/duplicate_groups
+--- PASS: TestProcessShapeFailsBeforeGuestStateMutation (0.00s)
+    --- PASS: TestProcessShapeFailsBeforeGuestStateMutation/empty_argv0 (0.00s)
+    --- PASS: TestProcessShapeFailsBeforeGuestStateMutation/nul_argument (0.00s)
+    --- PASS: TestProcessShapeFailsBeforeGuestStateMutation/too_many_arguments (0.00s)
+    --- PASS: TestProcessShapeFailsBeforeGuestStateMutation/oversized_text (0.00s)
+    --- PASS: TestProcessShapeFailsBeforeGuestStateMutation/invalid_environment (0.00s)
+    --- PASS: TestProcessShapeFailsBeforeGuestStateMutation/duplicate_environment (0.00s)
+    --- PASS: TestProcessShapeFailsBeforeGuestStateMutation/noncanonical_cwd (0.00s)
+    --- PASS: TestProcessShapeFailsBeforeGuestStateMutation/duplicate_groups (0.00s)
+=== RUN   TestBundleRootRejectsSymlinkAndEscape
+=== RUN   TestBundleRootRejectsSymlinkAndEscape/escape
+=== RUN   TestBundleRootRejectsSymlinkAndEscape/symlink
+--- PASS: TestBundleRootRejectsSymlinkAndEscape (0.03s)
+    --- PASS: TestBundleRootRejectsSymlinkAndEscape/escape (0.01s)
+    --- PASS: TestBundleRootRejectsSymlinkAndEscape/symlink (0.02s)
+=== RUN   TestLoadBundleRejectsUnsafeConfigIdentityAndSize
+=== RUN   TestLoadBundleRejectsUnsafeConfigIdentityAndSize/hardlink
+=== RUN   TestLoadBundleRejectsUnsafeConfigIdentityAndSize/writable
+=== RUN   TestLoadBundleRejectsUnsafeConfigIdentityAndSize/oversized_valid_prefix
+--- PASS: TestLoadBundleRejectsUnsafeConfigIdentityAndSize (0.05s)
+    --- PASS: TestLoadBundleRejectsUnsafeConfigIdentityAndSize/hardlink (0.02s)
+    --- PASS: TestLoadBundleRejectsUnsafeConfigIdentityAndSize/writable (0.01s)
+    --- PASS: TestLoadBundleRejectsUnsafeConfigIdentityAndSize/oversized_valid_prefix (0.02s)
+=== RUN   TestExecLifecycleFailuresCleanupAndConcurrency
+--- PASS: TestExecLifecycleFailuresCleanupAndConcurrency (0.05s)
+=== RUN   TestExactArgvEnvironmentAndWorkingDirectory
+--- PASS: TestExactArgvEnvironmentAndWorkingDirectory (1.03s)
+=== RUN   TestExitAndForcedKillMatrix
+=== RUN   TestExitAndForcedKillMatrix/zero
+=== RUN   TestExitAndForcedKillMatrix/nonzero
+=== RUN   TestExitAndForcedKillMatrix/crash
+--- PASS: TestExitAndForcedKillMatrix (1.20s)
+    --- PASS: TestExitAndForcedKillMatrix/zero (1.03s)
+    --- PASS: TestExitAndForcedKillMatrix/nonzero (0.03s)
+    --- PASS: TestExitAndForcedKillMatrix/crash (0.09s)
+=== RUN   TestDeleteWaitRaceIsDeterministic
+--- PASS: TestDeleteWaitRaceIsDeterministic (0.03s)
+=== RUN   TestWrongExecutableArchitectureFailsBeforeStart
+--- PASS: TestWrongExecutableArchitectureFailsBeforeStart (0.03s)
+=== RUN   TestAuthenticationAndReplay
+--- PASS: TestAuthenticationAndReplay (0.00s)
+=== RUN   TestShutdownRequiresQuiescence
+--- PASS: TestShutdownRequiresQuiescence (1.03s)
+=== RUN   TestQuiesceIsIdempotentAndSealsMutations
+--- PASS: TestQuiesceIsIdempotentAndSealsMutations (0.00s)
+=== RUN   TestShutdownRequiresStorageQuiescenceBeforeSuccess
+--- PASS: TestShutdownRequiresStorageQuiescenceBeforeSuccess (0.00s)
+=== RUN   TestShutdownRaceRequiresExplicitProcessCompletion
+--- PASS: TestShutdownRaceRequiresExplicitProcessCompletion (1.03s)
+=== RUN   TestProcessGroupStatsAreBoundedToObservedGroup
+--- PASS: TestProcessGroupStatsAreBoundedToObservedGroup (0.00s)
+=== RUN   TestDNSReplacementRestoresRegularSymlinkAndAbsentState
+=== RUN   TestDNSReplacementRestoresRegularSymlinkAndAbsentState/regular
+=== RUN   TestDNSReplacementRestoresRegularSymlinkAndAbsentState/symlink
+=== RUN   TestDNSReplacementRestoresRegularSymlinkAndAbsentState/absent
+--- PASS: TestDNSReplacementRestoresRegularSymlinkAndAbsentState (0.01s)
+    --- PASS: TestDNSReplacementRestoresRegularSymlinkAndAbsentState/regular (0.00s)
+    --- PASS: TestDNSReplacementRestoresRegularSymlinkAndAbsentState/symlink (0.00s)
+    --- PASS: TestDNSReplacementRestoresRegularSymlinkAndAbsentState/absent (0.00s)
+=== RUN   TestDNSRestorePreservesSameModeReplacementAndRemainsRetryable
+--- PASS: TestDNSRestorePreservesSameModeReplacementAndRemainsRetryable (0.00s)
+=== RUN   TestGuestNetworkCommandsBoundOutputCancellationAndDescendants
+=== RUN   TestGuestNetworkCommandsBoundOutputCancellationAndDescendants/caller_deadline_kills_descendants
+=== RUN   TestGuestNetworkCommandsBoundOutputCancellationAndDescendants/overflow_has_bounded_diagnostic
+=== RUN   TestGuestNetworkCommandsBoundOutputCancellationAndDescendants/captures_combined_output
+--- PASS: TestGuestNetworkCommandsBoundOutputCancellationAndDescendants (0.07s)
+    --- PASS: TestGuestNetworkCommandsBoundOutputCancellationAndDescendants/caller_deadline_kills_descendants (0.05s)
+    --- PASS: TestGuestNetworkCommandsBoundOutputCancellationAndDescendants/overflow_has_bounded_diagnostic (0.02s)
+    --- PASS: TestGuestNetworkCommandsBoundOutputCancellationAndDescendants/captures_combined_output (0.00s)
+=== RUN   TestGuestNetworkMutationRejectsCancelledContextWithoutLosingState
+--- PASS: TestGuestNetworkMutationRejectsCancelledContextWithoutLosingState (0.00s)
+=== RUN   TestConfigureNetworkAcceptsOnlyExactCompletedReplay
+--- PASS: TestConfigureNetworkAcceptsOnlyExactCompletedReplay (0.00s)
+=== RUN   TestCreateProcessClassifiesBundleLoadFailure
+--- PASS: TestCreateProcessClassifiesBundleLoadFailure (0.00s)
+=== RUN   TestStartProcessClassifiesExecutableFailure
+--- PASS: TestStartProcessClassifiesExecutableFailure (0.00s)
+=== RUN   TestConstrainedProcessReexecUsesHeldAgentImageAcrossChroot
+--- PASS: TestConstrainedProcessReexecUsesHeldAgentImageAcrossChroot (0.00s)
+=== RUN   TestCloseNetworkRetainsReplayIdentityUntilRetryCompletes
+--- PASS: TestCloseNetworkRetainsReplayIdentityUntilRetryCompletes (0.00s)
+=== RUN   TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup
+=== RUN   TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup/failed_link_deletion_remains_retryable
+=== RUN   TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup/deletes_named_TUN_before_closing_descriptor
+=== RUN   TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup/repeated_close_preserves_restored_file
+=== RUN   TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup/failed_restore_remains_retryable
+--- PASS: TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup (0.01s)
+    --- PASS: TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup/failed_link_deletion_remains_retryable (0.00s)
+    --- PASS: TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup/deletes_named_TUN_before_closing_descriptor (0.00s)
+    --- PASS: TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup/repeated_close_preserves_restored_file (0.00s)
+    --- PASS: TestCloseNetworkRestoresDNSIdempotentlyAndRetainsFailedCleanup/failed_restore_remains_retryable (0.00s)
+=== RUN   TestOCIExecAppliesNoNewPrivilegesAndRlimit
+--- PASS: TestOCIExecAppliesNoNewPrivilegesAndRlimit (1.02s)
+=== RUN   TestOCIExecReexecHelper
+--- PASS: TestOCIExecReexecHelper (0.00s)
+=== RUN   TestOCIExecObservedHelper
+--- PASS: TestOCIExecObservedHelper (0.00s)
+=== RUN   TestOCIConstraintValidationRejectsUnsafeValues
+--- PASS: TestOCIConstraintValidationRejectsUnsafeValues (0.00s)
+=== RUN   TestServeConnStopsCancellationCallbackAfterPeerDisconnect
+--- PASS: TestServeConnStopsCancellationCallbackAfterPeerDisconnect (0.03s)
+=== RUN   TestServeConnCancellationClosesBlockedConnection
+--- PASS: TestServeConnCancellationClosesBlockedConnection (0.00s)
+=== RUN   TestOversizedFrameRepliesOnceAndEndsSession
+--- PASS: TestOversizedFrameRepliesOnceAndEndsSession (0.00s)
+=== RUN   TestTruncatedFrameEndsSession
+--- PASS: TestTruncatedFrameEndsSession (0.00s)
+=== RUN   TestMalformedFrameDoesNotDesynchronizeNextFrame
+--- PASS: TestMalformedFrameDoesNotDesynchronizeNextFrame (0.00s)
+=== RUN   TestAgentWireErrorsAreStructuredAndSecretSafe
+--- PASS: TestAgentWireErrorsAreStructuredAndSecretSafe (0.00s)
+=== RUN   TestAgentWireNetworkSetupErrorExposesOnlyStableStage
+--- PASS: TestAgentWireNetworkSetupErrorExposesOnlyStableStage (0.00s)
+=== RUN   TestAgentWireProcessCreateErrorExposesOnlyStableStage
+--- PASS: TestAgentWireProcessCreateErrorExposesOnlyStableStage (0.00s)
+=== RUN   TestAgentWireProcessStartErrorExposesOnlyStableStage
+--- PASS: TestAgentWireProcessStartErrorExposesOnlyStableStage (0.00s)
+=== RUN   TestStateReplyExcludesRetainedOutputAndReadIsBounded
+--- PASS: TestStateReplyExcludesRetainedOutputAndReadIsBounded (0.04s)
+=== RUN   TestWriteProcessProtocolAcknowledgesExactIdempotentOffset
+--- PASS: TestWriteProcessProtocolAcknowledgesExactIdempotentOffset (0.00s)
+=== RUN   TestSignalProcessOperationIDIsExactlyOnce
+--- PASS: TestSignalProcessOperationIDIsExactlyOnce (0.00s)
+=== RUN   TestConcurrentSequencesAreSerializedAndOutOfOrderRejected
+--- PASS: TestConcurrentSequencesAreSerializedAndOutOfOrderRejected (0.00s)
+=== RUN   TestServerEnforcesRuntimeOwnedBundle
+--- PASS: TestServerEnforcesRuntimeOwnedBundle (0.00s)
+=== RUN   TestCapabilitiesReportRuntimeFacts
+--- PASS: TestCapabilitiesReportRuntimeFacts (0.00s)
+PASS
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	10.462s
+{"evidence_command_result": {"ended_at": "2026-10-12T05:39:01.122126Z", "exit_status": 0}}

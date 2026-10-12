@@ -1,0 +1,42 @@
+{
+  "initial_ssh": {
+    "exit_status": 255,
+    "reason": "connection refused during initial boot; original tool output not retained as a transcript"
+  },
+  "attempts": [
+    {
+      "evidence_directory": "host/authority-baseline",
+      "exit_status": 1,
+      "fixture_archive": "fixtures.tar.gz",
+      "reason": "bootstrap /dev mount hid /dev/shm; relay socket readiness was not awaited"
+    },
+    {
+      "evidence_directory": "host/authority-rerun",
+      "exit_status": 1,
+      "fixture_archive": "fixtures-v2.tar.gz",
+      "reason": "host umask created group-writable config; production agent rejected it"
+    },
+    {
+      "evidence_directory": "host/bundle-diagnostic",
+      "exit_status": 1,
+      "fixture_archive": "fixtures-v2.tar.gz",
+      "builder_override": "build-diagnostic-initramfs.sh",
+      "diagnostic_source": "bundle-audit.go",
+      "diagnostic_binary_sha256": "414eab13e29ab41d2282de2ed5d60c92fccb4a0f6974e13b1ebe9511ecc1b6c9",
+      "reason": "bounded local bundle metadata confirmed mode 0664 rejection"
+    },
+    {
+      "evidence_directory": "host/authority-final",
+      "exit_status": 1,
+      "fixture_archive": "fixtures-v3.tar.gz",
+      "reason": "probe ran; parser incorrectly required non-omitted zero exit_code; result JSON was not retained by this older failure trap"
+    },
+    {
+      "evidence_directory": "host/authority-completed",
+      "exit_status": 0,
+      "fixture_archive": "fixtures-v4.tar.gz",
+      "reason": "all three diagnostic profiles collected and cleaned"
+    }
+  ],
+  "pre_delete_audit_note": "First audit used nonexistent Kerf status; shell returned zero due subsequent commands. Corrected audit asserts cleanup and uses Kerf show."
+}

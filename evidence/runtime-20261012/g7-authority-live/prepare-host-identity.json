@@ -1,0 +1,5 @@
+{
+  "executed_original_sha256": "84c006648eb3eff23f8660938d8bcc95017e9a59f73801e5e5db9012b4528102",
+  "retained_file": "prepare-host.sh",
+  "redaction": "Operator home paths replaced with ${OPERATOR_HOME}; retained text differs from executed bytes"
+}

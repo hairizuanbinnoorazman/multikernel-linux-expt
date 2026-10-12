@@ -64,6 +64,19 @@ retained and remains billable.
 
 ## Safety boundary
 
+The [G7 boundary assessment](research/g7-security-boundary-assessment.md)
+reproduces the pinned source audit and records fresh portable agent checks.
+It identifies an architectural limitation after child-kernel compromise and
+baseline bootstrap credential exposure and default-root access to a synthetic
+child-bootstrap file outside its OCI chroot. The
+[remediation rerun](../../evidence/runtime-20261012/g7-authority-remediation/README.md)
+verifies private credential handoff, least-privilege root defaults, mandatory
+no-new-privileges, selected devices, and fail-closed privilege requests in six
+bounded cases. See the [authority policy](contracts/workload-authority.md) for
+compatibility changes. Mediated-root/Docker requalification and remaining
+authority review are open; full G7 and a security advantage over gVisor are
+not established. Historical G4-G6 passes apply to their recorded source versions.
+
 The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels
 do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
 Never assign the primary boot disk, NIC, or a shared controller to a child, and

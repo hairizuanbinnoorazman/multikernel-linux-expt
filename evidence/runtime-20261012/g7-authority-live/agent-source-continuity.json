@@ -1,0 +1,5 @@
+{
+  "runtime_source_hashes_match_previous_build_bundle": true,
+  "production_go_changes": false,
+  "binary_hashes_match_previous_build_bundle": true
+}

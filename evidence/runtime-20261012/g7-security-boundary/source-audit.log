@@ -1,0 +1,337 @@
+{"evidence_command": {"argv": ["python3", "scripts/audit-runtime-isolation-source.py", "/tmp/mk-g7-kernel"], "started_at": "2026-10-12T05:38:30.960870Z"}}
+{
+  "revision": "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7",
+  "reviewed_file_count": 9,
+  "hashes_verified": true,
+  "files": [
+    {
+      "path": "arch/x86/multikernel/direct_boot.S",
+      "sha256": "7b0b5ccda22591986ea73baf8cb2166f4a1513663cca13b39e5f924a8472e89e",
+      "size_bytes": 13613,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/arch/x86/multikernel/direct_boot.S",
+      "excerpts": [
+        {
+          "anchor": "SYM_CODE_START_NOALIGN(multikernel_relocate_kernel)",
+          "first_line": 33,
+          "lines": [
+            " * Args: %rdi=identity_cr3, %rsi=boot_params, %rdx=entry, %rcx=trampoline_phys",
+            " * Exit: RDI=identity_cr3, RSI=boot_params, jumps to spawn kernel entry",
+            " */",
+            "SYM_CODE_START_NOALIGN(multikernel_relocate_kernel)",
+            "\tUNWIND_HINT_END_OF_STACK",
+            "\tENDBR",
+            "",
+            "\tmovq\t%rdi, %r13",
+            "\tmovq\t%rsi, %r15"
+          ]
+        },
+        {
+          "anchor": "pushq\t$__KERNEL_CS",
+          "first_line": 76,
+          "lines": [
+            "\tmovq\t%rbx, 2(%rax)",
+            "\tlgdt\t(%rax)",
+            "",
+            "\tpushq\t$__KERNEL_CS",
+            "\tleaq\t.Lcs_reloaded(%rip), %rax",
+            "\tpushq\t%rax",
+            "\tlretq",
+            "",
+            ".Lcs_reloaded:"
+          ]
+        },
+        {
+          "anchor": "jmp\t*%r14",
+          "first_line": 132,
+          "lines": [
+            "\txorl\t%ebp, %ebp",
+            "",
+            "\tANNOTATE_RETPOLINE_SAFE",
+            "\tjmp\t*%r14",
+            "SYM_CODE_END(mk_identity_mapped)",
+            "",
+            "/*",
+            " * mk_secondary_trampoline - Secondary CPU wakeup trampoline",
+            " *"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "arch/x86/multikernel/e820.c",
+      "sha256": "ca374ca55792a8e97500144f8bd5eee82c22fb3af9fb2005aadb0ce3be6203e2",
+      "size_bytes": 1939,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/arch/x86/multikernel/e820.c",
+      "excerpts": [
+        {
+          "anchor": "list_for_each_entry(region",
+          "first_line": 39,
+          "lines": [
+            "\tparams->e820_table[nr].type = E820_TYPE_RESERVED;",
+            "\tnr++;",
+            "",
+            "\tlist_for_each_entry(region, &instance->memory_regions, list) {",
+            "\t\tif (nr >= E820_MAX_ENTRIES_ZEROPAGE) {",
+            "\t\t\tpr_err(\"mk_e820: instance %d has more memory regions than the E820 table can carry (%d); refusing a truncated map\\n\",",
+            "\t\t\t       instance->id, E820_MAX_ENTRIES_ZEROPAGE);",
+            "\t\t\treturn -E2BIG;",
+            "\t\t}"
+          ]
+        },
+        {
+          "anchor": "E820_TYPE_RAM",
+          "first_line": 48,
+          "lines": [
+            "",
+            "\t\tparams->e820_table[nr].addr = region->res.start;",
+            "\t\tparams->e820_table[nr].size = resource_size(&region->res);",
+            "\t\tparams->e820_table[nr].type = E820_TYPE_RAM;",
+            "\t\ttotal += params->e820_table[nr].size;",
+            "\t\tnr++;",
+            "\t}",
+            "",
+            "\tparams->e820_entries = nr;"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "arch/x86/multikernel/spawn.c",
+      "sha256": "6a7f5412afa43f36fb645f3c457e6135b7cbd741623707ec5b8880b8cc48c883",
+      "size_bytes": 52020,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/arch/x86/multikernel/spawn.c",
+      "excerpts": [
+        {
+          "anchor": "pgt = mk_build_identity_pgtable(instance)",
+          "first_line": 375,
+          "lines": [
+            "\t\tstruct mk_ident_pgtable *pgt;",
+            "\t\tstruct mk_memory_region *region;",
+            "",
+            "\t\tpgt = mk_build_identity_pgtable(instance);",
+            "\t\tif (IS_ERR(pgt)) {",
+            "\t\t\tpr_err(\"Failed to build identity page table: %ld\\n\",",
+            "\t\t\t       PTR_ERR(pgt));",
+            "\t\t\treturn PTR_ERR(pgt);",
+            "\t\t}"
+          ]
+        },
+        {
+          "anchor": "mk_ident_map_range(pgt",
+          "first_line": 383,
+          "lines": [
+            "\t\t}",
+            "",
+            "\t\tlist_for_each_entry(region, &instance->memory_regions, list) {",
+            "\t\t\tret = mk_ident_map_range(pgt, region->res.start,",
+            "\t\t\t\t\t\t region->res.end + 1);",
+            "\t\t\tif (ret) {",
+            "\t\t\t\tmk_free_identity_pgtable(pgt);",
+            "\t\t\t\treturn ret;",
+            "\t\t\t}"
+          ]
+        },
+        {
+          "anchor": "machine_ops.power_off = mk_machine_halt",
+          "first_line": 1713,
+          "lines": [
+            "\t\treturn 0;",
+            "",
+            "\tmachine_ops.halt = mk_machine_halt;",
+            "\tmachine_ops.power_off = mk_machine_halt;",
+            "\tmachine_ops.restart = mk_machine_restart;",
+            "\tmachine_ops.emergency_restart = mk_machine_halt;",
+            "\tsmp_ops.stop_this_cpu = mk_stop_this_cpu;",
+            "",
+            "\t/*"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "kernel/multikernel/mem.c",
+      "sha256": "07c0436128eb7a3d91437589b682d3dd4d65e51e75f727edf2d5d8030b8f68cb",
+      "size_bytes": 19229,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/kernel/multikernel/mem.c",
+      "excerpts": [
+        {
+          "anchor": "phys_addr = multikernel_alloc(size, node)",
+          "first_line": 421,
+          "lines": [
+            "\tphys_addr_t phys_addr;",
+            "\tint ret;",
+            "",
+            "\tphys_addr = multikernel_alloc(size, node);",
+            "\tif (!phys_addr) {",
+            "\t\tpr_err(\"Failed to allocate %zu bytes from multikernel pool for instance %d\\n\",",
+            "\t\t       size, instance->id);",
+            "\t\treturn -ENOMEM;",
+            "\t}"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "kernel/multikernel/hotplug.c",
+      "sha256": "de0633bb71bb318aab8278db4ac9cf4418cd7f8bb494f0537b75b8f04784c7eb",
+      "size_bytes": 48339,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/kernel/multikernel/hotplug.c",
+      "excerpts": [
+        {
+          "anchor": "ret = mk_do_cpu_remove(cpu_id)",
+          "first_line": 1085,
+          "lines": [
+            "\tif (ret)",
+            "\t\treturn ret;",
+            "",
+            "\tret = mk_do_cpu_remove(cpu_id);",
+            "\tif (ret)",
+            "\t\treturn ret;",
+            "",
+            "\t/* The CPU parked in the host park area and is assignable again */",
+            "\tmk_cpu_set_add(mk_cpu_pool, cpu_id);"
+          ]
+        },
+        {
+          "anchor": "MK_RES_ACK",
+          "first_line": 260,
+          "lines": [
+            "\tack.result = ret;",
+            "\tack.resource_id = hp_work->cpu_id;",
+            "",
+            "\tack_ret = mk_send_message(hp_work->sender_instance_id, MK_MSG_RESOURCE, MK_RES_ACK,",
+            "\t\t\t\t  &ack, sizeof(ack));",
+            "\tif (ack_ret < 0) {",
+            "\t\tpr_warn(\"Multikernel hotplug: Failed to send ACK for CPU %llu: %d\\n\",",
+            "\t\t\thp_work->cpu_id, ack_ret);",
+            "\t}"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "kernel/multikernel/ipi.c",
+      "sha256": "4154dc981fb3c4cc57c1c383e73fdd2a2d0231089f5df5bda23fb1add02d0fe1",
+      "size_bytes": 11118,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/kernel/multikernel/ipi.c",
+      "excerpts": [
+        {
+          "anchor": "return i & (MK_IPI_RING_SIZE - 1)",
+          "first_line": 27,
+          "lines": [
+            " */",
+            "static inline unsigned int mk_ring_idx(unsigned int i)",
+            "{",
+            "\treturn i & (MK_IPI_RING_SIZE - 1);",
+            "}",
+            "",
+            "/**",
+            " * mk_ipi_ring_drop_pending - Discard everything queued in this kernel's ring",
+            " *"
+          ]
+        },
+        {
+          "anchor": "memcpy",
+          "first_line": 233,
+          "lines": [
+            "\tslot->type = type;",
+            "",
+            "\tif (data && data_size > 0)",
+            "\t\tmemcpy(slot->buffer, data, data_size);",
+            "",
+            "\t/*",
+            "\t * data_size publishes the slot: the reader treats a zero as \"the",
+            "\t * producer has claimed this slot but has not filled it yet\" and",
+            "\t * waits. Claiming the slot advanced head, so a reader can already"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "kernel/multikernel/dma_heap.c",
+      "sha256": "5b87403b1672efcaa8b21b3ed287b1ef174b26de6a472e77a0763d9f90aadfcb",
+      "size_bytes": 7174,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/kernel/multikernel/dma_heap.c",
+      "excerpts": [
+        {
+          "anchor": "return remap_pfn_range",
+          "first_line": 122,
+          "lines": [
+            "\tstruct mk_heap_buffer *buffer = dmabuf->priv;",
+            "",
+            "\t/* Map the physical memory to userspace */",
+            "\treturn remap_pfn_range(vma, vma->vm_start,",
+            "\t\t\t       PHYS_PFN(buffer->phys_addr),",
+            "\t\t\t       vma->vm_end - vma->vm_start,",
+            "\t\t\t       vma->vm_page_prot);",
+            "}",
+            ""
+          ]
+        },
+        {
+          "anchor": "dma_map_sgtable",
+          "first_line": 50,
+          "lines": [
+            "\tstruct sg_table *table = &a->table;",
+            "\tint ret;",
+            "",
+            "\tret = dma_map_sgtable(attach->dev, table, dir, 0);",
+            "\tif (ret)",
+            "\t\treturn ERR_PTR(ret);",
+            "",
+            "\ta->mapped = true;",
+            "\treturn table;"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "kernel/multikernel/core.c",
+      "sha256": "74ba0a63d8f761683a74a81503d9ea27c3871fa7d0e4268a95b26b0c7e1d76ba",
+      "size_bytes": 47096,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/kernel/multikernel/core.c",
+      "excerpts": [
+        {
+          "anchor": "mk_halt_to_pool",
+          "first_line": 1348,
+          "lines": [
+            "}",
+            "",
+            "/**",
+            " * mk_halt_to_pool - Halt this spawn kernel, returning its CPUs to the pool",
+            " *",
+            " * Called from the spawn kernel's machine halt path. A voluntary exit",
+            " * cannot stay contained in this kernel: the parent owns the instance's",
+            " * lifecycle, and without notice it would consider the instance running",
+            " * forever. Send the parent (instance 0) a HALTED event, then park every"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "net/vmw_vsock/mk_transport.c",
+      "sha256": "37a9e02cff4e08688a3a7be33fefbc2aa7b6efc86858fc27768e5282c3240c59",
+      "size_bytes": 19697,
+      "url": "https://raw.githubusercontent.com/multikernel/linux/3bdd35b64413da0b4e089ce931bfc2e8b031cbf7/net/vmw_vsock/mk_transport.c",
+      "excerpts": [
+        {
+          "anchor": "skb_put_data",
+          "first_line": 298,
+          "lines": [
+            "\t\treturn;",
+            "\t}",
+            "",
+            "\tskb_put_data(skb, payload, payload_len);",
+            "",
+            "\thdr = (struct virtio_vsock_hdr *)skb->data;",
+            "\tmk_queue_rx_pkt(skb);",
+            "}",
+            ""
+          ]
+        }
+      ]
+    }
+  ],
+  "scope": "Identity and source anchors; architectural conclusions require source review."
+}
+{"evidence_command_result": {"ended_at": "2026-10-12T05:38:30.985372Z", "exit_status": 0}}

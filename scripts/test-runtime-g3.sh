@@ -22,19 +22,21 @@ ctl_pid=
 relay_pid=
 
 mkdir -p "$evidence"
+token_file=$(mktemp)
+printf '%s\n' "$token" > "$token_file"
 
-cleanup(){ set +e; [[ -z ${ctl_pid:-} ]]||kill "$ctl_pid" 2>/dev/null; [[ -z ${relay_pid:-} ]]||kill "$relay_pid" 2>/dev/null; if [[ -d /sys/fs/multikernel/instances/$name ]];then status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != active ]]||sudo "$kerf" kill "$name" --force;status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != loaded ]]||sudo "$kerf" unload "$name";sudo "$kerf" delete "$name";fi;sudo "$kerf" init --cpus=none --memory=none --devices=none; if [[ -f $console ]]; then sed -i "s/$token/[REDACTED_TEST_TOKEN]/g" "$console"; fi; }
+cleanup(){ set +e; rm -f "$token_file"; [[ -z ${ctl_pid:-} ]]||kill "$ctl_pid" 2>/dev/null; [[ -z ${relay_pid:-} ]]||kill "$relay_pid" 2>/dev/null; if [[ -d /sys/fs/multikernel/instances/$name ]];then status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != active ]]||sudo "$kerf" kill "$name" --force;status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != loaded ]]||sudo "$kerf" unload "$name";sudo "$kerf" delete "$name";fi;sudo "$kerf" init --cpus=none --memory=none --devices=none; if [[ -f $console ]]; then sed -i "s/$token/[REDACTED_TEST_TOKEN]/g" "$console"; fi; }
 trap cleanup EXIT
 sudo modprobe vsock
 lsmod | grep -q '^mk_transport ' || sudo insmod "$module"
 if [[ -z ${MK_RELAY:-} ]]; then
 	musl-gcc -static -O2 -Wall -Wextra -Werror "$lab/tools/mkvsock-relay.c" -o "$relay"
 fi
-"$lab/scripts/build-agent-initramfs.sh" "$agent" "$initrd" "$module" "$relay"
+MK_AGENT_TOKEN_FILE="$token_file" "$lab/scripts/build-agent-initramfs.sh" "$agent" "$initrd" "$module" "$relay"
 sudo "$kerf" init --cpus=8,10,12,14 --memory=8GB --devices=none
 sudo "$kerf" create "$name" --id="$cid" --cpus=8,10 --memory=4GB
 sudo "$kerf" load "$name" --kernel="$kernel" --initrd="$initrd" \
-	--cmdline="rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=$name mk.generation=$generation mk.token=$token mk.agent_port=$port"
+	--cmdline="rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=$name mk.generation=$generation mk.agent_port=$port"
 rm -f /tmp/g3-relay.sock
 "$relay" server "$port" /tmp/g3-relay.sock >"$relay_log" 2>&1 &
 relay_pid=$!

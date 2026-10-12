@@ -1,0 +1,14 @@
+{
+  "events": [
+    {
+      "action": "disable OS update services on disposable VM",
+      "disposition": "rejected by automatic approval review; abandoned; update services left enabled",
+      "reason": "Persistent security weakening not specifically authorized and unnecessary for host establishment."
+    },
+    {
+      "action": "upload current agent binaries and security fixture scripts to disposable GCE VM",
+      "disposition": "rejected by automatic approval review; explicit user authorization requested; no upload attempted after rejection",
+      "reason": "Repository-derived payload transfer to the cloud destination requires specific authorization."
+    }
+  ]
+}

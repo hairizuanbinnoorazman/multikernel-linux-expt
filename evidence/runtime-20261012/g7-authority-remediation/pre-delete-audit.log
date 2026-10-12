@@ -1,0 +1,20 @@
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+active
+active
+active
+57fd23ac9ed68e4961fce716ab30b0c28e0b6588ef61a1507a8bd8688a9292d6  /var/tmp/mk-g7-bin/mk-agent
+5b8c2956210141c04f5a45d5bc776e87b747d2d2c03d9d0a3f5a3c9812727491  /var/tmp/mk-g7-bin/mk-agentctl
+f9f45bae5059dda5820586e9d4925b337b5ec096297dc17dcdcc65831bf9d657  /var/tmp/mk-g7-bin/g7-credential-load
+9a293b421a8035c03406dd4ca16a669a733cd930a0f8f2f1bf144dfd092943fd  /var/tmp/mk-g7-bin/fixtures.tar.gz
+00000000-0000-0000-0000-000000000014
+CLEANUP_ASSERTIONS_PASSED cpus=0-15 children=0 helpers=0

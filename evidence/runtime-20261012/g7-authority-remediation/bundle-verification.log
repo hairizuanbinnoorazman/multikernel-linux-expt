@@ -1,0 +1,11 @@
+{"evidence_command": {"argv": ["python3", "scripts/verify-g7-remediation-evidence.py", "evidence/runtime-20261012/g7-authority-remediation"], "started_at": "2026-10-12T06:56:31.451775Z"}}
+{
+  "source_files_verified": 144,
+  "successful_workload_profiles": 4,
+  "fail_closed_requests": 2,
+  "tested_credential_paths_protected": true,
+  "tested_child_bootstrap_canary_access_denied": true,
+  "production_kerf_credential_handoff_exercised": true,
+  "cloud_cleanup_verified": true
+}
+{"evidence_command_result": {"ended_at": "2026-10-12T06:56:31.493494Z", "exit_status": 0}}

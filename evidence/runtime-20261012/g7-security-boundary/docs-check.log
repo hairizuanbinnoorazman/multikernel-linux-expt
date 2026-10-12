@@ -1,0 +1,44 @@
+{"evidence_command": {"argv": ["make", "docs-check"], "started_at": "2026-10-12T05:51:58.742212Z"}}
+bash scripts/check-docs.sh
+documentation structure and local links: PASS
+runtime schema fixtures: PASS (7 schemas, 22 cases)
+runtime evidence manifests: PASS (22 checked, 17 historical nonconforming and explicitly classified)
+runtime OCI fail-closed validation: PASS (97 semantic cases plus namespace, file-identity, and outer-cleanup boundaries)
+runtime read-only bind materialization: PASS (copy, metadata, destination semantics, symlinks, mutation, held source/target races)
+runtime bootstrap validation: PASS (approved hashes, ownership, transport ID and direction)
+....................
+----------------------------------------------------------------------
+Ran 20 tests in 1.327s
+
+OK
+socket rejection subcase skipped: [Errno 1] Operation not permitted
+............
+----------------------------------------------------------------------
+Ran 12 tests in 2.581s
+
+OK
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.005s
+
+OK
+runtime storage mount validation: PASS (mountinfo, fail-closed input, service wiring)
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.285s
+
+OK
+runtime image architecture binding: PASS (ELF, interpreter, wrong-arch, escape, held root/child races)
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.295s
+
+OK
+runtime release manifest tests: PASS
+runtime binary lifecycle tests: PASS
+runtime deployment lifecycle tests: PASS
+GCE resource ledger tests: PASS
+evidence command capture tests: PASS
+runtime containerd config tests: PASS
+G4-G6 final evidence audit tests: PASS
+{"evidence_command_result": {"ended_at": "2026-10-12T05:52:09.810744Z", "exit_status": 0}}

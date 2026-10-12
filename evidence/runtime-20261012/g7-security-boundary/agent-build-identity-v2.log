@@ -1,0 +1,17 @@
+{"evidence_command": {"argv": ["python3", "-c", "import subprocess,hashlib,pathlib,json; files=[pathlib.Path(\"/tmp/mk-g7-bin\")/name for name in [\"mk-agent\",\"mk-agentctl\"]]; print(json.dumps({\"go_version\":subprocess.check_output([\"go\",\"version\"],text=True).strip(),\"components\":[{\"name\":p.name,\"sha256\":hashlib.sha256(p.read_bytes()).hexdigest(),\"identity\":subprocess.check_output([str(p),\"--version\"],text=True).strip()} for p in files]},indent=2))"], "started_at": "2026-10-12T05:49:08.354747Z"}}
+{
+  "go_version": "go version go1.26.1 linux/amd64",
+  "components": [
+    {
+      "name": "mk-agent",
+      "sha256": "cceb10c508516e380cc23546515de2537a62961a7d3ae223c337809f6a5d0cec",
+      "identity": "mk-agent version=0.0.0-dev revision=unknown"
+    },
+    {
+      "name": "mk-agentctl",
+      "sha256": "31e216915317dd1651e298001746f8f940a38bdff2a7850555cb980c179253ff",
+      "identity": "mk-agentctl version=0.0.0-dev revision=unknown"
+    }
+  ]
+}
+{"evidence_command_result": {"ended_at": "2026-10-12T05:49:08.395150Z", "exit_status": 0}}

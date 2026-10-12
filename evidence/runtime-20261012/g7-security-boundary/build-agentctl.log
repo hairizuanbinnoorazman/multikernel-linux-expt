@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["env", "CGO_ENABLED=0", "GOCACHE=/tmp/mk-go-cache", "go", "build", "-trimpath", "-buildvcs=false", "-o", "/tmp/mk-g7-bin/mk-agentctl", "./cmd/mk-agentctl"], "started_at": "2026-10-12T05:50:35.574754Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-12T05:50:35.616450Z", "exit_status": 0}}

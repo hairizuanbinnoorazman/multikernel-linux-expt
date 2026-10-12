@@ -1,0 +1,21 @@
+{
+  "portable_intermediate_attempt": {
+    "exit_status": 1,
+    "output": "tests-attempt-1.log",
+    "reason": "Token test directory inherited mode 0775 and was correctly rejected; tests now explicitly establish private parent permissions. Intermediate source not separately archived."
+  },
+  "live_attempts": [
+    {
+      "exit_status": 1,
+      "output": "live-tests.log",
+      "host_evidence": "host/remediation",
+      "reason": "Snapshot source kernel mode 0775 correctly failed approved boot file validation before child boot."
+    },
+    {
+      "exit_status": 0,
+      "output": "live-rerun.log",
+      "host_evidence": "host/remediation-rerun",
+      "reason": "Protected copy mode 0644, root-owned, with identical approved digest; six cases completed."
+    }
+  ]
+}

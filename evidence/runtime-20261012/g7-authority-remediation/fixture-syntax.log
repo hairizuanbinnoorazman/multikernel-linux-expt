@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["bash", "-n", "guest/mk-agent-init", "guest/runtime-mediated-init", "scripts/build-agent-initramfs.sh", "scripts/test-runtime-g3.sh", "scripts/build-security-authority-initramfs.sh", "scripts/test-runtime-security-authority-live.sh"], "started_at": "2026-10-12T06:56:31.423332Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-12T06:56:31.425250Z", "exit_status": 0}}

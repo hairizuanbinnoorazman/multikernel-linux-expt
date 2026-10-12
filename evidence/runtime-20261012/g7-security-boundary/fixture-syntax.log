@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["bash", "-n", "scripts/build-security-authority-initramfs.sh", "scripts/test-runtime-security-authority-live.sh", "guest/security-authority-probe.sh"], "started_at": "2026-10-12T05:43:03.300843Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-12T05:43:03.303065Z", "exit_status": 0}}

@@ -6,6 +6,12 @@
   boundary.
 - [`decisions/`](decisions/): architecture decision records.
 - [`research/`](research/): related-work audits.
+- [`research/stride-threat-model.md`](research/stride-threat-model.md): STRIDE
+  threats, workload-escape hypothesis, and the gVisor comparison boundary.
+- [`plans/g7-security-checklist.md`](plans/g7-security-checklist.md): proposed
+  security reviews, negative tests, fuzzing, and comparative research tasks.
+- [`research/g7-security-boundary-assessment.md`](research/g7-security-boundary-assessment.md):
+  SEC-01/SEC-02/SEC-11 findings, evidence scope, and claim-specific confidence.
 - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
 - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
   boundaries.

@@ -1,0 +1,31 @@
+#
+# No change to .config
+#
+  SYNC    include/config/auto.conf
+  UPD     include/generated/compile.h
+  DESCEND bpf/resolve_btfids
+  DESCEND objtool
+  INSTALL libsubcmd_headers
+  CALL    scripts/checksyscalls.sh
+  INSTALL libsubcmd_headers
+  CC [M]  net/vmw_vsock/mk_transport.o
+  MODPOST Module.symvers
+  CC [M]  net/vmw_vsock/mk_transport.mod.o
+  LD [M]  net/vmw_vsock/mk_transport.ko
+  BTF [M] net/vmw_vsock/mk_transport.ko
+filename:       ${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko
+vermagic:       7.0.0-mk2-gce-lab SMP preempt mod_unload modversions 
+bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2  net/vmw_vsock/mk_transport.ko
+cceb10c508516e380cc23546515de2537a62961a7d3ae223c337809f6a5d0cec  /var/tmp/mk-g7-bin/mk-agent
+31e216915317dd1651e298001746f8f940a38bdff2a7850555cb980c179253ff  /var/tmp/mk-g7-bin/mk-agentctl
+293ff1eaa209d16103c7caaa8e8f9a24702e58d979453fad5495c503f76aaf98  /var/tmp/mk-g7-bin/mkvsock-relay
+5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10  ${OPERATOR_HOME}/src/linux/vmlinux
+bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2  ${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko
+3bdd35b64413da0b4e089ce931bfc2e8b031cbf7
+8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec
+7.0.0-mk2-gce-lab
+00000000-0000-0000-0000-000000000013
+active
+active
+active
+SECURITY_AUTHORITY_HOST_PREPARED
