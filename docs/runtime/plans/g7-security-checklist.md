@@ -46,6 +46,19 @@ explicit disposition, and a verification rerun.
   requests fail closed. Mediated-root/Docker qualification, shared-procfs/root
   signal review, and independent review remain open. See the
   [remediation evidence](../../../evidence/runtime-20261012/g7-authority-remediation/README.md).
+  The [builder-guest prototype](../research/guest-image-builds.md) additionally
+  verifies offline image builds with automatic trusted namespace preparation,
+  zero-capability/NNP client execution and retained canary/credential checks.
+  Review its mapping helpers, local socket authorization, service lifecycle,
+  nested namespace authority and production integration before qualifying it.
+  The [Docker-in-Docker follow-up](../research/docker-in-docker-guests.md)
+  verifies ordinary Docker build/run/save commands with a rootless guest-local
+  daemon, client caps zero, and nested NNP/seccomp. Offline prototype evidence
+  does not close production networking/storage or independent authority review.
+  The [online Python follow-up](../research/docker-online-python-guest.md)
+  additionally verifies Docker Hub pulls, HTTPS PyPI package installation,
+  runtime HTTPS and wheel hashes in a static diagnostic networking profile.
+  Full production CNI/storage and independent authority review remain open.
   Inspect [agent execution](../../../runtime/agent/oci_exec_linux.go),
   [OCI validation](../../../runtime/agent/manager.go), root policy, and bootstrap.
   In non-root and supported root fixtures, enumerate effective capabilities,
