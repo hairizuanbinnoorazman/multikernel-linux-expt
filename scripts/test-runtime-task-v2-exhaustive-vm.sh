@@ -45,7 +45,8 @@ kernel=$(uname -r)
 go=$(go version)
 source_root=$source_root
 qualifier_sha256=$(sha256sum "$0" | awk '{print $1}')
-shim_test_sha256=$(sha256sum "$source_root/runtime/cmd/containerd-shim-multikernel-v2/main_test.go" | awk '{print $1}')"
+shim_test_sha256=$(cd "$source_root/runtime/cmd/containerd-shim-multikernel-v2" && sha256sum -- *_test.go | sha256sum | awk '{print $1}')
+shim_test_sha256_scope=all-shim-test-files"
 "$source_root/scripts/audit-runtime-final-resources-live.sh"
 
 cd "$source_root/runtime"

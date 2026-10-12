@@ -26,31 +26,31 @@ var readonlyBindOptions = []string{"bind", "nodev", "noexec", "nosuid", "ro"}
 
 func validateReadonlyBindMounts(mounts []MountSpec) error {
 	if len(mounts) > 8 {
-		return errors.New("at most eight read-only bind inputs are supported")
+		return errorf(invalidArgument, "at most eight read-only bind inputs are supported")
 	}
 	seen := make([]string, 0, len(mounts))
 	for _, mount := range mounts {
 		if mount.Type != "bind" || mount.Source != mount.Destination || mount.Destination == "/" ||
 			len(mount.Destination) > 4096 || strings.ContainsRune(mount.Destination, '\x00') ||
 			!strings.HasPrefix(mount.Destination, "/") || filepath.Clean(mount.Destination) != mount.Destination {
-			return errors.New("read-only bind input is not a sanitized materialized path")
+			return errorf(invalidArgument, "read-only bind input is not a sanitized materialized path")
 		}
 		if len(mount.Options) != len(readonlyBindOptions) {
-			return errors.New("read-only bind input has unsupported options")
+			return errorf(invalidArgument, "read-only bind input has unsupported options")
 		}
 		for index, option := range readonlyBindOptions {
 			if mount.Options[index] != option {
-				return errors.New("read-only bind input has unsupported options")
+				return errorf(invalidArgument, "read-only bind input has unsupported options")
 			}
 		}
 		for _, protected := range []string{"/dev", "/proc", "/run", "/sys"} {
 			if mount.Destination == protected || strings.HasPrefix(mount.Destination, protected+"/") {
-				return errors.New("read-only bind input overlaps a runtime-owned path")
+				return errorf(invalidArgument, "read-only bind input overlaps a runtime-owned path")
 			}
 		}
 		for _, prior := range seen {
 			if mount.Destination == prior || strings.HasPrefix(mount.Destination, prior+"/") || strings.HasPrefix(prior, mount.Destination+"/") {
-				return errors.New("read-only bind inputs overlap")
+				return errorf(invalidArgument, "read-only bind inputs overlap")
 			}
 		}
 		seen = append(seen, mount.Destination)
@@ -62,7 +62,7 @@ func validatePolicyPaths(values, allowed []string, name string) error {
 	seen := map[string]bool{}
 	for _, value := range values {
 		if !slices.Contains(allowed, value) || seen[value] {
-			return fmt.Errorf("%s contains an unsupported or duplicate path", name)
+			return errorf(invalidArgument, "%s contains an unsupported or duplicate path", name)
 		}
 		seen[value] = true
 	}
@@ -71,7 +71,7 @@ func validatePolicyPaths(values, allowed []string, name string) error {
 
 func validateRootPolicy(masked, readonly []string) error {
 	if len(masked) > len(supportedMaskedPaths) || len(readonly) > len(supportedReadonlyPaths) {
-		return errors.New("root path policy exceeds supported bounds")
+		return errorf(invalidArgument, "root path policy exceeds supported bounds")
 	}
 	if err := validatePolicyPaths(masked, supportedMaskedPaths, "maskedPaths"); err != nil {
 		return err

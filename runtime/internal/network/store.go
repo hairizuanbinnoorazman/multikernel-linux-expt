@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"sync"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
@@ -123,11 +124,20 @@ func ValidateEndpoint(endpoint Endpoint) error {
 	return validateStoredEndpoint(endpointKey(endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName), endpoint)
 }
 
+// cloneEndpoint keeps caller-owned DNS slices outside the store's lock and
+// persistence boundary. Preserve nil slices so the wire representation is stable.
+func cloneEndpoint(endpoint Endpoint) Endpoint {
+	endpoint.DNS.Nameservers = slices.Clone(endpoint.DNS.Nameservers)
+	endpoint.DNS.Search = slices.Clone(endpoint.DNS.Search)
+	endpoint.DNS.Options = slices.Clone(endpoint.DNS.Options)
+	return endpoint
+}
+
 func (s *Store) Get(networkName, containerID, ifName string) (Endpoint, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	endpoint, ok := s.data.Endpoints[endpointKey(networkName, containerID, ifName)]
-	return endpoint, ok
+	return cloneEndpoint(endpoint), ok
 }
 
 func (s *Store) List() []Endpoint {
@@ -135,7 +145,7 @@ func (s *Store) List() []Endpoint {
 	defer s.mu.Unlock()
 	result := make([]Endpoint, 0, len(s.data.Endpoints))
 	for _, endpoint := range s.data.Endpoints {
-		result = append(result, endpoint)
+		result = append(result, cloneEndpoint(endpoint))
 	}
 	return result
 }
@@ -143,6 +153,7 @@ func (s *Store) List() []Endpoint {
 func (s *Store) Put(endpoint Endpoint) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	endpoint = cloneEndpoint(endpoint)
 	key := endpointKey(endpoint.NetworkName, endpoint.ContainerID, endpoint.IfName)
 	if err := validateStoredEndpoint(key, endpoint); err != nil {
 		return err
