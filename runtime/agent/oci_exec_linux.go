@@ -34,6 +34,24 @@ var linuxCapabilities = map[string]uint{
 	"CAP_PERFMON": 38, "CAP_BPF": 39, "CAP_CHECKPOINT_RESTORE": 40,
 }
 
+// Ordinary workload grants only; kernel administration, bootstrap ptrace,
+// raw I/O and filesystem-handle bypasses are outside the supported policy.
+var workloadCapabilities = map[string]bool{
+	"CAP_CHOWN": true, "CAP_DAC_OVERRIDE": true, "CAP_FOWNER": true,
+	"CAP_FSETID": true, "CAP_KILL": true, "CAP_SETGID": true, "CAP_SETUID": true,
+	"CAP_SETPCAP": true, "CAP_NET_BIND_SERVICE": true, "CAP_NET_RAW": true,
+	"CAP_SYS_CHROOT": true, "CAP_MKNOD": true, "CAP_AUDIT_WRITE": true, "CAP_SETFCAP": true,
+}
+
+func workloadDefaults(spec ProcessSpec) ProcessSpec {
+	nnp := true
+	spec.NoNewPrivileges = &nnp
+	if spec.User.UID == 0 && spec.Capabilities == nil {
+		spec.Capabilities = map[string][]string{}
+	}
+	return spec
+}
+
 var rlimitResources = map[string]int{
 	"RLIMIT_AS": unix.RLIMIT_AS, "RLIMIT_CORE": unix.RLIMIT_CORE, "RLIMIT_CPU": unix.RLIMIT_CPU,
 	"RLIMIT_DATA": unix.RLIMIT_DATA, "RLIMIT_FSIZE": unix.RLIMIT_FSIZE, "RLIMIT_LOCKS": unix.RLIMIT_LOCKS,
@@ -59,6 +77,9 @@ func capabilityMask(values []string) ([2]uint32, error) {
 }
 
 func validateExecConstraints(process ProcessSpec) error {
+	if process.NoNewPrivileges != nil && !*process.NoNewPrivileges {
+		return errorf(unsupported, "disabling no-new-privileges is not supported")
+	}
 	if len(process.Rlimits) > 32 {
 		return errorf(invalidArgument, "too many process rlimits")
 	}
@@ -81,6 +102,11 @@ func validateExecConstraints(process ProcessSpec) error {
 		if _, err := capabilityMask(values); err != nil {
 			return err
 		}
+		for _, value := range values {
+			if !workloadCapabilities[value] {
+				return errorf(unsupported, "capability %s is outside the supported workload policy", value)
+			}
+		}
 	}
 	if process.User.UID != 0 {
 		return errorf(invalidArgument, "non-root processes may not provide a Linux capability contract")
@@ -93,6 +119,11 @@ func validateExecConstraints(process ProcessSpec) error {
 	for i := range bounding {
 		if permitted[i]&^bounding[i] != 0 || effective[i]&^permitted[i] != 0 || ambient[i]&^(permitted[i]&inheritable[i]) != 0 {
 			return errorf(invalidArgument, "Linux capability sets violate bounding, permitted, effective, or ambient containment")
+		}
+		// UID 0 exec restores capabilities from the bounding set. Reject a
+		// narrower contract rather than silently granting more than requested.
+		if bounding[i] != permitted[i] || permitted[i] != effective[i] {
+			return errorf(unsupported, "root bounding, permitted, and effective capabilities must match")
 		}
 	}
 	return nil

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
+	"golang.org/x/sys/unix"
 )
 
 func main() {
@@ -26,20 +26,28 @@ func main() {
 		}
 		return
 	}
-	var id, gen, token, unixSocket string
+	var id, gen, tokenFile, unixSocket string
 	var port uint
 	var noChroot, mediatedRoot bool
 	flag.StringVar(&id, "sandbox-id", "", "sandbox ID")
 	flag.StringVar(&gen, "generation", "", "sandbox generation")
-	flag.StringVar(&token, "token-hex", "", "256-bit authentication token")
+	flag.StringVar(&tokenFile, "token-file", "", "private one-shot authentication credential file")
 	flag.UintVar(&port, "port", 0, "AF_VSOCK port")
 	flag.BoolVar(&noChroot, "test-no-chroot", false, "disable chroot for explicit local tests")
 	flag.BoolVar(&mediatedRoot, "mediated-root", false, "remount the mediated ext4 root read-only before shutdown")
 	flag.StringVar(&unixSocket, "unix-socket", "", "child-local Unix control socket")
 	flag.Parse()
-	key, e := hex.DecodeString(token)
-	if e != nil || len(key) != 32 || id == "" || gen == "" || port < 1024 {
-		fmt.Fprintln(os.Stderr, "sandbox identity, port, and 32-byte token are required")
+	if id == "" || gen == "" || port < 1024 || tokenFile == "" {
+		fmt.Fprintln(os.Stderr, "sandbox identity, port, and private credential file are required")
+		os.Exit(2)
+	}
+	if err := unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0); err != nil {
+		fmt.Fprintln(os.Stderr, "agent process protection failed")
+		os.Exit(1)
+	}
+	key, e := consumeAgentToken(tokenFile)
+	if e != nil {
+		fmt.Fprintln(os.Stderr, "private agent credential validation failed")
 		os.Exit(2)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

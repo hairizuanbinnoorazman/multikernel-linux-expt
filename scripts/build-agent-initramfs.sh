@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 022
 
 agent=${1:?usage: build-agent-initramfs.sh MK_AGENT OUTPUT}
 output=${2:?usage: build-agent-initramfs.sh MK_AGENT OUTPUT}
@@ -11,6 +12,8 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$work"/{bin,dev,proc,sys,tmp,bundle/rootfs/bin,bundle/rootfs/work}
+mkdir -m 0700 "$work/.mk-agent"
+install -m 0600 "${MK_AGENT_TOKEN_FILE:?provide the private token input file}" "$work/.mk-agent/token"
 chmod 0777 "$work/bundle/rootfs/work"
 install -m 0755 "$busybox" "$work/bin/busybox"
 install -m 0755 "$busybox" "$work/bundle/rootfs/bin/busybox"
@@ -34,6 +37,7 @@ cat >"$work/bundle/config.json" <<'EOF'
   "root": {"path": "rootfs"}
 }
 EOF
+chmod 0600 "$work/bundle/config.json"
 
 (cd "$work" && find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 >"$output"
 sha256sum "$output"

@@ -1,6 +1,6 @@
 # Implementation tasks
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
 
 ## Live GCE proof
 
@@ -190,6 +190,11 @@ The detailed exit criteria and ordering are in
   before treating the checked MVP and feature rows as full G4, G5, or G6 gate
   conformance.
 - [ ] G7: pass the security, fuzzing, failure, soak, and resource-leak matrix.
+  - [ ] Execute the [STRIDE security checklist](../runtime/plans/g7-security-checklist.md),
+    mapping threats to reviewed findings and retained evidence.
+  - [ ] Evaluate the separate-kernel workload-escape hypothesis against a pinned
+    gVisor configuration; document compromised-child limitations and avoid
+    claiming an isolation advantage without supporting evidence.
 - [ ] G8: add bounded health, diagnostics, structured logging, tested recovery,
   service hardening, and a maintainable shim layout.
 - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible

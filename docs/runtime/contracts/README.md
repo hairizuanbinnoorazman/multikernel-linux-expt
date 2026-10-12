@@ -13,6 +13,8 @@ The normative documents are:
 - [`kernel-and-image-policy.md`](kernel-and-image-policy.md): runtime boot
   artifacts, OCI inputs, compatibility, and feature rejection;
 - [`configuration.md`](configuration.md): host and sandbox configuration;
+- [`workload-authority.md`](workload-authority.md): private agent credentials,
+  mandatory process privilege policy, device exposure, and security limits;
 - [`protocol-v1.md`](protocol-v1.md): daemon and agent wire envelopes; and
 - [`evidence.md`](evidence.md): evidence manifest and cloud resource ledgers.
 

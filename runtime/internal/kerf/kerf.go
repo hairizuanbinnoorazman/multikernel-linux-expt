@@ -304,8 +304,14 @@ func (c *CLI) Load(ctx context.Context, s protocol.Sandbox, kernel, initrd, cmdl
 			if decodeErr != nil || len(decoded) != 32 || len(tokenValue) != 65 || tokenValue[64] != '\n' {
 				return errors.New("invalid runtime agent token")
 			}
+			privateInitrd, handoffErr := credentialInitrd(initrdFile, tokenValue)
+			if handoffErr != nil {
+				return fmt.Errorf("prepare private agent credential: %w", handoffErr)
+			}
+			defer privateInitrd.Close()
+			inherited[0] = privateInitrd
 			cmdline += " mk.sandbox_id=" + s.ID + " mk.generation=" + s.Generation +
-				" mk.token=" + token + " mk.agent_port=" + strconv.FormatUint(uint64(s.Config.AgentPort), 10)
+				" mk.agent_port=" + strconv.FormatUint(uint64(s.Config.AgentPort), 10)
 		} else if !errors.Is(tokenErr, syscall.ENOENT) {
 			return fmt.Errorf("read runtime agent token: %w", tokenErr)
 		}
@@ -326,6 +332,9 @@ func (c *CLI) Load(ctx context.Context, s protocol.Sandbox, kernel, initrd, cmdl
 			" mk.root_uuid=" + s.Config.Storage.FilesystemUUID +
 			" mk.storage_port=" + strconv.FormatUint(uint64(s.Config.Storage.Port), 10) +
 			" mk.storage_size=" + strconv.FormatUint(s.Config.Storage.SizeBytes, 10)
+	}
+	if strings.Contains(cmdline, "mk.token=") {
+		return errors.New("agent credentials are prohibited in the kernel command line")
 	}
 	err = c.runWithFiles(ctx, inherited, "load", s.ID, "--kernel="+kernel, "--initrd="+initrd, "--cmdline="+cmdline, "--verbose")
 	return c.acceptObserved(ctx, s.ID, "LOADED", err)

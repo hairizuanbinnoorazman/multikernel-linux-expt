@@ -6,6 +6,17 @@ Define a defensible preview security posture and prove recovery under component
 failure. This gate does not attempt to turn Multikernel into a KVM-equivalent
 security boundary.
 
+## Threat-model method and security backlog
+
+Use [STRIDE across data flows and trust boundaries](../research/stride-threat-model.md)
+and execute the [G7 security task checklist](g7-security-checklist.md).
+The model includes the project's hypothesis that separate Linux kernels could
+make workload escape harder than gVisor. That comparative claim is unproven;
+child-kernel compromise must be evaluated separately from process compromise,
+and the existing lack of a demonstrated hostile-child hardware boundary remains
+an architectural limitation. Closing G7 qualifies the documented trusted preview,
+not a claim of superiority to gVisor or hostile multi-tenant isolation.
+
 ## Security work
 
 - Threat-model primary daemon, shim, child agent, workload, image, control
