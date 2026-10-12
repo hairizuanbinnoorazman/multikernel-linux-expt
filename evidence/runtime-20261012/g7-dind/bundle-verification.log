@@ -1,0 +1,14 @@
+{
+  "docker_daemon_rootless": true,
+  "docker_build_multistage": true,
+  "docker_build_cache_hit": true,
+  "docker_run_nested_image": true,
+  "docker_save_contents_verified": true,
+  "image_sha256": "62328fd3d5534d5918638a5cf2529096bddff1768e9a30175914d13e8e32e5da",
+  "failed_build_rejected": true,
+  "outer_client_caps_zero_nnp": true,
+  "daemon_maps_root_to_guest_1000_nnp": true,
+  "inner_container_nnp_and_seccomp": true,
+  "tested_credentials_canary_devices_protected": true,
+  "cloud_cleanup_verified": true
+}

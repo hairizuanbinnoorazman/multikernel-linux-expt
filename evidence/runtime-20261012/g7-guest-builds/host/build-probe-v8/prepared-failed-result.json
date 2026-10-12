@@ -1,0 +1,71 @@
+{
+  "Capabilities": {
+    "agent": {
+      "bounding_capabilities": "000001ffffffffff",
+      "effective_capabilities": "000001ffffffffff",
+      "gid": 0,
+      "no_new_privileges": "0",
+      "uid": 0
+    },
+    "kernel": {
+      "architecture": "amd64",
+      "cgroup_v2": true,
+      "mk_transport": true,
+      "multikernel": true,
+      "namespaces": [
+        "cgroup",
+        "ipc",
+        "mnt",
+        "net",
+        "pid",
+        "time",
+        "user",
+        "uts"
+      ],
+      "release": "7.0.0-mk2-gce-lab"
+    },
+    "oci_features": [
+      "argv",
+      "environment",
+      "cwd",
+      "split-stdio",
+      "exit-code",
+      "stdin",
+      "attach",
+      "terminal",
+      "terminal-resize",
+      "no-new-privileges",
+      "rlimits",
+      "linux-capabilities",
+      "hostname",
+      "masked-paths",
+      "readonly-paths",
+      "readonly-root",
+      "standard-mounts",
+      "readonly-bind-inputs-v1"
+    ],
+    "protocol": 1,
+    "protocol_features": [
+      "signal-operation-id-v1",
+      "stdin-offset-v1",
+      "two-phase-shutdown-v1"
+    ]
+  },
+  "CreateProcess": {},
+  "DeleteProcess": {},
+  "Quiesce": {
+    "status": "quiesced"
+  },
+  "Shutdown": {
+    "status": "quiesced"
+  },
+  "StartProcess": {},
+  "WaitProcess": {
+    "exit_code": 1,
+    "id": "p1",
+    "pid": 264,
+    "status": "STOPPED",
+    "stderr": "#1 [internal] load build definition from Dockerfile\n#1 transferring dockerfile: 257B done\n#1 DONE 0.0s\n\n#2 [internal] load .dockerignore\n#2 transferring context: 2B done\n#2 DONE 0.0s\n\n#3 [internal] load build context\n#3 transferring context: 804.80kB 0.0s done\n#3 DONE 0.0s\n\n#4 [build 1/2] COPY busybox /bin/busybox\n#4 DONE 0.0s\n\n#5 [build 2/2] RUN [\"/bin/busybox\", \"sh\", \"-ec\", \"mkdir -p /out; echo multikernel-guest-build \u003e /out/result; chmod 0644 /out/result\"]\n#5 0.034 exec /bin/busybox: no such file or directory\n#5 ERROR: process \"/bin/busybox sh -ec mkdir -p /out; echo multikernel-guest-build \u003e /out/result; chmod 0644 /out/result\" did not complete successfully: exit code: 255\n------\n \u003e [build 2/2] RUN [\"/bin/busybox\", \"sh\", \"-ec\", \"mkdir -p /out; echo multikernel-guest-build \u003e /out/result; chmod 0644 /out/result\"]:\n0.034 exec /bin/busybox: no such file or directory\n------\nDockerfile:3\n--------------------\n   1 |     FROM scratch AS build\n   2 |     COPY busybox /bin/busybox\n   3 | \u003e\u003e\u003e RUN [\"/bin/busybox\", \"sh\", \"-ec\", \"mkdir -p /out; echo multikernel-guest-build \u003e /out/result; chmod 0644 /out/result\"]\n   4 |     FROM scratch\n   5 |     COPY --from=build /out/result /result\n--------------------\nerror: failed to solve: process \"/bin/busybox sh -ec mkdir -p /out; echo multikernel-guest-build \u003e /out/result; chmod 0644 /out/result\" did not complete successfully: exit code: 255\n",
+    "stdout": "BUILD_GUEST_PROBE_BEGIN\nuid=0(root) gid=0(root)\n7.0.0-mk2-gce-lab\nCapEff:\t0000000000000000\nCapBnd:\t0000000000000000\nNoNewPrivs:\t1\n         0          0 4294967295\nbuildkitd github.com/moby/buildkit v0.34.0 f5b59a1f2fb25a0cb7072c398cab9aed7835da4e\nrootlesskit version 3.2.0\nSECURITY_AUTHORITY_BEGIN\nuid=0(root) gid=0(root)\n7.0.0-mk2-gce-lab\nUid:\t0\t0\t0\t0\nGid:\t0\t0\t0\t0\nGroups:\t \nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t0000000000000000\nCapAmb:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t0\nKERNEL_COMMAND_LINE_TOKEN_VISIBLE=no\nAGENT_ARGUMENT_TOKEN_VISIBLE=no\nPATH_AUTHORITY path=/dev/mem exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/kmem exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/port exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/nbd0 exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/kmsg exists=no readable=no writable=no\nPATH_AUTHORITY path=/dev/multikernel exists=no readable=no writable=no\nPATH_AUTHORITY path=/proc/modules exists=yes readable=yes writable=yes\nPATH_AUTHORITY path=/proc/sys/kernel/modules_disabled exists=yes readable=yes writable=yes\nPATH_AUTHORITY path=/proc/sys/kernel/yama/ptrace_scope exists=yes readable=yes writable=yes\nPATH_AUTHORITY path=/run/multikernel-agent/control.sock exists=no readable=no writable=no\nPATH_AUTHORITY path=/proc/1/root/run/multikernel-agent/control.sock exists=no readable=no writable=no\nMOUNTS_BEGIN\n41 2 0:3 /bundle/rootfs / rw - rootfs rootfs rw,size=1966696k,nr_inodes=491674,inode64\n42 41 0:29 / /dev rw,nosuid,noexec,relatime - tmpfs tmpfs rw,size=16384k,mode=755,inode64\n43 42 0:24 / /dev/pts rw,relatime - devpts devpts rw,mode=620,ptmxmode=666\n44 42 0:25 / /dev/shm rw,nosuid,nodev,noexec,relatime - tmpfs shm rw,size=65536k,inode64\n45 42 0:23 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw\n46 41 0:26 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw\n47 41 0:27 / /sys ro,nosuid,nodev,noexec,relatime - sysfs sysfs rw\n48 41 0:30 / /run rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64\n49 47 0:28 / /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime - cgroup2 none rw\nMOUNTS_END\nDESCRIPTORS_BEGIN\nFD 0 pipe:[513]\nFD 1 pipe:[514]\nFD 10 /authority-probe.sh\nFD 2 pipe:[515]\nFD 3 pipe:[1905]\nDESCRIPTORS_END\nCHILD_BOOTSTRAP_CANARY_READ=no\nCHILD_BOOTSTRAP_CANARY_WRITE=no\nSECURITY_AUTHORITY_END\n"
+  }
+}

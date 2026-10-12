@@ -1,0 +1,23 @@
+GUEST_BUILD_FIXTURE_COMPLETED case=baseline
+Traceback (most recent call last):
+  File "<stdin>", line 9, in <module>
+AssertionError: 1
+Error in sys.excepthook:
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 238, in partial_apport_excepthook
+    return apport_excepthook(binary, exc_type, exc_obj, exc_tb)
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 122, in apport_excepthook
+    report["ExecutableTimestamp"] = str(int(os.stat(binary).st_mtime))
+                                            ~~~~~~~^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/tmp/mk-g7-src/-'
+
+Original exception was:
+Traceback (most recent call last):
+  File "<stdin>", line 9, in <module>
+AssertionError: 1
+Unloading kernel for instance 'runtime-g7-authority' (ID: 27)...
+✓ Kernel unloaded successfully
+✓ Deleted instance 'runtime-g7-authority' (transaction 30)
+  CPUs to host: 8, 10, 12, 14
+  Memory to host: 0xac3200000 (8192 MB)
+✓ Pool updated (transaction 31)

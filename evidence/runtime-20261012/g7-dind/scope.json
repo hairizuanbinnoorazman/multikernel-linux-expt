@@ -1,0 +1,9 @@
+{
+  "offline_initramfs_prototype": true,
+  "guest_builds_verified": true,
+  "default_docker_integration_qualified": false,
+  "registry_networking_qualified": false,
+  "mediated_storage_qualified": false,
+  "hostile_child_containment_established": false,
+  "independent_review_completed": false
+}

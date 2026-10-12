@@ -1,0 +1,70 @@
+{
+  "Capabilities": {
+    "agent": {
+      "bounding_capabilities": "000001ffffffffff",
+      "effective_capabilities": "000001ffffffffff",
+      "gid": 0,
+      "no_new_privileges": "0",
+      "uid": 0
+    },
+    "kernel": {
+      "architecture": "amd64",
+      "cgroup_v2": true,
+      "mk_transport": true,
+      "multikernel": true,
+      "namespaces": [
+        "cgroup",
+        "ipc",
+        "mnt",
+        "net",
+        "pid",
+        "time",
+        "user",
+        "uts"
+      ],
+      "release": "7.0.0-mk2-gce-lab"
+    },
+    "oci_features": [
+      "argv",
+      "environment",
+      "cwd",
+      "split-stdio",
+      "exit-code",
+      "stdin",
+      "attach",
+      "terminal",
+      "terminal-resize",
+      "no-new-privileges",
+      "rlimits",
+      "linux-capabilities",
+      "hostname",
+      "masked-paths",
+      "readonly-paths",
+      "readonly-root",
+      "standard-mounts",
+      "readonly-bind-inputs-v1"
+    ],
+    "protocol": 1,
+    "protocol_features": [
+      "signal-operation-id-v1",
+      "stdin-offset-v1",
+      "two-phase-shutdown-v1"
+    ]
+  },
+  "CreateProcess": {},
+  "DeleteProcess": {},
+  "Quiesce": {
+    "status": "quiesced"
+  },
+  "Shutdown": {
+    "status": "quiesced"
+  },
+  "StartProcess": {},
+  "WaitProcess": {
+    "id": "p1",
+    "pid": 133,
+    "status": "STOPPED",
+    "stderr": "",
+    "stdout": "BUILD_GUEST_PROBE_BEGIN\nuid=1000(user) gid=1000(user)\n7.0.0-mk2-gce-lab\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nNoNewPrivs:\t1\n         0          0 4294967295\nbuildkitd github.com/moby/buildkit v0.34.0 f5b59a1f2fb25a0cb7072c398cab9aed7835da4e\nrootlesskit version 3.2.0\ntime=\"2026-10-12T08:54:40Z\" level=warning msg=\"[rootlesskit:parent] Failed to parse mountinfo\" error=\"\u003cnil\u003e\"\n[rootlesskit:parent] error: failed to start the child: fork/exec /proc/self/exe: operation not permitted\nBASELINE_START_EXIT=1\nBUILD_GUEST_PROBE_END\n"
+  }
+}

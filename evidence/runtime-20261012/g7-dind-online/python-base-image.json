@@ -1,0 +1,43 @@
+{
+  "Id": "sha256:ce3ff9524414289fc922d9d5dc1de87abc77a39ff2ff5007435839f2af1d7569",
+  "RepoTags": [
+    "python:3.13-slim"
+  ],
+  "RepoDigests": [
+    "python@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f"
+  ],
+  "Comment": "buildkit.dockerfile.v0",
+  "Created": "2026-10-06T02:05:24.190948597Z",
+  "Config": {
+    "Env": [
+      "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+      "PYTHON_VERSION=3.13.16",
+      "PYTHON_SHA256=f4b1bfb3c79b5bb11b8d228a12504163b4c0dab4d679828d8f5f26b6cb6ab35d"
+    ],
+    "Cmd": [
+      "python3"
+    ]
+  },
+  "Architecture": "amd64",
+  "Os": "linux",
+  "Size": 118299860,
+  "GraphDriver": {
+    "Data": {
+      "SourceDir": "/home/rootless/.local/share/docker/vfs/dir/0cb472b0ae27b28cf43f9410fc0329e24a9c8c77b27c3502e0f9ed9cf96f3931"
+    },
+    "Name": "vfs"
+  },
+  "RootFS": {
+    "Type": "layers",
+    "Layers": [
+      "sha256:15f1c8eb1ab18eae260c7fb6296434cbe1ff0e1e30fd814ae92a80dd54005e62",
+      "sha256:285510654d1d6a26507ed6576cae8fa995ba16469050787032499e9a34cbe9f5",
+      "sha256:acbf34fa608c522642659b109edfd70959b7c26593ea51141f3d339cc1875cfd",
+      "sha256:d175833b7147479e4e08f4f5d9dd2055b5ee746dc2f73520462468538d168bf6"
+    ]
+  },
+  "Metadata": {
+    "LastTagTime": "0001-01-01T00:00:00Z"
+  }
+}

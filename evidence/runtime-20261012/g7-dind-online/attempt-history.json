@@ -1,0 +1,101 @@
+[
+  {
+    "attempt": 1,
+    "fixture_archive": "attempts/fixtures.tar.gz",
+    "sha256": "43e5e5a0e931cce3b0b495932f740d1b56ea33809e04190b6fb311138bcb65ce",
+    "exit_status": 1,
+    "outcome": "Module dependency enumeration treated later module names as parameters.",
+    "output": "live-tests-attempt-1.log",
+    "controller_sha256": "d46928ce891db657b9e4c76212a75cd346841c68aa3b868c8eac447cd7f13f06"
+  },
+  {
+    "attempt": 2,
+    "fixture_archive": "attempts/fixtures-v2.tar.gz",
+    "sha256": "bee283b5809473b6a22008641212584212b11d035e9d61ac0e1b433ae0e9975f",
+    "exit_status": 1,
+    "outcome": "BusyBox ip lacks tuntap support.",
+    "output": "live-tests-attempt-2.log",
+    "controller_sha256": "d46928ce891db657b9e4c76212a75cd346841c68aa3b868c8eac447cd7f13f06"
+  },
+  {
+    "attempt": 3,
+    "fixture_archive": "attempts/fixtures-v3.tar.gz",
+    "sha256": "e217917fc00f235278d31b19e417f59a7418188ccf750e81d1e22569f6b7c396",
+    "exit_status": 1,
+    "outcome": "PATH extension did not prevent BusyBox nsenter internal ip substitution.",
+    "output": "live-tests-attempt-3.log",
+    "controller_sha256": "d46928ce891db657b9e4c76212a75cd346841c68aa3b868c8eac447cd7f13f06"
+  },
+  {
+    "attempt": 4,
+    "fixture_archive": "attempts/fixtures-v4.tar.gz",
+    "sha256": "137e46610ec75abbeb1b98348abd6c50b8bd58a1ef7a3a41ff20f18b4d8635f6",
+    "exit_status": 1,
+    "outcome": "Bootstrap ip symlink did not prevent nsenter internal ip substitution.",
+    "output": "live-tests-attempt-4.log",
+    "controller_sha256": "d46928ce891db657b9e4c76212a75cd346841c68aa3b868c8eac447cd7f13f06"
+  },
+  {
+    "attempt": 5,
+    "fixture_archive": "attempts/fixtures-v5.tar.gz",
+    "sha256": "b475088ae5a1a4d846c0d3d3440c267ebc637823c59ad9bd7a8c89b622a5681e",
+    "exit_status": 1,
+    "outcome": "Full iproute2 identity confirmed; nsenter still substituted its built-in ip.",
+    "output": "live-tests-attempt-5.log",
+    "controller_sha256": "d46928ce891db657b9e4c76212a75cd346841c68aa3b868c8eac447cd7f13f06"
+  },
+  {
+    "attempt": 6,
+    "fixture_archive": "attempts/fixtures-v6.tar.gz",
+    "sha256": "f3f2c894aa79e8c1ed19ec9da43236f8b1a689ff585d54d074d663e439975d7a",
+    "exit_status": 1,
+    "outcome": "Absolute-ip nsenter wrapper worked; private bootstrap TUN denied rootless helper access.",
+    "output": "live-tests-attempt-6.log",
+    "controller_sha256": "d46928ce891db657b9e4c76212a75cd346841c68aa3b868c8eac447cd7f13f06"
+  },
+  {
+    "attempt": 7,
+    "fixture_archive": "attempts/fixtures-v7.tar.gz",
+    "sha256": "7b0080155670635b4beb85ded08691196f5b875779e8bd7cb6a7d393b5b7d03b",
+    "exit_status": 1,
+    "outcome": "Private bootstrap TUN access fixed; RootlessKit required a bootstrap hosts file.",
+    "output": "live-tests-attempt-7.log",
+    "controller_sha256": "d46928ce891db657b9e4c76212a75cd346841c68aa3b868c8eac447cd7f13f06"
+  },
+  {
+    "attempt": 8,
+    "fixture_archive": "attempts/fixtures-v8.tar.gz",
+    "sha256": "126fc1a36213ed958bfa28034cef1f1e5616030b85ccf4c8009dcdddbfb5badb",
+    "exit_status": 1,
+    "outcome": "Daemon/network startup passed; diagnostic controller strict decoding omitted output truncation fields.",
+    "output": "live-tests-attempt-8.log",
+    "controller_sha256": "d46928ce891db657b9e4c76212a75cd346841c68aa3b868c8eac447cd7f13f06"
+  },
+  {
+    "attempt": 9,
+    "fixture_archive": "attempts/fixtures-v9.tar.gz",
+    "sha256": "27920a7b83812dc34c93a298770d9656fc7460633e27a0cdd938cb651437294e",
+    "exit_status": 1,
+    "outcome": "Docker Hub Python pull passed; default nested bridge required missing raw netfilter table.",
+    "output": "live-tests-attempt-9.log",
+    "controller_sha256": "accba5bbff1b4ba9993909f7b4cbf9557d829d3e151878b0201e333abec484ec"
+  },
+  {
+    "attempt": 10,
+    "fixture_archive": "attempts/fixtures-v10.tar.gz",
+    "sha256": "2ca137db0bcde131a21f2efbfb5a9e5d5cc3e26ca451902fb70665f231b98b60",
+    "exit_status": 0,
+    "outcome": "Added raw/mangle modules; online pull/build/install/run/cache and authority checks passed.",
+    "output": "live-tests-attempt-10.log",
+    "controller_sha256": "accba5bbff1b4ba9993909f7b4cbf9557d829d3e151878b0201e333abec484ec"
+  },
+  {
+    "attempt": 11,
+    "fixture_archive": "attempts/fixtures-final.tar.gz",
+    "sha256": "2ca137db0bcde131a21f2efbfb5a9e5d5cc3e26ca451902fb70665f231b98b60",
+    "exit_status": 0,
+    "outcome": "Frozen-source full online rerun passed.",
+    "output": "live-tests-final.log",
+    "controller_sha256": "accba5bbff1b4ba9993909f7b4cbf9557d829d3e151878b0201e333abec484ec"
+  }
+]

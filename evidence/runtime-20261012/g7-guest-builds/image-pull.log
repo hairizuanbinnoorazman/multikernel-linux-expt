@@ -1,0 +1,28 @@
+rootless: Pulling from moby/buildkit
+98c91a1a17d1: Pulling fs layer
+44253585c879: Pulling fs layer
+d0c1d894c237: Pulling fs layer
+e70c8525ccde: Pulling fs layer
+0f307a9c1f51: Pulling fs layer
+24c6edb0ede3: Pulling fs layer
+44253585c879: Download complete
+98c91a1a17d1: Download complete
+d0c1d894c237: Download complete
+0f307a9c1f51: Download complete
+44136fa355b3: Already exists
+d0c1d894c237: Pull complete
+44253585c879: Pull complete
+0f307a9c1f51: Pull complete
+fbb5877e6210: Download complete
+e70c8525ccde: Download complete
+e70c8525ccde: Pull complete
+b634fbdd0cc7: Download complete
+94a10a2c268d: Download complete
+24c6edb0ede3: Download complete
+44136fa355b3: Already exists
+e3aa129ce252: Download complete
+98c91a1a17d1: Pull complete
+24c6edb0ede3: Pull complete
+Digest: sha256:65eca3c01cd1180c8f64565c4e3c5983af5145818b0e6fa863385d099eb73855
+Status: Downloaded newer image for moby/buildkit:rootless
+docker.io/moby/buildkit:rootless

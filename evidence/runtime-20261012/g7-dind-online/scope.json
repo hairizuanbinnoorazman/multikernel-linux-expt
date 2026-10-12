@@ -1,0 +1,12 @@
+{
+  "online_initramfs_prototype": true,
+  "dockerhub_python_pull_verified": true,
+  "pypi_install_verified": true,
+  "runtime_https_verified": true,
+  "default_production_docker_integration_qualified": false,
+  "production_cni_qualified": false,
+  "persistent_storage_qualified": false,
+  "resource_limit_enforcement_qualified": false,
+  "hostile_child_containment_established": false,
+  "independent_review_completed": false
+}

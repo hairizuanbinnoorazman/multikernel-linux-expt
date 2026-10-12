@@ -1,0 +1,6 @@
+${OPERATOR_HOME}/src/linux/net/bridge/bridge.ko
+/lib/modules/7.0.0-mk2-gce-lab/kernel/net/bridge/bridge.ko
+insmod /lib/modules/7.0.0-mk2-gce-lab/kernel/net/llc/llc.ko 
+insmod /lib/modules/7.0.0-mk2-gce-lab/kernel/net/802/stp.ko 
+insmod /lib/modules/7.0.0-mk2-gce-lab/kernel/net/bridge/bridge.ko 
+builtin tun

@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "gate": "G7",
+  "run_id": "g7-dind",
+  "result": "partial",
+  "started_at": "2026-10-12T02:25:32.567-07:00",
+  "ended_at": "2026-10-12T09:47:02.316850Z",
+  "repository": {
+    "commit": "587d65abd204aafeedc161396e99d1f5cf867bee",
+    "dirty": true,
+    "diff_output": "workspace.diff"
+  },
+  "components": [
+    {
+      "name": "mk-agent",
+      "version": "0.0.0-dev; revision=unknown; remediation source archive binds provenance",
+      "sha256": "57fd23ac9ed68e4961fce716ab30b0c28e0b6588ef61a1507a8bd8688a9292d6"
+    },
+    {
+      "name": "mk-agentctl",
+      "version": "0.0.0-dev; revision=unknown; remediation source archive binds provenance",
+      "sha256": "5b8c2956210141c04f5a45d5bc776e87b747d2d2c03d9d0a3f5a3c9812727491"
+    },
+    {
+      "name": "vmlinux",
+      "version": "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7",
+      "sha256": "5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10"
+    },
+    {
+      "name": "mk_transport.ko",
+      "version": "7.0.0-mk2-gce-lab; pinned source with retained build-safety patch",
+      "sha256": "bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2"
+    },
+    {
+      "name": "mkvsock-relay",
+      "version": "workspace tools/mkvsock-relay.c; musl static build",
+      "sha256": "293ff1eaa209d16103c7caaa8e8f9a24702e58d979453fad5495c503f76aaf98"
+    },
+    {
+      "name": "g7-credential-load",
+      "version": "diagnostic driver for production Kerf Load; source archived",
+      "sha256": "f9f45bae5059dda5820586e9d4925b337b5ec096297dc17dcdcc65831bf9d657"
+    },
+    {
+      "name": "docker-dind-rootless-image",
+      "version": "Docker Engine 29.9.0; docker:29-dind-rootless pinned repo digest",
+      "sha256": "54155db4950e2f9af3bb829fcfe627030576fc7ae235018be63175fca7326171"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-g7-dind-20261012",
+    "machine_type": "n2-standard-16",
+    "boot_id": "00000000-0000-0000-0000-000000000016"
+  },
+  "commands": [
+    {
+      "id": "live-attempt-1",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-1.log"
+    },
+    {
+      "id": "live-attempt-2",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "live-tests-attempt-2.log"
+    },
+    {
+      "id": "live-attempt-3",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "live-tests-final.log"
+    },
+    {
+      "id": "portable-docs-and-runtime-checks",
+      "argv": [
+        "make",
+        "docs-check"
+      ],
+      "exit_status": 0,
+      "output_path": "docs-check.log"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "docker-multistage-build-run-save",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-result.json",
+        "built-image.docker.tar.gz"
+      ]
+    },
+    {
+      "id": "cache-and-failed-run-propagation",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-result.json"
+      ]
+    },
+    {
+      "id": "client-zero-caps-nnp",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-result.json"
+      ]
+    },
+    {
+      "id": "daemon-mapped-to-guest-uid-1000-nnp",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-console.log"
+      ]
+    },
+    {
+      "id": "tested-credentials-canary-and-devices-protected",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-result.json"
+      ]
+    },
+    {
+      "id": "plain-dockerd-zero-capability-startup-blocker-recorded",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/baseline-result.json"
+      ]
+    },
+    {
+      "id": "production-private-credential-handoff",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-kerf.log",
+        "host/final/prepared-loaded-initramfs.sha256"
+      ]
+    },
+    {
+      "id": "cloud-and-host-cleanup-complete",
+      "passed": true,
+      "evidence_paths": [
+        "cleanup-verification.json",
+        "pre-delete-audit.log",
+        "host/final/final-inventory.json"
+      ]
+    },
+    {
+      "id": "default-docker-and-online-builds-qualified",
+      "passed": false,
+      "evidence_paths": [
+        "scope.json"
+      ]
+    },
+    {
+      "id": "hostile-child-hardware-containment-established",
+      "passed": false,
+      "evidence_paths": [
+        "scope.json"
+      ]
+    },
+    {
+      "id": "nested-container-nnp-and-seccomp",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-result.json"
+      ]
+    }
+  ],
+  "limitations": [
+    "Offline initramfs-backed dedicated Docker daemon prototype; full G7 remains open.",
+    "No default Docker/containerd integration, registry/package downloads, CNI/mediated-root/persistence/concurrency/restart qualification.",
+    "Trusted bootstrap prepares rootless mapping helpers before NNP; service lifecycle and socket/namespace authority need independent review.",
+    "Client caps are zero; daemon capabilities are local to a user namespace mapping root to guest UID 1000. Kernel vulnerabilities remain relevant.",
+    "No hardware containment after guest-kernel compromise or matched gVisor comparison demonstrated.",
+    "Kernel config retained is the module build configuration; original full vmlinux configuration not independently recovered.",
+    "No signed attestation or independent reviewer. Credential-bearing loaded images and large exported builder rootfs are not published.",
+    "Project/operator/boot identifiers pseudonymized; earlier failed attempts retained."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "resources-before.json",
+    "resources_after": "resources-after.json",
+    "retained_resources": [],
+    "operator_acknowledged": false
+  }
+}

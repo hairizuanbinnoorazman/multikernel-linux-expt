@@ -40,6 +40,31 @@ to a stable remote path. For the thematic mapping, see
   initramfs builders require a private `MK_AGENT_TOKEN_FILE`; credentials must
   never be included in child kernel or agent command lines.
 - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
+- Guest image builds: `build-buildkit-probe-initramfs.sh` constructs the pinned
+  builder fixture; `test-runtime-guest-build-live.sh` compares ordinary rootless
+  startup with automatic guest bootstrap, tests Dockerfile execution/cache/export,
+  and reruns authority checks. `verify-g7-guest-build-evidence.py` verifies the
+  OCI image contents and retained security/cleanup evidence offline. See the
+  [builder design and scope](../docs/runtime/research/guest-image-builds.md).
+- Docker-in-Docker: `build-docker-probe-initramfs.sh` and
+  `test-runtime-dind-live.sh` reuse the approved builder fixture machinery for
+  guest-local `dockerd`, ordinary `docker build`/`docker run`, export and security
+  observations. `verify-g7-dind-evidence.py` independently checks saved image
+  contents and recorded authority/cleanup. See the
+  [Docker guest scope](../docs/runtime/research/docker-in-docker-guests.md).
 
 Destructive and billable operations must remain explicit Makefile targets;
 they must not be hidden inside default checks.
+
+- `build-docker-online-probe-initramfs.sh` prepares the approved online Docker
+  guest diagnostic, including pinned network modules and the Python example.
+- `test-runtime-dind-online-live.sh` runs the online guest Docker Hub/PyPI
+  prototype on a disposable pinned lab, with scoped forwarding and cleanup.
+- `probes/docker-online-controller.go` is a diagnostic primary packet pump
+  using the unchanged production agent's authenticated network RPCs. Build it
+  from `runtime/` with `CGO_ENABLED=0 go build -o /tmp/docker-online-controller
+  ../scripts/probes/docker-online-controller.go`; credentials are read from a
+  private file rather than command-line arguments.
+- `verify-g7-dind-online-evidence.py` verifies Docker Hub image identity,
+  PyPI download receipts, runtime HTTPS, authority observations and cleanup
+  from the retained online prototype evidence.

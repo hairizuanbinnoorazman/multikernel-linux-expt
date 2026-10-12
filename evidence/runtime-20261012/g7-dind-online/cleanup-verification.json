@@ -1,0 +1,12 @@
+{
+  "completed": true,
+  "cloud_baseline_unchanged": true,
+  "retained_test_resources": [],
+  "vm_deleted": true,
+  "auto_delete_boot_disk_deleted": true,
+  "primary_cpus": "0-15",
+  "children": 0,
+  "helpers": 0,
+  "test_network_removed": true,
+  "primary_ip_forward_restored": true
+}

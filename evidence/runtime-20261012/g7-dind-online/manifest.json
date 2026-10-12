@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "gate": "G7",
+  "run_id": "g7-dind-online",
+  "result": "partial",
+  "started_at": "2026-10-12T03:50:52.990-07:00",
+  "ended_at": "2026-10-12T11:27:29.001783Z",
+  "repository": {
+    "commit": "587d65abd204aafeedc161396e99d1f5cf867bee",
+    "dirty": true,
+    "diff_output": "workspace.diff"
+  },
+  "components": [
+    {
+      "name": "mk-agent",
+      "version": "0.0.0-dev; revision=unknown; remediation source archive binds provenance",
+      "sha256": "57fd23ac9ed68e4961fce716ab30b0c28e0b6588ef61a1507a8bd8688a9292d6"
+    },
+    {
+      "name": "mk-agentctl",
+      "version": "0.0.0-dev; revision=unknown; remediation source archive binds provenance",
+      "sha256": "5b8c2956210141c04f5a45d5bc776e87b747d2d2c03d9d0a3f5a3c9812727491"
+    },
+    {
+      "name": "vmlinux",
+      "version": "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7",
+      "sha256": "5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10"
+    },
+    {
+      "name": "mk_transport.ko",
+      "version": "7.0.0-mk2-gce-lab; pinned source with retained build-safety patch",
+      "sha256": "bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2"
+    },
+    {
+      "name": "mkvsock-relay",
+      "version": "workspace tools/mkvsock-relay.c; musl static build",
+      "sha256": "293ff1eaa209d16103c7caaa8e8f9a24702e58d979453fad5495c503f76aaf98"
+    },
+    {
+      "name": "g7-credential-load",
+      "version": "diagnostic driver for production Kerf Load; source archived",
+      "sha256": "f9f45bae5059dda5820586e9d4925b337b5ec096297dc17dcdcc65831bf9d657"
+    },
+    {
+      "name": "docker-dind-rootless-image",
+      "version": "Docker Engine 29.9.0; docker:29-dind-rootless pinned repo digest",
+      "sha256": "54155db4950e2f9af3bb829fcfe627030576fc7ae235018be63175fca7326171"
+    },
+    {
+      "name": "docker-online-controller",
+      "version": "diagnostic; Go 1.26.1; production agent RPCs",
+      "sha256": "accba5bbff1b4ba9993909f7b4cbf9557d829d3e151878b0201e333abec484ec"
+    },
+    {
+      "name": "python-base-image",
+      "version": "python:3.13-slim; resolved Docker Hub repository digest",
+      "sha256": "70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-g7-online-20261012",
+    "machine_type": "n2-standard-16",
+    "boot_id": "00000000-0000-0000-0000-000000000017"
+  },
+  "commands": [
+    {
+      "id": "live-attempt-1",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-1.log"
+    },
+    {
+      "id": "live-attempt-2",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-2.log"
+    },
+    {
+      "id": "live-attempt-3",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-3.log"
+    },
+    {
+      "id": "live-attempt-4",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-4.log"
+    },
+    {
+      "id": "live-attempt-5",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-5.log"
+    },
+    {
+      "id": "live-attempt-6",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-6.log"
+    },
+    {
+      "id": "live-attempt-7",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-7.log"
+    },
+    {
+      "id": "live-attempt-8",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-8.log"
+    },
+    {
+      "id": "live-attempt-9",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "live-tests-attempt-9.log"
+    },
+    {
+      "id": "live-attempt-10",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "live-tests-attempt-10.log"
+    },
+    {
+      "id": "live-attempt-11",
+      "argv": [
+        "bash",
+        "scripts/test-runtime-dind-online-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "live-tests-final.log"
+    },
+    {
+      "id": "portable-docs-and-runtime-checks",
+      "argv": [
+        "make",
+        "docs-check"
+      ],
+      "exit_status": 0,
+      "output_path": "docs-check.log"
+    },
+    {
+      "id": "final-evidence-manifest-audit",
+      "argv": [
+        "python3",
+        "scripts/check-runtime-evidence.py"
+      ],
+      "exit_status": 0,
+      "output_path": "evidence-audit.log"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "dockerhub-python-pull",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-result.json",
+        "python-base-image.json"
+      ]
+    },
+    {
+      "id": "pypi-package-install-and-provenance",
+      "passed": true,
+      "evidence_paths": [
+        "pip-install-report.json",
+        "pypi-release-hashes.json"
+      ]
+    },
+    {
+      "id": "ordinary-docker-build-run-cache",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-result.json",
+        "python-app-result.json"
+      ]
+    },
+    {
+      "id": "runtime-verified-https",
+      "passed": true,
+      "evidence_paths": [
+        "python-app-result.json"
+      ]
+    },
+    {
+      "id": "client-zero-caps-nnp-and-tested-device-canary-protection",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-result.json"
+      ]
+    },
+    {
+      "id": "rootless-daemon-and-nested-authority",
+      "passed": true,
+      "evidence_paths": [
+        "host/final/prepared-console.log",
+        "host/final/prepared-result.json"
+      ]
+    },
+    {
+      "id": "primary-host-and-cloud-cleanup",
+      "passed": true,
+      "evidence_paths": [
+        "pre-delete-audit.log",
+        "cleanup-verification.json",
+        "host/final/final-inventory.json"
+      ]
+    },
+    {
+      "id": "production-shim-cni-storage-and-resource-limits-qualified",
+      "passed": false,
+      "evidence_paths": [
+        "scope.json"
+      ]
+    },
+    {
+      "id": "hostile-child-containment-established",
+      "passed": false,
+      "evidence_paths": [
+        "scope.json"
+      ]
+    }
+  ],
+  "limitations": [
+    "Initramfs-backed dedicated online guest profile; full G7 and default production shim integration remain open.",
+    "Diagnostic static primary TUN/NAT and authenticated packet RPC pump; full mknetd/CNI lifecycle and adversarial policy matrix not requalified.",
+    "VFS storage; persistence, restart, concurrency, IPv6, port publishing and CPU/memory/pid enforcement not established.",
+    "Trusted bootstrap namespace, mapping helpers, private rootless TUN, local socket and service lifecycle need independent review.",
+    "No containment after child-kernel compromise or matched gVisor comparison demonstrated.",
+    "Pip HTTPS receipts and separately collected public PyPI hashes are not signed attestations; Python image export/content audit not performed.",
+    "Original full kernel build configuration not independently recovered; retained configuration is module build input.",
+    "Project/operator/boot identifiers pseudonymized; failed attempts retained; large rootfs and credential-bearing loaded images excluded."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "resources-before.json",
+    "resources_after": "resources-after.json",
+    "retained_resources": [],
+    "operator_acknowledged": false
+  }
+}

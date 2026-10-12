@@ -1,0 +1,25 @@
+{
+  "repo_digests": [
+    "moby/buildkit@sha256:65eca3c01cd1180c8f64565c4e3c5983af5145818b0e6fa863385d099eb73855"
+  ],
+  "config": {
+    "User": "1000:1000",
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "HOME=/home/user",
+      "USER=user",
+      "XDG_RUNTIME_DIR=/run/user/1000",
+      "TMPDIR=/home/user/.local/tmp",
+      "BUILDKIT_HOST=unix:///run/user/1000/buildkit/buildkitd.sock"
+    ],
+    "Entrypoint": [
+      "rootlesskit",
+      "buildkitd"
+    ],
+    "Volumes": {
+      "/home/user/.local/share/buildkit": {}
+    },
+    "WorkingDir": "/"
+  },
+  "exported_rootfs_sha256": "adb922d68bde6a0ae71502e768b8265431eace6106ca009937141dbf53672159"
+}

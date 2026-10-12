@@ -1,0 +1,180 @@
+diff --git a/docs/runtime/README.md b/docs/runtime/README.md
+index ef5ce5d..7bccd2e 100644
+--- a/docs/runtime/README.md
++++ b/docs/runtime/README.md
+@@ -12,6 +12,12 @@
+   security reviews, negative tests, fuzzing, and comparative research tasks.
+ - [`research/g7-security-boundary-assessment.md`](research/g7-security-boundary-assessment.md):
+   SEC-01/SEC-02/SEC-11 findings, evidence scope, and claim-specific confidence.
++- [`research/guest-image-builds.md`](research/guest-image-builds.md): experimental
++  guest-local image builds with automatic builder preparation and an `mk-build` client.
++- [`research/docker-in-docker-guests.md`](research/docker-in-docker-guests.md):
++  guest-local rootless Docker Engine and ordinary `docker build`/`docker run` verification.
++- [`research/docker-online-python-guest.md`](research/docker-online-python-guest.md):
++  online Docker Hub/PyPI Python build/run prototype and scoped network evidence.
+ - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
+ - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
+   boundaries.
+diff --git a/docs/runtime/plans/g7-security-checklist.md b/docs/runtime/plans/g7-security-checklist.md
+index 223e31a..22023dc 100644
+--- a/docs/runtime/plans/g7-security-checklist.md
++++ b/docs/runtime/plans/g7-security-checklist.md
+@@ -46,6 +46,19 @@ explicit disposition, and a verification rerun.
+   requests fail closed. Mediated-root/Docker qualification, shared-procfs/root
+   signal review, and independent review remain open. See the
+   [remediation evidence](../../../evidence/runtime-20261012/g7-authority-remediation/README.md).
++  The [builder-guest prototype](../research/guest-image-builds.md) additionally
++  verifies offline image builds with automatic trusted namespace preparation,
++  zero-capability/NNP client execution and retained canary/credential checks.
++  Review its mapping helpers, local socket authorization, service lifecycle,
++  nested namespace authority and production integration before qualifying it.
++  The [Docker-in-Docker follow-up](../research/docker-in-docker-guests.md)
++  verifies ordinary Docker build/run/save commands with a rootless guest-local
++  daemon, client caps zero, and nested NNP/seccomp. Offline prototype evidence
++  does not close production networking/storage or independent authority review.
++  The [online Python follow-up](../research/docker-online-python-guest.md)
++  additionally verifies Docker Hub pulls, HTTPS PyPI package installation,
++  runtime HTTPS and wheel hashes in a static diagnostic networking profile.
++  Full production CNI/storage and independent authority review remain open.
+   Inspect [agent execution](../../../runtime/agent/oci_exec_linux.go),
+   [OCI validation](../../../runtime/agent/manager.go), root policy, and bootstrap.
+   In non-root and supported root fixtures, enumerate effective capabilities,
+diff --git a/docs/runtime/status.md b/docs/runtime/status.md
+index 46b53f1..c0b72a8 100644
+--- a/docs/runtime/status.md
++++ b/docs/runtime/status.md
+@@ -82,3 +82,36 @@ do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
+ Never assign the primary boot disk, NIC, or a shared controller to a child, and
+ never allocate APIC ID 0. See the [runtime architecture](architecture.md) for
+ the complete trust boundary and ownership rules.
++
++## Guest image-build prototype
++
++An [experimental builder guest](research/guest-image-builds.md) passed offline
++multi-stage Dockerfile execution, cache reuse, OCI export/content verification,
++and failed-RUN propagation using `mk-build . image.tar`. The client needs no
++privileged/security flags and retains UID 0 with zero capabilities and NNP=1.
++Trusted bootstrap prepares the builder namespace automatically before workloads
++start; the daemon maps namespace root to guest UID/GID 1000 and enables NNP.
++The [evidence](../../evidence/runtime-20261012/g7-guest-builds/README.md) includes
++the ordinary rootless-image startup failure, corrected bootstrap, authority
++checks and cleanup. Default Docker integration, registry/package networking,
++mediated storage, persistent cache and builder-service security/lifecycle
++qualification remain open. This does not change the hostile-child boundary.
++
++The [Docker-in-Docker follow-up](research/docker-in-docker-guests.md) additionally
++passed ordinary `docker build -t ...` and `docker run --rm ...` against a guest-local
++rootless Docker Engine 29.9.0, including cache reuse, failed-build propagation,
++saved-image content verification and nested NNP/seccomp observations. Its approved
++bootstrap prepares namespaces, VFS storage and guest bridge modules automatically;
++the user supplies no privileged/capability/security flags or primary Docker socket.
++This remains an offline dedicated-guest prototype; production integration,
++egress/pulls/publishing, persistence and service/security qualification are open.
++
++The [online Python follow-up](research/docker-online-python-guest.md) passed in
++fresh guests: Docker Hub Python base pull, HTTPS PyPI installation of Requests
++and four dependencies, ordinary Docker build/run, verified runtime HTTPS 200,
++cache reuse, package hash comparison, client/daemon/nested authority observations
++and host/cloud cleanup. Automatic bootstrap supplies slirp4netns and guest NAT
++modules; the user needs no privilege flags. This uses a diagnostic static primary
++TUN/NAT path and the unchanged authenticated agent packet interface. Production
++profile/CNI/mediated storage integration, persistence/restart/concurrency/published
++ports/IPv6/resource enforcement and independent security review remain open.
+diff --git a/evidence/README.md b/evidence/README.md
+index c8dc8e1..41d8658 100644
+--- a/evidence/README.md
++++ b/evidence/README.md
+@@ -28,6 +28,12 @@ not evidence that the affected run passed a gate.
+   assessment, pinned-source reproduction, portable agent checks, live authority
+   collection in three profiles, confirmed credential exposure and child-bootstrap
+   canary access, retained failed attempts, and cloud cleanup.
++  Also includes an automatically prepared guest-local BuildKit prototype with
++  verified multi-stage builds, caching, OCI export, and retained security checks.
++  A subsequent Docker-in-Docker prototype verifies ordinary Docker builds,
++  nested runs and saved-image contents without user privileged flags.
++  The online follow-up pulls Python from Docker Hub, installs packages from
++  HTTPS PyPI, and runs an HTTPS app with retained provenance and cleanup.
+ 
+ Evidence captures historical state and may contain terminal formatting such as
+ CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely
+diff --git a/evidence/runtime-20261012/README.md b/evidence/runtime-20261012/README.md
+index 974347d..1892936 100644
+--- a/evidence/runtime-20261012/README.md
++++ b/evidence/runtime-20261012/README.md
+@@ -11,3 +11,15 @@
+   credential handoff and privilege/device fixes; four workload profiles plus
+   two rejected requests, full Go race-suite results, source hashes and cleanup.
+   These bounded passes do not close full G7 or qualify hostile-child containment.
++- [G7 guest image builds](g7-guest-builds/README.md): automatically prepared
++  rootless BuildKit inside a dedicated guest; multi-stage RUN/COPY, cache, OCI
++  export/content verification, failure propagation, authority checks and cleanup.
++  This remains an offline initramfs-backed prototype, not default Docker support.
++- [G7 Docker-in-Docker](g7-dind/README.md): guest-local rootless Docker Engine;
++  ordinary Docker builds and nested runs, cache and failure checks, independently
++  verified saved image, authority observations and disposable cloud cleanup.
++  Registry networking and production profile integration remain unqualified.
++- [G7 online Docker Python builds](g7-dind-online/README.md): fresh guest pulls
++  Python from Docker Hub, installs five packages from HTTPS PyPI, runs an HTTPS
++  app, reuses build cache, and retains package hashes, authority and cleanup.
++  Production CNI/storage/profile integration and resource enforcement remain open.
+diff --git a/guest/README.md b/guest/README.md
+index fe2594e..b8d1476 100644
+--- a/guest/README.md
++++ b/guest/README.md
+@@ -6,6 +6,20 @@
+ - `mediated-*`: AF_VSOCK transport and primary-mediated ext4 roots.
+ - `security-authority-probe.sh`: diagnostic workload for G7 privilege and
+   synthetic child-bootstrap canary checks. Never included in production images.
++- `buildkit-bootstrap.sh`, `buildkit-build`, and `buildkit-probe.sh`: experimental
++  approved builder-guest preparation, `mk-build` client, and bounded Dockerfile
++  verification. See [guest image builds](../docs/runtime/research/guest-image-builds.md).
++- `docker-bootstrap.sh` and `docker-probe.sh`: experimental dedicated rootless
++  Docker guest and ordinary nested build/run verification, with no user privileged
++  flags. See [Docker-in-Docker guests](../docs/runtime/research/docker-in-docker-guests.md).
+ 
+ See the [experiment asset map](../docs/experiments/ASSET-MAP.md) for the
+ matching builders, tests, reports, and evidence.
++
++- `docker-online-bootstrap.sh` prepares the experimental rootless Docker daemon
++  with slirp4netns and guest-local bridge/NAT modules for outbound networking.
++- `docker-online-probe.sh` pulls an official Python base from Docker Hub,
++  installs packages from PyPI, builds/runs the small online Python example,
++  and records image/package provenance and authority observations.
++- `docker-online-nsenter` handles RootlessKit's ip-only namespace invocation
++  using absolute iproute2, avoiding BusyBox's minimal ip applet substitution.
+diff --git a/scripts/README.md b/scripts/README.md
+index 37d07dd..24399cf 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -40,6 +40,31 @@ to a stable remote path. For the thematic mapping, see
+   initramfs builders require a private `MK_AGENT_TOKEN_FILE`; credentials must
+   never be included in child kernel or agent command lines.
+ - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
++- Guest image builds: `build-buildkit-probe-initramfs.sh` constructs the pinned
++  builder fixture; `test-runtime-guest-build-live.sh` compares ordinary rootless
++  startup with automatic guest bootstrap, tests Dockerfile execution/cache/export,
++  and reruns authority checks. `verify-g7-guest-build-evidence.py` verifies the
++  OCI image contents and retained security/cleanup evidence offline. See the
++  [builder design and scope](../docs/runtime/research/guest-image-builds.md).
++- Docker-in-Docker: `build-docker-probe-initramfs.sh` and
++  `test-runtime-dind-live.sh` reuse the approved builder fixture machinery for
++  guest-local `dockerd`, ordinary `docker build`/`docker run`, export and security
++  observations. `verify-g7-dind-evidence.py` independently checks saved image
++  contents and recorded authority/cleanup. See the
++  [Docker guest scope](../docs/runtime/research/docker-in-docker-guests.md).
+ 
+ Destructive and billable operations must remain explicit Makefile targets;
+ they must not be hidden inside default checks.
++
++- `build-docker-online-probe-initramfs.sh` prepares the approved online Docker
++  guest diagnostic, including pinned network modules and the Python example.
++- `test-runtime-dind-online-live.sh` runs the online guest Docker Hub/PyPI
++  prototype on a disposable pinned lab, with scoped forwarding and cleanup.
++- `probes/docker-online-controller.go` is a diagnostic primary packet pump
++  using the unchanged production agent's authenticated network RPCs. Build it
++  from `runtime/` with `CGO_ENABLED=0 go build -o /tmp/docker-online-controller
++  ../scripts/probes/docker-online-controller.go`; credentials are read from a
++  private file rather than command-line arguments.
++- `verify-g7-dind-online-evidence.py` verifies Docker Hub image identity,
++  PyPI download receipts, runtime HTTPS, authority observations and cleanup
++  from the retained online prototype evidence.

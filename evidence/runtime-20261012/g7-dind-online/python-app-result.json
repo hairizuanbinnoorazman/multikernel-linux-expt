@@ -1,0 +1,8 @@
+{
+  "app": "multikernel-python-online",
+  "https_status": 200,
+  "python": "3.13.16",
+  "requests": "2.34.2",
+  "source": "https://pypi.org/pypi/requests/json",
+  "tls_verification": true
+}

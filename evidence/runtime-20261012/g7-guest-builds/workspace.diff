@@ -1,0 +1,107 @@
+diff --git a/docs/runtime/README.md b/docs/runtime/README.md
+index ef5ce5d..8f49715 100644
+--- a/docs/runtime/README.md
++++ b/docs/runtime/README.md
+@@ -12,6 +12,8 @@
+   security reviews, negative tests, fuzzing, and comparative research tasks.
+ - [`research/g7-security-boundary-assessment.md`](research/g7-security-boundary-assessment.md):
+   SEC-01/SEC-02/SEC-11 findings, evidence scope, and claim-specific confidence.
++- [`research/guest-image-builds.md`](research/guest-image-builds.md): experimental
++  guest-local image builds with automatic builder preparation and an `mk-build` client.
+ - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
+ - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
+   boundaries.
+diff --git a/docs/runtime/plans/g7-security-checklist.md b/docs/runtime/plans/g7-security-checklist.md
+index 223e31a..ac1e6b7 100644
+--- a/docs/runtime/plans/g7-security-checklist.md
++++ b/docs/runtime/plans/g7-security-checklist.md
+@@ -46,6 +46,11 @@ explicit disposition, and a verification rerun.
+   requests fail closed. Mediated-root/Docker qualification, shared-procfs/root
+   signal review, and independent review remain open. See the
+   [remediation evidence](../../../evidence/runtime-20261012/g7-authority-remediation/README.md).
++  The [builder-guest prototype](../research/guest-image-builds.md) additionally
++  verifies offline image builds with automatic trusted namespace preparation,
++  zero-capability/NNP client execution and retained canary/credential checks.
++  Review its mapping helpers, local socket authorization, service lifecycle,
++  nested namespace authority and production integration before qualifying it.
+   Inspect [agent execution](../../../runtime/agent/oci_exec_linux.go),
+   [OCI validation](../../../runtime/agent/manager.go), root policy, and bootstrap.
+   In non-root and supported root fixtures, enumerate effective capabilities,
+diff --git a/docs/runtime/status.md b/docs/runtime/status.md
+index 46b53f1..cd09d33 100644
+--- a/docs/runtime/status.md
++++ b/docs/runtime/status.md
+@@ -82,3 +82,17 @@ do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
+ Never assign the primary boot disk, NIC, or a shared controller to a child, and
+ never allocate APIC ID 0. See the [runtime architecture](architecture.md) for
+ the complete trust boundary and ownership rules.
++
++## Guest image-build prototype
++
++An [experimental builder guest](research/guest-image-builds.md) passed offline
++multi-stage Dockerfile execution, cache reuse, OCI export/content verification,
++and failed-RUN propagation using `mk-build . image.tar`. The client needs no
++privileged/security flags and retains UID 0 with zero capabilities and NNP=1.
++Trusted bootstrap prepares the builder namespace automatically before workloads
++start; the daemon maps namespace root to guest UID/GID 1000 and enables NNP.
++The [evidence](../../evidence/runtime-20261012/g7-guest-builds/README.md) includes
++the ordinary rootless-image startup failure, corrected bootstrap, authority
++checks and cleanup. Default Docker integration, registry/package networking,
++mediated storage, persistent cache and builder-service security/lifecycle
++qualification remain open. This does not change the hostile-child boundary.
+diff --git a/evidence/README.md b/evidence/README.md
+index c8dc8e1..3faaee2 100644
+--- a/evidence/README.md
++++ b/evidence/README.md
+@@ -28,6 +28,8 @@ not evidence that the affected run passed a gate.
+   assessment, pinned-source reproduction, portable agent checks, live authority
+   collection in three profiles, confirmed credential exposure and child-bootstrap
+   canary access, retained failed attempts, and cloud cleanup.
++  Also includes an automatically prepared guest-local BuildKit prototype with
++  verified multi-stage builds, caching, OCI export, and retained security checks.
+ 
+ Evidence captures historical state and may contain terminal formatting such as
+ CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely
+diff --git a/evidence/runtime-20261012/README.md b/evidence/runtime-20261012/README.md
+index 974347d..b9ca400 100644
+--- a/evidence/runtime-20261012/README.md
++++ b/evidence/runtime-20261012/README.md
+@@ -11,3 +11,7 @@
+   credential handoff and privilege/device fixes; four workload profiles plus
+   two rejected requests, full Go race-suite results, source hashes and cleanup.
+   These bounded passes do not close full G7 or qualify hostile-child containment.
++- [G7 guest image builds](g7-guest-builds/README.md): automatically prepared
++  rootless BuildKit inside a dedicated guest; multi-stage RUN/COPY, cache, OCI
++  export/content verification, failure propagation, authority checks and cleanup.
++  This remains an offline initramfs-backed prototype, not default Docker support.
+diff --git a/guest/README.md b/guest/README.md
+index fe2594e..660278c 100644
+--- a/guest/README.md
++++ b/guest/README.md
+@@ -6,6 +6,9 @@
+ - `mediated-*`: AF_VSOCK transport and primary-mediated ext4 roots.
+ - `security-authority-probe.sh`: diagnostic workload for G7 privilege and
+   synthetic child-bootstrap canary checks. Never included in production images.
++- `buildkit-bootstrap.sh`, `buildkit-build`, and `buildkit-probe.sh`: experimental
++  approved builder-guest preparation, `mk-build` client, and bounded Dockerfile
++  verification. See [guest image builds](../docs/runtime/research/guest-image-builds.md).
+ 
+ See the [experiment asset map](../docs/experiments/ASSET-MAP.md) for the
+ matching builders, tests, reports, and evidence.
+diff --git a/scripts/README.md b/scripts/README.md
+index 37d07dd..bc69b36 100644
+--- a/scripts/README.md
++++ b/scripts/README.md
+@@ -40,6 +40,12 @@ to a stable remote path. For the thematic mapping, see
+   initramfs builders require a private `MK_AGENT_TOKEN_FILE`; credentials must
+   never be included in child kernel or agent command lines.
+ - Final live resource-return audit: `audit-runtime-final-resources-live.sh`.
++- Guest image builds: `build-buildkit-probe-initramfs.sh` constructs the pinned
++  builder fixture; `test-runtime-guest-build-live.sh` compares ordinary rootless
++  startup with automatic guest bootstrap, tests Dockerfile execution/cache/export,
++  and reruns authority checks. `verify-g7-guest-build-evidence.py` verifies the
++  OCI image contents and retained security/cleanup evidence offline. See the
++  [builder design and scope](../docs/runtime/research/guest-image-builds.md).
+ 
+ Destructive and billable operations must remain explicit Makefile targets;
+ they must not be hidden inside default checks.

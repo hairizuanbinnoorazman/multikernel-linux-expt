@@ -1,0 +1,8 @@
+{
+  "base_commit": "587d65abd204aafeedc161396e99d1f5cf867bee",
+  "source_archive_sha256": "94876c945b456e5066c8edc3a0f27875b20d94d8501979037e422e08f335301a",
+  "fixture_archive_sha256": "2ca137db0bcde131a21f2efbfb5a9e5d5cc3e26ca451902fb70665f231b98b60",
+  "runtime_binary_provenance": "../g7-authority-remediation/source-identity.json",
+  "runtime_sources_unchanged_from_base_commit": true,
+  "diagnostic_controller_sha256": "accba5bbff1b4ba9993909f7b4cbf9557d829d3e151878b0201e333abec484ec"
+}

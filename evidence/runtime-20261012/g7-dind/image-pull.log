@@ -1,0 +1,72 @@
+29-dind-rootless: Pulling from library/docker
+9d72d6d20fcb: Pulling fs layer
+a263ae42cbf9: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+e2de96513ba9: Pulling fs layer
+79f88200dfcf: Pulling fs layer
+9246a4a10b8d: Pulling fs layer
+6f8bb1f5db10: Pulling fs layer
+248ac7cfc7da: Pulling fs layer
+59b4881c4644: Pulling fs layer
+d9c53d90e03c: Pulling fs layer
+b7d787457fa3: Pulling fs layer
+5dc078817816: Pulling fs layer
+5a54ab73c884: Pulling fs layer
+fc395878e903: Pulling fs layer
+77634e971f65: Pulling fs layer
+cf374a4fd809: Pulling fs layer
+e67660f0539b: Pulling fs layer
+1373581dd8ee: Pulling fs layer
+1b8d0ab2bbce: Pulling fs layer
+7eab97391af1: Pulling fs layer
+48478db38709: Pulling fs layer
+4f4fb700ef54: Already exists
+9246a4a10b8d: Download complete
+9d72d6d20fcb: Download complete
+a263ae42cbf9: Download complete
+e2de96513ba9: Download complete
+6f8bb1f5db10: Download complete
+79f88200dfcf: Download complete
+5dc078817816: Download complete
+5a54ab73c884: Download complete
+b7d787457fa3: Download complete
+248ac7cfc7da: Download complete
+59b4881c4644: Download complete
+d9c53d90e03c: Download complete
+cf374a4fd809: Download complete
+1b8d0ab2bbce: Download complete
+1373581dd8ee: Download complete
+fc395878e903: Download complete
+e67660f0539b: Download complete
+77634e971f65: Download complete
+48478db38709: Download complete
+7eab97391af1: Download complete
+e2de96513ba9: Pull complete
+4f4fb700ef54: Pull complete
+9246a4a10b8d: Pull complete
+9d72d6d20fcb: Pull complete
+c7fd0a1fc3ad: Download complete
+59b4881c4644: Pull complete
+1373581dd8ee: Pull complete
+6f8bb1f5db10: Pull complete
+79f88200dfcf: Pull complete
+5a54ab73c884: Pull complete
+7eab97391af1: Pull complete
+fc395878e903: Pull complete
+e67660f0539b: Pull complete
+48478db38709: Pull complete
+5dc078817816: Pull complete
+cf374a4fd809: Pull complete
+77634e971f65: Pull complete
+a263ae42cbf9: Pull complete
+b7d787457fa3: Pull complete
+248ac7cfc7da: Pull complete
+d9c53d90e03c: Pull complete
+a263ae42cbf9: Pull complete
+b7d787457fa3: Pull complete
+248ac7cfc7da: Pull complete
+d9c53d90e03c: Pull complete
+1b8d0ab2bbce: Pull complete
+Digest: sha256:54155db4950e2f9af3bb829fcfe627030576fc7ae235018be63175fca7326171
+Status: Downloaded newer image for docker:29-dind-rootless
+docker.io/library/docker:29-dind-rootless

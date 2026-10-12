@@ -1,0 +1,10 @@
+#!/bin/busybox sh
+# RootlessKit's exact ip-only invocation. An absolute command prevents BusyBox
+# nsenter from substituting its built-in ip applet for the full iproute2 tool.
+set -eu
+[ "$#" -ge 8 ]
+[ "$1" = -t ] && [ "$3" = -n ] && [ "$4" = -m ] && [ "$5" = -U ]
+[ "$6" = --preserve-credentials ] && [ "$7" = ip ]
+pid=$2
+shift 7
+exec /bin/busybox nsenter -t "$pid" -n -m -U --preserve-credentials /sbin/ip "$@"

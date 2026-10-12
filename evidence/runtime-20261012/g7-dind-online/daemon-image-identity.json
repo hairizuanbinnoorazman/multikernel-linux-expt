@@ -1,0 +1,30 @@
+{
+  "repo_digests": [
+    "docker@sha256:54155db4950e2f9af3bb829fcfe627030576fc7ae235018be63175fca7326171"
+  ],
+  "config": {
+    "User": "rootless",
+    "ExposedPorts": {
+      "2375/tcp": {},
+      "2376/tcp": {}
+    },
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "DOCKER_VERSION=29.9.0",
+      "DOCKER_BUILDX_VERSION=0.38.0",
+      "DOCKER_COMPOSE_VERSION=5.6.0",
+      "DOCKER_TLS_CERTDIR=/certs",
+      "DIND_COMMIT=8d9e3502aba39127e4d12196dae16d306f76993d"
+    ],
+    "Entrypoint": [
+      "dockerd-entrypoint.sh"
+    ],
+    "Volumes": {
+      "/home/rootless/.local/share/docker": {},
+      "/var/lib/docker": {}
+    },
+    "WorkingDir": "/"
+  },
+  "exported_rootfs_sha256": "1af5688ad85257458f6574308815abca42af7ba264c495176daa430b83c027b5",
+  "reused_from": "../g7-dind/image-identity.json"
+}

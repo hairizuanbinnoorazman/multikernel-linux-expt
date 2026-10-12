@@ -1,0 +1,11 @@
+{
+  "guest_multistage_build": true,
+  "cache_hit": true,
+  "failed_run_rejected": true,
+  "oci_contents_verified": true,
+  "image_sha256": "fae87b4a285f593fe490c30ae2bf5b1b4f3e86799050f91a18fb6f17c6f19a66",
+  "workload_caps_zero_nnp_enabled": true,
+  "builder_uid_mapped_to_1000_nnp_enabled": true,
+  "tested_canary_and_credentials_protected": true,
+  "cloud_cleanup_verified": true
+}

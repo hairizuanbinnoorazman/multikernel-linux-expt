@@ -1,0 +1,11 @@
+/tmp/mk-g7-online-bin/docker-online-controller-v2: go1.26.1
+	path	command-line-arguments
+	dep	github.com/containerd/console	v1.0.3	h1:lIr7SlA5PxZyMV30bDW0MGbiOPXwc63yRuCP0ARubLw=
+	dep	github.com/hairizuan/multikernel-linux-expt/runtime	(devel)	
+	dep	golang.org/x/sys	v0.34.0	h1:H5Y5sJ2L2JRdyv7ROF1he/lPdvFsd0mJHFw2ThKHxLA=
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	CGO_ENABLED=0
+	build	GOARCH=amd64
+	build	GOOS=linux
+	build	GOAMD64=v1

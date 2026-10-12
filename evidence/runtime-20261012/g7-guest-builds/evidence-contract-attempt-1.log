@@ -1,0 +1,2 @@
+runtime evidence manifests: FAIL
+  evidence/runtime-20261012/g7-guest-builds/manifest.json: ["schema:$.components[6].name:pattern"]

@@ -1,0 +1,3 @@
+Created [https://www.googleapis.com/compute/v1/projects/${MK_PROJECT}/zones/asia-southeast1-b/instances/mklinux-g7-online-20261012].
+NAME                        ZONE               MACHINE_TYPE    PREEMPTIBLE  INTERNAL_IP    EXTERNAL_IP    STATUS
+mklinux-g7-online-20261012  asia-southeast1-b  n2-standard-16               10.148.15.194  35.240.240.49  RUNNING

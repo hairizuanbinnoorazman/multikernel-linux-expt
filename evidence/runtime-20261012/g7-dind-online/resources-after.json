@@ -1,0 +1,187 @@
+{
+  "addresses": [],
+  "captured_at": "2026-10-12T11:27:04.837757Z",
+  "disks": [
+    {
+      "disk_type": "pd-balanced",
+      "labels": {},
+      "name": "mk-mediated-storage-20260830",
+      "size_gb": 30,
+      "source_snapshot": null,
+      "status": "READY",
+      "users": [],
+      "zone": "asia-southeast1-b"
+    }
+  ],
+  "firewall_rules": [
+    {
+      "allowed": [
+        {
+          "IPProtocol": "tcp",
+          "ports": [
+            "3000"
+          ]
+        }
+      ],
+      "denied": [],
+      "destination_ranges": [],
+      "direction": "INGRESS",
+      "disabled": false,
+      "name": "allow-3000",
+      "network": "default",
+      "priority": 1000,
+      "source_ranges": [
+        "0.0.0.0/0"
+      ],
+      "target_tags": [
+        "allow-3000"
+      ]
+    },
+    {
+      "allowed": [
+        {
+          "IPProtocol": "tcp",
+          "ports": [
+            "80"
+          ]
+        }
+      ],
+      "denied": [],
+      "destination_ranges": [],
+      "direction": "INGRESS",
+      "disabled": false,
+      "name": "default-allow-http",
+      "network": "default",
+      "priority": 1000,
+      "source_ranges": [
+        "0.0.0.0/0"
+      ],
+      "target_tags": [
+        "http-server"
+      ]
+    },
+    {
+      "allowed": [
+        {
+          "IPProtocol": "icmp"
+        }
+      ],
+      "denied": [],
+      "destination_ranges": [],
+      "direction": "INGRESS",
+      "disabled": false,
+      "name": "default-allow-icmp",
+      "network": "default",
+      "priority": 65534,
+      "source_ranges": [
+        "0.0.0.0/0"
+      ],
+      "target_tags": []
+    },
+    {
+      "allowed": [
+        {
+          "IPProtocol": "tcp",
+          "ports": [
+            "0-65535"
+          ]
+        },
+        {
+          "IPProtocol": "udp",
+          "ports": [
+            "0-65535"
+          ]
+        },
+        {
+          "IPProtocol": "icmp"
+        }
+      ],
+      "denied": [],
+      "destination_ranges": [],
+      "direction": "INGRESS",
+      "disabled": false,
+      "name": "default-allow-internal",
+      "network": "default",
+      "priority": 65534,
+      "source_ranges": [
+        "10.128.0.0/9"
+      ],
+      "target_tags": []
+    },
+    {
+      "allowed": [
+        {
+          "IPProtocol": "tcp",
+          "ports": [
+            "3389"
+          ]
+        }
+      ],
+      "denied": [],
+      "destination_ranges": [],
+      "direction": "INGRESS",
+      "disabled": false,
+      "name": "default-allow-rdp",
+      "network": "default",
+      "priority": 65534,
+      "source_ranges": [
+        "0.0.0.0/0"
+      ],
+      "target_tags": []
+    },
+    {
+      "allowed": [
+        {
+          "IPProtocol": "tcp",
+          "ports": [
+            "22"
+          ]
+        }
+      ],
+      "denied": [],
+      "destination_ranges": [],
+      "direction": "INGRESS",
+      "disabled": false,
+      "name": "default-allow-ssh",
+      "network": "default",
+      "priority": 65534,
+      "source_ranges": [
+        "0.0.0.0/0"
+      ],
+      "target_tags": []
+    }
+  ],
+  "instances": [],
+  "project": "${MK_PROJECT}",
+  "provider": "gce",
+  "schema_version": 1,
+  "snapshots": [
+    {
+      "creation_timestamp": "2025-06-13T23:51:42.456-07:00",
+      "labels": {},
+      "name": "instance-20250614-0-asia-southeast1-a-20250614065141-36viryag",
+      "size_gb": 10,
+      "source_disk": "instance-20250614-005724",
+      "status": "READY",
+      "storage_bytes": 981707392
+    },
+    {
+      "creation_timestamp": "2026-08-28T05:29:17.951-07:00",
+      "labels": {},
+      "name": "mklinux-lab-pre-daxfs-20260828-2030",
+      "size_gb": 100,
+      "source_disk": "mklinux-lab",
+      "status": "READY",
+      "storage_bytes": 16490644416
+    },
+    {
+      "creation_timestamp": "2026-08-27T21:59:49.155-07:00",
+      "labels": {},
+      "name": "mklinux-lab-stock-20260828",
+      "size_gb": 100,
+      "source_disk": "mklinux-lab",
+      "status": "READY",
+      "storage_bytes": 13019981376
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+GUEST_BUILD_FIXTURE_COMPLETED case=baseline
+GUEST_BUILD_FIXTURE_COMPLETED case=prepared
+GUEST_BUILD_COLLECTION_COMPLETED
+Pool is already empty; nothing to do

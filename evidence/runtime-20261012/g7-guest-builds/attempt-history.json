@@ -1,0 +1,82 @@
+[
+  {
+    "attempt": 1,
+    "fixture_archive": "attempts/fixtures.tar.gz",
+    "sha256": "d89137ae587371d59b87d9b5b4b33f231744aeb08ff28a5a0a9a5a51f3760666",
+    "exit_status": 1,
+    "outcome": "RootlessKit attempted CLONE_NEWUSER after chroot; Linux rejected namespace startup.",
+    "output": "live-tests-attempt-1.log"
+  },
+  {
+    "attempt": 2,
+    "fixture_archive": "attempts/fixtures-v2.tar.gz",
+    "sha256": "a3f779634a9bd2db4157f1e5bccde430a79bd79d97dbf875dfc8939305ef7d9f",
+    "exit_status": 1,
+    "outcome": "Namespace moved before chroot, but archive guest root mode 0700 blocked UID 1000 shell execution.",
+    "output": "live-tests-attempt-2.log"
+  },
+  {
+    "attempt": 3,
+    "fixture_archive": "attempts/fixtures-v3.tar.gz",
+    "sha256": "6dcc4e8a24c38eb6e8ac48da8fdd2e22f2957456dd2152b01527e6c78c249f77",
+    "exit_status": 1,
+    "outcome": "Root mode corrected; RootlessKit parent lacked writable temporary directory.",
+    "output": "live-tests-attempt-3.log"
+  },
+  {
+    "attempt": 4,
+    "fixture_archive": "attempts/fixtures-v4.tar.gz",
+    "sha256": "bed2ccb8a230855ee9c2b3dbbf6d6916b97939b3499c5b78eb45aef667d5363d",
+    "exit_status": 1,
+    "outcome": "Private parent tmp provided; exported mapping helper lacked usable privilege metadata.",
+    "output": "live-tests-attempt-4.log"
+  },
+  {
+    "attempt": 5,
+    "fixture_archive": "attempts/fixtures-v5.tar.gz",
+    "sha256": "90af34a974698d0cefe2d3dbe3508d01f8ba2ce8e92e714da00841191025e0df",
+    "exit_status": 1,
+    "outcome": "Mapping helpers restored; RootlessKit child required writable /tmp.",
+    "output": "live-tests-attempt-5.log"
+  },
+  {
+    "attempt": 6,
+    "fixture_archive": "attempts/fixtures-v6.tar.gz",
+    "sha256": "7b99710c02d2d7b29b9c1c5d0a13be8c9141bafabe2fd2451615453538174937",
+    "exit_status": 1,
+    "outcome": "Namespace/daemon started; RUN failed because non-recursive sysfs projection hid cgroup2.",
+    "output": "live-tests-attempt-6.log"
+  },
+  {
+    "attempt": 7,
+    "fixture_archive": "attempts/fixtures-v7.tar.gz",
+    "sha256": "5791a4dfbc112c37c4e28b45bf409cdc1cb89d13614978ca908d0ed034e14aa6",
+    "exit_status": 1,
+    "outcome": "Read-only cgroup discovery provided; runc required mount point for builder root.",
+    "output": "live-tests-attempt-7.log"
+  },
+  {
+    "attempt": 8,
+    "fixture_archive": "attempts/fixtures-v8.tar.gz",
+    "sha256": "517a06001d23b77bc2f1d26d48e6fd17111895bed9333719bd92be91663d6719",
+    "exit_status": 1,
+    "outcome": "Root mount corrected; scratch RUN fixture had dynamic BusyBox without its interpreter.",
+    "output": "live-tests-attempt-8.log"
+  },
+  {
+    "attempt": 9,
+    "fixture_archive": "attempts/fixtures-v9.tar.gz",
+    "sha256": "9e9ed08f60c30a43e447f88d0d8c1a0f9819fcc5c881ca50d19b9729b07a77ba",
+    "exit_status": 0,
+    "outcome": "Static BusyBox scratch fixture passed builds, caching, export and failure propagation.",
+    "output": "live-tests-attempt-9.log"
+  },
+  {
+    "attempt": 10,
+    "fixture_archive": "attempts/fixtures-final.tar.gz",
+    "sha256": "bc83219af7bef693b691da952c29370f036d65abb4f6997883d0f05a78fb3288",
+    "exit_status": 0,
+    "outcome": "Final client usage validation frozen; full baseline/prepared rerun passed.",
+    "output": "live-tests-final.log"
+  }
+]

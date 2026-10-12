@@ -1,0 +1,26 @@
+[
+  {
+    "attempt": 1,
+    "fixture_archive": "attempts/fixtures-v2.tar.gz",
+    "sha256": "16b002e0ddfc20d5fd67f7490f5cfe8085a65e7bc41a6320c2ad5731c69953b8",
+    "exit_status": 1,
+    "outcome": "Rootless daemon startup failed because su omitted /usr/local/bin from PATH; cleanup passed.",
+    "output": "live-tests-attempt-1.log"
+  },
+  {
+    "attempt": 2,
+    "fixture_archive": "attempts/fixtures-v3.tar.gz",
+    "sha256": "959c84574ba45f44bc4b26f0fae16e2611fb524dee6be04ef31d679b2d05dcdf",
+    "exit_status": 0,
+    "outcome": "Corrected PATH and client temporary directory; Docker build, cache, run, save and failure checks passed.",
+    "output": "live-tests-attempt-2.log"
+  },
+  {
+    "attempt": 3,
+    "fixture_archive": "attempts/fixtures-final.tar.gz",
+    "sha256": "0bcfcffa887e47c16b0076bed796f3567e3e09f26b1fffe0672088e16c9352e6",
+    "exit_status": 0,
+    "outcome": "Frozen final rerun added nested authority and image inspection records; both profiles passed.",
+    "output": "live-tests-final.log"
+  }
+]

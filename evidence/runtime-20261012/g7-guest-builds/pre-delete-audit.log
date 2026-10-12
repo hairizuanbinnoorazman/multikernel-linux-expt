@@ -1,0 +1,32 @@
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+57fd23ac9ed68e4961fce716ab30b0c28e0b6588ef61a1507a8bd8688a9292d6  /var/tmp/mk-g7-bin/mk-agent
+5b8c2956210141c04f5a45d5bc776e87b747d2d2c03d9d0a3f5a3c9812727491  /var/tmp/mk-g7-bin/mk-agentctl
+f9f45bae5059dda5820586e9d4925b337b5ec096297dc17dcdcc65831bf9d657  /var/tmp/mk-g7-bin/g7-credential-load
+293ff1eaa209d16103c7caaa8e8f9a24702e58d979453fad5495c503f76aaf98  /var/tmp/mk-g7-bin/mkvsock-relay
+adb922d68bde6a0ae71502e768b8265431eace6106ca009937141dbf53672159  /var/tmp/mk-g7-bin/rootfs.tar
+bc83219af7bef693b691da952c29370f036d65abb4f6997883d0f05a78fb3288  /var/tmp/mk-g7-bin/fixtures-final.tar.gz
+a3f779634a9bd2db4157f1e5bccde430a79bd79d97dbf875dfc8939305ef7d9f  /var/tmp/mk-g7-bin/fixtures-v2.tar.gz
+6dcc4e8a24c38eb6e8ac48da8fdd2e22f2957456dd2152b01527e6c78c249f77  /var/tmp/mk-g7-bin/fixtures-v3.tar.gz
+bed2ccb8a230855ee9c2b3dbbf6d6916b97939b3499c5b78eb45aef667d5363d  /var/tmp/mk-g7-bin/fixtures-v4.tar.gz
+90af34a974698d0cefe2d3dbe3508d01f8ba2ce8e92e714da00841191025e0df  /var/tmp/mk-g7-bin/fixtures-v5.tar.gz
+7b99710c02d2d7b29b9c1c5d0a13be8c9141bafabe2fd2451615453538174937  /var/tmp/mk-g7-bin/fixtures-v6.tar.gz
+5791a4dfbc112c37c4e28b45bf409cdc1cb89d13614978ca908d0ed034e14aa6  /var/tmp/mk-g7-bin/fixtures-v7.tar.gz
+517a06001d23b77bc2f1d26d48e6fd17111895bed9333719bd92be91663d6719  /var/tmp/mk-g7-bin/fixtures-v8.tar.gz
+9e9ed08f60c30a43e447f88d0d8c1a0f9819fcc5c881ca50d19b9729b07a77ba  /var/tmp/mk-g7-bin/fixtures-v9.tar.gz
+d89137ae587371d59b87d9b5b4b33f231744aeb08ff28a5a0a9a5a51f3760666  /var/tmp/mk-g7-bin/fixtures.tar.gz
+5cdf26d0d34bfc8ab3d298d99f8a1e189aa6e2dba9be1f4cb2968078548a3c10  /var/tmp/mk-g7-approved/vmlinux
+bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2  ${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko
+active
+active
+active
+CLEANUP_ASSERTIONS_PASSED cpus=0-15 children=0 helpers=0

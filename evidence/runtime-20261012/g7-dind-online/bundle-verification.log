@@ -1,0 +1,19 @@
+{
+  "dockerhub_python_pull": true,
+  "base_repo_digests": [
+    "python@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f"
+  ],
+  "pypi_package_downloads": {
+    "certifi": "2026.7.22",
+    "charset-normalizer": "3.5.2",
+    "idna": "3.20",
+    "requests": "2.34.2",
+    "urllib3": "2.8.0"
+  },
+  "online_build_and_run": true,
+  "runtime_verified_https": true,
+  "cache_hit": true,
+  "outer_caps_zero_nnp": true,
+  "nested_nnp_seccomp": true,
+  "scoped_cleanup_verified": true
+}

@@ -28,6 +28,12 @@ not evidence that the affected run passed a gate.
   assessment, pinned-source reproduction, portable agent checks, live authority
   collection in three profiles, confirmed credential exposure and child-bootstrap
   canary access, retained failed attempts, and cloud cleanup.
+  Also includes an automatically prepared guest-local BuildKit prototype with
+  verified multi-stage builds, caching, OCI export, and retained security checks.
+  A subsequent Docker-in-Docker prototype verifies ordinary Docker builds,
+  nested runs and saved-image contents without user privileged flags.
+  The online follow-up pulls Python from Docker Hub, installs packages from
+  HTTPS PyPI, and runs an HTTPS app with retained provenance and cleanup.
 
 Evidence captures historical state and may contain terminal formatting such as
 CRLF, backspaces, or trailing padding. Do not normalize raw transcripts merely

@@ -82,3 +82,36 @@ do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
 Never assign the primary boot disk, NIC, or a shared controller to a child, and
 never allocate APIC ID 0. See the [runtime architecture](architecture.md) for
 the complete trust boundary and ownership rules.
+
+## Guest image-build prototype
+
+An [experimental builder guest](research/guest-image-builds.md) passed offline
+multi-stage Dockerfile execution, cache reuse, OCI export/content verification,
+and failed-RUN propagation using `mk-build . image.tar`. The client needs no
+privileged/security flags and retains UID 0 with zero capabilities and NNP=1.
+Trusted bootstrap prepares the builder namespace automatically before workloads
+start; the daemon maps namespace root to guest UID/GID 1000 and enables NNP.
+The [evidence](../../evidence/runtime-20261012/g7-guest-builds/README.md) includes
+the ordinary rootless-image startup failure, corrected bootstrap, authority
+checks and cleanup. Default Docker integration, registry/package networking,
+mediated storage, persistent cache and builder-service security/lifecycle
+qualification remain open. This does not change the hostile-child boundary.
+
+The [Docker-in-Docker follow-up](research/docker-in-docker-guests.md) additionally
+passed ordinary `docker build -t ...` and `docker run --rm ...` against a guest-local
+rootless Docker Engine 29.9.0, including cache reuse, failed-build propagation,
+saved-image content verification and nested NNP/seccomp observations. Its approved
+bootstrap prepares namespaces, VFS storage and guest bridge modules automatically;
+the user supplies no privileged/capability/security flags or primary Docker socket.
+This remains an offline dedicated-guest prototype; production integration,
+egress/pulls/publishing, persistence and service/security qualification are open.
+
+The [online Python follow-up](research/docker-online-python-guest.md) passed in
+fresh guests: Docker Hub Python base pull, HTTPS PyPI installation of Requests
+and four dependencies, ordinary Docker build/run, verified runtime HTTPS 200,
+cache reuse, package hash comparison, client/daemon/nested authority observations
+and host/cloud cleanup. Automatic bootstrap supplies slirp4netns and guest NAT
+modules; the user needs no privilege flags. This uses a diagnostic static primary
+TUN/NAT path and the unchanged authenticated agent packet interface. Production
+profile/CNI/mediated storage integration, persistence/restart/concurrency/published
+ports/IPv6/resource enforcement and independent security review remain open.
