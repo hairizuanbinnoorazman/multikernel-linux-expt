@@ -36,10 +36,29 @@ the minimum G6 surface does not advertise either operation.
 The shim remains one Go package so the Runtime v2 protocol surface and shared
 state are unchanged, but operational subsystems have explicit file owners:
 
-- `main.go` owns the Task v2 service, lifecycle orchestration, process state,
-  recovery, and the executable entrypoint;
-- `network.go` owns endpoint validation, namespace-holder lifecycle, the packet
-  pump, counter reporting, and bounded network shutdown;
+- `main.go` owns the executable entrypoint and runtime discovery;
+- `service.go` owns shared service/process state, dependencies, construction,
+  request locking, and capability requirements;
+- `startup.go` owns worker launch, socket publication, and authentication of
+  an existing shim;
+- `cleanup.go` owns bundle/runtime directory identity and fallback cleanup;
+- `recovery.go` owns persisted recovery validation, publication, and worker
+  reconstruction;
+- `state_files.go` owns token creation/loading and identity-bound state file
+  publication/removal;
+- `agent_transport.go` owns relay lifecycle, agent negotiation/reconnection,
+  guest state validation, and guest control calls;
+- `tasks_create.go` owns allocation, Create/Start orchestration, and rollback;
+- `tasks_process.go` owns exec projection/validation, Exec, and Delete;
+- `task_control.go` owns task reads, signals, shutdown, terminal control,
+  pause/resume, and statistics;
+- `process_io.go` owns validated stdio paths, FIFO keepers, and descriptor
+  acquisition/closure;
+- `process_streams.go` owns stdin replay, output delivery, process monitoring,
+  and exit publication;
+- `namespace_holder.go` owns the primary namespace-holder process;
+- `network.go` owns endpoint validation, the packet pump, counter reporting,
+  and bounded network shutdown;
 - `rootfs.go` owns rootfs request normalization and daemon adapters;
 - `supervisor.go` owns worker restart, containerd connection replay, private
   worker listeners, and supervisor PID publication; and
@@ -48,3 +67,11 @@ state are unchanged, but operational subsystems have explicit file owners:
 All files share the same generation-bound ownership rules: persisted identities
 must be validated before mutation, recovery must not invent ownership, and
 cleanup must remove only artifacts whose recorded identity still matches.
+
+Aim for roughly 300–600 lines per implementation file. A cohesive responsibility
+may extend to roughly 800 lines; small entrypoints and isolated helpers can be
+shorter. Split by responsibility before reaching those bounds rather than
+splitting a function or adding an artificial abstraction to meet a line count.
+Tests follow the same responsibilities, with shared fakes in `*_fakes_test.go`.
+The split preserves the existing service fields and locking behavior; changing
+component ownership or lock ordering requires a separate behavioral review.

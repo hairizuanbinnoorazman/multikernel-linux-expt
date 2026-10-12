@@ -1,0 +1,66 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=bash /var/tmp/mk-maint-host-build-v2.sh"], "started_at": "2026-10-11T12:33:59.997087Z"}}
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	11.762s
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected transient disconnect
+multikernel event publication deferred: injected publication failure
+multikernel event publication deferred: injected publication failure
+multikernel network report DISCONNECTED: injected network report failure
+multikernel network report READY: injected network report failure
+multikernel close stdin: injected close failure
+multikernel close stdin: injected close failure
+multikernel shim: guest teardown completed through sandbox deletion with warnings: close guest network: injected guest network close failure
+quiesce guest agent: unexpected status ""
+multikernel event publication deferred: injected publication failure
+multikernel process wait validation: guest returned a stopped process with mismatched identity or state
+multikernel process wait validation: guest returned a stopped process with mismatched identity or state
+multikernel process wait validation: guest returned a stopped process with a different PID
+multikernel process wait validation: guest returned an exit status outside the agent contract
+multikernel process wait validation: guest returned an exit status outside the agent contract
+multikernel output acknowledgement: no such file or directory
+multikernel output monitor: context deadline exceeded
+multikernel exit state persistence: no such file or directory
+multikernel exit event acknowledgement: no such file or directory
+multikernel stdin intent: no such file or directory
+--- FAIL: TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup (0.00s)
+    --- FAIL: TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup/stop_kills_group_and_removes_socket (0.00s)
+        relay_test.go:75: listen unix /var/tmp/mkt.BRqMBv/TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanupstop_k2102135693/001/relay.sock: bind: invalid argument
+multikernel shim supervisor: worker pid=19784 signal=killed restart_attempt=1
+multikernel shim supervisor: worker proxy ended: read unix @->@multikernel-shim-908003bf967f3c8410c51b3ab9ef3f03: read: connection reset by peer
+multikernel shim supervisor: worker proxy: read unix @->@multikernel-shim-908003bf967f3c8410c51b3ab9ef3f03: read: connection reset by peer
+multikernel shim supervisor: worker pid=19814 signal=killed restart_attempt=1
+multikernel shim supervisor: worker proxy ended: read unix @->@multikernel-shim-e6b868a5e8a8aa407a41c0d3425e3785: read: connection reset by peer
+multikernel event publication deferred: injected publication failure
+FAIL
+FAIL	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	11.002s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	1.015s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	1.117s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.095s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	1.017s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.020s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.071s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	1.011s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.198s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.250s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.036s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.077s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	1.739s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	2.633s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	1.522s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	4.202s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.118s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.120s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	11.830s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	1.040s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	1.036s
+FAIL
+{"evidence_command_result": {"ended_at": "2026-10-11T12:34:30.443644Z", "exit_status": 1}}

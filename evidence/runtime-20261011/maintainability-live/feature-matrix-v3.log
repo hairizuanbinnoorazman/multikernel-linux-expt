@@ -1,0 +1,174 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-g4-g6-feature-matrix.sh"], "started_at": "2026-10-12T03:46:18.188254Z"}}
+OBSERVATION_BEGIN key=host
+kernel=7.0.0-mk2-gce-lab boot_id=00000000-0000-0000-0000-00000000000c services=active,active,active,active
+OBSERVATION_END key=host
+OBSERVATION_BEGIN key=initial-clean-inventory
+pool_configured=0 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=initial-clean-inventory
+OBSERVATION_BEGIN key=ctr-image
+REF                            TYPE                                    DIGEST                                                                  SIZE    PLATFORMS                                                                                                           LABELS 
+docker.io/library/busybox:1.36 application/vnd.oci.image.index.v1+json sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662 2.1 MiB linux/386,linux/amd64,linux/arm/v5,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/riscv64,linux/s390x -      
+OBSERVATION_END key=ctr-image
+OBSERVATION_BEGIN key=docker-image
+id=sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662 repo_digests=["busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"] architecture=amd64
+OBSERVATION_END key=docker-image
+FEATURE_MATRIX_PASS feature=image-pull-and-inspect ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=split-create-state
+ctr=RUNNING docker=running
+OBSERVATION_END key=split-create-state
+FEATURE_MATRIX_PASS feature=split-create-and-start ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=state-and-inspect ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=kernel-identities
+host_boot=00000000-0000-0000-0000-00000000000c ctr_boot=00000000-0000-0000-0000-000000000012 docker_boot=00000000-0000-0000-0000-000000000010 host_kernel=7.0.0-mk2-gce-lab ctr_kernel=7.0.0-mk2-gce-lab docker_kernel=7.0.0-mk2-gce-lab
+OBSERVATION_END key=kernel-identities
+FEATURE_MATRIX_PASS feature=exec-and-distinct-kernel-identity ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=exec-stdio
+ctr=ctr-stderr
+ctr-stdout
+docker=docker-stderr
+docker-stdout
+OBSERVATION_END key=exec-stdio
+FEATURE_MATRIX_PASS feature=exec-stdout-and-stderr ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=private-root-values
+ctr=ctr-private docker=docker-private
+OBSERVATION_END key=private-root-values
+FEATURE_MATRIX_PASS feature=private-writable-root ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=mediated-network
+ctr=2: mkn0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1400 qdisc pfifo_fast qlen 500
+    inet 172.31.0.2/30 scope global mkn0
+       valid_lft forever preferred_lft forever
+Server:		169.254.169.254
+Address:	169.254.169.254:53
+
+Non-authoritative answer:
+Name:	example.com
+Address: 104.20.23.154
+Name:	example.com
+Address: 172.66.147.243
+
+Non-authoritative answer:
+Name:	example.com
+Address: 2606:4700:10::6814:179a
+Name:	example.com
+Address: 2606:4700:10::ac42:93f3
+
+25ddf2c883e0d1958ea971d279a7e4f0fd446724ee3db7db19dadabd4a62e484  -
+network-ok
+docker=2: mkn0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1400 qdisc pfifo_fast qlen 500
+    inet 172.31.0.6/30 scope global mkn0
+       valid_lft forever preferred_lft forever
+Server:		169.254.169.254
+Address:	169.254.169.254:53
+
+Non-authoritative answer:
+Name:	example.com
+Address: 172.66.147.243
+Name:	example.com
+Address: 104.20.23.154
+
+Non-authoritative answer:
+Name:	example.com
+Address: 2606:4700:10::ac42:93f3
+Name:	example.com
+Address: 2606:4700:10::6814:179a
+
+25ddf2c883e0d1958ea971d279a7e4f0fd446724ee3db7db19dadabd4a62e484  -
+network-ok
+OBSERVATION_END key=mediated-network
+FEATURE_MATRIX_PASS feature=primary-mediated-network ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=sibling-isolation
+ctr_to_docker_ip=172.31.0.6 exit_status=1 docker_to_ctr_ip=172.31.0.2 exit_status=1
+OBSERVATION_END key=sibling-isolation
+FEATURE_MATRIX_PASS feature=cross-sandbox-network-isolation ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=runtime-restart
+pid_before=3159 pid_after=16735 ctr_boot=00000000-0000-0000-0000-000000000012 docker_boot=00000000-0000-0000-0000-000000000010
+OBSERVATION_END key=runtime-restart
+FEATURE_MATRIX_PASS feature=runtime-daemon-restart-continuity ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=pause-resume-states
+ctr=RUNNING docker=running
+OBSERVATION_END key=pause-resume-states
+FEATURE_MATRIX_PASS feature=pause-resume ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=signal-exit
+ctr_task=mk-matrix-ctr    16024    STOPPED docker_status=exited docker_exit=42
+OBSERVATION_END key=signal-exit
+FEATURE_MATRIX_PASS feature=signal-and-exit-observation ctr=PASS docker=PASS
+time="2026-10-12T03:48:55Z" level=warning msg="task mk-matrix-ctr exit with non-zero exit code 42"
+OBSERVATION_BEGIN key=post-delete-clean-inventory
+pool_configured=1 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=post-delete-clean-inventory
+FEATURE_MATRIX_PASS feature=delete-and-resource-cleanup ctr=PASS docker=PASS
+/bin/sh: can't create /opt/input/value: Read-only file system
+/bin/sh: can't create /etc/mk-input.conf: Read-only file system
+/bin/sh: can't create /opt/input/value: Read-only file system
+/bin/sh: can't create /etc/mk-input.conf: Read-only file system
+OBSERVATION_BEGIN key=readonly-bind-inputs
+ctr=ctr-host-immutable|ctr-file-immutable docker=docker-host-immutable|docker-file-immutable ctr_host=ctr-host-immutable ctr_file=ctr-file-immutable docker_host=docker-host-immutable docker_file=docker-file-immutable
+OBSERVATION_END key=readonly-bind-inputs
+OBSERVATION_BEGIN key=post-bind-clean-inventory
+pool_configured=1 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=post-bind-clean-inventory
+FEATURE_MATRIX_PASS feature=readonly-bind-inputs ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=nonzero-cycle-1
+ctr_exit=17 docker_exit=17
+ctr_output=ctr-cycle-1
+ctr-error-1
+docker_output=docker-cycle-1
+docker-error-1
+OBSERVATION_END key=nonzero-cycle-1
+OBSERVATION_BEGIN key=nonzero-cycle-2
+ctr_exit=17 docker_exit=17
+ctr_output=ctr-cycle-2
+ctr-error-2
+docker_output=docker-cycle-2
+docker-error-2
+OBSERVATION_END key=nonzero-cycle-2
+FEATURE_MATRIX_PASS feature=foreground-wait-stdio-and-nonzero-exit ctr=PASS docker=PASS
+FEATURE_MATRIX_PASS feature=name-reuse ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=guest-stdin
+ctr=guest-ctr-stdin docker=guest-docker-stdin
+OBSERVATION_END key=guest-stdin
+FEATURE_MATRIX_PASS feature=guest-stdin ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=guest-attach
+ctr=ctr-attached-stdin docker=docker-attached-stdin
+OBSERVATION_END key=guest-attach
+FEATURE_MATRIX_PASS feature=guest-attach ctr=PASS docker=PASS
+OBSERVATION_BEGIN key=terminal-mode
+ctr=^@37 91
+
+ctr-terminal-ok
+
+docker=37 91
+
+docker-terminal-ok
+
+OBSERVATION_END key=terminal-mode
+FEATURE_MATRIX_PASS feature=terminal-mode ctr=PASS docker=PASS
+ready:24 80
+
+resized:37 91
+
+LIVE_RESIZE_PASS initial=24x80 resized=37x91
+ready:24 80
+
+ignored-resize:24 80
+
+resized:37 91
+
+LIVE_RESIZE_PASS initial=24x80 resized=37x91
+OBSERVATION_BEGIN key=pre-shutdown-clean-inventory
+pool_configured=1 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=pre-shutdown-clean-inventory
+OBSERVATION_BEGIN key=idle-pool-release
+mkruntimed_pid_before=16735 mkruntimed_pid_after=36188
+OBSERVATION_END key=idle-pool-release
+OBSERVATION_BEGIN key=final-clean-inventory
+pool_configured=0 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=final-clean-inventory
+FEATURE_MATRIX_PASS feature=post-start-terminal-resize ctr=PASS docker=PASS
+EVIDENCE_ASSERTION id=shared-ctr-and-docker-lifecycle-io-matrix passed=true
+EVIDENCE_ASSERTION id=post-start-terminal-resize passed=true
+EVIDENCE_ASSERTION id=mkruntimed-restart-continuity passed=true
+EVIDENCE_ASSERTION id=distinct-network-identity-and-sibling-isolation passed=true
+EVIDENCE_ASSERTION id=runtime-resource-cleanup passed=true
+G4_G6_CTR_DOCKER_FEATURE_MATRIX_PASS
+{"evidence_command_result": {"ended_at": "2026-10-12T04:04:11.703785Z", "exit_status": 0}}

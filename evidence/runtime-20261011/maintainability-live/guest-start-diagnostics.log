@@ -1,0 +1,64 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=sudo timeout 8s script -qefc \"/opt/mkruntime/kerf-venv/bin/kerf console mk-mk-maint-bootstrap-df9e3590673a2541 --verbose\" /dev/null; sudo dmesg | tail -60; sudo find /var/lib/mkruntime /var/lib/mkruntimed -maxdepth 3 -type f -name \"*.log\" -print"], "started_at": "2026-10-11T12:41:46.105548Z"}}
+Error: Instance 'mk-mk-maint-bootstrap-df9e3590673a2541' not found
+Check available instances in /sys/fs/multikernel/instances/
+[  704.907407] multikernel: added IPI buffer to manifest: phys=0x1abb00000, pages=65 (263696 bytes)
+[  704.907409] multikernel: finalized manifest for instance 40 (size: 654 bytes)
+[  704.907410] kexec_core: Manifest finalized for multikernel instance
+[  704.907728] mk_e820: instance 40: 3072 MB RAM in 1 regions
+[  704.907965] Multikernel instance 40 is now active
+[  715.557034] Instance 40 (mk-mk-maint-bootstrap-df9e3590673a2541) halted, CPUs parking in pool
+[  715.725119] kexec_file: Unloading kernel from multikernel instance 40
+[  715.883336] Applying overlay transaction 3 (target=/instances, resources=unknown)
+[  715.883346] Overlay tx3: Removing instance 'mk-mk-maint-bootstrap-df9e3590673a2541' (ID: 40)
+[  715.883350] Releasing multikernel instance 40 (mk-mk-maint-bootstrap-df9e3590673a2541), returning resources to root
+[  715.883353] Returned 2 CPUs from instance 40 (mk-mk-maint-bootstrap-df9e3590673a2541) to the pool: 8,10
+[  715.883356] Returning 0xc0000000 bytes from instance 40 (mk-mk-maint-bootstrap-df9e3590673a2541) back to multikernel pool
+[  715.883832] Overlay tx3: Instance 'mk-mk-maint-bootstrap-df9e3590673a2541' removed successfully
+[  715.883835] Overlay transaction 3 applied successfully
+[  716.072513] Generated instance DTB for '' (ID 0): 451 bytes
+[  716.073193] Applying overlay transaction 4 (target=/resources, resources=unknown)
+[  716.073203] Overlay tx4: -cpu 8 numa=-1 from /resources
+[  716.073206] Multikernel hotplug: Adding CPU 8 (numa=-1, flags=0x0)
+[  716.073208] Multikernel hotplug: Physical CPU 8 not found in present CPUs
+[  716.093504] smpboot: Booting Node 0 Processor 4 APIC 0x8
+[  716.096750] Multikernel hotplug: Successfully added CPU 4 (phys 8)
+[  716.096757] Overlay tx4: -cpu 9 numa=-1 from /resources
+[  716.096759] Multikernel hotplug: Adding CPU 9 (numa=-1, flags=0x0)
+[  716.096761] Multikernel hotplug: Physical CPU 9 not found in present CPUs
+[  716.109464] smpboot: Booting Node 0 Processor 12 APIC 0x9
+[  716.111954] Multikernel hotplug: Successfully added CPU 12 (phys 9)
+[  716.111960] Overlay tx4: -cpu 10 numa=-1 from /resources
+[  716.111963] Multikernel hotplug: Adding CPU 10 (numa=-1, flags=0x0)
+[  716.111965] Multikernel hotplug: Physical CPU 10 not found in present CPUs
+[  716.119255] smpboot: Booting Node 0 Processor 5 APIC 0xa
+[  716.122460] Multikernel hotplug: Successfully added CPU 5 (phys 10)
+[  716.122466] Overlay tx4: -cpu 11 numa=-1 from /resources
+[  716.122468] Multikernel hotplug: Adding CPU 11 (numa=-1, flags=0x0)
+[  716.122470] Multikernel hotplug: Physical CPU 11 not found in present CPUs
+[  716.130432] smpboot: Booting Node 0 Processor 13 APIC 0xb
+[  716.133075] Multikernel hotplug: Successfully added CPU 13 (phys 11)
+[  716.133081] Overlay tx4: -cpu 12 numa=-1 from /resources
+[  716.133084] Multikernel hotplug: Adding CPU 12 (numa=-1, flags=0x0)
+[  716.133086] Multikernel hotplug: Physical CPU 12 not found in present CPUs
+[  716.140236] smpboot: Booting Node 0 Processor 6 APIC 0xc
+[  716.143556] Multikernel hotplug: Successfully added CPU 6 (phys 12)
+[  716.143562] Overlay tx4: -cpu 13 numa=-1 from /resources
+[  716.143564] Multikernel hotplug: Adding CPU 13 (numa=-1, flags=0x0)
+[  716.143566] Multikernel hotplug: Physical CPU 13 not found in present CPUs
+[  716.151382] smpboot: Booting Node 0 Processor 14 APIC 0xd
+[  716.154021] Multikernel hotplug: Successfully added CPU 14 (phys 13)
+[  716.154027] Overlay tx4: -cpu 14 numa=-1 from /resources
+[  716.154029] Multikernel hotplug: Adding CPU 14 (numa=-1, flags=0x0)
+[  716.154030] Multikernel hotplug: Physical CPU 14 not found in present CPUs
+[  716.161161] smpboot: Booting Node 0 Processor 7 APIC 0xe
+[  716.164341] Multikernel hotplug: Successfully added CPU 7 (phys 14)
+[  716.164346] Overlay tx4: -cpu 15 numa=-1 from /resources
+[  716.164349] Multikernel hotplug: Adding CPU 15 (numa=-1, flags=0x0)
+[  716.164350] Multikernel hotplug: Physical CPU 15 not found in present CPUs
+[  716.172341] smpboot: Booting Node 0 Processor 15 APIC 0xf
+[  716.175016] Multikernel hotplug: Successfully added CPU 15 (phys 15)
+[  716.175024] Overlay tx4: -memory 0xb80000000-0xf7fffffff (16384 MB) from /resources
+[  716.175125] mk_spawn: released the host pool park area
+[  716.451870] Multikernel pool: removed 0x0000000b80000000-0x0000000f7fffffff (16384 MB)
+[  716.451886] Overlay transaction 4 applied successfully
+{"evidence_command_result": {"ended_at": "2026-10-11T12:41:48.133800Z", "exit_status": 0}}

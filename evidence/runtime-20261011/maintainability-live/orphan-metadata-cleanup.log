@@ -1,0 +1,379 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=set -eu; id=447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9; sudo ctr -n moby containers info \"$id\"; test -z \"$(sudo ctr -n moby tasks list -q)\"; test -z \"$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit)\"; sudo ctr -n moby containers rm \"$id\"; sudo ctr -n moby containers list; printf \"FAILED_RUN_ORPHAN_METADATA_REMOVED\\n\""], "started_at": "2026-10-12T03:46:03.481242Z"}}
+{
+    "ID": "447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9",
+    "Labels": {
+        "com.docker/engine.bundle.path": "/var/run/docker/containerd/447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9"
+    },
+    "Image": "docker.io/library/busybox:1.36",
+    "Runtime": {
+        "Name": "io.containerd.multikernel.v2",
+        "Options": null
+    },
+    "SnapshotKey": "",
+    "Snapshotter": "",
+    "CreatedAt": "2026-10-11T12:56:31.959269032Z",
+    "UpdatedAt": "2026-10-11T12:56:31.959269032Z",
+    "Extensions": {},
+    "SandboxID": "",
+    "Spec": {
+        "ociVersion": "1.2.1",
+        "process": {
+            "terminal": true,
+            "consoleSize": {
+                "height": 37,
+                "width": 91
+            },
+            "user": {
+                "uid": 0,
+                "gid": 0,
+                "additionalGids": [
+                    0,
+                    10
+                ]
+            },
+            "args": [
+                "/bin/sh",
+                "-c",
+                "set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok"
+            ],
+            "env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "HOSTNAME=447da9215bdc",
+                "TERM=xterm"
+            ],
+            "cwd": "/",
+            "capabilities": {
+                "bounding": [
+                    "CAP_CHOWN",
+                    "CAP_DAC_OVERRIDE",
+                    "CAP_FSETID",
+                    "CAP_FOWNER",
+                    "CAP_MKNOD",
+                    "CAP_NET_RAW",
+                    "CAP_SETGID",
+                    "CAP_SETUID",
+                    "CAP_SETFCAP",
+                    "CAP_SETPCAP",
+                    "CAP_NET_BIND_SERVICE",
+                    "CAP_SYS_CHROOT",
+                    "CAP_KILL",
+                    "CAP_AUDIT_WRITE"
+                ],
+                "effective": [
+                    "CAP_CHOWN",
+                    "CAP_DAC_OVERRIDE",
+                    "CAP_FSETID",
+                    "CAP_FOWNER",
+                    "CAP_MKNOD",
+                    "CAP_NET_RAW",
+                    "CAP_SETGID",
+                    "CAP_SETUID",
+                    "CAP_SETFCAP",
+                    "CAP_SETPCAP",
+                    "CAP_NET_BIND_SERVICE",
+                    "CAP_SYS_CHROOT",
+                    "CAP_KILL",
+                    "CAP_AUDIT_WRITE"
+                ],
+                "permitted": [
+                    "CAP_CHOWN",
+                    "CAP_DAC_OVERRIDE",
+                    "CAP_FSETID",
+                    "CAP_FOWNER",
+                    "CAP_MKNOD",
+                    "CAP_NET_RAW",
+                    "CAP_SETGID",
+                    "CAP_SETUID",
+                    "CAP_SETFCAP",
+                    "CAP_SETPCAP",
+                    "CAP_NET_BIND_SERVICE",
+                    "CAP_SYS_CHROOT",
+                    "CAP_KILL",
+                    "CAP_AUDIT_WRITE"
+                ]
+            },
+            "apparmorProfile": "unconfined",
+            "oomScoreAdj": 0
+        },
+        "root": {
+            "path": "/var/lib/docker/rootfs/overlayfs/447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9"
+        },
+        "hostname": "447da9215bdc",
+        "mounts": [
+            {
+                "destination": "/proc",
+                "type": "proc",
+                "source": "proc",
+                "options": [
+                    "nosuid",
+                    "noexec",
+                    "nodev"
+                ]
+            },
+            {
+                "destination": "/dev",
+                "type": "tmpfs",
+                "source": "tmpfs",
+                "options": [
+                    "nosuid",
+                    "strictatime",
+                    "mode=755",
+                    "size=65536k"
+                ]
+            },
+            {
+                "destination": "/dev/pts",
+                "type": "devpts",
+                "source": "devpts",
+                "options": [
+                    "nosuid",
+                    "noexec",
+                    "newinstance",
+                    "ptmxmode=0666",
+                    "mode=0620",
+                    "gid=5"
+                ]
+            },
+            {
+                "destination": "/sys",
+                "type": "sysfs",
+                "source": "sysfs",
+                "options": [
+                    "nosuid",
+                    "noexec",
+                    "nodev",
+                    "ro"
+                ]
+            },
+            {
+                "destination": "/sys/fs/cgroup",
+                "type": "cgroup",
+                "source": "cgroup",
+                "options": [
+                    "ro",
+                    "nosuid",
+                    "noexec",
+                    "nodev"
+                ]
+            },
+            {
+                "destination": "/dev/mqueue",
+                "type": "mqueue",
+                "source": "mqueue",
+                "options": [
+                    "nosuid",
+                    "noexec",
+                    "nodev"
+                ]
+            },
+            {
+                "destination": "/dev/shm",
+                "type": "tmpfs",
+                "source": "shm",
+                "options": [
+                    "nosuid",
+                    "noexec",
+                    "nodev",
+                    "mode=1777",
+                    "size=67108864"
+                ]
+            },
+            {
+                "destination": "/etc/resolv.conf",
+                "type": "bind",
+                "source": "/var/lib/docker/containers/447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9/resolv.conf",
+                "options": [
+                    "rbind",
+                    "rprivate"
+                ]
+            },
+            {
+                "destination": "/etc/hostname",
+                "type": "bind",
+                "source": "/var/lib/docker/containers/447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9/hostname",
+                "options": [
+                    "rbind",
+                    "rprivate"
+                ]
+            },
+            {
+                "destination": "/etc/hosts",
+                "type": "bind",
+                "source": "/var/lib/docker/containers/447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9/hosts",
+                "options": [
+                    "rbind",
+                    "rprivate"
+                ]
+            }
+        ],
+        "linux": {
+            "sysctl": {
+                "net.ipv4.ip_unprivileged_port_start": "1024",
+                "net.ipv4.ping_group_range": "1 0"
+            },
+            "resources": {
+                "devices": [
+                    {
+                        "allow": false,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 1,
+                        "minor": 5,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 1,
+                        "minor": 3,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 1,
+                        "minor": 9,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 1,
+                        "minor": 8,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 5,
+                        "minor": 0,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 5,
+                        "minor": 1,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": false,
+                        "type": "c",
+                        "major": 10,
+                        "minor": 229,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": false,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 1,
+                        "minor": 5,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 1,
+                        "minor": 3,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 1,
+                        "minor": 9,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 1,
+                        "minor": 8,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 5,
+                        "minor": 0,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "c",
+                        "major": 5,
+                        "minor": 1,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": false,
+                        "type": "c",
+                        "major": 10,
+                        "minor": 229,
+                        "access": "rwm"
+                    },
+                    {
+                        "allow": true,
+                        "type": "a",
+                        "major": -1,
+                        "minor": -1,
+                        "access": "rwm"
+                    }
+                ],
+                "blockIO": {}
+            },
+            "cgroupsPath": "system.slice:docker:447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9",
+            "namespaces": [
+                {
+                    "type": "mount"
+                },
+                {
+                    "type": "network"
+                },
+                {
+                    "type": "uts"
+                },
+                {
+                    "type": "pid"
+                },
+                {
+                    "type": "ipc"
+                },
+                {
+                    "type": "cgroup"
+                }
+            ],
+            "maskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "readonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        }
+    }
+}
+CONTAINER    IMAGE    RUNTIME    
+FAILED_RUN_ORPHAN_METADATA_REMOVED
+{"evidence_command_result": {"ended_at": "2026-10-12T03:46:05.519679Z", "exit_status": 0}}

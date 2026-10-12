@@ -1,0 +1,97 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=bash /var/tmp/mk-maint-host-build-v3.sh"], "started_at": "2026-10-11T12:35:35.849247Z"}}
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	11.891s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	12.009s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.114s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.074s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	(cached)
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.229s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.040s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.080s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	1.708s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	2.352s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	1.547s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	4.238s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.073s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.082s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	11.925s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	1.049s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	(cached)
+mkdir -p runtime/bin
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-maint-test -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=49bba37bc4b1d584df6799219be20e26054cf126" -o bin/mk-host-check ./cmd/mk-host-check
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-maint-test -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=49bba37bc4b1d584df6799219be20e26054cf126" -o bin/mkruntimed ./cmd/mkruntimed
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-maint-test -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=49bba37bc4b1d584df6799219be20e26054cf126" -o bin/mk-agent ./cmd/mk-agent
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-maint-test -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=49bba37bc4b1d584df6799219be20e26054cf126" -o bin/mk-agentctl ./cmd/mk-agentctl
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-maint-test -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=49bba37bc4b1d584df6799219be20e26054cf126" -o bin/mknetd ./cmd/mknetd
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-maint-test -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=49bba37bc4b1d584df6799219be20e26054cf126" -o bin/mk-cni ./cmd/mk-cni
+cd runtime && GOCACHE=/tmp/mk-go-cache CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Version=0.1.0-maint-test -X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=49bba37bc4b1d584df6799219be20e26054cf126" -o bin/containerd-shim-multikernel-v2 ./cmd/containerd-shim-multikernel-v2
+python3 scripts/runtime-release-manifest.py runtime/bin runtime/release-manifest.json \
+	--expected-version=0.1.0-maint-test --expected-revision=49bba37bc4b1d584df6799219be20e26054cf126
+{
+  "installed_and_active": "0.1.0-maint-test-49bba37bc4b1d584df6799219be20e26054cf126"
+}
+#
+# No change to .config
+#
+  SYNC    include/config/auto.conf
+  UPD     include/generated/compile.h
+  DESCEND bpf/resolve_btfids
+  DESCEND objtool
+  INSTALL libsubcmd_headers
+  INSTALL libsubcmd_headers
+  CALL    scripts/checksyscalls.sh
+  CC [M]  net/vmw_vsock/mk_transport.o
+  MODPOST Module.symvers
+  CC [M]  net/vmw_vsock/mk_transport.mod.o
+  LD [M]  net/vmw_vsock/mk_transport.ko
+  BTF [M] net/vmw_vsock/mk_transport.ko
+filename:       ${OPERATOR_HOME}/src/linux/net/vmw_vsock/mk_transport.ko
+vermagic:       7.0.0-mk2-gce-lab SMP preempt mod_unload modversions 
+bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2  net/vmw_vsock/mk_transport.ko
+make: Entering directory '${OPERATOR_HOME}/src/linux'
+  DESCEND objtool
+  DESCEND bpf/resolve_btfids
+  INSTALL libsubcmd_headers
+  CALL    scripts/checksyscalls.sh
+  INSTALL libsubcmd_headers
+  MODPOST Module.symvers
+make: Leaving directory '${OPERATOR_HOME}/src/linux'
+7d2bda419a6a9d534e6ec3f7d98e56b2895287db019315f24421d5905d8bc3d7  /opt/mkruntime/artifacts/child-initramfs.cpio.gz
+Collecting rdtsc==0.2.1
+  Downloading rdtsc-0.2.1.tar.gz (2.3 kB)
+  Preparing metadata (setup.py): started
+  Preparing metadata (setup.py): finished with status 'done'
+Building wheels for collected packages: rdtsc
+  Building wheel for rdtsc (setup.py): started
+  DEPRECATION: Building 'rdtsc' using the legacy setup.py bdist_wheel mechanism, which will be removed in a future version. pip 25.3 will enforce this behaviour change. A possible replacement is to use the standardized build interface by setting the `--use-pep517` option, (possibly combined with `--no-build-isolation`), or adding a `pyproject.toml` file to the source tree of 'rdtsc'. Discussion can be found at https://github.com/pypa/pip/issues/6334
+  Building wheel for rdtsc (setup.py): finished with status 'done'
+  Created wheel for rdtsc: filename=rdtsc-0.2.1-py3-none-any.whl size=3469 sha256=b7486f92b84a2e46a6e46895cd36782d8fa5ad774511e1fe3c38e0f4907bf7af
+  Stored in directory: /root/.cache/pip/wheels/2f/94/ac/28a4a41be7d6628c3215da77f9ac28bbb4f842e912c1441663
+Successfully built rdtsc
+Installing collected packages: rdtsc
+Successfully installed rdtsc-0.2.1
+Obtaining file:///opt/mkruntime/kerf
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: kerf-multikernel
+  Building editable for kerf-multikernel (pyproject.toml): started
+  Building editable for kerf-multikernel (pyproject.toml): finished with status 'done'
+  Created wheel for kerf-multikernel: filename=kerf_multikernel-0.2.0-py3-none-any.whl size=10717 sha256=3bb85a069a5b63cc86fbe2cf7db3df2aa11ebedacffc0aba926f415530c619cf
+  Stored in directory: /tmp/pip-ephem-wheel-cache-uk_bdbba/wheels/4c/f5/5e/99862c7242dfc40ddc08732c021068b7f6956a538a0d2e5b7e
+Successfully built kerf-multikernel
+Installing collected packages: kerf-multikernel
+Successfully installed kerf-multikernel-0.2.0
+kerf, version 0.2.0
+MAINT_HOST_BUILD_PASS
+{"evidence_command_result": {"ended_at": "2026-10-11T12:36:41.802343Z", "exit_status": 0}}

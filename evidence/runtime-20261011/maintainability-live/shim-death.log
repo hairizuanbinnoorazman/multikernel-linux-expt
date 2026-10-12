@@ -1,0 +1,95 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-shim-death-live.sh"], "started_at": "2026-10-12T04:08:46.791441Z"}}
+OBSERVATION_BEGIN key=initial-inventory
+pool_configured=0 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 ctr_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=initial-inventory
+OBSERVATION_BEGIN key=host
+case_mode=matrix boot_id=00000000-0000-0000-0000-00000000000c kernel=7.0.0-mk2-gce-lab containerd_pid=36846 mkruntimed_pid=47470
+OBSERVATION_END key=host
+OBSERVATION_BEGIN key=reconnect-before
+supervisor_pid=47877 worker_pid=47882 namespace_holder_pid=48095 state=RUNNING child_boot=00000000-0000-0000-0000-000000000003 exec=reconnect-exec-before-err
+reconnect-exec-before recovery={"bundle_identity":{"device":28,"inode":4760,"uid":0},"file":{"links":1,"mode":"0o600","uid":0},"generation":"b0e01ef5fd3044b0ecffed41b248bf27","id":"mk-mk-shim-reconnect-a620db344e786aa2","network":{"address":"172.31.0.2/30","generation":"0e19b431b052c7e57073c0003f02d78a","host_address":null,"mtu":1400,"sandbox_generation":"b0e01ef5fd3044b0ecffed41b248bf27","sandbox_id":"mk-mk-shim-reconnect-a620db344e786aa2"},"processes":[{"id":"","pid":163,"status":2,"stderr_offset":26,"stdin_offset":null,"stdout_offset":22,"terminal":null}],"schema_version":3,"task_identity":"task-a620db344e786aa233ac9c1700f94b95"}
+OBSERVATION_END key=reconnect-before
+OBSERVATION_BEGIN key=reconnect-after
+supervisor_pid=47877 old_worker_pid=47882 replacement_worker_pid=48464 old_namespace_holder_pid=48095 replacement_namespace_holder_pid=48488 state=RUNNING child_boot=00000000-0000-0000-0000-000000000003 exec=reconnect-exec-after-err
+reconnect-exec-after recovery={"bundle_identity":{"device":28,"inode":4760,"uid":0},"file":{"links":1,"mode":"0o600","uid":0},"generation":"b0e01ef5fd3044b0ecffed41b248bf27","id":"mk-mk-shim-reconnect-a620db344e786aa2","network":{"address":"172.31.0.2/30","generation":"0e19b431b052c7e57073c0003f02d78a","host_address":null,"mtu":1400,"sandbox_generation":"b0e01ef5fd3044b0ecffed41b248bf27","sandbox_id":"mk-mk-shim-reconnect-a620db344e786aa2"},"processes":[{"id":"","pid":163,"status":2,"stderr_offset":26,"stdin_offset":null,"stdout_offset":22,"terminal":null}],"schema_version":3,"task_identity":"task-a620db344e786aa233ac9c1700f94b95"}
+OBSERVATION_END key=reconnect-after
+OBSERVATION_BEGIN key=reconnect-journal
+2026-10-12T04:10:31.580386+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:31.580312739Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:33.596081+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:33.596006485Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:35.871546+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:35.871473031Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:37.887658+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:37.887577328Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:40.163415+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:40.163341002Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:42.180154+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:42.180084531Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:44.456465+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:44.456412612Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:46.472966+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:46.472881115Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:48.749495+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:48.749426147Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:50.765861+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:50.765796485Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:53.041971+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:53.041918642Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:55.057941+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:55.057817703Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:57.335162+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:57.335077934Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+2026-10-12T04:10:59.350933+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:10:59.350878341Z" level=error msg="get state for mk-shim-reconnect" error="context deadline exceeded"
+OBSERVATION_END key=reconnect-journal
+OBSERVATION_BEGIN key=reconnect-stream
+reconnect-init-before-err
+reconnect-init-before
+reconnect-init-after-err
+reconnect-init-after
+OBSERVATION_END key=reconnect-stream
+OBSERVATION_BEGIN key=reconnect-events
+2026-10-12 04:08:51.35581919 +0000 UTC default /snapshot/prepare {"key":"mk-shim-reconnect","parent":"sha256:97e4ece8f8a4d01b66df2c55c1f1e8a2860597b54dffbbc0df2f9942062cb34d","snapshotter":"overlayfs"}
+2026-10-12 04:08:51.362444516 +0000 UTC default /containers/create {"id":"mk-shim-reconnect","image":"docker.io/library/busybox:1.36","runtime":{"name":"io.containerd.multikernel.v2"}}
+2026-10-12 04:10:17.438702804 +0000 UTC default /tasks/create {"container_id":"mk-shim-reconnect","bundle":"/run/containerd/io.containerd.runtime.v2.task/default/mk-shim-reconnect","rootfs":[{"type":"overlay","source":"overlay","options":["workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/54/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/54/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/1/fs","index=off"]}],"pid":48095}
+2026-10-12 04:10:26.788378485 +0000 UTC default /tasks/start {"container_id":"mk-shim-reconnect","pid":48095}
+2026-10-12 04:10:27.829393691 +0000 UTC default /tasks/exec-added {"container_id":"mk-shim-reconnect","exec_id":"shim-stream-ready"}
+2026-10-12 04:10:27.834367589 +0000 UTC default /tasks/exec-started {"container_id":"mk-shim-reconnect","exec_id":"shim-stream-ready","pid":167}
+2026-10-12 04:10:28.112367214 +0000 UTC default /tasks/exit {"container_id":"mk-shim-reconnect","id":"shim-stream-ready","pid":167,"exited_at":{"seconds":1791778228,"nanos":110751816}}
+2026-10-12 04:10:28.117994659 +0000 UTC default /tasks/delete {"container_id":"mk-shim-reconnect","pid":167,"exited_at":{"seconds":1791778228,"nanos":110751816},"id":"shim-stream-ready"}
+2026-10-12 04:10:29.45843508 +0000 UTC default /tasks/exec-added {"container_id":"mk-shim-reconnect","exec_id":"shim-boot-before"}
+2026-10-12 04:10:29.462197713 +0000 UTC default /tasks/exec-started {"container_id":"mk-shim-reconnect","exec_id":"shim-boot-before","pid":172}
+2026-10-12 04:10:29.486730793 +0000 UTC default /tasks/exit {"container_id":"mk-shim-reconnect","id":"shim-boot-before","pid":172,"exited_at":{"seconds":1791778229,"nanos":485526022}}
+2026-10-12 04:10:29.489461602 +0000 UTC default /tasks/delete {"container_id":"mk-shim-reconnect","pid":172,"exited_at":{"seconds":1791778229,"nanos":485526022},"id":"shim-boot-before"}
+2026-10-12 04:10:29.508300034 +0000 UTC default /tasks/exec-added {"container_id":"mk-shim-reconnect","exec_id":"shim-exec-before"}
+2026-10-12 04:10:29.510827133 +0000 UTC default /tasks/exec-started {"container_id":"mk-shim-reconnect","exec_id":"shim-exec-before","pid":176}
+2026-10-12 04:10:29.515386567 +0000 UTC default /tasks/exit {"container_id":"mk-shim-reconnect","id":"shim-exec-before","pid":176,"exited_at":{"seconds":1791778229,"nanos":514388242}}
+2026-10-12 04:10:29.518402088 +0000 UTC default /tasks/delete {"container_id":"mk-shim-reconnect","pid":176,"exited_at":{"seconds":1791778229,"nanos":514388242},"id":"shim-exec-before"}
+2026-10-12 04:11:01.057392034 +0000 UTC default /tasks/exec-added {"container_id":"mk-shim-reconnect","exec_id":"shim-boot-after"}
+2026-10-12 04:11:01.060905111 +0000 UTC default /tasks/exec-started {"container_id":"mk-shim-reconnect","exec_id":"shim-boot-after","pid":202}
+2026-10-12 04:11:01.085784405 +0000 UTC default /tasks/exit {"container_id":"mk-shim-reconnect","id":"shim-boot-after","pid":202,"exited_at":{"seconds":1791778261,"nanos":84542318}}
+2026-10-12 04:11:01.089010644 +0000 UTC default /tasks/delete {"container_id":"mk-shim-reconnect","pid":202,"exited_at":{"seconds":1791778261,"nanos":84542318},"id":"shim-boot-after"}
+2026-10-12 04:11:01.109261348 +0000 UTC default /tasks/exec-added {"container_id":"mk-shim-reconnect","exec_id":"shim-exec-after"}
+2026-10-12 04:11:01.113310769 +0000 UTC default /tasks/exec-started {"container_id":"mk-shim-reconnect","exec_id":"shim-exec-after","pid":206}
+2026-10-12 04:11:01.1378725 +0000 UTC default /tasks/exit {"container_id":"mk-shim-reconnect","id":"shim-exec-after","pid":206,"exited_at":{"seconds":1791778261,"nanos":136717414}}
+2026-10-12 04:11:01.140899401 +0000 UTC default /tasks/delete {"container_id":"mk-shim-reconnect","pid":206,"exited_at":{"seconds":1791778261,"nanos":136717414},"id":"shim-exec-after"}
+2026-10-12 04:11:01.20244852 +0000 UTC default /tasks/exec-added {"container_id":"mk-shim-reconnect","exec_id":"shim-release"}
+2026-10-12 04:11:01.207252816 +0000 UTC default /tasks/exec-started {"container_id":"mk-shim-reconnect","exec_id":"shim-release","pid":210}
+2026-10-12 04:11:01.23143873 +0000 UTC default /tasks/exit {"container_id":"mk-shim-reconnect","id":"shim-release","pid":210,"exited_at":{"seconds":1791778261,"nanos":230318709}}
+2026-10-12 04:11:01.234720763 +0000 UTC default /tasks/delete {"container_id":"mk-shim-reconnect","pid":210,"exited_at":{"seconds":1791778261,"nanos":230318709},"id":"shim-release"}
+2026-10-12 04:11:01.242604654 +0000 UTC default /tasks/exit {"container_id":"mk-shim-reconnect","id":"mk-shim-reconnect","pid":48488,"exited_at":{"seconds":1791778261,"nanos":241611293}}
+2026-10-12 04:11:01.717542849 +0000 UTC default /tasks/delete {"container_id":"mk-shim-reconnect","pid":48488,"exited_at":{"seconds":1791778261,"nanos":241611293}}
+2026-10-12 04:11:01.787817541 +0000 UTC default /snapshot/remove {"key":"mk-shim-reconnect","snapshotter":"overlayfs"}
+2026-10-12 04:11:01.788942792 +0000 UTC default /containers/delete {"id":"mk-shim-reconnect"}
+OBSERVATION_END key=reconnect-events
+OBSERVATION_BEGIN key=reconnect-final-inventory
+pool_configured=1 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 ctr_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=reconnect-final-inventory
+G6_FORCED_SHIM_RECONNECT_PASS
+OBSERVATION_BEGIN key=reclaim-before
+supervisor_pid=53686 worker_pid=53691 namespace_holder_pid=53885 state=RUNNING child_boot=00000000-0000-0000-0000-00000000000b recovery={"bundle_identity":{"device":28,"inode":4988,"uid":0},"file":{"links":1,"mode":"0o600","uid":0},"generation":"e3de620be4b59aed52e25c5dc52e6aee","id":"mk-mk-shim-reclaim-8c4b6f202f635b31","network":{"address":"172.31.0.2/30","generation":"7e082c5b78327391752cda87bfb361bf","host_address":null,"mtu":1400,"sandbox_generation":"e3de620be4b59aed52e25c5dc52e6aee","sandbox_id":"mk-mk-shim-reclaim-8c4b6f202f635b31"},"processes":[{"id":"","pid":162,"status":2,"stderr_offset":null,"stdin_offset":null,"stdout_offset":null,"terminal":null}],"schema_version":3,"task_identity":"task-8c4b6f202f635b31c3d8354181624479"}
+OBSERVATION_END key=reclaim-before
+OBSERVATION_BEGIN key=reclaim-after
+supervisor_dead=true worker_dead=true namespace_holder_dead=true task_state=ABSENT exec_status=1 exec_error=ctr: no running task found: task mk-shim-reclaim not found children=0 artifacts=0 rootfs_records=0 endpoints=0 shims=0 helpers=0
+OBSERVATION_END key=reclaim-after
+OBSERVATION_BEGIN key=reclaim-journal
+2026-10-12T04:12:29.813141+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:12:29.813088789Z" level=info msg="shim disconnected" id=mk-shim-reclaim namespace=default
+2026-10-12T04:12:29.813141+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:12:29.813135415Z" level=info msg="cleaning up after shim disconnected" id=mk-shim-reclaim namespace=default
+2026-10-12T04:12:29.813649+00:00 mklinux-maintainability-20261011 containerd[36846]: time="2026-10-12T04:12:29.813144873Z" level=info msg="cleaning up dead shim" id=mk-shim-reclaim namespace=default
+OBSERVATION_END key=reclaim-journal
+OBSERVATION_BEGIN key=reclaim-final-inventory
+pool_configured=1 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 ctr_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=reclaim-final-inventory
+G6_FORCED_SHIM_RECLAIM_PASS
+OBSERVATION_BEGIN key=final-released-inventory
+pool_configured=0 children=0 links=0 nat_rules=0 filter_rules=0 ctr_tasks=0 ctr_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=final-released-inventory
+G6_FORCED_SHIM_DEATH_MATRIX_PASS
+{"evidence_command_result": {"ended_at": "2026-10-12T04:13:16.645553Z", "exit_status": 0}}

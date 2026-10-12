@@ -1,0 +1,144 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-network-isolation-live.sh /var/tmp/mk-maint-src"], "started_at": "2026-10-12T04:13:16.675296Z"}}
+OBSERVATION_BEGIN key=clean-before
+rootfs_records=0 live_exports=0 endpoints=0
+OBSERVATION_END key=clean-before
+OBSERVATION_BEGIN key=provenance
+boot_id=00000000-0000-0000-0000-00000000000c
+selector=/usr/local/lib/multikernel/releases/0.1.0-maint-test-49bba37bc4b1d584df6799219be20e26054cf126
+mkruntimed_sha256=f165985bec0e693c0e0ad9716189e3e83635b499ada8907e98c89b5140be16f5
+mknetd_sha256=c51cb72058948e161e1cceb8c88cc51301553145174e1105e7845bfce76d7483
+qualifier_sha256=4e08b01af8f49af0cfb74610bfb3725a95ad4f8972b9bb3681f46fc5a9834923
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=primary-health-before
+ssh_active=1 ssh_connection=present ssh_listeners=2 guest_agent_active=1 guest_agent_pid=1109 guest_agent_exe=/proc/1109/exe metadata_status=200 metadata_flavor=Google metadata_bytes=19 metadata_sha256=da6b738b9d78d4147bd196a17e998d446079d67141da14a7d10f1078085beea1 default_route=default via 198.51.100.1 dev ens4 proto dhcp src 198.51.100.60 metric 100  nic=ens4 nic_device=/sys/devices/pci0000:00/0000:00:04.0/virtio1 nic_driver=/sys/bus/virtio/drivers/virtio_net root_source=/dev/sda1 root_disk=sda root_device=/sys/devices/pci0000:00/0000:00:03.0/virtio0/host0/target0:0:1/0:0:1:0 root_driver=/sys/bus/scsi/drivers/sd
+OBSERVATION_END key=primary-health-before
+OBSERVATION_BEGIN key=overlapping-name-distinct-identity
+endpoint_inventory={"mk-net-isolation-a":{"address":"172.31.0.2/30","dns":{"nameservers":["169.254.169.254"]},"errors":0,"gateway":"172.31.0.1","generation":"2f70c389a84dbfb332f955c2efd651f3","mtu":1400,"sandbox_generation":"e170adc7cfaee89e31befd5676891b99","sandbox_id":"mk-mk-net-isolation-a-71e6a79a076546d3","state":"READY"},"mk-net-isolation-b":{"address":"172.31.0.6/30","dns":{"nameservers":["169.254.169.254"]},"errors":0,"gateway":"172.31.0.5","generation":"4dcaa1eecf2c51a88ad27c7c74e32eb4","mtu":1400,"sandbox_generation":"976e047525dbe6303c49879e1c925b73","sandbox_id":"mk-mk-net-isolation-b-89dd3f5a4a41670d","state":"READY"}}
+task_a=mk-net-isolation-a hostname=shared-internal-name
+2: mkn0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1400 qdisc pfifo_fast qlen 500
+    inet 172.31.0.2/30 scope global mkn0
+       valid_lft forever preferred_lft forever
+task_b=mk-net-isolation-b hostname=shared-internal-name
+2: mkn0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1400 qdisc pfifo_fast qlen 500
+    inet 172.31.0.6/30 scope global mkn0
+       valid_lft forever preferred_lft forever
+OBSERVATION_END key=overlapping-name-distinct-identity
+OBSERVATION_BEGIN key=positive-allowed-routing
+task_a_destination=198.51.100.60:18082 request=route-token-a response=primary-route-ok-a
+task_b_destination=198.51.100.60:18082 request=route-token-b response=primary-route-ok-b
+primary_observation=[{"destination": "198.51.100.60:18082", "peer": "172.31.0.2", "peer_port": 45859, "request": "route-token-a", "response": "primary-route-ok-a"}, {"destination": "198.51.100.60:18082", "peer": "172.31.0.6", "peer_port": 33929, "request": "route-token-b", "response": "primary-route-ok-b"}]
+OBSERVATION_END key=positive-allowed-routing
+OBSERVATION_BEGIN key=negative-default-isolation
+task_a_to_task_b=172.31.0.6 exit_status=1 output=PING 172.31.0.6 (172.31.0.6): 56 data bytes
+
+--- 172.31.0.6 ping statistics ---
+1 packets transmitted, 0 packets received, 100% packet loss
+task_b_to_task_a=172.31.0.2 exit_status=1 output=PING 172.31.0.2 (172.31.0.2): 56 data bytes
+
+--- 172.31.0.2 ping statistics ---
+1 packets transmitted, 0 packets received, 100% packet loss
+OBSERVATION_END key=negative-default-isolation
+OBSERVATION_BEGIN key=policy-bypass-rejection
+metadata_url=http://169.254.169.254/computeMetadata/v1/
+task_a_metadata_exit_status=1 output=Connecting to 169.254.169.254 (169.254.169.254:80)
+wget: can't connect to remote host (169.254.169.254): Connection refused
+task_b_metadata_exit_status=1 output=Connecting to 169.254.169.254 (169.254.169.254:80)
+wget: can't connect to remote host (169.254.169.254): Connection refused
+task_a_injected_route=172.31.0.6/32-via-172.31.0.1 exit_status=1 output=PING 172.31.0.6 (172.31.0.6): 56 data bytes
+
+--- 172.31.0.6 ping statistics ---
+1 packets transmitted, 0 packets received, 100% packet loss
+task_b_injected_route=172.31.0.2/32-via-172.31.0.5 exit_status=1 output=PING 172.31.0.2 (172.31.0.2): 56 data bytes
+
+--- 172.31.0.2 ping statistics ---
+1 packets transmitted, 0 packets received, 100% packet loss
+task_a_spoof_source=198.18.0.1 exit_status=1 output=
+task_b_spoof_source=198.18.0.2 exit_status=1 output=
+primary_spoof_listener={"accepted": false}
+policy_before=Chain MK-2f70c389a84d (1 references)
+    pkts      bytes target     prot opt in     out     source               destination         
+       0        0 DROP       all  --  *      *      !172.31.0.2           0.0.0.0/0           
+       0        0 ACCEPT     udp  --  *      *       0.0.0.0/0            169.254.169.254      udp dpt:53
+       0        0 ACCEPT     tcp  --  *      *       0.0.0.0/0            169.254.169.254      tcp dpt:53
+       0        0 REJECT     all  --  *      *       0.0.0.0/0            169.254.169.254      reject-with icmp-port-unreachable
+       1       84 DROP       all  --  *      mkv+    0.0.0.0/0            0.0.0.0/0           
+       0        0 ACCEPT     all  --  *      ens4    0.0.0.0/0            0.0.0.0/0           
+       0        0 DROP       all  --  *      *       0.0.0.0/0            0.0.0.0/0           
+Chain MK-4dcaa1eecf2c (1 references)
+    pkts      bytes target     prot opt in     out     source               destination         
+       0        0 DROP       all  --  *      *      !172.31.0.6           0.0.0.0/0           
+       0        0 ACCEPT     udp  --  *      *       0.0.0.0/0            169.254.169.254      udp dpt:53
+       0        0 ACCEPT     tcp  --  *      *       0.0.0.0/0            169.254.169.254      tcp dpt:53
+       0        0 REJECT     all  --  *      *       0.0.0.0/0            169.254.169.254      reject-with icmp-port-unreachable
+       1       84 DROP       all  --  *      mkv+    0.0.0.0/0            0.0.0.0/0           
+       0        0 ACCEPT     all  --  *      ens4    0.0.0.0/0            0.0.0.0/0           
+       0        0 DROP       all  --  *      *       0.0.0.0/0            0.0.0.0/0           
+policy_after=Chain MK-2f70c389a84d (1 references)
+    pkts      bytes target     prot opt in     out     source               destination         
+       0        0 DROP       all  --  *      *      !172.31.0.2           0.0.0.0/0           
+       0        0 ACCEPT     udp  --  *      *       0.0.0.0/0            169.254.169.254      udp dpt:53
+       0        0 ACCEPT     tcp  --  *      *       0.0.0.0/0            169.254.169.254      tcp dpt:53
+       1       60 REJECT     all  --  *      *       0.0.0.0/0            169.254.169.254      reject-with icmp-port-unreachable
+       2      168 DROP       all  --  *      mkv+    0.0.0.0/0            0.0.0.0/0           
+       0        0 ACCEPT     all  --  *      ens4    0.0.0.0/0            0.0.0.0/0           
+       0        0 DROP       all  --  *      *       0.0.0.0/0            0.0.0.0/0           
+Chain MK-4dcaa1eecf2c (1 references)
+    pkts      bytes target     prot opt in     out     source               destination         
+       0        0 DROP       all  --  *      *      !172.31.0.6           0.0.0.0/0           
+       0        0 ACCEPT     udp  --  *      *       0.0.0.0/0            169.254.169.254      udp dpt:53
+       0        0 ACCEPT     tcp  --  *      *       0.0.0.0/0            169.254.169.254      tcp dpt:53
+       1       60 REJECT     all  --  *      *       0.0.0.0/0            169.254.169.254      reject-with icmp-port-unreachable
+       2      168 DROP       all  --  *      mkv+    0.0.0.0/0            0.0.0.0/0           
+       0        0 ACCEPT     all  --  *      ens4    0.0.0.0/0            0.0.0.0/0           
+       0        0 DROP       all  --  *      *       0.0.0.0/0            0.0.0.0/0           
+OBSERVATION_END key=policy-bypass-rejection
+OBSERVATION_BEGIN key=primary-health-during
+ssh_active=1 ssh_connection=present ssh_listeners=2 guest_agent_active=1 guest_agent_pid=1109 guest_agent_exe=/proc/1109/exe metadata_status=200 metadata_flavor=Google metadata_bytes=19 metadata_sha256=da6b738b9d78d4147bd196a17e998d446079d67141da14a7d10f1078085beea1 default_route=default via 198.51.100.1 dev ens4 proto dhcp src 198.51.100.60 metric 100  nic=ens4 nic_device=/sys/devices/pci0000:00/0000:00:04.0/virtio1 nic_driver=/sys/bus/virtio/drivers/virtio_net root_source=/dev/sda1 root_disk=sda root_device=/sys/devices/pci0000:00/0000:00:03.0/virtio0/host0/target0:0:1/0:0:1:0 root_driver=/sys/bus/scsi/drivers/sd
+OBSERVATION_END key=primary-health-during
+OBSERVATION_BEGIN key=clean-after-release
+rootfs_records=0 live_exports=0 endpoints=0
+OBSERVATION_END key=clean-after-release
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-maint-test-49bba37bc4b1d584df6799219be20e26054cf126 boot_id=00000000-0000-0000-0000-00000000000c mkruntimed_pid=59255 mkruntimed_sha256=f165985bec0e693c0e0ad9716189e3e83635b499ada8907e98c89b5140be16f5
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=kerf-resource-return
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+OBSERVATION_END key=kerf-resource-return
+OBSERVATION_BEGIN key=final-resource-inventory
+children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0
+OBSERVATION_END key=final-resource-inventory
+Id=mkruntimed.service
+ActiveState=active
+SubState=running
+MainPID=59255
+NRestarts=0
+Id=mknetd.service
+ActiveState=active
+SubState=running
+MainPID=2536
+NRestarts=0
+Id=containerd.service
+ActiveState=active
+SubState=running
+MainPID=36846
+NRestarts=0
+Id=docker.service
+ActiveState=active
+SubState=running
+MainPID=42434
+NRestarts=0
+G6_FINAL_RESOURCE_RETURN_PASS
+OBSERVATION_BEGIN key=primary-health-after
+ssh_active=1 ssh_connection=present ssh_listeners=2 guest_agent_active=1 guest_agent_pid=1109 guest_agent_exe=/proc/1109/exe metadata_status=200 metadata_flavor=Google metadata_bytes=19 metadata_sha256=da6b738b9d78d4147bd196a17e998d446079d67141da14a7d10f1078085beea1 default_route=default via 198.51.100.1 dev ens4 proto dhcp src 198.51.100.60 metric 100  nic=ens4 nic_device=/sys/devices/pci0000:00/0000:00:04.0/virtio1 nic_driver=/sys/bus/virtio/drivers/virtio_net root_source=/dev/sda1 root_disk=sda root_device=/sys/devices/pci0000:00/0000:00:03.0/virtio0/host0/target0:0:1/0:0:1:0 root_driver=/sys/bus/scsi/drivers/sd
+OBSERVATION_END key=primary-health-after
+G5_NETWORK_ISOLATION_LIVE_PASS
+{"evidence_command_result": {"ended_at": "2026-10-12T04:16:40.651475Z", "exit_status": 0}}

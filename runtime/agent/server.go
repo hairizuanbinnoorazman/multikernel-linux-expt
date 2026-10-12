@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -33,11 +32,15 @@ type Envelope struct {
 	MAC        string          `json:"mac"`
 }
 type Reply struct {
-	Version  int             `json:"version"`
-	Sequence uint64          `json:"sequence"`
-	Body     any             `json:"-"`
-	Error    string          `json:"-"`
-	Failure  *protocol.Error `json:"-"`
+	Version  int    `json:"version"`
+	Sequence uint64 `json:"sequence"`
+	Body     any    `json:"-"`
+	// Error is the local diagnostic. Server replies retain their typed cause
+	// through setError; a diagnostic string alone serializes as INTERNAL.
+	Error string `json:"-"`
+	// Failure is the structured error decoded from a remote reply.
+	Failure *protocol.Error `json:"-"`
+	cause   error
 }
 
 func (r Reply) MarshalJSON() ([]byte, error) {
@@ -50,7 +53,7 @@ func (r Reply) MarshalJSON() ([]byte, error) {
 	wire := wireReply{Version: r.Version, Sequence: r.Sequence, Body: r.Body}
 	if r.Error != "" {
 		wire.Body = nil
-		wire.Error = safeAgentError(r.Sequence, r.Error)
+		wire.Error = safeAgentError(r.Sequence, r.cause)
 	} else if wire.Body == nil {
 		wire.Body = map[string]any{}
 	}
@@ -72,60 +75,12 @@ func (r *Reply) UnmarshalJSON(data []byte) error {
 		return errors.New("agent reply must contain exactly one body or error")
 	}
 	r.Version, r.Sequence, r.Body, r.Error = wire.Version, wire.Sequence, wire.Body, ""
+	r.cause = nil
 	r.Failure = wire.Error
 	if wire.Error != nil {
 		r.Error = wire.Error.Code + ": " + wire.Error.Message
 	}
 	return nil
-}
-
-func safeAgentError(sequence uint64, raw string) *protocol.Error {
-	code, message := "INTERNAL", "agent operation failed"
-	switch {
-	case strings.Contains(raw, "guest process start stage executable failed"):
-		message = "guest process start failed at executable"
-	case strings.Contains(raw, "guest process start stage constraints failed"):
-		message = "guest process start failed at constraints"
-	case strings.Contains(raw, "guest process start stage terminal failed"):
-		message = "guest process start failed at terminal"
-	case strings.Contains(raw, "guest process start stage stdio failed"):
-		message = "guest process start failed at stdio"
-	case strings.Contains(raw, "guest process start stage exec failed"):
-		message = "guest process start failed at exec"
-	case strings.Contains(raw, "guest process create stage bundle-load failed"):
-		message = "guest process creation failed at bundle-load"
-	case strings.Contains(raw, "guest process create stage root-policy failed"):
-		message = "guest process creation failed at root-policy"
-	case strings.Contains(raw, "guest network setup stage tun-open failed"):
-		message = "guest network setup failed at tun-open"
-	case strings.Contains(raw, "guest network setup stage tun-request failed"):
-		message = "guest network setup failed at tun-request"
-	case strings.Contains(raw, "guest network setup stage tun-create failed"):
-		message = "guest network setup failed at tun-create"
-	case strings.Contains(raw, "guest network setup stage address failed"):
-		message = "guest network setup failed at address"
-	case strings.Contains(raw, "guest network setup stage link failed"):
-		message = "guest network setup failed at link"
-	case strings.Contains(raw, "guest network setup stage route failed"):
-		message = "guest network setup failed at route"
-	case strings.Contains(raw, "guest network setup stage dns failed"):
-		message = "guest network setup failed at dns"
-	case strings.Contains(raw, "frame too large"):
-		code, message = "INVALID_ARGUMENT", "agent frame is too large"
-	case strings.Contains(raw, "authentication"), strings.Contains(raw, "identity"), strings.Contains(raw, "replayed sequence"):
-		code, message = "UNAUTHENTICATED", "agent authentication failed"
-	case strings.Contains(raw, "unsupported"), strings.Contains(raw, "not implemented"):
-		code, message = "UNSUPPORTED", "agent operation is unsupported"
-	case strings.Contains(raw, "not found"):
-		code, message = "NOT_FOUND", "managed process was not found"
-	case strings.Contains(raw, "exists"):
-		code, message = "ALREADY_EXISTS", "managed process already exists"
-	case strings.Contains(raw, "not running"), strings.Contains(raw, "not started"), strings.Contains(raw, "still running"), strings.Contains(raw, "not created"), strings.Contains(raw, "stdin is closed"), strings.Contains(raw, "is quiesced"):
-		code, message = "FAILED_PRECONDITION", "managed process is in the wrong state"
-	case strings.Contains(raw, "invalid"), strings.Contains(raw, "must"), strings.Contains(raw, "required"), strings.Contains(raw, "exceed"), strings.Contains(raw, "limit"), strings.Contains(raw, "offset"), strings.Contains(raw, "absolute"), strings.Contains(raw, "multiple JSON"), strings.Contains(raw, "unknown field"):
-		code, message = "INVALID_ARGUMENT", "invalid agent request"
-	}
-	return &protocol.Error{Code: code, Message: message, OperationID: fmt.Sprintf("agent-%d", sequence), Retryable: false}
 }
 
 type Server struct {
@@ -149,30 +104,33 @@ func Sign(e *Envelope, token []byte) {
 }
 func (s *Server) verify(e Envelope) error {
 	if e.Version != 1 {
-		return errors.New("unsupported version")
+		return errorf(unsupported, "unsupported version")
 	}
 	if e.SandboxID != s.SandboxID || e.Generation != s.Generation || e.Endpoint != s.Endpoint {
-		return errors.New("stale or wrong identity")
+		return errorf(unauthenticated, "stale or wrong identity")
 	}
 	got, x := hex.DecodeString(e.MAC)
 	if x != nil {
-		return errors.New("invalid authentication")
+		return errorf(unauthenticated, "invalid authentication")
 	}
 	m := hmac.New(sha256.New, s.Token)
 	m.Write(e.canonical())
 	if !hmac.Equal(got, m.Sum(nil)) {
-		return errors.New("invalid authentication")
+		return errorf(unauthenticated, "invalid authentication")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if e.Sequence <= s.last {
-		return errors.New("replayed sequence")
+		return errorf(unauthenticated, "replayed sequence")
 	}
 	s.last = e.Sequence
 	return nil
 }
 func decode(b []byte, v any) error {
-	return protocol.StrictDecode(b, v)
+	if err := protocol.StrictDecode(b, v); err != nil {
+		return &operationError{kind: invalidArgument, cause: err}
+	}
+	return nil
 }
 
 func capabilityReport() map[string]any {
@@ -236,7 +194,7 @@ func (s *Server) quiesce() error {
 		return nil
 	}
 	if !s.Manager.Quiescent() {
-		return errors.New("managed processes are still running")
+		return errorf(failedPrecondition, "managed processes are still running")
 	}
 	if s.BeforeShutdown != nil {
 		if err := s.BeforeShutdown(); err != nil {
@@ -256,11 +214,11 @@ func (s *Server) isQuiesced() bool {
 func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 	r := Reply{Version: 1, Sequence: e.Sequence}
 	if x := s.verify(e); x != nil {
-		r.Error = x.Error()
+		r.setError(x)
 		return r
 	}
 	if s.isQuiesced() && e.Method != "Capabilities" && e.Method != "Quiesce" && e.Method != "Shutdown" {
-		r.Error = "agent is quiesced"
+		r.setError(errorf(failedPrecondition, "agent is quiesced"))
 		return r
 	}
 	switch e.Method {
@@ -269,11 +227,11 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 	case "CreateProcess":
 		var q struct{ ID, Bundle string }
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if s.Bundle != "" && q.Bundle != s.Bundle {
-			r.Error = "bundle path does not match the runtime-owned bundle"
+			r.setError(errorf(invalidArgument, "bundle path does not match the runtime-owned bundle"))
 		} else if x = s.Manager.Create(q.ID, q.Bundle); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "ExecProcess":
 		var q struct {
@@ -282,9 +240,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			Spec     ProcessSpec `json:"spec"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if x = s.Manager.Exec(q.ID, q.ParentID, q.Spec); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "StartProcess":
 		var q struct {
@@ -294,9 +252,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			InitialSize bool   `json:"initial_size,omitempty"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if x = s.Manager.StartWithSize(q.ID, q.Width, q.Height, q.InitialSize); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "SignalProcess":
 		var q struct {
@@ -305,15 +263,15 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			OperationID string `json:"operation_id,omitempty"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if sig, x := SignalNumber(q.Signal); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if q.OperationID != "" {
 			if x = s.Manager.SignalOnce(q.ID, sig, q.OperationID); x != nil {
-				r.Error = x.Error()
+				r.setError(x)
 			}
 		} else if x = s.Manager.Signal(q.ID, sig); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "AcknowledgeSignal":
 		var q struct {
@@ -321,9 +279,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			OperationID string `json:"operation_id"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if x = s.Manager.AcknowledgeSignal(q.ID, q.OperationID); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "ResizeProcess":
 		var q struct {
@@ -332,9 +290,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			Height uint32 `json:"height"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if x = s.Manager.Resize(q.ID, q.Width, q.Height); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "WriteProcess":
 		var q struct {
@@ -343,13 +301,13 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			Data   []byte  `json:"data"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if q.Offset == nil {
 			if x = s.Manager.Write(q.ID, q.Data); x != nil {
-				r.Error = x.Error()
+				r.setError(x)
 			}
 		} else if offset, x := s.Manager.WriteAt(q.ID, *q.Offset, q.Data); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else {
 			r.Body = map[string]uint64{"offset": offset}
 		}
@@ -358,9 +316,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			ID string `json:"id"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if x = s.Manager.CloseStdin(q.ID); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "ReadProcessOutput":
 		var q struct {
@@ -370,9 +328,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			Limit        uint64 `json:"limit"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if stdout, stderr, nextStdout, nextStderr, status, x := s.Manager.ReadOutput(q.ID, q.StdoutOffset, q.StderrOffset, q.Limit); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else {
 			state, _ := s.Manager.State(q.ID)
 			r.Body = map[string]any{"stdout": stdout, "stderr": stderr, "stdout_offset": nextStdout, "stderr_offset": nextStderr, "status": status, "stdout_truncated": state.StdoutTruncated, "stderr_truncated": state.StderrTruncated}
@@ -380,9 +338,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 	case "WaitProcess":
 		var q struct{ ID string }
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if st, x := s.Manager.Wait(q.ID); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else {
 			st.Stdout = ""
 			st.Stderr = ""
@@ -393,9 +351,9 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			ID string `json:"id"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if st, x := s.Manager.State(q.ID); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else {
 			st.Stdout = ""
 			st.Stderr = ""
@@ -404,49 +362,49 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 	case "StatsProcess":
 		var q struct{ ID string }
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if stats, x := s.Manager.Stats(q.ID); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else {
 			r.Body = stats
 		}
 	case "ConfigureNetwork":
 		var q NetworkConfig
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if x = s.Manager.ConfigureNetworkContext(ctx, q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "ExchangeNetwork":
 		var q struct {
 			Packet []byte `json:"packet,omitempty"`
 		}
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if packet, x := s.Manager.ExchangeNetwork(q.Packet); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else {
 			r.Body = map[string][]byte{"packet": packet}
 		}
 	case "CloseNetwork":
 		if x := s.Manager.CloseNetworkContext(ctx); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "DeleteProcess":
 		var q struct{ ID string }
 		if x := decode(e.Body, &q); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else if x = s.Manager.Delete(q.ID); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		}
 	case "Quiesce", "Shutdown":
 		if x := s.quiesce(); x != nil {
-			r.Error = x.Error()
+			r.setError(x)
 		} else {
 			r.Body = map[string]string{"status": "quiesced"}
 		}
 	default:
-		r.Error = "unsupported method"
+		r.setError(errorf(unsupported, "unsupported method"))
 	}
 	return r
 }
@@ -487,7 +445,7 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 		reply := Reply{Version: 1}
 		closeAfterReply := false
 		if size > 1<<20 {
-			reply.Error = "frame too large"
+			reply.setError(errorf(frameTooLarge, "frame too large"))
 			closeAfterReply = true
 		} else {
 			b := make([]byte, size)
@@ -495,7 +453,7 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 				return e
 			}
 			if decodeErr := decode(b, &env); decodeErr != nil {
-				reply.Error = decodeErr.Error()
+				reply.setError(decodeErr)
 			} else {
 				reply = s.DispatchContext(ctx, env)
 			}

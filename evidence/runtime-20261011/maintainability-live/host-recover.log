@@ -1,0 +1,2 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=bash /var/tmp/mk-maint-host-recover.sh"], "started_at": "2026-10-11T13:02:43.583641Z"}}
+{"evidence_command_result": {"ended_at": "2026-10-11T13:02:45.329574Z", "exit_status": 1}}

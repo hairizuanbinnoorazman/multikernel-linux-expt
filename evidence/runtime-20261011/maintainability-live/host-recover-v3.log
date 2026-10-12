@@ -1,0 +1,203 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=bash /var/tmp/mk-maint-host-recover-v3.sh"], "started_at": "2026-10-12T03:41:48.943919Z"}}
+Created symlink '/etc/systemd/system/multi-user.target.wants/mkruntimed.service' → '/etc/multikernel/deployments/78a467a46de8cafc794167140e8f9a323e7245233b83069891418d7dec9247a2/systemd/mkruntimed.service'.
+Created symlink '/etc/systemd/system/multi-user.target.wants/mknetd.service' → '/etc/multikernel/deployments/78a467a46de8cafc794167140e8f9a323e7245233b83069891418d7dec9247a2/systemd/mknetd.service'.
+Created symlink '/etc/systemd/system/multi-user.target.wants/containerd.service' → '/usr/lib/systemd/system/containerd.service'.
+Created symlink '/etc/systemd/system/multi-user.target.wants/docker.service' → '/usr/lib/systemd/system/docker.service'.
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-12T03:41:51.926071937Z",
+  "qualified": true,
+  "architecture": "amd64",
+  "kernel_release": "7.0.0-mk2-gce-lab",
+  "kernel_config": {
+    "CONFIG_KEXEC_CORE": "y",
+    "CONFIG_KEXEC_FILE": "y",
+    "CONFIG_MKTTY": "y",
+    "CONFIG_MULTIKERNEL": "y"
+  },
+  "multikernel_fs": true,
+  "kerf_version": "kerf, version 0.2.0",
+  "cpus": [
+    {
+      "logical": 0,
+      "apic": 0,
+      "physical_id": 0,
+      "core_id": 0,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 1,
+      "apic": 2,
+      "physical_id": 0,
+      "core_id": 1,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 2,
+      "apic": 4,
+      "physical_id": 0,
+      "core_id": 2,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 3,
+      "apic": 6,
+      "physical_id": 0,
+      "core_id": 3,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 4,
+      "apic": 8,
+      "physical_id": 0,
+      "core_id": 4,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 5,
+      "apic": 10,
+      "physical_id": 0,
+      "core_id": 5,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 6,
+      "apic": 12,
+      "physical_id": 0,
+      "core_id": 6,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 7,
+      "apic": 14,
+      "physical_id": 0,
+      "core_id": 7,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 8,
+      "apic": 1,
+      "physical_id": 0,
+      "core_id": 0,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 9,
+      "apic": 3,
+      "physical_id": 0,
+      "core_id": 1,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 10,
+      "apic": 5,
+      "physical_id": 0,
+      "core_id": 2,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 11,
+      "apic": 7,
+      "physical_id": 0,
+      "core_id": 3,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 12,
+      "apic": 9,
+      "physical_id": 0,
+      "core_id": 4,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 13,
+      "apic": 11,
+      "physical_id": 0,
+      "core_id": 5,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 14,
+      "apic": 13,
+      "physical_id": 0,
+      "core_id": 6,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 15,
+      "apic": 15,
+      "physical_id": 0,
+      "core_id": 7,
+      "numa_node": 0,
+      "online": true
+    }
+  ],
+  "smt_policy": "whole-core",
+  "online_cpus": "0-15",
+  "offline_cpus": "",
+  "memory_bytes": 67416375296,
+  "contiguous_allocation": "ready",
+  "contiguous_probe": "Memory: 16384 MB on node 0 (from CPUs 8-15)\nBaseline validation passed; would write the initial baseline (dry-run)",
+  "lockdown": "[none] integrity confidentiality",
+  "secure_boot": "disabled",
+  "kexec_loaded": "0",
+  "guest_agent": "active",
+  "serial_console": "available",
+  "kerf_state": "No memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------",
+  "pool_configured": false,
+  "kimage_state": "MK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------",
+  "instances": null,
+  "instance_state": [],
+  "assigned_devices": null,
+  "stale_resources": null,
+  "pci_classes": {
+    "0000:00:00.0": "0x060000",
+    "0000:00:01.0": "0x060100",
+    "0000:00:01.3": "0x068000",
+    "0000:00:03.0": "0x000000",
+    "0000:00:04.0": "0x020000",
+    "0000:00:05.0": "0x00ff00"
+  },
+  "protected_devices": [
+    {
+      "kind": "boot-disk",
+      "device": "8:1",
+      "pci_function": "0000:00:03.0",
+      "pci_ancestry": [
+        "0000:00:03.0"
+      ]
+    },
+    {
+      "kind": "primary-nic",
+      "device": "ens4",
+      "pci_function": "0000:00:04.0",
+      "pci_ancestry": [
+        "0000:00:04.0"
+      ]
+    }
+  ],
+  "forbidden_pci_functions": [
+    "0000:00:03.0",
+    "0000:00:04.0"
+  ],
+  "findings": null
+}
+MAINT_STABLE_BOOTSTRAP_PASS
+00000000-0000-0000-0000-00000000000c
+MAINT_HOST_RECOVERY_PASS
+{"evidence_command_result": {"ended_at": "2026-10-12T03:42:58.071860Z", "exit_status": 0}}

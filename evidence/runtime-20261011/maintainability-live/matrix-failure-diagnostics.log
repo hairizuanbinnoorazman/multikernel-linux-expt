@@ -1,0 +1,483 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=sudo journalctl --since \"2026-10-11 12:55:00\" --until \"2026-10-11 12:59:30\" --no-pager -n 400; sudo systemctl show mkruntimed mknetd containerd docker -p ActiveState -p MainPID -p NRestarts; sudo tail -80 /var/log/unattended-upgrades/unattended-upgrades.log; sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d; sudo dmesg | tail -50"], "started_at": "2026-10-11T12:59:41.558526Z"}}
+Oct 11 12:58:57 mklinux-maintainability-20261011 sudo[67476]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:58:57 mklinux-maintainability-20261011 sudo[67476]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:58:57 mklinux-maintainability-20261011 sudo[67480]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:58:57 mklinux-maintainability-20261011 sudo[67480]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:58:57 mklinux-maintainability-20261011 sudo[67480]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 23.
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:58 mklinux-maintainability-20261011 insmod[67485]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:58 mklinux-maintainability-20261011 sudo[67491]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:58:58 mklinux-maintainability-20261011 sudo[67491]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:58:58 mklinux-maintainability-20261011 sudo[67491]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:58:58 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67490]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:58 mklinux-maintainability-20261011 mkruntimed[67496]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:58 mklinux-maintainability-20261011 sudo[67506]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:58:58 mklinux-maintainability-20261011 sudo[67506]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:58:58 mklinux-maintainability-20261011 sudo[67506]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:58:59 mklinux-maintainability-20261011 sudo[67510]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:58:59 mklinux-maintainability-20261011 sudo[67510]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:58:59 mklinux-maintainability-20261011 sudo[67510]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:58:59 mklinux-maintainability-20261011 sudo[67514]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:58:59 mklinux-maintainability-20261011 sudo[67514]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:58:59 mklinux-maintainability-20261011 sudo[67514]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:00 mklinux-maintainability-20261011 sudo[67518]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:00 mklinux-maintainability-20261011 sudo[67518]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:00 mklinux-maintainability-20261011 sudo[67518]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:00 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 24.
+Oct 11 12:59:00 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:00 mklinux-maintainability-20261011 insmod[67523]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:00 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67528]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:00 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:00 mklinux-maintainability-20261011 mkruntimed[67530]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:00 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:00 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:00 mklinux-maintainability-20261011 sudo[67538]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:00 mklinux-maintainability-20261011 sudo[67538]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:00 mklinux-maintainability-20261011 sudo[67538]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:01 mklinux-maintainability-20261011 sudo[67542]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:01 mklinux-maintainability-20261011 sudo[67542]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:01 mklinux-maintainability-20261011 sudo[67542]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:01 mklinux-maintainability-20261011 sudo[67546]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:01 mklinux-maintainability-20261011 sudo[67546]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:01 mklinux-maintainability-20261011 sudo[67546]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:02 mklinux-maintainability-20261011 sudo[67550]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:02 mklinux-maintainability-20261011 sudo[67550]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:02 mklinux-maintainability-20261011 sudo[67550]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:02 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 25.
+Oct 11 12:59:02 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:02 mklinux-maintainability-20261011 insmod[67556]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:02 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67560]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:02 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:02 mklinux-maintainability-20261011 sudo[67569]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:02 mklinux-maintainability-20261011 sudo[67569]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:02 mklinux-maintainability-20261011 sudo[67569]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:02 mklinux-maintainability-20261011 mkruntimed[67562]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:02 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:02 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:03 mklinux-maintainability-20261011 sudo[67576]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:03 mklinux-maintainability-20261011 sudo[67576]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:03 mklinux-maintainability-20261011 sudo[67576]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:03 mklinux-maintainability-20261011 sudo[67580]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:03 mklinux-maintainability-20261011 sudo[67580]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:03 mklinux-maintainability-20261011 sudo[67580]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:04 mklinux-maintainability-20261011 sudo[67584]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:04 mklinux-maintainability-20261011 sudo[67584]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:04 mklinux-maintainability-20261011 sudo[67584]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:04 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 26.
+Oct 11 12:59:04 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:04 mklinux-maintainability-20261011 sudo[67588]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:04 mklinux-maintainability-20261011 sudo[67588]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit
+Oct 11 12:59:04 mklinux-maintainability-20261011 sudo[67588]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:04 mklinux-maintainability-20261011 insmod[67593]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:04 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67598]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:04 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:04 mklinux-maintainability-20261011 mkruntimed[67600]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:04 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:04 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67609]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67609]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/docker rm -f mk-matrix-docker
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67609]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67620]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67620]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/docker rm -f mk-matrix-docker-attach
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67620]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67632]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67632]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/docker rm -f mk-matrix-docker-bind
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67632]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67644]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67644]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks kill --signal SIGKILL mk-matrix-ctr
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67644]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67654]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67654]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67654]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67666]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67666]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67666]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67678]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67678]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67678]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67690]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67690]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67690]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67702]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67702]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:05 mklinux-maintainability-20261011 sudo[67702]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67715]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67715]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67715]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67727]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67727]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67727]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67739]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67739]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67739]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67751]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67751]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67751]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67763]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67763]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67763]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67775]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67775]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks rm -f mk-matrix-ctr
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67775]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67783]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67783]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr containers rm mk-matrix-ctr
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67783]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67791]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67791]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks kill --signal SIGKILL mk-matrix-ctr-attach
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67791]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67801]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67801]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67801]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67813]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67813]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67813]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 27.
+Oct 11 12:59:06 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67825]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67825]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:06 mklinux-maintainability-20261011 sudo[67825]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:06 mklinux-maintainability-20261011 insmod[67836]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:07 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67842]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:07 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67846]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67846]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67846]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:07 mklinux-maintainability-20261011 mkruntimed[67844]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:07 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:07 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67866]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67866]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67866]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67878]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67878]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67878]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67890]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67890]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67890]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67902]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67902]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67902]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67914]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67914]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67914]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67926]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67926]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67926]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67937]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67937]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks rm -f mk-matrix-ctr-attach
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67937]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67945]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:07 mklinux-maintainability-20261011 sudo[67945]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr containers rm mk-matrix-ctr-attach
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67945]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67953]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67953]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks kill --signal SIGKILL mk-matrix-ctr-bind
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67953]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67963]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67963]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67963]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67975]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67975]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67975]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67987]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67987]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67987]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67999]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67999]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[67999]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68011]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68011]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68011]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68023]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68023]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68023]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68035]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68035]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68035]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68047]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:08 mklinux-maintainability-20261011 sudo[68047]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68047]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68059]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68059]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68059]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 28.
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68072]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68072]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68072]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:09 mklinux-maintainability-20261011 insmod[68077]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68090]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68090]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr tasks rm -f mk-matrix-ctr-bind
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68090]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68098]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68098]: ${OPERATOR_USER} :  PWD=/var/tmp/mk-maint-src ; USER=root ; COMMAND=/usr/bin/ctr containers rm mk-matrix-ctr-bind
+Oct 11 12:59:09 mklinux-maintainability-20261011 sudo[68098]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:09 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68088]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:09 mklinux-maintainability-20261011 mkruntimed[68107]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:09 mklinux-maintainability-20261011 sshd-session[36442]: Received disconnect from 203.0.113.1 port 48438:11: disconnected by user
+Oct 11 12:59:09 mklinux-maintainability-20261011 sshd-session[36442]: Disconnected from user hairizuan-tw 203.0.113.1 port 48438
+Oct 11 12:59:09 mklinux-maintainability-20261011 sshd-session[36374]: pam_unix(sshd:session): session closed for user hairizuan-tw
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd[1]: session-30.scope: Deactivated successfully.
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd[1]: session-30.scope: Consumed 51.889s CPU time over 17min 7.606s wall clock time, 28.1M memory peak.
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd-logind[59297]: Session 30 logged out. Waiting for processes to exit.
+Oct 11 12:59:09 mklinux-maintainability-20261011 systemd-logind[59297]: Removed session 30.
+Oct 11 12:59:11 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 29.
+Oct 11 12:59:11 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:11 mklinux-maintainability-20261011 insmod[68118]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:11 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68123]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:11 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:11 mklinux-maintainability-20261011 mkruntimed[68125]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:11 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:11 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:13 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 30.
+Oct 11 12:59:13 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:13 mklinux-maintainability-20261011 insmod[68135]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:13 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68139]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:13 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:13 mklinux-maintainability-20261011 mkruntimed[68141]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:13 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:13 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:16 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 31.
+Oct 11 12:59:16 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:16 mklinux-maintainability-20261011 insmod[68153]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:16 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68157]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:16 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:16 mklinux-maintainability-20261011 mkruntimed[68159]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:16 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:16 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:18 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 32.
+Oct 11 12:59:18 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:18 mklinux-maintainability-20261011 insmod[68171]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:18 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68174]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:18 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:18 mklinux-maintainability-20261011 mkruntimed[68176]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:18 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:18 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: Stopping user@1001.service - User Manager for UID 1001...
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Activating special unit exit.target...
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopped target default.target - Main User Target.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopping dbus.service - D-Bus User Message Bus...
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopped dbus.service - D-Bus User Message Bus.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Removed slice session.slice - User Core Session Slice.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopped target basic.target - Basic System.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopped target paths.target - Paths.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopped target sockets.target - Sockets.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopped target timers.target - Timers.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopped launchpadlib-cache-clean.timer - Clean up old files in the Launchpadlib cache.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed dbus.socket - D-Bus User Message Bus Socket.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed dirmngr.socket - GnuPG network certificate management daemon.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed gpg-agent-browser.socket - GnuPG cryptographic agent and passphrase cache (access for web browsers).
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed gpg-agent-extra.socket - GnuPG cryptographic agent and passphrase cache (restricted).
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopping gpg-agent-ssh.socket - GnuPG cryptographic agent (ssh-agent emulation)...
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopping gpg-agent.socket - GnuPG cryptographic agent and passphrase cache...
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed keyboxd.socket - GnuPG public key management service.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed pk-debconf-helper.socket - debconf communication socket.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed snapd.session-agent.socket - REST API socket for snapd user session agent.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Stopping ssh-agent.socket - OpenSSH Agent socket...
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed systemd-ask-password.socket - Query the User Interactively for a Password.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed gpg-agent-ssh.socket - GnuPG cryptographic agent (ssh-agent emulation).
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed gpg-agent.socket - GnuPG cryptographic agent and passphrase cache.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Closed ssh-agent.socket - OpenSSH Agent socket.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Removed slice app.slice - User Application Slice.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Reached target shutdown.target - Shutdown.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Finished systemd-exit.service - Exit the Session.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[36379]: Reached target exit.target - Exit the Session.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd-logind[59297]: Removed session 31.
+Oct 11 12:59:19 mklinux-maintainability-20261011 (sd-pam)[36382]: pam_unix(systemd-user:session): session closed for user hairizuan-tw
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: user@1001.service: Deactivated successfully.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: Stopped user@1001.service - User Manager for UID 1001.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: Stopping user-runtime-dir@1001.service - User Runtime Directory /run/user/1001...
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: run-user-1001.mount: Deactivated successfully.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: user-runtime-dir@1001.service: Deactivated successfully.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: Stopped user-runtime-dir@1001.service - User Runtime Directory /run/user/1001.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: Removed slice user-1001.slice - User Slice of UID 1001.
+Oct 11 12:59:19 mklinux-maintainability-20261011 systemd[1]: user-1001.slice: Consumed 53.904s CPU time over 17min 18.041s wall clock time, 51.3M memory peak.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 33.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:20 mklinux-maintainability-20261011 insmod[68270]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:20 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68274]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:20 mklinux-maintainability-20261011 mkruntimed[68276]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:20 mklinux-maintainability-20261011 sshd-session[68266]: Accepted publickey for hairizuan-tw from 203.0.113.1 port 35136 ssh2: RSA SHA256:MlTeAUbUm1dpAHM4L8CT3wpqNnVkaiw+rwKUNIQ4EJk
+Oct 11 12:59:20 mklinux-maintainability-20261011 sshd-session[68266]: pam_unix(sshd:session): session opened for user hairizuan-tw(uid=1001) by hairizuan-tw(uid=0)
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd-logind[59297]: New session '37' of user 'hairizuan-tw' with class 'user' and type 'tty'.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: Created slice user-1001.slice - User Slice of UID 1001.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: Starting user-runtime-dir@1001.service - User Runtime Directory /run/user/1001...
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: Finished user-runtime-dir@1001.service - User Runtime Directory /run/user/1001.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: Starting user@1001.service - User Manager for UID 1001...
+Oct 11 12:59:20 mklinux-maintainability-20261011 (systemd)[68289]: pam_unix(systemd-user:session): session opened for user hairizuan-tw(uid=1001) by hairizuan-tw(uid=0)
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd-logind[59297]: New session '38' of user 'hairizuan-tw' with class 'manager' and type 'unspecified'.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Queued start job for default target default.target.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Created slice app.slice - User Application Slice.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Started launchpadlib-cache-clean.timer - Clean up old files in the Launchpadlib cache.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Reached target paths.target - Paths.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Reached target timers.target - Timers.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Starting dbus.socket - D-Bus User Message Bus Socket...
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on dirmngr.socket - GnuPG network certificate management daemon.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on gpg-agent-browser.socket - GnuPG cryptographic agent and passphrase cache (access for web browsers).
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on gpg-agent-extra.socket - GnuPG cryptographic agent and passphrase cache (restricted).
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Starting gpg-agent-ssh.socket - GnuPG cryptographic agent (ssh-agent emulation)...
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Starting gpg-agent.socket - GnuPG cryptographic agent and passphrase cache...
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on keyboxd.socket - GnuPG public key management service.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on pk-debconf-helper.socket - debconf communication socket.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on snapd.session-agent.socket - REST API socket for snapd user session agent.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Starting ssh-agent.socket - OpenSSH Agent socket...
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on systemd-ask-password.socket - Query the User Interactively for a Password.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on gpg-agent-ssh.socket - GnuPG cryptographic agent (ssh-agent emulation).
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on dbus.socket - D-Bus User Message Bus Socket.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on gpg-agent.socket - GnuPG cryptographic agent and passphrase cache.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Listening on ssh-agent.socket - OpenSSH Agent socket.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Reached target sockets.target - Sockets.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Reached target basic.target - Basic System.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Reached target default.target - Main User Target.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[68289]: Startup finished in 107ms.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: Started user@1001.service - User Manager for UID 1001.
+Oct 11 12:59:20 mklinux-maintainability-20261011 systemd[1]: Started session-37.scope - Session 37 of User hairizuan-tw.
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68397]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68397]: ${OPERATOR_USER} :  PWD=${OPERATOR_HOME} ; USER=root ; COMMAND=/usr/bin/ctr tasks list
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68397]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68405]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68405]: ${OPERATOR_USER} :  PWD=${OPERATOR_HOME} ; USER=root ; COMMAND=/usr/bin/docker ps -a --format {{.Names}} {{.Status}}
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68405]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68418]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68418]: ${OPERATOR_USER} :  PWD=${OPERATOR_HOME} ; USER=root ; COMMAND=/usr/bin/find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68418]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68421]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68421]: ${OPERATOR_USER} :  PWD=${OPERATOR_HOME} ; USER=root ; COMMAND=/usr/bin/ps -eo comm,etime
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68421]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68396]: pam_unix(sudo:session): session opened for user root(uid=0) by hairizuan-tw(uid=1001)
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68396]: ${OPERATOR_USER} :  PWD=${OPERATOR_HOME} ; USER=root ; COMMAND=/usr/bin/journalctl -u mkruntimed --since 10 minutes ago --no-pager -n 10
+Oct 11 12:59:21 mklinux-maintainability-20261011 sudo[68396]: pam_unix(sudo:session): session closed for user root
+Oct 11 12:59:21 mklinux-maintainability-20261011 sshd-session[68394]: Received disconnect from 203.0.113.1 port 35136:11: disconnected by user
+Oct 11 12:59:21 mklinux-maintainability-20261011 sshd-session[68394]: Disconnected from user hairizuan-tw 203.0.113.1 port 35136
+Oct 11 12:59:21 mklinux-maintainability-20261011 sshd-session[68266]: pam_unix(sshd:session): session closed for user hairizuan-tw
+Oct 11 12:59:21 mklinux-maintainability-20261011 systemd[1]: session-37.scope: Deactivated successfully.
+Oct 11 12:59:21 mklinux-maintainability-20261011 systemd-logind[59297]: Session 37 logged out. Waiting for processes to exit.
+Oct 11 12:59:21 mklinux-maintainability-20261011 systemd-logind[59297]: Removed session 37.
+Oct 11 12:59:22 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 34.
+Oct 11 12:59:22 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:22 mklinux-maintainability-20261011 insmod[68608]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:22 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68612]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:22 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:22 mklinux-maintainability-20261011 mkruntimed[68613]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:22 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:22 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:24 mklinux-maintainability-20261011 systemd[1]: Stopping systemd-binfmt.service - Set Up Additional Binary Formats...
+Oct 11 12:59:24 mklinux-maintainability-20261011 systemd[1]: systemd-binfmt.service: Deactivated successfully.
+Oct 11 12:59:24 mklinux-maintainability-20261011 systemd[1]: Stopped systemd-binfmt.service - Set Up Additional Binary Formats.
+Oct 11 12:59:24 mklinux-maintainability-20261011 systemd[1]: Starting systemd-binfmt.service - Set Up Additional Binary Formats...
+Oct 11 12:59:24 mklinux-maintainability-20261011 systemd[1]: Finished systemd-binfmt.service - Set Up Additional Binary Formats.
+Oct 11 12:59:25 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 35.
+Oct 11 12:59:25 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:25 mklinux-maintainability-20261011 insmod[68691]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:25 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68696]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:25 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:25 mklinux-maintainability-20261011 mkruntimed[68699]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:25 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:25 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:27 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 36.
+Oct 11 12:59:27 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:27 mklinux-maintainability-20261011 insmod[68847]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:27 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68851]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:27 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:27 mklinux-maintainability-20261011 mkruntimed[68855]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:27 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:27 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:59:29 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 37.
+Oct 11 12:59:29 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:59:29 mklinux-maintainability-20261011 insmod[68991]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:59:29 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[68999]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:59:29 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:59:29 mklinux-maintainability-20261011 mkruntimed[69008]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:59:29 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:59:29 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+ActiveState=activating
+MainPID=0
+NRestarts=3
+
+ActiveState=active
+MainPID=35062
+NRestarts=0
+
+ActiveState=active
+MainPID=59312
+NRestarts=0
+
+ActiveState=active
+MainPID=35191
+NRestarts=0
+2026-08-28 06:21:37,755 INFO Starting unattended upgrades script
+2026-08-28 06:21:37,755 INFO Allowed origins are: o=Ubuntu,a=resolute, o=Ubuntu,a=resolute-security, o=UbuntuESMApps,a=resolute-apps-security, o=UbuntuESM,a=resolute-infra-security
+2026-08-28 06:21:37,755 INFO Initial blacklist: 
+2026-08-28 06:21:37,755 INFO Initial whitelist (not strict): 
+2026-08-28 06:21:38,326 INFO No packages found that can be upgraded unattended and no pending auto-removals
+2026-08-28 08:44:25,069 INFO Starting unattended upgrades script
+2026-08-28 08:44:25,070 INFO Allowed origins are: o=Ubuntu,a=resolute, o=Ubuntu,a=resolute-security, o=UbuntuESMApps,a=resolute-apps-security, o=UbuntuESM,a=resolute-infra-security
+2026-08-28 08:44:25,070 INFO Initial blacklist: 
+2026-08-28 08:44:25,070 INFO Initial whitelist (not strict): 
+2026-10-11 12:56:31,986 INFO Starting unattended upgrades script
+2026-10-11 12:56:31,987 INFO Allowed origins are: o=Ubuntu,a=resolute, o=Ubuntu,a=resolute-security, o=UbuntuESMApps,a=resolute-apps-security, o=UbuntuESM,a=resolute-infra-security
+2026-10-11 12:56:31,987 INFO Initial blacklist: 
+2026-10-11 12:56:31,987 INFO Initial whitelist (not strict): 
+2026-10-11 12:57:23,697 INFO Packages that will be upgraded: bind9-dnsutils bind9-host bind9-libs bison bpftool bsdextrautils bsdutils bzip2 curl diffutils dirmngr dracut dracut-core dracut-install dracut-network eject fdisk gir1.2-girepository-3.0 gir1.2-glib-2.0 gnu-coreutils gnupg gnupg-l10n gnupg-utils gpg gpg-agent gpg-wks-client gpgconf gpgsm gpgv libattr1 libblkid1 libbz2-1.0 libc-bin libc-dev-bin libc-gconv-modules-extra libc6 libc6-dev libcurl3t64-gnutls libcurl4t64 libevent-core-2.1-7t64 libexpat1 libexpat1-dev libfdisk1 libfreetype6 libgcrypt20 libgirepository-2.0-0 libglib2.0-0t64 libglib2.0-bin libglib2.0-data libisns0t64 liblastlog2-2 libmount1 libpam-modules libpam-modules-bin libpam-runtime libpam0g libpcap0.8t64 libperl5.40 libpng16-16t64 libpolkit-agent-1-0 libpolkit-gobject-1-0 libpython3.14 libpython3.14-dev libpython3.14-minimal libpython3.14-stdlib libsgutils2-1.48 libsmartcols1 libsqlite3-0 libssh2-1t64 libssl-dev libssl3t64 libuuid1 libxml2-16 linux-gcp linux-headers-gcp linux-image-gcp linux-libc-dev linux-perf linux-tools-common locales login mount openssh-client openssh-server openssh-sftp-server openssl openssl-provider-legacy perl perl-base perl-modules-5.40 polkitd python3-cryptography python3-jwt python3-pyasn1 python3-requests python3.14 python3.14-dev python3.14-gdbm python3.14-minimal python3.14-venv rsyslog sg3-utils sg3-utils-udev sudo sudo-rs util-linux util-linux-extra uuid-runtime vim vim-common vim-runtime vim-tiny xxd zlib1g zlib1g-dev
+2026-10-11 12:57:23,697 INFO Writing dpkg log to /var/log/unattended-upgrades/unattended-upgrades-dpkg.log
+/sys/fs/multikernel/instances/mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8
+[ 1693.380075] systemd[1]: systemd-journald.service: Deactivated successfully.
+[ 1693.380314] systemd[1]: Stopped systemd-journald.service - Journal Service.
+[ 1693.385921] systemd[1]: Starting systemd-journald.service - Journal Service...
+[ 1693.389074] systemd[1]: systemd-resolved.service: Deactivated successfully.
+[ 1693.389306] systemd[1]: Stopped systemd-resolved.service - Network Name Resolution.
+[ 1693.396984] systemd[1]: systemd-networkd-persistent-storage.service: Deactivated successfully.
+[ 1693.397179] systemd[1]: Stopped systemd-networkd-persistent-storage.service - Enable Persistent Storage in systemd-networkd.
+[ 1693.397959] systemd[1]: Started packagekit.service - PackageKit Daemon.
+[ 1693.400407] systemd[1]: Starting systemd-resolved.service - Network Name Resolution...
+[ 1693.402590] systemd[1]: Started multipathd.service - Device-Mapper Multipath Device Controller.
+[ 1693.403189] systemd-journald[59061]: Collecting audit messages is disabled.
+[ 1693.414008] systemd[1]: Started systemd-journald.service - Journal Service.
+[ 1694.317173] audit: type=1400 audit(1791723485.575:210): apparmor="STATUS" operation="profile_replace" info="same as current profile, skipping" profile="unconfined" name="rsyslogd" pid=59102 comm="apparmor_parser"
+[ 1712.468907] NET: Registered PF_ALG protocol family
+[ 1782.019162] systemd[1]: systemd 259.5-0ubuntu3.4 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +IPE +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +KMOD +LIBCRYPTSETUP +LIBCRYPTSETUP_PLUGINS +LIBFDISK +PCRE2 +PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD +BPF_FRAMEWORK +BTF -XKBCOMMON -UTMP +SYSVINIT +LIBARCHIVE)
+[ 1782.019223] systemd[1]: Detected virtualization google.
+[ 1782.019235] systemd[1]: Detected architecture x86-64.
+[ 1782.063073] systemd[1]: bpf-restrict-fs: BPF LSM hook not enabled in the kernel, BPF LSM not supported.
+[ 1782.122533] systemd[1]: /usr/lib/systemd/system/xfs_scrub_all.service:26: Support for option CPUAccounting= has been removed and it is ignored
+[ 1782.123154] systemd[1]: /usr/lib/systemd/system/system-xfs_scrub.slice:15: Support for option CPUAccounting= has been removed and it is ignored
+[ 1782.272857] systemd-journald[59061]: Received SIGTERM from PID 1 (systemd).
+[ 1782.273020] systemd[1]: Stopping systemd-journald.service - Journal Service...
+[ 1782.274141] systemd[1]: Starting packagekit.service - PackageKit Daemon...
+[ 1782.275182] systemd[1]: Starting rsyslog.service - System Logging Service...
+[ 1782.275313] systemd[1]: Stopping ssh.service - OpenBSD Secure Shell server...
+[ 1782.276056] systemd[1]: polkit.service: Deactivated successfully.
+[ 1782.276215] systemd[1]: Stopped polkit.service - Authorization Manager.
+[ 1782.277573] systemd[1]: ssh.service: Deactivated successfully.
+[ 1782.281854] systemd[1]: Stopped ssh.service - OpenBSD Secure Shell server.
+[ 1782.285257] systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+[ 1782.285521] systemd[1]: Stopping google-guest-agent.service - Google Compute Engine Guest Agent...
+[ 1782.285546] systemd[1]: netplan-ovs-cleanup.service - OpenVSwitch configuration for cleanup skipped, unmet condition check ConditionFileIsExecutable=/usr/bin/ovs-vsctl
+[ 1782.287614] systemd[1]: Starting polkit.service - Authorization Manager...
+[ 1782.287645] systemd[1]: sshd-keygen.service - Generate sshd host keys on first boot skipped, unmet condition check ConditionFirstBoot=yes
+[ 1782.288785] systemd[1]: Stopping systemd-networkd-persistent-storage.service - Enable Persistent Storage in systemd-networkd...
+[ 1782.288795] systemd[1]: systemd-networkd-wait-online.service: Deactivated successfully.
+[ 1782.288934] systemd[1]: Stopped systemd-networkd-wait-online.service - Wait for Network to be Online.
+[ 1782.288972] systemd[1]: Stopping systemd-networkd-wait-online.service - Wait for Network to be Online...
+[ 1782.290762] systemd[1]: Stopping systemd-resolved.service - Network Name Resolution...
+[ 1782.292822] systemd[1]: systemd-journald.service: Deactivated successfully.
+[ 1782.293009] systemd[1]: Stopped systemd-journald.service - Journal Service.
+[ 1782.296723] systemd[1]: Starting systemd-journald.service - Journal Service...
+[ 1782.297184] systemd[1]: systemd-networkd-persistent-storage.service: Deactivated successfully.
+[ 1782.297321] systemd[1]: Stopped systemd-networkd-persistent-storage.service - Enable Persistent Storage in systemd-networkd.
+[ 1782.302862] systemd[1]: systemd-resolved.service: Deactivated successfully.
+[ 1782.303015] systemd[1]: Stopped systemd-resolved.service - Network Name Resolution.
+[ 1782.306850] systemd[1]: Starting systemd-resolved.service - Network Name Resolution...
+[ 1782.310594] systemd-journald[69329]: Collecting audit messages is disabled.
+[ 1782.315148] systemd[1]: Started systemd-journald.service - Journal Service.
+[ 1782.352189] audit: type=1400 audit(1791723573.611:211): apparmor="STATUS" operation="profile_replace" info="same as current profile, skipping" profile="unconfined" name="rsyslogd" pid=69335 comm="apparmor_parser"
+{"evidence_command_result": {"ended_at": "2026-10-11T12:59:43.420010Z", "exit_status": 0}}

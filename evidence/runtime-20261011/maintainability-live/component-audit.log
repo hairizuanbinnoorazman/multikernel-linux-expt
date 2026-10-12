@@ -1,0 +1,5 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=set -eu; cd /var/tmp/mk-maint-src; sudo scripts/manage-runtime-binaries.py verify runtime/release-manifest.json /usr/local/lib/multikernel/current/bin; sudo cat /etc/mkruntime/kernels/gce-mk2.json; /opt/go/bin/go version; sudo containerd --version; sudo docker --version; uname -r; cat /proc/sys/kernel/random/boot_id"], "started_at": "2026-10-11T12:43:11.710062Z"}}
+usage: manage-runtime-binaries.py [-h]
+                                  {inspect,install,activate,uninstall,remove-release} ...
+manage-runtime-binaries.py: error: argument command: invalid choice: 'verify' (choose from inspect, install, activate, uninstall, remove-release)
+{"evidence_command_result": {"ended_at": "2026-10-11T12:43:13.772074Z", "exit_status": 2}}

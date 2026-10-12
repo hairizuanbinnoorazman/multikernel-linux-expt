@@ -124,7 +124,7 @@ type process struct {
 type signalResult struct {
 	id     string
 	signal syscall.Signal
-	err    string
+	err    error
 }
 
 type lockedBuffer struct {
@@ -261,11 +261,11 @@ func strictJSON(path string, v any) error {
 	}
 	identity, ok := before.Sys().(*syscall.Stat_t)
 	if !ok || !before.Mode().IsRegular() || identity.Nlink != 1 || identity.Uid != uint32(os.Geteuid()) || before.Mode().Perm()&0022 != 0 || before.Size() > 1<<20 {
-		return errors.New("JSON input must be a bounded private caller-owned single-link regular file")
+		return errorf(invalidArgument, "JSON input must be a bounded private caller-owned single-link regular file")
 	}
 	data, e := io.ReadAll(io.LimitReader(f, (1<<20)+1))
 	if e != nil || len(data) > 1<<20 {
-		return errors.New("JSON input exceeds the retained byte limit")
+		return errorf(invalidArgument, "JSON input exceeds the retained byte limit")
 	}
 	after, e := f.Stat()
 	if e != nil {
@@ -274,7 +274,7 @@ func strictJSON(path string, v any) error {
 	afterIdentity, ok := after.Sys().(*syscall.Stat_t)
 	if !ok || identity.Dev != afterIdentity.Dev || identity.Ino != afterIdentity.Ino ||
 		identity.Size != afterIdentity.Size || identity.Mtim != afterIdentity.Mtim || identity.Ctim != afterIdentity.Ctim {
-		return errors.New("JSON input identity changed while reading")
+		return errorf(invalidArgument, "JSON input identity changed while reading")
 	}
 	d := json.NewDecoder(bytes.NewReader(data))
 	d.DisallowUnknownFields()
@@ -283,13 +283,13 @@ func strictJSON(path string, v any) error {
 	}
 	var x any
 	if e = d.Decode(&x); e != io.EOF {
-		return errors.New("multiple JSON values")
+		return errorf(invalidArgument, "multiple JSON values")
 	}
 	return nil
 }
 func LoadBundle(bundle string) (OCIConfig, string, error) {
 	if !filepath.IsAbs(bundle) {
-		return OCIConfig{}, "", errors.New("bundle must be absolute")
+		return OCIConfig{}, "", errorf(invalidArgument, "bundle must be absolute")
 	}
 	if e := secureDirectory(bundle); e != nil {
 		return OCIConfig{}, "", e
@@ -300,31 +300,31 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 		return c, "", e
 	}
 	if c.OCIVersion != "1.1.0" {
-		return c, "", fmt.Errorf("unsupported OCI version %q", c.OCIVersion)
+		return c, "", errorf(unsupported, "unsupported OCI version %q", c.OCIVersion)
 	}
 	if e := validateProcessSpec(c.Process); e != nil {
 		return c, "", e
 	}
 	if c.Hooks != nil {
-		return c, "", errors.New("hooks are not implemented")
+		return c, "", errorf(unsupported, "hooks are not implemented")
 	}
 	if err := validateReadonlyBindMounts(c.Mounts); err != nil {
 		return c, "", err
 	}
 	if c.Linux != nil {
 		if c.Linux.Namespaces != nil || c.Linux.Resources != nil || c.Linux.Seccomp != nil {
-			return c, "", errors.New("Linux namespaces/resources/seccomp are not implemented in the guest projection")
+			return c, "", errorf(unsupported, "Linux namespaces/resources/seccomp are not implemented in the guest projection")
 		}
 		if err := validateRootPolicy(c.Linux.MaskedPaths, c.Linux.ReadonlyPaths); err != nil {
 			return c, "", err
 		}
 	}
 	if c.Annotations != nil {
-		return c, "", errors.New("annotations are not implemented")
+		return c, "", errorf(unsupported, "annotations are not implemented")
 	}
 	root := c.Root.Path
 	if filepath.IsAbs(root) || root == "" || filepath.Clean(root) != root || root == ".." || strings.HasPrefix(root, "../") {
-		return c, "", errors.New("root.path must be a safe bundle-relative directory")
+		return c, "", errorf(invalidArgument, "root.path must be a safe bundle-relative directory")
 	}
 	root = filepath.Join(bundle, root)
 	if e := secureDirectory(root); e != nil {
@@ -335,7 +335,7 @@ func LoadBundle(bundle string) (OCIConfig, string, error) {
 
 func secureDirectory(directory string) error {
 	if !filepath.IsAbs(directory) {
-		return errors.New("directory must be absolute")
+		return errorf(invalidArgument, "directory must be absolute")
 	}
 	current := string(filepath.Separator)
 	for _, component := range strings.Split(strings.TrimPrefix(filepath.Clean(directory), string(filepath.Separator)), string(filepath.Separator)) {
@@ -345,10 +345,10 @@ func secureDirectory(directory string) error {
 		current = filepath.Join(current, component)
 		info, err := os.Lstat(current)
 		if err != nil {
-			return errors.New("root path component is unavailable")
+			return errorf(invalidArgument, "root path component is unavailable")
 		}
 		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-			return errors.New("root path must contain only real directories")
+			return errorf(invalidArgument, "root path must contain only real directories")
 		}
 	}
 	return nil
@@ -366,12 +366,12 @@ func validProcessID(id string) bool {
 }
 
 func processCreateError(stage string, err error) error {
-	return fmt.Errorf("guest process create stage %s failed: %w", stage, err)
+	return &stageError{operation: "process create", stage: stage, cause: err}
 }
 
 func (m *Manager) Create(id, bundle string) error {
 	if !validProcessID(id) {
-		return errors.New("invalid process ID")
+		return errorf(invalidArgument, "invalid process ID")
 	}
 	c, root, e := LoadBundle(bundle)
 	if e != nil {
@@ -380,14 +380,14 @@ func (m *Manager) Create(id, bundle string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.processes[id]; ok {
-		return errors.New("process exists")
+		return errorf(alreadyExists, "process exists")
 	}
 	if len(m.processes) >= maxProcesses {
-		return errors.New("process retention limit reached")
+		return errorf(failedPrecondition, "process retention limit reached")
 	}
 	if !m.policySet {
 		if m.NoChroot && (c.Hostname != "" || c.Root.Readonly != nil || c.Linux != nil || len(c.Mounts) != 0) {
-			return errors.New("root policy cannot be applied in no-chroot test mode")
+			return errorf(failedPrecondition, "root policy cannot be applied in no-chroot test mode")
 		}
 		if e = applyRootPolicy(c, root); e != nil {
 			return processCreateError("root-policy", e)
@@ -402,7 +402,7 @@ func (m *Manager) Create(id, bundle string) error {
 // parent process. Protocol callers cannot select a new host path.
 func (m *Manager) Exec(id, parentID string, spec ProcessSpec) error {
 	if !validProcessID(id) {
-		return errors.New("invalid process ID")
+		return errorf(invalidArgument, "invalid process ID")
 	}
 	if err := validateProcessSpec(spec); err != nil {
 		return err
@@ -411,17 +411,17 @@ func (m *Manager) Exec(id, parentID string, spec ProcessSpec) error {
 	defer m.mu.Unlock()
 	parent, ok := m.processes[parentID]
 	if !ok {
-		return errors.New("parent process not found")
+		return errorf(notFound, "parent process not found")
 	}
 	root := parent.root
 	if err := secureDirectory(root); err != nil {
 		return err
 	}
 	if _, ok := m.processes[id]; ok {
-		return errors.New("process exists")
+		return errorf(alreadyExists, "process exists")
 	}
 	if len(m.processes) >= maxProcesses {
-		return errors.New("process retention limit reached")
+		return errorf(failedPrecondition, "process retention limit reached")
 	}
 	m.processes[id] = &process{spec: spec, root: root, done: make(chan struct{}), state: ProcessState{ID: id, Status: "CREATED"}}
 	return nil
@@ -430,7 +430,7 @@ func envList(v []string) error {
 	for _, x := range v {
 		p := strings.IndexByte(x, '=')
 		if p < 1 || strings.IndexByte(x[:p], 0) >= 0 {
-			return fmt.Errorf("invalid environment entry")
+			return errorf(invalidArgument, "invalid environment entry")
 		}
 	}
 	return nil
@@ -439,54 +439,54 @@ func envList(v []string) error {
 func validateProcessSpec(spec ProcessSpec) error {
 	if spec.ConsoleSize != nil {
 		if !spec.Terminal {
-			return errors.New("console size requires a terminal")
+			return errorf(invalidArgument, "console size requires a terminal")
 		}
 		if spec.ConsoleSize.Width > 65535 || spec.ConsoleSize.Height > 65535 {
-			return errors.New("console size exceeds the Linux PTY limit")
+			return errorf(invalidArgument, "console size exceeds the Linux PTY limit")
 		}
 	}
 	if len(spec.Args) == 0 || len(spec.Args) > maxProcessArgs || spec.Args[0] == "" {
-		return errors.New("process args must contain a bounded non-empty argv[0]")
+		return errorf(invalidArgument, "process args must contain a bounded non-empty argv[0]")
 	}
 	textBytes := 0
 	for _, argument := range spec.Args {
 		if strings.IndexByte(argument, 0) >= 0 {
-			return errors.New("process args contain NUL")
+			return errorf(invalidArgument, "process args contain NUL")
 		}
 		textBytes += len(argument) + 1
 		if textBytes > maxProcessText {
-			return errors.New("process args exceed the retained byte limit")
+			return errorf(invalidArgument, "process args exceed the retained byte limit")
 		}
 	}
 	if len(spec.Env) > maxProcessEnv {
-		return errors.New("too many process environment entries")
+		return errorf(invalidArgument, "too many process environment entries")
 	}
 	seenEnvironment := make(map[string]struct{}, len(spec.Env))
 	for _, value := range spec.Env {
 		separator := strings.IndexByte(value, '=')
 		if separator < 1 || strings.IndexByte(value, 0) >= 0 {
-			return errors.New("invalid environment entry")
+			return errorf(invalidArgument, "invalid environment entry")
 		}
 		name := value[:separator]
 		if _, duplicate := seenEnvironment[name]; duplicate {
-			return fmt.Errorf("duplicate environment name %q", name)
+			return errorf(invalidArgument, "duplicate environment name %q", name)
 		}
 		seenEnvironment[name] = struct{}{}
 		textBytes += len(value) + 1
 		if textBytes > maxProcessText {
-			return errors.New("process args and environment exceed the retained byte limit")
+			return errorf(invalidArgument, "process args and environment exceed the retained byte limit")
 		}
 	}
 	if spec.Cwd == "" || !filepath.IsAbs(spec.Cwd) || filepath.Clean(spec.Cwd) != spec.Cwd || strings.IndexByte(spec.Cwd, 0) >= 0 || len(spec.Cwd) > 4096 {
-		return errors.New("process cwd must be absolute, canonical, and bounded")
+		return errorf(invalidArgument, "process cwd must be absolute, canonical, and bounded")
 	}
 	if len(spec.User.AdditionalGids) > maxSupplementalGID {
-		return errors.New("too many supplemental groups")
+		return errorf(invalidArgument, "too many supplemental groups")
 	}
 	seenGroups := make(map[uint32]struct{}, len(spec.User.AdditionalGids))
 	for _, group := range spec.User.AdditionalGids {
 		if _, duplicate := seenGroups[group]; duplicate {
-			return fmt.Errorf("duplicate supplemental group %d", group)
+			return errorf(invalidArgument, "duplicate supplemental group %d", group)
 		}
 		seenGroups[group] = struct{}{}
 	}
@@ -498,20 +498,20 @@ func (m *Manager) Start(id string) error {
 }
 
 func processStartError(stage string, err error) error {
-	return fmt.Errorf("guest process start stage %s failed: %w", stage, err)
+	return &stageError{operation: "process start", stage: stage, cause: err}
 }
 
 const ociExecPath = "/proc/self/exe"
 
 func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) error {
 	if width > 65535 || height > 65535 {
-		return errors.New("terminal dimensions exceed the Linux PTY limit")
+		return errorf(invalidArgument, "terminal dimensions exceed the Linux PTY limit")
 	}
 	m.mu.Lock()
 	p, ok := m.processes[id]
 	if !ok {
 		m.mu.Unlock()
-		return errors.New("process not found")
+		return errorf(notFound, "process not found")
 	}
 	if p.state.Status == "RUNNING" {
 		m.mu.Unlock()
@@ -519,7 +519,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	}
 	if p.state.Status != "CREATED" {
 		m.mu.Unlock()
-		return errors.New("process is not created")
+		return errorf(failedPrecondition, "process is not created")
 	}
 	if !sizeSet && p.spec.ConsoleSize != nil {
 		width, height, sizeSet = p.spec.ConsoleSize.Width, p.spec.ConsoleSize.Height, true
@@ -531,7 +531,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	exe := p.spec.Args[0]
 	if !strings.HasPrefix(exe, "/") {
 		m.mu.Unlock()
-		return errors.New("argv[0] must be absolute")
+		return errorf(invalidArgument, "argv[0] must be absolute")
 	}
 	if e := validateExecutableArchitecture(filepath.Join(p.root, exe)); e != nil {
 		m.mu.Unlock()
@@ -599,7 +599,7 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	} else {
 		if sizeSet {
 			m.mu.Unlock()
-			return errors.New("cannot size a process without a terminal")
+			return errorf(invalidArgument, "cannot size a process without a terminal")
 		}
 		p.stdin, err = cmd.StdinPipe()
 		if err != nil {
@@ -704,7 +704,7 @@ func (m *Manager) Write(id string, data []byte) error {
 	p, ok := m.processes[id]
 	m.mu.Unlock()
 	if !ok {
-		return errors.New("process is not running")
+		return errorf(failedPrecondition, "process is not running")
 	}
 	p.inputMu.Lock()
 	offset := p.stdinOffset
@@ -720,13 +720,13 @@ func (m *Manager) Write(id string, data []byte) error {
 // resumes at the first byte not yet accepted instead of duplicating the prefix.
 func (m *Manager) WriteAt(id string, offset uint64, data []byte) (uint64, error) {
 	if len(data) == 0 || len(data) > 64<<10 {
-		return 0, errors.New("stdin chunk must contain between 1 byte and 64 KiB")
+		return 0, errorf(invalidArgument, "stdin chunk must contain between 1 byte and 64 KiB")
 	}
 	m.mu.Lock()
 	p, ok := m.processes[id]
 	if !ok {
 		m.mu.Unlock()
-		return 0, errors.New("process is not running")
+		return 0, errorf(failedPrecondition, "process is not running")
 	}
 	p.inputMu.Lock()
 	running := p.state.Status == "RUNNING"
@@ -738,16 +738,16 @@ func (m *Manager) WriteAt(id string, offset uint64, data []byte) (uint64, error)
 		return p.stdinOffset, nil
 	}
 	if p.stdinHasPartial && (offset != p.stdinPartialStart || uint64(len(data)) != p.stdinPartialSize || digest != p.stdinPartialHash) {
-		return p.stdinOffset, errors.New("stdin chunk offset or data differs from the partially accepted replay")
+		return p.stdinOffset, errorf(invalidArgument, "stdin chunk offset or data differs from the partially accepted replay")
 	}
 	if !running {
-		return p.stdinOffset, errors.New("process is not running")
+		return p.stdinOffset, errorf(failedPrecondition, "process is not running")
 	}
 	if p.stdinClosed || p.stdin == nil {
-		return p.stdinOffset, errors.New("process stdin is closed")
+		return p.stdinOffset, errorf(failedPrecondition, "process stdin is closed")
 	}
 	if offset != p.stdinOffset || uint64(len(data)) > ^uint64(0)-offset {
-		return p.stdinOffset, errors.New("stdin chunk offset differs from the exact acknowledged position")
+		return p.stdinOffset, errorf(invalidArgument, "stdin chunk offset differs from the exact acknowledged position")
 	}
 	if !p.stdinHasPartial {
 		p.stdinPartialStart = offset
@@ -785,7 +785,7 @@ func (m *Manager) CloseStdin(id string) error {
 	p, ok := m.processes[id]
 	if !ok {
 		m.mu.Unlock()
-		return errors.New("process not found")
+		return errorf(notFound, "process not found")
 	}
 	running := p.state.Status == "RUNNING"
 	m.mu.Unlock()
@@ -796,7 +796,7 @@ func (m *Manager) CloseStdin(id string) error {
 		if closed {
 			return nil
 		}
-		return errors.New("process is not running")
+		return errorf(failedPrecondition, "process is not running")
 	}
 	p.inputMu.Lock()
 	defer p.inputMu.Unlock()
@@ -818,13 +818,13 @@ func (m *Manager) CloseStdin(id string) error {
 
 func (m *Manager) ReadOutput(id string, stdoutOffset, stderrOffset, limit uint64) ([]byte, []byte, uint64, uint64, string, error) {
 	if limit == 0 || limit > 64<<10 {
-		return nil, nil, 0, 0, "", errors.New("output read limit must be between 1 and 64 KiB")
+		return nil, nil, 0, 0, "", errorf(invalidArgument, "output read limit must be between 1 and 64 KiB")
 	}
 	m.mu.Lock()
 	p, ok := m.processes[id]
 	if !ok {
 		m.mu.Unlock()
-		return nil, nil, 0, 0, "", errors.New("process not found")
+		return nil, nil, 0, 0, "", errorf(notFound, "process not found")
 	}
 	status := p.state.Status
 	m.mu.Unlock()
@@ -835,16 +835,16 @@ func (m *Manager) ReadOutput(id string, stdoutOffset, stderrOffset, limit uint64
 
 func (m *Manager) Resize(id string, width, height uint32) error {
 	if width > 65535 || height > 65535 {
-		return errors.New("terminal dimensions exceed the Linux PTY limit")
+		return errorf(invalidArgument, "terminal dimensions exceed the Linux PTY limit")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	p, ok := m.processes[id]
 	if !ok || p.state.Status != "RUNNING" {
-		return errors.New("process is not running")
+		return errorf(failedPrecondition, "process is not running")
 	}
 	if p.terminal == nil {
-		return errors.New("process has no terminal")
+		return errorf(failedPrecondition, "process has no terminal")
 	}
 	return p.terminal.Resize(console.WinSize{Width: uint16(width), Height: uint16(height)})
 }
@@ -853,7 +853,7 @@ func (m *Manager) Signal(id string, sig syscall.Signal) error {
 	defer m.mu.Unlock()
 	p, ok := m.processes[id]
 	if !ok || p.cmd == nil || p.state.Status != "RUNNING" {
-		return errors.New("process is not running")
+		return errorf(failedPrecondition, "process is not running")
 	}
 	return m.signalProcess(-p.cmd.Process.Pid, sig)
 }
@@ -867,33 +867,30 @@ const maxSignalResults = 4096
 // authenticated server and may name only one exact process/signal mutation.
 func (m *Manager) SignalOnce(id string, sig syscall.Signal, operationID string) error {
 	if !signalOperationID.MatchString(operationID) {
-		return errors.New("signal operation ID must be 32 lowercase hexadecimal characters")
+		return errorf(invalidArgument, "signal operation ID must be 32 lowercase hexadecimal characters")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if result, exists := m.signalResults[operationID]; exists {
 		if result.id != id || result.signal != sig {
-			return errors.New("signal operation ID was reused with a different target or signal")
+			return errorf(invalidArgument, "signal operation ID was reused with a different target or signal")
 		}
-		if result.err != "" {
-			return errors.New(result.err)
-		}
-		return nil
+		return result.err
 	}
 	p, ok := m.processes[id]
 	if !ok || p.cmd == nil || p.state.Status != "RUNNING" {
-		return errors.New("process is not running")
+		return errorf(failedPrecondition, "process is not running")
 	}
 	if m.signalResults == nil {
 		m.signalResults = make(map[string]signalResult)
 	}
 	if len(m.signalResults) >= maxSignalResults {
-		return errors.New("signal replay ledger is full")
+		return errorf(failedPrecondition, "signal replay ledger is full")
 	}
 	err := m.signalProcess(-p.cmd.Process.Pid, sig)
 	result := signalResult{id: id, signal: sig}
 	if err != nil {
-		result.err = err.Error()
+		result.err = err
 	}
 	m.signalResults[operationID] = result
 	m.signalOrder = append(m.signalOrder, operationID)
@@ -904,7 +901,7 @@ func (m *Manager) SignalOnce(id string, sig syscall.Signal, operationID string) 
 // idempotent success so loss of the acknowledgement reply is replay-safe.
 func (m *Manager) AcknowledgeSignal(id, operationID string) error {
 	if !signalOperationID.MatchString(operationID) {
-		return errors.New("signal operation ID must be 32 lowercase hexadecimal characters")
+		return errorf(invalidArgument, "signal operation ID must be 32 lowercase hexadecimal characters")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -913,7 +910,7 @@ func (m *Manager) AcknowledgeSignal(id, operationID string) error {
 		return nil
 	}
 	if result.id != id {
-		return errors.New("signal operation ID acknowledgement target differs")
+		return errorf(invalidArgument, "signal operation ID acknowledgement target differs")
 	}
 	delete(m.signalResults, operationID)
 	for index, value := range m.signalOrder {
@@ -940,11 +937,11 @@ func (m *Manager) Wait(id string) (ProcessState, error) {
 	p, ok := m.processes[id]
 	if !ok {
 		m.mu.Unlock()
-		return ProcessState{}, errors.New("process not found")
+		return ProcessState{}, errorf(notFound, "process not found")
 	}
 	if p.state.Status == "CREATED" {
 		m.mu.Unlock()
-		return ProcessState{}, errors.New("process is not started")
+		return ProcessState{}, errorf(failedPrecondition, "process is not started")
 	}
 	done := p.done
 	m.mu.Unlock()
@@ -959,7 +956,7 @@ func (m *Manager) State(id string) (ProcessState, error) {
 	defer m.mu.Unlock()
 	p, ok := m.processes[id]
 	if !ok {
-		return ProcessState{}, errors.New("process not found")
+		return ProcessState{}, errorf(notFound, "process not found")
 	}
 	x := p.state
 	x.Stdout = p.stdout.String()
@@ -1026,7 +1023,7 @@ func (m *Manager) Stats(id string) (ProcessStats, error) {
 	p, ok := m.processes[id]
 	if !ok || p.state.PID <= 0 {
 		m.mu.Unlock()
-		return ProcessStats{}, errors.New("running process not found")
+		return ProcessStats{}, errorf(notFound, "running process not found")
 	}
 	group := uint64(p.state.PID)
 	m.mu.Unlock()
@@ -1048,7 +1045,7 @@ func (m *Manager) Stats(id string) (ProcessStats, error) {
 		result.PIDs++
 	}
 	if result.PIDs == 0 {
-		return ProcessStats{}, errors.New("process group is no longer present")
+		return ProcessStats{}, errorf(failedPrecondition, "process group is no longer present")
 	}
 	ticks := clockTicks()
 	result.CPUUserNS = result.CPUUserNS * uint64(time.Second) / ticks
@@ -1063,10 +1060,10 @@ func (m *Manager) Delete(id string) error {
 		return nil
 	}
 	if p.state.Status == "RUNNING" {
-		return errors.New("process is running")
+		return errorf(failedPrecondition, "process is running")
 	}
 	if p.state.Status == "STOPPED" && !p.waited {
-		return errors.New("process exit has not been waited")
+		return errorf(failedPrecondition, "process exit has not been waited")
 	}
 	delete(m.processes, id)
 	for operationID, result := range m.signalResults {
@@ -1252,7 +1249,7 @@ func (m *Manager) ConfigureNetwork(config NetworkConfig) error {
 }
 
 func networkSetupError(stage string, err error) error {
-	return fmt.Errorf("guest network setup stage %s failed: %w", stage, err)
+	return &stageError{operation: "network setup", stage: stage, cause: err}
 }
 
 func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkConfig) error {
@@ -1260,19 +1257,19 @@ func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkCon
 		return err
 	}
 	if config.Name == "" || len(config.Name) > 15 || config.Address == "" || config.Gateway == "" || config.MTU < 576 || config.MTU > 65515 {
-		return errors.New("valid network name, address, gateway, and MTU are required")
+		return errorf(invalidArgument, "valid network name, address, gateway, and MTU are required")
 	}
 	ip, subnet, err := net.ParseCIDR(config.Address)
 	if err != nil || ip.To4() == nil {
-		return errors.New("network address must be IPv4 CIDR")
+		return errorf(invalidArgument, "network address must be IPv4 CIDR")
 	}
 	gateway := net.ParseIP(config.Gateway)
 	if gateway == nil || !subnet.Contains(gateway) || gateway.Equal(ip) {
-		return errors.New("network gateway must be a distinct address in the endpoint subnet")
+		return errorf(invalidArgument, "network gateway must be a distinct address in the endpoint subnet")
 	}
 	for _, server := range config.Nameservers {
 		if net.ParseIP(server) == nil {
-			return errors.New("network DNS server is not an IP address")
+			return errorf(invalidArgument, "network DNS server is not an IP address")
 		}
 	}
 	m.mu.Lock()
@@ -1284,7 +1281,7 @@ func (m *Manager) ConfigureNetworkContext(ctx context.Context, config NetworkCon
 		return nil
 	}
 	if m.network != nil || m.networkName != "" || m.dnsManaged || m.networkConfig.Name != "" {
-		return errors.New("network is already configured or cleanup is pending")
+		return errorf(failedPrecondition, "network is already configured or cleanup is pending")
 	}
 	f, err := os.OpenFile("/dev/net/tun", os.O_RDWR|syscall.O_NONBLOCK, 0)
 	if err != nil {
@@ -1351,10 +1348,10 @@ func (m *Manager) ExchangeNetwork(packet []byte) ([]byte, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.network == nil {
-		return nil, errors.New("network is not configured")
+		return nil, errorf(failedPrecondition, "network is not configured")
 	}
 	if len(packet) > m.networkMTU {
-		return nil, errors.New("network packet is too large")
+		return nil, errorf(invalidArgument, "network packet is too large")
 	}
 	if len(packet) != 0 {
 		if _, err := unix.Write(int(m.network.Fd()), packet); err != nil {
@@ -1431,7 +1428,7 @@ func SignalNumber(s string) (syscall.Signal, error) {
 	m := map[string]syscall.Signal{"SIGTERM": syscall.SIGTERM, "SIGKILL": syscall.SIGKILL, "SIGINT": syscall.SIGINT, "SIGHUP": syscall.SIGHUP}
 	v, ok := m[s]
 	if !ok {
-		return 0, errors.New("unsupported signal")
+		return 0, errorf(unsupported, "unsupported signal")
 	}
 	return v, nil
 }

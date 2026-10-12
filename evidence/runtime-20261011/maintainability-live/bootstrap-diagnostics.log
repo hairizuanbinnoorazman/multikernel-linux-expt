@@ -1,0 +1,37 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=sudo journalctl -u mkruntimed -u mknetd --since \"2026-10-11 12:39:00\" --no-pager; sudo cat /etc/multikernel/current/runtime.env; sudo ls -ld /opt /opt/mkruntime /opt/mkruntime/artifacts; sudo ls -l /opt/mkruntime/artifacts; sudo ctr tasks list; sudo ctr containers list"], "started_at": "2026-10-11T12:40:17.315047Z"}}
+Oct 11 12:39:12 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:39:12 mklinux-maintainability-20261011 systemd[1]: Started mknetd.service - Multikernel primary-owned CNI control plane.
+Oct 11 12:39:12 mklinux-maintainability-20261011 insmod[35074]: insmod: ERROR: could not load module /usr/local/libexec/multikernel/mk_transport.ko: No such file or directory
+Oct 11 12:39:12 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[35078]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:39:12 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+# Install as /etc/multikernel/runtime.env after adapting paths and the APIC IDs
+# to the qualified host. Never include cloud credentials in this file.
+# Kerf, socket, state, kernel-manifest, timeout, and host-headroom policy live
+# in the strict root-owned /etc/mkruntime/config.json contract.
+MKRUNTIME_POOL_CPUS=8,10,12,14,9,11,13,15
+MKRUNTIME_POOL_MEMORY=16GB
+MKRUNTIME_POOL_MEMORY_RESERVE=1GB
+MKRUNTIME_CMDLINE="rdinit=/init console=mktty0 panic=-1"
+MKRUNTIME_STORAGE_MOUNT=/srv/multikernel-storage
+MKRUNTIME_STORAGE_DEVICE=/dev/disk/by-id/google-mk-maint-storage
+MKRUNTIME_STORAGE_SERIAL=mk-maint-storage
+MKRUNTIME_STORAGE_BYTES=32212254720
+MKRUNTIME_STORAGE_LABEL=mk-maint-host
+MKRUNTIME_STORAGE_UUID=00000000-0000-0000-0000-00000000000e
+MKNETWORK_SUBNET=172.31.0.0/24
+# Set this to the qualified host's default-route interface (for example ens4).
+MKNETWORK_EGRESS=ens4
+MKNETWORK_MTU=1400
+# Use the qualified primary resolver policy; comma-separate multiple addresses.
+MKNETWORK_DNS=169.254.169.254
+drwxr-xr-x 6 root root 4096 Oct 11 12:36 /opt
+drwxr-xr-x 6 root root 4096 Oct 11 12:36 /opt/mkruntime
+drwxr-xr-x 2 root root 4096 Oct 11 12:36 /opt/mkruntime/artifacts
+total 509020
+-rw-r--r-- 1 root root   5642176 Oct 11 12:36 child-initramfs.cpio.gz
+-rw-r--r-- 1 root root    760032 Oct 11 12:36 mk_transport.ko
+-rw-r--r-- 1 root root   1410712 Oct 11 12:36 nbd.ko
+-rw-r--r-- 1 root root 513413096 Oct 11 12:36 vmlinux
+TASK    PID    STATUS    
+CONTAINER    IMAGE    RUNTIME    
+{"evidence_command_result": {"ended_at": "2026-10-11T12:40:19.273745Z", "exit_status": 0}}

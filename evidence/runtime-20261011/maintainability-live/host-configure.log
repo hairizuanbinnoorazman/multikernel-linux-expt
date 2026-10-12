@@ -1,0 +1,17 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=bash /var/tmp/mk-maint-host-configure.sh"], "started_at": "2026-10-11T12:38:34.625486Z"}}
+mke2fs 1.47.2 (1-Jan-2025)
+Discarding device blocks:       0/7864320               done                            
+Creating filesystem with 7864320 4k blocks and 1966080 inodes
+Filesystem UUID: 00000000-0000-0000-0000-00000000000e
+Superblock backups stored on blocks: 
+	32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208, 
+	4096000
+
+Allocating group tables:   0/240       done                            
+Writing inode tables:   0/240       done                            
+Creating journal (32768 blocks): done
+Writing superblocks and filesystem accounting information:   0/240       done
+
+UUID=00000000-0000-0000-0000-00000000000e /srv/multikernel-storage ext4 defaults,nodev,nosuid 0 2
+manage runtime deployment: unsafe deployment input: /var/tmp/mk-maint-src/deploy/systemd/sys-fs-multikernel.mount
+{"evidence_command_result": {"ended_at": "2026-10-11T12:38:38.577740Z", "exit_status": 1}}

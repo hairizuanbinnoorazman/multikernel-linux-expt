@@ -11,3 +11,12 @@ The authenticated process protocol supports bounded stdin writes, explicit
 stdin close, incremental stdout/stderr reads, PTY allocation, and terminal
 resize. Containerd attachment remains primary-owned FIFO plumbing; the child
 agent has no independent login or attach listener.
+
+Agent failures carry typed categories or execution stages from their source to
+the RPC boundary. `errors.go` maps these to fixed public codes and messages;
+diagnostic wording, paths, command output, and tokens never select or populate
+a wire error. Wrapped and joined causes remain available locally. Unknown
+errors and stages fall back to `INTERNAL`. Request decoding failures are
+`INVALID_ARGUMENT`; missing processes, unsupported operations, authentication,
+and state preconditions have explicit categories. A failed execution stage is
+`INTERNAL` and exposes only its approved stage name.

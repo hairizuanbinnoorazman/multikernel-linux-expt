@@ -106,7 +106,8 @@ observe provenance "boot_id=$(cat /proc/sys/kernel/random/boot_id)
 selector=$(readlink -f /usr/local/lib/multikernel/current)
 mkruntimed_sha256=$(sudo sha256sum /proc/$(systemctl show -p MainPID --value mkruntimed)/exe | awk '{print $1}')
 mknetd_sha256=$(sudo sha256sum /proc/$(systemctl show -p MainPID --value mknetd)/exe | awk '{print $1}')
-source_test_sha256=$(sha256sum "$source_root/runtime/cmd/containerd-shim-multikernel-v2/main_test.go" | awk '{print $1}')
+source_test_sha256=$(cd "$source_root/runtime/cmd/containerd-shim-multikernel-v2" && sha256sum -- *_test.go | sha256sum | awk '{print $1}')
+source_test_sha256_scope=all-shim-test-files
 qualifier_sha256=$(sha256sum "$0" | awk '{print $1}')"
 
 guest_program='set -eu; touch /tmp/network-stress-ready; while [ ! -e /tmp/network-stress-release ]; do sleep 1; done'

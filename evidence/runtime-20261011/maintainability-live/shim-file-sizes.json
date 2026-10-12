@@ -1,0 +1,242 @@
+[
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_rpc_fakes_test.go",
+    "lines": 176,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_transport.go",
+    "lines": 491,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_transport_test.go",
+    "lines": 178,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/bundle_test.go",
+    "lines": 111,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/cleanup.go",
+    "lines": 346,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/cleanup_test.go",
+    "lines": 308,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/create_test.go",
+    "lines": 408,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/event_journal.go",
+    "lines": 277,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/event_journal_test.go",
+    "lines": 362,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/main.go",
+    "lines": 81,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/main_test.go",
+    "lines": 158,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/namespace_holder.go",
+    "lines": 130,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network.go",
+    "lines": 359,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network_fakes_test.go",
+    "lines": 185,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network_test.go",
+    "lines": 509,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_close_test.go",
+    "lines": 299,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_delete_test.go",
+    "lines": 173,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_exec_test.go",
+    "lines": 211,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_io.go",
+    "lines": 333,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_io_test.go",
+    "lines": 302,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_output_test.go",
+    "lines": 350,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_start_test.go",
+    "lines": 313,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_stdin_test.go",
+    "lines": 250,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_streams.go",
+    "lines": 358,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery.go",
+    "lines": 560,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_fakes_test.go",
+    "lines": 119,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_state_test.go",
+    "lines": 259,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_test.go",
+    "lines": 280,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/relay_test.go",
+    "lines": 356,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/rootfs.go",
+    "lines": 90,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/service.go",
+    "lines": 370,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup.go",
+    "lines": 408,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup_auth_test.go",
+    "lines": 332,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup_test.go",
+    "lines": 125,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/state_files.go",
+    "lines": 349,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/state_files_test.go",
+    "lines": 162,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/stream_fakes_test.go",
+    "lines": 298,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/supervisor.go",
+    "lines": 522,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/supervisor_test.go",
+    "lines": 437,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/support_fakes_test.go",
+    "lines": 106,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_cancellation_test.go",
+    "lines": 277,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_control.go",
+    "lines": 617,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_control_test.go",
+    "lines": 290,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_fakes_test.go",
+    "lines": 317,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_metrics_test.go",
+    "lines": 290,
+    "test": true
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/tasks_create.go",
+    "lines": 457,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/tasks_process.go",
+    "lines": 371,
+    "test": false
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/validation_test.go",
+    "lines": 192,
+    "test": true
+  }
+]

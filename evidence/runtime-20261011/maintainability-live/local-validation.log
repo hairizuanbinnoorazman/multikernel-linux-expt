@@ -1,0 +1,25 @@
+{"evidence_command": {"argv": ["bash", "-c", "set -e; cd runtime; export GOCACHE=/tmp/mk-maint-local-go-cache TMPDIR=/tmp GOTMPDIR=/tmp; go test -race ./...; go vet ./..."], "started_at": "2026-10-12T04:18:19.623931Z"}}
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/agent	10.448s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/containerd-shim-multikernel-v2	9.985s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agent	1.015s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-agentctl	1.129s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-cni	1.068s
+?   	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mk-host-check	[no test files]
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mknetd	1.023s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/cmd/mkruntimed	1.025s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec	1.072s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo	1.016s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon	1.194s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck	1.173s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig	1.036s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf	1.056s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest	1.328s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle	1.954s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/network	1.405s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs	1.743s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile	1.033s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/state	1.033s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage	4.560s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket	1.015s
+ok  	github.com/hairizuan/multikernel-linux-expt/runtime/protocol	1.037s
+{"evidence_command_result": {"ended_at": "2026-10-12T04:18:46.980551Z", "exit_status": 0}}

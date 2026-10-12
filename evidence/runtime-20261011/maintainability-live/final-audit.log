@@ -1,0 +1,84 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=bash /var/tmp/mk-maint-final-audit.sh"], "started_at": "2026-10-12T04:21:33.557719Z"}}
+ActiveState=active
+MainPID=63657
+NRestarts=0
+ActiveState=active
+MainPID=2536
+NRestarts=0
+ActiveState=active
+MainPID=36846
+NRestarts=0
+ActiveState=active
+MainPID=42434
+NRestarts=0
+{
+  "installed_revision": "49bba37bc4b1d584df6799219be20e26054cf126",
+  "components": [
+    {
+      "name": "containerd-shim-multikernel-v2",
+      "revision": "49bba37bc4b1d584df6799219be20e26054cf126",
+      "sha256": "f42a694281bcf8482a3eda77d397c4ff200b48922ca87ce992910d9a3fa0ae2a",
+      "size_bytes": 14063137,
+      "version": "0.1.0-maint-test"
+    },
+    {
+      "name": "mk-agent",
+      "revision": "49bba37bc4b1d584df6799219be20e26054cf126",
+      "sha256": "c46fe29d0c33f396dbf6f392544586430e7554ddae80b08814fd4266527de502",
+      "size_bytes": 5464176,
+      "version": "0.1.0-maint-test"
+    },
+    {
+      "name": "mk-agentctl",
+      "revision": "49bba37bc4b1d584df6799219be20e26054cf126",
+      "sha256": "fd7d4c426126d8978d274d8c3b04ee011b15a0400768bcf9cc249702939bf736",
+      "size_bytes": 5028867,
+      "version": "0.1.0-maint-test"
+    },
+    {
+      "name": "mk-cni",
+      "revision": "49bba37bc4b1d584df6799219be20e26054cf126",
+      "sha256": "61037bdc75bf1e02965a20f9af01ec60602521b05a3980fa82c1bf253595101b",
+      "size_bytes": 4792411,
+      "version": "0.1.0-maint-test"
+    },
+    {
+      "name": "mk-host-check",
+      "revision": "49bba37bc4b1d584df6799219be20e26054cf126",
+      "sha256": "b7f48a53e312910a7cf118c47ef7016006e7ac2d560040a46d3c31f348f10641",
+      "size_bytes": 4053982,
+      "version": "0.1.0-maint-test"
+    },
+    {
+      "name": "mknetd",
+      "revision": "49bba37bc4b1d584df6799219be20e26054cf126",
+      "sha256": "c51cb72058948e161e1cceb8c88cc51301553145174e1105e7845bfce76d7483",
+      "size_bytes": 4999865,
+      "version": "0.1.0-maint-test"
+    },
+    {
+      "name": "mkruntimed",
+      "revision": "49bba37bc4b1d584df6799219be20e26054cf126",
+      "sha256": "f165985bec0e693c0e0ad9716189e3e83635b499ada8907e98c89b5140be16f5",
+      "size_bytes": 6420907,
+      "version": "0.1.0-maint-test"
+    }
+  ],
+  "guest_agent_sha256": "c46fe29d0c33f396dbf6f392544586430e7554ddae80b08814fd4266527de502",
+  "empty_rootfs_and_network_state": true
+}
+1604b214a2df40a5aab91fe01b7f87e757de1e9f215a4cde2b1b0f52c7035599  /var/tmp/mk-maintainability-source.tar.gz
+00000000-0000-0000-0000-00000000000c
+
+No memory pool configured
+
+================================================================================
+No instances found in /sys/fs/multikernel/instances/
+
+/proc/kimage:
+================================================================================
+MK_ID  Type        Start Address   Segments  Mode  Cmdline
+-----  ----------  --------------  --------  ----  -------
+
+MAINT_FINAL_COMPONENT_AND_INVENTORY_AUDIT_PASS
+{"evidence_command_result": {"ended_at": "2026-10-12T04:21:37.488784Z", "exit_status": 0}}

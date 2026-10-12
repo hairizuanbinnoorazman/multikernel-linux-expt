@@ -1,0 +1,612 @@
+{
+  "schema_version": 1,
+  "gate": "G8",
+  "run_id": "maintainability-live-20261011",
+  "result": "pass",
+  "started_at": "2026-10-11T12:32:11.416216Z",
+  "ended_at": "2026-10-12T04:26:54.238979Z",
+  "repository": {
+    "commit": "d93d0edfe651b713be8379f694faff471c9c7101",
+    "dirty": true,
+    "diff_output": "dirty.diff"
+  },
+  "components": [
+    {
+      "name": "containerd-shim-multikernel-v2",
+      "version": "0.1.0-maint-test",
+      "sha256": "f42a694281bcf8482a3eda77d397c4ff200b48922ca87ce992910d9a3fa0ae2a"
+    },
+    {
+      "name": "mk-agent",
+      "version": "0.1.0-maint-test",
+      "sha256": "c46fe29d0c33f396dbf6f392544586430e7554ddae80b08814fd4266527de502"
+    },
+    {
+      "name": "mk-agentctl",
+      "version": "0.1.0-maint-test",
+      "sha256": "fd7d4c426126d8978d274d8c3b04ee011b15a0400768bcf9cc249702939bf736"
+    },
+    {
+      "name": "mk-cni",
+      "version": "0.1.0-maint-test",
+      "sha256": "61037bdc75bf1e02965a20f9af01ec60602521b05a3980fa82c1bf253595101b"
+    },
+    {
+      "name": "mk-host-check",
+      "version": "0.1.0-maint-test",
+      "sha256": "b7f48a53e312910a7cf118c47ef7016006e7ac2d560040a46d3c31f348f10641"
+    },
+    {
+      "name": "mknetd",
+      "version": "0.1.0-maint-test",
+      "sha256": "c51cb72058948e161e1cceb8c88cc51301553145174e1105e7845bfce76d7483"
+    },
+    {
+      "name": "mkruntimed",
+      "version": "0.1.0-maint-test",
+      "sha256": "f165985bec0e693c0e0ad9716189e3e83635b499ada8907e98c89b5140be16f5"
+    }
+  ],
+  "host": {
+    "provider": "gce",
+    "project": "${MK_PROJECT}",
+    "zone": "asia-southeast1-b",
+    "instance": "mklinux-maintainability-20261011",
+    "machine_type": "n2-standard-16",
+    "boot_id": "00000000-0000-0000-0000-00000000000c"
+  },
+  "commands": [
+    {
+      "id": "bootstrap-diagnostics",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=sudo journalctl -u mkruntimed -u mknetd --since \"2026-10-11 12:39:00\" --no-pager; sudo cat /etc/multikernel/current/runtime.env; sudo ls -ld /opt /opt/mkruntime /opt/mkruntime/artifacts; sudo ls -l /opt/mkruntime/artifacts; sudo ctr tasks list; sudo ctr containers list"
+      ],
+      "exit_status": 0,
+      "output_path": "bootstrap-diagnostics.log"
+    },
+    {
+      "id": "bootstrap-smoke-v2",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=set -eu; sudo install -m 0644 ${OPERATOR_HOME}/src/linux/.config /opt/mkruntime/artifacts/config-7.0.0-mk2-gce-lab; sudo install -m 0644 /opt/mkruntime/artifacts/mk_transport.ko /usr/local/libexec/multikernel/mk_transport.ko; sudo ctr run --rm --runtime io.containerd.multikernel.v2 docker.io/library/busybox:1.36 mk-maint-bootstrap /bin/echo MAINT_BOOTSTRAP_SMOKE_PASS; sudo systemctl restart mkruntimed; sudo cat /var/lib/mkruntimed/rootfs/state.json /var/lib/mknetd/state.json"
+      ],
+      "exit_status": 0,
+      "output_path": "bootstrap-smoke-v2.log"
+    },
+    {
+      "id": "bootstrap-smoke",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=set -eu; cd /var/tmp/mk-maint-src; sha256sum /var/tmp/mk-maintainability-source.tar.gz; cat /proc/sys/kernel/random/boot_id; sudo ctr images pull docker.io/library/busybox:1.36; sudo ctr run --rm --runtime io.containerd.multikernel.v2 docker.io/library/busybox:1.36 mk-maint-bootstrap /bin/echo MAINT_BOOTSTRAP_SMOKE_PASS; sudo systemctl restart mkruntimed; sudo cat /var/lib/mkruntimed/rootfs/state.json /var/lib/mknetd/state.json"
+      ],
+      "exit_status": 1,
+      "output_path": "bootstrap-smoke.log"
+    },
+    {
+      "id": "clean-shim-restart",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-clean-shim-restart-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "clean-shim-restart.log"
+    },
+    {
+      "id": "component-audit-v2",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=set -eu; cd /var/tmp/mk-maint-src; sudo python3 -c 'import runpy,pathlib,json; m=runpy.run_path(\"scripts/manage-runtime-binaries.py\"); print(json.dumps(m[\"verify_installed\"](pathlib.Path(\"/\"),\"0.1.0-maint-test-49bba37bc4b1d584df6799219be20e26054cf126\"),indent=2))'; sudo cat /etc/mkruntime/kernels/gce-mk2.json; /opt/go/bin/go version; sudo containerd --version; sudo docker --version; uname -r; cat /proc/sys/kernel/random/boot_id"
+      ],
+      "exit_status": 0,
+      "output_path": "component-audit-v2.log"
+    },
+    {
+      "id": "component-audit",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=set -eu; cd /var/tmp/mk-maint-src; sudo scripts/manage-runtime-binaries.py verify runtime/release-manifest.json /usr/local/lib/multikernel/current/bin; sudo cat /etc/mkruntime/kernels/gce-mk2.json; /opt/go/bin/go version; sudo containerd --version; sudo docker --version; uname -r; cat /proc/sys/kernel/random/boot_id"
+      ],
+      "exit_status": 2,
+      "output_path": "component-audit.log"
+    },
+    {
+      "id": "containerd-restart",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-containerd-restart-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "containerd-restart.log"
+    },
+    {
+      "id": "delete-instance",
+      "argv": [
+        "gcloud",
+        "compute",
+        "instances",
+        "delete",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--delete-disks=boot",
+        "--quiet"
+      ],
+      "exit_status": 0,
+      "output_path": "delete-instance.log"
+    },
+    {
+      "id": "delete-storage-disk",
+      "argv": [
+        "gcloud",
+        "compute",
+        "disks",
+        "delete",
+        "mklinux-maint-storage-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--quiet"
+      ],
+      "exit_status": 0,
+      "output_path": "delete-storage-disk.log"
+    },
+    {
+      "id": "docker-restart",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-docker-restart-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "docker-restart.log"
+    },
+    {
+      "id": "docs-check",
+      "argv": [
+        "make",
+        "docs-check"
+      ],
+      "exit_status": 0,
+      "output_path": "docs-check.log"
+    },
+    {
+      "id": "feature-matrix-v2",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-g4-g6-feature-matrix.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "feature-matrix-v2.log"
+    },
+    {
+      "id": "feature-matrix-v3",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-g4-g6-feature-matrix.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "feature-matrix-v3.log"
+    },
+    {
+      "id": "feature-matrix",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-g4-g6-feature-matrix.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "feature-matrix.log"
+    },
+    {
+      "id": "final-audit",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-final-audit.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "final-audit.log"
+    },
+    {
+      "id": "guest-start-diagnostics",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=sudo timeout 8s script -qefc \"/opt/mkruntime/kerf-venv/bin/kerf console mk-mk-maint-bootstrap-df9e3590673a2541 --verbose\" /dev/null; sudo dmesg | tail -60; sudo find /var/lib/mkruntime /var/lib/mkruntimed -maxdepth 3 -type f -name \"*.log\" -print"
+      ],
+      "exit_status": 0,
+      "output_path": "guest-start-diagnostics.log"
+    },
+    {
+      "id": "host-build-v2",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-host-build-v2.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "host-build-v2.log"
+    },
+    {
+      "id": "host-build-v3",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-host-build-v3.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "host-build-v3.log"
+    },
+    {
+      "id": "host-build",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-host-setup.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "host-build.log"
+    },
+    {
+      "id": "host-configure-v2",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-host-configure-v2.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "host-configure-v2.log"
+    },
+    {
+      "id": "host-configure",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-host-configure.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "host-configure.log"
+    },
+    {
+      "id": "host-reboot",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=set -eu; for attempt in $(seq 1 120); do state=$(systemctl is-active apt-daily-upgrade.service || true); if [ \"$state\" != activating ] && [ \"$state\" != active ]; then break; fi; sleep 5; done; test \"$(systemctl is-active apt-daily-upgrade.service || true)\" = inactive; ! pgrep -x dpkg; sudo grub-reboot \"Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-mk2-gce-lab\"; sudo grub-editenv list; sudo systemctl reboot"
+      ],
+      "exit_status": 0,
+      "output_path": "host-reboot.log"
+    },
+    {
+      "id": "host-recover-v2",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-host-recover-v2.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "host-recover-v2.log"
+    },
+    {
+      "id": "host-recover-v3",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-host-recover-v3.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "host-recover-v3.log"
+    },
+    {
+      "id": "host-recover",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=bash /var/tmp/mk-maint-host-recover.sh"
+      ],
+      "exit_status": 1,
+      "output_path": "host-recover.log"
+    },
+    {
+      "id": "host-stabilize",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=set -eu; sudo systemctl mask --now apt-daily.timer apt-daily-upgrade.timer; sudo systemctl stop mkruntimed; sudo systemctl disable mkruntimed mknetd containerd docker; sudo grep -E \"^GRUB_DEFAULT|^GRUB_SAVEDEFAULT\" /etc/default/grub; sudo grep -E \"^menuentry|^submenu\" /boot/grub/grub.cfg; systemctl is-active apt-daily-upgrade.service || true; sudo ps -eo comm,etime | rg \"unattended|dpkg|apt\"; sudo journalctl -k --since \"2026-10-11 12:56:00\" --until \"2026-10-11 12:58:00\" --no-pager"
+      ],
+      "exit_status": 0,
+      "output_path": "host-stabilize.log"
+    },
+    {
+      "id": "local-validation",
+      "argv": [
+        "bash",
+        "-c",
+        "set -e; cd runtime; export GOCACHE=/tmp/mk-maint-local-go-cache TMPDIR=/tmp GOTMPDIR=/tmp; go test -race ./...; go vet ./..."
+      ],
+      "exit_status": 0,
+      "output_path": "local-validation.log"
+    },
+    {
+      "id": "matrix-failure-diagnostics",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=sudo journalctl --since \"2026-10-11 12:55:00\" --until \"2026-10-11 12:59:30\" --no-pager -n 400; sudo systemctl show mkruntimed mknetd containerd docker -p ActiveState -p MainPID -p NRestarts; sudo tail -80 /var/log/unattended-upgrades/unattended-upgrades.log; sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d; sudo dmesg | tail -50"
+      ],
+      "exit_status": 0,
+      "output_path": "matrix-failure-diagnostics.log"
+    },
+    {
+      "id": "matrix-failure-services",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=sudo journalctl -u mkruntimed -u mknetd -u containerd -u docker -u unattended-upgrades -u apt-daily-upgrade --since \"2026-10-11 12:55:00\" --until \"2026-10-11 12:59:00\" --no-pager; sudo cat /var/log/unattended-upgrades/unattended-upgrades.log | tail -20; sudo journalctl -k --since \"2026-10-11 12:55:00\" --no-pager | rg -i \"oom|killed|memory|signal|nbd\""
+      ],
+      "exit_status": 0,
+      "output_path": "matrix-failure-services.log"
+    },
+    {
+      "id": "network-isolation",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-network-isolation-live.sh /var/tmp/mk-maint-src"
+      ],
+      "exit_status": 0,
+      "output_path": "network-isolation.log"
+    },
+    {
+      "id": "orphan-metadata-cleanup",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=set -eu; id=447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9; sudo ctr -n moby containers info \"$id\"; test -z \"$(sudo ctr -n moby tasks list -q)\"; test -z \"$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -print -quit)\"; sudo ctr -n moby containers rm \"$id\"; sudo ctr -n moby containers list; printf \"FAILED_RUN_ORPHAN_METADATA_REMOVED\\n\""
+      ],
+      "exit_status": 0,
+      "output_path": "orphan-metadata-cleanup.log"
+    },
+    {
+      "id": "shim-death",
+      "argv": [
+        "gcloud",
+        "compute",
+        "ssh",
+        "mklinux-maintainability-20261011",
+        "--project=${MK_PROJECT}",
+        "--zone=asia-southeast1-b",
+        "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-shim-death-live.sh"
+      ],
+      "exit_status": 0,
+      "output_path": "shim-death.log"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "shared-ctr-docker-feature-matrix",
+      "passed": true,
+      "evidence_paths": [
+        "feature-matrix-v3.log"
+      ]
+    },
+    {
+      "id": "containerd-restart-continuity",
+      "passed": true,
+      "evidence_paths": [
+        "containerd-restart.log"
+      ]
+    },
+    {
+      "id": "docker-restart-continuity",
+      "passed": true,
+      "evidence_paths": [
+        "docker-restart.log"
+      ]
+    },
+    {
+      "id": "forced-shim-death-recovery-and-reclaim",
+      "passed": true,
+      "evidence_paths": [
+        "shim-death.log"
+      ]
+    },
+    {
+      "id": "network-isolation-and-primary-health",
+      "passed": true,
+      "evidence_paths": [
+        "network-isolation.log"
+      ]
+    },
+    {
+      "id": "clean-shim-name-reuse",
+      "passed": true,
+      "evidence_paths": [
+        "clean-shim-restart.log"
+      ]
+    },
+    {
+      "id": "deployed-candidate-hashes-and-final-empty-inventory",
+      "passed": true,
+      "evidence_paths": [
+        "final-audit.log"
+      ]
+    },
+    {
+      "id": "vm-race-vet-build",
+      "passed": true,
+      "evidence_paths": [
+        "host-build-v3.log"
+      ]
+    },
+    {
+      "id": "local-race-and-vet",
+      "passed": true,
+      "evidence_paths": [
+        "local-validation.log"
+      ]
+    },
+    {
+      "id": "owned-dns-slices-and-safe-typed-agent-errors",
+      "passed": true,
+      "evidence_paths": [
+        "local-validation.log",
+        "host-build-v3.log",
+        "source.tar.gz",
+        "source-hashes.json"
+      ]
+    },
+    {
+      "id": "shim-declarations-preserved-and-size-target-met",
+      "passed": true,
+      "evidence_paths": [
+        "shim-declaration-audit.json",
+        "shim-file-sizes.json",
+        "shim-baseline.tar.gz",
+        "audit-shim.go"
+      ]
+    },
+    {
+      "id": "cloud-resources-returned-to-baseline",
+      "passed": true,
+      "evidence_paths": [
+        "resources-before.json",
+        "resources-after.json",
+        "delete-instance.log",
+        "delete-storage-disk.log"
+      ]
+    }
+  ],
+  "limitations": [
+    "This is scoped regression evidence for maintainability changes, not certification of every G0-G12 acceptance requirement.",
+    "The workspace was dirty. Binary revision 49bba37bc4b1d584df6799219be20e26054cf126 identifies a temporary VM-only commit of the retained source archive, not a user-workspace commit.",
+    "The first live matrix was interrupted during an unattended OS upgrade and failed cleanup after losing a storage helper. That failed transcript is retained. Timers were disabled, failed fixture state was archived on the disposable VM, and the instance was rebooted before the successful clean rerun.",
+    "A second matrix attempt rejected orphan containerd metadata left by the interrupted case before executing feature rows. The exact test-owned record was removed after proving its task and child were absent.",
+    "Early setup and audit failures are retained: overly long Go Unix socket test paths, deployment input ownership, missing kernel config artifact, unsupported audit CLI subcommand, and reboot fixture service/mount setup. Runtime source was unchanged during correction.",
+    "The initial test VM boot ID was 00000000-0000-0000-0000-000000000007; the final successful six-suite run used the boot ID recorded above. This does not prove recovery through arbitrary OS/package upgrades."
+  ],
+  "cleanup": {
+    "completed": true,
+    "resources_before": "resources-before.json",
+    "resources_after": "resources-after.json",
+    "retained_resources": [],
+    "operator_acknowledged": false
+  }
+}

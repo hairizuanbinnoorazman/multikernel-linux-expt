@@ -1,0 +1,255 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=bash /var/tmp/mk-maint-host-configure-v2.sh"], "started_at": "2026-10-11T12:39:08.003305Z"}}
+{
+  "installed_and_active": "78a467a46de8cafc794167140e8f9a323e7245233b83069891418d7dec9247a2"
+}
+{"agent": "/opt/mkruntime/bin/mk-agent", "architecture": "amd64", "initramfs": "/opt/mkruntime/artifacts/child-initramfs.cpio.gz", "kernel": "/opt/mkruntime/artifacts/vmlinux", "kernel_release": "7.0.0-mk2-gce-lab", "manifest": "/etc/mkruntime/kernels/gce-mk2.json", "manifest_sha256": "f238a3c7a93c14e54a247f25b77b1bb2127cb531d6ce371805513fe9b1efc3e7", "module": "/opt/mkruntime/artifacts/mk_transport.ko", "oci_features": ["argv", "env", "cwd", "user", "additional_gids", "terminal", "stdin", "split_output", "signals", "exec"], "relay": "/opt/mkruntime/bin/mkvsock-relay", "required_config": ["CONFIG_MULTIKERNEL=y", "CONFIG_MKTTY=y", "CONFIG_KEXEC=y"]}
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-11T12:39:11.652926923Z",
+  "qualified": true,
+  "architecture": "amd64",
+  "kernel_release": "7.0.0-mk2-gce-lab",
+  "kernel_config": {
+    "CONFIG_KEXEC_CORE": "y",
+    "CONFIG_KEXEC_FILE": "y",
+    "CONFIG_MKTTY": "y",
+    "CONFIG_MULTIKERNEL": "y"
+  },
+  "multikernel_fs": true,
+  "kerf_version": "kerf, version 0.2.0",
+  "cpus": [
+    {
+      "logical": 0,
+      "apic": 0,
+      "physical_id": 0,
+      "core_id": 0,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 1,
+      "apic": 2,
+      "physical_id": 0,
+      "core_id": 1,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 2,
+      "apic": 4,
+      "physical_id": 0,
+      "core_id": 2,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 3,
+      "apic": 6,
+      "physical_id": 0,
+      "core_id": 3,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 4,
+      "apic": 8,
+      "physical_id": 0,
+      "core_id": 4,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 5,
+      "apic": 10,
+      "physical_id": 0,
+      "core_id": 5,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 6,
+      "apic": 12,
+      "physical_id": 0,
+      "core_id": 6,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 7,
+      "apic": 14,
+      "physical_id": 0,
+      "core_id": 7,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 8,
+      "apic": 1,
+      "physical_id": 0,
+      "core_id": 0,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 9,
+      "apic": 3,
+      "physical_id": 0,
+      "core_id": 1,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 10,
+      "apic": 5,
+      "physical_id": 0,
+      "core_id": 2,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 11,
+      "apic": 7,
+      "physical_id": 0,
+      "core_id": 3,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 12,
+      "apic": 9,
+      "physical_id": 0,
+      "core_id": 4,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 13,
+      "apic": 11,
+      "physical_id": 0,
+      "core_id": 5,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 14,
+      "apic": 13,
+      "physical_id": 0,
+      "core_id": 6,
+      "numa_node": 0,
+      "online": true
+    },
+    {
+      "logical": 15,
+      "apic": 15,
+      "physical_id": 0,
+      "core_id": 7,
+      "numa_node": 0,
+      "online": true
+    }
+  ],
+  "smt_policy": "whole-core",
+  "online_cpus": "0-15",
+  "offline_cpus": "",
+  "memory_bytes": 67416379392,
+  "contiguous_allocation": "ready",
+  "contiguous_probe": "Memory: 16384 MB on node 0 (from CPUs 8-15)\nBaseline validation passed; would write the initial baseline (dry-run)",
+  "lockdown": "[none] integrity confidentiality",
+  "secure_boot": "disabled",
+  "kexec_loaded": "0",
+  "guest_agent": "active",
+  "serial_console": "available",
+  "kerf_state": "No memory pool configured\n\n================================================================================\nNo instances found in /sys/fs/multikernel/instances/\n\n/proc/kimage:\n================================================================================\nMK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------",
+  "pool_configured": false,
+  "kimage_state": "MK_ID  Type        Start Address   Segments  Mode  Cmdline\n-----  ----------  --------------  --------  ----  -------",
+  "instances": null,
+  "instance_state": [],
+  "assigned_devices": null,
+  "stale_resources": null,
+  "pci_classes": {
+    "0000:00:00.0": "0x060000",
+    "0000:00:01.0": "0x060100",
+    "0000:00:01.3": "0x068000",
+    "0000:00:03.0": "0x000000",
+    "0000:00:04.0": "0x020000",
+    "0000:00:05.0": "0x00ff00"
+  },
+  "protected_devices": [
+    {
+      "kind": "boot-disk",
+      "device": "8:1",
+      "pci_function": "0000:00:03.0",
+      "pci_ancestry": [
+        "0000:00:03.0"
+      ]
+    },
+    {
+      "kind": "primary-nic",
+      "device": "ens4",
+      "pci_function": "0000:00:04.0",
+      "pci_ancestry": [
+        "0000:00:04.0"
+      ]
+    }
+  ],
+  "forbidden_pci_functions": [
+    "0000:00:03.0",
+    "0000:00:04.0"
+  ],
+  "findings": null
+}
+Created symlink '/etc/systemd/system/multi-user.target.wants/mkruntimed.service' → '/etc/multikernel/deployments/78a467a46de8cafc794167140e8f9a323e7245233b83069891418d7dec9247a2/systemd/mkruntimed.service'.
+Created symlink '/etc/systemd/system/multi-user.target.wants/mknetd.service' → '/etc/multikernel/deployments/78a467a46de8cafc794167140e8f9a323e7245233b83069891418d7dec9247a2/systemd/mknetd.service'.
+configuration OK
+ActiveState=active
+MainPID=35080
+NRestarts=0
+ActiveState=active
+MainPID=35062
+NRestarts=0
+ActiveState=active
+MainPID=35135
+NRestarts=0
+ActiveState=active
+MainPID=35191
+NRestarts=0
+{
+  "active": "releases/0.1.0-maint-test-49bba37bc4b1d584df6799219be20e26054cf126",
+  "links": {
+    "/opt/cni/bin/multikernel": {
+      "managed": true,
+      "present": true,
+      "target": "/usr/local/lib/multikernel/current/bin/mk-cni"
+    },
+    "/usr/local/bin/containerd-shim-multikernel-v2": {
+      "managed": true,
+      "present": true,
+      "target": "../lib/multikernel/current/bin/containerd-shim-multikernel-v2"
+    },
+    "/usr/local/bin/mk-agentctl": {
+      "managed": true,
+      "present": true,
+      "target": "../lib/multikernel/current/bin/mk-agentctl"
+    },
+    "/usr/local/bin/mk-host-check": {
+      "managed": true,
+      "present": true,
+      "target": "../lib/multikernel/current/bin/mk-host-check"
+    },
+    "/usr/local/sbin/mknetd": {
+      "managed": true,
+      "present": true,
+      "target": "../lib/multikernel/current/bin/mknetd"
+    },
+    "/usr/local/sbin/mkruntimed": {
+      "managed": true,
+      "present": true,
+      "target": "../lib/multikernel/current/bin/mkruntimed"
+    }
+  },
+  "releases": [
+    "0.1.0-maint-test-49bba37bc4b1d584df6799219be20e26054cf126"
+  ]
+}
+{"io.containerd.multikernel.v2":{},"io.containerd.runc.v2":{"path":"runc","status":{"org.opencontainers.runtime-spec.features":"{\"ociVersionMin\":\"1.0.0\",\"ociVersionMax\":\"1.3.0\",\"hooks\":[\"prestart\",\"createRuntime\",\"createContainer\",\"startContainer\",\"poststart\",\"poststop\"],\"mountOptions\":[\"async\",\"atime\",\"bind\",\"defaults\",\"dev\",\"diratime\",\"dirsync\",\"exec\",\"iversion\",\"lazytime\",\"loud\",\"mand\",\"noatime\",\"nodev\",\"nodiratime\",\"noexec\",\"noiversion\",\"nolazytime\",\"nomand\",\"norelatime\",\"nostrictatime\",\"nosuid\",\"nosymfollow\",\"private\",\"ratime\",\"rbind\",\"rdev\",\"rdiratime\",\"relatime\",\"remount\",\"rexec\",\"rnoatime\",\"rnodev\",\"rnodiratime\",\"rnoexec\",\"rnorelatime\",\"rnostrictatime\",\"rnosuid\",\"rnosymfollow\",\"ro\",\"rprivate\",\"rrelatime\",\"rro\",\"rrw\",\"rshared\",\"rslave\",\"rstrictatime\",\"rsuid\",\"rsymfollow\",\"runbindable\",\"rw\",\"shared\",\"silent\",\"slave\",\"strictatime\",\"suid\",\"symfollow\",\"sync\",\"tmpcopyup\",\"unbindable\"],\"linux\":{\"namespaces\":[\"cgroup\",\"ipc\",\"mount\",\"network\",\"pid\",\"time\",\"user\",\"uts\"],\"capabilities\":[\"CAP_CHOWN\",\"CAP_DAC_OVERRIDE\",\"CAP_DAC_READ_SEARCH\",\"CAP_FOWNER\",\"CAP_FSETID\",\"CAP_KILL\",\"CAP_SETGID\",\"CAP_SETUID\",\"CAP_SETPCAP\",\"CAP_LINUX_IMMUTABLE\",\"CAP_NET_BIND_SERVICE\",\"CAP_NET_BROADCAST\",\"CAP_NET_ADMIN\",\"CAP_NET_RAW\",\"CAP_IPC_LOCK\",\"CAP_IPC_OWNER\",\"CAP_SYS_MODULE\",\"CAP_SYS_RAWIO\",\"CAP_SYS_CHROOT\",\"CAP_SYS_PTRACE\",\"CAP_SYS_PACCT\",\"CAP_SYS_ADMIN\",\"CAP_SYS_BOOT\",\"CAP_SYS_NICE\",\"CAP_SYS_RESOURCE\",\"CAP_SYS_TIME\",\"CAP_SYS_TTY_CONFIG\",\"CAP_MKNOD\",\"CAP_LEASE\",\"CAP_AUDIT_WRITE\",\"CAP_AUDIT_CONTROL\",\"CAP_SETFCAP\",\"CAP_MAC_OVERRIDE\",\"CAP_MAC_ADMIN\",\"CAP_SYSLOG\",\"CAP_WAKE_ALARM\",\"CAP_BLOCK_SUSPEND\",\"CAP_AUDIT_READ\",\"CAP_PERFMON\",\"CAP_BPF\",\"CAP_CHECKPOINT_RESTORE\"],\"cgroup\":{\"v1\":true,\"v2\":true,\"systemd\":true,\"systemdUser\":true,\"rdma\":true},\"seccomp\":{\"enabled\":true,\"actions\":[\"SCMP_ACT_ALLOW\",\"SCMP_ACT_ERRNO\",\"SCMP_ACT_KILL\",\"SCMP_ACT_KILL_PROCESS\",\"SCMP_ACT_KILL_THREAD\",\"SCMP_ACT_LOG\",\"SCMP_ACT_NOTIFY\",\"SCMP_ACT_TRACE\",\"SCMP_ACT_TRAP\"],\"operators\":[\"SCMP_CMP_EQ\",\"SCMP_CMP_GE\",\"SCMP_CMP_GT\",\"SCMP_CMP_LE\",\"SCMP_CMP_LT\",\"SCMP_CMP_MASKED_EQ\",\"SCMP_CMP_NE\"],\"archs\":[\"SCMP_ARCH_AARCH64\",\"SCMP_ARCH_ARM\",\"SCMP_ARCH_MIPS\",\"SCMP_ARCH_MIPS64\",\"SCMP_ARCH_MIPS64N32\",\"SCMP_ARCH_MIPSEL\",\"SCMP_ARCH_MIPSEL64\",\"SCMP_ARCH_MIPSEL64N32\",\"SCMP_ARCH_PPC\",\"SCMP_ARCH_PPC64\",\"SCMP_ARCH_PPC64LE\",\"SCMP_ARCH_RISCV64\",\"SCMP_ARCH_S390\",\"SCMP_ARCH_S390X\",\"SCMP_ARCH_X32\",\"SCMP_ARCH_X86\",\"SCMP_ARCH_X86_64\"],\"knownFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\"],\"supportedFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\"]},\"apparmor\":{\"enabled\":true},\"selinux\":{\"enabled\":true},\"intelRdt\":{\"enabled\":true},\"mountExtensions\":{\"idmap\":{\"enabled\":true}}},\"annotations\":{\"io.github.seccomp.libseccomp.version\":\"2.6.0\",\"org.opencontainers.runc.checkpoint.enabled\":\"true\",\"org.opencontainers.runc.commit\":\"\",\"org.opencontainers.runc.version\":\"1.4.0-0ubuntu1\"},\"potentiallyUnsafeConfigAnnotations\":[\"bundle\",\"org.systemd.property.\",\"org.criu.config\"]}"}},"runc":{"path":"runc","status":{"org.opencontainers.runtime-spec.features":"{\"ociVersionMin\":\"1.0.0\",\"ociVersionMax\":\"1.3.0\",\"hooks\":[\"prestart\",\"createRuntime\",\"createContainer\",\"startContainer\",\"poststart\",\"poststop\"],\"mountOptions\":[\"async\",\"atime\",\"bind\",\"defaults\",\"dev\",\"diratime\",\"dirsync\",\"exec\",\"iversion\",\"lazytime\",\"loud\",\"mand\",\"noatime\",\"nodev\",\"nodiratime\",\"noexec\",\"noiversion\",\"nolazytime\",\"nomand\",\"norelatime\",\"nostrictatime\",\"nosuid\",\"nosymfollow\",\"private\",\"ratime\",\"rbind\",\"rdev\",\"rdiratime\",\"relatime\",\"remount\",\"rexec\",\"rnoatime\",\"rnodev\",\"rnodiratime\",\"rnoexec\",\"rnorelatime\",\"rnostrictatime\",\"rnosuid\",\"rnosymfollow\",\"ro\",\"rprivate\",\"rrelatime\",\"rro\",\"rrw\",\"rshared\",\"rslave\",\"rstrictatime\",\"rsuid\",\"rsymfollow\",\"runbindable\",\"rw\",\"shared\",\"silent\",\"slave\",\"strictatime\",\"suid\",\"symfollow\",\"sync\",\"tmpcopyup\",\"unbindable\"],\"linux\":{\"namespaces\":[\"cgroup\",\"ipc\",\"mount\",\"network\",\"pid\",\"time\",\"user\",\"uts\"],\"capabilities\":[\"CAP_CHOWN\",\"CAP_DAC_OVERRIDE\",\"CAP_DAC_READ_SEARCH\",\"CAP_FOWNER\",\"CAP_FSETID\",\"CAP_KILL\",\"CAP_SETGID\",\"CAP_SETUID\",\"CAP_SETPCAP\",\"CAP_LINUX_IMMUTABLE\",\"CAP_NET_BIND_SERVICE\",\"CAP_NET_BROADCAST\",\"CAP_NET_ADMIN\",\"CAP_NET_RAW\",\"CAP_IPC_LOCK\",\"CAP_IPC_OWNER\",\"CAP_SYS_MODULE\",\"CAP_SYS_RAWIO\",\"CAP_SYS_CHROOT\",\"CAP_SYS_PTRACE\",\"CAP_SYS_PACCT\",\"CAP_SYS_ADMIN\",\"CAP_SYS_BOOT\",\"CAP_SYS_NICE\",\"CAP_SYS_RESOURCE\",\"CAP_SYS_TIME\",\"CAP_SYS_TTY_CONFIG\",\"CAP_MKNOD\",\"CAP_LEASE\",\"CAP_AUDIT_WRITE\",\"CAP_AUDIT_CONTROL\",\"CAP_SETFCAP\",\"CAP_MAC_OVERRIDE\",\"CAP_MAC_ADMIN\",\"CAP_SYSLOG\",\"CAP_WAKE_ALARM\",\"CAP_BLOCK_SUSPEND\",\"CAP_AUDIT_READ\",\"CAP_PERFMON\",\"CAP_BPF\",\"CAP_CHECKPOINT_RESTORE\"],\"cgroup\":{\"v1\":true,\"v2\":true,\"systemd\":true,\"systemdUser\":true,\"rdma\":true},\"seccomp\":{\"enabled\":true,\"actions\":[\"SCMP_ACT_ALLOW\",\"SCMP_ACT_ERRNO\",\"SCMP_ACT_KILL\",\"SCMP_ACT_KILL_PROCESS\",\"SCMP_ACT_KILL_THREAD\",\"SCMP_ACT_LOG\",\"SCMP_ACT_NOTIFY\",\"SCMP_ACT_TRACE\",\"SCMP_ACT_TRAP\"],\"operators\":[\"SCMP_CMP_EQ\",\"SCMP_CMP_GE\",\"SCMP_CMP_GT\",\"SCMP_CMP_LE\",\"SCMP_CMP_LT\",\"SCMP_CMP_MASKED_EQ\",\"SCMP_CMP_NE\"],\"archs\":[\"SCMP_ARCH_AARCH64\",\"SCMP_ARCH_ARM\",\"SCMP_ARCH_MIPS\",\"SCMP_ARCH_MIPS64\",\"SCMP_ARCH_MIPS64N32\",\"SCMP_ARCH_MIPSEL\",\"SCMP_ARCH_MIPSEL64\",\"SCMP_ARCH_MIPSEL64N32\",\"SCMP_ARCH_PPC\",\"SCMP_ARCH_PPC64\",\"SCMP_ARCH_PPC64LE\",\"SCMP_ARCH_RISCV64\",\"SCMP_ARCH_S390\",\"SCMP_ARCH_S390X\",\"SCMP_ARCH_X32\",\"SCMP_ARCH_X86\",\"SCMP_ARCH_X86_64\"],\"knownFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\"],\"supportedFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\"]},\"apparmor\":{\"enabled\":true},\"selinux\":{\"enabled\":true},\"intelRdt\":{\"enabled\":true},\"mountExtensions\":{\"idmap\":{\"enabled\":true}}},\"annotations\":{\"io.github.seccomp.libseccomp.version\":\"2.6.0\",\"org.opencontainers.runc.checkpoint.enabled\":\"true\",\"org.opencontainers.runc.commit\":\"\",\"org.opencontainers.runc.version\":\"1.4.0-0ubuntu1\"},\"potentiallyUnsafeConfigAnnotations\":[\"bundle\",\"org.systemd.property.\",\"org.criu.config\"]}"}}}
+MAINT_HOST_CONFIGURE_PASS
+{"evidence_command_result": {"ended_at": "2026-10-11T12:39:13.495778Z", "exit_status": 0}}

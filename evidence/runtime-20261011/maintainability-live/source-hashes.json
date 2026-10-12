@@ -1,0 +1,1506 @@
+[
+  {
+    "path": ".gitignore",
+    "sha256": "41ae997eab7d2937cd4351a1e5b4b43754cc2c2a0277face8108e4490a64c16e"
+  },
+  {
+    "path": "Makefile",
+    "sha256": "75158a09a2dc915ae4c6b99ef6dc7ca09fb1bfdfa88dc15027c815754cb68da2"
+  },
+  {
+    "path": "README.md",
+    "sha256": "51c9f1d822729c1a249821e88893ea4a586a72ad94587954cd5b05070c02cd0e"
+  },
+  {
+    "path": "deploy/README.md",
+    "sha256": "5cdfd9f47ef5ec4da73d5ef0d274fbd99020b1c9339459a77831b948633ad17d"
+  },
+  {
+    "path": "deploy/cni/10-multikernel.conf",
+    "sha256": "7de30fd1d639ee1b28027479e2eaafa0f2dd837c6adf5b99c7f0be8fdd9f09e6"
+  },
+  {
+    "path": "deploy/containerd/20-multikernel-runtime.toml",
+    "sha256": "54c85792c4a5fe09ac2ab49e19a1e02f55b92729de23f6b9cd856ac32f5d91f7"
+  },
+  {
+    "path": "deploy/docker/runtime.fragment.json",
+    "sha256": "7861303c7fbea5cdac88b5fdd522006451392e27f75e3fee3e884552553272af"
+  },
+  {
+    "path": "deploy/systemd/mknetd.service",
+    "sha256": "0465b5a80b9c2079564781bd0cc663008d40249e6b80ac6a30b8f14f8511886e"
+  },
+  {
+    "path": "deploy/systemd/mkruntimed.service",
+    "sha256": "9d921d2fc93716bc7b57a17697977b0b119d36b8d4b43afd981fe1f3c9f95063"
+  },
+  {
+    "path": "deploy/systemd/runtime.env.example",
+    "sha256": "4e362f42645ced2218ec79e289f508bd4be545aa646ef16a24740325f092ffbb"
+  },
+  {
+    "path": "deploy/systemd/sys-fs-multikernel.mount",
+    "sha256": "2295fa06aae89380ce034479a66b492caca94c15aae40c2dacb6da71347a7525"
+  },
+  {
+    "path": "docs/README.md",
+    "sha256": "2b0918be83bdec82cff2f415305fa732c22060b8d6eb6148412f8c1822afa397"
+  },
+  {
+    "path": "docs/experiments/ASSET-MAP.md",
+    "sha256": "7f3f4c9e16ed2591bb0b8a542a2ab4b0df72d7b56fb85625e1ee458556ee0764"
+  },
+  {
+    "path": "docs/experiments/README.md",
+    "sha256": "b3d3ba7a9dc39ce6a597c1e42d1665743deb2aef33d5e620269e018606f13d6f"
+  },
+  {
+    "path": "docs/experiments/daxfs/README.md",
+    "sha256": "b0a0809d4dbae59fc32fed54a17af8598eb94ac6a65dfa55de862377d88dd093"
+  },
+  {
+    "path": "docs/experiments/daxfs/plan.md",
+    "sha256": "e00b2ef0cf8f4410037bca1380cf1426d2dd660954856e6666f5b58884d59fde"
+  },
+  {
+    "path": "docs/experiments/daxfs/report.md",
+    "sha256": "3aa36079630b6674f940f19898eedf59a16e9dcec962758585f5025547efa1b9"
+  },
+  {
+    "path": "docs/experiments/ext4-direct/README.md",
+    "sha256": "58f85cd7444b7052ea97996a13501e58d97940bd32d9bb4710f41e96ef72c32b"
+  },
+  {
+    "path": "docs/experiments/ext4-direct/execution.md",
+    "sha256": "0129ce295e03b795f81983f8ab83ccca2c8f6743a651cf871ac7b7d8b3b2a424"
+  },
+  {
+    "path": "docs/experiments/ext4-direct/learnings.md",
+    "sha256": "c4c1d87b7c279e35f4fa3f9e0e14196444ff737fef393f6746529837a8a00788"
+  },
+  {
+    "path": "docs/experiments/ext4-direct/plan.md",
+    "sha256": "e7d4ed38a0ac19f2be2070479bc12c2d8b343375b8719a1113bd511006423456"
+  },
+  {
+    "path": "docs/experiments/ext4-mediated/README.md",
+    "sha256": "b8cd1c9fcfe3a299e85365ec6eb61a9358191c2934d4cf4e6606da8c450af118"
+  },
+  {
+    "path": "docs/experiments/ext4-mediated/report.md",
+    "sha256": "43eaa530c53181bbd3107ee4a7a85b0a6f3919970982e0d44cdb69dbd46c8860"
+  },
+  {
+    "path": "docs/experiments/field-notes-20260828.md",
+    "sha256": "874f88a82de667746b4da9eea5577cc4a18619bf3c440146e5d8538856b8a99c"
+  },
+  {
+    "path": "docs/guides/README.md",
+    "sha256": "b2c15c609ca49b69fa3ab2949f26c305c8de3da7fb39aa4ecc3d30abe62cce99"
+  },
+  {
+    "path": "docs/guides/developer-workflow.md",
+    "sha256": "d40488c8f902b0f198987ec93ea73dddac9ccc53e46111330b66815ef4da500b"
+  },
+  {
+    "path": "docs/guides/gce-lab-runbook.md",
+    "sha256": "7f517a5391eed7db5ce4636d3dcdd744c22a8210ebcd1a593bd3ea17e472481a"
+  },
+  {
+    "path": "docs/guides/kernel-and-bootstrap-artifacts.md",
+    "sha256": "6fef31f6c792c22932d200484df69fa3b60fdb11cdfcedb578a4f5c6516ee6a6"
+  },
+  {
+    "path": "docs/guides/runtime-evidence-runbook.md",
+    "sha256": "97829c7090e3775d9354509fd4694c12d1205e023a87bf8c590f0d8a69718c1c"
+  },
+  {
+    "path": "docs/guides/runtime-operator-quickstart.md",
+    "sha256": "325b1baa5045a03d476e8c01c754779316650d1bcd3792106b43b40489cc49e6"
+  },
+  {
+    "path": "docs/guides/runtime-recovery-and-cleanup.md",
+    "sha256": "f450a0edf124e916219d305cd8c42f036c070a48844ec9ba2ba4dc55e94520c5"
+  },
+  {
+    "path": "docs/guides/using-the-runtime.md",
+    "sha256": "2d2a313dd450de6c78d8d987daf8f7b4042cebfcc750e7e5cecb32ef422502fb"
+  },
+  {
+    "path": "docs/project/README.md",
+    "sha256": "78f32b60ba5a95d04830753944b0cffbca2c17772ffcea0d2967b71aaafc4aae"
+  },
+  {
+    "path": "docs/project/TASKS.md",
+    "sha256": "8181664d563845301c329038eb5c9e178e039ebe4afc857a39580e3035c479c9"
+  },
+  {
+    "path": "docs/runtime/README.md",
+    "sha256": "c3e0c41c31c51abfa52b9a7eaf077058d33fa11ed89c87e23f0d915b7bcc32ca"
+  },
+  {
+    "path": "docs/runtime/architecture.md",
+    "sha256": "0e12c138c72f0e9c0bf4f647f46830a7b63d3907dfc07ac30e28278fdcacdad8"
+  },
+  {
+    "path": "docs/runtime/contracts/README.md",
+    "sha256": "465e44b9ed7ed4cd73e0ab199e6b8607275b6c9f077cbdab127d77493b412fca"
+  },
+  {
+    "path": "docs/runtime/contracts/configuration.md",
+    "sha256": "093b610a7e9ff71b1cb436ab54d5159abe802bd7e9f9637545045c76e60eb954"
+  },
+  {
+    "path": "docs/runtime/contracts/evidence.md",
+    "sha256": "e63cacecc95cc78eb36fc107fe51de87ca29060cad22e2f7bd4bb9bf72cf1794"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/agent-reply-error.valid.json",
+    "sha256": "8f84aa4da866e1aaf9367c376260131ade25954adcb57df271a9373b56dccbc2"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/agent-reply-mac.invalid.json",
+    "sha256": "fcae5d19e1e33d4b5af05841feb0bb00209ea4663d40f433ec8a7bc3a9a60715"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/agent-reply.valid.json",
+    "sha256": "21c9c6b0d4849cbc760c02ec7e6ffdaaf252d676ebdbbc32bb6b5b8a14e3c81f"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/agent-request-extended.valid.json",
+    "sha256": "ae74ec4d7ffd60f62c1ee0df420db4811761713d7efb11ec27e3c5a2f5ab06ce"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/agent-request-method.invalid.json",
+    "sha256": "75a5e1db7aa35568e5d9aac7d8900a20dd842dc193e3e683cab6589835f1f118"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/agent-request.valid.json",
+    "sha256": "bdbe84d8c0ebc9ee17aec07dc1297f25168fe01fe10d392104d86c993d513487"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/daemon-request.duplicate.invalid.json",
+    "sha256": "7b7adea1744fe204b034f1f65827f2c5f5eb1a4011601b14a5df93bfc00e713c"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/daemon-request.valid.json",
+    "sha256": "497ae796a6824601833a8a746b28c4a841c8a40993f73ec7e0e5471d748b556d"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/evidence-manifest.missing-exit.invalid.json",
+    "sha256": "2dde1cffb78e3fa2b25bdc103e9c5b5741d5c7da9cef4114a6968dc8ceecf6df"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/evidence-manifest.valid.json",
+    "sha256": "60fc5b614723463148c2153960e267485f6e65b3ccfe90dcf6862346622f4436"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/gce-resource-ledger.missing-autodelete.invalid.json",
+    "sha256": "60076b94b0533bb3ed580e7eef5367bd844332c54467a618aef33837bbcc5c5d"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/gce-resource-ledger.valid.json",
+    "sha256": "a41386194b9c39b1414dd4fd3f6ee2b04771a7c7691b6fd20470213f4e82b59f"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/host-config.overflow.invalid.json",
+    "sha256": "a12acc5edb9dd1d51b44546b1e2e35fb5701ffc2a1f5549b3927d7b196718159"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/host-config.relative-path.invalid.json",
+    "sha256": "7c4370f1d96118050db1f8686899c75e8a5f6c3960d2e2b57c5a5757ab954715"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/host-config.unknown-field.invalid.json",
+    "sha256": "c2ddd0bcd1191346ecd024892aacb4967f6b0bf8111e792dd6a4106e91a2a7e5"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/host-config.unsafe-path.invalid.json",
+    "sha256": "5f23cc0dc3f35c458b817464a5f4d73807dd0465cbbfbe05c7593c0801a48d4e"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/host-config.valid.json",
+    "sha256": "cbbf56ece5e1dac4eed81e81d51c07d0522470a1d980e7b7f45665026251e5c3"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/kernel-manifest.bad-digest.invalid.json",
+    "sha256": "a55d0bd15394e86f3787e5319d0e89072761a72081d04a2564bbc5cb1ee13f00"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/kernel-manifest.missing-pins.invalid.json",
+    "sha256": "0985dfe0bebfe141b0b3c475658fe778b1d05917afd02d05b017b2b7a957358b"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/kernel-manifest.valid.json",
+    "sha256": "03ff16c784f960261b71ec6ede1806e062935899dfcf575d13ff12f70424d3c1"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/sandbox-config.invalid-label.json",
+    "sha256": "bb962ab03ea640e62e66045192b6131cc6d264e00c77456b32f33ad1ced822ec"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/sandbox-config.valid.json",
+    "sha256": "8fbd9b904b4ccea67c8a1f098592a444b9927498bcaae1502e89665f86710e19"
+  },
+  {
+    "path": "docs/runtime/contracts/fixtures/schema-cases.json",
+    "sha256": "1242a0aea97ecf6676bc2a45da5850a5743a5d5074aec5c34272f4bc6fbacfbf"
+  },
+  {
+    "path": "docs/runtime/contracts/g4-g6-evidence-requirements-v1.json",
+    "sha256": "e7b6c36900ecfffbc218a80e7c377ea5b3d6c72e9ffffa778ab084b18a67950b"
+  },
+  {
+    "path": "docs/runtime/contracts/kernel-and-image-policy.md",
+    "sha256": "258a8f36d2378423d8e4f9d547a7e09e5f1c7e224e5440258f5f8645c8dc20dd"
+  },
+  {
+    "path": "docs/runtime/contracts/lifecycle.md",
+    "sha256": "19980400c43c25b453bced3f19f7eda3f29af6dd2615eeecb302a97e9baa936d"
+  },
+  {
+    "path": "docs/runtime/contracts/ownership-and-trust.md",
+    "sha256": "f3d5808ac4c2ce6a361bffdc1faee119d982dc43cc0a3c4c907ed74809d1bd0a"
+  },
+  {
+    "path": "docs/runtime/contracts/protocol-v1.md",
+    "sha256": "09831f267ecd3b6a809234ba392fc25af82667894dcea050d8f93abd511f36c6"
+  },
+  {
+    "path": "docs/runtime/contracts/schemas/agent-protocol-v1.schema.json",
+    "sha256": "67a5841c550229d9a76883422571e8c948f3f88084da793145e41744a2433895"
+  },
+  {
+    "path": "docs/runtime/contracts/schemas/daemon-protocol-v1.schema.json",
+    "sha256": "002dc055e5959453007367084994002f21700fdabf5202baf342290e2bbc6c6b"
+  },
+  {
+    "path": "docs/runtime/contracts/schemas/evidence-manifest-v1.schema.json",
+    "sha256": "7c30266145eecc8999ad91849ff92774edd80a8dd2cff54d6c40175f8c6cc7a7"
+  },
+  {
+    "path": "docs/runtime/contracts/schemas/gce-resource-ledger-v1.schema.json",
+    "sha256": "fcd6bc70b41e2c77cace94b5feac35ce38c62700d531a28d41e5c50678e8ac1c"
+  },
+  {
+    "path": "docs/runtime/contracts/schemas/host-config-v1.schema.json",
+    "sha256": "b418b6496e5dc04bea5ac658914591cfc23344c480218b113bc45c5f9ce416bd"
+  },
+  {
+    "path": "docs/runtime/contracts/schemas/kernel-manifest-v1.schema.json",
+    "sha256": "4687c4d1ce402bfc94be6b071cc2d23c8da5eca05c873bf36799408539bfc186"
+  },
+  {
+    "path": "docs/runtime/contracts/schemas/sandbox-config-v1.schema.json",
+    "sha256": "63961e74b0c9e5e6943900c7c00dcee103d943d8304b00841e45b185257e028c"
+  },
+  {
+    "path": "docs/runtime/decisions/0001-build-a-new-runtime.md",
+    "sha256": "d980c8c665a5a71f54dab06ed8a5070b7d871674345cbd9f6e3290ade61a1ba0"
+  },
+  {
+    "path": "docs/runtime/learnings/00-g0-scope-and-contracts.md",
+    "sha256": "0f5cc4fd7f3316aec26875f25a432e61309a4b33c8c11f5e5c8b5d0103476975"
+  },
+  {
+    "path": "docs/runtime/learnings/01-g1-host-and-isolation.md",
+    "sha256": "891c3dacd7eceb5ca746a5ce0943905ffc47b351f26f5b7ffd3ce9f8c3b3caee"
+  },
+  {
+    "path": "docs/runtime/learnings/02-g2-control-plane.md",
+    "sha256": "ad999bfba63d8c3ff421c5355da9a22ba9bd1c2ba885a1b2cee49453c4d2ef67"
+  },
+  {
+    "path": "docs/runtime/learnings/03-g3-agent-and-processes.md",
+    "sha256": "ac65899c3c671d90fdc264379c57d04c200e677a8ac9817b951f54f9f7001993"
+  },
+  {
+    "path": "docs/runtime/learnings/04-g4-g6-mvp.md",
+    "sha256": "614fe3a7335bd39dfd705809c24b62065b5ece8e72fe51abe38dcbefabccaa3f"
+  },
+  {
+    "path": "docs/runtime/learnings/05-g4-g6-robustness.md",
+    "sha256": "1827240ed2c61cbe3a2133128b1111392d8b97c50bb209e178fbf674f8f58a49"
+  },
+  {
+    "path": "docs/runtime/learnings/README.md",
+    "sha256": "7584da449025b2bb6b6da9bf8f88bc104d71df132e909e21a2f90b057088a6f9"
+  },
+  {
+    "path": "docs/runtime/learnings/g0-g3-remediation-checklist.md",
+    "sha256": "66cdd3e31b6aedba04dfb5dc54f29a659b31d6a5e70be4c611b5f077e40ca37d"
+  },
+  {
+    "path": "docs/runtime/learnings/g4-g6-remediation-checklist.md",
+    "sha256": "094a9d30ff357f964add656acbb29fbaea80aeeb3fde7c3959936bfec1ccb20d"
+  },
+  {
+    "path": "docs/runtime/plans/00-scope-and-contracts.md",
+    "sha256": "86572723d9259711dee9489306862778b7d6a282d0887d3989685375fe80b711"
+  },
+  {
+    "path": "docs/runtime/plans/01-host-and-isolation.md",
+    "sha256": "6db2e0c152ab3e09c7474580f6f1c719952ab01cd0821378bf935cf4e9753af5"
+  },
+  {
+    "path": "docs/runtime/plans/02-control-plane.md",
+    "sha256": "8bf38bdbd8998371399ca782119351d99bd60ddfb4ff5961689b9d7295a650f0"
+  },
+  {
+    "path": "docs/runtime/plans/03-agent-and-processes.md",
+    "sha256": "45e205d0bff7b11e55d54d2464363b5cb10234d2f5ac0b43663ae860a678e247"
+  },
+  {
+    "path": "docs/runtime/plans/04-images-and-storage.md",
+    "sha256": "ff41299987a07960187daebf1b3ec1d69fe67c52f1bf33d3631edcb606b74a85"
+  },
+  {
+    "path": "docs/runtime/plans/05-networking.md",
+    "sha256": "53836271189f483edae95d492a52b5c39acf4bcdc9756ea21790892d6fd63430"
+  },
+  {
+    "path": "docs/runtime/plans/06-containerd-shim.md",
+    "sha256": "b8c37dca4b5f40e8e52f7c373b3eb148e38740887deb87cf0405e7aeebab9fe2"
+  },
+  {
+    "path": "docs/runtime/plans/07-security-and-reliability.md",
+    "sha256": "93a760e587042a70ac70fc507c9d9105f3e7936490142567490884bdf07bed87"
+  },
+  {
+    "path": "docs/runtime/plans/08-operability-and-diagnostics.md",
+    "sha256": "f3f02f88372fb13c368ad0924d3448f4ae2c3e296c0847dd65c0abe455f1347f"
+  },
+  {
+    "path": "docs/runtime/plans/09-compatibility-and-release-engineering.md",
+    "sha256": "4668a5554369abf724e60d13b527d82cb5c53b29b704d8038b5c9d24882c35c6"
+  },
+  {
+    "path": "docs/runtime/plans/10-performance-and-density.md",
+    "sha256": "6c8d23c41850b4e82e8444a2b36fa465239330cb94b7d7e6b951d8d08c7cf768"
+  },
+  {
+    "path": "docs/runtime/plans/11-standalone-preview.md",
+    "sha256": "1c8afa40026e08a30dc3a150ca11865a23d2481074fd099c5824c6df75ca00a8"
+  },
+  {
+    "path": "docs/runtime/plans/12-kubernetes-distribution.md",
+    "sha256": "57814a7e3fba63d8eb373d657a0cd1473d6930b566afa76b5f4b95d722615c41"
+  },
+  {
+    "path": "docs/runtime/plans/README.md",
+    "sha256": "d8ce1fb1de2aa3f37cb9af3c19e62a67290f4ef863bacbfe37e2d93008e2c06a"
+  },
+  {
+    "path": "docs/runtime/research/RELATED-WORK.md",
+    "sha256": "af0652a8014f41d978c4c0f0211c94029645e248357bfb7c955a82b9aa6b6daf"
+  },
+  {
+    "path": "docs/runtime/research/g1-pinned-isolation-audit.md",
+    "sha256": "6ba6b4fe40a9dfc349ff791067535dc3676eca5f67b0c8d0be22098061192c92"
+  },
+  {
+    "path": "docs/runtime/status.md",
+    "sha256": "bdfb4ccb3de250a3342555b1c9ee51ada325d4b7613ff72aeed4c9b0b5d5d95c"
+  },
+  {
+    "path": "guest/README.md",
+    "sha256": "b5b6bcc8200dc0e837c36ffefee4c706b0a5ba44d11c6b7aa702ee6fc641e748"
+  },
+  {
+    "path": "guest/daxfs-bootstrap-init",
+    "sha256": "42c16f5d8a82e98c12362401d87621f102e4abb17599ea974374f6060dd92cb1"
+  },
+  {
+    "path": "guest/daxfs-proof.sh",
+    "sha256": "2e35bbbb1c7be2030eb202ddc231ba7cc0e3f02ad506f7ec6d242b114afb5186"
+  },
+  {
+    "path": "guest/docker-proof.sh",
+    "sha256": "d35eebdd17250877cf95670fa861e1c9d558a732a3b5258d5c1dce3bd94f1b41"
+  },
+  {
+    "path": "guest/ext4-bootstrap-init",
+    "sha256": "c3c7ad688428bf5b062db0aa4e1bc67ce4d8b1f66c3f75e64d76b21297a4a26b"
+  },
+  {
+    "path": "guest/init",
+    "sha256": "43f07994479b7ff1a44cb3f6edc2dd5439feac447f5354eacb90d653670fdae3"
+  },
+  {
+    "path": "guest/mediated-disk-root-init",
+    "sha256": "ecdd5e06bb4579ea155128ebb93bf80da58a595ce75bbfaeedbd40c544f7b5ea"
+  },
+  {
+    "path": "guest/mediated-root-bootstrap-init",
+    "sha256": "d3c31986a8ed0fd1bb612abe3d09d22a8f9e8bb68ed2c898b1c03d9e57a170e5"
+  },
+  {
+    "path": "guest/mediated-transport-init",
+    "sha256": "f9075401026355154f135c2a9d0d87e19a14f1467829d708f927a0bad2112303"
+  },
+  {
+    "path": "guest/mk-agent-init",
+    "sha256": "edc9284c8840b69a8f4ba864a29e17905c5e341c7c2a7590efe36093cf0c7601"
+  },
+  {
+    "path": "guest/runtime-crash-init",
+    "sha256": "a44b4c003b28bff949807a9d34baeaf1186671301b9aec89fe6188c5dc44d7bc"
+  },
+  {
+    "path": "guest/runtime-mediated-init",
+    "sha256": "7673226173ecd8a41fb311cfbcaefabc364af88784a3e17ae247eaa6794aacbe"
+  },
+  {
+    "path": "patches/README.md",
+    "sha256": "413ffa49449fee82d5fce0c3ec0087844c1d3a6349ef59c4d4ac7848335984c5"
+  },
+  {
+    "path": "patches/kerf-v0.2.0-hardlink-inode-count.patch",
+    "sha256": "e6ec53d88783f46d639842ce3bd9c554211710a025b6f7f73b5977b76de71795"
+  },
+  {
+    "path": "patches/kerf-v0.2.0-skip-special-files.patch",
+    "sha256": "eb0dbe60ba314f3b7f26af78a2162c7986ac9c4f391c539edf2f55838adf518d"
+  },
+  {
+    "path": "patches/linux-v7.0-mk2-vsock-build-safety.patch",
+    "sha256": "2f3af41b1da0ef06a447aec4793f6b87111c15ffaa3c82675d47443dd8307126"
+  },
+  {
+    "path": "runtime/README.md",
+    "sha256": "9d81191697eef1d877e697b05fbcd37f17f2215b404b4a019d3640fd106f9c18"
+  },
+  {
+    "path": "runtime/agent/README.md",
+    "sha256": "b82ac20878a1879405d83e0b422e40a4b2d62cd82e0c2b8e52894e5c8bc484e5"
+  },
+  {
+    "path": "runtime/agent/client.go",
+    "sha256": "175d7089dfed096d2f91e939c928c0dad8b0bc64ec82f4ca2d7db014be73f33b"
+  },
+  {
+    "path": "runtime/agent/client_test.go",
+    "sha256": "d3f34dad5725e8b4df3b6f557cb4441d12e2902f5cd0d98586e18d70400488a4"
+  },
+  {
+    "path": "runtime/agent/errors.go",
+    "sha256": "8a315a7a9a574509693dd5a1719713166978a8c7f00e05c259f55ce74594678d"
+  },
+  {
+    "path": "runtime/agent/errors_test.go",
+    "sha256": "1e31eb2292657f8d636b06c41e5a2a3647e3f6563eb4f747257557cb33e33b65"
+  },
+  {
+    "path": "runtime/agent/manager.go",
+    "sha256": "d9830f01db0c070addae260c62518b4b3c39e1f73978ae03718b5ad9a894ef78"
+  },
+  {
+    "path": "runtime/agent/manager_test.go",
+    "sha256": "95c6f049ab7f17dcd166a69ea13db96675923306142b57c2c6edc01043a1fdd4"
+  },
+  {
+    "path": "runtime/agent/oci_exec_linux.go",
+    "sha256": "938b83c58be4d6147a76b65a535be688ecd44b9797f6e296fc9ce5306dc6d866"
+  },
+  {
+    "path": "runtime/agent/oci_exec_linux_test.go",
+    "sha256": "734e2e0737e268488e99e588999373bf9e97d61cdd5877631d2b6246cc509b69"
+  },
+  {
+    "path": "runtime/agent/root_policy_linux.go",
+    "sha256": "1c8beb350e9a9183a89fcd2a32e11f5414fbd18e3b30833b0e5d6cabf7cc1237"
+  },
+  {
+    "path": "runtime/agent/server.go",
+    "sha256": "7bbbce87457729689f21373cdf9444219e63c3de2e4606cb5c9e5b5f342b83e3"
+  },
+  {
+    "path": "runtime/agent/server_test.go",
+    "sha256": "568a8caa4de8467a25b8ae3ac60758be342d9d156db37fd5b95e3d5217125c58"
+  },
+  {
+    "path": "runtime/cmd/README.md",
+    "sha256": "a195ebfb8845eea83f533e80835a55bebd18822dfc8dd10d6a6be039535f7780"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/README.md",
+    "sha256": "d5b86517e1d9fed6b1f2db7e7948f89118921f8c370a856823ea5d803e324402"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_rpc_fakes_test.go",
+    "sha256": "98f6c46524c0c88cc8753eba6f44b5b4e4ca8157365e22745e60baa74bf6dac8"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_transport.go",
+    "sha256": "ab3c220b6067fd3d340db31d41d1e9a333b0e5a0b5736ced0845a215ebf4ad72"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/agent_transport_test.go",
+    "sha256": "c8880d7321b549901e3d9d6ef7d8576235400b648d3f13ce59454badcb53289d"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/bundle_test.go",
+    "sha256": "1d95df0803032ea1035ccc9c7fcaec31683197274a87a9ec44be3502d9e17cd0"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/cleanup.go",
+    "sha256": "61d4a7e16cc90908dae087d50adaccde4cbeb0be57e739df4b78318f1e69c1bd"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/cleanup_test.go",
+    "sha256": "b72e1dfce5b05c6c1d3c142624b50a46fdd05ed2305df95286631fc2cb2f84c1"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/create_test.go",
+    "sha256": "249254e118e8f7873ae2f8fa366f51ba45c03adddcef5882375945771ed32f1b"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/event_journal.go",
+    "sha256": "acf03fd9155b55e3208ee01a11947c02ec61b54e22bc8b8fdef0a5f3b5977d7e"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/event_journal_test.go",
+    "sha256": "05dc1c4bbe2f2d70b9a4598039f38ec9c6cd455c118ae924f357502099d270ec"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/main.go",
+    "sha256": "ef9b3f414932bd27877e411b9727f872958812d1e402bf980888e955861f3e0e"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/main_test.go",
+    "sha256": "286b0ab1cd8a3931b66a2c142987aef0818e32ceb2145c42ae09071684f74cb7"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/namespace_holder.go",
+    "sha256": "8123c4134035eb0cb055523d66d92f90b9a11f505366b184265178269047413d"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network.go",
+    "sha256": "0286d9ba66e93adfdd4114199edf03c78a8e65d01d1b70afb13b6d25f44ebb7c"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network_fakes_test.go",
+    "sha256": "d5e22d3f517763049f664bebc3442070837b095e27dc6fd859344dc66a05f2df"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/network_test.go",
+    "sha256": "041f48459739d68f8c6d96227bdf333b8141f671164de8bf2560dd5d1ac29666"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_close_test.go",
+    "sha256": "79054b91f63d7bb1ff98d627d6e95c08d8be65c0d08ca9541992425841292818"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_delete_test.go",
+    "sha256": "8749c8528b42a618ef4b5ed0fb4ed50faca5bd2c13a13f1923127212077604c2"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_exec_test.go",
+    "sha256": "299c26f84ea2efc3e62b7c4fac02064cca0ac257dc830f6a26fc8a5c2677d3db"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_io.go",
+    "sha256": "b3d971062c70d5071b334af696c125ff3d26ce296c6372226958c43210ff43eb"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_io_test.go",
+    "sha256": "1fa48538893a1ec959be0c5601b90799112b4819b58468aeb70d5a086fb02045"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_output_test.go",
+    "sha256": "449b0307326a2cfe49b4773f0aaeb5b486f9b19df3eb1af472532c07038698d4"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_start_test.go",
+    "sha256": "9d148d11e6005493dd66edaf57c7ebe8c77b23f6d565433f91276665987376fc"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_stdin_test.go",
+    "sha256": "9322defc15b7020c346a4183281e6eda39fd9237c7897f82cff2a5dd418f67cf"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/process_streams.go",
+    "sha256": "334d17f5f593c23d3de447374de5519e3093ccf4f8165fd3c99829b28a1f606c"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery.go",
+    "sha256": "24b98f5d88f2361789341aad9383fe8d3c3b6c380eb0dec449f40a4be1077770"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_fakes_test.go",
+    "sha256": "5d3ae286e0a25e32b121e8bf22b7263be244cc00c9505a8f0c9c16201520f870"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_state_test.go",
+    "sha256": "53e26727d95f6f1ed2085eaa329d83e0c999413f2466504ebf277ec6ab4fdce9"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/recovery_test.go",
+    "sha256": "4dc80de8304ca2d6167ffbff503acdff456f7b8979d3f7370363fe061b76dcf3"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/relay_test.go",
+    "sha256": "f90eed6bdf9aa4ee6f2e8d7edefa91a4e56e35e73c3c49d01f97fb6feb907027"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/rootfs.go",
+    "sha256": "e482361acf18b7fced19646a0a3e582a67ba02790e25d0d4b76ab5a88664d2b3"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/service.go",
+    "sha256": "6a0aadef3c23c1bc9676a4cfc5edd8ca9625bc6a5ec4b060aedbf787a4c2b607"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup.go",
+    "sha256": "6568fe23f3d25b5a214fe7513a8347f454dbe2119bd8da84493957df3dc946d4"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup_auth_test.go",
+    "sha256": "df40ad6ad757b5216d7320e576da086a20654b64c183f56bd163d1bdce29001c"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/startup_test.go",
+    "sha256": "ccb3df6a45466b684ff8b272e726b04337f136a31131d219e8c2bd2f2e16d911"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/state_files.go",
+    "sha256": "fc697be1554f56ba618e33cf9be0cae912884d15cac005ededd6601ca6d74e40"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/state_files_test.go",
+    "sha256": "a331fb2275e5e8258c4bdb691833460d3d3f0adc935187daa5168d267885ec33"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/stream_fakes_test.go",
+    "sha256": "20da421e48c1d4333cb4e007556ddb182efc35ad4ade0de64889c6d7491d6e3c"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/supervisor.go",
+    "sha256": "1e2a4250a924f735a6fd270a3cdc91cc27805bb5ee325c23166ce8d764f66a26"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/supervisor_test.go",
+    "sha256": "3bb4c8308666f33c85c074754934d49e25d6e6d2f29cf6a7817726aa87f040c8"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/support_fakes_test.go",
+    "sha256": "00e4c2e81ec38428a817994b19c966f3aa2718a3ecb83589f50c385caef8d20d"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_cancellation_test.go",
+    "sha256": "0443f102773e08484e4a69072df40b3bf9a5b8368bf77ec31b627ba0df1760b6"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_control.go",
+    "sha256": "0e04948b00c27e6535c152f6a2320c2586b3cd8fb4a6fdbeef17fbdba5595766"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_control_test.go",
+    "sha256": "593a64b75a2ae9ca9decd583826651af0eb2b9f20d7135ae81818e7a99d25ade"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_fakes_test.go",
+    "sha256": "7b6e69282e83e5070c10938341ca464b9ee977ef26820fd8fbfadd5baa2cb04e"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/task_metrics_test.go",
+    "sha256": "1a71113937c2951566d48ce68be3f79e1edf311ce5b912d49e277182e7cc85ac"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/tasks_create.go",
+    "sha256": "dea8b5024e94c049ee18ec48df1837cf65c6405373f54fe3e2357b1f24e76b06"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/tasks_process.go",
+    "sha256": "81870f58e1cbfb0306ca8a0ab5188b1b759f808e616d437ce2fc031be3af25f1"
+  },
+  {
+    "path": "runtime/cmd/containerd-shim-multikernel-v2/validation_test.go",
+    "sha256": "1004f9b3820d55211cf0f3ec01ab1a06d2502e630386388f9ce2525769bdfab5"
+  },
+  {
+    "path": "runtime/cmd/mk-agent/main.go",
+    "sha256": "4fd22ef0964c0908547883a6c95f6746d3b66d8149f1d024d61ebc199d3def11"
+  },
+  {
+    "path": "runtime/cmd/mk-agent/shutdown_linux.go",
+    "sha256": "1334fdd3e98c512887e68a9303493fd7ebfe2a962a0af1bd4462d508ba611f40"
+  },
+  {
+    "path": "runtime/cmd/mk-agent/shutdown_linux_test.go",
+    "sha256": "9ce72aa00079bbdef87c0e03ec6260b597f54cdc907c717037a3bcd097f08758"
+  },
+  {
+    "path": "runtime/cmd/mk-agentctl/main.go",
+    "sha256": "feb1769f04a5bb2b06852422206c903f4c8b290f3c3a9ebde177f41763be7a28"
+  },
+  {
+    "path": "runtime/cmd/mk-agentctl/main_test.go",
+    "sha256": "ed6c14d34c51ea35e406e0c59189902fdb2d296ce10f38121e84d4e69ec6cfb8"
+  },
+  {
+    "path": "runtime/cmd/mk-cni/main.go",
+    "sha256": "354a4832e68303351aef19dde0f250e07b01bee0c4828b24a40ebe6759db8e5b"
+  },
+  {
+    "path": "runtime/cmd/mk-cni/main_test.go",
+    "sha256": "be76623b216382138bd6c1fdc7a34bfb45a71e437431fe4cda9f612b3da84f96"
+  },
+  {
+    "path": "runtime/cmd/mk-host-check/README.md",
+    "sha256": "7caef12f15a620877aa5c414cfc950a279d60f7b3cc319bdd75cf42100b336d0"
+  },
+  {
+    "path": "runtime/cmd/mk-host-check/main.go",
+    "sha256": "c158d7705f27b2360938c86b8bbd3223095df0728738641a0b4d96487a942bc7"
+  },
+  {
+    "path": "runtime/cmd/mknetd/main.go",
+    "sha256": "ade0f755f3bc106b54cf1e922ff2ca1c5fa2ebd6027c2d1fb28370cf44511cc0"
+  },
+  {
+    "path": "runtime/cmd/mknetd/main_test.go",
+    "sha256": "5316bfa797fe469bb627635184a4a88e7ba99b03e9b3bf5ff1cb0b5d26ad5ab9"
+  },
+  {
+    "path": "runtime/cmd/mkruntimed/README.md",
+    "sha256": "3d080a4931c31ca6a9fe050fb0144576e36a8628588ffae48390273a7baa5321"
+  },
+  {
+    "path": "runtime/cmd/mkruntimed/main.go",
+    "sha256": "4dd4e9f882ac2441649207f5e12a35ed8e369026e9061d491747f0968d897872"
+  },
+  {
+    "path": "runtime/cmd/mkruntimed/main_test.go",
+    "sha256": "d7b724141a6c2c978ca266a0241c3212e1192b8ea1ad378d818665552255e05b"
+  },
+  {
+    "path": "runtime/go.mod",
+    "sha256": "407622e6b3f49c3e5c18149c92b708adc3f212ff0654d868bd3e89ecefdbc531"
+  },
+  {
+    "path": "runtime/go.sum",
+    "sha256": "bc6646c9eab4f829010e70930cbbd2a9977ec41d0d3a0e990cc2919baa4429da"
+  },
+  {
+    "path": "runtime/internal/README.md",
+    "sha256": "b530948d79a648abcc25ae68e213ccfe3da8a392dd26588f8268fcae62ea7a64"
+  },
+  {
+    "path": "runtime/internal/boundedexec/boundedexec_linux.go",
+    "sha256": "4d455281077ce0c9e2311995f39f2c420b08091f3f5d16106456a2b00ce796db"
+  },
+  {
+    "path": "runtime/internal/boundedexec/boundedexec_linux_test.go",
+    "sha256": "20aa8ed6b95fed1846bb3b85723b7d38a9200ec2838666d4eb3fdacc42a8ab59"
+  },
+  {
+    "path": "runtime/internal/buildinfo/buildinfo.go",
+    "sha256": "4388404cdfe819b681d9e5269acfa5f5829845ccb3faf9d2f5c4c841496068d0"
+  },
+  {
+    "path": "runtime/internal/buildinfo/buildinfo_test.go",
+    "sha256": "1baa2acc42501649a4c0f5bcfdf3773fe6c2947547cccbef4a4f520a9f6a957c"
+  },
+  {
+    "path": "runtime/internal/daemon/client.go",
+    "sha256": "1bf8848cf8de5e06f2564ea1468439821257b1428d5d55d6d348e72bbd16db2f"
+  },
+  {
+    "path": "runtime/internal/daemon/client_test.go",
+    "sha256": "5c9e82f7d0f43fe54ae916e587c99c4916c0229097ccead8fce26f74b8a1ba19"
+  },
+  {
+    "path": "runtime/internal/daemon/server.go",
+    "sha256": "fb1f0b8e537b8a0ff91dcbc292b7c8af41ac395ef79c545e2f6378a37d390109"
+  },
+  {
+    "path": "runtime/internal/daemon/server_test.go",
+    "sha256": "c91c5f421b457414fe2754a9488db28bcb7be6f6f73fe6ff83bdbab7aaef9802"
+  },
+  {
+    "path": "runtime/internal/hostcheck/hostcheck.go",
+    "sha256": "4e6dc6d9e0c4a9e53bf92f783aca42d6c9c2e511f38b0dc03e5e250c4c13b482"
+  },
+  {
+    "path": "runtime/internal/hostcheck/hostcheck_test.go",
+    "sha256": "cb990f08d70f6843d2f868e16e31936d5a982aea1ad73c63851a08548a7b3b0b"
+  },
+  {
+    "path": "runtime/internal/hostconfig/config.go",
+    "sha256": "67b6ac7b3b71c1c1cab58eca722127cf29c34df8391a3de1d387f647d1e63093"
+  },
+  {
+    "path": "runtime/internal/hostconfig/config_test.go",
+    "sha256": "3caffee1c99441fa3f9abdd0b00394f204316c1aca6225d2663b6f9ffa68e8a1"
+  },
+  {
+    "path": "runtime/internal/kerf/README.md",
+    "sha256": "c790ff03d6359b3f2ae1b3e3d6114b67fc3d92f1d655e6b3feecff4d323127cc"
+  },
+  {
+    "path": "runtime/internal/kerf/kerf.go",
+    "sha256": "46453249596afc8c83f662ef2ee1594ff4b38c1f6ab6bf69d46f16d62ac4957b"
+  },
+  {
+    "path": "runtime/internal/kerf/kerf_test.go",
+    "sha256": "767930376fe1643577c45ae5f12f0603c80efa1eb3ac50078ba44203b62deca7"
+  },
+  {
+    "path": "runtime/internal/kernelmanifest/resolver.go",
+    "sha256": "913ef6c6de9ba3c5798ff88d9ff6943364fe4e8fe64eda1b0614563cadfd0336"
+  },
+  {
+    "path": "runtime/internal/kernelmanifest/resolver_test.go",
+    "sha256": "f6bfdb5ac2827fa88ad758aa34c46d0317d0e228e95fdae21bbbe8d07ece3d5e"
+  },
+  {
+    "path": "runtime/internal/lifecycle/README.md",
+    "sha256": "4071f6bb86c3e1e42d9b6b384352cb1dc43d5d6863762e1af3f25280447af1ba"
+  },
+  {
+    "path": "runtime/internal/lifecycle/service.go",
+    "sha256": "db136eda0e743a637ed80e5b90c4c619d6ce2d72437388acb478b80be4207c3e"
+  },
+  {
+    "path": "runtime/internal/lifecycle/service_test.go",
+    "sha256": "a5f1782f38a337f9d9dbbf187c9f0a6e034e2a73eba6af3bb580607f31c50e48"
+  },
+  {
+    "path": "runtime/internal/network/README.md",
+    "sha256": "c5b79ce0dee35300c7c144212eaf79a9ad2c2357c010ba857004d6fecb5c1746"
+  },
+  {
+    "path": "runtime/internal/network/backend_linux.go",
+    "sha256": "3eaa0a3bd8b08f6c9aa8b98b1964c24ab09c8b7b43a583ffb0068bea7385d08f"
+  },
+  {
+    "path": "runtime/internal/network/backend_linux_test.go",
+    "sha256": "65e05da307b28c468ac6881930da2631823330e7888113e1ccef97f930b8a765"
+  },
+  {
+    "path": "runtime/internal/network/rpc.go",
+    "sha256": "c8b22bb9977cc4b6349d7ca297837c785981c3614a9dac8fa8072122e58c50ff"
+  },
+  {
+    "path": "runtime/internal/network/rpc_test.go",
+    "sha256": "fb929c03a3c722955b54829c603f98bcc3e92a2fa5cf3d1f1602355154a6ae97"
+  },
+  {
+    "path": "runtime/internal/network/service.go",
+    "sha256": "3bc160733927945b6ce05d4ec17edd66b19eb07f3d6d5bcca92968fda46ef5f7"
+  },
+  {
+    "path": "runtime/internal/network/service_test.go",
+    "sha256": "1e45ba149a095baecc7e35e7ff1dad230337b7e2386a7d108dc7fd9aa56b3a1e"
+  },
+  {
+    "path": "runtime/internal/network/store.go",
+    "sha256": "0b839219cfa4e2770fc7e8f22410b39e2e64d40cfa6be4c0b855ce9c563779f6"
+  },
+  {
+    "path": "runtime/internal/network/store_test.go",
+    "sha256": "60a8aa7fb5e284dfddb4c4e8f084e2a9fd31299bcbe1af9a945cfd2eac6657e6"
+  },
+  {
+    "path": "runtime/internal/network/tun_linux.go",
+    "sha256": "5e24397609deac9c929dc9341eecba19edfdcd5aa57e078c763cd4c7ceb29eb4"
+  },
+  {
+    "path": "runtime/internal/network/types.go",
+    "sha256": "6429d2ebe8c3a181f590d28d6e463f82a333a3dc7ad535674e979aea9ffdf5b8"
+  },
+  {
+    "path": "runtime/internal/rootfs/backend_linux.go",
+    "sha256": "0bb75277976c2e8a8dc424667304a51eef27b241d50ac33e2c54d428cb628c90"
+  },
+  {
+    "path": "runtime/internal/rootfs/backend_linux_test.go",
+    "sha256": "e81278b5806e44c2f6f3ed3cc36664de97492ce4d3089c4a2e5dbfaf018c2016"
+  },
+  {
+    "path": "runtime/internal/rootfs/service.go",
+    "sha256": "2cabd2ba45880506e3ead9d5ea7a2e35c292d367eb277e381cabdc08866bd363"
+  },
+  {
+    "path": "runtime/internal/rootfs/service_test.go",
+    "sha256": "d6871e90dcfba9a5e5d728123cf13385f827a6bafc9580fbebb7e0647a33c60d"
+  },
+  {
+    "path": "runtime/internal/rootfs/store.go",
+    "sha256": "704f381fbbefd3f3c24ac8bb5d9eadc4c21b3172a20e90d3ac2977fbc27965ac"
+  },
+  {
+    "path": "runtime/internal/rootfs/store_test.go",
+    "sha256": "3f9150cc9cb726448eccc77ac7734c5934c730489a3c01e3ee528e406092ebca"
+  },
+  {
+    "path": "runtime/internal/rootfs/types.go",
+    "sha256": "33bc8a24bbbd0a06ba12e423d2b254b55c9b2065dc573743e4fee4661a694da1"
+  },
+  {
+    "path": "runtime/internal/safefile/directory_linux.go",
+    "sha256": "ea716da56cb729485dc6475ab817efdd5dced50936228f67de334bdcd9b1a63b"
+  },
+  {
+    "path": "runtime/internal/safefile/directory_linux_test.go",
+    "sha256": "a78958ecf3a0571f0acd4da4688757e1387fbcd80ed1d77a3fba2090a6ba8221"
+  },
+  {
+    "path": "runtime/internal/state/README.md",
+    "sha256": "b26c1d5c4ee6b3a7bdebbee476626321d72139e96b93ef67097e0e65f27a3852"
+  },
+  {
+    "path": "runtime/internal/state/store.go",
+    "sha256": "f335b6c53df52e19ce21a56565451373f9538621206fabc341dd972f0d06a026"
+  },
+  {
+    "path": "runtime/internal/state/store_test.go",
+    "sha256": "4cd683a843b0f93e62e3f632952d9d78094f0663df8a4d6934cfd26a8cdddbc0"
+  },
+  {
+    "path": "runtime/internal/storage/README.md",
+    "sha256": "2131dcff1baba8c3d28f070ff19d8073034fcba44f2ca0e0de4c60e18a2683ea"
+  },
+  {
+    "path": "runtime/internal/storage/backend_linux.go",
+    "sha256": "0692f25bf8aceb086e42c47997c532012b1ac3e99850b9400b43de1a94bd2e81"
+  },
+  {
+    "path": "runtime/internal/storage/backend_linux_test.go",
+    "sha256": "21bede4377175b2580dc8e0a1617e5a4ed9513ff9ff3b38fe37b6c802e873bec"
+  },
+  {
+    "path": "runtime/internal/storage/service.go",
+    "sha256": "ff920f4500251424809f3771d5ee585d49c5c7e304260c10e5d052304f82e2e3"
+  },
+  {
+    "path": "runtime/internal/storage/service_test.go",
+    "sha256": "f2c204bfed37a0ab1b95a7ed73a43c15863c168ebfb96a7563344903fb60baf8"
+  },
+  {
+    "path": "runtime/internal/storage/store.go",
+    "sha256": "2a88ea25e016588ea2dfdc0c61bb69af1d3b9f0aa05b034686f4253684c6729c"
+  },
+  {
+    "path": "runtime/internal/storage/store_test.go",
+    "sha256": "c83ecd43968bb35859edc265e92899ea75b5c6d3160d38fa280856ac821af4d0"
+  },
+  {
+    "path": "runtime/internal/storage/types.go",
+    "sha256": "73655299fc33bd84ee6777e50f59678dfe741a21a48ff8e4bbad2438d68e3f69"
+  },
+  {
+    "path": "runtime/internal/unixsocket/listener_linux.go",
+    "sha256": "c1f0478bd7059d5525bdca86a35a7e07227a8dbcfc87a92ef9edd1698e08a9fa"
+  },
+  {
+    "path": "runtime/internal/unixsocket/listener_linux_test.go",
+    "sha256": "f7b2560c900059cfab0af66ecd7ffd10f40621fd8d0db58b2b4e9a1cf79e20cf"
+  },
+  {
+    "path": "runtime/protocol/README.md",
+    "sha256": "dddd58858b2cbe20ce7189dfe983942b2cf96e5cf1cc3decb6ec041a229e21e2"
+  },
+  {
+    "path": "runtime/protocol/io.go",
+    "sha256": "94a5a280ca89d9bccf4a81b477e49432520f57b9e79ddb5634b5d84f9fcaae0d"
+  },
+  {
+    "path": "runtime/protocol/io_test.go",
+    "sha256": "94f62f67cc6fd23664df810ba9baee9ca9cf1ddc09ab558da7f5ba7422484662"
+  },
+  {
+    "path": "runtime/protocol/json.go",
+    "sha256": "ae09cbc62d6757571ab2d2134ede9e1b7bdc09ea9aa8dde614647d057a0788b3"
+  },
+  {
+    "path": "runtime/protocol/json_test.go",
+    "sha256": "375555a42f1e536417edb3037e504779047c8b5ea18ed7a52fc7f4a836345c10"
+  },
+  {
+    "path": "runtime/protocol/types.go",
+    "sha256": "a31898ad6d376962d77529765687bddcaa8f1817382d3d25e58d0c0198faa38c"
+  },
+  {
+    "path": "runtime/tests/README.md",
+    "sha256": "4a3fbc83e238f0c5466ee85605d9f7f8a2cdf48a542b48ebf221f51083490618"
+  },
+  {
+    "path": "scripts/README.md",
+    "sha256": "78edce3602766b6c4dedfeefa11f302b497bd394bd6b135faf27ff58bd2c886b"
+  },
+  {
+    "path": "scripts/audit-g4-g6-evidence.py",
+    "sha256": "50b8ad8666e4f9fce3b3c961a271356bf04ea6e0edeb177dec1c711c8b4adbbd"
+  },
+  {
+    "path": "scripts/audit-runtime-final-resources-live.sh",
+    "sha256": "7010e3dae0e4fd6faafa0ff5c405d9874e05e02f6bad021bff83450ef5521821"
+  },
+  {
+    "path": "scripts/build-agent-initramfs.sh",
+    "sha256": "911579e21407573915c84a43760e433b3b08f75affc53f201104a00a3a049428"
+  },
+  {
+    "path": "scripts/build-daxfs-initramfs.sh",
+    "sha256": "8024d542630ba6a762ed882da1d7a8bdf1a0b4d0153a8ac8af801e17a291113b"
+  },
+  {
+    "path": "scripts/build-daxfs-root.sh",
+    "sha256": "5b661df2ac1a3da8e7d72471a1a9912e2f26b5274535dc424af9fbbb029d1368"
+  },
+  {
+    "path": "scripts/build-initramfs.sh",
+    "sha256": "fc9bce9f5663a067f313989f26cd4f28379d7c61e43a39594655b8b5bfcdee0b"
+  },
+  {
+    "path": "scripts/build-mediated-root-initramfs.sh",
+    "sha256": "4730a9e5baa683bc56abbc71072e64a7712f520b4591ddce7fc6bf16459cbd05"
+  },
+  {
+    "path": "scripts/build-mediated-transport-initramfs.sh",
+    "sha256": "05302c715f161d930a16a92fee6ddaab9b27d966e7f5ee6d1e19fc641372da73"
+  },
+  {
+    "path": "scripts/build-runtime-container-initramfs.sh",
+    "sha256": "633fcfc08206840a3546f824a5f2a0d27508e2cfcc78499fa01a193ece52ccb9"
+  },
+  {
+    "path": "scripts/build-runtime-rootfs.py",
+    "sha256": "77de5132d9820ae9b48a226c9fdb381bc059f1324e00eedf5ba5f671adaf6805"
+  },
+  {
+    "path": "scripts/build-runtime-storage.py",
+    "sha256": "5cded5e8252f7b9cd1b73dc835daa95da7468841d9e4eca4bb4f301ea286c949"
+  },
+  {
+    "path": "scripts/build-runtime-vsock.sh",
+    "sha256": "753434244c7499bb3769e17a0032cb578c51904441afdb9f10b7768fe653eda9"
+  },
+  {
+    "path": "scripts/capture-evidence-command.py",
+    "sha256": "a1db27241e62832e62f038bdd066208ff826efb204277829223ab8a30dda077f"
+  },
+  {
+    "path": "scripts/check-docs.sh",
+    "sha256": "71e0db913215d7a7b84a764fae4d987a25a2b6b35f8ef198b21e86c173cbfc89"
+  },
+  {
+    "path": "scripts/check-runtime-evidence.py",
+    "sha256": "b703b52bf62608ec4dc6e8e30e3fd30324de06f36fd69fdad36e49503aa08184"
+  },
+  {
+    "path": "scripts/check-runtime-schemas.py",
+    "sha256": "00961d758e8288c78bf75d113326c050753f247052e5454c85ccaa4689d51e64"
+  },
+  {
+    "path": "scripts/collect-g4-g6-host-baseline.sh",
+    "sha256": "ff6a33d15fe22bfd829f8be8b3175254247057356f1222f9c6e7ddf50a2f77ab"
+  },
+  {
+    "path": "scripts/collect-gce-resource-ledger.py",
+    "sha256": "0f5dcc5f64608e7e5eb8b394c54a3874b48d6abd5fb8b1d4a800c50d2a803ee8"
+  },
+  {
+    "path": "scripts/daxfs-build.sh",
+    "sha256": "b04ce39f3c9077f9004ac935d8ec8eda663e1888f5f3dc69b67119c098ff4098"
+  },
+  {
+    "path": "scripts/daxfs-down.sh",
+    "sha256": "ee2600b0705d2d42652a97076c670c065a975774c2c86167543e1ba05cfde8bf"
+  },
+  {
+    "path": "scripts/daxfs-status.sh",
+    "sha256": "92cc9e3245c45c9784d0e9d0a5aceef601a71f61f61c6775d1c080bf1d4e7ce9"
+  },
+  {
+    "path": "scripts/daxfs-up.sh",
+    "sha256": "f3ea122bd0ebf0ba7b595bdd4fc45fd4394f456e670157ce5f02a2a4979795f7"
+  },
+  {
+    "path": "scripts/detect-gcp-project.sh",
+    "sha256": "796955c210212d6ac37beb2df5c3b9b4a455e5514e5fdb61e3d755e5ea7f804c"
+  },
+  {
+    "path": "scripts/disk-roots-audit.sh",
+    "sha256": "ed985d4a29a2616666efc31f76767d91e93e53be2c7388c91b89c9de2399b316"
+  },
+  {
+    "path": "scripts/disk-roots-create.sh",
+    "sha256": "6b2ec18f1bb910829994c76c9841447ad78e4f0fefb6cf0da1fb7ff93cc02fc8"
+  },
+  {
+    "path": "scripts/install-kerf.sh",
+    "sha256": "14c3274689a39a264b32bd7f45305a5f40608a646a306c6ad2fae05039867841"
+  },
+  {
+    "path": "scripts/kerf-fault-wrapper.sh",
+    "sha256": "24267ab5db9191f9452955d760a2ddef92b1a8027285d0de1b9be53faba9e3ce"
+  },
+  {
+    "path": "scripts/manage-runtime-binaries.py",
+    "sha256": "39026a0220231dda922caf61a8473d4b2ee60868c46e40e1bd6fd1efc5cbf70e"
+  },
+  {
+    "path": "scripts/manage-runtime-deployment.py",
+    "sha256": "ec38d8d2c7694bc54787789d3b115b8986741e52bbf199b50dc300fe6262dfe1"
+  },
+  {
+    "path": "scripts/materialize-runtime-binds.py",
+    "sha256": "a4c4d43dca934ae30f1baf5ba08182853e5afc412c4434d867e91a0de6bd93c3"
+  },
+  {
+    "path": "scripts/mediated-image-prepare.sh",
+    "sha256": "e62d0741ee11fbdae184d440b2dc48f87f5b9fdd922702f020b0d991ba93dae2"
+  },
+  {
+    "path": "scripts/mediated-storage-prepare.sh",
+    "sha256": "74658608b9738e043418acbec427d72a3d26e81163da6f1ab45fe172c4a11984"
+  },
+  {
+    "path": "scripts/merge-runtime-docker-config.py",
+    "sha256": "d94dd4c2a3151664b0616edd8c67d96a4fe3c89e30b0e113133e7637d1b5a0b6"
+  },
+  {
+    "path": "scripts/provision-kernel.sh",
+    "sha256": "6b60ccdec2cd406d4b0e89a7531483d65ef6d694a8da9472dbd1b6b073364d61"
+  },
+  {
+    "path": "scripts/runtime-cancellation-blocker.sh",
+    "sha256": "51121e61ecb2e99d5d7f86c0e5ffeec945edf9b60fe4337481a1aeda5677c7db"
+  },
+  {
+    "path": "scripts/runtime-release-manifest.py",
+    "sha256": "4ae16ce40f5519188ed37083a75d909f6d087c0634f1a03ee59fb0216516c30b"
+  },
+  {
+    "path": "scripts/runtime-storage-identity.py",
+    "sha256": "708f1d0d000e09d123316552d1e07aca164213c2d875f379e323a17875117b7f"
+  },
+  {
+    "path": "scripts/runtime-task-barrier.go",
+    "sha256": "c2d9c070f5f5bcc5e1732a7d322fae264ca84c9208554c145a4125f257bcbe91"
+  },
+  {
+    "path": "scripts/runtime_safe_publish.py",
+    "sha256": "70dd76eb1dbe3075a5f610e1fa347a7131ae8239f5768368e2ddfa38662deeff"
+  },
+  {
+    "path": "scripts/smoke-down.sh",
+    "sha256": "617e1363b680e8c5c15761f7a317eba7d5d1ab7733bb15785db166c9914d5f9e"
+  },
+  {
+    "path": "scripts/smoke-up.sh",
+    "sha256": "58b3af0756ade84871bbc75ab36952412d3a495309e9b51d853f2047e34c9c0a"
+  },
+  {
+    "path": "scripts/test-audit-g4-g6-evidence.py",
+    "sha256": "d1a72a05362f9bf8536365d7ab75894263bdcdbbd20d58c828a03ea5774506d9"
+  },
+  {
+    "path": "scripts/test-capture-evidence-command.py",
+    "sha256": "a4f02eb63f9c4a149dc0822167244f315ca4687d9b6d792ff4c4da273a886e97"
+  },
+  {
+    "path": "scripts/test-daxfs-corruption.py",
+    "sha256": "a8c2b36870d85e7e6d87ed0bdc3e330317ecb393965f279cea9a532bf3eb9233"
+  },
+  {
+    "path": "scripts/test-daxfs-dual-kernel.sh",
+    "sha256": "28563464083d2eb7a2a1c9ea24b50c006443ec5928b04b94913021426f7f8dce"
+  },
+  {
+    "path": "scripts/test-ext4-bootstrap-no-disk.sh",
+    "sha256": "9026610d7ee691aa9131ef84f7c7450788b4ecac09a0691eebb76ea9ef4e8131"
+  },
+  {
+    "path": "scripts/test-ext4-dual-kernel-no-disk.sh",
+    "sha256": "a62ed6080904a97f1c1122d8810df77641489d9f9b9cae344d823e97796c8ade"
+  },
+  {
+    "path": "scripts/test-gce-resource-ledger.py",
+    "sha256": "6fc8975edb422f181e73b443b5ee59e5fc2e6a91b551f5eb04fa855a0b690f08"
+  },
+  {
+    "path": "scripts/test-manage-runtime-binaries.py",
+    "sha256": "0bde1dcf3eb8b0595a927dc2edbe2f2eb29d8258fa967d5bd21b6a40df45cb18"
+  },
+  {
+    "path": "scripts/test-manage-runtime-deployment.py",
+    "sha256": "b125dca4da6400ff834a4603cc3403921c774a85e5fe2454d9766eb6e0bfccfe"
+  },
+  {
+    "path": "scripts/test-mediated-dual-root.sh",
+    "sha256": "c707c62f839b0ede8fea75dd4467d9feac6ca71bff517aee05259f01986069ca"
+  },
+  {
+    "path": "scripts/test-mediated-root-a.sh",
+    "sha256": "2136a53c63aef3678a32f5b4e5c12846011cd70cc5aec1a0f7cd35555e4e061d"
+  },
+  {
+    "path": "scripts/test-mediated-transport.sh",
+    "sha256": "190ccee7e4b51a38dc52c3bca6d3bd429c9daec37a8be623dfe19ad4c6833474"
+  },
+  {
+    "path": "scripts/test-mkvsock-nbd-timeouts.c",
+    "sha256": "c2ab9968094d31b74b4c25a9905cb4fa992e67f5bb1b8304faf4477de84a60b2"
+  },
+  {
+    "path": "scripts/test-mkvsock-nbd-timeouts.sh",
+    "sha256": "d23c5b0b97705e558c25fe2f158fa5767b91d423dbf3fec89bd05a8ff2571415"
+  },
+  {
+    "path": "scripts/test-runtime-bind-materialization.py",
+    "sha256": "df6effc206f49029ab1090fab6d7a013f92ce01fba9284bc8cb5c30d28e1e28c"
+  },
+  {
+    "path": "scripts/test-runtime-bootstrap-validation.py",
+    "sha256": "f3ae323cb63c7bd22444b90c6d41a8d7a048743941068d698eab10be8106cb3e"
+  },
+  {
+    "path": "scripts/test-runtime-caller-snapshot-live.sh",
+    "sha256": "51f989987f6e003b3294551e0f7681436f40c7c61efb93312fb7919ee3c884ef"
+  },
+  {
+    "path": "scripts/test-runtime-cancellation-live.sh",
+    "sha256": "237ea2895fbb03d5eaea186f8032c4505d5863c29d41641c52a63f82d627a6f8"
+  },
+  {
+    "path": "scripts/test-runtime-capacity-enospc-live.sh",
+    "sha256": "6495ebc2f5f547b41db1ffa80ae73eede09135fa4505b8f1b47f277c61b48626"
+  },
+  {
+    "path": "scripts/test-runtime-clean-shim-restart-live.sh",
+    "sha256": "80ddbd858ae928007fd6b34d03e30c35b7aade008955ec75901c9ac578a18ff5"
+  },
+  {
+    "path": "scripts/test-runtime-cni-faults-live.sh",
+    "sha256": "7eda9ea25bf25bfb3a1098328efe96055ecebf9b4d752f71bf1479cd8a9d5721"
+  },
+  {
+    "path": "scripts/test-runtime-concurrent-churn-live.sh",
+    "sha256": "d425cc399297954edb34fa6f88104b37f9507bca7f76bb948262d71049982e48"
+  },
+  {
+    "path": "scripts/test-runtime-containerd-config.py",
+    "sha256": "97f883f90c49ede78275d92e286964ff09daf322ce6326da480f261ca6138198"
+  },
+  {
+    "path": "scripts/test-runtime-containerd-restart-live.sh",
+    "sha256": "dbc4630c1ce984adbd0948d00a2f4408f3eea3a66071a9f94b1dc50868b12599"
+  },
+  {
+    "path": "scripts/test-runtime-cross-sandbox-storage-live.sh",
+    "sha256": "78b5e81e3d30a287f2d3efae456c98b5546f3b92e9ffab81ad6d6965050d405b"
+  },
+  {
+    "path": "scripts/test-runtime-docker-config.py",
+    "sha256": "a0a172a878e854b6292e1f9c6fdb3af2591547de1f4a6e01993a65f6aece6349"
+  },
+  {
+    "path": "scripts/test-runtime-docker-restart-live.sh",
+    "sha256": "ab0cea4e9027b96844baef1fb352603b176a20df09531e3502858e39c6701f54"
+  },
+  {
+    "path": "scripts/test-runtime-g1.sh",
+    "sha256": "89eab5b9d7df0e7a9e87f6ebd7bfc6998e10252c9996523ed3710939e15f5a7a"
+  },
+  {
+    "path": "scripts/test-runtime-g2.sh",
+    "sha256": "e4de9c6f354e683f7b18e12dee56927eb3e076dfa9b7458f5c88af799bb40545"
+  },
+  {
+    "path": "scripts/test-runtime-g3.sh",
+    "sha256": "bbaa5c3ddd8c93de4d2d4e39e5d052807eb0182d5dbbd4b1a22e446349892d0a"
+  },
+  {
+    "path": "scripts/test-runtime-g4-g6-feature-matrix.sh",
+    "sha256": "3015518c904a432772d2acf2886d06bb8f48b08472d79e6f2147f7c1d6860db6"
+  },
+  {
+    "path": "scripts/test-runtime-g4-g6.sh",
+    "sha256": "15e12e197160e2f3c287f381a9f7110a795b88d36225c670c3a254aff7f35658"
+  },
+  {
+    "path": "scripts/test-runtime-g4-input-boundaries-live.sh",
+    "sha256": "edd56360fe44835e5d6a31edfbe6ac9679181d09b31d366dc395f6071d580032"
+  },
+  {
+    "path": "scripts/test-runtime-hostile-paths-vm.sh",
+    "sha256": "33c62163f1f11c77755649091a895151e64ca4529c26908c5675c2e3f0c1d983"
+  },
+  {
+    "path": "scripts/test-runtime-image-architecture-live.sh",
+    "sha256": "6ff46cb552b6d32c0862cf4fa08b9f12530786d65ef65a483a8069127b62264f"
+  },
+  {
+    "path": "scripts/test-runtime-image-validation.py",
+    "sha256": "6e4654b2cc5c34fbd69d374bf358ed8cf6916760eae435656368aab039058ded"
+  },
+  {
+    "path": "scripts/test-runtime-initramfs-repro-live.sh",
+    "sha256": "f1dabbbf1c08e4f381935929ee387392cb0849afc960464dc034a7b2c413bdc3"
+  },
+  {
+    "path": "scripts/test-runtime-live-resize.py",
+    "sha256": "fe7059cfea96a75e6851b45bdc4fa3dc8e7545328059da13a4194b9f04162e51"
+  },
+  {
+    "path": "scripts/test-runtime-mkruntimed-restart-live.sh",
+    "sha256": "23170b264c3463f8b1b37f4ab7aba31bddf4ce50be479d6941e92a202fd9692b"
+  },
+  {
+    "path": "scripts/test-runtime-network-flows-live.sh",
+    "sha256": "80e3327e3333fd71f9fe668534280e3021b723d63fa31ce34305cbf1492ea30c"
+  },
+  {
+    "path": "scripts/test-runtime-network-isolation-live.sh",
+    "sha256": "4e08b01af8f49af0cfb74610bfb3725a95ad4f8972b9bb3681f46fc5a9834923"
+  },
+  {
+    "path": "scripts/test-runtime-network-restart-live.sh",
+    "sha256": "aca197ea1623a4961ffecbc84de9f0b539897f12886635b9653a8cb501bb3c1d"
+  },
+  {
+    "path": "scripts/test-runtime-network-stress-live.sh",
+    "sha256": "a9c57e5a475d865d45602737e8d6934ce12a7cff896f707509ea41e66c0e214d"
+  },
+  {
+    "path": "scripts/test-runtime-oci-preallocation-live.sh",
+    "sha256": "46000f5f24c885f58d23394f8a931e7235bcd69cf97f4c7da78f6ebc5ec73a9a"
+  },
+  {
+    "path": "scripts/test-runtime-oci-validation.py",
+    "sha256": "181bd6aeee27969b2347d2c61ae1275bff6808ef378a365255930db9fd4f309e"
+  },
+  {
+    "path": "scripts/test-runtime-packaging-rollback-live.sh",
+    "sha256": "2fa3188df564ded04e064471578651d55c85a7999fc8b544eb14f5157da640e8"
+  },
+  {
+    "path": "scripts/test-runtime-partial-artifact-live.sh",
+    "sha256": "7ca683d2f8442ebd0582bb56a3ce0783ce6d6522aafb46d8fbab53a442184cd6"
+  },
+  {
+    "path": "scripts/test-runtime-readonly-binds-live.sh",
+    "sha256": "05a3ca317e6025643f816536e0a8be946ed304a66d4c0c15e8e6422c67c59c81"
+  },
+  {
+    "path": "scripts/test-runtime-real-enospc.py",
+    "sha256": "c9b04fca4728f4449799424af87323e6a0ceb451c740392d5b999caa17d268b7"
+  },
+  {
+    "path": "scripts/test-runtime-recovery.sh",
+    "sha256": "ac13f7ff85f30610d1b66bef9b14113eb9810ba9a567994ee0777d69290b63ba"
+  },
+  {
+    "path": "scripts/test-runtime-release-manifest.py",
+    "sha256": "c512e20968c18a8ead3c46a3f8c0f1cee80b3bce0272dd0a9d384afcca86ebbd"
+  },
+  {
+    "path": "scripts/test-runtime-root-provenance-live.sh",
+    "sha256": "1212ad472bbcec79e03410e379c08565181076345a1d645af11c744d89a9facc"
+  },
+  {
+    "path": "scripts/test-runtime-root-validation.py",
+    "sha256": "f7dc78ed84f1d34e2727739b39ee21808405b7aedff980aee332e666e7c4ffa9"
+  },
+  {
+    "path": "scripts/test-runtime-rootfs-build.py",
+    "sha256": "635e3392216284e13a3c9cfd3f1e4e901438916a749dfaba70e79d757308a6de"
+  },
+  {
+    "path": "scripts/test-runtime-safe-publish.py",
+    "sha256": "21044321eba7e1980f0e44cbc4d2d735d26f28b2e2bf3f30f1141d6533e29b20"
+  },
+  {
+    "path": "scripts/test-runtime-shim-death-live.sh",
+    "sha256": "e47804f5ce942b6de2f294dc1b7676c40de0a63749e439707039e059e03d2135"
+  },
+  {
+    "path": "scripts/test-runtime-single-owner-live.sh",
+    "sha256": "505ae5293f283994a66d43407093d1af7ca512192e725a25cac71e19fba4e510"
+  },
+  {
+    "path": "scripts/test-runtime-stale-relay-live.sh",
+    "sha256": "caf9ab56ab3d61e0d476a6e7b7d311cd342f0f4ce9e01672201fe831f21e5795"
+  },
+  {
+    "path": "scripts/test-runtime-storage-build.py",
+    "sha256": "8a92c62fc7ebbb88d092cd38df7e5c3259e328f253335bc7c19b0fd8ffd5ec86"
+  },
+  {
+    "path": "scripts/test-runtime-storage-client-loss-live.sh",
+    "sha256": "bcef69b93d74458573c5ac1c444c4c61cc02ad4fbb7321c7ebd0f24bbfb0002c"
+  },
+  {
+    "path": "scripts/test-runtime-storage-mount-validation.py",
+    "sha256": "622d6dd51f4c4f19da8f2be694eae2a09443a45726731035f4f3689a1e21c5fe"
+  },
+  {
+    "path": "scripts/test-runtime-storage-primary-ownership-live.sh",
+    "sha256": "fa46fb36364af7beb6a03a75396b98f06d4142e21fa856e52b6e2bba39c836f6"
+  },
+  {
+    "path": "scripts/test-runtime-storage-teardown-live.sh",
+    "sha256": "4b9b84e5db9ddefc83b7812be376009292c956e30e1c69e5fb5fbecdb36b56c9"
+  },
+  {
+    "path": "scripts/test-runtime-task-events-live.sh",
+    "sha256": "b09bf5209dcee122d056ea31675cc06201794d10a4a7ddcfe2ff530e3f21a525"
+  },
+  {
+    "path": "scripts/test-runtime-task-v2-exhaustive-vm.sh",
+    "sha256": "5f8f6ca9507a35251a15644a0e9c1b606ef61156db88da79757c272a7851809a"
+  },
+  {
+    "path": "scripts/test-runtime-writable-state-model-live.sh",
+    "sha256": "c6cf3c29bce10043fe74218e5c80fe652051a53bf665f036a0005d0157f7dd21"
+  },
+  {
+    "path": "scripts/validate-runtime-bootstrap.py",
+    "sha256": "0557207f295c497f37e2a5560ecff757aed88a1b78847fb0b767e519d076fbf2"
+  },
+  {
+    "path": "scripts/validate-runtime-image.py",
+    "sha256": "2e10ef343df408f95ec7ee622c12b63bd1eeef0e775b9309c8c9396d91e42446"
+  },
+  {
+    "path": "scripts/validate-runtime-oci.py",
+    "sha256": "ddd77fb869fb258268fc5d6cadacc6ca664f3753a5b34cf747331dab087b8804"
+  },
+  {
+    "path": "scripts/validate-runtime-root.py",
+    "sha256": "4872bd542be33c139ff7b2c626ac7f22dddc3a15522b98772cd6f22ec0fb9f39"
+  },
+  {
+    "path": "scripts/validate-runtime-storage-mount.py",
+    "sha256": "53c7ec25cb72e6d10e52dde8487c2634d808c80254e4178c5bee4617c9212422"
+  },
+  {
+    "path": "scripts/verify-host.sh",
+    "sha256": "40b82f457790e92797b71c620c80326406a277a30fe1108e4362fcec44750575"
+  },
+  {
+    "path": "scripts/verify-runtime-rootfs.py",
+    "sha256": "2cfe4ad8d8655862fea14c89445b698625feeb0445f39fe14a7ef5384c6009ae"
+  },
+  {
+    "path": "tools/README.md",
+    "sha256": "b78a29ab1856a1acfa4d869e9fc1406201d6956be452c80d6f454f05476ec982"
+  },
+  {
+    "path": "tools/mkvsock-nbd.c",
+    "sha256": "3efb42e6554910809bc1717940209e57837e2505acd1e8b7b459e8fea41ee789"
+  },
+  {
+    "path": "tools/mkvsock-probe.c",
+    "sha256": "557d5840f806bd8e3b2f78f4507611894fe18c24dd73293a514527735eb6f1ed"
+  },
+  {
+    "path": "tools/mkvsock-relay.c",
+    "sha256": "4fd9f25ea48c3319f7ed9e7269e7aca92de970fd6e08701d817343a8c44f0c29"
+  }
+]

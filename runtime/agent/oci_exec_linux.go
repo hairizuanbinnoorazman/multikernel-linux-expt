@@ -50,7 +50,7 @@ func capabilityMask(values []string) ([2]uint32, error) {
 	for _, name := range values {
 		value, ok := linuxCapabilities[name]
 		if !ok || seen[name] {
-			return result, fmt.Errorf("unknown or duplicate Linux capability %q", name)
+			return result, errorf(invalidArgument, "unknown or duplicate Linux capability %q", name)
 		}
 		seen[name] = true
 		result[value/32] |= uint32(1) << (value % 32)
@@ -60,12 +60,12 @@ func capabilityMask(values []string) ([2]uint32, error) {
 
 func validateExecConstraints(process ProcessSpec) error {
 	if len(process.Rlimits) > 32 {
-		return errors.New("too many process rlimits")
+		return errorf(invalidArgument, "too many process rlimits")
 	}
 	seenLimits := map[string]bool{}
 	for _, limit := range process.Rlimits {
 		if _, ok := rlimitResources[limit.Type]; !ok || seenLimits[limit.Type] || limit.Soft > limit.Hard {
-			return fmt.Errorf("unsupported, duplicate, or invalid rlimit %q", limit.Type)
+			return errorf(invalidArgument, "unsupported, duplicate, or invalid rlimit %q", limit.Type)
 		}
 		seenLimits[limit.Type] = true
 	}
@@ -76,14 +76,14 @@ func validateExecConstraints(process ProcessSpec) error {
 		switch name {
 		case "bounding", "effective", "inheritable", "permitted", "ambient":
 		default:
-			return fmt.Errorf("unsupported capability set %q", name)
+			return errorf(unsupported, "unsupported capability set %q", name)
 		}
 		if _, err := capabilityMask(values); err != nil {
 			return err
 		}
 	}
 	if process.User.UID != 0 {
-		return errors.New("non-root processes may not provide a Linux capability contract")
+		return errorf(invalidArgument, "non-root processes may not provide a Linux capability contract")
 	}
 	bounding, _ := capabilityMask(process.Capabilities["bounding"])
 	permitted, _ := capabilityMask(process.Capabilities["permitted"])
@@ -92,7 +92,7 @@ func validateExecConstraints(process ProcessSpec) error {
 	ambient, _ := capabilityMask(process.Capabilities["ambient"])
 	for i := range bounding {
 		if permitted[i]&^bounding[i] != 0 || effective[i]&^permitted[i] != 0 || ambient[i]&^(permitted[i]&inheritable[i]) != 0 {
-			return errors.New("Linux capability sets violate bounding, permitted, effective, or ambient containment")
+			return errorf(invalidArgument, "Linux capability sets violate bounding, permitted, effective, or ambient containment")
 		}
 	}
 	return nil

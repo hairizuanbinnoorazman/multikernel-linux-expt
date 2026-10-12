@@ -1,0 +1,63 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=cd /var/tmp/mk-maint-src && export PATH=/opt/go/bin:$PATH TMPDIR=/var/tmp GOTMPDIR=/var/tmp MK_EVIDENCE_XTRACE=0 TERM=xterm && timeout --signal=TERM --kill-after=60s 1800 bash scripts/test-runtime-clean-shim-restart-live.sh"], "started_at": "2026-10-12T04:16:40.679547Z"}}
+OBSERVATION_BEGIN key=initial-inventory
+pool_configured=0 children=0 ctr_tasks=0 ctr_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=initial-inventory
+OBSERVATION_BEGIN key=provenance
+selector=/usr/local/lib/multikernel/releases/0.1.0-maint-test-49bba37bc4b1d584df6799219be20e26054cf126 boot_id=00000000-0000-0000-0000-00000000000c containerd_pid=36846 mkruntimed_pid=59255
+OBSERVATION_END key=provenance
+OBSERVATION_BEGIN key=cycle-1
+supervisor_pid=62438 worker_pid=62443 namespace_holder_pid=62645 child_boot=00000000-0000-0000-0000-000000000008 attach_exit=0 output=clean-1-start
+clean-1-exit processes_gone=true
+OBSERVATION_END key=cycle-1
+OBSERVATION_BEGIN key=after-cycle-1
+pool_configured=1 children=0 ctr_tasks=0 ctr_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=after-cycle-1
+OBSERVATION_BEGIN key=cycle-2
+supervisor_pid=63040 worker_pid=63045 namespace_holder_pid=63239 child_boot=00000000-0000-0000-0000-000000000004 attach_exit=0 output=clean-2-start
+clean-2-exit processes_gone=true
+OBSERVATION_END key=cycle-2
+OBSERVATION_BEGIN key=replacement
+old_supervisor=62438 new_supervisor=63040 old_worker=62443 new_worker=63045 old_holder=62645 new_holder=63239 old_child_boot=00000000-0000-0000-0000-000000000008 new_child_boot=00000000-0000-0000-0000-000000000004 same_task_name=mk-clean-shim-restart
+OBSERVATION_END key=replacement
+OBSERVATION_BEGIN key=after-cycle-2
+pool_configured=1 children=0 ctr_tasks=0 ctr_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=after-cycle-2
+OBSERVATION_BEGIN key=task-events
+2026-10-12 04:16:45.493086733 +0000 UTC default /snapshot/prepare {"key":"mk-clean-shim-restart","parent":"sha256:97e4ece8f8a4d01b66df2c55c1f1e8a2860597b54dffbbc0df2f9942062cb34d","snapshotter":"overlayfs"}
+2026-10-12 04:16:45.499374153 +0000 UTC default /containers/create {"id":"mk-clean-shim-restart","image":"docker.io/library/busybox:1.36","runtime":{"name":"io.containerd.multikernel.v2"}}
+2026-10-12 04:18:10.276386463 +0000 UTC default /tasks/create {"container_id":"mk-clean-shim-restart","bundle":"/run/containerd/io.containerd.runtime.v2.task/default/mk-clean-shim-restart","rootfs":[{"type":"overlay","source":"overlay","options":["workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/58/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/58/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/1/fs","index=off"]}],"pid":62645}
+2026-10-12 04:18:19.418954158 +0000 UTC default /tasks/start {"container_id":"mk-clean-shim-restart","pid":62645}
+2026-10-12 04:18:19.483498423 +0000 UTC default /tasks/exec-added {"container_id":"mk-clean-shim-restart","exec_id":"clean-boot-1"}
+2026-10-12 04:18:19.487027097 +0000 UTC default /tasks/exec-started {"container_id":"mk-clean-shim-restart","exec_id":"clean-boot-1","pid":168}
+2026-10-12 04:18:20.719164693 +0000 UTC default /tasks/exit {"container_id":"mk-clean-shim-restart","id":"clean-boot-1","pid":168,"exited_at":{"seconds":1791778700,"nanos":717918888}}
+2026-10-12 04:18:20.722363482 +0000 UTC default /tasks/delete {"container_id":"mk-clean-shim-restart","pid":168,"exited_at":{"seconds":1791778700,"nanos":717918888},"id":"clean-boot-1"}
+2026-10-12 04:18:21.744149138 +0000 UTC default /tasks/exec-added {"container_id":"mk-clean-shim-restart","exec_id":"clean-release-1"}
+2026-10-12 04:18:21.748275976 +0000 UTC default /tasks/exec-started {"container_id":"mk-clean-shim-restart","exec_id":"clean-release-1","pid":175}
+2026-10-12 04:18:21.774974342 +0000 UTC default /tasks/exit {"container_id":"mk-clean-shim-restart","id":"clean-release-1","pid":175,"exited_at":{"seconds":1791778701,"nanos":773929681}}
+2026-10-12 04:18:21.779128946 +0000 UTC default /tasks/delete {"container_id":"mk-clean-shim-restart","pid":175,"exited_at":{"seconds":1791778701,"nanos":773929681},"id":"clean-release-1"}
+2026-10-12 04:18:21.846074523 +0000 UTC default /tasks/exit {"container_id":"mk-clean-shim-restart","id":"mk-clean-shim-restart","pid":62645,"exited_at":{"seconds":1791778701,"nanos":844973888}}
+2026-10-12 04:18:22.298122551 +0000 UTC default /tasks/delete {"container_id":"mk-clean-shim-restart","pid":62645,"exited_at":{"seconds":1791778701,"nanos":844973888}}
+2026-10-12 04:18:22.365335052 +0000 UTC default /snapshot/remove {"key":"mk-clean-shim-restart","snapshotter":"overlayfs"}
+2026-10-12 04:18:22.36642774 +0000 UTC default /containers/delete {"id":"mk-clean-shim-restart"}
+2026-10-12 04:18:53.019870149 +0000 UTC default /snapshot/prepare {"key":"mk-clean-shim-restart","parent":"sha256:97e4ece8f8a4d01b66df2c55c1f1e8a2860597b54dffbbc0df2f9942062cb34d","snapshotter":"overlayfs"}
+2026-10-12 04:18:53.025443095 +0000 UTC default /containers/create {"id":"mk-clean-shim-restart","image":"docker.io/library/busybox:1.36","runtime":{"name":"io.containerd.multikernel.v2"}}
+2026-10-12 04:19:40.036138317 +0000 UTC default /tasks/create {"container_id":"mk-clean-shim-restart","bundle":"/run/containerd/io.containerd.runtime.v2.task/default/mk-clean-shim-restart","rootfs":[{"type":"overlay","source":"overlay","options":["workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/59/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/59/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/1/fs","index=off"]}],"pid":63239}
+2026-10-12 04:19:49.524823334 +0000 UTC default /tasks/start {"container_id":"mk-clean-shim-restart","pid":63239}
+2026-10-12 04:19:49.58862064 +0000 UTC default /tasks/exec-added {"container_id":"mk-clean-shim-restart","exec_id":"clean-boot-2"}
+2026-10-12 04:19:49.591036235 +0000 UTC default /tasks/exec-started {"container_id":"mk-clean-shim-restart","exec_id":"clean-boot-2","pid":167}
+2026-10-12 04:19:50.814544235 +0000 UTC default /tasks/exit {"container_id":"mk-clean-shim-restart","id":"clean-boot-2","pid":167,"exited_at":{"seconds":1791778790,"nanos":812979705}}
+2026-10-12 04:19:50.820156675 +0000 UTC default /tasks/delete {"container_id":"mk-clean-shim-restart","pid":167,"exited_at":{"seconds":1791778790,"nanos":812979705},"id":"clean-boot-2"}
+2026-10-12 04:19:51.841856777 +0000 UTC default /tasks/exec-added {"container_id":"mk-clean-shim-restart","exec_id":"clean-release-2"}
+2026-10-12 04:19:51.84593496 +0000 UTC default /tasks/exec-started {"container_id":"mk-clean-shim-restart","exec_id":"clean-release-2","pid":173}
+2026-10-12 04:19:51.869304449 +0000 UTC default /tasks/exit {"container_id":"mk-clean-shim-restart","id":"clean-release-2","pid":173,"exited_at":{"seconds":1791778791,"nanos":868148845}}
+2026-10-12 04:19:51.872261783 +0000 UTC default /tasks/delete {"container_id":"mk-clean-shim-restart","pid":173,"exited_at":{"seconds":1791778791,"nanos":868148845},"id":"clean-release-2"}
+2026-10-12 04:19:51.933500262 +0000 UTC default /tasks/exit {"container_id":"mk-clean-shim-restart","id":"mk-clean-shim-restart","pid":63239,"exited_at":{"seconds":1791778791,"nanos":932403417}}
+2026-10-12 04:19:52.413652115 +0000 UTC default /tasks/delete {"container_id":"mk-clean-shim-restart","pid":63239,"exited_at":{"seconds":1791778791,"nanos":932403417}}
+2026-10-12 04:19:52.563193715 +0000 UTC default /snapshot/remove {"key":"mk-clean-shim-restart","snapshotter":"overlayfs"}
+2026-10-12 04:19:52.564243732 +0000 UTC default /containers/delete {"id":"mk-clean-shim-restart"}
+OBSERVATION_END key=task-events
+OBSERVATION_BEGIN key=released-final
+pool_configured=0 children=0 ctr_tasks=0 ctr_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 runtime_artifacts=0 rootfs_records=0 endpoints=0 shim_processes=0 helper_processes=0
+OBSERVATION_END key=released-final
+G6_CLEAN_SHIM_RESTART_PASS
+{"evidence_command_result": {"ended_at": "2026-10-12T04:20:26.477296Z", "exit_status": 0}}

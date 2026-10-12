@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -193,8 +194,9 @@ func TestAgentWireErrorsAreStructuredAndSecretSafe(t *testing.T) {
 }
 
 func TestAgentWireNetworkSetupErrorExposesOnlyStableStage(t *testing.T) {
-	raw, err := json.Marshal(Reply{Version: 1, Sequence: 8,
-		Error: "guest network setup stage tun-open failed: open /private/path: token=super-secret"})
+	reply := Reply{Version: 1, Sequence: 8}
+	reply.setError(networkSetupError("tun-open", errors.New("/private/path: token=super-secret")))
+	raw, err := json.Marshal(reply)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,8 +220,9 @@ func TestAgentWireNetworkSetupErrorExposesOnlyStableStage(t *testing.T) {
 }
 
 func TestAgentWireProcessCreateErrorExposesOnlyStableStage(t *testing.T) {
-	raw, err := json.Marshal(Reply{Version: 1, Sequence: 9,
-		Error: "guest process create stage root-policy failed: mount /private/path: token=super-secret"})
+	reply := Reply{Version: 1, Sequence: 9}
+	reply.setError(processCreateError("root-policy", errors.New("/private/path: token=super-secret")))
+	raw, err := json.Marshal(reply)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,8 +246,9 @@ func TestAgentWireProcessCreateErrorExposesOnlyStableStage(t *testing.T) {
 }
 
 func TestAgentWireProcessStartErrorExposesOnlyStableStage(t *testing.T) {
-	raw, err := json.Marshal(Reply{Version: 1, Sequence: 10,
-		Error: "guest process start stage exec failed: fork /private/path: token=super-secret"})
+	reply := Reply{Version: 1, Sequence: 10}
+	reply.setError(processStartError("exec", errors.New("/private/path: token=super-secret")))
+	raw, err := json.Marshal(reply)
 	if err != nil {
 		t.Fatal(err)
 	}

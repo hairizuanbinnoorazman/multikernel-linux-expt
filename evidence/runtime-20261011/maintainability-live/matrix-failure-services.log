@@ -1,0 +1,473 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=sudo journalctl -u mkruntimed -u mknetd -u containerd -u docker -u unattended-upgrades -u apt-daily-upgrade --since \"2026-10-11 12:55:00\" --until \"2026-10-11 12:59:00\" --no-pager; sudo cat /var/log/unattended-upgrades/unattended-upgrades.log | tail -20; sudo journalctl -k --since \"2026-10-11 12:55:00\" --no-pager | rg -i \"oom|killed|memory|signal|nbd\""], "started_at": "2026-10-11T13:00:09.988467Z"}}
+Oct 11 12:55:20 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:55:20.188306766Z" level=info msg="sbJoin: gwep4 ''->'', gwep6 ''->''" eid=0a95c913e991 ep=mk-matrix-docker-attach net=none nid=d8349bc4ddbd
+Oct 11 12:55:30 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:55:30.108887629Z" level=info msg="shim disconnected" id=mk-matrix-ctr-attach namespace=default
+Oct 11 12:55:30 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:55:30.108917319Z" level=info msg="cleaning up after shim disconnected" id=mk-matrix-ctr-attach namespace=default
+Oct 11 12:55:30 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:55:30.108925770Z" level=info msg="cleaning up dead shim" id=mk-matrix-ctr-attach namespace=default
+Oct 11 12:55:31 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:55:31.502729920Z" level=info msg="ignoring event" container=18713aa6c93aa82c8d0bc880f20f135f560235516d51246ab54de9c02b477803 module=libcontainerd namespace=moby topic=/tasks/delete type="*events.TaskDelete"
+Oct 11 12:55:31 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:55:31.517729765Z" level=info msg="shim disconnected" id=18713aa6c93aa82c8d0bc880f20f135f560235516d51246ab54de9c02b477803 namespace=moby
+Oct 11 12:55:31 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:55:31.517767036Z" level=info msg="cleaning up after shim disconnected" id=18713aa6c93aa82c8d0bc880f20f135f560235516d51246ab54de9c02b477803 namespace=moby
+Oct 11 12:55:31 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:55:31.517779674Z" level=info msg="cleaning up dead shim" id=18713aa6c93aa82c8d0bc880f20f135f560235516d51246ab54de9c02b477803 namespace=moby
+Oct 11 12:55:32 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:55:32.248056199Z" level=info msg="connecting to shim mk-matrix-ctr" address="unix:///run/containerd/s/ee067369106b130a09d24147fb2fa8017f0c808db88e2674929b51fd1140cd9d" namespace=default protocol=ttrpc version=2
+Oct 11 12:56:31 mklinux-maintainability-20261011 systemd[1]: Starting apt-daily-upgrade.service - Daily apt upgrade and clean activities...
+Oct 11 12:56:31 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:56:31.870272995Z" level=info msg="shim disconnected" id=mk-matrix-ctr namespace=default
+Oct 11 12:56:31 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:56:31.870310034Z" level=info msg="cleaning up after shim disconnected" id=mk-matrix-ctr namespace=default
+Oct 11 12:56:31 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:56:31.870319322Z" level=info msg="cleaning up dead shim" id=mk-matrix-ctr namespace=default
+Oct 11 12:56:31 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:56:31.968681723Z" level=info msg="connecting to shim 447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9" address="unix:///run/containerd/s/c8290a98e5d764e57aed6f642554adc0fa30f4262ec957b75cef2d36feb03668" namespace=moby protocol=ttrpc version=2
+Oct 11 12:57:19 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:57:19.275308979Z" level=info msg="sbJoin: gwep4 ''->'', gwep6 ''->''" eid=dc37123da7a4 ep=mk-matrix-docker net=none nid=d8349bc4ddbd
+Oct 11 12:57:31 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:57:31.539678415Z" level=error msg="failed to delete task" error="rpc error: code = Unknown desc = stop sandbox: UNAVAILABLE: dial unix /run/mkruntimed.sock: connect: no such file or directory\ndelete sandbox: UNAVAILABLE: dial unix /run/mkruntimed.sock: connect: no such file or directory" id=447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9
+Oct 11 12:57:31 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:57:31.540057618Z" level=warning msg="failed to delete container from containerd" container=447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9 error="failed to delete task: stop sandbox: UNAVAILABLE: dial unix /run/mkruntimed.sock: connect: no such file or directory\ndelete sandbox: UNAVAILABLE: dial unix /run/mkruntimed.sock: connect: no such file or directory"
+Oct 11 12:57:31 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:57:31.540810320Z" level=error msg="447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9 cleanup: failed to delete container from containerd: cannot delete running task 447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9: failed precondition"
+Oct 11 12:57:33 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:33 mklinux-maintainability-20261011 insmod[54748]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:33 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[54758]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:33 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:33 mklinux-maintainability-20261011 mkruntimed[54801]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:33 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:33 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:36 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 1.
+Oct 11 12:57:36 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:36 mklinux-maintainability-20261011 insmod[54943]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:36 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[54952]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:36 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:36 mklinux-maintainability-20261011 mkruntimed[54963]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:36 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:36 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:38 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 2.
+Oct 11 12:57:38 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:38 mklinux-maintainability-20261011 insmod[55378]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:38 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[55382]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:38 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:38 mklinux-maintainability-20261011 mkruntimed[55384]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:38 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:38 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:40 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 3.
+Oct 11 12:57:40 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:40 mklinux-maintainability-20261011 insmod[55520]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:40 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[55524]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:40 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:40 mklinux-maintainability-20261011 mkruntimed[55534]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:40 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:40 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:42 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 4.
+Oct 11 12:57:42 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:42 mklinux-maintainability-20261011 insmod[55841]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:42 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[55844]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:42 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:42 mklinux-maintainability-20261011 mkruntimed[55848]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:42 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:42 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:44 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 5.
+Oct 11 12:57:44 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:44 mklinux-maintainability-20261011 insmod[56002]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:44 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[56006]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:44 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:44 mklinux-maintainability-20261011 mkruntimed[56014]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:44 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:44 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:47 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 6.
+Oct 11 12:57:47 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:47 mklinux-maintainability-20261011 insmod[56167]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:47 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[56171]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:47 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:47 mklinux-maintainability-20261011 mkruntimed[56204]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:47 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:47 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:49 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 7.
+Oct 11 12:57:49 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:49 mklinux-maintainability-20261011 insmod[56367]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:49 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[56377]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:49 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:49 mklinux-maintainability-20261011 mkruntimed[56384]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:49 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:49 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:51 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 8.
+Oct 11 12:57:51 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:51 mklinux-maintainability-20261011 insmod[56742]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:51 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[56748]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:51 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:51 mklinux-maintainability-20261011 mkruntimed[56760]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:51 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:51 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:53 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 9.
+Oct 11 12:57:53 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:53 mklinux-maintainability-20261011 insmod[57044]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:53 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[57050]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:54 mklinux-maintainability-20261011 mkruntimed[57121]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:55 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:55 mklinux-maintainability-20261011 insmod[57410]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:55 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[57420]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:55 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:55 mklinux-maintainability-20261011 mkruntimed[57443]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:55 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:55 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:57 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 1.
+Oct 11 12:57:57 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:57 mklinux-maintainability-20261011 insmod[57757]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:57 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[57762]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:57 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:57 mklinux-maintainability-20261011 mkruntimed[57767]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:57 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:57 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:57:59 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 2.
+Oct 11 12:57:59 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:59 mklinux-maintainability-20261011 insmod[58394]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:57:59 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[58399]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:57:59 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:59 mklinux-maintainability-20261011 mkruntimed[58401]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:57:59 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:57:59 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:02 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 3.
+Oct 11 12:58:02 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:02 mklinux-maintainability-20261011 insmod[58634]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:02 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[58638]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:02 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:02 mklinux-maintainability-20261011 mkruntimed[58643]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:02 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:02 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 4.
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:04 mklinux-maintainability-20261011 insmod[58956]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:04 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[58960]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:04 mklinux-maintainability-20261011 mkruntimed[58964]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: Stopping containerd.service - containerd container runtime...
+Oct 11 12:58:04 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:58:04.592864455Z" level=info msg="Stop CRI service"
+Oct 11 12:58:04 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:58:04.593023127Z" level=error msg="Failed to get event" error="rpc error: code = Unavailable desc = error reading from server: EOF" module=libcontainerd namespace=plugins.moby
+Oct 11 12:58:04 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:58:04.593058372Z" level=info msg="Waiting for containerd to be ready to restart event processing" module=libcontainerd namespace=plugins.moby
+Oct 11 12:58:04 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:58:04.593357781Z" level=error msg="Failed to get event" error="rpc error: code = Unavailable desc = error reading from server: EOF" module=libcontainerd namespace=moby
+Oct 11 12:58:04 mklinux-maintainability-20261011 dockerd[35191]: time="2026-10-11T12:58:04.593375327Z" level=info msg="Waiting for containerd to be ready to restart event processing" module=libcontainerd namespace=moby
+Oct 11 12:58:04 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:58:04.595293143Z" level=info msg="Stop CRI service"
+Oct 11 12:58:04 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:58:04.595380824Z" level=info msg="Event monitor stopped"
+Oct 11 12:58:04 mklinux-maintainability-20261011 containerd[35135]: time="2026-10-11T12:58:04.595401191Z" level=info msg="Stream server stopped"
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: containerd.service: Deactivated successfully.
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: containerd.service: Unit process 53779 (containerd-shim) remains running after unit stopped.
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: containerd.service: Unit process 53789 (containerd-shim) remains running after unit stopped.
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: Stopped containerd.service - containerd container runtime.
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: containerd.service: Consumed 15.809s CPU time over 18min 52.072s wall clock time, 104.6M memory peak.
+Oct 11 12:58:04 mklinux-maintainability-20261011 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:06 mklinux-maintainability-20261011 insmod[59274]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:06 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[59284]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: containerd.service: Found left-over process 53779 (containerd-shim) in control group while starting unit. Ignoring.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: containerd.service: Found left-over process 53789 (containerd-shim) in control group while starting unit. Ignoring.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: Starting containerd.service - containerd container runtime...
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: containerd.service: Found left-over process 53779 (containerd-shim) in control group while starting unit. Ignoring.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: containerd.service: Found left-over process 53789 (containerd-shim) in control group while starting unit. Ignoring.
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: containerd.service: This usually indicates unclean termination of a previous run, or service implementation deficiencies.
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.317548878Z" level=info msg="starting containerd" revision= version=2.2.2
+Oct 11 12:58:06 mklinux-maintainability-20261011 mkruntimed[59305]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.330963128Z" level=info msg="loading plugin" id=io.containerd.content.v1.content type=io.containerd.content.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331123362Z" level=info msg="loading plugin" id=io.containerd.image-verifier.v1.bindir type=io.containerd.image-verifier.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331165256Z" level=info msg="loading plugin" id=io.containerd.internal.v1.opt type=io.containerd.internal.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331191692Z" level=info msg="loading plugin" id=io.containerd.warning.v1.deprecations type=io.containerd.warning.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331200365Z" level=info msg="loading plugin" id=io.containerd.mount-handler.v1.erofs type=io.containerd.mount-handler.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331210467Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.blockfile type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331285282Z" level=info msg="skip loading plugin" error="no scratch file generator: skip plugin" id=io.containerd.snapshotter.v1.blockfile type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331297445Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.btrfs type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331464419Z" level=info msg="skip loading plugin" error="path /var/lib/containerd/io.containerd.snapshotter.v1.btrfs (ext4) must be a btrfs filesystem to be used with the btrfs snapshotter: skip plugin" id=io.containerd.snapshotter.v1.btrfs type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331478162Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.devmapper type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331501003Z" level=info msg="skip loading plugin" error="devmapper not configured: skip plugin" id=io.containerd.snapshotter.v1.devmapper type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331507161Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.erofs type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331596922Z" level=info msg="skip loading plugin" error="EROFS unsupported, please `modprobe erofs`: skip plugin" id=io.containerd.snapshotter.v1.erofs type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331605202Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.native type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331631748Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.overlayfs type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331714581Z" level=info msg="loading plugin" id=io.containerd.snapshotter.v1.zfs type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331745981Z" level=info msg="skip loading plugin" error="lstat /var/lib/containerd/io.containerd.snapshotter.v1.zfs: no such file or directory: skip plugin" id=io.containerd.snapshotter.v1.zfs type=io.containerd.snapshotter.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331754207Z" level=info msg="loading plugin" id=io.containerd.event.v1.exchange type=io.containerd.event.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331785073Z" level=info msg="loading plugin" id=io.containerd.monitor.task.v1.cgroups type=io.containerd.monitor.task.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331946112Z" level=info msg="loading plugin" id=io.containerd.metadata.v1.bolt type=io.containerd.metadata.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.331973216Z" level=info msg="metadata content store policy set" policy=shared
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332173347Z" level=info msg="loading plugin" id=io.containerd.gc.v1.scheduler type=io.containerd.gc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332244098Z" level=info msg="loading plugin" id=io.containerd.nri.v1.nri type=io.containerd.nri.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332324750Z" level=info msg="built-in NRI default validator is disabled"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332338037Z" level=info msg="runtime interface created"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332344349Z" level=info msg="created NRI interface"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332363422Z" level=info msg="loading plugin" id=io.containerd.differ.v1.erofs type=io.containerd.differ.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332398182Z" level=info msg="skip loading plugin" error="failed to check mkfs.erofs availability: failed to run mkfs.erofs --help: exec: \"mkfs.erofs\": executable file not found in $PATH: skip plugin" id=io.containerd.differ.v1.erofs type=io.containerd.differ.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332406024Z" level=info msg="loading plugin" id=io.containerd.differ.v1.walking type=io.containerd.differ.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332420361Z" level=info msg="loading plugin" id=io.containerd.lease.v1.manager type=io.containerd.lease.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332428753Z" level=info msg="loading plugin" id=io.containerd.mount-manager.v1.bolt type=io.containerd.mount-manager.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332483353Z" level=info msg="loading plugin" id=io.containerd.service.v1.containers-service type=io.containerd.service.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332495102Z" level=info msg="loading plugin" id=io.containerd.service.v1.content-service type=io.containerd.service.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332502863Z" level=info msg="loading plugin" id=io.containerd.service.v1.diff-service type=io.containerd.service.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332535274Z" level=info msg="loading plugin" id=io.containerd.service.v1.images-service type=io.containerd.service.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332545154Z" level=info msg="loading plugin" id=io.containerd.service.v1.introspection-service type=io.containerd.service.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332552741Z" level=info msg="loading plugin" id=io.containerd.service.v1.namespaces-service type=io.containerd.service.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332560371Z" level=info msg="loading plugin" id=io.containerd.service.v1.snapshots-service type=io.containerd.service.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332567226Z" level=info msg="loading plugin" id=io.containerd.shim.v1.manager type=io.containerd.shim.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332582324Z" level=info msg="loading plugin" id=io.containerd.runtime.v2.task type=io.containerd.runtime.v2
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.332810197Z" level=info msg="connecting to shim 447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9" address="unix:///run/containerd/s/c8290a98e5d764e57aed6f642554adc0fa30f4262ec957b75cef2d36feb03668" namespace=moby protocol=ttrpc version=2
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.333389987Z" level=info msg="cleaning up after shim disconnected" id=447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9 namespace=moby
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.333405236Z" level=info msg="cleaning up dead shim" id=447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9 namespace=moby
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.339830854Z" level=error msg="failed to delete dead shim" cmd="/usr/local/bin/containerd-shim-multikernel-v2 -namespace moby -address /run/containerd/containerd.sock -publish-binary /usr/bin/containerd -id 447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9 -bundle /run/containerd/io.containerd.runtime.v2.task/moby/447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9 delete" error="exit status 1" id=447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9 namespace=moby
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.339889353Z" level=warning msg="failed to clean up after shim disconnected" error="io.containerd.multikernel.v2: list sandboxes for shim cleanup: dial unix /run/mkruntimed.sock: connect: no such file or directory: exit status 1" id=447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9 namespace=moby
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.339907327Z" level=error msg="failed to load shim /run/containerd/io.containerd.runtime.v2.task/moby/447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9" error="unable to load shim \"447da9215bdc80555764418c4f8801140b22340428d26704520d506bd9266db9\": network endpoint has no namespace for its holder" namespace=moby
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340433882Z" level=info msg="loading plugin" id=io.containerd.service.v1.tasks-service type=io.containerd.service.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340478321Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.containers type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340489522Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.content type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340499129Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.diff type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340511560Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.events type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340519142Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.images type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340527400Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.introspection type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340535597Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.leases type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340547437Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.mounts type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340555315Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.namespaces type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340563910Z" level=info msg="loading plugin" id=io.containerd.sandbox.store.v1.local type=io.containerd.sandbox.store.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340571478Z" level=info msg="loading plugin" id=io.containerd.transfer.v1.local type=io.containerd.transfer.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340608277Z" level=info msg="loading plugin" id=io.containerd.cri.v1.images type=io.containerd.cri.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340677372Z" level=info msg="Get image filesystem path \"/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs\" for snapshotter \"overlayfs\""
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340687318Z" level=info msg="Start snapshots syncer"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.340707181Z" level=info msg="loading plugin" id=io.containerd.cri.v1.runtime type=io.containerd.cri.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341086489Z" level=info msg="starting cri plugin" config="{\"containerd\":{\"defaultRuntimeName\":\"runc\",\"runtimes\":{\"multikernel\":{\"runtimeType\":\"io.containerd.multikernel.v2\",\"runtimePath\":\"\",\"PodAnnotations\":[],\"ContainerAnnotations\":[],\"options\":null,\"privileged_without_host_devices\":false,\"privileged_without_host_devices_all_devices_allowed\":false,\"cgroupWritable\":false,\"baseRuntimeSpec\":\"\",\"cniConfDir\":\"/etc/cni/net.d\",\"cniMaxConfNum\":1,\"snapshotter\":\"\",\"sandboxer\":\"podsandbox\",\"io_type\":\"\"},\"runc\":{\"runtimeType\":\"io.containerd.runc.v2\",\"runtimePath\":\"\",\"PodAnnotations\":[],\"ContainerAnnotations\":[],\"options\":{\"BinaryName\":\"\",\"CriuImagePath\":\"\",\"CriuWorkPath\":\"\",\"IoGid\":0,\"IoUid\":0,\"NoNewKeyring\":false,\"Root\":\"\",\"ShimCgroup\":\"\",\"SystemdCgroup\":false},\"privileged_without_host_devices\":false,\"privileged_without_host_devices_all_devices_allowed\":false,\"cgroupWritable\":false,\"baseRuntimeSpec\":\"\",\"cniConfDir\":\"\",\"cniMaxConfNum\":0,\"snapshotter\":\"\",\"sandboxer\":\"podsandbox\",\"io_type\":\"\"}},\"ignoreBlockIONotEnabledErrors\":false,\"ignoreRdtNotEnabledErrors\":false},\"cni\":{\"binDir\":\"\",\"binDirs\":[\"/opt/cni/bin\"],\"confDir\":\"/etc/cni/net.d\",\"maxConfNum\":1,\"setupSerially\":false,\"confTemplate\":\"\",\"ipPref\":\"\",\"useInternalLoopback\":false},\"enableSelinux\":false,\"selinuxCategoryRange\":1024,\"maxContainerLogLineSize\":16384,\"disableApparmor\":false,\"restrictOOMScoreAdj\":false,\"disableProcMount\":false,\"unsetSeccompProfile\":\"\",\"tolerateMissingHugetlbController\":true,\"disableHugetlbController\":true,\"device_ownership_from_security_context\":false,\"ignoreImageDefinedVolumes\":false,\"netnsMountsUnderStateDir\":false,\"enableUnprivilegedPorts\":true,\"enableUnprivilegedICMP\":true,\"enableCDI\":true,\"cdiSpecDirs\":[\"/etc/cdi\",\"/var/run/cdi\"],\"drainExecSyncIOTimeout\":\"0s\",\"ignoreDeprecationWarnings\":[],\"containerdRootDir\":\"/var/lib/containerd\",\"containerdEndpoint\":\"/run/containerd/containerd.sock\",\"rootDir\":\"/var/lib/containerd/io.containerd.grpc.v1.cri\",\"stateDir\":\"/run/containerd/io.containerd.grpc.v1.cri\"}"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341135925Z" level=info msg="loading plugin" id=io.containerd.podsandbox.controller.v1.podsandbox type=io.containerd.podsandbox.controller.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341182251Z" level=info msg="loading plugin" id=io.containerd.sandbox.controller.v1.shim type=io.containerd.sandbox.controller.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341223594Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.sandbox-controllers type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341256988Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.sandboxes type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341269816Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.snapshots type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341278239Z" level=info msg="loading plugin" id=io.containerd.streaming.v1.manager type=io.containerd.streaming.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341286613Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.streaming type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341297815Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.tasks type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341306833Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.transfer type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341315691Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.version type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341322479Z" level=info msg="loading plugin" id=io.containerd.monitor.container.v1.restart type=io.containerd.monitor.container.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341357780Z" level=info msg="loading plugin" id=io.containerd.tracing.processor.v1.otlp type=io.containerd.tracing.processor.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341375287Z" level=info msg="skip loading plugin" error="skip plugin: tracing endpoint not configured" id=io.containerd.tracing.processor.v1.otlp type=io.containerd.tracing.processor.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341385784Z" level=info msg="loading plugin" id=io.containerd.internal.v1.tracing type=io.containerd.internal.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341399006Z" level=info msg="skip loading plugin" error="skip plugin: tracing endpoint not configured" id=io.containerd.internal.v1.tracing type=io.containerd.internal.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341408503Z" level=info msg="loading plugin" id=io.containerd.ttrpc.v1.otelttrpc type=io.containerd.ttrpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341419836Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.healthcheck type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341432953Z" level=info msg="loading plugin" id=io.containerd.grpc.v1.cri type=io.containerd.grpc.v1
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341470564Z" level=info msg="Connect containerd service"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.341496680Z" level=info msg="using experimental NRI integration - disable nri plugin to prevent this"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349487441Z" level=info msg="Start subscribing containerd event"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349717854Z" level=info msg="Start recovering state"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349773078Z" level=info msg=serving... address=/run/containerd/containerd.sock.ttrpc
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349814372Z" level=info msg="Start event monitor"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349832548Z" level=info msg="Start cni network conf syncer for default"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349843788Z" level=info msg="Start cni network conf syncer for multikernel"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349856164Z" level=info msg=serving... address=/run/containerd/containerd.sock
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349858013Z" level=info msg="Start streaming server"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349892551Z" level=info msg="Registered namespace \"k8s.io\" with NRI"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349902817Z" level=info msg="runtime interface starting up..."
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349909819Z" level=info msg="starting plugins..."
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.349921223Z" level=info msg="Synchronizing NRI (plugin) with current runtime state"
+Oct 11 12:58:06 mklinux-maintainability-20261011 containerd[59312]: time="2026-10-11T12:58:06.350023357Z" level=info msg="containerd successfully booted in 0.033169s"
+Oct 11 12:58:06 mklinux-maintainability-20261011 systemd[1]: Started containerd.service - containerd container runtime.
+Oct 11 12:58:08 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 1.
+Oct 11 12:58:08 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:08 mklinux-maintainability-20261011 insmod[59529]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:08 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[59533]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:08 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:08 mklinux-maintainability-20261011 mkruntimed[59535]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:08 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:08 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:10 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 2.
+Oct 11 12:58:10 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:10 mklinux-maintainability-20261011 insmod[61052]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:10 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[61065]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:10 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:10 mklinux-maintainability-20261011 mkruntimed[61104]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:10 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:10 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:13 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 3.
+Oct 11 12:58:13 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:13 mklinux-maintainability-20261011 insmod[62653]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:13 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[62660]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:13 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:13 mklinux-maintainability-20261011 mkruntimed[62684]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:13 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:13 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:15 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 4.
+Oct 11 12:58:15 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:15 mklinux-maintainability-20261011 insmod[63054]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:15 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[63057]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:15 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:15 mklinux-maintainability-20261011 mkruntimed[63060]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:15 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:15 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:17 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 5.
+Oct 11 12:58:17 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:17 mklinux-maintainability-20261011 insmod[63214]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:17 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[63218]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:17 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:17 mklinux-maintainability-20261011 mkruntimed[63220]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:17 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:17 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:19 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 6.
+Oct 11 12:58:19 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:19 mklinux-maintainability-20261011 insmod[63952]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:19 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[63955]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:19 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:19 mklinux-maintainability-20261011 mkruntimed[63977]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:19 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:19 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:22 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 7.
+Oct 11 12:58:22 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:22 mklinux-maintainability-20261011 insmod[65208]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:22 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[65224]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:22 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:22 mklinux-maintainability-20261011 mkruntimed[65278]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:22 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:22 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:24 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 8.
+Oct 11 12:58:24 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:24 mklinux-maintainability-20261011 insmod[66960]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:24 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[66969]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:24 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:24 mklinux-maintainability-20261011 mkruntimed[66971]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:24 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:24 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:26 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 9.
+Oct 11 12:58:26 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:26 mklinux-maintainability-20261011 insmod[67006]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:26 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67010]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:26 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:26 mklinux-maintainability-20261011 mkruntimed[67012]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:26 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:26 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:28 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 10.
+Oct 11 12:58:28 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:28 mklinux-maintainability-20261011 insmod[67039]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:28 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67043]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:28 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:28 mklinux-maintainability-20261011 mkruntimed[67049]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:28 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:28 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:31 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 11.
+Oct 11 12:58:31 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:31 mklinux-maintainability-20261011 insmod[67076]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:31 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67080]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:31 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:31 mklinux-maintainability-20261011 mkruntimed[67082]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:31 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:31 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:33 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 12.
+Oct 11 12:58:33 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:33 mklinux-maintainability-20261011 insmod[67108]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:33 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67112]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:33 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:33 mklinux-maintainability-20261011 mkruntimed[67114]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:33 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:33 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:35 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 13.
+Oct 11 12:58:35 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:35 mklinux-maintainability-20261011 insmod[67148]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:35 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67152]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:35 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:35 mklinux-maintainability-20261011 mkruntimed[67154]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:35 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:35 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:37 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 14.
+Oct 11 12:58:37 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:37 mklinux-maintainability-20261011 insmod[67180]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:37 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67184]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:37 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:37 mklinux-maintainability-20261011 mkruntimed[67186]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:37 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:37 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:40 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 15.
+Oct 11 12:58:40 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:40 mklinux-maintainability-20261011 insmod[67212]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:40 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67216]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:40 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:40 mklinux-maintainability-20261011 mkruntimed[67220]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:40 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:40 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:42 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 16.
+Oct 11 12:58:42 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:42 mklinux-maintainability-20261011 insmod[67248]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:42 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67253]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:42 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:42 mklinux-maintainability-20261011 mkruntimed[67255]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:42 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:42 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:44 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 17.
+Oct 11 12:58:44 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:44 mklinux-maintainability-20261011 insmod[67282]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:44 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67286]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:44 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:44 mklinux-maintainability-20261011 mkruntimed[67288]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:44 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:44 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:46 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 18.
+Oct 11 12:58:46 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:46 mklinux-maintainability-20261011 insmod[67315]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:46 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67323]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:46 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:46 mklinux-maintainability-20261011 mkruntimed[67325]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:46 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:46 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:49 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 19.
+Oct 11 12:58:49 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:49 mklinux-maintainability-20261011 insmod[67352]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:49 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67356]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:49 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:49 mklinux-maintainability-20261011 mkruntimed[67358]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:49 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:49 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:51 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 20.
+Oct 11 12:58:51 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:51 mklinux-maintainability-20261011 insmod[67385]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:51 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67389]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:51 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:51 mklinux-maintainability-20261011 mkruntimed[67391]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:51 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:51 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:53 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 21.
+Oct 11 12:58:53 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:53 mklinux-maintainability-20261011 insmod[67421]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:53 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67425]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:53 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:53 mklinux-maintainability-20261011 mkruntimed[67427]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:53 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:53 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:55 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 22.
+Oct 11 12:58:55 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:55 mklinux-maintainability-20261011 insmod[67453]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:55 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67458]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:55 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:55 mklinux-maintainability-20261011 mkruntimed[67460]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:55 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:55 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Scheduled restart job, restart counter is at 23.
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: Starting mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:58:58 mklinux-maintainability-20261011 insmod[67485]: insmod: ERROR: could not insert module /usr/local/libexec/multikernel/mk_transport.ko: File exists
+Oct 11 12:58:58 mklinux-maintainability-20261011 validate-runtime-storage-mount.py[67490]: RUNTIME_STORAGE_MOUNT_VALID
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: Started mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:58:58 mklinux-maintainability-20261011 mkruntimed[67496]: reconcile: storage reconcile: active storage server is absent without exact pre-acceptance evidence
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Main process exited, code=exited, status=1/FAILURE
+Oct 11 12:58:58 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Failed with result 'exit-code'.
+2026-08-28 06:21:37,755 INFO Starting unattended upgrades script
+2026-08-28 06:21:37,755 INFO Allowed origins are: o=Ubuntu,a=resolute, o=Ubuntu,a=resolute-security, o=UbuntuESMApps,a=resolute-apps-security, o=UbuntuESM,a=resolute-infra-security
+2026-08-28 06:21:37,755 INFO Initial blacklist: 
+2026-08-28 06:21:37,755 INFO Initial whitelist (not strict): 
+2026-08-28 06:21:38,326 INFO No packages found that can be upgraded unattended and no pending auto-removals
+2026-08-28 08:44:25,069 INFO Starting unattended upgrades script
+2026-08-28 08:44:25,070 INFO Allowed origins are: o=Ubuntu,a=resolute, o=Ubuntu,a=resolute-security, o=UbuntuESMApps,a=resolute-apps-security, o=UbuntuESM,a=resolute-infra-security
+2026-08-28 08:44:25,070 INFO Initial blacklist: 
+2026-08-28 08:44:25,070 INFO Initial whitelist (not strict): 
+2026-10-11 12:56:31,986 INFO Starting unattended upgrades script
+2026-10-11 12:56:31,987 INFO Allowed origins are: o=Ubuntu,a=resolute, o=Ubuntu,a=resolute-security, o=UbuntuESMApps,a=resolute-apps-security, o=UbuntuESM,a=resolute-infra-security
+2026-10-11 12:56:31,987 INFO Initial blacklist: 
+2026-10-11 12:56:31,987 INFO Initial whitelist (not strict): 
+2026-10-11 12:57:23,697 INFO Packages that will be upgraded: bind9-dnsutils bind9-host bind9-libs bison bpftool bsdextrautils bsdutils bzip2 curl diffutils dirmngr dracut dracut-core dracut-install dracut-network eject fdisk gir1.2-girepository-3.0 gir1.2-glib-2.0 gnu-coreutils gnupg gnupg-l10n gnupg-utils gpg gpg-agent gpg-wks-client gpgconf gpgsm gpgv libattr1 libblkid1 libbz2-1.0 libc-bin libc-dev-bin libc-gconv-modules-extra libc6 libc6-dev libcurl3t64-gnutls libcurl4t64 libevent-core-2.1-7t64 libexpat1 libexpat1-dev libfdisk1 libfreetype6 libgcrypt20 libgirepository-2.0-0 libglib2.0-0t64 libglib2.0-bin libglib2.0-data libisns0t64 liblastlog2-2 libmount1 libpam-modules libpam-modules-bin libpam-runtime libpam0g libpcap0.8t64 libperl5.40 libpng16-16t64 libpolkit-agent-1-0 libpolkit-gobject-1-0 libpython3.14 libpython3.14-dev libpython3.14-minimal libpython3.14-stdlib libsgutils2-1.48 libsmartcols1 libsqlite3-0 libssh2-1t64 libssl-dev libssl3t64 libuuid1 libxml2-16 linux-gcp linux-headers-gcp linux-image-gcp linux-libc-dev linux-perf linux-tools-common locales login mount openssh-client openssh-server openssh-sftp-server openssl openssl-provider-legacy perl perl-base perl-modules-5.40 polkitd python3-cryptography python3-jwt python3-pyasn1 python3-requests python3.14 python3.14-dev python3.14-gdbm python3.14-minimal python3.14-venv rsyslog sg3-utils sg3-utils-udev sudo sudo-rs util-linux util-linux-extra uuid-runtime vim vim-common vim-runtime vim-tiny xxd zlib1g zlib1g-dev
+2026-10-11 12:57:23,697 INFO Writing dpkg log to /var/log/unattended-upgrades/unattended-upgrades-dpkg.log
+Oct 11 12:55:54 mklinux-maintainability-20261011 kernel: Successfully parsed memory size: 3221225472 bytes (3072 MB)
+Oct 11 12:55:54 mklinux-maintainability-20261011 kernel: Successfully parsed instance 'mk-mk-matrix-ctr-98d5100f8a5ae888': 3221225472 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Successfully parsed memory size: 3221225472 bytes (3072 MB)
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Successfully parsed instance 'mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8': 3221225472 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Consumed 9min 34.693s CPU time over 12min 48.737s wall clock time, 4.5G memory peak.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: systemd-journald.service: Consumed 1.038s CPU time over 27min 35.727s wall clock time, 17.9M memory peak.
+{"evidence_command_result": {"ended_at": "2026-10-11T13:00:12.316777Z", "exit_status": 0}}

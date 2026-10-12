@@ -1,0 +1,190 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=set -eu; sudo systemctl mask --now apt-daily.timer apt-daily-upgrade.timer; sudo systemctl stop mkruntimed; sudo systemctl disable mkruntimed mknetd containerd docker; sudo grep -E \"^GRUB_DEFAULT|^GRUB_SAVEDEFAULT\" /etc/default/grub; sudo grep -E \"^menuentry|^submenu\" /boot/grub/grub.cfg; systemctl is-active apt-daily-upgrade.service || true; sudo ps -eo comm,etime | rg \"unattended|dpkg|apt\"; sudo journalctl -k --since \"2026-10-11 12:56:00\" --until \"2026-10-11 12:58:00\" --no-pager"], "started_at": "2026-10-11T13:00:59.119862Z"}}
+Created symlink '/etc/systemd/system/apt-daily.timer' → '/dev/null'.
+Created symlink '/etc/systemd/system/apt-daily-upgrade.timer' → '/dev/null'.
+Removed '/etc/systemd/system/mkruntimed.service'.
+Removed '/etc/systemd/system/multi-user.target.wants/containerd.service'.
+Removed '/etc/systemd/system/multi-user.target.wants/docker.service'.
+Removed '/etc/systemd/system/multi-user.target.wants/mkruntimed.service'.
+Removed '/etc/systemd/system/multi-user.target.wants/mknetd.service'.
+Removed '/etc/systemd/system/mknetd.service'.
+GRUB_DEFAULT=0
+menuentry 'Ubuntu' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-simple-00000000-0000-0000-0000-00000000000a' {
+submenu 'Advanced options for Ubuntu' $menuentry_id_option 'gnulinux-advanced-00000000-0000-0000-0000-00000000000a' {
+activating
+unattended-upgr       31:04
+apt.systemd.dai       04:32
+apt.systemd.dai       04:32
+unattended-upgr       04:31
+unattended-upgr       00:11
+dpkg                  00:04
+dpkg-status           00:04
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_file_load: multikernel load - flags=0x510, extracted mk_id=40
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: Associated kimage with multikernel instance 40
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated IPI ring buffer: phys=0x2c0500000, size=263696 bytes (order 7)
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated 4096 bytes from multikernel pool at 0x785e20000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8bfffffbd000 bufsz=0x30 mem=0x785e20000 memsz=0x1000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Loading ELF vmlinux (type=2)
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: multikernel: entry=0x3d5efd4
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated 8192 bytes from multikernel pool at 0x785e18000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8bf1610a2000 bufsz=0x1580 mem=0x785e18000 memsz=0x2000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated 65011712 bytes from multikernel pool at 0x786000000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd29a4b600000 bufsz=0x3e00000 mem=0x786000000 memsz=0x3e00000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Loading kernel segments to 0x786000000 (buffer=ffffd29a4b600000, size=0x3e00000)
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0x786000000 buf=ffffd29a4b600000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_locate_mem_hole: called for segment size=0x1bc000, mem=0x0, image_type=2
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x1bc000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated 1818624 bytes from multikernel pool at 0x785e21000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd29a4465b000 bufsz=0x1bb838 mem=0x785e21000 memsz=0x1bc000
+Oct 11 12:56:17 mklinux-mDisabling 'docker.service', but its triggering units are still active:
+docker.socket
+aintainability-20261011 kernel: kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=mk-mk-matrix-ctr-98d5100f8a5ae888 mk.generation=a11910d7ddaa52c1f7fc1ece09b38755 mk.token=${REDACTED_AUTH_TOKEN} mk.agent_port=7200 mk.image_id=root-65714ed0553a3b57aad3a59757bfbd10 mk.storage_generation=7c6f944614b0041e63da7c93b7ce7e6b mk.root_uuid=00000000-0000-0000-0000-000000000015 mk.storage_port=4061 mk.storage_size=2147483648 len=428 offset=4096
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-bzImage64: setup_cmdline: cmd_line_ptr=0x85e19000 ext=0x7 (phys=0x785e19000)
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Multikernel: entry=0x788d5efd4 boot_params=0x785e18000
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: mk_e820: instance 40: 3072 MB RAM in 1 regions
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e20000, memsz=0x1000, kbuf=0xffff8bfffffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e18000, memsz=0x2000, kbuf=0xffff8bf1610a2000, buf=0x0000000000000000, bufsz=0x1580, file_mode=1
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x786000000, memsz=0x3e00000, kbuf=0xffffd29a4b600000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+Oct 11 12:56:17 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e21000, memsz=0x1bc000, kbuf=0xffffd29a4465b000, buf=0x0000000000000000, bufsz=0x1bb838, file_mode=1
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 2 CPUs assigned
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e20000, memsz=0x1000, kbuf=0xffff8bfffffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e18000, memsz=0x2000, kbuf=0xffff8bf1610a2000, buf=0x0000000000000000, bufsz=0x1580, file_mode=1
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x786000000, memsz=0x3e00000, kbuf=0xffffd29a4b600000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e21000, memsz=0x1bc000, kbuf=0xffffd29a4465b000, buf=0x0000000000000000, bufsz=0x1bb838, file_mode=1
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: Preserving multikernel DTB for instance 40
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: Generated instance DTB for 'mk-mk-matrix-ctr-98d5100f8a5ae888' (ID 40): 288 bytes
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: Preserved DTB for instance 40 (288 bytes)
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: Preserving host IPI buffer: phys=0x101180000, pages=65
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: Added host IPI buffer to manifest
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: multikernel: added IPI buffer to manifest: phys=0x2c0500000, pages=65 (263696 bytes)
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: multikernel: finalized manifest for instance 40 (size: 650 bytes)
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: kexec_core: Manifest finalized for multikernel instance
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: mk_e820: instance 40: 3072 MB RAM in 1 regions
+Oct 11 12:56:19 mklinux-maintainability-20261011 kernel: Multikernel instance 40 is now active
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: Instance 40 (mk-mk-matrix-ctr-98d5100f8a5ae888) halted, CPUs parking in pool
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: kexec_file: Unloading kernel from multikernel instance 40
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: Applying overlay transaction 30 (target=/instances, resources=unknown)
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: Overlay tx30: Removing instance 'mk-mk-matrix-ctr-98d5100f8a5ae888' (ID: 40)
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: Releasing multikernel instance 40 (mk-mk-matrix-ctr-98d5100f8a5ae888), returning resources to root
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: Returned 2 CPUs from instance 40 (mk-mk-matrix-ctr-98d5100f8a5ae888) to the pool: 8,10
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: Returning 0xc0000000 bytes from instance 40 (mk-mk-matrix-ctr-98d5100f8a5ae888) back to multikernel pool
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: Overlay tx30: Instance 'mk-mk-matrix-ctr-98d5100f8a5ae888' removed successfully
+Oct 11 12:56:31 mklinux-maintainability-20261011 kernel: Overlay transaction 30 applied successfully
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Generated instance DTB for '' (ID 0): 451 bytes
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Applying overlay transaction 31 (target=/instances, resources=unknown)
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Overlay tx31: Creating instance 'mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8'
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Successfully parsed memory size: 3221225472 bytes (3072 MB)
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Successfully parsed 2 physical CPUs: 8,10
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Successfully parsed instance 'mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8': 3221225472 bytes memory, 2 CPUs, 0 PCI devices, 0 platform devices
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Created instance pool 40: 1 chunks, total size=3221225472 bytes
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Transferred 0xc0000000 bytes from root to instance 40 (mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8)
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Created instance pool 40: 1 chunks, total size=3221225472 bytes
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Transferred 2 CPUs from pool to instance 40 (mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8): 8,10
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Generated instance DTB for 'mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8' (ID 40): 308 bytes
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Overlay tx31: Instance 'mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8' created successfully
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Overlay transaction 31 applied successfully
+Oct 11 12:56:54 mklinux-maintainability-20261011 kernel: Generated instance DTB for '' (ID 0): 435 bytes
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_file_load: multikernel load - flags=0x510, extracted mk_id=40
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: Associated kimage with multikernel instance 40
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated IPI ring buffer: phys=0x2c0500000, size=263696 bytes (order 7)
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_locate_mem_hole: called for segment size=0x1000, mem=0x0, image_type=2
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x1000, buf_min=0x0, buf_max=0xffffffffffffffff, align=0x10000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated 4096 bytes from multikernel pool at 0x785e20000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_add_buffer: segment[0] kbuf=0xffff8bfffffbd000 bufsz=0x30 mem=0x785e20000 memsz=0x1000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Loading ELF vmlinux (type=2)
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: multikernel: entry=0x3d5efd4
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Multikernel entry offset: 0x3d5efd4
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: ELF kernel: entry=0x3d32600 load_addr=0x1000000 size=0x3e00000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Skipping purgatory for multikernel (direct kernel entry)
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_locate_mem_hole: called for segment size=0x2000, mem=0x0, image_type=2
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x2000, buf_min=0x3000, buf_max=0xffffffffffffffff, align=0x1000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated 8192 bytes from multikernel pool at 0x785e18000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_add_buffer: segment[1] kbuf=0xffff8bf0de748000 bufsz=0x1590 mem=0x785e18000 memsz=0x2000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_locate_mem_hole: called for segment size=0x3e00000, mem=0x0, image_type=2
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x3e00000, buf_min=0x100000, buf_max=0xffffffffffffffff, align=0x200000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated 65011712 bytes from multikernel pool at 0x786000000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_add_buffer: segment[2] kbuf=0xffffd29a4b600000 bufsz=0x3e00000 mem=0x786000000 memsz=0x3e00000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Loading kernel segments to 0x786000000 (buffer=ffffd29a4b600000, size=0x3e00000)
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux:   PT_LOAD[0]: paddr=0x1000000 offset=0x0 filesz=0x27cc3c8 memsz=0x27cc3c8
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux:   PT_LOAD[1]: paddr=0x3800000 offset=0x2800000 filesz=0x1600000 memsz=0x1600000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: ELF kernel loaded: kernel_load_addr=0x786000000 buf=ffffd29a4b600000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_locate_mem_hole: called for segment size=0x1bc000, mem=0x0, image_type=2
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_alloc_multikernel: called for segment size=0x1bc000, buf_min=0x1000000, buf_max=0xffffffffffffffff, align=0x1000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: Allocated 1818624 bytes from multikernel pool at 0x785e21000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_file: kexec_add_buffer: segment[3] kbuf=0xffffd29a4465b000 bufsz=0x1bb838 mem=0x785e21000 memsz=0x1bc000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-bzImage64: setup_cmdline: cmdline=rdinit=/init console=mktty0 panic=-1 mk.sandbox_id=mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8 mk.generation=a048268c5d6ed589be1c7d7cc95309c8 mk.token=${REDACTED_AUTH_TOKEN} mk.agent_port=7200 mk.image_id=root-e9573a419e727935f5842fbb14ca1c04 mk.storage_generation=ce7419819762611f234ad1bd271af786 mk.root_uuid=00000000-0000-0000-0000-000000000002 mk.storage_port=4061 mk.storage_size=2147483648 len=447 offset=4096
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-bzImage64: setup_cmdline: cmd_line_ptr=0x85e19000 ext=0x7 (phys=0x785e19000)
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec-vmlinux: Multikernel: entry=0x788d5efd4 boot_params=0x785e18000
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: mk_e820: instance 40: 3072 MB RAM in 1 regions
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e20000, memsz=0x1000, kbuf=0xffff8bfffffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e18000, memsz=0x2000, kbuf=0xffff8bf0de748000, buf=0x0000000000000000, bufsz=0x1590, file_mode=1
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x786000000, memsz=0x3e00000, kbuf=0xffffd29a4b600000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+Oct 11 12:57:17 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e21000, memsz=0x1bc000, kbuf=0xffffd29a4465b000, buf=0x0000000000000000, bufsz=0x1bb838, file_mode=1
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: kexec_core: multikernel kexec: using physical CPU 8 (logical 4), 2 CPUs assigned
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e20000, memsz=0x1000, kbuf=0xffff8bfffffbd000, buf=0x0000000000000000, bufsz=0x30, file_mode=1
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e18000, memsz=0x2000, kbuf=0xffff8bf0de748000, buf=0x0000000000000000, bufsz=0x1590, file_mode=1
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x786000000, memsz=0x3e00000, kbuf=0xffffd29a4b600000, buf=0x0000000000000000, bufsz=0x3e00000, file_mode=1
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: kexec_core: Loading multikernel segment: mem=0x785e21000, memsz=0x1bc000, kbuf=0xffffd29a4465b000, buf=0x0000000000000000, bufsz=0x1bb838, file_mode=1
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: Preserving multikernel DTB for instance 40
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: Generated instance DTB for 'mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8' (ID 40): 308 bytes
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: Preserved DTB for instance 40 (308 bytes)
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: Preserving host IPI buffer: phys=0x101180000, pages=65
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: Added host IPI buffer to manifest
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: multikernel: added IPI buffer to manifest: phys=0x2c0500000, pages=65 (263696 bytes)
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: multikernel: finalized manifest for instance 40 (size: 670 bytes)
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: kexec_core: Manifest finalized for multikernel instance
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: mk_e820: instance 40: 3072 MB RAM in 1 regions
+Oct 11 12:57:19 mklinux-maintainability-20261011 kernel: Multikernel instance 40 is now active
+Oct 11 12:57:29 mklinux-maintainability-20261011 systemd[1]: systemd 259.5-0ubuntu3.4 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +IPE +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +KMOD +LIBCRYPTSETUP +LIBCRYPTSETUP_PLUGINS +LIBFDISK +PCRE2 +PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD +BPF_FRAMEWORK +BTF -XKBCOMMON -UTMP +SYSVINIT +LIBARCHIVE)
+Oct 11 12:57:29 mklinux-maintainability-20261011 systemd[1]: Detected virtualization google.
+Oct 11 12:57:29 mklinux-maintainability-20261011 systemd[1]: Detected architecture x86-64.
+Oct 11 12:57:29 mklinux-maintainability-20261011 systemd[1]: bpf-restrict-fs: BPF LSM hook not enabled in the kernel, BPF LSM not supported.
+Oct 11 12:57:29 mklinux-maintainability-20261011 systemd[1]: /usr/lib/systemd/system/xfs_scrub_all.service:26: Support for option CPUAccounting= has been removed and it is ignored
+Oct 11 12:57:29 mklinux-maintainability-20261011 systemd[1]: /usr/lib/systemd/system/system-xfs_scrub.slice:15: Support for option CPUAccounting= has been removed and it is ignored
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd-journald[227]: Received SIGTERM from PID 1 (systemd).
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopping systemd-journald.service - Journal Service...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopping mkruntimed.service - Multikernel container runtime control plane...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: netplan-ovs-cleanup.service - OpenVSwitch configuration for cleanup skipped, unmet condition check ConditionFileIsExecutable=/usr/bin/ovs-vsctl
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Starting packagekit.service - PackageKit Daemon...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: sshd-keygen.service - Generate sshd host keys on first boot skipped, unmet condition check ConditionFirstBoot=yes
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopping systemd-networkd-persistent-storage.service - Enable Persistent Storage in systemd-networkd...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: systemd-networkd-wait-online.service: Deactivated successfully.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopped systemd-networkd-wait-online.service - Wait for Network to be Online.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopping systemd-networkd-wait-online.service - Wait for Network to be Online...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Deactivated successfully.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Unit process 53916 (4) remains running after unit stopped.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopped mkruntimed.service - Multikernel container runtime control plane.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: mkruntimed.service: Consumed 9min 34.693s CPU time over 12min 48.737s wall clock time, 4.5G memory peak.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopping google-guest-agent.service - Google Compute Engine Guest Agent...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopping systemd-resolved.service - Network Name Resolution...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: systemd-journald.service: Deactivated successfully.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopped systemd-journald.service - Journal Service.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: systemd-journald.service: Consumed 1.038s CPU time over 27min 35.727s wall clock time, 17.9M memory peak.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: systemd-resolved.service: Deactivated successfully.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopped systemd-resolved.service - Network Name Resolution.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: systemd-networkd-persistent-storage.service: Deactivated successfully.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Stopped systemd-networkd-persistent-storage.service - Enable Persistent Storage in systemd-networkd.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Starting systemd-journald.service - Journal Service...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Starting systemd-resolved.service - Network Name Resolution...
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Started packagekit.service - PackageKit Daemon.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd-journald[54485]: Collecting audit messages is disabled.
+Oct 11 12:57:30 mklinux-maintainability-20261011 systemd[1]: Started systemd-journald.service - Journal Service.
+Oct 11 12:57:31 mklinux-maintainability-20261011 kernel: Instance 40 (mk-447da9215bdc80555764418c4f880114-9120ab571957e0a8) halted, CPUs parking in pool
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: systemd 259.5-0ubuntu3.4 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +IPE +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +KMOD +LIBCRYPTSETUP +LIBCRYPTSETUP_PLUGINS +LIBFDISK +PCRE2 +PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD +BPF_FRAMEWORK +BTF -XKBCOMMON -UTMP +SYSVINIT +LIBARCHIVE)
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: Detected virtualization google.
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: Detected architecture x86-64.
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: bpf-restrict-fs: BPF LSM hook not enabled in the kernel, BPF LSM not supported.
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: /usr/lib/systemd/system/xfs_scrub_all.service:26: Support for option CPUAccounting= has been removed and it is ignored
+Oct 11 12:57:54 mklinux-maintainability-20261011 systemd[1]: /usr/lib/systemd/system/system-xfs_scrub.slice:15: Support for option CPUAccounting= has been removed and it is ignored
+Oct 11 12:57:54 mklinux-maintainability-20261011 kernel: audit: type=1400 audit(1791723474.660:206): apparmor="STATUS" operation="profile_replace" info="same as current profile, skipping" profile="unconfined" name="rsyslogd" pid=57194 comm="apparmor_parser"
+{"evidence_command_result": {"ended_at": "2026-10-11T13:01:03.994860Z", "exit_status": 0}}

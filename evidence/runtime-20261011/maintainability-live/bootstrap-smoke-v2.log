@@ -1,0 +1,11 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=set -eu; sudo install -m 0644 ${OPERATOR_HOME}/src/linux/.config /opt/mkruntime/artifacts/config-7.0.0-mk2-gce-lab; sudo install -m 0644 /opt/mkruntime/artifacts/mk_transport.ko /usr/local/libexec/multikernel/mk_transport.ko; sudo ctr run --rm --runtime io.containerd.multikernel.v2 docker.io/library/busybox:1.36 mk-maint-bootstrap /bin/echo MAINT_BOOTSTRAP_SMOKE_PASS; sudo systemctl restart mkruntimed; sudo cat /var/lib/mkruntimed/rootfs/state.json /var/lib/mknetd/state.json"], "started_at": "2026-10-11T12:40:40.200408Z"}}
+MAINT_BOOTSTRAP_SMOKE_PASS
+{
+  "version": 4,
+  "records": {}
+}
+{
+  "version": 1,
+  "endpoints": {}
+}
+{"evidence_command_result": {"ended_at": "2026-10-11T12:41:48.052816Z", "exit_status": 0}}

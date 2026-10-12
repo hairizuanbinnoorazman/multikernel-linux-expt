@@ -1,0 +1,13 @@
+{"evidence_command": {"argv": ["gcloud", "compute", "ssh", "mklinux-maintainability-20261011", "--project=${MK_PROJECT}", "--zone=asia-southeast1-b", "--command=bash /var/tmp/mk-maint-host-recover-v2.sh"], "started_at": "2026-10-12T03:41:00.782946Z"}}
+Warning: The unit file, source configuration file or drop-ins of sys-fs-multikernel.mount changed on disk. Run 'systemctl daemon-reload' to reload units.
+Warning: The unit file, source configuration file or drop-ins of docker.service changed on disk. Run 'systemctl daemon-reload' to reload units.
+Warning: The unit file, source configuration file or drop-ins of containerd.service changed on disk. Run 'systemctl daemon-reload' to reload units.
+Failed to stop mknetd.service: Unit mknetd.service not loaded.
+Failed to stop mkruntimed.service: Unit mkruntimed.service not loaded.
+Stopping 'docker.service', but its triggering units are still active:
+docker.socket
+{
+  "active": "78a467a46de8cafc794167140e8f9a323e7245233b83069891418d7dec9247a2"
+}
+Failed to reset failed state of unit mknetd.service: Unit mknetd.service not loaded.
+{"evidence_command_result": {"ended_at": "2026-10-12T03:41:02.739944Z", "exit_status": 1}}
