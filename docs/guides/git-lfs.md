@@ -10,7 +10,7 @@ Every nonempty file under `evidence/` is tracked by Git LFS through
 remain ordinary empty blobs, as required by Git LFS. Install Git LFS before
 cloning, or run `git lfs pull` to materialize existing pointer files afterward.
 
-The pre-commit hook also finds other staged files larger than1MiB, adds literal
+The pre-commit hook also finds other staged files larger than 1 MiB, adds literal
 filename rules to `.gitattributes` and converts their staged bytes into LFS
 pointers. It preserves unstaged worktree edits and executable modes. It refuses
 to absorb unstaged `.gitattributes` edits or replace an explicit custom filter;
@@ -22,7 +22,7 @@ policy workflow runs that check with LFS downloads disabled, so it checks Git
 objects rather than downloading the full evidence archive. Hook behavior is
 covered by `python3 scripts/test-lfs-policy.py` in isolated temporary repositories.
 
-The2026-10-18 migration rewrites historical evidence blobs into LFS pointers.
+The 2026-10-18 migration rewrites historical evidence blobs into LFS pointers.
 Proof bytes, source history, executable bits, authors, commit dates and messages
 are retained; commit IDs change. The complete original repository and unfinished
 G7 work were backed up outside this repository before migration. The cleanup
