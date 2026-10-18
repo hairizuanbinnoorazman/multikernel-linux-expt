@@ -81,6 +81,13 @@ now runs all twenty-four kernel overlays, with verified profile activation,
 structural refusal/real rollback and preserved recovery artifacts. Its [full nineteen-feature compatibility suite and final resource audit](../../evidence/runtime-20261012/g7-kernel-rb10-matrix/README.md)
 pass; gate acceptance remains open.
 
+The [SEC-12 deployment checkpoint](../../evidence/runtime-20261012/g7-sec12-deployment-live/README.md)
+activates the patched Go1.26.9 runtime and artifact-admission guards from
+clean revision0c80131 on the disposable rb11 baseline. Exact deployment,
+qualification and failure receipts are retained. Google-agent findings,
+other dependency triage, provenance and host/child ABI review remain open;
+this checkpoint does not close G7 or whole SEC-12.
+
 The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels
 do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
 Never assign the primary boot disk, NIC, or a shared controller to a child, and

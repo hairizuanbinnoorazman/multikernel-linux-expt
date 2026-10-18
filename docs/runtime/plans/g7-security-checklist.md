@@ -512,6 +512,14 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   decision about hardware-backed isolation or the continued trusted-child scope.
 
 - [ ] **SEC-12 — Review dependencies and artifact trust (TM-11).**
+  [Patched runtime deployment](../../../evidence/runtime-20261012/g7-sec12-deployment-live/README.md)
+  activates clean revision0c80131 built with Go1.26.9, with actual running
+  daemon/broker hashes and retained rollback. All nineteen ctr/Docker rows,
+  independent zero-resource audits and four live pre-allocation refusals pass.
+  Failed harness history and exact seven-binary scans are retained there.
+  Three CRI advisory IDs remain; scanner package/symbol matches are explicit.
+  Google-agent vendor primitives remain adverse; full dependency findings,
+  licensing/provenance and host/child ABI assessment remain open.
   [Bootstrap component parity and literal trailer](../../../evidence/runtime-20261012/g7-bootstrap-component-parity/README.md)
   closes CLI base-archive component admission with held bounded reads, matching
   daemon policy. Both parsers refuse a normalized trailer alias. Portable controls
@@ -534,7 +542,8 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   refuse malformed unused symbol names; root/source/control/build proof retained.
   The base archive has matching agent/relay/transport bytes; NBD belongs to
   the separately built mediated bootstrap. Newer proof above implements
-  base/derived semantic checks and profile binding. Candidate is not deployed.
+  base/derived semantic checks and profile binding. The newer deployment proof
+  above activates these guards; this earlier proof describes its own baseline.
   [Daemon embedded-kernel release guard](../../../evidence/runtime-20261012/g7-kernel-embedded-release/README.md)
   now rejects a hash-approved real rb13 kernel under the rb11 profile; old
   resolver accepts it. Exact root/source/old-control/build proof is retained.
@@ -563,9 +572,11 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   requiresGo1.26.9 and patched containerd1.7.36/gRPC1.83.2/xsys0.47.0.
   Full race/vet/seven builds pass; exact before/after scans retain57→3 advisory
   IDs, with remaining CRI entries triaged against absent compiled imports and
-  actual Ubuntu security backports. These changes are local, not deployed.
+  actual Ubuntu security backports. The newer deployment proof above
+  activates these changes; this earlier bundle retains the local-build baseline.
   Python/C/kernel/deployment inventory triage, provenance/license gaps and
-  complete wrong-artifact/pre-allocation qualification remain open.
+  complete artifact trust acceptance beyond the bounded wrong-artifact
+  refusals remain open.
   Inventory Go, Python, C, kernel/module, Kerf, CNI, and deployment dependencies;
   record versions, licenses, known vulnerabilities, and reachable-code triage.
   Verify hashes and ownership at install and boot, including a mismatched
