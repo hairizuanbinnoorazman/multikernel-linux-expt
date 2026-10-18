@@ -19,6 +19,7 @@ DESTINATIONS = (
     "etc/mkruntime/config.json",
     "etc/systemd/system/sys-fs-multikernel.mount",
     "etc/systemd/system/mkruntimed.service",
+    "etc/systemd/system/multikernel-modules.service",
     "etc/systemd/system/mknetd.service",
     "etc/cni/net.d/10-multikernel.conf",
     "etc/containerd/conf.d/20-multikernel-runtime.toml",
@@ -30,6 +31,7 @@ DESTINATIONS = (
     "usr/local/libexec/multikernel/validate-runtime-image.py",
     "usr/local/libexec/multikernel/build-runtime-rootfs.py",
     "usr/local/libexec/multikernel/runtime_safe_publish.py",
+    "usr/local/libexec/multikernel/runtime_support_exec.py",
     "usr/local/libexec/multikernel/runtime-storage-identity.py",
     "usr/local/libexec/multikernel/validate-runtime-storage-mount.py",
     "usr/local/libexec/multikernel/build-runtime-storage.py",
@@ -107,8 +109,9 @@ def main():
         shutil.copytree(full, legacy_staging)
         legacy_manifest_path = legacy_staging / "deployment-manifest.json"
         legacy_manifest = json.loads(legacy_manifest_path.read_text(encoding="utf-8"))
-        removed_asset = "libexec/validate-runtime-storage-mount.py"
-        legacy_manifest["files"].pop(removed_asset)
+        removed_assets = ("libexec/validate-runtime-storage-mount.py", "libexec/runtime_support_exec.py", "systemd/multikernel-modules.service")
+        for removed_asset in removed_assets:
+            legacy_manifest["files"].pop(removed_asset)
         identity = hashlib.sha256()
         for name in sorted(legacy_manifest["files"]):
             expected = legacy_manifest["files"][name]
@@ -117,15 +120,20 @@ def main():
         legacy_manifest["deployment"] = legacy
         legacy_manifest_path.write_text(
             json.dumps(legacy_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        (legacy_staging / removed_asset).unlink()
+        for removed_asset in removed_assets:
+            (legacy_staging / removed_asset).unlink()
         legacy_directory = legacy_staging.with_name(legacy)
         legacy_staging.rename(legacy_directory)
         run(root, "activate", legacy)
         assert active(root) == f"deployments/{legacy}"
         assert not os.path.lexists(root / "usr/local/libexec/multikernel/validate-runtime-storage-mount.py")
+        assert not os.path.lexists(root / "usr/local/libexec/multikernel/runtime_support_exec.py")
+        assert not os.path.lexists(root / "etc/systemd/system/multikernel-modules.service")
         run(root, "activate", second)
         assert active(root) == f"deployments/{second}"
         assert (root / "usr/local/libexec/multikernel/validate-runtime-storage-mount.py").resolve().is_file()
+        assert (root / "usr/local/libexec/multikernel/runtime_support_exec.py").resolve().is_file()
+        assert (root / "etc/systemd/system/multikernel-modules.service").resolve().is_file()
         run(root, "activate", first)
 
         refused = run(root, "remove-deployment", first, "--apply", ok=False)

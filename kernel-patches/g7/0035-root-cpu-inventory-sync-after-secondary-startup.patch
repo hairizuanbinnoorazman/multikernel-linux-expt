@@ -1,0 +1,40 @@
+--- a/kernel/multikernel/core.c
++++ b/kernel/multikernel/core.c
+@@ -47,6 +47,37 @@
+ 	guard(mutex)(&mk_cpu_ownership_mutex);
+ 	mk_cpu_set_del(&mk_host_park_pins, cpu);
+ }
++
++/* Root policy is created by an early initcall, before secondary CPUs start.
++ * Reconcile the native online set after SMP, without changing that early policy
++ * setup or admitting any merely possible/offline CPU into root ownership.
++ */
++static int __init mk_root_cpu_ownership_init(void)
++{
++	int cpu, ret;
++	unsigned int online = 0;
++
++	if (!root_instance || !root_instance->cpus)
++		panic("multikernel: missing root CPU ownership after SMP");
++
++	cpus_read_lock();
++	mutex_lock(&mk_cpu_ownership_mutex);
++	for_each_online_cpu(cpu) {
++		ret = mk_cpu_set_add(root_instance->cpus, arch_cpu_physical_id(cpu));
++		if (ret) {
++			mutex_unlock(&mk_cpu_ownership_mutex);
++			cpus_read_unlock();
++			panic("multikernel: cannot record online CPU ownership (%d)", ret);
++		}
++		online++;
++	}
++	mutex_unlock(&mk_cpu_ownership_mutex);
++	cpus_read_unlock();
++	pr_info("Multikernel: root CPU ownership synchronized after SMP: %u online CPUs\n",
++		online);
++	return 0;
++}
++late_initcall(mk_root_cpu_ownership_init);
+ 
+ struct mk_cpu_pool_transition {
+ 	struct list_head list;

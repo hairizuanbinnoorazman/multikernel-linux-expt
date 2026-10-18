@@ -261,7 +261,9 @@ func TestExitedRelayReplacementCancellationReapsUnpublishedCommand(t *testing.T)
 		relayOwner: relayOwnerFunc(func() error { return nil }),
 		sandbox:    protocol.Sandbox{Config: protocol.SandboxConfig{AgentPort: 7200}},
 		newRelay: func(uint32, string) *exec.Cmd {
-			command := exec.Command("/bin/sh", "-c", "printf '%s\\n' \"$$\" > \"$1\"; exec /bin/sleep 300", "relay", pidMarker)
+			// Publish a complete PID atomically; mere file existence after
+			// redirection is not evidence that printf has written its bytes.
+			command := exec.Command("/bin/sh", "-c", "printf '%s\\n' \"$$\" > \"$1.tmp\"; /bin/mv -- \"$1.tmp\" \"$1\"; exec /bin/sleep 300", "relay", pidMarker)
 			command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 			return command
 		},

@@ -1,0 +1,257 @@
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -44,9 +44,9 @@
+ 	}
+ 
+ 	if (len == sizeof(fdt64_t))
+-		*cpu_id = fdt64_to_cpu(*(const fdt64_t *)reg);
++		*cpu_id = fdt64_ld(reg);
+ 	else
+-		*cpu_id = fdt32_to_cpu(*(const fdt32_t *)reg);
++		*cpu_id = fdt32_ld(reg);
+ 
+ 	return 0;
+ }
+@@ -553,38 +553,79 @@
+ 	const fdt32_t *prop;
+ 	int len;
+ 
+-	*node = NUMA_NO_NODE;
+-
+ 	prop = fdt_getprop(fdt, item_node, "numa-node-id", &len);
+-	if (!prop)
++	if (!prop) {
++		if (len != -FDT_ERR_NOTFOUND)
++			return -EINVAL;
++		*node = NUMA_NO_NODE;
+ 		return 0;
++	}
+ 
+ 	if (len != (int)sizeof(fdt32_t)) {
+ 		pr_err("Invalid numa-node-id property in %s\n", name);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (fdt32_to_cpu(*prop) >= MAX_NUMNODES) {
++	if (fdt32_ld(prop) >= MAX_NUMNODES) {
+ 		pr_err("%s: numa-node-id %u out of range\n", name,
+-		       fdt32_to_cpu(*prop));
+-		return -EINVAL;
+-	}
+-
+-	*node = (int)fdt32_to_cpu(*prop);
+-	return 0;
+-}
+-
+-static u32 mk_overlay_parse_u32(const void *fdt, int item_node,
+-				const char *prop_name)
++		       fdt32_ld(prop));
++		return -EINVAL;
++	}
++
++	*node = (int)fdt32_ld(prop);
++	return 0;
++}
++
++/* Defaults apply only to an absent property, never malformed bytes. */
++static int mk_overlay_parse_u32(const void *fdt, int item_node,
++				const char *prop_name, u32 *value)
+ {
+ 	const fdt32_t *prop;
+ 	int len;
+ 
+ 	prop = fdt_getprop(fdt, item_node, prop_name, &len);
+-	if (!prop || len != (int)sizeof(fdt32_t))
++	if (!prop) {
++		if (len != -FDT_ERR_NOTFOUND)
++			return -EINVAL;
++		*value = 0;
+ 		return 0;
+-
+-	return fdt32_to_cpu(*prop);
++	}
++	if (len != (int)sizeof(*prop))
++		return -EINVAL;
++
++	*value = fdt32_ld(prop);
++	return 0;
++}
++
++static int mk_overlay_parse_instance_id(const void *fdt, int op_node, int *id)
++{
++	const fdt32_t *prop;
++	u32 value;
++	int len;
++
++	prop = fdt_getprop(fdt, op_node, "id", &len);
++	if (!prop) {
++		if (len != -FDT_ERR_NOTFOUND)
++			return -EINVAL;
++		*id = -1;
++		return 0;
++	}
++	if (len != (int)sizeof(*prop))
++		return -EINVAL;
++
++	value = fdt32_ld(prop);
++	/* Retain the documented -1 automatic-ID sentinel without accepting
++	 * arbitrary unsigned values as negative IDs after narrowing.
++	 */
++	if (value == (u32)-1) {
++		*id = -1;
++		return 0;
++	}
++	if (!value || value >= (u32)INT_MAX)
++		return -EINVAL;
++
++	*id = (int)value;
++	return 0;
+ }
+ 
+ /* Each property is one bounded string before any scanner or log uses it. */
+@@ -665,12 +706,16 @@
+ 	fdt_for_each_subnode(item_node, fdt, op_node) {
+ 		const char *name = fdt_get_name(fdt, item_node, NULL);
+ 		u64 base, size;
++		u32 mem_type;
+ 		int node, len;
+ 
+ 		if (!name || strncmp(name, "memory@", 7))
+ 			continue;
+ 
+ 		ret = mk_overlay_parse_numa(fdt, item_node, name, &node);
++		if (ret)
++			return ret;
++		ret = mk_overlay_parse_u32(fdt, item_node, "mem-type", &mem_type);
+ 		if (ret)
+ 			return ret;
+ 
+@@ -727,8 +772,7 @@
+ 			ret = mk_send_mem_add(target->instance->id,
+ 					      base >> PAGE_SHIFT,
+ 					      size >> PAGE_SHIFT, (u32)node,
+-					      mk_overlay_parse_u32(fdt, item_node,
+-								   "mem-type"));
++					      mem_type);
+ 		if (ret < 0) {
+ 			pr_err("Failed to send memory IPI: %d\n", ret);
+ 			return ret;
+@@ -806,6 +850,7 @@
+ 	fdt_for_each_subnode(item_node, fdt, op_node) {
+ 		const char *name = fdt_get_name(fdt, item_node, NULL);
+ 		u64 base, size;
++		u32 mem_type;
+ 		int node;
+ 
+ 		if (!name || strncmp(name, "memory@", 7))
+@@ -817,6 +862,9 @@
+ 			return ret;
+ 
+ 		ret = mk_overlay_parse_numa(fdt, item_node, name, &node);
++		if (ret)
++			return ret;
++		ret = mk_overlay_parse_u32(fdt, item_node, "mem-type", &mem_type);
+ 		if (ret)
+ 			return ret;
+ 
+@@ -859,8 +907,7 @@
+ 			ret = mk_send_mem_add(target->instance->id,
+ 					      base >> PAGE_SHIFT,
+ 					      size >> PAGE_SHIFT, (u32)node,
+-					      mk_overlay_parse_u32(fdt, item_node,
+-								   "mem-type"));
++					      mem_type);
+ 		else
+ 			ret = mk_send_mem_remove(target->instance->id,
+ 						 base >> PAGE_SHIFT,
+@@ -907,7 +954,9 @@
+ 		if (ret)
+ 			return ret;
+ 
+-		flags = mk_overlay_parse_u32(fdt, item_node, "flags");
++		ret = mk_overlay_parse_u32(fdt, item_node, "flags", &flags);
++		if (ret)
++			return ret;
+ 
+ 		pr_info("%s tx%d: %ccpu %llu numa=%d %s %s\n",
+ 			verb, tx->id, give ? '+' : '-', cpu_id, node,
+@@ -966,7 +1015,9 @@
+ 		ret = mk_overlay_parse_driver(fdt, item_node, &driver);
+ 		if (ret)
+ 			return ret;
+-		flags = mk_overlay_parse_u32(fdt, item_node, "flags");
++		ret = mk_overlay_parse_u32(fdt, item_node, "flags", &flags);
++		if (ret)
++			return ret;
+ 
+ 		if (target->kind == MK_OVERLAY_TARGET_POOL)
+ 			pr_info("%s tx%d: %cdevice %04x:%02x:%02x.%x %s %s\n",
+@@ -1035,10 +1086,9 @@
+ 					 const struct mk_overlay_target *target)
+ {
+ 	const char *instance_name;
+-	const fdt32_t *id_prop;
+ 	int resources_node;
+ 	int instance_id;
+-	int len, ret;
++	int ret;
+ 
+ 	ret = mk_overlay_check_namespace_target(tx, target, "instance-create");
+ 	if (ret)
+@@ -1049,9 +1099,9 @@
+ 	if (!instance_name)
+ 		return -EINVAL;
+ 
+-	id_prop = fdt_getprop(fdt, op_node, "id", &len);
+-	instance_id = (id_prop && len == (int)sizeof(fdt32_t)) ?
+-		      (int)fdt32_to_cpu(*id_prop) : -1;
++	ret = mk_overlay_parse_instance_id(fdt, op_node, &instance_id);
++	if (ret)
++		return ret;
+ 
+ 	resources_node = fdt_subnode_offset(fdt, op_node, "resources");
+ 	if (resources_node < 0) {
+--- a/kernel/multikernel/kernfs.c
++++ b/kernel/multikernel/kernfs.c
+@@ -224,7 +224,7 @@
+ /**
+  * mk_create_instance_from_dtb() - Create a multikernel instance from DTB resources node
+  * @name: Instance name
+- * @id: Instance ID (or -1 for auto-allocation)
++ * @id: Positive ID below INT_MAX, or -1 for auto-allocation
+  * @fdt: Device tree containing the DTB resources node
+  * @resources_node: Offset of the resources node in the FDT
+  * @dtb_size: Size of the full DTB (for storage)
+@@ -234,7 +234,7 @@
+  * available.
+  *
+  * If id is -1, the kernel will automatically allocate the next available ID.
+- * If id is >= 0, the kernel will use that specific ID (caller must ensure it's available).
++ * Positive IDs below INT_MAX request a specific available ID; 0 is reserved.
+  *
+  * Returns 0 on success, negative error code on failure.
+  */
+@@ -248,6 +248,10 @@
+ 	int ret;
+ 	int allocated_id;
+ 
++	/* id + 1 is the exclusive IDR bound; only -1 requests allocation. */
++	if (id < -1 || id == 0 || id == INT_MAX)
++		return -EINVAL;
++
+ 	instance = kzalloc(sizeof(*instance), GFP_KERNEL);
+ 	if (!instance)
+ 		return -ENOMEM;
+@@ -288,12 +292,6 @@
+ 	mk_instance_get(instance);
+ 
+ 	/* Allocate instance ID early so resource reservation logs show correct ID */
+-	if (id == 0) {
+-		pr_err("Instance ID 0 is reserved for root instance\n");
+-		ret = -ENOMEM;
+-		goto err_remove_dir;
+-	}
+-
+ 	if (id < 0)
+ 		allocated_id = idr_alloc(&mk_instance_idr, instance, 1, INT_MAX, GFP_KERNEL);
+ 	else

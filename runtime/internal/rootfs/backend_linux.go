@@ -22,6 +22,7 @@ import (
 
 	"github.com/containerd/containerd/mount"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
@@ -40,6 +41,25 @@ type LinuxBackend struct {
 
 const maximumBuilderOutput = 1 << 20
 
+// Only operator settings used by the installed builder cross into its process.
+// Workload-specific paths, identities and validation mode are supplied per call.
+func builderEnvironment() []string {
+	environment := []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
+	for _, name := range []string{
+		"BUSYBOX", "MK_KERNEL_MANIFEST", "MK_KERNEL_MANIFEST_NAME", "MK_RUNTIME_SUPPORT_ROOT",
+		"MK_GUEST_INIT", "MK_STORAGE_BOOTSTRAP_INIT", "MK_NBD_HELPER", "MK_NBD_MODULE",
+		"MK_ALLOWED_ABSOLUTE_ROOTS", "MK_ROOTFS_MAX_BYTES", "MK_ROOTFS_MAX_INODES",
+		"MK_BIND_INPUT_MAX_BYTES", "MK_BIND_INPUT_MAX_INODES", "MK_STORAGE_SIZE_BYTES",
+		"MK_STORAGE_INODES", "MK_STORAGE_MIN_FREE_BYTES", "MK_STORAGE_MIN_FREE_INODES",
+		"MK_BOOTSTRAP_MAX_BYTES", "MK_INITRAMFS_MIN_FREE_BYTES", "MK_INITRAMFS_MIN_FREE_INODES",
+	} {
+		if value, present := os.LookupEnv(name); present {
+			environment = append(environment, name+"="+value)
+		}
+	}
+	return environment
+}
+
 func (b *LinuxBackend) Validate(ctx context.Context, request ValidateRequest, bundle *os.File) error {
 	if b.Builder == "" || !filepath.IsAbs(b.Builder) {
 		return errors.New("rootfs builder must be an absolute path")
@@ -55,7 +75,7 @@ func (b *LinuxBackend) Validate(ctx context.Context, request ValidateRequest, bu
 	if !ok || !info.IsDir() || identity.UID != uint32(os.Geteuid()) || identity != request.BundleIdentity {
 		return errors.New("validation bundle is not the identity-bound caller-owned directory")
 	}
-	environment := append(os.Environ(), "MK_VALIDATE_ONLY=1")
+	environment := append(builderEnvironment(), "MK_VALIDATE_ONLY=1")
 	output, err := runBoundedBuilder(ctx, b.BuildTimeout, b.Builder,
 		[]string{"/proc/self/fd/3", "/dev/null"}, environment, maximumBuilderOutput, bundle)
 	if err != nil {
@@ -68,7 +88,23 @@ func runBoundedBuilder(ctx context.Context, timeout time.Duration, binary string
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
-	output, err := boundedexec.RunWithFiles(ctx, timeout, binary, arguments, environment, maximum, files)
+	executable, err := safefile.OpenTrustedExecutable(binary, 256<<20)
+	if err != nil {
+		return nil, fmt.Errorf("open trusted rootfs builder: %w", err)
+	}
+	defer executable.Close()
+	return runOpenedBuilder(ctx, timeout, executable, arguments, environment, maximum, files...)
+}
+
+func runOpenedBuilder(ctx context.Context, timeout time.Duration, executable *os.File, arguments, environment []string, maximum int, files ...*os.File) ([]byte, error) {
+	if err := safefile.ValidateScriptInterpreter(executable, environment); err != nil {
+		return nil, fmt.Errorf("rootfs builder interpreter rejected: %w", err)
+	}
+	// Append the executable so all existing bundle/runtime/storage descriptor
+	// numbers retain their contract. Scripts inherit this descriptor too.
+	childExecutable := fmt.Sprintf("/proc/self/fd/%d", 3+len(files))
+	inherited := append(append([]*os.File(nil), files...), executable)
+	output, err := boundedexec.RunWithFiles(ctx, timeout, childExecutable, arguments, environment, maximum, inherited)
 	if errors.Is(err, boundedexec.ErrOutputLimit) {
 		return output, errors.Join(err, errors.New("rootfs builder output exceeds limit"))
 	}
@@ -302,6 +338,9 @@ func pinRootfsDirectory(path string) (*os.File, string, error) {
 }
 
 func pinRootfsMounts(ctx context.Context, input []Mount) ([]mount.Mount, []*os.File, error) {
+	if err := validateMountBudget(input); err != nil {
+		return nil, nil, err
+	}
 	mounts := make([]mount.Mount, len(input))
 	files := make([]*os.File, 0, len(input)*2)
 	closeFiles := func() {
@@ -334,8 +373,11 @@ func pinRootfsMounts(ctx context.Context, input []Mount) ([]mount.Mount, []*os.F
 			}
 		}
 		options := make([]string, 0, len(item.Options)+3)
+		var lowerPaths []string
+		var upperPath string
+		seenOverlay := make(map[string]bool)
 		for _, option := range item.Options {
-			if option == "rw" || option == "dev" || option == "suid" {
+			if option == "rw" || option == "dev" || option == "suid" || option == "exec" {
 				continue
 			}
 			rewritten := option
@@ -343,7 +385,16 @@ func pinRootfsMounts(ctx context.Context, input []Mount) ([]mount.Mount, []*os.F
 				if item.Type != "overlay" || !strings.HasPrefix(option, prefix) {
 					continue
 				}
+				if seenOverlay[prefix] {
+					closeFiles()
+					return nil, nil, errors.New("duplicate overlay path option")
+				}
+				seenOverlay[prefix] = true
 				paths := strings.Split(strings.TrimPrefix(option, prefix), ":")
+				if prefix != "lowerdir=" && len(paths) != 1 {
+					closeFiles()
+					return nil, nil, errors.New("overlay upper/work option requires one path")
+				}
 				anchored := make([]string, len(paths))
 				for index, path := range paths {
 					var err error
@@ -352,10 +403,33 @@ func pinRootfsMounts(ctx context.Context, input []Mount) ([]mount.Mount, []*os.F
 						return nil, nil, fmt.Errorf("pin overlay %s path: %w", strings.TrimSuffix(prefix, "="), err)
 					}
 				}
-				rewritten = prefix + strings.Join(anchored, ":")
+				switch prefix {
+				case "lowerdir=":
+					lowerPaths = anchored
+				case "upperdir=":
+					upperPath = anchored[0]
+				}
+				// Caller upper/work directories must never be supplied as
+				// writable overlay state, even when the final mount is ro.
+				rewritten = ""
 				break
 			}
-			options = append(options, rewritten)
+			if rewritten != "" {
+				if item.Type == "overlay" && (rewritten == "volatile" || strings.HasPrefix(rewritten, "index=")) {
+					continue
+				}
+				options = append(options, rewritten)
+			}
+		}
+		if item.Type == "overlay" {
+			if len(lowerPaths) == 0 || (seenOverlay["upperdir="] != seenOverlay["workdir="]) {
+				closeFiles()
+				return nil, nil, errors.New("overlay requires lower layers and a paired upper/work input")
+			}
+			if upperPath != "" {
+				lowerPaths = append([]string{upperPath}, lowerPaths...)
+			}
+			options = append(options, "lowerdir="+strings.Join(lowerPaths, ":"), "index=off")
 		}
 		for _, required := range []string{"ro", "nodev", "nosuid", "noexec"} {
 			if !slices.Contains(options, required) {
@@ -401,7 +475,16 @@ func (b *LinuxBackend) Mount(ctx context.Context, input []Mount, target string, 
 	}
 	mountAll := b.mountAll
 	if mountAll == nil {
+		sealedMounts, sealedFiles, sealErr := sealRootfsMountInputs(ctx, mounts)
+		files = append(files, sealedFiles...)
+		if sealErr != nil {
+			return errors.Join(errMountNotAttempted, sealErr)
+		}
+		mounts = sealedMounts
 		mountAll = mount.All
+	}
+	if err := ctx.Err(); err != nil {
+		return errors.Join(errMountNotAttempted, err)
 	}
 	if err := mountAll(mounts, anchoredTarget); err != nil {
 		return fmt.Errorf("mount read-only source root: %w", err)
@@ -475,7 +558,7 @@ func (b *LinuxBackend) Build(ctx context.Context, request PrepareRequest, roots 
 	childInitrd := filepath.Join(childRuntimeDir, "initramfs.cpio.gz")
 	storagePath := filepath.Join(storageDir, "root.ext4")
 	logicalStoragePath := filepath.Join(roots.StorageDirPath, "root.ext4")
-	environment := append(os.Environ(), "MK_TASK_IDENTITY="+request.TaskIdentity,
+	environment := append(builderEnvironment(), "MK_TASK_IDENTITY="+request.TaskIdentity,
 		"MK_STORAGE_PORT="+strconv.FormatUint(uint64(request.StoragePort), 10),
 		"MK_STORAGE_OUTPUT="+filepath.Join(childStorageDir, "root.ext4"),
 		"MK_STORAGE_LOGICAL_OUTPUT="+logicalStoragePath, "MK_LOGICAL_BUNDLE="+request.Bundle)

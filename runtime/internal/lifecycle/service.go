@@ -836,12 +836,10 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	// A daemon restart with durable sandboxes means the already configured pool
 	// is owned by those sandboxes. Reconciliation below verifies every instance
 	// before the service begins accepting requests.
-	if len(s.store.Snapshot().Sandboxes) != 0 {
-		s.poolReady = true
-	}
-	if s.storage != nil {
-		if err := s.storage.Reconcile(ctx); err != nil {
-			return fmt.Errorf("storage reconcile: %w", err)
+	snapshot := s.store.Snapshot()
+	for key, sandbox := range snapshot.Sandboxes {
+		if key != sandbox.ID || sandbox.Config.ID != key || sandbox.Generation == "" {
+			return fmt.Errorf("OPERATOR_ACTION: inconsistent durable sandbox identity")
 		}
 	}
 	es, e := s.store.JournalEntries()
@@ -849,6 +847,31 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return e
 	}
 	incomplete := statepkg.Incomplete(es)
+	// Validate the entire recovery set before storage or backend mutation.
+	// An old intent must never regain authority over a reused sandbox name.
+	recoveryOwners := make(map[string]protocol.Sandbox)
+	for _, intent := range incomplete {
+		if intent.Sandbox == nil || intent.Generation == "" {
+			return fmt.Errorf("OPERATOR_ACTION: incomplete intent has no recoverable sandbox identity")
+		}
+		if previous, exists := recoveryOwners[intent.SandboxID]; exists &&
+			(previous.Generation != intent.Generation || !reflect.DeepEqual(previous.Config, intent.Sandbox.Config)) {
+			return fmt.Errorf("OPERATOR_ACTION: incomplete intents disagree about sandbox ownership")
+		}
+		recoveryOwners[intent.SandboxID] = *intent.Sandbox
+		if current, exists := snapshot.Sandboxes[intent.SandboxID]; exists &&
+			(current.Generation != intent.Generation || !reflect.DeepEqual(current.Config, intent.Sandbox.Config)) {
+			return fmt.Errorf("OPERATOR_ACTION: incomplete intent does not own the durable sandbox")
+		}
+	}
+	if len(snapshot.Sandboxes) != 0 {
+		s.poolReady = true
+	}
+	if s.storage != nil {
+		if err := s.storage.Reconcile(ctx); err != nil {
+			return fmt.Errorf("storage reconcile: %w", err)
+		}
+	}
 	pending := map[string]bool{}
 	for _, x := range incomplete {
 		pending[x.SandboxID] = true

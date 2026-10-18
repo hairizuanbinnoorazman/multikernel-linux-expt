@@ -1,0 +1,204 @@
+--- a/kernel/multikernel/core.c
++++ b/kernel/multikernel/core.c
+@@ -3,6 +3,7 @@
+  * Copyright (C) 2025 Multikernel Technologies, Inc. All rights reserved
+  */
+ #include <linux/module.h>
++#include <linux/atomic.h>
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+ #include <linux/cpumask.h>
+@@ -14,6 +15,26 @@
+ #include <linux/pci.h>
+ #include <linux/vmalloc.h>
+ #include "internal.h"
++
++/* Shared by boot restore and runtime creation; never wrap or reuse tokens. */
++static atomic64_t mk_instance_next_generation = ATOMIC64_INIT(0);
++
++int mk_instance_assign_generation(struct mk_instance *instance)
++{
++	s64 generation = atomic64_read(&mk_instance_next_generation);
++
++	if (instance->generation)
++		return -EALREADY;
++	for (;;) {
++		if (generation == S64_MAX)
++			return -EOVERFLOW;
++		if (atomic64_try_cmpxchg(&mk_instance_next_generation, &generation,
++					 generation + 1))
++			break;
++	}
++	instance->generation = (u64)generation + 1;
++	return 0;
++}
+ 
+ static void mk_instance_return_all_cpus(struct mk_instance *instance)
+ {
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -440,6 +440,9 @@
+ 	if (!instance)
+ 		return NULL;
+ 
++	if (mk_instance_assign_generation(instance))
++		goto err_free_instance;
++
+ 	instance->id = instance_id;
+ 	instance->name = kstrdup(name, GFP_KERNEL);
+ 	if (!instance->name)
+--- a/include/linux/multikernel.h
++++ b/include/linux/multikernel.h
+@@ -541,6 +541,7 @@
+  * its own resource allocation and state management.
+  */
+ struct mk_instance {
++	u64 generation;                 /* Unique for this object lifetime */
+ 	int id;                         /* Kernel-assigned instance ID */
+ 	char *name;                     /* User-provided instance name */
+ 	enum mk_instance_state state;   /* Current state */
+@@ -729,6 +730,9 @@
+  * Caller must hold appropriate locks.
+  */
+ struct mk_instance *mk_instance_find_by_name(const char *name);
++
++/* Assign once to an unpublished zeroed object; exhaustion refuses creation. */
++int mk_instance_assign_generation(struct mk_instance *instance);
+ 
+ /**
+  * mk_instance_get() - Increment reference count
+--- a/kernel/multikernel/kernfs.c
++++ b/kernel/multikernel/kernfs.c
+@@ -256,6 +256,10 @@
+ 	if (!instance)
+ 		return -ENOMEM;
+ 
++	ret = mk_instance_assign_generation(instance);
++	if (ret)
++		goto err_free_instance;
++
+ 	instance->id = 0;
+ 	instance->name = kstrdup(name, GFP_KERNEL);
+ 	if (!instance->name) {
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -6,7 +6,8 @@
+  *
+  * Provides /sys/fs/multikernel/overlays/ for dynamic resource adjustments
+  * via Device Tree overlays. Each overlay is tracked as an independent
+- * transaction that can be applied and rolled back atomically.
++ * transaction. Rollback consumes known completed operations; failed resource
++ * primitives require reconciliation instead of speculative inverse replay.
+  */
+ 
+ #include <linux/kernel.h>
+@@ -63,6 +64,7 @@
+ struct mk_overlay_step {
+ 	int fragment;
+ 	unsigned int op;
++	u64 generation;                 /* Target or created instance incarnation */
+ };
+ 
+ /* Overlay transaction descriptor */
+@@ -76,6 +78,7 @@
+ 	struct mk_overlay_step *steps;   /* Preallocated completion ledger */
+ 	unsigned int steps_done;        /* Unconsumed completed operations */
+ 	bool rollback_uncertain;        /* A primitive may have partially changed state */
++	u64 operation_generation;       /* Created identity / expected undo identity */
+ 	struct kernfs_node *dir_kn;      /* Kernfs directory node */
+ 	struct list_head list;           /* Link in global transaction list */
+ };
+@@ -279,6 +282,7 @@
+ 	enum mk_overlay_target_kind kind;
+ 	const char *path;
+ 	struct mk_instance *instance;
++	u64 generation;                 /* Snapshot while instance mutex is held */
+ };
+ 
+ #define MK_OVERLAY_FRAGMENT_PREFIX	"fragment@"
+@@ -426,6 +430,7 @@
+ 
+ 	target->path = path;
+ 	target->instance = NULL;
++	target->generation = 0;
+ 
+ 	if (!strcmp(path, MK_OVERLAY_POOL_PATH)) {
+ 		if (!mk_cpu_pool) {
+@@ -458,6 +463,8 @@
+ 
+ 	mutex_lock(&mk_instance_mutex);
+ 	target->instance = mk_instance_find_by_name(name);
++	if (target->instance)
++		target->generation = target->instance->generation;
+ 	mutex_unlock(&mk_instance_mutex);
+ 
+ 	if (!target->instance) {
+@@ -1096,6 +1103,7 @@
+ 					 const struct mk_overlay_target *target)
+ {
+ 	const char *instance_name;
++	struct mk_instance *created;
+ 	int resources_node;
+ 	int instance_id;
+ 	int ret;
+@@ -1140,6 +1148,13 @@
+ 
+ 	ret = mk_create_instance_from_dtb(instance_name, instance_id, fdt,
+ 					  resources_node, tx->dtbo_size);
++	if (!ret) {
++		created = mk_instance_find_by_name(instance_name);
++		if (!created || !created->generation)
++			ret = -EUCLEAN;
++		else
++			tx->operation_generation = created->generation;
++	}
+ 	mutex_unlock(&mk_instance_mutex);
+ 
+ 	if (ret) {
+@@ -1233,6 +1248,13 @@
+ 		pr_warn("Rollback tx%d: instance '%s' is already gone\n",
+ 			tx->id, instance_name);
+ 		return 0;
++	}
++
++	/* Name and numeric ID may both have been reused after independent delete. */
++	if (!tx->operation_generation ||
++	    instance->generation != tx->operation_generation) {
++		mutex_unlock(&mk_instance_mutex);
++		return -ESTALE;
+ 	}
+ 
+ 	pr_info("Rollback tx%d: Removing instance '%s' (ID: %d)\n",
+@@ -1375,6 +1397,7 @@
+ 		/* A failing operation can have completed some of its items.
+ 		 * Without per-item outcome proof, do not guess its inverse.
+ 		 */
++		tx->operation_generation = 0;
+ 		tx->rollback_uncertain = true;
+ 		ret = mk_overlay_run_op(tx, fdt, overlay_node, &target, order[i],
+ 					false);
+@@ -1384,6 +1407,8 @@
+ 		tx->steps[tx->steps_done++] = (struct mk_overlay_step) {
+ 			.fragment = fragment,
+ 			.op = order[i],
++			.generation = target.kind == MK_OVERLAY_TARGET_INSTANCE ?
++				      target.generation : tx->operation_generation,
+ 		};
+ 	}
+ 
+@@ -1450,11 +1475,15 @@
+ 		ret = mk_overlay_resolve_target(tx, fdt, step->fragment, &target);
+ 		if (ret)
+ 			return ret;
++		if (target.kind == MK_OVERLAY_TARGET_INSTANCE &&
++		    (!step->generation || target.generation != step->generation))
++			return -ESTALE;
+ 		overlay_node = mk_overlay_fragment_overlay_node(tx, fdt,
+ 							 step->fragment, &target);
+ 		if (overlay_node < 0)
+ 			return -EINVAL;
+ 
++		tx->operation_generation = step->generation;
+ 		tx->rollback_uncertain = true;
+ 		ret = mk_overlay_run_op(tx, fdt, overlay_node, &target,
+ 					step->op, true);

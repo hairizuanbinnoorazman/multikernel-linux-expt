@@ -11,6 +11,17 @@ import (
 
 type observedCloser struct{ closed chan struct{} }
 
+func TestFrameIOTimeoutCannotBeDisabled(t *testing.T) {
+	for _, value := range []time.Duration{0, -time.Second, time.Minute} {
+		if got := FrameIOTimeout(value); got != 10*time.Second {
+			t.Fatalf("FrameIOTimeout(%v) = %v", value, got)
+		}
+	}
+	if got := FrameIOTimeout(time.Second); got != time.Second {
+		t.Fatalf("valid timeout changed to %v", got)
+	}
+}
+
 func (c observedCloser) Close() error {
 	close(c.closed)
 	return nil

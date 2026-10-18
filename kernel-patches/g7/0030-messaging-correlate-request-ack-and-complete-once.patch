@@ -1,0 +1,665 @@
+--- a/include/linux/multikernel.h
++++ b/include/linux/multikernel.h
+@@ -169,21 +169,21 @@
+ #define MK_IO_IRQ_MASK      (MK_MSG_IO + 3)
+ #define MK_IO_IRQ_UNMASK    (MK_MSG_IO + 4)
+ 
+-/* Resource management subtypes */
+-#define MK_RES_CPU_ADD      (MK_MSG_RESOURCE + 1)
+-#define MK_RES_CPU_REMOVE   (MK_MSG_RESOURCE + 2)
+-#define MK_RES_MEM_ADD      (MK_MSG_RESOURCE + 3)
+-#define MK_RES_MEM_REMOVE   (MK_MSG_RESOURCE + 4)
++/* Correlated resource wire subtypes; legacy requests must not reach new layouts. */
++#define MK_RES_CPU_ADD      (MK_MSG_RESOURCE + 0x201)
++#define MK_RES_CPU_REMOVE   (MK_MSG_RESOURCE + 0x202)
++#define MK_RES_MEM_ADD      (MK_MSG_RESOURCE + 0x203)
++#define MK_RES_MEM_REMOVE   (MK_MSG_RESOURCE + 0x204)
+ #define MK_RES_QUERY        (MK_MSG_RESOURCE + 5)
+-#define MK_RES_DEVICE_ADD   (MK_MSG_RESOURCE + 6)
+-#define MK_RES_DEVICE_REMOVE (MK_MSG_RESOURCE + 7)
+-#define MK_RES_ACK          (MK_MSG_RESOURCE + 0x100)  /* Response/acknowledgment */
+-
+-/* System management subtypes */
++#define MK_RES_DEVICE_ADD   (MK_MSG_RESOURCE + 0x206)
++#define MK_RES_DEVICE_REMOVE (MK_MSG_RESOURCE + 0x207)
++#define MK_RES_ACK          (MK_MSG_RESOURCE + 0x300)  /* Response/acknowledgment */
++
++/* Correlated shutdown wire subtypes; heartbeat remains unchanged. */
+ #define MK_SYS_HEARTBEAT    (MK_MSG_SYSTEM + 1)
+-#define MK_SYS_SHUTDOWN     (MK_MSG_SYSTEM + 2)
+-#define MK_SYS_SHUTDOWN_ACK (MK_MSG_SYSTEM + 3)
+-#define MK_SYS_HALTED       (MK_MSG_SYSTEM + 4)  /* Voluntary halt notification */
++#define MK_SYS_SHUTDOWN     (MK_MSG_SYSTEM + 0x102)
++#define MK_SYS_SHUTDOWN_ACK (MK_MSG_SYSTEM + 0x103)
++#define MK_SYS_HALTED       (MK_MSG_SYSTEM + 0x104)  /* Voluntary halt notification */
+ 
+ /* Network/vsock subtypes */
+ #define MK_NET_VSOCK_PKT    (MK_MSG_NETWORK + 1)  /* vsock packet */
+@@ -218,8 +218,20 @@
+ #define MK_IRQ_EDGE_TRIGGERED   0x04
+ #define MK_IRQ_LEVEL_TRIGGERED  0x08
+ 
++/* Request correlation; an epoch is random per kernel boot, sequence never wraps. */
++struct mk_request_id {
++	u64 epoch;
++	u64 sequence;
++};
++
++static inline bool mk_request_id_valid(const struct mk_request_id *request)
++{
++	return request && request->epoch && request->sequence;
++}
++
+ /* CPU resource operations */
+ struct mk_cpu_resource_payload {
++	struct mk_request_id request_id; /* Echo unchanged in the response */
+ 	u64 cpu_id;             /* Physical CPU ID */
+ 	u32 numa_node;          /* NUMA node (optional) */
+ 	u32 flags;              /* CPU capabilities/attributes */
+@@ -233,6 +245,7 @@
+ 
+ /* Memory resource operations */
+ struct mk_mem_resource_payload {
++	struct mk_request_id request_id; /* Echo unchanged in the response */
+ 	u64 start_pfn;          /* Starting page frame number */
+ 	u64 nr_pages;           /* Number of pages */
+ 	u32 numa_node;          /* NUMA node */
+@@ -248,6 +261,7 @@
+ 
+ /* PCI device resource operations */
+ struct mk_device_resource_payload {
++	struct mk_request_id request_id; /* Echo unchanged in the response */
+ 	u16 domain;             /* PCI domain */
+ 	u8 bus;                 /* PCI bus */
+ 	u8 devfn;               /* PCI device and function (combined) */
+@@ -262,6 +276,7 @@
+ 
+ /* Resource operation response/ACK */
+ struct mk_resource_ack {
++	struct mk_request_id request_id; /* Echo unchanged in the response */
+ 	u32 operation;          /* Original operation (MK_RES_CPU_ADD, etc.) */
+ 	u32 result;             /* Result code: 0 = success, negative = error */
+ 	u64 resource_id;        /* Physical CPU ID, memory PFN, etc. */
+@@ -269,6 +284,7 @@
+ 
+ /* Shutdown request payload */
+ struct mk_shutdown_payload {
++	struct mk_request_id request_id; /* Echo unchanged in the response */
+ 	u32 flags;
+ 	int sender_instance_id;
+ };
+@@ -321,8 +337,10 @@
+ int mk_unregister_msg_handler(u32 msg_type, mk_msg_handler_t handler);
+ 
+ /* Pending message tracking for request-response pattern */
+-struct mk_pending_msg *mk_msg_pending_add(u32 msg_type, u32 operation, u64 resource_id);
+-void mk_msg_pending_complete(u32 msg_type, u32 operation, u64 resource_id, int result);
++struct mk_pending_msg *mk_msg_pending_add(u32 msg_type, u32 operation, u64 resource_id,
++					  struct mk_request_id *request);
++void mk_msg_pending_complete(u32 msg_type, u32 operation, u64 resource_id,
++			     const struct mk_request_id *request, int result);
+ int mk_msg_pending_wait(struct mk_pending_msg *pending, unsigned long timeout_ms);
+ 
+ /**
+--- a/kernel/multikernel/messaging.c
++++ b/kernel/multikernel/messaging.c
+@@ -10,10 +10,14 @@
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
+ #include <linux/completion.h>
++#include <linux/err.h>
++#include <linux/random.h>
+ #include <linux/multikernel.h>
+ 
+ /* Pending message tracking for request-response pattern */
+ struct mk_pending_msg {
++	struct mk_request_id request_id;
++	bool completed;
+ 	u32 msg_type;               /* Message type (e.g., MK_MSG_RESOURCE) */
+ 	u32 operation;              /* Operation subtype (e.g., MK_RES_CPU_ADD) */
+ 	u64 resource_id;            /* Resource identifier (physical CPU ID, PFN, etc.) */
+@@ -24,6 +28,9 @@
+ 
+ static LIST_HEAD(mk_pending_msgs);
+ static DEFINE_SPINLOCK(mk_pending_msgs_lock);
++/* Protected by mk_pending_msgs_lock; cleanup must never recycle these. */
++static u64 mk_request_epoch;
++static u64 mk_request_sequence;
+ 
+ /* Per-type message handler registry */
+ struct mk_msg_type_handler {
+@@ -98,17 +105,23 @@
+  * @msg_type: Message type
+  * @operation: Operation subtype
+  * @resource_id: Resource identifier
+- *
+- * Returns pointer to pending message structure, or NULL on failure
+- */
+-struct mk_pending_msg *mk_msg_pending_add(u32 msg_type, u32 operation, u64 resource_id)
++ * @request: Output identity, zeroed on failure
++ *
++ * Returns a pending message or ERR_PTR; no request identity is recycled
++ */
++struct mk_pending_msg *mk_msg_pending_add(u32 msg_type, u32 operation, u64 resource_id,
++					  struct mk_request_id *request)
+ {
+ 	struct mk_pending_msg *pending;
+ 	unsigned long flags;
++
++	if (!request)
++		return ERR_PTR(-EINVAL);
++	*request = (struct mk_request_id) { };
+ 
+ 	pending = kzalloc(sizeof(*pending), GFP_KERNEL);
+ 	if (!pending)
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	pending->msg_type = msg_type;
+ 	pending->operation = operation;
+@@ -117,6 +130,16 @@
+ 	init_completion(&pending->done);
+ 
+ 	spin_lock_irqsave(&mk_pending_msgs_lock, flags);
++	if (mk_request_sequence == U64_MAX) {
++		spin_unlock_irqrestore(&mk_pending_msgs_lock, flags);
++		kfree(pending);
++		return ERR_PTR(-EOVERFLOW);
++	}
++	if (!mk_request_epoch)
++		mk_request_epoch = get_random_u64() ?: 1;
++	pending->request_id.epoch = mk_request_epoch;
++	pending->request_id.sequence = ++mk_request_sequence;
++	*request = pending->request_id;
+ 	list_add(&pending->list, &mk_pending_msgs);
+ 	spin_unlock_irqrestore(&mk_pending_msgs_lock, flags);
+ 
+@@ -128,20 +151,29 @@
+  * @msg_type: Message type
+  * @operation: Operation subtype
+  * @resource_id: Resource identifier
++ * @request: Exact identity echoed by the responder
+  * @result: Operation result (0 = success, negative = error)
+  *
+  * Called by response handlers to wake up waiting thread
+  */
+-void mk_msg_pending_complete(u32 msg_type, u32 operation, u64 resource_id, int result)
++void mk_msg_pending_complete(u32 msg_type, u32 operation, u64 resource_id,
++			     const struct mk_request_id *request, int result)
+ {
+ 	struct mk_pending_msg *pending;
+ 	unsigned long flags;
++
++	if (!mk_request_id_valid(request))
++		return;
+ 
+ 	spin_lock_irqsave(&mk_pending_msgs_lock, flags);
+ 	list_for_each_entry(pending, &mk_pending_msgs, list) {
+ 		if (pending->msg_type == msg_type &&
+ 		    pending->operation == operation &&
+-		    pending->resource_id == resource_id) {
++		    pending->resource_id == resource_id &&
++		    pending->request_id.epoch == request->epoch &&
++		    pending->request_id.sequence == request->sequence &&
++		    !pending->completed) {
++			pending->completed = true;
+ 			pending->result = result;
+ 			complete(&pending->done);
+ 			break;
+@@ -161,22 +193,19 @@
+ {
+ 	unsigned long timeout = msecs_to_jiffies(timeout_ms);
+ 	unsigned long flags;
++	bool awakened;
+ 	int result;
+ 
+-	if (!wait_for_completion_timeout(&pending->done, timeout)) {
++	awakened = wait_for_completion_timeout(&pending->done, timeout) != 0;
++	/* Consume under the same lock as ACK completion, before freeing. */
++	spin_lock_irqsave(&mk_pending_msgs_lock, flags);
++	result = awakened && pending->completed ? pending->result : -ETIMEDOUT;
++	list_del(&pending->list);
++	spin_unlock_irqrestore(&mk_pending_msgs_lock, flags);
++	if (!awakened)
+ 		pr_err("Timeout waiting for operation 0x%x on resource %llu\n",
+ 		       pending->operation, pending->resource_id);
+-		result = -ETIMEDOUT;
+-	} else {
+-		result = pending->result;
+-	}
+-
+-	/* Remove from list and free */
+-	spin_lock_irqsave(&mk_pending_msgs_lock, flags);
+-	list_del(&pending->list);
+-	spin_unlock_irqrestore(&mk_pending_msgs_lock, flags);
+ 	kfree(pending);
+-
+ 	return result;
+ }
+ 
+--- a/kernel/multikernel/hotplug.c
++++ b/kernel/multikernel/hotplug.c
+@@ -13,6 +13,7 @@
+  */
+ 
+ #include <linux/kernel.h>
++#include <linux/err.h>
+ #include <linux/module.h>
+ #include <linux/cpu.h>
+ #include <linux/memory.h>
+@@ -69,6 +70,7 @@
+  * CPU Hotplug Operations
+  */
+ struct mk_cpu_hotplug_work {
++	struct mk_request_id request_id;
+ 	struct work_struct work;
+ 	mk_phys_cpu_t cpu_id;
+ 	u32 numa_node;
+@@ -250,7 +252,7 @@
+ static void mk_cpu_add_work_fn(struct work_struct *work)
+ {
+ 	struct mk_cpu_hotplug_work *hp_work = container_of(work, struct mk_cpu_hotplug_work, work);
+-	struct mk_resource_ack ack;
++	struct mk_resource_ack ack = { .request_id = hp_work->request_id };
+ 	int ret, ack_ret;
+ 
+ 	ret = mk_do_cpu_add(hp_work->cpu_id, hp_work->numa_node, hp_work->flags);
+@@ -273,7 +275,7 @@
+ static void mk_cpu_remove_work_fn(struct work_struct *work)
+ {
+ 	struct mk_cpu_hotplug_work *hp_work = container_of(work, struct mk_cpu_hotplug_work, work);
+-	struct mk_resource_ack ack;
++	struct mk_resource_ack ack = { .request_id = hp_work->request_id };
+ 	int ret, ack_ret;
+ 
+ 	ret = mk_do_cpu_remove(hp_work->cpu_id);
+@@ -307,7 +309,8 @@
+ {
+ 	struct mk_cpu_hotplug_work *hp_work;
+ 
+-	if (payload_len < sizeof(*payload)) {
++	if (!payload || payload_len != sizeof(*payload) ||
++	    !mk_request_id_valid(&payload->request_id)) {
+ 		pr_err("Multikernel hotplug: Invalid CPU add payload size: %u\n", payload_len);
+ 		return -EINVAL;
+ 	}
+@@ -324,6 +327,7 @@
+ 	hp_work->numa_node = payload->numa_node;
+ 	hp_work->flags = payload->flags;
+ 	hp_work->sender_instance_id = payload->sender_instance_id;
++	hp_work->request_id = payload->request_id;
+ 	hp_work->operation = MK_RES_CPU_ADD;
+ 	schedule_work(&hp_work->work);
+ 
+@@ -344,7 +348,8 @@
+ {
+ 	struct mk_cpu_hotplug_work *hp_work;
+ 
+-	if (payload_len < sizeof(*payload)) {
++	if (!payload || payload_len != sizeof(*payload) ||
++	    !mk_request_id_valid(&payload->request_id)) {
+ 		pr_err("Multikernel hotplug: Invalid CPU remove payload size: %u\n", payload_len);
+ 		return -EINVAL;
+ 	}
+@@ -361,6 +366,7 @@
+ 	hp_work->numa_node = payload->numa_node;
+ 	hp_work->flags = payload->flags;
+ 	hp_work->sender_instance_id = payload->sender_instance_id;
++	hp_work->request_id = payload->request_id;
+ 	hp_work->operation = MK_RES_CPU_REMOVE;
+ 	schedule_work(&hp_work->work);
+ 
+@@ -524,6 +530,7 @@
+ }
+ 
+ struct mk_mem_hotplug_work {
++	struct mk_request_id request_id;
+ 	struct work_struct work;
+ 	u64 start_pfn;
+ 	u64 nr_pages;
+@@ -536,7 +543,7 @@
+ static void mk_mem_add_work_fn(struct work_struct *work)
+ {
+ 	struct mk_mem_hotplug_work *hp_work = container_of(work, struct mk_mem_hotplug_work, work);
+-	struct mk_resource_ack ack;
++	struct mk_resource_ack ack = { .request_id = hp_work->request_id };
+ 	int ret, ack_ret;
+ 
+ 	ret = mk_do_mem_add(hp_work->start_pfn, hp_work->nr_pages,
+@@ -559,7 +566,7 @@
+ static void mk_mem_remove_work_fn(struct work_struct *work)
+ {
+ 	struct mk_mem_hotplug_work *hp_work = container_of(work, struct mk_mem_hotplug_work, work);
+-	struct mk_resource_ack ack;
++	struct mk_resource_ack ack = { .request_id = hp_work->request_id };
+ 	int ret, ack_ret;
+ 
+ 	ret = mk_do_mem_remove(hp_work->start_pfn, hp_work->nr_pages);
+@@ -582,7 +589,8 @@
+ {
+ 	struct mk_mem_hotplug_work *hp_work;
+ 
+-	if (payload_len < sizeof(*payload)) {
++	if (!payload || payload_len != sizeof(*payload) ||
++	    !mk_request_id_valid(&payload->request_id)) {
+ 		pr_err("Multikernel hotplug: Invalid memory add payload size: %u\n", payload_len);
+ 		return -EINVAL;
+ 	}
+@@ -600,6 +608,7 @@
+ 	hp_work->numa_node = payload->numa_node;
+ 	hp_work->mem_type = payload->mem_type;
+ 	hp_work->sender_instance_id = payload->sender_instance_id;
++	hp_work->request_id = payload->request_id;
+ 	hp_work->operation = MK_RES_MEM_ADD;
+ 	schedule_work(&hp_work->work);
+ 
+@@ -610,7 +619,8 @@
+ {
+ 	struct mk_mem_hotplug_work *hp_work;
+ 
+-	if (payload_len < sizeof(*payload)) {
++	if (!payload || payload_len != sizeof(*payload) ||
++	    !mk_request_id_valid(&payload->request_id)) {
+ 		pr_err("Multikernel hotplug: Invalid memory remove payload size: %u\n", payload_len);
+ 		return -EINVAL;
+ 	}
+@@ -626,6 +636,7 @@
+ 	hp_work->start_pfn = payload->start_pfn;
+ 	hp_work->nr_pages = payload->nr_pages;
+ 	hp_work->sender_instance_id = payload->sender_instance_id;
++	hp_work->request_id = payload->request_id;
+ 	hp_work->operation = MK_RES_MEM_REMOVE;
+ 	schedule_work(&hp_work->work);
+ 
+@@ -806,6 +817,7 @@
+ }
+ 
+ struct mk_device_hotplug_work {
++	struct mk_request_id request_id;
+ 	struct work_struct work;
+ 	u16 domain;
+ 	u8 bus;
+@@ -819,7 +831,7 @@
+ static void mk_device_add_work_fn(struct work_struct *work)
+ {
+ 	struct mk_device_hotplug_work *hp_work = container_of(work, struct mk_device_hotplug_work, work);
+-	struct mk_resource_ack ack;
++	struct mk_resource_ack ack = { .request_id = hp_work->request_id };
+ 	int ret, ack_ret;
+ 
+ 	ret = mk_do_device_add(hp_work->domain, hp_work->bus, hp_work->devfn,
+@@ -843,7 +855,7 @@
+ static void mk_device_remove_work_fn(struct work_struct *work)
+ {
+ 	struct mk_device_hotplug_work *hp_work = container_of(work, struct mk_device_hotplug_work, work);
+-	struct mk_resource_ack ack;
++	struct mk_resource_ack ack = { .request_id = hp_work->request_id };
+ 	int ret, ack_ret;
+ 
+ 	ret = mk_do_device_remove(hp_work->domain, hp_work->bus, hp_work->devfn);
+@@ -867,7 +879,8 @@
+ {
+ 	struct mk_device_hotplug_work *hp_work;
+ 
+-	if (payload_len < sizeof(*payload)) {
++	if (!payload || payload_len != sizeof(*payload) ||
++	    !mk_request_id_valid(&payload->request_id)) {
+ 		pr_err("Multikernel hotplug: Invalid device add payload size: %u\n", payload_len);
+ 		return -EINVAL;
+ 	}
+@@ -887,6 +900,7 @@
+ 	hp_work->flags = payload->flags;
+ 	strscpy(hp_work->driver_override, payload->driver_override, sizeof(hp_work->driver_override));
+ 	hp_work->sender_instance_id = payload->sender_instance_id;
++	hp_work->request_id = payload->request_id;
+ 	hp_work->operation = MK_RES_DEVICE_ADD;
+ 	schedule_work(&hp_work->work);
+ 
+@@ -897,7 +911,8 @@
+ {
+ 	struct mk_device_hotplug_work *hp_work;
+ 
+-	if (payload_len < sizeof(*payload)) {
++	if (!payload || payload_len != sizeof(*payload) ||
++	    !mk_request_id_valid(&payload->request_id)) {
+ 		pr_err("Multikernel hotplug: Invalid device remove payload size: %u\n", payload_len);
+ 		return -EINVAL;
+ 	}
+@@ -916,6 +931,7 @@
+ 	hp_work->devfn = payload->devfn;
+ 	hp_work->flags = payload->flags;
+ 	hp_work->sender_instance_id = payload->sender_instance_id;
++	hp_work->request_id = payload->request_id;
+ 	hp_work->operation = MK_RES_DEVICE_REMOVE;
+ 	schedule_work(&hp_work->work);
+ 
+@@ -974,13 +990,13 @@
+ 		break;
+ 
+ 	case MK_RES_ACK:
+-		if (payload_len >= sizeof(struct mk_resource_ack)) {
++		if (payload && payload_len == sizeof(struct mk_resource_ack)) {
+ 			struct mk_resource_ack *ack = (struct mk_resource_ack *)payload;
+ 
+ 			pr_info("Multikernel hotplug: ACK op=0x%x resource=%llu result=%d\n",
+ 				ack->operation, ack->resource_id, (int)ack->result);
+ 			mk_msg_pending_complete(MK_MSG_RESOURCE, ack->operation,
+-						ack->resource_id, ack->result);
++						ack->resource_id, &ack->request_id, ack->result);
+ 		} else {
+ 			pr_warn("Multikernel hotplug: Invalid ACK payload size: %u\n", payload_len);
+ 		}
+@@ -1272,9 +1288,10 @@
+ 		goto out;
+ 	}
+ 
+-	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_CPU_REMOVE, cpu_id);
+-	if (!pending) {
+-		ret = -ENOMEM;
++	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_CPU_REMOVE, cpu_id,
++				     &payload.request_id);
++	if (IS_ERR(pending)) {
++		ret = PTR_ERR(pending);
+ 		goto out;
+ 	}
+ 
+@@ -1393,6 +1410,13 @@
+ 		goto out;
+ 	}
+ 
++	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_CPU_ADD, cpu_id,
++				     &payload.request_id);
++	if (IS_ERR(pending)) {
++		ret = PTR_ERR(pending);
++		goto out;
++	}
++
+ 	/*
+ 	 * The CPU is parked on the host slot, where the spawn kernel's
+ 	 * secondary wakeup cannot reach it. Point it at the instance's
+@@ -1402,13 +1426,7 @@
+ 	if (ret < 0) {
+ 		pr_err("Multikernel hotplug: Failed to repark CPU %llu to instance %d: %d\n",
+ 		       cpu_id, instance_id, ret);
+-		goto out;
+-	}
+-
+-	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_CPU_ADD, cpu_id);
+-	if (!pending) {
+-		mk_repark_cpu_to_host(target_instance, cpu_id);
+-		ret = -ENOMEM;
++		mk_msg_pending_wait(pending, 0);
+ 		goto out;
+ 	}
+ 
+@@ -1499,9 +1517,10 @@
+ 		goto out;
+ 	}
+ 
+-	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_MEM_ADD, start_pfn);
+-	if (!pending) {
+-		ret = -ENOMEM;
++	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_MEM_ADD, start_pfn,
++				     &payload.request_id);
++	if (IS_ERR(pending)) {
++		ret = PTR_ERR(pending);
+ 		goto out;
+ 	}
+ 
+@@ -1568,9 +1587,10 @@
+ 		goto out;
+ 	}
+ 
+-	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_MEM_REMOVE, start_pfn);
+-	if (!pending) {
+-		ret = -ENOMEM;
++	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_MEM_REMOVE, start_pfn,
++				     &payload.request_id);
++	if (IS_ERR(pending)) {
++		ret = PTR_ERR(pending);
+ 		goto out;
+ 	}
+ 
+@@ -1648,9 +1668,10 @@
+ 		goto out;
+ 	}
+ 
+-	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_DEVICE_ADD, resource_id);
+-	if (!pending) {
+-		ret = -ENOMEM;
++	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_DEVICE_ADD, resource_id,
++				     &payload.request_id);
++	if (IS_ERR(pending)) {
++		ret = PTR_ERR(pending);
+ 		goto out;
+ 	}
+ 
+@@ -1725,9 +1746,10 @@
+ 		goto out;
+ 	}
+ 
+-	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_DEVICE_REMOVE, resource_id);
+-	if (!pending) {
+-		ret = -ENOMEM;
++	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_DEVICE_REMOVE, resource_id,
++				     &payload.request_id);
++	if (IS_ERR(pending)) {
++		ret = PTR_ERR(pending);
+ 		goto out;
+ 	}
+ 
+--- a/kernel/multikernel/core.c
++++ b/kernel/multikernel/core.c
+@@ -5,6 +5,7 @@
+ #include <linux/module.h>
+ #include <linux/atomic.h>
+ #include <linux/kernel.h>
++#include <linux/err.h>
+ #include <linux/init.h>
+ #include <linux/cpumask.h>
+ #include <linux/cpu.h>
+@@ -1333,6 +1334,7 @@
+  */
+ 
+ struct mk_shutdown_work {
++	struct mk_request_id request_id;
+ 	struct work_struct work;
+ 	u32 flags;
+ 	int sender_instance_id;
+@@ -1346,9 +1348,13 @@
+  * from a voluntary halt the parent never asked for (HALTED); both mean
+  * "my CPUs are about to park on my context".
+  */
+-static void __noreturn mk_notify_down_and_park(int target_id, u32 subtype)
+-{
+-	struct mk_resource_ack ack;
++static void __noreturn mk_notify_down_and_park(int target_id, u32 subtype,
++					    const struct mk_request_id *request)
++{
++	struct mk_resource_ack ack = { };
++
++	if (request)
++		ack.request_id = *request;
+ 
+ 	ack.operation = MK_SYS_SHUTDOWN;
+ 	ack.result = 0;
+@@ -1379,16 +1385,17 @@
+  */
+ void __noreturn mk_halt_to_pool(void)
+ {
+-	mk_notify_down_and_park(0, MK_SYS_HALTED);
++	mk_notify_down_and_park(0, MK_SYS_HALTED, NULL);
+ }
+ 
+ static void mk_shutdown_work_fn(struct work_struct *work)
+ {
+ 	struct mk_shutdown_work *sw = container_of(work, struct mk_shutdown_work, work);
+ 	int sender_instance_id = sw->sender_instance_id;
++	struct mk_request_id request = sw->request_id;
+ 
+ 	kfree(sw);
+-	mk_notify_down_and_park(sender_instance_id, MK_SYS_SHUTDOWN_ACK);
++	mk_notify_down_and_park(sender_instance_id, MK_SYS_SHUTDOWN_ACK, &request);
+ }
+ 
+ /*
+@@ -1439,7 +1446,8 @@
+ 		struct mk_shutdown_payload *req = payload;
+ 		struct mk_shutdown_work *sw;
+ 
+-		if (payload_len < sizeof(*req))
++		if (!req || payload_len != sizeof(*req) ||
++		    !mk_request_id_valid(&req->request_id))
+ 			return;
+ 
+ 		pr_info("Shutdown requested by instance %d\n", req->sender_instance_id);
+@@ -1451,13 +1459,15 @@
+ 		INIT_WORK(&sw->work, mk_shutdown_work_fn);
+ 		sw->flags = req->flags;
+ 		sw->sender_instance_id = req->sender_instance_id;
++		sw->request_id = req->request_id;
+ 		schedule_work(&sw->work);
+ 		break;
+ 	}
+ 	case MK_SYS_SHUTDOWN_ACK: {
+ 		struct mk_resource_ack *ack = payload;
+ 
+-		if (payload_len < sizeof(*ack))
++		if (!ack || payload_len != sizeof(*ack) ||
++		    ack->operation != MK_SYS_SHUTDOWN || ack->resource_id > INT_MAX)
+ 			return;
+ 		/*
+ 		 * Reply to a shutdown this kernel requested: wake the
+@@ -1465,14 +1475,15 @@
+ 		 * and settles its state itself.
+ 		 */
+ 		mk_msg_pending_complete(MK_MSG_SYSTEM, MK_SYS_SHUTDOWN,
+-					ack->resource_id, ack->result);
++					ack->resource_id, &ack->request_id, ack->result);
+ 		break;
+ 	}
+ 	case MK_SYS_HALTED: {
+ 		struct mk_resource_ack *ack = payload;
+ 		struct mk_halted_work *aw;
+ 
+-		if (payload_len < sizeof(*ack))
++		if (!ack || payload_len != sizeof(*ack) ||
++		    ack->operation != MK_SYS_SHUTDOWN || ack->resource_id > INT_MAX)
+ 			return;
+ 
+ 		/*
+@@ -1526,10 +1537,11 @@
+ 	payload.flags = MK_SHUTDOWN_GRACEFUL;
+ 	payload.sender_instance_id = root_instance->id;
+ 
+-	pending = mk_msg_pending_add(MK_MSG_SYSTEM, MK_SYS_SHUTDOWN, mk_id);
+-	if (!pending) {
++	pending = mk_msg_pending_add(MK_MSG_SYSTEM, MK_SYS_SHUTDOWN, mk_id,
++				     &payload.request_id);
++	if (IS_ERR(pending)) {
+ 		mk_instance_put(instance);
+-		return -ENOMEM;
++		return PTR_ERR(pending);
+ 	}
+ 
+ 	ret = mk_send_message(mk_id, MK_MSG_SYSTEM, MK_SYS_SHUTDOWN,

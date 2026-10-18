@@ -14,6 +14,7 @@ import (
 	tasktypes "github.com/containerd/containerd/api/types/task"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+	"golang.org/x/sys/unix"
 )
 
 func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing.T) {
@@ -43,7 +44,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 		processes: map[string]*process{
 			"": {id: "", pid: 7, status: tasktypes.Status_RUNNING, stdin: stdin, stdinIdentity: stdinIdentity,
 				stdout: stdout, stdoutIdentity: stdoutIdentity, stdinClosed: true,
-				stdinOffset: 5, stdinPending: []byte("pending"), stdoutOffset: 123, stderrOffset: 45,
+				stdinOffset: 5, stdinDrainRemaining: 9, stdinPending: []byte("pending"), stdoutOffset: 123, stderrOffset: 45,
 				exitEventQueued: true, deleteEventQueued: true, done: make(chan struct{})},
 		},
 	}
@@ -58,7 +59,7 @@ func TestRecoveryStatePersistsGenerationProcessesAndOffsetsAtomically(t *testing
 	if err = json.Unmarshal(data, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.SchemaVersion != 3 || saved.BundleIdentity != s.bundleIdentity || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdinOffset != 5 || string(saved.Processes[0].StdinPending) != "pending" || saved.Processes[0].StdinIdentity != stdinIdentity || saved.Processes[0].StdoutOffset != 123 || saved.Processes[0].StdoutIdentity != stdoutIdentity {
+	if saved.SchemaVersion != 4 || saved.BundleIdentity != s.bundleIdentity || saved.Generation != s.sandbox.Generation || len(saved.Processes) != 1 || saved.Processes[0].PID != 7 || !saved.Processes[0].StdinClosed || saved.Processes[0].StdinCloseAcked || !saved.Processes[0].ExitEventQueued || !saved.Processes[0].DeleteEventQueued || saved.Processes[0].StdinOffset != 5 || saved.Processes[0].StdinDrainRemaining != 9 || string(saved.Processes[0].StdinPending) != "pending" || saved.Processes[0].StdinIdentity != stdinIdentity || saved.Processes[0].StdoutOffset != 123 || saved.Processes[0].StdoutIdentity != stdoutIdentity {
 		t.Fatalf("persisted recovery = %+v", saved)
 	}
 	temporary, err := filepath.Glob(filepath.Join(bundle, ".multikernel", ".sandbox.json.*"))
@@ -162,6 +163,32 @@ func TestRecoveryStateIsBoundedStrictAndIdentityBound(t *testing.T) {
 		}
 	})
 
+	t.Run("schema 4 close drain", func(t *testing.T) {
+		value := valid
+		value.SchemaVersion = 4
+		value.Processes = append([]persistedProcess(nil), valid.Processes...)
+		process := &value.Processes[0]
+		process.Status = tasktypes.Status_RUNNING
+		process.Stdin = "/run/containerd/synthetic-stdin"
+		process.StdinIdentity = processIOIdentity{Device: 1, Inode: 3, UID: uint32(os.Geteuid()), Links: 1, Mode: unix.S_IFIFO | 0600}
+		process.StdinClosed, process.StdinDrainRemaining = true, 9
+		path := filepath.Join(t.TempDir(), "sandbox.json")
+		if err := os.WriteFile(path, encode(t, value), 0600); err != nil {
+			t.Fatal(err)
+		}
+		loaded, found, err := loadPersistedRecovery(path, namespace, task)
+		if err != nil || !found || loaded.Processes[0].StdinDrainRemaining != 9 {
+			t.Fatalf("close drain loaded=%+v found=%v err=%v", loaded, found, err)
+		}
+		value.SchemaVersion = 3
+		if err := os.WriteFile(path, encode(t, value), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := loadPersistedRecovery(path, namespace, task); err == nil {
+			t.Fatal("schema 3 accepted a schema 4 close drain")
+		}
+	})
+
 	t.Run("valid stopped signal acknowledgement", func(t *testing.T) {
 		value := valid
 		value.Processes = append([]persistedProcess(nil), valid.Processes...)
@@ -195,6 +222,12 @@ func TestRecoveryStateIsBoundedStrictAndIdentityBound(t *testing.T) {
 		},
 		"oversized pending stdin": func(value *persisted) {
 			value.Processes[0].StdinPending = make([]byte, (32<<10)+1)
+		},
+		"oversized close drain": func(value *persisted) {
+			value.Processes[0].StdinDrainRemaining = maxStdinCloseDrain + 1
+		},
+		"drain without close": func(value *persisted) {
+			value.Processes[0].StdinDrainRemaining = 1
 		},
 		"signal without operation": func(value *persisted) {
 			value.Processes[0].PendingSignal = uint32(syscall.SIGTERM)

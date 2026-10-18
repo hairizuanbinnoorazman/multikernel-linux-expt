@@ -1,0 +1,37 @@
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -951,7 +951,7 @@
+ bool mk_pci_should_probe(struct pci_bus *bus, int devfn)
+ {
+ 	struct mk_pci_device *pci_dev;
+-	u16 domain = pci_domain_nr(bus);
++	int domain = pci_domain_nr(bus);
+ 	u8 bus_num = bus->number;
+ 	u8 slot = PCI_SLOT(devfn);
+ 	u8 func = PCI_FUNC(devfn);
+@@ -965,6 +965,10 @@
+ 		return true;
+ 
+ 	if (!root_instance->pci_devices_valid || root_instance->pci_device_count == 0)
++		return false;
++
++	/* Match the full domain before comparing with the DTB's u16 field. */
++	if (domain < 0 || domain > 0xffff)
+ 		return false;
+ 
+ 	list_for_each_entry(pci_dev, &root_instance->pci_devices, list) {
+@@ -999,8 +1003,12 @@
+ 		if (is_bridge) {
+ 			u8 secondary_bus = 0, subordinate_bus = 0;
+ 
+-			pci_bus_read_config_byte(bus, devfn, PCI_SECONDARY_BUS, &secondary_bus);
+-			pci_bus_read_config_byte(bus, devfn, PCI_SUBORDINATE_BUS, &subordinate_bus);
++			/* Failed reads may still fill the output with all ones. */
++			if (pci_bus_read_config_byte(bus, devfn, PCI_SECONDARY_BUS,
++						     &secondary_bus) ||
++			    pci_bus_read_config_byte(bus, devfn, PCI_SUBORDINATE_BUS,
++						     &subordinate_bus))
++				return false;
+ 
+ 			/*
+ 			 * Allow bridge if there's a whitelisted device on any bus

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import stat
 import subprocess
 import sys
@@ -71,6 +72,31 @@ def x86_64_elf(path):
         raise ValueError(f"artifact is not an x86-64 ELF image: {path}")
 
 
+def kernel_config(kernel, release, required, required_uid):
+    if not isinstance(release, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", release) is None:
+        raise ValueError("kernel release is not a safe filename component")
+    if not isinstance(required, list) or any(not isinstance(line, str) for line in required):
+        raise ValueError("required kernel config must be a list of strings")
+    # The kernel's parent hierarchy was already checked by artifact(). Hold a
+    # no-follow descriptor so config verification cannot switch to a symlink.
+    path = pathlib.Path(kernel).parent / ("config-" + release)
+    descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        maximum = 16 << 20
+        if not stat.S_ISREG(before.st_mode) or before.st_uid != required_uid or before.st_mode & 0o022 or not 0 < before.st_size <= maximum:
+            raise ValueError("kernel config has unsafe type, owner, mode, or size")
+        data = stream.read(maximum + 1)
+        after = os.fstat(stream.fileno())
+        identity = lambda info: (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        if len(data) > maximum or identity(before) != identity(after):
+            raise ValueError("kernel config changed during bounded verification")
+    lines = {line.strip() for line in data.decode("utf-8").splitlines()}
+    for line in required:
+        if line not in lines:
+            raise ValueError(f"kernel config is missing {line}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest")
@@ -99,6 +125,7 @@ def main():
         raise ValueError("manifest does not support protocol v1")
 
     kernel = artifact(manifest["kernel"], args.required_uid, args.skip_parent_safety)
+    kernel_config(kernel, manifest["kernel_release"], manifest["required_config"], args.required_uid)
     initramfs = artifact(manifest["initramfs"], args.required_uid, args.skip_parent_safety)
     agent = artifact(manifest["agent"], args.required_uid, args.skip_parent_safety)
     relay = artifact(manifest["relay"], args.required_uid, args.skip_parent_safety)
@@ -108,15 +135,15 @@ def main():
     if {key: transport[key] for key in expected_transport} != expected_transport:
         raise ValueError("transport module, socket option, ID, or direction is incompatible")
     module = artifact(transport["module"], args.required_uid, args.skip_parent_safety)
-    for extra in manifest.get("modules", []):
-        artifact(extra, args.required_uid, args.skip_parent_safety)
+    modules = [module] + [artifact(extra, args.required_uid, args.skip_parent_safety) for extra in manifest.get("modules", [])]
     for executable in (kernel, agent, relay):
         x86_64_elf(executable)
     if not args.skip_modinfo:
-        name = subprocess.check_output(["modinfo", "-F", "name", module], text=True).strip()
-        vermagic = subprocess.check_output(["modinfo", "-F", "vermagic", module], text=True).strip()
-        if name != "mk_transport" or not vermagic.startswith(manifest["kernel_release"] + " "):
-            raise ValueError("transport module name or kernel release is incompatible")
+        for selected in modules:
+            name = subprocess.check_output(["modinfo", "-F", "name", selected], text=True, timeout=10).strip()
+            vermagic = subprocess.check_output(["modinfo", "-F", "vermagic", selected], text=True, timeout=10).strip()
+            if (selected == module and name != "mk_transport") or not name or "\n" in name or "\n" in vermagic or not vermagic.startswith(manifest["kernel_release"] + " "):
+                raise ValueError("module name or kernel release is incompatible")
     print(json.dumps({
         "manifest": str(manifest_path),
         "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),

@@ -1,0 +1,163 @@
+--- a/kernel/multikernel/hotplug.c
++++ b/kernel/multikernel/hotplug.c
+@@ -1209,11 +1209,15 @@
+ 		.cpu_id = cpu_id,
+ 		.numa_node = 0,
+ 		.flags = 0,
+-		.sender_instance_id = root_instance->id
++		.sender_instance_id = 0
+ 	};
+ 	struct mk_pending_msg *pending;
+ 	struct mk_instance *target_instance;
+ 	int ret;
++
++	if (!root_instance)
++		return -ENODEV;
++	payload.sender_instance_id = root_instance->id;
+ 
+ 	/* For self-removal, execute directly (we're in process context) */
+ 	if (instance_id == root_instance->id) {
+@@ -1225,6 +1229,25 @@
+ 	target_instance = mk_instance_find(instance_id);
+ 	if (!target_instance)
+ 		return -ENODEV;
++
++	/* Ownership must be checked before even a non-running CPU is reparked. */
++	if (!mk_cpu_pool || !target_instance->cpus) {
++		ret = -ENODEV;
++		goto out;
++	}
++	if (!mk_cpu_set_contains(target_instance->cpus, cpu_id)) {
++		ret = -EINVAL;
++		goto out;
++	}
++	if (mk_cpu_set_contains(mk_cpu_pool, cpu_id)) {
++		ret = -EUCLEAN;
++		goto out;
++	}
++
++	/* The pool set must be able to take the CPU once it parks. */
++	ret = mk_cpu_set_reserve(mk_cpu_pool, 1);
++	if (ret)
++		goto out;
+ 
+ 	/* For non-running instances, return CPU to root using existing API */
+ 	if (target_instance->state != MK_STATE_ACTIVE) {
+@@ -1249,16 +1272,6 @@
+ 		goto out;
+ 	}
+ 
+-	/* The pool set must be able to take the CPU once it parks */
+-	if (!mk_cpu_pool) {
+-		ret = -ENODEV;
+-		goto out;
+-	}
+-
+-	ret = mk_cpu_set_reserve(mk_cpu_pool, 1);
+-	if (ret)
+-		goto out;
+-
+ 	pending = mk_msg_pending_add(MK_MSG_RESOURCE, MK_RES_CPU_REMOVE, cpu_id);
+ 	if (!pending) {
+ 		ret = -ENOMEM;
+@@ -1291,8 +1304,15 @@
+ 		goto out;
+ 	}
+ 
++	/* Keep the old ownership record until the pool can track the CPU. */
++	ret = mk_cpu_set_add(mk_cpu_pool, cpu_id);
++	if (ret) {
++		pr_err("Multikernel hotplug: CPU %llu parked at host but pool tracking failed; retaining instance %d ownership for reconciliation\n",
++		       cpu_id, instance_id);
++		ret = -EUCLEAN;
++		goto out;
++	}
+ 	mk_cpu_set_del(target_instance->cpus, cpu_id);
+-	mk_cpu_set_add(mk_cpu_pool, cpu_id);
+ 
+ 	ret = 0;
+ out:
+@@ -1320,11 +1340,15 @@
+ 		.cpu_id = cpu_id,
+ 		.numa_node = numa_node,
+ 		.flags = flags,
+-		.sender_instance_id = root_instance->id
++		.sender_instance_id = 0
+ 	};
+ 	struct mk_pending_msg *pending;
+ 	struct mk_instance *target_instance;
+ 	int ret;
++
++	if (!root_instance)
++		return -ENODEV;
++	payload.sender_instance_id = root_instance->id;
+ 
+ 	/* For self-addition, execute directly (we're in process context) */
+ 	if (instance_id == root_instance->id) {
+@@ -1340,22 +1364,32 @@
+ 		return -ENODEV;
+ 	}
+ 
++	/*
++	 * Validate both ownership records and reserve tracking before any repark
++	 * or IPI. An allocation failure after the peer onlines the CPU cannot
++	 * safely be treated as an ordinary failed add.
++	 */
++	if (!mk_cpu_pool || !target_instance->cpus) {
++		ret = -ENODEV;
++		goto out;
++	}
++	if (!mk_cpu_set_contains(mk_cpu_pool, cpu_id)) {
++		ret = -EBUSY;
++		goto out;
++	}
++	if (mk_cpu_set_contains(target_instance->cpus, cpu_id)) {
++		ret = -EUCLEAN;
++		goto out;
++	}
++	ret = mk_cpu_set_reserve(target_instance->cpus, 1);
++	if (ret)
++		goto out;
++
+ 	/* For non-running instances, transfer CPU from root using existing API */
+ 	if (target_instance->state != MK_STATE_ACTIVE) {
+ 		struct mk_cpu_set cpus = { .nr = 1, .cap = 1, .ids = &cpu_id };
+ 
+ 		ret = mk_instance_transfer_cpus(target_instance, &cpus);
+-		goto out;
+-	}
+-
+-	/*
+-	 * Only a CPU from the assignable pool is parked on the host slot;
+-	 * publishing a wakeup for any other CPU can only time out.
+-	 */
+-	if (!mk_cpu_set_contains(mk_cpu_pool, cpu_id)) {
+-		pr_err("Multikernel hotplug: CPU %llu is not in this kernel's pool\n",
+-		       cpu_id);
+-		ret = -EBUSY;
+ 		goto out;
+ 	}
+ 
+@@ -1398,10 +1432,19 @@
+ 		goto out;
+ 	}
+ 
+-	if (mk_cpu_set_add(target_instance->cpus, cpu_id))
+-		pr_warn("Multikernel hotplug: Failed to track CPU %llu in instance %d\n",
+-			cpu_id, instance_id);
++	ret = mk_cpu_set_add(target_instance->cpus, cpu_id);
++	/*
++	 * An acknowledged online CPU must never remain assignable in the pool,
++	 * including an unexpected bookkeeping failure. Do not speculate that it
++	 * can be moved back: retain the error for resource reconciliation.
++	 */
+ 	mk_cpu_set_del(mk_cpu_pool, cpu_id);
++	if (ret) {
++		pr_err("Multikernel hotplug: CPU %llu online in instance %d (generation %llu) but tracking failed; reconciliation required\n",
++		       cpu_id, instance_id, target_instance->generation);
++		ret = -EUCLEAN;
++		goto out;
++	}
+ 
+ 	ret = 0;
+ out:

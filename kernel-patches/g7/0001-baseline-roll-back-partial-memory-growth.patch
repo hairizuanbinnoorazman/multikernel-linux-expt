@@ -1,0 +1,54 @@
+--- a/kernel/multikernel/baseline.c
++++ b/kernel/multikernel/baseline.c
+@@ -333,18 +333,45 @@
+ 
+ static int mk_baseline_grow_pool(const struct mk_baseline_mem_req *reqs, int n)
+ {
+-	int i, ret;
++	phys_addr_t *bases;
++	int i, ret, rollback_ret;
++
++	if (n < 0 || n > MK_BASELINE_MAX_MEM_REQS)
++		return -EINVAL;
++	if (!n)
++		return 0;
++
++	/* Track only chunks acquired by this attempt. An existing pool belongs
++	 * to its current users and must never be cleared by this error path. */
++	bases = kcalloc(n, sizeof(*bases), GFP_KERNEL);
++	if (!bases)
++		return -ENOMEM;
+ 
+ 	for (i = 0; i < n; i++) {
+-		ret = mk_pool_mem_grow(reqs[i].size, reqs[i].node, NULL);
++		ret = mk_pool_mem_grow(reqs[i].size, reqs[i].node, &bases[i]);
+ 		if (ret) {
+ 			pr_err("Baseline: failed to allocate %llu MB on node %d: %d\n",
+ 			       reqs[i].size >> 20, reqs[i].node, ret);
+-			return ret;
+-		}
+-	}
+-
++			goto rollback;
++		}
++	}
++
++	kfree(bases);
+ 	return 0;
++
++rollback:
++	/* Shrink refuses chunks with live allocations. Preserve and report
++	 * those chunks instead of freeing memory still owned by a child. */
++	while (--i >= 0) {
++		rollback_ret = mk_pool_mem_shrink(bases[i], reqs[i].size);
++		if (rollback_ret) {
++			pr_err("Baseline: rollback failed for chunk %pa (%llu MB): %d\n",
++			       &bases[i], reqs[i].size >> 20, rollback_ret);
++			ret = -EUCLEAN;
++		}
++	}
++	kfree(bases);
++	return ret;
+ }
+ 
+ static int mk_baseline_initialize_cpus(const struct mk_cpu_set *requested)

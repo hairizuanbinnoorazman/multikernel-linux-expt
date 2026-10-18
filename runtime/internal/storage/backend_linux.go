@@ -262,6 +262,11 @@ func openExecutable(path string) (*openedExecutable, error) {
 		_ = directory.Close()
 		return nil, err
 	}
+	if err = safefile.ValidateScriptInterpreter(file, []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}); err != nil {
+		_ = file.Close()
+		_ = directory.Close()
+		return nil, fmt.Errorf("storage helper interpreter/loader rejected: %w", err)
+	}
 	return &openedExecutable{file: file, directory: directory, parent: filepath.Dir(path),
 		name: filepath.Base(path), identity: identity}, nil
 }
@@ -857,11 +862,15 @@ func parseCountersAt(directory *safefile.Directory, name string, value Export) (
 	if err != nil {
 		return Counters{}, err
 	}
-	ready := bytes.LastIndex(data, readyMarker(value))
-	offset := bytes.LastIndex(data, []byte("MKNBD_SERVER_CLOSED"))
-	if ready < 0 || offset < ready {
-		return Counters{}, errors.New("exact server ready/close evidence is absent or out of order")
+	body, err := storageEvidenceBody(data, value)
+	if err != nil {
+		return Counters{}, err
 	}
+	offset := bytes.LastIndex(data, []byte("\nMKNBD_SERVER_CLOSED "))
+	if offset < len(data)-len(body)-1 {
+		return Counters{}, errors.New("exact server close evidence is absent")
+	}
+	offset++
 	var result Counters
 	var readBytes, writeBytes uint64
 	var synced uint32
@@ -877,7 +886,25 @@ func parseCountersAt(directory *safefile.Directory, name string, value Export) (
 	if string(data[offset:]) != canonical {
 		return Counters{}, errors.New("server close counter record is not canonical or terminal")
 	}
+	if err = validateClosedStorageBody(data[len(data)-len(body):offset], result, value); err != nil {
+		return Counters{}, err
+	}
 	return result, nil
+}
+
+// Logs are generation-private files, but their record boundaries still matter:
+// a matching substring after another export's readiness cannot authorize release.
+func storageEvidenceBody(data []byte, value Export) ([]byte, error) {
+	marker := readyMarker(value)
+	if !bytes.HasPrefix(data, marker) {
+		return nil, errors.New("exact initial server ready evidence is absent")
+	}
+	body := data[len(marker):]
+	if bytes.HasPrefix(body, []byte("MKNBD_SERVER_READY ")) ||
+		bytes.Contains(body, []byte("\nMKNBD_SERVER_READY ")) {
+		return nil, errors.New("duplicate storage server readiness evidence")
+	}
+	return body, nil
 }
 
 func clientEvidenceAt(directory *safefile.Directory, name string, value Export) (bool, bool, error) {
@@ -888,13 +915,39 @@ func clientEvidenceAt(directory *safefile.Directory, name string, value Export) 
 	if err != nil {
 		return false, false, err
 	}
-	marker := readyMarker(value)
-	ready := bytes.LastIndex(data, marker)
-	if ready < 0 {
-		return false, false, errors.New("exact server ready evidence is absent")
+	body, err := storageEvidenceBody(data, value)
+	if err != nil {
+		return false, false, err
 	}
-	accepted := bytes.Index(data[ready+len(marker):], []byte("MKNBD_SERVER_CLIENT_ACCEPTED\n"))
-	return bytes.Equal(data, marker), accepted >= 0, nil
+	// Only complete canonical pre-attachment records prove that no client
+	// attached. Unknown/partial output retains the process record for diagnosis.
+	// A canonical acceptance record instead preserves ClientLost even if a
+	// crash leaves its subsequent output incomplete.
+	details, suppressed := 0, false
+	for len(body) > 0 {
+		line, rest, complete := bytes.Cut(body, []byte("\n"))
+		if !complete {
+			return false, false, errors.New("incomplete storage client evidence")
+		}
+		switch string(line) {
+		case "MKNBD_SERVER_CLIENT_ACCEPTED":
+			return false, true, nil
+		case "MKNBD_SERVER_REFUSED reason=identity", "MKNBD_SERVER_REFUSED reason=handshake-io":
+			if suppressed || details >= storageRefusalDetails {
+				return false, false, errors.New("storage refusal detail bound or ordering is invalid")
+			}
+			details++
+		case "MKNBD_SERVER_REFUSALS_SUPPRESSED further_details=omitted":
+			if details != storageRefusalDetails || suppressed {
+				return false, false, errors.New("storage refusal suppression evidence is invalid")
+			}
+			suppressed = true
+		default:
+			return false, false, errors.New("unknown storage pre-acceptance evidence")
+		}
+		body = rest
+	}
+	return true, false, nil
 }
 
 func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error) {

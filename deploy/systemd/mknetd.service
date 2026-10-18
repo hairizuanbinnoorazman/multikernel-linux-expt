@@ -6,6 +6,10 @@ Before=containerd.service docker.service
 
 [Service]
 Type=simple
+NoNewPrivileges=yes
+# Namespace/TUN/firewall operations and proc-based CNI namespace access only.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN CAP_SYS_PTRACE
+AmbientCapabilities=
 EnvironmentFile=/etc/multikernel/runtime.env
 ExecStart=/usr/local/sbin/mknetd --socket=/run/mknetd.sock --state-dir=/var/lib/mknetd --subnet=${MKNETWORK_SUBNET} --egress=${MKNETWORK_EGRESS} --mtu=${MKNETWORK_MTU} --allowed-uid=0 "--dns=${MKNETWORK_DNS}"
 Restart=on-failure

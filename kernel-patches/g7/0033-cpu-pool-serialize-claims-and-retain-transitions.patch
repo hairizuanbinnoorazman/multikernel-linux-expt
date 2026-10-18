@@ -1,0 +1,561 @@
+--- a/kernel/multikernel/core.c
++++ b/kernel/multikernel/core.c
+@@ -18,6 +18,122 @@
+ #include <linux/vmalloc.h>
+ #include "internal.h"
+ 
++/* Serializes assignable-set validation, allocation and ownership publication.
++ * Physical hotplug and arch park waits execute outside this mutex.
++ */
++DEFINE_MUTEX(mk_cpu_ownership_mutex);
++struct mk_cpu_pool_transition {
++	struct list_head list;
++	mk_phys_cpu_t cpu;
++	bool from_pool;
++	bool finished;
++	int error;
++};
++static LIST_HEAD(mk_cpu_pool_transitions);
++
++bool mk_cpu_pool_cpu_busy(mk_phys_cpu_t cpu)
++{
++	struct mk_cpu_pool_transition *op;
++
++	lockdep_assert_held(&mk_cpu_ownership_mutex);
++	list_for_each_entry(op, &mk_cpu_pool_transitions, list)
++		if (op->cpu == cpu)
++			return true;
++	return false;
++}
++
++int mk_cpu_pool_copy_busy(struct mk_cpu_set *out)
++{
++	struct mk_cpu_pool_transition *op;
++	int ret;
++
++	lockdep_assert_held(&mk_cpu_ownership_mutex);
++	list_for_each_entry(op, &mk_cpu_pool_transitions, list) {
++		ret = mk_cpu_set_add(out, op->cpu);
++		if (ret)
++			return ret;
++	}
++	return 0;
++}
++
++int mk_cpu_pool_begin(mk_phys_cpu_t cpu, bool from_pool)
++{
++	struct mk_cpu_pool_transition *op;
++	int ret = 0;
++
++	op = kzalloc(sizeof(*op), GFP_KERNEL);
++	if (!op)
++		return -ENOMEM;
++	mutex_lock(&mk_cpu_ownership_mutex);
++	if (!mk_cpu_pool || !root_instance || !root_instance->cpus) {
++		ret = -ENODEV;
++		goto out;
++	}
++	if (mk_cpu_pool_cpu_busy(cpu) ||
++	    mk_cpu_set_contains(mk_cpu_pool, cpu) != from_pool ||
++	    mk_cpu_set_contains(root_instance->cpus, cpu) == from_pool) {
++		ret = -EBUSY;
++		goto out;
++	}
++	op->cpu = cpu;
++	op->from_pool = from_pool;
++	list_add_tail(&op->list, &mk_cpu_pool_transitions);
++	if (from_pool)
++		mk_cpu_set_del(mk_cpu_pool, cpu);
++out:
++	mutex_unlock(&mk_cpu_ownership_mutex);
++	if (ret)
++		kfree(op);
++	return ret;
++}
++
++int mk_cpu_pool_finish(mk_phys_cpu_t cpu, bool from_pool, int error)
++{
++	struct mk_cpu_pool_transition *op;
++	int ret = error;
++
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	list_for_each_entry(op, &mk_cpu_pool_transitions, list) {
++		if (op->cpu != cpu)
++			continue;
++		if (op->finished || op->from_pool != from_pool)
++			return -EUCLEAN;
++		if (!ret && mk_cpu_set_contains(root_instance->cpus, cpu) != from_pool)
++			ret = -EUCLEAN;
++		if (!ret && !from_pool)
++			ret = mk_cpu_set_add(mk_cpu_pool, cpu);
++		if (ret) {
++			op->finished = true;
++			op->error = ret;
++			pr_err("Retained CPU %llu pool transition from_pool=%d error=%d\n",
++			       cpu, from_pool, ret);
++			return -EUCLEAN;
++		}
++		list_del(&op->list);
++		kfree(op);
++		return 0;
++	}
++	return -ENOENT;
++}
++
++int mk_cpu_pool_transitions_show(struct seq_file *sf, void *v)
++{
++	struct mk_cpu_pool_transition *op;
++	unsigned int rows = 0;
++
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	list_for_each_entry(op, &mk_cpu_pool_transitions, list) {
++		if (rows++ == 64) {
++			seq_puts(sf, "truncated=1 limit=64\n");
++			break;
++		}
++		seq_printf(sf, "cpu=%llu direction=%s state=%s error=%d\n",
++			   op->cpu, op->from_pool ? "pool-to-host" : "host-to-pool",
++			   op->finished ? "reconciliation-required" : "in-progress", op->error);
++	}
++	return 0;
++}
++
+ /* Shared by boot restore and runtime creation; never wrap or reuse tokens. */
+ static atomic64_t mk_instance_next_generation = ATOMIC64_INIT(0);
+ 
+@@ -408,10 +524,15 @@
+ 	char buf[256];
+ 	int ret;
+ 
+-	if (!cpus || !instance->cpus || !mk_cpu_pool) {
++	guard(mutex)(&mk_cpu_ownership_mutex);
++
++	if (!cpus || !instance || !instance->cpus || !mk_cpu_pool) {
+ 		pr_err("Invalid CPU sets for transfer\n");
+ 		return -EINVAL;
+ 	}
++
++	if (cpus == mk_cpu_pool || cpus == instance->cpus)
++		return -EINVAL;
+ 
+ 	requested_count = mk_cpu_set_count(cpus);
+ 	if (requested_count == 0) {
+@@ -421,7 +542,9 @@
+ 	}
+ 
+ 	mk_cpu_set_for_each(i, phys_cpu, cpus) {
+-		if (!mk_cpu_set_contains(mk_cpu_pool, phys_cpu)) {
++		if (mk_cpu_pool_cpu_busy(phys_cpu) ||
++		    mk_cpu_set_contains(instance->cpus, phys_cpu) ||
++		    !mk_cpu_set_contains(mk_cpu_pool, phys_cpu)) {
+ 			pr_err("CPU %llu not available in the pool\n",
+ 			       phys_cpu);
+ 			unavailable++;
+@@ -478,7 +601,9 @@
+ 	char buf[256];
+ 	int ret;
+ 
+-	if (!cpus || !instance->cpus || !mk_cpu_pool) {
++	guard(mutex)(&mk_cpu_ownership_mutex);
++
++	if (!cpus || !instance || !instance->cpus || !mk_cpu_pool) {
+ 		pr_err("Invalid CPU sets for return\n");
+ 		return -EINVAL;
+ 	}
+@@ -492,6 +617,9 @@
+ 
+ 	/* Validate all CPUs are assigned to this instance */
+ 	mk_cpu_set_for_each(i, phys_cpu, cpus) {
++		if (mk_cpu_pool_cpu_busy(phys_cpu) ||
++		    mk_cpu_set_contains(mk_cpu_pool, phys_cpu))
++			return -EUCLEAN;
+ 		if (mk_cpu_set_contains(instance->cpus_on_slot, phys_cpu))
+ 			return -EBUSY;
+ 		if (!mk_cpu_set_contains(instance->cpus, phys_cpu)) {
+@@ -549,6 +677,11 @@
+ 	struct mk_instance *instance;
+ 	bool returned = true;
+ 
++	guard(mutex)(&mk_instance_mutex);
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	if (!list_empty(&mk_cpu_pool_transitions))
++		return false;
++
+ 	if (mk_cpu_pool && !mk_cpu_set_empty(mk_cpu_pool))
+ 		return false;
+ 
+@@ -558,7 +691,6 @@
+ 	if (retained)
+ 		return false;
+ 
+-	mutex_lock(&mk_instance_mutex);
+ 	list_for_each_entry(instance, &mk_instance_list, list) {
+ 		if (instance == root_instance)
+ 			continue;
+@@ -569,7 +701,6 @@
+ 			break;
+ 		}
+ 	}
+-	mutex_unlock(&mk_instance_mutex);
+ 
+ 	return returned;
+ }
+--- a/kernel/multikernel/hotplug.c
++++ b/kernel/multikernel/hotplug.c
+@@ -86,15 +86,15 @@
+  * it belongs to the mk_send_cpu_* initiator paths of the kernel that
+  * manages the pool.
+  */
+-static void mk_account_cpu_online(mk_phys_cpu_t cpu_id)
+-{
+-	if (root_instance->cpus && mk_cpu_set_add(root_instance->cpus, cpu_id))
+-		pr_warn("Multikernel hotplug: Failed to track CPU %llu\n",
+-			cpu_id);
++static int mk_account_cpu_online(mk_phys_cpu_t cpu_id)
++{
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	return root_instance->cpus ? mk_cpu_set_add(root_instance->cpus, cpu_id) : -ENODEV;
+ }
+ 
+ static void mk_account_cpu_offline(mk_phys_cpu_t cpu_id)
+ {
++	guard(mutex)(&mk_cpu_ownership_mutex);
+ 	mk_cpu_set_del(root_instance->cpus, cpu_id);
+ }
+ 
+@@ -146,8 +146,7 @@
+ 	if (cpu_online(logical_cpu)) {
+ 		pr_warn("Multikernel hotplug: CPU %d (phys %llu) already online\n",
+ 			logical_cpu, cpu_id);
+-		mk_account_cpu_online(cpu_id);
+-		return 0;
++		return mk_account_cpu_online(cpu_id);
+ 	}
+ 
+ 	if (!get_cpu_device(logical_cpu)) {
+@@ -168,7 +167,9 @@
+ 		return ret;
+ 	}
+ 
+-	mk_account_cpu_online(cpu_id);
++	ret = mk_account_cpu_online(cpu_id);
++	if (ret)
++		return ret;
+ 
+ 	/* Track the operation for potential rollback */
+ 	op = kzalloc(sizeof(*op), GFP_KERNEL);
+@@ -1092,23 +1093,11 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	/*
+-	 * The pool set is the record of which CPUs are parked, so the add
+-	 * below must not be able to fail: grow it while the CPU is still
+-	 * ours to keep.
+-	 */
+-	ret = mk_cpu_set_reserve(mk_cpu_pool, 1);
++	ret = mk_cpu_pool_begin(cpu_id, false);
+ 	if (ret)
+ 		return ret;
+-
+ 	ret = mk_do_cpu_remove(cpu_id);
+-	if (ret)
+-		return ret;
+-
+-	/* The CPU parked in the host park area and is assignable again */
+-	mk_cpu_set_add(mk_cpu_pool, cpu_id);
+-
+-	return 0;
++	return mk_cpu_pool_finish(cpu_id, false, ret);
+ }
+ 
+ /**
+@@ -1123,25 +1112,18 @@
+ {
+ 	int ret;
+ 
+-	if (!mk_cpu_set_contains(mk_cpu_pool, cpu_id)) {
+-		pr_err("Multikernel hotplug: CPU %llu is not free in the pool\n",
+-		       cpu_id);
+-		return -EBUSY;
+-	}
+-
+-	ret = mk_do_cpu_add(cpu_id, numa_node, flags);
++	ret = mk_cpu_pool_begin(cpu_id, true);
+ 	if (ret)
+ 		return ret;
+-
+-	/* From here on it is an ordinary CPU of this kernel */
+-	if (mk_cpu_set_del(mk_cpu_pool, cpu_id)) {
++	ret = mk_do_cpu_add(cpu_id, numa_node, flags);
++	ret = mk_cpu_pool_finish(cpu_id, true, ret);
++	if (!ret) {
+ 		int cpu = arch_cpu_from_physical_id(cpu_id);
+ 
+ 		if (cpu >= 0)
+ 			mk_set_pool_cpu(cpu, false);
+ 	}
+-
+-	return 0;
++	return ret;
+ }
+ 
+ /**
+@@ -1254,23 +1236,26 @@
+ 	}
+ 
+ 	/* Ownership must be checked before even a non-running CPU is reparked. */
+-	if (!mk_cpu_pool || !target_instance->cpus) {
+-		ret = -ENODEV;
+-		goto out;
+-	}
+-	if (!mk_cpu_set_contains(target_instance->cpus, cpu_id)) {
+-		ret = -EINVAL;
+-		goto out;
+-	}
+-	if (mk_cpu_set_contains(mk_cpu_pool, cpu_id)) {
+-		ret = -EUCLEAN;
+-		goto out;
+-	}
+-
+-	/* The pool set must be able to take the CPU once it parks. */
+-	ret = mk_cpu_set_reserve(mk_cpu_pool, 1);
+-	if (ret)
+-		goto out;
++	{
++		guard(mutex)(&mk_cpu_ownership_mutex);
++		if (!mk_cpu_pool || !target_instance->cpus) {
++			ret = -ENODEV;
++			goto out;
++		}
++		if (!mk_cpu_set_contains(target_instance->cpus, cpu_id)) {
++			ret = -EINVAL;
++			goto out;
++		}
++		if (mk_cpu_set_contains(mk_cpu_pool, cpu_id)) {
++			ret = -EUCLEAN;
++			goto out;
++		}
++
++		/* The pool set must be able to take the CPU once it parks. */
++		ret = mk_cpu_set_reserve(mk_cpu_pool, 1);
++		if (ret)
++			goto out;
++	}
+ 
+ 	/* For non-running instances, return CPU to root using existing API */
+ 	if (target_instance->state != MK_STATE_ACTIVE) {
+@@ -1408,21 +1393,24 @@
+ 	 * or IPI. An allocation failure after the peer onlines the CPU cannot
+ 	 * safely be treated as an ordinary failed add.
+ 	 */
+-	if (!mk_cpu_pool || !target_instance->cpus) {
+-		ret = -ENODEV;
+-		goto out;
+-	}
+-	if (!mk_cpu_set_contains(mk_cpu_pool, cpu_id)) {
+-		ret = -EBUSY;
+-		goto out;
+-	}
+-	if (mk_cpu_set_contains(target_instance->cpus, cpu_id)) {
+-		ret = -EUCLEAN;
+-		goto out;
+-	}
+-	ret = mk_cpu_set_reserve(target_instance->cpus, 1);
+-	if (ret)
+-		goto out;
++	{
++		guard(mutex)(&mk_cpu_ownership_mutex);
++		if (!mk_cpu_pool || !target_instance->cpus) {
++			ret = -ENODEV;
++			goto out;
++		}
++		if (!mk_cpu_set_contains(mk_cpu_pool, cpu_id)) {
++			ret = -EBUSY;
++			goto out;
++		}
++		if (mk_cpu_set_contains(target_instance->cpus, cpu_id)) {
++			ret = -EUCLEAN;
++			goto out;
++		}
++		ret = mk_cpu_set_reserve(target_instance->cpus, 1);
++		if (ret)
++			goto out;
++	}
+ 
+ 	/* For non-running instances, transfer CPU from root using existing API */
+ 	if (target_instance->state != MK_STATE_ACTIVE) {
+--- a/kernel/multikernel/baseline.c
++++ b/kernel/multikernel/baseline.c
+@@ -534,7 +534,7 @@
+ 		return -ENOMEM;
+ 	}
+ 
+-	if (!mk_pool_empty() || (mk_cpu_pool && !mk_cpu_set_empty(mk_cpu_pool)) ||
++	if (!mk_pool_empty() || !mk_pool_cpus_returned() ||
+ 	    root_instance->pci_device_count) {
+ 		pr_err("Baseline already applied; change the pool with an overlay targeting /resources\n");
+ 		return -EBUSY;
+@@ -605,11 +605,14 @@
+ 	 * The move primitives only track a resource in the pool once the
+ 	 * pool set exists, so it has to be there before the first move.
+ 	 */
+-	if (!mk_cpu_pool) {
+-		mk_cpu_pool = mk_cpu_set_alloc();
++	{
++		guard(mutex)(&mk_cpu_ownership_mutex);
+ 		if (!mk_cpu_pool) {
+-			ret = -ENOMEM;
+-			goto out;
++			mk_cpu_pool = mk_cpu_set_alloc();
++			if (!mk_cpu_pool) {
++				ret = -ENOMEM;
++				goto out;
++			}
+ 		}
+ 	}
+ 
+--- a/kernel/multikernel/dts.c
++++ b/kernel/multikernel/dts.c
+@@ -1103,14 +1103,16 @@
+ 	/*
+ 	 * The root device tree is only generated from kernfs reads, which
+ 	 * hold no instance lock; instance creation generates a device tree
+-	 * for the new instance, never for the root. mk_cpu_pool itself is
+-	 * mutated under no lock, so a concurrent move can still make this
+-	 * snapshot stale.
++	 * for the new instance, never for the root. Copy ownership records
++	 * under the shared CPU mutex after the instance-list mutex.
+ 	 */
+ 	lockdep_assert_not_held(&mk_instance_mutex);
+ 
+ 	mutex_lock(&mk_instance_mutex);
++	mutex_lock(&mk_cpu_ownership_mutex);
+ 	ret = mk_cpu_set_copy(members, mk_cpu_pool);
++	if (!ret)
++		ret = mk_cpu_pool_copy_busy(members);
+ 	list_for_each_entry(instance, &mk_instance_list, list) {
+ 		if (ret)
+ 			break;
+@@ -1122,6 +1124,7 @@
+ 				break;
+ 		}
+ 	}
++	mutex_unlock(&mk_cpu_ownership_mutex);
+ 	mutex_unlock(&mk_instance_mutex);
+ 
+ 	if (!ret)
+@@ -1285,13 +1288,16 @@
+ 
+ 	if (pool) {
+ 		ret = mk_dt_emit_pool_members(fdt);
+-		if (!ret)
+-			ret = mk_dt_emit_cpu_prop(fdt, "cpus-available",
+-						  mk_cpu_pool);
++		if (!ret) {
++			guard(mutex)(&mk_cpu_ownership_mutex);
++			ret = mk_dt_emit_cpu_prop(fdt, "cpus-available", mk_cpu_pool);
++		}
+ 	} else {
+ 		ret = mk_dt_emit_instance_memory(instance, fdt);
+-		if (!ret)
++		if (!ret) {
++			guard(mutex)(&mk_cpu_ownership_mutex);
+ 			ret = mk_dt_emit_cpu_prop(fdt, "cpus", instance->cpus);
++		}
+ 	}
+ 	if (ret)
+ 		return ret;
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -58,6 +58,7 @@
+ 		return -ENOMEM;
+ 
+ 	mutex_lock(&mk_instance_mutex);
++	mutex_lock(&mk_cpu_ownership_mutex);
+ 	list_for_each_entry(other, &mk_instance_list, list) {
+ 		/*
+ 		 * Skip the root instance: its set is the CPUs the host
+@@ -82,6 +83,9 @@
+ 				break;
+ 		}
+ 	}
++	if (!ret)
++		ret = mk_cpu_pool_copy_busy(pool);
++	mutex_unlock(&mk_cpu_ownership_mutex);
+ 	mutex_unlock(&mk_instance_mutex);
+ 
+ 	count = mk_cpu_set_count(pool);
+--- a/kernel/multikernel/kernfs.c
++++ b/kernel/multikernel/kernfs.c
+@@ -380,6 +380,10 @@
+ static const struct kernfs_ops mk_cpu_transfer_ops = {
+ 	.seq_show = cpu_transfer_seq_show,
+ };
++static const struct kernfs_ops mk_cpu_pool_transitions_ops = {
++	.seq_show = mk_cpu_pool_transitions_show,
++};
++
+ static const struct kernfs_ops mk_retained_instances_ops = {
+ 	.seq_show = mk_retained_instances_show,
+ };
+@@ -606,6 +610,15 @@
+ 	{
+ 		struct kernfs_node *retained_kn;
+ 
++		retained_kn = __kernfs_create_file(mk_root_kn, "cpu_pool_transitions", 0400,
++			GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, 0,
++			&mk_cpu_pool_transitions_ops, NULL, NULL, NULL);
++		if (IS_ERR(retained_kn)) {
++			ret = PTR_ERR(retained_kn);
++			kernfs_destroy_root(mk_kernfs_root);
++			return ret;
++		}
++
+ 		retained_kn = __kernfs_create_file(mk_root_kn, "retained_instances", 0400,
+ 			GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, 0,
+ 			&mk_retained_instances_ops, NULL, NULL, NULL);
+--- a/kernel/multikernel/cpuset.c
++++ b/kernel/multikernel/cpuset.c
+@@ -10,6 +10,7 @@
+  * assigned CPU), so linear scans are fine.
+  */
+ #include <linux/slab.h>
++#include <linux/overflow.h>
+ #include <linux/string.h>
+ #include <linux/multikernel.h>
+ 
+@@ -61,8 +62,11 @@
+  */
+ int mk_cpu_set_reserve(struct mk_cpu_set *set, unsigned int extra)
+ {
+-	unsigned int cap = set->nr + extra;
++	unsigned int cap;
+ 	mk_phys_cpu_t *ids;
++
++	if (check_add_overflow(set->nr, extra, &cap))
++		return -EOVERFLOW;
+ 
+ 	if (cap <= set->cap)
+ 		return 0;
+--- a/kernel/multikernel/internal.h
++++ b/kernel/multikernel/internal.h
+@@ -3,10 +3,18 @@
+ #define _KERNEL_MULTIKERNEL_INTERNAL_H
+ 
+ #include <linux/multikernel.h>
++#include <linux/mutex.h>
+ 
+ struct mk_dt_config;
+ struct mk_cpu_resource_payload;
+ 
++/* Lock order: instance list -> CPU ownership. Never hold over arch/IPI waits. */
++extern struct mutex mk_cpu_ownership_mutex;
++bool mk_cpu_pool_cpu_busy(mk_phys_cpu_t cpu);
++int mk_cpu_pool_copy_busy(struct mk_cpu_set *out);
++int mk_cpu_pool_begin(mk_phys_cpu_t cpu, bool from_pool);
++int mk_cpu_pool_finish(mk_phys_cpu_t cpu, bool from_pool, int error);
++int mk_cpu_pool_transitions_show(struct seq_file *sf, void *v);
+ extern struct mutex mk_instance_mutex;
+ extern struct mutex mk_host_dtb_mutex;
+ extern struct idr mk_instance_idr;

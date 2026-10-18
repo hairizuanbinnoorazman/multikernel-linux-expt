@@ -19,6 +19,64 @@ type memoryConn struct {
 	output bytes.Buffer
 }
 
+func TestDaemonFrameIOTimeoutReleasesBlockedPeer(t *testing.T) {
+	for _, request := range []string{"{", "!\n"} {
+		t.Run(request, func(t *testing.T) {
+			client, connection := net.Pipe()
+			defer client.Close()
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				(&Server{FrameIOTimeout: 20 * time.Millisecond}).handle(context.Background(), connection)
+			}()
+			if _, err := client.Write([]byte(request)); err != nil {
+				t.Fatal(err)
+			}
+			// The partial request never finishes; the malformed complete request
+			// gets a response that this peer deliberately never reads.
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Fatal("blocked peer retained daemon handler")
+			}
+		})
+	}
+}
+
+func TestDaemonFrameTimeoutDoesNotCancelOperation(t *testing.T) {
+	client, connection := net.Pipe()
+	defer client.Close()
+	server := &Server{FrameIOTimeout: 20 * time.Millisecond, dispatch: func(ctx context.Context, request protocol.Request) protocol.Response {
+		select {
+		case <-ctx.Done():
+			return protocol.Response{Version: 1, Error: &protocol.Error{Code: "CANCELLED", Message: "operation cancelled"}}
+		case <-time.After(80 * time.Millisecond):
+			return protocol.Response{Version: 1, RequestID: request.RequestID, Body: "completed"}
+		}
+	}}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		server.handle(context.Background(), connection)
+	}()
+	if _, err := client.Write([]byte("{\"version\":1,\"request_id\":\"slow-operation\",\"method\":\"NodeInfo\"}\n")); err != nil {
+		t.Fatal(err)
+	}
+	_ = client.SetReadDeadline(time.Now().Add(time.Second))
+	var response protocol.Response
+	if err := json.NewDecoder(client).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Error != nil || response.RequestID != "slow-operation" {
+		t.Fatalf("frame timeout interrupted dispatch: %+v", response)
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("handler failed to finish")
+	}
+}
+
 func TestUnixPeerAuthorization(t *testing.T) {
 	if !credentialAuthorized(&unix.Ucred{Uid: 1234}, 1234) || credentialAuthorized(&unix.Ucred{Uid: 1234}, 4321) || credentialAuthorized(nil, 1234) {
 		t.Fatal("credential policy mismatch")

@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
@@ -22,6 +23,7 @@ type Server struct {
 	Rootfs         *rootfs.Service
 	MaxFrame       int
 	MaxHandlers    int
+	FrameIOTimeout time.Duration
 	AllowedUID     uint32
 	mu             sync.Mutex
 	listener       net.Listener
@@ -173,6 +175,10 @@ func (s *Server) Close() error {
 func (s *Server) handle(ctx context.Context, c net.Conn) {
 	stopCancellation := protocol.CloseOnContext(ctx, c)
 	defer stopCancellation()
+	if err := c.SetReadDeadline(time.Now().Add(protocol.FrameIOTimeout(s.FrameIOTimeout))); err != nil {
+		_ = c.Close()
+		return
+	}
 	maximum := daemonFrameLimit(s.MaxFrame)
 	reader := bufio.NewReader(io.LimitReader(c, int64(maximum+2)))
 	data, e := reader.ReadBytes('\n')
@@ -181,6 +187,12 @@ func (s *Server) handle(ctx context.Context, c net.Conn) {
 		data = data[:len(data)-1]
 	} else if errors.Is(e, io.EOF) {
 		e = nil // Continue accepting the former EOF-delimited request form.
+	}
+	// Dispatch may legitimately outlast frame receipt. The disconnect watcher
+	// must not turn the completed request's deadline into operation cancellation.
+	if err := c.SetReadDeadline(time.Time{}); err != nil {
+		_ = c.Close()
+		return
 	}
 	requestContext := ctx
 	var cancelRequest context.CancelFunc
@@ -221,6 +233,9 @@ func (s *Server) handle(ctx context.Context, c net.Conn) {
 	}
 	encoded, e := encodeDaemonResponse(resp, 1<<20)
 	if e == nil {
+		if err := c.SetWriteDeadline(time.Now().Add(protocol.FrameIOTimeout(s.FrameIOTimeout))); err != nil {
+			return
+		}
 		_ = protocol.WriteFull(c, encoded)
 	}
 }

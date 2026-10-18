@@ -22,6 +22,7 @@ docker_bind_name=mk-matrix-docker-bind
 bind_root=
 docker_isolation=(
 	--network none
+	--security-opt no-new-privileges
 	--security-opt apparmor=unconfined
 	--security-opt seccomp=unconfined
 	--sysctl net.ipv4.ip_unprivileged_port_start=1024
@@ -396,9 +397,9 @@ ctr_stdin=$(printf 'ctr-stdin\n' | sudo ctr run --runtime "$runtime" "$image" "$
 docker_stdin=$(printf 'docker-stdin\n' | sudo docker run --interactive \
 	--runtime "$runtime" "${docker_isolation[@]}" --name "$docker_name" "$image" \
 	/bin/sh -c 'read line; echo guest-$line')
+observe guest-stdin "ctr=$ctr_stdin docker=$docker_stdin"
 printf '%s\n' "$ctr_stdin" | grep -Fxq guest-ctr-stdin
 printf '%s\n' "$docker_stdin" | grep -Fxq guest-docker-stdin
-observe guest-stdin "ctr=$ctr_stdin docker=$docker_stdin"
 sudo ctr tasks rm "$ctr_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_id"
 sudo docker rm "$docker_name" >/dev/null
@@ -417,9 +418,9 @@ ctr_attached=$(printf 'stdin\n' | sudo ctr tasks attach "$ctr_attach_id")
 # Docker detaches as soon as the attaching client's stdin reaches EOF. Keep
 # that stream open briefly so the same attachment can receive the guest reply.
 docker_attached=$({ printf 'stdin\n'; sleep 2; } | sudo docker attach "$docker_attach_name")
+observe guest-attach "ctr=$ctr_attached docker=$docker_attached"
 printf '%s\n' "$ctr_attached" | grep -Fxq ctr-attached-stdin
 printf '%s\n' "$docker_attached" | grep -Fxq docker-attached-stdin
-observe guest-attach "ctr=$ctr_attached docker=$docker_attached"
 sudo ctr tasks rm "$ctr_attach_id" >/dev/null 2>&1 || true
 sudo ctr containers rm "$ctr_attach_id"
 sudo docker rm "$docker_attach_name" >/dev/null
@@ -433,7 +434,7 @@ row guest-attach
 ctr_tty=$(script -q -e -c \
 	"stty rows 37 cols 91; sudo ctr run --tty --runtime '$runtime' '$image' '$ctr_id' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo ctr-terminal-ok'" /dev/null)
 docker_tty=$(script -q -e -c \
-	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --network none --security-opt apparmor=unconfined --security-opt seccomp=unconfined --sysctl net.ipv4.ip_unprivileged_port_start=1024 --sysctl 'net.ipv4.ping_group_range=1 0' --device-cgroup-rule 'a *:* rwm' --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
+	"stty rows 37 cols 91; sudo docker run --tty --runtime '$runtime' --network none --security-opt no-new-privileges --security-opt apparmor=unconfined --security-opt seccomp=unconfined --sysctl net.ipv4.ip_unprivileged_port_start=1024 --sysctl 'net.ipv4.ping_group_range=1 0' --device-cgroup-rule 'a *:* rwm' --name '$docker_name' '$image' /bin/sh -c 'set -e; test -t 0; test -t 1; sleep 1; stty size; echo docker-terminal-ok'" /dev/null)
 printf '%s\n' "$ctr_tty" | tr -d '\r' | grep -Fxq ctr-terminal-ok
 printf '%s\n' "$docker_tty" | tr -d '\r' | grep -Fxq docker-terminal-ok
 # ctr can forward one leading NUL from its controlling terminal; canonical

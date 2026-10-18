@@ -1,0 +1,148 @@
+--- a/kernel/multikernel/core.c
++++ b/kernel/multikernel/core.c
+@@ -190,12 +190,18 @@
+ {
+ 	struct mk_instance *instance;
+ 	unsigned long flags;
++	unsigned int rows = 0;
+ 
+ 	spin_lock_irqsave(&mk_retained_instances_lock, flags);
+-	list_for_each_entry(instance, &mk_retained_instances, retained_list)
++	list_for_each_entry(instance, &mk_retained_instances, retained_list) {
++		if (rows++ == 64) {
++			seq_puts(sf, "truncated=1 limit=64\n");
++			break;
++		}
+ 		seq_printf(sf, "id=%d generation=%llu error=%d cpus=%u regions=%d\n",
+ 			   instance->id, instance->generation, instance->release_error,
+ 			   mk_cpu_set_count(instance->cpus), instance->region_count);
++	}
+ 	spin_unlock_irqrestore(&mk_retained_instances_lock, flags);
+ 	return 0;
+ }
+--- a/kernel/kexec_core.c
++++ b/kernel/kexec_core.c
+@@ -589,17 +589,18 @@
+ 
+ }
+ 
+-void kimage_free(struct kimage *image)
++int kimage_free_checked(struct kimage *image)
+ {
+ 	kimage_entry_t *ptr, entry;
+ 	kimage_entry_t ind = 0;
+ #ifdef CONFIG_MULTIKERNEL
+ 	struct mk_instance *releasing_instance = NULL;
+ 	int old_cpu_state = MK_CPU_TRANSFER_STABLE;
++	int ret;
+ #endif
+ 
+ 	if (!image)
+-		return;
++		return 0;
+ 
+ #ifdef CONFIG_MULTIKERNEL
+ 	/* Keep the image-owned reference and gate until all image/ring frees finish. */
+@@ -607,12 +608,13 @@
+ 		releasing_instance = image->mk_instance;
+ 		old_cpu_state = mk_instance_begin_release(releasing_instance);
+ 		if (old_cpu_state < 0)
+-			return;
+-		if (mk_instance_confirm_parked(releasing_instance)) {
++			return old_cpu_state;
++		ret = mk_instance_confirm_parked(releasing_instance);
++		if (ret) {
+ 			WRITE_ONCE(releasing_instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
+ 			pr_err("Retaining multikernel image %d: CPUs not safely parked\n",
+ 			       releasing_instance->id);
+-			return;
++			return ret;
+ 		}
+ 	}
+ #endif
+@@ -717,6 +719,37 @@
+ 	}
+ #endif
+ 	kfree(image);
++	return 0;
++}
++
++/* Legacy error-cleanup callers cannot return an unload result. */
++void kimage_free(struct kimage *image)
++{
++	int ret = kimage_free_checked(image);
++
++	if (ret)
++		pr_err("Multikernel image cleanup retained resources: %d\n", ret);
++}
++
++/* Called with the kexec operation lock held. Failures leave the image listed.
++ * A fixed work budget prevents an unbounded privileged syscall; E2BIG means
++ * partial progress and the caller may explicitly retry the remaining images.
++ */
++int kimage_unload_multikernels(void)
++{
++	struct kimage *image;
++	unsigned int unloaded;
++	int ret;
++
++	for (unloaded = 0; unloaded < 128; unloaded++) {
++		image = kimage_find_by_type(KEXEC_TYPE_MULTIKERNEL);
++		if (!image)
++			return 0;
++		ret = kimage_free_checked(image);
++		if (ret)
++			return ret;
++	}
++	return kimage_find_by_type(KEXEC_TYPE_MULTIKERNEL) ? -E2BIG : 0;
+ }
+ 
+ static kimage_entry_t *kimage_dst_used(struct kimage *image,
+--- a/kernel/kexec.c
++++ b/kernel/kexec.c
+@@ -121,17 +121,8 @@
+ 				kimage_free(old_image);
+ 			}
+ 		} else if (flags & KEXEC_MULTIKERNEL) {
+-			/* For multikernel unload, we need to specify which image to remove */
+-			/* For now, remove all multikernel images - this could be enhanced */
+-			struct kimage *images[10];
+-			int count, i;
+-
+-			count = kimage_get_all_by_type(KEXEC_TYPE_MULTIKERNEL, images, 10);
+-			for (i = 0; i < count; i++) {
+-				kimage_remove_from_list(images[i]);
+-				kimage_free(images[i]);
+-			}
+-			pr_info("Unloaded %d multikernel images\n", count);
++			ret = kimage_unload_multikernels();
++			goto out_unlock;
+ 		} else {
+ 			struct kimage *old_image = xchg(&kexec_image, NULL);
+ 			if (old_image) {
+--- a/kernel/kexec_file.c
++++ b/kernel/kexec_file.c
+@@ -476,10 +476,8 @@
+ 				goto out;
+ 			}
+ 
+-			pr_info("Unloading kernel from multikernel instance %d\n", mk_id);
+-			kimage_remove_from_list(mk_image);
+-			image = mk_image;
+-			ret = 0;
++			/* Check before unlinking, while the kexec lock is still held. */
++			ret = kimage_free_checked(mk_image);
+ 			goto out;
+ 		} else {
+ 			instance = mk_instance_find(mk_id);
+--- a/kernel/kexec_internal.h
++++ b/kernel/kexec_internal.h
+@@ -10,6 +10,8 @@
+ int sanity_check_segment_list(struct kimage *image);
+ void kimage_free_page_list(struct list_head *list);
+ void kimage_free(struct kimage *image);
++int __must_check kimage_free_checked(struct kimage *image);
++int __must_check kimage_unload_multikernels(void);
+ int kimage_load_segment(struct kimage *image, int idx);
+ void kimage_terminate(struct kimage *image);
+ int kimage_is_destination_range(struct kimage *image,

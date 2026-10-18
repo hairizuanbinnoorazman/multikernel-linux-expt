@@ -1,0 +1,104 @@
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -780,15 +780,15 @@
+ 
+ 	int mk_node = fdt_subnode_offset(manifest, 0, "multikernel");
+ 	if (mk_node < 0) {
+-		pr_info("No multikernel node found in manifest\n");
+-		ret = 0;
++		pr_err("No multikernel node found in manifest\n");
++		ret = -EINVAL;
+ 		goto cleanup_fdt;
+ 	}
+ 
+ 	const void *dtb_data = fdt_getprop(manifest, mk_node, "dtb-data", &dtb_len);
+ 	if (!dtb_data || dtb_len <= 0) {
+-		pr_info("No dtb-data property found in multikernel node\n");
+-		ret = 0;
++		pr_err("No dtb-data property found in multikernel node\n");
++		ret = -EINVAL;
+ 		goto cleanup_fdt;
+ 	}
+ 
+@@ -820,6 +820,12 @@
+ 	ret = mk_dt_extract_instance_info(dtb_virt, dtb_len, &instance_id, &instance_name);
+ 	if (ret) {
+ 		pr_err("Failed to extract instance info from DTB: %d\n", ret);
++		goto cleanup_dtb;
++	}
++
++	/* A handed-off child must never impersonate the normal host root. */
++	if (instance_id <= 0) {
++		ret = -EINVAL;
+ 		goto cleanup_dtb;
+ 	}
+ 
+@@ -907,8 +913,21 @@
+ 	return ret;
+ }
+ 
+-/* Run at early_initcall to enforce CPU restrictions before per-CPU allocations */
+-early_initcall(mk_instance_restore_from_manifest);
++/* Initcall return codes alone do not stop boot. Never continue into device
++ * probing with a failed or absent resource policy, even on the host path.
++ */
++static int __init mk_instance_boot_init(void)
++{
++	int ret = mk_instance_restore_from_manifest();
++
++	if (ret || !root_instance)
++		panic("multikernel: refusing boot without restored resource policy (%d)",
++		      ret ? ret : -EINVAL);
++	return 0;
++}
++
++/* Enforce policy before per-CPU allocation and ordinary device probing. */
++early_initcall(mk_instance_boot_init);
+ 
+ /**
+  * mk_pci_should_probe - Check if PCI probing should occur at all
+@@ -930,8 +949,9 @@
+ 	u8 func = PCI_FUNC(devfn);
+ 	u8 hdr_type;
+ 
++	/* A child cannot probe until its handed-off policy is restored. */
+ 	if (!root_instance)
+-		return true;
++		return !mk_manifest_phys();
+ 
+ 	if (!root_instance->dtb_data)
+ 		return true;
+@@ -997,6 +1017,9 @@
+ {
+ 	struct mk_platform_device *plat_dev;
+ 
++	if (!root_instance)
++		return !mk_manifest_phys();
++
+ 	if (!root_instance->dtb_data)
+ 		return true;
+ 
+--- a/kernel/multikernel/manifest.c
++++ b/kernel/multikernel/manifest.c
+@@ -46,6 +46,12 @@
+ 	pr_info("multikernel: processing manifest at 0x%llx (size: %llu)\n",
+ 		fdt_phys, fdt_len);
+ 
++	/* Ambiguous handoffs must not replace an already accepted policy. */
++	if (mk_manifest_fdt_phys) {
++		err = -EEXIST;
++		goto out;
++	}
++
+ 	/* Restore maps the whole producer page; require its base before mapping. */
+ 	if (!fdt_phys || (fdt_phys & (PAGE_SIZE - 1)) ||
+ 	    fdt_len < sizeof(struct fdt_header) || fdt_len > PAGE_SIZE) {
+@@ -83,7 +89,7 @@
+ 	if (fdt)
+ 		early_memunmap(fdt, fdt_len);
+ 	if (err)
+-		pr_warn("multikernel: ignoring invalid manifest\n");
++		panic("multikernel: refusing invalid boot manifest (%d)", err);
+ }
+ 
+ /**

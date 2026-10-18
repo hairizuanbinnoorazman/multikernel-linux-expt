@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,6 +10,59 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
+
+func TestJournalRejectsConflictingOperationIdentity(t *testing.T) {
+	intent := JournalEntry{Sequence: 1, OperationID: "operation", SandboxID: "box", Generation: "generation", Method: "DeleteSandbox", Phase: "intent", IdempotencyKey: "key", Fingerprint: "fingerprint"}
+	complete := intent
+	complete.Sequence, complete.Phase = 2, "complete"
+	encode := func(entries ...JournalEntry) []byte {
+		var data []byte
+		for _, entry := range entries {
+			line, err := json.Marshal(entry)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data = append(data, append(line, '\n')...)
+		}
+		return data
+	}
+	if entries, err := parseJournal(encode(intent, complete)); err != nil || len(Incomplete(entries)) != 0 {
+		t.Fatalf("valid completion: %v", err)
+	}
+	for _, field := range []string{"sandbox", "generation", "method", "key", "fingerprint", "phase", "orphan", "duplicate-intent", "duplicate-completion", "embedded-identity"} {
+		t.Run(field, func(t *testing.T) {
+			changed := complete
+			switch field {
+			case "sandbox":
+				changed.SandboxID = "other"
+			case "generation":
+				changed.Generation = "other"
+			case "method":
+				changed.Method = "StartSandbox"
+			case "key":
+				changed.IdempotencyKey = "other"
+			case "fingerprint":
+				changed.Fingerprint = "other"
+			case "phase":
+				changed.Phase = "unknown"
+			case "orphan":
+				changed.OperationID = "other"
+			case "duplicate-intent":
+				changed.Phase = "intent"
+			case "embedded-identity":
+				changed.Sandbox = &protocol.Sandbox{ID: "other", Generation: intent.Generation, Config: protocol.SandboxConfig{ID: "other"}}
+			}
+			data := encode(intent, changed)
+			if field == "duplicate-completion" {
+				changed.Sequence = 3
+				data = encode(intent, complete, changed)
+			}
+			if _, err := parseJournal(data); err == nil {
+				t.Fatal("conflicting journal accepted")
+			}
+		})
+	}
+}
 
 func TestSnapshotRenameSynchronizesDirectory(t *testing.T) {
 	store, err := Open(t.TempDir())
@@ -34,6 +88,15 @@ func TestSnapshotRenameSynchronizesDirectory(t *testing.T) {
 
 func TestOpenRejectsUnsafeOrMalformedSnapshot(t *testing.T) {
 	for name, install := range map[string]func(string) error{
+		"empty object": func(path string) error {
+			return os.WriteFile(path, []byte(`{}`), 0600)
+		},
+		"missing results": func(path string) error {
+			return os.WriteFile(path, []byte(`{"version":1,"sandboxes":{}}`), 0600)
+		},
+		"null snapshot": func(path string) error {
+			return os.WriteFile(path, []byte(`null`), 0600)
+		},
 		"unknown field": func(path string) error {
 			return os.WriteFile(path, []byte(`{"version":1,"sandboxes":{},"results":{},"extra":true}`), 0600)
 		},

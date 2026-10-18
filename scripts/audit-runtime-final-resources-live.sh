@@ -10,8 +10,6 @@ storage_root=/srv/multikernel-storage/runtime
 for service in mkruntimed mknetd containerd docker; do [[ $(systemctl is-active "$service") = active ]]; done
 
 kerf_state=$(sudo "$kerf" show)
-grep -Fq 'No memory pool configured' <<<"$kerf_state"
-grep -Fq 'No instances found' <<<"$kerf_state"
 
 children=$(sudo find /sys/fs/multikernel/instances -mindepth 1 -maxdepth 1 -type d | wc -l)
 runtime_mounts=$(findmnt -rn -o TARGET,SOURCE | awk -v storage="$storage_root" -v tasks="$task_root" \
@@ -21,8 +19,14 @@ bundle_artifacts=$( (sudo find "$task_root/default" "$task_root/moby" -path '*/.
 fifos=$( (sudo find "$task_root/default" "$task_root/moby" -type p -print 2>/dev/null || true) | wc -l)
 links=$(ip -o link show | awk -F': ' '$2 ~ /^mkv[0-9a-f]+$/ {n++} END {print n+0}')
 routes=$(ip -o route show table all | awk '$0 ~ /(^| )mkv[0-9a-f]+( |$)/ || $0 ~ /(^| )172\.31\./ {n++} END {print n+0}')
-nat_rules=$(sudo iptables -t nat -S POSTROUTING | grep -c '172\.31\.' || true)
-filter_rules=$(sudo iptables -S | grep -c '^\(-N\|-A\) MK-' || true)
+# Fail if firewall inspection is unavailable; it is not a zero-rule inventory.
+nat_policy=$(sudo iptables -t nat -S POSTROUTING)
+ipv4_policy=$(sudo iptables -S)
+ipv6_policy=$(sudo ip6tables -S)
+nat_rules=$(grep -c '172\.31\.' <<<"$nat_policy" || true)
+filter_rules=$(grep -Ec '^(-N|-A) MK-|^-A (INPUT|FORWARD) -i mkv[0-9a-f]+ -j DROP$' <<<"$ipv4_policy" || true)
+ipv6_guards=$(grep -Ec '^-A (INPUT|FORWARD) -i mkv[0-9a-f]+ -j DROP$' <<<"$ipv6_policy" || true)
+filter_rules=$((filter_rules + ipv6_guards))
 default_tasks=$(sudo ctr tasks list -q | wc -l)
 default_containers=$(sudo ctr containers list -q | wc -l)
 moby_tasks=$(sudo ctr -n moby tasks list -q | wc -l)
@@ -36,7 +40,6 @@ relay_processes=$(ps -eo comm= | awk '$1 == "mk-agent-relay" {n++} END {print n+
 
 inventory="children=$children runtime_mounts=$runtime_mounts runtime_artifacts=$runtime_artifacts bundle_artifacts=$bundle_artifacts fifos=$fifos links=$links routes=$routes nat_rules=$nat_rules filter_rules=$filter_rules default_tasks=$default_tasks default_containers=$default_containers moby_tasks=$moby_tasks moby_containers=$moby_containers docker_containers=$docker_containers rootfs_records=$rootfs_records endpoints=$endpoints shim_processes=$shim_processes nbd_processes=$nbd_processes relay_processes=$relay_processes"
 expected='children=0 runtime_mounts=0 runtime_artifacts=0 bundle_artifacts=0 fifos=0 links=0 routes=0 nat_rules=0 filter_rules=0 default_tasks=0 default_containers=0 moby_tasks=0 moby_containers=0 docker_containers=0 rootfs_records=0 endpoints=0 shim_processes=0 nbd_processes=0 relay_processes=0'
-[[ $inventory = "$expected" ]]
 
 pid=$(systemctl show -p MainPID --value mkruntimed)
 printf 'OBSERVATION_BEGIN key=provenance\nselector=%s boot_id=%s mkruntimed_pid=%s mkruntimed_sha256=%s\nOBSERVATION_END key=provenance\n' \
@@ -44,6 +47,9 @@ printf 'OBSERVATION_BEGIN key=provenance\nselector=%s boot_id=%s mkruntimed_pid=
 	"$(sudo sha256sum "/proc/$pid/exe" | awk '{print $1}')"
 printf 'OBSERVATION_BEGIN key=kerf-resource-return\n%s\nOBSERVATION_END key=kerf-resource-return\n' "$kerf_state"
 printf 'OBSERVATION_BEGIN key=final-resource-inventory\n%s\nOBSERVATION_END key=final-resource-inventory\n' "$inventory"
+grep -Fq 'No memory pool configured' <<<"$kerf_state"
+grep -Fq 'No instances found' <<<"$kerf_state"
+[[ $inventory = "$expected" ]]
 for service in mkruntimed mknetd containerd docker; do
 	systemctl show "$service.service" -p Id -p ActiveState -p SubState -p NRestarts -p MainPID --no-pager
 done

@@ -22,7 +22,7 @@ func TestCreateAcceptsCommittedNonzeroExit(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(instance, "status"), []byte("created\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 1\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestCreateAcceptsCommittedNonzeroExit(t *testing.T) {
 
 func TestCreateRejectsNonzeroWithoutInstance(t *testing.T) {
 	root := t.TempDir()
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 1\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestCommittedNonzeroTransitionsAreObserved(t *testing.T) {
 	if err := os.MkdirAll(instance, 0755); err != nil {
 		t.Fatal(err)
 	}
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 1\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestStopAvoidsForceHalt(t *testing.T) {
 				t.Fatal(err)
 			}
 			marker := filepath.Join(t.TempDir(), "executed")
-			script := filepath.Join(t.TempDir(), "kerf")
+			script := privateKerfScriptPath(t)
 			contents := "#!/bin/sh\nset -eu\ntest \"$#\" = 3\ntest \"$1\" = kill\ntest \"$2\" = box\ntest \"$3\" = --verbose\nprintf executed > '" + marker + "'\nprintf loaded > '" + filepath.Join(instance, "status") + "'\n"
 			if err := os.WriteFile(script, []byte(contents), 0755); err != nil {
 				t.Fatal(err)
@@ -203,7 +203,7 @@ func TestLoadPinsRuntimeInitramfsAcrossPublicDirectoryReplacement(t *testing.T) 
 		t.Fatal(err)
 	}
 	marker := filepath.Join(bundle, "kerf-observed")
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	contents := "#!/bin/sh\nset -eu\n" +
 		"test \"$3\" = '--kernel=/proc/self/fd/4'\n" +
 		"test \"$(cat /proc/self/fd/4)\" = 'original-kernel'\n" +
@@ -275,7 +275,7 @@ func TestLoadRejectsUnsafePresentRuntimeArtifacts(t *testing.T) {
 			}
 			test.setup(t, runtimeDir)
 			marker := filepath.Join(bundle, "executed")
-			script := filepath.Join(t.TempDir(), "kerf")
+			script := privateKerfScriptPath(t)
 			if err := os.WriteFile(script, []byte("#!/bin/sh\ntouch '"+marker+"'\n"), 0755); err != nil {
 				t.Fatal(err)
 			}
@@ -300,7 +300,7 @@ func TestDeleteAcceptsCommittedNonzeroExit(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(instance, "status"), []byte("created"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	contents := "#!/bin/sh\n/usr/bin/unlink '" + filepath.Join(instance, "status") + "'\n/usr/bin/rmdir '" + instance + "'\nexit 1\n"
 	if err := os.WriteFile(script, []byte(contents), 0755); err != nil {
 		t.Fatal(err)
@@ -312,7 +312,7 @@ func TestDeleteAcceptsCommittedNonzeroExit(t *testing.T) {
 }
 
 func TestBackendTimeoutIsBounded(t *testing.T) {
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 60 & wait\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestBackendTimeoutIsBounded(t *testing.T) {
 }
 
 func TestBackendOutputIsBoundedAndSecretSafe(t *testing.T) {
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	contents := "#!/bin/sh\nprintf super-secret >&2\nhead -c 4097 /dev/zero\nexit 9\n"
 	if err := os.WriteFile(script, []byte(contents), 0755); err != nil {
 		t.Fatal(err)
@@ -356,7 +356,7 @@ func TestCallerCancellationCannotBeAcceptedAsObservedSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	marker := filepath.Join(t.TempDir(), "executed")
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	if err := os.WriteFile(script, []byte("#!/bin/sh\ntouch '"+marker+"'\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +384,7 @@ func TestEveryUncommittedNonzeroExitIsRejected(t *testing.T) {
 	if err := os.MkdirAll(instance, 0755); err != nil {
 		t.Fatal(err)
 	}
-	script := filepath.Join(t.TempDir(), "kerf")
+	script := privateKerfScriptPath(t)
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 9\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -416,4 +416,13 @@ func TestEveryUncommittedNonzeroExitIsRejected(t *testing.T) {
 			}
 		})
 	}
+}
+
+func privateKerfScriptPath(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(root, "kerf")
 }

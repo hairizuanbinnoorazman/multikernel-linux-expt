@@ -68,11 +68,12 @@ func (r ExecRunner) Output(ctx context.Context, name string, arguments ...string
 }
 
 type LinuxBackend struct {
-	Runner   Runner
-	IP       string
-	IPTables string
-	Nsenter  string
-	Egress   string
+	Runner    Runner
+	IP        string
+	IPTables  string
+	IP6Tables string
+	Nsenter   string
+	Egress    string
 }
 
 func (b LinuxBackend) defaults() LinuxBackend {
@@ -84,6 +85,9 @@ func (b LinuxBackend) defaults() LinuxBackend {
 	}
 	if b.IPTables == "" {
 		b.IPTables = "/usr/sbin/iptables"
+	}
+	if b.IP6Tables == "" {
+		b.IP6Tables = "/usr/sbin/ip6tables"
 	}
 	if b.Nsenter == "" {
 		b.Nsenter = "/usr/bin/nsenter"
@@ -187,6 +191,13 @@ func (b LinuxBackend) Add(ctx context.Context, endpoint Endpoint) error {
 		args []string
 	}{
 		{b.IP, []string{"link", "add", hostIf, "type", "veth", "peer", "name", peerIf}},
+		// FORWARD policy never sees traffic addressed to the primary itself.
+		// Install its independent guard before making the endpoint link live.
+		{b.IPTables, []string{"-w", "-I", "INPUT", "1", "-i", hostIf, "-j", "DROP"}},
+		// The supported data plane is IPv4. Do not leave an unfiltered IPv6
+		// route to the primary or other networks through the same endpoint.
+		{b.IP6Tables, []string{"-w", "-I", "INPUT", "1", "-i", hostIf, "-j", "DROP"}},
+		{b.IP6Tables, []string{"-w", "-I", "FORWARD", "1", "-i", hostIf, "-j", "DROP"}},
 		{b.IP, []string{"link", "set", peerIf, "netns", target}},
 		{b.IP, []string{"address", "add", transitHost + "/30", "dev", hostIf}},
 		{b.IP, []string{"link", "set", hostIf, "mtu", strconv.Itoa(endpoint.MTU), "up"}},
@@ -244,6 +255,9 @@ func (b LinuxBackend) Check(ctx context.Context, endpoint Endpoint) error {
 		{b.Nsenter, b.ns(endpoint, "/usr/sbin/sysctl", "-n", "net.ipv4.ip_forward"), []string{"1"}},
 		{b.Nsenter, b.ns(endpoint, b.IP, "route", "show", "default"), []string{"via " + transitHost, "dev mkhost0"}},
 		{b.IPTables, []string{"-w", "-C", "FORWARD", "-i", hostIf, "-j", chain}, nil},
+		{b.IPTables, []string{"-w", "-C", "INPUT", "-i", hostIf, "-j", "DROP"}, nil},
+		{b.IP6Tables, []string{"-w", "-C", "INPUT", "-i", hostIf, "-j", "DROP"}, nil},
+		{b.IP6Tables, []string{"-w", "-C", "FORWARD", "-i", hostIf, "-j", "DROP"}, nil},
 		{b.IPTables, []string{"-w", "-C", chain, "!", "-s", childSource, "-j", "DROP"}, nil},
 		{b.IPTables, []string{"-w", "-C", chain, "-d", "169.254.169.254/32", "-p", "udp", "--dport", "53", "-j", "ACCEPT"}, nil},
 		{b.IPTables, []string{"-w", "-C", chain, "-d", "169.254.169.254/32", "-p", "tcp", "--dport", "53", "-j", "ACCEPT"}, nil},
@@ -286,12 +300,24 @@ func (b LinuxBackend) Delete(ctx context.Context, endpoint Endpoint) error {
 		{b.IPTables, []string{"-w", "-F", chain}},
 		{b.IPTables, []string{"-w", "-X", chain}},
 		{b.IP, []string{"route", "del", guestNetwork, "via", transitPeer, "dev", hostIf}},
-		{b.IP, []string{"link", "delete", hostIf}},
 	}
 	var failures []error
 	for _, command := range commands {
 		if err := b.Runner.Run(ctx, command.name, command.args...); err != nil && !resourceAbsent(err) {
 			failures = append(failures, err)
+		}
+	}
+	// Keep the primary-access guard if link removal fails. Otherwise a failed
+	// teardown would leave a live endpoint with access to primary services.
+	if err := b.Runner.Run(ctx, b.IP, "link", "delete", hostIf); err != nil && !resourceAbsent(err) {
+		failures = append(failures, err)
+	} else {
+		for _, guard := range []struct{ tool, chain string }{
+			{b.IPTables, "INPUT"}, {b.IP6Tables, "INPUT"}, {b.IP6Tables, "FORWARD"},
+		} {
+			if err := b.Runner.Run(ctx, guard.tool, "-w", "-D", guard.chain, "-i", hostIf, "-j", "DROP"); err != nil && !resourceAbsent(err) {
+				failures = append(failures, err)
+			}
 		}
 	}
 	return errors.Join(failures...)

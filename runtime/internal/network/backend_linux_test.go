@@ -70,12 +70,15 @@ func linuxEndpoint() Endpoint {
 
 func TestLinuxBackendPolicyAndNamespaceCommands(t *testing.T) {
 	runner := &recordingRunner{}
-	backend := LinuxBackend{Runner: runner, IP: "ip", IPTables: "iptables", Nsenter: "nsenter", Egress: "ens4"}
+	backend := LinuxBackend{Runner: runner, IP: "ip", IPTables: "iptables", IP6Tables: "ip6tables", Nsenter: "nsenter", Egress: "ens4"}
 	if err := backend.Add(context.Background(), linuxEndpoint()); err != nil {
 		t.Fatal(err)
 	}
 	joined := strings.Join(runner.calls, "\n")
 	for _, required := range []string{
+		"iptables -w -I INPUT 1 -i mkv0123456789a -j DROP",
+		"ip6tables -w -I INPUT 1 -i mkv0123456789a -j DROP",
+		"ip6tables -w -I FORWARD 1 -i mkv0123456789a -j DROP",
 		"ip link set mkhost0 netns 123",
 		"nsenter --net=/proc/123/ns/net -- ip tuntap add dev eth0 mode tun",
 		"iptables -w -A MK-0123456789ab ! -s 172.31.0.2/32 -j DROP",
@@ -93,7 +96,7 @@ func TestLinuxBackendPolicyAndNamespaceCommands(t *testing.T) {
 
 func TestLinuxBackendRollsBackEveryAddBoundary(t *testing.T) {
 	baseline := &recordingRunner{}
-	backend := LinuxBackend{Runner: baseline, IP: "ip", IPTables: "iptables", Nsenter: "nsenter", Egress: "ens4"}
+	backend := LinuxBackend{Runner: baseline, IP: "ip", IPTables: "iptables", IP6Tables: "ip6tables", Nsenter: "nsenter", Egress: "ens4"}
 	if err := backend.Add(context.Background(), linuxEndpoint()); err != nil {
 		t.Fatal(err)
 	}
@@ -106,6 +109,9 @@ func TestLinuxBackendRollsBackEveryAddBoundary(t *testing.T) {
 		}
 		joined := strings.Join(runner.calls, "\n")
 		for _, cleanup := range []string{
+			"iptables -w -D INPUT -i mkv0123456789a -j DROP",
+			"ip6tables -w -D INPUT -i mkv0123456789a -j DROP",
+			"ip6tables -w -D FORWARD -i mkv0123456789a -j DROP",
 			"iptables -w -F MK-0123456789ab",
 			"iptables -w -X MK-0123456789ab",
 			"ip route del 172.31.0.0/30 via 100.64.0.2 dev mkv0123456789a",
@@ -139,12 +145,15 @@ func TestLinuxBackendRejectsMalformedIdentityBeforeCommands(t *testing.T) {
 
 func TestLinuxBackendCheckValidatesObservedValues(t *testing.T) {
 	runner := &inspectingRunner{}
-	backend := LinuxBackend{Runner: runner, IP: "ip", IPTables: "iptables", Nsenter: "nsenter", Egress: "ens4"}
+	backend := LinuxBackend{Runner: runner, IP: "ip", IPTables: "iptables", IP6Tables: "ip6tables", Nsenter: "nsenter", Egress: "ens4"}
 	if err := backend.Check(context.Background(), linuxEndpoint()); err != nil {
 		t.Fatal(err)
 	}
 	joined := strings.Join(runner.calls, "\n")
 	for _, required := range []string{
+		"iptables -w -C INPUT -i mkv0123456789a -j DROP",
+		"ip6tables -w -C INPUT -i mkv0123456789a -j DROP",
+		"ip6tables -w -C FORWARD -i mkv0123456789a -j DROP",
 		"iptables -w -C MK-0123456789ab -o mkv+ -j DROP",
 		"iptables -w -C MK-0123456789ab -j DROP",
 		"iptables -w -C FORWARD -i ens4 -o mkv0123456789a -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT",
@@ -158,6 +167,46 @@ func TestLinuxBackendCheckValidatesObservedValues(t *testing.T) {
 	if err := backend.Check(context.Background(), linuxEndpoint()); err == nil {
 		t.Fatal("corrupt observed state passed CHECK")
 	}
+}
+
+func TestPrimaryGuardPrecedesLinkActivationAndSurvivesFailedRemoval(t *testing.T) {
+	runner := &recordingRunner{}
+	backend := LinuxBackend{Runner: runner, IP: "ip", IPTables: "iptables", IP6Tables: "ip6tables", Nsenter: "nsenter", Egress: "ens4"}
+	if err := backend.Add(context.Background(), linuxEndpoint()); err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(runner.calls, "\n")
+	guard := "iptables -w -I INPUT 1 -i mkv0123456789a -j DROP"
+	activate := "ip link set mkv0123456789a mtu 1400 up"
+	if strings.Index(joined, guard) > strings.Index(joined, activate) {
+		t.Fatal("primary guard installed after endpoint activation")
+	}
+	runner = &recordingRunner{}
+	backend.Runner = runner
+	if err := backend.Delete(context.Background(), linuxEndpoint()); err != nil {
+		t.Fatal(err)
+	}
+	joined = strings.Join(runner.calls, "\n")
+	removeGuard := "iptables -w -D INPUT -i mkv0123456789a -j DROP"
+	removeLink := "ip link delete mkv0123456789a"
+	if strings.Index(joined, removeGuard) < strings.Index(joined, removeLink) {
+		t.Fatal("primary guard removed while endpoint link was live")
+	}
+	for index, call := range runner.calls {
+		if call != removeLink {
+			continue
+		}
+		failed := &recordingRunner{failAt: index + 1}
+		backend.Runner = failed
+		if err := backend.Delete(context.Background(), linuxEndpoint()); err == nil {
+			t.Fatal("link removal failure ignored")
+		}
+		if strings.Contains(strings.Join(failed.calls, "\n"), removeGuard) {
+			t.Fatal("failed link removal discarded primary guard")
+		}
+		return
+	}
+	t.Fatal("delete omitted endpoint link removal")
 }
 
 func TestResourceAbsentOnlyAcceptsKnownCommandDiagnostics(t *testing.T) {

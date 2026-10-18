@@ -66,6 +66,13 @@ an active generation cannot be removed with `remove-deployment`. The reported
 activation commands remain explicit because starting privileged services is a
 separate operator action and must follow host qualification.
 
+Both control-plane services set `NoNewPrivileges=yes`. Helpers inherit the
+restriction, so executing a setuid or file-capability program cannot grant new
+authority. The services still retain the root privileges needed for kernel
+allocation, mounts and network policy; this setting does not contain a
+compromised root daemon. Existing deployments need a new managed deployment
+generation and service restart to adopt the changed units.
+
 The equivalent manual layout, useful for auditing rather than installation,
 is:
 

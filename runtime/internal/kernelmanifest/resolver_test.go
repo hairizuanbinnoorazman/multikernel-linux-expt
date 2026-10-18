@@ -55,9 +55,7 @@ func manifestFixture(t *testing.T) (Resolver, string) {
 	copyFile(t, executable, kernel, 0755)
 	copyFile(t, executable, agent, 0755)
 	copyFile(t, executable, relay, 0755)
-	if err = os.WriteFile(module, []byte("module"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	writeModuleFixture(t, module, "name=mk_transport\x00vermagic=test-release SMP\x00")
 	if err = os.WriteFile(initrd, []byte("initramfs"), 0644); err != nil {
 		t.Fatal(err)
 	}

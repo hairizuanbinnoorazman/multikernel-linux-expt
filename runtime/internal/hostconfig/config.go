@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -143,6 +144,9 @@ func (c Config) validate(requiredUID uint32, boundary string) error {
 			return err
 		}
 	}
+	if err := validateExecutable(c.KerfExecutable, requiredUID, boundary); err != nil {
+		return fmt.Errorf("unsafe Kerf executable: %w", err)
+	}
 	for _, target := range []string{c.KerfExecutable, c.MultikernelSysfsRoot, c.KernelManifestDirectory} {
 		info, err := os.Stat(target)
 		if err != nil {
@@ -156,6 +160,100 @@ func (c Config) validate(requiredUID uint32, boundary string) error {
 		}
 	}
 	return nil
+}
+
+// validateExecutable checks every traversed directory and symlink, including
+// intermediate targets that EvalSymlinks would hide. The daemon's configured
+// executable may use managed links, but an untrusted directory or link cannot
+// select the program. This is a configuration check, not launch-time pinning.
+func validateExecutable(path string, uid uint32, boundary string) error {
+	boundary = filepath.Clean(boundary)
+	components := func(absolute string) ([]string, error) {
+		prefix := boundary + string(filepath.Separator)
+		if boundary == "/" {
+			prefix = "/"
+		}
+		if absolute == boundary {
+			return nil, nil
+		}
+		if !strings.HasPrefix(absolute, prefix) {
+			return nil, errors.New("executable path escapes validation boundary")
+		}
+		return strings.Split(strings.TrimPrefix(absolute, prefix), "/"), nil
+	}
+	remaining, err := components(path)
+	if err != nil {
+		return err
+	}
+	if err = safeParents(boundary, uid, boundary); err != nil {
+		return err
+	}
+	current, links, steps := boundary, 0, 0
+	for len(remaining) > 0 {
+		steps++
+		if steps > 4096 {
+			return errors.New("executable path traversal exceeds limit")
+		}
+		name := remaining[0]
+		remaining = remaining[1:]
+		if name == "" || name == "." {
+			continue
+		}
+		if name == ".." {
+			if current == boundary {
+				return errors.New("executable path escapes validation boundary")
+			}
+			current = filepath.Dir(current)
+			continue
+		}
+		next := filepath.Join(current, name)
+		info, statErr := os.Lstat(next)
+		if statErr != nil {
+			return statErr
+		}
+		if err = requireOwner(info, uid); err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			links++
+			if links > 40 {
+				return errors.New("executable symlink traversal exceeds limit")
+			}
+			target, readErr := os.Readlink(next)
+			if readErr != nil {
+				return readErr
+			}
+			var targetParts []string
+			if filepath.IsAbs(target) {
+				targetParts, err = components(target)
+				if err != nil {
+					return err
+				}
+				current = boundary
+			} else {
+				targetParts = strings.Split(target, "/")
+			}
+			remaining = append(targetParts, remaining...)
+			continue
+		}
+		if info.Mode().Perm()&0022 != 0 {
+			return fmt.Errorf("executable path %s is group/world writable", next)
+		}
+		if len(remaining) > 0 {
+			if !info.IsDir() {
+				return errors.New("executable parent is not a directory")
+			}
+			current = next
+			continue
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0100 == 0 ||
+			stat.Nlink != 1 || info.Size() <= 0 || info.Size() > 256<<20 {
+			return errors.New("executable must be a bounded single-link regular owner-executable file")
+		}
+		return nil
+	}
+	return errors.New("executable path does not resolve to a regular executable")
 }
 
 func requireOwner(info os.FileInfo, uid uint32) error {

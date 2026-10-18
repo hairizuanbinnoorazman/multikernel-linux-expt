@@ -43,7 +43,7 @@ func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
 	originals := []string{bindSource, lowerA, lowerB, upper, work}
 	wantMarkers := map[string]string{
 		"bind-original": "", "lower-a-original": "", "lower-b-original": "",
-		"upper-original": "", "work-original": "",
+		"upper-original": "",
 	}
 	var anchoredPaths []string
 	var anchoredTarget string
@@ -87,13 +87,16 @@ func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
 		}
 		anchoredPaths = append(anchoredPaths, mounts[0].Source)
 		for _, option := range mounts[1].Options {
+			if strings.HasPrefix(option, "upperdir=") || strings.HasPrefix(option, "workdir=") {
+				return errors.New("caller writable overlay state reached mount")
+			}
 			for _, prefix := range []string{"lowerdir=", "upperdir=", "workdir="} {
 				if strings.HasPrefix(option, prefix) {
 					anchoredPaths = append(anchoredPaths, strings.Split(strings.TrimPrefix(option, prefix), ":")...)
 				}
 			}
 		}
-		if len(anchoredPaths) != 5 {
+		if len(anchoredPaths) != 4 {
 			return errors.New("not every mount input was descriptor anchored")
 		}
 		for _, path := range anchoredPaths {
@@ -111,6 +114,9 @@ func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
 		}
 		if len(wantMarkers) != 0 {
 			return errors.New("descriptor identities were not unique and complete")
+		}
+		if marker, err := os.ReadFile(filepath.Join(anchoredPaths[1], "marker")); err != nil || string(marker) != "upper-original" {
+			return errors.New("caller upper was not the highest-priority readonly lower")
 		}
 		for _, required := range []string{"ro", "nodev", "nosuid", "noexec"} {
 			if !slices.Contains(mounts[0].Options, required) || !slices.Contains(mounts[1].Options, required) {
@@ -136,7 +142,39 @@ func TestMountPinsFilesystemInputsAcrossPathReplacement(t *testing.T) {
 	}
 }
 
+func poisonBuilderEnvironment(t *testing.T) {
+	t.Helper()
+	base := t.TempDir()
+	canary := filepath.Join(base, "canary")
+	if err := os.WriteFile(canary, []byte("unchanged"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	startup := filepath.Join(base, "startup")
+	if err := os.WriteFile(startup, []byte("printf mutated > '"+canary+"'\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	tool := "#!/bin/sh\nprintf mutated > '" + canary + "'\nexec /usr/bin/dirname \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(base, "dirname"), []byte(tool), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", base+":/usr/sbin:/usr/bin:/sbin:/bin")
+	t.Setenv("BASH_ENV", startup)
+	t.Setenv("ENV", startup)
+	t.Setenv("PYTHONPATH", base)
+	t.Setenv("G7_SYNTHETIC_PARENT_SECRET", "synthetic-do-not-inherit")
+	t.Setenv("MK_ROOTFS_MAX_BYTES", "123456")
+	t.Setenv("MK_VALIDATE_ONLY", "1")
+	t.Setenv("MK_TASK_IDENTITY", "ambient-must-not-own-task")
+	t.Cleanup(func() {
+		value, err := os.ReadFile(canary)
+		if err != nil || string(value) != "unchanged" {
+			t.Errorf("ambient builder controls mutated host canary: %q, %v", value, err)
+		}
+	})
+}
+
 func TestValidateUsesHeldBundleAndCanonicalValidationMode(t *testing.T) {
+	poisonBuilderEnvironment(t)
 	bundlePath := filepath.Join(t.TempDir(), "bundle")
 	if err := os.Mkdir(bundlePath, 0700); err != nil {
 		t.Fatal(err)
@@ -155,8 +193,14 @@ func TestValidateUsesHeldBundleAndCanonicalValidationMode(t *testing.T) {
 	}
 	defer bundle.Close()
 	builder := filepath.Join(t.TempDir(), "builder.sh")
-	script := `#!/bin/sh
+	if err := os.Chmod(filepath.Dir(builder), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script := `#!/bin/bash
 set -eu
+test -z "${BASH_ENV+x}${ENV+x}${PYTHONPATH+x}${G7_SYNTHETIC_PARENT_SECRET+x}"
+test "$MK_ROOTFS_MAX_BYTES" = 123456
+test "$PATH" = /usr/sbin:/usr/bin:/sbin:/bin
 test "$MK_VALIDATE_ONLY" = 1
 test "$1" = /proc/self/fd/3
 test "$2" = /dev/null
@@ -232,6 +276,7 @@ func TestMountRejectsReplacedTargetIdentityBeforeMount(t *testing.T) {
 }
 
 func TestBuildUsesInheritedRootsButRecordsLogicalPaths(t *testing.T) {
+	poisonBuilderEnvironment(t)
 	for _, binary := range []string{"fallocate", "sha256sum"} {
 		if _, err := exec.LookPath(binary); err != nil {
 			t.Skipf("%s unavailable", binary)
@@ -262,9 +307,15 @@ func TestBuildUsesInheritedRootsButRecordsLogicalPaths(t *testing.T) {
 	defer runtimeDir.Close()
 	defer storageDir.Close()
 	builder := filepath.Join(base, "builder.sh")
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
 	script := `#!/bin/sh
 set -eu
 output=$2
+test -z "${BASH_ENV+x}${ENV+x}${PYTHONPATH+x}${G7_SYNTHETIC_PARENT_SECRET+x}${MK_VALIDATE_ONLY+x}"
+test "$MK_ROOTFS_MAX_BYTES" = 123456
+test "$MK_TASK_IDENTITY" = task-0123456789abcdef0123456789abcdef
 runtime=$(dirname "$output")
 storage=$MK_STORAGE_OUTPUT
 printf initramfs >"$output"

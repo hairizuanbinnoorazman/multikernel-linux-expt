@@ -1,0 +1,145 @@
+--- a/kernel/multikernel/baseline.c
++++ b/kernel/multikernel/baseline.c
+@@ -149,6 +149,16 @@
+ 	}
+ }
+ 
++static void mk_baseline_free_platform_list(struct list_head *platform_list)
++{
++	struct mk_platform_device *plat_dev, *tmp;
++
++	list_for_each_entry_safe(plat_dev, tmp, platform_list, list) {
++		list_del(&plat_dev->list);
++		kfree(plat_dev);
++	}
++}
++
+ static void mk_baseline_clear_resources(struct mk_instance *instance)
+ {
+ 	struct mk_pci_device *pci_dev, *pci_tmp;
+@@ -245,25 +255,29 @@
+ }
+ 
+ static int mk_baseline_parse_devices(const void *fdt, int resources_node,
+-				     struct mk_instance *instance,
+-				     struct list_head *pci_list)
++				     struct list_head *platform_list,
++				     struct list_head *pci_list,
++				     int *platform_count)
+ {
+ 	int devices_node, dev_node;
+ 	const char *dev_name, *device_type;
+ 	int pci_count = 0;
+ 	int len, ret;
+ 
++	*platform_count = 0;
+ 	devices_node = fdt_subnode_offset(fdt, resources_node, "devices");
+-	if (devices_node < 0) {
++	if (devices_node == -FDT_ERR_NOTFOUND) {
+ 		pr_debug("No 'devices' node in baseline /resources - skipping device parsing\n");
+ 		return 0;
+ 	}
++	if (devices_node < 0)
++		return -EINVAL;
+ 
+ 	fdt_for_each_subnode(dev_node, fdt, devices_node) {
+ 		dev_name = fdt_get_name(fdt, dev_node, NULL);
+ 		if (!dev_name) {
+-			pr_warn("Unnamed device node in baseline, skipping\n");
+-			continue;
++			pr_err("Invalid device node in baseline\n");
++			return -EINVAL;
+ 		}
+ 
+ 		ret = mk_baseline_get_string(fdt, dev_node, "device-type", &device_type);
+@@ -351,8 +365,8 @@
+ 				strscpy(plat_dev->name, device_name_str,
+ 					sizeof(plat_dev->name));
+ 
+-			list_add_tail(&plat_dev->list, &instance->platform_devices);
+-			instance->platform_device_count++;
++			list_add_tail(&plat_dev->list, platform_list);
++			(*platform_count)++;
+ 
+ 			pr_debug("Baseline device pool: added platform device '%s'\n",
+ 				 plat_dev->name);
+@@ -362,14 +376,15 @@
+ 		}
+ 	}
+ 
++	if (dev_node != -FDT_ERR_NOTFOUND)
++		return -EINVAL;
++
+ 	if (pci_count > 0)
+ 		pr_info("Baseline device pool: %d PCI devices requested\n", pci_count);
+ 
+-	if (instance->platform_device_count > 0) {
+-		instance->platform_devices_valid = true;
+-		pr_info("Baseline device pool: %d platform devices specified\n",
+-			instance->platform_device_count);
+-	}
++	if (*platform_count > 0)
++		pr_info("Baseline device pool: %d platform devices requested\n",
++			*platform_count);
+ 
+ 	return 0;
+ }
+@@ -487,7 +502,8 @@
+ 	struct mk_baseline_mem_req *reqs;
+ 	struct mk_cpu_set *requested;
+ 	LIST_HEAD(pci_list);
+-	int resources_node, nr_reqs;
++	LIST_HEAD(platform_list);
++	int resources_node, nr_reqs, platform_count;
+ 	int ret;
+ 
+ 	if (!fdt || fdt_size < sizeof(struct fdt_header)) {
+@@ -546,8 +562,6 @@
+ 		goto out;
+ 	}
+ 
+-	mk_baseline_clear_resources(root_instance);
+-
+ 	ret = mk_baseline_parse_cpus(fdt, resources_node, requested);
+ 	if (ret) {
+ 		pr_err("Failed to parse baseline CPUs: %d\n", ret);
+@@ -561,8 +575,8 @@
+ 		goto out;
+ 	}
+ 
+-	ret = mk_baseline_parse_devices(fdt, resources_node, root_instance,
+-					&pci_list);
++	ret = mk_baseline_parse_devices(fdt, resources_node, &platform_list,
++					&pci_list, &platform_count);
+ 	if (ret) {
+ 		pr_err("Failed to parse baseline devices: %d\n", ret);
+ 		goto out;
+@@ -586,6 +600,9 @@
+ 		}
+ 	}
+ 
++	/* All input is validated; only now discard previous metadata. */
++	mk_baseline_clear_resources(root_instance);
++
+ 	ret = mk_baseline_grow_pool(reqs, nr_reqs);
+ 	if (ret) {
+ 		pr_err("Baseline pool allocation failed: %d\n", ret);
+@@ -609,6 +626,10 @@
+ 		pr_err("Baseline device initialization failed: %d\n", ret);
+ 		goto out;
+ 	}
++
++	list_splice_tail_init(&platform_list, &root_instance->platform_devices);
++	root_instance->platform_device_count = platform_count;
++	root_instance->platform_devices_valid = platform_count > 0;
+ 
+ 	if (root_instance->dtb_data) {
+ 		pr_info("Replacing existing DTB (%zu bytes) with baseline DTB\n",
+@@ -623,6 +644,7 @@
+ 	pr_info("Multikernel baseline initialized successfully\n");
+ 	ret = 0;
+ out:
++	mk_baseline_free_platform_list(&platform_list);
+ 	kfree(baseline_dtb);
+ 	mk_baseline_free_pci_list(&pci_list);
+ 	mk_cpu_set_free(requested);

@@ -39,6 +39,7 @@ func OpenStore(dir string) (*Store, error) {
 	if !found {
 		return store, nil
 	}
+	store.data = diskState{}
 	if err = protocol.StrictDecode(data, &store.data); err != nil {
 		return nil, err
 	}

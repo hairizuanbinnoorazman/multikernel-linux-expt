@@ -10,6 +10,10 @@ import (
 
 func TestStoreRejectsUntrustedDurableState(t *testing.T) {
 	for name, content := range map[string]string{
+		"null":                `null`,
+		"empty object":        `{}`,
+		"missing version":     `{"endpoints":{}}`,
+		"missing endpoints":   `{"version":1}`,
 		"unknown field":       `{"version":1,"endpoints":{},"extra":true}`,
 		"duplicate field":     `{"version":1,"version":1,"endpoints":{}}`,
 		"unsupported version": `{"version":2,"endpoints":{}}`,

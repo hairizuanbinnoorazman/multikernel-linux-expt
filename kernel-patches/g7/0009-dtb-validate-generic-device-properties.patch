@@ -1,0 +1,244 @@
+--- a/kernel/multikernel/dts.c
++++ b/kernel/multikernel/dts.c
+@@ -16,6 +16,7 @@
+ #include <linux/libfdt.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
++#include <linux/ctype.h>
+ #include <linux/ioport.h>
+ #include <linux/sizes.h>
+ #include <linux/cpumask.h>
+@@ -254,6 +255,65 @@
+ 	return 0;
+ }
+ 
++/* Property bytes are not C strings until their own length proves it. */
++static int mk_dt_get_device_string(const void *fdt, int node,
++				   const char *name, const char **value)
++{
++	const char *prop;
++	int len;
++
++	prop = fdt_getprop(fdt, node, name, &len);
++	if (!prop)
++		return len == -FDT_ERR_NOTFOUND ? -ENOENT : -EINVAL;
++	if (len <= 1 || prop[len - 1] != '\0' ||
++	    strnlen(prop, len) != (size_t)len - 1)
++		return -EINVAL;
++	*value = prop;
++	return 0;
++}
++
++static int mk_dt_parse_pci_address(const char *value, unsigned int *domain,
++				   unsigned int *bus, unsigned int *slot,
++				   unsigned int *func)
++{
++	int i, consumed = 0;
++
++	if (strlen(value) >= sizeof("ffff:ff:1f.7"))
++		return -EINVAL;
++	for (i = 0; value[i]; i++)
++		if (!isxdigit(value[i]) && value[i] != ':' && value[i] != '.')
++			return -EINVAL;
++	if (sscanf(value, "%4x:%2x:%2x.%1x%n", domain, bus, slot, func,
++		   &consumed) != 4 || value[consumed] ||
++	    *domain > 0xffff || *bus > 0xff || *slot > 0x1f || *func > 7)
++		return -EINVAL;
++	return 0;
++}
++
++/* Preflight the entire list before resolving or appending any device. */
++static int mk_dt_validate_device_names(const char *data, int len, size_t max_name)
++{
++	const char *name = data, *end;
++	int remaining = len;
++	size_t size;
++
++	if (len < 0)
++		return -EINVAL;
++	while (remaining) {
++		end = memchr(name, '\0', remaining);
++		if (!end)
++			return -EINVAL;
++		size = end - name;
++		if (!size || size > max_name || memchr(name, '/', size) ||
++		    (size == 1 && name[0] == '.') ||
++		    (size == 2 && name[0] == '.' && name[1] == '.'))
++			return -EINVAL;
++		remaining -= size + 1;
++		name = end + 1;
++	}
++	return 0;
++}
++
+ static int mk_dt_parse_single_pci_device(const void *source_fdt, int dev_node,
+ 					 struct mk_dt_config *config,
+ 					 const char *device_name)
+@@ -263,32 +323,32 @@
+ 	struct mk_pci_device *pci_dev;
+ 	unsigned int domain, bus, slot, func;
+ 	const char *node_name;
+-	int len;
++	int len, ret;
+ 
+ 	node_name = fdt_get_name(source_fdt, dev_node, NULL);
+ 
+-	pci_id_str = fdt_getprop(source_fdt, dev_node, "pci-id", &len);
+-	if (!pci_id_str) {
++	ret = mk_dt_get_device_string(source_fdt, dev_node, "pci-id", &pci_id_str);
++	if (ret) {
+ 		pr_err("No pci-id property in device '%s' (node '%s')\n",
+ 		       device_name, node_name ? node_name : "<unnamed>");
+ 		return -EINVAL;
+ 	}
+ 
+-	if (sscanf(pci_id_str, "%x:%x:%x.%x", &domain, &bus, &slot, &func) != 4) {
++	if (mk_dt_parse_pci_address(pci_id_str, &domain, &bus, &slot, &func)) {
+ 		pr_err("Invalid pci-id format: '%s' (expected domain:bus:slot.func)\n",
+ 		       pci_id_str);
+ 		return -EINVAL;
+ 	}
+ 
+ 	vendor_prop = fdt_getprop(source_fdt, dev_node, "vendor-id", &len);
+-	if (!vendor_prop || len != 4) {
++	if (!vendor_prop || len != 4 || fdt32_to_cpu(*vendor_prop) > 0xffff) {
+ 		pr_err("Missing or invalid vendor-id in device '%s' (node '%s')\n",
+ 		       device_name, node_name ? node_name : "<unnamed>");
+ 		return -EINVAL;
+ 	}
+ 
+ 	device_prop = fdt_getprop(source_fdt, dev_node, "device-id", &len);
+-	if (!device_prop || len != 4) {
++	if (!device_prop || len != 4 || fdt32_to_cpu(*device_prop) > 0xffff) {
+ 		pr_err("Missing or invalid device-id in device '%s' (node '%s')\n",
+ 		       device_name, node_name ? node_name : "<unnamed>");
+ 		return -EINVAL;
+@@ -324,13 +384,19 @@
+ 	const char *hid_str = NULL, *name_str = NULL;
+ 	struct mk_platform_device *plat_dev;
+ 	const char *node_name;
+-	int len;
++	int ret;
+ 
+ 	node_name = fdt_get_name(source_fdt, dev_node, NULL);
+ 
+-	hid_str = fdt_getprop(source_fdt, dev_node, "acpi-hid", &len);
+-
+-	name_str = fdt_getprop(source_fdt, dev_node, "device-name", &len);
++	ret = mk_dt_get_device_string(source_fdt, dev_node, "acpi-hid", &hid_str);
++	if (ret && ret != -ENOENT)
++		return ret;
++	ret = mk_dt_get_device_string(source_fdt, dev_node, "device-name", &name_str);
++	if (ret && ret != -ENOENT)
++		return ret;
++	if ((hid_str && strlen(hid_str) >= MK_PLATFORM_DEVICE_ID_LEN) ||
++	    (name_str && strlen(name_str) >= MK_PLATFORM_DEVICE_NAME_LEN))
++		return -EINVAL;
+ 
+ 	if (!hid_str && !name_str) {
+ 		pr_err("Platform device '%s' (node '%s') has neither acpi-hid nor device-name\n",
+@@ -345,12 +411,12 @@
+ 	}
+ 
+ 	if (hid_str) {
+-		strncpy(plat_dev->hid, hid_str, MK_PLATFORM_DEVICE_ID_LEN - 1);
++		strscpy(plat_dev->hid, hid_str, sizeof(plat_dev->hid));
+ 		plat_dev->hid[MK_PLATFORM_DEVICE_ID_LEN - 1] = '\0';
+ 	}
+ 
+ 	if (name_str) {
+-		strncpy(plat_dev->name, name_str, MK_PLATFORM_DEVICE_NAME_LEN - 1);
++		strscpy(plat_dev->name, name_str, sizeof(plat_dev->name));
+ 		plat_dev->name[MK_PLATFORM_DEVICE_NAME_LEN - 1] = '\0';
+ 	}
+ 
+@@ -370,22 +436,26 @@
+ {
+ 	int devices_node, dev_node, ret;
+ 	const char *device_name, *device_type;
+-	int len;
+ 
+ 	devices_node = fdt_subnode_offset(fdt, resources_node, "devices");
+-	if (devices_node < 0) {
++	if (devices_node == -FDT_ERR_NOTFOUND) {
+ 		pr_debug("No devices node found in resources\n");
+ 		return 0;
+ 	}
++
++	if (devices_node < 0)
++		return -EINVAL;
+ 
+ 	fdt_for_each_subnode(dev_node, fdt, devices_node) {
+ 		device_name = fdt_get_name(fdt, dev_node, NULL);
+ 		if (!device_name)
+ 			continue;
+ 
+-		device_type = fdt_getprop(fdt, dev_node, "device-type", &len);
+-		if (!device_type)
++		ret = mk_dt_get_device_string(fdt, dev_node, "device-type", &device_type);
++		if (ret == -ENOENT)
+ 			continue; /* Not a device node, skip */
++		if (ret)
++			return ret;
+ 
+ 		if (strcmp(device_type, "pci") == 0) {
+ 			if (!config->pci_devices_valid)
+@@ -405,10 +475,12 @@
+ 				       device_name, ret);
+ 				return ret;
+ 			}
+-		}
+-	}
+-
+-	return 0;
++		} else {
++			return -EINVAL;
++		}
++	}
++
++	return dev_node == -FDT_ERR_NOTFOUND ? 0 : -EINVAL;
+ }
+ 
+ /**
+@@ -462,6 +534,8 @@
+ 	/* First try device-names property (overlay format) */
+ 	prop_data = fdt_getprop(fdt, chosen_node, "device-names", &len);
+ 	if (!prop_data) {
++		if (len != -FDT_ERR_NOTFOUND)
++			return -EINVAL;
+ 		return mk_dt_parse_embedded_devices(fdt, chosen_node, config);
+ 	}
+ 
+@@ -469,6 +543,11 @@
+ 		pr_debug("Empty device-names property\n");
+ 		return 0;
+ 	}
++
++	ret = mk_dt_validate_device_names(prop_data, len,
++			 sizeof(device_path) - sizeof("/resources/devices/"));
++	if (ret)
++		return ret;
+ 
+ 	base_fdt = mk_dt_get_base_fdt();
+ 	if (!base_fdt) {
+@@ -479,9 +558,6 @@
+ 	offset = 0;
+ 	while (offset < len) {
+ 		device_name = prop_data + offset;
+-
+-		if (device_name[0] == '\0')
+-			break;
+ 
+ 		device_count++;
+ 
+@@ -495,8 +571,8 @@
+ 			return -ENOENT;
+ 		}
+ 
+-		device_type = fdt_getprop(base_fdt, dev_node, "device-type", NULL);
+-		if (!device_type) {
++		ret = mk_dt_get_device_string(base_fdt, dev_node, "device-type", &device_type);
++		if (ret) {
+ 			pr_err("Missing device-type property in device '%s'\n",
+ 			       device_name);
+ 			return -EINVAL;

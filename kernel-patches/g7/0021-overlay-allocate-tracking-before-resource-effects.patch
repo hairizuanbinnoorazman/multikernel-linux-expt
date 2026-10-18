@@ -1,0 +1,43 @@
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -1515,17 +1515,6 @@
+ 
+ 	guard(mutex)(&mk_overlay_mutex);
+ 
+-	ret = mk_overlay_parse_and_apply(tx, dtbo_data);
+-
+-	if (ret < 0) {
+-		pr_err("Failed to apply overlay transaction %d: %d\n", tx->id, ret);
+-		tx->status = MK_OVERLAY_TX_FAILED;
+-		/* Continue to create sysfs entry so user can see failure */
+-	} else {
+-		tx->status = MK_OVERLAY_TX_APPLIED;
+-		pr_info("Overlay transaction %d applied successfully\n", tx->id);
+-	}
+-
+ 	snprintf(tx_name, sizeof(tx_name), "tx_%d", tx->id);
+ 	tx->dir_kn = kernfs_create_dir(mk_overlay_root_kn, tx_name, 0755, tx);
+ 	if (IS_ERR(tx->dir_kn)) {
+@@ -1545,6 +1534,22 @@
+ 		kfree(tx->dtbo_data);
+ 		kfree(tx);
+ 		return ret;
++	}
++
++	/* Allocate the complete inactive transaction record before resource moves.
++	 * This root uses KERNFS_ROOT_CREATE_DEACTIVATED: only activation below
++	 * exposes the record, after its status and resource effects are final.
++	 * Allocation failure must not discard the only record of moved resources.
++	 */
++	ret = mk_overlay_parse_and_apply(tx, dtbo_data);
++
++	if (ret < 0) {
++		pr_err("Failed to apply overlay transaction %d: %d\n", tx->id, ret);
++		tx->status = MK_OVERLAY_TX_FAILED;
++		/* Retain the preallocated record so user space can see failure. */
++	} else {
++		tx->status = MK_OVERLAY_TX_APPLIED;
++		pr_info("Overlay transaction %d applied successfully\n", tx->id);
+ 	}
+ 
+ 	kernfs_activate(tx->dir_kn);

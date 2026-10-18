@@ -121,7 +121,7 @@ const maxHostCommandOutput = 64 << 10
 
 func runHostCommand(ctx context.Context, timeout time.Duration, binary string, arguments ...string) ([]byte, error) {
 	return boundedexec.Run(ctx, timeout, binary, arguments,
-		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, maxHostCommandOutput)
+		[]string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, maxHostCommandOutput)
 }
 
 func Check(ctx context.Context, o Options) Report {

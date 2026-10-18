@@ -82,6 +82,68 @@ func TestStdinFIFOAcceptsLateAndRepeatedWriters(t *testing.T) {
 	}
 }
 
+func TestCloseIODrainsOnlyBytesBufferedAtClose(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "stdin")
+	if err := syscall.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	identity, err := inspectBoundProcessIOPath(path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &process{stdin: path, stdinIdentity: identity, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	client := &stdinCaptureAgent{writes: make(chan []byte, 3)}
+	s := &service{agent: client, processes: map[string]*process{"": p}}
+	if err = s.openProcessIO(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	defer closeProcessIO(p)
+	fd, err := unix.Open(path, unix.O_WRONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := os.NewFile(uintptr(fd), path)
+	defer writer.Close()
+	buffered := strings.Repeat("buffered", 768)
+	if _, err = writer.WriteString(buffered); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.CloseIO(context.Background(), &taskapi.CloseIORequest{Stdin: true}); err != nil {
+		t.Fatal(err)
+	}
+	if p.stdinDrainRemaining != uint32(len(buffered)) {
+		t.Fatalf("captured close bytes = %d", p.stdinDrainRemaining)
+	}
+	// Keep the writer open and append after close. Only the captured prefix may
+	// be delivered; a continuously readable writer cannot extend the drain.
+	if _, err = writer.WriteString("late-input"); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() { s.pumpStdin("init", p); close(done) }()
+	select {
+	case got := <-client.writes:
+		if string(got) != buffered {
+			t.Fatalf("delivered %d bytes, want exact buffered prefix", len(got))
+		}
+	case <-time.After(time.Second):
+		t.Fatal("buffered input was discarded")
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("open writer extended close drain")
+	}
+	if !p.stdinCloseAcked || p.stdinDrainRemaining != 0 || len(p.stdinPending) != 0 {
+		t.Fatal("stdin close was not fully acknowledged")
+	}
+	select {
+	case <-client.writes:
+		t.Fatal("post-close input was forwarded")
+	default:
+	}
+}
+
 func TestCloseIOStopsContinuouslyReadableStdinAfterInflightChunk(t *testing.T) {
 	reader := &controlledInput{reads: make(chan chan []byte)}
 	client := &stdinCaptureAgent{writes: make(chan []byte, 2)}

@@ -1,0 +1,148 @@
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -77,6 +77,7 @@
+ 	size_t dtbo_size;                /* Size of overlay blob */
+ 	struct mk_overlay_step *steps;   /* Preallocated completion ledger */
+ 	unsigned int steps_done;        /* Unconsumed completed operations */
++	bool validate_only;             /* Private read-only preflight descriptor */
+ 	bool rollback_uncertain;        /* A primitive may have partially changed state */
+ 	u64 operation_generation;       /* Created identity / expected undo identity */
+ 	struct kernfs_node *dir_kn;      /* Kernfs directory node */
+@@ -461,6 +462,12 @@
+ 		return -EINVAL;
+ 	}
+ 
++	/* Preflight checks syntax without requiring a preceding create to run. */
++	if (tx->validate_only) {
++		target->kind = MK_OVERLAY_TARGET_INSTANCE;
++		return 0;
++	}
++
+ 	mutex_lock(&mk_instance_mutex);
+ 	target->instance = mk_instance_find_by_name(name);
+ 	if (target->instance)
+@@ -726,7 +733,7 @@
+ 	 * Backend failures can still have partial effects; the transaction
+ 	 * must retain its uncertain-outcome guard in that case.
+ 	 */
+-	for (pass = 0; pass < 2; pass++) {
++	for (pass = 0; pass < (tx->validate_only ? 1 : 2); pass++) {
+ 		fdt_for_each_subnode(item_node, fdt, op_node) {
+ 			const char *name = fdt_get_name(fdt, item_node, NULL);
+ 			u64 base, size;
+@@ -884,7 +891,7 @@
+ 	 * Backend failures can still have partial effects; the transaction
+ 	 * must retain its uncertain-outcome guard in that case.
+ 	 */
+-	for (pass = 0; pass < 2; pass++) {
++	for (pass = 0; pass < (tx->validate_only ? 1 : 2); pass++) {
+ 		fdt_for_each_subnode(item_node, fdt, op_node) {
+ 			const char *name = fdt_get_name(fdt, item_node, NULL);
+ 			u64 base, size;
+@@ -985,7 +992,7 @@
+ 	 * leave a successfully moved prefix. Primitive failures can still
+ 	 * have partial effects and remain subject to uncertain rollback.
+ 	 */
+-	for (pass = 0; pass < 2; pass++) {
++	for (pass = 0; pass < (tx->validate_only ? 1 : 2); pass++) {
+ 		fdt_for_each_subnode(item_node, fdt, op_node) {
+ 			const char *name = fdt_get_name(fdt, item_node, NULL);
+ 			mk_phys_cpu_t cpu_id;
+@@ -1056,7 +1063,7 @@
+ 	 * leave a successfully moved prefix. Primitive failures can still
+ 	 * have partial effects and remain subject to uncertain rollback.
+ 	 */
+-	for (pass = 0; pass < 2; pass++) {
++	for (pass = 0; pass < (tx->validate_only ? 1 : 2); pass++) {
+ 		fdt_for_each_subnode(item_node, fdt, op_node) {
+ 			const char *name = fdt_get_name(fdt, item_node, NULL);
+ 			const char *driver;
+@@ -1175,6 +1182,20 @@
+ 		return -EINVAL;
+ 	}
+ 
++	if (tx->validate_only) {
++		struct mk_dt_config config;
++
++		mk_dt_config_init(&config);
++		if (!config.cpus) {
++			mk_dt_config_free(&config);
++			return -ENOMEM;
++		}
++		ret = mk_dt_parse_resources(fdt, resources_node, instance_name,
++					    &config);
++		mk_dt_config_free(&config);
++		return ret;
++	}
++
+ 	mutex_lock(&mk_instance_mutex);
+ 
+ 	if (mk_instance_find_by_name(instance_name)) {
+@@ -1243,6 +1264,9 @@
+ 			tx->id, instance_name);
+ 		return -EOPNOTSUPP;
+ 	}
++
++	if (tx->validate_only)
++		return 0;
+ 
+ 	mutex_lock(&mk_instance_mutex);
+ 	instance = mk_instance_find_by_name(instance_name);
+@@ -1421,6 +1445,44 @@
+ 	}
+ }
+ 
++/* Validate the complete input before any earlier fragment can move resources.
++ * This descriptor owns no ledger or resource state; validation must not resolve
++ * live instance identity, reserve resources or publish instance/transaction files.
++ */
++static int mk_overlay_preflight_fragments(struct mk_overlay_tx *tx,
++					  const void *fdt,
++					  const struct mk_overlay_fragment *frags,
++					  int nr)
++{
++	struct mk_overlay_tx validation = {
++		.id = tx->id,
++		.dtbo_size = tx->dtbo_size,
++		.validate_only = true,
++	};
++	struct mk_overlay_target target;
++	int fragment, overlay_node, op, ret;
++
++	for (fragment = 0; fragment < nr; fragment++) {
++		ret = mk_overlay_resolve_target(&validation, fdt,
++						frags[fragment].node, &target);
++		if (ret)
++			return ret;
++		overlay_node = mk_overlay_fragment_overlay_node(&validation, fdt,
++							frags[fragment].node,
++							&target);
++		if (overlay_node < 0)
++			return -EINVAL;
++		for (op = 0; op < MK_OVERLAY_OP_COUNT; op++) {
++			ret = mk_overlay_run_op(&validation, fdt, overlay_node,
++						&target, op, false);
++			if (ret)
++				return ret;
++		}
++	}
++
++	return 0;
++}
++
+ static int mk_overlay_apply_fragment(struct mk_overlay_tx *tx, const void *fdt,
+ 				     int fragment)
+ {
+@@ -1479,6 +1541,12 @@
+ 		return nr;
+ 	}
+ 
++	ret = mk_overlay_preflight_fragments(tx, fdt, frags, nr);
++	if (ret) {
++		kfree(frags);
++		return ret;
++	}
++
+ 	/* Reserve every ledger slot before the first resource operation. */
+ 	tx->steps = kcalloc(nr, MK_OVERLAY_OP_COUNT * sizeof(*tx->steps),
+ 			   GFP_KERNEL);

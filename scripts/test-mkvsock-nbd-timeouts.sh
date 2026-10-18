@@ -8,4 +8,4 @@ trap 'rm -rf -- "$build"' EXIT
 cc -O2 -Wall -Wextra -Werror \
 	"$root/scripts/test-mkvsock-nbd-timeouts.c" \
 	-o "$build/test-mkvsock-nbd-timeouts"
-"$build/test-mkvsock-nbd-timeouts"
+timeout 10s "$build/test-mkvsock-nbd-timeouts"

@@ -6,9 +6,14 @@ kernel. Privileged and billable tests are separate, explicit workflows.
 
 ## Prerequisites
 
-The runtime module declares Go 1.26. Repository checks also use Bash, Python 3,
+The runtime module requires Go 1.26.9 or newer to include security fixes.
+Repository checks also use Bash, Python 3,
 and the Python `jsonschema` package. A C compiler is needed for the helper tools
 but not for the default Go unit suite.
+
+Large retained kernel proof archives use Git LFS. Install Git LFS and run
+`git lfs pull` before auditing those bundles. Evidence is checked out without
+line-ending conversion so retained file hashes remain stable across platforms.
 
 Confirm the available entry points from the repository root:
 

@@ -41,32 +41,33 @@ type persisted struct {
 }
 
 type persistedProcess struct {
-	ID                string            `json:"id"`
-	Stdin             string            `json:"stdin,omitempty"`
-	Stdout            string            `json:"stdout,omitempty"`
-	Stderr            string            `json:"stderr,omitempty"`
-	StdinIdentity     processIOIdentity `json:"stdin_identity,omitempty"`
-	StdoutIdentity    processIOIdentity `json:"stdout_identity,omitempty"`
-	StderrIdentity    processIOIdentity `json:"stderr_identity,omitempty"`
-	Terminal          bool              `json:"terminal,omitempty"`
-	Width             uint32            `json:"width,omitempty"`
-	Height            uint32            `json:"height,omitempty"`
-	SizeSet           bool              `json:"size_set,omitempty"`
-	StdinClosed       bool              `json:"stdin_closed,omitempty"`
-	StdinCloseAcked   bool              `json:"stdin_close_acked,omitempty"`
-	StdinOffset       uint64            `json:"stdin_offset,omitempty"`
-	StdinPending      []byte            `json:"stdin_pending,omitempty"`
-	Status            tasktypes.Status  `json:"status"`
-	PID               uint32            `json:"pid,omitempty"`
-	Exit              uint32            `json:"exit,omitempty"`
-	Exited            time.Time         `json:"exited,omitempty"`
-	StdoutOffset      uint64            `json:"stdout_offset,omitempty"`
-	StderrOffset      uint64            `json:"stderr_offset,omitempty"`
-	ExitEventQueued   bool              `json:"exit_event_queued,omitempty"`
-	DeleteEventQueued bool              `json:"delete_event_queued,omitempty"`
-	PendingSignal     uint32            `json:"pending_signal,omitempty"`
-	PendingSignalOp   string            `json:"pending_signal_operation,omitempty"`
-	PendingSignalAck  bool              `json:"pending_signal_acknowledgement,omitempty"`
+	ID                  string            `json:"id"`
+	Stdin               string            `json:"stdin,omitempty"`
+	Stdout              string            `json:"stdout,omitempty"`
+	Stderr              string            `json:"stderr,omitempty"`
+	StdinIdentity       processIOIdentity `json:"stdin_identity,omitempty"`
+	StdoutIdentity      processIOIdentity `json:"stdout_identity,omitempty"`
+	StderrIdentity      processIOIdentity `json:"stderr_identity,omitempty"`
+	Terminal            bool              `json:"terminal,omitempty"`
+	Width               uint32            `json:"width,omitempty"`
+	Height              uint32            `json:"height,omitempty"`
+	SizeSet             bool              `json:"size_set,omitempty"`
+	StdinClosed         bool              `json:"stdin_closed,omitempty"`
+	StdinCloseAcked     bool              `json:"stdin_close_acked,omitempty"`
+	StdinOffset         uint64            `json:"stdin_offset,omitempty"`
+	StdinDrainRemaining uint32            `json:"stdin_drain_remaining,omitempty"`
+	StdinPending        []byte            `json:"stdin_pending,omitempty"`
+	Status              tasktypes.Status  `json:"status"`
+	PID                 uint32            `json:"pid,omitempty"`
+	Exit                uint32            `json:"exit,omitempty"`
+	Exited              time.Time         `json:"exited,omitempty"`
+	StdoutOffset        uint64            `json:"stdout_offset,omitempty"`
+	StderrOffset        uint64            `json:"stderr_offset,omitempty"`
+	ExitEventQueued     bool              `json:"exit_event_queued,omitempty"`
+	DeleteEventQueued   bool              `json:"delete_event_queued,omitempty"`
+	PendingSignal       uint32            `json:"pending_signal,omitempty"`
+	PendingSignalOp     string            `json:"pending_signal_operation,omitempty"`
+	PendingSignalAck    bool              `json:"pending_signal_acknowledgement,omitempty"`
 }
 
 type processIOIdentity struct {
@@ -98,7 +99,7 @@ func validProcessIOIdentity(path string, value processIOIdentity, stdin bool) bo
 }
 
 func validatePersistedRecovery(value persisted, namespace, task string) error {
-	if value.SchemaVersion != 3 || value.BundleIdentity.Device == 0 || value.BundleIdentity.Inode == 0 ||
+	if (value.SchemaVersion != 3 && value.SchemaVersion != 4) || value.BundleIdentity.Device == 0 || value.BundleIdentity.Inode == 0 ||
 		value.BundleIdentity.UID != uint32(os.Geteuid()) || value.ID != sandboxID(namespace, task) ||
 		!recoveryGeneration.MatchString(value.Generation) ||
 		value.TaskIdentity != storageTaskIdentity(namespace, task) ||
@@ -140,7 +141,9 @@ func validatePersistedRecovery(value persisted, namespace, task string) error {
 			return errors.New("shim recovery contains an invalid pending signal")
 		}
 		if process.Width > 65535 || process.Height > 65535 || process.StdinCloseAcked &&
-			(!process.StdinClosed || len(process.StdinPending) != 0) {
+			(!process.StdinClosed || len(process.StdinPending) != 0 || process.StdinDrainRemaining != 0) ||
+			process.StdinDrainRemaining > maxStdinCloseDrain || value.SchemaVersion == 3 && process.StdinDrainRemaining != 0 || process.StdinDrainRemaining != 0 &&
+			(!process.StdinClosed || process.Stdin == "") {
 			return errors.New("shim recovery contains invalid terminal or stdin state")
 		}
 		if len(process.StdinPending) > 32<<10 || len(process.StdinPending) != 0 &&
@@ -233,7 +236,7 @@ func (s *service) persistRecovery() error {
 		return nil
 	}
 	network := s.networkReport("READY")
-	p := persisted{SchemaVersion: 3, BundleIdentity: s.bundleIdentity, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
+	p := persisted{SchemaVersion: 4, BundleIdentity: s.bundleIdentity, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
 		TaskIdentity: storageTaskIdentity(s.namespace, s.id)}
 	if s.sandbox.Config.Storage != nil {
 		p.StorageSHA256 = s.sandbox.Config.Storage.SHA256
@@ -247,7 +250,7 @@ func (s *service) persistRecovery() error {
 			StdinIdentity: process.stdinIdentity, StdoutIdentity: process.stdoutIdentity, StderrIdentity: process.stderrIdentity,
 			Terminal: process.terminal, Width: process.width, Height: process.height,
 			SizeSet: process.sizeSet, StdinClosed: process.stdinClosed, StdinCloseAcked: process.stdinCloseAcked,
-			StdinOffset: process.stdinOffset, StdinPending: append([]byte(nil), process.stdinPending...), Status: process.status,
+			StdinOffset: process.stdinOffset, StdinDrainRemaining: process.stdinDrainRemaining, StdinPending: append([]byte(nil), process.stdinPending...), Status: process.status,
 			PID: process.pid, Exit: process.exit, Exited: process.exited,
 			StdoutOffset: process.stdoutOffset, StderrOffset: process.stderrOffset,
 			ExitEventQueued: process.exitEventQueued, DeleteEventQueued: process.deleteEventQueued,
@@ -416,7 +419,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			stdinIdentity: saved.StdinIdentity, stdoutIdentity: saved.StdoutIdentity, stderrIdentity: saved.StderrIdentity,
 			terminal: saved.Terminal, width: saved.Width, height: saved.Height,
 			sizeSet: saved.SizeSet, stdinClosed: saved.StdinClosed, stdinCloseAcked: saved.StdinCloseAcked,
-			stdinOffset: saved.StdinOffset, stdinPending: append([]byte(nil), saved.StdinPending...), status: saved.Status,
+			stdinOffset: saved.StdinOffset, stdinDrainRemaining: saved.StdinDrainRemaining, stdinPending: append([]byte(nil), saved.StdinPending...), status: saved.Status,
 			pid: saved.PID, exit: saved.Exit, exited: saved.Exited,
 			stdoutOffset: saved.StdoutOffset, stderrOffset: saved.StderrOffset,
 			exitEventQueued: saved.ExitEventQueued, deleteEventQueued: saved.DeleteEventQueued, done: make(chan struct{}),

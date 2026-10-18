@@ -1,0 +1,806 @@
+--- a/include/linux/multikernel.h
++++ b/include/linux/multikernel.h
+@@ -558,8 +558,18 @@
+  * Each instance represents a potential or active multikernel with
+  * its own resource allocation and state management.
+  */
++enum mk_cpu_transfer_state {
++	MK_CPU_TRANSFER_STABLE,
++	MK_CPU_TRANSFER_MOVING,
++	MK_CPU_TRANSFER_UNCERTAIN,
++	MK_CPU_TRANSFER_RELEASING,
++};
++
+ struct mk_instance {
+ 	u64 generation;                 /* Unique for this object lifetime */
++	int cpu_transfer_state;          /* cmpxchg-claimed; uncertain until teardown */
++	struct list_head retained_list; /* Last-reference safety retention registry */
++	int release_error;
+ 	int id;                         /* Kernel-assigned instance ID */
+ 	char *name;                     /* User-provided instance name */
+ 	enum mk_instance_state state;   /* Current state */
+@@ -791,7 +801,9 @@
+  * and removes them from the resource hierarchy.
+  */
+ void mk_instance_free_memory(struct mk_instance *instance);
+-
++struct seq_file;
++int mk_retained_instances_show(struct seq_file *sf, void *v);
++int mk_instance_begin_release(struct mk_instance *instance);
+ 
+ int mk_instance_transfer_cpus(struct mk_instance *instance,
+ 			       const struct mk_cpu_set *cpus);
+@@ -967,7 +979,6 @@
+  */
+ int mk_manifest_add_host_ipi(struct kimage *image, void *fdt);
+ 
+-
+ /**
+  * mk_instance_restore_from_manifest() - Restore this instance from the manifest
+  *
+--- a/kernel/multikernel/hotplug.c
++++ b/kernel/multikernel/hotplug.c
+@@ -1246,6 +1246,13 @@
+ 	if (!target_instance)
+ 		return -ENODEV;
+ 
++	if (cmpxchg(&target_instance->cpu_transfer_state,
++		    MK_CPU_TRANSFER_STABLE, MK_CPU_TRANSFER_MOVING) != MK_CPU_TRANSFER_STABLE) {
++		ret = -EUCLEAN;
++		mk_instance_put(target_instance);
++		return ret;
++	}
++
+ 	/* Ownership must be checked before even a non-running CPU is reparked. */
+ 	if (!mk_cpu_pool || !target_instance->cpus) {
+ 		ret = -ENODEV;
+@@ -1281,10 +1288,12 @@
+ 		if (ret < 0) {
+ 			pr_err("Multikernel hotplug: CPU %llu not reparked to host: %d\n",
+ 			       cpu_id, ret);
+-			goto out;
++			goto uncertain;
+ 		}
+ 
+ 		ret = mk_instance_return_cpus(target_instance, &cpus);
++		if (ret)
++			goto uncertain;
+ 		goto out;
+ 	}
+ 
+@@ -1299,12 +1308,12 @@
+ 			      &payload, sizeof(payload));
+ 	if (ret < 0) {
+ 		mk_msg_pending_wait(pending, 0);  /* Immediate cleanup */
+-		goto out;
++		goto uncertain;
+ 	}
+ 
+ 	ret = mk_msg_pending_wait(pending, 10000);
+ 	if (ret < 0)
+-		goto out;
++		goto uncertain;
+ 
+ 	/*
+ 	 * The spawn kernel parked the CPU on its own context when it went
+@@ -1318,21 +1327,27 @@
+ 	if (ret < 0) {
+ 		pr_err("Multikernel hotplug: CPU %llu offline in instance %d but not reparked to host: %d\n",
+ 		       cpu_id, instance_id, ret);
+-		goto out;
+-	}
+-
+-	/* Keep the old ownership record until the pool can track the CPU. */
+-	ret = mk_cpu_set_add(mk_cpu_pool, cpu_id);
+-	if (ret) {
+-		pr_err("Multikernel hotplug: CPU %llu parked at host but pool tracking failed; retaining instance %d ownership for reconciliation\n",
+-		       cpu_id, instance_id);
+-		ret = -EUCLEAN;
+-		goto out;
+-	}
+-	mk_cpu_set_del(target_instance->cpus, cpu_id);
+-
++		goto uncertain;
++	}
++
++	{
++		struct mk_cpu_set cpus = { .nr = 1, .cap = 1, .ids = &cpu_id };
++
++		ret = mk_instance_return_cpus(target_instance, &cpus);
++		if (ret)
++			goto uncertain;
++	}
++	WRITE_ONCE(target_instance->cpu_transfer_state, MK_CPU_TRANSFER_STABLE);
+ 	ret = 0;
++	goto out;
++uncertain:
++	WRITE_ONCE(target_instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
++	pr_err("CPU %llu removal from instance %d generation %llu uncertain (%d); ownership retained\n",
++	       cpu_id, instance_id, target_instance->generation, ret);
++	ret = -EUCLEAN;
+ out:
++	cmpxchg(&target_instance->cpu_transfer_state, MK_CPU_TRANSFER_MOVING,
++		MK_CPU_TRANSFER_STABLE);
+ 	mk_instance_put(target_instance);
+ 	return ret;
+ }
+@@ -1381,6 +1396,13 @@
+ 		return -ENODEV;
+ 	}
+ 
++	if (cmpxchg(&target_instance->cpu_transfer_state,
++		    MK_CPU_TRANSFER_STABLE, MK_CPU_TRANSFER_MOVING) != MK_CPU_TRANSFER_STABLE) {
++		ret = -EUCLEAN;
++		mk_instance_put(target_instance);
++		return ret;
++	}
++
+ 	/*
+ 	 * Validate both ownership records and reserve tracking before any repark
+ 	 * or IPI. An allocation failure after the peer onlines the CPU cannot
+@@ -1417,6 +1439,17 @@
+ 		goto out;
+ 	}
+ 
++	{
++		struct mk_cpu_set cpus = { .nr = 1, .cap = 1, .ids = &cpu_id };
++
++		ret = mk_instance_transfer_cpus(target_instance, &cpus);
++		if (ret) {
++			WRITE_ONCE(target_instance->cpu_transfer_state, MK_CPU_TRANSFER_STABLE);
++			mk_msg_pending_wait(pending, 0);
++			goto out;
++		}
++	}
++
+ 	/*
+ 	 * The CPU is parked on the host slot, where the spawn kernel's
+ 	 * secondary wakeup cannot reach it. Point it at the instance's
+@@ -1424,48 +1457,32 @@
+ 	 */
+ 	ret = mk_repark_cpu_to_instance(target_instance, cpu_id);
+ 	if (ret < 0) {
+-		pr_err("Multikernel hotplug: Failed to repark CPU %llu to instance %d: %d\n",
+-		       cpu_id, instance_id, ret);
+ 		mk_msg_pending_wait(pending, 0);
+-		goto out;
++		goto uncertain;
+ 	}
+ 
+ 	ret = mk_send_message(instance_id, MK_MSG_RESOURCE, MK_RES_CPU_ADD,
+ 			      &payload, sizeof(payload));
+ 	if (ret < 0) {
+-		mk_msg_pending_wait(pending, 0);  /* Immediate cleanup */
+-		mk_repark_cpu_to_host(target_instance, cpu_id);
+-		goto out;
++		mk_msg_pending_wait(pending, 0);
++		goto uncertain;
+ 	}
+ 
+ 	ret = mk_msg_pending_wait(pending, 10000);
+-	if (ret < 0) {
+-		/*
+-		 * Best effort: if the instance never picked the CPU up, it
+-		 * is still parked on the instance context and comes home;
+-		 * if the instance onlined it despite the error, nothing is
+-		 * watching the context and this times out harmlessly.
+-		 */
+-		mk_repark_cpu_to_host(target_instance, cpu_id);
+-		goto out;
+-	}
+-
+-	ret = mk_cpu_set_add(target_instance->cpus, cpu_id);
+-	/*
+-	 * An acknowledged online CPU must never remain assignable in the pool,
+-	 * including an unexpected bookkeeping failure. Do not speculate that it
+-	 * can be moved back: retain the error for resource reconciliation.
+-	 */
+-	mk_cpu_set_del(mk_cpu_pool, cpu_id);
+-	if (ret) {
+-		pr_err("Multikernel hotplug: CPU %llu online in instance %d (generation %llu) but tracking failed; reconciliation required\n",
+-		       cpu_id, instance_id, target_instance->generation);
+-		ret = -EUCLEAN;
+-		goto out;
+-	}
+-
++	if (ret < 0)
++		goto uncertain;
++
++	WRITE_ONCE(target_instance->cpu_transfer_state, MK_CPU_TRANSFER_STABLE);
+ 	ret = 0;
++	goto out;
++uncertain:
++	WRITE_ONCE(target_instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
++	pr_err("CPU %llu transfer to instance %d generation %llu uncertain (%d); ownership retained\n",
++	       cpu_id, instance_id, target_instance->generation, ret);
++	ret = -EUCLEAN;
+ out:
++	cmpxchg(&target_instance->cpu_transfer_state, MK_CPU_TRANSFER_MOVING,
++		MK_CPU_TRANSFER_STABLE);
+ 	mk_instance_put(target_instance);
+ 	return ret;
+ }
+@@ -1507,6 +1524,11 @@
+ 	if (!target_instance)
+ 		return -ENODEV;
+ 
++	if (READ_ONCE(target_instance->cpu_transfer_state) != MK_CPU_TRANSFER_STABLE) {
++		ret = -EUCLEAN;
++		goto out;
++	}
++
+ 	/* For non-running instances, allocate memory from pool and add to instance */
+ 	if (target_instance->state != MK_STATE_ACTIVE) {
+ 		size_t size;
+@@ -1575,6 +1597,11 @@
+ 	target_instance = mk_instance_find(instance_id);
+ 	if (!target_instance)
+ 		return -ENODEV;
++
++	if (READ_ONCE(target_instance->cpu_transfer_state) != MK_CPU_TRANSFER_STABLE) {
++		ret = -EUCLEAN;
++		goto out;
++	}
+ 
+ 	/* For non-running instances, just remove the memory region from the instance */
+ 	if (target_instance->state != MK_STATE_ACTIVE) {
+@@ -1663,6 +1690,11 @@
+ 	if (!target_instance)
+ 		return -ENODEV;
+ 
++	if (READ_ONCE(target_instance->cpu_transfer_state) != MK_CPU_TRANSFER_STABLE) {
++		ret = -EUCLEAN;
++		goto out;
++	}
++
+ 	if (target_instance->state != MK_STATE_ACTIVE) {
+ 		ret = mk_instance_add_pci_device(target_instance, domain, bus, devfn);
+ 		goto out;
+@@ -1741,6 +1773,11 @@
+ 	if (!target_instance)
+ 		return -ENODEV;
+ 
++	if (READ_ONCE(target_instance->cpu_transfer_state) != MK_CPU_TRANSFER_STABLE) {
++		ret = -EUCLEAN;
++		goto out;
++	}
++
+ 	if (target_instance->state != MK_STATE_ACTIVE) {
+ 		ret = mk_instance_remove_pci_device(target_instance, domain, bus, devfn);
+ 		goto out;
+--- a/kernel/multikernel/core.c
++++ b/kernel/multikernel/core.c
+@@ -3,6 +3,7 @@
+  * Copyright (C) 2025 Multikernel Technologies, Inc. All rights reserved
+  */
+ #include <linux/module.h>
++#include <linux/seq_file.h>
+ #include <linux/atomic.h>
+ #include <linux/kernel.h>
+ #include <linux/err.h>
+@@ -37,15 +38,15 @@
+ 	return 0;
+ }
+ 
+-static void mk_instance_return_all_cpus(struct mk_instance *instance)
++static int mk_instance_return_all_cpus(struct mk_instance *instance)
+ {
+ 	if (!instance || mk_cpu_set_empty(instance->cpus))
+-		return;
++		return 0;
+ 
+ 	if (instance == root_instance || instance->id == 0)
+-		return;
+-
+-	mk_instance_return_cpus(instance, instance->cpus);
++		return 0;
++
++	return mk_instance_return_cpus(instance, instance->cpus);
+ }
+ 
+ static void mk_instance_return_pci_devices(struct mk_instance *instance)
+@@ -155,14 +156,65 @@
+ 	instance->platform_devices_valid = false;
+ }
+ 
++/* An image/directory release must exclude any in-flight CPU operation. */
++int mk_instance_begin_release(struct mk_instance *instance)
++{
++	int state = READ_ONCE(instance->cpu_transfer_state);
++
++	if (state != MK_CPU_TRANSFER_STABLE && state != MK_CPU_TRANSFER_UNCERTAIN)
++		return -EBUSY;
++	if (cmpxchg(&instance->cpu_transfer_state, state, MK_CPU_TRANSFER_RELEASING) != state)
++		return -EBUSY;
++	return state;
++}
++
++/* Last-reference failures retain the complete allocation and ownership metadata.
++ * These records have no kref users; only this registry may inspect them.
++ */
++static LIST_HEAD(mk_retained_instances);
++static DEFINE_SPINLOCK(mk_retained_instances_lock);
++
++static void mk_instance_retain(struct mk_instance *instance, int error)
++{
++	unsigned long flags;
++
++	instance->release_error = error;
++	spin_lock_irqsave(&mk_retained_instances_lock, flags);
++	list_add_tail(&instance->retained_list, &mk_retained_instances);
++	spin_unlock_irqrestore(&mk_retained_instances_lock, flags);
++	pr_err("Retained instance %d generation %llu after unsafe release: %d\n",
++	       instance->id, instance->generation, error);
++}
++
++int mk_retained_instances_show(struct seq_file *sf, void *v)
++{
++	struct mk_instance *instance;
++	unsigned long flags;
++
++	spin_lock_irqsave(&mk_retained_instances_lock, flags);
++	list_for_each_entry(instance, &mk_retained_instances, retained_list)
++		seq_printf(sf, "id=%d generation=%llu error=%d cpus=%u regions=%d\n",
++			   instance->id, instance->generation, instance->release_error,
++			   mk_cpu_set_count(instance->cpus), instance->region_count);
++	spin_unlock_irqrestore(&mk_retained_instances_lock, flags);
++	return 0;
++}
++
+ static void mk_instance_release(struct kref *kref)
+ {
+ 	struct mk_instance *instance = container_of(kref, struct mk_instance, refcount);
++	int ret;
+ 
+ 	pr_info("Releasing multikernel instance %d (%s), returning resources to root\n",
+ 		instance->id, instance->name);
+ 
+-	mk_instance_return_all_cpus(instance);
++	ret = mk_arch_release_instance(instance);
++	if (!ret)
++		ret = mk_instance_return_all_cpus(instance);
++	if (ret) {
++		mk_instance_retain(instance, ret);
++		return;
++	}
+ 	mk_instance_return_pci_devices(instance);
+ 	mk_instance_return_platform_devices(instance);
+ 	mk_instance_free_memory(instance);
+@@ -312,11 +364,14 @@
+ 	unsigned int i;
+ 	int ret, failed = 0;
+ 
++	if (READ_ONCE(instance->cpu_transfer_state) == MK_CPU_TRANSFER_MOVING)
++		return -EBUSY;
++
+ 	/* Never started, so nothing of it is running */
+ 	if (!instance->spawn_ctx)
+ 		return 0;
+ 
+-	mk_cpu_set_for_each(i, phys_cpu, instance->cpus_on_slot) {
++	mk_cpu_set_for_each(i, phys_cpu, instance->cpus) {
+ 		ret = mk_arch_confirm_parked(instance, phys_cpu);
+ 		if (ret) {
+ 			pr_err("Instance %d (%s): CPU %llu is not parked: %d\n",
+@@ -385,8 +440,10 @@
+ 		return ret;
+ 
+ 	mk_cpu_set_for_each(i, phys_cpu, cpus) {
++		ret = mk_cpu_set_add(instance->cpus, phys_cpu);
++		if (ret)
++			return -EUCLEAN;
+ 		mk_cpu_set_del(mk_cpu_pool, phys_cpu);
+-		mk_cpu_set_add(instance->cpus, phys_cpu);
+ 	}
+ 
+ 	mk_cpu_set_format(buf, sizeof(buf), instance->cpus);
+@@ -429,6 +486,8 @@
+ 
+ 	/* Validate all CPUs are assigned to this instance */
+ 	mk_cpu_set_for_each(i, phys_cpu, cpus) {
++		if (mk_cpu_set_contains(instance->cpus_on_slot, phys_cpu))
++			return -EBUSY;
+ 		if (!mk_cpu_set_contains(instance->cpus, phys_cpu)) {
+ 			pr_err("CPU %llu not assigned to instance %d (%s)\n",
+ 			       phys_cpu, instance->id, instance->name);
+@@ -455,7 +514,9 @@
+ 	 */
+ 	for (i = requested_count; i-- > 0; ) {
+ 		phys_cpu = cpus->ids[i];
+-		mk_cpu_set_add(mk_cpu_pool, phys_cpu);
++		ret = mk_cpu_set_add(mk_cpu_pool, phys_cpu);
++		if (ret)
++			return -EUCLEAN;
+ 		mk_cpu_set_del(instance->cpus, phys_cpu);
+ 	}
+ 
+@@ -477,10 +538,18 @@
+  */
+ bool mk_pool_cpus_returned(void)
+ {
++	unsigned long retained_flags;
++	bool retained;
+ 	struct mk_instance *instance;
+ 	bool returned = true;
+ 
+ 	if (mk_cpu_pool && !mk_cpu_set_empty(mk_cpu_pool))
++		return false;
++
++	spin_lock_irqsave(&mk_retained_instances_lock, retained_flags);
++	retained = !list_empty(&mk_retained_instances);
++	spin_unlock_irqrestore(&mk_retained_instances_lock, retained_flags);
++	if (retained)
+ 		return false;
+ 
+ 	mutex_lock(&mk_instance_mutex);
+@@ -1042,6 +1111,10 @@
+ 
+ 	if (!instance)
+ 		return;
++	if (mk_arch_release_instance(instance)) {
++		pr_err("Instance %d memory retained: CPUs not safely released\n", instance->id);
++		return;
++	}
+ 
+ 	list_for_each_entry_safe(region, tmp, &instance->memory_regions, list) {
+ 		u64 region_size = resource_size(&region->res);
+@@ -1075,21 +1148,6 @@
+ 		 * The arch reparks CPUs still watching this instance's
+ 		 * context back to the host slot before the block goes away.
+ 		 */
+-		if (mk_arch_release_instance(instance)) {
+-			/*
+-			 * A CPU never claimed its repark: it is still parked
+-			 * on this instance's context, executing from the park
+-			 * page inside this pool. Handing the memory back
+-			 * would let the next instance overwrite code a CPU is
+-			 * running, so leak the whole pool instead.
+-			 */
+-			pr_err("Instance %d (%s): leaking its %zu byte pool, a lost CPU still parks in it\n",
+-			       instance->id, instance->name,
+-			       instance->pool_size);
+-			instance->instance_pool = NULL;
+-			instance->pool_size = 0;
+-			return;
+-		}
+ 
+ 		if (instance->ctrl_va) {
+ 			mk_instance_free(instance, instance->ctrl_va,
+@@ -1127,6 +1185,10 @@
+ 		pr_err("Invalid parameters to mk_instance_reserve_resources\n");
+ 		return -EINVAL;
+ 	}
++
++	ret = mk_arch_release_instance(instance);
++	if (ret)
++		return ret;
+ 
+ 	/* Free any existing memory regions first */
+ 	mk_instance_free_memory(instance);
+@@ -1339,7 +1401,6 @@
+ 	u32 flags;
+ 	int sender_instance_id;
+ };
+-
+ 
+ /*
+  * Notify @target_id that this kernel is going down, while messaging
+--- a/arch/x86/multikernel/spawn.c
++++ b/arch/x86/multikernel/spawn.c
+@@ -284,13 +284,17 @@
+ 		if (mk_cpu_set_contains(on_slot, phys_cpu))
+ 			continue;
+ 
++		ret = mk_cpu_set_add(on_slot, phys_cpu);
++		if (ret)
++			return ret;
+ 		ret = mk_publish_repark(slot, (u32)phys_cpu, ctx->park_phys,
+ 					ctx->park_cr3, virt_to_phys(ctx),
+ 					"repark to instance");
+-		if (ret)
++		if (ret) {
++			WRITE_ONCE(instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
+ 			return ret;
+-
+-		mk_cpu_set_add(on_slot, phys_cpu);
++		}
++
+ 	}
+ 
+ 	return 0;
+@@ -324,7 +328,10 @@
+ 	if (mk_cpu_set_contains(instance->cpus_on_slot, apic_id)) {
+ 		/* The boot CPU parked on this context when the instance halted */
+ 		ctx->flags = 0;
+-		return mk_slot_wake(ctx, apic_id, "re-spawn boot cpu");
++		ret = mk_slot_wake(ctx, apic_id, "re-spawn boot cpu");
++		if (ret)
++			WRITE_ONCE(instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
++		return ret;
+ 	}
+ 
+ 	slot->identity_cr3 = ctx->identity_cr3;
+@@ -332,16 +339,12 @@
+ 	slot->trampoline_phys = ctx->trampoline_phys;
+ 	slot->self_phys = virt_to_phys(ctx);
+ 	slot->flags = 0;
++	ret = mk_cpu_set_add(instance->cpus_on_slot, apic_id);
++	if (ret)
++		return ret;
+ 	ret = mk_slot_wake(slot, apic_id, "first spawn boot cpu");
+-	if (!ret) {
+-		/*
+-		 * It is running the instance's kernel now, and will park on
+-		 * that kernel's context when the instance halts. The add
+-		 * cannot fail: mk_repark_to_instance() reserved room for
+-		 * every CPU of the instance.
+-		 */
+-		mk_cpu_set_add(instance->cpus_on_slot, apic_id);
+-	}
++	if (ret)
++		WRITE_ONCE(instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
+ 	return ret;
+ }
+ 
+@@ -493,6 +496,9 @@
+ {
+ 	int ret;
+ 
++	ret = mk_instance_confirm_parked(instance);
++	if (ret)
++		return ret;
+ 	ret = mk_repark_instance_to_host(instance);
+ 	if (ret) {
+ 		char buf[256];
+@@ -512,6 +518,8 @@
+ 	instance->park_va = NULL;
+ 	instance->spawn_ctx = NULL;
+ 	instance->spawn_ctx_phys = 0;
++	if (READ_ONCE(instance->cpu_transfer_state) != MK_CPU_TRANSFER_RELEASING)
++		WRITE_ONCE(instance->cpu_transfer_state, MK_CPU_TRANSFER_STABLE);
+ 	return 0;
+ }
+ 
+@@ -546,11 +554,15 @@
+ 	if (mk_cpu_set_contains(on_slot, phys_cpu))
+ 		return 0;
+ 
++	ret = mk_cpu_set_add(on_slot, phys_cpu);
++	if (ret)
++		return ret;
++
+ 	ret = mk_publish_repark(slot, (u32)phys_cpu, ctx->park_phys,
+ 				ctx->park_cr3, instance->spawn_ctx_phys,
+ 				"repark hot-added cpu");
+-	if (!ret)
+-		mk_cpu_set_add(on_slot, phys_cpu);
++	if (ret)
++		WRITE_ONCE(instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
+ 	return ret;
+ }
+ 
+@@ -655,8 +667,10 @@
+ 	unsigned int i;
+ 	int failed = 0;
+ 
+-	if (mk_cpu_set_empty(on_slot) || !ctx || !mk_host_park.slot)
++	if (mk_cpu_set_empty(on_slot))
+ 		return 0;
++	if (!ctx || !mk_host_park.slot)
++		return -ENODEV;
+ 
+ 	guard(mutex)(&mk_park_mutex);
+ 
+@@ -1628,7 +1642,6 @@
+ 	kfree(pgt);
+ }
+ 
+-
+ unsigned long mk_get_identity_cr3(struct mk_ident_pgtable *pgt)
+ {
+ 	return pgt ? pgt->pgd_phys : 0;
+--- a/kernel/multikernel/kernfs.c
++++ b/kernel/multikernel/kernfs.c
+@@ -126,6 +126,19 @@
+ 	return 0;
+ }
+ 
++static int cpu_transfer_seq_show(struct seq_file *sf, void *v)
++{
++	struct kernfs_open_file *of = sf->private;
++	struct mk_instance *instance = of->kn->priv;
++	int state = READ_ONCE(instance->cpu_transfer_state);
++
++	seq_puts(sf, state == MK_CPU_TRANSFER_STABLE ? "stable\n" :
++		 state == MK_CPU_TRANSFER_MOVING ? "in-progress\n" :
++		 state == MK_CPU_TRANSFER_RELEASING ? "releasing\n" :
++		 "reconciliation-required\n");
++	return 0;
++}
++
+ /* Root-level device_tree attribute - shows current baseline pool from kernel structures */
+ static int root_device_tree_seq_show(struct seq_file *sf, void *v)
+ {
+@@ -172,7 +185,6 @@
+ 
+ 	return to_read;
+ }
+-
+ 
+ /* Root-level device_tree write - accepts host kernel configuration only */
+ static ssize_t root_device_tree_write(struct kernfs_open_file *of, char *buf, size_t count, loff_t off)
+@@ -360,10 +372,16 @@
+ 	return ret;
+ }
+ 
+-
+ /* Kernfs file operations */
+ static const struct kernfs_ops mk_id_ops = {
+ 	.seq_show = id_seq_show,
++};
++
++static const struct kernfs_ops mk_cpu_transfer_ops = {
++	.seq_show = cpu_transfer_seq_show,
++};
++static const struct kernfs_ops mk_retained_instances_ops = {
++	.seq_show = mk_retained_instances_show,
+ };
+ 
+ static const struct kernfs_ops mk_status_ops = {
+@@ -405,6 +423,12 @@
+ 		return PTR_ERR(kn);
+ 	}
+ 
++	kn = __kernfs_create_file(instance->kn, "cpu_transfer", 0444,
++				  GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, 0,
++				  &mk_cpu_transfer_ops, instance, NULL, NULL);
++	if (IS_ERR(kn))
++		return PTR_ERR(kn);
++
+ 	kn = __kernfs_create_file(instance->kn, "device_tree", 0444,
+ 				  GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, 0,
+ 				  &mk_instance_device_tree_ops, instance, NULL, NULL);
+@@ -416,12 +440,10 @@
+ 	return 0;
+ }
+ 
+-
+ static int mk_kernfs_mkdir(struct kernfs_node *parent, const char *name, umode_t mode)
+ {
+ 	return -EPERM;
+ }
+-
+ 
+ static int mk_kernfs_rmdir(struct kernfs_node *kn)
+ {
+@@ -445,6 +467,8 @@
+  */
+ int mk_instance_destroy(struct mk_instance *instance)
+ {
++	int ret;
++
+ 	lockdep_assert_held(&mk_instance_mutex);
+ 
+ 	if (!instance) {
+@@ -462,6 +486,20 @@
+ 		pr_err("Cannot remove instance '%s' (ID: %d) with loaded kernel. Unload it first.\n",
+ 		       instance->name, instance->id);
+ 		return -EBUSY;
++	}
++
++	ret = mk_instance_begin_release(instance);
++	if (ret < 0)
++		return ret;
++	ret = mk_arch_release_instance(instance);
++	if (ret) {
++		WRITE_ONCE(instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
++		return ret;
++	}
++	ret = mk_instance_return_cpus(instance, instance->cpus);
++	if (ret) {
++		WRITE_ONCE(instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
++		return ret;
+ 	}
+ 
+ 	list_del(&instance->list);
+@@ -565,6 +603,19 @@
+ 		return ret;
+ 	}
+ 
++	{
++		struct kernfs_node *retained_kn;
++
++		retained_kn = __kernfs_create_file(mk_root_kn, "retained_instances", 0400,
++			GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, 0,
++			&mk_retained_instances_ops, NULL, NULL, NULL);
++		if (IS_ERR(retained_kn)) {
++			ret = PTR_ERR(retained_kn);
++			kernfs_destroy_root(mk_kernfs_root);
++			return ret;
++		}
++	}
++
+ 	/* Register the filesystem */
+ 	ret = register_filesystem(&mk_fs_type);
+ 	if (ret) {
+--- a/kernel/kexec_core.c
++++ b/kernel/kexec_core.c
+@@ -533,14 +533,12 @@
+ 	return kimage_add_entry(image, destination | IND_DESTINATION);
+ }
+ 
+-
+ static int kimage_add_page(struct kimage *image, unsigned long page)
+ {
+ 	page &= PAGE_MASK;
+ 
+ 	return kimage_add_entry(image, page | IND_SOURCE);
+ }
+-
+ 
+ static void kimage_free_extra_pages(struct kimage *image)
+ {
+@@ -595,9 +593,29 @@
+ {
+ 	kimage_entry_t *ptr, entry;
+ 	kimage_entry_t ind = 0;
++#ifdef CONFIG_MULTIKERNEL
++	struct mk_instance *releasing_instance = NULL;
++	int old_cpu_state = MK_CPU_TRANSFER_STABLE;
++#endif
+ 
+ 	if (!image)
+ 		return;
++
++#ifdef CONFIG_MULTIKERNEL
++	/* Keep the image-owned reference and gate until all image/ring frees finish. */
++	if (image->type == KEXEC_TYPE_MULTIKERNEL && image->mk_instance) {
++		releasing_instance = image->mk_instance;
++		old_cpu_state = mk_instance_begin_release(releasing_instance);
++		if (old_cpu_state < 0)
++			return;
++		if (mk_instance_confirm_parked(releasing_instance)) {
++			WRITE_ONCE(releasing_instance->cpu_transfer_state, MK_CPU_TRANSFER_UNCERTAIN);
++			pr_err("Retaining multikernel image %d: CPUs not safely parked\n",
++			       releasing_instance->id);
++			return;
++		}
++	}
++#endif
+ 
+ 	/* Remove from linked list and update compatibility pointers */
+ 	kimage_remove_from_list(image);
+@@ -629,7 +647,9 @@
+ 			image->mk_instance->ipi_phys = 0;
+ 			image->mk_instance->kimage = NULL;
+ 			mk_instance_set_state(image->mk_instance, MK_STATE_READY);
++#ifndef CONFIG_MULTIKERNEL
+ 			mk_instance_put(image->mk_instance);
++#endif
+ 			image->mk_instance = NULL;
+ 		}
+ 
+@@ -690,6 +710,12 @@
+ 		kimage_file_post_load_cleanup(image);
+ 	}
+ 
++#ifdef CONFIG_MULTIKERNEL
++	if (releasing_instance) {
++		WRITE_ONCE(releasing_instance->cpu_transfer_state, old_cpu_state);
++		mk_instance_put(releasing_instance);
++	}
++#endif
+ 	kfree(image);
+ }
+ 
+@@ -1726,6 +1752,10 @@
+ 	 * when it is overwritten faults with interrupts disabled and takes
+ 	 * the machine down, console included.
+ 	 */
++	if (READ_ONCE(instance->cpu_transfer_state) != MK_CPU_TRANSFER_STABLE) {
++		rc = -EUCLEAN;
++		goto unlock;
++	}
+ 	rc = mk_instance_confirm_parked(instance);
+ 	if (rc) {
+ 		pr_err("Instance %d still has running CPUs, refusing to reload its image\n",

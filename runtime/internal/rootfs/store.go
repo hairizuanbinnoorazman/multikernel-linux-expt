@@ -49,6 +49,7 @@ func OpenStore(dir string) (*Store, error) {
 	if !found {
 		return store, nil
 	}
+	store.data = diskState{}
 	if err = protocol.StrictDecode(data, &store.data); err != nil || store.data.Records == nil {
 		return nil, errors.New("rootfs state is malformed or unsupported")
 	}

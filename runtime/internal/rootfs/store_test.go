@@ -12,6 +12,23 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
+func TestStoreRejectsMissingPersistedFields(t *testing.T) {
+	for _, content := range []string{`null`, `{}`, `{"records":{}}`, `{"version":4}`} {
+		directory := t.TempDir()
+		path := filepath.Join(directory, "state.json")
+		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := OpenStore(directory); err == nil {
+			t.Fatalf("incomplete state accepted: %s", content)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != content {
+			t.Fatal("rejected state was rewritten")
+		}
+	}
+}
+
 func validRootfsRecord(bundle, storageRoot, identity string, port uint32) Record {
 	bundleIdentity := DirectoryIdentity{Device: 1, Inode: 2, UID: uint32(os.Geteuid())}
 	return Record{

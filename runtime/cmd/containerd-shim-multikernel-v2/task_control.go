@@ -19,6 +19,7 @@ import (
 	ctruntime "github.com/containerd/containerd/runtime"
 	"github.com/containerd/typeurl/v2"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -511,9 +512,28 @@ func (s *service) CloseIO(ctx context.Context, r *taskapi.CloseIORequest) (*empt
 		return nil, errdefs.ErrFailedPrecondition
 	}
 	if !p.stdinClosed {
+		var buffered int
+		if file, ok := p.stdinReader.(*os.File); ok {
+			raw, err := file.SyscallConn()
+			if err != nil {
+				s.mu.Unlock()
+				return nil, err
+			}
+			var inspectErr error
+			if err = raw.Control(func(fd uintptr) { buffered, inspectErr = unix.IoctlGetInt(int(fd), unix.TIOCINQ) }); err != nil || inspectErr != nil {
+				s.mu.Unlock()
+				return nil, errors.Join(err, inspectErr)
+			}
+			if buffered < 0 || buffered > maxStdinCloseDrain {
+				s.mu.Unlock()
+				return nil, fmt.Errorf("buffered stdin exceeds the close-drain limit")
+			}
+		}
+		p.stdinDrainRemaining = uint32(buffered)
 		p.stdinClosed = true
 		if err := s.persistRecovery(); err != nil {
 			p.stdinClosed = false
+			p.stdinDrainRemaining = 0
 			s.mu.Unlock()
 			return nil, fmt.Errorf("persist closed stdin: %w", err)
 		}

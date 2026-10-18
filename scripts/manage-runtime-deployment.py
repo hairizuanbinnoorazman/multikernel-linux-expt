@@ -19,6 +19,7 @@ BASE = Path("/etc/multikernel")
 ASSETS = {
     "systemd/sys-fs-multikernel.mount": REPO / "deploy/systemd/sys-fs-multikernel.mount",
     "systemd/mkruntimed.service": REPO / "deploy/systemd/mkruntimed.service",
+    "systemd/multikernel-modules.service": REPO / "deploy/systemd/multikernel-modules.service",
     "systemd/mknetd.service": REPO / "deploy/systemd/mknetd.service",
     "cni/10-multikernel.conf": REPO / "deploy/cni/10-multikernel.conf",
     "containerd/20-multikernel-runtime.toml": REPO / "deploy/containerd/20-multikernel-runtime.toml",
@@ -30,6 +31,7 @@ ASSETS = {
     "libexec/validate-runtime-image.py": REPO / "scripts/validate-runtime-image.py",
     "libexec/build-runtime-rootfs.py": REPO / "scripts/build-runtime-rootfs.py",
     "libexec/runtime_safe_publish.py": REPO / "scripts/runtime_safe_publish.py",
+    "libexec/runtime_support_exec.py": REPO / "scripts/runtime_support_exec.py",
     "libexec/runtime-storage-identity.py": REPO / "scripts/runtime-storage-identity.py",
     "libexec/validate-runtime-storage-mount.py": REPO / "scripts/validate-runtime-storage-mount.py",
     "libexec/build-runtime-storage.py": REPO / "scripts/build-runtime-storage.py",
@@ -42,6 +44,7 @@ LINKS = {
     Path("/etc/mkruntime/config.json"): "mkruntime/config.json",
     Path("/etc/systemd/system/sys-fs-multikernel.mount"): "systemd/sys-fs-multikernel.mount",
     Path("/etc/systemd/system/mkruntimed.service"): "systemd/mkruntimed.service",
+    Path("/etc/systemd/system/multikernel-modules.service"): "systemd/multikernel-modules.service",
     Path("/etc/systemd/system/mknetd.service"): "systemd/mknetd.service",
     Path("/etc/cni/net.d/10-multikernel.conf"): "cni/10-multikernel.conf",
     Path("/etc/containerd/conf.d/20-multikernel-runtime.toml"): "containerd/20-multikernel-runtime.toml",
@@ -53,6 +56,7 @@ LINKS = {
     Path("/usr/local/libexec/multikernel/validate-runtime-image.py"): "libexec/validate-runtime-image.py",
     Path("/usr/local/libexec/multikernel/build-runtime-rootfs.py"): "libexec/build-runtime-rootfs.py",
     Path("/usr/local/libexec/multikernel/runtime_safe_publish.py"): "libexec/runtime_safe_publish.py",
+    Path("/usr/local/libexec/multikernel/runtime_support_exec.py"): "libexec/runtime_support_exec.py",
     Path("/usr/local/libexec/multikernel/runtime-storage-identity.py"): "libexec/runtime-storage-identity.py",
     Path("/usr/local/libexec/multikernel/validate-runtime-storage-mount.py"): "libexec/validate-runtime-storage-mount.py",
     Path("/usr/local/libexec/multikernel/build-runtime-storage.py"): "libexec/build-runtime-storage.py",
@@ -63,8 +67,11 @@ LINKS = {
 EXECUTABLES = {name for name in ASSETS if name.startswith("libexec/")}
 CURRENT_FILES = frozenset(LINKS.values())
 KNOWN_FILE_SETS = {
-    CURRENT_FILES,
-    CURRENT_FILES - {"libexec/validate-runtime-storage-mount.py"},
+    CURRENT_FILES - frozenset(missing) - frozenset(modules)
+    for missing in ((), ("libexec/validate-runtime-storage-mount.py",),
+                    ("libexec/runtime_support_exec.py",),
+                    ("libexec/runtime_support_exec.py", "libexec/validate-runtime-storage-mount.py"))
+    for modules in ((), ("systemd/multikernel-modules.service",))
 }
 ENV_KEYS = {
     "MKRUNTIME_POOL_CPUS", "MKRUNTIME_POOL_MEMORY", "MKRUNTIME_POOL_MEMORY_RESERVE",

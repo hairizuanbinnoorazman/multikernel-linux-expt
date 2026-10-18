@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include "native_args.h"
 
 #ifndef AF_VSOCK
 #define AF_VSOCK 40
@@ -208,12 +209,22 @@ static void run_client(unsigned int cid, unsigned int port)
 int main(int argc, char **argv)
 {
 	if (argc == 3 && !strcmp(argv[1], "server")) {
-		run_server((unsigned int)strtoul(argv[2], NULL, 10));
+		uint64_t port;
+		if (!native_decimal(argv[2], 1, UINT32_MAX - 1, &port)) {
+			fprintf(stderr, "invalid server arguments\n");
+			return 2;
+		}
+		run_server((unsigned int)port);
 		return 0;
 	}
 	if (argc == 4 && !strcmp(argv[1], "client")) {
-		run_client((unsigned int)strtoul(argv[2], NULL, 10),
-			   (unsigned int)strtoul(argv[3], NULL, 10));
+		uint64_t cid, port;
+		if (!native_decimal(argv[2], 0, UINT32_MAX - 1, &cid) ||
+		    !native_decimal(argv[3], 1, UINT32_MAX - 1, &port)) {
+			fprintf(stderr, "invalid client arguments\n");
+			return 2;
+		}
+		run_client((unsigned int)cid, (unsigned int)port);
 		return 0;
 	}
 	fprintf(stderr, "usage: %s server PORT | client CID PORT\n", argv[0]);

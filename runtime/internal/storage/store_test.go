@@ -9,6 +9,23 @@ import (
 	"time"
 )
 
+func TestStoreRejectsMissingPersistedFields(t *testing.T) {
+	for _, content := range []string{`null`, `{}`, `{"exports":{}}`, `{"version":3}`} {
+		directory := t.TempDir()
+		path := filepath.Join(directory, "state.json")
+		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := OpenStore(directory); err == nil {
+			t.Fatalf("incomplete state accepted: %s", content)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != content {
+			t.Fatal("rejected state was rewritten")
+		}
+	}
+}
+
 func validStoredExport(path string) Export {
 	now := time.Date(2026, 9, 7, 1, 2, 3, 0, time.UTC)
 	return Export{

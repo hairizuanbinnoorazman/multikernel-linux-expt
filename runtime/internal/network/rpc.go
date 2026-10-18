@@ -187,6 +187,7 @@ type Server struct {
 	AllowedUID     uint32
 	MaxFrame       int
 	MaxHandlers    int
+	FrameIOTimeout time.Duration
 	OpenTUN        func(Endpoint) (*os.File, error)
 	mu             sync.Mutex
 	listener       net.Listener
@@ -302,19 +303,24 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 	defer connection.Close()
 	stopCancellation := protocol.CloseOnContext(ctx, connection)
 	defer stopCancellation()
+	if err := connection.SetReadDeadline(time.Now().Add(protocol.FrameIOTimeout(s.FrameIOTimeout))); err != nil {
+		return
+	}
 	maxFrame := s.MaxFrame
 	if maxFrame == 0 {
 		maxFrame = 1 << 20
 	}
 	data, err := bufio.NewReader(io.LimitReader(connection, int64(maxFrame+2))).ReadBytes('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return
+	}
+	if err := connection.SetReadDeadline(time.Time{}); err != nil {
+		return
+	}
 	response := Response{Version: ProtocolVersion}
 	var request Request
-	if err != nil && !errors.Is(err, io.EOF) {
-		response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: err.Error()}
-	} else {
-		if len(data) > 0 && data[len(data)-1] == '\n' {
-			data = data[:len(data)-1]
-		}
+	if len(data) > 0 && data[len(data)-1] == '\n' {
+		data = data[:len(data)-1]
 	}
 	if response.Error == nil && len(data) > maxFrame {
 		response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: "request exceeds the frame limit"}
@@ -341,6 +347,9 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		} else {
 			defer device.Close()
 			if unixConnection, ok := connection.(*net.UnixConn); ok {
+				if err := connection.SetWriteDeadline(time.Now().Add(protocol.FrameIOTimeout(s.FrameIOTimeout))); err != nil {
+					return
+				}
 				if writeUnixRights(unixConnection, encoded, int(device.Fd())) != nil {
 					return
 				}
@@ -351,6 +360,9 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 			encoded, _ = json.Marshal(response)
 			encoded = append(encoded, '\n')
 		}
+	}
+	if err := connection.SetWriteDeadline(time.Now().Add(protocol.FrameIOTimeout(s.FrameIOTimeout))); err != nil {
+		return
 	}
 	_ = protocol.WriteFull(connection, encoded)
 }

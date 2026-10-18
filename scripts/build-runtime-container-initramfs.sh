@@ -20,6 +20,44 @@ script_path=$(readlink -f "$script_descriptor")
 test -f "$script_path" && test ! -L "$script_path"
 test "$(stat -c %u "$script_path")" = "$EUID"
 script_dir=$(cd "$(dirname "$script_path")" && pwd -P)
+# Helpers and imported support code execute with the builder's authority.
+# Check the complete selected generation before the first helper or scratch
+# allocation. Protected directories prevent less-privileged path replacement;
+# the primary owner/root remains trusted to maintain a generation.
+support_error() {
+	echo 'unsafe builder support generation' >&2
+	exit 1
+}
+support_directory=$script_dir
+while :; do
+	[[ -d $support_directory && ! -L $support_directory ]] || support_error
+	read -r support_owner support_mode < <(stat -c '%u %a' -- "$support_directory")
+	[[ $support_owner == 0 || $support_owner == "$EUID" ]] || support_error
+	if (( (8#$support_mode & 022) != 0 )); then
+		# A root-owned sticky ancestor permits private /tmp fixtures, but the
+		# selected generation itself must exclude all other directory writers.
+		[[ $support_directory != "$script_dir" && $support_owner == 0 ]] &&
+			(( (8#$support_mode & 01000) != 0 )) || support_error
+	fi
+	[[ $support_directory != / ]] || break
+	support_directory=${support_directory%/*}
+	[[ -n $support_directory ]] || support_directory=/
+done
+for support_name in validate-runtime-oci.py validate-runtime-bootstrap.py \
+	validate-runtime-root.py validate-runtime-image.py build-runtime-rootfs.py \
+	build-runtime-storage.py materialize-runtime-binds.py runtime-storage-identity.py \
+	verify-runtime-rootfs.py runtime_safe_publish.py runtime_support_exec.py; do
+	support_file=$script_dir/$support_name
+	[[ -f $support_file && ! -L $support_file ]] || support_error
+	read -r support_owner support_mode support_links support_size < <(
+		stat -c '%u %a %h %s' -- "$support_file")
+	[[ $support_owner == 0 || $support_owner == "$EUID" ]] || support_error
+	[[ $support_links == 1 ]] || support_error
+	(( (8#$support_mode & 022) == 0 && support_size > 0 && support_size <= 4194304 )) || support_error
+done
+run_python() {
+	/usr/bin/python3 -I -S "$script_dir/runtime_support_exec.py" "$@"
+}
 repo_dir=$(cd "$script_dir/.." && pwd)
 support_root=${MK_RUNTIME_SUPPORT_ROOT:-}
 if [[ -z $support_root ]]; then
@@ -45,7 +83,7 @@ mkdir -p "$root" "$boot" "$metadata"
 validated_config=$metadata/config.json
 bind_plan=$metadata/readonly-binds.json
 source_before_manifest=$metadata/source-before.manifest.json
-"$script_dir/validate-runtime-oci.py" "$bundle/config.json" "$validated_config" "$bind_plan"
+run_python validate-runtime-oci.py "$bundle/config.json" "$validated_config" "$bind_plan"
 if [[ ${MK_VALIDATE_ONLY:-0} == 1 ]]; then
 	printf '{"schema_version":1,"validated":true}\n'
 	exit 0
@@ -54,13 +92,15 @@ fi
 : "${storage_port:?MK_STORAGE_PORT is required}"
 busybox=${BUSYBOX:-$(command -v busybox)}
 nbd_helper=${MK_NBD_HELPER:-/usr/local/libexec/multikernel/mkvsock-nbd}
-nbd_module=${MK_NBD_MODULE:-$(modinfo -n nbd)}
 bootstrap=$metadata/bootstrap.json
-"$script_dir/validate-runtime-bootstrap.py" "$manifest" "$manifest_name" >"$bootstrap"
+run_python validate-runtime-bootstrap.py "$manifest" "$manifest_name" >"$bootstrap"
 agent=$(jq -er '.agent' "$bootstrap")
 relay=$(jq -er '.relay' "$bootstrap")
 module=$(jq -er '.module' "$bootstrap")
 kernel_release=$(jq -er '.kernel_release' "$bootstrap")
+# The host can run a different kernel from the selected child. Resolve the
+# default module from the validated child release, then retain vermagic checks.
+nbd_module=${MK_NBD_MODULE:-$(modinfo -k "$kernel_release" -n nbd)}
 
 for artifact in "$busybox" "$nbd_helper" "$nbd_module" "$guest_init" "$bootstrap_init"; do
 	test -f "$artifact" && test ! -L "$artifact"
@@ -84,7 +124,7 @@ install -m 0755 "$guest_init" "$root/init"
 # Containerd remains the registry, content, layer, and snapshot owner. The
 # source is mounted read-only by the adapter and scanned before and after copy.
 root_path=$(jq -er '.root.path' "$validated_config")
-source_validation=$("$script_dir/validate-runtime-root.py" "$bundle" "$validated_config" --json)
+source_validation=$(run_python validate-runtime-root.py "$bundle" "$validated_config" --json)
 source_root=$(jq -er '.path' <<<"$source_validation")
 source_device=$(jq -er '.device' <<<"$source_validation")
 source_inode=$(jq -er '.inode' <<<"$source_validation")
@@ -100,20 +140,20 @@ if [[ $root_path = /* ]]; then
 else
 	reported_source_root=$logical_bundle/$root_path
 fi
-"$script_dir/validate-runtime-image.py" "$source_root" "$validated_config" "$bootstrap" \
+run_python validate-runtime-image.py "$source_root" "$validated_config" "$bootstrap" \
 	>"$metadata/image-validation.json"
-"$script_dir/build-runtime-rootfs.py" "$source_root" "$metadata/unused" "$source_before_manifest" --manifest-only \
+run_python build-runtime-rootfs.py "$source_root" "$metadata/unused" "$source_before_manifest" --manifest-only \
 	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
 	>"$metadata/source-before-result.json"
-"$script_dir/runtime-storage-identity.py" "$task_identity" "$source_before_manifest" >"$metadata/storage-identity.json"
+run_python runtime-storage-identity.py "$task_identity" "$source_before_manifest" >"$metadata/storage-identity.json"
 image_id=$(jq -er '.image_id' "$metadata/storage-identity.json")
 filesystem_uuid=$(jq -er '.filesystem_uuid' "$metadata/storage-identity.json")
 printf '%s\n' "$image_id" >"$root/.multikernel/image-id"
 chmod 0600 "$root/.multikernel/image-id"
 cp -a "$source_root/." "$root/bundle/rootfs/"
-"$script_dir/materialize-runtime-binds.py" "$bind_plan" "$root/bundle/rootfs" "$bind_manifest" \
+run_python materialize-runtime-binds.py "$bind_plan" "$root/bundle/rootfs" "$bind_manifest" \
 	--max-bytes "${MK_BIND_INPUT_MAX_BYTES:-1073741824}" --max-inodes "${MK_BIND_INPUT_MAX_INODES:-131072}"
-"$script_dir/build-runtime-rootfs.py" "$source_root" "$metadata/unused" "$source_manifest" --manifest-only \
+run_python build-runtime-rootfs.py "$source_root" "$metadata/unused" "$source_manifest" --manifest-only \
 	--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
 	>"$metadata/source-after-result.json"
 cmp -s "$source_before_manifest" "$source_manifest" || {
@@ -122,7 +162,7 @@ cmp -s "$source_before_manifest" "$source_manifest" || {
 }
 jq '.root.path = "rootfs"' "$validated_config" >"$root/bundle/config.json"
 
-"$script_dir/build-runtime-storage.py" "$root" "$storage_output" "$storage_metadata" \
+run_python build-runtime-storage.py "$root" "$storage_output" "$storage_metadata" \
 	--image-id "$image_id" --uuid "$filesystem_uuid" --port "$storage_port" \
 	--logical-path "$storage_logical_output" \
 	--size "${MK_STORAGE_SIZE_BYTES:-2147483648}" --inodes "${MK_STORAGE_INODES:-262144}" \
@@ -135,11 +175,11 @@ install -m 0755 "$nbd_helper" "$boot/bin/mkvsock-nbd"
 install -m 0644 "$module" "$boot/lib/mk_transport.ko"
 install -m 0644 "$nbd_module" "$boot/lib/nbd.ko"
 install -m 0755 "$bootstrap_init" "$boot/init"
-"$script_dir/build-runtime-rootfs.py" "$boot" "$output" "$output_manifest" \
+run_python build-runtime-rootfs.py "$boot" "$output" "$output_manifest" \
 	--max-bytes "${MK_BOOTSTRAP_MAX_BYTES:-134217728}" --max-inodes 128 \
 	--min-free-bytes "${MK_INITRAMFS_MIN_FREE_BYTES:-1073741824}" \
 	--min-free-inodes "${MK_INITRAMFS_MIN_FREE_INODES:-1024}" >"$metadata/archive-result.json"
-"$script_dir/verify-runtime-rootfs.py" "$output" "$output_manifest" >"$metadata/verification-result.json"
+run_python verify-runtime-rootfs.py "$output" "$output_manifest" >"$metadata/verification-result.json"
 jq -n -e --slurpfile built "$metadata/archive-result.json" --slurpfile verified "$metadata/verification-result.json" \
 	'$built[0].initramfs_sha256 == $verified[0].archive_sha256 and $built[0].manifest_sha256 == $verified[0].manifest_sha256' \
 	>/dev/null

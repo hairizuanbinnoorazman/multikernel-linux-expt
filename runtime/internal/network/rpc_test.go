@@ -23,6 +23,28 @@ type shortWriteConn struct {
 	maximum int
 }
 
+func TestNetworkFrameIOTimeoutReleasesBlockedPeer(t *testing.T) {
+	for _, request := range []string{"{", "!\n"} {
+		t.Run(request, func(t *testing.T) {
+			client, connection := net.Pipe()
+			defer client.Close()
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				(&Server{FrameIOTimeout: 20 * time.Millisecond}).handle(context.Background(), connection)
+			}()
+			if _, err := client.Write([]byte(request)); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Fatal("blocked peer retained network handler")
+			}
+		})
+	}
+}
+
 type queueListener struct {
 	connections chan net.Conn
 	closed      chan struct{}

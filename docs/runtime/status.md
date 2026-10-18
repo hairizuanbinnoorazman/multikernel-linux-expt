@@ -76,6 +76,10 @@ bounded cases. See the [authority policy](contracts/workload-authority.md) for
 compatibility changes. Mediated-root/Docker requalification and remaining
 authority review are open; full G7 and a security advantage over gVisor are
 not established. Historical G4-G6 passes apply to their recorded source versions.
+The [rb10 host/child checkpoint](../../evidence/runtime-20261012/g7-kernel-rb10-live/README.md)
+now runs all twenty-four kernel overlays, with verified profile activation,
+structural refusal/real rollback and preserved recovery artifacts. Its [full nineteen-feature compatibility suite and final resource audit](../../evidence/runtime-20261012/g7-kernel-rb10-matrix/README.md)
+pass; gate acceptance remains open.
 
 The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels
 do not currently provide Firecracker's KVM/EPT hardware isolation boundary.

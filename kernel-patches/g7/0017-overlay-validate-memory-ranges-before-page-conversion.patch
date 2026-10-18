@@ -1,0 +1,45 @@
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -477,6 +477,7 @@
+ 				    const char *name, u64 *base, u64 *size)
+ {
+ 	const fdt32_t *reg;
++	u64 address, length;
+ 	int len;
+ 
+ 	reg = fdt_getprop(fdt, item_node, "reg", &len);
+@@ -485,8 +486,21 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	*base = ((u64)fdt32_to_cpu(reg[0]) << 32) | fdt32_to_cpu(reg[1]);
+-	*size = ((u64)fdt32_to_cpu(reg[2]) << 32) | fdt32_to_cpu(reg[3]);
++	address = ((u64)fdt32_to_cpu(reg[0]) << 32) | fdt32_to_cpu(reg[1]);
++	length = ((u64)fdt32_to_cpu(reg[2]) << 32) | fdt32_to_cpu(reg[3]);
++	/* Callers convert to PFNs or native allocation sizes. Reject loss or
++	 * range wrap before either conversion, including rollback operations.
++	 */
++	if (!length || !PAGE_ALIGNED(address) || !PAGE_ALIGNED(length) ||
++	    (u64)(phys_addr_t)address != address ||
++	    (u64)(size_t)length != length ||
++	    length - 1 > PHYS_ADDR_MAX - address) {
++		pr_err("Invalid memory range in %s\n", name);
++		return -EINVAL;
++	}
++
++	*base = address;
++	*size = length;
+ 	return 0;
+ }
+ 
+@@ -503,8 +517,8 @@
+ 	}
+ 
+ 	*size = ((u64)fdt32_to_cpu(prop[0]) << 32) | fdt32_to_cpu(prop[1]);
+-	if (!*size || !PAGE_ALIGNED(*size)) {
+-		pr_err("%s: size 0x%llx is not a positive page multiple\n",
++	if (!*size || !PAGE_ALIGNED(*size) || (u64)(size_t)*size != *size) {
++		pr_err("%s: size 0x%llx is not a representable positive page multiple\n",
+ 		       name, *size);
+ 		return -EINVAL;
+ 	}

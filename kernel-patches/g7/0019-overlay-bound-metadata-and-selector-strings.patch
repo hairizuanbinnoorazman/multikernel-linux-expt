@@ -1,0 +1,128 @@
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -342,53 +342,73 @@
+ 	return n;
+ }
+ 
++/* A property is not a C string until its own extent proves one value. */
++static int mk_overlay_get_string(const void *fdt, int node,
++				 const char *property, const char **value)
++{
++	const char *prop;
++	int len;
++
++	prop = fdt_getprop(fdt, node, property, &len);
++	if (!prop)
++		return len == -FDT_ERR_NOTFOUND ? -ENOENT : -EINVAL;
++	if (len < 1 || prop[len - 1] != '\0' ||
++	    strnlen(prop, len) != (size_t)len - 1)
++		return -EINVAL;
++
++	*value = prop;
++	return 0;
++}
++
+ /**
+  * mk_overlay_parse_metadata - Extract display metadata from an overlay
+  *
+  * The transaction is described by the target path of its first fragment
+  * and by the optional mk,resources string at the overlay root.
+  */
+-static void mk_overlay_parse_metadata(struct mk_overlay_tx *tx, const void *fdt)
++static int mk_overlay_parse_metadata(struct mk_overlay_tx *tx, const void *fdt)
+ {
+ 	struct mk_overlay_fragment *frags;
+ 	const char *prop;
+-	int root_node, len, nr;
++	int root_node, nr, ret;
+ 
+ 	strscpy(tx->target_path, "unknown", sizeof(tx->target_path));
+ 	strscpy(tx->resources, "unknown", sizeof(tx->resources));
+ 
+-	if (fdt_check_header(fdt) != 0) {
+-		pr_warn("Invalid FDT header in overlay\n");
+-		return;
+-	}
++	if (fdt_check_header(fdt) != 0)
++		return -EINVAL;
+ 
+ 	root_node = fdt_path_offset(fdt, "/");
+ 	if (root_node < 0)
+-		return;
+-
+-	prop = fdt_getprop(fdt, root_node, "mk,resources", &len);
+-	if (prop && len > 0)
++		return -EINVAL;
++
++	ret = mk_overlay_get_string(fdt, root_node, "mk,resources", &prop);
++	if (!ret)
+ 		strscpy(tx->resources, prop, sizeof(tx->resources));
++	else if (ret != -ENOENT)
++		return ret;
+ 
+ 	nr = mk_overlay_collect_fragments(fdt, &frags);
+ 	if (nr < 0)
+-		return;
+-
+-	prop = fdt_getprop(fdt, frags[0].node, "target-path", &len);
+-	if (prop && len > 0)
++		return nr;
++
++	ret = mk_overlay_get_string(fdt, frags[0].node, "target-path", &prop);
++	if (!ret && !*prop)
++		ret = -EINVAL;
++	if (!ret)
+ 		strscpy(tx->target_path, prop, sizeof(tx->target_path));
+ 
+ 	kfree(frags);
++	return ret;
+ }
+ 
+ static int mk_overlay_resolve_target(struct mk_overlay_tx *tx, const void *fdt,
+ 				     int fragment, struct mk_overlay_target *target)
+ {
+ 	const char *path, *name;
+-	int len;
+-
+-	path = fdt_getprop(fdt, fragment, "target-path", &len);
+-	if (!path || len <= 0 || path[len - 1] != '\0') {
++
++	if (mk_overlay_get_string(fdt, fragment, "target-path", &path) ||
++	    !*path) {
+ 		pr_err("Overlay tx%d: fragment without a valid target-path\n",
+ 		       tx->id);
+ 		return -EINVAL;
+@@ -993,10 +1013,9 @@
+ 					    const char *verb, const char *op_name)
+ {
+ 	const char *name;
+-	int len;
+-
+-	name = fdt_getprop(fdt, op_node, "instance-name", &len);
+-	if (!name || len <= 0 || name[len - 1] != '\0' || !name[0]) {
++
++	if (mk_overlay_get_string(fdt, op_node, "instance-name", &name) ||
++	    !*name) {
+ 		pr_err("%s tx%d: %s requires a valid 'instance-name'\n",
+ 		       verb, tx->id, op_name);
+ 		return NULL;
+@@ -1429,12 +1448,17 @@
+ 	}
+ 	tx->dtbo_size = dtbo_size;
+ 
++	ret = mk_overlay_parse_metadata(tx, dtbo_data);
++	if (ret) {
++		kfree(tx->dtbo_data);
++		kfree(tx);
++		return ret;
++	}
++
+ 	tx_id = atomic_inc_return(&mk_overlay_next_id);
+ 	tx->id = tx_id;
+ 	tx->status = MK_OVERLAY_TX_PENDING;
+ 	INIT_LIST_HEAD(&tx->list);
+-
+-	mk_overlay_parse_metadata(tx, dtbo_data);
+ 
+ 	pr_info("Applying overlay transaction %d (target=%s, resources=%s)\n",
+ 		tx->id, tx->target_path, tx->resources);

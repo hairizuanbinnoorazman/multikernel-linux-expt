@@ -17,6 +17,12 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <time.h>
+#include <limits.h>
+#include "native_args.h"
+#include "native_privileges.h"
+#include "native_server_sandbox.h"
+#include "native_server_limits.h"
 
 #ifndef AF_VSOCK
 #define AF_VSOCK 40
@@ -48,6 +54,7 @@
 #define HELLO_MAGIC 0x4d4b4e42U
 #define HELLO_VERSION 1U
 #define MAX_REQUEST (4U * 1024U * 1024U)
+#define FRAME_TIMEOUT_MS 15000
 
 static volatile sig_atomic_t stop_requested;
 static int active_client = -1;
@@ -133,6 +140,79 @@ static int read_exact_or_eof(int fd, void *buf, size_t len)
 		len -= (size_t)n;
 	}
 	return 1;
+}
+
+static struct timespec frame_deadline(int milliseconds)
+{
+	struct timespec result;
+	if (clock_gettime(CLOCK_MONOTONIC, &result) < 0)
+		die("clock_gettime");
+	result.tv_sec += milliseconds / 1000;
+	result.tv_nsec += (milliseconds % 1000) * 1000000L;
+	if (result.tv_nsec >= 1000000000L) {
+		result.tv_sec++;
+		result.tv_nsec -= 1000000000L;
+	}
+	return result;
+}
+
+/* One absolute deadline covers the entire transfer. Per-syscall socket
+ * timeouts alone let a trickling peer renew its allowance indefinitely. */
+static int transfer_until(int fd, void *buf, size_t len, int writing,
+			 const struct timespec *deadline)
+{
+	uint8_t *p = buf;
+	while (len) {
+		struct timespec now;
+		if (stop_requested) {
+			errno = EINTR;
+			return -1;
+		}
+		if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
+			return -1;
+		int64_t remaining = (int64_t)(deadline->tv_sec - now.tv_sec) * 1000000000LL +
+			deadline->tv_nsec - now.tv_nsec;
+		if (remaining <= 0) {
+			errno = ETIMEDOUT;
+			return -1;
+		}
+		struct pollfd ready = { .fd = fd, .events = writing ? POLLOUT : POLLIN };
+		int rc = poll(&ready, 1, (int)((remaining + 999999) / 1000000));
+		if (rc < 0 && errno == EINTR)
+			continue;
+		if (rc < 0)
+			return -1;
+		if (!rc) {
+			errno = ETIMEDOUT;
+			return -1;
+		}
+		ssize_t n = writing ? send(fd, p, len, MSG_DONTWAIT | MSG_NOSIGNAL) :
+			recv(fd, p, len, MSG_DONTWAIT);
+		if (n < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
+			continue;
+		if (n < 0)
+			return -1;
+		if (!n) {
+			if (writing)
+				errno = EPIPE;
+			return writing ? -1 : 0;
+		}
+		p += n;
+		len -= (size_t)n;
+	}
+	return 1;
+}
+
+static int read_request(int fd, struct nbd_request_wire *request,
+			struct timespec *deadline, int timeout_ms)
+{
+	/* Healthy disks can remain idle indefinitely. Start the frame budget only
+ * when the first request byte arrives, then include its WRITE payload. */
+	int rc = read_exact_or_eof(fd, request, 1);
+	if (rc <= 0)
+		return rc;
+	*deadline = frame_deadline(timeout_ms);
+	return transfer_until(fd, (uint8_t *)request + 1, sizeof(*request) - 1, 0, deadline);
 }
 
 static void set_socket_timeout(int fd)
@@ -260,21 +340,76 @@ static void fill_hello(struct hello_wire *hello, uint64_t size,
 static int hello_matches(const struct hello_wire *hello, uint64_t size,
 			 const char *image_id, const char *generation)
 {
-	return ntohl(hello->magic) == HELLO_MAGIC &&
-		ntohl(hello->version) == HELLO_VERSION &&
-		be64toh(hello->size) == size &&
-		!strncmp(hello->image_id, image_id, sizeof(hello->image_id)) &&
-		!strncmp(hello->generation, generation, sizeof(hello->generation));
+	struct hello_wire expected;
+	fill_hello(&expected, size, image_id, generation);
+	/* Require the canonical zero status/reserved fields and string padding as
+	 * well as identity. Hidden bytes must not alias a validated export hello. */
+	return !memcmp(hello, &expected, sizeof(expected));
 }
 
-static void send_reply(int sock, const struct nbd_request_wire *request, int error)
+/* A rejected peer owns only its connection, never the export's lifetime. */
+static int server_handshake(int sock, uint64_t size, const char *image_id,
+			    const char *generation, int timeout_ms)
+{
+	struct hello_wire hello, response;
+	struct timespec deadline = frame_deadline(timeout_ms);
+	if (transfer_until(sock, &hello, sizeof(hello), 0, &deadline) <= 0)
+		return -1;
+	int accepted = hello_matches(&hello, size, image_id, generation);
+	if (accepted) {
+		fill_hello(&response, size, image_id, generation);
+	} else {
+		/* The export identity gates attachment. Never teach a rejected peer
+		 * the expected identity so it can retry with the disclosed values. */
+		fill_hello(&response, 0, "", "");
+		response.status = htonl(EACCES);
+	}
+	deadline = frame_deadline(timeout_ms);
+	if (transfer_until(sock, &response, sizeof(response), 1, &deadline) <= 0)
+		return -1;
+	return accepted;
+}
+
+static int request_valid(const struct nbd_request_wire *request, uint64_t size)
+{
+	uint32_t type = ntohl(request->type);
+	uint32_t command = type & NBD_CMD_MASK_COMMAND;
+	uint32_t flags = type & ~NBD_CMD_MASK_COMMAND;
+	uint32_t length = ntohl(request->len);
+	uint64_t offset = be64toh(request->from);
+
+	if (ntohl(request->magic) != NBD_REQUEST_MAGIC)
+		return 0;
+	switch (command) {
+	case NBD_CMD_WRITE:
+		if (flags & ~NBD_CMD_FLAG_FUA)
+			return 0;
+		break;
+	case NBD_CMD_READ:
+		if (flags)
+			return 0;
+		break;
+	case NBD_CMD_FLUSH:
+	case NBD_CMD_DISC:
+		return !flags && !length && !offset;
+	default:
+		/* An unknown command may carry a payload. Continuing would interpret
+		 * its bytes as another header, so terminate instead of guessing. */
+		return 0;
+	}
+	return length <= MAX_REQUEST && offset <= size &&
+		(uint64_t)length <= size - offset;
+}
+
+static int send_reply(int sock, const struct nbd_request_wire *request, int error,
+		      const struct timespec *deadline)
 {
 	struct nbd_reply_wire reply = {
 		.magic = htonl(NBD_REPLY_MAGIC),
 		.error = htonl((uint32_t)error),
 	};
 	memcpy(reply.handle, request->handle, sizeof(reply.handle));
-	xwrite(sock, &reply, sizeof(reply));
+	return transfer_until(sock, &reply, sizeof(reply), 1, deadline);
 }
 
 static void run_server(const char *image, unsigned int port,
@@ -286,7 +421,9 @@ static void run_server(const char *image, unsigned int port,
 		.svm_port = port,
 	};
 	struct stat st;
-	struct hello_wire hello, response;
+	struct native_refusal_log refusals = {0};
+	if (native_server_set_limits() < 0)
+		die("set storage server resource limits");
 	uint64_t reads = 0, writes = 0, flushes = 0, bytes_read = 0, bytes_written = 0;
 	uint8_t *buffer = malloc(MAX_REQUEST);
 	/*
@@ -324,26 +461,41 @@ static void run_server(const char *image, unsigned int port,
 	if (setsockopt(listener, SOL_SOCKET, SO_RCVTIMEO,
 		       &no_timeout, sizeof(no_timeout)) < 0)
 		die("clear listener timeout");
+	/* Image/lock/listener setup may need the launcher's privileges. Neither
+	 * authenticated requests nor malformed peer frames may retain them. */
+	if (native_server_close_descriptors(image_fd, listener) < 0)
+		die("close storage server descriptors");
+	image_fd = 3;
+	if (native_drop_request_privileges() < 0)
+		die("drop storage server privileges");
+	if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) < 0 ||
+	    prctl(PR_GET_DUMPABLE, 0, 0, 0, 0) != 0)
+		die("disable storage server dumps");
+	if (native_server_install_filter(listener) < 0)
+		die("install storage server syscall filter");
 	printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=%lld port=%u\n",
 	       image, image_id, generation, (long long)st.st_size, port);
 	fflush(stdout);
-	int sock = accept(listener, NULL, NULL);
-	if (sock < 0 && stop_requested)
-		goto closed;
-	if (sock < 0)
-		die("accept");
-	active_client = sock;
-	set_socket_timeout(sock);
-	if (read_exact_or_eof(sock, &hello, sizeof(hello)) <= 0)
-		die("hello eof");
-	fill_hello(&response, (uint64_t)st.st_size, image_id, generation);
-	if (!hello_matches(&hello, (uint64_t)st.st_size, image_id, generation)) {
-		response.status = htonl(EACCES);
-		xwrite(sock, &response, sizeof(response));
-		fprintf(stderr, "MKNBD_SERVER_REFUSED reason=identity\n");
-		exit(2);
+	int sock = -1;
+	while (!stop_requested) {
+		sock = accept(listener, NULL, NULL);
+		if (sock < 0 && (stop_requested || errno == EINTR))
+			continue;
+		if (sock < 0)
+			die("accept");
+		active_client = sock;
+		set_socket_timeout(sock);
+		int accepted = server_handshake(sock, (uint64_t)st.st_size,
+						image_id, generation, FRAME_TIMEOUT_MS);
+		if (accepted > 0)
+			break;
+		native_server_log_refusal(&refusals, accepted == 0);
+		close(sock);
+		active_client = -1;
+		sock = -1;
 	}
-	xwrite(sock, &response, sizeof(response));
+	if (sock < 0 || stop_requested)
+		goto closed;
 	/*
 	 * The timeout above bounds the unauthenticated hello exchange.  The NBD
 	 * connection is otherwise expected to remain idle indefinitely between
@@ -357,16 +509,20 @@ static void run_server(const char *image, unsigned int port,
 
 	for (;;) {
 		struct nbd_request_wire request;
-		if (read_exact_or_eof(sock, &request, sizeof(request)) <= 0)
+		struct timespec deadline;
+		int request_status = read_request(sock, &request, &deadline, FRAME_TIMEOUT_MS);
+		if (request_status <= 0) {
+			if (request_status < 0)
+				fprintf(stderr, "MKNBD_SERVER_IO_FAILED phase=request errno=%d\n", errno);
 			break;
+		}
 		uint32_t type = ntohl(request.type);
 		uint32_t command = type & NBD_CMD_MASK_COMMAND;
 		uint32_t len = ntohl(request.len);
 		uint64_t offset = be64toh(request.from);
 		int error = 0;
 
-		if (ntohl(request.magic) != NBD_REQUEST_MAGIC || len > MAX_REQUEST ||
-		    offset > (uint64_t)st.st_size || len > (uint64_t)st.st_size - offset) {
+		if (!request_valid(&request, (uint64_t)st.st_size)) {
 			fprintf(stderr, "MKNBD_SERVER_REFUSED reason=request command=%u len=%u offset=%llu\n",
 				command, len, (unsigned long long)offset);
 			exit(2);
@@ -374,7 +530,7 @@ static void run_server(const char *image, unsigned int port,
 		if (command == NBD_CMD_DISC)
 			break;
 		if (command == NBD_CMD_WRITE) {
-			if (read_exact_or_eof(sock, buffer, len) <= 0) {
+			if (transfer_until(sock, buffer, len, 0, &deadline) <= 0) {
 				printf("MKNBD_SERVER_DISCONNECT_DURING_WRITE len=%u offset=%llu\n",
 				       len, (unsigned long long)offset);
 				break;
@@ -388,7 +544,9 @@ static void run_server(const char *image, unsigned int port,
 			}
 			if (!error && (type & NBD_CMD_FLAG_FUA) && fdatasync(image_fd) < 0)
 				error = errno;
-			send_reply(sock, &request, error);
+			deadline = frame_deadline(FRAME_TIMEOUT_MS);
+			if (send_reply(sock, &request, error, &deadline) <= 0)
+				break;
 		} else if (command == NBD_CMD_READ) {
 			ssize_t n = pread(image_fd, buffer, len, (off_t)offset);
 			if (n != (ssize_t)len)
@@ -397,21 +555,26 @@ static void run_server(const char *image, unsigned int port,
 				reads++;
 				bytes_read += len;
 			}
-			send_reply(sock, &request, error);
-			if (!error)
-				xwrite(sock, buffer, len);
+			deadline = frame_deadline(FRAME_TIMEOUT_MS);
+			if (send_reply(sock, &request, error, &deadline) <= 0)
+				break;
+			if (!error && transfer_until(sock, buffer, len, 1, &deadline) <= 0)
+				break;
 		} else if (command == NBD_CMD_FLUSH) {
 			if (fdatasync(image_fd) < 0)
 				error = errno;
 			else
 				flushes++;
-			send_reply(sock, &request, error);
+			deadline = frame_deadline(FRAME_TIMEOUT_MS);
+			if (send_reply(sock, &request, error, &deadline) <= 0)
+				break;
 		} else {
-			send_reply(sock, &request, EOPNOTSUPP);
+			break; /* request_valid rejects every other command. */
 		}
 	}
 
 closed:
+	native_server_log_refusal_summary(&refusals);
 	active_client = -1;
 	active_listener = -1;
 	if (fdatasync(image_fd) < 0)
@@ -506,13 +669,27 @@ static void print_ext4_uuid(const char *device)
 int main(int argc, char **argv)
 {
 	if (argc == 6 && !strcmp(argv[1], "server")) {
-		run_server(argv[2], (unsigned int)strtoul(argv[3], NULL, 10), argv[4], argv[5]);
+		uint64_t port;
+		if (!native_decimal(argv[3], 1, UINT32_MAX - 1, &port) ||
+		    !native_identity(argv[4], 63) || !native_identity(argv[5], 63)) {
+			fprintf(stderr, "invalid server arguments\n");
+			return 2;
+		}
+		run_server(argv[2], (unsigned int)port, argv[4], argv[5]);
 		return 0;
 	}
 	if (argc == 9 && !strcmp(argv[1], "client")) {
-		run_client((unsigned int)strtoul(argv[2], NULL, 10),
-			   (unsigned int)strtoul(argv[3], NULL, 10), argv[4],
-			   strtoull(argv[5], NULL, 10), argv[6], argv[7]);
+		uint64_t cid, port, size;
+		if (!native_decimal(argv[2], 0, UINT32_MAX - 1, &cid) ||
+		    !native_decimal(argv[3], 1, UINT32_MAX - 1, &port) ||
+		    !native_decimal(argv[5], 4096, UINT64_MAX, &size) ||
+		    size % 4096 || size / 4096 > ULONG_MAX ||
+		    !native_identity(argv[6], 63) || !native_identity(argv[7], 63) ||
+		    strcmp(argv[8], "reserved")) {
+			fprintf(stderr, "invalid client arguments\n");
+			return 2;
+		}
+		run_client((unsigned int)cid, (unsigned int)port, argv[4], size, argv[6], argv[7]);
 		return 0;
 	}
 	if (argc == 3 && !strcmp(argv[1], "disconnect")) {

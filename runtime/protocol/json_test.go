@@ -20,6 +20,7 @@ func TestStrictDecode(t *testing.T) {
 		want string
 	}{
 		{name: "valid", json: `{"name":"one","nested":{"value":2}}`},
+		{name: "null object", json: `null`, want: "JSON object required"},
 		{name: "unknown field", json: `{"name":"one","nested":{"value":2},"extra":true}`, want: "unknown field"},
 		{name: "duplicate top level", json: `{"name":"one","name":"two","nested":{"value":2}}`, want: "duplicate JSON object name"},
 		{name: "duplicate nested", json: `{"name":"one","nested":{"value":2,"value":3}}`, want: "duplicate JSON object name"},

@@ -35,6 +35,9 @@ type Directory struct {
 }
 
 func identity(info os.FileInfo) (Identity, bool) {
+	if info == nil {
+		return Identity{}, false
+	}
 	value, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		return Identity{}, false

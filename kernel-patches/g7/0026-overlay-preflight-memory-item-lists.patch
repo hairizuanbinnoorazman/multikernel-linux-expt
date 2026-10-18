@@ -1,0 +1,326 @@
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -714,85 +714,99 @@
+ 				    bool undo)
+ {
+ 	const char *verb = undo ? "Rollback" : "Overlay";
+-	int item_node, ret;
++	int item_node, ret, pass;
+ 
+ 	ret = mk_overlay_check_resource_target(tx, target, "memory-add");
+ 	if (ret)
+ 		return ret;
+ 
+-	fdt_for_each_subnode(item_node, fdt, op_node) {
+-		const char *name = fdt_get_name(fdt, item_node, NULL);
+-		u64 base, size;
+-		u32 mem_type;
+-		int node, len;
+-
+-		if (!name || strncmp(name, "memory@", 7))
+-			continue;
+-
+-		ret = mk_overlay_parse_numa(fdt, item_node, name, &node);
+-		if (ret)
+-			return ret;
+-		ret = mk_overlay_parse_u32(fdt, item_node, "mem-type", &mem_type);
+-		if (ret)
+-			return ret;
+-
+-		if (target->kind == MK_OVERLAY_TARGET_POOL) {
+-			if (fdt_getprop(fdt, item_node, "reg", &len)) {
+-				pr_err("Overlay tx%d: %s adds pool memory by size, not by reg\n",
+-				       tx->id, name);
+-				return -EINVAL;
+-			}
+-
+-			ret = mk_overlay_parse_mem_size(fdt, item_node, name,
+-							&size);
++	/*
++	 * Preflight the entire operation on the private immutable DTBO before
++	 * any allocation, shrink, park-area teardown or remote memory move.
++	 * Backend failures can still have partial effects; the transaction
++	 * must retain its uncertain-outcome guard in that case.
++	 */
++	for (pass = 0; pass < 2; pass++) {
++		fdt_for_each_subnode(item_node, fdt, op_node) {
++			const char *name = fdt_get_name(fdt, item_node, NULL);
++			u64 base, size;
++			u32 mem_type;
++			int node, len;
++
++			if (!name || strncmp(name, "memory@", 7))
++				continue;
++
++			ret = mk_overlay_parse_numa(fdt, item_node, name, &node);
+ 			if (ret)
+ 				return ret;
+-
+-			/*
+-			 * The pool chose the base at grow time and the
+-			 * overlay never recorded it, so the chunk cannot
+-			 * be identified for a shrink.
+-			 */
+-			if (undo) {
+-				pr_warn("Rollback tx%d: cannot release the %llu MB the pool grew by\n",
+-					tx->id, size >> 20);
+-				return -EOPNOTSUPP;
++			ret = mk_overlay_parse_u32(fdt, item_node, "mem-type", &mem_type);
++			if (ret)
++				return ret;
++
++			if (target->kind == MK_OVERLAY_TARGET_POOL) {
++				if (fdt_getprop(fdt, item_node, "reg", &len)) {
++					pr_err("Overlay tx%d: %s adds pool memory by size, not by reg\n",
++					       tx->id, name);
++					return -EINVAL;
++				}
++
++				ret = mk_overlay_parse_mem_size(fdt, item_node, name,
++								&size);
++				if (ret)
++					return ret;
++
++				/*
++				 * The pool chose the base at grow time and the
++				 * overlay never recorded it, so the chunk cannot
++				 * be identified for a shrink.
++				 */
++				if (undo) {
++					pr_warn("Rollback tx%d: cannot release the %llu MB the pool grew by\n",
++						tx->id, size >> 20);
++					return -EOPNOTSUPP;
++				}
++
++				if (!pass)
++					continue;
++
++				pr_info("Overlay tx%d: +memory %llu MB numa=%d -> %s\n",
++					tx->id, size >> 20, node, target->path);
++
++				ret = mk_pool_mem_grow(size, node, NULL);
++				if (ret) {
++					pr_err("Failed to grow the pool by %llu MB: %d\n",
++					       size >> 20, ret);
++					return ret;
++				}
++				continue;
+ 			}
+ 
+-			pr_info("Overlay tx%d: +memory %llu MB numa=%d -> %s\n",
+-				tx->id, size >> 20, node, target->path);
+-
+-			ret = mk_pool_mem_grow(size, node, NULL);
+-			if (ret) {
+-				pr_err("Failed to grow the pool by %llu MB: %d\n",
+-				       size >> 20, ret);
++			ret = mk_overlay_parse_mem_reg(fdt, item_node, name, &base,
++						       &size);
++			if (ret)
++				return ret;
++
++			if (!pass)
++				continue;
++
++			pr_info("%s tx%d: %cmemory 0x%llx-0x%llx (%llu MB) numa=%d %s %s\n",
++				verb, tx->id, undo ? '-' : '+', base, base + size - 1,
++				size >> 20, node, undo ? "from" : "->",
++				target->instance->name);
++
++			if (undo)
++				ret = mk_send_mem_remove(target->instance->id,
++							 base >> PAGE_SHIFT,
++							 size >> PAGE_SHIFT);
++			else
++				ret = mk_send_mem_add(target->instance->id,
++						      base >> PAGE_SHIFT,
++						      size >> PAGE_SHIFT, (u32)node,
++						      mem_type);
++			if (ret < 0) {
++				pr_err("Failed to send memory IPI: %d\n", ret);
+ 				return ret;
+ 			}
+-			continue;
+-		}
+-
+-		ret = mk_overlay_parse_mem_reg(fdt, item_node, name, &base,
+-					       &size);
+-		if (ret)
+-			return ret;
+-
+-		pr_info("%s tx%d: %cmemory 0x%llx-0x%llx (%llu MB) numa=%d %s %s\n",
+-			verb, tx->id, undo ? '-' : '+', base, base + size - 1,
+-			size >> 20, node, undo ? "from" : "->",
+-			target->instance->name);
+-
+-		if (undo)
+-			ret = mk_send_mem_remove(target->instance->id,
+-						 base >> PAGE_SHIFT,
+-						 size >> PAGE_SHIFT);
+-		else
+-			ret = mk_send_mem_add(target->instance->id,
+-					      base >> PAGE_SHIFT,
+-					      size >> PAGE_SHIFT, (u32)node,
+-					      mem_type);
+-		if (ret < 0) {
+-			pr_err("Failed to send memory IPI: %d\n", ret);
+-			return ret;
+ 		}
+ 	}
+ 
+@@ -858,80 +872,91 @@
+ 				       bool undo)
+ {
+ 	const char *verb = undo ? "Rollback" : "Overlay";
+-	int item_node, ret;
++	int item_node, ret, pass;
+ 
+ 	ret = mk_overlay_check_resource_target(tx, target, "memory-remove");
+ 	if (ret)
+ 		return ret;
+ 
+-	fdt_for_each_subnode(item_node, fdt, op_node) {
+-		const char *name = fdt_get_name(fdt, item_node, NULL);
+-		u64 base, size;
+-		u32 mem_type;
+-		int node;
+-
+-		if (!name || strncmp(name, "memory@", 7))
+-			continue;
+-
+-		ret = mk_overlay_parse_mem_reg(fdt, item_node, name, &base,
+-					       &size);
+-		if (ret)
+-			return ret;
+-
+-		ret = mk_overlay_parse_numa(fdt, item_node, name, &node);
+-		if (ret)
+-			return ret;
+-		ret = mk_overlay_parse_u32(fdt, item_node, "mem-type", &mem_type);
+-		if (ret)
+-			return ret;
+-
+-		if (target->kind == MK_OVERLAY_TARGET_POOL) {
+-			if (undo) {
+-				/*
+-				 * Only the capacity can be restored: the
+-				 * kernel has since handed the old range
+-				 * back to the buddy allocator. A host park
+-				 * area torn down below is rebuilt inside
+-				 * the new chunk by the grow itself.
+-				 */
+-				pr_info("Rollback tx%d: regrowing the pool by %llu MB\n",
+-					tx->id, size >> 20);
+-				ret = mk_pool_mem_grow(size, node, NULL);
+-				if (ret) {
+-					pr_err("Failed to resize the pool: %d\n",
+-					       ret);
++	/*
++	 * Preflight the entire operation on the private immutable DTBO before
++	 * any allocation, shrink, park-area teardown or remote memory move.
++	 * Backend failures can still have partial effects; the transaction
++	 * must retain its uncertain-outcome guard in that case.
++	 */
++	for (pass = 0; pass < 2; pass++) {
++		fdt_for_each_subnode(item_node, fdt, op_node) {
++			const char *name = fdt_get_name(fdt, item_node, NULL);
++			u64 base, size;
++			u32 mem_type;
++			int node;
++
++			if (!name || strncmp(name, "memory@", 7))
++				continue;
++
++			ret = mk_overlay_parse_mem_reg(fdt, item_node, name, &base,
++						       &size);
++			if (ret)
++				return ret;
++
++			ret = mk_overlay_parse_numa(fdt, item_node, name, &node);
++			if (ret)
++				return ret;
++			ret = mk_overlay_parse_u32(fdt, item_node, "mem-type", &mem_type);
++			if (ret)
++				return ret;
++
++			if (!pass)
++				continue;
++
++			if (target->kind == MK_OVERLAY_TARGET_POOL) {
++				if (undo) {
++					/*
++					 * Only the capacity can be restored: the
++					 * kernel has since handed the old range
++					 * back to the buddy allocator. A host park
++					 * area torn down below is rebuilt inside
++					 * the new chunk by the grow itself.
++					 */
++					pr_info("Rollback tx%d: regrowing the pool by %llu MB\n",
++						tx->id, size >> 20);
++					ret = mk_pool_mem_grow(size, node, NULL);
++					if (ret) {
++						pr_err("Failed to resize the pool: %d\n",
++						       ret);
++						return ret;
++					}
++					continue;
++				}
++
++				pr_info("Overlay tx%d: -memory 0x%llx-0x%llx (%llu MB) from %s\n",
++					tx->id, base, base + size - 1, size >> 20,
++					target->path);
++
++				ret = mk_overlay_pool_mem_remove(tx, base, size);
++				if (ret)
+ 					return ret;
+-				}
+ 				continue;
+ 			}
+ 
+-			pr_info("Overlay tx%d: -memory 0x%llx-0x%llx (%llu MB) from %s\n",
+-				tx->id, base, base + size - 1, size >> 20,
+-				target->path);
+-
+-			ret = mk_overlay_pool_mem_remove(tx, base, size);
+-			if (ret)
++			pr_info("%s tx%d: %cmemory 0x%llx-0x%llx (%llu MB) %s %s\n",
++				verb, tx->id, undo ? '+' : '-', base, base + size - 1,
++				size >> 20, undo ? "->" : "from",
++				target->instance->name);
++
++			if (undo)
++				ret = mk_send_mem_add(target->instance->id,
++						      base >> PAGE_SHIFT,
++						      size >> PAGE_SHIFT, (u32)node,
++						      mem_type);
++			else
++				ret = mk_send_mem_remove(target->instance->id,
++							 base >> PAGE_SHIFT,
++							 size >> PAGE_SHIFT);
++			if (ret < 0) {
++				pr_err("Failed to send memory IPI: %d\n", ret);
+ 				return ret;
+-			continue;
+-		}
+-
+-		pr_info("%s tx%d: %cmemory 0x%llx-0x%llx (%llu MB) %s %s\n",
+-			verb, tx->id, undo ? '+' : '-', base, base + size - 1,
+-			size >> 20, undo ? "->" : "from",
+-			target->instance->name);
+-
+-		if (undo)
+-			ret = mk_send_mem_add(target->instance->id,
+-					      base >> PAGE_SHIFT,
+-					      size >> PAGE_SHIFT, (u32)node,
+-					      mem_type);
+-		else
+-			ret = mk_send_mem_remove(target->instance->id,
+-						 base >> PAGE_SHIFT,
+-						 size >> PAGE_SHIFT);
+-		if (ret < 0) {
+-			pr_err("Failed to send memory IPI: %d\n", ret);
+-			return ret;
++			}
+ 		}
+ 	}
+ 

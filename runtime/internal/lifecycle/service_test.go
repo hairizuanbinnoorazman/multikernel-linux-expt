@@ -1248,6 +1248,53 @@ func TestReconcileCreateIntentBeforeSnapshot(t *testing.T) {
 	}
 }
 
+func TestReconcileRejectsConflictingOwnershipBeforeBackendMutation(t *testing.T) {
+	for _, mode := range []string{"stale-generation", "changed-config", "snapshot-key", "conflicting-intents"} {
+		t.Run(mode, func(t *testing.T) {
+			service, store, backend := setup(t)
+			defer store.Close()
+			current := protocol.Sandbox{ID: "box-a", Generation: "current", State: "RUNNING", Config: config("box-a", 8, 7001)}
+			old := current
+			if mode == "stale-generation" || mode == "conflicting-intents" {
+				old.Generation = "old"
+			}
+			if mode == "changed-config" {
+				old.Config = config("box-a", 10, 7002)
+			}
+			if mode == "snapshot-key" {
+				current.Config.ID = "other"
+			}
+			if mode != "conflicting-intents" {
+				if err := store.SetSandbox(current); err != nil {
+					t.Fatal(err)
+				}
+			}
+			intent := state.JournalEntry{OperationID: "old-operation", SandboxID: old.ID, Generation: old.Generation, Method: "DeleteSandbox", Phase: "intent", Sandbox: &old}
+			if mode != "snapshot-key" {
+				if err := store.Append(intent); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if mode == "conflicting-intents" {
+				intent.OperationID, intent.Generation, intent.Sandbox = "current-operation", current.Generation, &current
+				if err := store.Append(intent); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before := store.Snapshot()
+			if err := service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "OPERATOR_ACTION") {
+				t.Fatalf("reconcile = %v", err)
+			}
+			if len(backend.calls) != 0 {
+				t.Fatalf("backend was touched: %v", backend.calls)
+			}
+			if !reflect.DeepEqual(before, store.Snapshot()) {
+				t.Fatal("rejected recovery changed durable ownership")
+			}
+		})
+	}
+}
+
 func TestReconcileResumesEveryIncompleteTransition(t *testing.T) {
 	tests := []struct {
 		method, durable, actual, want string

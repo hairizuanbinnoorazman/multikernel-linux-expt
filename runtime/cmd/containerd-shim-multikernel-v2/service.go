@@ -103,6 +103,7 @@ type process struct {
 	stdoutGuard, stderrGuard       io.Closer
 	stdinClosed, stdinCloseAcked   bool
 	stdinOffset                    uint64
+	stdinDrainRemaining            uint32
 	stdinPending                   []byte
 	stdoutOffset, stderrOffset     uint64
 	stdoutPressure, stderrPressure time.Time

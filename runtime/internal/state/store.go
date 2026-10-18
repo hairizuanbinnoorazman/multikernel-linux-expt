@@ -82,6 +82,9 @@ func Open(dir string) (*Store, error) {
 	if data, found, readErr := directory.ReadPrivate("state.json", maxSnapshotBytes); readErr != nil {
 		return nil, fmt.Errorf("read lifecycle snapshot: %w", readErr)
 	} else if found {
+		// Defaults apply only when no snapshot exists. Missing persisted fields
+		// must not inherit defaults and masquerade as an empty valid snapshot.
+		s.data = Snapshot{}
 		if err = protocol.StrictDecode(data, &s.data); err != nil {
 			return nil, fmt.Errorf("decode lifecycle snapshot: %w", err)
 		}
@@ -350,6 +353,8 @@ func parseJournal(data []byte) ([]JournalEntry, error) {
 	}
 	lines := bytes.Split(data[:len(data)-1], []byte{'\n'})
 	entries := make([]JournalEntry, 0, len(lines))
+	intents := make(map[string]int)
+	completed := make(map[string]bool)
 	var previous uint64
 	for index, line := range lines {
 		if len(line) == 0 || len(line) > maxJournalEntryBytes {
@@ -361,6 +366,34 @@ func parseJournal(data []byte) ([]JournalEntry, error) {
 		}
 		if entry.Sequence != previous+1 {
 			return nil, fmt.Errorf("lifecycle journal entry %d has a non-contiguous sequence", index+1)
+		}
+		if entry.OperationID == "" {
+			return nil, fmt.Errorf("lifecycle journal entry %d has no operation identity", index+1)
+		}
+		if entry.Sandbox != nil && (entry.Sandbox.ID != entry.SandboxID ||
+			entry.Sandbox.Generation != entry.Generation || entry.Sandbox.Config.ID != entry.SandboxID) {
+			return nil, fmt.Errorf("lifecycle journal entry %d has inconsistent sandbox identity", index+1)
+		}
+		switch entry.Phase {
+		case "intent":
+			if _, exists := intents[entry.OperationID]; exists {
+				return nil, fmt.Errorf("lifecycle journal entry %d reuses an operation identity", index+1)
+			}
+			intents[entry.OperationID] = len(entries)
+		case "complete":
+			intentIndex, exists := intents[entry.OperationID]
+			if !exists || completed[entry.OperationID] {
+				return nil, fmt.Errorf("lifecycle journal entry %d has no pending original intent", index+1)
+			}
+			intent := entries[intentIndex]
+			if intent.SandboxID != entry.SandboxID ||
+				intent.Generation != entry.Generation || intent.Method != entry.Method ||
+				intent.IdempotencyKey != entry.IdempotencyKey || intent.Fingerprint != entry.Fingerprint {
+				return nil, fmt.Errorf("lifecycle journal entry %d does not complete its original intent", index+1)
+			}
+			completed[entry.OperationID] = true
+		default:
+			return nil, fmt.Errorf("lifecycle journal entry %d has an invalid phase", index+1)
 		}
 		previous = entry.Sequence
 		entries = append(entries, entry)

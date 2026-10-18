@@ -1,0 +1,228 @@
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -948,49 +948,60 @@
+ 			     bool give, bool undo)
+ {
+ 	const char *verb = undo ? "Rollback" : "Overlay";
+-	int item_node, ret;
++	int item_node, ret, pass;
+ 
+ 	ret = mk_overlay_check_resource_target(tx, target, "cpu operation");
+ 	if (ret)
+ 		return ret;
+ 
+-	fdt_for_each_subnode(item_node, fdt, op_node) {
+-		const char *name = fdt_get_name(fdt, item_node, NULL);
+-		mk_phys_cpu_t cpu_id;
+-		int node;
+-		u32 flags;
+-
+-		if (!name || strncmp(name, "cpu@", 4))
+-			continue;
+-
+-		ret = mk_overlay_parse_cpu_reg(fdt, item_node, name, &cpu_id);
+-		if (ret)
+-			return ret;
+-
+-		ret = mk_overlay_parse_numa(fdt, item_node, name, &node);
+-		if (ret)
+-			return ret;
+-
+-		ret = mk_overlay_parse_u32(fdt, item_node, "flags", &flags);
+-		if (ret)
+-			return ret;
+-
+-		pr_info("%s tx%d: %ccpu %llu numa=%d %s %s\n",
+-			verb, tx->id, give ? '+' : '-', cpu_id, node,
+-			give ? "->" : "from", mk_overlay_target_name(target));
+-
+-		if (target->kind == MK_OVERLAY_TARGET_POOL)
+-			ret = give ? mk_pool_cpu_add(cpu_id) :
+-				     mk_pool_cpu_remove(cpu_id, (u32)node, flags);
+-		else if (give)
+-			ret = mk_send_cpu_add(target->instance->id, cpu_id,
+-					      (u32)node, flags);
+-		else
+-			ret = mk_send_cpu_remove(target->instance->id, cpu_id);
+-
+-		if (ret < 0) {
+-			pr_err("Failed to move CPU %llu: %d\n", cpu_id, ret);
+-			return ret;
++	/*
++	 * The DTBO is a private immutable copy. Validate every item before
++	 * the first move, including undo; a malformed later item must not
++	 * leave a successfully moved prefix. Primitive failures can still
++	 * have partial effects and remain subject to uncertain rollback.
++	 */
++	for (pass = 0; pass < 2; pass++) {
++		fdt_for_each_subnode(item_node, fdt, op_node) {
++			const char *name = fdt_get_name(fdt, item_node, NULL);
++			mk_phys_cpu_t cpu_id;
++			int node;
++			u32 flags;
++
++			if (!name || strncmp(name, "cpu@", 4))
++				continue;
++
++			ret = mk_overlay_parse_cpu_reg(fdt, item_node, name, &cpu_id);
++			if (ret)
++				return ret;
++
++			ret = mk_overlay_parse_numa(fdt, item_node, name, &node);
++			if (ret)
++				return ret;
++
++			ret = mk_overlay_parse_u32(fdt, item_node, "flags", &flags);
++			if (ret)
++				return ret;
++
++			if (!pass)
++				continue;
++
++			pr_info("%s tx%d: %ccpu %llu numa=%d %s %s\n",
++				verb, tx->id, give ? '+' : '-', cpu_id, node,
++				give ? "->" : "from", mk_overlay_target_name(target));
++
++			if (target->kind == MK_OVERLAY_TARGET_POOL)
++				ret = give ? mk_pool_cpu_add(cpu_id) :
++					     mk_pool_cpu_remove(cpu_id, (u32)node, flags);
++			else if (give)
++				ret = mk_send_cpu_add(target->instance->id, cpu_id,
++						      (u32)node, flags);
++			else
++				ret = mk_send_cpu_remove(target->instance->id, cpu_id);
++
++			if (ret < 0) {
++				pr_err("Failed to move CPU %llu: %d\n", cpu_id, ret);
++				return ret;
++			}
+ 		}
+ 	}
+ 
+@@ -1008,63 +1019,74 @@
+ 				bool give, bool undo)
+ {
+ 	const char *verb = undo ? "Rollback" : "Overlay";
+-	int item_node, ret;
++	int item_node, ret, pass;
+ 
+ 	ret = mk_overlay_check_resource_target(tx, target, "device operation");
+ 	if (ret)
+ 		return ret;
+ 
+-	fdt_for_each_subnode(item_node, fdt, op_node) {
+-		const char *name = fdt_get_name(fdt, item_node, NULL);
+-		const char *driver;
+-		u16 domain;
+-		u8 bus, devfn;
+-		u32 flags;
+-
+-		if (!name || strncmp(name, "pci@", 4))
+-			continue;
+-
+-		ret = mk_overlay_parse_pci_id(fdt, item_node, name, &domain,
+-					      &bus, &devfn);
+-		if (ret)
+-			return ret;
+-
+-		ret = mk_overlay_parse_driver(fdt, item_node, &driver);
+-		if (ret)
+-			return ret;
+-		ret = mk_overlay_parse_u32(fdt, item_node, "flags", &flags);
+-		if (ret)
+-			return ret;
+-
+-		if (target->kind == MK_OVERLAY_TARGET_POOL)
+-			pr_info("%s tx%d: %cdevice %04x:%02x:%02x.%x %s %s\n",
+-				verb, tx->id, give ? '+' : '-', domain, bus,
+-				PCI_SLOT(devfn), PCI_FUNC(devfn),
+-				give ? "->" : "from",
+-				mk_overlay_target_name(target));
+-		else
+-			pr_info("%s tx%d: %cdevice %04x:%02x:%02x.%x driver=%s %s %s\n",
+-				verb, tx->id, give ? '+' : '-', domain, bus,
+-				PCI_SLOT(devfn), PCI_FUNC(devfn),
+-				driver ? driver : "none", give ? "->" : "from",
+-				mk_overlay_target_name(target));
+-
+-		if (target->kind == MK_OVERLAY_TARGET_POOL)
+-			ret = give ? mk_pool_device_add(domain, bus, devfn) :
+-				     mk_pool_device_remove(domain, bus, devfn,
+-							   NULL, 0);
+-		else if (give)
+-			ret = mk_send_device_add(target->instance->id, domain,
+-						 bus, devfn, driver, flags);
+-		else
+-			ret = mk_send_device_remove(target->instance->id,
+-						    domain, bus, devfn);
+-
+-		if (ret < 0) {
+-			pr_err("Failed to move device %04x:%02x:%02x.%x: %d\n",
+-			       domain, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
+-			       ret);
+-			return ret;
++	/*
++	 * The DTBO is a private immutable copy. Validate every item before
++	 * the first move, including undo; a malformed later item must not
++	 * leave a successfully moved prefix. Primitive failures can still
++	 * have partial effects and remain subject to uncertain rollback.
++	 */
++	for (pass = 0; pass < 2; pass++) {
++		fdt_for_each_subnode(item_node, fdt, op_node) {
++			const char *name = fdt_get_name(fdt, item_node, NULL);
++			const char *driver;
++			u16 domain;
++			u8 bus, devfn;
++			u32 flags;
++
++			if (!name || strncmp(name, "pci@", 4))
++				continue;
++
++			ret = mk_overlay_parse_pci_id(fdt, item_node, name, &domain,
++						      &bus, &devfn);
++			if (ret)
++				return ret;
++
++			ret = mk_overlay_parse_driver(fdt, item_node, &driver);
++			if (ret)
++				return ret;
++			ret = mk_overlay_parse_u32(fdt, item_node, "flags", &flags);
++			if (ret)
++				return ret;
++
++			if (!pass)
++				continue;
++
++			if (target->kind == MK_OVERLAY_TARGET_POOL)
++				pr_info("%s tx%d: %cdevice %04x:%02x:%02x.%x %s %s\n",
++					verb, tx->id, give ? '+' : '-', domain, bus,
++					PCI_SLOT(devfn), PCI_FUNC(devfn),
++					give ? "->" : "from",
++					mk_overlay_target_name(target));
++			else
++				pr_info("%s tx%d: %cdevice %04x:%02x:%02x.%x driver=%s %s %s\n",
++					verb, tx->id, give ? '+' : '-', domain, bus,
++					PCI_SLOT(devfn), PCI_FUNC(devfn),
++					driver ? driver : "none", give ? "->" : "from",
++					mk_overlay_target_name(target));
++
++			if (target->kind == MK_OVERLAY_TARGET_POOL)
++				ret = give ? mk_pool_device_add(domain, bus, devfn) :
++					     mk_pool_device_remove(domain, bus, devfn,
++								   NULL, 0);
++			else if (give)
++				ret = mk_send_device_add(target->instance->id, domain,
++							 bus, devfn, driver, flags);
++			else
++				ret = mk_send_device_remove(target->instance->id,
++							    domain, bus, devfn);
++
++			if (ret < 0) {
++				pr_err("Failed to move device %04x:%02x:%02x.%x: %d\n",
++				       domain, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
++				       ret);
++				return ret;
++			}
+ 		}
+ 	}
+ 

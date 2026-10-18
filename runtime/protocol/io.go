@@ -4,7 +4,17 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 )
+
+// FrameIOTimeout bounds transport work independently of operation execution.
+// A caller cannot disable the bound with a zero, negative, or excessive value.
+func FrameIOTimeout(configured time.Duration) time.Duration {
+	if configured <= 0 || configured > 30*time.Second {
+		return 10 * time.Second
+	}
+	return configured
+}
 
 // WriteFull writes every byte or returns an error. It defensively completes a
 // short successful write and rejects a writer that makes no progress, so a

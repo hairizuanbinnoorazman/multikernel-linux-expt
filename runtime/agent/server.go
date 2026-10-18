@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
@@ -39,8 +40,9 @@ type Reply struct {
 	// through setError; a diagnostic string alone serializes as INTERNAL.
 	Error string `json:"-"`
 	// Failure is the structured error decoded from a remote reply.
-	Failure *protocol.Error `json:"-"`
-	cause   error
+	Failure       *protocol.Error `json:"-"`
+	cause         error
+	authenticated bool
 }
 
 func (r Reply) MarshalJSON() ([]byte, error) {
@@ -84,6 +86,7 @@ func (r *Reply) UnmarshalJSON(data []byte) error {
 }
 
 type Server struct {
+	FrameIOTimeout        time.Duration
 	Manager               *Manager
 	SandboxID, Generation string
 	Bundle                string
@@ -103,6 +106,9 @@ func Sign(e *Envelope, token []byte) {
 	e.MAC = hex.EncodeToString(m.Sum(nil))
 }
 func (s *Server) verify(e Envelope) error {
+	if len(s.Token) == 0 {
+		return errorf(unauthenticated, "agent authentication is not configured")
+	}
 	if e.Version != 1 {
 		return errorf(unsupported, "unsupported version")
 	}
@@ -217,6 +223,7 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 		r.setError(x)
 		return r
 	}
+	r.authenticated = true
 	if s.isQuiesced() && e.Method != "Capabilities" && e.Method != "Quiesce" && e.Method != "Shutdown" {
 		r.setError(errorf(failedPrecondition, "agent is quiesced"))
 		return r
@@ -432,9 +439,35 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 	stopCancellation := protocol.CloseOnContext(ctx, c)
 	defer stopCancellation()
+	budget := protocol.FrameIOTimeout(s.FrameIOTimeout)
+	authenticationDeadline := time.Now().Add(budget)
+	authenticated := false
 	for {
 		var header [4]byte
-		if _, e := io.ReadFull(c, header[:]); e != nil {
+		idleDeadline := authenticationDeadline
+		if authenticated {
+			idleDeadline = time.Time{}
+		}
+		if e := c.SetReadDeadline(idleDeadline); e != nil {
+			if errors.Is(e, io.ErrClosedPipe) || errors.Is(e, net.ErrClosed) {
+				return nil
+			}
+			return e
+		}
+		if _, e := io.ReadFull(c, header[:1]); e != nil {
+			if errors.Is(e, io.EOF) {
+				return nil
+			}
+			return e
+		}
+		deadline := time.Now().Add(budget)
+		if !authenticated && authenticationDeadline.Before(deadline) {
+			deadline = authenticationDeadline
+		}
+		if e := c.SetReadDeadline(deadline); e != nil {
+			return e
+		}
+		if _, e := io.ReadFull(c, header[1:]); e != nil {
 			if errors.Is(e, io.EOF) || errors.Is(e, io.ErrUnexpectedEOF) {
 				return nil
 			}
@@ -452,10 +485,14 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 			if _, e := io.ReadFull(c, b); e != nil {
 				return e
 			}
+			if e := c.SetReadDeadline(time.Time{}); e != nil {
+				return e
+			}
 			if decodeErr := decode(b, &env); decodeErr != nil {
 				reply.setError(decodeErr)
 			} else {
 				reply = s.DispatchContext(ctx, env)
+				authenticated = authenticated || reply.authenticated
 			}
 		}
 		b, e := json.Marshal(reply)
@@ -463,10 +500,16 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 			return e
 		}
 		binary.BigEndian.PutUint32(header[:], uint32(len(b)))
+		if e = c.SetWriteDeadline(time.Now().Add(budget)); e != nil {
+			return e
+		}
 		if e = protocol.WriteFull(c, header[:]); e != nil {
 			return e
 		}
 		if e = protocol.WriteFull(c, b); e != nil {
+			return e
+		}
+		if e = c.SetWriteDeadline(time.Time{}); e != nil {
 			return e
 		}
 		if env.Method == "Shutdown" && reply.Error == "" {

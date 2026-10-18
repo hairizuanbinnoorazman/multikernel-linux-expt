@@ -135,3 +135,107 @@ func TestHostConfigurationOwnerIsEnforced(t *testing.T) {
 		t.Fatal("wrong owner accepted")
 	}
 }
+
+func TestHostConfigurationExecutableTrust(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(string, string) error
+		accept bool
+	}{
+		{"writable-parent", func(root, executable string) error {
+			return os.Chmod(filepath.Dir(executable), 0777)
+		}, false},
+		{"writable-ancestor", func(root, executable string) error {
+			return os.Chmod(filepath.Join(root, "opt"), 0777)
+		}, false},
+		{"not-executable", func(root, executable string) error {
+			return os.Chmod(executable, 0644)
+		}, false},
+		{"empty", func(root, executable string) error {
+			return os.Truncate(executable, 0)
+		}, false},
+		{"directory", func(root, executable string) error {
+			if err := os.Remove(executable); err != nil {
+				return err
+			}
+			return os.Mkdir(executable, 0755)
+		}, false},
+		{"fifo", func(root, executable string) error {
+			if err := os.Remove(executable); err != nil {
+				return err
+			}
+			return syscall.Mkfifo(executable, 0700)
+		}, false},
+		{"hardlink", func(root, executable string) error {
+			return os.Link(executable, executable+".alias")
+		}, false},
+		{"managed-relative-link", func(root, executable string) error {
+			if err := os.Rename(executable, executable+".generation"); err != nil {
+				return err
+			}
+			return os.Symlink("kerf.generation", executable)
+		}, true},
+		{"managed-directory-link", func(root, executable string) error {
+			parent := filepath.Dir(executable)
+			if err := os.Rename(parent, parent+".generation"); err != nil {
+				return err
+			}
+			return os.Symlink("bin.generation", parent)
+		}, true},
+		{"unsafe-link-target-parent", func(root, executable string) error {
+			unsafe := filepath.Join(root, "unsafe")
+			if err := os.Mkdir(unsafe, 0755); err != nil {
+				return err
+			}
+			if err := os.Chmod(unsafe, 0777); err != nil {
+				return err
+			}
+			if err := os.Rename(executable, filepath.Join(unsafe, "kerf")); err != nil {
+				return err
+			}
+			return os.Symlink(filepath.Join(unsafe, "kerf"), executable)
+		}, false},
+		{"unsafe-intermediate-link", func(root, executable string) error {
+			unsafe := filepath.Join(root, "unsafe")
+			if err := os.Mkdir(unsafe, 0755); err != nil {
+				return err
+			}
+			if err := os.Chmod(unsafe, 0777); err != nil {
+				return err
+			}
+			if err := os.Rename(executable, executable+".generation"); err != nil {
+				return err
+			}
+			if err := os.Symlink(executable+".generation", filepath.Join(unsafe, "redirect")); err != nil {
+				return err
+			}
+			return os.Symlink(filepath.Join(unsafe, "redirect"), executable)
+		}, false},
+		{"symlink-cycle", func(root, executable string) error {
+			if err := os.Remove(executable); err != nil {
+				return err
+			}
+			return os.Symlink("kerf", executable)
+		}, false},
+		{"symlink-escape", func(root, executable string) error {
+			outside := filepath.Join(t.TempDir(), "kerf")
+			if err := os.Rename(executable, outside); err != nil {
+				return err
+			}
+			return os.Symlink(outside, executable)
+		}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path, uid := fixture(t)
+			root := filepath.Dir(filepath.Dir(path))
+			executable := filepath.Join(root, "opt/kerf/bin/kerf")
+			if err := test.mutate(root, executable); err != nil {
+				t.Fatal(err)
+			}
+			_, err := load(path, uid, root)
+			if (err == nil) != test.accept {
+				t.Fatalf("accept=%v, error=%v", test.accept, err)
+			}
+		})
+	}
+}

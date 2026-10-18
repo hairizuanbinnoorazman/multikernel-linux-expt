@@ -13,6 +13,25 @@ handler context when the accept loop ends.
 Daemon and mknetd accept loops default to 128 concurrent handlers, cannot be
 configured above 1,024, close an authenticated connection when no slot remains,
 and join every admitted handler before server return.
+Both primary daemons bound complete request-frame receipt and response delivery
+independently to 10 seconds by default. Internal overrides must be positive and
+at most 30 seconds; invalid values retain the default. The read deadline covers
+the entire frame, so trickling bytes does not renew it. After receipt, the read
+deadline is cleared before dispatch and the response gets a fresh write deadline.
+These transport limits do not impose a new operation execution timeout or cancel
+daemon work through its client-disconnect watcher. A timed-out incomplete frame
+is closed before decoding or mutation. Slow response readers are disconnected,
+including mknetd clients receiving a descriptor through `ATTACH`.
+The child agent also bounds frame transfers to 10 seconds by default, with the
+same internal override limits. A new session must authenticate within one fixed
+budget; malformed frames do not renew that allowance. Once authenticated, an
+idle session can wait indefinitely for the next request's first byte. That byte
+starts a single deadline for the remaining header and payload. Reads are cleared
+before dispatch, and each complete reply gets a fresh write deadline. These
+bounds do not limit operation execution or impose idle disconnects on healthy
+authenticated sessions. The sequential agent closes timed-out sessions before
+accepting another connection; continuous authenticated traffic and expensive
+operations still require separate availability review.
 
 Every request contains `version: 1`, request ID, method, and a typed body.
 Mutations also contain sandbox ID, generation when one exists, and idempotency
@@ -24,6 +43,8 @@ error retaining the originating request ID. Agent envelopes additionally contain
 generation, endpoint, monotonically increasing sequence, and an HMAC-SHA256
 over the canonical frame using the sandbox token. Frames over 1 MiB and
 sequence replay are rejected before body decoding.
+The agent refuses authentication when its server token is empty; library
+misconfiguration must not permit HMAC using a publicly known empty key.
 
 V1 authenticates requests but does not add a reply MAC. A reply is bound to the
 authenticated, point-to-point session by its sequence number and is accepted
@@ -59,6 +80,15 @@ prefix position and an exact replay resumes with the unaccepted suffix; the
 acknowledged offset advances only after the complete chunk is accepted.
 Omitting the offset retains the original protocol-v1 behavior for an older
 controller but does not provide reconnect-safe replay.
+
+The shim's CloseIO captures the bytes already buffered in the owned stdin FIFO
+and drains that exact prefix before acknowledging guest EOF. The captured drain
+is capped at one MiB; an excessive count fails before recording close. Reads
+remain nonblocking and cannot extend the captured count with later writes.
+Recovery schema 4 persists the remaining count together with pending data and
+acknowledged offsets. Schema 3 remains readable with a zero drain count; older
+shims reject schema 4, so rollback requires completing active tasks first.
+
 The advertised `signal-operation-id-v1` capability adds a generation-scoped
 32-character lowercase hexadecimal `operation_id` to `SignalProcess`. The
 guest retains a bounded ledger of the exact process ID, signal, and result. An

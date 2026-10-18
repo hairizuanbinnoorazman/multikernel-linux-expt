@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
@@ -39,16 +40,19 @@ type InventoryBackend interface {
 	ListInstances(context.Context) ([]string, error)
 }
 type CLI struct {
-	Path       string
-	Sysfs      string
-	PoolCPUs   []int
-	PoolMemory string
-	Timeout    time.Duration
-	MaxOutput  int
-	Kernel     string
-	Initrd     string
-	Cmdline    string
+	Path                string
+	Sysfs               string
+	PoolCPUs            []int
+	PoolMemory          string
+	Timeout             time.Duration
+	MaxOutput           int
+	Kernel              string
+	Initrd              string
+	Cmdline             string
+	afterExecutableOpen func()
 }
+
+var errExecutableTrust = errors.New("Kerf executable trust rejected")
 
 func (c *CLI) run(ctx context.Context, args ...string) error {
 	return c.runWithFiles(ctx, nil, args...)
@@ -58,6 +62,24 @@ func (c *CLI) runWithFiles(ctx context.Context, files []*os.File, args ...string
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if len(args) == 0 {
+		return errors.New("Kerf operation is required")
+	}
+	executable, err := safefile.OpenTrustedExecutable(c.Path, 256<<20)
+	if err != nil {
+		return fmt.Errorf("open Kerf executable: %w", errors.Join(errExecutableTrust, err))
+	}
+	defer executable.Close()
+	// Keep virtualenv/site packages available, but exclude Python's implicit
+	// script/current-directory path and per-user site packages (Python >=3.11).
+	environment := []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C",
+		"PYTHONSAFEPATH=1", "PYTHONNOUSERSITE=1"}
+	if err = safefile.ValidateScriptInterpreter(executable, environment); err != nil {
+		return fmt.Errorf("Kerf interpreter rejected: %w", errors.Join(errExecutableTrust, err))
+	}
+	if c.afterExecutableOpen != nil {
+		c.afterExecutableOpen()
+	}
 	timeout := c.Timeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -66,8 +88,11 @@ func (c *CLI) runWithFiles(ctx context.Context, files []*os.File, args ...string
 	if maximumOutput <= 0 {
 		maximumOutput = 1 << 20
 	}
-	output, err := boundedexec.RunWithFiles(ctx, timeout, c.Path, args,
-		[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}, maximumOutput, files)
+	// Preserve initramfs/kernel FD numbers and append the exact executable.
+	childExecutable := fmt.Sprintf("/proc/self/fd/%d", 3+len(files))
+	inherited := append(append([]*os.File(nil), files...), executable)
+	output, err := boundedexec.RunWithFiles(ctx, timeout, childExecutable, args,
+		environment, maximumOutput, inherited)
 	if err != nil {
 		digest := sha256.Sum256(output)
 		return fmt.Errorf("kerf %s: %w (retained_output_bytes=%d retained_output_sha256=%s)",
@@ -237,6 +262,9 @@ func (c *CLI) Create(ctx context.Context, s protocol.Sandbox) error {
 	if err == nil {
 		return nil
 	}
+	if errors.Is(err, errExecutableTrust) {
+		return err
+	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
 	}
@@ -377,6 +405,9 @@ func (c *CLI) Delete(ctx context.Context, s protocol.Sandbox) error {
 func (c *CLI) acceptObserved(ctx context.Context, id, expected string, commandErr error) error {
 	if commandErr == nil {
 		return nil
+	}
+	if errors.Is(commandErr, errExecutableTrust) {
+		return commandErr
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr

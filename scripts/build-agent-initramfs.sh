@@ -12,8 +12,12 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$work"/{bin,dev,proc,sys,tmp,bundle/rootfs/bin,bundle/rootfs/work}
-mkdir -m 0700 "$work/.mk-agent"
-install -m 0600 "${MK_AGENT_TOKEN_FILE:?provide the private token input file}" "$work/.mk-agent/token"
+# Production supplies the per-generation credential in the loader's private
+# appended cpio. Explicit token input remains available to standalone fixtures.
+if [[ -n ${MK_AGENT_TOKEN_FILE:-} ]]; then
+	mkdir -m 0700 "$work/.mk-agent"
+	install -m 0600 "$MK_AGENT_TOKEN_FILE" "$work/.mk-agent/token"
+fi
 chmod 0777 "$work/bundle/rootfs/work"
 install -m 0755 "$busybox" "$work/bin/busybox"
 install -m 0755 "$busybox" "$work/bundle/rootfs/bin/busybox"

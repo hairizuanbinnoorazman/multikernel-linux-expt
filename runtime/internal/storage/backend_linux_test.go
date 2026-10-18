@@ -494,6 +494,7 @@ int main(int argc, char **argv) {
   if (argc != 6) return 2;
   signal(SIGTERM, stop); signal(SIGINT, stop);
   printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s\n", argv[2], argv[4], argv[5], argv[3]); fflush(stdout);
+  puts("MKNBD_SERVER_CLIENT_ACCEPTED"); fflush(stdout);
   while (!done) pause();
   puts("MKNBD_SERVER_CLOSED synced=1 reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4"); fflush(stdout);
   return 0;
@@ -928,7 +929,7 @@ func TestCounterEvidenceRequiresExactReadyAndCanonicalTerminalClose(t *testing.T
 			t.Fatal(err)
 		}
 	}
-	write(append(readyMarker(value), closed...))
+	write(append(append(readyMarker(value), []byte("MKNBD_SERVER_CLIENT_ACCEPTED\n")...), closed...))
 	if counters, err := parseCounters(path, value); err != nil || counters != (Counters{Reads: 2, ReadBytes: 8192, Writes: 3, WrittenBytes: 12288, Flushes: 4}) {
 		t.Fatalf("counters = %+v, %v", counters, err)
 	}
@@ -1058,7 +1059,7 @@ func TestStopAcceptsExactGracefulCloseAfterRecoveredProcessExited(t *testing.T) 
 	}
 	want := Counters{Reads: 2, ReadBytes: 8192, Writes: 3, WrittenBytes: 12288, Flushes: 4}
 	closed := []byte("MKNBD_SERVER_CLOSED synced=1 reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4\n")
-	if err = os.WriteFile(logPath, append(readyMarker(value), closed...), 0600); err != nil {
+	if err = os.WriteFile(logPath, append(append(readyMarker(value), []byte("MKNBD_SERVER_CLIENT_ACCEPTED\n")...), closed...), 0600); err != nil {
 		t.Fatal(err)
 	}
 

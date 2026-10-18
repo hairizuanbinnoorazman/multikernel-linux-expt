@@ -1,0 +1,256 @@
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -17,6 +17,7 @@
+ #include <linux/pci.h>
+ #include <linux/libfdt.h>
+ #include <linux/sizes.h>
++#include <linux/limits.h>
+ #include "internal.h"
+ 
+ #define PROP_SUB_FDT "fdt"
+@@ -193,6 +194,71 @@
+ }
+ 
+ 
++/* The producer exposes exactly the page-rounded shared-ring ABI. Validate
++ * scalar ranges before narrowing or mapping; physical ownership is a separate
++ * trust requirement of the boot handoff, not established by these bounds.
++ */
++static int __init mk_manifest_get_ipi_range(const void *manifest,
++					 const char *node_name,
++					 phys_addr_t *physical, u32 *pages,
++					 size_t *size)
++{
++	const fdt64_t *phys_prop;
++	const fdt32_t *pages_prop;
++	size_t expected_size = PAGE_ALIGN(sizeof(struct mk_shared_data));
++	u64 address;
++	u32 count;
++	int node, len;
++
++	node = fdt_subnode_offset(manifest, 0, node_name);
++	if (node == -FDT_ERR_NOTFOUND)
++		return -ENOENT;
++	if (node < 0)
++		return -EINVAL;
++
++	phys_prop = fdt_getprop(manifest, node, "phys-addr", &len);
++	if (!phys_prop || len != sizeof(*phys_prop))
++		return -EINVAL;
++	address = fdt64_ld(phys_prop);
++	pages_prop = fdt_getprop(manifest, node, "pages", &len);
++	if (!pages_prop || len != sizeof(*pages_prop))
++		return -EINVAL;
++	count = fdt32_ld(pages_prop);
++
++	if (!address || (address & (PAGE_SIZE - 1)) ||
++	    (u64)(phys_addr_t)address != address ||
++	    count != expected_size >> PAGE_SHIFT ||
++	    address > PHYS_ADDR_MAX - (expected_size - 1))
++		return -EINVAL;
++
++	*physical = (phys_addr_t)address;
++	*pages = count;
++	*size = expected_size;
++	return 0;
++}
++
++/* Preflight both declarations before CPU registration or restore allocation. */
++static int __init mk_manifest_validate_ipi_ranges(const void *manifest)
++{
++	phys_addr_t own_phys, host_phys;
++	u32 own_pages, host_pages;
++	size_t own_size, host_size;
++	int own, host;
++
++	own = mk_manifest_get_ipi_range(manifest, "ipi-buffer", &own_phys,
++				       &own_pages, &own_size);
++	if (own && own != -ENOENT)
++		return own;
++	host = mk_manifest_get_ipi_range(manifest, "host-ipi-buffer", &host_phys,
++					&host_pages, &host_size);
++	if (host && host != -ENOENT)
++		return host;
++	if (!own && !host && own_phys <= host_phys + host_size - 1 &&
++	    host_phys <= own_phys + own_size - 1)
++		return -EINVAL;
++	return 0;
++}
++
+ /**
+  * mk_dt_extract_instance_info() - Extract instance ID and name from DTB
+  * @dtb_data: Device tree blob data
+@@ -267,7 +333,8 @@
+ 	if (!manifest)
+ 		return;
+ 
+-	if (fdt_check_full(manifest, PAGE_SIZE))
++	if (fdt_check_full(manifest, PAGE_SIZE) ||
++	    mk_manifest_validate_ipi_ranges(manifest))
+ 		goto out;
+ 
+ 	mk_node = fdt_subnode_offset(manifest, 0, "multikernel");
+@@ -287,13 +354,13 @@
+ 
+ 	/* Get the cpus property (64-bit physical IDs) from resources node */
+ 	cpus_prop = fdt_getprop(dtb_data, resources_node, "cpus", &cpus_len);
+-	if (!cpus_prop || cpus_len < sizeof(fdt64_t) ||
++	if (!cpus_prop || cpus_len < (int)sizeof(fdt64_t) ||
+ 	    cpus_len % sizeof(fdt64_t))
+ 		goto out;
+ 
+ 	/* Register each CPU from the DTB */
+-	for (i = 0; i < cpus_len / sizeof(fdt64_t); i++) {
+-		mk_phys_cpu_t phys_id = fdt64_to_cpu(cpus_prop[i]);
++	for (i = 0; i < cpus_len / (int)sizeof(fdt64_t); i++) {
++		mk_phys_cpu_t phys_id = fdt64_ld(&cpus_prop[i]);
+ 
+ 		mk_arch_register_cpu(phys_id);
+ 		pr_debug("Registered CPU physical ID %llu from manifest\n", phys_id);
+@@ -307,10 +374,10 @@
+ 	 * CPU assigned to each and avoids the hot-pluggable-APIC checks.
+ 	 */
+ 	cpus_prop = fdt_getprop(manifest, mk_node, "pool-cpus", &cpus_len);
+-	if (cpus_prop && cpus_len >= sizeof(fdt64_t) &&
++	if (cpus_prop && cpus_len >= (int)sizeof(fdt64_t) &&
+ 	    cpus_len % sizeof(fdt64_t) == 0) {
+-		for (i = 0; i < cpus_len / sizeof(fdt64_t); i++) {
+-			mk_phys_cpu_t phys_id = fdt64_to_cpu(cpus_prop[i]);
++		for (i = 0; i < cpus_len / (int)sizeof(fdt64_t); i++) {
++			mk_phys_cpu_t phys_id = fdt64_ld(&cpus_prop[i]);
+ 
+ 			mk_arch_register_cpu(phys_id);
+ 			pr_debug("Registered pool CPU physical ID %llu from manifest\n",
+@@ -520,45 +587,32 @@
+ 
+ static int __init mk_restore_instance_ipi(const void *manifest, struct mk_instance *instance)
+ {
+-	int ipi_node;
+-	const fdt64_t *phys_prop;
+-	const fdt32_t *pages_prop;
+-	int len;
+-	phys_addr_t ipi_phys = 0;
+-	u32 ipi_pages = 0;
+-	size_t ipi_size = 0;
+-
+-	ipi_node = fdt_subnode_offset(manifest, 0, "ipi-buffer");
+-	if (ipi_node < 0) {
++	struct mk_shared_data *mapped;
++	phys_addr_t ipi_phys;
++	u32 ipi_pages;
++	size_t ipi_size;
++	int ret;
++
++	ret = mk_manifest_get_ipi_range(manifest, "ipi-buffer", &ipi_phys,
++				      &ipi_pages, &ipi_size);
++	if (ret == -ENOENT) {
+ 		instance->ipi_data = NULL;
+ 		pr_debug("No IPI buffer available in manifest\n");
+ 		return 0;
+ 	}
+-
+-	phys_prop = fdt_getprop(manifest, ipi_node, "phys-addr", &len);
+-	if (phys_prop && len == sizeof(*phys_prop))
+-		ipi_phys = (phys_addr_t)fdt64_to_cpu(*phys_prop);
+-
+-	pages_prop = fdt_getprop(manifest, ipi_node, "pages", &len);
+-	if (pages_prop && len == sizeof(*pages_prop)) {
+-		ipi_pages = fdt32_to_cpu(*pages_prop);
+-		ipi_size = (size_t)ipi_pages << PAGE_SHIFT;
+-	}
+-
+-	if (!ipi_phys || !ipi_pages) {
+-		instance->ipi_data = NULL;
+-		pr_debug("IPI buffer node exists but incomplete info (phys=0x%llx, pages=%u)\n",
+-			 (unsigned long long)ipi_phys, ipi_pages);
+-		return 0;
+-	}
+-
+-	instance->ipi_data = memremap(ipi_phys, ipi_size, MEMREMAP_WB);
+-	if (!instance->ipi_data) {
++	if (ret) {
++		pr_err("Invalid IPI buffer range in manifest\n");
++		return ret;
++	}
++
++	mapped = memremap(ipi_phys, ipi_size, MEMREMAP_WB);
++	if (!mapped) {
+ 		pr_err("Failed to map IPI buffer at 0x%llx (pages: %u, size: %zu)\n",
+ 		       (unsigned long long)ipi_phys, ipi_pages, ipi_size);
+ 		return -ENOMEM;
+ 	}
+ 
++	instance->ipi_data = mapped;
+ 	instance->ipi_phys = ipi_phys;
+ 	instance->ipi_pages = ipi_pages;
+ 	pr_info("Restored IPI buffer for root instance: phys=0x%llx, virt=%px, pages=%u, size=%zu\n",
+@@ -570,33 +624,15 @@
+ static struct mk_instance * __init mk_restore_host_instance(const void *manifest)
+ {
+ 	struct mk_instance *host_instance;
+-	int host_ipi_node;
+-	const fdt64_t *phys_prop;
+-	const fdt32_t *pages_prop;
+-	phys_addr_t host_ipi_phys = 0;
+-	u32 host_ipi_pages = 0;
+-	size_t host_ipi_size = 0;
+-	int len;
+-
+-	host_ipi_node = fdt_subnode_offset(manifest, 0, "host-ipi-buffer");
+-	if (host_ipi_node < 0) {
+-		pr_warn("No host-ipi-buffer node in manifest (spawn won't be able to send to host)\n");
+-		return NULL;
+-	}
+-
+-	phys_prop = fdt_getprop(manifest, host_ipi_node, "phys-addr", &len);
+-	if (phys_prop && len == sizeof(*phys_prop))
+-		host_ipi_phys = (phys_addr_t)fdt64_to_cpu(*phys_prop);
+-
+-	pages_prop = fdt_getprop(manifest, host_ipi_node, "pages", &len);
+-	if (pages_prop && len == sizeof(*pages_prop)) {
+-		host_ipi_pages = fdt32_to_cpu(*pages_prop);
+-		host_ipi_size = (size_t)host_ipi_pages << PAGE_SHIFT;
+-	}
+-
+-	if (!host_ipi_phys || !host_ipi_pages) {
+-		pr_warn("Incomplete host IPI buffer info (phys=0x%llx, pages=%u)\n",
+-			(unsigned long long)host_ipi_phys, host_ipi_pages);
++	phys_addr_t host_ipi_phys;
++	u32 host_ipi_pages;
++	size_t host_ipi_size;
++	int ret;
++
++	ret = mk_manifest_get_ipi_range(manifest, "host-ipi-buffer", &host_ipi_phys,
++				      &host_ipi_pages, &host_ipi_size);
++	if (ret) {
++		pr_warn("Missing or invalid host IPI buffer range in manifest\n");
+ 		return NULL;
+ 	}
+ 
+@@ -690,6 +726,12 @@
+ 
+ 	if (fdt_check_full(manifest, PAGE_SIZE)) {
+ 		ret = -EINVAL;
++		goto cleanup_fdt;
++	}
++
++	ret = mk_manifest_validate_ipi_ranges(manifest);
++	if (ret) {
++		pr_err("Invalid shared IPI buffer ranges in manifest\n");
+ 		goto cleanup_fdt;
+ 	}
+ 
+--- a/kernel/multikernel/manifest.c
++++ b/kernel/multikernel/manifest.c
+@@ -46,8 +46,9 @@
+ 	pr_info("multikernel: processing manifest at 0x%llx (size: %llu)\n",
+ 		fdt_phys, fdt_len);
+ 
+-	/* A manifest is generated in one page; reject lengths before mapping. */
+-	if (fdt_len < sizeof(struct fdt_header) || fdt_len > PAGE_SIZE) {
++	/* Restore maps the whole producer page; require its base before mapping. */
++	if (!fdt_phys || (fdt_phys & (PAGE_SIZE - 1)) ||
++	    fdt_len < sizeof(struct fdt_header) || fdt_len > PAGE_SIZE) {
+ 		err = -EINVAL;
+ 		goto out;
+ 	}

@@ -1,0 +1,372 @@
+--- a/kernel/multikernel/core.c
++++ b/kernel/multikernel/core.c
+@@ -22,6 +22,32 @@
+  * Physical hotplug and arch park waits execute outside this mutex.
+  */
+ DEFINE_MUTEX(mk_cpu_ownership_mutex);
++/* x86 opens admission only after its host park area is fully initialized. */
++static bool mk_pool_park_available = !IS_ENABLED(CONFIG_X86);
++static struct mk_cpu_set mk_host_park_pins;
++
++void mk_pool_park_enable(void)
++{
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	mk_pool_park_available = true;
++}
++
++/* Called with the architecture park lock held, before CPU removal. */
++int mk_pool_park_pin(mk_phys_cpu_t cpu)
++{
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	if (!mk_pool_park_available)
++		return -EBUSY;
++	return mk_cpu_set_add(&mk_host_park_pins, cpu);
++}
++
++/* Caller has confirmed CPU-online and cleared its pool-play-dead flag. */
++void mk_pool_park_unpin(mk_phys_cpu_t cpu)
++{
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	mk_cpu_set_del(&mk_host_park_pins, cpu);
++}
++
+ struct mk_cpu_pool_transition {
+ 	struct list_head list;
+ 	mk_phys_cpu_t cpu;
+@@ -45,6 +71,8 @@
+ int mk_cpu_pool_copy_busy(struct mk_cpu_set *out)
+ {
+ 	struct mk_cpu_pool_transition *op;
++	mk_phys_cpu_t cpu;
++	unsigned int i;
+ 	int ret;
+ 
+ 	lockdep_assert_held(&mk_cpu_ownership_mutex);
+@@ -53,6 +81,12 @@
+ 		if (ret)
+ 			return ret;
+ 	}
++	for (i = 0; i < mk_host_park_pins.nr; i++) {
++		cpu = mk_host_park_pins.ids[i];
++		ret = mk_cpu_set_add(out, cpu);
++		if (ret)
++			return ret;
++	}
+ 	return 0;
+ }
+ 
+@@ -65,6 +99,10 @@
+ 	if (!op)
+ 		return -ENOMEM;
+ 	mutex_lock(&mk_cpu_ownership_mutex);
++	if (!mk_pool_park_available) {
++		ret = -EBUSY;
++		goto out;
++	}
+ 	if (!mk_cpu_pool || !root_instance || !root_instance->cpus) {
+ 		ret = -ENODEV;
+ 		goto out;
+@@ -98,6 +136,8 @@
+ 			continue;
+ 		if (op->finished || op->from_pool != from_pool)
+ 			return -EUCLEAN;
++		if (!ret && !mk_pool_park_available)
++			ret = -EBUSY;
+ 		if (!ret && mk_cpu_set_contains(root_instance->cpus, cpu) != from_pool)
+ 			ret = -EUCLEAN;
+ 		if (!ret && !from_pool)
+@@ -119,17 +159,26 @@
+ int mk_cpu_pool_transitions_show(struct seq_file *sf, void *v)
+ {
+ 	struct mk_cpu_pool_transition *op;
+-	unsigned int rows = 0;
++	mk_phys_cpu_t cpu;
++	unsigned int i, rows = 0;
+ 
+ 	guard(mutex)(&mk_cpu_ownership_mutex);
+ 	list_for_each_entry(op, &mk_cpu_pool_transitions, list) {
+ 		if (rows++ == 64) {
+ 			seq_puts(sf, "truncated=1 limit=64\n");
+-			break;
++			return 0;
+ 		}
+ 		seq_printf(sf, "cpu=%llu direction=%s state=%s error=%d\n",
+ 			   op->cpu, op->from_pool ? "pool-to-host" : "host-to-pool",
+ 			   op->finished ? "reconciliation-required" : "in-progress", op->error);
++	}
++	for (i = 0; i < mk_host_park_pins.nr; i++) {
++		cpu = mk_host_park_pins.ids[i];
++		if (rows++ == 64) {
++			seq_puts(sf, "truncated=1 limit=64\n");
++			return 0;
++		}
++		seq_printf(sf, "park_pin_cpu=%llu state=held-until-host-online\n", cpu);
+ 	}
+ 	return 0;
+ }
+@@ -525,6 +574,8 @@
+ 	int ret;
+ 
+ 	guard(mutex)(&mk_cpu_ownership_mutex);
++	if (!mk_pool_park_available)
++		return -EBUSY;
+ 
+ 	if (!cpus || !instance || !instance->cpus || !mk_cpu_pool) {
+ 		pr_err("Invalid CPU sets for transfer\n");
+@@ -602,6 +653,8 @@
+ 	int ret;
+ 
+ 	guard(mutex)(&mk_cpu_ownership_mutex);
++	if (!mk_pool_park_available)
++		return -EBUSY;
+ 
+ 	if (!cpus || !instance || !instance->cpus || !mk_cpu_pool) {
+ 		pr_err("Invalid CPU sets for return\n");
+@@ -670,15 +723,17 @@
+  * instance's set before it parks, which is why the move paths reserve
+  * room in the destination set up front.
+  */
+-bool mk_pool_cpus_returned(void)
++static bool mk_pool_cpus_returned_locked(void)
+ {
+ 	unsigned long retained_flags;
+ 	bool retained;
+ 	struct mk_instance *instance;
+ 	bool returned = true;
+ 
+-	guard(mutex)(&mk_instance_mutex);
+-	guard(mutex)(&mk_cpu_ownership_mutex);
++	lockdep_assert_held(&mk_instance_mutex);
++	lockdep_assert_held(&mk_cpu_ownership_mutex);
++	if (!mk_cpu_set_empty(&mk_host_park_pins))
++		return false;
+ 	if (!list_empty(&mk_cpu_pool_transitions))
+ 		return false;
+ 
+@@ -703,6 +758,26 @@
+ 	}
+ 
+ 	return returned;
++}
++
++bool mk_pool_cpus_returned(void)
++{
++	guard(mutex)(&mk_instance_mutex);
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	return mk_pool_cpus_returned_locked();
++}
++
++/* The architecture park lock stays held across this commit and all frees.
++ * Closing admission under the ownership lock makes the empty check durable.
++ */
++int mk_pool_park_quiesce(void)
++{
++	guard(mutex)(&mk_instance_mutex);
++	guard(mutex)(&mk_cpu_ownership_mutex);
++	if (!mk_pool_cpus_returned_locked())
++		return -EBUSY;
++	mk_pool_park_available = false;
++	return 0;
+ }
+ 
+ static int mk_instance_reserve_cpus(struct mk_instance *instance,
+--- a/kernel/multikernel/hotplug.c
++++ b/kernel/multikernel/hotplug.c
+@@ -64,6 +64,8 @@
+ };
+ 
+ static DEFINE_MUTEX(mk_hotplug_mutex);
++/* Serializes pin acquisition/release around actual local CPU hotplug. */
++static DEFINE_MUTEX(mk_cpu_hotplug_mutex);
+ static LIST_HEAD(mk_hotplug_ops);
+ 
+ /*
+@@ -86,10 +88,27 @@
+  * it belongs to the mk_send_cpu_* initiator paths of the kernel that
+  * manages the pool.
+  */
+-static int mk_account_cpu_online(mk_phys_cpu_t cpu_id)
+-{
+-	guard(mutex)(&mk_cpu_ownership_mutex);
+-	return root_instance->cpus ? mk_cpu_set_add(root_instance->cpus, cpu_id) : -ENODEV;
++static int mk_account_cpu_online(mk_phys_cpu_t cpu_id, int logical_cpu)
++{
++	int ret;
++
++	/* Exclude native hotplug while validating online and retiring the pin. */
++	cpus_read_lock();
++	if (!cpu_online(logical_cpu)) {
++		ret = -EUCLEAN;
++		goto out;
++	}
++	mutex_lock(&mk_cpu_ownership_mutex);
++	ret = root_instance->cpus ? mk_cpu_set_add(root_instance->cpus, cpu_id) : -ENODEV;
++	mutex_unlock(&mk_cpu_ownership_mutex);
++	if (!ret) {
++		mk_set_pool_cpu(logical_cpu, false);
++		mk_release_host_cpu_park(logical_cpu);
++		mk_pool_park_unpin(cpu_id);
++	}
++out:
++	cpus_read_unlock();
++	return ret;
+ }
+ 
+ static void mk_account_cpu_offline(mk_phys_cpu_t cpu_id)
+@@ -122,6 +141,8 @@
+ 	int logical_cpu;
+ 	int ret;
+ 	struct mk_hotplug_op *op;
++
++	guard(mutex)(&mk_cpu_hotplug_mutex);
+ 
+ 	pr_info("Multikernel hotplug: Adding CPU %llu (numa=%d, flags=0x%x)\n",
+ 		cpu_id, (int)numa_node, flags);
+@@ -146,7 +167,8 @@
+ 	if (cpu_online(logical_cpu)) {
+ 		pr_warn("Multikernel hotplug: CPU %d (phys %llu) already online\n",
+ 			logical_cpu, cpu_id);
+-		return mk_account_cpu_online(cpu_id);
++		ret = mk_account_cpu_online(cpu_id, logical_cpu);
++		return ret;
+ 	}
+ 
+ 	if (!get_cpu_device(logical_cpu)) {
+@@ -167,7 +189,7 @@
+ 		return ret;
+ 	}
+ 
+-	ret = mk_account_cpu_online(cpu_id);
++	ret = mk_account_cpu_online(cpu_id, logical_cpu);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -195,6 +217,8 @@
+ 	int ret;
+ 	struct mk_hotplug_op *op;
+ 
++	guard(mutex)(&mk_cpu_hotplug_mutex);
++
+ 	logical_cpu = mk_cpu_to_logical(cpu_id);
+ 	if (logical_cpu < 0) {
+ 		pr_err("Multikernel hotplug: Physical CPU %llu not found\n", cpu_id);
+@@ -214,6 +238,10 @@
+ 		return -EINVAL;
+ 	}
+ 
++	/* Covers every caller, including deferred remote-removal workers. */
++	ret = mk_prepare_host_cpu_park(cpu_id, logical_cpu);
++	if (ret)
++		return ret;
+ 	mk_set_pool_cpu(logical_cpu, true);
+ 
+ 	ret = remove_cpu(logical_cpu);
+--- a/arch/x86/multikernel/spawn.c
++++ b/arch/x86/multikernel/spawn.c
+@@ -125,6 +125,7 @@
+ 
+ /* Nests outside the pool mutex: a growing pool maps itself in here */
+ static DEFINE_MUTEX(mk_host_park_lock);
++static DEFINE_PER_CPU(bool, mk_cpu_uses_host_park);
+ 
+ struct mk_spawn_context *mk_alloc_spawn_context(struct mk_instance *instance,
+ 						phys_addr_t *phys_out)
+@@ -1439,6 +1440,8 @@
+ 	mk_host_park.slot = __va(phys);
+ 	memset(mk_host_park.slot, 0, sizeof(*mk_host_park.slot));
+ 	mk_host_park.slot->self_phys = phys;
++	/* Publish admission only after every park field and slot is initialized. */
++	mk_pool_park_enable();
+ 
+ 	pr_info("mk_spawn: host pool park area at %pa (slot %pa)\n",
+ 		&mk_host_park.park_phys, &mk_host_park.slot_phys);
+@@ -1542,13 +1545,15 @@
+  */
+ int mk_teardown_host_park(void)
+ {
++	int ret;
++
+ 	guard(mutex)(&mk_host_park_lock);
+ 
++	ret = mk_pool_park_quiesce();
++	if (ret)
++		return ret;
+ 	if (!mk_host_park.slot)
+ 		return 0;
+-
+-	if (!mk_pool_cpus_returned())
+-		return -EBUSY;
+ 
+ 	multikernel_free(mk_host_park.slot_phys,
+ 			 ALIGN(sizeof(struct mk_spawn_context), PAGE_SIZE));
+@@ -1575,11 +1580,36 @@
+  * host, wait on our own instance context like any pool CPU of this
+  * instance. Returns only if neither park area exists.
+  */
++/* Serialize park selection with setup/teardown, then pin its lifetime before
++ * hotplug can make this CPU execute the selected page. No lock spans removal.
++ */
++int mk_prepare_host_cpu_park(mk_phys_cpu_t cpu, int logical_cpu)
++{
++	int ret;
++
++	guard(mutex)(&mk_host_park_lock);
++	if (!mk_host_park.slot) {
++		WRITE_ONCE(per_cpu(mk_cpu_uses_host_park, logical_cpu), false);
++		return mk_cpu_parkable() ? 0 : -ENODEV;
++	}
++	ret = mk_pool_park_pin(cpu);
++	if (ret)
++		return ret;
++	WRITE_ONCE(per_cpu(mk_cpu_uses_host_park, logical_cpu), true);
++	return 0;
++}
++
++/* CPU-online and its pool flag are protected by the caller's CPU read lock. */
++void mk_release_host_cpu_park(int logical_cpu)
++{
++	WRITE_ONCE(per_cpu(mk_cpu_uses_host_park, logical_cpu), false);
++}
++
+ void mk_pool_park_cpu(void)
+ {
+ 	mk_pool_park_fn park;
+ 
+-	if (mk_host_park.slot) {
++	if (this_cpu_read(mk_cpu_uses_host_park)) {
+ 		park = (mk_pool_park_fn)mk_host_park.park_va;
+ 		park(mk_host_park.cr3, mk_host_park.slot_phys, read_apic_id(),
+ 		     mk_host_park.park_phys,
+--- a/include/linux/multikernel.h
++++ b/include/linux/multikernel.h
+@@ -405,6 +405,10 @@
+ bool mk_pool_empty(void);
+ int mk_pool_for_each_chunk(int (*fn)(struct mk_pool_chunk *, void *), void *data);
+ bool mk_pool_cpus_returned(void);
++void mk_pool_park_enable(void);
++int __must_check mk_pool_park_quiesce(void);
++int __must_check mk_pool_park_pin(mk_phys_cpu_t cpu);
++void mk_pool_park_unpin(mk_phys_cpu_t cpu);
+ 
+ /**
+  * struct mk_pool_chunk_range - a pool chunk copied out of the chunk list
+@@ -421,10 +425,19 @@
+ int mk_pool_snapshot_chunks(struct mk_pool_chunk_range *out, int max);
+ 
+ #ifdef CONFIG_X86
++int mk_prepare_host_cpu_park(mk_phys_cpu_t cpu, int logical_cpu);
++void mk_release_host_cpu_park(int logical_cpu);
+ int mk_arch_pool_chunk_added(phys_addr_t start, size_t size);
+ bool mk_host_park_uses(phys_addr_t start, size_t size);
+ int mk_teardown_host_park(void);
+ #else
++static inline int mk_prepare_host_cpu_park(mk_phys_cpu_t cpu, int logical_cpu)
++{
++	return 0;
++}
++
++static inline void mk_release_host_cpu_park(int logical_cpu) { }
++
+ static inline int mk_arch_pool_chunk_added(phys_addr_t start, size_t size)
+ {
+ 	return 0;

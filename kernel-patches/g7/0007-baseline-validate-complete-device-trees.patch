@@ -1,0 +1,157 @@
+--- a/kernel/multikernel/baseline.c
++++ b/kernel/multikernel/baseline.c
+@@ -540,9 +540,9 @@
+ 		return -EBUSY;
+ 	}
+ 
+-	ret = fdt_check_header(fdt);
+-	if (ret) {
+-		pr_err("Invalid baseline DTB header: %d\n", ret);
++	ret = fdt_check_full(fdt, fdt_size);
++	if (ret) {
++		pr_err("Invalid baseline DTB structure: %d\n", ret);
+ 		return -EINVAL;
+ 	}
+ 
+--- a/kernel/multikernel/kernfs.c
++++ b/kernel/multikernel/kernfs.c
+@@ -187,9 +187,9 @@
+ 	if (off || count < sizeof(struct fdt_header))
+ 		return -EINVAL;
+ 
+-	ret = fdt_check_header(fdt);
+-	if (ret) {
+-		pr_err("Invalid device tree header: %d\n", ret);
++	ret = fdt_check_full(fdt, count);
++	if (ret) {
++		pr_err("Invalid device tree structure: %d\n", ret);
+ 		return -EINVAL;
+ 	}
+ 
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -259,7 +259,7 @@
+ 
+ obj-$(CONFIG_REF_TRACKER) += ref_tracker.o
+ 
+-libfdt_files = fdt.o fdt_ro.o fdt_wip.o fdt_rw.o fdt_sw.o fdt_strerror.o \
++libfdt_files = fdt.o fdt_check.o fdt_ro.o fdt_wip.o fdt_rw.o fdt_sw.o fdt_strerror.o \
+ 	       fdt_empty_tree.o fdt_addresses.o
+ $(foreach file, $(libfdt_files), \
+ 	$(eval CFLAGS_$(file) = -I $(srctree)/scripts/dtc/libfdt))
+--- /dev/null
++++ b/lib/fdt_check.c
+@@ -0,0 +1,3 @@
++// SPDX-License-Identifier: GPL-2.0
++#include <linux/libfdt_env.h>
++#include "../scripts/dtc/libfdt/fdt_check.c"
+--- a/scripts/dtc/update-dtc-source.sh
++++ b/scripts/dtc/update-dtc-source.sh
+@@ -34,7 +34,7 @@
+ DTC_SOURCE="checks.c data.c dtc.c dtc.h flattree.c fstree.c livetree.c srcpos.c \
+ 		srcpos.h treesource.c util.c util.h version_gen.h \
+ 		dtc-lexer.l dtc-parser.y"
+-LIBFDT_SOURCE="fdt.c fdt.h fdt_addresses.c fdt_empty_tree.c \
++LIBFDT_SOURCE="fdt.c fdt_check.c fdt.h fdt_addresses.c fdt_empty_tree.c \
+ 		fdt_overlay.c fdt_ro.c fdt_rw.c fdt_strerror.c fdt_sw.c \
+ 		fdt_wip.c libfdt.h libfdt_env.h libfdt_internal.h"
+ FDTOVERLAY_SOURCE=fdtoverlay.c
+--- /dev/null
++++ b/scripts/dtc/libfdt/fdt_check.c
+@@ -0,0 +1,96 @@
++// SPDX-License-Identifier: (GPL-2.0-or-later OR BSD-2-Clause)
++/*
++ * libfdt - Flat Device Tree manipulation
++ * Copyright (C) 2006 David Gibson, IBM Corporation.
++ */
++#include "libfdt_env.h"
++
++#include <fdt.h>
++#include <libfdt.h>
++
++#include "libfdt_internal.h"
++
++int fdt_check_full(const void *fdt, size_t bufsize)
++{
++	int err;
++	int num_memrsv;
++	int offset, nextoffset = 0;
++	uint32_t tag;
++	unsigned int depth = 0;
++	const void *prop;
++	const char *propname;
++	bool expect_end = false;
++
++	if (bufsize < FDT_V1_SIZE)
++		return -FDT_ERR_TRUNCATED;
++	if (bufsize < fdt_header_size(fdt))
++		return -FDT_ERR_TRUNCATED;
++	err = fdt_check_header(fdt);
++	if (err != 0)
++		return err;
++	if (bufsize < fdt_totalsize(fdt))
++		return -FDT_ERR_TRUNCATED;
++
++	num_memrsv = fdt_num_mem_rsv(fdt);
++	if (num_memrsv < 0)
++		return num_memrsv;
++
++	while (1) {
++		offset = nextoffset;
++		tag = fdt_next_tag(fdt, offset, &nextoffset);
++
++		if (nextoffset < 0)
++			return nextoffset;
++
++		/* If we see two root nodes, something is wrong */
++		if (expect_end && tag != FDT_END && tag != FDT_NOP)
++			return -FDT_ERR_BADSTRUCTURE;
++
++		switch (tag) {
++		case FDT_NOP:
++			break;
++
++		case FDT_END:
++			if (depth != 0)
++				return -FDT_ERR_BADSTRUCTURE;
++			return 0;
++
++		case FDT_BEGIN_NODE:
++			depth++;
++			if (depth > INT_MAX)
++				return -FDT_ERR_BADSTRUCTURE;
++
++			/* The root node must have an empty name */
++			if (depth == 1) {
++				const char *name;
++				int len;
++
++				name = fdt_get_name(fdt, offset, &len);
++				if (!name)
++					return len;
++
++				if (*name || len)
++					return -FDT_ERR_BADSTRUCTURE;
++			}
++			break;
++
++		case FDT_END_NODE:
++			if (depth == 0)
++				return -FDT_ERR_BADSTRUCTURE;
++			depth--;
++			if (depth == 0)
++				expect_end = true;
++			break;
++
++		case FDT_PROP:
++			prop = fdt_getprop_by_offset(fdt, offset, &propname,
++						     &err);
++			if (!prop)
++				return err;
++			break;
++
++		default:
++			return -FDT_ERR_INTERNAL;
++		}
++	}
++}

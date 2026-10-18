@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"syscall"
@@ -22,6 +23,8 @@ const (
 	multikernelRevision = "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7"
 	kerfRevision        = "8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec"
 )
+
+var kernelReleaseRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$`)
 
 type Artifact struct {
 	Path   string `json:"path"`
@@ -101,7 +104,7 @@ func validate(manifest Manifest, name string, uid uint32) error {
 	if manifest.SchemaVersion != 1 || manifest.Name != name || manifest.Architecture != runtime.GOARCH || runtime.GOARCH != "amd64" {
 		return errors.New("manifest identity or architecture is incompatible")
 	}
-	if manifest.KernelRelease == "" || manifest.Compatibility.MultikernelRevision != multikernelRevision ||
+	if !kernelReleaseRE.MatchString(manifest.KernelRelease) || manifest.Compatibility.MultikernelRevision != multikernelRevision ||
 		manifest.Compatibility.KerfVersion != "v0.2.0" || manifest.Compatibility.KerfRevision != kerfRevision {
 		return errors.New("manifest release or compatibility pin is incompatible")
 	}
@@ -115,6 +118,14 @@ func validate(manifest Manifest, name string, uid uint32) error {
 	artifacts := append([]Artifact{manifest.Kernel, manifest.Initramfs, manifest.Agent, manifest.Relay, manifest.Transport.Module}, manifest.Modules...)
 	for _, artifact := range artifacts {
 		if err := verifyArtifact(artifact, uid); err != nil {
+			return err
+		}
+	}
+	if err := verifyModule(manifest.Transport.Module, uid, manifest.KernelRelease, "mk_transport"); err != nil {
+		return err
+	}
+	for _, module := range manifest.Modules {
+		if err := verifyModule(module, uid, manifest.KernelRelease, ""); err != nil {
 			return err
 		}
 	}

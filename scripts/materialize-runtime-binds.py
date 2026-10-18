@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -18,6 +17,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import types
 
 
 class MaterializationError(Exception):
@@ -26,16 +26,16 @@ class MaterializationError(Exception):
 
 def load_rootfs_builder():
     path = Path(__file__).with_name("build-runtime-rootfs.py")
-    spec = importlib.util.spec_from_file_location("runtime_rootfs_builder_for_binds", path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    assert spec.loader is not None
-    previous = sys.dont_write_bytecode
-    sys.dont_write_bytecode = True
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        sys.dont_write_bytecode = previous
+    # The outer builder preflights this source. Read/compile it explicitly;
+    # a timestamp-valid sibling bytecode cache is not an admitted artifact.
+    with path.open("rb") as stream:
+        source = stream.read((4 << 20) + 1)
+    if not source or len(source) > 4 << 20:
+        raise MaterializationError("rootfs support source exceeds limit")
+    module = types.ModuleType("runtime_rootfs_builder_for_binds")
+    module.__file__ = str(path)
+    sys.modules[module.__name__] = module
+    exec(compile(source, str(path), "exec"), module.__dict__)
     return module
 
 

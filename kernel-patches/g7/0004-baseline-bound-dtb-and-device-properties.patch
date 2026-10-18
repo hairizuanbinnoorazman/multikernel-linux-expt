@@ -1,0 +1,157 @@
+--- a/kernel/multikernel/baseline.c
++++ b/kernel/multikernel/baseline.c
+@@ -20,6 +20,7 @@
+ #include <linux/multikernel.h>
+ #include <linux/ioport.h>
+ #include <linux/pci.h>
++#include <linux/ctype.h>
+ 
+ #include "internal.h"
+ 
+@@ -208,6 +209,41 @@
+ 	return 0;
+ }
+ 
++/* Device properties are single, nonempty strings, not string lists. */
++static int mk_baseline_get_string(const void *fdt, int node,
++				  const char *name, const char **value)
++{
++	const char *prop;
++	int len;
++
++	prop = fdt_getprop(fdt, node, name, &len);
++	if (!prop)
++		return len == -FDT_ERR_NOTFOUND ? -ENOENT : -EINVAL;
++	if (len <= 1 || prop[len - 1] != '\0' ||
++	    strnlen(prop, len) != (size_t)len - 1)
++		return -EINVAL;
++
++	*value = prop;
++	return 0;
++}
++
++static int mk_baseline_parse_pci_id(const char *value, unsigned int *domain,
++				    unsigned int *bus, unsigned int *slot,
++				    unsigned int *func)
++{
++	int i, consumed = 0;
++
++	for (i = 0; value[i]; i++)
++		if (!isxdigit(value[i]) && value[i] != ':' && value[i] != '.')
++			return -EINVAL;
++
++	if (sscanf(value, "%4x:%2x:%2x.%1x%n", domain, bus, slot, func,
++		   &consumed) != 4 || value[consumed] ||
++	    *domain > 0xffff || *bus > 0xff || *slot > 0x1f || *func > 7)
++		return -EINVAL;
++	return 0;
++}
++
+ static int mk_baseline_parse_devices(const void *fdt, int resources_node,
+ 				     struct mk_instance *instance,
+ 				     struct list_head *pci_list)
+@@ -215,7 +251,7 @@
+ 	int devices_node, dev_node;
+ 	const char *dev_name, *device_type;
+ 	int pci_count = 0;
+-	int len;
++	int len, ret;
+ 
+ 	devices_node = fdt_subnode_offset(fdt, resources_node, "devices");
+ 	if (devices_node < 0) {
+@@ -230,11 +266,15 @@
+ 			continue;
+ 		}
+ 
+-		device_type = fdt_getprop(fdt, dev_node, "device-type", &len);
+-		if (!device_type) {
++		ret = mk_baseline_get_string(fdt, dev_node, "device-type", &device_type);
++		if (ret == -ENOENT) {
+ 			pr_warn("Device '%s' has no device-type property, skipping\n",
+ 				dev_name);
+ 			continue;
++		}
++		if (ret) {
++			pr_err("Device '%s' has invalid device-type\n", dev_name);
++			return ret;
+ 		}
+ 
+ 		if (strcmp(device_type, "pci") == 0) {
+@@ -243,28 +283,28 @@
+ 			const fdt32_t *vendor_prop, *device_prop;
+ 			unsigned int domain, bus, slot, func;
+ 
+-			pci_id_str = fdt_getprop(fdt, dev_node, "pci-id", &len);
+-			if (!pci_id_str) {
++			ret = mk_baseline_get_string(fdt, dev_node, "pci-id", &pci_id_str);
++			if (ret) {
+ 				pr_err("PCI device '%s' missing pci-id property\n",
+ 				       dev_name);
+ 				return -EINVAL;
+ 			}
+ 
+-			if (sscanf(pci_id_str, "%x:%x:%x.%x", &domain, &bus, &slot, &func) != 4) {
++			if (mk_baseline_parse_pci_id(pci_id_str, &domain, &bus, &slot, &func)) {
+ 				pr_err("Invalid pci-id format '%s' for device '%s'\n",
+ 				       pci_id_str, dev_name);
+ 				return -EINVAL;
+ 			}
+ 
+ 			vendor_prop = fdt_getprop(fdt, dev_node, "vendor-id", &len);
+-			if (!vendor_prop || len != 4) {
++			if (!vendor_prop || len != 4 || fdt32_to_cpu(*vendor_prop) > 0xffff) {
+ 				pr_err("PCI device '%s' missing or invalid vendor-id\n",
+ 				       dev_name);
+ 				return -EINVAL;
+ 			}
+ 
+ 			device_prop = fdt_getprop(fdt, dev_node, "device-id", &len);
+-			if (!device_prop || len != 4) {
++			if (!device_prop || len != 4 || fdt32_to_cpu(*device_prop) > 0xffff) {
+ 				pr_err("PCI device '%s' missing or invalid device-id\n",
+ 				       dev_name);
+ 				return -EINVAL;
+@@ -293,7 +333,11 @@
+ 				 pci_dev->func);
+ 		} else if (strcmp(device_type, "platform") == 0) {
+ 			struct mk_platform_device *plat_dev;
+-			const char *device_name_str;
++			const char *device_name_str = NULL;
++
++			ret = mk_baseline_get_string(fdt, dev_node, "device-name", &device_name_str);
++			if (ret && ret != -ENOENT)
++				return ret;
+ 
+ 			plat_dev = kzalloc_obj(*plat_dev, GFP_KERNEL);
+ 			if (!plat_dev) {
+@@ -303,7 +347,6 @@
+ 
+ 			strscpy(plat_dev->name, dev_name, sizeof(plat_dev->name));
+ 
+-			device_name_str = fdt_getprop(fdt, dev_node, "device-name", &len);
+ 			if (device_name_str)
+ 				strscpy(plat_dev->name, device_name_str,
+ 					sizeof(plat_dev->name));
+@@ -447,7 +490,7 @@
+ 	int resources_node, nr_reqs;
+ 	int ret;
+ 
+-	if (!fdt || fdt_size == 0) {
++	if (!fdt || fdt_size < sizeof(struct fdt_header)) {
+ 		pr_err("Invalid baseline DTB parameters\n");
+ 		return -EINVAL;
+ 	}
+--- a/kernel/multikernel/kernfs.c
++++ b/kernel/multikernel/kernfs.c
+@@ -183,7 +183,10 @@
+ 
+ 	pr_info("Loading host kernel device tree configuration (%zu bytes at offset %lld)\n", count, off);
+ 
+-	/* Validate DTB header */
++	/* Header readers have no buffer length; reject partial writes first. */
++	if (off || count < sizeof(struct fdt_header))
++		return -EINVAL;
++
+ 	ret = fdt_check_header(fdt);
+ 	if (ret) {
+ 		pr_err("Invalid device tree header: %d\n", ret);

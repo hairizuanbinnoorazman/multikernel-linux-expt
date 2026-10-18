@@ -1,0 +1,15 @@
+[Unit]
+Description=Load qualified Multikernel transport modules
+Before=mkruntimed.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_MODULE
+AmbientCapabilities=
+TimeoutStartSec=30
+ExecStart=/sbin/modprobe vsock
+ExecStart=/sbin/modprobe mk_transport
+ExecStart=/usr/bin/test -d /sys/module/mk_transport

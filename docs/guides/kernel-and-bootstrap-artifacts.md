@@ -23,6 +23,13 @@ Each manifest names and hashes:
 - the supported agent protocol range; and
 - the OCI features this artifact set is approved to accept.
 
+The daemon verifies module ELF architecture, name and kernel release before
+allocation, including support modules such as NBD. The install validator also
+checks every module's release. A matching digest alone does not establish
+compatibility between independently assembled artifacts. These checks do not
+establish host/child wire compatibility or validate arbitrary approved initramfs
+contents against the separately listed agent and modules.
+
 The current compatibility pins are Multikernel `v7.0-mk2` at
 `3bdd35b64413da0b4e089ce931bfc2e8b031cbf7` and Kerf `v0.2.0` at
 `8b72b3e9b266f8d32e707e2c1743ad7afc50b1ec`.
@@ -44,6 +51,16 @@ are:
 Read each builder's required arguments before running it. The exact initramfs
 builder depends on the experiment or runtime storage path. Do not mix
 artifacts from different child kernel releases.
+
+The runtime container builder resolves its default NBD module with
+`modinfo -k` for the validated child kernel release. The primary host may run a
+different release. An explicit `MK_NBD_MODULE` still selects the supplied module;
+ownership, mode, module name and child-release vermagic checks apply either way.
+
+Approved production images built with `build-agent-initramfs.sh` omit credentials
+by default. The loader appends a private per-generation token archive at boot.
+`MK_AGENT_TOKEN_FILE` is an explicit standalone-fixture option; do not embed a
+reusable production credential in an approved image.
 
 ## 2. Stage under administrator-owned paths
 

@@ -1,0 +1,199 @@
+--- a/kernel/multikernel/dts.c
++++ b/kernel/multikernel/dts.c
+@@ -24,6 +24,17 @@
+ 
+ #include "internal.h"
+ 
++/* Flat instance DTBs can have named roots. Check their actual buffer bounds
++ * before any libfdt reader; full standard-tree validation is separate. */
++int mk_dt_check_blob_bounds(const void *fdt, size_t size)
++{
++	if (!fdt || size < sizeof(struct fdt_header))
++		return -EINVAL;
++	if (fdt_check_header(fdt) || fdt_totalsize(fdt) > size)
++		return -EINVAL;
++	return 0;
++}
++
+ static const void *mk_dt_get_base_fdt(void)
+ {
+ 	if (!root_instance || !root_instance->dtb_data) {
+@@ -31,8 +42,9 @@
+ 		return NULL;
+ 	}
+ 
+-	if (fdt_check_header(root_instance->dtb_data) != 0) {
+-		pr_err("Base DTB has invalid header\n");
++	if (mk_dt_check_blob_bounds(root_instance->dtb_data,
++				    root_instance->dtb_size)) {
++		pr_err("Base DTB has invalid header or size\n");
+ 		return NULL;
+ 	}
+ 
+@@ -549,18 +561,10 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	/* Validate FDT header */
+-	ret = fdt_check_header(fdt);
++	ret = mk_dt_check_blob_bounds(fdt, dtb_size);
+ 	if (ret) {
+-		pr_err("Invalid device tree blob: %d\n", ret);
+-		return -EINVAL;
+-	}
+-
+-	/* Verify size matches */
+-	if (fdt_totalsize(fdt) > dtb_size) {
+-		pr_err("DTB size mismatch: header=%u, provided=%zu\n",
+-		       fdt_totalsize(fdt), dtb_size);
+-		return -EINVAL;
++		pr_err("Invalid device tree blob or buffer size: %d\n", ret);
++		return ret;
+ 	}
+ 
+ 	/* Flat format: root node is the instance, find resources subnode */
+@@ -840,7 +844,7 @@
+ 	if (!dtb_data || !property)
+ 		return -EINVAL;
+ 
+-	if (fdt_check_header(fdt))
++	if (mk_dt_check_blob_bounds(fdt, dtb_size))
+ 		return -EINVAL;
+ 
+ 	chosen_node = fdt_path_offset(fdt, "/chosen");
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -209,11 +209,12 @@
+ 				       int *instance_id, const char **instance_name)
+ {
+ 	const void *fdt = dtb_data;
+-	int root_node;
++	int root_node, len;
+ 	const fdt32_t *id_prop;
+ 	const char *name;
+ 
+-	if (!dtb_data || !instance_id || !instance_name) {
++	if (!instance_id || !instance_name ||
++	    mk_dt_check_blob_bounds(dtb_data, dtb_size)) {
+ 		return -EINVAL;
+ 	}
+ 
+@@ -229,11 +230,14 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	id_prop = fdt_getprop(fdt, root_node, "id", NULL);
++	id_prop = fdt_getprop(fdt, root_node, "id", &len);
+ 	if (!id_prop) {
+ 		pr_err("No 'id' property found in instance '%s'\n", name);
+ 		return -ENOENT;
+ 	}
++
++	if (len != sizeof(*id_prop) || fdt32_to_cpu(*id_prop) >= INT_MAX)
++		return -EINVAL;
+ 
+ 	*instance_id = fdt32_to_cpu(*id_prop);
+ 	*instance_name = name;
+@@ -263,13 +267,17 @@
+ 	if (!manifest)
+ 		return;
+ 
++	if (fdt_check_full(manifest, PAGE_SIZE))
++		goto out;
++
+ 	mk_node = fdt_subnode_offset(manifest, 0, "multikernel");
+ 	if (mk_node < 0)
+ 		goto out;
+ 
+ 	/* Get the embedded DTB */
+ 	dtb_data = fdt_getprop(manifest, mk_node, "dtb-data", &dtb_len);
+-	if (!dtb_data || dtb_len <= 0)
++	if (!dtb_data || dtb_len < (int)sizeof(struct fdt_header) ||
++	    mk_dt_check_blob_bounds(dtb_data, dtb_len))
+ 		goto out;
+ 
+ 	/* Find /resources node in the embedded DTB */
+@@ -680,6 +688,11 @@
+ 		return -EFAULT;
+ 	}
+ 
++	if (fdt_check_full(manifest, PAGE_SIZE)) {
++		ret = -EINVAL;
++		goto cleanup_fdt;
++	}
++
+ 	int mk_node = fdt_subnode_offset(manifest, 0, "multikernel");
+ 	if (mk_node < 0) {
+ 		pr_info("No multikernel node found in manifest\n");
+@@ -696,10 +709,10 @@
+ 
+ 	pr_info("Found preserved multikernel DTB (%d bytes)\n", dtb_len);
+ 
+-	/* Validate DTB header */
+-	ret = fdt_check_header(dtb_data);
++	/* Bound the named-root instance tree before any reader. */
++	ret = mk_dt_check_blob_bounds(dtb_data, dtb_len);
+ 	if (ret) {
+-		pr_err("Invalid DTB header in manifest: %d\n", ret);
++		pr_err("Invalid DTB header or size in manifest: %d\n", ret);
+ 		ret = -EINVAL;
+ 		goto cleanup_fdt;
+ 	}
+--- a/kernel/multikernel/manifest.c
++++ b/kernel/multikernel/manifest.c
+@@ -46,14 +46,21 @@
+ 	pr_info("multikernel: processing manifest at 0x%llx (size: %llu)\n",
+ 		fdt_phys, fdt_len);
+ 
++	/* A manifest is generated in one page; reject lengths before mapping. */
++	if (fdt_len < sizeof(struct fdt_header) || fdt_len > PAGE_SIZE) {
++		err = -EINVAL;
++		goto out;
++	}
++
+ 	fdt = early_memremap(fdt_phys, fdt_len);
+ 	if (!fdt) {
+ 		pr_warn("multikernel: failed to memremap manifest (0x%llx)\n",
+ 			fdt_phys);
++		err = -EFAULT;
+ 		goto out;
+ 	}
+ 
+-	err = fdt_check_header(fdt);
++	err = fdt_check_full(fdt, fdt_len);
+ 	if (err) {
+ 		pr_warn("multikernel: manifest (0x%llx) is invalid: %d\n",
+ 			fdt_phys, err);
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -1474,7 +1474,7 @@
+ 	if (off != 0)
+ 		return -EINVAL;
+ 
+-	if (nbytes == 0)
++	if (nbytes < sizeof(struct fdt_header))
+ 		return -EINVAL;
+ 
+ 	if (nbytes > 1024 * 1024) { /* 1MB limit */
+@@ -1488,9 +1488,9 @@
+ 
+ 	memcpy(dtbo_copy, buf, nbytes);
+ 
+-	ret = fdt_check_header(dtbo_copy);
++	ret = fdt_check_full(dtbo_copy, nbytes);
+ 	if (ret != 0) {
+-		pr_err("Invalid overlay FDT header: %d\n", ret);
++		pr_err("Invalid overlay FDT structure: %d\n", ret);
+ 		kfree(dtbo_copy);
+ 		return -EINVAL;
+ 	}
+--- a/kernel/multikernel/internal.h
++++ b/kernel/multikernel/internal.h
+@@ -22,6 +22,7 @@
+ int mk_instance_destroy(struct mk_instance *instance);
+ 
+ /* dts.c */
++int mk_dt_check_blob_bounds(const void *fdt, size_t size);
+ int mk_dt_parse_resources(const void *fdt, int resources_node,
+ 			  const char *instance_name, struct mk_dt_config *config);
+ int mk_dt_generate_instance_dtb(struct mk_instance *instance,

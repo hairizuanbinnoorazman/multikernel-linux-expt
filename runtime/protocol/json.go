@@ -6,12 +6,23 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 )
 
 // StrictDecode decodes exactly one JSON value, rejects unknown struct fields,
 // and rejects duplicate object names at every nesting level. The standard Go
 // decoder otherwise accepts duplicate names and silently keeps the last value.
 func StrictDecode(data []byte, dst any) error {
+	target := reflect.TypeOf(dst)
+	for target != nil && target.Kind() == reflect.Pointer {
+		target = target.Elem()
+	}
+	if target != nil && target.Kind() == reflect.Struct {
+		trimmed := bytes.TrimSpace(data)
+		if len(trimmed) == 0 || trimmed[0] != '{' {
+			return errors.New("JSON object required for a structured document")
+		}
+	}
 	if err := rejectDuplicateNames(data); err != nil {
 		return err
 	}

@@ -1,0 +1,48 @@
+--- a/kernel/multikernel/baseline.c
++++ b/kernel/multikernel/baseline.c
+@@ -440,6 +440,7 @@
+ 
+ int mk_baseline_validate_and_initialize(const void *fdt, size_t fdt_size)
+ {
++	void *baseline_dtb = NULL;
+ 	struct mk_baseline_mem_req *reqs;
+ 	struct mk_cpu_set *requested;
+ 	LIST_HEAD(pci_list);
+@@ -493,6 +494,13 @@
+ 	if (!requested) {
+ 		kfree(reqs);
+ 		return -ENOMEM;
++	}
++
++	/* Reserve the retained tree before committing any pool resources. */
++	baseline_dtb = kmemdup(fdt, fdt_size, GFP_KERNEL);
++	if (!baseline_dtb) {
++		ret = -ENOMEM;
++		goto out;
+ 	}
+ 
+ 	mk_baseline_clear_resources(root_instance);
+@@ -565,20 +573,14 @@
+ 		kfree(root_instance->dtb_data);
+ 	}
+ 
+-	root_instance->dtb_data = kmalloc(fdt_size, GFP_KERNEL);
+-	if (!root_instance->dtb_data) {
+-		pr_err("Failed to allocate memory for baseline DTB\n");
+-		root_instance->dtb_size = 0;
+-		ret = -ENOMEM;
+-		goto out;
+-	}
+-
+-	memcpy(root_instance->dtb_data, fdt, fdt_size);
++	root_instance->dtb_data = baseline_dtb;
++	baseline_dtb = NULL;
+ 	root_instance->dtb_size = fdt_size;
+ 
+ 	pr_info("Multikernel baseline initialized successfully\n");
+ 	ret = 0;
+ out:
++	kfree(baseline_dtb);
+ 	mk_baseline_free_pci_list(&pci_list);
+ 	mk_cpu_set_free(requested);
+ 	kfree(reqs);

@@ -1,0 +1,196 @@
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -18,6 +18,7 @@
+ #include <linux/libfdt.h>
+ #include <linux/sizes.h>
+ #include <linux/limits.h>
++#include <linux/smp.h>
+ #include "internal.h"
+ 
+ #define PROP_SUB_FDT "fdt"
+@@ -370,7 +371,7 @@
+ 	 * Register the rest of the pool so those CPUs can be hot-added
+ 	 * later: the topology rejects post-boot APIC IDs it did not see
+ 	 * during enumeration. They are registered present and pruned from
+-	 * the present mask in mk_restore_instance_cpus(), which keeps a logical
++	 * the present mask at boot-instance publication, which keeps a logical
+ 	 * CPU assigned to each and avoids the hot-pluggable-APIC checks.
+ 	 */
+ 	cpus_prop = fdt_getprop(manifest, mk_node, "pool-cpus", &cpus_len);
+@@ -394,49 +395,40 @@
+  * CPUs are already registered during multikernel_parse_smp_config() via
+  * topology_register_apic(), so we just need to restrict the present mask.
+  */
+-static int __init mk_restore_instance_cpus(struct mk_dt_config *config)
++/* Prepare an exact present-mask policy without changing global topology. */
++static int __init mk_prepare_instance_cpus(const struct mk_dt_config *config,
++					 cpumask_var_t *new_present)
+ {
+ 	mk_phys_cpu_t phys_cpu_id;
+ 	unsigned int i;
+-	cpumask_var_t new_present;
+-
+-	if (mk_cpu_set_empty(config->cpus)) {
+-		pr_debug("No CPU configuration in DTB\n");
+-		return 0;
+-	}
+-
+-	pr_info("Before restriction: cpu_possible=%*pbl, cpu_present=%*pbl\n",
+-		cpumask_pr_args(cpu_possible_mask),
+-		cpumask_pr_args(cpu_present_mask));
+-
+-	if (!alloc_cpumask_var(&new_present, GFP_KERNEL)) {
+-		pr_err("Failed to allocate CPU mask\n");
++
++	if (!config || !config->cpus || mk_cpu_set_empty(config->cpus))
++		return -EINVAL;
++	if (!alloc_cpumask_var(new_present, GFP_KERNEL))
+ 		return -ENOMEM;
+-	}
+-
+-	cpumask_clear(new_present);
++
++	cpumask_clear(*new_present);
+ 	mk_cpu_set_for_each(i, phys_cpu_id, config->cpus) {
+ 		int logical_cpu = arch_cpu_from_physical_id(phys_cpu_id);
+ 
+-		if (logical_cpu >= 0) {
+-			cpumask_set_cpu(logical_cpu, new_present);
+-			pr_debug("Instance CPU: physical %llu -> logical %d\n",
+-				 phys_cpu_id, logical_cpu);
+-		} else {
+-			pr_warn("Physical CPU %llu not found in topology\n",
+-				phys_cpu_id);
+-		}
+-	}
+-
+-	/* Restrict present mask to only CPUs assigned to this instance */
+-	cpumask_and(&__cpu_present_mask, &__cpu_present_mask, new_present);
+-	free_cpumask_var(new_present);
+-
+-	pr_info("After restriction: cpu_possible=%*pbl, cpu_present=%*pbl\n",
+-		cpumask_pr_args(cpu_possible_mask),
+-		cpumask_pr_args(cpu_present_mask));
+-
++		if (logical_cpu < 0 || (unsigned int)logical_cpu >= nr_cpu_ids ||
++		    !cpu_present(logical_cpu) ||
++		    cpumask_test_cpu(logical_cpu, *new_present)) {
++			pr_err("Invalid or aliased physical CPU %llu in boot policy\n",
++			       phys_cpu_id);
++			goto invalid;
++		}
++		cpumask_set_cpu(logical_cpu, *new_present);
++	}
++
++	/* Boot cannot continue on a CPU excluded by its own assignment. */
++	if (!cpumask_test_cpu(raw_smp_processor_id(), *new_present))
++		goto invalid;
+ 	return 0;
++
++invalid:
++	free_cpumask_var(*new_present);
++	return -EINVAL;
+ }
+ 
+ static struct mk_instance * __init alloc_mk_instance(int instance_id, const char *name,
+@@ -529,7 +521,8 @@
+ }
+ 
+ static int __init mk_publish_boot_instance(struct mk_instance *instance,
+-					  bool is_root)
++					  bool is_root,
++					  const struct cpumask *present)
+ {
+ 	int ret;
+ 
+@@ -537,6 +530,16 @@
+ 	ret = idr_alloc(&mk_instance_idr, instance, instance->id,
+ 			instance->id + 1, GFP_KERNEL);
+ 	if (ret >= 0) {
++		/* All fallible preparation, including IDR allocation, is complete. */
++		if (present) {
++			pr_info("Before restriction: cpu_possible=%*pbl, cpu_present=%*pbl\n",
++				cpumask_pr_args(cpu_possible_mask),
++				cpumask_pr_args(cpu_present_mask));
++			cpumask_copy(&__cpu_present_mask, present);
++			pr_info("After restriction: cpu_possible=%*pbl, cpu_present=%*pbl\n",
++				cpumask_pr_args(cpu_possible_mask),
++				cpumask_pr_args(cpu_present_mask));
++		}
+ 		list_add(&instance->list, &mk_instance_list);
+ 		if (is_root)
+ 			root_instance = instance;
+@@ -694,7 +697,7 @@
+ 	pr_info("Restored host IPI buffer: phys=0x%llx, virt=%px, pages=%u\n",
+ 		(unsigned long long)host_ipi_phys, host_instance->ipi_data,
+ 		host_ipi_pages);
+-	ret = mk_publish_boot_instance(host_instance, false);
++	ret = mk_publish_boot_instance(host_instance, false, NULL);
+ 	if (ret) {
+ 		mk_free_private_instance(host_instance, false);
+ 		return NULL;
+@@ -725,6 +728,8 @@
+ 	const char *instance_name;
+ 	const void *manifest = NULL;
+ 	phys_addr_t fdt_phys;
++	cpumask_var_t restored_present;
++	bool have_restored_present = false;
+ 
+ 	fdt_phys = mk_manifest_phys();
+ 	if (!fdt_phys) {
+@@ -748,7 +753,7 @@
+ 		pr_info("Root instance initialized with CPUs (physical): %s\n",
+ 			cpus_buf);
+ 
+-		ret = mk_publish_boot_instance(instance, true);
++		ret = mk_publish_boot_instance(instance, true, NULL);
+ 		if (ret) {
+ 			mk_free_private_instance(instance, true);
+ 			return ret;
+@@ -831,7 +836,7 @@
+ 
+ 	pr_info("DTB contains instance ID %d, name '%s'\n", instance_id, instance_name);
+ 
+-	/* Parse DTB configuration - skip validation since host already validated */
++	/* Parse copied resources; validate the boot CPU policy before commit. */
+ 	mk_dt_config_init(&config);
+ 
+ 	/* In the new flat format, the root node IS the instance node */
+@@ -841,11 +846,6 @@
+ 		goto config_free;
+ 	}
+ 
+-	ret = mk_restore_instance_cpus(&config);
+-	if (ret) {
+-		pr_err("Failed to restore CPU restrictions: %d\n", ret);
+-		goto config_free;
+-	}
+ 
+ 	/* Create a new instance for this DTB */
+ 	instance = alloc_mk_instance(instance_id, instance_name, false);
+@@ -887,9 +887,15 @@
+ 		goto cleanup_instance;
+ 	}
+ 
+-	ret = mk_publish_boot_instance(instance, true);
++	ret = mk_prepare_instance_cpus(&config, &restored_present);
+ 	if (ret)
+ 		goto cleanup_instance;
++	have_restored_present = true;
++
++	ret = mk_publish_boot_instance(instance, true, restored_present);
++	if (ret)
++		goto cleanup_instance;
++	free_cpumask_var(restored_present);
+ 
+ 	host_instance = mk_restore_host_instance(manifest);
+ 	if (!host_instance)
+@@ -903,6 +909,8 @@
+ 	return 0;
+ 
+ cleanup_instance:
++	if (have_restored_present)
++		free_cpumask_var(restored_present);
+ 	mk_free_private_instance(instance, false);
+ config_free:
+ 	mk_dt_config_free(&config);

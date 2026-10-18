@@ -1,0 +1,37 @@
+--- a/kernel/multikernel/mem.c
++++ b/kernel/multikernel/mem.c
+@@ -602,12 +602,15 @@
+ 		ret = -ENOMEM;
+ 		goto err_unlock;
+ 	}
+-	ret = gen_pool_add(pool, chunk->res.start, size, chunk->node);
++	/* Resource ownership must be visible before allocator publication. */
++	ret = insert_resource(&iomem_resource, &chunk->res);
+ 	if (ret)
+ 		goto err_unlock;
+-	if (insert_resource(&iomem_resource, &chunk->res))
+-		pr_warn("Multikernel pool: chunk %pa not registered in /proc/iomem\n",
+-			&chunk->res.start);
++	ret = gen_pool_add(pool, chunk->res.start, size, chunk->node);
++	if (ret) {
++		remove_resource(&chunk->res);
++		goto err_unlock;
++	}
+ 	list_add_tail(&chunk->list, &mk_pool_chunks);
+ 	/* A concurrent shrink may free @chunk once the mutex is dropped */
+ 	start = chunk->res.start;
+@@ -616,7 +619,13 @@
+ 
+ 	ret = mk_arch_pool_chunk_added(start, size);
+ 	if (ret) {
+-		mk_pool_mem_shrink(start, size);
++		int rollback_ret = mk_pool_mem_shrink(start, size);
++
++		if (rollback_ret) {
++			pr_err("Multikernel pool: architecture setup failed (%d), rollback of %pa (%zu MB) failed: %d\n",
++			       ret, &start, size >> 20, rollback_ret);
++			return -EUCLEAN;
++		}
+ 		return ret;
+ 	}
+ 

@@ -89,3 +89,39 @@ func TestRunWithFilesRejectsNilDescriptor(t *testing.T) {
 		t.Fatal("nil inherited descriptor accepted")
 	}
 }
+
+func TestRunUsesChildPathAndCannotSearchCurrentDirectory(t *testing.T) {
+	approved, hostile := t.TempDir(), t.TempDir()
+	canary := filepath.Join(t.TempDir(), "canary")
+	for directory, program := range map[string]string{
+		approved: "#!/bin/sh\nprintf approved",
+		hostile:  "#!/bin/sh\nprintf mutated > '" + canary + "'\nprintf hostile",
+	} {
+		if err := os.WriteFile(filepath.Join(directory, "g7-command"), []byte(program), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", hostile)
+	output, err := Run(t.Context(), time.Second, "g7-command", nil, []string{"PATH=" + approved}, 4096)
+	if err != nil || string(output) != "approved" {
+		t.Fatalf("approved PATH result = %q, %v", output, err)
+	}
+	for _, environment := range [][]string{nil, {"PATH="}, {"PATH=."}, {"PATH=relative"},
+		{"PATH=" + approved + ":"}, {"PATH=" + approved + ":relative"}} {
+		if _, err := Run(t.Context(), time.Second, "g7-command", nil, environment, 4096); err == nil {
+			t.Fatalf("unconfigured/relative executable search accepted: %v", environment)
+		}
+	}
+	if _, err := os.Stat(canary); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("hostile executable mutated canary: %v", err)
+	}
+}
+
+func TestRunEmptyEnvironmentDoesNotInheritParentSecrets(t *testing.T) {
+	t.Setenv("G7_SYNTHETIC_PARENT_SECRET", "synthetic-do-not-inherit")
+	output, err := Run(t.Context(), time.Second, "/bin/sh",
+		[]string{"-c", "test -z \"${G7_SYNTHETIC_PARENT_SECRET+x}\" && printf clean"}, nil, 4096)
+	if err != nil || string(output) != "clean" {
+		t.Fatalf("empty environment inherited parent state: %q, %v", output, err)
+	}
+}

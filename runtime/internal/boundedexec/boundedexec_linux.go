@@ -10,12 +10,48 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 )
 
 var ErrOutputLimit = errors.New("command output exceeds limit")
+
+// resolveExecutable uses the environment the command will actually receive.
+// exec.Command's basename lookup otherwise searches the parent's ambient PATH.
+func resolveExecutable(binary string, environment []string) (string, error) {
+	if filepath.IsAbs(binary) {
+		return binary, nil
+	}
+	if binary == "" || strings.ContainsRune(binary, filepath.Separator) {
+		return "", errors.New("relative executable paths are prohibited")
+	}
+	var search string
+	for index := len(environment) - 1; index >= 0; index-- {
+		if value, found := strings.CutPrefix(environment[index], "PATH="); found {
+			search = value
+			break
+		}
+	}
+	if search == "" {
+		return "", errors.New("basename executable requires an explicit absolute search path")
+	}
+	directories := filepath.SplitList(search)
+	for _, directory := range directories {
+		if !filepath.IsAbs(directory) {
+			return "", errors.New("executable search path contains a relative or empty entry")
+		}
+	}
+	for _, directory := range directories {
+		candidate := filepath.Join(directory, binary)
+		if executable, err := exec.LookPath(candidate); err == nil {
+			return executable, nil
+		}
+	}
+	return "", &exec.Error{Name: binary, Err: exec.ErrNotFound}
+}
 
 type capture struct {
 	mu       sync.Mutex
@@ -61,10 +97,17 @@ func RunWithFiles(ctx context.Context, timeout time.Duration, binary string, arg
 			return nil, errors.New("bounded command inherited file is nil")
 		}
 	}
+	executable, err := resolveExecutable(binary, environment)
+	if err != nil {
+		return nil, err
+	}
 	bounded, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(bounded, binary, arguments...)
-	cmd.Env = environment
+	cmd := exec.CommandContext(bounded, executable, arguments...)
+	// A nil Cmd.Env inherits all parent variables. An explicit empty environment
+	// instead means no inheritance, including when the caller supplies nil.
+	cmd.Env = make([]string, len(environment))
+	copy(cmd.Env, environment)
 	cmd.ExtraFiles = files
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error {

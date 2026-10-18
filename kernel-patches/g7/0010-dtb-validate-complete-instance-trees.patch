@@ -1,0 +1,66 @@
+--- a/kernel/multikernel/dts.c
++++ b/kernel/multikernel/dts.c
+@@ -25,15 +25,60 @@
+ 
+ #include "internal.h"
+ 
+-/* Flat instance DTBs can have named roots. Check their actual buffer bounds
+- * before any libfdt reader; full standard-tree validation is separate. */
++/* Validate the complete blob without imposing the standard empty-root name.
++ * Flat instance DTBs name their root after the instance. Like fdt_check_full,
++ * walk every tag/property and the reservation map, using only bounded libfdt
++ * readers. No allocation is allowed: restore also calls this during early boot.
++ */
+ int mk_dt_check_blob_bounds(const void *fdt, size_t size)
+ {
++	int offset = 0, nextoffset, len;
++	unsigned int depth = 0;
++	bool root_seen = false, root_closed = false;
++	const char *propname;
++	uint32_t tag;
++
+ 	if (!fdt || size < sizeof(struct fdt_header))
+ 		return -EINVAL;
+ 	if (fdt_check_header(fdt) || fdt_totalsize(fdt) > size)
+ 		return -EINVAL;
+-	return 0;
++	if (fdt_num_mem_rsv(fdt) < 0)
++		return -EINVAL;
++
++	for (;;) {
++		tag = fdt_next_tag(fdt, offset, &nextoffset);
++		if (nextoffset <= offset)
++			return -EINVAL;
++		if (root_closed && tag != FDT_NOP && tag != FDT_END)
++			return -EINVAL;
++
++		switch (tag) {
++		case FDT_BEGIN_NODE:
++			if (depth == INT_MAX || (!depth && root_seen))
++				return -EINVAL;
++			root_seen = true;
++			depth++;
++			break;
++		case FDT_END_NODE:
++			if (!depth)
++				return -EINVAL;
++			if (!--depth)
++				root_closed = true;
++			break;
++		case FDT_PROP:
++			if (!depth ||
++			    !fdt_getprop_by_offset(fdt, offset, &propname, &len))
++				return -EINVAL;
++			break;
++		case FDT_NOP:
++			break;
++		case FDT_END:
++			return root_seen && root_closed && !depth ? 0 : -EINVAL;
++		default:
++			return -EINVAL;
++		}
++		offset = nextoffset;
++	}
+ }
+ 
+ static const void *mk_dt_get_base_fdt(void)

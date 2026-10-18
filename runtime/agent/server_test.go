@@ -24,6 +24,84 @@ type observedCloseConn struct {
 	once   sync.Once
 }
 
+func TestAgentFrameDeadlines(t *testing.T) {
+	for _, mode := range []string{"silent-unauthenticated", "partial-header", "partial-payload", "unread-reply"} {
+		t.Run(mode, func(t *testing.T) {
+			peer, conn := net.Pipe()
+			defer peer.Close()
+			defer conn.Close()
+			server := &Server{Manager: NewManager(true), FrameIOTimeout: 60 * time.Millisecond}
+			done := make(chan error, 1)
+			go func() { done <- server.ServeConn(context.Background(), conn) }()
+			if err := peer.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			var input []byte
+			switch mode {
+			case "partial-header":
+				input = []byte{0}
+			case "partial-payload":
+				input = framed([]byte("{}"))[:5]
+			case "unread-reply":
+				input = framed([]byte("{}"))
+			}
+			if len(input) != 0 {
+				if _, err := peer.Write(input); err != nil {
+					t.Fatal(err)
+				}
+			}
+			select {
+			case err := <-done:
+				var timeout net.Error
+				if !errors.As(err, &timeout) || !timeout.Timeout() {
+					t.Fatalf("serve error = %v, want timeout", err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("stalled transport exceeded its bound")
+			}
+			if server.last != 0 {
+				t.Fatal("incomplete or unauthenticated input consumed a sequence")
+			}
+		})
+	}
+}
+
+func TestAuthenticatedAgentSessionSurvivesIdleBeyondFrameBudget(t *testing.T) {
+	peer, conn := net.Pipe()
+	defer peer.Close()
+	defer conn.Close()
+	server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "generation", Endpoint: 7001, Token: []byte("synthetic-test-token"), FrameIOTimeout: 100 * time.Millisecond}
+	server.BeforeShutdown = func() error {
+		time.Sleep(200 * time.Millisecond)
+		return nil
+	}
+	done := make(chan error, 1)
+	go func() { done <- server.ServeConn(context.Background(), conn) }()
+	client := &Client{conn: peer, token: server.Token, sandboxID: server.SandboxID, generation: server.Generation, endpoint: server.Endpoint, Timeout: time.Second}
+	for attempt := 0; attempt < 2; attempt++ {
+		var response map[string]any
+		if err := client.Call("Capabilities", nil, &response); err != nil {
+			t.Fatal(err)
+		}
+		if attempt == 0 {
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+	var response map[string]any
+	if err := client.Call("Quiesce", nil, &response); err != nil {
+		t.Fatalf("operation exceeding the frame budget: %v", err)
+	}
+	_ = peer.Close()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("idle session did not close")
+	}
+}
+
 func (c *observedCloseConn) Close() error {
 	c.once.Do(func() { close(c.closed) })
 	return c.Conn.Close()
@@ -467,6 +545,46 @@ func TestServerEnforcesRuntimeOwnedBundle(t *testing.T) {
 	Sign(&request, server.Token)
 	if reply := server.Dispatch(request); !strings.Contains(reply.Error, "parent process") {
 		t.Fatalf("ExecProcess reply = %+v", reply)
+	}
+}
+
+func TestAuthenticationRejectsBeforeMutationOrSequenceAdvance(t *testing.T) {
+	for _, mode := range []string{"version", "sandbox", "generation", "endpoint", "wrong-token", "malformed-mac", "zero-sequence", "empty-server-token"} {
+		t.Run(mode, func(t *testing.T) {
+			mutations := 0
+			server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "generation", Endpoint: 7001,
+				Token: []byte("synthetic-private-authentication-key"), BeforeShutdown: func() error { mutations++; return nil }}
+			request := Envelope{Version: 1, SandboxID: server.SandboxID, Generation: server.Generation, Endpoint: server.Endpoint, Sequence: 1, Method: "Quiesce"}
+			switch mode {
+			case "version":
+				request.Version = 2
+			case "sandbox":
+				request.SandboxID = "other"
+			case "generation":
+				request.Generation = "old"
+			case "endpoint":
+				request.Endpoint++
+			case "zero-sequence":
+				request.Sequence = 0
+			case "empty-server-token":
+				server.Token = nil
+			}
+			Sign(&request, server.Token)
+			if mode == "wrong-token" {
+				Sign(&request, []byte("synthetic-wrong-key"))
+			}
+			if mode == "malformed-mac" {
+				request.MAC = "not-hex"
+			}
+			reply := server.Dispatch(request)
+			if reply.Error == "" || mutations != 0 || server.last != 0 || server.isQuiesced() {
+				t.Fatalf("rejection mutated authority: reply=%+v mutations=%d last=%d", reply, mutations, server.last)
+			}
+			wire, err := json.Marshal(reply)
+			if err != nil || bytes.Contains(wire, []byte("synthetic-private")) || bytes.Contains(wire, []byte("synthetic-wrong")) {
+				t.Fatal("authentication error exposed credential material")
+			}
+		})
 	}
 }
 

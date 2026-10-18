@@ -1,0 +1,128 @@
+--- a/kernel/multikernel/dts.c
++++ b/kernel/multikernel/dts.c
+@@ -100,17 +100,16 @@
+ /**
+  * Configuration initialization and cleanup
+  */
+-void mk_dt_config_init(struct mk_dt_config *config)
+-{
++int mk_dt_config_init(struct mk_dt_config *config)
++{
++	if (!config)
++		return -EINVAL;
++
+ 	memset(config, 0, sizeof(*config));
+ 	config->version = MK_DT_CONFIG_CURRENT;
+ 	config->memory_size = 0;
+ 	config->numa_node = NUMA_NO_NODE;
+ 
+-	config->cpus = mk_cpu_set_alloc();
+-	if (!config->cpus)
+-		pr_warn("Failed to allocate CPU set, CPU assignment disabled\n");
+-
+ 	INIT_LIST_HEAD(&config->pci_devices);
+ 	config->pci_device_count = 0;
+ 	config->pci_devices_valid = true;
+@@ -118,6 +117,13 @@
+ 	INIT_LIST_HEAD(&config->platform_devices);
+ 	config->platform_device_count = 0;
+ 	config->platform_devices_valid = true;
++
++	/* All cleanup-visible fields are initialized even on allocation failure. */
++	config->cpus = mk_cpu_set_alloc();
++	if (!config->cpus)
++		return -ENOMEM;
++
++	return 0;
+ }
+ 
+ void mk_dt_config_free(struct mk_dt_config *config)
+@@ -259,8 +265,8 @@
+ 	char buf[256];
+ 
+ 	if (!config->cpus) {
+-		pr_debug("CPU set allocation failed, skipping CPU parsing\n");
+-		return 0;
++		pr_err("Cannot parse CPU resources without an allocated CPU set\n");
++		return -ENOMEM;
+ 	}
+ 
+ 	/* Look for cpus property */
+@@ -677,7 +683,7 @@
+ 	const void *fdt = dtb_data;
+ 	int ret;
+ 
+-	if (!dtb_data || !config) {
++	if (!dtb_data || !config || !config->cpus) {
+ 		pr_err("Invalid parameters to mk_dt_parse\n");
+ 		return -EINVAL;
+ 	}
+@@ -760,7 +766,8 @@
+ {
+ 	int ret;
+ 
+-	if (!fdt || resources_node < 0 || !instance_name || !config) {
++	if (!fdt || resources_node < 0 || !instance_name || !config ||
++	    !config->cpus) {
+ 		pr_err("Invalid parameters to mk_dt_parse_resources\n");
+ 		return -EINVAL;
+ 	}
+--- a/kernel/multikernel/kernfs.c
++++ b/kernel/multikernel/kernfs.c
+@@ -273,7 +273,9 @@
+ 		goto err_free_name;
+ 	}
+ 
+-	mk_dt_config_init(&config);
++	ret = mk_dt_config_init(&config);
++	if (ret)
++		goto err_free_config;
+ 	ret = mk_dt_parse_resources(fdt, resources_node, name, &config);
+ 	if (ret) {
+ 		pr_err("Failed to parse resources for instance '%s': %d\n", name, ret);
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -840,7 +840,9 @@
+ 	pr_info("DTB contains instance ID %d, name '%s'\n", instance_id, instance_name);
+ 
+ 	/* Parse copied resources; validate the boot CPU policy before commit. */
+-	mk_dt_config_init(&config);
++	ret = mk_dt_config_init(&config);
++	if (ret)
++		goto config_free;
+ 
+ 	/* In the new flat format, the root node IS the instance node */
+ 	ret = mk_dt_parse(dtb_virt, dtb_len, &config);
+--- a/include/linux/multikernel.h
++++ b/include/linux/multikernel.h
+@@ -655,9 +655,11 @@
+  * mk_dt_config_init() - Initialize a device tree configuration
+  * @config: Configuration structure to initialize
+  *
+- * Initializes all fields to safe defaults.
+- */
+-void mk_dt_config_init(struct mk_dt_config *config);
++ * Initializes all fields to safe defaults, including on allocation failure.
++ * Returns 0 on success, -ENOMEM if the required CPU set cannot be allocated,
++ * or -EINVAL for a NULL config. Callers must stop parsing/reservation on error.
++ */
++int __must_check mk_dt_config_init(struct mk_dt_config *config);
+ 
+ /**
+  * mk_dt_config_free() - Free device tree configuration resources
+--- a/kernel/multikernel/overlay.c
++++ b/kernel/multikernel/overlay.c
+@@ -1185,10 +1185,10 @@
+ 	if (tx->validate_only) {
+ 		struct mk_dt_config config;
+ 
+-		mk_dt_config_init(&config);
+-		if (!config.cpus) {
++		ret = mk_dt_config_init(&config);
++		if (ret) {
+ 			mk_dt_config_free(&config);
+-			return -ENOMEM;
++			return ret;
+ 		}
+ 		ret = mk_dt_parse_resources(fdt, resources_node, instance_name,
+ 					    &config);

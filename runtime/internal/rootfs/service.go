@@ -539,8 +539,8 @@ func ValidateMounts(mounts []Mount) error {
 }
 
 func validateMounts(mounts []Mount, requireExisting bool) error {
-	if len(mounts) > 8 {
-		return errors.New("at most eight rootfs mounts are supported")
+	if err := validateMountBudget(mounts); err != nil {
+		return err
 	}
 	for _, mount := range mounts {
 		if mount.Type != "overlay" && mount.Type != "bind" && mount.Type != "none" {

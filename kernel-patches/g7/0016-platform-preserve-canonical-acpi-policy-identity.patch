@@ -1,0 +1,36 @@
+--- a/drivers/base/platform.c
++++ b/drivers/base/platform.c
+@@ -688,6 +688,24 @@
+ }
+ EXPORT_SYMBOL_GPL(platform_device_add_data);
+ 
++/* ACPI creation already checks its firmware name/HID before registration.
++ * Preserve that identity only for the canonical platform representation of
++ * that same ACPI node. An inherited companion must not grant derived devices.
++ */
++static bool platform_device_mk_allowed(struct platform_device *pdev)
++{
++#if defined(CONFIG_ACPI) && defined(CONFIG_MULTIKERNEL)
++	struct acpi_device *adev = ACPI_COMPANION(&pdev->dev);
++
++	if (adev && pdev->id == PLATFORM_DEVID_NONE && pdev->name &&
++	    dev_name(&adev->dev) &&
++	    !strcmp(pdev->name, dev_name(&adev->dev)))
++		return mk_platform_device_allowed(acpi_device_name(adev),
++						  acpi_device_hid(adev));
++#endif
++	return mk_platform_device_allowed(pdev->name, NULL);
++}
++
+ /**
+  * platform_device_add - add a platform device to device hierarchy
+  * @pdev: platform device we're adding
+@@ -728,7 +746,7 @@
+ 		break;
+ 	}
+ 
+-	if (!mk_platform_device_allowed(pdev->name, NULL)) {
++	if (!platform_device_mk_allowed(pdev)) {
+ 		pr_info("Platform device '%s' blocked by multikernel allowlist\n",
+ 			pdev->name);
+ 		ret = -EPERM;

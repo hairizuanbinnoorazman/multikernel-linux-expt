@@ -1,0 +1,224 @@
+--- a/kernel/multikernel/instance_dt.c
++++ b/kernel/multikernel/instance_dt.c
+@@ -443,7 +443,6 @@
+ 						     bool alloc_ipi)
+ {
+ 	struct mk_instance *instance;
+-	int ret;
+ 
+ 	instance = kzalloc(sizeof(*instance), GFP_KERNEL);
+ 	if (!instance)
+@@ -484,20 +483,9 @@
+ 	instance->platform_devices_valid = false;
+ 	instance->platform_device_count = 0;
+ 
+-	mutex_lock(&mk_instance_mutex);
+-	ret = idr_alloc(&mk_instance_idr, instance, instance_id, instance_id + 1, GFP_KERNEL);
+-	if (ret < 0) {
+-		mutex_unlock(&mk_instance_mutex);
+-		goto err_free_cpus;
+-	}
+-	list_add(&instance->list, &mk_instance_list);
+-	mutex_unlock(&mk_instance_mutex);
+-
+-	mk_instance_set_state(instance, MK_STATE_READY);
++	/* Remain private until the caller has prepared every owned field. */
+ 	return instance;
+ 
+-err_free_cpus:
+-	mk_cpu_set_free(instance->cpus);
+ err_free_ipi:
+ 	if (alloc_ipi)
+ 		free_pages((unsigned long)instance->ipi_data,
+@@ -509,6 +497,54 @@
+ 	return NULL;
+ }
+ 
++/* Only for unpublished boot objects: copied resource descriptions were never
++ * transferred from root, and mapped rings must not be freed as owned pages.
++ */
++static void __init mk_free_private_instance(struct mk_instance *instance,
++					  bool allocated_ipi)
++{
++	struct mk_pci_device *pci, *pci_tmp;
++	struct mk_platform_device *platform, *platform_tmp;
++
++	list_for_each_entry_safe(pci, pci_tmp, &instance->pci_devices, list) {
++		list_del(&pci->list);
++		kfree(pci);
++	}
++	list_for_each_entry_safe(platform, platform_tmp,
++				 &instance->platform_devices, list) {
++		list_del(&platform->list);
++		kfree(platform);
++	}
++	if (instance->ipi_data) {
++		if (allocated_ipi)
++			free_pages((unsigned long)instance->ipi_data,
++				   get_order(sizeof(struct mk_shared_data)));
++		else
++			memunmap(instance->ipi_data);
++	}
++	mk_cpu_set_free(instance->cpus);
++	kfree(instance->dtb_data);
++	kfree(instance->name);
++	kfree(instance);
++}
++
++static int __init mk_publish_boot_instance(struct mk_instance *instance,
++					  bool is_root)
++{
++	int ret;
++
++	mutex_lock(&mk_instance_mutex);
++	ret = idr_alloc(&mk_instance_idr, instance, instance->id,
++			instance->id + 1, GFP_KERNEL);
++	if (ret >= 0) {
++		list_add(&instance->list, &mk_instance_list);
++		if (is_root)
++			root_instance = instance;
++	}
++	mutex_unlock(&mk_instance_mutex);
++	return ret < 0 ? ret : 0;
++}
++
+ static int __init mk_copy_pci_devices(const struct mk_dt_config *config,
+ 					  struct mk_instance *instance)
+ {
+@@ -642,9 +678,7 @@
+ 
+ 	/* Set physical CPU 0 as default target for host IPIs */
+ 	if (mk_cpu_set_add(host_instance->cpus, 0)) {
+-		kfree(host_instance->name);
+-		mk_cpu_set_free(host_instance->cpus);
+-		kfree(host_instance);
++		mk_free_private_instance(host_instance, false);
+ 		return NULL;
+ 	}
+ 
+@@ -652,9 +686,7 @@
+ 	if (!host_instance->ipi_data) {
+ 		pr_err("Failed to map host IPI buffer at 0x%llx\n",
+ 		       (unsigned long long)host_ipi_phys);
+-		kfree(host_instance->name);
+-		mk_cpu_set_free(host_instance->cpus);
+-		kfree(host_instance);
++		mk_free_private_instance(host_instance, false);
+ 		return NULL;
+ 	}
+ 	host_instance->ipi_phys = host_ipi_phys;
+@@ -662,6 +694,11 @@
+ 	pr_info("Restored host IPI buffer: phys=0x%llx, virt=%px, pages=%u\n",
+ 		(unsigned long long)host_ipi_phys, host_instance->ipi_data,
+ 		host_ipi_pages);
++	ret = mk_publish_boot_instance(host_instance, false);
++	if (ret) {
++		mk_free_private_instance(host_instance, false);
++		return NULL;
++	}
+ 	pr_info("Registered host instance (ID 0) for spawn→host communication\n");
+ 
+ 	return host_instance;
+@@ -700,16 +737,22 @@
+ 		}
+ 		/* Initially, root owns all online CPUs (physical IDs) */
+ 		for_each_online_cpu(cpu) {
+-			if (mk_cpu_set_add(instance->cpus,
+-					   arch_cpu_physical_id(cpu)))
+-				pr_warn("Failed to add CPU %d to root instance\n",
+-					cpu);
++			ret = mk_cpu_set_add(instance->cpus,
++					      arch_cpu_physical_id(cpu));
++			if (ret) {
++				mk_free_private_instance(instance, true);
++				return ret;
++			}
+ 		}
+ 		mk_cpu_set_format(cpus_buf, sizeof(cpus_buf), instance->cpus);
+ 		pr_info("Root instance initialized with CPUs (physical): %s\n",
+ 			cpus_buf);
+ 
+-		root_instance = instance;
++		ret = mk_publish_boot_instance(instance, true);
++		if (ret) {
++			mk_free_private_instance(instance, true);
++			return ret;
++		}
+ 
+ 		pr_info("Initialized root instance (id=0, name='/')\n");
+ 		return 0;
+@@ -807,14 +850,14 @@
+ 
+ 	if (config.cpus && mk_cpu_set_copy(instance->cpus, config.cpus)) {
+ 		ret = -ENOMEM;
+-		goto cleanup_instance_name;
++		goto cleanup_instance;
+ 	}
+ 
+ 	instance->dtb_data = kmalloc(dtb_len, GFP_KERNEL);
+ 	if (!instance->dtb_data) {
+ 		pr_err("Failed to allocate memory for DTB restoration\n");
+ 		ret = -ENOMEM;
+-		goto cleanup_instance_name;
++		goto cleanup_instance;
+ 	}
+ 
+ 	memcpy(instance->dtb_data, dtb_virt, dtb_len);
+@@ -823,22 +866,24 @@
+ 	ret = mk_copy_pci_devices(&config, instance);
+ 	if (ret) {
+ 		pr_err("Failed to copy PCI devices: %d\n", ret);
+-		goto cleanup_devices;
++		goto cleanup_instance;
+ 	}
+ 
+ 	ret = mk_copy_platform_devices(&config, instance);
+ 	if (ret) {
+ 		pr_err("Failed to copy platform devices: %d\n", ret);
+-		goto cleanup_devices;
++		goto cleanup_instance;
+ 	}
+ 
+ 	ret = mk_restore_instance_ipi(manifest, instance);
+ 	if (ret) {
+ 		pr_err("Failed to restore IPI buffer: %d\n", ret);
+-		goto cleanup_devices;
++		goto cleanup_instance;
+ 	}
+ 
+-	root_instance = instance;
++	ret = mk_publish_boot_instance(instance, true);
++	if (ret)
++		goto cleanup_instance;
+ 
+ 	host_instance = mk_restore_host_instance(manifest);
+ 	if (!host_instance)
+@@ -851,26 +896,8 @@
+ 	early_memunmap((void *)manifest, PAGE_SIZE);
+ 	return 0;
+ 
+-cleanup_devices:
+-	if (instance->pci_devices_valid) {
+-		struct mk_pci_device *pci_dev, *tmp_pci;
+-		list_for_each_entry_safe(pci_dev, tmp_pci, &instance->pci_devices, list) {
+-			list_del(&pci_dev->list);
+-			kfree(pci_dev);
+-		}
+-	}
+-	if (instance->platform_devices_valid) {
+-		struct mk_platform_device *plat_dev, *tmp_plat;
+-		list_for_each_entry_safe(plat_dev, tmp_plat, &instance->platform_devices, list) {
+-			list_del(&plat_dev->list);
+-			kfree(plat_dev);
+-		}
+-	}
+-cleanup_instance_name:
+-	kfree(instance->name);
+-	mk_cpu_set_free(instance->cpus);
+-	kfree(instance->dtb_data);
+-	kfree(instance);
++cleanup_instance:
++	mk_free_private_instance(instance, false);
+ config_free:
+ 	mk_dt_config_free(&config);
+ cleanup_dtb:

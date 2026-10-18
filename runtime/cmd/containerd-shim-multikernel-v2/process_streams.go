@@ -17,8 +17,64 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	ctruntime "github.com/containerd/containerd/runtime"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const maxStdinCloseDrain = 1 << 20
+
+// Production FIFO reads stay nonblocking and share the service lock with
+// CloseIO's byte-count snapshot. An in-flight read cannot be counted twice.
+func (s *service) readStdinChunk(p *process, reader io.ReadWriteCloser, buffer []byte) (int, error, bool) {
+	file, ok := reader.(*os.File)
+	if !ok {
+		n, err := reader.Read(buffer)
+		return n, err, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	draining := p.stdinClosed
+	if draining {
+		if p.stdinDrainRemaining == 0 {
+			return 0, io.EOF, false
+		}
+		if uint32(len(buffer)) > p.stdinDrainRemaining {
+			buffer = buffer[:p.stdinDrainRemaining]
+		}
+	}
+	raw, err := file.SyscallConn()
+	if err != nil {
+		return 0, err, false
+	}
+	var count int
+	var readErr error
+	err = raw.Control(func(fd uintptr) { count, readErr = unix.Read(int(fd), buffer) })
+	if count < 0 {
+		count = 0
+	}
+	if count > 0 && draining {
+		p.stdinDrainRemaining -= uint32(count)
+	}
+	if err != nil {
+		return count, err, false
+	}
+	if count > 0 {
+		if p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED {
+			return 0, io.ErrClosedPipe, false
+		}
+		p.stdinPending = append(p.stdinPending[:0], buffer[:count]...)
+		// Persist the consumed drain allowance and its pending bytes together.
+		// Another recovery snapshot cannot observe one without the other.
+		if err := s.persistRecovery(); err != nil {
+			return 0, fmt.Errorf("persist stdin intent: %w", err), false
+		}
+		return count, readErr, true
+	}
+	if count == 0 && readErr == nil {
+		readErr = io.EOF
+	}
+	return count, readErr, false
+}
 
 func (s *service) pumpStdin(agentID string, p *process) {
 	reader := p.stdinReader
@@ -27,7 +83,7 @@ func (s *service) pumpStdin(agentID string, p *process) {
 			s.mu.Lock()
 			_ = reader.Close()
 			p.stdinReader = nil
-			pending := len(p.stdinPending) != 0
+			pending := len(p.stdinPending) != 0 || p.stdinDrainRemaining != 0
 			s.mu.Unlock()
 			if !pending {
 				s.retryPendingStdinClose(agentID, p)
@@ -47,27 +103,30 @@ func (s *service) pumpStdin(agentID string, p *process) {
 		s.mu.Lock()
 		closeRequested := p.stdinClosed
 		closeAcknowledged := p.stdinCloseAcked
+		drainRemaining := p.stdinDrainRemaining
 		s.mu.Unlock()
-		if closeRequested {
+		if closeRequested && drainRemaining == 0 {
 			if !closeAcknowledged {
 				s.retryPendingStdinClose(agentID, p)
 			}
 			return
 		}
-		n, err := reader.Read(buffer)
+		n, err, queued := s.readStdinChunk(p, reader, buffer)
 		if n > 0 {
-			s.mu.Lock()
-			stopped := p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED
-			if !stopped {
-				p.stdinPending = append(p.stdinPending[:0], buffer[:n]...)
-				if persistErr := s.persistRecovery(); persistErr != nil {
-					stopped = true
-					fmt.Fprintf(os.Stderr, "multikernel stdin intent: %v\n", persistErr)
+			if !queued {
+				s.mu.Lock()
+				stopped := p.status != tasktypes.Status_RUNNING && p.status != tasktypes.Status_PAUSED
+				if !stopped {
+					p.stdinPending = append(p.stdinPending[:0], buffer[:n]...)
+					if persistErr := s.persistRecovery(); persistErr != nil {
+						stopped = true
+						fmt.Fprintf(os.Stderr, "multikernel stdin intent: %v\n", persistErr)
+					}
 				}
-			}
-			s.mu.Unlock()
-			if stopped {
-				return
+				s.mu.Unlock()
+				if stopped {
+					return
+				}
 			}
 			if callErr := s.deliverPendingStdin(agentID, p); callErr != nil {
 				fmt.Fprintf(os.Stderr, "multikernel stdin: %v\n", callErr)
@@ -75,14 +134,20 @@ func (s *service) pumpStdin(agentID string, p *process) {
 			}
 		}
 		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
+			fmt.Fprintf(os.Stderr, "multikernel stdin: %v\n", err)
 			return
 		}
 		if n == 0 {
 			s.mu.Lock()
 			closeRequested := p.stdinClosed
 			closeAcknowledged := p.stdinCloseAcked
+			drainRemaining := p.stdinDrainRemaining
 			s.mu.Unlock()
-			if closeRequested && !closeAcknowledged {
+			if closeRequested && drainRemaining != 0 && errors.Is(err, io.EOF) {
+				fmt.Fprintln(os.Stderr, "multikernel stdin: close-drain bytes disappeared before delivery")
+				return
+			}
+			if closeRequested && !closeAcknowledged && drainRemaining == 0 {
 				s.retryPendingStdinClose(agentID, p)
 				return
 			}
@@ -145,6 +210,10 @@ func (s *service) retryPendingStdinClose(agentID string, p *process) {
 
 func (s *service) acknowledgeStdinClose(ctx context.Context, agentID string, p *process) error {
 	s.mu.Lock()
+	if p.stdinDrainRemaining != 0 || len(p.stdinPending) != 0 {
+		s.mu.Unlock()
+		return errdefs.ErrFailedPrecondition
+	}
 	if p.stdinCloseAcked {
 		s.mu.Unlock()
 		return nil

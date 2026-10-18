@@ -1,0 +1,36 @@
+--- a/kernel/multikernel/baseline.c
++++ b/kernel/multikernel/baseline.c
+@@ -392,6 +392,7 @@
+ static int mk_baseline_grow_pool(const struct mk_baseline_mem_req *reqs, int n)
+ {
+ 	phys_addr_t *bases;
++	bool was_empty;
+ 	int i, ret, rollback_ret;
+ 
+ 	if (n < 0 || n > MK_BASELINE_MAX_MEM_REQS)
+@@ -404,6 +405,7 @@
+ 	bases = kcalloc(n, sizeof(*bases), GFP_KERNEL);
+ 	if (!bases)
+ 		return -ENOMEM;
++	was_empty = mk_pool_empty();
+ 
+ 	for (i = 0; i < n; i++) {
+ 		ret = mk_pool_mem_grow(reqs[i].size, reqs[i].node, &bases[i]);
+@@ -418,6 +420,17 @@
+ 	return 0;
+ 
+ rollback:
++	/* The first grow can create host-owned park pages in a new pool.
++	 * No baseline CPUs have moved yet. Release that infrastructure before
++	 * removing its chunk, but never tear down a pre-existing pool's park.
++	 * The architecture helper independently refuses while pool CPUs remain. */
++	if (was_empty && i > 0) {
++		rollback_ret = mk_teardown_host_park();
++		if (rollback_ret) {
++			pr_err("Baseline: host park rollback failed: %d\n", rollback_ret);
++			ret = -EUCLEAN;
++		}
++	}
+ 	/* Shrink refuses chunks with live allocations. Preserve and report
+ 	 * those chunks instead of freeing memory still owned by a child. */
+ 	while (--i >= 0) {

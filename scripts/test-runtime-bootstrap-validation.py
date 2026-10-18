@@ -62,6 +62,9 @@ def main():
             "oci_features": ["argv"],
         }
         path = directory / "test.json"
+        config = directory / "config-test-release"
+        config.write_text("CONFIG_MULTIKERNEL=y\n", encoding="utf-8")
+        config.chmod(0o644)
         path.write_text(json.dumps(manifest), encoding="utf-8")
         path.chmod(0o600)
         result = validate(path)
@@ -75,6 +78,8 @@ def main():
             ("direction", lambda value: value["transport"].update(child_role="server")),
             ("digest", lambda value: value["relay"].update(sha256="0" * 64)),
             ("unknown", lambda value: value.update(unknown=True)),
+            ("required config", lambda value: value.update(required_config=["CONFIG_MKTTY=y"])),
+            ("unsafe release", lambda value: value.update(kernel_release="../escape")),
         ):
             candidate = copy.deepcopy(manifest)
             mutate(candidate)
@@ -83,6 +88,25 @@ def main():
                 raise AssertionError(f"{name} mismatch accepted")
 
         path.write_text(json.dumps(manifest), encoding="utf-8")
+        for mode in ("missing", "symlink", "writable", "oversized"):
+            config.unlink()
+            if mode == "symlink":
+                target = directory / "config-target"
+                target.write_text("CONFIG_MULTIKERNEL=y\n")
+                config.symlink_to(target)
+            elif mode == "writable":
+                config.write_text("CONFIG_MULTIKERNEL=y\n")
+                config.chmod(0o666)
+            elif mode == "oversized":
+                with config.open("wb") as stream:
+                    stream.truncate((16 << 20) + 1)
+            if validate(path).returncode == 0:
+                raise AssertionError(f"{mode} kernel config accepted")
+            if mode == "missing":
+                config.write_text("CONFIG_MULTIKERNEL=y\n")
+        config.unlink()
+        config.write_text("CONFIG_MULTIKERNEL=y\n")
+        config.chmod(0o644)
         path.chmod(0o622)
         if validate(path).returncode == 0:
             raise AssertionError("writable manifest accepted")

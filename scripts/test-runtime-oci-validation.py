@@ -5,6 +5,7 @@ import copy
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import tempfile
 
@@ -110,6 +111,17 @@ def run_case(directory, name, config=None, raw=None, accepted=False):
 def main():
     with tempfile.TemporaryDirectory(prefix="mk-oci-validation-") as temporary:
         directory = pathlib.Path(temporary)
+        # A development checkout can be group-writable. Qualify the production
+        # builder contract using a private staged generation with install modes.
+        staged = directory / "builder-generation"
+        staged.mkdir(mode=0o700)
+        for source in (REPO / "scripts").glob("*.py"):
+            destination = staged / source.name
+            shutil.copyfile(source, destination)
+            destination.chmod(0o755)
+        tested_builder = staged / BUILDER.name
+        shutil.copyfile(BUILDER, tested_builder)
+        tested_builder.chmod(0o755)
         builder_text = BUILDER.read_text(encoding="utf-8")
         agent_init_text = AGENT_INIT.read_text(encoding="utf-8")
         if "mountpoint " in agent_init_text:
@@ -171,7 +183,7 @@ def main():
         environment = os.environ.copy()
         environment["MK_STORAGE_OUTPUT"] = str(storage)
         failed_build = subprocess.run(
-            [str(BUILDER), str(missing_bundle), str(output)],
+            [str(tested_builder), str(missing_bundle), str(output)],
             env=environment,
             text=True,
             stdout=subprocess.PIPE,
@@ -580,7 +592,7 @@ def main():
             "MK_TRANSPORT_MODULE": str(directory / "missing-module"),
         })
         result = subprocess.run(
-            [str(BUILDER), str(bundle), str(directory / "initramfs")],
+            [str(tested_builder), str(bundle), str(directory / "initramfs")],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
