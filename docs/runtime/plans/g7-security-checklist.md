@@ -25,15 +25,15 @@ A negative result means the tested route failed under that configuration, not
 that escape is impossible. Findings need reproduction, impact, remediation or
 explicit disposition, and a verification rerun.
 
-## Current execution priority — 2026-10-17
+## Current execution priority — 2026-10-18
 
 Owner/executor: Codex. The user prioritizes completing these STRIDE tasks with
 retained proof. Main accounting is two checked assessments and eleven open
 tasks; kernel patch counts and compatibility percentages are not G7 completion
 percentages. Acceptance criteria below remain the checkoff requirements.
 
-Finish the in-flight rb13 normal-pool baseline to resolve the existing SEC-04/
-SEC-06 integration failure. Then prioritize SEC-12's complete dependency and
+The rb13 normal-pool baseline passed with retained proof; its broader
+qualification remains open. Prioritize SEC-12's complete dependency and
 artifact-trust review, followed by SEC-08's secret/audit trace and SEC-03's
 remaining authorization cases. Record findings, implement required fixes and
 retain exact-source verification against each task's acceptance criteria.
@@ -512,6 +512,10 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   decision about hardware-backed isolation or the continued trusted-child scope.
 
 - [ ] **SEC-12 — Review dependencies and artifact trust (TM-11).**
+  [OpenSSL remediation and activation proof](../../../evidence/runtime-20261012/g7-openssl-security-remediation/README.md)
+  upgrades four packages to3.5.5-1ubuntu3.7 and verifies the exact CVE-2026-84782
+  rule changes true→false after reboot, unchanged runtime/default hashes and
+  zero final idle counts. Other material findings and full acceptance remain.
   [Official Ubuntu/Python dependency inventory](../../../evidence/runtime-20261012/g7-dependency-oval-inventory/README.md)
   records553 matched vulnerability definitions, including three High-priority
   rules, and15 matched Python package/version pairs. Many rules indicate
