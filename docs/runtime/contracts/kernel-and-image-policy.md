@@ -10,7 +10,12 @@ Multikernel and Kerf compatibility, SHA-256 hashes, required config symbols,
 modules, agent protocol range, and supported OCI features. The daemon verifies
 regular-file type, ownership policy, architecture, release, and every digest
 before allocation. Paths must be absolute configuration values, resolved
-without following a caller-controlled final symlink.
+without following a caller-controlled final symlink. The approved kernel must
+be an uncompressed ELF64 little-endian x86-64 executable with a bounded,
+unambiguous global `linux_banner` object matching the manifest release. The
+daemon reads this identity from the held verified file before allocation.
+Stripped kernels without the release symbol are refused. Release equality
+does not establish provenance or host/child wire ABI compatibility.
 
 The default pin is Multikernel `v7.0-mk2`
 (`3bdd35b64413da0b4e089ce931bfc2e8b031cbf7`) with Kerf `v0.2.0`

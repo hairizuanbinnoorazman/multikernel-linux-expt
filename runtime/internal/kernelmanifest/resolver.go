@@ -129,7 +129,10 @@ func validate(manifest Manifest, name string, uid uint32) error {
 			return err
 		}
 	}
-	for _, executable := range []Artifact{manifest.Kernel, manifest.Agent, manifest.Relay} {
+	if err := verifyKernel(manifest.Kernel, uid, manifest.KernelRelease); err != nil {
+		return err
+	}
+	for _, executable := range []Artifact{manifest.Agent, manifest.Relay} {
 		file, err := openVerifiedArtifact(executable, uid)
 		if err != nil {
 			return err

@@ -512,6 +512,14 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   decision about hardware-backed isolation or the continued trusted-child scope.
 
 - [ ] **SEC-12 — Review dependencies and artifact trust (TM-11).**
+  [Daemon embedded-kernel release guard](../../../evidence/runtime-20261012/g7-kernel-embedded-release/README.md)
+  now rejects a hash-approved real rb13 kernel under the rb11 profile; old
+  resolver accepts it. Exact root/source/old-control/build proof is retained.
+  CLI semantic kernel identity, initramfs binding and host/child ABI remain.
+  [Google agent review](../../../evidence/runtime-20261012/g7-google-agent-dependency-review/README.md)
+  retains exact binaries/source/vendors and adverse scans. Refreshed official
+  indexes offer no newer package candidates; both High rules remain open for
+  backport/reachability review and supported update or qualified rebuild.
   [OpenSSL remediation and activation proof](../../../evidence/runtime-20261012/g7-openssl-security-remediation/README.md)
   upgrades four packages to3.5.5-1ubuntu3.7 and verifies the exact CVE-2026-84782
   rule changes true→false after reboot, unchanged runtime/default hashes and
@@ -526,7 +534,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   backend/pool/state/journal mutation. Actual signed modules and installed
   profile pass; old CLI accepts the wrong support release and new CLI refuses.
   Kernel/initramfs byte mismatches also fail the lifecycle pre-allocation
-  fixture. Embedded kernel/bootstrap identity, full ABI/provenance, remaining
+  fixture. Bootstrap CLI/initramfs semantic identity, full ABI/provenance, remaining
   dependency review and production deployment acceptance remain open.
   Owner/executor: Codex. [Go dependency remediation](../../../evidence/runtime-20261012/g7-go-dependency-remediation/README.md)
   requiresGo1.26.9 and patched containerd1.7.36/gRPC1.83.2/xsys0.47.0.

@@ -52,7 +52,7 @@ func manifestFixture(t *testing.T) (Resolver, string) {
 	relay := filepath.Join(directory, "mkvsock-relay")
 	module := filepath.Join(directory, "mk_transport.ko")
 	initrd := filepath.Join(directory, "initramfs")
-	copyFile(t, executable, kernel, 0755)
+	writeKernelFixture(t, kernel, "Linux version test-release (fixture)\n\x00")
 	copyFile(t, executable, agent, 0755)
 	copyFile(t, executable, relay, 0755)
 	writeModuleFixture(t, module, "name=mk_transport\x00vermagic=test-release SMP\x00")

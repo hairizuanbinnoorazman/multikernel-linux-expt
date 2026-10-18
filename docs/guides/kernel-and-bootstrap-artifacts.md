@@ -23,8 +23,14 @@ Each manifest names and hashes:
 - the supported agent protocol range; and
 - the OCI features this artifact set is approved to accept.
 
-The daemon verifies module ELF architecture, name and kernel release before
-allocation, including support modules such as NBD. The install validator also
+The daemon requires an uncompressed ELF64 little-endian x86-64 executable
+with an unambiguous `linux_banner` symbol matching `kernel_release`. Symbol,
+string-table and banner reads are bounded and use a held, hash-verified file.
+Stripped kernels without this identity are refused. This release check runs
+before allocation; it is not currently enforced by the bootstrap CLI.
+
+The daemon also verifies module ELF architecture, name and kernel release
+before allocation, including support modules such as NBD. The install validator also
 checks every module's release. A matching digest alone does not establish
 compatibility between independently assembled artifacts. These checks do not
 establish host/child wire compatibility or validate arbitrary approved initramfs

@@ -177,7 +177,7 @@ func (b *mutationGuardBackend) ReleasePool(context.Context) error {
 }
 
 func TestArtifactMismatchRefusesBeforePoolOrStateMutation(t *testing.T) {
-	for _, target := range []string{"kernel", "initramfs", "transport", "support-release"} {
+	for _, target := range []string{"kernel", "kernel-release", "initramfs", "transport", "support-release"} {
 		t.Run(target, func(t *testing.T) {
 			resolver, path := manifestFixture(t)
 			var manifest Manifest
@@ -191,6 +191,11 @@ func TestArtifactMismatchRefusesBeforePoolOrStateMutation(t *testing.T) {
 			switch target {
 			case "kernel":
 				err = os.WriteFile(manifest.Kernel.Path, []byte("substituted kernel"), 0755)
+			case "kernel-release":
+				rewriteFixtureManifest(t, path, func(m *Manifest) {
+					writeKernelFixture(t, m.Kernel.Path, "Linux version other-release (fixture)\n\x00")
+					m.Kernel.SHA256 = digest(t, m.Kernel.Path)
+				})
 			case "initramfs":
 				err = os.WriteFile(manifest.Initramfs.Path, []byte("substituted initramfs"), 0644)
 			case "transport":
