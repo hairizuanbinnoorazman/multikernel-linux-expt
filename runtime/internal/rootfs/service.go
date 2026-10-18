@@ -389,7 +389,7 @@ func (s *Service) openPreparedRoots(record Record) (PreparedRoots, error) {
 
 // OpenPreparedBoot revalidates the complete prepared result and returns the
 // exact journal-bound runtime directory and initramfs. The caller owns both.
-func (s *Service) OpenPreparedBoot(ctx context.Context, bundle string, storage *protocol.StorageConfig) (*os.File, *os.File, error) {
+func (s *Service) OpenPreparedBoot(ctx context.Context, bundle string, storage *protocol.StorageConfig, manifestSHA256 string) (*os.File, *os.File, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -411,6 +411,10 @@ func (s *Service) OpenPreparedBoot(ctx context.Context, bundle string, storage *
 	}
 	if record == nil || record.Phase != "PREPARED" || record.Storage == nil || !reflect.DeepEqual(record.Storage, storage) {
 		return nil, nil, errors.New("sandbox does not match a prepared rootfs identity")
+	}
+	selected, err := buildResultDigest(record.BuildResult, "selected_kernel", "manifest_sha256")
+	if err != nil || manifestSHA256 == "" || selected != manifestSHA256 {
+		return nil, nil, errors.New("prepared rootfs belongs to a different approved kernel profile")
 	}
 	if err := s.verifyArtifactRootIdentities(*record); err != nil {
 		return nil, nil, err

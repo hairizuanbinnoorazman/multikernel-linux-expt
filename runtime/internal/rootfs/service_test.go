@@ -57,7 +57,7 @@ func (f *fakeBackend) Build(_ context.Context, request PrepareRequest, roots Bui
 	if f.buildHook != nil {
 		f.buildHook()
 	}
-	return PrepareResult{Storage: protocol.StorageConfig{Path: f.storagePath, ImageID: "image", FilesystemUUID: "12345678-1234-1234-1234-123456789abc", SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 128, Port: request.StoragePort, SHA256: strings.Repeat("a", 64)}, BuildResult: []byte(`{"schema_version":1}`)}, nil
+	return PrepareResult{Storage: protocol.StorageConfig{Path: f.storagePath, ImageID: "image", FilesystemUUID: "12345678-1234-1234-1234-123456789abc", SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 128, Port: request.StoragePort, SHA256: strings.Repeat("a", 64)}, BuildResult: []byte(`{"schema_version":1,"selected_kernel":{"manifest_sha256":"` + strings.Repeat("b", 64) + `"}}`)}, nil
 }
 
 func TestBuildUsesPinnedArtifactDirectoriesAndRejectsNameReplacement(t *testing.T) {
@@ -190,7 +190,7 @@ func TestOpenPreparedBootReturnsJournalBoundDescriptors(t *testing.T) {
 	if err = os.WriteFile(initrdPath, []byte("original-initramfs\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	runtimeDir, initramfs, err := service.OpenPreparedBoot(t.Context(), request.Bundle, &result.Storage)
+	runtimeDir, initramfs, err := service.OpenPreparedBoot(t.Context(), request.Bundle, &result.Storage, strings.Repeat("b", 64))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,6 +215,25 @@ func TestOpenPreparedBootReturnsJournalBoundDescriptors(t *testing.T) {
 	}
 	if value, err = os.ReadFile(initrdPath); err != nil || string(value) != "substitute-initramfs\n" {
 		t.Fatalf("substitute initramfs = %q, %v", value, err)
+	}
+}
+
+func TestPreparedBootRejectsStaleOrMissingProfileBeforeBackendAccess(t *testing.T) {
+	service, backend, request, _ := rootfsFixture(t)
+	result, err := service.Prepare(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeCalls := len(backend.calls)
+	beforeRecords := service.store.List()
+	for _, expected := range []string{"", strings.Repeat("c", 64)} {
+		directory, archive, err := service.OpenPreparedBoot(t.Context(), request.Bundle, &result.Storage, expected)
+		if err == nil || directory != nil || archive != nil || !strings.Contains(err.Error(), "different approved kernel profile") {
+			t.Fatalf("stale profile accepted: %v", err)
+		}
+		if len(backend.calls) != beforeCalls || !reflect.DeepEqual(beforeRecords, service.store.List()) {
+			t.Fatal("stale profile reached backend or mutated rootfs records")
+		}
 	}
 }
 

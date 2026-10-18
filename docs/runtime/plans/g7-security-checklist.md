@@ -512,6 +512,15 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   decision about hardware-backed isolation or the continued trusted-child scope.
 
 - [ ] **SEC-12 — Review dependencies and artifact trust (TM-11).**
+  [Base/generated archive component and selected-profile binding](../../../evidence/runtime-20261012/g7-initramfs-component-binding/README.md)
+  now enforces current agent/relay/transport consistency in base admission,
+  current transport/NBD in generated boot and exact manifest identity for the
+  prepared root. Create rejects before allocation/state/journal mutation;
+  Load/recovery verify before storage provisioning/backend load. Actual installed
+  base/root synthetic lifecycle checks and pre/post nineteen-zero inventories
+  pass. Full race/vet/seven builds pass; old resolver accepts all three wrong
+  embedded components. CLI parity, dependency/provenance/ABI and production
+  compatibility qualification remain open; whole SEC-12 is not checked off.
   [Bootstrap CLI release parity and bounded ELF parsing](../../../evidence/runtime-20261012/g7-bootstrap-kernel-binding/README.md)
   reject the actual wrong-release kernel through both admission paths and
   refuse malformed unused symbol names; root/source/control/build proof retained.

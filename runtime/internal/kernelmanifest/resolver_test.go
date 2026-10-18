@@ -11,25 +11,6 @@ import (
 	"testing"
 )
 
-func copyFile(t *testing.T, source, destination string, mode os.FileMode) {
-	t.Helper()
-	in, err := os.Open(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer in.Close()
-	out, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = io.Copy(out, in); err != nil {
-		t.Fatal(err)
-	}
-	if err = out.Close(); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func digest(t *testing.T, path string) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)
@@ -43,22 +24,24 @@ func digest(t *testing.T, path string) string {
 func manifestFixture(t *testing.T) (Resolver, string) {
 	t.Helper()
 	directory := t.TempDir()
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
+	var err error
 	kernel := filepath.Join(directory, "vmlinux")
 	agent := filepath.Join(directory, "mk-agent")
 	relay := filepath.Join(directory, "mkvsock-relay")
 	module := filepath.Join(directory, "mk_transport.ko")
 	initrd := filepath.Join(directory, "initramfs")
 	writeKernelFixture(t, kernel, "Linux version test-release (fixture)\n\x00")
-	copyFile(t, executable, agent, 0755)
-	copyFile(t, executable, relay, 0755)
-	writeModuleFixture(t, module, "name=mk_transport\x00vermagic=test-release SMP\x00")
-	if err = os.WriteFile(initrd, []byte("initramfs"), 0644); err != nil {
-		t.Fatal(err)
+	// Structural ELF fixtures avoid repeatedly compressing the entire test binary.
+	// Configured root qualification separately checks actual installed artifacts.
+	writeKernelFixture(t, agent, "agent fixture\x00")
+	writeKernelFixture(t, relay, "relay fixture\x00")
+	for _, executable := range []string{agent, relay} {
+		if err = os.Chmod(executable, 0755); err != nil {
+			t.Fatal(err)
+		}
 	}
+	writeModuleFixture(t, module, "name=mk_transport\x00vermagic=test-release SMP\x00")
+	writeArchive(t, initrd, baseEntries(t, directory))
 	if err = os.WriteFile(filepath.Join(directory, "config-test-release"), []byte("CONFIG_MULTIKERNEL=y\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +64,7 @@ func manifestFixture(t *testing.T) (Resolver, string) {
 }
 
 func TestResolveVerifiesApprovedArtifacts(t *testing.T) {
-	resolver, _ := manifestFixture(t)
+	resolver, manifestPath := manifestFixture(t)
 	artifacts, err := resolver.Resolve("test")
 	if err != nil {
 		t.Fatal(err)
@@ -89,6 +72,9 @@ func TestResolveVerifiesApprovedArtifacts(t *testing.T) {
 	defer artifacts.Close()
 	if artifacts.Kernel == "" || artifacts.Initrd == "" {
 		t.Fatalf("artifacts = %+v", artifacts)
+	}
+	if artifacts.ManifestSHA256 != digest(t, manifestPath) {
+		t.Fatal("resolved policy is not bound to the exact manifest bytes")
 	}
 }
 

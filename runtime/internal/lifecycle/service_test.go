@@ -67,7 +67,7 @@ type fakePreparedBootResolver struct {
 	initrd        *os.File
 }
 
-func (r *fakePreparedBootResolver) OpenPreparedBoot(context.Context, string, *protocol.StorageConfig) (*os.File, *os.File, error) {
+func (r *fakePreparedBootResolver) OpenPreparedBoot(context.Context, string, *protocol.StorageConfig, string) (*os.File, *os.File, error) {
 	r.calls++
 	var err error
 	r.directory, err = os.Open(r.directoryPath)

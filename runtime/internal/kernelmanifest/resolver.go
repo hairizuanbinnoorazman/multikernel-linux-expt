@@ -1,6 +1,7 @@
 package kernelmanifest
 
 import (
+	"context"
 	"crypto/sha256"
 	"debug/elf"
 	"encoding/hex"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/bootarchive"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
@@ -25,6 +27,7 @@ const (
 )
 
 var kernelReleaseRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$`)
+var moduleNameRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 type Artifact struct {
 	Path   string `json:"path"`
@@ -96,8 +99,66 @@ func (r Resolver) Resolve(name string) (lifecycle.Artifacts, error) {
 		_ = kernel.Close()
 		return lifecycle.Artifacts{}, err
 	}
+	base, prepared, err := componentPolicies(manifest, r.RequiredUID)
+	if err == nil {
+		err = verifyBootDescriptor(context.Background(), initrd, base, nil)
+	}
+	if err != nil {
+		return lifecycle.Artifacts{}, errors.Join(err, kernel.Close(), initrd.Close())
+	}
+	manifestDigest := sha256.Sum256(raw)
 	return lifecycle.Artifacts{Kernel: manifest.Kernel.Path, Initrd: manifest.Initramfs.Path,
-		KernelFile: kernel, InitrdFile: initrd}, nil
+		KernelFile: kernel, InitrdFile: initrd,
+		ManifestSHA256: hex.EncodeToString(manifestDigest[:]),
+		VerifyPreparedInitramfs: func(ctx context.Context, file *os.File) error {
+			if _, ok := prepared["lib/nbd.ko"]; !ok {
+				return errors.New("prepared boot requires an approved nbd support module")
+			}
+			return verifyBootDescriptor(ctx, file, prepared, nil)
+		}}, nil
+}
+
+func componentPolicies(m Manifest, uid uint32) (map[string]bootarchive.Component, map[string]bootarchive.Component, error) {
+	base := map[string]bootarchive.Component{
+		"mk-agent":        {SHA256: m.Agent.SHA256, Executable: true},
+		"mkvsock-relay":   {SHA256: m.Relay.SHA256, Executable: true},
+		"mk_transport.ko": {SHA256: m.Transport.Module.SHA256},
+	}
+	prepared := map[string]bootarchive.Component{"lib/mk_transport.ko": {SHA256: m.Transport.Module.SHA256}}
+	names := map[string]bool{"mk_transport": true}
+	for _, artifact := range m.Modules {
+		name, err := verifiedModuleName(artifact, uid, m.KernelRelease, "")
+		if err != nil {
+			return nil, nil, err
+		}
+		if !moduleNameRE.MatchString(name) || names[name] {
+			return nil, nil, errors.New("support module identity is unsafe or duplicated")
+		}
+		names[name] = true
+		// The mediated bootstrap currently loads these two modules only.
+		// Other approved support modules are not implicitly required there.
+		if name == "nbd" {
+			prepared["lib/nbd.ko"] = bootarchive.Component{SHA256: artifact.SHA256}
+		}
+	}
+	return base, prepared, nil
+}
+
+func verifyBootDescriptor(ctx context.Context, file *os.File, required, optional map[string]bootarchive.Component) error {
+	if file == nil {
+		return errors.New("boot archive descriptor is missing")
+	}
+	info, err := file.Stat()
+	before, ok := stableIdentity(info)
+	if err != nil || !ok || !info.Mode().IsRegular() {
+		return errors.New("boot archive descriptor has unsafe type")
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	verifyErr := bootarchive.Verify(ctx, file, required, optional)
+	_, seekErr := file.Seek(0, io.SeekStart)
+	return errors.Join(verifyErr, verifyStableRegular(file, before), seekErr)
 }
 
 func validate(manifest Manifest, name string, uid uint32) error {

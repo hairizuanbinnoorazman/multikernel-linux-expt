@@ -30,6 +30,8 @@ var labelKeyRE = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,62}$`)
 type Artifacts struct {
 	Kernel, Initrd, Cmdline string
 	KernelFile, InitrdFile  *os.File
+	ManifestSHA256          string
+	VerifyPreparedInitramfs func(context.Context, *os.File) error
 }
 
 func (a Artifacts) Close() error {
@@ -47,7 +49,7 @@ type ArtifactResolver interface {
 	Resolve(string) (Artifacts, error)
 }
 type PreparedBootResolver interface {
-	OpenPreparedBoot(context.Context, string, *protocol.StorageConfig) (*os.File, *os.File, error)
+	OpenPreparedBoot(context.Context, string, *protocol.StorageConfig, string) (*os.File, *os.File, error)
 }
 type Service struct {
 	store             *statepkg.Store
@@ -88,6 +90,21 @@ func (s *Service) artifactsFor(manifest string) (Artifacts, error) {
 	}
 	resolved.Cmdline = artifacts.Cmdline
 	return resolved, nil
+}
+
+// Bind the journal-approved derived archive to the currently selected profile,
+// using the same held descriptor that is handed to the loader.
+func (s *Service) openPreparedBoot(ctx context.Context, config protocol.SandboxConfig, artifacts Artifacts) (*os.File, *os.File, error) {
+	directory, archive, err := s.preparedBoot.OpenPreparedBoot(ctx, config.Bundle, config.Storage, artifacts.ManifestSHA256)
+	if err != nil {
+		return nil, nil, err
+	}
+	if artifacts.VerifyPreparedInitramfs != nil {
+		if err = artifacts.VerifyPreparedInitramfs(ctx, archive); err != nil {
+			return nil, nil, errors.Join(err, directory.Close(), archive.Close())
+		}
+	}
+	return directory, archive, nil
 }
 
 func New(st *statepkg.Store, b kerf.Backend, a Artifacts) *Service {
@@ -571,6 +588,16 @@ func (s *Service) Create(ctx context.Context, c protocol.SandboxConfig, key stri
 		if err != nil {
 			return protocol.MutationResult{}, apierr("FAILED_PRECONDITION", "approved kernel manifest validation failed", false)
 		}
+		if s.preparedBoot != nil && artifacts.VerifyPreparedInitramfs != nil {
+			directory, archive, verifyErr := s.openPreparedBoot(ctx, c, artifacts)
+			if verifyErr == nil {
+				verifyErr = errors.Join(directory.Close(), archive.Close())
+			}
+			if verifyErr != nil {
+				_ = artifacts.Close()
+				return protocol.MutationResult{}, apierr("FAILED_PRECONDITION", "prepared boot archive does not match approved kernel profile", false)
+			}
+		}
 		if err = artifacts.Close(); err != nil {
 			return protocol.MutationResult{}, apierr("FAILED_PRECONDITION", "approved kernel artifact close failed", false)
 		}
@@ -703,9 +730,6 @@ func (s *Service) transition(ctx context.Context, id, gen, key, method string, f
 }
 func (s *Service) Load(ctx context.Context, id, gen, key string) (protocol.MutationResult, *protocol.Error) {
 	result, apiErr := s.transition(ctx, id, gen, key, "LoadSandbox", []string{"CREATED"}, "", "LOADED", func(x protocol.Sandbox) error {
-		if err := s.provisionStorage(ctx, &x); err != nil {
-			return err
-		}
 		artifacts, err := s.artifactsFor(x.Config.KernelManifest)
 		if err != nil {
 			return err
@@ -713,13 +737,16 @@ func (s *Service) Load(ctx context.Context, id, gen, key string) (protocol.Mutat
 		defer artifacts.Close()
 		bootFiles := kerf.LoadFiles{Kernel: artifacts.KernelFile, Initramfs: artifacts.InitrdFile}
 		if s.preparedBoot != nil {
-			runtimeDir, initramfs, openErr := s.preparedBoot.OpenPreparedBoot(ctx, x.Config.Bundle, x.Config.Storage)
+			runtimeDir, initramfs, openErr := s.openPreparedBoot(ctx, x.Config, artifacts)
 			if openErr != nil {
 				return openErr
 			}
 			defer runtimeDir.Close()
 			defer initramfs.Close()
 			bootFiles.RuntimeDir, bootFiles.Initramfs = runtimeDir, initramfs
+		}
+		if err := s.provisionStorage(ctx, &x); err != nil {
+			return err
 		}
 		return s.backend.Load(ctx, x, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline, bootFiles)
 	})
@@ -968,21 +995,21 @@ func (s *Service) reconcileIncomplete(ctx context.Context, intent statepkg.Journ
 	case "LoadSandbox":
 		if actual == "CREATED" {
 			var artifacts Artifacts
-			err = s.provisionStorage(ctx, &sandbox)
-			if err == nil {
-				artifacts, err = s.artifactsFor(sandbox.Config.KernelManifest)
-			}
+			artifacts, err = s.artifactsFor(sandbox.Config.KernelManifest)
 			if err == nil {
 				defer artifacts.Close()
 				bootFiles := kerf.LoadFiles{Kernel: artifacts.KernelFile, Initramfs: artifacts.InitrdFile}
 				if s.preparedBoot != nil {
 					var runtimeDir, initramfs *os.File
-					runtimeDir, initramfs, err = s.preparedBoot.OpenPreparedBoot(ctx, sandbox.Config.Bundle, sandbox.Config.Storage)
+					runtimeDir, initramfs, err = s.openPreparedBoot(ctx, sandbox.Config, artifacts)
 					if err == nil {
 						defer runtimeDir.Close()
 						defer initramfs.Close()
 						bootFiles.RuntimeDir, bootFiles.Initramfs = runtimeDir, initramfs
 					}
+				}
+				if err == nil {
+					err = s.provisionStorage(ctx, &sandbox)
 				}
 				if err == nil {
 					err = s.backend.Load(ctx, sandbox, artifacts.Kernel, artifacts.Initrd, artifacts.Cmdline, bootFiles)
