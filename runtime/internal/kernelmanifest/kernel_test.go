@@ -155,3 +155,46 @@ func TestInstalledKernelRelease(t *testing.T) {
 		t.Fatalf("wrong release: %v", err)
 	}
 }
+
+func TestKernelRejectsMalformedUnusedSymbolNames(t *testing.T) {
+	for _, oversized := range []bool{false, true} {
+		t.Run(map[bool]string{false: "out-of-bounds", true: "oversized"}[oversized], func(t *testing.T) {
+			r, path := manifestFixture(t)
+			rewriteFixtureManifest(t, path, func(m *Manifest) {
+				b, err := os.ReadFile(m.Kernel.Path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				order := binary.LittleEndian
+				sections := int(order.Uint64(b[40:48]))
+				table := b[sections+3*64 : sections+4*64]
+				symbols := append([]byte{}, b[int(order.Uint64(table[24:32])):int(order.Uint64(table[24:32]))+48]...)
+				extra := make([]byte, 24)
+				order.PutUint32(extra, 0xffffffff)
+				if oversized {
+					names := b[sections+2*64 : sections+3*64]
+					stringsOffset, stringsSize := int(order.Uint64(names[24:32])), int(order.Uint64(names[32:40]))
+					text := append([]byte{}, b[stringsOffset:stringsOffset+stringsSize]...)
+					text = append(text, []byte(strings.Repeat("x", 4096)+"\x00")...)
+					order.PutUint64(names[24:32], uint64(len(b)))
+					order.PutUint64(names[32:40], uint64(len(text)))
+					order.PutUint32(extra, uint32(stringsSize))
+					b = append(b, text...)
+				}
+				// Reacquire the table slice after append may reallocate b.
+				table = b[sections+3*64 : sections+4*64]
+				order.PutUint64(table[24:32], uint64(len(b)))
+				order.PutUint64(table[32:40], 72)
+				b = append(b, symbols...)
+				b = append(b, extra...)
+				if err = os.WriteFile(m.Kernel.Path, b, 0644); err != nil {
+					t.Fatal(err)
+				}
+				m.Kernel.SHA256 = digest(t, m.Kernel.Path)
+			})
+			if _, err := r.Resolve("test"); err == nil {
+				t.Fatal("hash-approved malformed unused symbol accepted")
+			}
+		})
+	}
+}

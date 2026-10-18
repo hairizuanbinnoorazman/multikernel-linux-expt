@@ -14,6 +14,9 @@ without following a caller-controlled final symlink. The approved kernel must
 be an uncompressed ELF64 little-endian x86-64 executable with a bounded,
 unambiguous global `linux_banner` object matching the manifest release. The
 daemon reads this identity from the held verified file before allocation.
+The bootstrap validator enforces the same release identity with held streamed
+hashing and bounded metadata reads. Both bound section/symbol names; malformed
+unused symbol names are refused.
 Stripped kernels without the release symbol are refused. Release equality
 does not establish provenance or host/child wire ABI compatibility.
 
