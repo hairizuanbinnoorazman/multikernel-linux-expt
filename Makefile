@@ -17,7 +17,7 @@ RUNTIME_BUILD_FLAGS = -trimpath -buildvcs=false -ldflags="-buildid= -X github.co
 GCLOUD = gcloud compute
 SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 
-.PHONY: help docs-check runtime-test runtime-build runtime-manifest runtime-g4-g6-test runtime-g4-g6-matrix check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
+.PHONY: help repo-setup lfs-check docs-check runtime-test runtime-build runtime-manifest runtime-g4-g6-test runtime-g4-g6-matrix check-project check-gcloud vm-create vm-describe vm-start vm-stop vm-delete \
 	ssh serial snapshot sync provision-kernel reboot verify-host install-kerf \
 	smoke-up smoke-status smoke-down daxfs-build daxfs-up daxfs-status \
 	daxfs-down daxfs-dual-kernel-proof collect-logs disk-roots-create \
@@ -26,6 +26,12 @@ SSH = $(GCLOUD) ssh $(INSTANCE) --project=$(PROJECT) --zone=$(ZONE)
 
 help: ## Show available targets.
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+repo-setup: ## Install local Git LFS filters and automatic repository hooks.
+	bash scripts/install-repo-hooks.sh
+
+lfs-check: ## Check that evidence and large files are represented by LFS pointers.
+	python3 scripts/auto-track-lfs.py --check
 
 docs-check: ## Validate local Markdown links and required runtime-plan structure.
 	bash scripts/check-docs.sh
