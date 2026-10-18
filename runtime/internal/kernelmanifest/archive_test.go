@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -128,6 +129,31 @@ func TestBootArchiveStructureAndAuthority(t *testing.T) {
 		})
 	}
 	valid := archiveBytes(t, entries)
+	reader, err := gzip.NewReader(bytes.NewReader(valid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliased, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	nameOffset := bytes.LastIndex(aliased, []byte("TRAILER!!!"))
+	copy(aliased[nameOffset-16:nameOffset-8], []byte("0000000d"))
+	copy(aliased[nameOffset:], []byte("./TRAILER!!!\x00"))
+	var alias bytes.Buffer
+	compressor := gzip.NewWriter(&alias)
+	if _, err = compressor.Write(aliased); err != nil {
+		t.Fatal(err)
+	}
+	if err = compressor.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = bootarchive.Verify(t.Context(), bytes.NewReader(alias.Bytes()), required, nil); err == nil {
+		t.Fatal("noncanonical trailer accepted")
+	}
 	for name, data := range map[string][]byte{"truncated": valid[:len(valid)-4], "encoded-tail": append(append([]byte(nil), valid...), 0), "second-gzip": append(append([]byte(nil), valid...), valid...)} {
 		t.Run(name, func(t *testing.T) {
 			if err := bootarchive.Verify(t.Context(), bytes.NewReader(data), required, nil); err == nil {

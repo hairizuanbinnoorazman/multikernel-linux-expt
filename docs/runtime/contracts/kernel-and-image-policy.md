@@ -17,6 +17,18 @@ daemon reads this identity from the held verified file before allocation.
 The bootstrap validator enforces the same release identity with held streamed
 hashing and bounded metadata reads. Both bound section/symbol names; malformed
 unused symbol names are refused.
+The daemon and bootstrap validator also inspect the base initramfs through a
+hash-verified held descriptor. Embedded agent, relay and transport hashes must
+match the selected manifest. Archives use one gzip member and one bounded newc
+archive with a literal `TRAILER!!!` marker; normalized duplicate names, trailing
+members/data and unsafe critical-file metadata or ancestors are refused. The
+parser never extracts files. The mediated generated archive additionally binds
+transport/NBD to the selected profile, and the prepared root's journaled manifest
+digest must match the exact current manifest bytes before allocation or loading.
+A changed profile requires root preparation again; editing journals is not an
+upgrade mechanism. These checks establish component consistency, while scripts,
+helpers and other archive contents retain administrator/builder approval.
+
 Stripped kernels without the release symbol are refused. Release equality
 does not establish provenance or host/child wire ABI compatibility.
 

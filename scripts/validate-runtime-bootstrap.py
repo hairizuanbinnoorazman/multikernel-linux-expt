@@ -7,11 +7,13 @@ import hashlib
 import json
 import os
 import pathlib
+import posixpath
 import re
 import stat
 import struct
 import subprocess
 import sys
+import zlib
 
 
 PINNED_MULTIKERNEL = "3bdd35b64413da0b4e089ce931bfc2e8b031cbf7"
@@ -214,6 +216,141 @@ def kernel_config(kernel, release, required, required_uid):
             raise ValueError(f"kernel config is missing {line}")
 
 
+
+def verify_boot_components(source, required):
+    """Read one bounded gzip/newc archive without extraction or implicit members."""
+    maximum = 512 << 20
+
+    def chunks():
+        decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        pending = b""
+        total = 0
+        while not decoder.eof:
+            if not pending:
+                pending = source.read(64 << 10)
+            try:
+                chunk = decoder.decompress(pending, 1 << 20)
+            except zlib.error as error:
+                raise ValueError("invalid boot archive gzip") from error
+            pending = decoder.unconsumed_tail
+            total += len(chunk)
+            if total > maximum:
+                raise ValueError("boot archive exceeds decompressed limit")
+            if chunk:
+                yield chunk
+            elif not pending and not decoder.eof:
+                # No output can also mean a consumed header; distinguish that
+                # from an exhausted source without accumulating encoded bytes.
+                pending = source.read(64 << 10)
+                if not pending:
+                    raise ValueError("truncated boot archive gzip")
+        if decoder.unused_data or pending or source.read(1):
+            raise ValueError("boot archive has trailing encoded data")
+
+    blocks = iter(chunks())
+    buffered = b""
+
+    def read(length):
+        nonlocal buffered
+        if not 0 <= length <= 1 << 20:
+            raise ValueError("boot archive read exceeds bound")
+        result = bytearray()
+        while len(result) < length:
+            if not buffered:
+                try:
+                    buffered = next(blocks)
+                except StopIteration:
+                    raise ValueError("truncated boot archive record") from None
+            count = min(length - len(result), len(buffered))
+            result.extend(buffered[:count])
+            buffered = buffered[count:]
+        return bytes(result)
+
+    def padding(length):
+        if any(read(length)):
+            raise ValueError("nonzero boot archive alignment")
+
+    seen = {}
+    found = set()
+    for _ in range(131072):
+        header = read(110)
+        if header[:6] != b"070701" or re.fullmatch(rb"[a-fA-F0-9]{104}", header[6:]) is None:
+            raise ValueError("boot archive must use valid newc without CRC")
+        fields = [int(header[6 + i * 8:14 + i * 8], 16) for i in range(13)]
+        mode, uid, gid, links = fields[1:5]
+        size, namesize = fields[6], fields[11]
+        if not 0 < namesize <= 4096 or size > maximum or fields[12] != 0:
+            raise ValueError("invalid boot archive name, size or checksum")
+        raw = read(namesize)
+        if raw[-1:] != b"\x00" or b"\x00" in raw[:-1]:
+            raise ValueError("invalid boot archive name")
+        try:
+            name = raw[:-1].decode("utf-8").removeprefix("./")
+        except UnicodeDecodeError as error:
+            raise ValueError("invalid boot archive UTF-8 name") from error
+        padding((-(110 + namesize)) % 4)
+        if name == "TRAILER!!!":
+            if raw[:-1] != b"TRAILER!!!":
+                raise ValueError("noncanonical boot archive trailer")
+            if size:
+                raise ValueError("boot archive trailer has data")
+            if any(buffered):
+                raise ValueError("boot archive has data after trailer")
+            for chunk in blocks:
+                if any(chunk):
+                    raise ValueError("boot archive has data after trailer")
+            break
+        if (not name or name == ".." or name.startswith(("/", "../"))
+                or "\\" in name or posixpath.normpath(name) != name):
+            raise ValueError("unsafe boot archive path")
+        if name in seen:
+            raise ValueError("duplicate normalized boot archive path")
+        seen[name] = (mode, uid, gid)
+        critical = required.get(name)
+        if critical and (stat.S_IFMT(mode) != stat.S_IFREG or mode & 0o7022
+                         or uid != 0 or gid != 0 or links != 1 or not mode & 0o400
+                         or (critical[1] and not mode & 0o100)):
+            raise ValueError("boot component has unsafe metadata: " + name)
+        digest = hashlib.sha256()
+        remaining = size
+        while remaining:
+            data = read(min(remaining, 1 << 20))
+            if critical:
+                digest.update(data)
+            remaining -= len(data)
+        if critical:
+            if digest.hexdigest() != critical[0]:
+                raise ValueError("boot component digest differs from approved artifact: " + name)
+            found.add(name)
+        padding((-size) % 4)
+    else:
+        raise ValueError("boot archive entry limit")
+    if found != set(required):
+        raise ValueError("boot archive lacks required components")
+    for name in found:
+        parent = posixpath.dirname(name) or "."
+        while True:
+            entry = seen.get(parent)
+            if (entry is None and parent != ".") or (entry is not None and
+                    (stat.S_IFMT(entry[0]) != stat.S_IFDIR or entry[0] & 0o7022
+                     or entry[1] != 0 or entry[2] != 0)):
+                raise ValueError("boot component has unsafe ancestor: " + name)
+            if parent == ".":
+                break
+            parent = posixpath.dirname(parent) or "."
+
+
+def initramfs_identity(manifest, required_uid, skip_parent_safety=False):
+    required = {
+        "mk-agent": (manifest["agent"]["sha256"], True),
+        "mkvsock-relay": (manifest["relay"]["sha256"], True),
+        "mk_transport.ko": (manifest["transport"]["module"]["sha256"], False),
+    }
+    value = manifest["initramfs"]
+    with verified_file(value["path"], value["sha256"], required_uid,
+                       skip_parent_safety, (512 << 20) + (1 << 20)) as stream:
+        verify_boot_components(stream, required)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest")
@@ -265,6 +402,7 @@ def main():
             vermagic = subprocess.check_output(["modinfo", "-F", "vermagic", selected], text=True, timeout=10).strip()
             if (selected == module and name != "mk_transport") or not name or "\n" in name or "\n" in vermagic or not vermagic.startswith(manifest["kernel_release"] + " "):
                 raise ValueError("module name or kernel release is incompatible")
+    initramfs_identity(manifest, args.required_uid, args.skip_parent_safety)
     print(json.dumps({
         "manifest": str(manifest_path),
         "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),

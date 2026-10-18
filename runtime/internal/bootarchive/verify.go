@@ -122,6 +122,9 @@ func Verify(ctx context.Context, source io.Reader, required, optional map[string
 			return err
 		}
 		if name == "TRAILER!!!" {
+			if string(raw[:len(raw)-1]) != name {
+				return errors.New("noncanonical boot archive trailer")
+			}
 			if size != 0 {
 				return errors.New("boot archive trailer has data")
 			}

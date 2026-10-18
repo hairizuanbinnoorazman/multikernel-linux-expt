@@ -3,6 +3,8 @@
 
 import copy
 import hashlib
+import gzip
+import io
 import json
 import os
 import pathlib
@@ -68,6 +70,19 @@ def unused_symbol(oversized):
     return data
 
 
+
+def archive_bytes(entries):
+    data = bytearray()
+    for name, content, mode, uid, links in [*entries, ("TRAILER!!!", b"", 0, 0, 0)]:
+        encoded = name.encode() + b"\x00"
+        fields = (1, mode, uid, 0, links, 0, len(content), 0, 0, 0, 0, len(encoded), 0)
+        data.extend(b"070701" + b"".join(f"{value:08x}".encode() for value in fields))
+        data.extend(encoded)
+        data.extend(bytes((-len(data)) % 4))
+        data.extend(content)
+        data.extend(bytes((-len(data)) % 4))
+    return gzip.compress(data, mtime=0)
+
 def validate(path):
     return subprocess.run(
         [sys.executable, str(VALIDATOR), str(path), "test", "--required-uid", str(os.getuid()), "--skip-modinfo", "--skip-parent-safety"],
@@ -93,7 +108,10 @@ def main():
             artifacts[name] = {"path": str(target), "sha256": digest(target)}
         initramfs = directory / "initramfs"
         module = directory / "mk_transport.ko"
-        initramfs.write_bytes(b"initramfs")
+        initramfs.write_bytes(archive_bytes([
+            (name, (directory / name).read_bytes(), 0o100755, 0, 1)
+            for name in ("mk-agent", "mkvsock-relay")
+        ] + [("mk_transport.ko", b"module", 0o100644, 0, 1)]))
         module.write_bytes(b"module")
         initramfs.chmod(0o644)
         module.chmod(0o644)
@@ -196,6 +214,65 @@ def main():
         else:
             raise AssertionError("mutation of held inode was accepted")
 
+        # Each malformed archive is independently hash-approved. A whole-file
+        # digest must not disguise a mismatched critical component or unsafe
+        # extraction semantics. No archive is extracted by the verifier.
+        entries = [(name, (directory / name).read_bytes(), 0o100755, 0, 1)
+                   for name in ("mk-agent", "mkvsock-relay", "mk_transport.ko")]
+        good_archive = archive_bytes(entries)
+        aliased_trailer = bytearray(gzip.decompress(good_archive))
+        trailer_name = aliased_trailer.rindex(b"TRAILER!!!")
+        aliased_trailer[trailer_name - 16:trailer_name - 8] = b"0000000d"
+        aliased_trailer[trailer_name:trailer_name + 13] = b"./TRAILER!!!\x00"
+        bad_archives = {}
+        for index, name in enumerate(("mk-agent", "mkvsock-relay", "mk_transport.ko")):
+            wrong = list(entries)
+            wrong[index] = (name, b"wrong embedded component", 0o100755, 0, 1)
+            bad_archives["wrong " + name] = archive_bytes(wrong)
+        for label, first in [
+            ("writable", ("mk-agent", entries[0][1], 0o100775, 0, 1)),
+            ("wrong owner", ("mk-agent", entries[0][1], 0o100755, 1000, 1)),
+            ("hardlink", ("mk-agent", entries[0][1], 0o100755, 0, 2)),
+            ("symlink", ("mk-agent", entries[0][1], 0o120755, 0, 1)),
+            ("setuid", ("mk-agent", entries[0][1], 0o104755, 0, 1)),
+            ("nonexecutable", ("mk-agent", entries[0][1], 0o100644, 0, 1)),
+            ("traversal", ("../mk-agent", entries[0][1], 0o100755, 0, 1)),
+        ]:
+            bad_archives[label] = archive_bytes([first, *entries[1:]])
+        bad_archives.update({
+            "aliased trailer": gzip.compress(aliased_trailer, mtime=0),
+            "missing": archive_bytes(entries[1:]),
+            "duplicate": archive_bytes([*entries, entries[0]]),
+            "normalized duplicate": archive_bytes([*entries, ("./mk-agent", *entries[0][1:])]),
+            "unsafe root": archive_bytes([*entries, (".", b"", 0o40777, 0, 2)]),
+            "second gzip": good_archive + good_archive,
+            "encoded tail": good_archive + b"\x00",
+            "truncated gzip": good_archive[:-4],
+        })
+        for name, data in bad_archives.items():
+            initramfs.write_bytes(data)
+            candidate = copy.deepcopy(manifest)
+            candidate["initramfs"]["sha256"] = digest(initramfs)
+            path.write_text(json.dumps(candidate))
+            result = validate(path)
+            if result.returncode == 0 or result.stdout:
+                raise AssertionError(f"hash-approved {name} archive accepted: {result.stderr!r}")
+        initramfs.write_bytes(good_archive)
+        manifest["initramfs"]["sha256"] = digest(initramfs)
+        # Inflate across multiple bounded output chunks and reject content after
+        # the trailer even when the gzip CRC and whole-archive hash are correct.
+        projected = {name: (digest(directory / name), name != "mk_transport.ko")
+                     for name in ("mk-agent", "mkvsock-relay", "mk_transport.ko")}
+        api["verify_boot_components"](io.BytesIO(good_archive), projected)
+        with_padding = gzip.compress(gzip.decompress(good_archive) + bytes(2 << 20), mtime=0)
+        api["verify_boot_components"](io.BytesIO(with_padding), projected)
+        try:
+            api["verify_boot_components"](io.BytesIO(gzip.compress(gzip.decompress(good_archive) + b"x", mtime=0)), projected)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("nonzero decompressed tail accepted")
+
         path.write_text(json.dumps(manifest), encoding="utf-8")
         for mode in ("missing", "symlink", "writable", "oversized"):
             config.unlink()
@@ -219,7 +296,7 @@ def main():
         path.chmod(0o622)
         if validate(path).returncode == 0:
             raise AssertionError("writable manifest accepted")
-    print("runtime bootstrap validation: PASS (held hashes, kernel ELF release/bounds, mutation, ownership and transport)")
+    print("runtime bootstrap validation: PASS (held hashes, kernel ELF release/bounds, mutation, ownership, transport and embedded archive components)")
 
 
 if __name__ == "__main__":
