@@ -9,7 +9,9 @@ relay=${4:-}
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 busybox=${BUSYBOX:-$(command -v busybox)}
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+archive=
+trap 'rm -rf -- "$work"; [[ -z ${archive:-} ]] || rm -f -- "$archive"' EXIT
+archive=$(mktemp)
 
 mkdir -p "$work"/{bin,dev,proc,sys,tmp,bundle/rootfs/bin,bundle/rootfs/work}
 # Production supplies the per-generation credential in the loader's private
@@ -43,5 +45,6 @@ cat >"$work/bundle/config.json" <<'EOF'
 EOF
 chmod 0600 "$work/bundle/config.json"
 
-(cd "$work" && find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 >"$output"
+(cd "$work" && find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 > "$archive"
+python3 -I "$repo_dir/scripts/publish-private-initramfs.py" "$output" < "$archive"
 sha256sum "$output"

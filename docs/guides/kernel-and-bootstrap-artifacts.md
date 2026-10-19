@@ -71,6 +71,16 @@ by default. The loader appends a private per-generation token archive at boot.
 `MK_AGENT_TOKEN_FILE` is an explicit standalone-fixture option; do not embed a
 reusable production credential in an approved image.
 
+Both the agent and security-authority fixture builders publish new archives
+with mode `0600`, even when a fixture credential is embedded. Publication is
+atomic and refuses an existing destination, including symlinks, hardlinks and
+FIFOs. Output parents must be real directories owned by root or the caller;
+group/world-writable parents are refused except root-owned sticky directories
+such as `/tmp`. The publisher holds the parent inode through completion.
+Choose a fresh output path for each build; a failed build preserves an existing
+output. `scripts/test-runtime-private-initramfs.py` exercises both builders.
+
+
 ## 2. Stage under administrator-owned paths
 
 Place artifacts under an absolute, root-owned hierarchy such as

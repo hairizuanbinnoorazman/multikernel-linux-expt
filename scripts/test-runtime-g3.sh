@@ -9,7 +9,6 @@ name=runtime-g3
 cid=23
 port=7103
 generation=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
-initrd=/tmp/runtime-g3-agent.cpio.gz
 evidence=${EVIDENCE_DIR:-"$HOME/runtime-g3-evidence"}
 console=${CONSOLE_LOG:-"$evidence/console.log"}
 lifecycle=${LIFECYCLE_LOG:-"$evidence/lifecycle.json"}
@@ -23,6 +22,7 @@ relay_pid=
 mkdir -p "$evidence"
 token_dir=$(mktemp -d)
 token_file=$token_dir/token
+initrd=$token_dir/agent.cpio.gz
 od -An -N32 -tx1 /dev/urandom | tr -d ' \n' > "$token_file"
 printf '\n' >> "$token_file"
 chmod 0600 "$token_file"
@@ -48,7 +48,7 @@ path=pathlib.Path(sys.argv[2]);path.write_bytes(path.read_bytes().replace(token,
 PYREDACT
     fi
 ); }
-trap 'cleanup; rm -f -- "$token_file"; rmdir -- "$token_dir"' EXIT
+trap 'cleanup; rm -f -- "$token_file" "$initrd"; rmdir -- "$token_dir"' EXIT
 sudo modprobe vsock
 lsmod | grep -q '^mk_transport ' || sudo insmod "$module"
 if [[ -z ${MK_RELAY:-} ]]; then
@@ -114,7 +114,7 @@ import pathlib,sys
 token=pathlib.Path(sys.argv[1]).read_bytes().strip()
 assert token and not any(token in path.read_bytes() for path in pathlib.Path(sys.argv[2]).rglob('*') if path.is_file()), 'generated credential remained in G3 evidence'
 PYCHECK
-rm -f -- "$token_file"
+rm -f -- "$token_file" "$initrd"
 rmdir -- "$token_dir"
 trap - EXIT
 printf '%s\n' 'TOKEN_REDACTION_PASS: exact generated credential absent from all G3 evidence after cleanup' >"$evidence/token-redaction-check.txt"

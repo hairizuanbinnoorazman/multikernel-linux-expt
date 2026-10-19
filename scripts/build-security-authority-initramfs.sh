@@ -10,7 +10,9 @@ output=${5:?}
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 case "$fixture" in nonroot|root-empty-caps|root-default|root-ordinary-caps|root-unsafe-cap|root-disable-nnp) ;; *) exit 2 ;; esac
 scratch=$(mktemp -d)
-trap 'rm -rf "$scratch"' EXIT
+archive=
+trap 'rm -rf -- "$scratch"; [[ -z ${archive:-} ]] || rm -f -- "$archive"' EXIT
+archive=$(mktemp)
 mkdir -p "$scratch"/{bin,dev,proc,sys,tmp,bundle/rootfs/bin,bundle/rootfs/work}
 if [[ -n ${MK_AGENT_TOKEN_FILE:-} ]]; then
     mkdir -m 0700 "$scratch/.mk-agent"
@@ -46,5 +48,6 @@ pathlib.Path(sys.argv[1]).write_text(json.dumps({'ociVersion':'1.1.0',
     'process':process,'root':{'path':'rootfs'}},indent=2)+'\n')
 PY
 chmod 0600 "$scratch/bundle/config.json"
-(cd "$scratch" && find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 > "$output"
+(cd "$scratch" && find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 2>/dev/null) | gzip -n -9 > "$archive"
+python3 -I "$repo_dir/scripts/publish-private-initramfs.py" "$output" < "$archive"
 sha256sum "$output"

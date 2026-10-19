@@ -426,8 +426,19 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   replaces the lab client's plaintext argument with a protected token file,
   disables client dumpability and removes token values from harness helper
   arguments. The protected identity reader rejects FIFOs without blocking.
+  [Private bootstrap archive publication](../../../evidence/runtime-20261012/g7-private-bootstrap-archive/README.md)
+  fixes world-readable token-bearing archives and output-target overwrites
+  in both fixture-capable builders, with old controls, real UID65534 read
+  attempts and no-replace/producer-failure checks. Exact source proof is retained.
   Exact process/wire and unsafe-file proof is retained; full bootstrap/state/
   error/diagnostic tracing, bounded audit records and whole SEC-08 remain open.
+  Scoped implementation checkoff (whole task remains open):
+
+  - [x] Remove primary client/redaction-helper token values from command lines, with old/new process and MAC proof.
+  - [x] Secure token-bearing fixture archives and preserve existing output targets, with root/unauthorized-reader proof.
+  - [ ] Finish production bootstrap/state/error/stdout/evidence/diagnostic secret tracing.
+  - [ ] Qualify complete audit identity/outcome records and bounded retention/pressure behavior.
+
   Trace tokens through bootstrap, command lines, state, errors, stdout/stderr,
   evidence collectors, and diagnostic archives. Use synthetic distinct secrets
   so redaction can be asserted without publishing real credentials.
