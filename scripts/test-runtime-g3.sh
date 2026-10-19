@@ -9,7 +9,6 @@ name=runtime-g3
 cid=23
 port=7103
 generation=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
-token=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
 initrd=/tmp/runtime-g3-agent.cpio.gz
 evidence=${EVIDENCE_DIR:-"$HOME/runtime-g3-evidence"}
 console=${CONSOLE_LOG:-"$evidence/console.log"}
@@ -22,11 +21,34 @@ ctl_pid=
 relay_pid=
 
 mkdir -p "$evidence"
-token_file=$(mktemp)
-printf '%s\n' "$token" > "$token_file"
+token_dir=$(mktemp -d)
+token_file=$token_dir/token
+od -An -N32 -tx1 /dev/urandom | tr -d ' \n' > "$token_file"
+printf '\n' >> "$token_file"
+chmod 0600 "$token_file"
 
-cleanup(){ set +e; rm -f "$token_file"; [[ -z ${ctl_pid:-} ]]||kill "$ctl_pid" 2>/dev/null; [[ -z ${relay_pid:-} ]]||kill "$relay_pid" 2>/dev/null; if [[ -d /sys/fs/multikernel/instances/$name ]];then status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != active ]]||sudo "$kerf" kill "$name" --force;status=$(cat /sys/fs/multikernel/instances/$name/status);[[ $status != loaded ]]||sudo "$kerf" unload "$name";sudo "$kerf" delete "$name";fi;sudo "$kerf" init --cpus=none --memory=none --devices=none; if [[ -f $console ]]; then sed -i "s/$token/[REDACTED_TEST_TOKEN]/g" "$console"; fi; }
-trap cleanup EXIT
+cleanup() { (
+    set +e
+    [[ -z ${ctl_pid:-} ]] || kill "$ctl_pid" 2>/dev/null
+    [[ -z ${relay_pid:-} ]] || kill "$relay_pid" 2>/dev/null
+    if [[ -d /sys/fs/multikernel/instances/$name ]]; then
+        status=$(cat /sys/fs/multikernel/instances/$name/status)
+        [[ $status != active ]] || sudo "$kerf" kill "$name" --force
+        status=$(cat /sys/fs/multikernel/instances/$name/status)
+        [[ $status != loaded ]] || sudo "$kerf" unload "$name"
+        sudo "$kerf" delete "$name"
+    fi
+    sudo "$kerf" init --cpus=none --memory=none --devices=none
+    if [[ -f $console ]]; then
+        python3 - "$token_file" "$console" <<'PYREDACT'
+import pathlib,sys
+token=pathlib.Path(sys.argv[1]).read_bytes().strip()
+assert token, 'empty redaction credential'
+path=pathlib.Path(sys.argv[2]);path.write_bytes(path.read_bytes().replace(token,b'[REDACTED_TEST_TOKEN]'))
+PYREDACT
+    fi
+); }
+trap 'cleanup; rm -f -- "$token_file"; rmdir -- "$token_dir"' EXIT
 sudo modprobe vsock
 lsmod | grep -q '^mk_transport ' || sudo insmod "$module"
 if [[ -z ${MK_RELAY:-} ]]; then
@@ -41,7 +63,7 @@ rm -f /tmp/g3-relay.sock
 "$relay" server "$port" /tmp/g3-relay.sock >"$relay_log" 2>&1 &
 relay_pid=$!
 "$ctl" --port="$port" --unix-socket=/tmp/g3-relay.sock --sandbox-id="$name" --generation="$generation" \
-	--token-hex="$token" --bundle=/bundle --auth-matrix --relay="$relay" >"$lifecycle" 2>"$control_error" &
+	--token-file="$token_file" --bundle=/bundle --auth-matrix --relay="$relay" >"$lifecycle" 2>"$control_error" &
 ctl_pid=$!
 sudo timeout 45s script -qefc "$kerf exec $name --console" /dev/null >"$console" 2>&1 &
 console_pid=$!
@@ -85,12 +107,15 @@ done
 test "$status" = loaded
 printf '%s\n' 'Shutdown reply completed; child powered off and returned to Kerf loaded state' >"$evidence/shutdown-poweroff.txt"
 cleanup
-trap - EXIT
 wait "$console_pid" 2>/dev/null || true
 test "$(cat /sys/devices/system/cpu/online)" = 0-15
-if grep -R -F -- "$token" "$evidence"; then
-	echo "generated credential remained in G3 evidence" >&2
-	exit 1
-fi
+python3 - "$token_file" "$evidence" <<'PYCHECK'
+import pathlib,sys
+token=pathlib.Path(sys.argv[1]).read_bytes().strip()
+assert token and not any(token in path.read_bytes() for path in pathlib.Path(sys.argv[2]).rglob('*') if path.is_file()), 'generated credential remained in G3 evidence'
+PYCHECK
+rm -f -- "$token_file"
+rmdir -- "$token_dir"
+trap - EXIT
 printf '%s\n' 'TOKEN_REDACTION_PASS: exact generated credential absent from all G3 evidence after cleanup' >"$evidence/token-redaction-check.txt"
 echo RUNTIME_G3_OCI_LIFECYCLE_PASS

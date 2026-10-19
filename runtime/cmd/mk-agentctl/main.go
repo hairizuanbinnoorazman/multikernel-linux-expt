@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
@@ -104,21 +105,29 @@ func main() {
 	if buildinfo.PrintRequested(os.Stdout, "mk-agentctl", os.Args[1:]) {
 		return
 	}
-	var id, generation, token, bundle, unixSocket, relay string
+	var id, generation, tokenFile, bundle, unixSocket, relay string
 	var port uint
 	var authMatrix bool
 	flag.StringVar(&id, "sandbox-id", "", "sandbox ID")
 	flag.StringVar(&generation, "generation", "", "generation")
-	flag.StringVar(&token, "token-hex", "", "authentication token")
+	flag.StringVar(&tokenFile, "token-file", "", "private authentication credential file")
 	flag.StringVar(&bundle, "bundle", "/bundle", "child OCI bundle")
 	flag.UintVar(&port, "port", 0, "primary listening port")
 	flag.StringVar(&unixSocket, "unix-socket", "", "primary relay Unix socket")
 	flag.StringVar(&relay, "relay", "", "relay binary used for reconnect qualification")
 	flag.BoolVar(&authMatrix, "auth-matrix", false, "run the safe live authentication and framing matrix")
 	flag.Parse()
-	key, err := hex.DecodeString(token)
-	if err != nil || len(key) != 32 || id == "" || generation == "" || port < 1024 {
-		fmt.Fprintln(os.Stderr, "identity, port, and valid token are required")
+	if id == "" || generation == "" || port < 1024 || tokenFile == "" {
+		fmt.Fprintln(os.Stderr, "identity, port, and private credential file are required")
+		os.Exit(2)
+	}
+	if err := unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0); err != nil {
+		fmt.Fprintln(os.Stderr, "agent control process protection failed")
+		os.Exit(1)
+	}
+	key, err := readControlToken(tokenFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "private control credential validation failed")
 		os.Exit(2)
 	}
 	var conn net.Conn

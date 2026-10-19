@@ -422,6 +422,12 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   firewall/export ownership remain intact through restart and cleanup.
 
 - [ ] **SEC-08 — Verify audit records and secret handling (TM-07).**
+  Owner/implementation: Codex. [Primary credential-file hardening](../../../evidence/runtime-20261012/g7-primary-credential-file/README.md)
+  replaces the lab client's plaintext argument with a protected token file,
+  disables client dumpability and removes token values from harness helper
+  arguments. The protected identity reader rejects FIFOs without blocking.
+  Exact process/wire and unsafe-file proof is retained; full bootstrap/state/
+  error/diagnostic tracing, bounded audit records and whole SEC-08 remain open.
   Trace tokens through bootstrap, command lines, state, errors, stdout/stderr,
   evidence collectors, and diagnostic archives. Use synthetic distinct secrets
   so redaction can be asserted without publishing real credentials.

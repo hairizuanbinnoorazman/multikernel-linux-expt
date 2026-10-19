@@ -24,7 +24,7 @@ scratch=$(mktemp -d)
 chmod 0700 "$scratch"
 name=runtime-g7-authority
 port=7717
-relay_pid=; console_pid=; token=
+relay_pid=; console_pid=
 cleanup_fixture() {
     local status
     if [[ -n $relay_pid ]]; then kill "$relay_pid" 2>/dev/null || true; wait "$relay_pid" 2>/dev/null || true; relay_pid=; fi
@@ -43,9 +43,11 @@ cleanup_all() {
     trap - EXIT
     set +e
     if [[ $status != 0 ]]; then
-        python3 - "$scratch" "$evidence" "${fixture:-setup}" "$token" "$status" <<'PY'
+        python3 - "$scratch" "$evidence" "${fixture:-setup}" "$scratch/token" "$status" <<'PY'
 import pathlib,sys,json
-scratch,out=map(pathlib.Path,sys.argv[1:3]);fixture,token,status=sys.argv[3:]
+scratch,out=map(pathlib.Path,sys.argv[1:3]);fixture,token_path,status=sys.argv[3:]
+token_file=pathlib.Path(token_path)
+token=token_file.read_text().strip() if token_file.exists() else ''
 for name in ['console.log','control.err','relay.log','kerf.log','result.json']:
     if (scratch/name).exists():
         data=(scratch/name).read_text(errors='replace')
@@ -70,8 +72,8 @@ for fixture in ${MK_BUILD_CASES:-baseline prepared}; do
     [[ $fixture == baseline || $fixture == prepared ]]
     fixture_count=$((fixture_count + 1))
     generation=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
-    token=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
-    printf '%s\n' "$token" > "$scratch/token"
+    od -An -N32 -tx1 /dev/urandom | tr -d ' \n' > "$scratch/token"
+    printf '\n' >> "$scratch/token"
     chmod 0600 "$scratch/token"
     initrd=$scratch/$fixture.cpio.gz
     sudo bash "$repo_dir/scripts/build-$service-probe-initramfs.sh" "$agent" "$relay" "$module" "${MK_BUILDKIT_ROOTFS:?}" "$fixture" "$initrd" \
@@ -107,11 +109,11 @@ for fixture in ${MK_BUILD_CASES:-baseline prepared}; do
     # contain the boot command line; redact before moving it into evidence.
     control_status=0
     timeout 180s "$ctl" --port="$port" --unix-socket="$scratch/relay.sock" \
-        --sandbox-id="$name" --generation="$generation" --token-hex="$token" --bundle=/bundle \
+        --sandbox-id="$name" --generation="$generation" --token-file="$scratch/token" --bundle=/bundle \
         > "$scratch/result.json" 2> "$scratch/control.err" || control_status=$?
-    python3 - "$scratch" "$evidence" "$fixture" "$token" "$control_status" <<'PY'
+    python3 - "$scratch" "$evidence" "$fixture" "$scratch/token" "$control_status" <<'PY'
 import pathlib,sys,json
-scratch,out,fixture=map(pathlib.Path,sys.argv[1:4]);token=sys.argv[4]
+scratch,out,fixture=map(pathlib.Path,sys.argv[1:4]);token=pathlib.Path(sys.argv[4]).read_text().strip()
 status=int(sys.argv[5])
 assert status==0,status
 raw=json.loads((scratch/'result.json').read_text())

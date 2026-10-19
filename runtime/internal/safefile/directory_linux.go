@@ -282,7 +282,7 @@ func (d *Directory) ReadRegularIdentity(name string, mode os.FileMode, limit int
 	if filepath.Base(name) != name || name == "." || mode.Perm() != mode || limit <= 0 {
 		return nil, Identity{}, errors.New("invalid regular-file read request")
 	}
-	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, Identity{}, err
 	}

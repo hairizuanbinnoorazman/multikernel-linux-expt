@@ -23,9 +23,14 @@ accepting requests. Symlinks and hardlinks fail closed. The agent disables
 dumpability before reading the credential. Administrative primary access and
 arbitrary child-kernel execution remain outside this protection.
 
-The lab `mk-agentctl` authentication argument exists on the trusted primary;
-it is not the child bootstrap's credential handoff. Protect the primary's
-administrative account and diagnostic process inventory accordingly.
+The primary lab `mk-agentctl` reads `--token-file` from a caller-owned0700
+no-symlink directory. The0600single-link regular file must contain exactly64
+hexadecimal digits and a newline; reads are bounded and identity-checked.
+The client disables dumpability before reading. The plaintext `--token-hex`
+flag is rejected. Harness redaction helpers also receive file paths rather
+than token values. The harness retains and removes this primary credential;
+the child's separate one-shot credential is consumed during bootstrap.
+Administrative primary access remains outside this protection.
 
 ## Process privileges
 
