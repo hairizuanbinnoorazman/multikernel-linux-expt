@@ -1,0 +1,7 @@
+{
+  "protocol_version": 1,
+  "features": [
+    "lifecycle-audit-v1",
+    "lifecycle-audit-v1"
+  ]
+}

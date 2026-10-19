@@ -443,6 +443,10 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   now protect pending outcomes from new-work pressure, with append-time ownership
   checks and valid legacy-overcommit recovery. This source change is not yet
   activated in the running runtime; complete retention/audit acceptance stays open.
+  [Versioned lifecycle audit view](../../../evidence/runtime-20261012/g7-lifecycle-audit-view/README.md)
+  adds operation/component identity and outcomes without raw private journal
+  fields, with bounded pages and validated capability/cursor semantics.
+  Source and private VM fixtures pass; production activation is pending.
   Exact process/wire and unsafe-file proof is retained; full bootstrap/state/
   error/diagnostic tracing, bounded audit records and whole SEC-08 remain open.
   Scoped implementation checkoff (whole task remains open):
@@ -453,6 +457,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   - [x] Deploy the corrected credential fixes and qualify one live sandbox trace, installed-client control, all 19 ctr/Docker features and independent cleanup audit with exact source/binary proof.
   - [ ] Finish production bootstrap/state/error/stdout/evidence/diagnostic secret tracing.
   - [x] Reserve bounded lifecycle completion capacity before admitting new work, with restart, old-source controls and unprivileged VM filesystem-fixture proof; running-runtime activation remains pending.
+  - [x] Implement the negotiated lifecycle audit metadata view and validate operation/outcome identity, synthetic-secret omission, pagination/restart, strict client compatibility and bounded encoding with source and VM Unix-socket proof; running-runtime activation remains pending.
   - [ ] Qualify complete audit identity/outcome records and bounded retention/pressure behavior.
 
   Trace tokens through bootstrap, command lines, state, errors, stdout/stderr,

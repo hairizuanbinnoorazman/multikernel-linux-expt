@@ -56,7 +56,8 @@ change.
 
 Daemon methods are `NodeInfo`, `ListSandboxes`, `CreateSandbox`,
 `CancelCreateSandbox`, `LoadSandbox`, `StartSandbox`, `StopSandbox`,
-`DeleteSandbox`, `SandboxState`, and `WatchEvents`. `CancelCreateSandbox` is an
+`DeleteSandbox`, `SandboxState`, `WatchEvents`, `Capabilities`, and
+`ReadAuditEvents`. `CancelCreateSandbox` is an
 internal rollback operation bound to the exact original create idempotency key
 and full configuration fingerprint; it is not a general deletion shortcut.
 New shim create keys use a stable, domain-separated HMAC pseudonym of the
@@ -149,6 +150,44 @@ exclusive `after_sequence` cursor and optional `limit` (default 128, maximum
 1024). The response contains ordered version-1 completion events from the
 durable journal. A client repeats the call with the last observed sequence;
 restarts therefore neither invent events nor require an in-memory subscriber.
+
+The daemon's separate `Capabilities` method accepts an absent or empty object
+body and returns `protocol_version: 1` and a unique list of at most 32 feature
+names (1–64 lowercase/digit/hyphen bytes, starting with a letter). It advertises
+`lifecycle-audit-v1`. Existing `NodeInfo` and `WatchEvents` bodies are unchanged.
+An older daemon returns `UNSUPPORTED`; a client must discover the capability
+before using the new method and must not fall back to the legacy error stream
+as a substitute for this metadata-only contract.
+
+`ReadAuditEvents` requires a query object with `version: 1`, an exclusive
+`after_sequence` cursor (default zero), and optional `limit` (default 128, maximum
+512). The response is a version-1 page with `records`, `next_sequence`,
+`high_water_sequence` and `has_more`. Both intent and completion records are
+returned, in contiguous journal sequence order. The high-water mark describes
+the consistent journal read used for that call. The next cursor is the last
+returned sequence, or the input cursor for a caught-up empty page. A future
+cursor is rejected rather than silently skipped. A nonterminal page fills the
+requested limit, and the client validates continuity and cursor relationships.
+
+Each record carries version, `component: mkruntimed`, sequence/time, operation
+ID, sandbox ID, generation, method, phase and outcome, plus optional state and
+stable error code. An intent has outcome `pending` at its recorded time, not a
+claim that it remains pending now. A completion has outcome `succeeded` without
+an error code or `failed` with an allowed code. Operation IDs are bounded public
+identifiers (1–128 printable ASCII bytes); sandbox IDs and generations retain
+their existing grammars. Missing or invalid metadata fails the requested page
+with a fixed error, without partial export or reflection of offending values.
+Configuration, keys, fingerprints, raw error messages and nested error operation
+IDs are excluded by construction. The collector-facing client also replaces
+remote free-form failure details with a fixed message and a known error code.
+
+The fixed field bounds keep a maximum-size escaped page below the one-MiB
+response limit. Existing socket UID authorization, handler limits and response
+write deadlines apply. This view exposes retained lifecycle journal metadata; it
+does not add broker/agent or pre-intent refusal records, rotate history, or
+complete the audit-retention work. A future retention/gap contract requires
+explicit capability evolution. Query, page and capability bodies are specified
+by [`lifecycle-audit-v1.schema.json`](schemas/lifecycle-audit-v1.schema.json).
 
 Minor additive evolution requires an advertised capability and optional field
 defined by the schema. A peer that cannot safely ignore an addition rejects

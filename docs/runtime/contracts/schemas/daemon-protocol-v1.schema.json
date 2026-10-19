@@ -9,7 +9,7 @@
       "properties": {
         "version": {"const": 1},
         "request_id": {"$ref": "#/$defs/requestId"},
-        "method": {"enum": ["NodeInfo", "ListSandboxes", "CreateSandbox", "CancelCreateSandbox", "LoadSandbox", "StartSandbox", "StopSandbox", "DeleteSandbox", "SandboxState", "WatchEvents"]},
+        "method": {"enum": ["NodeInfo", "ListSandboxes", "CreateSandbox", "CancelCreateSandbox", "LoadSandbox", "StartSandbox", "StopSandbox", "DeleteSandbox", "SandboxState", "WatchEvents", "Capabilities", "ReadAuditEvents"]},
         "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[ -~]+$"},
         "sandbox_id": {"$ref": "#/$defs/sandboxId"},
         "generation": {"type": "string", "pattern": "^[a-f0-9]{32}$"},

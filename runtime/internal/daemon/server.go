@@ -250,6 +250,24 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		return out
 	}
 	switch r.Method {
+	case "Capabilities":
+		var empty struct{}
+		if len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "capabilities body must be an empty object"}
+			break
+		}
+		out.Body = protocol.DaemonCapabilities{ProtocolVersion: protocol.Version, Features: []string{protocol.LifecycleAuditCapability}}
+	case "ReadAuditEvents":
+		var query protocol.AuditQuery
+		if protocol.StrictDecode(r.Body, &query) != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "audit body must be a versioned query object"}
+			break
+		}
+		var page protocol.AuditPage
+		page, out.Error = s.Service.AuditEvents(query)
+		if out.Error == nil {
+			out.Body = page
+		}
 	case "NodeInfo":
 		out.Body = map[string]any{"protocol_version": 1, "sandboxes": len(s.Service.List())}
 	case "ListSandboxes":

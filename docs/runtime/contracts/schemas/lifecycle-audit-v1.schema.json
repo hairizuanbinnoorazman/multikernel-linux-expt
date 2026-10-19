@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multikernel.example/schemas/lifecycle-audit-v1.schema.json",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/query"
+    },
+    {
+      "$ref": "#/$defs/page"
+    },
+    {
+      "$ref": "#/$defs/capabilities"
+    }
+  ],
+  "$defs": {
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "after_sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 512
+        }
+      },
+      "required": [
+        "version"
+      ]
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "records": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/record"
+          }
+        },
+        "next_sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "high_water_sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "has_more": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "version",
+        "records",
+        "next_sequence",
+        "high_water_sequence",
+        "has_more"
+      ]
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "component",
+        "sequence",
+        "at",
+        "operation_id",
+        "sandbox_id",
+        "generation",
+        "method",
+        "phase",
+        "outcome"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "component": {
+          "const": "mkruntimed"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "operation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[ -~]+$",
+          "not": {
+            "pattern": "[^ -~]"
+          }
+        },
+        "sandbox_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$",
+          "maxLength": 63,
+          "not": {
+            "pattern": "[^a-z0-9-]"
+          }
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$",
+          "minLength": 32,
+          "maxLength": 32
+        },
+        "method": {
+          "enum": [
+            "CreateSandbox",
+            "LoadSandbox",
+            "StartSandbox",
+            "StopSandbox",
+            "DeleteSandbox"
+          ]
+        },
+        "phase": {
+          "enum": [
+            "intent",
+            "complete"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "pending",
+            "succeeded",
+            "failed"
+          ]
+        },
+        "state": {
+          "enum": [
+            "ALLOCATING",
+            "CREATED",
+            "LOADED",
+            "RUNNING",
+            "STOPPING",
+            "STOPPED",
+            "RELEASING",
+            "ABSENT"
+          ]
+        },
+        "error_code": {
+          "enum": [
+            "INVALID_ARGUMENT",
+            "UNSUPPORTED",
+            "NOT_FOUND",
+            "ALREADY_EXISTS",
+            "STALE_GENERATION",
+            "IDEMPOTENCY_CONFLICT",
+            "FAILED_PRECONDITION",
+            "RESOURCE_EXHAUSTED",
+            "BACKEND_TIMEOUT",
+            "BACKEND_FAILURE",
+            "UNAUTHENTICATED",
+            "ABORTED",
+            "OPERATOR_ACTION",
+            "INTERNAL"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "intent"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "outcome": {
+                "const": "pending"
+              }
+            },
+            "not": {
+              "required": [
+                "error_code"
+              ]
+            }
+          },
+          "else": {
+            "oneOf": [
+              {
+                "properties": {
+                  "outcome": {
+                    "const": "succeeded"
+                  }
+                },
+                "not": {
+                  "required": [
+                    "error_code"
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "outcome": {
+                    "const": "failed"
+                  }
+                },
+                "required": [
+                  "error_code"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "features": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+            "maxLength": 64
+          }
+        }
+      },
+      "required": [
+        "protocol_version",
+        "features"
+      ]
+    }
+  }
+}
