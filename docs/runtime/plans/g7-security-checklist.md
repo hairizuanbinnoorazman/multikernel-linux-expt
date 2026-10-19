@@ -25,7 +25,7 @@ A negative result means the tested route failed under that configuration, not
 that escape is impossible. Findings need reproduction, impact, remediation or
 explicit disposition, and a verification rerun.
 
-## Current execution priority — 2026-10-18
+## Current execution priority — 2026-10-19
 
 Owner/executor: Codex. The user prioritizes completing these STRIDE tasks with
 retained proof. Main accounting is two checked assessments and eleven open
@@ -33,9 +33,11 @@ tasks; kernel patch counts and compatibility percentages are not G7 completion
 percentages. Acceptance criteria below remain the checkoff requirements.
 
 The rb13 normal-pool baseline passed with retained proof; its broader
-qualification remains open. Prioritize SEC-12's complete dependency and
-artifact-trust review, followed by SEC-08's secret/audit trace and SEC-03's
-remaining authorization cases. Record findings, implement required fixes and
+qualification remains open. The audit/journal runtime is now deployed and
+passes all19shared features. A canceled-retry resurrection defect found during
+qualification takes priority under SEC-06: retain the old failure, qualify the
+fix and deploy it before broader recovery faults. Continue SEC-08 audit/secret
+coverage, SEC-03 authorization and SEC-12 dependency/artifact review. Record findings, implement required fixes and
 retain exact-source verification against each task's acceptance criteria.
 Continue SEC-02/SEC-10 authority review, SEC-05 fuzzing, SEC-07 mediation and
 SEC-09 fault/soak coverage; produce the SEC-13 comparison and completion review.
@@ -340,6 +342,14 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   corpus. Record budgets, coverage, harness limitations, and regression seeds.
 
 - [ ] **SEC-06 — Audit lifecycle and recovery authorization (TM-04).**
+  [Canceled-retry recovery proof](../../../evidence/runtime-20261012/g7-cancel-retry-recovery/README.md)
+  retains the old resurrection failure and corrected18cancellation/3legacy
+  cases with race/archive and UID1001 VM fixtures. Candidate deployment is
+  pending; whole recovery acceptance remains open.
+
+  - [x] Prevent a prior failed Create completion from completing a later canceled retry; refuse contradictory legacy cancellation evidence before backend effects, with exact-source regression proof.
+  - [ ] Deploy and qualify the cancellation fix against the installed runtime.
+
   [Candidate0034 park admission/pin hardening](../../../evidence/runtime-20261012/g7-kernel-park-quiescence/README.md)
   closes admission with the teardown check, pins physical park users before
   removal, retires selectors before verified-online unpin, and keeps failed
@@ -441,12 +451,15 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   Earlier revision 44c0084 remains withheld. Remaining trace/audit criteria stay open.
   [Journal completion reservations](../../../evidence/runtime-20261012/g7-journal-completion-reserve/README.md)
   now protect pending outcomes from new-work pressure, with append-time ownership
-  checks and valid legacy-overcommit recovery. This source change is not yet
-  activated in the running runtime; complete retention/audit acceptance stays open.
+  checks and valid legacy-overcommit recovery. The
+  [identified audit release](../../../evidence/runtime-20261012/g7-audit-deployment-live/README.md)
+  now activates this change; complete retention/audit acceptance stays open.
   [Versioned lifecycle audit view](../../../evidence/runtime-20261012/g7-lifecycle-audit-view/README.md)
   adds operation/component identity and outcomes without raw private journal
   fields, with bounded pages and validated capability/cursor semantics.
-  Source and private VM fixtures pass; production activation is pending.
+  Source and private VM fixtures pass; the identified audit release now passes
+  actual sandbox identity matching, unauthorized socket refusal, two-page
+  read-only collection and all19shared ctr/Docker features.
   Exact process/wire and unsafe-file proof is retained; full bootstrap/state/
   error/diagnostic tracing, bounded audit records and whole SEC-08 remain open.
   Scoped implementation checkoff (whole task remains open):
@@ -456,8 +469,8 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   - [x] Stop copying credential bytes into create-operation metadata, retaining stable retry/cancel identity and legacy cancellation behavior.
   - [x] Deploy the corrected credential fixes and qualify one live sandbox trace, installed-client control, all 19 ctr/Docker features and independent cleanup audit with exact source/binary proof.
   - [ ] Finish production bootstrap/state/error/stdout/evidence/diagnostic secret tracing.
-  - [x] Reserve bounded lifecycle completion capacity before admitting new work, with restart, old-source controls and unprivileged VM filesystem-fixture proof; running-runtime activation remains pending.
-  - [x] Implement the negotiated lifecycle audit metadata view and validate operation/outcome identity, synthetic-secret omission, pagination/restart, strict client compatibility and bounded encoding with source and VM Unix-socket proof; running-runtime activation remains pending.
+  - [x] Reserve bounded lifecycle completion capacity before admitting new work, with restart, old-source controls and unprivileged VM filesystem-fixture proof; activation is covered by the identified audit release.
+  - [x] Implement the negotiated lifecycle audit metadata view and validate operation/outcome identity, synthetic-secret omission, pagination/restart, strict client compatibility and bounded encoding with source and VM Unix-socket proof; activation is covered by the identified audit release.
   - [ ] Qualify complete audit identity/outcome records and bounded retention/pressure behavior.
 
   Trace tokens through bootstrap, command lines, state, errors, stdout/stderr,

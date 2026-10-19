@@ -89,10 +89,19 @@ other dependency triage, provenance and host/child ABI review remain open;
 this checkpoint does not close G7 or whole SEC-12.
 
 The [corrected SEC-08 deployment](../../evidence/runtime-20261012/g7-secret-handling-deployment/README.md)
-now runs revision 10107cc, including all three credential-handling fixes.
+qualified revision 10107cc, including all three credential-handling fixes.
 The live secret trace, installed-client control, all 19 ctr/Docker feature rows
 and independent resource audit with all 19 counts at zero pass on the same rb11 baseline.
 Complete audit identity/retention and remaining diagnostic secret paths stay open.
+
+The [current audit deployment](../../evidence/runtime-20261012/g7-audit-deployment-live/README.md)
+runs revision4f95ead with completion reservations and the negotiated lifecycle
+audit view. All19shared ctr/Docker features, live audit identity/secret checks,
+UID65534 socket refusal and independent zero/no-pool inventory pass. The final
+read-only client validated660records over two pages. The
+[canceled-retry recovery fix](../../evidence/runtime-20261012/g7-cancel-retry-recovery/README.md)
+has source/race/archive and unprivileged VM proof; deployment remains pending.
+Whole SEC-06, SEC-08 and G7 remain open.
 
 The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels
 do not currently provide Firecracker's KVM/EPT hardware isolation boundary.

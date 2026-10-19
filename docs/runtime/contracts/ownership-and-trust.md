@@ -8,6 +8,11 @@ storage or backend recovery, the daemon validates snapshot identities and all in
 A stale generation, changed configuration or conflicting recovery owner requires
 operator action and does not authorize resource mutation. These checks detect
 inconsistent records; the private primary-owned journal remains a trusted input.
+A cancellation tombstone together with a pending intent for its request key
+also requires operator action before recovery effects. Completion belongs to
+the specific operation, not an earlier attempt sharing its key; cancellation
+must not leave a retry available for later forward recovery.
+
 
 Existing lifecycle, storage, rootfs and network snapshots must explicitly contain
 their supported version and required ownership maps. Missing fields do not

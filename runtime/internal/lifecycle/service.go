@@ -292,6 +292,9 @@ func (s *Service) cancelCreateLocked(ctx context.Context, c protocol.SandboxConf
 		if entry.Phase == "intent" {
 			copy := entry
 			intent = &copy
+			// A failed earlier attempt can share this request key. Its
+			// completion does not complete the newly journaled retry.
+			completed = false
 		} else if intent != nil && entry.OperationID == intent.OperationID && entry.Phase == "complete" {
 			completed = true
 		}
@@ -889,6 +892,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		if current, exists := snapshot.Sandboxes[intent.SandboxID]; exists &&
 			(current.Generation != intent.Generation || !reflect.DeepEqual(current.Config, intent.Sandbox.Config)) {
 			return fmt.Errorf("OPERATOR_ACTION: incomplete intent does not own the durable sandbox")
+		}
+		// Cancellation completes forward intents before persisting ABORTED.
+		// Older writers could violate that ordering after a failed retry. A
+		// tombstone and pending forward intent are contradictory ownership
+		// evidence: preserve both for inspection, never allocate from it.
+		if previous, exists := s.store.Result(intent.IdempotencyKey); exists && previous.Error != nil && previous.Error.Code == "ABORTED" {
+			return fmt.Errorf("OPERATOR_ACTION: canceled operation has an incomplete journal intent")
 		}
 	}
 	if len(snapshot.Sandboxes) != 0 {
