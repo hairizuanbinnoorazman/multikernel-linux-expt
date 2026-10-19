@@ -25,7 +25,7 @@ A negative result means the tested route failed under that configuration, not
 that escape is impossible. Findings need reproduction, impact, remediation or
 explicit disposition, and a verification rerun.
 
-## Current execution priority — 2026-10-19
+## Current execution priority — 2026-10-20
 
 Owner/executor: Codex. The user prioritizes completing these STRIDE tasks with
 retained proof. Main accounting is two checked assessments and eleven open
@@ -34,9 +34,10 @@ percentages. Acceptance criteria below remain the checkoff requirements.
 
 The rb13 normal-pool baseline passed with retained proof; its broader
 qualification remains open. The audit/journal interface and both cancellation
-fixes now run in the identified revision665f64e release, with all 19 shared features and
-independent zero/no-pool proof. Next prioritize SEC-03 operation authorization,
-including production activation of the verified native storage CID binding, then
+fixes and native storage CID binding now run in the identified revision ac8a4d1
+release, with guarded migration/rollback, all 19 shared features and independent
+zero/no-pool proof. Next prioritize SEC-03 operation authorization: reproduce
+and bind the agent control relay to its intended child CID, then
 SEC-08's remaining audit/secret coverage and SEC-12 dependency/artifact review.
 Record findings, implement required fixes and retain exact-source verification
 against each task's acceptance criteria.
@@ -108,7 +109,9 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
 
   - [x] Persist and validate intended CID across export/process ownership, provision/release and independent whole-set lifecycle recovery; retain legacy refusal/completed migration and UID1001 VM regressions.
   - [x] Refuse CID40 before hello while preserving the image/listener for intended CID41 write/read/flush; retain actual old-server control, exact hashes and final19zero/no-pool/cloud proof.
-  - [ ] Activate matching Go/helper/profile artifacts with guarded version3 migration/rollback and qualify the shared matrix. Current installed665f64e is unchanged; whole SEC-03 stays open.
+  - [x] Activate matching Go/helper/profile artifacts with guarded version3 migration/real rollback, managed CID/I/O and all19shared features; [qualified deployment proof](../../../evidence/runtime-20261012/g7-storage-peer-deployment/README.md).
+  - [x] Verify actual peer-credential refusal after successful filesystem connect: UID65534/GID0, zero capabilities/NNP, six daemon/broker requests, zero bytes/descriptors and unchanged durable state; same deployment proof.
+  - [ ] Reproduce and fix unbound agent-control relay acceptance. Source review finds `accept(fd,NULL,NULL)` without expected CID and unsigned replies; shim socket ownership does not establish the child peer. Whole SEC-03 remains open.
 
 ## Repository and protocol review
 
