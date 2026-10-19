@@ -88,6 +88,12 @@ qualification and failure receipts are retained. Google-agent findings,
 other dependency triage, provenance and host/child ABI review remain open;
 this checkpoint does not close G7 or whole SEC-12.
 
+The [corrected SEC-08 deployment](../../evidence/runtime-20261012/g7-secret-handling-deployment/README.md)
+now runs revision 10107cc, including all three credential-handling fixes.
+The live secret trace, installed-client control, all 19 ctr/Docker feature rows
+and independent resource audit with all 19 counts at zero pass on the same rb11 baseline.
+Complete audit identity/retention and remaining diagnostic secret paths stay open.
+
 The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels
 do not currently provide Firecracker's KVM/EPT hardware isolation boundary.
 Never assign the primary boot disk, NIC, or a shared controller to a child, and
