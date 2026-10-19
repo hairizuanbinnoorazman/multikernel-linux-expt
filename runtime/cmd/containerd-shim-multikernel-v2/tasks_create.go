@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -26,6 +27,22 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
+
+// createOperationKey remains stable across retries without copying credential
+// bytes into public operation metadata or the durable lifecycle journal. The
+// domain-separated 128-bit pseudonym fits the protocol's bounded key field.
+func createOperationKey(namespace, id string, token []byte) string {
+	digest := hmac.New(sha256.New, token)
+	digest.Write([]byte("mkruntime/shim-create/v1\x00"))
+	digest.Write([]byte(namespace))
+	digest.Write([]byte{0})
+	digest.Write([]byte(id))
+	displayID := id
+	if len(displayID) > 64 {
+		displayID = displayID[:64]
+	}
+	return "shim-create-" + displayID + "-" + hex.EncodeToString(digest.Sum(nil)[:16])
+}
 
 // sandboxID maps the containerd namespace/task tuple into the daemon's global
 // identifier space. The readable prefix is diagnostic only; the digest binds
@@ -270,13 +287,13 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err = verifyRuntimeDirectoryHandoff(runtimeDirectory, result.RuntimeIdentity); err != nil {
 		return nil, err
 	}
-	token, tokenHex, err := loadOrCreateTokenFromDirectory(runtimeDirectory)
+	token, _, err := loadOrCreateTokenFromDirectory(runtimeDirectory)
 	if err != nil {
 		return nil, err
 	}
 	s.token = token
 	lifecycleAttempted = true
-	createKey = "shim-create-" + s.id + "-" + tokenHex[:12]
+	createKey = createOperationKey(s.namespace, s.id, token)
 	createClient := daemonCallerWithTimeout(s.daemon, createSandboxDaemonTimeout)
 	created, err := daemon.Mutation(ctx, createClient, "CreateSandbox", "", "", createKey, &config)
 	if err != nil {

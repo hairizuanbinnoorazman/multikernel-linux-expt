@@ -3,7 +3,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,6 +54,7 @@ func TestCancelCreateUsesExactOriginalIdentity(t *testing.T) {
 }
 
 func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
+	const credential = "b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6"
 	bundle := privateTestDirectory(t)
 	configJSON := `{"ociVersion":"1.0.2","process":{"cwd":"/","args":["/bin/true"],"user":{"uid":0,"gid":0}},"root":{"path":"rootfs"},"linux":{"namespaces":[{"type":"network","path":"/run/netns/test"}]}}`
 	if err := os.WriteFile(filepath.Join(bundle, "config.json"), []byte(configJSON), 0600); err != nil {
@@ -66,6 +69,7 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 	runtimeDir := filepath.Join(bundle, ".multikernel")
 	storageHash := strings.Repeat("a", 64)
 	var calls []string
+	var createKey string
 	respond := func(output any, value any) *protocol.Error {
 		if output == nil {
 			return nil
@@ -87,14 +91,28 @@ func TestCreateAmbiguityCancellationRemovesPreparedArtifacts(t *testing.T) {
 			if err := os.Mkdir(runtimeDir, 0700); err != nil {
 				t.Fatal(err)
 			}
+			if err := os.WriteFile(filepath.Join(runtimeDir, "token"), []byte(credential+"\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
 			return respond(output, rootfspkg.PrepareResult{RuntimeIdentity: testBundleIdentity(t, runtimeDir), Storage: protocol.StorageConfig{
 				Path: "/srv/storage/root.ext4", ImageID: "image", FilesystemUUID: "12345678-1234-4234-8234-123456789abc",
 				SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061, SHA256: storageHash,
 			}})
 		case "CreateSandbox":
+			createKey = request.IdempotencyKey
+			serialized, err := json.Marshal(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(serialized), credential[:12]) {
+				t.Fatal("create metadata exposed credential bytes")
+			}
+			if !strings.HasPrefix(createKey, "shim-create-task-a-") || len(createKey) != len("shim-create-task-a-")+32 {
+				t.Fatal("create request did not use a bounded opaque operation identity")
+			}
 			return &protocol.Error{Code: "BACKEND_FAILURE", Message: "ambiguous create", Retryable: true}
 		case "CancelCreateSandbox":
-			if !strings.HasPrefix(request.IdempotencyKey, "shim-create-task-a-") {
+			if createKey == "" || request.IdempotencyKey != createKey {
 				t.Fatalf("unexpected create cancellation key %q", request.IdempotencyKey)
 			}
 			return respond(output, map[string]bool{"safe_to_cleanup": true})
@@ -404,5 +422,34 @@ func TestRootfsMountsAreSanitizedForDaemonAndValidated(t *testing.T) {
 	}
 	if _, err = rootfsMounts(tooMany); err == nil {
 		t.Fatal("too many rootfs mounts accepted")
+	}
+}
+
+func TestCreateOperationKeyPublicIdentity(t *testing.T) {
+	token := make([]byte, 32)
+	for index := range token {
+		token[index] = byte(index)
+	}
+	key := createOperationKey("default", "task-a", token)
+	if key != "shim-create-task-a-6f8d8e91bc07c846f2f2dd6fd3afc0f0" {
+		t.Fatalf("operation key test vector mismatch: %q", key)
+	}
+	if key != createOperationKey("default", "task-a", token) {
+		t.Fatal("retry identity changed")
+	}
+	if strings.Contains(key, hex.EncodeToString(token)[:12]) {
+		t.Fatal("raw credential prefix disclosed")
+	}
+	if key == createOperationKey("other", "task-a", token) || key == createOperationKey("default", "task-b", token) || key == createOperationKey("default", "task-a", bytes.Repeat([]byte{0xff}, 32)) {
+		t.Fatal("namespace/task/credential identities alias")
+	}
+	for _, length := range []int{64, 103, 128, 512} {
+		if len(createOperationKey("default", strings.Repeat("x", length), token)) > 128 {
+			t.Fatal("operation identity exceeds protocol bound")
+		}
+	}
+	longPrefix := strings.Repeat("x", 128)
+	if createOperationKey("default", longPrefix+"a", token) == createOperationKey("default", longPrefix+"b", token) {
+		t.Fatal("bounded display prefix discarded the full task identity")
 	}
 }

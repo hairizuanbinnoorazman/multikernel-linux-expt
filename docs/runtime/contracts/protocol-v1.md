@@ -59,6 +59,14 @@ Daemon methods are `NodeInfo`, `ListSandboxes`, `CreateSandbox`,
 `DeleteSandbox`, `SandboxState`, and `WatchEvents`. `CancelCreateSandbox` is an
 internal rollback operation bound to the exact original create idempotency key
 and full configuration fingerprint; it is not a general deletion shortcut.
+New shim create keys use a stable, domain-separated HMAC pseudonym of the
+namespace/task identity with the agent credential, rather than credential
+bytes. The 128-bit pseudonym fits the existing opaque key bound. Cancellation
+and replay retain the exact original key; persisted legacy keys are not
+rewritten. Cut over on an idle node, and retain original identities for any
+pre-upgrade incomplete operation. An operation key is metadata, not an agent
+authentication credential.
+
 Each sandbox configuration also carries the bundle directory's device, inode,
 and owner UID. Recovery must match this daemon-journaled identity before it
 reconnects resources, so replacement-local state cannot rebind a sandbox to a
