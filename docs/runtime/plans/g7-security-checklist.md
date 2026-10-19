@@ -439,6 +439,10 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   sandbox journal/snapshot/API/log trace pass, with four protected-reader
   refusals, all 19 ctr/Docker matrix rows and independent 19-zero resource audit.
   Earlier revision 44c0084 remains withheld. Remaining trace/audit criteria stay open.
+  [Journal completion reservations](../../../evidence/runtime-20261012/g7-journal-completion-reserve/README.md)
+  now protect pending outcomes from new-work pressure, with append-time ownership
+  checks and valid legacy-overcommit recovery. This source change is not yet
+  activated in the running runtime; complete retention/audit acceptance stays open.
   Exact process/wire and unsafe-file proof is retained; full bootstrap/state/
   error/diagnostic tracing, bounded audit records and whole SEC-08 remain open.
   Scoped implementation checkoff (whole task remains open):
@@ -448,6 +452,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   - [x] Stop copying credential bytes into create-operation metadata, retaining stable retry/cancel identity and legacy cancellation behavior.
   - [x] Deploy the corrected credential fixes and qualify one live sandbox trace, installed-client control, all 19 ctr/Docker features and independent cleanup audit with exact source/binary proof.
   - [ ] Finish production bootstrap/state/error/stdout/evidence/diagnostic secret tracing.
+  - [x] Reserve bounded lifecycle completion capacity before admitting new work, with restart, old-source controls and unprivileged VM filesystem-fixture proof; running-runtime activation remains pending.
   - [ ] Qualify complete audit identity/outcome records and bounded retention/pressure behavior.
 
   Trace tokens through bootstrap, command lines, state, errors, stdout/stderr,

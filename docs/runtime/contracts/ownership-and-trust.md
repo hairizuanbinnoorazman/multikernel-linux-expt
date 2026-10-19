@@ -3,8 +3,8 @@
 Lifecycle journal completion records must match a preceding unique intent's
 operation ID, sandbox ID, generation, method, idempotency key and fingerprint.
 Orphan/duplicate completions, reused operation IDs, unknown phases and conflicting
-embedded sandbox identities fail parsing. Before storage or backend recovery,
-the daemon validates snapshot identities and all incomplete intents together.
+embedded sandbox identities fail parsing and are refused before append. Before
+storage or backend recovery, the daemon validates snapshot identities and all incomplete intents together.
 A stale generation, changed configuration or conflicting recovery owner requires
 operator action and does not authorize resource mutation. These checks detect
 inconsistent records; the private primary-owned journal remains a trusted input.

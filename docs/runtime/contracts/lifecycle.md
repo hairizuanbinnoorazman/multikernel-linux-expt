@@ -48,6 +48,18 @@ Reconciliation observes Kerf and resumes or records `OPERATOR_ACTION`; it does
 not guess that an unobserved resource is safe to release. `ERROR` is metadata
 on the last durable state, not a separate state.
 
+The journal is capped at 64 MiB, with at most 1 MiB per encoded record including
+its newline. Before admitting an intent, the store reserves one maximum-sized
+completion record for every pending operation, including the new one. The
+reservation is rebuilt from validated history after restart. Refusal happens
+before the lifecycle function reaches external mutation. Only the matching,
+unique completion can release an operation's reservation. Existing overcommitted
+history from an older writer remains readable; its valid owned completions may
+use remaining actual space, while new work must fund all outstanding promises.
+This protects logical journal capacity. It does not preallocate disk blocks or
+guarantee persistence under ENOSPC, I/O or fsync failure. Automatic retention and
+rotation remain separate work; completed evidence is not silently discarded.
+
 ## Idempotent results
 
 - Create on an existing ID returns it only when generation and request match.

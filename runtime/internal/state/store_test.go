@@ -230,7 +230,7 @@ func TestJournalCapacityIsBounded(t *testing.T) {
 	if err = store.journal.Truncate(maxJournalBytes); err != nil {
 		t.Fatal(err)
 	}
-	if err = store.Append(JournalEntry{OperationID: "op"}); err == nil || !strings.Contains(err.Error(), "capacity") {
+	if err = store.Append(JournalEntry{OperationID: "op", Phase: "intent"}); err == nil || !strings.Contains(err.Error(), "capacity") {
 		t.Fatalf("journal capacity error = %v", err)
 	}
 }

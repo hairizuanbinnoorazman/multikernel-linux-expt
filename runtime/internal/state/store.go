@@ -43,15 +43,29 @@ type Snapshot struct {
 	Sandboxes map[string]protocol.Sandbox `json:"sandboxes"`
 	Results   map[string]IdempotentResult `json:"results"`
 }
+
+// journalOperation retains only the immutable binding, never a second copy of
+// the sandbox configuration. Completed identities remain reserved against reuse.
+type journalOperation struct {
+	sandboxID, generation, method, key, fingerprint string
+	complete                                        bool
+}
+
+func operationBinding(e JournalEntry) journalOperation {
+	return journalOperation{sandboxID: e.SandboxID, generation: e.Generation, method: e.Method, key: e.IdempotencyKey, fingerprint: e.Fingerprint}
+}
+
 type Store struct {
-	mu              sync.Mutex
-	dir             string
-	dirIdentity     safefile.Identity
-	journal         *os.File
-	journalIdentity safefile.Identity
-	journalFailed   bool
-	data            Snapshot
-	syncDir         func(string) error
+	mu                 sync.Mutex
+	dir                string
+	dirIdentity        safefile.Identity
+	journal            *os.File
+	journalIdentity    safefile.Identity
+	journalFailed      bool
+	operations         map[string]journalOperation
+	pendingCompletions int64
+	data               Snapshot
+	syncDir            func(string) error
 }
 
 func (s *Store) JournalEntries() ([]JournalEntry, error) {
@@ -76,7 +90,7 @@ func Open(dir string) (*Store, error) {
 		return nil, fmt.Errorf("open lifecycle state directory: %w", err)
 	}
 	defer directory.Close()
-	s := &Store{dir: dir, dirIdentity: directory.Identity(),
+	s := &Store{dir: dir, dirIdentity: directory.Identity(), operations: make(map[string]journalOperation),
 		data:    Snapshot{Version: 1, Sandboxes: map[string]protocol.Sandbox{}, Results: map[string]IdempotentResult{}},
 		syncDir: func(string) error { return nil }}
 	if data, found, readErr := directory.ReadPrivate("state.json", maxSnapshotBytes); readErr != nil {
@@ -111,6 +125,14 @@ func Open(dir string) (*Store, error) {
 		return nil, errors.New("lifecycle snapshot sequence is ahead of its journal")
 	}
 	for _, entry := range entries {
+		binding := operationBinding(entry)
+		binding.complete = entry.Phase == "complete"
+		s.operations[entry.OperationID] = binding
+		if binding.complete {
+			s.pendingCompletions--
+		} else {
+			s.pendingCompletions++
+		}
 		if entry.Sequence > s.data.Sequence {
 			s.data.Sequence = entry.Sequence
 		}
@@ -146,6 +168,27 @@ func (s *Store) Append(e JournalEntry) error {
 		s.journalFailed = true
 		return errors.New("journal identity changed before append")
 	}
+	// A completion may spend only its own reservation. Enforce the same
+	// immutable operation binding on append as on recovery, before any bytes
+	// are written, so a forged/duplicate completion cannot release capacity.
+	binding := operationBinding(e)
+	previous, exists := s.operations[e.OperationID]
+	if e.OperationID == "" || e.Sandbox != nil && (e.Sandbox.ID != e.SandboxID || e.Sandbox.Generation != e.Generation || e.Sandbox.Config.ID != e.SandboxID) {
+		return errors.New("invalid lifecycle journal operation identity")
+	}
+	switch e.Phase {
+	case "intent":
+		if exists {
+			return errors.New("lifecycle journal operation identity reused")
+		}
+	case "complete":
+		if !exists || previous.complete || previous != binding {
+			return errors.New("lifecycle journal completion does not own a pending intent")
+		}
+		binding.complete = true
+	default:
+		return errors.New("invalid lifecycle journal operation phase")
+	}
 	e.Sequence = s.data.Sequence + 1
 	e.At = time.Now().UTC()
 	b, err := json.Marshal(e)
@@ -153,7 +196,16 @@ func (s *Store) Append(e JournalEntry) error {
 		return err
 	}
 	b = append(b, '\n')
-	if len(b) > maxJournalEntryBytes || identity.Size > maxJournalBytes-int64(len(b)) {
+	// Reserve one maximum-sized completion for every admitted intent, across
+	// concurrent operations and restarts. New work must not use the room that
+	// existing operations need to durably record their observed outcome.
+	// Legacy journals may already be overcommitted: let their valid completions
+	// use remaining actual space rather than withholding useful recovery.
+	var reserved int64
+	if e.Phase == "intent" {
+		reserved = (s.pendingCompletions + 1) * maxJournalEntryBytes
+	}
+	if len(b) > maxJournalEntryBytes || identity.Size > maxJournalBytes-int64(len(b))-reserved {
 		return errors.New("lifecycle journal capacity exceeded")
 	}
 	written, err := s.journal.Write(b)
@@ -166,6 +218,12 @@ func (s *Store) Append(e JournalEntry) error {
 		return err
 	}
 	s.data.Sequence = e.Sequence
+	s.operations[e.OperationID] = binding
+	if binding.complete {
+		s.pendingCompletions--
+	} else {
+		s.pendingCompletions++
+	}
 	return nil
 }
 func (s *Store) Commit(sb protocol.Sandbox, key, fingerprint string, result protocol.MutationResult) error {
