@@ -94,13 +94,20 @@ The live secret trace, installed-client control, all 19 ctr/Docker feature rows
 and independent resource audit with all 19 counts at zero pass on the same rb11 baseline.
 Complete audit identity/retention and remaining diagnostic secret paths stay open.
 
-The [current audit deployment](../../evidence/runtime-20261012/g7-audit-deployment-live/README.md)
-runs revision4f95ead with completion reservations and the negotiated lifecycle
+The [audit deployment checkpoint](../../evidence/runtime-20261012/g7-audit-deployment-live/README.md)
+qualified revision4f95ead with completion reservations and the negotiated lifecycle
 audit view. All19shared ctr/Docker features, live audit identity/secret checks,
 UID65534 socket refusal and independent zero/no-pool inventory pass. The final
 read-only client validated660records over two pages. The
 [canceled-retry recovery fix](../../evidence/runtime-20261012/g7-cancel-retry-recovery/README.md)
-has source/race/archive and unprivileged VM proof; deployment remains pending.
+has source/race/archive and unprivileged VM proof. Its
+[597e877 activation](../../evidence/runtime-20261012/g7-cancel-runtime-checkpoint/README.md)
+is now selected and passes live trace/refusal and independent idle checks.
+The next full feature run was deferred after reproducing old-key cancellation
+of a replacement generation. The
+[generation fix](../../evidence/runtime-20261012/g7-cancel-generation-ownership/README.md)
+passes four ownership/reopen cases, full race/vet/docs and UID1001 VM proof;
+its deployment and combined cancellation-release qualification remain pending.
 Whole SEC-06, SEC-08 and G7 remain open.
 
 The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels

@@ -307,7 +307,7 @@ func (s *Service) cancelCreateLocked(ctx context.Context, c protocol.SandboxConf
 		}
 		return true, nil
 	}
-	if intent == nil || (exists && !reflect.DeepEqual(sandbox.Config, c)) {
+	if intent == nil || (exists && (sandbox.Generation != intent.Generation || !reflect.DeepEqual(sandbox.Config, c))) {
 		return false, apierr("IDEMPOTENCY_CONFLICT", "sandbox ID is not owned by canceled create", false)
 	}
 	if !exists {

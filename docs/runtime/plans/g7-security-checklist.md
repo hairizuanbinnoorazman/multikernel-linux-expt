@@ -344,11 +344,16 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
 - [ ] **SEC-06 — Audit lifecycle and recovery authorization (TM-04).**
   [Canceled-retry recovery proof](../../../evidence/runtime-20261012/g7-cancel-retry-recovery/README.md)
   retains the old resurrection failure and corrected18cancellation/3legacy
-  cases with race/archive and UID1001 VM fixtures. Candidate deployment is
-  pending; whole recovery acceptance remains open.
+  cases with race/archive and UID1001 VM fixtures. The
+  [597e877 activation checkpoint](../../../evidence/runtime-20261012/g7-cancel-runtime-checkpoint/README.md)
+  passes live trace/refusal and independent cleanup. Before its next feature
+  run, the [generation ownership review](../../../evidence/runtime-20261012/g7-cancel-generation-ownership/README.md)
+  reproduced and fixed old-key teardown of a replacement sandbox. That fix
+  still needs deployment; whole recovery acceptance remains open.
 
   - [x] Prevent a prior failed Create completion from completing a later canceled retry; refuse contradictory legacy cancellation evidence before backend effects, with exact-source regression proof.
-  - [ ] Deploy and qualify the cancellation fix against the installed runtime.
+  - [x] Bind cancellation to the current durable generation, retaining delete/recreate and cancel/recreate old failures and four corrected same-process/reopen cases with source/race/archive/UID1001 VM proof.
+  - [ ] Deploy the generation fix and finish qualification of the combined cancellation fixes against the installed runtime.
 
   [Candidate0034 park admission/pin hardening](../../../evidence/runtime-20261012/g7-kernel-park-quiescence/README.md)
   closes admission with the teardown check, pins physical park users before

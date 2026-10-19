@@ -41,6 +41,9 @@ last, and atomically removes sandbox ownership while recording an `ABORTED`
 replay tombstone. A delayed retry of the original create therefore cannot
 reallocate it. Progressed `LOADED`/`RUNNING` sandboxes and mismatched
 fingerprints are never canceled.
+The latest matching create intent must also own the durable sandbox generation.
+An old key cannot cancel a replacement generation with identical configuration;
+that request returns `IDEMPOTENCY_CONFLICT` before journal, state or backend effects.
 A retry after a failed attempt gets a new operation identity even when the
 request key is unchanged. Cancellation determines completion separately for
 each latest intent; an earlier attempt's completion cannot close the retry.

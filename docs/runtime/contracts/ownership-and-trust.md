@@ -12,6 +12,9 @@ A cancellation tombstone together with a pending intent for its request key
 also requires operator action before recovery effects. Completion belongs to
 the specific operation, not an earlier attempt sharing its key; cancellation
 must not leave a retry available for later forward recovery.
+Cancellation also binds its selected create intent to the current durable
+generation, even when a replacement uses identical configuration. A stale
+request key never authorizes teardown of that replacement.
 
 
 Existing lifecycle, storage, rootfs and network snapshots must explicitly contain
