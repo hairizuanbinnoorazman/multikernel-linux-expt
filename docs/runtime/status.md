@@ -107,7 +107,12 @@ The next full feature run was deferred after reproducing old-key cancellation
 of a replacement generation. The
 [generation fix](../../evidence/runtime-20261012/g7-cancel-generation-ownership/README.md)
 passes four ownership/reopen cases, full race/vet/docs and UID1001 VM proof;
-its deployment and combined cancellation-release qualification remain pending.
+its [combined release](../../evidence/runtime-20261012/g7-cancel-combined-live/README.md)
+is now selected as revision665f64e. The corrected live trace and UID65534
+refusal pass, along with all 19 ctr/Docker features and independent 19-zero/no-pool
+resource proof. The final read-only audit validates 850 records across two pages.
+Both cancellation fixes are deployed and compatibility-qualified; the complete
+live failure/ownership matrix and whole STRIDE acceptance remain open.
 Whole SEC-06, SEC-08 and G7 remain open.
 
 The runtime targets trusted, single-tenant nodes. Multikernel sibling kernels

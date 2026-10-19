@@ -33,12 +33,13 @@ tasks; kernel patch counts and compatibility percentages are not G7 completion
 percentages. Acceptance criteria below remain the checkoff requirements.
 
 The rb13 normal-pool baseline passed with retained proof; its broader
-qualification remains open. The audit/journal runtime is now deployed and
-passes all19shared features. A canceled-retry resurrection defect found during
-qualification takes priority under SEC-06: retain the old failure, qualify the
-fix and deploy it before broader recovery faults. Continue SEC-08 audit/secret
-coverage, SEC-03 authorization and SEC-12 dependency/artifact review. Record findings, implement required fixes and
-retain exact-source verification against each task's acceptance criteria.
+qualification remains open. The audit/journal interface and both cancellation
+fixes now run in the identified revision665f64e release, with all 19 shared features and
+independent zero/no-pool proof. Next prioritize SEC-03 operation authorization,
+including binding native storage exports to their intended child CID, then
+SEC-08's remaining audit/secret coverage and SEC-12 dependency/artifact review.
+Record findings, implement required fixes and retain exact-source verification
+against each task's acceptance criteria.
 Continue SEC-02/SEC-10 authority review, SEC-05 fuzzing, SEC-07 mediation and
 SEC-09 fault/soak coverage; produce the SEC-13 comparison and completion review.
 Critical findings can change the order, with the reason recorded in the
@@ -102,6 +103,11 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   Scoped proof: [eight agent rejection cases and native handshake checks](../../../evidence/runtime-20261012/g7-auth-handshake/README.md)
   pass locally with exact sources and mutation assertions. Full authorization
   coverage and live native rejection/export survival remain open.
+  Next native storage hardening: persist the intended child CID in export and
+  process ownership, validate the accepted peer before the hello, and retain
+  wrong-peer refusal plus right-peer export-survival proof. Image/generation
+  matching currently does not bind the accepted peer CID; cross-CID live
+  qualification remains pending.
 
 ## Repository and protocol review
 
@@ -210,7 +216,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   and preserve the present mask on every pre-publication failure. Both mask
   representation fixtures and actual GCC objects pass. Early CPU registration
   effects remain open. The [fourteen-overlay rb7 host/both guests](../../../evidence/runtime-20261012/g7-kernel-rb7-matrix/README.md)
-  now pass all19shared ctr/Docker features and an independent final19zero/no-pool
+  now pass all 19 shared ctr/Docker features and an independent final 19-zero/no-pool
   inventory with exact installed identities/capability bounds retained.
   [Boot failure handling](../../../evidence/runtime-20261012/g7-kernel-boot-policy/README.md)
   now halts invalid/duplicate handoffs or failed/absent restoration, requires a
@@ -223,7 +229,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   subtree/output-preservation integration pass. The [cumulative ten-overlay build](../../../evidence/runtime-20261012/g7-kernel-ten-overlay-build/README.md)
   passes with actual binaries/source/config/journal verified locally. The
   [rb5 host/minimal guest boot,96live refusals and rollback](../../../evidence/runtime-20261012/g7-kernel-rb5-live/README.md)
-  also pass; its rb5 guest profile was active at that checkpoint after all19shared
+  also pass; its rb5 guest profile was active at that checkpoint after all 19 shared
   ctr/Docker features and independent final cleanup pass with actualrb5host/
   guests. Device/resource semantics and broader acceptance remain open.
   [Ninth-overlay generic device-property hardening](../../../evidence/runtime-20261012/g7-kernel-device-properties/README.md)
@@ -343,17 +349,19 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
 
 - [ ] **SEC-06 — Audit lifecycle and recovery authorization (TM-04).**
   [Canceled-retry recovery proof](../../../evidence/runtime-20261012/g7-cancel-retry-recovery/README.md)
-  retains the old resurrection failure and corrected18cancellation/3legacy
+  retains the old resurrection failure and corrected 18 cancellation/3 legacy
   cases with race/archive and UID1001 VM fixtures. The
   [597e877 activation checkpoint](../../../evidence/runtime-20261012/g7-cancel-runtime-checkpoint/README.md)
   passes live trace/refusal and independent cleanup. Before its next feature
   run, the [generation ownership review](../../../evidence/runtime-20261012/g7-cancel-generation-ownership/README.md)
   reproduced and fixed old-key teardown of a replacement sandbox. That fix
-  still needs deployment; whole recovery acceptance remains open.
+  is now included in the [qualified combined release](../../../evidence/runtime-20261012/g7-cancel-combined-live/README.md),
+  with exact running identities, live audit/refusal, all 19 shared features and
+  final 19-zero/no-pool proof. Whole recovery acceptance remains open.
 
   - [x] Prevent a prior failed Create completion from completing a later canceled retry; refuse contradictory legacy cancellation evidence before backend effects, with exact-source regression proof.
   - [x] Bind cancellation to the current durable generation, retaining delete/recreate and cancel/recreate old failures and four corrected same-process/reopen cases with source/race/archive/UID1001 VM proof.
-  - [ ] Deploy the generation fix and finish qualification of the combined cancellation fixes against the installed runtime.
+  - [x] Deploy both cancellation fixes in an identified release and retain exact source/binary/profile identity, live audit/refusal, all 19 ctr/Docker features and independent 19-zero/no-pool proof. The full live failure matrix remains open.
 
   [Candidate0034 park admission/pin hardening](../../../evidence/runtime-20261012/g7-kernel-park-quiescence/README.md)
   closes admission with the teardown check, pins physical park users before
@@ -372,7 +380,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   a new 64 MiB chunk retained host park allocations after the second request failed.
   Patch0006 releases newly owned quiescent host park infrastructure before shrink;
   source/object and six-patch full build pass. [Corrected boot and identical live fault
-  cleanup now pass](../../../evidence/runtime-20261012/g7-kernel-rb3-live/README.md); unchanged 16 GiB compatibility also passes all19shared features and the independent zero/no-pool audit. Zero ordinary counters
+  cleanup now pass](../../../evidence/runtime-20261012/g7-kernel-rb3-live/README.md); unchanged 16 GiB compatibility also passes all 19 shared features and the independent zero/no-pool audit. Zero ordinary counters
   alone do not satisfy the final no-pool requirement.
   [Platform metadata staging](../../../evidence/runtime-20261012/g7-kernel-device-staging/README.md)
   keeps partial device lists private, preserves previous metadata through input
@@ -464,7 +472,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   fields, with bounded pages and validated capability/cursor semantics.
   Source and private VM fixtures pass; the identified audit release now passes
   actual sandbox identity matching, unauthorized socket refusal, two-page
-  read-only collection and all19shared ctr/Docker features.
+  read-only collection and all 19 shared ctr/Docker features.
   Exact process/wire and unsafe-file proof is retained; full bootstrap/state/
   error/diagnostic tracing, bounded audit records and whole SEC-08 remain open.
   Scoped implementation checkoff (whole task remains open):
