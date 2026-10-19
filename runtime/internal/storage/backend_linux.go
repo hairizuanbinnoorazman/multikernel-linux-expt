@@ -44,6 +44,7 @@ type processRecord struct {
 	Port             uint32 `json:"port"`
 	ImageID          string `json:"image_id"`
 	ExportGeneration string `json:"export_generation"`
+	PeerCID          uint32 `json:"peer_cid"`
 	ImageDevice      uint64 `json:"image_device"`
 	ImageInode       uint64 `json:"image_inode"`
 	BinaryDevice     uint64 `json:"binary_device"`
@@ -152,7 +153,7 @@ func (b *LinuxBackend) openRuntimeDirectoryLocked(create bool) (*safefile.Direct
 
 func validateBackendLease(value Export) error {
 	if !identityRE.MatchString(value.SandboxID) || !generationRE.MatchString(value.SandboxGeneration) ||
-		!generationRE.MatchString(value.ExportGeneration) {
+		!generationRE.MatchString(value.ExportGeneration) || !validPeerCID(value.PeerCID) {
 		return errors.New("storage backend lease identity is invalid")
 	}
 	return validatePrepared(value.PreparedImage)
@@ -180,8 +181,8 @@ func readPrivateRuntimeFileAt(directory *safefile.Directory, name string, limit 
 }
 
 func readyMarker(value Export) []byte {
-	return []byte(fmt.Sprintf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=%d port=%d\n",
-		"/proc/self/fd/3", value.ImageID, value.ExportGeneration, value.SizeBytes, value.Port))
+	return []byte(fmt.Sprintf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=%d port=%d peer_cid=%d\n",
+		"/proc/self/fd/3", value.ImageID, value.ExportGeneration, value.SizeBytes, value.Port, value.PeerCID))
 }
 
 func ext4UUID(value []byte) string {
@@ -511,7 +512,7 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		return err
 	}
 	command := &exec.Cmd{Path: "/proc/self/fd/4", Args: []string{b.Binary, "server", "/proc/self/fd/3",
-		strconv.Itoa(int(value.Port)), value.ImageID, value.ExportGeneration}}
+		strconv.Itoa(int(value.Port)), value.ImageID, value.ExportGeneration, strconv.FormatUint(uint64(value.PeerCID), 10)}}
 	command.Stdout, command.Stderr = log, log
 	command.ExtraFiles = []*os.File{opened.file, server.file}
 	command.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
@@ -549,7 +550,7 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		b.mu.Unlock()
 		return err
 	}
-	record := processRecord{Version: 3, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
+	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: opened.identity.Device, ImageInode: opened.identity.Inode,
 		BinaryDevice: server.identity.Device, BinaryInode: server.identity.Inode}
@@ -625,11 +626,11 @@ func readRecordIdentityAt(directory *safefile.Directory, name string, expected E
 		}
 		return value, safefile.Identity{}, err
 	}
-	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 3 {
+	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 4 {
 		return value, safefile.Identity{}, errors.New("storage process record is malformed")
 	}
 	if value.PID <= 1 || value.StartTime == 0 || value.Path != expected.Path || value.Port != expected.Port ||
-		value.ImageID != expected.ImageID || value.ExportGeneration != expected.ExportGeneration ||
+		value.ImageID != expected.ImageID || value.ExportGeneration != expected.ExportGeneration || value.PeerCID != expected.PeerCID || !validPeerCID(value.PeerCID) ||
 		value.ImageDevice != expected.ImageIdentity.Device || value.ImageInode != expected.ImageIdentity.Inode ||
 		value.BinaryDevice == 0 || value.BinaryInode == 0 {
 		return value, safefile.Identity{}, errors.New("storage process record differs from its exact export lease")
@@ -705,7 +706,7 @@ func openProcessHandle(record processRecord, binary string) (*processHandle, boo
 		_ = handle.Close()
 		return nil, false, errors.New("storage server command identity is unavailable")
 	}
-	want := strings.Join([]string{binary, "server", "/proc/self/fd/3", strconv.Itoa(int(record.Port)), record.ImageID, record.ExportGeneration, ""}, "\x00")
+	want := strings.Join([]string{binary, "server", "/proc/self/fd/3", strconv.Itoa(int(record.Port)), record.ImageID, record.ExportGeneration, strconv.FormatUint(uint64(record.PeerCID), 10), ""}, "\x00")
 	if string(data) != want {
 		_ = handle.Close()
 		return nil, false, errors.New("storage server command identity conflicts with its record")
@@ -932,7 +933,7 @@ func clientEvidenceAt(directory *safefile.Directory, name string, value Export) 
 		switch string(line) {
 		case "MKNBD_SERVER_CLIENT_ACCEPTED":
 			return false, true, nil
-		case "MKNBD_SERVER_REFUSED reason=identity", "MKNBD_SERVER_REFUSED reason=handshake-io":
+		case "MKNBD_SERVER_REFUSED reason=identity", "MKNBD_SERVER_REFUSED reason=handshake-io", "MKNBD_SERVER_REFUSED reason=peer":
 			if suppressed || details >= storageRefusalDetails {
 				return false, false, errors.New("storage refusal detail bound or ordering is invalid")
 			}

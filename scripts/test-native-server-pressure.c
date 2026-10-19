@@ -12,20 +12,34 @@
 #include <unistd.h>
 
 static int port_pipe;
+static int fixture_accept(int fd,struct sockaddr *addr,socklen_t *size);
 static int fixture_socket(int family,int type,int protocol);
 static int fixture_bind(int fd,const struct sockaddr *addr,socklen_t size);
 static int fixture_setsockopt(int fd,int level,int option,const void *value,socklen_t size);
+#define accept fixture_accept
 #define socket fixture_socket
 #define bind fixture_bind
 #define setsockopt fixture_setsockopt
 #define main native_helper_main
 #include "../tools/mkvsock-nbd.c"
 #undef main
+#undef accept
 #undef socket
 #undef bind
 #undef setsockopt
 
 #define CHECK(value) do { if (!(value)) { fprintf(stderr,"pressure fixture line%d errno%d\n",__LINE__,errno);exit(2); } } while(0)
+static int fixture_accept(int fd,struct sockaddr *addr,socklen_t *size)
+{
+ struct sockaddr_in tcp;socklen_t tcp_size=sizeof(tcp);
+ int client=accept(fd,(struct sockaddr *)&tcp,&tcp_size);
+ if(client>=0 && addr && size) {
+  struct sockaddr_vm peer={.svm_family=AF_VSOCK,.svm_cid=1,.svm_port=50000};
+  socklen_t copy=*size<sizeof(peer) ? *size : sizeof(peer);
+  memcpy(addr,&peer,copy);*size=sizeof(peer);
+ }
+ return client;
+}
 static int fixture_socket(int family,int type,int protocol)
 {
 	return socket(family==AF_VSOCK ? AF_INET : family,type,protocol);
@@ -81,7 +95,7 @@ int main(int argc,char **argv)
 	if(!child) {
 		close(ports[0]);port_pipe=ports[1];
 		CHECK(dup2(log,1)==1 && dup2(log,2)==2);
-		run_server(argv[1],1,"pressure-image","pressure-generation");exit(0);
+		run_server(argv[1],1,"pressure-image","pressure-generation",1);exit(0);
 	}
 	close(ports[1]);uint16_t port;CHECK(read(ports[0],&port,sizeof(port))==sizeof(port));close(ports[0]);
 	for(int i=0;i<256;i++) {

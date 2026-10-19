@@ -57,7 +57,7 @@ func TestClosedEvidenceValidatesHistoryAndRetainsAmbiguity(t *testing.T) {
 			value := validBackendLease("/var/lib/multikernel/root.ext4")
 			b := &LinuxBackend{RuntimeDir: dir, RequiredUID: os.Getuid()}
 			recordPath, logPath := b.paths(value)
-			record := processRecord{Version: 3, PID: 1 << 30, StartTime: 1, Path: value.Path, Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration, ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode, BinaryDevice: 3, BinaryInode: 4}
+			record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path, Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration, ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode, BinaryDevice: 3, BinaryInode: 4}
 			original, err := json.Marshal(record)
 			if err != nil {
 				t.Fatal(err)

@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -1386,4 +1387,64 @@ func mustJournal(t *testing.T, store *state.Store) []state.JournalEntry {
 		t.Fatal(err)
 	}
 	return entries
+}
+
+func TestStoragePeerRecoveryBindsIndependentLifecycleOwnerBeforeEffects(t *testing.T) {
+	service, lifecycleStore, kerfBackend := setup(t)
+	defer lifecycleStore.Close()
+	directory := filepath.Join(t.TempDir(), "storage")
+	storageStore, err := storagepkg.OpenStore(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &lifecycleStorageBackend{active: map[string]string{}}
+	service.SetStorage(storagepkg.NewService(storageStore, backend))
+	cfg := config("box-a", 8, 7001)
+	cfg.Storage = &protocol.StorageConfig{Path: "/srv/storage/box-a.ext4", ImageID: "busybox-root", FilesystemUUID: "11111111-2222-4333-8444-555555555555", SizeBytes: 64 << 20, QuotaBytes: 64 << 20, InodeLimit: 4096, Port: 4061, SHA256: strings.Repeat("b", 64)}
+	created, apiErr := service.Create(t.Context(), cfg, "storage-peer-create")
+	if apiErr != nil {
+		t.Fatal(apiErr)
+	}
+	leases := storageStore.List()
+	if len(leases) != 1 || leases[0].PeerCID != created.Sandbox.Config.ChildCID {
+		t.Fatal("Create failed to bind intended child CID")
+	}
+	leases[0].PeerCID++
+	changed := struct {
+		Version int                          `json:"version"`
+		Exports map[string]storagepkg.Export `json:"exports"`
+	}{storagepkg.StateVersion, map[string]storagepkg.Export{leases[0].SandboxID + "\x00" + leases[0].SandboxGeneration: leases[0]}}
+	raw, err := json.Marshal(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "state.json")
+	if err = os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := storagepkg.OpenStore(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.SetStorage(storagepkg.NewService(reopened, backend))
+	snapshot := lifecycleStore.Snapshot()
+	journal, err := lifecycleStore.JournalEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	storageCalls, kerfCalls := len(backend.calls), len(kerfBackend.calls)
+	if err = service.Reconcile(t.Context()); err == nil || !strings.Contains(err.Error(), "storage export does not match lifecycle ownership") {
+		t.Fatalf("cross-store ownership error: %v", err)
+	}
+	afterJournal, err := lifecycleStore.JournalEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterRaw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(backend.calls) != storageCalls || len(kerfBackend.calls) != kerfCalls || !reflect.DeepEqual(snapshot, lifecycleStore.Snapshot()) || !reflect.DeepEqual(journal, afterJournal) || string(raw) != string(afterRaw) {
+		t.Fatal("cross-store mismatch had backend or durable state effects")
+	}
 }

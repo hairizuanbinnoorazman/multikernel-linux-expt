@@ -169,7 +169,7 @@ func (s *Service) provisionStorage(ctx context.Context, sandbox *protocol.Sandbo
 	if sandbox.Config.Storage == nil {
 		return errors.New("prepared storage identity is required")
 	}
-	value, err := s.storage.Provision(ctx, sandbox.ID, sandbox.Generation, preparedStorage(sandbox.Config.Storage))
+	value, err := s.storage.Provision(ctx, sandbox.ID, sandbox.Generation, sandbox.Config.ChildCID, preparedStorage(sandbox.Config.Storage))
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (s *Service) releaseStorage(ctx context.Context, sandbox *protocol.Sandbox)
 	if sandbox.Storage == nil || sandbox.Storage.ExportGeneration == "" {
 		return errors.New("sandbox has no generation-bound storage export")
 	}
-	value, err := s.storage.Release(ctx, sandbox.ID, sandbox.Generation, sandbox.Storage.ExportGeneration)
+	value, err := s.storage.Release(ctx, sandbox.ID, sandbox.Generation, sandbox.Storage.ExportGeneration, sandbox.Config.ChildCID)
 	if err != nil {
 		return err
 	}
@@ -905,7 +905,24 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		s.poolReady = true
 	}
 	if s.storage != nil {
-		if err := s.storage.Reconcile(ctx); err != nil {
+		owners := make(map[string]storagepkg.Owner)
+		addOwner := func(sandbox protocol.Sandbox) {
+			if sandbox.Config.Storage == nil {
+				return
+			}
+			owner := storagepkg.Owner{Generation: sandbox.Generation, PeerCID: sandbox.Config.ChildCID, Image: preparedStorage(sandbox.Config.Storage)}
+			if sandbox.Storage != nil {
+				owner.ExportGeneration = sandbox.Storage.ExportGeneration
+			}
+			owners[sandbox.ID] = owner
+		}
+		for _, sandbox := range recoveryOwners {
+			addOwner(sandbox)
+		}
+		for _, sandbox := range snapshot.Sandboxes {
+			addOwner(sandbox)
+		}
+		if err := s.storage.Reconcile(ctx, owners); err != nil {
 			return fmt.Errorf("storage reconcile: %w", err)
 		}
 	}

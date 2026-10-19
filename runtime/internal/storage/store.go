@@ -47,17 +47,28 @@ func OpenStore(dir string) (*Store, error) {
 	if store.data.Exports == nil {
 		return nil, errors.New("unsupported storage state")
 	}
-	if store.data.Version >= 1 && store.data.Version < StateVersion && len(store.data.Exports) == 0 {
+	releasedLegacy := store.data.Version == 2
+	for _, value := range store.data.Exports {
+		if value.State != "RELEASED" {
+			releasedLegacy = false
+		}
+	}
+	if (store.data.Version >= 1 && store.data.Version < StateVersion && len(store.data.Exports) == 0) || releasedLegacy {
+		// Version 2 did not bind peers. Preserve completed evidence, but never
+		// guess an intended CID for any live or ambiguous legacy export.
+		if err = validateDiskState(store.data); err != nil {
+			return nil, err
+		}
 		store.data.Version = StateVersion
 		upgraded, marshalErr := json.MarshalIndent(store.data, "", "  ")
 		if marshalErr != nil {
 			return nil, marshalErr
 		}
 		if err = directory.Replace("state.json", append(upgraded, '\n'), 0600); err != nil {
-			return nil, fmt.Errorf("upgrade empty storage state: %w", err)
+			return nil, fmt.Errorf("upgrade storage state: %w", err)
 		}
 	} else if store.data.Version != StateVersion {
-		return nil, errors.New("unsupported storage state")
+		return nil, errors.New("OPERATOR_ACTION: unsupported storage state or unbound active legacy export")
 	}
 	if err = validateDiskState(store.data); err != nil {
 		return nil, err
@@ -80,6 +91,9 @@ func (s *Store) openDirectory() (*safefile.Directory, error) {
 func exportKey(id, generation string) string { return id + "\x00" + generation }
 
 func validateExport(key string, value Export) error {
+	if value.PeerCID == ^uint32(0) || (value.State != "RELEASED" && !validPeerCID(value.PeerCID)) {
+		return errors.New("storage peer CID is absent or reserved")
+	}
 	if key != exportKey(value.SandboxID, value.SandboxGeneration) || !identityRE.MatchString(value.SandboxID) ||
 		!generationRE.MatchString(value.SandboxGeneration) || !generationRE.MatchString(value.ExportGeneration) {
 		return errors.New("storage key, owner, or generation is invalid")
@@ -117,7 +131,7 @@ func validateExport(key string, value Export) error {
 
 func validateDiskState(state diskState) error {
 	claims := map[string]map[string]string{
-		"path": {}, "port": {}, "filesystem UUID": {}, "sandbox owner": {},
+		"path": {}, "port": {}, "filesystem UUID": {}, "sandbox owner": {}, "peer CID": {},
 	}
 	for key, value := range state.Exports {
 		if err := validateExport(key, value); err != nil {
@@ -128,7 +142,7 @@ func validateDiskState(state diskState) error {
 		}
 		for label, identity := range map[string]string{
 			"path": value.Path, "port": fmt.Sprint(value.Port), "filesystem UUID": value.FilesystemUUID,
-			"sandbox owner": value.SandboxID,
+			"sandbox owner": value.SandboxID, "peer CID": fmt.Sprint(value.PeerCID),
 		} {
 			previous := claims[label][identity]
 			if previous != "" && previous != key {
@@ -141,7 +155,7 @@ func validateDiskState(state diskState) error {
 }
 
 func validTransition(previous, next Export) bool {
-	if previous.SandboxID != next.SandboxID || previous.SandboxGeneration != next.SandboxGeneration ||
+	if previous.SandboxID != next.SandboxID || previous.SandboxGeneration != next.SandboxGeneration || previous.PeerCID != next.PeerCID ||
 		previous.ExportGeneration != next.ExportGeneration || previous.PreparedImage != next.PreparedImage ||
 		!previous.CreatedAt.Equal(next.CreatedAt) || next.UpdatedAt.Before(previous.UpdatedAt) {
 		return false

@@ -32,12 +32,12 @@ static int native_server_set_limits(void)
 
 struct native_refusal_log { uint64_t total; unsigned int details; };
 
-static void native_server_log_refusal(struct native_refusal_log *log, int identity)
+static void native_server_log_refusal(struct native_refusal_log *log, int reason)
 {
 	if (log->total != UINT64_MAX)
 		log->total++;
 	if (log->details < NATIVE_SERVER_REFUSAL_DETAILS) {
-		fprintf(stderr, "MKNBD_SERVER_REFUSED reason=%s\n", identity ? "identity" : "handshake-io");
+		fprintf(stderr, "MKNBD_SERVER_REFUSED reason=%s\n", reason == 2 ? "peer" : reason ? "identity" : "handshake-io");
 		log->details++;
 	} else if (log->total == NATIVE_SERVER_REFUSAL_DETAILS + 1U) {
 		fprintf(stderr, "MKNBD_SERVER_REFUSALS_SUPPRESSED further_details=omitted\n");

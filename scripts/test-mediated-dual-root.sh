@@ -69,10 +69,10 @@ lsmod | grep -q '^mk_transport ' || \
 
 : >"$artifact_dir/$generation_a-server.txt"
 : >"$artifact_dir/$generation_b-server.txt"
-sudo "$artifact_dir/mkvsock-nbd" server "$image_a" 4061 image-child-a-v1 "$generation_a" \
+sudo "$artifact_dir/mkvsock-nbd" server "$image_a" 4061 image-child-a-v1 "$generation_a" 3 \
     >"$artifact_dir/$generation_a-server.txt" 2>&1 &
 server_a=$!
-sudo "$artifact_dir/mkvsock-nbd" server "$image_b" 4062 image-child-b-v1 "$generation_b" \
+sudo "$artifact_dir/mkvsock-nbd" server "$image_b" 4062 image-child-b-v1 "$generation_b" 4 \
     >"$artifact_dir/$generation_b-server.txt" 2>&1 &
 server_b=$!
 for log in "$artifact_dir/$generation_a-server.txt" "$artifact_dir/$generation_b-server.txt"; do

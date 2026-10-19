@@ -36,7 +36,7 @@ The rb13 normal-pool baseline passed with retained proof; its broader
 qualification remains open. The audit/journal interface and both cancellation
 fixes now run in the identified revision665f64e release, with all 19 shared features and
 independent zero/no-pool proof. Next prioritize SEC-03 operation authorization,
-including binding native storage exports to their intended child CID, then
+including production activation of the verified native storage CID binding, then
 SEC-08's remaining audit/secret coverage and SEC-12 dependency/artifact review.
 Record findings, implement required fixes and retain exact-source verification
 against each task's acceptance criteria.
@@ -102,12 +102,13 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   rejected request leaks credentials or changes another sandbox.
   Scoped proof: [eight agent rejection cases and native handshake checks](../../../evidence/runtime-20261012/g7-auth-handshake/README.md)
   pass locally with exact sources and mutation assertions. Full authorization
-  coverage and live native rejection/export survival remain open.
-  Next native storage hardening: persist the intended child CID in export and
-  process ownership, validate the accepted peer before the hello, and retain
-  wrong-peer refusal plus right-peer export-survival proof. Image/generation
-  matching currently does not bind the accepted peer CID; cross-CID live
-  qualification remains pending.
+  coverage remains open. [Native storage CID ownership proof](../../../evidence/runtime-20261012/g7-storage-peer-cid/README.md)
+  now retains the old wrong-peer canary access and corrected actual VSOCK
+  refusal/export survival using zero-capability/NNP workload peers.
+
+  - [x] Persist and validate intended CID across export/process ownership, provision/release and independent whole-set lifecycle recovery; retain legacy refusal/completed migration and UID1001 VM regressions.
+  - [x] Refuse CID40 before hello while preserving the image/listener for intended CID41 write/read/flush; retain actual old-server control, exact hashes and final19zero/no-pool/cloud proof.
+  - [ ] Activate matching Go/helper/profile artifacts with guarded version3 migration/rollback and qualify the shared matrix. Current installed665f64e is unchanged; whole SEC-03 stays open.
 
 ## Repository and protocol review
 
@@ -436,6 +437,11 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   See the [scoped evidence](../../../evidence/runtime-20261012/g7-network-primary-guard/README.md).
   Live Multikernel qualification, IPv6 packet probes, and historical isolation
   harness adaptation remain open; this does not close SEC-07.
+  [Native storage peer ownership](../../../evidence/runtime-20261012/g7-storage-peer-cid/README.md)
+  now rejects the wrong actual child CID with the correct image identity,
+  preserves the canary and serves the intended peer afterward. Source and
+  UID1001 recovery/ownership regressions pass. Coordinated production activation
+  and remaining storage/network mediation criteria stay open.
   Extend existing cross-sandbox storage and network-isolation suites with wrong
   export identity, range overflow, read/write-policy violations, descriptor
   reuse, reconnect, malformed packet, and forged source-address fixtures.

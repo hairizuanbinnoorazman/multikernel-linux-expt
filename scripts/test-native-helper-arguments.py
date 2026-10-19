@@ -27,17 +27,20 @@ def main():
                        "4294967296", "18446744073709551616", "9" * 200)
         for value in bad_numbers:
             cases.extend([
-                ("mkvsock-nbd", ["server", str(canary), value, "image", "generation"]),
+                ("mkvsock-nbd", ["server", str(canary), value, "image", "generation", "1"]),
                 ("mkvsock-nbd", ["client", value, "4061", str(canary), "4096", "image", "generation", "reserved"]),
                 ("mkvsock-relay", ["server", value, str(socket_path)]),
                 ("mkvsock-relay", ["client", value, "4061", str(socket_path)]),
                 ("mkvsock-probe", ["server", value]),
                 ("mkvsock-probe", ["client", value, "4061"]),
             ])
+        for value in ("0", *bad_numbers):
+            cases.append(("mkvsock-nbd", ["server", str(canary), "4061", "image", "generation", value]))
+        cases.append(("mkvsock-nbd", ["server", str(canary), "4061", "image", "generation"]))
         for size in ("0", "4095", "4097", "-4096", "4096x", "18446744073709551616"):
             cases.append(("mkvsock-nbd", ["client", "0", "4061", str(canary), size, "image", "generation", "reserved"]))
         for identity in ("", "-identity", "id\n", "id/path", "x" * 64):
-            cases.append(("mkvsock-nbd", ["server", str(canary), "4061", identity, "generation"]))
+            cases.append(("mkvsock-nbd", ["server", str(canary), "4061", identity, "generation", "1"]))
         cases.extend([
             ("mkvsock-relay", ["server", "4061", ""]),
             ("mkvsock-relay", ["client", "0", "4061", "x" * 108]),

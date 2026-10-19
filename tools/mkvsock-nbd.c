@@ -412,8 +412,16 @@ static int send_reply(int sock, const struct nbd_request_wire *request, int erro
 	return transfer_until(sock, &reply, sizeof(reply), 1, deadline);
 }
 
+static int storage_peer_matches(const struct sockaddr_vm *peer, socklen_t size,
+				unsigned int expected_cid)
+{
+	return size == sizeof(*peer) && peer->svm_family == AF_VSOCK &&
+		expected_cid && expected_cid != VMADDR_CID_ANY && peer->svm_cid == expected_cid;
+}
+
 static void run_server(const char *image, unsigned int port,
-		       const char *image_id, const char *generation)
+		       const char *image_id, const char *generation,
+		       unsigned int peer_cid)
 {
 	struct sockaddr_vm addr = {
 		.svm_family = AF_VSOCK,
@@ -473,17 +481,26 @@ static void run_server(const char *image, unsigned int port,
 		die("disable storage server dumps");
 	if (native_server_install_filter(listener) < 0)
 		die("install storage server syscall filter");
-	printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=%lld port=%u\n",
-	       image, image_id, generation, (long long)st.st_size, port);
+	printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=%lld port=%u peer_cid=%u\n",
+	       image, image_id, generation, (long long)st.st_size, port, peer_cid);
 	fflush(stdout);
 	int sock = -1;
 	while (!stop_requested) {
-		sock = accept(listener, NULL, NULL);
+		struct sockaddr_vm peer = {0};
+		socklen_t peer_size = sizeof(peer);
+		sock = accept(listener, (struct sockaddr *)&peer, &peer_size);
 		if (sock < 0 && (stop_requested || errno == EINTR))
 			continue;
 		if (sock < 0)
 			die("accept");
 		active_client = sock;
+		if (!storage_peer_matches(&peer, peer_size, peer_cid)) {
+			native_server_log_refusal(&refusals, 2);
+			close(sock);
+			active_client = -1;
+			sock = -1;
+			continue;
+		}
 		set_socket_timeout(sock);
 		int accepted = server_handshake(sock, (uint64_t)st.st_size,
 						image_id, generation, FRAME_TIMEOUT_MS);
@@ -668,14 +685,15 @@ static void print_ext4_uuid(const char *device)
 
 int main(int argc, char **argv)
 {
-	if (argc == 6 && !strcmp(argv[1], "server")) {
-		uint64_t port;
-		if (!native_decimal(argv[3], 1, UINT32_MAX - 1, &port) ||
+	if (argc >= 2 && !strcmp(argv[1], "server")) {
+		uint64_t port, peer_cid;
+		if (argc != 7 || !native_decimal(argv[3], 1, UINT32_MAX - 1, &port) ||
+		    !native_decimal(argv[6], 1, UINT32_MAX - 1, &peer_cid) ||
 		    !native_identity(argv[4], 63) || !native_identity(argv[5], 63)) {
 			fprintf(stderr, "invalid server arguments\n");
 			return 2;
 		}
-		run_server(argv[2], (unsigned int)port, argv[4], argv[5]);
+		run_server(argv[2], (unsigned int)port, argv[4], argv[5], (unsigned int)peer_cid);
 		return 0;
 	}
 	if (argc == 9 && !strcmp(argv[1], "client")) {
@@ -700,6 +718,6 @@ int main(int argc, char **argv)
 		print_ext4_uuid(argv[2]);
 		return 0;
 	}
-	fprintf(stderr, "usage: %s server IMAGE PORT IMAGE_ID GENERATION | client CID PORT DEVICE SIZE IMAGE_ID GENERATION RESERVED | disconnect DEVICE | uuid DEVICE\n", argv[0]);
+	fprintf(stderr, "usage: %s server IMAGE PORT IMAGE_ID GENERATION PEER_CID | client CID PORT DEVICE SIZE IMAGE_ID GENERATION RESERVED | disconnect DEVICE | uuid DEVICE\n", argv[0]);
 	return 2;
 }

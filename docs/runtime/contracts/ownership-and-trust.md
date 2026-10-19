@@ -160,6 +160,25 @@ An older live endpoint missing the guards must be drained and recreated during
 upgrade; restarting mknetd alone does not migrate its policy. Existing primary
 administrative services must not be exposed by weakening the endpoint guards.
 
+Native storage exports bind the intended nonzero child CID to sandbox and
+export generations. State version3 persists this CID; process record version4
+and the exact server command line include it. `mkvsock-nbd server IMAGE PORT
+IMAGE_ID GENERATION PEER_CID` requires the CID. The accepted address must be an
+exact AF_VSOCK address with that CID before any hello bytes are read or returned.
+Peer refusal shares the bounded refusal-log budget. Image/size/generation
+validation remains required for an admitted peer. Recovery validates every live
+export against independently recorded lifecycle ownership before inspecting or
+starting any backend; CID changes cannot reuse an existing lease or process.
+
+Version2 state upgrades automatically only when empty or when every export is
+validly RELEASED, preserving historical completion evidence without inventing
+peer identities. Live or ambiguous legacy exports require operator review and
+are retained unchanged. Deployment must drain exports first and preserve the
+old state privately: older releases cannot read version3. A rollback must not
+replace newer active ownership with an old snapshot. This is trusted transport
+peer binding, not protection against a hostile child kernel or shared-memory
+access; same-CID workload authority remains a separate review.
+
 Storage recovery reads the generation-private log as bounded evidence. Initial
 readiness must match the exact lease at byte0; repeated readiness records are
 ambiguous. Pre-acceptance crashes may contain only complete canonical refusal

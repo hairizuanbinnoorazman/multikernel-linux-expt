@@ -2,7 +2,7 @@ package storage
 
 import "time"
 
-const StateVersion = 2
+const StateVersion = 3
 
 type ImageIdentity struct {
 	Device uint64 `json:"device"`
@@ -32,6 +32,7 @@ type Export struct {
 	SandboxID         string `json:"sandbox_id"`
 	SandboxGeneration string `json:"sandbox_generation"`
 	ExportGeneration  string `json:"export_generation"`
+	PeerCID           uint32 `json:"peer_cid"`
 	PreparedImage
 	ImageIdentity ImageIdentity `json:"image_identity"`
 	State         string        `json:"state"`
@@ -40,6 +41,15 @@ type Export struct {
 	ReleasedAt    time.Time     `json:"released_at,omitempty"`
 	OfflineCheck  string        `json:"offline_check,omitempty"`
 	Counters      Counters      `json:"counters"`
+}
+
+// Owner comes from the lifecycle snapshot or its validated incomplete intent.
+// A storage lease alone cannot authorize recovery with a different peer.
+type Owner struct {
+	Generation       string
+	PeerCID          uint32
+	Image            PreparedImage
+	ExportGeneration string
 }
 
 type Observation struct {

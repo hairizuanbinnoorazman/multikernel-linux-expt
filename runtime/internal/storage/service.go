@@ -18,6 +18,8 @@ var generationRE = regexp.MustCompile(`^[a-f0-9]{32}$`)
 var uuidRE = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
 var digestRE = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
+func validPeerCID(cid uint32) bool { return cid != 0 && cid != ^uint32(0) }
+
 type Backend interface {
 	Inspect(context.Context, PreparedImage) (ImageIdentity, error)
 	InspectCurrent(context.Context, PreparedImage) (ImageIdentity, error)
@@ -106,20 +108,20 @@ func (s *Service) recoverPreparation(ctx context.Context, value Export) (Export,
 	return value, nil
 }
 
-func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration string, image PreparedImage) (Export, error) {
+func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration string, peerCID uint32, image PreparedImage) (Export, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return Export{}, err
 	}
-	if !identityRE.MatchString(sandboxID) || !generationRE.MatchString(sandboxGeneration) {
+	if !identityRE.MatchString(sandboxID) || !generationRE.MatchString(sandboxGeneration) || !validPeerCID(peerCID) {
 		return Export{}, errors.New("invalid sandbox identity")
 	}
 	if err := validatePrepared(image); err != nil {
 		return Export{}, err
 	}
 	if existing, ok := s.store.Get(sandboxID, sandboxGeneration); ok {
-		if existing.PreparedImage != image {
+		if existing.PreparedImage != image || existing.PeerCID != peerCID {
 			return Export{}, errors.New("sandbox generation has conflicting or incomplete storage state")
 		}
 		if existing.State == "PREPARING" {
@@ -139,8 +141,8 @@ func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration st
 		if existing.State == "RELEASED" {
 			continue
 		}
-		if existing.SandboxID == sandboxID || existing.Path == image.Path || existing.Port == image.Port || existing.FilesystemUUID == image.FilesystemUUID {
-			return Export{}, errors.New("storage owner, path, port, or filesystem UUID is already allocated")
+		if existing.SandboxID == sandboxID || existing.PeerCID == peerCID || existing.Path == image.Path || existing.Port == image.Port || existing.FilesystemUUID == image.FilesystemUUID {
+			return Export{}, errors.New("storage owner, peer CID, path, port, or filesystem UUID is already allocated")
 		}
 	}
 	imageIdentity, err := s.backend.Inspect(ctx, image)
@@ -152,7 +154,7 @@ func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration st
 		return Export{}, err
 	}
 	now := s.now().UTC()
-	value := Export{SandboxID: sandboxID, SandboxGeneration: sandboxGeneration, ExportGeneration: generation,
+	value := Export{SandboxID: sandboxID, SandboxGeneration: sandboxGeneration, ExportGeneration: generation, PeerCID: peerCID,
 		PreparedImage: image, ImageIdentity: imageIdentity, State: "PREPARING", CreatedAt: now, UpdatedAt: now}
 	if err = s.store.Put(value); err != nil {
 		return Export{}, err
@@ -168,7 +170,7 @@ func (s *Service) Provision(ctx context.Context, sandboxID, sandboxGeneration st
 	return value, nil
 }
 
-func (s *Service) Release(ctx context.Context, sandboxID, sandboxGeneration, exportGeneration string) (Export, error) {
+func (s *Service) Release(ctx context.Context, sandboxID, sandboxGeneration, exportGeneration string, peerCID uint32) (Export, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -178,7 +180,7 @@ func (s *Service) Release(ctx context.Context, sandboxID, sandboxGeneration, exp
 	if !ok {
 		return Export{}, errors.New("storage export not found")
 	}
-	if value.ExportGeneration != exportGeneration {
+	if value.ExportGeneration != exportGeneration || !validPeerCID(peerCID) || value.PeerCID != peerCID {
 		return Export{}, errors.New("stale storage export generation")
 	}
 	if value.State == "RELEASED" {
@@ -211,13 +213,26 @@ func (s *Service) Release(ctx context.Context, sandboxID, sandboxGeneration, exp
 	return value, nil
 }
 
-func (s *Service) Reconcile(ctx context.Context) error {
+func (s *Service) Reconcile(ctx context.Context, owners map[string]Owner) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	for _, value := range s.store.List() {
+	values := s.store.List()
+	// Validate the whole ownership set before observing, starting or stopping
+	// any process. Released historical records hold no live authority.
+	for _, value := range values {
+		if value.State == "RELEASED" {
+			continue
+		}
+		owner, exists := owners[value.SandboxID]
+		if !exists || owner.Generation != value.SandboxGeneration || owner.PeerCID != value.PeerCID ||
+			owner.Image != value.PreparedImage || (owner.ExportGeneration != "" && owner.ExportGeneration != value.ExportGeneration) {
+			return errors.New("OPERATOR_ACTION: storage export does not match lifecycle ownership")
+		}
+	}
+	for _, value := range values {
 		if err := ctx.Err(); err != nil {
 			return err
 		}

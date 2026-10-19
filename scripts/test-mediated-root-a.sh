@@ -60,7 +60,7 @@ musl-gcc -static -O2 -Wall -Wextra -Werror \
 sudo mkdir -p /sys/fs/multikernel
 mountpoint -q /sys/fs/multikernel || sudo mount -t multikernel none /sys/fs/multikernel
 lsmod | grep -q '^mk_transport ' || sudo insmod "$linux_tree/net/vmw_vsock/mk_transport.ko"
-sudo "$artifact_dir/mkvsock-nbd" server "$image" "$port" "$image_id" "$generation" \
+sudo "$artifact_dir/mkvsock-nbd" server "$image" "$port" "$image_id" "$generation" 3 \
     >"$server_log" 2>&1 &
 server_pid=$!
 for _ in $(seq 1 50); do

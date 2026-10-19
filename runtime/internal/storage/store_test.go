@@ -29,7 +29,7 @@ func TestStoreRejectsMissingPersistedFields(t *testing.T) {
 func validStoredExport(path string) Export {
 	now := time.Date(2026, 9, 7, 1, 2, 3, 0, time.UTC)
 	return Export{
-		SandboxID: "box", SandboxGeneration: sandboxGeneration,
+		SandboxID: "box", SandboxGeneration: sandboxGeneration, PeerCID: 1,
 		ExportGeneration: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", State: "PREPARING",
 		PreparedImage: PreparedImage{
 			Path: path, ImageID: "image", FilesystemUUID: "11111111-2222-4333-8444-555555555555",
@@ -148,10 +148,11 @@ func TestStoreRejectsForgedSemanticStateBeforeReconciliation(t *testing.T) {
 			}
 		})
 	}
-	for _, collision := range []string{"path", "port", "filesystem UUID", "sandbox owner"} {
+	for _, collision := range []string{"path", "port", "filesystem UUID", "sandbox owner", "peer CID"} {
 		t.Run("duplicate live "+collision, func(t *testing.T) {
 			directory := t.TempDir()
 			other := base
+			other.PeerCID = 2
 			other.Path = "/var/lib/multikernel/other.ext4"
 			other.Port = 4062
 			other.FilesystemUUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
@@ -159,6 +160,8 @@ func TestStoreRejectsForgedSemanticStateBeforeReconciliation(t *testing.T) {
 			other.SandboxGeneration = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 			other.ExportGeneration = "cccccccccccccccccccccccccccccccc"
 			switch collision {
+			case "peer CID":
+				other.PeerCID = base.PeerCID
 			case "path":
 				other.Path = base.Path
 			case "port":

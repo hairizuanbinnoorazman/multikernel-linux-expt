@@ -81,25 +81,25 @@ const sandboxGeneration = "11111111222233334444555555555555"
 
 func TestProvisionIsGenerationBoundIdempotentAndSingleOwner(t *testing.T) {
 	service, _, backend, image := fixture(t)
-	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if value.State != "ACTIVE" || value.ExportGeneration == "" || backend.active[image.Path] != value.ExportGeneration {
 		t.Fatalf("provisioned export = %+v active=%v", value, backend.active)
 	}
-	replayed, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	replayed, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 	if err != nil || replayed.ExportGeneration != value.ExportGeneration {
 		t.Fatalf("idempotent provision = %+v, %v", replayed, err)
 	}
 	other := image
 	other.ImageID = "other"
-	if _, err = service.Provision(context.Background(), "box-a", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", other); err == nil {
+	if _, err = service.Provision(context.Background(), "box-a", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, other); err == nil {
 		t.Fatal("same sandbox obtained two writable exports")
 	}
 	other = image
 	other.Path = filepath.Join(t.TempDir(), "other.ext4")
-	if _, err = service.Provision(context.Background(), "box-b", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", other); err == nil {
+	if _, err = service.Provision(context.Background(), "box-b", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, other); err == nil {
 		t.Fatal("duplicate port/UUID was accepted")
 	}
 }
@@ -107,14 +107,14 @@ func TestProvisionIsGenerationBoundIdempotentAndSingleOwner(t *testing.T) {
 func TestReleaseRequiresExactGenerationAndOfflineCheck(t *testing.T) {
 	service, _, backend, image := fixture(t)
 	backend.counters = Counters{Reads: 2, Writes: 3, Flushes: 4}
-	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = service.Release(context.Background(), "box-a", sandboxGeneration, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); err == nil {
+	if _, err = service.Release(context.Background(), "box-a", sandboxGeneration, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1); err == nil {
 		t.Fatal("stale export generation released storage")
 	}
-	released, err := service.Release(context.Background(), "box-a", sandboxGeneration, value.ExportGeneration)
+	released, err := service.Release(context.Background(), "box-a", sandboxGeneration, value.ExportGeneration, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestReleaseRequiresExactGenerationAndOfflineCheck(t *testing.T) {
 	if _, ok := backend.active[image.Path]; ok {
 		t.Fatal("backend remained active")
 	}
-	if replayed, err := service.Release(context.Background(), "box-a", sandboxGeneration, value.ExportGeneration); err != nil || replayed.State != "RELEASED" {
+	if replayed, err := service.Release(context.Background(), "box-a", sandboxGeneration, value.ExportGeneration, 1); err != nil || replayed.State != "RELEASED" {
 		t.Fatalf("idempotent release = %+v, %v", replayed, err)
 	}
 }
@@ -134,7 +134,7 @@ func TestProvisionAndReleaseFailuresRemainFailClosed(t *testing.T) {
 		t.Run(point, func(t *testing.T) {
 			service, store, backend, image := fixture(t)
 			backend.fail[point] = errors.New("injected")
-			if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err == nil {
+			if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image); err == nil {
 				t.Fatal("injected provision failure was ignored")
 			}
 			retained := store.List()
@@ -152,12 +152,12 @@ func TestProvisionAndReleaseFailuresRemainFailClosed(t *testing.T) {
 	for _, point := range []string{"stop", "check"} {
 		t.Run(point, func(t *testing.T) {
 			service, store, backend, image := fixture(t)
-			value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+			value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 			if err != nil {
 				t.Fatal(err)
 			}
 			backend.fail[point] = errors.New("injected")
-			if _, err = service.Release(context.Background(), "box-a", sandboxGeneration, value.ExportGeneration); err == nil {
+			if _, err = service.Release(context.Background(), "box-a", sandboxGeneration, value.ExportGeneration, 1); err == nil {
 				t.Fatal("injected release failure was ignored")
 			}
 			remaining, ok := store.Get("box-a", sandboxGeneration)
@@ -179,7 +179,7 @@ func TestReconcileRestartsRetainedPreparationWithExactGeneration(t *testing.T) {
 					failurePoint = "start-after-active"
 				}
 				backend.fail[failurePoint] = errors.New("injected ambiguous start")
-				if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err == nil {
+				if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image); err == nil {
 					t.Fatal("injected start failure was ignored")
 				}
 				retained, ok := store.Get("box-a", sandboxGeneration)
@@ -188,10 +188,10 @@ func TestReconcileRestartsRetainedPreparationWithExactGeneration(t *testing.T) {
 				}
 				delete(backend.fail, failurePoint)
 				if retryMethod == "provision" {
-					if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err != nil {
+					if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image); err != nil {
 						t.Fatal(err)
 					}
-				} else if err := service.Reconcile(context.Background()); err != nil {
+				} else if err := service.Reconcile(context.Background(), fixtureOwners(service.store)); err != nil {
 					t.Fatal(err)
 				}
 				recovered, ok := store.Get("box-a", sandboxGeneration)
@@ -210,7 +210,7 @@ func TestReconcileRestartsRetainedPreparationWithExactGeneration(t *testing.T) {
 func TestRetainedPreparationRefusesConflictingLiveGeneration(t *testing.T) {
 	service, store, backend, image := fixture(t)
 	backend.fail["start"] = errors.New("injected start failure")
-	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err == nil {
+	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image); err == nil {
 		t.Fatal("injected start failure was ignored")
 	}
 	retained, ok := store.Get("box-a", sandboxGeneration)
@@ -220,7 +220,7 @@ func TestRetainedPreparationRefusesConflictingLiveGeneration(t *testing.T) {
 	conflicting := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	backend.active[image.Path] = conflicting
 	delete(backend.fail, "start")
-	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err == nil ||
+	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image); err == nil ||
 		!strings.Contains(err.Error(), "conflicting generation") {
 		t.Fatalf("conflicting preparation retry error = %v", err)
 	}
@@ -234,12 +234,12 @@ func TestRetainedPreparationRefusesConflictingLiveGeneration(t *testing.T) {
 
 func TestReconcileRestartsOnlyAbsentExactActiveExport(t *testing.T) {
 	service, store, backend, image := fixture(t)
-	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 	if err != nil {
 		t.Fatal(err)
 	}
 	delete(backend.active, image.Path)
-	if err = service.Reconcile(context.Background()); err != nil {
+	if err = service.Reconcile(context.Background(), fixtureOwners(service.store)); err != nil {
 		t.Fatal(err)
 	}
 	if backend.active[image.Path] != value.ExportGeneration {
@@ -249,7 +249,7 @@ func TestReconcileRestartsOnlyAbsentExactActiveExport(t *testing.T) {
 		t.Fatalf("active recovery did not use current-image inspection: %v", backend.calls)
 	}
 	backend.active[image.Path] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	if err = service.Reconcile(context.Background()); err == nil {
+	if err = service.Reconcile(context.Background(), fixtureOwners(service.store)); err == nil {
 		t.Fatal("conflicting active generation was accepted")
 	}
 
@@ -257,14 +257,14 @@ func TestReconcileRestartsOnlyAbsentExactActiveExport(t *testing.T) {
 	if err = store.Put(value); err != nil {
 		t.Fatal(err)
 	}
-	if err = service.Reconcile(context.Background()); err == nil {
+	if err = service.Reconcile(context.Background(), fixtureOwners(service.store)); err == nil {
 		t.Fatal("incomplete quiescence was guessed away")
 	}
 }
 
 func TestReconcileRefusesAcceptedClientServerLoss(t *testing.T) {
 	service, store, backend, image := fixture(t)
-	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestReconcileRefusesAcceptedClientServerLoss(t *testing.T) {
 			startsBefore++
 		}
 	}
-	if err = service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "automatic session recovery is unsafe") {
+	if err = service.Reconcile(context.Background(), fixtureOwners(service.store)); err == nil || !strings.Contains(err.Error(), "automatic session recovery is unsafe") {
 		t.Fatalf("accepted-client loss reconciliation error = %v", err)
 	}
 	startsAfter := 0
@@ -296,7 +296,7 @@ func TestReconcileRefusesAcceptedClientServerLoss(t *testing.T) {
 
 func TestReconcileRefusesActiveServerLossWithoutPreAcceptanceEvidence(t *testing.T) {
 	service, store, backend, image := fixture(t)
-	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestReconcileRefusesActiveServerLossWithoutPreAcceptanceEvidence(t *testing
 			startsBefore++
 		}
 	}
-	if err = service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "without exact pre-acceptance evidence") {
+	if err = service.Reconcile(context.Background(), fixtureOwners(service.store)); err == nil || !strings.Contains(err.Error(), "without exact pre-acceptance evidence") {
 		t.Fatalf("unknown active-session reconciliation error = %v", err)
 	}
 	startsAfter := 0
@@ -328,7 +328,7 @@ func TestReconcileRefusesActiveServerLossWithoutPreAcceptanceEvidence(t *testing
 
 func TestReconcileRejectsStorageImageIdentityReplacement(t *testing.T) {
 	service, _, backend, image := fixture(t)
-	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err != nil {
+	if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image); err != nil {
 		t.Fatal(err)
 	}
 	delete(backend.active, image.Path)
@@ -339,7 +339,7 @@ func TestReconcileRejectsStorageImageIdentityReplacement(t *testing.T) {
 			startsBefore++
 		}
 	}
-	if err := service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "identity changed") {
+	if err := service.Reconcile(context.Background(), fixtureOwners(service.store)); err == nil || !strings.Contains(err.Error(), "identity changed") {
 		t.Fatalf("image replacement reconcile error = %v", err)
 	}
 	startsAfter := 0
@@ -358,7 +358,7 @@ func TestReconcileCompletesExactQuiescingExport(t *testing.T) {
 		t.Run(map[bool]string{true: "active", false: "already-stopped"}[serverActive], func(t *testing.T) {
 			service, store, backend, image := fixture(t)
 			backend.counters = Counters{Reads: 2, ReadBytes: 8192, Writes: 3, WrittenBytes: 12288, Flushes: 4}
-			value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+			value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -370,7 +370,7 @@ func TestReconcileCompletesExactQuiescingExport(t *testing.T) {
 				delete(backend.active, image.Path)
 				backend.closed = true
 			}
-			if err = service.Reconcile(context.Background()); err != nil {
+			if err = service.Reconcile(context.Background(), fixtureOwners(service.store)); err != nil {
 				t.Fatal(err)
 			}
 			recovered, ok := store.Get("box-a", sandboxGeneration)
@@ -386,7 +386,7 @@ func TestReconcileCompletesExactQuiescingExport(t *testing.T) {
 
 func TestReconcileRetainsQuiescingExportWithoutGracefulCloseProof(t *testing.T) {
 	service, store, backend, image := fixture(t)
-	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+	value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestReconcileRetainsQuiescingExportWithoutGracefulCloseProof(t *testing.T) 
 		t.Fatal(err)
 	}
 	delete(backend.active, image.Path)
-	if err = service.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "without a graceful close record") {
+	if err = service.Reconcile(context.Background(), fixtureOwners(service.store)); err == nil || !strings.Contains(err.Error(), "without a graceful close record") {
 		t.Fatalf("reconcile error = %v", err)
 	}
 	retained, ok := store.Get("box-a", sandboxGeneration)
@@ -409,7 +409,7 @@ func TestStorageOperationsRejectPreCancelledContextWithoutMutation(t *testing.T)
 		service, store, backend, image := fixture(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		if _, err := service.Provision(ctx, "box-a", sandboxGeneration, image); !errors.Is(err, context.Canceled) {
+		if _, err := service.Provision(ctx, "box-a", sandboxGeneration, 1, image); !errors.Is(err, context.Canceled) {
 			t.Fatalf("Provision cancellation error = %v", err)
 		}
 		if len(backend.calls) != 0 || len(store.List()) != 0 {
@@ -419,14 +419,14 @@ func TestStorageOperationsRejectPreCancelledContextWithoutMutation(t *testing.T)
 
 	t.Run("release", func(t *testing.T) {
 		service, store, backend, image := fixture(t)
-		value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image)
+		value, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image)
 		if err != nil {
 			t.Fatal(err)
 		}
 		calls := len(backend.calls)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		if _, err = service.Release(ctx, "box-a", sandboxGeneration, value.ExportGeneration); !errors.Is(err, context.Canceled) {
+		if _, err = service.Release(ctx, "box-a", sandboxGeneration, value.ExportGeneration, 1); !errors.Is(err, context.Canceled) {
 			t.Fatalf("Release cancellation error = %v", err)
 		}
 		current, ok := store.Get("box-a", sandboxGeneration)
@@ -437,13 +437,13 @@ func TestStorageOperationsRejectPreCancelledContextWithoutMutation(t *testing.T)
 
 	t.Run("reconcile", func(t *testing.T) {
 		service, store, backend, image := fixture(t)
-		if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, image); err != nil {
+		if _, err := service.Provision(context.Background(), "box-a", sandboxGeneration, 1, image); err != nil {
 			t.Fatal(err)
 		}
 		calls := len(backend.calls)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		if err := service.Reconcile(ctx); !errors.Is(err, context.Canceled) {
+		if err := service.Reconcile(ctx, fixtureOwners(service.store)); !errors.Is(err, context.Canceled) {
 			t.Fatalf("Reconcile cancellation error = %v", err)
 		}
 		current, ok := store.Get("box-a", sandboxGeneration)
@@ -451,4 +451,14 @@ func TestStorageOperationsRejectPreCancelledContextWithoutMutation(t *testing.T)
 			t.Fatalf("cancelled Reconcile mutated state: record=%+v calls=%v", current, backend.calls[calls:])
 		}
 	})
+}
+
+// Existing recovery fixtures supply their provisioned owners. Dedicated peer
+// tests below forge the independently supplied lifecycle map before effects.
+func fixtureOwners(store *Store) map[string]Owner {
+	owners := map[string]Owner{}
+	for _, value := range store.List() {
+		owners[value.SandboxID] = Owner{Generation: value.SandboxGeneration, PeerCID: value.PeerCID, Image: value.PreparedImage, ExportGeneration: value.ExportGeneration}
+	}
+	return owners
 }

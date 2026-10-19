@@ -491,9 +491,9 @@ func TestLinuxBackendProcessIdentityGracefulStopAndOfflineCheck(t *testing.T) {
 static volatile sig_atomic_t done;
 static void stop(int signal_number) { (void)signal_number; done = 1; }
 int main(int argc, char **argv) {
-  if (argc != 6) return 2;
+  if (argc != 7) return 2;
   signal(SIGTERM, stop); signal(SIGINT, stop);
-  printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s\n", argv[2], argv[4], argv[5], argv[3]); fflush(stdout);
+  printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s peer_cid=%s\n", argv[2], argv[4], argv[5], argv[3], argv[6]); fflush(stdout);
   puts("MKNBD_SERVER_CLIENT_ACCEPTED"); fflush(stdout);
   while (!done) pause();
   puts("MKNBD_SERVER_CLOSED synced=1 reads=2 read_bytes=8192 writes=3 write_bytes=12288 flushes=4"); fflush(stdout);
@@ -523,7 +523,7 @@ int main(int argc, char **argv) {
 		t.Fatal(err)
 	}
 	backend := &LinuxBackend{Binary: binaryPath, CheckBinary: checkerPath, RuntimeDir: filepath.Join(directory, "run"), RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 20 * time.Millisecond}
-	value := Export{SandboxID: "box", SandboxGeneration: sandboxGeneration,
+	value := Export{SandboxID: "box", SandboxGeneration: sandboxGeneration, PeerCID: 1,
 		ExportGeneration: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PreparedImage: image, State: "ACTIVE"}
 	identity, inspectErr := backend.Inspect(context.Background(), image)
 	if inspectErr != nil {
@@ -556,6 +556,28 @@ int main(int argc, char **argv) {
 	if err = json.Unmarshal(recordData, &conflictingRecord); err != nil {
 		t.Fatal(err)
 	}
+	conflictingRecord.PeerCID++
+	peerConflict, err := json.Marshal(conflictingRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(recordPath, peerConflict, 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []string{"observe", "stop"} {
+		if action == "observe" {
+			_, err = recovered.Observe(context.Background(), value)
+		} else {
+			_, err = recovered.Stop(context.Background(), value)
+		}
+		if err == nil {
+			t.Fatalf("wrong CID record allowed %s", action)
+		}
+		if data, readErr := os.ReadFile(recordPath); readErr != nil || !bytes.Equal(data, peerConflict) {
+			t.Fatal("wrong CID evidence changed")
+		}
+	}
+	conflictingRecord.PeerCID = value.PeerCID
 	conflictingRecord.BinaryInode++
 	conflictingData, err := json.Marshal(conflictingRecord)
 	if err != nil {
@@ -698,7 +720,7 @@ func TestStorageStartProtectsExistingArtifactsAndCleansOwnFailures(t *testing.T)
 
 func validBackendLease(path string) Export {
 	return Export{
-		SandboxID: "box", SandboxGeneration: sandboxGeneration,
+		SandboxID: "box", SandboxGeneration: sandboxGeneration, PeerCID: 1,
 		ExportGeneration: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", State: "ACTIVE",
 		PreparedImage: PreparedImage{
 			Path: path, ImageID: "image", FilesystemUUID: "11111111-2222-4333-8444-555555555555",
@@ -835,7 +857,7 @@ func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 3, PID: os.Getpid(), StartTime: start, Path: value.Path,
+	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: os.Getpid(), StartTime: start, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -856,6 +878,11 @@ func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 		t.Fatal("process record was accepted for a conflicting lease")
 	}
 	conflict = value
+	conflict.PeerCID++
+	if _, err = readRecord(path, conflict); err == nil {
+		t.Fatal("process record was accepted for a conflicting peer CID")
+	}
+	conflict = value
 	conflict.ImageIdentity = ImageIdentity{Device: 9, Inode: 10}
 	if _, err = readRecord(path, conflict); err == nil {
 		t.Fatal("process record was accepted for a conflicting image inode")
@@ -873,13 +900,13 @@ func TestProcessRecordReadRecoversIdentityBoundQuarantine(t *testing.T) {
 	if err := os.Chmod(directoryPath, 0700); err != nil {
 		t.Fatal(err)
 	}
-	value := Export{PreparedImage: PreparedImage{Path: "/srv/multikernel/root.ext4", ImageID: "image", Port: 4061},
+	value := Export{PeerCID: 1, PreparedImage: PreparedImage{Path: "/srv/multikernel/root.ext4", ImageID: "image", Port: 4061},
 		ImageIdentity: ImageIdentity{Device: 1, Inode: 2}, ExportGeneration: "0123456789abcdef0123456789abcdef"}
 	start, err := processStartTime(os.Getpid())
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 3, PID: os.Getpid(), StartTime: start, Path: value.Path,
+	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: os.Getpid(), StartTime: start, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -964,7 +991,7 @@ func TestObserveRetainsAcceptedClientCrashForDiagnosis(t *testing.T) {
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
 	recordPath, logPath := backend.paths(value)
-	record := processRecord{Version: 3, PID: 1 << 30, StartTime: 1, Path: value.Path,
+	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -1007,7 +1034,7 @@ func TestObserveDistinguishesExactPreAcceptanceFromUnknownAbsence(t *testing.T) 
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
 	recordPath, logPath := backend.paths(value)
-	record := processRecord{Version: 3, PID: 1 << 30, StartTime: 1, Path: value.Path,
+	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -1046,7 +1073,7 @@ func TestStopAcceptsExactGracefulCloseAfterRecoveredProcessExited(t *testing.T) 
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
 	recordPath, logPath := backend.paths(value)
-	record := processRecord{Version: 3, PID: 1 << 30, StartTime: 1, Path: value.Path,
+	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -1116,9 +1143,9 @@ func TestManagedBackendSignalsBeforeStopTimeout(t *testing.T) {
 static volatile sig_atomic_t done;
 static void stop(int signal_number) { (void)signal_number; done = 1; }
 int main(int argc, char **argv) {
-  if (argc != 6) return 2;
+  if (argc != 7) return 2;
   signal(SIGTERM, stop);
-  printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s\n", argv[2], argv[4], argv[5], argv[3]); fflush(stdout);
+  printf("MKNBD_SERVER_READY image=%s image_id=%s generation=%s size=67108864 port=%s peer_cid=%s\n", argv[2], argv[4], argv[5], argv[3], argv[6]); fflush(stdout);
   while (!done) pause();
   puts("MKNBD_SERVER_CLOSED synced=1 reads=0 read_bytes=0 writes=0 write_bytes=0 flushes=0"); fflush(stdout);
   return 0;
