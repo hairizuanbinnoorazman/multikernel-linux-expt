@@ -93,3 +93,9 @@ advisory reachability separately. Loader-cache candidates do not establish
 runtime dlopen/import policy or custom kernel/host-child ABI correctness. Feed
 these inventory/provenance inputs into G9's release automation; this does not
 close G9 or all G7 dependency acceptance.
+
+The [qualified imported-code correction and private-inventory proof](../../evidence/runtime-20261012/g7-kerf-import-code-trust/README.md)
+retains the actual group-write control, permission-only correction, real
+ctr/Docker lifecycle markers, failed warm-pool assertion and successful idle
+restart/resource return. It preserves remaining review gaps and full-report
+privacy rather than treating inventory completion as security acceptance.

@@ -534,6 +534,15 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   availability bounds. Existing G6 restart tests are inputs, not this full pass.
 
 - [ ] **SEC-10 — Establish least-privilege requirements (TM-10).**
+  [Imported Kerf code protection](../../../evidence/runtime-20261012/g7-kerf-import-code-trust/README.md)
+  closes the scoped writable-editable-checkout finding. The actual interpreter
+  imports that tree; 1,184 permission changes preserve all contents/owners,
+  and the UID65534/GID0 synthetic writer is refused after succeeding before.
+  Both real client lifecycles and corrected idle restart/resource return pass;
+  the first harness's warm-pool assertion failure remains explicit. Root
+  installation now protects its source before make/pip and checks the result.
+  Complete privilege/dependency/import closure and independent acceptance remain.
+
   [Native request syscall/descriptor restriction](../../../evidence/runtime-20261012/g7-storage-syscall-filter/README.md)
   now closes inherited extras and denies new path/socket/process/host-control
   operations before readiness; root musl refusal/I/O and live actual seccomp/FD
@@ -589,6 +598,15 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   decision about hardware-backed isolation or the continued trusted-child scope.
 
 - [ ] **SEC-12 — Review dependencies and artifact trust (TM-11).**
+  [Current private inventory and imported-code correction](../../../evidence/runtime-20261012/g7-kerf-import-code-trust/README.md)
+  records 120 artifacts, 722 installed packages, 91 Python distributions and
+  zero hash/support mismatches. Protecting the actual imported source reduces
+  unprotected artifacts from two to zero. One loader-cache gap, nine copyright
+  label reviews and six Python-license reviews remain explicit. Full metadata
+  stays root-private; only aggregate schemas and hash/assertion receipts are
+  retained here. Feed this tooling into G9; whole inventory/provenance/ABI
+  acceptance and material finding disposition remain open.
+
   [Host checkpoint policy remediation](../../../evidence/runtime-20261012/g7-host-containerd-security/README.md)
   is complete: exact upstream 2.2.10 artifact provenance, isolated/live CRI
   enforcement, preserved runc/Multikernel handlers, real package rollback and
