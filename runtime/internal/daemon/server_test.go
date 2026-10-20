@@ -313,7 +313,7 @@ func TestDaemonWireRejectsInvalidRequests(t *testing.T) {
 		{"unknown envelope field", `{"version":1,"request_id":"1","method":"NodeInfo","extra":true}`, 1024, "unknown field"},
 		{"trailing value", `{"version":1,"request_id":"1","method":"NodeInfo"}{}`, 1024, "multiple JSON values"},
 		{"unknown method body field", `{"version":1,"request_id":"1","method":"CreateSandbox","body":{"schema_version":1,"id":"box","cpus":[2],"memory_bytes":4096,"kernel_manifest":"mk","bundle":"/bundle","agent_port":7001,"child_cid":3,"extra":true}}`, 1024, "unknown field"},
-		{"numeric overflow", `{"version":1,"request_id":"1","method":"CreateSandbox","body":{"schema_version":1,"id":"box","cpus":[2],"memory_bytes":18446744073709551616,"kernel_manifest":"mk","bundle":"/bundle","agent_port":7001,"child_cid":3}}`, 1024, "cannot unmarshal number"},
+		{"numeric overflow", `{"version":1,"request_id":"1","method":"CreateSandbox","body":{"schema_version":1,"id":"box","cpus":[2],"memory_bytes":18446744073709551616,"kernel_manifest":"mk","bundle":"/bundle","agent_port":7001,"child_cid":3}}`, 1024, "invalid JSON value type"},
 		{"frame bound", strings.Repeat("x", 65), 64, "frame too large"},
 		{"empty request ID", `{"version":1,"request_id":"","method":"NodeInfo"}`, 1024, "request ID"},
 		{"non-printable request ID", "{\"version\":1,\"request_id\":\"bad\\nrequest\",\"method\":\"NodeInfo\"}", 1024, "request ID"},
@@ -329,6 +329,30 @@ func TestDaemonWireRejectsInvalidRequests(t *testing.T) {
 			}
 			if response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" || !strings.Contains(response.Error.Message, test.want) {
 				t.Fatalf("response = %+v, want INVALID_ARGUMENT containing %q", response, test.want)
+			}
+		})
+	}
+}
+
+func TestDaemonWireDecodeErrorsOmitSuppliedSecrets(t *testing.T) {
+	secret := strings.Repeat("synthetic-private-credential-739ba22c", 256)
+	for name, payload := range map[string]string{
+		"envelope unknown":   `{"version":1,"request_id":"safe","method":"NodeInfo","` + secret + `":true}`,
+		"envelope duplicate": `{"version":1,"request_id":"safe","method":"NodeInfo","body":{"` + secret + `":1,"` + secret + `":2}}`,
+		"create body":        `{"version":1,"request_id":"safe","method":"CreateSandbox","body":{"` + secret + `":true}}`,
+		"cancel body":        `{"version":1,"request_id":"safe","method":"CancelCreateSandbox","body":{"` + secret + `":true}}`,
+		"watch body":         `{"version":1,"request_id":"safe","method":"WatchEvents","body":{"` + secret + `":true}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			conn := newMemoryConn(payload)
+			(&Server{}).handle(context.Background(), conn)
+			data := conn.output.Bytes()
+			var response protocol.Response
+			if err := json.Unmarshal(data, &response); err != nil {
+				t.Fatal(err)
+			}
+			if response.Error == nil || response.Error.Code != "INVALID_ARGUMENT" || len(data) > 256 || bytes.Contains(data, []byte("synthetic-private-credential-739ba22c")) {
+				t.Fatalf("unsafe decode response (%d bytes)", len(data))
 			}
 		})
 	}

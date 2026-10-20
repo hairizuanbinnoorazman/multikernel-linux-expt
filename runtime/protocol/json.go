@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"reflect"
+	"strings"
 )
 
 // StrictDecode decodes exactly one JSON value, rejects unknown struct fields,
 // and rejects duplicate object names at every nesting level. The standard Go
 // decoder otherwise accepts duplicate names and silently keeps the last value.
+// Errors contain fixed classifications only: callers put them on RPC wires and
+// in diagnostics, so field names, values and custom decoder errors must not be
+// copied from a potentially credential-bearing document.
 func StrictDecode(data []byte, dst any) error {
 	target := reflect.TypeOf(dst)
 	for target != nil && target.Kind() == reflect.Pointer {
@@ -29,7 +32,14 @@ func StrictDecode(data []byte, dst any) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {
-		return err
+		if strings.HasPrefix(err.Error(), "json: unknown field ") {
+			return errors.New("unknown field in JSON document")
+		}
+		var valueError *json.UnmarshalTypeError
+		if errors.As(err, &valueError) {
+			return errors.New("invalid JSON value type")
+		}
+		return errors.New("invalid JSON document")
 	}
 	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
@@ -49,10 +59,13 @@ func rejectDuplicateNames(data []byte) error {
 	for {
 		token, err := decoder.Token()
 		if err == io.EOF {
+			if len(stack) != 0 {
+				return errors.New("invalid JSON syntax")
+			}
 			return nil
 		}
 		if err != nil {
-			return err
+			return errors.New("invalid JSON syntax")
 		}
 		switch value := token.(type) {
 		case json.Delim:
@@ -74,7 +87,7 @@ func rejectDuplicateNames(data []byte) error {
 			if len(stack) > 0 && stack[len(stack)-1].object && stack[len(stack)-1].expectKey {
 				current := &stack[len(stack)-1]
 				if _, exists := current.names[value]; exists {
-					return fmt.Errorf("duplicate JSON object name %q", value)
+					return errors.New("duplicate JSON object name")
 				}
 				current.names[value] = struct{}{}
 				current.expectKey = false

@@ -36,9 +36,9 @@ The rb13 normal-pool baseline passed with retained proof; its broader
 qualification remains open. The audit/journal interface and both cancellation
 fixes and native storage CID binding now run in the identified revision ac8a4d1
 release, with guarded migration/rollback, all 19 shared features and independent
-zero/no-pool proof. Next prioritize SEC-03 operation authorization: reproduce
-and bind the agent control relay to its intended child CID, then
-SEC-08's remaining audit/secret coverage and SEC-12 dependency/artifact review.
+zero/no-pool proof. The user deferred the agent-relay CID item. Next prioritize
+SEC-08 audit/secret hardening, including activation of the decoder-error
+correction, then SEC-12 dependency/artifact review.
 Record findings, implement required fixes and retain exact-source verification
 against each task's acceptance criteria.
 Continue SEC-02/SEC-10 authority review, SEC-05 fuzzing, SEC-07 mediation and
@@ -111,7 +111,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   - [x] Refuse CID40 before hello while preserving the image/listener for intended CID41 write/read/flush; retain actual old-server control, exact hashes and final19zero/no-pool/cloud proof.
   - [x] Activate matching Go/helper/profile artifacts with guarded version3 migration/real rollback, managed CID/I/O and all19shared features; [qualified deployment proof](../../../evidence/runtime-20261012/g7-storage-peer-deployment/README.md).
   - [x] Verify actual peer-credential refusal after successful filesystem connect: UID65534/GID0, zero capabilities/NNP, six daemon/broker requests, zero bytes/descriptors and unchanged durable state; same deployment proof.
-  - [ ] Reproduce and fix unbound agent-control relay acceptance. Source review finds `accept(fd,NULL,NULL)` without expected CID and unsigned replies; shim socket ownership does not establish the child peer. Whole SEC-03 remains open.
+  - [ ] Reproduce and fix unbound agent-control relay acceptance. Deferred at the user's explicit request; candidate changes are preserved locally and no rollout/checkoff is made. Whole SEC-03 remains open.
 
 ## Repository and protocol review
 
@@ -490,6 +490,8 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   - [x] Secure token-bearing fixture archives and preserve existing output targets, with root/unauthorized-reader proof.
   - [x] Stop copying credential bytes into create-operation metadata, retaining stable retry/cancel identity and legacy cancellation behavior.
   - [x] Deploy the corrected credential fixes and qualify one live sandbox trace, installed-client control, all 19 ctr/Docker features and independent cleanup audit with exact source/binary proof.
+  - [x] Suppress supplied field names/values/custom decoder messages in strict JSON errors, with three old controls, bounded daemon/broker wire replies, source/race/archive and UID1001 VM proof; [decoder-error correction](../../../evidence/runtime-20261012/g7-json-error-redaction/README.md). Six actual installed-service controls reproduce the old echo without durable effects.
+  - [ ] Activate the decoder-error correction and qualify matching runtime artifacts and compatibility; installed ac8a4d1 still exhibits the old synthetic echo.
   - [ ] Finish production bootstrap/state/error/stdout/evidence/diagnostic secret tracing.
   - [x] Reserve bounded lifecycle completion capacity before admitting new work, with restart, old-source controls and unprivileged VM filesystem-fixture proof; activation is covered by the identified audit release.
   - [x] Implement the negotiated lifecycle audit metadata view and validate operation/outcome identity, synthetic-secret omission, pagination/restart, strict client compatibility and bounded encoding with source and VM Unix-socket proof; activation is covered by the identified audit release.
