@@ -54,10 +54,13 @@ not authorize replaying old state over new records.
 Run the source contract against the selected binary:
 
 ```bash
-MK_CONTAINERD=/opt/mkruntime/containerd/v2.2.10/bin/containerd \
+sudo env MK_CONTAINERD=/opt/mkruntime/containerd/v2.2.10/bin/containerd \
   python3 scripts/test-runtime-containerd-config.py
 ```
 
 The contract uses config version 3 on 2.2 and version 4 on 2.3, checks the patch
 floor and verifies effective flags and handler coexistence. Other release lines
 need their own configuration/security qualification before extending this check.
+An explicitly selected unavailable binary fails; it cannot skip the check. The
+[missing-path control and corrected proof](../../evidence/runtime-20261012/g7-containerd-contract-path/README.md)
+retain that regression check alongside actual candidate parsing.

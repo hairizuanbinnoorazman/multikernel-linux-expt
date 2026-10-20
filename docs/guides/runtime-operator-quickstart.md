@@ -156,7 +156,7 @@ Run the configuration contract against the exact selected binary:
 
 ```bash
 containerd_bin=/path/to/qualified/containerd
-MK_CONTAINERD="$containerd_bin" python3 scripts/test-runtime-containerd-config.py
+sudo env MK_CONTAINERD="$containerd_bin" python3 scripts/test-runtime-containerd-config.py
 ```
 
 The [host containerd security guide](host-containerd-security.md) describes the

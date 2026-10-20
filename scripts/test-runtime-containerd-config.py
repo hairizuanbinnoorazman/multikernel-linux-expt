@@ -28,6 +28,8 @@ assert runtime["runtime_type"] == "io.containerd.multikernel.v2"
 # and prove the existing runc default plus handler coexist. This test is
 # optional on documentation-only machines, but mandatory on the GCE host.
 binary = Path(os.environ.get("MK_CONTAINERD", "/usr/bin/containerd"))
+if "MK_CONTAINERD" in os.environ:
+    assert binary.is_file() and os.access(binary, os.X_OK), "selected containerd is unavailable or not executable"
 if binary.exists():
     version = subprocess.check_output([os.fspath(binary), "--version"], text=True)
     matched = re.search(r"\s[v]?(\d+)\.(\d+)\.(\d+)(?:\s|$)", version)
