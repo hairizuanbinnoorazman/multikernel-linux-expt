@@ -68,3 +68,10 @@ they must not be hidden inside default checks.
 - `verify-g7-dind-online-evidence.py` verifies Docker Hub image identity,
   PyPI download receipts, runtime HTTPS, authority observations and cleanup
   from the retained online prototype evidence.
+
+- `collect-runtime-dependencies.py` collects private installed artifact/package/
+  license metadata using the non-executing `tools/mk-dependency-buildinfo.go`
+  inspector. `summarize-runtime-dependencies.py` exports only aggregate review
+  facts. `harden-kerf-installation.py` protects the root-owned imported source
+  tree; root `install-kerf.sh` runs it before make/pip. See the
+  [dependency and imported-code guide](../docs/guides/runtime-dependency-review.md).

@@ -86,3 +86,13 @@ connection starvation, host log I/O latency and whole-host pressure require
 separate controls and qualification. A compromised server can still write its
 existing diagnostic descriptors; the normal-peer logging policy is not a
 compromised-process write quota.
+
+The privilege contract includes code imported by the selected interpreter.
+The held Kerf entrypoint/interpreter checks do not by themselves protect an
+editable source checkout. Production Kerf source and its selected virtualenv
+must be root-owned and exclude group/other writes. The root installer protects
+its tree before make/pip and checks the result; the
+[dependency/imported-code guide](../../guides/runtime-dependency-review.md)
+provides read-only checks for both separately selected trees. Primary root
+remains trusted to maintain code, and this does not attest every system Python
+import or close full dependency/source-provenance review.
