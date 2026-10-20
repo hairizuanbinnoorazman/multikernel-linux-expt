@@ -6,6 +6,14 @@ not an independent penetration test or full G7 qualification.
 
 ## Conclusion and confidence statement
 
+**Deployment constraint, confirmed 2026-10-20:** nested virtualization is not
+allowed in the target compute instances. KVM/Firecracker inside the instance
+cannot be the remediation for the missing child-to-primary boundary. The
+[architecture constraint](../architecture.md#deployment-and-containment-constraint)
+requires separate instances for separate untrusted domains, or a separately
+reviewed execution-model change if they must share an instance. Neither is
+evidence of containment between the existing direct-boot children.
+
 The pinned architecture supports approved child kernels and trusted workloads
 on a single-tenant node. It does not establish containment after arbitrary
 child-kernel execution. No evidence presently supports a claim that this

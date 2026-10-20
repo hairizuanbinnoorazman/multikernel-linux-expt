@@ -12,6 +12,15 @@ assessment tasks do not signify that the security property passed. Use the
 
 ## Execution and evidence rules
 
+**Architecture planning constraint:** nested virtualization is not allowed in
+the target compute instances. Do not plan KVM/Firecracker inside an instance
+as the SEC-01/SEC-11 remedy. Apply the
+[deployment and containment constraint](../architecture.md#deployment-and-containment-constraint):
+direct-boot primary/children share one trust domain, separate untrusted domains
+need separate instances, and shared-instance hostile workloads require a
+separately reviewed execution-model change. G7 completion does not override
+this constraint or establish malicious-child-kernel containment.
+
 Assign an owner before starting each task. Retain exact source/binary/kernel
 hashes, configuration, initial attacker privileges, assertions, observed access,
 failures, and final ownership/resource inventory. Label portable tests and

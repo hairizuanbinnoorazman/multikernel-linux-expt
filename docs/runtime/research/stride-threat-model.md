@@ -10,6 +10,13 @@ completed live authority checks, remaining remediation, and architectural limita
 
 ## Motivation and claim to evaluate
 
+**Deployment constraint:** nested virtualization is not allowed in the target
+compute instances. KVM/microVMs inside the instance are not an available
+remediation. The primary and children share one trust domain; the cloud
+hypervisor separates instances. Security plans must follow the
+[deployment and containment constraint](../architecture.md#deployment-and-containment-constraint)
+and cannot assume nested virtualization will close TM-09/TM-12.
+
 The project's security motivation is to give workloads separate Linux kernels
 so a compromised workload has a harder path to the primary host. Treat
 "harder to escape than gVisor" as a research hypothesis requiring evidence.

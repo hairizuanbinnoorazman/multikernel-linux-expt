@@ -3,6 +3,13 @@
 This repository validates Multikernel Linux on Google Compute Engine and
 develops a Kerf-backed containerd/Kubernetes runtime from those results.
 
+**Deployment constraint: nested virtualization is not allowed in the target
+compute instances.** KVM/microVMs inside those instances are not an available
+containment solution. The primary and its Multikernel children form one trust
+domain; the outer cloud hypervisor separates instances, not sibling kernels.
+See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
+before proposing security architecture changes.
+
 Start with the [documentation map](docs/README.md). In particular:
 
 - [Project and runtime status](docs/runtime/status.md)

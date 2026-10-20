@@ -64,6 +64,13 @@ retained and remains billable.
 
 ## Safety boundary
 
+**Nested virtualization is not allowed in the target compute instances.**
+KVM/microVMs inside the instance are not an available containment plan. The
+primary and all direct-boot children share one trust domain; separate untrusted
+domains require separate compute instances, or a separately reviewed execution
+model if they must share an instance. See the
+[deployment and containment constraint](architecture.md#deployment-and-containment-constraint).
+
 The [G7 boundary assessment](research/g7-security-boundary-assessment.md)
 reproduces the pinned source audit and records fresh portable agent checks.
 It identifies an architectural limitation after child-kernel compromise and

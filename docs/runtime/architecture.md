@@ -9,6 +9,43 @@ lifecycle operations. Workload processes execute inside the child kernel.
 
 This is not a Firecracker derivative and it is not a KVM virtual machine.
 
+## Deployment and containment constraint
+
+Confirmed deployment requirement, 2026-10-20: **nested virtualization is not
+allowed in the target compute instances.** This is a constraint of this
+deployment, not a claim that every Google Compute Engine configuration lacks
+nested virtualization. Architecture proposals must work within this constraint
+unless the user explicitly changes it.
+
+Do not propose KVM, Firecracker, or another hardware-virtualized guest inside
+the compute instance as the containment plan. A hypervisor requiring control
+beneath the instance is also unavailable within this deployment. These would
+require a separately approved change of deployment requirements, not an
+incremental runtime hardening task.
+
+The cloud hypervisor bounds the entire instance. The primary and all its
+Multikernel children therefore remain one trust domain for arbitrary
+child-kernel compromise. Direct ring-0 child execution, child-controlled page
+tables, E820 allocation, and software device allowlists do not establish an
+independent barrier against that compromise. STRIDE remediation, rootless
+Docker-in-Docker, reduced workload capabilities, and passing G7 checks cannot
+by themselves establish that barrier or superiority over gVisor.
+
+Within these constraints:
+
+- Keep the direct-boot runtime scoped to trusted workloads on single-tenant
+  nodes and continue STRIDE hardening to reduce reachable attack paths.
+- If mutually untrusted workloads must be deployed, place separate trust
+  domains in separate compute instances; do not rely on sibling children for
+  that isolation. This protects other instances, not the primary from its own
+  compromised child, and still requires restricted cloud credentials, network
+  access, and shared services.
+- A requirement for mutually untrusted workloads to share an instance needs a
+  different execution model with enforcement outside workload control, such
+  as a userspace sandbox. Preserving unrestricted child ring-0 execution does
+  not meet that requirement in the current architecture. Any redesign needs
+  its own threat model and evidence; no alternative backend is qualified here.
+
 ## Boot and image ownership
 
 A Multikernel child does not boot an ISO, firmware image, bootloader, or guest

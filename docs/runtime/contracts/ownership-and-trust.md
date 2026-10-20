@@ -126,6 +126,13 @@ node executables and those explicit operator knobs remain trusted inputs.
 
 ## Threat statement
 
+Nested virtualization is not allowed in the target compute instances. KVM or
+microVMs inside an instance are therefore unavailable as a containment remedy.
+The primary and its children remain one trust domain; separate compute
+instances are the deployment boundary for mutually untrusted domains. See the
+[deployment and containment constraint](../architecture.md#deployment-and-containment-constraint)
+for the required scope of architecture proposals and alternative execution models.
+
 The operator, primary kernel, `mkruntimed`, approved Kerf binary, approved
 child kernel/initramfs, and node configuration are trusted. OCI metadata,
 bundle filesystem content, protocol bytes, sandbox identifiers, workload
