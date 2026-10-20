@@ -155,18 +155,23 @@ configuration and registry credentials private when collecting that proof.
 Run the configuration contract against the exact selected binary:
 
 ```bash
-MK_CONTAINERD=/path/to/qualified/containerd python3 scripts/test-runtime-containerd-config.py
+containerd_bin=/path/to/qualified/containerd
+MK_CONTAINERD="$containerd_bin" python3 scripts/test-runtime-containerd-config.py
 ```
+
+The [host containerd security guide](host-containerd-security.md) describes the
+qualified service override, private rollback and required live enforcement proof.
+Distribution client binaries can remain older than the selected daemon.
 
 Confirm the host's main containerd configuration imports
 `/etc/containerd/conf.d/*.toml`, then install only the supplied fragment:
 
 ```bash
-sudo containerd config dump | sed -n '1,30p'
 sudo install -d -m 0755 /etc/containerd/conf.d
 sudo install -m 0644 deploy/containerd/20-multikernel-runtime.toml \
   /etc/containerd/conf.d/20-multikernel-runtime.toml
-sudo containerd config dump | grep -A16 'runtimes.multikernel'
+sudo "$containerd_bin" config dump | \
+  grep -E 'enable_criu|enable_experimental_restore_via_create|runtimes.multikernel'
 ```
 
 Do not synthesize a partial main configuration and do not change

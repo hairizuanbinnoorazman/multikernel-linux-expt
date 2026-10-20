@@ -36,9 +36,11 @@ The rb13 normal-pool baseline passed with retained proof; its broader
 qualification remains open. The audit/journal interface and both cancellation
 fixes, native storage CID binding and decoder-error suppression now run in
 revision 80b5e73, with guarded rollback, all 19 shared features and independent
-zero/no-pool proof. The user deferred the agent-relay CID item. Next prioritize
-SEC-12 applicability/remediation of the additional containerd checkpoint advisory
-while preserving the documented CRI handler; continue SEC-08 audit/secret coverage.
+zero/no-pool proof. The user deferred the agent-relay CID item. The host now runs
+provenance-verified containerd 2.2.10 with CRIU and experimental checkpoint restore
+explicitly disabled, both CRI handlers retained, actual package rollback and all
+19 shared features proved. Next finish the SEC-12 inventory/acceptance mapping
+and disposition of remaining material findings; continue SEC-08 audit/secret coverage.
 Record findings, implement required fixes and retain exact-source verification
 against each task's acceptance criteria.
 Continue SEC-02/SEC-10 authority review, SEC-05 fuzzing, SEC-07 mediation and
@@ -587,13 +589,22 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   decision about hardware-backed isolation or the continued trusted-child scope.
 
 - [ ] **SEC-12 — Review dependencies and artifact trust (TM-11).**
+  [Host checkpoint policy remediation](../../../evidence/runtime-20261012/g7-host-containerd-security/README.md)
+  is complete: exact upstream 2.2.10 artifact provenance, isolated/live CRI
+  enforcement, preserved runc/Multikernel handlers, real package rollback and
+  nineteen-feature qualification pass on the user-restarted boot. All five
+  runtime durable hashes remain identical through deployment; package binary,
+  main config and private cold store backup are retained. Check off this scoped
+  remediation. Exact upstream scans retain 27 daemon, 19 ctr and 12 runc-shim
+  finding IDs; whole dependency/provenance/ABI acceptance remains open.
+
   [Latest exact-binary/host review](../../../evidence/runtime-20261012/g7-json-error-deployment/README.md)
   retains four advisory IDs in daemon/shim, including newly observed GO-2026-6791.
-  Runtime production graphs contain no CRI packages; the separate host runs
-  containerd2.2.2 with CRI active. Successful signed metadata refresh offers no
+  Runtime production graphs contain no CRI packages; the separate host ran
+  containerd2.2.2 with CRI active at that earlier checkpoint. Successful signed metadata refresh offers no
   newer package candidate. Checked CRIU paths are absent, which is not a patch
-  claim. Preserve the documented CRI handler while completing host backport/
-  update or targeted feature-hardening assessment. Whole SEC-12 remains open.
+  claim. The newer host qualification above supersedes that running-host
+  checkpoint while preserving its adverse baseline. Whole SEC-12 remains open.
 
   [Patched runtime deployment](../../../evidence/runtime-20261012/g7-sec12-deployment-live/README.md)
   activates clean revision0c80131 built with Go1.26.9, with actual running
