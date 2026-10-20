@@ -143,6 +143,21 @@ runtime state files to force startup.
 
 ## 6. Register the opt-in containerd runtime
 
+Use a separately qualified patched host containerd. The current security
+qualification targets upstream **2.2.10** (config version 3); 2.3.7 uses config
+version 4. The fragment disables both CRIU and experimental checkpoint restore
+through CreateContainer, while retaining the runc default and opt-in Multikernel
+handler. Older containerd releases may silently ignore these keys. Confirm both
+are false in the **running CRI service's** verbose Status response after restart;
+a successful configuration parse alone does not prove enforcement. Keep full
+configuration and registry credentials private when collecting that proof.
+
+Run the configuration contract against the exact selected binary:
+
+```bash
+MK_CONTAINERD=/path/to/qualified/containerd python3 scripts/test-runtime-containerd-config.py
+```
+
 Confirm the host's main containerd configuration imports
 `/etc/containerd/conf.d/*.toml`, then install only the supplied fragment:
 

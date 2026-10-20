@@ -1,5 +1,11 @@
 # Import-only fragment for containerd config v3 (2.2) and v4 (2.3+).
+# Requires a patched containerd that implements both controls (qualified: 2.2.10).
+# Older daemons can silently ignore unknown keys; verify the running CRI config.
 # The main config owns version/default_runtime_name and imports this file.
+[plugins.'io.containerd.cri.v1.runtime']
+  enable_criu = false
+  enable_experimental_restore_via_create = false
+
 [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.multikernel]
   runtime_type = 'io.containerd.multikernel.v2'
   runtime_path = ''
