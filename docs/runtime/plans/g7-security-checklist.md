@@ -34,11 +34,11 @@ percentages. Acceptance criteria below remain the checkoff requirements.
 
 The rb13 normal-pool baseline passed with retained proof; its broader
 qualification remains open. The audit/journal interface and both cancellation
-fixes and native storage CID binding now run in the identified revision ac8a4d1
-release, with guarded migration/rollback, all 19 shared features and independent
+fixes, native storage CID binding and decoder-error suppression now run in
+revision 80b5e73, with guarded rollback, all 19 shared features and independent
 zero/no-pool proof. The user deferred the agent-relay CID item. Next prioritize
-SEC-08 audit/secret hardening, including activation of the decoder-error
-correction, then SEC-12 dependency/artifact review.
+SEC-12 applicability/remediation of the additional containerd checkpoint advisory
+while preserving the documented CRI handler; continue SEC-08 audit/secret coverage.
 Record findings, implement required fixes and retain exact-source verification
 against each task's acceptance criteria.
 Continue SEC-02/SEC-10 authority review, SEC-05 fuzzing, SEC-07 mediation and
@@ -491,7 +491,7 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   - [x] Stop copying credential bytes into create-operation metadata, retaining stable retry/cancel identity and legacy cancellation behavior.
   - [x] Deploy the corrected credential fixes and qualify one live sandbox trace, installed-client control, all 19 ctr/Docker features and independent cleanup audit with exact source/binary proof.
   - [x] Suppress supplied field names/values/custom decoder messages in strict JSON errors, with three old controls, bounded daemon/broker wire replies, source/race/archive and UID1001 VM proof; [decoder-error correction](../../../evidence/runtime-20261012/g7-json-error-redaction/README.md). Six actual installed-service controls reproduce the old echo without durable effects.
-  - [ ] Activate the decoder-error correction and qualify matching runtime artifacts and compatibility; installed ac8a4d1 still exhibits the old synthetic echo.
+  - [x] Activate the decoder-error correction, exercise real startup selector rollback with five byte-identical state files, and qualify six corrected-service controls, all19features and final zero/no-pool/cloud audit; [qualified release proof](../../../evidence/runtime-20261012/g7-json-error-deployment/README.md). Whole SEC-08 remains open.
   - [ ] Finish production bootstrap/state/error/stdout/evidence/diagnostic secret tracing.
   - [x] Reserve bounded lifecycle completion capacity before admitting new work, with restart, old-source controls and unprivileged VM filesystem-fixture proof; activation is covered by the identified audit release.
   - [x] Implement the negotiated lifecycle audit metadata view and validate operation/outcome identity, synthetic-secret omission, pagination/restart, strict client compatibility and bounded encoding with source and VM Unix-socket proof; activation is covered by the identified audit release.
@@ -587,6 +587,14 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   decision about hardware-backed isolation or the continued trusted-child scope.
 
 - [ ] **SEC-12 — Review dependencies and artifact trust (TM-11).**
+  [Latest exact-binary/host review](../../../evidence/runtime-20261012/g7-json-error-deployment/README.md)
+  retains four advisory IDs in daemon/shim, including newly observed GO-2026-6791.
+  Runtime production graphs contain no CRI packages; the separate host runs
+  containerd2.2.2 with CRI active. Successful signed metadata refresh offers no
+  newer package candidate. Checked CRIU paths are absent, which is not a patch
+  claim. Preserve the documented CRI handler while completing host backport/
+  update or targeted feature-hardening assessment. Whole SEC-12 remains open.
+
   [Patched runtime deployment](../../../evidence/runtime-20261012/g7-sec12-deployment-live/README.md)
   activates clean revision0c80131 built with Go1.26.9, with actual running
   daemon/broker hashes and retained rollback. All nineteen ctr/Docker rows,
