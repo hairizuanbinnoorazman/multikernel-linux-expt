@@ -234,6 +234,7 @@ type Manager struct {
 	dnsManaged    bool
 	dnsPath       string
 	policySet     bool
+	dockerGuest   bool
 	signalProcess func(int, syscall.Signal) error
 	signalResults map[string]signalResult
 	signalOrder   []string
@@ -243,6 +244,32 @@ type Manager struct {
 func NewManager(noChroot bool) *Manager {
 	return &Manager{processes: map[string]*process{}, networkExec: runNetworkCommand,
 		dnsPath: "/bundle/rootfs/etc/resolv.conf", signalProcess: syscall.Kill, NoChroot: noChroot}
+}
+
+// NewDockerGuestManager fixes the workload identity for the approved rootless
+// profile. Guest UID 0 is bootstrap authority, not a Docker client identity.
+func NewDockerGuestManager() *Manager {
+	m := NewManager(false)
+	m.dockerGuest = true
+	return m
+}
+
+func validateDockerGuestProcess(spec ProcessSpec) error {
+	if spec.User.UID != 1000 || spec.User.GID != 1000 {
+		return errorf(unsupported, "Docker guest workloads require UID and GID 1000")
+	}
+	for _, gid := range spec.User.AdditionalGids {
+		if gid != 1000 {
+			return errorf(unsupported, "Docker guest supplementary group is outside fixed identity")
+		}
+	}
+	if spec.Capabilities != nil {
+		return errorf(unsupported, "Docker guest workloads may not provide a capability contract")
+	}
+	if spec.NoNewPrivileges != nil && !*spec.NoNewPrivileges {
+		return errorf(unsupported, "Docker guest workloads require no-new-privileges")
+	}
+	return nil
 }
 
 func strictJSON(path string, v any) error {
@@ -385,6 +412,11 @@ func (m *Manager) Create(id, bundle string) error {
 	if len(m.processes) >= maxProcesses {
 		return errorf(failedPrecondition, "process retention limit reached")
 	}
+	if m.dockerGuest {
+		if err := validateDockerGuestProcess(c.Process); err != nil {
+			return err
+		}
+	}
 	if !m.policySet {
 		if m.NoChroot && (c.Hostname != "" || c.Root.Readonly != nil || c.Linux != nil || len(c.Mounts) != 0) {
 			return errorf(failedPrecondition, "root policy cannot be applied in no-chroot test mode")
@@ -409,6 +441,11 @@ func (m *Manager) Exec(id, parentID string, spec ProcessSpec) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.dockerGuest {
+		if err := validateDockerGuestProcess(spec); err != nil {
+			return err
+		}
+	}
 	parent, ok := m.processes[parentID]
 	if !ok {
 		return errorf(notFound, "parent process not found")
@@ -520,6 +557,12 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	if p.state.Status != "CREATED" {
 		m.mu.Unlock()
 		return errorf(failedPrecondition, "process is not created")
+	}
+	if m.dockerGuest {
+		if err := validateDockerGuestProcess(p.spec); err != nil {
+			m.mu.Unlock()
+			return err
+		}
 	}
 	if !sizeSet && p.spec.ConsoleSize != nil {
 		width, height, sizeSet = p.spec.ConsoleSize.Width, p.spec.ConsoleSize.Height, true

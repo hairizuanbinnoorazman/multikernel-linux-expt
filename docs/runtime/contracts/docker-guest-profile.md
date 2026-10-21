@@ -33,6 +33,25 @@ object, including its artifact objects. Case aliases such as `DOCKER_GUEST`,
 `KIND` or `PATH` are refused. They must not shadow a real approval with null or
 give the two parsers different interpretations of the same document.
 
+## Workload identity
+
+The approved rootless profile reserves guest UID 0 for bootstrap/control. Docker
+client workloads require UID/GID 1000, supplementary groups limited to 1000 and
+no-new-privileges. Both production builder preflight and the agent enforce this
+policy; agent create, exec and start cannot select bootstrap identity. Inner
+Docker build containers run under the engine's separate rootless mappings.
+
+The existing non-root capability-contract restriction still applies: capability
+objects, including explicit empty objects, are refused. Capability projection
+from ordinary host Docker specs must be qualified before production activation;
+these admission checks alone do not prove that workflow. Generic workload paths
+keep their existing contract.
+
+Root-owned copies alone cannot isolate arbitrary guest UID 0. This profile's
+separate workload identity protects outer bootstrap/control ownership without
+granting workload access to root's procfs handles. Read-only sealing and complete
+child process authority still need qualification.
+
 ## Activation status
 
 Approval validation now includes a fresh scan of the held source filesystem.
@@ -110,3 +129,9 @@ not seal these copies against guest UID 0. Production boot must also protect
 outer code and privileged procfs identities before accepting workloads; neither
 read-only sealing nor complete process authority isolation is qualified by this
 preparation proof.
+
+Native relay and storage helpers now establish and read back non-dumpability
+before opening endpoints/devices. The storage client proxy inherits that state;
+the primary server also retains its post-privilege-drop guard. This protects
+same-UID procfs access to these helper processes and does not by itself protect
+all guest processes or qualify the complete Docker lifecycle.

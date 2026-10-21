@@ -69,6 +69,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Docker service requires the trusted guest root")
 			os.Exit(2)
 		}
+		s.Manager = agent.NewDockerGuestManager()
 		service, startErr := startDockerGuest(ctx)
 		if startErr != nil {
 			if service != nil {

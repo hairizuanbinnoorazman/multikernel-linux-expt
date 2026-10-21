@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Bind an approved Docker profile to a held-root scan and safe copied inputs."""
+import argparse
 import hashlib
 import bisect
 import json
@@ -360,15 +361,38 @@ def prepare_outer(source, root_bytes, output, required_uid=0):
             "file_sha256": {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}}
 
 
+def validate_workload(config):
+    process = config.get("process") if isinstance(config, dict) else None
+    user = process.get("user") if isinstance(process, dict) else None
+    if (not isinstance(user, dict) or type(user.get("uid")) is not int
+            or type(user.get("gid")) is not int or user["uid"] != 1000 or user["gid"] != 1000):
+        raise ApprovalError("Docker guest workloads require UID and GID 1000")
+    groups = user.get("additionalGids", [])
+    if not isinstance(groups, list) or any(type(gid) is not int or gid != 1000 for gid in groups):
+        raise ApprovalError("Docker guest supplementary group is outside fixed identity")
+    if process.get("capabilities") is not None:
+        raise ApprovalError("Docker guest workloads may not provide a capability contract")
+    if "noNewPrivileges" in process and process["noNewPrivileges"] is not True:
+        raise ApprovalError("Docker guest workloads require no-new-privileges")
+
+
 def main():
-    if len(sys.argv) not in (4, 7) or len(sys.argv) == 7 and sys.argv[4] != "--prepare-outer":
-        raise ApprovalError("bootstrap, held-root manifest and bind plan required")
-    bootstrap = json.loads(read_metadata(sys.argv[1]), object_pairs_hook=strict_object)
-    root = read_metadata(sys.argv[2])
-    plan = json.loads(read_metadata(sys.argv[3]), object_pairs_hook=strict_object)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("bootstrap")
+    parser.add_argument("manifest")
+    parser.add_argument("bind_plan")
+    parser.add_argument("--prepare-outer", nargs=2, metavar=("SOURCE", "OUTPUT"))
+    parser.add_argument("--workload-config")
+    args = parser.parse_args()
+    bootstrap = json.loads(read_metadata(args.bootstrap), object_pairs_hook=strict_object)
+    root = read_metadata(args.manifest)
+    plan = json.loads(read_metadata(args.bind_plan), object_pairs_hook=strict_object)
     result = validate(bootstrap, root, plan)
-    if len(sys.argv) == 7:
-        result["outer_helpers"] = prepare_outer(sys.argv[5], root, sys.argv[6])
+    if args.workload_config:
+        validate_workload(json.loads(read_metadata(args.workload_config), object_pairs_hook=strict_object))
+        result["workload_identity_bound"] = True
+    if args.prepare_outer:
+        result["outer_helpers"] = prepare_outer(args.prepare_outer[0], root, args.prepare_outer[1])
     print(json.dumps(result, sort_keys=True))
 
 if __name__ == "__main__":

@@ -115,6 +115,7 @@ if jq -e 'has("docker_guest")' "$bootstrap" >/dev/null; then
 		--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
 		>"$metadata/docker-source-result.json"
 	run_python validate-runtime-docker-root.py "$bootstrap" "$source_before_manifest" "$bind_plan" \
+		--workload-config "$validated_config" \
 		--prepare-outer "$source_root" "$metadata/docker-outer" \
 		>"$metadata/docker-source-approval.json"
 	echo 'Docker guest activation requires a qualified profile supervisor' >&2
