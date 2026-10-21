@@ -158,3 +158,9 @@ filter synchronizes all threads and persists across exec. Workloads retain only
 stdio and the bootstrap only its verified script at fd3. Control agent/relay/NBD
 processes keep their separate transport role. Complete child integration remains
 unqualified until boot/build and adversarial live checks pass.
+
+The [installed transport qualification](../../../evidence/runtime-20261021/g8-guest-transport/README.md)
+checks real manager chroot workloads, privileged bootstrap execution, inherited
+socket removal, exec inheritance and deliberate installation failure on the
+restarted GCE primary kernel. It qualifies this process prerequisite; actual
+child-engine startup/build and complete gate closure remain open.
