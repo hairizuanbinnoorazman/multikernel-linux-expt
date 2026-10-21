@@ -1,5 +1,10 @@
 # Online Python builds in a multikernel Docker guest
 
+The [deployment constraint](../architecture.md#deployment-and-containment-constraint)
+excludes nested virtualization in the target cloud instances. This profile uses
+a direct child kernel. Its network and Docker checks do not establish isolation
+from the primary after arbitrary child-kernel compromise.
+
 The approved online diagnostic profile extends the
 [offline Docker guest](docker-in-docker-guests.md) with outbound DNS and HTTPS.
 The [small Python example](../../../examples/guest-python-online/README.md)

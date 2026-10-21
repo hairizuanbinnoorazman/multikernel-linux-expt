@@ -164,6 +164,11 @@ for `mk2`.
 
 ## Architecture
 
+Nested virtualization is unavailable under this deployment's target-instance
+constraints. KVM/microVMs inside the instance are therefore not a remediation
+path. This is a deployment requirement, not a universal claim about GCE support.
+See the [deployment and containment constraint](../runtime/architecture.md#deployment-and-containment-constraint).
+
 Multikernel is not nested virtualization. The layout on GCE is:
 
 ```text

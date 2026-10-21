@@ -1,5 +1,13 @@
 # Docker-in-Docker in a multikernel guest
 
+The [deployment constraint](../architecture.md#deployment-and-containment-constraint)
+excludes nested virtualization inside the target cloud instances. This design
+therefore uses direct Multikernel children, not KVM/microVM guests inside the
+instance. The host engine manages outer workloads; inner builds must use only
+the child-local Docker engine and storage. The primary and children remain one
+trust domain after arbitrary child-kernel compromise; successful inner builds
+and workload restrictions do not prove that stronger containment boundary.
+
 An experimental approved Docker guest starts its own rootless Docker Engine.
 The client uses the normal local socket, so user commands are ordinary Docker:
 

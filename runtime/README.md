@@ -1,5 +1,11 @@
 # Runtime workspace
 
+The target cloud instances do not permit nested virtualization. This runtime
+uses direct child kernels; the primary and children share a trust domain after
+arbitrary child-kernel compromise. See the
+[deployment constraint](../docs/runtime/architecture.md#deployment-and-containment-constraint)
+and [Docker guest scope](../docs/runtime/research/docker-in-docker-guests.md).
+
 This directory contains the G0-G6 Multikernel runtime MVP described
 in [`../docs/runtime/architecture.md`](../docs/runtime/architecture.md). Host
 qualification, the Kerf control plane, child OCI agent, deterministic private

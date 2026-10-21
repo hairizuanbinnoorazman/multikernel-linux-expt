@@ -10,6 +10,15 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+This deployment uses direct child kernels because nested virtualization is
+unavailable under its cloud-instance constraints. Host Docker selects the
+Multikernel runtime; Docker builds inside an approved Docker guest must use
+that child's local engine and storage, without the host Docker socket.
+The prepared Docker-in-Docker profile is experimental and production shim
+integration remains open. Passing Docker builds does not prove containment
+after child-kernel compromise. See the
+[Docker guest design and evidence](docs/runtime/research/docker-in-docker-guests.md).
+
 Start with the [documentation map](docs/README.md). In particular:
 
 - [Project and runtime status](docs/runtime/status.md)

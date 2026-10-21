@@ -6,6 +6,13 @@ Turn the proven runtime into a system that an operator can inspect, diagnose,
 and recover without reading implementation code or relying on test-only shell
 harnesses.
 
+The [deployment constraint](../architecture.md#deployment-and-containment-constraint)
+excludes nested virtualization inside the cloud instance. G8 must operationalize
+the direct-child-kernel runtime within that constraint. For Docker-in-Docker,
+inspect generation-bound child ownership and preserve the guest-local engine,
+socket and build-storage boundary; never substitute the host Docker socket.
+Operational checks do not establish containment after child-kernel compromise.
+
 ## Operational interface
 
 - Add a read-only doctor/inspect command that reports component revisions,
