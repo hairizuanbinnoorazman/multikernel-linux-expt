@@ -256,7 +256,18 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "capabilities body must be an empty object"}
 			break
 		}
-		out.Body = protocol.DaemonCapabilities{ProtocolVersion: protocol.Version, Features: []string{protocol.LifecycleAuditCapability}}
+		out.Body = protocol.DaemonCapabilities{ProtocolVersion: protocol.Version, Features: []string{protocol.LifecycleAuditCapability, protocol.OwnershipCapability}}
+	case "InspectOwnership":
+		var empty struct{}
+		if len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "ownership body must be an empty object"}
+			break
+		}
+		var report protocol.OwnershipReport
+		report, out.Error = s.Service.Ownership()
+		if out.Error == nil {
+			out.Body = report
+		}
 	case "ReadAuditEvents":
 		var query protocol.AuditQuery
 		if protocol.StrictDecode(r.Body, &query) != nil {

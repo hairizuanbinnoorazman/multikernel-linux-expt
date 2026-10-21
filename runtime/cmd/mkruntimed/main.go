@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -106,6 +107,7 @@ func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
+	inspectOwnership := flag.Bool("inspect-ownership", false, "print bounded read-only durable ownership JSON and exit")
 	flag.StringVar(&configPath, "config", "/etc/mkruntime/config.json", "strict root-owned host configuration")
 	flag.StringVar(&pool, "pool-cpus", "", "comma-separated pool APIC IDs")
 	flag.StringVar(&poolmem, "pool-memory", "16GB", "Kerf pool memory")
@@ -126,6 +128,19 @@ func main() {
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
 	timeout := hostConfig.BackendTimeout()
+	if *inspectOwnership {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		report, err := daemon.InspectOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err = json.NewEncoder(os.Stdout).Encode(report); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	ids, e := cpus(pool)
 	if e != nil || len(ids) == 0 {
 		fmt.Fprintln(os.Stderr, "--pool-cpus is required and must be comma-separated integers")
