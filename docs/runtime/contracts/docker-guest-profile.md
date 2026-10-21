@@ -73,8 +73,11 @@ record portable checks and validation against installed GCE artifacts. They do
 not qualify Docker activation or the whole G8 gate.
 
 The [guest service scope primitive](../../../runtime/internal/guestscope/README.md)
-provides finite cgroup limits and owned descendant shutdown. Wiring it into the
-agent and qualifying the complete Docker lifecycle remain required.
+provides finite cgroup limits and owned descendant shutdown. The [engine supervisor](../../../runtime/internal/dockerengine/README.md) now
+uses it in the explicit agent startup path, with bounded logs, socket peer
+identity, Docker API readiness and stop-before-storage ordering. Protected
+outer-root preparation, production boot integration and qualification of the
+complete Docker lifecycle remain required.
 
 The [GCE source-binding and scope receipts](../../../evidence/runtime-20261021/g8-docker-source-scope/README.md)
 qualify held-root binding and copy-input refusal in the builder, plus cgroup

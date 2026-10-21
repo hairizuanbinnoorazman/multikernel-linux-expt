@@ -1,8 +1,8 @@
 # Guest service process scope
 
 This Linux package supplies the cgroup ownership primitive for a supervised
-Docker engine inside a child kernel. It is not yet wired into `mk-agent` startup;
-production Docker profile activation remains refused.
+Docker engine inside a child kernel. It is used by the explicit `mk-agent --docker-guest` supervisor path;
+production builder activation remains refused pending protected boot preparation.
 
 `New` exclusively creates a protected cgroup-v2 leaf under a protected real
 parent. Memory/pids controllers must already be enabled by trusted boot setup.
@@ -33,3 +33,8 @@ and [deployment constraint](../../../docs/runtime/architecture.md#deployment-and
 still apply. Guest process resource controls do not establish containment after
 arbitrary child-kernel compromise; nested virtualization is unavailable in the
 target cloud instances.
+
+`ContainsLivePeer` checks a socket-provided live peer pidfd and direct cgroup
+membership with a bounded population read. The supervisor obtains both peer
+credentials and pidfd from the same Unix socket; numeric PIDs alone are not
+authority. No nested cgroup delegation is permitted.

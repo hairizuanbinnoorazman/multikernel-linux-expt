@@ -51,12 +51,16 @@ func writeControl(directory int, name, value string) error {
 	return err
 }
 func readControl(directory int, name string) (string, error) {
+	return readBoundedControl(directory, name, 4096)
+}
+
+func readBoundedControl(directory int, name string, limit int) (string, error) {
 	fd, err := unix.Openat(directory, name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if err != nil {
 		return "", err
 	}
 	defer unix.Close(fd)
-	var buffer [4097]byte
+	buffer := make([]byte, limit+1)
 	total := 0
 	for total < len(buffer) {
 		n, e := unix.Read(fd, buffer[total:])
@@ -68,7 +72,7 @@ func readControl(directory int, name string) (string, error) {
 			break
 		}
 	}
-	if total > 4096 {
+	if total > limit {
 		return "", errors.New("service control exceeds bound")
 	}
 	return strings.TrimSpace(string(buffer[:total])), nil
@@ -281,4 +285,47 @@ func (s *Scope) Stop(ctx context.Context) error {
 	}
 	s.closed = true
 	return errors.Join(unix.Close(s.directory), unix.Close(s.parent))
+}
+
+// ContainsLivePeer checks an exact socket peer obtained using SO_PEERPIDFD and
+// SO_PEERCRED. The caller retains the pidfd until its socket operation completes.
+// This non-delegated scope admits no nested cgroups. Numeric PIDs alone never
+// authorize a peer; a live pinned process must appear in this owned group.
+func (s *Scope) ContainsLivePeer(pid int, pidfd int) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.owned {
+		return false, ErrIdentity
+	}
+	if s.closed || s.closing {
+		return false, ErrClosed
+	}
+	if pid <= 0 || pidfd < 0 {
+		return false, errors.New("invalid service peer")
+	}
+	alive := func() (bool, error) {
+		events := []unix.PollFd{{Fd: int32(pidfd), Events: unix.POLLIN}}
+		n, err := unix.Poll(events, 0)
+		return n == 0, err
+	}
+	if ok, err := alive(); err != nil || !ok {
+		return false, err
+	}
+	// pids.max is bounded at 4096. A conservative 32 bytes per entry covers
+	// every Linux PID without unbounded allocation or inventory disclosure.
+	text, err := readBoundedControl(s.directory, "cgroup.procs", 4096*32)
+	if err != nil {
+		return false, err
+	}
+	found := false
+	for _, line := range strings.Fields(text) {
+		if line == strconv.Itoa(pid) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false, nil
+	}
+	return alive()
 }
