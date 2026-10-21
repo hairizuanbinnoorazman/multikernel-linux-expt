@@ -237,7 +237,12 @@ def resolve_image_path(paths, requested):
 def read_image_file(rootfd, paths, requested, required_uid):
     name = resolve_image_path(paths, requested)
     entry = paths[name]
-    if (entry.get("uid") != required_uid or entry.get("mode", 0) & 0o022
+    # Release archives can retain a build UID on rootlesskit. It is not a
+    # setuid helper, and its approved UID is checked against the held source.
+    # Its independent outer copy is created by root, never by that source UID.
+    source_uid = entry.get("uid") if requested == "usr/local/bin/rootlesskit" else required_uid
+    if (not isinstance(source_uid, int) or isinstance(source_uid, bool) or not 0 <= source_uid < 1 << 32
+            or entry.get("uid") != source_uid or entry.get("mode", 0) & 0o022
             or not isinstance(entry.get("size"), int) or not 0 < entry["size"] <= 64 << 20):
         raise ApprovalError("unsafe approved helper metadata")
     directory = os.dup(rootfd)

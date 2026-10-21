@@ -95,6 +95,15 @@ class OuterTests(unittest.TestCase):
         for target in ['../outside','/bundle/rootfs/usr/lib','lib']:
             paths['lib']['target']=target
             with self.assertRaises(Error):module['resolve_image_path'](paths,'lib/libc.so')
+    def test_rootlesskit_approved_build_uid_is_data_only(self):
+        paths={entry['path']:entry for entry in json.loads(self.scan())['entries']}
+        fd=os.open(self.root,os.O_RDONLY|os.O_DIRECTORY)
+        self.addCleanup(os.close,fd)
+        # Even with root required for privileged helpers, a non-setuid
+        # rootlesskit release can retain its approved build UID on source.
+        self.assertEqual(module['read_image_file'](fd,paths,'usr/local/bin/rootlesskit',0),self.files['usr/local/bin/rootlesskit'])
+        if os.geteuid()!=0:
+            with self.assertRaises(Error):module['read_image_file'](fd,paths,'usr/bin/newuidmap',0)
     def test_destination_never_adopted(self):
         out=self.base/'outer';out.mkdir();(out/'sentinel').write_text('keep')
         with self.assertRaises(FileExistsError):self.prepare()

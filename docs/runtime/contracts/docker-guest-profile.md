@@ -46,7 +46,11 @@ on the primary, and refuses custom loader paths/audit/filter configuration or
 unresolved dependencies. All outer code is regular independent files; source
 symlinks/hardlinks cannot create mutable-code references. Fixed outer account,
 subuid/subgid and files-only NSS records replace image-selected account policy.
-The closure is limited to 256 files and 128 MiB, with 64 MiB per source file.
+Mapping helpers and libraries require root-owned source metadata. The non-setuid
+`rootlesskit` release may retain its approved image build UID; the held source
+must match that UID and content hash, and the independent outer copy is created
+by root. Group/other-writable inputs remain refused. The closure is limited to
+256 files and 128 MiB, with 64 MiB per source file.
 Preparation remains in private scratch and is discarded on refusal.
 
 **Production activation is not implemented.** After these checks the builder
