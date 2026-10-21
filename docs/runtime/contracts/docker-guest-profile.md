@@ -102,3 +102,11 @@ The [supervisor qualification](../../../evidence/runtime-20261021/g8-docker-supe
 records synthetic UID-1000 readiness endpoints on the restarted GCE primary
 kernel, including foreign-cgroup refusal and cleanup. Actual child Docker
 activation/builds remain unqualified.
+
+The [real-image outer-helper proof](../../../evidence/runtime-20261021/g8-docker-outer/README.md)
+qualifies independent data-only preparation, source mutation refusal and custom
+loader refusal against the pinned rootless Docker image. Ownership alone does
+not seal these copies against guest UID 0. Production boot must also protect
+outer code and privileged procfs identities before accepting workloads; neither
+read-only sealing nor complete process authority isolation is qualified by this
+preparation proof.
