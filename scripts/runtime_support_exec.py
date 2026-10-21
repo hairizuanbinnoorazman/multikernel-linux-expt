@@ -12,7 +12,7 @@ HELPERS = frozenset((
     "validate-runtime-oci.py", "validate-runtime-bootstrap.py",
     "validate-runtime-root.py", "validate-runtime-image.py", "build-runtime-rootfs.py",
     "build-runtime-storage.py", "materialize-runtime-binds.py",
-    "runtime-storage-identity.py", "verify-runtime-rootfs.py",
+    "runtime-storage-identity.py", "verify-runtime-rootfs.py", "validate-runtime-docker-root.py",
 ))
 
 

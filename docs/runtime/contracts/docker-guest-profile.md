@@ -35,11 +35,16 @@ give the two parsers different interpretations of the same document.
 
 ## Activation status
 
-This increment establishes approval validation. **Production activation is not
-implemented.** The production builder explicitly refuses any `docker_guest`
-approval before source-root copying or storage construction. It must not ignore
+Approval validation now includes a fresh scan of the held source filesystem.
+The production builder compares its deterministic manifest digest to approval,
+permits copied contexts only under `/work` plus the three standard Docker
+metadata seeds, and rejects image symlinks/hardlinks at or below those targets.
+**Production activation is not implemented.** After these checks the builder
+still refuses activation before source-root copying or storage construction. It must not ignore
 this field and launch an ordinary workload in place of the requested Docker
-service. Approval alone is not source-image verification or daemon readiness.
+service. Approval metadata alone is not source-image verification or daemon
+readiness; the held scan and eventual copied-root verification are separate
+requirements.
 
 Activation requires a supervised, fixed bootstrap path, verification that the
 held source-root manifest matches approval, protected outer-root installation,
@@ -66,3 +71,7 @@ open.
 The [scoped approval/refusal receipts](../../../evidence/runtime-20261021/g8-docker-profile/README.md)
 record portable checks and validation against installed GCE artifacts. They do
 not qualify Docker activation or the whole G8 gate.
+
+The [guest service scope primitive](../../../runtime/internal/guestscope/README.md)
+provides finite cgroup limits and owned descendant shutdown. Wiring it into the
+agent and qualifying the complete Docker lifecycle remain required.

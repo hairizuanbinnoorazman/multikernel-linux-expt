@@ -17,6 +17,7 @@ SUPPORT = (
     "materialize-runtime-binds.py", "runtime-storage-identity.py",
     "verify-runtime-rootfs.py", "runtime_safe_publish.py",
     "runtime_support_exec.py",
+    "validate-runtime-docker-root.py",
 )
 
 

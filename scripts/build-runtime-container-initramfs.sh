@@ -43,7 +43,7 @@ while :; do
 	support_directory=${support_directory%/*}
 	[[ -n $support_directory ]] || support_directory=/
 done
-for support_name in validate-runtime-oci.py validate-runtime-bootstrap.py \
+for support_name in validate-runtime-oci.py validate-runtime-bootstrap.py validate-runtime-docker-root.py \
 	validate-runtime-root.py validate-runtime-image.py build-runtime-rootfs.py \
 	build-runtime-storage.py materialize-runtime-binds.py runtime-storage-identity.py \
 	verify-runtime-rootfs.py runtime_safe_publish.py runtime_support_exec.py; do
@@ -94,9 +94,28 @@ busybox=${BUSYBOX:-$(command -v busybox)}
 nbd_helper=${MK_NBD_HELPER:-/usr/local/libexec/multikernel/mkvsock-nbd}
 bootstrap=$metadata/bootstrap.json
 run_python validate-runtime-bootstrap.py "$manifest" "$manifest_name" >"$bootstrap"
-# Approval is explicit and versioned. Never silently turn an approved Docker
-# profile into an ordinary workload when this builder lacks its supervisor.
+open_source_root() {
+	source_validation=$(run_python validate-runtime-root.py "$bundle" "$validated_config" --json)
+	source_root=$(jq -er '.path' <<<"$source_validation")
+	source_device=$(jq -er '.device' <<<"$source_validation")
+	source_inode=$(jq -er '.inode' <<<"$source_validation")
+	exec {source_root_fd}<"$source_root"
+	read -r observed_device observed_inode < <(stat -Lc '%d %i' "/proc/self/fd/$source_root_fd")
+	if [[ $observed_device != "$source_device" || $observed_inode != "$source_inode" ]]; then
+		echo 'OCI source root identity changed before descriptor acquisition' >&2
+		exit 1
+	fi
+	source_root=/proc/self/fd/$source_root_fd
+}
+# Compare the actual held image, not a caller-supplied digest or an image tag.
+# Activation remains refused until its supervisor is integrated and qualified.
 if jq -e 'has("docker_guest")' "$bootstrap" >/dev/null; then
+	open_source_root
+	run_python build-runtime-rootfs.py "$source_root" "$metadata/unused" "$source_before_manifest" --manifest-only \
+		--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
+		>"$metadata/docker-source-result.json"
+	run_python validate-runtime-docker-root.py "$bootstrap" "$source_before_manifest" "$bind_plan" \
+		>"$metadata/docker-source-approval.json"
 	echo 'Docker guest activation requires a qualified profile supervisor' >&2
 	exit 1
 fi
@@ -130,17 +149,7 @@ install -m 0755 "$guest_init" "$root/init"
 # Containerd remains the registry, content, layer, and snapshot owner. The
 # source is mounted read-only by the adapter and scanned before and after copy.
 root_path=$(jq -er '.root.path' "$validated_config")
-source_validation=$(run_python validate-runtime-root.py "$bundle" "$validated_config" --json)
-source_root=$(jq -er '.path' <<<"$source_validation")
-source_device=$(jq -er '.device' <<<"$source_validation")
-source_inode=$(jq -er '.inode' <<<"$source_validation")
-exec {source_root_fd}<"$source_root"
-read -r observed_device observed_inode < <(stat -Lc '%d %i' "/proc/self/fd/$source_root_fd")
-if [[ $observed_device != "$source_device" || $observed_inode != "$source_inode" ]]; then
-	echo 'OCI source root identity changed before descriptor acquisition' >&2
-	exit 1
-fi
-source_root=/proc/self/fd/$source_root_fd
+open_source_root
 if [[ $root_path = /* ]]; then
 	reported_source_root=$root_path
 else

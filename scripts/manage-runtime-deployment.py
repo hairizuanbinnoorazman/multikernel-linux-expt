@@ -27,6 +27,7 @@ ASSETS = {
     "libexec/validate-runtime-oci.py": REPO / "scripts/validate-runtime-oci.py",
     "libexec/materialize-runtime-binds.py": REPO / "scripts/materialize-runtime-binds.py",
     "libexec/validate-runtime-bootstrap.py": REPO / "scripts/validate-runtime-bootstrap.py",
+    "libexec/validate-runtime-docker-root.py": REPO / "scripts/validate-runtime-docker-root.py",
     "libexec/validate-runtime-root.py": REPO / "scripts/validate-runtime-root.py",
     "libexec/validate-runtime-image.py": REPO / "scripts/validate-runtime-image.py",
     "libexec/build-runtime-rootfs.py": REPO / "scripts/build-runtime-rootfs.py",
@@ -52,6 +53,7 @@ LINKS = {
     Path("/usr/local/libexec/multikernel/validate-runtime-oci.py"): "libexec/validate-runtime-oci.py",
     Path("/usr/local/libexec/multikernel/materialize-runtime-binds.py"): "libexec/materialize-runtime-binds.py",
     Path("/usr/local/libexec/multikernel/validate-runtime-bootstrap.py"): "libexec/validate-runtime-bootstrap.py",
+    Path("/usr/local/libexec/multikernel/validate-runtime-docker-root.py"): "libexec/validate-runtime-docker-root.py",
     Path("/usr/local/libexec/multikernel/validate-runtime-root.py"): "libexec/validate-runtime-root.py",
     Path("/usr/local/libexec/multikernel/validate-runtime-image.py"): "libexec/validate-runtime-image.py",
     Path("/usr/local/libexec/multikernel/build-runtime-rootfs.py"): "libexec/build-runtime-rootfs.py",
@@ -67,11 +69,12 @@ LINKS = {
 EXECUTABLES = {name for name in ASSETS if name.startswith("libexec/")}
 CURRENT_FILES = frozenset(LINKS.values())
 KNOWN_FILE_SETS = {
-    CURRENT_FILES - frozenset(missing) - frozenset(modules)
+    CURRENT_FILES - frozenset(missing) - frozenset(modules) - frozenset(docker)
     for missing in ((), ("libexec/validate-runtime-storage-mount.py",),
                     ("libexec/runtime_support_exec.py",),
                     ("libexec/runtime_support_exec.py", "libexec/validate-runtime-storage-mount.py"))
     for modules in ((), ("systemd/multikernel-modules.service",))
+    for docker in ((), ("libexec/validate-runtime-docker-root.py",))
 }
 ENV_KEYS = {
     "MKRUNTIME_POOL_CPUS", "MKRUNTIME_POOL_MEMORY", "MKRUNTIME_POOL_MEMORY_RESERVE",
