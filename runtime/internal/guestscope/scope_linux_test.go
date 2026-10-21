@@ -82,7 +82,7 @@ func TestInstalledScopeContainsAndStopsSessions(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer func() { _ = outside.Process.Kill(); _ = outside.Wait() }()
-	command := exec.Command("/bin/sh", "-c", `setsid /bin/sh -c 'echo $$ > "$1"; exec /bin/sleep 300' detached "$1" & wait`, "scope-proof", ready)
+	command := exec.Command("/bin/sh", "-c", `/usr/bin/setsid /bin/sh -c 'echo $$ > "$1.tmp"; /bin/mv "$1.tmp" "$1"; exec /bin/sleep 300' detached "$1" & wait`, "scope-proof", ready)
 	if e = s.Start(command); e != nil {
 		t.Fatal(e)
 	}
