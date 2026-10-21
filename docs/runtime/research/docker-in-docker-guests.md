@@ -91,6 +91,10 @@ qualifies a bounded Docker Hub pull, HTTPS PyPI installation and runtime HTTPS
 request in a dedicated online diagnostic profile. The remaining production
 network/storage/lifecycle limits above still apply.
 
+The [approved Docker profile contract](../contracts/docker-guest-profile.md) now
+validates operator approval and explicitly refuses production activation until
+the supervised bootstrap path is implemented. It is not a Docker startup result.
+
 Production integration requires an explicit approved Docker profile, immutable
 bootstrap inputs, daemon/socket lifecycle and authorization review, and the usual
 storage/network compatibility matrix. No generic privileged startup hook was

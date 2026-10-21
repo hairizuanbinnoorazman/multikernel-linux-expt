@@ -351,6 +351,33 @@ def initramfs_identity(manifest, required_uid, skip_parent_safety=False):
                        skip_parent_safety, (512 << 20) + (1 << 20)) as stream:
         verify_boot_components(stream, required)
 
+
+def docker_guest_profile(value, release, required_uid, skip_parent_safety=False, skip_modinfo=False):
+    exact_fields(value, ["kind", "rootfs_manifest_sha256", "bootstrap", "modules"])
+    if (value["kind"] != "docker-rootless-offline-v1"
+            or not isinstance(value["rootfs_manifest_sha256"], str)
+            or re.fullmatch(r"[a-f0-9]{64}", value["rootfs_manifest_sha256"]) is None):
+        raise ValueError("Docker guest kind or root filesystem approval is invalid")
+    bootstrap = value["bootstrap"]
+    exact_fields(bootstrap, ["path", "sha256"])
+    with verified_file(bootstrap["path"], bootstrap["sha256"], required_uid,
+                       skip_parent_safety, 4 << 20) as source:
+        prefix = b"#!/bin/busybox sh\n"
+        if source.read(len(prefix)) != prefix:
+            raise ValueError("Docker guest bootstrap must use the fixed guest BusyBox interpreter")
+    modules = value["modules"]
+    exact_fields(modules, ["llc", "stp", "bridge", "veth"])
+    for name, selected in modules.items():
+        path = artifact(selected, required_uid, skip_parent_safety)
+        if not skip_modinfo:
+            observed = subprocess.check_output(["modinfo", "-F", "name", path], text=True, timeout=10)
+            vermagic = subprocess.check_output(["modinfo", "-F", "vermagic", path], text=True, timeout=10)
+            if (observed != name + "\n" or not vermagic.endswith("\n")
+                    or "\n" in vermagic[:-1] or "\r" in vermagic
+                    or not vermagic.startswith(release + " ")):
+                raise ValueError("Docker guest module differs from its approved name or child release")
+    return value
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest")
@@ -368,7 +395,7 @@ def main():
     exact_fields(
         manifest,
         ["schema_version", "name", "architecture", "kernel_release", "compatibility", "kernel", "initramfs", "agent", "relay", "transport", "protocol", "required_config", "oci_features"],
-        ["modules"],
+        ["modules", "docker_guest"],
     )
     if manifest["schema_version"] != 1 or manifest["name"] != args.expected_name or manifest["architecture"] != "amd64":
         raise ValueError("manifest identity or architecture is incompatible")
@@ -403,7 +430,7 @@ def main():
             if (selected == module and name != "mk_transport") or not name or "\n" in name or "\n" in vermagic or not vermagic.startswith(manifest["kernel_release"] + " "):
                 raise ValueError("module name or kernel release is incompatible")
     initramfs_identity(manifest, args.required_uid, args.skip_parent_safety)
-    print(json.dumps({
+    result = {
         "manifest": str(manifest_path),
         "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
         "architecture": manifest["architecture"],
@@ -415,7 +442,12 @@ def main():
         "agent": agent,
         "relay": relay,
         "module": module,
-    }, sort_keys=True))
+    }
+    if "docker_guest" in manifest:
+        result["docker_guest"] = docker_guest_profile(
+            manifest["docker_guest"], manifest["kernel_release"], args.required_uid,
+            args.skip_parent_safety, args.skip_modinfo)
+    print(json.dumps(result, sort_keys=True))
     return 0
 
 

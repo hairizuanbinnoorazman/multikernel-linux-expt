@@ -94,6 +94,12 @@ busybox=${BUSYBOX:-$(command -v busybox)}
 nbd_helper=${MK_NBD_HELPER:-/usr/local/libexec/multikernel/mkvsock-nbd}
 bootstrap=$metadata/bootstrap.json
 run_python validate-runtime-bootstrap.py "$manifest" "$manifest_name" >"$bootstrap"
+# Approval is explicit and versioned. Never silently turn an approved Docker
+# profile into an ordinary workload when this builder lacks its supervisor.
+if jq -e 'has("docker_guest")' "$bootstrap" >/dev/null; then
+	echo 'Docker guest activation requires a qualified profile supervisor' >&2
+	exit 1
+fi
 agent=$(jq -er '.agent' "$bootstrap")
 relay=$(jq -er '.relay' "$bootstrap")
 module=$(jq -er '.module' "$bootstrap")

@@ -65,6 +65,7 @@ type Manifest struct {
 	RequiredConfig []string      `json:"required_config"`
 	Modules        []Artifact    `json:"modules,omitempty"`
 	OCIFeatures    []string      `json:"oci_features"`
+	DockerGuest    *DockerGuest  `json:"docker_guest,omitempty"`
 }
 type Resolver struct {
 	Directory   string
@@ -175,6 +176,9 @@ func validate(manifest Manifest, name string, uid uint32) error {
 	if manifest.Transport.ModuleName != "mk_transport" || manifest.Transport.SocketOption != 9 ||
 		manifest.Transport.TransportID != 1 || manifest.Transport.PrimaryRole != "server" || manifest.Transport.ChildRole != "client" {
 		return errors.New("manifest transport module, socket option, ID, or direction is incompatible")
+	}
+	if err := validateDockerGuest(manifest.DockerGuest, manifest.KernelRelease, uid); err != nil {
+		return err
 	}
 	artifacts := append([]Artifact{manifest.Kernel, manifest.Initramfs, manifest.Agent, manifest.Relay, manifest.Transport.Module}, manifest.Modules...)
 	for _, artifact := range artifacts {

@@ -143,6 +143,48 @@ def main():
         if resolved["relay"] != str(directory / "mkvsock-relay") or resolved["module"] != str(module):
             raise AssertionError(resolved)
 
+        bootstrap = directory / "docker-bootstrap"
+        bootstrap.write_bytes(b"#!/bin/busybox sh\nexit 0\n")
+        bootstrap.chmod(0o755)
+        docker = {
+            "kind": "docker-rootless-offline-v1",
+            "rootfs_manifest_sha256": "a" * 64,
+            "bootstrap": {"path": str(bootstrap), "sha256": digest(bootstrap)},
+            "modules": {name: {"path": str(module), "sha256": digest(module)}
+                        for name in ("llc", "stp", "bridge", "veth")},
+        }
+        # These structural fixtures explicitly skip modinfo, as do the existing
+        # transport fixtures. Go ELF fixtures and live tests cover module names.
+        candidate = copy.deepcopy(manifest)
+        candidate["docker_guest"] = docker
+        path.write_text(json.dumps(candidate))
+        result = validate(path)
+        if result.returncode != 0 or json.loads(result.stdout)["docker_guest"] != docker:
+            raise AssertionError("approved Docker metadata was not preserved: " + result.stderr)
+        for name, change in (
+            ("null", lambda value: value.update(docker_guest=None)),
+            ("kind", lambda value: value["docker_guest"].update(kind="docker-rootful-v1")),
+            ("digest", lambda value: value["docker_guest"].update(rootfs_manifest_sha256="latest")),
+            ("uppercase", lambda value: value["docker_guest"].update(rootfs_manifest_sha256="A" * 64)),
+            ("unknown", lambda value: value["docker_guest"].update(hook="arbitrary-command")),
+            ("missing module", lambda value: value["docker_guest"]["modules"].pop("bridge")),
+            ("extra module", lambda value: value["docker_guest"]["modules"].update(other=docker["modules"]["llc"])),
+            ("bootstrap hash", lambda value: value["docker_guest"]["bootstrap"].update(sha256="0" * 64)),
+        ):
+            candidate = copy.deepcopy(manifest)
+            candidate["docker_guest"] = copy.deepcopy(docker)
+            change(candidate)
+            path.write_text(json.dumps(candidate))
+            if validate(path).returncode == 0:
+                raise AssertionError("unsafe Docker guest approval accepted: " + name)
+        bootstrap.write_bytes(b"#!/bin/sh\nexit 0\n")
+        candidate = copy.deepcopy(manifest)
+        candidate["docker_guest"] = copy.deepcopy(docker)
+        candidate["docker_guest"]["bootstrap"]["sha256"] = digest(bootstrap)
+        path.write_text(json.dumps(candidate))
+        if validate(path).returncode == 0:
+            raise AssertionError("unapproved Docker bootstrap interpreter accepted")
+
         for name, mutate in (
             ("direction", lambda value: value["transport"].update(child_role="server")),
             ("digest", lambda value: value["relay"].update(sha256="0" * 64)),

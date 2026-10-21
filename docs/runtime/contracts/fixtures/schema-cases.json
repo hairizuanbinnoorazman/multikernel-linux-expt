@@ -1,34 +1,182 @@
 [
-  {"schema": "host-config-v1.schema.json", "fixture": "host-config.valid.json", "valid": true},
-  {"schema": "host-config-v1.schema.json", "fixture": "host-config.unknown-field.invalid.json", "valid": false},
-  {"schema": "host-config-v1.schema.json", "fixture": "host-config.relative-path.invalid.json", "valid": false},
-  {"schema": "host-config-v1.schema.json", "fixture": "host-config.unsafe-path.invalid.json", "valid": false},
-  {"schema": "host-config-v1.schema.json", "fixture": "host-config.overflow.invalid.json", "valid": false},
-  {"schema": "sandbox-config-v1.schema.json", "fixture": "sandbox-config.valid.json", "valid": true},
-  {"schema": "sandbox-config-v1.schema.json", "fixture": "sandbox-config.invalid-label.json", "valid": false},
-  {"schema": "kernel-manifest-v1.schema.json", "fixture": "kernel-manifest.valid.json", "valid": true},
-  {"schema": "kernel-manifest-v1.schema.json", "fixture": "kernel-manifest.bad-digest.invalid.json", "valid": false},
-  {"schema": "kernel-manifest-v1.schema.json", "fixture": "kernel-manifest.missing-pins.invalid.json", "valid": false},
-  {"schema": "daemon-protocol-v1.schema.json", "fixture": "daemon-request.valid.json", "valid": true},
-  {"schema": "daemon-protocol-v1.schema.json", "fixture": "daemon-request.duplicate.invalid.json", "valid": false},
-  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-request.valid.json", "valid": true},
-  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-request-extended.valid.json", "valid": true},
-  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-request-method.invalid.json", "valid": false},
-  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-reply.valid.json", "valid": true},
-  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-reply-error.valid.json", "valid": true},
-  {"schema": "agent-protocol-v1.schema.json", "fixture": "agent-reply-mac.invalid.json", "valid": false},
-  {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.valid.json", "valid": true},
-  {"schema": "evidence-manifest-v1.schema.json", "fixture": "evidence-manifest.missing-exit.invalid.json", "valid": false},
-  {"schema": "gce-resource-ledger-v1.schema.json", "fixture": "gce-resource-ledger.valid.json", "valid": true},
-  {"schema": "gce-resource-ledger-v1.schema.json", "fixture": "gce-resource-ledger.missing-autodelete.invalid.json", "valid": false},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-query.valid.json", "valid": true},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-page.valid.json", "valid": true},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-capabilities.valid.json", "valid": true},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-query-limit.invalid.json", "valid": false},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-query-version.invalid.json", "valid": false},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-capabilities-duplicate.invalid.json", "valid": false},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-page-secret.invalid.json", "valid": false},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-page-outcome.invalid.json", "valid": false},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-page-identity.invalid.json", "valid": false},
-  {"schema": "lifecycle-audit-v1.schema.json", "fixture": "audit-page-null.invalid.json", "valid": false}
+  {
+    "schema": "host-config-v1.schema.json",
+    "fixture": "host-config.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "host-config-v1.schema.json",
+    "fixture": "host-config.unknown-field.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "host-config-v1.schema.json",
+    "fixture": "host-config.relative-path.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "host-config-v1.schema.json",
+    "fixture": "host-config.unsafe-path.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "host-config-v1.schema.json",
+    "fixture": "host-config.overflow.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "sandbox-config-v1.schema.json",
+    "fixture": "sandbox-config.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "sandbox-config-v1.schema.json",
+    "fixture": "sandbox-config.invalid-label.json",
+    "valid": false
+  },
+  {
+    "schema": "kernel-manifest-v1.schema.json",
+    "fixture": "kernel-manifest.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "kernel-manifest-v1.schema.json",
+    "fixture": "kernel-manifest.bad-digest.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "kernel-manifest-v1.schema.json",
+    "fixture": "kernel-manifest.missing-pins.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "daemon-protocol-v1.schema.json",
+    "fixture": "daemon-request.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "daemon-protocol-v1.schema.json",
+    "fixture": "daemon-request.duplicate.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "agent-protocol-v1.schema.json",
+    "fixture": "agent-request.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "agent-protocol-v1.schema.json",
+    "fixture": "agent-request-extended.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "agent-protocol-v1.schema.json",
+    "fixture": "agent-request-method.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "agent-protocol-v1.schema.json",
+    "fixture": "agent-reply.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "agent-protocol-v1.schema.json",
+    "fixture": "agent-reply-error.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "agent-protocol-v1.schema.json",
+    "fixture": "agent-reply-mac.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "evidence-manifest-v1.schema.json",
+    "fixture": "evidence-manifest.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "evidence-manifest-v1.schema.json",
+    "fixture": "evidence-manifest.missing-exit.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "gce-resource-ledger-v1.schema.json",
+    "fixture": "gce-resource-ledger.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "gce-resource-ledger-v1.schema.json",
+    "fixture": "gce-resource-ledger.missing-autodelete.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-query.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-page.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-capabilities.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-query-limit.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-query-version.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-capabilities-duplicate.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-page-secret.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-page-outcome.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-page-identity.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "lifecycle-audit-v1.schema.json",
+    "fixture": "audit-page-null.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "kernel-manifest-v1.schema.json",
+    "fixture": "kernel-manifest.docker-guest.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "kernel-manifest-v1.schema.json",
+    "fixture": "kernel-manifest.docker-guest.null.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "kernel-manifest-v1.schema.json",
+    "fixture": "kernel-manifest.docker-guest.kind.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "kernel-manifest-v1.schema.json",
+    "fixture": "kernel-manifest.docker-guest.extra.invalid.json",
+    "valid": false
+  }
 ]

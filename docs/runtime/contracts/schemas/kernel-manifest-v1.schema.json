@@ -37,7 +37,26 @@
     "protocol": {"type": "object", "required": ["min", "max"], "properties": {"min": {"type": "integer", "minimum": 1}, "max": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
     "required_config": {"type": "array", "items": {"type": "string", "pattern": "^CONFIG_[A-Z0-9_]+=[ym]$"}, "uniqueItems": true},
     "modules": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
-    "oci_features": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+    "oci_features": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "docker_guest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "rootfs_manifest_sha256", "bootstrap", "modules"],
+      "properties": {
+        "kind": {"const": "docker-rootless-offline-v1"},
+        "rootfs_manifest_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "bootstrap": {"$ref": "#/$defs/artifact"},
+        "modules": {
+          "type": "object", "additionalProperties": false,
+          "required": ["llc", "stp", "bridge", "veth"],
+          "properties": {
+            "llc": {"$ref": "#/$defs/artifact"},
+            "stp": {"$ref": "#/$defs/artifact"},
+            "bridge": {"$ref": "#/$defs/artifact"},
+            "veth": {"$ref": "#/$defs/artifact"}
+          }
+        }
+      }
+    }
   },
   "$defs": {
     "artifact": {
