@@ -60,7 +60,7 @@ class OuterTests(unittest.TestCase):
         return module['prepare_outer'](self.root,self.scan() if raw is None else raw,self.base/'outer',required_uid=os.geteuid())
     def test_independent_closure_and_fixed_accounts(self):
         result=self.prepare();self.assertTrue(result['independent_code'])
-        out=self.base/'outer';self.assertEqual(result['files'],5)
+        out=self.base/'outer';self.assertEqual(result['files'],len(module['HELPERS'])+2)
         for p in out.rglob('*'):
             self.assertFalse(p.is_symlink())
             private = str(p.relative_to(out)) in ['home/rootless','home/rootless/.local','home/rootless/.local/tmp','run/user/1000']

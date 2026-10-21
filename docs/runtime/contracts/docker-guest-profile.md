@@ -60,7 +60,9 @@ The production builder compares its deterministic manifest digest to approval,
 permits copied contexts only under `/work` plus the three standard Docker
 metadata seeds, and rejects image symlinks/hardlinks at or below those targets.
 The builder now prepares independent outer-root copies of the approved image's
-`newuidmap`, `newgidmap`, `rootlesskit`, and their ELF interpreter/library closure.
+`newuidmap`, `newgidmap`, `rootlesskit`, `nsenter`, `ip`, and their ELF
+interpreter/library closure. The offline RootlessKit backend still needs the
+namespace and IP helpers to configure its isolated loopback interface.
 It parses bounded ELF64 x86-64 metadata as data, never executes image binaries
 on the primary, and refuses custom loader paths/audit/filter configuration or
 unresolved dependencies. All outer code is regular independent files; source

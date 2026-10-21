@@ -106,7 +106,8 @@ import re
 from runtime_safe_publish import open_directory_nofollow
 
 HELPERS = {"usr/bin/newuidmap": 0o4755, "usr/bin/newgidmap": 0o4755,
-           "usr/local/bin/rootlesskit": 0o755}
+           "usr/local/bin/rootlesskit": 0o755,
+           "usr/bin/nsenter": 0o755, "sbin/ip": 0o755}
 LIB_DIRS = ("lib", "usr/local/lib", "usr/lib", "lib64", "usr/lib64",
             "lib/x86_64-linux-gnu", "usr/lib/x86_64-linux-gnu")
 INTERPRETERS = {"lib/ld-musl-x86_64.so.1", "lib64/ld-linux-x86-64.so.2",

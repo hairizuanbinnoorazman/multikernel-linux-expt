@@ -57,3 +57,7 @@ integration still requires qualification. See the [scoped process/admission proo
 image in a private primary mount namespace. It exercises the production wrapper,
 real API readiness, foreground lifetime and cgroup removal. This opt-in test does
 not itself qualify child boot or Docker builds.
+
+The outer helper closure includes `nsenter` and `ip`: RootlessKit configures
+loopback even for `--net=none`. Source aliases (including a BusyBox applet) are
+flattened to independent files under their required invocation names.
