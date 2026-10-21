@@ -39,6 +39,16 @@ Approval validation now includes a fresh scan of the held source filesystem.
 The production builder compares its deterministic manifest digest to approval,
 permits copied contexts only under `/work` plus the three standard Docker
 metadata seeds, and rejects image symlinks/hardlinks at or below those targets.
+The builder now prepares independent outer-root copies of the approved image's
+`newuidmap`, `newgidmap`, `rootlesskit`, and their ELF interpreter/library closure.
+It parses bounded ELF64 x86-64 metadata as data, never executes image binaries
+on the primary, and refuses custom loader paths/audit/filter configuration or
+unresolved dependencies. All outer code is regular independent files; source
+symlinks/hardlinks cannot create mutable-code references. Fixed outer account,
+subuid/subgid and files-only NSS records replace image-selected account policy.
+The closure is limited to 256 files and 128 MiB, with 64 MiB per source file.
+Preparation remains in private scratch and is discarded on refusal.
+
 **Production activation is not implemented.** After these checks the builder
 still refuses activation before source-root copying or storage construction. It must not ignore
 this field and launch an ordinary workload in place of the requested Docker
@@ -76,7 +86,7 @@ The [guest service scope primitive](../../../runtime/internal/guestscope/README.
 provides finite cgroup limits and owned descendant shutdown. The [engine supervisor](../../../runtime/internal/dockerengine/README.md) now
 uses it in the explicit agent startup path, with bounded logs, socket peer
 identity, Docker API readiness and stop-before-storage ordering. Protected
-outer-root preparation, production boot integration and qualification of the
+bootstrap/module installation, production boot integration and qualification of the
 complete Docker lifecycle remain required.
 
 The [GCE source-binding and scope receipts](../../../evidence/runtime-20261021/g8-docker-source-scope/README.md)
