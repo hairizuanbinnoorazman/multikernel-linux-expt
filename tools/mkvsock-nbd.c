@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -685,6 +686,15 @@ static void print_ext4_uuid(const char *device)
 
 int main(int argc, char **argv)
 {
+	/* Both guest client/proxy and primary server carry privileged handles.
+	 * Fail before any endpoint/device access if same-UID procfs protection
+	 * cannot be established. Forked client proxies inherit this protection. */
+	if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) < 0)
+		die("protect storage helper process");
+	if (prctl(PR_GET_DUMPABLE, 0, 0, 0, 0) != 0) {
+		errno = EPERM;
+		die("verify storage helper process protection");
+	}
 	if (argc >= 2 && !strcmp(argv[1], "server")) {
 		uint64_t port, peer_cid;
 		if (argc != 7 || !native_decimal(argv[3], 1, UINT32_MAX - 1, &port) ||

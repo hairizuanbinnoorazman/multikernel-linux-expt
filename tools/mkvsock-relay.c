@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/prctl.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include "native_args.h"
@@ -27,6 +28,12 @@ static void wr(int f,const void*v,size_t n){const char*p=v;while(n){ssize_t x=wr
 static void pump(int a,int b){struct pollfd p[2]={{a,POLLIN,0},{b,POLLIN,0}};char q[65536];int n=2;while(n){if(poll(p,2,-1)<0){if(errno==EINTR)continue;die("poll");}for(int i=0;i<2;i++)if(p[i].fd>=0&&(p[i].revents&(POLLIN|POLLHUP))){ssize_t x=read(p[i].fd,q,sizeof(q));if(x>0)wr(p[1-i].fd,q,x);else{shutdown(p[1-i].fd,SHUT_WR);p[i].fd=-1;n--;}}}}
 int main(int n,char**v)
 {
+	/* Child workloads can also have UID 0. Protect outer-root handles and
+	 * transport buffers before opening either endpoint, not just after setup. */
+	if(prctl(PR_SET_DUMPABLE,0,0,0,0)<0) die("protect relay process");
+	if(prctl(PR_GET_DUMPABLE,0,0,0,0)!=0) {
+		errno=EPERM;die("verify relay process protection");
+	}
 	int a,b;
 	uint64_t cid,port;
 	const char *path;
