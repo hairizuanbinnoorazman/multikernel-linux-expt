@@ -83,3 +83,8 @@ The [GCE source-binding and scope receipts](../../../evidence/runtime-20261021/g
 qualify held-root binding and copy-input refusal in the builder, plus cgroup
 cleanup and memory enforcement on the primary kernel. They do not qualify a
 child Docker daemon, build workload, or its complete lifecycle.
+
+The [supervisor qualification](../../../evidence/runtime-20261021/g8-docker-supervisor/README.md)
+records synthetic UID-1000 readiness endpoints on the restarted GCE primary
+kernel, including foreign-cgroup refusal and cleanup. Actual child Docker
+activation/builds remain unqualified.
