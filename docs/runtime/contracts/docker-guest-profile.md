@@ -28,6 +28,11 @@ validator enforce approval; the daemon binds the complete manifest digest into
 its existing prepared-root contract. The Python test-only `--skip-modinfo` flag
 is not used by production builder validation.
 
+Field names are canonical at the manifest top level and throughout the approval
+object, including its artifact objects. Case aliases such as `DOCKER_GUEST`,
+`KIND` or `PATH` are refused. They must not shadow a real approval with null or
+give the two parsers different interpretations of the same document.
+
 ## Activation status
 
 This increment establishes approval validation. **Production activation is not
@@ -41,7 +46,15 @@ held source-root manifest matches approval, protected outer-root installation,
 module compatibility, bounded logging, an actual Docker API readiness probe and
 engine shutdown before mediated-root quiescence. It must preserve the ordinary
 workload's restricted capabilities/NNP and reject arbitrary OCI hooks. The
-existing [diagnostic Docker guest](../research/docker-in-docker-guests.md)
+activation path must also prevent materialized bind inputs or Docker metadata
+seeds from replacing approved mapping helpers, bootstrap dependencies or daemon
+configuration. User build contexts need a separate, restricted destination;
+approving the source image alone does not approve later replacements.
+After accepting the workload, privileged supervision must not execute helpers
+from its writable OCI root. Guest UID 0 can modify its own files even with zero
+capabilities. Shutdown needs held process identities and a fixed control path
+outside that root before the mediated filesystem can be remounted read-only.
+The existing [diagnostic Docker guest](../research/docker-in-docker-guests.md)
 remains the functional reference, not production integration proof.
 
 The [deployment constraint](../architecture.md#deployment-and-containment-constraint)
@@ -49,3 +62,7 @@ excludes nested virtualization in the target cloud instances. This contract
 prepares the direct-child runtime; it does not establish containment after
 arbitrary child-kernel compromise. G7/G8 and production Docker-in-Docker remain
 open.
+
+The [scoped approval/refusal receipts](../../../evidence/runtime-20261021/g8-docker-profile/README.md)
+record portable checks and validation against installed GCE artifacts. They do
+not qualify Docker activation or the whole G8 gate.

@@ -100,11 +100,58 @@ func TestResolveDockerGuestRejectsInvalidApproval(t *testing.T) {
 }
 
 func TestDockerGuestJSONRefusesNullAndUnknownFields(t *testing.T) {
-	for _, raw := range []string{`{"docker_guest":null}`, `{"docker_guest":{"unknown":true}}`, `{"docker_guest":{},"docker_guest":{}}`} {
+	for _, raw := range []string{`{"docker_guest":null}`, `{"DOCKER_GUEST":null}`, `{"docker_guest":{"unknown":true}}`, `{"docker_guest":{},"docker_guest":{}}`} {
 		var manifest Manifest
 		if json.Unmarshal([]byte(raw), &manifest) == nil {
 			t.Fatalf("unsafe approval JSON accepted: %s", raw)
 		}
+	}
+}
+
+func TestDockerGuestJSONCanonicalNames(t *testing.T) {
+	t.Run("root shadow", func(t *testing.T) {
+		resolver, path, manifest := dockerGuestFixture(t)
+		manifest.DockerGuest.Bootstrap.SHA256 = strings.Repeat("0", 64)
+		raw, _ := json.Marshal(manifest)
+		raw = append(raw[:len(raw)-1], []byte(`,"DOCKER_GUEST":null}`)...)
+		if err := os.WriteFile(path, raw, 0644); err != nil {
+			t.Fatal(err)
+		}
+		artifacts, err := resolver.Resolve("test")
+		if err == nil {
+			artifacts.Close()
+			t.Fatal("case alias discarded an invalid approval")
+		}
+	})
+	for _, mode := range []string{"kind", "bootstrap path", "module digest", "null module"} {
+		t.Run(mode, func(t *testing.T) {
+			_, _, manifest := dockerGuestFixture(t)
+			raw, _ := json.Marshal(manifest.DockerGuest)
+			var fields map[string]any
+			if err := json.Unmarshal(raw, &fields); err != nil {
+				t.Fatal(err)
+			}
+			switch mode {
+			case "kind":
+				fields["KIND"] = fields["kind"]
+				delete(fields, "kind")
+			case "bootstrap path":
+				artifact := fields["bootstrap"].(map[string]any)
+				artifact["PATH"] = artifact["path"]
+				delete(artifact, "path")
+			case "module digest":
+				artifact := fields["modules"].(map[string]any)["llc"].(map[string]any)
+				artifact["SHA256"] = artifact["sha256"]
+				delete(artifact, "sha256")
+			case "null module":
+				fields["modules"].(map[string]any)["llc"] = nil
+			}
+			raw, _ = json.Marshal(fields)
+			var profile DockerGuest
+			if json.Unmarshal(raw, &profile) == nil {
+				t.Fatal("noncanonical Docker approval accepted")
+			}
+		})
 	}
 }
 
@@ -123,11 +170,26 @@ func TestInstalledDockerGuestApproval(t *testing.T) {
 		t.Fatal(err)
 	}
 	var manifest Manifest
-	if err = json.Unmarshal(raw, &manifest); err != nil || manifest.DockerGuest == nil {
+	expectRefusal := os.Getenv("MK_TEST_DOCKER_GUEST_EXPECT_REFUSAL") == "1"
+	if err = json.Unmarshal(raw, &manifest); err != nil {
+		if expectRefusal {
+			t.Log("installed approval refused during parsing")
+			return
+		}
+		t.Fatal(err)
+	}
+	if manifest.DockerGuest == nil {
 		t.Fatalf("Docker approval missing or invalid: %v", err)
 	}
 	resolver := Resolver{Directory: filepath.Dir(path), RequiredUID: 0}
 	artifacts, err := resolver.Resolve(strings.TrimSuffix(filepath.Base(path), ".json"))
+	if expectRefusal {
+		if err == nil {
+			artifacts.Close()
+			t.Fatal("invalid installed approval accepted")
+		}
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

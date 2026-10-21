@@ -30,10 +30,58 @@ func (m *Manifest) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
+	// encoding/json accepts case-insensitive struct field aliases. A second
+	// DOCKER_GUEST:null must not silently overwrite an explicit approval.
+	for name := range fields {
+		switch name {
+		case "schema_version", "name", "architecture", "kernel_release", "compatibility", "kernel", "initramfs", "agent", "relay", "transport", "protocol", "required_config", "modules", "oci_features", "docker_guest":
+		default:
+			return errors.New("noncanonical manifest field")
+		}
+	}
 	if value, present := fields["docker_guest"]; present && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
 		return errors.New("Docker guest approval must be an object, not null")
 	}
 	*m = Manifest(decoded)
+	return nil
+}
+
+func exactDockerObject(data []byte, names ...string) (map[string]json.RawMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := protocol.StrictDecode(data, &fields); err != nil || fields == nil || len(fields) != len(names) {
+		return nil, errors.New("invalid Docker approval object")
+	}
+	for _, name := range names {
+		if _, present := fields[name]; !present {
+			return nil, errors.New("noncanonical Docker approval field")
+		}
+	}
+	return fields, nil
+}
+
+func (p *DockerGuest) UnmarshalJSON(data []byte) error {
+	fields, err := exactDockerObject(data, "kind", "rootfs_manifest_sha256", "bootstrap", "modules")
+	if err != nil {
+		return err
+	}
+	if _, err = exactDockerObject(fields["bootstrap"], "path", "sha256"); err != nil {
+		return err
+	}
+	modules, err := exactDockerObject(fields["modules"], "llc", "stp", "bridge", "veth")
+	if err != nil {
+		return err
+	}
+	for _, artifact := range modules {
+		if _, err = exactDockerObject(artifact, "path", "sha256"); err != nil {
+			return err
+		}
+	}
+	type approvalFields DockerGuest
+	var decoded approvalFields
+	if err = protocol.StrictDecode(data, &decoded); err != nil {
+		return err
+	}
+	*p = DockerGuest(decoded)
 	return nil
 }
 

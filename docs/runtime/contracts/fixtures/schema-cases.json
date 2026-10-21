@@ -178,5 +178,10 @@
     "schema": "kernel-manifest-v1.schema.json",
     "fixture": "kernel-manifest.docker-guest.extra.invalid.json",
     "valid": false
+  },
+  {
+    "schema": "kernel-manifest-v1.schema.json",
+    "fixture": "kernel-manifest.docker-guest.alias.invalid.json",
+    "valid": false
   }
 ]

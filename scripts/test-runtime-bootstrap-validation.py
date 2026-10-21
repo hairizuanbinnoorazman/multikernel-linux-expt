@@ -163,6 +163,9 @@ def main():
             raise AssertionError("approved Docker metadata was not preserved: " + result.stderr)
         for name, change in (
             ("null", lambda value: value.update(docker_guest=None)),
+            ("root alias shadow", lambda value: value.update(DOCKER_GUEST=None)),
+            ("kind alias", lambda value: value["docker_guest"].update(KIND="docker-rootless-offline-v1")),
+            ("bootstrap alias", lambda value: value["docker_guest"]["bootstrap"].update(PATH=str(bootstrap))),
             ("kind", lambda value: value["docker_guest"].update(kind="docker-rootful-v1")),
             ("digest", lambda value: value["docker_guest"].update(rootfs_manifest_sha256="latest")),
             ("uppercase", lambda value: value["docker_guest"].update(rootfs_manifest_sha256="A" * 64)),
