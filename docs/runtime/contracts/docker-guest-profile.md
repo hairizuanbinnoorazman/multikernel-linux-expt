@@ -143,3 +143,10 @@ and real-image preflight for UID 1000/UID 0 on the GCE primary kernel. The
 retained failed control explains why matching UID without matching capability
 sets is not sufficient to demonstrate procfs exposure. Complete child Docker
 activation/builds remain unqualified.
+
+The [credential projection proof](../../../evidence/runtime-20261021/g8-docker-capability-projection/README.md)
+records Docker's actual empty capability object, real manager chroot execution,
+five zero capability sets, NNP and post-drop cwd/environment. It does not qualify
+child-engine startup/builds. Before activation, access to native control/storage
+transports by workload and daemon descendants must also be enforced and tested;
+cross-child CID authentication alone does not demonstrate that process boundary.

@@ -46,6 +46,6 @@ containment after arbitrary child-kernel compromise. G7/G8 remain open.
 
 The explicit agent path selects `NewDockerGuestManager`, reserving UID 0 for
 bootstrap and requiring workload UID/GID 1000, only group 1000 and NNP. Create,
-exec and start all enforce identity. Existing non-root capability contracts are
-still refused; ordinary host Docker capability projection needs qualification
-before production activation. See the [scoped process/admission proof](../../../evidence/runtime-20261021/g8-guest-process-protection/README.md).
+exec and start all enforce identity. Explicit empty non-root capability objects are supported through the sealed
+credential executor. Non-empty grants remain refused; complete host Docker/child
+integration still requires qualification. See the [scoped process/admission proof](../../../evidence/runtime-20261021/g8-guest-process-protection/README.md).
