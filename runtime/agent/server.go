@@ -510,6 +510,12 @@ func (s *Server) ServeConn(ctx context.Context, c net.Conn) error {
 			return e
 		}
 		if e = c.SetWriteDeadline(time.Time{}); e != nil {
+			// The peer may close immediately after receiving the complete reply.
+			// Clearing a deadline then reports a closed pipe on transports such
+			// as net.Pipe; the response was delivered successfully.
+			if errors.Is(e, io.ErrClosedPipe) || errors.Is(e, net.ErrClosed) {
+				return nil
+			}
 			return e
 		}
 		if env.Method == "Shutdown" && reply.Error == "" {

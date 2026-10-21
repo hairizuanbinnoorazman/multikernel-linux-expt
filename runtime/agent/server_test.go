@@ -604,3 +604,45 @@ func TestCapabilitiesReportRuntimeFacts(t *testing.T) {
 		}
 	}
 }
+
+// A client can close immediately after reading a complete response. Some
+// transports report that close while the server clears its write deadline.
+type completedReplyDeadlineConn struct {
+	net.Conn
+	clearError error
+}
+
+func (c completedReplyDeadlineConn) SetWriteDeadline(deadline time.Time) error {
+	if deadline.IsZero() {
+		return c.clearError
+	}
+	return c.Conn.SetWriteDeadline(deadline)
+}
+
+func TestServeConnCompletedReplyDeadlineClose(t *testing.T) {
+	for _, closed := range []error{io.ErrClosedPipe, net.ErrClosed} {
+		t.Run(closed.Error(), func(t *testing.T) {
+			peer, conn := net.Pipe()
+			defer peer.Close()
+			defer conn.Close()
+			server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "generation", Endpoint: 7001, Token: []byte("synthetic-test-token")}
+			done := make(chan error, 1)
+			go func() {
+				done <- server.ServeConn(context.Background(), completedReplyDeadlineConn{Conn: conn, clearError: closed})
+			}()
+			client := &Client{conn: peer, token: server.Token, sandboxID: server.SandboxID, generation: server.Generation, endpoint: server.Endpoint, Timeout: time.Second}
+			var response map[string]any
+			if err := client.Call("Capabilities", nil, &response); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatalf("complete reply reported failure: %v", err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("completed connection did not finish")
+			}
+		})
+	}
+}
