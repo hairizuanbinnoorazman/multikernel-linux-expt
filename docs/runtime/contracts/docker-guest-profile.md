@@ -135,3 +135,10 @@ before opening endpoints/devices. The storage client proxy inherits that state;
 the primary server also retains its post-privilege-drop guard. This protects
 same-UID procfs access to these helper processes and does not by itself protect
 all guest processes or qualify the complete Docker lifecycle.
+
+The [process protection and identity receipts](../../../evidence/runtime-20261021/g8-guest-process-protection/README.md)
+qualify native entry guards under equal-capability conditions, agent admission,
+and real-image preflight for UID 1000/UID 0 on the GCE primary kernel. The
+retained failed control explains why matching UID without matching capability
+sets is not sufficient to demonstrate procfs exposure. Complete child Docker
+activation/builds remain unqualified.

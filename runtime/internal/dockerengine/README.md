@@ -43,3 +43,9 @@ The [profile contract](../../../docs/runtime/contracts/docker-guest-profile.md)
 and [cloud constraint](../../../docs/runtime/architecture.md#deployment-and-containment-constraint)
 apply: nested virtualization is unavailable, and process controls do not prove
 containment after arbitrary child-kernel compromise. G7/G8 remain open.
+
+The explicit agent path selects `NewDockerGuestManager`, reserving UID 0 for
+bootstrap and requiring workload UID/GID 1000, only group 1000 and NNP. Create,
+exec and start all enforce identity. Existing non-root capability contracts are
+still refused; ordinary host Docker capability projection needs qualification
+before production activation. See the [scoped process/admission proof](../../../evidence/runtime-20261021/g8-guest-process-protection/README.md).
