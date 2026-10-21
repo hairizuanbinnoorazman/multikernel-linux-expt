@@ -62,8 +62,13 @@ class OuterTests(unittest.TestCase):
         result=self.prepare();self.assertTrue(result['independent_code'])
         out=self.base/'outer';self.assertEqual(result['files'],5)
         for p in out.rglob('*'):
-            self.assertFalse(p.is_symlink());self.assertEqual(p.stat().st_uid,os.geteuid())
-            if p.is_dir():self.assertEqual(stat.S_IMODE(p.stat().st_mode),0o755)
+            self.assertFalse(p.is_symlink())
+            private = str(p.relative_to(out)) in ['home/rootless','home/rootless/.local','home/rootless/.local/tmp','run/user/1000']
+            self.assertEqual(p.stat().st_uid,1000 if private and os.geteuid()==0 else os.geteuid())
+            if p.is_dir():self.assertEqual(stat.S_IMODE(p.stat().st_mode),0o700 if private else 0o755)
+        for name in ['home/rootless/.local/tmp','run/user/1000']:
+            self.assertTrue((out/name).is_dir())
+            if os.geteuid()==0:self.assertEqual((out/name).stat().st_gid,1000)
         for name in module['HELPERS']:
             p=out/name;self.assertEqual(p.read_bytes(),self.files[name]);self.assertNotEqual(p.stat().st_ino,(self.root/name).stat().st_ino)
             self.assertEqual(stat.S_IMODE(p.stat().st_mode),module['HELPERS'][name])

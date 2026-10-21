@@ -8,8 +8,11 @@ RPC field selects a service command. The caller must install approved immutable
 outer-root helpers and enable the parent memory/pids controllers before launch.
 
 The bootstrap must remain foreground, exec its rootless launcher, and run the
-engine as guest UID 1000. The historical diagnostic bootstrap exits on socket
-creation and is incompatible with this lifecycle. Production builder activation
+engine as guest UID 1000. The fixed candidate is `guest/runtime-docker-bootstrap`; it execs the outer
+RootlessKit chain, closes script fd3 and keeps logs on stdout/stderr. Boot
+preparation must supply the inner `/run/docker-daemon.json` and mounts before
+launch. The historical diagnostic bootstrap exits on socket creation and is
+incompatible with this lifecycle. Production builder activation
 still refuses until immutable helper preparation, copied-image verification and
 boot integration are implemented and qualified together.
 
@@ -49,3 +52,8 @@ bootstrap and requiring workload UID/GID 1000, only group 1000 and NNP. Create,
 exec and start all enforce identity. Explicit empty non-root capability objects are supported through the sealed
 credential executor. Non-empty grants remain refused; complete host Docker/child
 integration still requires qualification. See the [scoped process/admission proof](../../../evidence/runtime-20261021/g8-guest-process-protection/README.md).
+
+`TestInstalledRealForegroundBootstrap` uses an explicitly staged pinned real
+image in a private primary mount namespace. It exercises the production wrapper,
+real API readiness, foreground lifetime and cgroup removal. This opt-in test does
+not itself qualify child boot or Docker builds.

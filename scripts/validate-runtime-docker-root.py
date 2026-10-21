@@ -356,6 +356,22 @@ def prepare_outer(source, root_bytes, output, required_uid=0):
         with path.open("x") as stream:
             stream.write(data)
         path.chmod(0o644)
+    # RootlessKit executes outside the writable image. Its fixed home and
+    # runtime state must exist in this outer root, with no source aliases.
+    for name, mode, uid, gid in [
+        ("home", 0o755, required_uid, 0),
+        ("home/rootless", 0o700, 1000, 1000),
+        ("home/rootless/.local", 0o700, 1000, 1000),
+        ("home/rootless/.local/tmp", 0o700, 1000, 1000),
+        ("run", 0o755, required_uid, 0),
+        ("run/user", 0o755, required_uid, 0),
+        ("run/user/1000", 0o700, 1000, 1000),
+    ]:
+        path = output / name
+        path.mkdir(mode=mode)
+        if os.geteuid() == 0:
+            os.chown(path, uid, gid)
+        path.chmod(mode)
     output.chmod(0o755)
     return {"files": len(files), "bytes": size, "independent_code": True,
             "file_sha256": {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}}
