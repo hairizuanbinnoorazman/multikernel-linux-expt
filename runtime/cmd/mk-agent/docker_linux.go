@@ -40,7 +40,7 @@ func startDockerGuest(ctx context.Context) (*dockerengine.Service, error) {
 	if err != nil {
 		return nil, errors.New("Docker service scope creation failed")
 	}
-	command := exec.Command("/bin/busybox", "sh", "/proc/self/fd/3")
+	command := exec.Command("/proc/self/exe", "__docker_bootstrap")
 	command.ExtraFiles = []*os.File{bootstrap}
 	command.Dir = "/"
 	command.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=/root", "LANG=C", "LC_ALL=C"}

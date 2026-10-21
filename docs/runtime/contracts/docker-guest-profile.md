@@ -150,3 +150,11 @@ five zero capability sets, NNP and post-drop cwd/environment. It does not qualif
 child-engine startup/builds. Before activation, access to native control/storage
 transports by workload and daemon descendants must also be enforced and tested;
 cross-child CID authentication alone does not demonstrate that process boundary.
+
+The fixed [transport boundary](../../../runtime/internal/transportguard/README.md)
+is now installed by workload executors and the Docker bootstrap wrapper. Native
+VSOCK creation and io_uring are denied; incompatible ABIs are terminated. The
+filter synchronizes all threads and persists across exec. Workloads retain only
+stdio and the bootstrap only its verified script at fd3. Control agent/relay/NBD
+processes keep their separate transport role. Complete child integration remains
+unqualified until boot/build and adversarial live checks pass.

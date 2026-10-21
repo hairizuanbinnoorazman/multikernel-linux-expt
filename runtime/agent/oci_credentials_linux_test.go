@@ -109,8 +109,24 @@ func TestCredentialObservedHelper(t *testing.T) {
 			t.Fatal("sealed spec descriptor leaked into workload")
 		}
 	}
+	fd, err := unix.Socket(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal("ordinary Unix socket refused", err)
+	}
+	unix.Close(fd)
+	if fd, err := unix.Socket(unix.AF_VSOCK, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0); !errors.Is(err, unix.EPERM) {
+		if fd >= 0 {
+			unix.Close(fd)
+		}
+		t.Fatal("workload native transport was not denied", err)
+	}
+	for _, call := range []uintptr{unix.SYS_IO_URING_SETUP, unix.SYS_IO_URING_ENTER, unix.SYS_IO_URING_REGISTER} {
+		if _, _, err := unix.Syscall(call, 0, 0, 0); err != unix.EPERM {
+			t.Fatal("workload io_uring was not denied", call, err)
+		}
+	}
 	marker := os.Getenv("MK_CREDENTIAL_MARKER")
-	body, _ := json.Marshal(map[string]bool{"uid_gid_1000": true, "five_capability_sets_zero": true, "nnp": true, "workload_env_and_cwd": true, "spec_fd_closed": true})
+	body, _ := json.Marshal(map[string]bool{"uid_gid_1000": true, "five_capability_sets_zero": true, "nnp": true, "workload_env_and_cwd": true, "spec_fd_closed": true, "native_transport_denied": true})
 	if e = os.WriteFile(marker, body, 0600); e != nil {
 		t.Fatal(e)
 	}

@@ -11,12 +11,20 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/dockerengine"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"golang.org/x/sys/unix"
 )
 
 func main() {
 	if buildinfo.PrintRequested(os.Stdout, "mk-agent", os.Args[1:]) {
+		return
+	}
+	if len(os.Args) == 2 && os.Args[1] == "__docker_bootstrap" {
+		if err := dockerengine.ExecBootstrap(); err != nil {
+			fmt.Fprintln(os.Stderr, "Docker bootstrap:", err)
+			os.Exit(126)
+		}
 		return
 	}
 	if len(os.Args) == 3 && os.Args[1] == "__oci_exec_fd" {

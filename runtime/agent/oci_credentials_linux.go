@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/transportguard"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
@@ -175,6 +176,9 @@ func RunUnprivilegedOCIExec(descriptor string) error {
 			return errors.New("credential executor thread policy failed")
 		}
 	}
+	if err := transportguard.Install(); err != nil {
+		return err
+	}
 	for capability := uint(0); capability <= unix.CAP_LAST_CAP; capability++ {
 		if unix.Prctl(unix.PR_CAPBSET_DROP, uintptr(capability), 0, 0, 0) != nil {
 			return errors.New("credential executor bounding drop failed")
@@ -216,6 +220,9 @@ func RunUnprivilegedOCIExec(descriptor string) error {
 	}
 	if err = os.Chdir(spec.Cwd); err != nil {
 		return errors.New("credential executor workload cwd refused")
+	}
+	if err := transportguard.CloseInheritedFrom(3); err != nil {
+		return err
 	}
 	return unix.Exec(spec.Args[0], spec.Args, spec.Env)
 }

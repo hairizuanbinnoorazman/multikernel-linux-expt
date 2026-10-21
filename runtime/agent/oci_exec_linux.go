@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/transportguard"
 	"golang.org/x/sys/unix"
 )
 
@@ -217,10 +218,17 @@ func RunOCIExec(encoded string, argv []string) error {
 			return fmt.Errorf("apply no-new-privileges: %w", err)
 		}
 	}
+	if err := transportguard.Install(); err != nil {
+		return err
+	}
 	if constraints.Cwd != "" {
 		if err = os.Chdir(constraints.Cwd); err != nil {
 			return errors.New("OCI executor workload cwd refused")
 		}
 	}
-	return unix.Exec(argv[0], argv, os.Environ())
+	environment := os.Environ()
+	if err := transportguard.CloseInheritedFrom(3); err != nil {
+		return err
+	}
+	return unix.Exec(argv[0], argv, environment)
 }
