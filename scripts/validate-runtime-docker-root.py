@@ -370,8 +370,11 @@ def validate_workload(config):
     groups = user.get("additionalGids", [])
     if not isinstance(groups, list) or any(type(gid) is not int or gid != 1000 for gid in groups):
         raise ApprovalError("Docker guest supplementary group is outside fixed identity")
-    if process.get("capabilities") is not None:
-        raise ApprovalError("Docker guest workloads may not provide a capability contract")
+    capabilities = process.get("capabilities")
+    if capabilities is not None:
+        if (not isinstance(capabilities, dict) or set(capabilities) - {"bounding", "effective", "permitted", "inheritable", "ambient"}
+                or any(not isinstance(value, list) or value for value in capabilities.values())):
+            raise ApprovalError("Docker guest workloads may not request capability grants")
     if "noNewPrivileges" in process and process["noNewPrivileges"] is not True:
         raise ApprovalError("Docker guest workloads require no-new-privileges")
 

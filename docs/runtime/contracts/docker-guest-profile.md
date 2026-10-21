@@ -41,11 +41,12 @@ no-new-privileges. Both production builder preflight and the agent enforce this
 policy; agent create, exec and start cannot select bootstrap identity. Inner
 Docker build containers run under the engine's separate rootless mappings.
 
-The existing non-root capability-contract restriction still applies: capability
-objects, including explicit empty objects, are refused. Capability projection
-from ordinary host Docker specs must be qualified before production activation;
-these admission checks alone do not prove that workflow. Generic workload paths
-keep their existing contract.
+Non-root capability grants are refused. Explicit empty capability objects,
+including Docker's `--cap-drop ALL` projection, are supported through the sealed
+credential executor. The trusted static pure-Go agent clears bounding bits before
+changing all UID/GID values; every helper thread receives NNP before that change.
+The requested environment, cwd and executable are used after dropping identity.
+Actual host Docker/child integration still needs qualification before activation.
 
 Root-owned copies alone cannot isolate arbitrary guest UID 0. This profile's
 separate workload identity protects outer bootstrap/control ownership without

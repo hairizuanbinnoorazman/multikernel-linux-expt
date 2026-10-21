@@ -395,8 +395,8 @@ def validate(config):
                          "CAP_SYS_CHROOT", "CAP_MKNOD", "CAP_AUDIT_WRITE", "CAP_SETFCAP"}
             if any(item not in supported for item in values):
                 raise ValueError("requested capability is outside the supported workload policy")
-        if process.get("user", {}).get("uid") != 0:
-            raise ValueError("non-root processes may not provide a Linux capability contract")
+        if process.get("user", {}).get("uid") != 0 and any(capabilities.values()):
+            raise ValueError("non-root processes may not request capability grants")
         bounding = set(capabilities.get("bounding", []))
         permitted = set(capabilities.get("permitted", []))
         effective = set(capabilities.get("effective", []))

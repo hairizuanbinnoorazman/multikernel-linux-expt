@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -18,6 +19,7 @@ type execConstraints struct {
 	Rlimits         []Rlimit            `json:"rlimits,omitempty"`
 	CapabilitiesSet bool                `json:"capabilities_set"`
 	Capabilities    map[string][]string `json:"capabilities,omitempty"`
+	Cwd             string              `json:"cwd,omitempty"`
 }
 
 var linuxCapabilities = map[string]uint{
@@ -109,7 +111,12 @@ func validateExecConstraints(process ProcessSpec) error {
 		}
 	}
 	if process.User.UID != 0 {
-		return errorf(invalidArgument, "non-root processes may not provide a Linux capability contract")
+		for _, values := range process.Capabilities {
+			if len(values) != 0 {
+				return errorf(unsupported, "non-root processes may not request capability grants")
+			}
+		}
+		return nil
 	}
 	bounding, _ := capabilityMask(process.Capabilities["bounding"])
 	permitted, _ := capabilityMask(process.Capabilities["permitted"])
@@ -130,7 +137,7 @@ func validateExecConstraints(process ProcessSpec) error {
 }
 
 func encodeExecConstraints(process ProcessSpec) (string, error) {
-	value := execConstraints{Rlimits: process.Rlimits, CapabilitiesSet: process.Capabilities != nil, Capabilities: process.Capabilities}
+	value := execConstraints{Rlimits: process.Rlimits, CapabilitiesSet: process.Capabilities != nil, Capabilities: process.Capabilities, Cwd: process.Cwd}
 	if process.NoNewPrivileges != nil {
 		value.NoNewPrivileges = *process.NoNewPrivileges
 	}
@@ -143,6 +150,13 @@ func encodeExecConstraints(process ProcessSpec) (string, error) {
 // failure. Keeping this outside the long-lived multi-threaded agent avoids
 // unsafe post-fork hooks while retaining Go's audited chroot/credential path.
 func RunOCIExec(encoded string, argv []string) error {
+	// Capability masks, bounding sets and NNP belong to the executing OS thread.
+	// Pin across all transitions and exec, even when runtime scheduling yields.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if err := protectOCIExecutor(); err != nil {
+		return err
+	}
 	if len(argv) == 0 || !strings.HasPrefix(argv[0], "/") {
 		return errors.New("OCI executor requires an absolute workload argv[0]")
 	}
@@ -201,6 +215,11 @@ func RunOCIExec(encoded string, argv []string) error {
 	if constraints.NoNewPrivileges {
 		if err = unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 			return fmt.Errorf("apply no-new-privileges: %w", err)
+		}
+	}
+	if constraints.Cwd != "" {
+		if err = os.Chdir(constraints.Cwd); err != nil {
+			return errors.New("OCI executor workload cwd refused")
 		}
 	}
 	return unix.Exec(argv[0], argv, os.Environ())

@@ -263,8 +263,8 @@ func validateDockerGuestProcess(spec ProcessSpec) error {
 			return errorf(unsupported, "Docker guest supplementary group is outside fixed identity")
 		}
 	}
-	if spec.Capabilities != nil {
-		return errorf(unsupported, "Docker guest workloads may not provide a capability contract")
+	if err := validateExecConstraints(spec); err != nil {
+		return err
 	}
 	if spec.NoNewPrivileges != nil && !*spec.NoNewPrivileges {
 		return errorf(unsupported, "Docker guest workloads require no-new-privileges")
@@ -586,8 +586,33 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	if !m.NoChroot {
 		executionSpec = workloadDefaults(executionSpec)
 	}
-	if executionSpec.NoNewPrivileges != nil || executionSpec.Rlimits != nil || executionSpec.Capabilities != nil {
-		constraints, constraintErr := encodeExecConstraints(executionSpec)
+	var credentialFile *os.File
+	if !m.NoChroot && executionSpec.User.UID != 0 {
+		if err := credentialExecutorSupported(); err != nil {
+			m.mu.Unlock()
+			return processStartError("credentials", err)
+		}
+		var err error
+		credentialFile, err = prepareCredentialSpec(executionSpec)
+		if err != nil {
+			m.mu.Unlock()
+			return processStartError("credentials", err)
+		}
+		defer credentialFile.Close()
+		commandPath = ociExecPath
+		commandArgs = []string{"__oci_exec_fd", "3"}
+	} else if executionSpec.NoNewPrivileges != nil || executionSpec.Rlimits != nil || executionSpec.Capabilities != nil {
+		if !m.NoChroot {
+			if err := validateStaticOCIExecutor(); err != nil {
+				m.mu.Unlock()
+				return processStartError("executor", err)
+			}
+		}
+		encodedSpec := executionSpec
+		if m.NoChroot {
+			encodedSpec.Cwd = ""
+		}
+		constraints, constraintErr := encodeExecConstraints(encodedSpec)
 		if constraintErr != nil {
 			m.mu.Unlock()
 			return processStartError("constraints", constraintErr)
@@ -601,10 +626,19 @@ func (m *Manager) StartWithSize(id string, width, height uint32, sizeSet bool) e
 	}
 	cmd := exec.Command(commandPath, commandArgs...)
 	cmd.Env = append([]string(nil), p.spec.Env...)
+	if credentialFile != nil {
+		cmd.ExtraFiles = []*os.File{credentialFile}
+		cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
+	}
 	cmd.Dir = p.spec.Cwd
+	if !m.NoChroot && commandPath == ociExecPath {
+		cmd.Dir = "/"
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if !m.NoChroot {
-		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: p.spec.User.UID, Gid: p.spec.User.GID, Groups: gids(p.spec.User.AdditionalGids), NoSetGroups: false}
+		if credentialFile == nil {
+			cmd.SysProcAttr.Credential = &syscall.Credential{Uid: p.spec.User.UID, Gid: p.spec.User.GID, Groups: gids(p.spec.User.AdditionalGids), NoSetGroups: false}
+		}
 		cmd.SysProcAttr.Chroot = p.root
 	} else {
 		cmd.Path = filepath.Join(p.root, exe)

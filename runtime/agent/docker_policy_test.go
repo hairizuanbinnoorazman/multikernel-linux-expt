@@ -51,8 +51,8 @@ func TestDockerGuestIdentityPolicyAcrossLifecycle(t *testing.T) {
 	if e := validateDockerGuestProcess(ProcessSpec{User: User{UID: 1000, GID: 1000}, Capabilities: map[string][]string{"effective": {"CAP_NET_RAW"}}}); e == nil {
 		t.Fatal("capability request admitted")
 	}
-	if e := validateDockerGuestProcess(ProcessSpec{User: User{UID: 1000, GID: 1000}, Capabilities: map[string][]string{}}); e == nil {
-		t.Fatal("unsupported non-root capability contract admitted")
+	if e := validateDockerGuestProcess(ProcessSpec{User: User{UID: 1000, GID: 1000}, Capabilities: map[string][]string{}}); e != nil {
+		t.Fatal("empty non-root capability contract refused", e)
 	}
 	nnp := false
 	if e := validateDockerGuestProcess(ProcessSpec{User: User{UID: 1000, GID: 1000}, NoNewPrivileges: &nnp}); e == nil {

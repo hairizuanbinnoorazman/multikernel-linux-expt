@@ -21,9 +21,13 @@ or primary Docker socket is required by the user. Namespace, storage and daemon
 configuration are prepared automatically by guest bootstrap. This is a dedicated
 guest-image prototype, not yet a default feature of the containerd/Docker shim.
 
+The [production profile contract](../contracts/docker-guest-profile.md) reserves
+UID 0 for bootstrap and requires workload UID/GID 1000. Its supervised activation
+and child build integration are still being qualified.
+
 ## What runs where
 
-The outer workload client runs as guest UID 0 with zero effective/bounding
+The diagnostic prototype described here runs its outer workload client as guest UID 0 with zero effective/bounding
 capabilities and mandatory no-new-privileges. The guest-local Docker daemon and
 its containers run in a RootlessKit user namespace: namespace root maps to guest
 UID/GID 1000, with subordinate IDs starting at 100000. Bootstrap creates this
