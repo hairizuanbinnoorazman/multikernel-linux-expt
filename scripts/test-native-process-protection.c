@@ -86,6 +86,11 @@ static int check(int inject)
 	if (child == 0) {
 		close(ready[0]); close(release[1]);
 		ready_fd=ready[1]; release_fd=release[0]; fault=inject;
+		/* A full-capability root target is already protected from a capless
+		 * observer by the kernel's capability-subset ptrace check. Model the
+		 * least-privilege launch explicitly: both peers have empty E/P/I and
+		 * NNP. Equal UID alone is not enough to establish a valid baseline. */
+		if (native_drop_request_privileges() < 0) _exit(82);
 		if (prctl(PR_SET_DUMPABLE, 1, 0, 0, 0) < 0) _exit(81);
 #ifdef TEST_RELAY
 		char *args[]={"relay","client","0","7921","/tmp/unused-control",NULL};
