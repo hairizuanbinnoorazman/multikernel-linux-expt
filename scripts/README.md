@@ -75,3 +75,10 @@ they must not be hidden inside default checks.
   facts. `harden-kerf-installation.py` protects the root-owned imported source
   tree; root `install-kerf.sh` runs it before make/pip. See the
   [dependency and imported-code guide](../docs/guides/runtime-dependency-review.md).
+
+The disposable `runtime/tools/g7-credential-load` helper also accepts a private
+root-owned mode-0600 `--storage-config` file containing `protocol.StorageConfig`
+and `--storage-generation` for mediated-root profile qualification. It still
+requires root and `MK_SECURITY_DISPOSABLE=yes`, keeps the fixed fixture identity
+and agent port, and uses production sealed credential/Kernel FD handoff. It is
+not installed as a runtime service and does not create or start child instances.
