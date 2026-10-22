@@ -22,6 +22,7 @@
 #include <limits.h>
 #include "native_args.h"
 #include "native_privileges.h"
+#include "native_stream_proxy.h"
 #include "native_server_sandbox.h"
 #include "native_server_limits.h"
 
@@ -245,32 +246,8 @@ static void set_transport(int fd)
 
 static void forward_stream(int left, int right)
 {
-	uint8_t buffer[65536];
-	struct pollfd fds[2] = {
-		{ .fd = left, .events = POLLIN },
-		{ .fd = right, .events = POLLIN },
-	};
-	for (;;) {
-		int rc = poll(fds, 2, -1);
-		if (rc < 0 && errno == EINTR)
-			continue;
-		if (rc < 0)
-			die("poll(proxy)");
-		for (int i = 0; i < 2; i++) {
-			if (!(fds[i].revents & (POLLIN | POLLHUP | POLLERR)))
-				continue;
-			int source = i ? right : left;
-			int destination = i ? left : right;
-			ssize_t n = read(source, buffer, sizeof(buffer));
-			if (n < 0 && errno == EINTR)
-				continue;
-			if (n <= 0) {
-				shutdown(destination, SHUT_WR);
-				return;
-			}
-			xwrite(destination, buffer, (size_t)n);
-		}
-	}
+	if (native_stream_proxy(left, right) < 0)
+		die("forward_stream");
 }
 
 static int make_nbd_tcp_socket(int vsock, pid_t *proxy_pid)

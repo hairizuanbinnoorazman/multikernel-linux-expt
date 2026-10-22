@@ -77,3 +77,11 @@ by intended-client read/write/FUA/flush/disconnect in the real server loop with
 loopback transport substitution, plus enforced allocation/fd/core ceilings.
 This is bounded normal-peer logging, not CPU fairness or a compromised-helper
 log quota; production VSOCK compatibility is qualified separately.
+
+`native_stream_proxy.h` forwards the guest NBD client's TCP/VSOCK streams with
+two bounded 64 KiB FIFOs, nonblocking partial writes and independent half-close
+draining. It avoids a blocking write in one direction starving the reply needed
+by the other endpoint. `scripts/test-native-stream-proxy.py` retains the prior
+blocking-loop deadlock control and verifies full-duplex backpressure, complete
+half-close replies and broken-peer refusal. Export identity, limits and request
+deadlines remain the same. Live Docker concurrency remains a separate gate.
