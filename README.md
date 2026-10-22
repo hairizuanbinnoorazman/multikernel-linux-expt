@@ -23,7 +23,11 @@ A [graceful private runtime restart](evidence/runtime-20261022/g8-host-docker-ru
 also preserves the live child, engine and saved image; crash and other service
 restart cases remain separate. The documented daemon capability and NNP bounds
 also [pass build and recovery qualification](evidence/runtime-20261022/g8-host-docker-service-policy/README.md). Passing Docker builds does not prove containment
-after child-kernel compromise. See the
+after child-kernel compromise. A [two-child concurrency checkpoint](evidence/runtime-20261022/g8-concurrent-build-checkpoint/README.md)
+records overlapping builds, separate engines/storage and survivor cleanup.
+An earlier export failure remains retained; the [NBD proxy regression proof](evidence/runtime-20261022/g8-native-stream-proxy/README.md)
+reproduces and fixes a bidirectional backpressure defect. Concurrent reliability
+and complete gate acceptance remain open. See the
 [Docker guest design and evidence](docs/runtime/research/docker-in-docker-guests.md).
 
 Start with the [documentation map](docs/README.md). In particular:

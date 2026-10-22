@@ -191,3 +191,14 @@ and network capability/NNP/ambient settings enforced on private candidate daemon
 Actual process masks match the retained source units, including the replacement
 runtime process. This closes the bounded compatibility check; other service
 restrictions, concurrency, crash/pressure/adversarial cases and full G7/G8 remain open.
+
+The [two-child build checkpoint](../../evidence/runtime-20261022/g8-concurrent-build-checkpoint/README.md)
+records real overlapping BuildKit RUN steps, separate boot/engine/canary/catalog
+and backing-file identities, completed offline build matrices, survivor continuity
+and final cleanup. This used the old native NBD proxy. The earlier missing export
+is retained as a failure control; one successful run does not resolve it.
+The [proxy regression proof](../../evidence/runtime-20261022/g8-native-stream-proxy/README.md)
+reproduces a blocking forwarding deadlock and verifies independent bounded queues
+with byte integrity, half-close and broken-peer controls. Fresh GCE qualification
+of that candidate is separate. Full concurrent reliability and G7/G8 stay open;
+direct child kernels require no nested virtualization and share host trust.
