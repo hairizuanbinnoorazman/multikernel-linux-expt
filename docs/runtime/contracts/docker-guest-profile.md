@@ -46,7 +46,9 @@ including Docker's `--cap-drop ALL` projection, are supported through the sealed
 credential executor. The trusted static pure-Go agent clears bounding bits before
 changing all UID/GID values; every helper thread receives NNP before that change.
 The requested environment, cwd and executable are used after dropping identity.
-Actual host Docker/child integration still needs qualification before activation.
+The [bounded host Docker lifecycle proof](../../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md)
+now qualifies runtime selection, offline builds and teardown with private daemon
+state. Recovery, concurrency and adversarial release qualification remain open.
 
 Root-owned copies alone cannot isolate arbitrary guest UID 0. This profile's
 separate workload identity protects outer bootstrap/control ownership without
@@ -86,7 +88,8 @@ Preparation remains in private scratch and is discarded on refusal.
 The [retained proof](../../../evidence/runtime-20261022/g8-direct-child-boot/README.md)
 uses the production builder, real Docker client/server, authenticated Quiesce and
 Shutdown, synced NBD export and clean offline filesystem check. Docker builds
-and host Docker/Runtime v2 integration remain open. The builder verifies a scan of the copied image against both
+remain separate from the later host Docker lifecycle qualification below.
+The builder verifies a scan of the copied image against both
 approval and the held source before bind materialization, installs the independent
 outer helper tree, rehashes bootstrap/module bytes while copying, and writes a
 protected outer marker. Init accepts only that fixed marker and fixed modules,
@@ -248,3 +251,10 @@ xattrs and existing outputs are refused. The approved independent outer copies
 still install setuid mapping helpers through the supervised bootstrap contract.
 The host Docker qualification imports this archive and checks the exported
 filesystem against the same approval before attempting child startup.
+
+The [host Docker lifecycle proof](../../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md)
+subsequently passes host runtime selection, the offline build matrix and clean
+teardown through private containerd/runtime/Docker state. It retains independent
+firewall policy/rule and link/route comparisons and a pre-teardown workload
+checkpoint. Recovery, concurrency, adversarial and complete release gates remain
+open; historical phase-specific limitations above describe their original runs.

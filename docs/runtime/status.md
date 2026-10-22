@@ -169,3 +169,11 @@ passes authenticated storage shutdown, synced NBD export, offline filesystem
 checking and full disposable child/resource cleanup while watched primary files
 and service PIDs remain unchanged. Host Docker/Runtime v2 selection, recovery,
 concurrency and adversarial integration remain open; no complete G7/G8 gate closes.
+
+The later [host Docker lifecycle checkpoint](../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md)
+passes host Docker runtime selection, the offline child build matrix and teardown
+with independent daemon state. Raw firewall rules/policies, links and routes
+return to their initial identity; child/pool/rootfs/export/network ownership is
+released. A separate workload checkpoint precedes teardown. This advances the
+previous direct credential-load fixture; recovery, concurrency, adversarial and
+complete G7/G8 acceptance remain open.

@@ -115,3 +115,11 @@ added to production `mk-agent-init`, and its workload capability/NNP policy is
 unchanged. The [G7 architectural limitation](g7-security-boundary-assessment.md)
 after guest-kernel compromise remains; this run does not establish containment
 of a malicious guest kernel or superiority over gVisor.
+
+The [host Docker lifecycle checkpoint](../../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md)
+now qualifies host Docker selecting the current runtime and running this offline
+build workload in a mediated direct child, followed by full disposable cleanup.
+It uses independent daemon state, explicit supported OCI settings and the
+approved xattr-free import archive. Recovery, concurrency and adversarial release
+qualification remain open. The raw network snapshots and invocation-bound
+workload/final receipts are retained; this does not close complete G7/G8 gates.

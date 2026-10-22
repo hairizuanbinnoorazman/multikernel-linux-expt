@@ -197,6 +197,10 @@ The detailed exit criteria and ordering are in
     claiming an isolation advantage without supporting evidence.
 - [ ] G8: add bounded health, diagnostics, structured logging, tested recovery,
   service hardening, and a maintainable shim layout.
+  - [x] Qualify host Docker selecting the approved profile for offline child
+    builds and teardown with independent test daemon state; retain
+    [workload/lifecycle and raw network proof](../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md).
+    Recovery, concurrency, adversarial and complete G8 acceptance remain open.
 - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
   release artifacts, dependency/license inventories, SBOM, provenance, and
   tested install/upgrade/rollback/uninstall paths.

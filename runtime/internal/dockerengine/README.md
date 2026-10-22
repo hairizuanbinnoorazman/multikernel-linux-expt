@@ -90,4 +90,6 @@ The installed real-engine test checks rename, busy-reference refusal, retry and
 idempotence. The [retained direct-child proof](../../../evidence/runtime-20261022/g8-direct-child-boot/README.md)
 subsequently passes real Docker startup, root read-only remount, NBD disconnect
 and offline filesystem checking with this production preparation path. Actual
-Docker builds and host Docker integration remain separate qualifications.
+Docker builds and host Docker integration are qualified separately by the
+[bounded host lifecycle proof](../../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md);
+recovery and adversarial release qualification remain open.
