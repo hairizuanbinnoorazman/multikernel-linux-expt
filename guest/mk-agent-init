@@ -82,6 +82,12 @@ chmod 0700 "$agent_socket_dir"
 	--token-file=/.mk-agent/token --port="$port" --unix-socket="$agent_socket" $mediated $docker_guest &
 agent_pid=$!
 while kill -0 "$agent_pid" 2>/dev/null; do
+	# The agent publishes this protected listener only after service readiness.
+	# Do not establish a primary relay session while Docker is still starting.
+	if [ ! -S "$agent_socket" ]; then
+		sleep 0.1
+		continue
+	fi
 	/mkvsock-relay client 0 "$port" "$agent_socket" || true
 	kill -0 "$agent_pid" 2>/dev/null || break
 	sleep 1

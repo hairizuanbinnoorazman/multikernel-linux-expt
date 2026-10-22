@@ -90,7 +90,7 @@ func main() {
 			if service != nil {
 				_ = stopDockerBeforeStorage(service.Stop, nil)
 			}
-			fmt.Fprintln(os.Stderr, "Docker guest startup failed")
+			fmt.Fprintln(os.Stderr, "Docker guest startup failed:", startErr)
 			os.Exit(1)
 		}
 		stopDocker = func() error { return stopDockerBeforeStorage(service.Stop, nil) }
