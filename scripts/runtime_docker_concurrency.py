@@ -169,7 +169,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
                 assert marker in output
             assert 'CACHED' in errors and 'exit code: 37' in errors
             assert after[case]['saved_image_sha256'] in output
-        execute(1, ['/bin/touch', '/home/rootless/.local/tmp/g8-concurrency/release'], 'release-sibling')
+        invoke(cli + ['kill', '--signal=USR1', names[1]], 'release-sibling')
         assert processes['b'].wait(timeout=60) == 0
         inspected = json.loads(invoke(cli + ['inspect', names[1]], 'sibling-inspect').stdout)[0]
         assert inspected['State']['ExitCode'] == 0
@@ -188,7 +188,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
                   'run_overlap_observed': True, 'sibling_removed_without_survivor_change': True,
                   'cleanup_qualified': False}
         (private / 'concurrency-checkpoint.json').write_text(json.dumps(result, indent=2) + '\n')
-        execute(0, ['/bin/touch', '/home/rootless/.local/tmp/g8-concurrency/release'], 'release-primary')
+        invoke(cli + ['kill', '--signal=USR1', names[0]], 'release-primary')
         assert processes['a'].wait(timeout=60) == 0
         return subprocess.CompletedProcess(processes['a'].args, 0)
     finally:
