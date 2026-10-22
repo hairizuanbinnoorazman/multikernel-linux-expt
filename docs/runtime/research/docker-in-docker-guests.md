@@ -96,8 +96,14 @@ request in a dedicated online diagnostic profile. The remaining production
 network/storage/lifecycle limits above still apply.
 
 The [approved Docker profile contract](../contracts/docker-guest-profile.md) now
-validates operator approval and explicitly refuses production activation until
-the supervised bootstrap path is implemented. It is not a Docker startup result.
+validates operator approval and implements a supervised bootstrap path. The
+[production builder proof](../../../evidence/runtime-20261022/g8-profile-boot/README.md)
+qualifies construction, and the
+[owned mount proof](../../../evidence/runtime-20261022/g8-state-mount/README.md)
+qualifies real-engine state cleanup in private primary namespaces. The
+[direct-child boot proof](../../../evidence/runtime-20261022/g8-direct-child-boot/README.md)
+now qualifies production mediated-root startup and clean shutdown. Production
+Docker builds and host Docker integration still require qualification.
 
 Production integration requires an explicit approved Docker profile, immutable
 bootstrap inputs, daemon/socket lifecycle and authorization review, and the usual

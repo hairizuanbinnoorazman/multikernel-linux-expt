@@ -82,8 +82,11 @@ by root. Group/other-writable inputs remain refused. The closure is limited to
 256 files and 128 MiB, with 64 MiB per source file.
 Preparation remains in private scratch and is discarded on refusal.
 
-**Approved-profile boot integration is implemented but still needs live child
-qualification.** The builder verifies a scan of the copied image against both
+**Approved-profile boot and clean shutdown passed on a direct child.**
+The [retained proof](../../../evidence/runtime-20261022/g8-direct-child-boot/README.md)
+uses the production builder, real Docker client/server, authenticated Quiesce and
+Shutdown, synced NBD export and clean offline filesystem check. Docker builds
+and host Docker/Runtime v2 integration remain open. The builder verifies a scan of the copied image against both
 approval and the held source before bind materialization, installs the independent
 outer helper tree, rehashes bootstrap/module bytes while copying, and writes a
 protected outer marker. Init accepts only that fixed marker and fixed modules,
@@ -203,9 +206,19 @@ selected child kernel artifacts. It inspects generated marker/bootstrap/helper/
 module bytes and modes, retaining the refusal controls. It does not yet qualify
 execution of that generated child boot or Docker builds.
 
-The state bind is held by an `open_tree` descriptor and transferred to service
-ownership before launch. Once the engine scope is empty, cleanup moves that exact
-mount to a protected outer directory and unmounts it normally, then permits root
-read-only remount. This releases RootlessKit's deleted state-directory inode.
+The outer state directory is self-bound before sharing into the image so that
+RootlessKit cannot unlink the shared inode at exit. Both mounts are held by
+`open_tree` descriptors and transferred to service ownership before launch.
+Once the engine scope is empty, cleanup moves each exact mount to a protected
+outer directory and unmounts it normally before permitting root read-only remount.
 Busy references retain ownership and refuse storage release. The mechanism does
 not depend on an image-writable pathname or execute image helpers at shutdown.
+The [installed ownership proof](../../../evidence/runtime-20261022/g8-state-mount/README.md)
+checks image-side rename, EBUSY refusal, retry and idempotent cleanup with the real
+engine on the GCE primary. It retains the preceding deleted-inode failure; this
+phase starts no child and performs no Docker build.
+
+The [direct-child boot proof](../../../evidence/runtime-20261022/g8-direct-child-boot/README.md)
+subsequently qualifies the generated mediated-root boot and clean shutdown.
+Earlier primary-only evidence remains bounded to its original phase. No complete
+G7/G8 gate is closed by this boot check.
