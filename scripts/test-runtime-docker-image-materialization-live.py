@@ -24,9 +24,17 @@ instances=pathlib.Path('/sys/fs/multikernel/instances');assert not list(instance
 assert pathlib.Path('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
 assert sha(work/'bin/containerd')=='dbc252c7f4e3534dcbe674552b87b20194967e7b6069e66de61632dcdd3acc83'
 archive=pathlib.Path('/opt/mkruntime/g8-outer-b42ccf3/image.tar')
-assert sha(archive)=='8af069def93985e73e5688b1d6bff1369597937c93a12a4b26475a32d18e7154'
+pinned_archive_digest=sha(archive)
+assert pinned_archive_digest=='8af069def93985e73e5688b1d6bff1369597937c93a12a4b26475a32d18e7154'
 private=work/'preflight';private.mkdir(mode=0o700)
 for name in ['docker-data','docker-exec','containerd-root','containerd-state','exported']:(private/name).mkdir(mode=0o755 if name=='exported' else 0o700)
+# Publish the exact approved xattr-free tree as Docker import data. The original
+# export has capability PAX headers and is deliberately not imported directly.
+archive=private/'approved-image.tar'
+pack=run(['/usr/bin/python3',source/'scripts/build-runtime-docker-image-archive.py','/opt/mkruntime/g8-outer-b42ccf3/image',archive,'--manifest-sha256','627fa6bea79b118c7be162d0ab68f3f5899a0b6cd465499c11c7947026355ecf'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+(private/'pack.stdout').write_bytes(pack.stdout);(private/'pack.stderr').write_bytes(pack.stderr)
+pack_receipt=json.loads(pack.stdout)
+assert pack_receipt['archive_sha256']==sha(archive) and pack_receipt['xattrs_emitted'] is False
 run(['/bin/mount','--make-rprivate','/']);run(['/bin/mount','--bind',private/'docker-data','/var/lib/docker'])
 sock=private/'containerd.sock';dsock=private/'docker.sock'
 cc=private/'containerd.toml'
@@ -76,5 +84,5 @@ finally:
 assert not list(instances.iterdir()) and pathlib.Path('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
 assert {str(p):sha(p) for p in paths}==before and services()==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
-r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'private_network_namespace':True,'no_child_started':True,'no_image_program_executed':True,'docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'source_image_archive_sha256':sha(archive),'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
+r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'private_network_namespace':True,'no_child_started':True,'no_image_program_executed':True,'docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
 (work/'preflight-receipt.json').write_text(json.dumps(r,indent=2)+'\n');print('G8_HOST_DOCKER_IMAGE_PREFLIGHT_PASS',flush=True)

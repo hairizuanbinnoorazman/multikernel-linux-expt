@@ -230,3 +230,21 @@ verification on the mediated direct child. Authenticated shutdown, clean offline
 filesystem checking and restored resources pass in that same invocation. Host
 Docker/Runtime v2 selection, recovery, concurrency and adversarial integration
 remain open. This advances the earlier boot-only phase without closing full gates.
+
+## Docker import archive preparation
+
+The approved image root is xattr-free. The original registry export can carry
+`security.capability` PAX headers on mapping helpers; Docker import restores
+those headers even when an earlier ordinary tar extraction ignored them. The
+runtime continues to reject capability and other unsupported xattrs.
+
+Operators can use `scripts/build-runtime-docker-image-archive.py ROOT OUTPUT
+--manifest-sha256 APPROVED_DIGEST` to package the exact approved extracted tree
+for Docker import. This explicit distribution step scans the tree with the
+ordinary strict root validator, verifies its approval digest, and serializes
+only approved bytes, owners, modes, links and directories. It never executes
+image programs, changes the source or emits xattrs. Changed content, unknown
+xattrs and existing outputs are refused. The approved independent outer copies
+still install setuid mapping helpers through the supervised bootstrap contract.
+The host Docker qualification imports this archive and checks the exported
+filesystem against the same approval before attempting child startup.
