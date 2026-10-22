@@ -123,3 +123,10 @@ It uses independent daemon state, explicit supported OCI settings and the
 approved xattr-free import archive. Recovery, concurrency and adversarial release
 qualification remain open. The raw network snapshots and invocation-bound
 workload/final receipts are retained; this does not close complete G7/G8 gates.
+
+The [graceful runtime-restart proof](../../../evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md)
+subsequently keeps the Docker child live across one private runtime process
+restart. Child boot ID, local engine ID, saved-image digest and ownership
+generation remain identical; final teardown and raw primary/network comparisons
+pass. Crash/power loss, other service restarts, service privilege bounds and
+complete G7/G8 acceptance remain open.

@@ -258,3 +258,10 @@ teardown through private containerd/runtime/Docker state. It retains independent
 firewall policy/rule and link/route comparisons and a pre-teardown workload
 checkpoint. Recovery, concurrency, adversarial and complete release gates remain
 open; historical phase-specific limitations above describe their original runs.
+
+The [graceful runtime-restart proof](../../../evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md)
+subsequently keeps the Docker child live across one private runtime process
+restart. Child boot ID, local engine ID, saved-image digest and ownership
+generation remain identical; final teardown and raw primary/network comparisons
+pass. Crash/power loss, other service restarts, service privilege bounds and
+complete G7/G8 acceptance remain open.

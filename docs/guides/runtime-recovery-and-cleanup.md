@@ -6,7 +6,9 @@ resources whose ownership is established.
 
 These procedures are for a disposable, trusted test host. They are not a
 general disaster-recovery promise: the broader G7 security, reliability, and
-soak matrix remains open.
+soak matrix remains open. The target uses direct child kernels because nested
+virtualization is unavailable under its cloud constraints. Recovery checks do
+not establish containment after arbitrary child-kernel compromise.
 
 ## First response
 
@@ -73,7 +75,11 @@ workloads. Wait for runtime reconciliation before escalating.
 Check whether the child boot ID and task state are part of the assertion before
 restarting anything. The implemented recovery path is expected to preserve a
 running child across an `mkruntimed` restart, but current live evidence may lag
-the implementation.
+the implementation. The [approved Docker guest recovery proof](../../evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md)
+now qualifies one graceful private candidate-runtime restart: the live child boot
+ID, engine ID, saved-image digest and running ownership generation stay unchanged,
+then cleanup passes. It does not qualify crash/power loss, other service restarts
+or the installed service capability restrictions.
 
 Restart one authority at a time and capture before/after state:
 

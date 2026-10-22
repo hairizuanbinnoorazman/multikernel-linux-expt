@@ -177,3 +177,10 @@ return to their initial identity; child/pool/rootfs/export/network ownership is
 released. A separate workload checkpoint precedes teardown. This advances the
 previous direct credential-load fixture; recovery, concurrency, adversarial and
 complete G7/G8 acceptance remain open.
+
+The [graceful runtime-restart proof](../../evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md)
+subsequently keeps the Docker child live across one private runtime process
+restart. Child boot ID, local engine ID, saved-image digest and ownership
+generation remain identical; final teardown and raw primary/network comparisons
+pass. Crash/power loss, other service restarts, service privilege bounds and
+complete G7/G8 acceptance remain open.

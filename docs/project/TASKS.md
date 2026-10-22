@@ -201,6 +201,9 @@ The detailed exit criteria and ordering are in
     builds and teardown with independent test daemon state; retain
     [workload/lifecycle and raw network proof](../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md).
     Recovery, concurrency, adversarial and complete G8 acceptance remain open.
+  - [x] Qualify one graceful private runtime restart while a Docker build child
+    stays live; retain [boot/engine/image/ownership continuity and teardown proof](../../evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md).
+    Crash, other service restarts, privilege bounds and full G8 remain open.
 - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
   release artifacts, dependency/license inventories, SBOM, provenance, and
   tested install/upgrade/rollback/uninstall paths.
