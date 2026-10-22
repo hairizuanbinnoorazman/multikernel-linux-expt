@@ -32,9 +32,9 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
     streams = []
     sibling_created = False
 
-    def invoke(arguments, label, success=True):
+    def invoke(arguments, label, success=True, timeout=100):
         result = subprocess.run([str(x) for x in arguments], stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, timeout=100)
+                                stderr=subprocess.PIPE, timeout=timeout)
         assert len(result.stdout) < 131072 and len(result.stderr) < 131072
         (private / (label + '.stdout')).write_bytes(result.stdout)
         (private / (label + '.stderr')).write_bytes(result.stderr)
@@ -46,12 +46,27 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         return invoke(cli + ['exec', '--user', '1000:1000', names[index]] + arguments,
                       label, success)
 
+    def diagnose_failure():
+        # Keep the wrapper alive so diagnostics retain the original guest view.
+        # No retry/export fallback can turn a failed original workload into pass.
+        command = 'id; uname -r; df -k /home/rootless/.local/tmp; ls -lain /home/rootless/.local/tmp/g8-build; /usr/local/bin/docker --host=unix:///var/run/docker.sock info --format "{{json .}}"; /usr/local/bin/docker --host=unix:///var/run/docker.sock ps -a'
+        for index, case in enumerate(cases):
+            try:
+                invoke(cli + ['exec', '--user', '1000:1000', names[index], '/bin/sh', '-c', command], 'failure-diagnostic-' + case, False, 25)
+            except subprocess.TimeoutExpired as error:
+                (private / ('failure-diagnostic-' + case + '.stdout')).write_bytes((error.stdout or b'')[:131072])
+                (private / ('failure-diagnostic-' + case + '.stderr')).write_bytes((error.stderr or b'')[:131072] + b'\nDIAGNOSTIC_DEADLINE_EXCEEDED\n')
+
     def wait_for(marker, limit=360):
         deadline = time.monotonic() + limit
         while True:
             if all(marker in (private / (case + '-workload.stdout')).read_text() for case in cases):
                 return
-            assert all(p.poll() is None for p in processes.values()), 'build client stopped before barrier'
+            output = {case: (private / (case + '-workload.stdout')).read_text() for case in cases}
+            failed = any('G8_CONCURRENT_BUILD_FAILED' in value for value in output.values())
+            if failed or not all(p.poll() is None for p in processes.values()):
+                diagnose_failure()
+                raise AssertionError('concurrent workload failed; bounded diagnostics retained')
             assert time.monotonic() < deadline, 'concurrent workload barrier deadline exceeded'
             time.sleep(.2)
 

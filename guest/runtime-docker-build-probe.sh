@@ -39,7 +39,17 @@ docker run --rm --network=none g8-proof:latest /bin/busybox sh -ec \
     '/bin/busybox id; /bin/busybox grep -E "^(CapEff|NoNewPrivs|Seccomp):" /proc/self/status; /bin/busybox cat /proc/self/uid_map'
 echo G8_NESTED_AUTHORITY_END
 docker image inspect g8-proof:latest
+set +e
 docker save -o "$work/image.tar" g8-proof:latest
+save_status=$?
+set -e
+echo "G8_IMAGE_SAVE_EXIT=$save_status"
+if [ "$save_status" -ne 0 ] || [ ! -s "$work/image.tar" ]; then
+    echo G8_IMAGE_SAVE_ARTIFACT_MISSING
+    ls -lain "$work"
+    df -k "$work"
+    exit 71
+fi
 sha256sum "$work/image.tar"
 sed -i 's@echo G8_OVERLAP_RUN_BEGIN; /bin/busybox sleep 45; echo G8_OVERLAP_RUN_END; @@' "$work/context/Dockerfile"
 sed -i 's/echo multikernel-production-docker-build/exit 37; echo multikernel-production-docker-build/' "$work/context/Dockerfile"
