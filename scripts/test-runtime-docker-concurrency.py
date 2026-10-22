@@ -1,10 +1,28 @@
 #!/usr/bin/env python3
 import unittest
 import hashlib
-from runtime_docker_concurrency import run_markers, owner_for_container
+import os
+import signal
+import subprocess
+from runtime_docker_concurrency import run_markers, owner_for_container, RELEASE_WAIT
 
 
 class RunMarkerTests(unittest.TestCase):
+    def test_group_signal_releases_errexit_shell_with_its_sleep_interrupted(self):
+        command = 'release=0; trap "release=1" USR1; echo READY; ' + RELEASE_WAIT + '; echo RELEASED; exit 37'
+        child = subprocess.Popen(['/bin/sh', '-ec', command], start_new_session=True,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(child.stdout.readline(), 'READY\n')
+            os.killpg(child.pid, signal.SIGUSR1)
+            out, _ = child.communicate(timeout=3)
+            self.assertEqual(out, 'RELEASED\n')
+            self.assertEqual(child.returncode, 37)
+        finally:
+            if child.poll() is None:
+                os.killpg(child.pid, signal.SIGKILL)
+                child.wait(timeout=3)
+
     def test_only_actual_run_output_counts(self):
         echoed = '#5 [build 2/2] RUN ["/bin/busybox", "sh", "-ec", "echo G8_OVERLAP_RUN_BEGIN; echo G8_OVERLAP_RUN_END"]\n'
         self.assertEqual(run_markers(echoed), set())

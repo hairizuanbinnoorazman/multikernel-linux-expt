@@ -6,6 +6,10 @@ import secrets
 import subprocess
 import time
 
+# The authenticated signal targets the complete process group, including sleep.
+# Its interruption must not trigger the wrapper's errexit before normal exit.
+RELEASE_WAIT = 'while [ "$release" -eq 0 ]; do sleep 1 || :; done'
+
 
 def run_markers(text):
     # Match actual BuildKit RUN output, never the echoed Dockerfile instruction.

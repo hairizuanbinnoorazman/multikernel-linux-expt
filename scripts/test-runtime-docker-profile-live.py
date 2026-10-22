@@ -3,7 +3,7 @@
 import hashlib,json,os,pathlib,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
 from runtime_service_policy import parse_policy, command_with_policy, check_observation
-from runtime_docker_concurrency import qualify as qualify_concurrency
+from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--concurrent] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--harden-services','--concurrent'}
@@ -122,7 +122,7 @@ try:
   # Normal release must not create an exec whose completion races init exit.
   # Docker exec is scoped to the lifetime of init. Exercise that boundary in
   # a separate reliability case rather than requiring the release exec to win.
-  workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; mkdir -m 700 /home/rootless/.local/tmp/g8-concurrency; echo G8_CONCURRENT_BOOT_READY; while [ ! -f /home/rootless/.local/tmp/g8-concurrency/build ]; do sleep 1; done; set +e; /bin/sh /work/input/probe.sh --overlap-proof; probe_status=$?; set -e; echo G8_CONCURRENT_PROBE_EXIT=$probe_status; if [ "$probe_status" -eq 0 ]; then echo G8_CONCURRENT_BUILD_READY; else echo G8_CONCURRENT_BUILD_FAILED; fi; while [ "$release" -eq 0 ]; do sleep 1; done; echo G8_CONCURRENT_RELEASED; exit "$probe_status"']
+  workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; mkdir -m 700 /home/rootless/.local/tmp/g8-concurrency; echo G8_CONCURRENT_BOOT_READY; while [ ! -f /home/rootless/.local/tmp/g8-concurrency/build ]; do sleep 1; done; set +e; /bin/sh /work/input/probe.sh --overlap-proof; probe_status=$?; set -e; echo G8_CONCURRENT_PROBE_EXIT=$probe_status; if [ "$probe_status" -eq 0 ]; then echo G8_CONCURRENT_BUILD_READY; else echo G8_CONCURRENT_BUILD_FAILED; fi; ' + RELEASE_WAIT + '; echo G8_CONCURRENT_RELEASED; exit "$probe_status"']
  created=run(cli+['create','--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture']+workload,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  container_created=True
  (private/'create.stdout').write_bytes(created.stdout);(private/'create.stderr').write_bytes(created.stderr)
