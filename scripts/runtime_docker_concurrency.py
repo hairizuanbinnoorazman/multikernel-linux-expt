@@ -33,8 +33,20 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
     sibling_created = False
 
     def invoke(arguments, label, success=True, timeout=100):
-        result = subprocess.run([str(x) for x in arguments], stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, timeout=timeout)
+        try:
+            result = subprocess.run([str(x) for x in arguments], stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, timeout=timeout)
+        except subprocess.TimeoutExpired as error:
+            # Preserve the original command's partial output before finally
+            # starts cleanup. A timeout must never become an unrecorded retry.
+            (private / (label + '.stdout')).write_bytes((error.stdout or b'')[:131072])
+            (private / (label + '.stderr')).write_bytes((error.stderr or b'')[:131072])
+            (private / (label + '-timeout.json')).write_text(json.dumps({
+                'deadline_seconds': timeout, 'timed_out': True,
+                'stdout_truncated': len(error.stdout or b'') > 131072,
+                'stderr_truncated': len(error.stderr or b'') > 131072,
+            }, indent=2) + '\n')
+            raise
         assert len(result.stdout) < 131072 and len(result.stderr) < 131072
         (private / (label + '.stdout')).write_bytes(result.stdout)
         (private / (label + '.stderr')).write_bytes(result.stderr)
