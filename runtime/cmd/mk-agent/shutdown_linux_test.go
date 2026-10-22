@@ -93,7 +93,7 @@ func TestMediatedShutdownOrderingAndFailureBoundaries(t *testing.T) {
 	if !slices.Equal(events, []string{"sync", "remount-ro"}) {
 		t.Fatalf("failed remount events = %v", events)
 	}
-	if evidence.Len() != 0 {
+	if evidence.String() != "MK_STORAGE_ROOT_QUIESCE_FAIL stage=remount-ro\n" {
 		t.Fatalf("failed remount evidence = %q", evidence.String())
 	}
 

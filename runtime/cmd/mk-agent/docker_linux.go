@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -56,11 +57,16 @@ func stopDockerBeforeStorage(stop func(context.Context) error, quiesce func() er
 	defer cancel()
 	if stop != nil {
 		if err := stop(ctx); err != nil {
+			fmt.Fprintln(os.Stderr, "MK_DOCKER_STOP_FAIL")
 			return errors.New("Docker service has not quiesced")
 		}
 	}
 	if quiesce != nil {
-		return quiesce()
+		err := quiesce()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "MK_DOCKER_STORAGE_QUIESCE_FAIL")
+		}
+		return err
 	}
 	return nil
 }

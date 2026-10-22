@@ -68,6 +68,12 @@ func linuxShutdownPlatform() shutdownPlatform {
 func quiesceMediatedRoot(platform shutdownPlatform, evidence io.Writer) error {
 	platform.syncFilesystem()
 	if err := platform.remountRootReadonly(); err != nil {
+		var errno syscall.Errno
+		if errors.As(err, &errno) {
+			fmt.Fprintf(evidence, "MK_STORAGE_ROOT_QUIESCE_FAIL stage=remount-ro errno=%d\n", errno)
+		} else {
+			fmt.Fprintln(evidence, "MK_STORAGE_ROOT_QUIESCE_FAIL stage=remount-ro")
+		}
 		return err
 	}
 	platform.syncFilesystem()
