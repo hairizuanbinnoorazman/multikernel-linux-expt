@@ -112,10 +112,11 @@ open_source_root() {
 docker_guest=0
 if jq -e 'has("docker_guest")' "$bootstrap" >/dev/null; then
 	open_source_root
-	run_python build-runtime-rootfs.py "$source_root" "$metadata/unused" "$source_before_manifest" --manifest-only \
+	docker_approval_manifest=$metadata/docker-approved-source.manifest.json
+	run_python build-runtime-rootfs.py "$source_root" "$metadata/unused" "$docker_approval_manifest" --manifest-only \
 		--max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
 		>"$metadata/docker-source-result.json"
-	run_python validate-runtime-docker-root.py "$bootstrap" "$source_before_manifest" "$bind_plan" \
+	run_python validate-runtime-docker-root.py "$bootstrap" "$docker_approval_manifest" "$bind_plan" \
 		--workload-config "$validated_config" \
 		--prepare-outer "$source_root" "$metadata/docker-outer" \
 		>"$metadata/docker-source-approval.json"
