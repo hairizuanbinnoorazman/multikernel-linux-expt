@@ -181,3 +181,10 @@ owned-cgroup removal pass; retained failures drove the helper, temporary-directo
 and fixed state-directory fixes. This is not direct-child boot/build evidence.
 Production boot preparation and copied-root verification still need integration
 before the activation refusal can be removed.
+
+The agent's explicit Docker path now owns fixed filesystem preparation before
+service launch. It rejects aliases in runtime/data paths, nonfresh outer state
+and a nonprotected/non-tmpfs inner `/run`; enables the service parent controllers;
+and creates the state bind and read-only config/cgroup mounts before admitting
+clients. Approved artifact installation, module loading and the production boot
+opt-in remain prerequisites for builder activation.

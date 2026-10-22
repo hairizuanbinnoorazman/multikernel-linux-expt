@@ -4,6 +4,8 @@ package dockerengine
 
 import (
 	"context"
+	"errors"
+	"golang.org/x/sys/unix"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +27,53 @@ func TestInstalledRealForegroundBootstrap(t *testing.T) {
 	parent := os.Getenv("MK_TEST_GUEST_SCOPE_PARENT")
 	if parent == "" || os.Geteuid() != 0 {
 		t.Fatal("root and protected scope parent required")
+	}
+	// An image alias must fail before configuration or mounts are created.
+	local := imageRoot + "/home/rootless/.local"
+	backup := local + ".qualification-original"
+	_, statErr := os.Lstat(local)
+	existed := statErr == nil
+	if statErr != nil && !os.IsNotExist(statErr) {
+		t.Fatal(statErr)
+	}
+	if existed {
+		if err := os.Rename(local, backup); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink("/tmp", local); err != nil {
+		t.Fatal(err)
+	}
+	refusal := PrepareFilesystem()
+	if err := os.Remove(local); err != nil {
+		t.Fatal(err)
+	}
+	if existed {
+		if err := os.Rename(backup, local); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if refusal == nil || refusal.Error() != "Docker data directory alias refused" {
+		t.Fatal("image alias admitted", refusal)
+	}
+	if _, err := os.Stat(imageRoot + "/run/user"); !os.IsNotExist(err) {
+		t.Fatal("preflight refusal changed runtime directory", err)
+	}
+	if err := PrepareFilesystem(); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{imageRoot + "/run/docker-daemon.json", imageRoot + "/sys/fs/cgroup/cgroup.subtree_control"} {
+		fd, err := unix.Open(path, unix.O_WRONLY|unix.O_CLOEXEC, 0)
+		if fd >= 0 {
+			unix.Close(fd)
+		}
+		if !errors.Is(err, unix.EROFS) {
+			t.Fatal("inner configuration/cgroup view is writable", path, err)
+		}
+	}
+	var outerState, innerState unix.Stat_t
+	if unix.Stat(rootlessState, &outerState) != nil || unix.Stat(imageRoot+rootlessState, &innerState) != nil || outerState.Dev != innerState.Dev || outerState.Ino != innerState.Ino {
+		t.Fatal("RootlessKit state is not shared")
 	}
 	name := "mk-engine-foreground-" + strconv.Itoa(os.Getpid())
 	scope, err := guestscope.New(parent, name, guestscope.Limits{PIDs: 512, MemoryBytes: 512 << 20})
@@ -96,5 +145,5 @@ func TestInstalledRealForegroundBootstrap(t *testing.T) {
 	if !bounded {
 		t.Fatal("daemon log bound exceeded")
 	}
-	t.Log("real rootless Docker API, foreground lifetime, bounded logs and owned cgroup removal passed")
+	t.Log("agent filesystem preparation, alias refusal, readonly config/cgroups, shared state, real rootless Docker API, foreground lifetime, bounded logs and owned cgroup removal passed")
 }

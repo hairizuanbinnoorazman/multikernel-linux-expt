@@ -68,3 +68,13 @@ records the pinned Docker engine passing this installed test on the restarted
 GCE primary kernel. It retains the failed controls that identified missing outer
 helpers, temporary-directory permissions and shared API state. Production boot
 integration and actual direct-child builds remain open.
+
+`PrepareFilesystem` now performs the fixed pre-admission filesystem setup used
+by `mk-agent --docker-guest`: no-symlink path checks, fresh private API state,
+protected inner tmpfs, memory/pids controller enablement, private mount
+propagation, read-only inner cgroups/config and fixed data-directory ownership.
+The installed real-engine test calls this same function and checks alias refusal,
+read-only write attempts and shared state identity before launching the engine.
+The builder/init still must install approved outer inputs and load the approved
+modules. Preparation failure serves no clients; failed children require teardown,
+not adoption or in-place retry.

@@ -36,6 +36,9 @@ func startDockerGuest(ctx context.Context) (*dockerengine.Service, error) {
 	if _, err := bootstrap.Seek(0, 0); err != nil {
 		return nil, errors.New("trusted Docker bootstrap rewind failed")
 	}
+	if err := dockerengine.PrepareFilesystem(); err != nil {
+		return nil, err
+	}
 	scope, err := guestscope.New("/sys/fs/cgroup", "mk-docker-engine", guestscope.Limits{PIDs: 512, MemoryBytes: 512 << 20})
 	if err != nil {
 		return nil, errors.New("Docker service scope creation failed")
