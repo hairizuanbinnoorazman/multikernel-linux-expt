@@ -39,7 +39,7 @@ config.update(state_directory=str(private/'daemon-state'),socket_path=str(daemon
 host_config=private/'host.json';host_config.write_text(json.dumps(config));host_config.chmod(0o600)
 storage_root=pathlib.Path('/srv/multikernel-storage')/work.name
 storage_root.mkdir(mode=0o700)
-extra={'MK_DAEMON_SOCKET':str(daemon_socket),'MK_NETWORK_SOCKET':str(network_socket),'MK_SHIM_LOCK':str(private/'locks/allocate'),'MK_SANDBOX_CPU_SETS':'8,10','MK_RELAY':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-relay','MK_KERNEL_MANIFEST':str(approval),'MK_KERNEL_MANIFEST_NAME':'gce-mk2','MK_NBD_HELPER':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','MK_NBD_MODULE':profile['modules'][0]['path']}
+extra={'MK_DAEMON_SOCKET':str(daemon_socket),'MK_NETWORK_SOCKET':str(network_socket),'MK_SHIM_LOCK':str(private/'locks/allocate'),'MK_SANDBOX_CPU_SETS':'8,9,10,11','MK_RELAY':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-relay','MK_KERNEL_MANIFEST':str(approval),'MK_KERNEL_MANIFEST_NAME':'gce-mk2','MK_NBD_HELPER':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','MK_NBD_MODULE':profile['modules'][0]['path']}
 # Store firewall rules without packet counters so transient test traffic does
 # not invalidate identity checks. Exact rules must return to their prior state.
 def rules(name):return b'\n'.join(line for line in subprocess.check_output(['/usr/sbin/'+name]).splitlines() if not line.startswith(b'#'))
@@ -58,11 +58,11 @@ def start(args,name):
 def wait(path,p):
  until=time.monotonic()+30
  while not path.is_socket():
-  assert p.poll() is None and time.monotonic()<until,'private daemon unavailable'
+  assert p.poll() is None and time.monotonic()<until,'private daemon unavailable: '+str(p.args[0])
   time.sleep(.1)
 cli=None;container_created=False
 try:
- m=start([work/'bin/mkruntimed','--config='+str(host_config),'--pool-cpus=8,10,12,14','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server=/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(storage_root),'--rootfs-builder='+str(source/'scripts/build-runtime-container-initramfs.sh')],'mkruntimed.log');wait(daemon_socket,m)
+ m=start([work/'bin/mkruntimed','--config='+str(host_config),'--pool-cpus=8,9,10,11,12,13,14,15','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server=/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(storage_root),'--rootfs-builder='+str(source/'scripts/build-runtime-container-initramfs.sh')],'mkruntimed.log');wait(daemon_socket,m)
  n=start([work/'bin/mknetd','--socket='+str(network_socket),'--state-dir='+str(private/'network-state'),'--subnet=172.30.0.0/24','--egress=ens4','--allowed-uid=0'],'mknetd.log');wait(network_socket,n)
  c=start([work/'bin/containerd','--config',cc],'containerd.log');wait(sock,c)
  d=start(['/usr/bin/dockerd','--config-file',dc],'docker.log');wait(dsock,d)
@@ -86,8 +86,8 @@ try:
  approved=pathlib.Path('/opt/mkruntime/g8-outer-b42ccf3/private/approved.manifest.json')
  left={e['path']:e for e in json.loads(approved.read_bytes())['entries']};right={e['path']:e for e in json.loads(scan.read_bytes())['entries']}
  differences={k:{'approved':left.get(k),'exported':right.get(k)} for k in sorted(left.keys()|right.keys()) if left.get(k)!=right.get(k)}
- (private/'manifest-differences.json').write_text(json.dumps(differences,indent=2)+'\n')
- assert not differences,'Docker materialization differs; inspect retained manifest-differences.json before approving'
+ (private/'source-differences.json').write_text(json.dumps(differences,indent=2)+'\n')
+ assert not differences,'Docker materialization differs; inspect retained source-differences.json before approving'
  with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:
   observed=subprocess.run(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err,timeout=300)
  assert observed.returncode==0,'host Docker start/build failed; retained workload output'

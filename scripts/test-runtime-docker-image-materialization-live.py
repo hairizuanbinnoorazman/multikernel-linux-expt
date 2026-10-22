@@ -63,8 +63,8 @@ try:
  approved=pathlib.Path('/opt/mkruntime/g8-outer-b42ccf3/private/approved.manifest.json')
  left={e['path']:e for e in json.loads(approved.read_bytes())['entries']};right={e['path']:e for e in json.loads(scan.read_bytes())['entries']}
  differences={k:{'approved':left.get(k),'exported':right.get(k)} for k in sorted(left.keys()|right.keys()) if left.get(k)!=right.get(k)}
- (private/'manifest-differences.json').write_text(json.dumps(differences,indent=2)+'\n')
- assert not differences,'Docker materialization differs; inspect retained manifest-differences.json before approving'
+ (private/'source-differences.json').write_text(json.dumps(differences,indent=2)+'\n')
+ assert not differences,'Docker materialization differs; inspect retained source-differences.json before approving'
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
 finally:
  for p in reversed(children):
