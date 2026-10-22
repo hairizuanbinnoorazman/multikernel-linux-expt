@@ -13,6 +13,17 @@ def run_markers(text):
         r'^#\d+\s+\d+(?:\.\d+)?\s+G8_OVERLAP_RUN_(BEGIN|END)\s*$', text, re.M)}
 
 
+def owner_for_container(container_id, owners):
+    if not re.fullmatch('[0-9a-f]{64}', container_id):
+        raise ValueError('expected canonical Docker container identity')
+    # This fixture uses Docker's moby namespace and the runtime's bounded tuple ID.
+    expected = 'mk-' + container_id[:32] + '-' + hashlib.sha256(('moby\0' + container_id).encode()).hexdigest()[:16]
+    matches = [owner for owner in owners if owner['sandbox_id'] == expected]
+    if len(matches) != 1:
+        raise ValueError('Docker container has no unique recorded sandbox owner')
+    return matches[0]
+
+
 def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_release):
     names = ['g8-materialization', 'g8-sibling']
     cases = ['a', 'b']
@@ -102,6 +113,11 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         assert len(owners['sandboxes']) == 2 and all(s['state'] == 'RUNNING' for s in owners['sandboxes'])
         assert {s['child_cid'] for s in owners['sandboxes']} == {40, 41}
         assert set(owners['sandboxes'][0]['cpus']).isdisjoint(owners['sandboxes'][1]['cpus'])
+        case_owners = {}
+        for name, case in zip(names, cases):
+            inspected = json.loads(invoke(cli + ['inspect', name], 'owner-map-' + case).stdout)[0]
+            case_owners[case] = owner_for_container(inspected['Id'], owners['sandboxes'])
+        assert case_owners['a']['sandbox_id'] != case_owners['b']['sandbox_id']
         storage_before = storage_snapshot('two-child', 2)
         assert {v['peer_cid'] for v in storage_before} == {40, 41}
         for index, case in enumerate(cases):
@@ -133,14 +149,14 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         invoke(cli + ['rm', names[1]], 'sibling-remove')
         sibling_created = False
         storage_survivor = storage_snapshot('survivor', 1)
-        assert storage_survivor == [v for v in storage_before if v['peer_cid'] == 40]
+        assert storage_survivor == [v for v in storage_before if v['peer_cid'] == case_owners['a']['child_cid']]
         survivor = snapshot(0, 'survivor', True)
         assert survivor == after['a'] and processes['a'].poll() is None
         remaining = json.loads(invoke(inspect_arguments, 'survivor-ownership').stdout)
         active = [s for s in remaining['sandboxes'] if s['state'] != 'ABSENT']
-        assert len(active) == 1 and active[0]['child_cid'] == 40 and active[0]['state'] == 'RUNNING'
+        assert active == [case_owners['a']]
         result = {'before': before, 'after': after, 'survivor': survivor,
-                  'two_running_owners': owners['sandboxes'], 'remaining_owner': active[0],
+                  'two_running_owners': owners['sandboxes'], 'case_owners': case_owners, 'remaining_owner': active[0],
                   'two_storage_exports': storage_before, 'survivor_storage_export': storage_survivor,
                   'run_overlap_observed': True, 'sibling_removed_without_survivor_change': True,
                   'cleanup_qualified': False}
