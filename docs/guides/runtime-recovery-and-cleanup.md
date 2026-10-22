@@ -164,3 +164,10 @@ Stop recovery and retain the host when any of these is true:
 
 In those cases, preserve the VM or disk long enough to collect evidence rather
 than converting a diagnosable failure into an unreviewable cleanup.
+
+The later [service-policy recovery qualification](../../evidence/runtime-20261022/g8-host-docker-service-policy/README.md)
+repeats the Docker guest build and graceful private runtime restart with the
+runtime/network capability, NNP and ambient settings read from the committed
+service units. Raw process masks and executable/unit hashes are retained for
+both runtime processes and the network daemon. Other systemd restrictions,
+crash/power loss and other service restarts remain separate checks.

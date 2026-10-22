@@ -203,7 +203,11 @@ The detailed exit criteria and ordering are in
     Recovery, concurrency, adversarial and complete G8 acceptance remain open.
   - [x] Qualify one graceful private runtime restart while a Docker build child
     stays live; retain [boot/engine/image/ownership continuity and teardown proof](../../evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md).
-    Crash, other service restarts, privilege bounds and full G8 remain open.
+    Crash, other service restarts and full G8 remain open.
+  - [x] Qualify the declared runtime/network capability, NNP and ambient bounds
+    with host Docker builds, runtime restart and cleanup; retain
+    [unit policy and live process observations](../../evidence/runtime-20261022/g8-host-docker-service-policy/README.md).
+    Other service restrictions, minimality and full G8 remain open.
 - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
   release artifacts, dependency/license inventories, SBOM, provenance, and
   tested install/upgrade/rollback/uninstall paths.

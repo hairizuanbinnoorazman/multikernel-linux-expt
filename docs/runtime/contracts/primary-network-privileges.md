@@ -31,3 +31,12 @@ filesystem owner can also modify root-owned writable files. Further reduction
 requires splitting namespace/process-handle operations or changing the CNI
 handoff, then qualifying that design. The main runtime daemon remains a separate
 privileged component. Whole G7 SEC-10 and the G8 privilege gate remain open.
+
+The [Docker service-policy qualification](../../../evidence/runtime-20261022/g8-host-docker-service-policy/README.md)
+now runs private candidate runtime/network processes with the declared capability,
+NNP and ambient settings read from these committed service units. Actual process
+masks and executable/unit hashes match before host Docker builds and after the
+runtime restart; workload continuity and teardown pass. This proves compatibility
+of those declared bounds, not capability minimality or every systemd restriction.
+The deployment uses direct children without nested virtualization; arbitrary
+child-kernel compromise shares physical host trust.

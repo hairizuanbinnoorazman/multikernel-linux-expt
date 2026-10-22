@@ -96,3 +96,12 @@ its tree before make/pip and checks the result; the
 provides read-only checks for both separately selected trees. Primary root
 remains trusted to maintain code, and this does not attest every system Python
 import or close full dependency/source-provenance review.
+
+The [Docker service-policy qualification](../../../evidence/runtime-20261022/g8-host-docker-service-policy/README.md)
+now runs private candidate runtime/network processes with the declared capability,
+NNP and ambient settings read from these committed service units. Actual process
+masks and executable/unit hashes match before host Docker builds and after the
+runtime restart; workload continuity and teardown pass. This proves compatibility
+of those declared bounds, not capability minimality or every systemd restriction.
+The deployment uses direct children without nested virtualization; arbitrary
+child-kernel compromise shares physical host trust.

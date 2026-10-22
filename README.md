@@ -17,11 +17,12 @@ that child's local engine and storage, without the host Docker socket.
 The approved profile has [passed offline multi-stage Docker builds and clean
 mediated-storage shutdown on a direct child](evidence/runtime-20261022/g8-production-docker-build/README.md).
 The [host Docker selection and cleanup check](evidence/runtime-20261022/g8-host-docker-lifecycle/README.md)
-also passes with independent test daemon state. Recovery, concurrency and
+also passes with independent test daemon state. Crash recovery, concurrency and
 adversarial release qualification remain open; the profile is experimental.
 A [graceful private runtime restart](evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md)
 also preserves the live child, engine and saved image; crash and other service
-restart cases remain separate. Passing Docker builds does not prove containment
+restart cases remain separate. The documented daemon capability and NNP bounds
+also [pass build and recovery qualification](evidence/runtime-20261022/g8-host-docker-service-policy/README.md). Passing Docker builds does not prove containment
 after child-kernel compromise. See the
 [Docker guest design and evidence](docs/runtime/research/docker-in-docker-guests.md).
 

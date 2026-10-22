@@ -184,3 +184,10 @@ restart. Child boot ID, local engine ID, saved-image digest and ownership
 generation remain identical; final teardown and raw primary/network comparisons
 pass. Crash/power loss, other service restarts, service privilege bounds and
 complete G7/G8 acceptance remain open.
+
+The [service-policy checkpoint](../../evidence/runtime-20261022/g8-host-docker-service-policy/README.md)
+repeats build, graceful runtime restart and teardown with the documented runtime
+and network capability/NNP/ambient settings enforced on private candidate daemons.
+Actual process masks match the retained source units, including the replacement
+runtime process. This closes the bounded compatibility check; other service
+restrictions, concurrency, crash/pressure/adversarial cases and full G7/G8 remain open.
