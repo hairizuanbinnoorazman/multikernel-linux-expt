@@ -102,8 +102,11 @@ qualifies construction, and the
 [owned mount proof](../../../evidence/runtime-20261022/g8-state-mount/README.md)
 qualifies real-engine state cleanup in private primary namespaces. The
 [direct-child boot proof](../../../evidence/runtime-20261022/g8-direct-child-boot/README.md)
-now qualifies production mediated-root startup and clean shutdown. Production
-Docker builds and host Docker integration still require qualification.
+now qualifies production mediated-root startup and clean shutdown. The
+[production-profile build proof](../../../evidence/runtime-20261022/g8-production-docker-build/README.md)
+subsequently passes offline multi-stage builds, a cache repeat, built-image run,
+failed-build rejection and independently verified saved-image contents on that
+mediated child. Host Docker integration still requires qualification.
 
 Production integration requires an explicit approved Docker profile, immutable
 bootstrap inputs, daemon/socket lifecycle and authorization review, and the usual

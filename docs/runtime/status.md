@@ -160,3 +160,12 @@ modules; the user needs no privilege flags. This uses a diagnostic static primar
 TUN/NAT path and the unchanged authenticated agent packet interface. Production
 profile/CNI/mediated storage integration, persistence/restart/concurrency/published
 ports/IPv6/resource enforcement and independent security review remain open.
+
+The [production-profile Docker build checkpoint](../../evidence/runtime-20261022/g8-production-docker-build/README.md)
+uses the production builder and supervised agent path on a mediated rb11 direct
+child. Offline multi-stage builds, cache repeat, built-image execution, deliberate
+build failure and independent layer/content verification pass. The same invocation
+passes authenticated storage shutdown, synced NBD export, offline filesystem
+checking and full disposable child/resource cleanup while watched primary files
+and service PIDs remain unchanged. Host Docker/Runtime v2 selection, recovery,
+concurrency and adversarial integration remain open; no complete G7/G8 gate closes.

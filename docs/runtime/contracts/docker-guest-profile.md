@@ -222,3 +222,11 @@ The [direct-child boot proof](../../../evidence/runtime-20261022/g8-direct-child
 subsequently qualifies the generated mediated-root boot and clean shutdown.
 Earlier primary-only evidence remains bounded to its original phase. No complete
 G7/G8 gate is closed by this boot check.
+
+The [production-profile offline build proof](../../../evidence/runtime-20261022/g8-production-docker-build/README.md)
+now passes multi-stage COPY/RUN/COPY --from, a cache-hit repeat, execution of the
+built image, failed-build rejection and independent saved-image layer/content
+verification on the mediated direct child. Authenticated shutdown, clean offline
+filesystem checking and restored resources pass in that same invocation. Host
+Docker/Runtime v2 selection, recovery, concurrency and adversarial integration
+remain open. This advances the earlier boot-only phase without closing full gates.
