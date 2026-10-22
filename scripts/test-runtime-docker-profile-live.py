@@ -2,9 +2,12 @@
 """Disposable host Docker selects Multikernel and runs the offline child build proof."""
 import hashlib,json,os,pathlib,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
-assert len(sys.argv) in (3,4), 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime]'
-restart_runtime=len(sys.argv)==4
-assert not restart_runtime or sys.argv[3]=='--restart-runtime'
+from runtime_service_policy import parse_policy, command_with_policy, check_observation
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime] [--harden-services]'
+flags=sys.argv[3:]
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--harden-services'}
+restart_runtime='--restart-runtime' in flags
+harden_services='--harden-services' in flags
 work=pathlib.Path(sys.argv[1]);source=pathlib.Path(sys.argv[2])
 assert work.is_absolute() and source.is_absolute()
 assert str(work).startswith('/opt/mkruntime/g8-host-')
@@ -66,17 +69,38 @@ text=cc.read_text();text=text[:text.index('[plugins.')]+"[plugins.'io.containerd
 dc=private/'docker.json'
 dc.write_text(json.dumps({'data-root':'/var/lib/docker','exec-root':str(private/'docker-exec'),'pidfile':str(private/'docker.pid'),'hosts':['unix://'+str(dsock)],'containerd':str(sock),'bridge':'none','iptables':False,'ip6tables':False,'ip-forward':False,'ip-masq':False,'features':{'containerd-snapshotter':True},'runtimes':{'io.containerd.multikernel.v2':{'runtimeType':'io.containerd.multikernel.v2'}}}))
 children=[];logs=[]
+service_policies={};service_observations={}
+if harden_services:
+ capability_names=subprocess.check_output(['/usr/bin/setpriv','--list-caps'],text=True).splitlines()
+ for service_name in ['mkruntimed','mknetd']:
+  unit=source/'deploy/systemd'/(service_name+'.service')
+  policy=parse_policy(unit.read_text(),capability_names)
+  policy['unit_sha256']=sha(unit)
+  service_policies[str(work/'bin'/service_name)]=policy
+ (private/'service-policies.json').write_text(json.dumps({'capability_names':capability_names,'setpriv_sha256':sha(pathlib.Path('/usr/bin/setpriv')),'policies':service_policies},indent=2)+'\n')
 def start(args,name):
+ if str(args[0]) in service_policies:args=command_with_policy(args,service_policies[str(args[0])])
  f=(private/name).open('wb');logs.append(f);p=subprocess.Popen([str(x) for x in args],stdout=f,stderr=subprocess.STDOUT,env={**os.environ,**extra,'PATH':str(work/'bin')+':/usr/sbin:/usr/bin:/sbin:/bin'});children.append(p);return p
 def wait(path,p):
  until=time.monotonic()+30
  while not path.is_socket():
   assert p.poll() is None and time.monotonic()<until,'private daemon unavailable: '+str(p.args[0])
   time.sleep(.1)
+def observe_service(p,name):
+ if not harden_services:return
+ assert p.poll() is None,'service stopped before policy observation'
+ fields={key:value.strip() for key,value in (line.split(':',1) for line in pathlib.Path('/proc/'+str(p.pid)+'/status').read_text().splitlines() if ':' in line)}
+ observed={key:fields[key] for key in ['Uid','CapBnd','CapEff','CapPrm','CapInh','CapAmb','NoNewPrivs']}
+ policy=service_policies[str(work/'bin'/name)]
+ check_observation(observed,policy)
+ observed.update(pid=p.pid,executable_sha256=sha(pathlib.Path('/proc/'+str(p.pid)+'/exe')),unit_sha256=policy['unit_sha256'])
+ assert observed['executable_sha256']==sha(work/'bin'/name) and p.poll() is None
+ service_observations[name+'-'+str(p.pid)]=observed
+ (private/'service-observations.json').write_text(json.dumps(service_observations,indent=2)+'\n')
 cli=None;container_created=False
 try:
- m=start([work/'bin/mkruntimed','--config='+str(host_config),'--pool-cpus=8,9,10,11,12,13,14,15','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server=/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(storage_root),'--rootfs-builder='+str(source/'scripts/build-runtime-container-initramfs.sh')],'mkruntimed.log');wait(daemon_socket,m)
- n=start([work/'bin/mknetd','--socket='+str(network_socket),'--state-dir='+str(private/'network-state'),'--subnet=172.30.0.0/24','--egress=ens4','--allowed-uid=0'],'mknetd.log');wait(network_socket,n)
+ m=start([work/'bin/mkruntimed','--config='+str(host_config),'--pool-cpus=8,9,10,11,12,13,14,15','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server=/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(storage_root),'--rootfs-builder='+str(source/'scripts/build-runtime-container-initramfs.sh')],'mkruntimed.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
+ n=start([work/'bin/mknetd','--socket='+str(network_socket),'--state-dir='+str(private/'network-state'),'--subnet=172.30.0.0/24','--egress=ens4','--allowed-uid=0'],'mknetd.log');wait(network_socket,n);observe_service(n,'mknetd')
  c=start([work/'bin/containerd','--config',cc],'containerd.log');wait(sock,c)
  d=start(['/usr/bin/dockerd','--config-file',dc],'docker.log');wait(dsock,d)
  cli=['/usr/bin/docker','--host','unix://'+str(dsock)]
@@ -130,7 +154,7 @@ try:
    assert m.poll() is None,'runtime already stopped before the intentional restart'
    runtime_arguments=m.args
    m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
-   m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m)
+   m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
    assert m.pid!=old_pid and m.poll() is None
    subsequent=child_snapshot('after');assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
    recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'before':prior,'after':subsequent,'child_continuity_pass':True,'cleanup_qualified':False}
@@ -186,5 +210,7 @@ assert after==before and after_pids==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
 r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
 r['runtime_restart_tested']=restart_runtime
+r['service_capability_nnp_tested']=harden_services
+if harden_services:r.update(service_policy_sha256=sha(private/'service-policies.json'),service_observations_sha256=sha(private/'service-observations.json'))
 if restart_runtime:r['recovery_checkpoint_sha256']=sha(work/'recovery-checkpoint.json')
 (work/'integration-receipt.json').write_text(json.dumps(r,indent=2)+'\n');print('G8_HOST_DOCKER_CHILD_BUILD_PASS',flush=True)
