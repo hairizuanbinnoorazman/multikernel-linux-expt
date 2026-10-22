@@ -368,6 +368,7 @@ def prepare_outer(source, root_bytes, output, required_uid=0):
         ("run", 0o755, required_uid, 0),
         ("run/user", 0o755, required_uid, 0),
         ("run/user/1000", 0o700, 1000, 1000),
+        ("run/user/1000/rootlesskit", 0o700, 1000, 1000),
     ]:
         path = output / name
         path.mkdir(mode=mode)

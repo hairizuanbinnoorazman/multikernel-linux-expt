@@ -63,10 +63,10 @@ class OuterTests(unittest.TestCase):
         out=self.base/'outer';self.assertEqual(result['files'],len(module['HELPERS'])+2)
         for p in out.rglob('*'):
             self.assertFalse(p.is_symlink())
-            private = str(p.relative_to(out)) in ['home/rootless','home/rootless/.local','home/rootless/.local/tmp','run/user/1000']
+            private = str(p.relative_to(out)) in ['home/rootless','home/rootless/.local','home/rootless/.local/tmp','run/user/1000','run/user/1000/rootlesskit']
             self.assertEqual(p.stat().st_uid,1000 if private and os.geteuid()==0 else os.geteuid())
             if p.is_dir():self.assertEqual(stat.S_IMODE(p.stat().st_mode),0o1777 if p==out/'tmp' else 0o700 if private else 0o755)
-        for name in ['home/rootless/.local/tmp','run/user/1000']:
+        for name in ['home/rootless/.local/tmp','run/user/1000','run/user/1000/rootlesskit']:
             self.assertTrue((out/name).is_dir())
             if os.geteuid()==0:self.assertEqual((out/name).stat().st_gid,1000)
         for name in module['HELPERS']:

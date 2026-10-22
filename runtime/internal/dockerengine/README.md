@@ -10,8 +10,9 @@ outer-root helpers and enable the parent memory/pids controllers before launch.
 The bootstrap must remain foreground, exec its rootless launcher, and run the
 engine as guest UID 1000. The fixed candidate is `guest/runtime-docker-bootstrap`; it execs the outer
 RootlessKit chain, closes script fd3 and keeps logs on stdout/stderr. Boot
-preparation must supply the inner `/run/docker-daemon.json` and mounts before
-launch. The historical diagnostic bootstrap exits on socket creation and is
+preparation must supply the inner `/run/docker-daemon.json`, bind the fixed
+outer `/run/user/1000/rootlesskit` state directory at the same inner path, and
+prepare mounts before launch. The historical diagnostic bootstrap exits on socket creation and is
 incompatible with this lifecycle. Production builder activation
 still refuses until immutable helper preparation, copied-image verification and
 boot integration are implemented and qualified together.

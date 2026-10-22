@@ -7,4 +7,4 @@ exec 3<&-
 # API readiness and complete cgroup cleanup. All launcher code is in the outer
 # root. Enter the approved image only after RootlessKit establishes its userns.
 exec /bin/busybox su rootless -s /bin/sh -c \
-    'export PATH=/usr/local/bin:/usr/bin:/bin:/sbin HOME=/home/rootless TMPDIR=/home/rootless/.local/tmp XDG_RUNTIME_DIR=/run/user/1000; exec /usr/local/bin/rootlesskit --net=none /bin/busybox chroot /bundle/rootfs /bin/busybox setpriv --nnp /usr/local/bin/dockerd --config-file=/run/docker-daemon.json'
+    'export PATH=/usr/local/bin:/usr/bin:/bin:/sbin HOME=/home/rootless TMPDIR=/home/rootless/.local/tmp XDG_RUNTIME_DIR=/run/user/1000; exec /usr/local/bin/rootlesskit --state-dir=/run/user/1000/rootlesskit --net=none /bin/busybox chroot /bundle/rootfs /bin/busybox setpriv --nnp /usr/local/bin/dockerd --config-file=/run/docker-daemon.json'

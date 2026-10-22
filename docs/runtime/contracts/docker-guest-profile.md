@@ -70,7 +70,11 @@ symlinks/hardlinks cannot create mutable-code references. Fixed outer account,
 subuid/subgid and files-only NSS records replace image-selected account policy.
 The prepared outer root includes fixed UID/GID 1000 private home, temporary and
 runtime directories for the outer RootlessKit process, plus a root-owned sticky
-`/tmp` (mode `1777`) for its namespace bind-mount staging.
+`/tmp` (mode `1777`) for its namespace bind-mount staging. RootlessKit uses
+the fixed outer `/run/user/1000/rootlesskit` state directory. Trusted boot
+preparation must bind this data-only directory at the same inner path so
+Docker can access its API after chroot. Helpers/libraries remain separate
+regular outer files; sharing the image home or executable trees is not required.
 Mapping helpers and libraries require root-owned source metadata. The non-setuid
 `rootlesskit` release may retain its approved image build UID; the held source
 must match that UID and content hash, and the independent outer copy is created
