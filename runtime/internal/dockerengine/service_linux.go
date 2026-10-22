@@ -8,9 +8,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"slices"
 	"sync"
@@ -170,6 +172,9 @@ func (s *Service) Stop(ctx context.Context) error {
 		timer.Stop()
 	}
 	if err := s.scope.Stop(ctx); err != nil {
+		var errno unix.Errno
+		errors.As(err, &errno)
+		fmt.Fprintf(os.Stderr, "MK_DOCKER_SCOPE_STOP_FAIL timeout=%t canceled=%t identity=%t errno=%d\n", errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled), errors.Is(err, guestscope.ErrIdentity), errno)
 		return errors.New("Docker descendants have not quiesced")
 	}
 	if s.started {
