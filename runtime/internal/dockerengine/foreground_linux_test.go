@@ -44,7 +44,7 @@ func TestInstalledRealForegroundBootstrap(t *testing.T) {
 	if err := os.Symlink("/tmp", local); err != nil {
 		t.Fatal(err)
 	}
-	refusal := PrepareFilesystem()
+	_, refusal := PrepareFilesystem()
 	if err := os.Remove(local); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,8 @@ func TestInstalledRealForegroundBootstrap(t *testing.T) {
 	if _, err := os.Stat(imageRoot + "/run/user"); !os.IsNotExist(err) {
 		t.Fatal("preflight refusal changed runtime directory", err)
 	}
-	if err := PrepareFilesystem(); err != nil {
+	filesystem, err := PrepareFilesystem()
+	if err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range []string{imageRoot + "/run/docker-daemon.json", imageRoot + "/sys/fs/cgroup/cgroup.subtree_control"} {
@@ -98,7 +99,7 @@ func TestInstalledRealForegroundBootstrap(t *testing.T) {
 	command.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=/root", "LANG=C", "LC_ALL=C"}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	service, err := Launch(ctx, scope, command, filepath.Join(root, "bundle/rootfs/run/docker.sock"))
+	service, err := LaunchPrepared(ctx, scope, command, filepath.Join(root, "bundle/rootfs/run/docker.sock"), filesystem)
 	if service != nil {
 		t.Cleanup(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -126,6 +127,25 @@ func TestInstalledRealForegroundBootstrap(t *testing.T) {
 	if err := probe(ctx, scope, filepath.Join(root, "bundle/rootfs/run/docker.sock")); err != nil {
 		t.Fatal(err)
 	}
+	// Cleanup must follow its captured mount even after an image-side rename.
+	renamed := imageRoot + "/run/user-renamed"
+	if err := os.Rename(imageRoot+"/run/user", renamed); err != nil {
+		t.Fatal(err)
+	}
+	held, err := os.Open(renamed + "/1000/rootlesskit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+	busy, cancelBusy := context.WithTimeout(context.Background(), 10*time.Second)
+	err = service.Stop(busy)
+	cancelBusy()
+	if !errors.Is(err, unix.EBUSY) {
+		t.Fatal("normal unmount ignored a live directory reference", err)
+	}
+	if err := held.Close(); err != nil {
+		t.Fatal(err)
+	}
 	stop, cancelStop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelStop()
 	if err := service.Stop(stop); err != nil {
@@ -142,8 +162,14 @@ func TestInstalledRealForegroundBootstrap(t *testing.T) {
 	service.log.mu.Lock()
 	bounded := len(service.log.data) <= logLimit
 	service.log.mu.Unlock()
+	if err := filesystem.Release(); err != nil {
+		t.Fatal("filesystem release is not idempotent", err)
+	}
+	if _, err := os.Stat(releaseDirectory); !os.IsNotExist(err) {
+		t.Fatal("owned state mount cleanup directory remains", err)
+	}
 	if !bounded {
 		t.Fatal("daemon log bound exceeded")
 	}
-	t.Log("agent filesystem preparation, alias refusal, readonly config/cgroups, shared state, real rootless Docker API, foreground lifetime, bounded logs and owned cgroup removal passed")
+	t.Log("agent filesystem preparation, alias refusal, readonly config/cgroups, shared state, real rootless Docker API, foreground lifetime, bounded logs, mount rename/busy refusal/retry and owned cleanup passed")
 }

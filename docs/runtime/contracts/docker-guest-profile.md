@@ -202,3 +202,10 @@ qualifies the integrated production builder against the real pinned image and
 selected child kernel artifacts. It inspects generated marker/bootstrap/helper/
 module bytes and modes, retaining the refusal controls. It does not yet qualify
 execution of that generated child boot or Docker builds.
+
+The state bind is held by an `open_tree` descriptor and transferred to service
+ownership before launch. Once the engine scope is empty, cleanup moves that exact
+mount to a protected outer directory and unmounts it normally, then permits root
+read-only remount. This releases RootlessKit's deleted state-directory inode.
+Busy references retain ownership and refuse storage release. The mechanism does
+not depend on an image-writable pathname or execute image helpers at shutdown.

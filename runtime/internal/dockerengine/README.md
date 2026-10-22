@@ -77,3 +77,14 @@ read-only write attempts and shared state identity before launching the engine.
 The builder/init still must install approved outer inputs and load the approved
 modules. Preparation failure serves no clients; failed children require teardown,
 not adoption or in-place retry.
+
+Prepared filesystems now transfer an owned `open_tree` state-mount FD into the
+service. RootlessKit deletes its state directory at exit; leaving that inode
+bound in the image prevents the mediated filesystem from becoming read-only.
+After scope population reaches zero and the launcher is reaped, Stop moves the
+captured mount into a root-owned private cleanup directory, closes the mount FD,
+and normally unmounts it before storage quiescence. Cleanup follows the owned
+mount even if the image-side path was renamed. A busy reference refuses release
+and retains retry ownership; no lazy detach or image-selected helper is used.
+The installed real-engine test checks rename, busy-reference refusal, retry and
+idempotence. Direct-child remount/shutdown still requires live qualification.

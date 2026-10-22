@@ -53,15 +53,16 @@ func (b *tailLog) Write(p []byte) (int, error) {
 }
 
 type Service struct {
-	scope    *guestscope.Scope
-	pidfd    int
-	done     chan struct{}
-	failed   chan struct{}
-	stopping atomic.Bool
-	stopMu   sync.Mutex
-	closed   bool
-	started  bool
-	log      tailLog
+	scope      *guestscope.Scope
+	filesystem *PreparedFilesystem
+	pidfd      int
+	done       chan struct{}
+	failed     chan struct{}
+	stopping   atomic.Bool
+	stopMu     sync.Mutex
+	closed     bool
+	started    bool
+	log        tailLog
 }
 
 // Launch takes ownership of scope. command must be a caller-constructed fixed
@@ -69,10 +70,22 @@ type Service struct {
 // failure a non-nil Service retains cleanup authority for retry. No shell is
 // selected from workload input. The startup deadline is at most 30 seconds.
 func Launch(ctx context.Context, scope *guestscope.Scope, command *exec.Cmd, socket string) (*Service, error) {
+	return launch(ctx, scope, command, socket, nil)
+}
+
+// LaunchPrepared transfers the pre-admission state mount into service ownership.
+func LaunchPrepared(ctx context.Context, scope *guestscope.Scope, command *exec.Cmd, socket string, filesystem *PreparedFilesystem) (*Service, error) {
+	if filesystem == nil {
+		return nil, errors.New("Docker prepared filesystem is required")
+	}
+	return launch(ctx, scope, command, socket, filesystem)
+}
+
+func launch(ctx context.Context, scope *guestscope.Scope, command *exec.Cmd, socket string, filesystem *PreparedFilesystem) (*Service, error) {
 	if ctx == nil || scope == nil || command == nil || socket == "" {
 		return nil, errors.New("Docker supervisor requires trusted startup inputs")
 	}
-	s := &Service{scope: scope, pidfd: -1, done: make(chan struct{}), failed: make(chan struct{})}
+	s := &Service{scope: scope, filesystem: filesystem, pidfd: -1, done: make(chan struct{}), failed: make(chan struct{})}
 	if ctx.Err() != nil {
 		return s, ctx.Err()
 	}
@@ -187,6 +200,11 @@ func (s *Service) Stop(ctx context.Context) error {
 	if s.pidfd >= 0 {
 		_ = unix.Close(s.pidfd)
 		s.pidfd = -1
+	}
+	if s.filesystem != nil {
+		if err := s.filesystem.Release(); err != nil {
+			return err
+		}
 	}
 	s.closed = true
 	return nil

@@ -37,7 +37,8 @@ func startDockerGuest(ctx context.Context) (*dockerengine.Service, error) {
 	if _, err := bootstrap.Seek(0, 0); err != nil {
 		return nil, errors.New("trusted Docker bootstrap rewind failed")
 	}
-	if err := dockerengine.PrepareFilesystem(); err != nil {
+	filesystem, err := dockerengine.PrepareFilesystem()
+	if err != nil {
 		return nil, err
 	}
 	scope, err := guestscope.New("/sys/fs/cgroup", "mk-docker-engine", guestscope.Limits{PIDs: 512, MemoryBytes: 512 << 20})
@@ -48,7 +49,7 @@ func startDockerGuest(ctx context.Context) (*dockerengine.Service, error) {
 	command.ExtraFiles = []*os.File{bootstrap}
 	command.Dir = "/"
 	command.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=/root", "LANG=C", "LC_ALL=C"}
-	return dockerengine.Launch(ctx, scope, command, "/bundle/rootfs/run/docker.sock")
+	return dockerengine.LaunchPrepared(ctx, scope, command, "/bundle/rootfs/run/docker.sock", filesystem)
 }
 
 // A failed service stop must prevent every filesystem quiescence operation.
@@ -57,7 +58,12 @@ func stopDockerBeforeStorage(stop func(context.Context) error, quiesce func() er
 	defer cancel()
 	if stop != nil {
 		if err := stop(ctx); err != nil {
-			fmt.Fprintln(os.Stderr, "MK_DOCKER_STOP_FAIL")
+			var errno unix.Errno
+			if errors.As(err, &errno) {
+				fmt.Fprintf(os.Stderr, "MK_DOCKER_STOP_FAIL errno=%d\n", errno)
+			} else {
+				fmt.Fprintln(os.Stderr, "MK_DOCKER_STOP_FAIL")
+			}
 			return errors.New("Docker service has not quiesced")
 		}
 	}
