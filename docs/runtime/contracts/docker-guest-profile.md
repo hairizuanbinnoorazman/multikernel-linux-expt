@@ -188,3 +188,8 @@ and a nonprotected/non-tmpfs inner `/run`; enables the service parent controller
 and creates the state bind and read-only config/cgroup mounts before admitting
 clients. Approved artifact installation, module loading and the production boot
 opt-in remain prerequisites for builder activation.
+
+The [agent-owned preparation proof](../../../evidence/runtime-20261022/g8-docker-preparation/README.md)
+qualifies that exact filesystem method with the real engine, including alias
+refusal before preparation, EROFS write attempts and shared-state identity on the
+GCE primary kernel. Actual child boot/build still requires qualification.
