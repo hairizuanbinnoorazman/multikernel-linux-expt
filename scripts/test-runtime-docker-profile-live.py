@@ -2,7 +2,9 @@
 """Disposable host Docker selects Multikernel and runs the offline child build proof."""
 import hashlib,json,os,pathlib,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
-assert len(sys.argv)==3, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT'
+assert len(sys.argv) in (3,4), 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime]'
+restart_runtime=len(sys.argv)==4
+assert not restart_runtime or sys.argv[3]=='--restart-runtime'
 work=pathlib.Path(sys.argv[1]);source=pathlib.Path(sys.argv[2])
 assert work.is_absolute() and source.is_absolute()
 assert str(work).startswith('/opt/mkruntime/g8-host-')
@@ -28,6 +30,7 @@ archive=pathlib.Path('/opt/mkruntime/g8-outer-b42ccf3/image.tar')
 pinned_archive_digest=sha(archive)
 assert pinned_archive_digest=='8af069def93985e73e5688b1d6bff1369597937c93a12a4b26475a32d18e7154'
 private=work/'integration';private.mkdir(mode=0o700)
+(private/'primary-before.json').write_text(json.dumps({'file_sha256':before,'service_main_pids':pids,'boot_id':boot},indent=2)+'\n')
 for name in ['docker-data','docker-exec','containerd-root','containerd-state','exported','input','locks','manifests','daemon-state','rootfs-state','storage-state','storage-runtime','network-state']:(private/name).mkdir(mode=0o755 if name in ['exported','input'] else 0o700)
 # Publish the exact approved xattr-free tree as Docker import data. The original
 # export has capability PAX headers and is deliberately not imported directly.
@@ -83,7 +86,10 @@ try:
  info=subprocess.check_output(cli+['info','--format','{{json .}}']);(private/'docker-info.json').write_bytes(info)
  imported=run(cli+['import',archive,'g8-approved:fixture'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  (private/'import.stdout').write_bytes(imported.stdout);(private/'import.stderr').write_bytes(imported.stderr)
- created=run(cli+['create','--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture','/bin/sh','/work/input/probe.sh'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+ workload=['/bin/sh','/work/input/probe.sh']
+ if restart_runtime:
+  workload=['/bin/sh','-ec','mkdir -m 700 /home/rootless/.local/tmp/g8-recovery; /bin/sh /work/input/probe.sh; echo G8_RUNTIME_RECOVERY_READY; while [ ! -f /home/rootless/.local/tmp/g8-recovery/release ]; do sleep 1; done; echo G8_RUNTIME_RECOVERY_RELEASED']
+ created=run(cli+['create','--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture']+workload,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  container_created=True
  (private/'create.stdout').write_bytes(created.stdout);(private/'create.stderr').write_bytes(created.stderr)
  exported=private/'export.tar'
@@ -99,7 +105,40 @@ try:
  (private/'source-differences.json').write_text(json.dumps(differences,indent=2)+'\n')
  assert not differences,'Docker materialization differs; inspect retained source-differences.json before approving'
  with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:
-  observed=subprocess.run(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err,timeout=300)
+  if restart_runtime:
+   attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
+   deadline=time.monotonic()+300
+   while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
+    assert attach.poll() is None and time.monotonic()<deadline,'workload did not reach the recovery checkpoint'
+    time.sleep(.2)
+   def child_snapshot(phase):
+    boot_result=run(cli+['exec','--user','1000:1000','g8-materialization','/bin/cat','/proc/sys/kernel/random/boot_id'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    engine_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/local/bin/docker','info','--format','{{json .}}'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    image_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build/image.tar'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    owner_result=run([work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    for label,result in [('boot',boot_result),('engine',engine_result),('image',image_result),('ownership',owner_result)]:
+     (private/('recovery-'+phase+'-'+label+'.stdout')).write_bytes(result.stdout)
+     (private/('recovery-'+phase+'-'+label+'.stderr')).write_bytes(result.stderr)
+     assert not result.stderr,'unexpected recovery inspection diagnostic'
+    engine=json.loads(engine_result.stdout);ownership=json.loads(owner_result.stdout)
+    assert ownership['source']=='durable-lifecycle' and len(ownership['sandboxes'])==1 and ownership['sandboxes'][0]['state']=='RUNNING'
+    child_boot=boot_result.stdout.decode().strip();image_sha=image_result.stdout.decode().split()[0]
+    assert child_boot!=boot and len(child_boot)==36 and len(image_sha)==64
+    assert engine['ID'] and engine['KernelVersion']==profile['kernel_release'] and engine['ServerVersion']=='29.9.0'
+    return {'child_boot_id':child_boot,'engine_id':engine['ID'],'saved_image_sha256':image_sha,'ownership':ownership['sandboxes']}
+   prior=child_snapshot('before');old_pid=m.pid
+   assert m.poll() is None,'runtime already stopped before the intentional restart'
+   runtime_arguments=m.args
+   m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
+   m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m)
+   assert m.pid!=old_pid and m.poll() is None
+   subsequent=child_snapshot('after');assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
+   recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'before':prior,'after':subsequent,'child_continuity_pass':True,'cleanup_qualified':False}
+   (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
+   run(cli+['exec','--user','1000:1000','g8-materialization','/bin/touch','/home/rootless/.local/tmp/g8-recovery/release'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+   observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
+  else:
+   observed=subprocess.run(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err,timeout=300)
  assert observed.returncode==0,'host Docker start/build failed; retained workload output'
  inspected=subprocess.check_output(cli+['inspect','g8-materialization']);(private/'inspect.json').write_bytes(inspected)
  item=json.loads(inspected)[0];assert item['State']['Status']=='exited' and item['State']['ExitCode']==0 and item['HostConfig']['Runtime']=='io.containerd.multikernel.v2',item['State']
@@ -111,15 +150,21 @@ try:
  (work/'workload-checkpoint.json').write_text(json.dumps(checkpoint,indent=2)+'\n')
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);container_created=False;run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
 finally:
- if cli is not None and container_created:
-  cleanup=subprocess.run(cli+['rm','--force','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=90)
-  (private/'cleanup.stdout').write_bytes(cleanup.stdout);(private/'cleanup.stderr').write_bytes(cleanup.stderr)
- for p in reversed(children):
-  if p.poll() is None:
-   p.terminate()
-   try:p.wait(timeout=15)
-   except subprocess.TimeoutExpired:p.kill();p.wait(timeout=5)
- for f in logs:f.close()
+ try:
+  if cli is not None and container_created:
+   try:
+    cleanup=subprocess.run(cli+['rm','--force','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=90)
+    (private/'cleanup.stdout').write_bytes(cleanup.stdout);(private/'cleanup.stderr').write_bytes(cleanup.stderr)
+   except subprocess.TimeoutExpired:
+    (private/'cleanup.stderr').write_text('owned Docker cleanup exceeded its bounded deadline; inspect retained ownership\n')
+    raise
+ finally:
+  for p in reversed(children):
+   if p.poll() is None:
+    p.terminate()
+    try:p.wait(timeout=15)
+    except subprocess.TimeoutExpired:p.kill();p.wait(timeout=5)
+  for f in logs:f.close()
 network_after={name:subprocess.check_output(['/usr/sbin/'+name]) for name in network_before}
 for name,data in network_after.items():(private/('firewall-after-'+name+'.rules')).write_bytes(data)
 links_after=subprocess.check_output(['/usr/sbin/ip','-o','link','show']);(private/'links-after.log').write_bytes(links_after)
@@ -135,7 +180,11 @@ assert not rootfs['records'] and not network['endpoints']
 assert all(v['state']=='RELEASED' for v in storage['exports'].values())
 assert not list(storage_root.iterdir())
 
-assert {str(p):sha(p) for p in paths}==before and services()==pids
+after={str(p):sha(p) for p in paths};after_pids=services()
+(private/'primary-after.json').write_text(json.dumps({'file_sha256':after,'service_main_pids':after_pids,'boot_id':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()},indent=2)+'\n')
+assert after==before and after_pids==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
 r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
+r['runtime_restart_tested']=restart_runtime
+if restart_runtime:r['recovery_checkpoint_sha256']=sha(work/'recovery-checkpoint.json')
 (work/'integration-receipt.json').write_text(json.dumps(r,indent=2)+'\n');print('G8_HOST_DOCKER_CHILD_BUILD_PASS',flush=True)
