@@ -23,6 +23,8 @@ rootfs = runpy.run_path(str(Path(__file__).with_name('build-runtime-rootfs.py'))
 def build(root, expected_manifest, output):
     if not re.fullmatch('[0-9a-f]{64}', expected_manifest):
         raise ValueError('approval requires a canonical manifest SHA256')
+    if output.parent.resolve(strict=True).is_relative_to(root.resolve(strict=True)):
+        raise ValueError('archive destination must be outside the approved source tree')
     entries, contents = rootfs['scan'](root)
     payload = sum(e.size for e in entries if e.kind == 'regular')
     if payload > 1 << 30 or len(entries) > 131072:

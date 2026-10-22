@@ -53,6 +53,12 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), data)
         self.assertEqual(self.digest(), self.approval)
 
+    def test_output_cannot_mutate_approved_source_tree(self):
+        with self.assertRaisesRegex(ValueError, 'outside the approved source'):
+            module['build'](self.root, self.approval, self.root / 'image.tar')
+        self.assertEqual(self.digest(), self.approval)
+        self.assertFalse((self.root / 'image.tar').exists())
+
     def test_changed_source_refused_before_output(self):
         self.code.write_bytes(b'changed executable data\n')
         with self.assertRaisesRegex(ValueError, 'differs from operator approval'):
