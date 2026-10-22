@@ -27,7 +27,10 @@ after child-kernel compromise. A [two-child concurrency checkpoint](evidence/run
 records overlapping builds, separate engines/storage and survivor cleanup.
 An earlier export failure remains retained; the [NBD proxy regression proof](evidence/runtime-20261022/g8-native-stream-proxy/README.md)
 reproduces and fixes a bidirectional backpressure defect. Concurrent reliability
-and complete gate acceptance remain open. See the
+and complete gate acceptance remain open. The [fresh candidate run](evidence/runtime-20261022/g8-candidate-release-failure/README.md)
+passes both child build/export matrices but fails sibling release; one stopped
+child/export remains held, and automatic recovery refuses unsafe adoption.
+See the
 [Docker guest design and evidence](docs/runtime/research/docker-in-docker-guests.md).
 
 Start with the [documentation map](docs/README.md). In particular:

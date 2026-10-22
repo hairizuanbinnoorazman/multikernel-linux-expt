@@ -202,3 +202,11 @@ reproduces a blocking forwarding deadlock and verifies independent bounded queue
 with byte integrity, half-close and broken-peer controls. Fresh GCE qualification
 of that candidate is separate. Full concurrent reliability and G7/G8 stay open;
 direct child kernels require no nested virtualization and share host trust.
+
+The [candidate proxy run](../../evidence/runtime-20261022/g8-candidate-release-failure/README.md)
+passes both build/export matrices but fails a sibling-release exec deadline.
+Containerd reports an outstanding exec during init deletion. One stopped/loaded
+child and ACTIVE export remain held; a single recovery attempt refuses unsafe
+adoption after the test unit loses the server. This is a retained failure control,
+not survivor/cleanup/recovery acceptance. The timeout-output retention fix is
+`266a919`; investigation and explicit resource recovery remain outstanding.
