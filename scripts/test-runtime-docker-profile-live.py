@@ -57,7 +57,9 @@ config.update(state_directory=str(private/'daemon-state'),socket_path=str(daemon
 host_config=private/'host.json';host_config.write_text(json.dumps(config));host_config.chmod(0o600)
 storage_root=pathlib.Path('/srv/multikernel-storage')/work.name
 storage_root.mkdir(mode=0o700)
-extra={'MK_DAEMON_SOCKET':str(daemon_socket),'MK_NETWORK_SOCKET':str(network_socket),'MK_SHIM_LOCK':str(private/'locks/allocate'),'MK_SANDBOX_CPU_SETS':'8,9,10,11;12,13,14,15' if concurrent else '8,9,10,11','MK_RELAY':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-relay','MK_KERNEL_MANIFEST':str(approval),'MK_KERNEL_MANIFEST_NAME':'gce-mk2','MK_NBD_HELPER':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','MK_NBD_MODULE':profile['modules'][0]['path']}
+nbd_helper=work/'bin/mkvsock-nbd'
+assert nbd_helper.is_file() and not nbd_helper.is_symlink()
+extra={'MK_DAEMON_SOCKET':str(daemon_socket),'MK_NETWORK_SOCKET':str(network_socket),'MK_SHIM_LOCK':str(private/'locks/allocate'),'MK_SANDBOX_CPU_SETS':'8,9,10,11;12,13,14,15' if concurrent else '8,9,10,11','MK_RELAY':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-relay','MK_KERNEL_MANIFEST':str(approval),'MK_KERNEL_MANIFEST_NAME':'gce-mk2','MK_NBD_HELPER':str(nbd_helper),'MK_NBD_MODULE':profile['modules'][0]['path']}
 # Store firewall rules without packet counters so transient test traffic does
 # not invalidate identity checks. Exact rules must return to their prior state.
 network_before={name:subprocess.check_output(['/usr/sbin/'+name]) for name in ['iptables-save','ip6tables-save']}
@@ -102,7 +104,7 @@ def observe_service(p,name):
  (private/'service-observations.json').write_text(json.dumps(service_observations,indent=2)+'\n')
 cli=None;container_created=False
 try:
- m=start([work/'bin/mkruntimed','--config='+str(host_config),'--pool-cpus=8,9,10,11,12,13,14,15','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server=/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(storage_root),'--rootfs-builder='+str(source/'scripts/build-runtime-container-initramfs.sh')],'mkruntimed.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
+ m=start([work/'bin/mkruntimed','--config='+str(host_config),'--pool-cpus=8,9,10,11,12,13,14,15','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server='+str(nbd_helper),'--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(storage_root),'--rootfs-builder='+str(source/'scripts/build-runtime-container-initramfs.sh')],'mkruntimed.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
  n=start([work/'bin/mknetd','--socket='+str(network_socket),'--state-dir='+str(private/'network-state'),'--subnet=172.30.0.0/24','--egress=ens4','--allowed-uid=0'],'mknetd.log');wait(network_socket,n);observe_service(n,'mknetd')
  c=start([work/'bin/containerd','--config',cc],'containerd.log');wait(sock,c)
  d=start(['/usr/bin/dockerd','--config-file',dc],'docker.log');wait(dsock,d)
@@ -179,7 +181,7 @@ try:
  assert len(stdout)<131072 and len(stderr)<131072
  for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:assert marker in stdout,marker
  assert profile['kernel_release'] in stdout and '29.9.0' in stdout and 'CACHED' in stderr
- checkpoint={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'cleanup_qualified':False,'execution_script_sha256':sha(pathlib.Path(__file__)),'source_archive_sha256':sha(work/'source.tar'),'profile_sha256':sha(approval),'approved_root_manifest_sha256':profile['docker_guest']['rootfs_manifest_sha256'],'prepared_archive_sha256':sha(archive),'probe_sha256':sha(private/'input/probe.sh'),'busybox_sha256':sha(private/'input/busybox'),'runtime_program_hashes':{name:sha(work/'bin'/name) for name in ['mkruntimed','mknetd','containerd-shim-multikernel-v2']},'qualified_containerd_sha256':sha(work/'bin/containerd'),'workload_stdout_sha256':sha(private/'workload.stdout'),'workload_stderr_sha256':sha(private/'workload.stderr')}
+ checkpoint={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'cleanup_qualified':False,'execution_script_sha256':sha(pathlib.Path(__file__)),'source_archive_sha256':sha(work/'source.tar'),'profile_sha256':sha(approval),'approved_root_manifest_sha256':profile['docker_guest']['rootfs_manifest_sha256'],'prepared_archive_sha256':sha(archive),'probe_sha256':sha(private/'input/probe.sh'),'busybox_sha256':sha(private/'input/busybox'),'native_nbd_helper_sha256':sha(nbd_helper),'runtime_program_hashes':{name:sha(work/'bin'/name) for name in ['mkruntimed','mknetd','containerd-shim-multikernel-v2']},'qualified_containerd_sha256':sha(work/'bin/containerd'),'workload_stdout_sha256':sha(private/'workload.stdout'),'workload_stderr_sha256':sha(private/'workload.stderr')}
  (work/'workload-checkpoint.json').write_text(json.dumps(checkpoint,indent=2)+'\n')
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);container_created=False;run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
 finally:
@@ -218,6 +220,7 @@ after={str(p):sha(p) for p in paths};after_pids=services()
 assert after==before and after_pids==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
 r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
+r['native_nbd_helper_sha256']=sha(nbd_helper)
 r['runtime_restart_tested']=restart_runtime
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
