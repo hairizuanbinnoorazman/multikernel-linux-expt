@@ -82,12 +82,14 @@ by root. Group/other-writable inputs remain refused. The closure is limited to
 256 files and 128 MiB, with 64 MiB per source file.
 Preparation remains in private scratch and is discarded on refusal.
 
-**Production activation is not implemented.** After these checks the builder
-still refuses activation before source-root copying or storage construction. It must not ignore
-this field and launch an ordinary workload in place of the requested Docker
-service. Approval metadata alone is not source-image verification or daemon
-readiness; the held scan and eventual copied-root verification are separate
-requirements.
+**Approved-profile boot integration is implemented but still needs live child
+qualification.** The builder verifies a scan of the copied image against both
+approval and the held source before bind materialization, installs the independent
+outer helper tree, rehashes bootstrap/module bytes while copying, and writes a
+protected outer marker. Init accepts only that fixed marker and fixed modules,
+then selects `--docker-guest`. Ordinary manifests emit no marker and keep their
+ordinary startup path. No production manifest or service has been changed by
+this implementation work.
 
 Activation requires a supervised, fixed bootstrap path, verification that the
 held source-root manifest matches approval, protected outer-root installation,
@@ -180,14 +182,15 @@ private primary-kernel namespaces. Real API readiness, foreground lifetime and
 owned-cgroup removal pass; retained failures drove the helper, temporary-directory
 and fixed state-directory fixes. This is not direct-child boot/build evidence.
 Production boot preparation and copied-root verification still need integration
-before the activation refusal can be removed.
+before complete production qualification can be claimed.
 
 The agent's explicit Docker path now owns fixed filesystem preparation before
 service launch. It rejects aliases in runtime/data paths, nonfresh outer state
 and a nonprotected/non-tmpfs inner `/run`; enables the service parent controllers;
 and creates the state bind and read-only config/cgroup mounts before admitting
 clients. Approved artifact installation, module loading and the production boot
-opt-in remain prerequisites for builder activation.
+opt-in are now wired in the builder/init; their direct-child behavior remains
+unqualified until a live run passes.
 
 The [agent-owned preparation proof](../../../evidence/runtime-20261022/g8-docker-preparation/README.md)
 qualifies that exact filesystem method with the real engine, including alias

@@ -56,6 +56,21 @@ if [ -z "$sandbox_id" ] || [ -z "$generation" ] || [ ! -f /.mk-agent/token ] || 
 	exec sh -c 'while true; do sleep 3600; done'
 fi
 
+docker_guest=
+profile_marker=/.multikernel/docker-guest
+if [ -e "$profile_marker" ] || [ -L "$profile_marker" ]; then
+    test -f "$profile_marker" && test ! -L "$profile_marker"
+    test "$(stat -c '%u:%a:%h:%s' "$profile_marker")" = '0:600:1:27'
+    test "$(cat "$profile_marker")" = docker-rootless-offline-v1
+    for component in llc stp bridge veth; do
+        artifact=/bootstrap-modules/$component.ko
+        test -f "$artifact" && test ! -L "$artifact"
+        test "$(stat -c '%u:%a:%h' "$artifact")" = '0:644:1'
+        insmod "$artifact"
+    done
+    docker_guest=--docker-guest
+fi
+
 echo "MK_AGENT_START sandbox=$sandbox_id generation=$generation port=$port"
 mediated=
 grep -q 'mk.storage_generation=' /proc/cmdline && mediated=--mediated-root
@@ -64,7 +79,7 @@ agent_socket=$agent_socket_dir/control.sock
 mkdir -p "$agent_socket_dir"
 chmod 0700 "$agent_socket_dir"
 /mk-agent --sandbox-id="$sandbox_id" --generation="$generation" \
-	--token-file=/.mk-agent/token --port="$port" --unix-socket="$agent_socket" $mediated &
+	--token-file=/.mk-agent/token --port="$port" --unix-socket="$agent_socket" $mediated $docker_guest &
 agent_pid=$!
 while kill -0 "$agent_pid" 2>/dev/null; do
 	/mkvsock-relay client 0 "$port" "$agent_socket" || true

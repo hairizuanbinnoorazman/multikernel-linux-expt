@@ -108,7 +108,8 @@ open_source_root() {
 	source_root=/proc/self/fd/$source_root_fd
 }
 # Compare the actual held image, not a caller-supplied digest or an image tag.
-# Activation remains refused until its supervisor is integrated and qualified.
+# Operator approval selects the dedicated service; OCI cannot select hooks.
+docker_guest=0
 if jq -e 'has("docker_guest")' "$bootstrap" >/dev/null; then
 	open_source_root
 	run_python build-runtime-rootfs.py "$source_root" "$metadata/unused" "$source_before_manifest" --manifest-only \
@@ -118,8 +119,7 @@ if jq -e 'has("docker_guest")' "$bootstrap" >/dev/null; then
 		--workload-config "$validated_config" \
 		--prepare-outer "$source_root" "$metadata/docker-outer" \
 		>"$metadata/docker-source-approval.json"
-	echo 'Docker guest activation requires a qualified profile supervisor' >&2
-	exit 1
+	docker_guest=1
 fi
 agent=$(jq -er '.agent' "$bootstrap")
 relay=$(jq -er '.relay' "$bootstrap")
@@ -168,6 +168,15 @@ filesystem_uuid=$(jq -er '.filesystem_uuid' "$metadata/storage-identity.json")
 printf '%s\n' "$image_id" >"$root/.multikernel/image-id"
 chmod 0600 "$root/.multikernel/image-id"
 cp -a "$source_root/." "$root/bundle/rootfs/"
+if [[ $docker_guest == 1 ]]; then
+    copied_manifest=$metadata/docker-copied.manifest.json
+    run_python build-runtime-rootfs.py "$root/bundle/rootfs" "$metadata/unused-copy" "$copied_manifest" --manifest-only \
+        --max-bytes "${MK_ROOTFS_MAX_BYTES:-1073741824}" --max-inodes "${MK_ROOTFS_MAX_INODES:-131072}" \
+        >"$metadata/docker-copied-result.json"
+    run_python validate-runtime-docker-root.py "$bootstrap" "$source_before_manifest" "$bind_plan" \
+        --workload-config "$validated_config" --copied-manifest "$copied_manifest" \
+        --stage-profile "$metadata/docker-outer" "$root" >"$metadata/docker-stage-result.json"
+fi
 run_python materialize-runtime-binds.py "$bind_plan" "$root/bundle/rootfs" "$bind_manifest" \
 	--max-bytes "${MK_BIND_INPUT_MAX_BYTES:-1073741824}" --max-inodes "${MK_BIND_INPUT_MAX_INODES:-131072}"
 run_python build-runtime-rootfs.py "$source_root" "$metadata/unused" "$source_manifest" --manifest-only \

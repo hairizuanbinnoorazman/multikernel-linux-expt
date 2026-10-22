@@ -13,9 +13,8 @@ RootlessKit chain, closes script fd3 and keeps logs on stdout/stderr. Boot
 preparation must supply the inner `/run/docker-daemon.json`, bind the fixed
 outer `/run/user/1000/rootlesskit` state directory at the same inner path, and
 prepare mounts before launch. The historical diagnostic bootstrap exits on socket creation and is
-incompatible with this lifecycle. Production builder activation
-still refuses until immutable helper preparation, copied-image verification and
-boot integration are implemented and qualified together.
+incompatible with this lifecycle. The approved-profile builder/init path now installs the outer generation and
+selects this mode; direct-child boot/build qualification is still required.
 
 Startup is bounded to 30 seconds. A Unix connection must have UID 1000 and a
 live `SO_PEERPIDFD` peer in the owned non-delegated cgroup. Kernels without that

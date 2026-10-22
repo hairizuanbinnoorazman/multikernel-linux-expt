@@ -76,6 +76,50 @@ class OuterTests(unittest.TestCase):
         self.assertNotIn('etc/ld.so.cache',result['file_sha256'])
         (self.root/'usr/bin/newuidmap').write_text('untrusted later replacement')
         self.assertEqual((out/'usr/bin/newuidmap').read_bytes(),self.files['usr/bin/newuidmap'])
+    def stage_inputs(self):
+        raw=self.scan();self.prepare(raw)
+        target=self.base/'staged';target.mkdir();(target/'bin').mkdir()
+        (target/'bin/busybox').write_text('trusted existing busybox')
+        artifacts={}
+        for name in ['bootstrap','llc','stp','bridge','veth']:
+            path=self.base/(name+'.artifact')
+            path.write_bytes(b'#!/bin/busybox sh\nexec true\n' if name=='bootstrap' else ('fixture '+name).encode())
+            path.chmod(0o600)
+            artifacts[name]={'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+        profile={'docker_guest':{'kind':'docker-rootless-offline-v1','rootfs_manifest_sha256':hashlib.sha256(raw).hexdigest(),'bootstrap':artifacts['bootstrap'],'modules':{name:artifacts[name] for name in ['llc','stp','bridge','veth']}}}
+        return raw,target,profile
+    def stage(self,raw,target,profile,copied=None):
+        return module['stage_profile'](profile,raw,raw if copied is None else copied,self.base/'outer',target,required_uid=os.geteuid())
+    def test_stage_approved_outer_artifacts_and_marker(self):
+        raw,target,profile=self.stage_inputs()
+        result=self.stage(raw,target,profile)
+        self.assertTrue(result['copied_root_verified']);self.assertEqual(result['module_count'],4)
+        self.assertEqual((target/'.multikernel/docker-guest').read_bytes(),b'docker-rootless-offline-v1\n')
+        self.assertEqual(stat.S_IMODE((target/'.multikernel/docker-guest').stat().st_mode),0o600)
+        self.assertEqual(stat.S_IMODE((target/'tmp').stat().st_mode),0o1777)
+        self.assertEqual((target/'bin/busybox').read_text(),'trusted existing busybox')
+        for name in module['HELPERS']:
+            self.assertEqual((target/name).read_bytes(),(self.base/'outer'/name).read_bytes())
+            self.assertNotEqual((target/name).stat().st_ino,(self.base/'outer'/name).stat().st_ino)
+        for name,selected in profile['docker_guest']['modules'].items():
+            path=target/'bootstrap-modules'/(name+'.ko')
+            self.assertEqual(path.read_bytes(),Path(selected['path']).read_bytes())
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o644)
+    def test_stage_copied_mutation_and_artifact_replacement_refused(self):
+        raw,target,profile=self.stage_inputs()
+        with self.assertRaises(Error):self.stage(raw,target,profile,copied=raw+b' ')
+        self.assertFalse((target/'usr').exists())
+        Path(profile['docker_guest']['modules']['bridge']['path']).write_bytes(b'replaced')
+        with self.assertRaises(Error):self.stage(raw,target,profile)
+        self.assertFalse((target/'usr').exists())
+    def test_stage_prepared_and_destination_aliases_refused(self):
+        raw,target,profile=self.stage_inputs()
+        source=self.base/'outer/usr/bin/newuidmap';data=source.read_bytes();source.unlink();source.symlink_to('/bin/true')
+        with self.assertRaises(Error):self.stage(raw,target,profile)
+        source.unlink();source.write_bytes(data);source.chmod(0o4755)
+        outside=self.base/'outside';outside.mkdir();(target/'lib').symlink_to(outside)
+        with self.assertRaises(Error):self.stage(raw,target,profile)
+        self.assertEqual(list(outside.iterdir()),[])
     def test_changed_content_refused_before_output(self):
         raw=self.scan();(self.root/'usr/bin/newuidmap').write_bytes(b'x'*4096)
         with self.assertRaises(Error):self.prepare(raw)

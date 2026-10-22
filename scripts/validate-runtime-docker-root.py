@@ -380,6 +380,77 @@ def prepare_outer(source, root_bytes, output, required_uid=0):
             "file_sha256": {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}}
 
 
+def stage_profile(bootstrap, source_manifest, copied_manifest, outer, destination, required_uid=0):
+    """Install data-only approved inputs in caller-private trusted outer root."""
+    if os.geteuid() != required_uid:
+        raise ApprovalError("profile staging requires trusted ownership")
+    if source_manifest != copied_manifest:
+        raise ApprovalError("copied root differs from approved source")
+    profile = bootstrap["docker_guest"]
+    if hashlib.sha256(copied_manifest).hexdigest() != profile["rootfs_manifest_sha256"]:
+        raise ApprovalError("copied root differs from approved image")
+    outer, destination = Path(outer), Path(destination)
+    for selected in (outer, destination):
+        rootfd = open_directory_nofollow(selected)
+        os.close(rootfd)
+    private = {"home/rootless", "home/rootless/.local", "home/rootless/.local/tmp",
+               "run/user/1000", "run/user/1000/rootlesskit"}
+    directories, files, total = [], [], 0
+    for base, names, leaves in os.walk(outer, followlinks=False):
+        names.sort(); leaves.sort()
+        for name in names + leaves:
+            path = Path(base) / name
+            relative = str(path.relative_to(outer))
+            info = path.lstat()
+            if stat.S_ISDIR(info.st_mode):
+                uid = 1000 if relative in private and required_uid == 0 else required_uid
+                mode = 0o1777 if relative == "tmp" else 0o700 if relative in private else 0o755
+                if info.st_uid != uid or stat.S_IMODE(info.st_mode) != mode:
+                    raise ApprovalError("prepared outer directory identity refused")
+                directories.append((relative, info))
+            elif stat.S_ISREG(info.st_mode):
+                data = read_metadata(path)
+                total += len(data)
+                if len(files) >= 256 or total > 128 << 20:
+                    raise ApprovalError("prepared outer closure exceeds bound")
+                files.append((relative, data, stat.S_IMODE(info.st_mode)))
+            else:
+                raise ApprovalError("prepared outer alias refused")
+    # Rehash all privileged artifacts before modifying the destination.
+    artifacts = []
+    for name, selected in [("docker-bootstrap", profile["bootstrap"])] + [
+            ("bootstrap-modules/" + name + ".ko", profile["modules"][name])
+            for name in ("llc", "stp", "bridge", "veth")]:
+        data = read_metadata(selected["path"])
+        if hashlib.sha256(data).hexdigest() != selected["sha256"]:
+            raise ApprovalError("approved bootstrap artifact changed")
+        if name == "docker-bootstrap" and not data.startswith(b"#!/bin/busybox sh\n"):
+            raise ApprovalError("approved bootstrap interpreter changed")
+        artifacts.append((name, data, 0o755 if name == "docker-bootstrap" else 0o644))
+    # No image paths are traversed: every destination is in the outer tree.
+    for relative, info in sorted(directories, key=lambda value: (value[0].count("/"), value[0])):
+        path = destination / relative
+        path.mkdir(exist_ok=True)
+        if not stat.S_ISDIR(path.lstat().st_mode):
+            raise ApprovalError("outer destination alias refused")
+        if os.geteuid() == 0:
+            os.chown(path, info.st_uid, info.st_gid)
+        path.chmod(stat.S_IMODE(info.st_mode))
+    for name in ("bootstrap-modules", ".multikernel"):
+        path = destination / name
+        path.mkdir(exist_ok=True)
+        if not stat.S_ISDIR(path.lstat().st_mode) or path.stat().st_uid != required_uid:
+            raise ApprovalError("outer metadata destination refused")
+    for relative, data, mode in files + artifacts + [
+            (".multikernel/docker-guest", b"docker-rootless-offline-v1\n", 0o600)]:
+        path = destination / relative
+        with path.open("xb") as stream:
+            stream.write(data)
+            os.fchmod(stream.fileno(), mode)
+    return {"copied_root_verified": True, "independent_outer_files": len(files),
+            "module_count": 4, "trusted_init_marker": True}
+
+
 def validate_workload(config):
     process = config.get("process") if isinstance(config, dict) else None
     user = process.get("user") if isinstance(process, dict) else None
@@ -405,6 +476,8 @@ def main():
     parser.add_argument("bind_plan")
     parser.add_argument("--prepare-outer", nargs=2, metavar=("SOURCE", "OUTPUT"))
     parser.add_argument("--workload-config")
+    parser.add_argument("--stage-profile", nargs=2, metavar=("OUTER", "DESTINATION"))
+    parser.add_argument("--copied-manifest")
     args = parser.parse_args()
     bootstrap = json.loads(read_metadata(args.bootstrap), object_pairs_hook=strict_object)
     root = read_metadata(args.manifest)
@@ -415,6 +488,11 @@ def main():
         result["workload_identity_bound"] = True
     if args.prepare_outer:
         result["outer_helpers"] = prepare_outer(args.prepare_outer[0], root, args.prepare_outer[1])
+    if args.stage_profile:
+        if not args.copied_manifest:
+            raise ApprovalError("copied manifest required for profile staging")
+        copied = read_metadata(args.copied_manifest)
+        result["staged_profile"] = stage_profile(bootstrap, root, copied, *args.stage_profile)
     print(json.dumps(result, sort_keys=True))
 
 if __name__ == "__main__":
