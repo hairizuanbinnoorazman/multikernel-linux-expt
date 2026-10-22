@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Disposable host Docker selects Multikernel and runs the offline child build proof."""
 import hashlib,json,os,pathlib,subprocess,sys,time
+from runtime_firewall_identity import identity as firewall_identity
 assert len(sys.argv)==3, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT'
 work=pathlib.Path(sys.argv[1]);source=pathlib.Path(sys.argv[2])
 assert work.is_absolute() and source.is_absolute()
@@ -50,9 +51,10 @@ storage_root.mkdir(mode=0o700)
 extra={'MK_DAEMON_SOCKET':str(daemon_socket),'MK_NETWORK_SOCKET':str(network_socket),'MK_SHIM_LOCK':str(private/'locks/allocate'),'MK_SANDBOX_CPU_SETS':'8,9,10,11','MK_RELAY':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-relay','MK_KERNEL_MANIFEST':str(approval),'MK_KERNEL_MANIFEST_NAME':'gce-mk2','MK_NBD_HELPER':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','MK_NBD_MODULE':profile['modules'][0]['path']}
 # Store firewall rules without packet counters so transient test traffic does
 # not invalidate identity checks. Exact rules must return to their prior state.
-def rules(name):return b'\n'.join(line for line in subprocess.check_output(['/usr/sbin/'+name]).splitlines() if not line.startswith(b'#'))
-network_before={name:rules(name) for name in ['iptables-save','ip6tables-save']}
-links_before=subprocess.check_output(['/usr/sbin/ip','-o','link','show'])
+network_before={name:subprocess.check_output(['/usr/sbin/'+name]) for name in ['iptables-save','ip6tables-save']}
+for name,data in network_before.items():(private/('firewall-before-'+name+'.rules')).write_bytes(data)
+links_before=subprocess.check_output(['/usr/sbin/ip','-o','link','show']);(private/'links-before.log').write_bytes(links_before)
+routes_before=subprocess.check_output(['/usr/sbin/ip','route']);(private/'routes-before.log').write_bytes(routes_before)
 
 cc=private/'containerd.toml'
 cc.write_text("version = 3\nroot = "+repr(str(private/'containerd-root'))+"\nstate = "+repr(str(private/'containerd-state'))+"\ndisabled_plugins = ['io.containerd.cri.v1.images', 'io.containerd.cri.v1.runtime', 'io.containerd.grpc.v1.cri', 'io.containerd.nri.v1.nri']\n[grpc]\naddress = "+repr(str(sock))+"\n[plugins.'io.containerd.shim.v1.manager']\nenv = ['PATH="+str(work/'bin')+":/usr/sbin:/usr/bin:/sbin:/bin']\n")
@@ -105,6 +107,8 @@ try:
  assert len(stdout)<131072 and len(stderr)<131072
  for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:assert marker in stdout,marker
  assert profile['kernel_release'] in stdout and '29.9.0' in stdout and 'CACHED' in stderr
+ checkpoint={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'cleanup_qualified':False,'execution_script_sha256':sha(pathlib.Path(__file__)),'source_archive_sha256':sha(work/'source.tar'),'profile_sha256':sha(approval),'approved_root_manifest_sha256':profile['docker_guest']['rootfs_manifest_sha256'],'prepared_archive_sha256':sha(archive),'probe_sha256':sha(private/'input/probe.sh'),'busybox_sha256':sha(private/'input/busybox'),'runtime_program_hashes':{name:sha(work/'bin'/name) for name in ['mkruntimed','mknetd','containerd-shim-multikernel-v2']},'qualified_containerd_sha256':sha(work/'bin/containerd'),'workload_stdout_sha256':sha(private/'workload.stdout'),'workload_stderr_sha256':sha(private/'workload.stderr')}
+ (work/'workload-checkpoint.json').write_text(json.dumps(checkpoint,indent=2)+'\n')
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);container_created=False;run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
 finally:
  if cli is not None and container_created:
@@ -116,8 +120,12 @@ finally:
    try:p.wait(timeout=15)
    except subprocess.TimeoutExpired:p.kill();p.wait(timeout=5)
  for f in logs:f.close()
-assert {name:rules(name) for name in network_before}==network_before
-assert subprocess.check_output(['/usr/sbin/ip','-o','link','show'])==links_before
+network_after={name:subprocess.check_output(['/usr/sbin/'+name]) for name in network_before}
+for name,data in network_after.items():(private/('firewall-after-'+name+'.rules')).write_bytes(data)
+links_after=subprocess.check_output(['/usr/sbin/ip','-o','link','show']);(private/'links-after.log').write_bytes(links_after)
+routes_after=subprocess.check_output(['/usr/sbin/ip','route']);(private/'routes-after.log').write_bytes(routes_after)
+assert {name:firewall_identity(data) for name,data in network_after.items()}=={name:firewall_identity(data) for name,data in network_before.items()}
+assert links_after==links_before and routes_after==routes_before
 assert not list(instances.iterdir()) and pathlib.Path('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
 assert 'No memory pool configured' in subprocess.check_output([config['kerf_executable'],'show'],text=True)
 rootfs=json.loads((private/'rootfs-state/state.json').read_text())
@@ -129,5 +137,5 @@ assert not list(storage_root.iterdir())
 
 assert {str(p):sha(p) for p in paths}==before and services()==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
-r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
+r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
 (work/'integration-receipt.json').write_text(json.dumps(r,indent=2)+'\n');print('G8_HOST_DOCKER_CHILD_BUILD_PASS',flush=True)

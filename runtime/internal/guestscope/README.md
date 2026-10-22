@@ -2,7 +2,10 @@
 
 This Linux package supplies the cgroup ownership primitive for a supervised
 Docker engine inside a child kernel. It is used by the explicit `mk-agent --docker-guest` supervisor path;
-production builder activation remains refused pending protected boot preparation.
+protected production boot preparation is implemented. The
+[direct-child build proof](../../../evidence/runtime-20261022/g8-production-docker-build/README.md)
+qualifies the supervised profile with mediated storage; complete host Docker
+lifecycle, recovery and adversarial gates remain separate.
 
 `New` exclusively creates a protected cgroup-v2 leaf under a protected real
 parent. Memory/pids controllers must already be enabled by trusted boot setup.
