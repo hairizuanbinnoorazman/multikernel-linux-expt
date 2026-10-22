@@ -3,11 +3,14 @@
 import hashlib,json,os,pathlib,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
 from runtime_service_policy import parse_policy, command_with_policy, check_observation
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime] [--harden-services]'
+from runtime_docker_concurrency import qualify as qualify_concurrency
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--concurrent] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--harden-services'}
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--harden-services','--concurrent'}
 restart_runtime='--restart-runtime' in flags
 harden_services='--harden-services' in flags
+concurrent='--concurrent' in flags
+assert not (concurrent and restart_runtime), 'concurrency and restart are separate bounded scenarios'
 work=pathlib.Path(sys.argv[1]);source=pathlib.Path(sys.argv[2])
 assert work.is_absolute() and source.is_absolute()
 assert str(work).startswith('/opt/mkruntime/g8-host-')
@@ -54,7 +57,7 @@ config.update(state_directory=str(private/'daemon-state'),socket_path=str(daemon
 host_config=private/'host.json';host_config.write_text(json.dumps(config));host_config.chmod(0o600)
 storage_root=pathlib.Path('/srv/multikernel-storage')/work.name
 storage_root.mkdir(mode=0o700)
-extra={'MK_DAEMON_SOCKET':str(daemon_socket),'MK_NETWORK_SOCKET':str(network_socket),'MK_SHIM_LOCK':str(private/'locks/allocate'),'MK_SANDBOX_CPU_SETS':'8,9,10,11','MK_RELAY':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-relay','MK_KERNEL_MANIFEST':str(approval),'MK_KERNEL_MANIFEST_NAME':'gce-mk2','MK_NBD_HELPER':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','MK_NBD_MODULE':profile['modules'][0]['path']}
+extra={'MK_DAEMON_SOCKET':str(daemon_socket),'MK_NETWORK_SOCKET':str(network_socket),'MK_SHIM_LOCK':str(private/'locks/allocate'),'MK_SANDBOX_CPU_SETS':'8,9,10,11;12,13,14,15' if concurrent else '8,9,10,11','MK_RELAY':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-relay','MK_KERNEL_MANIFEST':str(approval),'MK_KERNEL_MANIFEST_NAME':'gce-mk2','MK_NBD_HELPER':'/opt/mkruntime/g8-boot-d4643c8/mkvsock-nbd','MK_NBD_MODULE':profile['modules'][0]['path']}
 # Store firewall rules without packet counters so transient test traffic does
 # not invalidate identity checks. Exact rules must return to their prior state.
 network_before={name:subprocess.check_output(['/usr/sbin/'+name]) for name in ['iptables-save','ip6tables-save']}
@@ -113,6 +116,8 @@ try:
  workload=['/bin/sh','/work/input/probe.sh']
  if restart_runtime:
   workload=['/bin/sh','-ec','mkdir -m 700 /home/rootless/.local/tmp/g8-recovery; /bin/sh /work/input/probe.sh; echo G8_RUNTIME_RECOVERY_READY; while [ ! -f /home/rootless/.local/tmp/g8-recovery/release ]; do sleep 1; done; echo G8_RUNTIME_RECOVERY_RELEASED']
+ if concurrent:
+  workload=['/bin/sh','-ec','mkdir -m 700 /home/rootless/.local/tmp/g8-concurrency; echo G8_CONCURRENT_BOOT_READY; while [ ! -f /home/rootless/.local/tmp/g8-concurrency/build ]; do sleep 1; done; /bin/sh /work/input/probe.sh --overlap-proof; echo G8_CONCURRENT_BUILD_READY; while [ ! -f /home/rootless/.local/tmp/g8-concurrency/release ]; do sleep 1; done; echo G8_CONCURRENT_RELEASED']
  created=run(cli+['create','--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture']+workload,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  container_created=True
  (private/'create.stdout').write_bytes(created.stdout);(private/'create.stderr').write_bytes(created.stderr)
@@ -128,41 +133,45 @@ try:
  differences={k:{'approved':left.get(k),'exported':right.get(k)} for k in sorted(left.keys()|right.keys()) if left.get(k)!=right.get(k)}
  (private/'source-differences.json').write_text(json.dumps(differences,indent=2)+'\n')
  assert not differences,'Docker materialization differs; inspect retained source-differences.json before approving'
- with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:
-  if restart_runtime:
-   attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
-   deadline=time.monotonic()+300
-   while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
-    assert attach.poll() is None and time.monotonic()<deadline,'workload did not reach the recovery checkpoint'
-    time.sleep(.2)
-   def child_snapshot(phase):
-    boot_result=run(cli+['exec','--user','1000:1000','g8-materialization','/bin/cat','/proc/sys/kernel/random/boot_id'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    engine_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/local/bin/docker','info','--format','{{json .}}'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    image_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build/image.tar'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    owner_result=run([work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    for label,result in [('boot',boot_result),('engine',engine_result),('image',image_result),('ownership',owner_result)]:
-     (private/('recovery-'+phase+'-'+label+'.stdout')).write_bytes(result.stdout)
-     (private/('recovery-'+phase+'-'+label+'.stderr')).write_bytes(result.stderr)
-     assert not result.stderr,'unexpected recovery inspection diagnostic'
-    engine=json.loads(engine_result.stdout);ownership=json.loads(owner_result.stdout)
-    assert ownership['source']=='durable-lifecycle' and len(ownership['sandboxes'])==1 and ownership['sandboxes'][0]['state']=='RUNNING'
-    child_boot=boot_result.stdout.decode().strip();image_sha=image_result.stdout.decode().split()[0]
-    assert child_boot!=boot and len(child_boot)==36 and len(image_sha)==64
-    assert engine['ID'] and engine['KernelVersion']==profile['kernel_release'] and engine['ServerVersion']=='29.9.0'
-    return {'child_boot_id':child_boot,'engine_id':engine['ID'],'saved_image_sha256':image_sha,'ownership':ownership['sandboxes']}
-   prior=child_snapshot('before');old_pid=m.pid
-   assert m.poll() is None,'runtime already stopped before the intentional restart'
-   runtime_arguments=m.args
-   m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
-   m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
-   assert m.pid!=old_pid and m.poll() is None
-   subsequent=child_snapshot('after');assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
-   recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'before':prior,'after':subsequent,'child_continuity_pass':True,'cleanup_qualified':False}
-   (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
-   run(cli+['exec','--user','1000:1000','g8-materialization','/bin/touch','/home/rootless/.local/tmp/g8-recovery/release'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-   observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
-  else:
-   observed=subprocess.run(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err,timeout=300)
+ if concurrent:
+  observed=qualify_concurrency(cli,private,children,created.args,[work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],profile['kernel_release'])
+  shutil.copyfile(private/'a-workload.stdout',private/'workload.stdout');shutil.copyfile(private/'a-workload.stderr',private/'workload.stderr')
+ else:
+  with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:
+   if restart_runtime:
+    attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
+    deadline=time.monotonic()+300
+    while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
+     assert attach.poll() is None and time.monotonic()<deadline,'workload did not reach the recovery checkpoint'
+     time.sleep(.2)
+    def child_snapshot(phase):
+     boot_result=run(cli+['exec','--user','1000:1000','g8-materialization','/bin/cat','/proc/sys/kernel/random/boot_id'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+     engine_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/local/bin/docker','info','--format','{{json .}}'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+     image_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build/image.tar'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+     owner_result=run([work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+     for label,result in [('boot',boot_result),('engine',engine_result),('image',image_result),('ownership',owner_result)]:
+      (private/('recovery-'+phase+'-'+label+'.stdout')).write_bytes(result.stdout)
+      (private/('recovery-'+phase+'-'+label+'.stderr')).write_bytes(result.stderr)
+      assert not result.stderr,'unexpected recovery inspection diagnostic'
+     engine=json.loads(engine_result.stdout);ownership=json.loads(owner_result.stdout)
+     assert ownership['source']=='durable-lifecycle' and len(ownership['sandboxes'])==1 and ownership['sandboxes'][0]['state']=='RUNNING'
+     child_boot=boot_result.stdout.decode().strip();image_sha=image_result.stdout.decode().split()[0]
+     assert child_boot!=boot and len(child_boot)==36 and len(image_sha)==64
+     assert engine['ID'] and engine['KernelVersion']==profile['kernel_release'] and engine['ServerVersion']=='29.9.0'
+     return {'child_boot_id':child_boot,'engine_id':engine['ID'],'saved_image_sha256':image_sha,'ownership':ownership['sandboxes']}
+    prior=child_snapshot('before');old_pid=m.pid
+    assert m.poll() is None,'runtime already stopped before the intentional restart'
+    runtime_arguments=m.args
+    m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
+    m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
+    assert m.pid!=old_pid and m.poll() is None
+    subsequent=child_snapshot('after');assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
+    recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'before':prior,'after':subsequent,'child_continuity_pass':True,'cleanup_qualified':False}
+    (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
+    run(cli+['exec','--user','1000:1000','g8-materialization','/bin/touch','/home/rootless/.local/tmp/g8-recovery/release'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
+   else:
+    observed=subprocess.run(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err,timeout=300)
  assert observed.returncode==0,'host Docker start/build failed; retained workload output'
  inspected=subprocess.check_output(cli+['inspect','g8-materialization']);(private/'inspect.json').write_bytes(inspected)
  item=json.loads(inspected)[0];assert item['State']['Status']=='exited' and item['State']['ExitCode']==0 and item['HostConfig']['Runtime']=='io.containerd.multikernel.v2',item['State']
@@ -210,6 +219,8 @@ assert after==before and after_pids==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
 r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
 r['runtime_restart_tested']=restart_runtime
+r['concurrent_guest_builds_tested']=concurrent
+if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
 r['service_capability_nnp_tested']=harden_services
 if harden_services:r.update(service_policy_sha256=sha(private/'service-policies.json'),service_observations_sha256=sha(private/'service-observations.json'))
 if restart_runtime:r['recovery_checkpoint_sha256']=sha(work/'recovery-checkpoint.json')
