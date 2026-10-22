@@ -196,3 +196,9 @@ The [agent-owned preparation proof](../../../evidence/runtime-20261022/g8-docker
 qualifies that exact filesystem method with the real engine, including alias
 refusal before preparation, EROFS write attempts and shared-state identity on the
 GCE primary kernel. Actual child boot/build still requires qualification.
+
+The [profile construction proof](../../../evidence/runtime-20261022/g8-profile-boot/README.md)
+qualifies the integrated production builder against the real pinned image and
+selected child kernel artifacts. It inspects generated marker/bootstrap/helper/
+module bytes and modes, retaining the refusal controls. It does not yet qualify
+execution of that generated child boot or Docker builds.
