@@ -381,6 +381,11 @@ func main() {
 	}{{"DeleteProcess", map[string]any{"id": "p1"}}, {"Quiesce", map[string]any{}}, {"Shutdown", map[string]any{}}} {
 		reply, callErr := call(method.name, method.value)
 		if callErr != nil {
+			// Preserve completed workload evidence even when teardown refuses.
+			// Exit remains nonzero; this is never a successful lifecycle result.
+			results["failed_method"] = method.name
+			partial, _ := json.MarshalIndent(results, "", "  ")
+			os.Stdout.Write(append(partial, '\n'))
 			fmt.Fprintln(os.Stderr, method.name+":", callErr)
 			os.Exit(1)
 		}
