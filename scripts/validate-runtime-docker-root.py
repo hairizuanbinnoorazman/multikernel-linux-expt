@@ -360,6 +360,7 @@ def prepare_outer(source, root_bytes, output, required_uid=0):
     # RootlessKit executes outside the writable image. Its fixed home and
     # runtime state must exist in this outer root, with no source aliases.
     for name, mode, uid, gid in [
+        ("tmp", 0o1777, required_uid, 0),
         ("home", 0o755, required_uid, 0),
         ("home/rootless", 0o700, 1000, 1000),
         ("home/rootless/.local", 0o700, 1000, 1000),
