@@ -62,3 +62,9 @@ not itself qualify child boot or Docker builds.
 The outer helper closure includes `nsenter` and `ip`: RootlessKit configures
 loopback even for `--net=none`. Source aliases (including a BusyBox applet) are
 flattened to independent files under their required invocation names.
+
+The [real foreground proof](../../../evidence/runtime-20261021/g8-docker-foreground/README.md)
+records the pinned Docker engine passing this installed test on the restarted
+GCE primary kernel. It retains the failed controls that identified missing outer
+helpers, temporary-directory permissions and shared API state. Production boot
+integration and actual direct-child builds remain open.

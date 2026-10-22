@@ -173,3 +173,11 @@ checks real manager chroot workloads, privileged bootstrap execution, inherited
 socket removal, exec inheritance and deliberate installation failure on the
 restarted GCE primary kernel. It qualifies this process prerequisite; actual
 child-engine startup/build and complete gate closure remain open.
+
+The [real foreground engine qualification](../../../evidence/runtime-20261021/g8-docker-foreground/README.md)
+uses the production wrapper and supervisor with the pinned Docker image in
+private primary-kernel namespaces. Real API readiness, foreground lifetime and
+owned-cgroup removal pass; retained failures drove the helper, temporary-directory
+and fixed state-directory fixes. This is not direct-child boot/build evidence.
+Production boot preparation and copied-root verification still need integration
+before the activation refusal can be removed.
