@@ -165,8 +165,13 @@ func TestInstalledRealForegroundBootstrap(t *testing.T) {
 	if err := filesystem.Release(); err != nil {
 		t.Fatal("filesystem release is not idempotent", err)
 	}
-	if _, err := os.Stat(releaseDirectory); !os.IsNotExist(err) {
-		t.Fatal("owned state mount cleanup directory remains", err)
+	for _, path := range []string{releaseDirectory, releaseDirectory + "-source"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatal("owned state mount cleanup directory remains", path, err)
+		}
+	}
+	if st, err := directoryIdentity(rootlessState); err != nil || st.Nlink < 2 {
+		t.Fatal("RootlessKit removed the shared state inode", err)
 	}
 	if !bounded {
 		t.Fatal("daemon log bound exceeded")

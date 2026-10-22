@@ -14,17 +14,32 @@ import (
 const releaseDirectory = "/run/multikernel-agent/docker-state-release"
 
 // PreparedFilesystem owns the exact API-state bind installed before admission.
-// RootlessKit removes its source directory on exit. Keeping that deleted inode
-// mounted prevents a filesystem-wide read-only remount (s_remove_count).
+// The outer self-bind prevents RootlessKit from deleting the shared inode on
+// exit. Both that mount and the inner API bind remain owned until normal release.
 // An open_tree FD lets cleanup move the owned mount out of workload-writable
 // paths before closing the FD and unmounting it normally. No lazy detach occurs.
 type PreparedFilesystem struct {
 	mu                                      sync.Mutex
 	mountFD, directoryFD                    int
+	source                                  *PreparedFilesystem
+	destination                             string
 	moved, unmounted, targetRemoved, closed bool
 }
 
 func captureStateMount() (*PreparedFilesystem, error) {
+	inner, err := captureMount(imageRoot+rootlessState, releaseDirectory)
+	if err != nil {
+		return nil, err
+	}
+	source, err := captureMount(rootlessState, releaseDirectory+"-source")
+	if err != nil {
+		return nil, err
+	}
+	inner.source = source
+	return inner, nil
+}
+
+func captureMount(path, destination string) (*PreparedFilesystem, error) {
 	control := "/run/multikernel-agent"
 	if err := os.Mkdir(control, 0700); err != nil && !errors.Is(err, os.ErrExist) {
 		return nil, err
@@ -33,22 +48,22 @@ func captureStateMount() (*PreparedFilesystem, error) {
 	if err != nil || st.Uid != 0 || st.Mode&0777 != 0700 {
 		return nil, errors.New("Docker cleanup parent identity refused")
 	}
-	if err := os.Mkdir(releaseDirectory, 0700); err != nil {
+	if err := os.Mkdir(destination, 0700); err != nil {
 		return nil, errors.New("Docker cleanup directory is not fresh")
 	}
-	if err := os.Mkdir(releaseDirectory+"/state", 0700); err != nil {
+	if err := os.Mkdir(destination+"/state", 0700); err != nil {
 		return nil, err
 	}
-	directory, err := unix.Open(releaseDirectory, unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	directory, err := unix.Open(destination, unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return nil, err
 	}
-	mount, err := unix.OpenTree(unix.AT_FDCWD, imageRoot+rootlessState, unix.OPEN_TREE_CLOEXEC)
+	mount, err := unix.OpenTree(unix.AT_FDCWD, path, unix.OPEN_TREE_CLOEXEC)
 	if err != nil {
 		unix.Close(directory)
 		return nil, errors.New("Docker state mount ownership unavailable")
 	}
-	return &PreparedFilesystem{mountFD: mount, directoryFD: directory}, nil
+	return &PreparedFilesystem{mountFD: mount, directoryFD: directory, destination: destination}, nil
 }
 
 // Release runs only after the owned service is empty and the launcher is reaped.
@@ -92,8 +107,13 @@ func (p *PreparedFilesystem) Release() error {
 			return fmt.Errorf("Docker cleanup directory descriptor close failed: %w", err)
 		}
 	}
-	if err := os.Remove(releaseDirectory); err != nil {
+	if err := os.Remove(p.destination); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("Docker cleanup directory removal failed: %w", err)
+	}
+	if p.source != nil {
+		if err := p.source.Release(); err != nil {
+			return err
+		}
 	}
 	p.closed = true
 	return nil

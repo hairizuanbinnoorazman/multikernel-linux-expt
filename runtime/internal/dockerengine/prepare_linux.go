@@ -133,6 +133,11 @@ func PrepareFilesystem() (*PreparedFilesystem, error) {
 			return nil, errors.New("Docker private data preparation failed")
 		}
 	}
+	// RootlessKit removes its state directory on exit. A source mountpoint
+	// keeps that inode linked until both owned binds can be released normally.
+	if err := unix.Mount(rootlessState, rootlessState, "", unix.MS_BIND, ""); err != nil {
+		return nil, errors.New("Docker source state mount preparation failed")
+	}
 	if err := unix.Mount(rootlessState, imageRoot+rootlessState, "", unix.MS_BIND, ""); err != nil {
 		return nil, errors.New("Docker state sharing failed")
 	}
