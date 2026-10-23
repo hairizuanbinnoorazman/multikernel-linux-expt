@@ -263,3 +263,20 @@ while fresh builds pass, and child/engine/owner identity and final primary/resou
 checks pass. This closes that bounded in-flight RUN case. It does not prove
 crash safety at arbitrary build I/O/resource-mutation points, under disk/memory/log
 pressure, across every service, or for host power loss and full G7/G8.
+
+The [bounded storage-pressure attempt](../../evidence/runtime-20261023/g8-pressure-io-failure/README.md)
+(`09ac776`) fails before ENOSPC: guest dd reports I/O error after 417 MiB,
+sync and cleanup also fail, and no full-space hold/build pass occurs. The native
+log reports a synced close after about 4 MiB of writes and no request refusal;
+it does not establish the client/kernel cause. STOPPED/QUIESCING ownership is
+retained. Local [report refusal controls](../../evidence/runtime-20261023/g8-pressure-controls/README.md)
+pass independently and do not qualify physical pressure.
+
+The [operator quarantine and read-only diagnosis](../../evidence/runtime-20261023/g8-pressure-quarantine/README.md)
+then returns CPU/pool/network resources while preserving disk bytes and all
+failed ledgers. e2fsck -fn exits 4 with uncorrected bitmap/count/orphan errors;
+the disk hash stays identical. Watched installed hashes/PIDs and raw network
+identity match baseline. This confirms the observed failed-check release hold,
+not successful storage recovery. `6a191ef` retains write/sync exits before further
+probe checks. Late client/kernel diagnostics must be retained before teardown
+before reproducing and fixing the cause. Pressure and full G7/G8 remain open.

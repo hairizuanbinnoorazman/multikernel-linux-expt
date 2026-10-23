@@ -34,6 +34,12 @@ A [bounded executing-RUN crash case](evidence/runtime-20261023/g8-runtime-active
 also passes: SIGKILL and adoption occur inside an observed BuildKit RUN with a
 45-second sleep, the interrupted matrix finishes, and fresh builds succeed.
 
+The [storage-pressure attempt](evidence/runtime-20261023/g8-pressure-io-failure/README.md)
+currently fails with guest I/O errors before ENOSPC. A read-only check found
+uncorrected guest filesystem errors. Its disk and ledgers are
+[preserved for diagnosis](evidence/runtime-20261023/g8-pressure-quarantine/README.md),
+with CPU/pool/network resources returned. Pressure recovery is unqualified.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

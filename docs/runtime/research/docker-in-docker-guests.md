@@ -184,3 +184,20 @@ archive is created after recovery, so no pre-crash archive preservation is
 claimed in this case. Child boot, engine and ownership persist, and teardown
 checks pass. Storage write pressure, resource mutations, other crash points
 and the complete reliability/security gates remain open.
+
+The [storage-pressure fixture](../../../evidence/runtime-20261023/g8-pressure-io-failure/README.md)
+attempts bounded exhaustion of the 2 GiB mediated filesystem, holding ENOSPC while
+the primary checks backing geometry and installed state before resuming builds.
+Its first run instead encounters I/O errors before exhaustion. The native server
+log has a synced close but no request refusal, and a read-only filesystem check
+subsequently reports uncorrected errors. The [failed disk quarantine](../../../evidence/runtime-20261023/g8-pressure-quarantine/README.md)
+preserves bytes/ledgers and returns host resources. No pressure recovery pass or
+speculative request-size diagnosis is claimed.
+
+The native client's initramfs log is copied into the root during startup; late
+client failures are not retained there. Diagnosis needs bounded client/kernel
+observations collected while the child is live, before failure teardown loses
+them. The next remediation must distinguish socket/proxy, NBD, filesystem and
+memory failure evidence, then repeat the original pressure requirements. Keep
+the fixed image geometry, strict ENOSPC/space restoration checks, post-pressure
+build matrix, native counters and offline-check release hold intact.
