@@ -38,7 +38,10 @@ The [storage-pressure attempt](evidence/runtime-20261023/g8-pressure-io-failure/
 currently fails with guest I/O errors before ENOSPC. A read-only check found
 uncorrected guest filesystem errors. Its disk and ledgers are
 [preserved for diagnosis](evidence/runtime-20261023/g8-pressure-quarantine/README.md),
-with CPU/pool/network resources returned. Pressure recovery is unqualified.
+with CPU/pool/network resources returned. Pressure recovery is unqualified. A repeat with
+[bounded child-console capture](evidence/runtime-20261023/g8-pressure-console-failure/README.md)
+records NBD connection reset/broken pipe before the filesystem journal abort.
+The transport failure cause remains under investigation.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

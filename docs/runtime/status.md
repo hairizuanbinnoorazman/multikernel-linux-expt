@@ -280,3 +280,11 @@ identity match baseline. This confirms the observed failed-check release hold,
 not successful storage recovery. `6a191ef` retains write/sync exits before further
 probe checks. Late client/kernel diagnostics must be retained before teardown
 before reproducing and fixing the cause. Pressure and full G7/G8 remain open.
+
+The [repeat pressure test with console capture](../../evidence/runtime-20261023/g8-pressure-console-failure/README.md)
+retains a bounded exact-instance transcript: NBD send -104 and receive -32
+precede ext4 journal abort. It failed before ENOSPC, with write exit 1 and sync
+exit 127. This establishes event ordering, not the transport failure cause.
+The pressure gate and full G7/G8 remain open. Native client terminal diagnostics
+now reach the protected child console after successful peer validation; they
+do not change forwarding limits or error policy.
