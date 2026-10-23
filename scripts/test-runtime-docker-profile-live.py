@@ -184,6 +184,8 @@ try:
      m.kill();assert m.wait(timeout=30)==-signal.SIGKILL,'private runtime did not exit from the intentional SIGKILL'
     else:
      m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
+    exit_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid':old_pid,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':m.returncode,'cleanup_qualified':False}
+    (work/'runtime-exit-checkpoint.json').write_text(json.dumps(exit_checkpoint,indent=2)+'\n')
     m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
     assert m.pid!=old_pid and m.poll() is None
     subsequent=child_snapshot('after');assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
@@ -200,6 +202,7 @@ try:
     (private/'post-recovery-original-image.stdout').write_bytes(old_image.stdout);(private/'post-recovery-original-image.stderr').write_bytes(old_image.stderr)
     assert not old_image.stderr and old_image.stdout.decode().split()[0]==prior['saved_image_sha256']
     recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':-signal.SIGKILL if crash_runtime else 0,'before':prior,'after':subsequent,'after_build':rebuilt_state,'post_recovery_build_tested':True,'post_recovery_stdout_sha256':sha(private/'post-recovery-workload.stdout'),'post_recovery_stderr_sha256':sha(private/'post-recovery-workload.stderr'),'child_continuity_pass':True,'cleanup_qualified':False}
+    recovery['runtime_exit_checkpoint_sha256']=sha(work/'runtime-exit-checkpoint.json')
     (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
     run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
