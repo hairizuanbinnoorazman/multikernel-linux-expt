@@ -59,3 +59,14 @@ def check_observation(observed, policy):
             raise ValueError('unexpected inherited or ambient service capabilities')
     if observed.get('NoNewPrivs') != '1' or observed.get('Uid', '').split() != ['0'] * 4:
         raise ValueError('observed service NNP/identity differs from declared policy')
+
+
+def check_fixture_scope(properties, pid, invocation):
+    """Require helper survival across a failed fixture, as in production."""
+    if (not invocation or properties.get('InvocationID') != invocation or
+            properties.get('MainPID') != str(pid)):
+        raise ValueError('fixture unit does not own this process and invocation')
+    if properties.get('KillMode') != 'process':
+        raise ValueError('fixture requires KillMode=process to retain storage helpers')
+    if properties.get('PrivateMounts') != 'yes':
+        raise ValueError('fixture requires a private mount namespace')

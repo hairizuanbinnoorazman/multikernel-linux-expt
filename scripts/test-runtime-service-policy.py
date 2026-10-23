@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 import unittest
-from runtime_service_policy import parse_policy, command_with_policy, check_observation
+from runtime_service_policy import parse_policy, command_with_policy, check_observation, check_fixture_scope
 
 
 class ServicePolicyTests(unittest.TestCase):
     names = ['chown', 'dac_override', 'net_admin']
     text = '[Unit]\nNoNewPrivileges=no\n[Service]\nNoNewPrivileges=yes\nAmbientCapabilities=\nCapabilityBoundingSet=CAP_CHOWN CAP_NET_ADMIN\n'
+
+    def test_fixture_scope_binds_owner_and_preserves_helpers(self):
+        properties = {'MainPID': '123', 'InvocationID': 'a' * 32,
+                      'KillMode': 'process', 'PrivateMounts': 'yes'}
+        check_fixture_scope(properties, 123, 'a' * 32)
+        for key, value in [('MainPID', '124'), ('InvocationID', 'b' * 32),
+                           ('KillMode', 'control-group'), ('KillMode', 'mixed'),
+                           ('PrivateMounts', 'no')]:
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                check_fixture_scope({**properties, key: value}, 123, 'a' * 32)
 
     def test_declared_bounds_and_observed_enforcement(self):
         policy = parse_policy(self.text, self.names)

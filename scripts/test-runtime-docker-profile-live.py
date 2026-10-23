@@ -2,7 +2,7 @@
 """Disposable host Docker selects Multikernel and runs the offline child build proof."""
 import hashlib,json,os,pathlib,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
-from runtime_service_policy import parse_policy, command_with_policy, check_observation
+from runtime_service_policy import parse_policy, command_with_policy, check_observation, check_fixture_scope
 from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--concurrent] [--harden-services]'
 flags=sys.argv[3:]
@@ -18,6 +18,12 @@ for path in [work,work/'bin',source,source/'scripts']:
  st=path.stat();assert path.is_dir() and not path.is_symlink() and st.st_uid==0 and st.st_mode&0o022==0
 
 sha=lambda p:hashlib.file_digest(p.open('rb'),'sha256').hexdigest()
+unit=os.environ['MK_TEST_UNIT']
+assert unit.startswith('g8-host-docker-') and unit.endswith('.service') and '/' not in unit
+scope_text=subprocess.check_output(['systemctl','show',unit,'-p','MainPID','-p','InvocationID','-p','KillMode','-p','PrivateMounts'],text=True)
+scope=dict(line.split('=',1) for line in scope_text.splitlines())
+check_fixture_scope(scope,os.getpid(),os.environ['INVOCATION_ID'])
+(work/'systemd-scope.json').write_text(json.dumps(scope,indent=2)+'\n')
 def run(args,**kw):return subprocess.run([str(x) for x in args],check=True,timeout=100,**kw)
 def services():
  d={}
@@ -224,6 +230,7 @@ assert after==before and after_pids==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
 r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
 r['native_nbd_helper_sha256']=sha(nbd_helper)
+r['systemd_scope_sha256']=sha(work/'systemd-scope.json')
 r['runtime_restart_tested']=restart_runtime
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
