@@ -9,6 +9,19 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#ifndef NATIVE_PROXY_TRACE
+#define NATIVE_PROXY_TRACE(stage, endpoint, detail) ((void)0)
+#endif
+
+static int native_proxy_error(const char *stage, int endpoint, int error)
+{
+	(void)stage;
+	(void)endpoint;
+	NATIVE_PROXY_TRACE(stage, endpoint, error);
+	errno = error;
+	return -1;
+}
+
 /* NBD transmits requests and replies independently. A blocking write while
  * forwarding one direction can prevent draining the reply needed by the other
  * endpoint. Keep one bounded FIFO per direction and poll both concurrently. */
@@ -23,7 +36,7 @@ static int native_stream_proxy(int left, int right)
 	for (int i = 0; i < 2; i++) {
 		int flags = fcntl(fd[i], F_GETFL);
 		if (flags < 0 || fcntl(fd[i], F_SETFL, flags | O_NONBLOCK) < 0)
-			return -1;
+			return native_proxy_error("fcntl", i, errno);
 	}
 	for (;;) {
 		struct pollfd ready[2] = {{.fd = left}, {.fd = right}};
@@ -39,7 +52,7 @@ static int native_stream_proxy(int left, int right)
 			}
 			if (d->eof && !d->end && !d->shutdown) {
 				if (shutdown(fd[1-i], SHUT_WR) < 0 && errno != ENOTCONN)
-					return -1;
+					return native_proxy_error("shutdown", 1-i, errno);
 				d->shutdown = 1;
 			}
 			if (d->shutdown)
@@ -49,8 +62,10 @@ static int native_stream_proxy(int left, int right)
 			if (d->end > d->begin)
 				ready[1-i].events |= POLLOUT;
 		}
-		if (completed == 2)
+		if (completed == 2) {
+			NATIVE_PROXY_TRACE("complete", -1, 0);
 			return 0;
+		}
 		/* Ignore a fully drained half so persistent HUP cannot cause a spin. */
 		for (int i = 0; i < 2; i++)
 			if (!ready[i].events)
@@ -59,19 +74,18 @@ static int native_stream_proxy(int left, int right)
 		if (result < 0 && errno == EINTR)
 			continue;
 		if (result < 0)
-			return -1;
+			return native_proxy_error("poll", -1, errno);
 		for (int i = 0; i < 2; i++) {
 			if (ready[i].revents & POLLNVAL) {
-				errno = EBADF;
-				return -1;
+				return native_proxy_error("poll-invalid", i, EBADF);
 			}
 			if (ready[i].revents & POLLERR) {
 				int error = 0;
 				socklen_t size = sizeof(error);
 				if (getsockopt(fd[i], SOL_SOCKET, SO_ERROR, &error, &size) < 0)
-					return -1;
-				errno = error ? error : EIO;
-				return -1;
+					return native_proxy_error("socket-error-query", i, errno);
+				NATIVE_PROXY_TRACE("poll-error-value", i, error);
+				return native_proxy_error("poll-error", i, error ? error : EIO);
 			}
 		}
 		for (int i = 0; i < 2; i++) {
@@ -84,7 +98,7 @@ static int native_stream_proxy(int left, int right)
 				else if (!n || (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)) {
 					if (!n)
 						errno = EPIPE;
-					return -1;
+					return native_proxy_error(n ? "send" : "send-zero", 1-i, errno);
 				}
 			}
 			if (!d->eof && d->end < sizeof(d->data) && (ready[i].revents & (POLLIN | POLLHUP))) {
@@ -92,10 +106,12 @@ static int native_stream_proxy(int left, int right)
 						 sizeof(d->data) - d->end, MSG_DONTWAIT);
 				if (n > 0)
 					d->end += (size_t)n;
-				else if (!n)
+				else if (!n) {
+					NATIVE_PROXY_TRACE("eof", i, 0);
 					d->eof = 1;
+				}
 				else if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
-					return -1;
+					return native_proxy_error("recv", i, errno);
 			}
 		}
 	}

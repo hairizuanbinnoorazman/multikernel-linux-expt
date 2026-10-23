@@ -15,6 +15,7 @@
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -22,6 +23,8 @@
 #include <limits.h>
 #include "native_args.h"
 #include "native_privileges.h"
+static void native_proxy_trace(const char *stage, int endpoint, int detail);
+#define NATIVE_PROXY_TRACE(stage, endpoint, detail) native_proxy_trace(stage, endpoint, detail)
 #include "native_stream_proxy.h"
 #include "native_server_sandbox.h"
 #include "native_server_limits.h"
@@ -61,6 +64,25 @@
 static volatile sig_atomic_t stop_requested;
 static int active_client = -1;
 static int active_listener = -1;
+
+static void native_proxy_trace(const char *stage, int endpoint, int detail)
+{
+	int saved = errno;
+	fprintf(stderr, "MKNBD_PROXY_EVENT stage=%s endpoint=%d detail=%d\n", stage, endpoint, detail);
+	errno = saved;
+}
+
+static int client_console_fd(int fd)
+{
+	struct stat status;
+	if (fstat(fd, &status) < 0)
+		return -1;
+	if (!S_ISCHR(status.st_mode) || status.st_uid != 0 || status.st_rdev != makedev(5, 1)) {
+		errno = EPERM;
+		return -1;
+	}
+	return dup2(fd, STDERR_FILENO) < 0 ? -1 : 0;
+}
 
 static void request_stop(int signal_number)
 {
@@ -588,6 +610,14 @@ closed:
 static void run_client(unsigned int cid, unsigned int port, const char *device,
 		       uint64_t size, const char *image_id, const char *generation)
 {
+	/* The startup log lives in the old initramfs. Late client/proxy failures
+	 * must remain observable on this child's console after switch_root. */
+	int console = open("/dev/console", O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+	if (console < 0 || client_console_fd(console) < 0)
+		die("protect client diagnostic console");
+	if (console != STDERR_FILENO)
+		close(console);
+	fprintf(stderr, "MKNBD_CLIENT_DIAGNOSTICS_READY\n");
 	struct sockaddr_vm addr = {
 		.svm_family = AF_VSOCK,
 		.svm_cid = cid,
@@ -625,14 +655,23 @@ static void run_client(unsigned int cid, unsigned int port, const char *device,
 		die("nbd setup ioctl");
 	printf("MKNBD_CLIENT_DEVICE_READY device=%s\n", device);
 	fflush(stdout);
-	if (ioctl(nbd, NBD_DO_IT) < 0 && errno != EPIPE)
+	int device_result = ioctl(nbd, NBD_DO_IT);
+	int device_error = device_result < 0 ? errno : 0;
+	fprintf(stderr, "MKNBD_CLIENT_DEVICE_EXIT result=%d errno=%d\n", device_result, device_error);
+	if (device_result < 0 && device_error != EPIPE) {
+		errno = device_error;
 		perror("NBD_DO_IT");
+	}
 	ioctl(nbd, NBD_CLEAR_QUE);
 	ioctl(nbd, NBD_CLEAR_SOCK);
 	close(nbd);
 	close(sock);
 	kill(proxy_pid, SIGTERM);
-	waitpid(proxy_pid, NULL, 0);
+	int proxy_status;
+	pid_t reaped;
+	do { reaped = waitpid(proxy_pid, &proxy_status, 0); } while (reaped < 0 && errno == EINTR);
+	if (reaped == proxy_pid)
+		fprintf(stderr, "MKNBD_CLIENT_PROXY_EXIT wait_status=%d\n", proxy_status);
 }
 
 static void disconnect_device(const char *device)
