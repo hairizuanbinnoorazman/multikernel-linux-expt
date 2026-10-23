@@ -3,13 +3,14 @@
 import hashlib,json,os,pathlib,signal,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
 from runtime_service_policy import parse_policy, command_with_policy, check_observation, check_fixture_scope
-from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT
+from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT, run_markers
 from runtime_socket_readiness import wait_for_socket_owner
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--concurrent] [--harden-services]'
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--harden-services','--concurrent'}
-assert len(set(flags)&{'--restart-runtime','--crash-runtime','--concurrent'})<=1
-crash_runtime='--crash-runtime' in flags
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent'}
+assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent'})<=1
+crash_during_build='--crash-during-build' in flags
+crash_runtime='--crash-runtime' in flags or crash_during_build
 restart_runtime='--restart-runtime' in flags or crash_runtime
 harden_services='--harden-services' in flags
 concurrent='--concurrent' in flags
@@ -130,7 +131,8 @@ try:
  (private/'import.stdout').write_bytes(imported.stdout);(private/'import.stderr').write_bytes(imported.stderr)
  workload=['/bin/sh','/work/input/probe.sh']
  if restart_runtime:
-  workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; /bin/sh /work/input/probe.sh; echo G8_RUNTIME_RECOVERY_READY; ' + RELEASE_WAIT + '; echo G8_RUNTIME_RECOVERY_RELEASED']
+  probe='/bin/sh /work/input/probe.sh' + (' --overlap-proof' if crash_during_build else '')
+  workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; ' + probe + '; echo G8_RUNTIME_RECOVERY_READY; ' + RELEASE_WAIT + '; echo G8_RUNTIME_RECOVERY_RELEASED']
  if concurrent:
   # Normal release must not create an exec whose completion races init exit.
   # Docker exec is scoped to the lifetime of init. Exercise that boundary in
@@ -159,37 +161,57 @@ try:
    if restart_runtime:
     attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
     deadline=time.monotonic()+300
-    while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
+    while (run_markers((private/'workload.stderr').read_text())!={'BEGIN'} if crash_during_build else 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text()):
+     assert not crash_during_build or 'END' not in run_markers((private/'workload.stderr').read_text()),'missed the executing RUN window'
      assert attach.poll() is None and time.monotonic()<deadline,'workload did not reach the recovery checkpoint'
      time.sleep(.2)
-    def child_snapshot(phase):
+    active_run_checkpoints={}
+    def record_active_run(phase,runtime_pid):
+     text=(private/'workload.stderr').read_text()
+     assert len(text)<131072 and run_markers(text)=={'BEGIN'} and attach.poll() is None,'SIGKILL/adoption did not occur inside the observed RUN window'
+     name='active-run-'+phase+'.stderr';(private/name).write_text(text)
+     active_run_checkpoints[phase]={'observed_monotonic_ns':time.monotonic_ns(),'runtime_pid':runtime_pid,'markers':['BEGIN'],'stderr_snapshot':name,'stderr_sha256':sha(private/name)}
+     (work/'active-run-checkpoint.json').write_text(json.dumps({'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'stages':active_run_checkpoints,'cleanup_qualified':False},indent=2)+'\n')
+    def child_snapshot(phase,include_image=True):
      boot_result=run(cli+['exec','--user','1000:1000','g8-materialization','/bin/cat','/proc/sys/kernel/random/boot_id'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
      engine_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/local/bin/docker','info','--format','{{json .}}'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-     image_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build/image.tar'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+     image_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build/image.tar'],stdout=subprocess.PIPE,stderr=subprocess.PIPE) if include_image else None
      owner_result=run([work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-     for label,result in [('boot',boot_result),('engine',engine_result),('image',image_result),('ownership',owner_result)]:
+     for label,result in [('boot',boot_result),('engine',engine_result),('ownership',owner_result)]+([('image',image_result)] if include_image else []):
       (private/('recovery-'+phase+'-'+label+'.stdout')).write_bytes(result.stdout)
       (private/('recovery-'+phase+'-'+label+'.stderr')).write_bytes(result.stderr)
       assert not result.stderr,'unexpected recovery inspection diagnostic'
      engine=json.loads(engine_result.stdout);ownership=json.loads(owner_result.stdout)
      assert ownership['source']=='durable-lifecycle' and len(ownership['sandboxes'])==1 and ownership['sandboxes'][0]['state']=='RUNNING'
-     child_boot=boot_result.stdout.decode().strip();image_sha=image_result.stdout.decode().split()[0]
-     assert child_boot!=boot and len(child_boot)==36 and len(image_sha)==64
+     child_boot=boot_result.stdout.decode().strip()
+     assert child_boot!=boot and len(child_boot)==36
      assert engine['ID'] and engine['KernelVersion']==profile['kernel_release'] and engine['ServerVersion']=='29.9.0'
-     return {'child_boot_id':child_boot,'engine_id':engine['ID'],'saved_image_sha256':image_sha,'ownership':ownership['sandboxes']}
-    prior=child_snapshot('before');old_pid=m.pid
+     result={'child_boot_id':child_boot,'engine_id':engine['ID'],'ownership':ownership['sandboxes']}
+     if include_image:
+      result['saved_image_sha256']=image_result.stdout.decode().split()[0];assert len(result['saved_image_sha256'])==64
+     return result
+    prior=child_snapshot('before',not crash_during_build);old_pid=m.pid
     assert m.poll() is None,'runtime already stopped before the intentional restart'
     runtime_arguments=m.args
+    if crash_during_build:record_active_run('before-kill',old_pid)
     if crash_runtime:
      m.kill();assert m.wait(timeout=30)==-signal.SIGKILL,'private runtime did not exit from the intentional SIGKILL'
     else:
      m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
-    exit_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid':old_pid,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':m.returncode,'cleanup_qualified':False}
+    exit_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid':old_pid,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':m.returncode,'observed_monotonic_ns':time.monotonic_ns(),'cleanup_qualified':False}
     (work/'runtime-exit-checkpoint.json').write_text(json.dumps(exit_checkpoint,indent=2)+'\n')
+    if crash_during_build:record_active_run('after-kill',old_pid)
     m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
     assert m.pid!=old_pid and m.poll() is None
-    subsequent=child_snapshot('after');assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
-    # Preserve the pre-crash archive, then prove new child-local writes and
+    subsequent=child_snapshot('after',not crash_during_build);assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
+    if crash_during_build:
+     record_active_run('after-adoption',m.pid)
+     while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
+      assert attach.poll() is None and time.monotonic()<deadline,'original in-flight build did not complete'
+      time.sleep(.2)
+    completed_first=child_snapshot('completed-first')
+    assert all(completed_first[key]==prior[key] for key in ['child_boot_id','engine_id','ownership'])
+    # Preserve the first completed archive, then prove new child-local writes and
     # builds work through the recovered control plane, not just inspection.
     rebuilt=subprocess.run(cli+['exec','--user','1000:1000','g8-materialization','/bin/sh','-ec','test ! -e /home/rootless/.local/tmp/g8-build-before-restart; mv /home/rootless/.local/tmp/g8-build /home/rootless/.local/tmp/g8-build-before-restart; /bin/sh /work/input/probe.sh'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
     (private/'post-recovery-workload.stdout').write_bytes(rebuilt.stdout);(private/'post-recovery-workload.stderr').write_bytes(rebuilt.stderr)
@@ -200,9 +222,12 @@ try:
     assert all(rebuilt_state[key]==prior[key] for key in ['child_boot_id','engine_id','ownership'])
     old_image=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build-before-restart/image.tar'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     (private/'post-recovery-original-image.stdout').write_bytes(old_image.stdout);(private/'post-recovery-original-image.stderr').write_bytes(old_image.stderr)
-    assert not old_image.stderr and old_image.stdout.decode().split()[0]==prior['saved_image_sha256']
+    assert not old_image.stderr and old_image.stdout.decode().split()[0]==completed_first['saved_image_sha256']
     recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':-signal.SIGKILL if crash_runtime else 0,'before':prior,'after':subsequent,'after_build':rebuilt_state,'post_recovery_build_tested':True,'post_recovery_stdout_sha256':sha(private/'post-recovery-workload.stdout'),'post_recovery_stderr_sha256':sha(private/'post-recovery-workload.stderr'),'child_continuity_pass':True,'cleanup_qualified':False}
     recovery['runtime_exit_checkpoint_sha256']=sha(work/'runtime-exit-checkpoint.json')
+    recovery['completed_first_build']=completed_first
+    recovery['crash_during_build']=crash_during_build
+    if crash_during_build:recovery['active_run_checkpoint_sha256']=sha(work/'active-run-checkpoint.json')
     (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
     run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
@@ -260,6 +285,7 @@ r['docker_network_namespace_sha256']=sha(private/'docker-network-namespace.json'
 r['socket_readiness_sha256']=sha(private/'socket-readiness.json')
 r['runtime_restart_tested']=restart_runtime
 r['runtime_crash_tested']=crash_runtime
+r['runtime_crash_during_build_tested']=crash_during_build
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
 r['service_capability_nnp_tested']=harden_services
