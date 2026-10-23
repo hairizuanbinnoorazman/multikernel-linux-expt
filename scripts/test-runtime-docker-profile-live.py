@@ -187,7 +187,19 @@ try:
     m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
     assert m.pid!=old_pid and m.poll() is None
     subsequent=child_snapshot('after');assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
-    recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':-signal.SIGKILL if crash_runtime else 0,'before':prior,'after':subsequent,'child_continuity_pass':True,'cleanup_qualified':False}
+    # Preserve the pre-crash archive, then prove new child-local writes and
+    # builds work through the recovered control plane, not just inspection.
+    rebuilt=subprocess.run(cli+['exec','--user','1000:1000','g8-materialization','/bin/sh','-ec','test ! -e /home/rootless/.local/tmp/g8-build-before-restart; mv /home/rootless/.local/tmp/g8-build /home/rootless/.local/tmp/g8-build-before-restart; /bin/sh /work/input/probe.sh'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
+    (private/'post-recovery-workload.stdout').write_bytes(rebuilt.stdout);(private/'post-recovery-workload.stderr').write_bytes(rebuilt.stderr)
+    assert rebuilt.returncode==0 and len(rebuilt.stdout)<131072 and len(rebuilt.stderr)<131072,'post-recovery build failed'
+    for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_IMAGE_SAVE_EXIT=0','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:assert marker.encode() in rebuilt.stdout,marker
+    assert b'CACHED' in rebuilt.stderr and b'exit code: 37' in rebuilt.stderr
+    rebuilt_state=child_snapshot('after-build')
+    assert all(rebuilt_state[key]==prior[key] for key in ['child_boot_id','engine_id','ownership'])
+    old_image=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build-before-restart/image.tar'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    (private/'post-recovery-original-image.stdout').write_bytes(old_image.stdout);(private/'post-recovery-original-image.stderr').write_bytes(old_image.stderr)
+    assert not old_image.stderr and old_image.stdout.decode().split()[0]==prior['saved_image_sha256']
+    recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':-signal.SIGKILL if crash_runtime else 0,'before':prior,'after':subsequent,'after_build':rebuilt_state,'post_recovery_build_tested':True,'post_recovery_stdout_sha256':sha(private/'post-recovery-workload.stdout'),'post_recovery_stderr_sha256':sha(private/'post-recovery-workload.stderr'),'child_continuity_pass':True,'cleanup_qualified':False}
     (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
     run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
