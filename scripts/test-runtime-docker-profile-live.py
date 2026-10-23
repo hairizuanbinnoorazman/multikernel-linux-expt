@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Disposable host Docker selects Multikernel and runs the offline child build proof."""
-import hashlib,json,os,pathlib,subprocess,sys,time
+import hashlib,json,os,pathlib,signal,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
 from runtime_service_policy import parse_policy, command_with_policy, check_observation, check_fixture_scope
 from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--concurrent] [--harden-services]'
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--concurrent] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--harden-services','--concurrent'}
-restart_runtime='--restart-runtime' in flags
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--harden-services','--concurrent'}
+assert len(set(flags)&{'--restart-runtime','--crash-runtime','--concurrent'})<=1
+crash_runtime='--crash-runtime' in flags
+restart_runtime='--restart-runtime' in flags or crash_runtime
 harden_services='--harden-services' in flags
 concurrent='--concurrent' in flags
 assert not (concurrent and restart_runtime), 'concurrency and restart are separate bounded scenarios'
@@ -123,7 +125,7 @@ try:
  (private/'import.stdout').write_bytes(imported.stdout);(private/'import.stderr').write_bytes(imported.stderr)
  workload=['/bin/sh','/work/input/probe.sh']
  if restart_runtime:
-  workload=['/bin/sh','-ec','mkdir -m 700 /home/rootless/.local/tmp/g8-recovery; /bin/sh /work/input/probe.sh; echo G8_RUNTIME_RECOVERY_READY; while [ ! -f /home/rootless/.local/tmp/g8-recovery/release ]; do sleep 1; done; echo G8_RUNTIME_RECOVERY_RELEASED']
+  workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; /bin/sh /work/input/probe.sh; echo G8_RUNTIME_RECOVERY_READY; ' + RELEASE_WAIT + '; echo G8_RUNTIME_RECOVERY_RELEASED']
  if concurrent:
   # Normal release must not create an exec whose completion races init exit.
   # Docker exec is scoped to the lifetime of init. Exercise that boundary in
@@ -173,13 +175,16 @@ try:
     prior=child_snapshot('before');old_pid=m.pid
     assert m.poll() is None,'runtime already stopped before the intentional restart'
     runtime_arguments=m.args
-    m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
+    if crash_runtime:
+     m.kill();assert m.wait(timeout=30)==-signal.SIGKILL,'private runtime did not exit from the intentional SIGKILL'
+    else:
+     m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
     m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
     assert m.pid!=old_pid and m.poll() is None
     subsequent=child_snapshot('after');assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
-    recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'before':prior,'after':subsequent,'child_continuity_pass':True,'cleanup_qualified':False}
+    recovery={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid_before':old_pid,'runtime_pid_after':m.pid,'runtime_restarts':1,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':-signal.SIGKILL if crash_runtime else 0,'before':prior,'after':subsequent,'child_continuity_pass':True,'cleanup_qualified':False}
     (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
-    run(cli+['exec','--user','1000:1000','g8-materialization','/bin/touch','/home/rootless/.local/tmp/g8-recovery/release'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
    else:
     observed=subprocess.run(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err,timeout=300)
@@ -232,6 +237,7 @@ r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot
 r['native_nbd_helper_sha256']=sha(nbd_helper)
 r['systemd_scope_sha256']=sha(work/'systemd-scope.json')
 r['runtime_restart_tested']=restart_runtime
+r['runtime_crash_tested']=crash_runtime
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
 r['service_capability_nnp_tested']=harden_services
