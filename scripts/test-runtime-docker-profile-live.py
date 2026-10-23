@@ -4,6 +4,7 @@ import hashlib,json,os,pathlib,signal,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
 from runtime_service_policy import parse_policy, command_with_policy, check_observation, check_fixture_scope
 from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT
+from runtime_socket_readiness import wait_for_socket_owner
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--concurrent] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--harden-services','--concurrent'}
@@ -81,7 +82,7 @@ cc.write_text("version = 3\nroot = "+repr(str(private/'containerd-root'))+"\nsta
 text=cc.read_text();text=text[:text.index('[plugins.')]+"[plugins.'io.containerd.shim.v1.manager']\nenv = "+repr(['PATH='+str(work/'bin')+':/usr/sbin:/usr/bin:/sbin:/bin']+[k+'='+v for k,v in extra.items()])+"\n";cc.write_text(text)
 dc=private/'docker.json'
 dc.write_text(json.dumps({'data-root':'/var/lib/docker','exec-root':str(private/'docker-exec'),'pidfile':str(private/'docker.pid'),'hosts':['unix://'+str(dsock)],'containerd':str(sock),'bridge':'none','iptables':False,'ip6tables':False,'ip-forward':False,'ip-masq':False,'features':{'containerd-snapshotter':True},'runtimes':{'io.containerd.multikernel.v2':{'runtimeType':'io.containerd.multikernel.v2'}}}))
-children=[];logs=[]
+children=[];logs=[];socket_readiness={}
 service_policies={};service_observations={}
 if harden_services:
  capability_names=subprocess.check_output(['/usr/bin/setpriv','--list-caps'],text=True).splitlines()
@@ -95,10 +96,8 @@ def start(args,name):
  if str(args[0]) in service_policies:args=command_with_policy(args,service_policies[str(args[0])])
  f=(private/name).open('wb');logs.append(f);p=subprocess.Popen([str(x) for x in args],stdout=f,stderr=subprocess.STDOUT,env={**os.environ,**extra,'PATH':str(work/'bin')+':/usr/sbin:/usr/bin:/sbin:/bin'});children.append(p);return p
 def wait(path,p):
- until=time.monotonic()+30
- while not path.is_socket():
-  assert p.poll() is None and time.monotonic()<until,'private daemon unavailable: '+str(p.args[0])
-  time.sleep(.1)
+ socket_readiness[str(p.pid)]=wait_for_socket_owner(path,p)
+ (private/'socket-readiness.json').write_text(json.dumps(socket_readiness,indent=2)+'\n')
 def observe_service(p,name):
  if not harden_services:return
  assert p.poll() is None,'service stopped before policy observation'
@@ -243,6 +242,7 @@ r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot
 r['native_nbd_helper_sha256']=sha(nbd_helper)
 r['systemd_scope_sha256']=sha(work/'systemd-scope.json')
 r['docker_network_namespace_sha256']=sha(private/'docker-network-namespace.json')
+r['socket_readiness_sha256']=sha(private/'socket-readiness.json')
 r['runtime_restart_tested']=restart_runtime
 r['runtime_crash_tested']=crash_runtime
 r['concurrent_guest_builds_tested']=concurrent
