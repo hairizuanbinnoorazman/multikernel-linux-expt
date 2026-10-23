@@ -2,7 +2,7 @@
 # Disposable qualification workload for the approved production Docker profile.
 # Supply this script and a static x86-64 BusyBox through copied /work inputs.
 set -eu
-[ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && [ "$1" = --overlap-proof ]; }
+[ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && { [ "$1" = --overlap-proof ] || [ "$1" = --storage-pressure ]; }; }
 export DOCKER_HOST=unix:///var/run/docker.sock
 work=/home/rootless/.local/tmp/g8-build
 test ! -e "$work"
@@ -16,6 +16,31 @@ uname -r
 grep -E '^(CapEff|CapBnd|NoNewPrivs|Seccomp):' /proc/self/status
 docker version
 docker info --format '{{json .}}'
+if [ "${1:-}" = --storage-pressure ]; then
+    pressure_release=0
+    trap 'pressure_release=1' USR1
+    trap 'rm -f "$work/pressure.bin"' EXIT
+    before_kib=$(df -Pk "$work" | awk 'NR == 2 {print $4}')
+    test "$before_kib" -gt 65536
+    echo "G8_STORAGE_PRESSURE_BEFORE_KIB=$before_kib"
+    echo "G8_STORAGE_PRESSURE_FS_MAGIC=$(stat -f -c %t "$work")"
+    set +e
+    LC_ALL=C dd if=/dev/zero of="$work/pressure.bin" bs=1048576 count=2304
+    write_status=$?
+    set -e
+    sync
+    echo "G8_STORAGE_PRESSURE_WRITE_EXIT=$write_status"
+    echo "G8_STORAGE_PRESSURE_FULL_KIB=$(df -Pk "$work" | awk 'NR == 2 {print $4}')"
+    echo "G8_STORAGE_PRESSURE_FILE_BYTES=$(stat -c %s "$work/pressure.bin")"
+    test "$write_status" -ne 0
+    echo G8_STORAGE_PRESSURE_FULL
+    # Hold the full filesystem while the primary records the exact backing
+    # identity and geometry. Release is a signal, requiring no new guest file.
+    while [ "$pressure_release" -eq 0 ]; do sleep 1 || :; done
+    rm -f "$work/pressure.bin"
+    echo "G8_STORAGE_PRESSURE_RESTORED_KIB=$(df -Pk "$work" | awk 'NR == 2 {print $4}')"
+    echo G8_STORAGE_PRESSURE_FREED
+fi
 cat > "$work/context/Dockerfile" <<'DOCKERFILE'
 FROM scratch AS build
 COPY busybox /bin/busybox
@@ -62,4 +87,8 @@ docker image rm g8-proof:latest g8-proof:cached
 docker builder prune --all --force
 test -z "$(docker ps -aq)"
 echo G8_BUILD_RESOURCES_REMOVED
+if [ "${1:-}" = --storage-pressure ]; then
+    docker info --format '{{json .}}'
+    echo G8_STORAGE_PRESSURE_BUILD_RECOVERED
+fi
 echo G8_BUILD_WORKLOAD_PASS

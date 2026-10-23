@@ -5,10 +5,12 @@ from runtime_firewall_identity import identity as firewall_identity
 from runtime_service_policy import parse_policy, command_with_policy, check_observation, check_fixture_scope
 from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT, run_markers
 from runtime_socket_readiness import wait_for_socket_owner
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent] [--harden-services]'
+from runtime_storage_pressure import full_observation, recovered_observation
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent'}
-assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent'})<=1
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure'}
+assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent','--storage-pressure'})<=1
+storage_pressure='--storage-pressure' in flags
 crash_during_build='--crash-during-build' in flags
 crash_runtime='--crash-runtime' in flags or crash_during_build
 restart_runtime='--restart-runtime' in flags or crash_runtime
@@ -130,6 +132,7 @@ try:
  imported=run(cli+['import',archive,'g8-approved:fixture'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  (private/'import.stdout').write_bytes(imported.stdout);(private/'import.stderr').write_bytes(imported.stderr)
  workload=['/bin/sh','/work/input/probe.sh']
+ if storage_pressure:workload+=['--storage-pressure']
  if restart_runtime:
   probe='/bin/sh /work/input/probe.sh' + (' --overlap-proof' if crash_during_build else '')
   workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; ' + probe + '; echo G8_RUNTIME_RECOVERY_READY; ' + RELEASE_WAIT + '; echo G8_RUNTIME_RECOVERY_RELEASED']
@@ -231,6 +234,38 @@ try:
     (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
     run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
+   elif storage_pressure:
+    attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
+    deadline=time.monotonic()+300
+    while 'G8_STORAGE_PRESSURE_FULL\n' not in (private/'workload.stdout').read_text() or 'No space left on device' not in (private/'workload.stderr').read_text():
+     assert attach.poll() is None and time.monotonic()<deadline,'guest did not reach the expected ENOSPC hold point'
+     time.sleep(.2)
+    full_out=(private/'workload.stdout').read_bytes();full_err=(private/'workload.stderr').read_bytes()
+    assert len(full_out)<131072 and len(full_err)<131072
+    (private/'pressure-full.stdout').write_bytes(full_out);(private/'pressure-full.stderr').write_bytes(full_err)
+    pressure=full_observation(full_out.decode(),full_err.decode())
+    owners=run([work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    (private/'pressure-full-ownership.stdout').write_bytes(owners.stdout);(private/'pressure-full-ownership.stderr').write_bytes(owners.stderr)
+    ownership=json.loads(owners.stdout);assert not owners.stderr and len(ownership['sandboxes'])==1 and ownership['sandboxes'][0]['state']=='RUNNING'
+    owner=ownership['sandboxes'][0]
+    active=[v for v in json.loads((private/'storage-state/state.json').read_text())['exports'].values() if v['state']=='ACTIVE'];assert len(active)==1
+    export=active[0];assert export['sandbox_id']==owner['sandbox_id'] and export['sandbox_generation']==owner['generation'] and export['peer_cid']==owner['child_cid']
+    image=pathlib.Path(export['path']);identity=image.stat()
+    assert image.is_relative_to(storage_root) and not image.is_symlink() and identity.st_size==export['size_bytes']==2147483648
+    assert {'device':identity.st_dev,'inode':identity.st_ino}==export['image_identity']
+    assert image.is_file() and identity.st_uid==0 and identity.st_nlink==1
+    primary_full={'file_sha256':{str(p):sha(p) for p in paths},'service_main_pids':services(),'boot_id':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()}
+    (private/'primary-while-full.json').write_text(json.dumps(primary_full,indent=2)+'\n')
+    assert primary_full==json.loads((private/'primary-before.json').read_text())
+    pressure_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'observed_monotonic_ns':time.monotonic_ns(),'guest_full':pressure,'owner':owner,'export':{k:export[k] for k in ['sandbox_id','sandbox_generation','export_generation','peer_cid','size_bytes','image_identity','filesystem_uuid']},'observed_backing_size_bytes':identity.st_size,'image_path_sha256':hashlib.sha256(str(image).encode()).hexdigest(),'installed_primary_unchanged_while_full':True,'cleanup_qualified':False}
+    (work/'storage-pressure-full-checkpoint.json').write_text(json.dumps(pressure_checkpoint,indent=2)+'\n')
+    released=subprocess.run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=40)
+    (private/'pressure-release.stdout').write_bytes(released.stdout);(private/'pressure-release.stderr').write_bytes(released.stderr)
+    assert released.returncode==0,'failed to release the ENOSPC hold point'
+    observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=180))
+    pressure_recovered=recovered_observation((private/'workload.stdout').read_text(),(private/'workload.stderr').read_text())
+    assert pressure_recovered['kernel_release']==profile['kernel_release']
+    (work/'storage-pressure-recovery.json').write_text(json.dumps({'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'full_checkpoint_sha256':sha(work/'storage-pressure-full-checkpoint.json'),'guest_recovered':pressure_recovered,'cleanup_qualified':False},indent=2)+'\n')
    else:
     observed=subprocess.run(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err,timeout=300)
  assert observed.returncode==0,'host Docker start/build failed; retained workload output'
@@ -272,6 +307,8 @@ storage=json.loads((private/'storage-state/state.json').read_text())
 network=json.loads((private/'network-state/state.json').read_text())
 assert not rootfs['records'] and not network['endpoints']
 assert all(v['state']=='RELEASED' for v in storage['exports'].values())
+if storage_pressure:
+ assert len(storage['exports'])==1 and next(iter(storage['exports'].values()))['counters']['written_bytes']>=pressure['pressure_file_bytes']
 assert not list(storage_root.iterdir())
 
 after={str(p):sha(p) for p in paths};after_pids=services()
@@ -286,6 +323,8 @@ r['socket_readiness_sha256']=sha(private/'socket-readiness.json')
 r['runtime_restart_tested']=restart_runtime
 r['runtime_crash_tested']=crash_runtime
 r['runtime_crash_during_build_tested']=crash_during_build
+r['storage_pressure_tested']=storage_pressure
+if storage_pressure:r['storage_pressure_recovery_sha256']=sha(work/'storage-pressure-recovery.json')
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
 r['service_capability_nnp_tested']=harden_services
