@@ -30,9 +30,13 @@ A [private runtime SIGKILL checkpoint](evidence/runtime-20261023/g8-runtime-sigk
 also preserves the live child's boot, engine, archive and ownership, then passes
 fresh child-local builds and cleanup through the recovered stack.
 
-The profile remains experimental. Crashes during allocation/build/teardown,
-host power loss, other service crashes, repeated concurrency, hostile workload
-pressure and complete G7/G8 acceptance remain open. These checks do not establish
+A [bounded executing-RUN crash case](evidence/runtime-20261023/g8-runtime-active-run/README.md)
+also passes: SIGKILL and adoption occur inside an observed BuildKit RUN with a
+45-second sleep, the interrupted matrix finishes, and fresh builds succeed.
+
+The profile remains experimental. Further crash points during resource mutation
+or build I/O, host power loss, other service crashes, repeated concurrency,
+hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
 containment after child-kernel compromise.
 
 Start with the [documentation map](docs/README.md). In particular:

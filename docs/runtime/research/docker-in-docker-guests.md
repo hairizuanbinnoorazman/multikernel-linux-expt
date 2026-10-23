@@ -175,3 +175,12 @@ by checked export release and primary/resource restoration. The bounded case
 has separate exit, recovery and final receipts. Crashes during resource mutation
 or active builds, other services, host power loss and pressure remain separate
 open cases; full G7/G8 does not close.
+
+The [executing-RUN crash checkpoint](../../../evidence/runtime-20261023/g8-runtime-active-run/README.md)
+then moves SIGKILL into a real BuildKit RUN's deliberate 45-second sleep window.
+Raw BEGIN-only snapshots before kill, after exit and after adoption bind that
+window; END and successful first/fresh build matrices follow. The first saved
+archive is created after recovery, so no pre-crash archive preservation is
+claimed in this case. Child boot, engine and ownership persist, and teardown
+checks pass. Storage write pressure, resource mutations, other crash points
+and the complete reliability/security gates remain open.

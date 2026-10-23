@@ -253,3 +253,13 @@ offline checking and child/pool/rootfs/network release all pass. The unit cgroup
 subsequently disappears. This closes one post-build control-plane SIGKILL case,
 not crashes during allocation/build/teardown, primary power loss, other service
 crashes, pressure or full G7/G8.
+
+The [executing-RUN SIGKILL proof](../../evidence/runtime-20261023/g8-runtime-active-run/README.md)
+subsequently observes real BEGIN without END before kill, after confirmed exit
+-9 and after adoption. Timestamp-bound raw snapshots place the replacement about
+0.25 seconds after the before-kill sample inside a RUN deliberately held for
+45 seconds. The original build matrix completes, its first archive is preserved
+while fresh builds pass, and child/engine/owner identity and final primary/resource
+checks pass. This closes that bounded in-flight RUN case. It does not prove
+crash safety at arbitrary build I/O/resource-mutation points, under disk/memory/log
+pressure, across every service, or for host power loss and full G7/G8.
