@@ -210,3 +210,16 @@ child and ACTIVE export remain held; a single recovery attempt refuses unsafe
 adoption after the test unit loses the server. This is a retained failure control,
 not survivor/cleanup/recovery acceptance. The timeout-output retention fix is
 `266a919`; investigation and explicit resource recovery remain outstanding.
+
+The [exact-generation quarantine proof](../../evidence/runtime-20261023/g8-failed-generation-quarantine/README.md)
+subsequently returns the stopped child's CPUs and pool while retaining its disk
+byte-for-byte and preserving the failed ledgers. The user then restarted the
+primary; all installed services become active and the retained bytes/ledgers are
+unchanged. This does not claim automatic storage release or prior-boot network
+cleanup. New fixtures use distinct protected work and storage directories.
+The normal concurrency fixture now releases through an authenticated host Docker
+signal (`eb40dc7`, `618ece2`), avoiding an exec whose completion races init exit.
+`b23a6a9` refuses fixture resource effects unless the executing systemd invocation
+has a private mount namespace and `KillMode=process`, as required to retain exact
+storage helpers after daemon exit. The outstanding exec/exit reliability case
+and full G7/G8 remain open.
