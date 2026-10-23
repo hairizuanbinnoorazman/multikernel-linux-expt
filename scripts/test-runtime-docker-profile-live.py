@@ -6,6 +6,8 @@ from runtime_service_policy import parse_policy, command_with_policy, check_obse
 from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT, run_markers
 from runtime_socket_readiness import wait_for_socket_owner
 from runtime_storage_pressure import full_observation, recovered_observation
+from runtime_console_capture import ConsoleCapture
+from runtime_docker_concurrency import sandbox_id_for_container
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure'}
@@ -112,7 +114,7 @@ def observe_service(p,name):
  assert observed['executable_sha256']==sha(work/'bin'/name) and p.poll() is None
  service_observations[name+'-'+str(p.pid)]=observed
  (private/'service-observations.json').write_text(json.dumps(service_observations,indent=2)+'\n')
-cli=None;container_created=False
+cli=None;container_created=False;console_capture=None;console_stop_error=None
 try:
  m=start([work/'bin/mkruntimed','--config='+str(host_config),'--pool-cpus=8,9,10,11,12,13,14,15','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server='+str(nbd_helper),'--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(storage_root),'--rootfs-builder='+str(source/'scripts/build-runtime-container-initramfs.sh')],'mkruntimed.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
  n=start([work/'bin/mknetd','--socket='+str(network_socket),'--state-dir='+str(private/'network-state'),'--subnet=172.30.0.0/24','--egress=ens4','--allowed-uid=0'],'mknetd.log');wait(network_socket,n);observe_service(n,'mknetd')
@@ -235,6 +237,8 @@ try:
     run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
    elif storage_pressure:
+    console_capture=ConsoleCapture(sandbox_id_for_container(created.stdout.decode().strip()),private)
+    console_capture.start()
     attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
     deadline=time.monotonic()+300
     while 'G8_STORAGE_PRESSURE_FULL\n' not in (private/'workload.stdout').read_text() or 'No space left on device' not in (private/'workload.stderr').read_text():
@@ -244,6 +248,7 @@ try:
     assert len(full_out)<131072 and len(full_err)<131072
     (private/'pressure-full.stdout').write_bytes(full_out);(private/'pressure-full.stderr').write_bytes(full_err)
     pressure=full_observation(full_out.decode(),full_err.decode())
+    assert console_capture.attached.is_set(),'console diagnostics did not attach to the owned child'
     owners=run([work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     (private/'pressure-full-ownership.stdout').write_bytes(owners.stdout);(private/'pressure-full-ownership.stderr').write_bytes(owners.stderr)
     ownership=json.loads(owners.stdout);assert not owners.stderr and len(ownership['sandboxes'])==1 and ownership['sandboxes'][0]['state']=='RUNNING'
@@ -279,6 +284,11 @@ try:
  (work/'workload-checkpoint.json').write_text(json.dumps(checkpoint,indent=2)+'\n')
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);container_created=False;run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
 finally:
+ if console_capture is not None:
+  try:console_capture.finish()
+  except RuntimeError:
+   console_stop_error=True
+   (private/'console-stop-error.json').write_text('{"observer_stop_failed":true}\n')
  try:
   if cli is not None and container_created:
    try:
@@ -312,6 +322,7 @@ if storage_pressure:
 assert not list(storage_root.iterdir())
 
 after={str(p):sha(p) for p in paths};after_pids=services()
+assert console_stop_error is None,'console observer failed to stop; lifecycle cleanup was still attempted'
 (private/'primary-after.json').write_text(json.dumps({'file_sha256':after,'service_main_pids':after_pids,'boot_id':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()},indent=2)+'\n')
 assert after==before and after_pids==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
@@ -325,6 +336,7 @@ r['runtime_crash_tested']=crash_runtime
 r['runtime_crash_during_build_tested']=crash_during_build
 r['storage_pressure_tested']=storage_pressure
 if storage_pressure:r['storage_pressure_recovery_sha256']=sha(work/'storage-pressure-recovery.json')
+if storage_pressure:r['console_capture_sha256']=sha(private/'console-capture.json')
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
 r['service_capability_nnp_tested']=harden_services

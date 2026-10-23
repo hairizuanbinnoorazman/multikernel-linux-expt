@@ -17,11 +17,15 @@ def run_markers(text):
         r'^#\d+\s+\d+(?:\.\d+)?\s+G8_OVERLAP_RUN_(BEGIN|END)\s*$', text, re.M)}
 
 
-def owner_for_container(container_id, owners):
+def sandbox_id_for_container(container_id):
     if not re.fullmatch('[0-9a-f]{64}', container_id):
         raise ValueError('expected canonical Docker container identity')
     # This fixture uses Docker's moby namespace and the runtime's bounded tuple ID.
-    expected = 'mk-' + container_id[:32] + '-' + hashlib.sha256(('moby\0' + container_id).encode()).hexdigest()[:16]
+    return 'mk-' + container_id[:32] + '-' + hashlib.sha256(('moby\0' + container_id).encode()).hexdigest()[:16]
+
+
+def owner_for_container(container_id, owners):
+    expected = sandbox_id_for_container(container_id)
     matches = [owner for owner in owners if owner['sandbox_id'] == expected]
     if len(matches) != 1:
         raise ValueError('Docker container has no unique recorded sandbox owner')
