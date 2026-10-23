@@ -4,6 +4,8 @@ import hashlib
 import os
 import signal
 import subprocess
+import pathlib
+import time
 from runtime_docker_concurrency import run_markers, owner_for_container, RELEASE_WAIT
 
 
@@ -14,6 +16,23 @@ class RunMarkerTests(unittest.TestCase):
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             self.assertEqual(child.stdout.readline(), 'READY\n')
+            # Signal only after sleep exists in the shell's process group.
+            # Otherwise a signal before the loop could pass without testing
+            # interruption under errexit at all.
+            children = pathlib.Path(f'/proc/{child.pid}/task/{child.pid}/children')
+            deadline = time.monotonic() + 2
+            while True:
+                sleeping = []
+                for pid in children.read_text().split():
+                    try:
+                        if pathlib.Path(f'/proc/{pid}/comm').read_text().strip() == 'sleep':
+                            sleeping.append(pid)
+                    except FileNotFoundError:
+                        pass
+                if sleeping:
+                    break
+                self.assertLess(time.monotonic(), deadline, 'release wait never started sleep')
+                time.sleep(.01)
             os.killpg(child.pid, signal.SIGUSR1)
             out, _ = child.communicate(timeout=3)
             self.assertEqual(out, 'RELEASED\n')
