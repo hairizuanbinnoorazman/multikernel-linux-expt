@@ -41,6 +41,7 @@ class ConsoleCaptureTests(unittest.TestCase):
         self.assertIn(b'EXT4-fs error: invalid bitmap', result)
         self.assertTrue(all(len(line)<=1024 for line in result.splitlines()))
         self.assertLessEqual(len(filtered_events(b'nbd error\n'*10000)), 65536)
+        filtered_events(('nbd '+('\u2603'*2000)+'\n').encode()*100).decode()
 
     def test_foreign_or_unbounded_instance_identity_refused_before_io(self):
         for name in ['../../other', '40\ninput', 'mk-foreign', 'mk-'+'a'*1000]:

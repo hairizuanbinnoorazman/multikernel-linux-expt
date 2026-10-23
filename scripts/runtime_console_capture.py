@@ -20,7 +20,8 @@ def filtered_events(data):
             line = re.sub(r'\b[0-9a-fA-F]{64}\b', '[REDACTED_HEX64]', line)
             line = re.sub(r'(?i)\b(token|password|secret|authorization)\s*[=:].*', r'\1=[REDACTED]', line)
             result.append(line[:1024])
-    return ('\n'.join(result) + ('\n' if result else '')).encode()[-65536:]
+    encoded = ('\n'.join(result) + ('\n' if result else '')).encode()
+    return encoded[-65536:].decode(errors='ignore').encode()
 
 
 def read_bounded(fd, stop, limit=LIMIT, timeout=600, empty_is_idle=False):
@@ -105,9 +106,11 @@ class ConsoleCapture:
             if fd is not None:
                 os.close(fd)
             self.record.update(bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
+            events = filtered_events(data)
+            self.record.update(filtered_bytes=len(events), filtered_sha256=hashlib.sha256(events).hexdigest())
             # Raw output remains private and is excluded from evidence exports.
             for name, payload in [('console-private.log', data),
-                                  ('console-events.log', filtered_events(data))]:
+                                  ('console-events.log', events)]:
                 handle = os.open(self.output / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
                 with os.fdopen(handle, 'wb') as stream:
                     stream.write(payload)
