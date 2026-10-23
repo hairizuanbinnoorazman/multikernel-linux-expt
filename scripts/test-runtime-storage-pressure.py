@@ -8,6 +8,7 @@ class StoragePressureTests(unittest.TestCase):
     full = ('G8_STORAGE_PRESSURE_BEFORE_KIB=1500000\n'
             'G8_STORAGE_PRESSURE_FS_MAGIC=ef53\n'
             'G8_STORAGE_PRESSURE_WRITE_EXIT=1\n'
+            'G8_STORAGE_PRESSURE_SYNC_EXIT=0\n'
             'G8_STORAGE_PRESSURE_FULL_KIB=0\n'
             'G8_STORAGE_PRESSURE_FILE_BYTES=1500000000\n'
             'G8_STORAGE_PRESSURE_FULL\n')
@@ -33,6 +34,7 @@ class StoragePressureTests(unittest.TestCase):
 
     def test_wrong_failure_or_ambiguous_full_measurements_refused(self):
         for old, new in [('WRITE_EXIT=1', 'WRITE_EXIT=0'), ('WRITE_EXIT=1', 'WRITE_EXIT=2'),
+                         ('SYNC_EXIT=0', 'SYNC_EXIT=1'),
                          ('FULL_KIB=0', 'FULL_KIB=1'), ('FS_MAGIC=ef53', 'FS_MAGIC=1021994'),
                          ('FILE_BYTES=1500000000', 'FILE_BYTES=3000000000'),
                          ('FILE_BYTES=1500000000', 'FILE_BYTES=1024'),

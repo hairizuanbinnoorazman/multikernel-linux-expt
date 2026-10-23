@@ -28,8 +28,13 @@ if [ "${1:-}" = --storage-pressure ]; then
     LC_ALL=C dd if=/dev/zero of="$work/pressure.bin" bs=1048576 count=2304
     write_status=$?
     set -e
-    sync
     echo "G8_STORAGE_PRESSURE_WRITE_EXIT=$write_status"
+    set +e
+    sync
+    sync_status=$?
+    set -e
+    echo "G8_STORAGE_PRESSURE_SYNC_EXIT=$sync_status"
+    test "$sync_status" -eq 0
     echo "G8_STORAGE_PRESSURE_FULL_KIB=$(df -Pk "$work" | awk 'NR == 2 {print $4}')"
     echo "G8_STORAGE_PRESSURE_FILE_BYTES=$(stat -c %s "$work/pressure.bin")"
     test "$write_status" -ne 0

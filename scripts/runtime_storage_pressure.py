@@ -24,7 +24,7 @@ def full_observation(stdout, stderr):
     size = number(stdout, 'FILE_BYTES')
     status = number(stdout, 'WRITE_EXIT')
     if (before <= 65536 or full != 0 or not 64*1024*1024 < size <= 2*1024**3 or
-            status != 1 or 'No space left on device' not in stderr or
+            status != 1 or number(stdout, 'SYNC_EXIT') != 0 or 'No space left on device' not in stderr or
             field(stdout, 'FS_MAGIC') != 'ef53' or
             'G8_STORAGE_PRESSURE_FULL\n' not in stdout):
         raise ValueError('guest did not prove the expected bounded ENOSPC condition')
