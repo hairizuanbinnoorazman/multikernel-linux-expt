@@ -115,7 +115,13 @@ try:
  m=start([work/'bin/mkruntimed','--config='+str(host_config),'--pool-cpus=8,9,10,11,12,13,14,15','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server='+str(nbd_helper),'--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(storage_root),'--rootfs-builder='+str(source/'scripts/build-runtime-container-initramfs.sh')],'mkruntimed.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
  n=start([work/'bin/mknetd','--socket='+str(network_socket),'--state-dir='+str(private/'network-state'),'--subnet=172.30.0.0/24','--egress=ens4','--allowed-uid=0'],'mknetd.log');wait(network_socket,n);observe_service(n,'mknetd')
  c=start([work/'bin/containerd','--config',cc],'containerd.log');wait(sock,c)
- d=start(['/usr/bin/dockerd','--config-file',dc],'docker.log');wait(dsock,d)
+ # Even bridge=none can remove a pre-existing default bridge during daemon
+ # initialization. Keep this disposable Docker daemon's netlink effects in
+ # its own network namespace; containerd, Kerf and mknetd stay in the primary.
+ d=start(['/usr/bin/unshare','--net','--','/usr/bin/dockerd','--config-file',dc],'docker.log');wait(dsock,d)
+ docker_netns={'primary':os.readlink('/proc/self/ns/net'),'docker':os.readlink('/proc/'+str(d.pid)+'/ns/net')}
+ assert docker_netns['primary']!=docker_netns['docker']
+ (private/'docker-network-namespace.json').write_text(json.dumps(docker_netns,indent=2)+'\n')
  cli=['/usr/bin/docker','--host','unix://'+str(dsock)]
  until=time.monotonic()+30
  while subprocess.run(cli+['info'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
@@ -236,6 +242,7 @@ assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
 r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
 r['native_nbd_helper_sha256']=sha(nbd_helper)
 r['systemd_scope_sha256']=sha(work/'systemd-scope.json')
+r['docker_network_namespace_sha256']=sha(private/'docker-network-namespace.json')
 r['runtime_restart_tested']=restart_runtime
 r['runtime_crash_tested']=crash_runtime
 r['concurrent_guest_builds_tested']=concurrent
