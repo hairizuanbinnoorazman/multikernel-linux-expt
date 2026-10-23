@@ -241,3 +241,15 @@ The final invocation-bound receipt preserves watched installed hashes/PIDs.
 This closes that bounded checkpoint; it does not close repeated concurrency,
 SIGKILL/power-loss/exec-exit recovery, pressure or full G7/G8. `0f367e6` adds an
 explicit private-runtime SIGKILL fixture for separate live qualification.
+
+The [runtime SIGKILL checkpoint](../../evidence/runtime-20261023/g8-runtime-sigkill/README.md)
+now records an intentional private-daemon exit status -9 before replacement
+startup. Exact Unix peer credentials prove the replacement owns its listener;
+local stale/wrong-owner/dead-process controls are [retained separately](../../evidence/runtime-20261023/g8-socket-readiness/README.md).
+Child boot/engine/archive/ownership remain unchanged across adoption. A complete
+fresh build matrix then succeeds while the original archive remains intact.
+Declared service bounds, primary file/PID/network identity, synced server closure,
+offline checking and child/pool/rootfs/network release all pass. The unit cgroup
+subsequently disappears. This closes one post-build control-plane SIGKILL case,
+not crashes during allocation/build/teardown, primary power loss, other service
+crashes, pressure or full G7/G8.

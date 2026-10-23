@@ -26,9 +26,14 @@ have separate pinned evidence. Export, exec-release and primary-bridge failures
 remain retained alongside their subsequent changes; see the
 [Docker guest design and evidence](docs/runtime/research/docker-in-docker-guests.md).
 
-The profile remains experimental. Repeated concurrency, daemon SIGKILL/power-loss
-recovery, hostile workload pressure and complete G7/G8 acceptance remain open.
-These checks do not establish containment after child-kernel compromise.
+A [private runtime SIGKILL checkpoint](evidence/runtime-20261023/g8-runtime-sigkill/README.md)
+also preserves the live child's boot, engine, archive and ownership, then passes
+fresh child-local builds and cleanup through the recovered stack.
+
+The profile remains experimental. Crashes during allocation/build/teardown,
+host power loss, other service crashes, repeated concurrency, hostile workload
+pressure and complete G7/G8 acceptance remain open. These checks do not establish
+containment after child-kernel compromise.
 
 Start with the [documentation map](docs/README.md). In particular:
 

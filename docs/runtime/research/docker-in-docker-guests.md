@@ -165,3 +165,13 @@ export release and the unchanged strict network comparison. Invocation-bound
 source/workload/final records and the raw native-server logs are retained. This
 is one bounded successful run; prior failures remain retained and full release
 reliability still requires its other cases.
+
+The [private runtime SIGKILL proof](../../../evidence/runtime-20261023/g8-runtime-sigkill/README.md)
+subsequently kills the control plane after the first build matrix while keeping
+the Docker child live. The replacement listener is checked by Unix peer PID,
+not socket-path existence. Child identity and the original archive survive;
+a fresh build/cache/run/failure/save matrix succeeds after adoption, followed
+by checked export release and primary/resource restoration. The bounded case
+has separate exit, recovery and final receipts. Crashes during resource mutation
+or active builds, other services, host power loss and pressure remain separate
+open cases; full G7/G8 does not close.
