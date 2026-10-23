@@ -610,14 +610,6 @@ closed:
 static void run_client(unsigned int cid, unsigned int port, const char *device,
 		       uint64_t size, const char *image_id, const char *generation)
 {
-	/* The startup log lives in the old initramfs. Late client/proxy failures
-	 * must remain observable on this child's console after switch_root. */
-	int console = open("/dev/console", O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
-	if (console < 0 || client_console_fd(console) < 0)
-		die("protect client diagnostic console");
-	if (console != STDERR_FILENO)
-		close(console);
-	fprintf(stderr, "MKNBD_CLIENT_DIAGNOSTICS_READY\n");
 	struct sockaddr_vm addr = {
 		.svm_family = AF_VSOCK,
 		.svm_cid = cid,
@@ -636,6 +628,14 @@ static void run_client(unsigned int cid, unsigned int port, const char *device,
 			ntohl(response.status));
 		exit(2);
 	}
+	/* The startup log lives in the old initramfs. Late client/proxy failures
+	 * must remain observable on this child's console after switch_root. */
+	int console = open("/dev/console", O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+	if (console < 0 || client_console_fd(console) < 0)
+		die("protect client diagnostic console");
+	if (console != STDERR_FILENO)
+		close(console);
+	fprintf(stderr, "MKNBD_CLIENT_DIAGNOSTICS_READY\n");
 	clear_socket_timeout(sock);
 	printf("MKNBD_CLIENT_CONNECTED image_id=%s generation=%s size=%llu\n",
 	       image_id, generation, (unsigned long long)size);
