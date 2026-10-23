@@ -223,3 +223,11 @@ signal (`eb40dc7`, `618ece2`), avoiding an exec whose completion races init exit
 has a private mount namespace and `KillMode=process`, as required to retain exact
 storage helpers after daemon exit. The outstanding exec/exit reliability case
 and full G7/G8 remain open.
+
+The later [primary bridge failure control](../../evidence/runtime-20261023/g8-primary-bridge-failure/README.md)
+passes corrected-proxy concurrent builds, signal release, survivor continuity,
+synced export closure and offline checks, then fails the strict final network
+comparison: the disposable host dockerd removed `docker0` and its route.
+`40baa83` gives that daemon a separate network namespace while retaining the
+primary namespace for containerd/Kerf/mknetd. The failed evidence is preserved;
+a fresh pass of the original network comparison is required.

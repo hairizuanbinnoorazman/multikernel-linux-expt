@@ -130,3 +130,30 @@ restart. Child boot ID, local engine ID, saved-image digest and ownership
 generation remain identical; final teardown and raw primary/network comparisons
 pass. Crash/power loss, other service restarts, service privilege bounds and
 complete G7/G8 acceptance remain open.
+
+## Disposable host Docker qualification
+
+The production-profile laboratory fixture uses separate Docker/containerd/runtime
+state and a private mount namespace. Its own dockerd also needs a private network
+namespace: `bridge=none` alone does not protect a pre-existing primary `docker0`.
+The [retained bridge failure](../../../evidence/runtime-20261023/g8-primary-bridge-failure/README.md)
+records that concrete effect while preserving successful child builds, survivor
+continuity and export teardown. `40baa83` isolates only the disposable dockerd's
+netlink operations. Containerd, Kerf and mknetd remain in the primary network
+namespace so the intended child/primary network policy is still exercised.
+The strict raw links/routes/firewall comparison remains required.
+
+The fixture now requires its exact systemd unit name in `MK_TEST_UNIT`, verifies
+its own PID and invocation ID against that unit, and requires `PrivateMounts=yes`
+and `KillMode=process`. The latter matches the production runtime unit's storage
+helper survival contract. A default cgroup-killing test unit can destroy accepted
+NBD sessions during failure cleanup and cannot qualify restart adoption.
+Normal fixture release uses host Docker's authenticated signal path and a shell
+trap; it does not require an exec command to complete while simultaneously
+terminating the main process. Docker documents exec lifetime as bounded by the
+[container's primary process](https://docs.docker.com/reference/cli/docker/container/exec/).
+The separate exec/exit reliability boundary remains open.
+
+These are disposable laboratory fixtures with pinned local artifact directories,
+not the fresh-checkout operator workflow required for full G8. Direct children
+require no nested virtualization and remain in the primary kernel trust domain.
