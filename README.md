@@ -10,30 +10,25 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
-This deployment uses direct child kernels because nested virtualization is
-unavailable under its cloud-instance constraints. Host Docker selects the
-Multikernel runtime; Docker builds inside an approved Docker guest must use
-that child's local engine and storage, without the host Docker socket.
-The approved profile has [passed offline multi-stage Docker builds and clean
-mediated-storage shutdown on a direct child](evidence/runtime-20261022/g8-production-docker-build/README.md).
-The [host Docker selection and cleanup check](evidence/runtime-20261022/g8-host-docker-lifecycle/README.md)
-also passes with independent test daemon state. Crash recovery, concurrency and
-adversarial release qualification remain open; the profile is experimental.
-A [graceful private runtime restart](evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md)
-also preserves the live child, engine and saved image; crash and other service
-restart cases remain separate. The documented daemon capability and NNP bounds
-also [pass build and recovery qualification](evidence/runtime-20261022/g8-host-docker-service-policy/README.md). Passing Docker builds does not prove containment
-after child-kernel compromise. A [two-child concurrency checkpoint](evidence/runtime-20261022/g8-concurrent-build-checkpoint/README.md)
-records overlapping builds, separate engines/storage and survivor cleanup.
-An earlier export failure remains retained; the [NBD proxy regression proof](evidence/runtime-20261022/g8-native-stream-proxy/README.md)
-reproduces and fixes a bidirectional backpressure defect. Concurrent reliability
-and complete gate acceptance remain open. The [fresh candidate run](evidence/runtime-20261022/g8-candidate-release-failure/README.md)
-passes both child build/export matrices but fails sibling release. An
-[exact-generation quarantine](evidence/runtime-20261023/g8-failed-generation-quarantine/README.md)
-returns the child resources while preserving the failed disk and ownership;
-automatic recovery acceptance remains open.
-See the
+Host Docker selects the Multikernel runtime; Docker builds inside an approved
+Docker guest use that child's local engine and storage, without the host Docker
+socket. The latest [two-child qualification](evidence/runtime-20261023/g8-concurrent-netns/README.md)
+passes overlapping builds, separate engines and writable storage, survivor
+continuity, clean export shutdown and primary network restoration. Watched
+installed files and service PIDs remain unchanged. The disposable host Docker
+daemon has its own network namespace; the children still use direct kernels.
+
+Earlier [production-profile builds](evidence/runtime-20261022/g8-production-docker-build/README.md),
+[host Docker lifecycle](evidence/runtime-20261022/g8-host-docker-lifecycle/README.md),
+[graceful runtime restart](evidence/runtime-20261022/g8-host-docker-runtime-recovery/README.md)
+and [daemon capability/NNP checks](evidence/runtime-20261022/g8-host-docker-service-policy/README.md)
+have separate pinned evidence. Export, exec-release and primary-bridge failures
+remain retained alongside their subsequent changes; see the
 [Docker guest design and evidence](docs/runtime/research/docker-in-docker-guests.md).
+
+The profile remains experimental. Repeated concurrency, daemon SIGKILL/power-loss
+recovery, hostile workload pressure and complete G7/G8 acceptance remain open.
+These checks do not establish containment after child-kernel compromise.
 
 Start with the [documentation map](docs/README.md). In particular:
 

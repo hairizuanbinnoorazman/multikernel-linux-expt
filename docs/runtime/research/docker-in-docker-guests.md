@@ -157,3 +157,11 @@ The separate exec/exit reliability boundary remains open.
 These are disposable laboratory fixtures with pinned local artifact directories,
 not the fresh-checkout operator workflow required for full G8. Direct children
 require no nested virtualization and remain in the primary kernel trust domain.
+
+The subsequent [namespace-isolated qualification](../../../evidence/runtime-20261023/g8-concurrent-netns/README.md)
+passes two overlapping production-profile child build matrices, separate engine
+and storage observations, sibling removal with survivor continuity, synced/checked
+export release and the unchanged strict network comparison. Invocation-bound
+source/workload/final records and the raw native-server logs are retained. This
+is one bounded successful run; prior failures remain retained and full release
+reliability still requires its other cases.

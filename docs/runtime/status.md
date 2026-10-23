@@ -231,3 +231,13 @@ comparison: the disposable host dockerd removed `docker0` and its route.
 `40baa83` gives that daemon a separate network namespace while retaining the
 primary namespace for containerd/Kerf/mknetd. The failed evidence is preserved;
 a fresh pass of the original network comparison is required.
+
+The [namespace-isolated candidate qualification](../../evidence/runtime-20261023/g8-concurrent-netns/README.md)
+now passes the original raw network comparison with primary docker0 preserved,
+plus overlapping builds, separate engines/storage, survivor continuity and final
+resource release. Both raw native-server logs bind the expected export generations
+and CIDs, end synced, and match durable counters and clean offline-check digests.
+The final invocation-bound receipt preserves watched installed hashes/PIDs.
+This closes that bounded checkpoint; it does not close repeated concurrency,
+SIGKILL/power-loss/exec-exit recovery, pressure or full G7/G8. `0f367e6` adds an
+explicit private-runtime SIGKILL fixture for separate live qualification.
