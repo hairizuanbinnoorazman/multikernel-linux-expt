@@ -90,7 +90,9 @@ finally:
             empty=not instances() and P('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
             refs=int(P('/sys/module/mk_transport/refcnt').read_text())
             sockets=output(['ss','-A','vsock','-an'])
-            if empty and refs==0 and len(sockets.splitlines())==1:
+            pool=output(['/opt/mkruntime/kerf-venv/bin/kerf','show']) if empty and refs==0 else ''
+            if empty and refs==0 and len(sockets.splitlines())==1 and 'No memory pool configured' in pool:
+                state['kerf_after_trial']=pool
                 state['vsock_after_trial']=sockets;state['candidate_refs_after_trial']=refs
                 state['candidate_quiescent']=True
                 record('candidate-quiescent-cold-restore-required');break
