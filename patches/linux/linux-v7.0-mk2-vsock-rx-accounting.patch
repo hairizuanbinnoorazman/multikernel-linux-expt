@@ -1,0 +1,109 @@
+--- a/net/vmw_vsock/mk_transport.c
++++ b/net/vmw_vsock/mk_transport.c
+@@ -51,7 +51,7 @@
+ 	u32 fwd_cnt;            /* Bytes consumed */
+ 	u32 peer_buf_alloc;     /* Peer's buffer space */
+ 	u32 peer_fwd_cnt;       /* Peer's consumed bytes */
+-	u32 rx_bytes;           /* Total RX bytes */
++	u64 rx_bytes;           /* Queued unread bytes, protected by rx_lock */
+ 	u32 tx_bytes;           /* Total TX bytes */
+ };
+ 
+@@ -94,6 +94,18 @@
+ 	spin_unlock(&mk->rx_lock);
+ 
+ 	queue_work(mk->workqueue, &mk->rx_work);
++}
++
++static void mk_transport_queue_rx(struct mk_vsock_sock *mk_vsk,
++				  struct sk_buff *skb)
++{
++	struct virtio_vsock_hdr *hdr = (struct virtio_vsock_hdr *)skb->data;
++
++	VIRTIO_VSOCK_SKB_CB(skb)->offset = 0;
++	spin_lock_bh(&mk_vsk->rx_lock);
++	__skb_queue_tail(&mk_vsk->rx_queue, skb);
++	mk_vsk->rx_bytes += le32_to_cpu(hdr->len);
++	spin_unlock_bh(&mk_vsk->rx_lock);
+ }
+ 
+ static void mk_vsock_rx_pkt(struct sk_buff *skb)
+@@ -122,11 +134,7 @@
+ 	case VIRTIO_VSOCK_OP_RW: {
+ 		struct mk_vsock_sock *mk_vsk = mk_vsock_sk(vsk);
+ 
+-		VIRTIO_VSOCK_SKB_CB(skb)->offset = 0;
+-		spin_lock_bh(&mk_vsk->rx_lock);
+-		skb_queue_tail(&mk_vsk->rx_queue, skb);
+-		mk_vsk->rx_bytes += le32_to_cpu(hdr->len);
+-		spin_unlock_bh(&mk_vsk->rx_lock);
++		mk_transport_queue_rx(mk_vsk, skb);
+ 
+ 		vsock_data_ready(sk);
+ 		sock_put(sk);
+@@ -462,7 +470,10 @@
+ {
+ 	struct mk_vsock_sock *mk_vsk = mk_vsock_sk(vsk);
+ 
++	spin_lock_bh(&mk_vsk->rx_lock);
+ 	skb_queue_purge(&mk_vsk->rx_queue);
++	mk_vsk->rx_bytes = 0;
++	spin_unlock_bh(&mk_vsk->rx_lock);
+ 	return 0;
+ }
+ 
+@@ -523,7 +534,7 @@
+ 	struct mk_vsock_sock *mk_vsk = mk_vsock_sk(vsk);
+ 	struct sk_buff *skb;
+ 	struct virtio_vsock_hdr *hdr;
+-	size_t to_copy, off;
++	size_t to_copy, off, remaining;
+ 	int err;
+ 
+ 	spin_lock_bh(&mk_vsk->rx_lock);
+@@ -536,7 +547,10 @@
+ 
+ 	hdr = (struct virtio_vsock_hdr *)skb->data;
+ 	off = VIRTIO_VSOCK_SKB_CB(skb)->offset;
+-	to_copy = min(len, (size_t)le32_to_cpu(hdr->len) - off);
++	remaining = (size_t)le32_to_cpu(hdr->len) - off;
++	to_copy = min(len, remaining);
++	/* Account for queue membership, including while copying outside the lock. */
++	mk_vsk->rx_bytes -= remaining;
+ 
+ 	mk_vsk->fwd_cnt += to_copy;
+ 	spin_unlock_bh(&mk_vsk->rx_lock);
+@@ -545,6 +559,7 @@
+ 	if (err) {
+ 		spin_lock_bh(&mk_vsk->rx_lock);
+ 		__skb_queue_head(&mk_vsk->rx_queue, skb);
++		mk_vsk->rx_bytes += remaining;
+ 		mk_vsk->fwd_cnt -= to_copy;
+ 		spin_unlock_bh(&mk_vsk->rx_lock);
+ 		return err;
+@@ -554,6 +569,7 @@
+ 		VIRTIO_VSOCK_SKB_CB(skb)->offset = off + to_copy;
+ 		spin_lock_bh(&mk_vsk->rx_lock);
+ 		__skb_queue_head(&mk_vsk->rx_queue, skb);
++		mk_vsk->rx_bytes += remaining - to_copy;
+ 		spin_unlock_bh(&mk_vsk->rx_lock);
+ 	} else {
+ 		kfree_skb(skb);
+@@ -565,15 +581,10 @@
+ static s64 mk_transport_stream_has_data(struct vsock_sock *vsk)
+ {
+ 	struct mk_vsock_sock *mk_vsk = mk_vsock_sk(vsk);
+-	struct sk_buff *skb;
+-	struct virtio_vsock_hdr *hdr;
+-	s64 data = 0;
++	s64 data;
+ 
+ 	spin_lock_bh(&mk_vsk->rx_lock);
+-	skb_queue_walk(&mk_vsk->rx_queue, skb) {
+-		hdr = (struct virtio_vsock_hdr *)skb->data;
+-		data += le32_to_cpu(hdr->len) - VIRTIO_VSOCK_SKB_CB(skb)->offset;
+-	}
++	data = mk_vsk->rx_bytes;
+ 	spin_unlock_bh(&mk_vsk->rx_lock);
+ 
+ 	return data;
