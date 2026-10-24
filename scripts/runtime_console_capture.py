@@ -16,7 +16,8 @@ LIMIT = 1024 * 1024
 def filtered_events(data):
     result = []
     for line in data.decode(errors='replace').splitlines():
-        if re.search(r'nbd|mkvsock|forward_stream|ext4|out of memory|oom|killed process|I/O error', line, re.I):
+        if re.search(r'nbd|mkvsock|forward_stream|ext4|out of memory|oom|killed process|I/O error', line, re.I) or re.match(
+                r'MK_STORAGE_BOOTSTRAP_(?:READY|FAIL)\b|MK_AGENT_(?:START|BOOT_CONFIG_MISSING|INSECURE_BOOT_CREDENTIAL)\b', line):
             line = re.sub(r'\b[0-9a-fA-F]{64}\b', '[REDACTED_HEX64]', line)
             line = re.sub(r'(?i)\b(token|password|secret|authorization)\s*[=:].*', r'\1=[REDACTED]', line)
             result.append(line[:1024])

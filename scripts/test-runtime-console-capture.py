@@ -47,5 +47,23 @@ class ConsoleCaptureTests(unittest.TestCase):
         for name in ['../../other', '40\ninput', 'mk-foreign', 'mk-'+'a'*1000]:
             with self.assertRaises(ValueError):ConsoleCapture(name, '/not-used')
 
+    def test_bootstrap_progress_survives_export_without_general_agent_logs(self):
+        result = filtered_events(
+            b'MK_STORAGE_BOOTSTRAP_READY sandbox=owned\n'
+            b'MK_STORAGE_BOOTSTRAP_FAIL reason=mount\n'
+            b'MK_AGENT_START sandbox=owned token=private-value\n'
+            b'MK_AGENT_BOOT_CONFIG_MISSING\n'
+            b'MK_AGENT_INSECURE_BOOT_CREDENTIAL\n'
+            b'MK_AGENT_STARTUP environment=private-value\n'
+            b'MK_AGENT_REQUEST payload=private-value\n'
+            b'prefix MK_AGENT_START payload=private-value\n')
+        self.assertEqual(result, (
+            b'MK_STORAGE_BOOTSTRAP_READY sandbox=owned\n'
+            b'MK_STORAGE_BOOTSTRAP_FAIL reason=mount\n'
+            b'MK_AGENT_START sandbox=owned token=[REDACTED]\n'
+            b'MK_AGENT_BOOT_CONFIG_MISSING\n'
+            b'MK_AGENT_INSECURE_BOOT_CREDENTIAL\n'))
+        self.assertNotIn(b'private-value', result)
+
 
 if __name__ == '__main__':unittest.main()
