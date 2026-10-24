@@ -419,6 +419,44 @@ static int storage_peer_matches(const struct sockaddr_vm *peer, socklen_t size,
 		expected_cid && expected_cid != VMADDR_CID_ANY && peer->svm_cid == expected_cid;
 }
 
+/* Bound slow/error details independently of peer-controlled request count.
+ * Preserve syscall errno: observation must not change the serving decision. */
+struct server_io_diagnostics { unsigned int details; uint64_t suppressed; };
+
+static void server_io_observe(struct server_io_diagnostics *log, const char *phase,
+			     const struct timespec *started, long result, int error)
+{
+	int saved = errno;
+	struct timespec ended;
+	if (clock_gettime(CLOCK_MONOTONIC, &ended) == 0) {
+		int64_t elapsed = (int64_t)(ended.tv_sec - started->tv_sec) * 1000000000LL +
+			ended.tv_nsec - started->tv_nsec;
+		if (elapsed >= 250000000LL || result < 0) {
+			if (log->details < 16) {
+				fprintf(stderr, "MKNBD_SERVER_IO phase=%s duration_us=%lld result=%ld errno=%d\n",
+					phase, (long long)(elapsed / 1000), result, error);
+				log->details++;
+			} else if (log->suppressed != UINT64_MAX) {
+				log->suppressed++;
+			}
+		}
+	}
+	errno = saved;
+}
+
+#define SERVER_OBSERVE(log, phase, operation) ({ \
+	struct timespec started; \
+	int before_timing = errno; \
+	int timed = clock_gettime(CLOCK_MONOTONIC, &started) == 0; \
+	errno = before_timing; \
+	__typeof__(operation) observed_result = (operation); \
+	int observed_error = errno; \
+	if (timed) server_io_observe(log, phase, &started, (long)observed_result, \
+		observed_result < 0 ? observed_error : 0); \
+	errno = observed_error; \
+	observed_result; \
+})
+
 static void run_server(const char *image, unsigned int port,
 		       const char *image_id, const char *generation,
 		       unsigned int peer_cid)
@@ -430,6 +468,7 @@ static void run_server(const char *image, unsigned int port,
 	};
 	struct stat st;
 	struct native_refusal_log refusals = {0};
+	struct server_io_diagnostics io_diagnostics = {0};
 	if (native_server_set_limits() < 0)
 		die("set storage server resource limits");
 	uint64_t reads = 0, writes = 0, flushes = 0, bytes_read = 0, bytes_written = 0;
@@ -547,25 +586,25 @@ static void run_server(const char *image, unsigned int port,
 		if (command == NBD_CMD_DISC)
 			break;
 		if (command == NBD_CMD_WRITE) {
-			if (transfer_until(sock, buffer, len, 0, &deadline) <= 0) {
+			if (SERVER_OBSERVE(&io_diagnostics, "write-payload", transfer_until(sock, buffer, len, 0, &deadline)) <= 0) {
 				printf("MKNBD_SERVER_DISCONNECT_DURING_WRITE len=%u offset=%llu\n",
 				       len, (unsigned long long)offset);
 				break;
 			}
-			ssize_t n = pwrite(image_fd, buffer, len, (off_t)offset);
+			ssize_t n = SERVER_OBSERVE(&io_diagnostics, "image-write", pwrite(image_fd, buffer, len, (off_t)offset));
 			if (n != (ssize_t)len)
 				error = errno ? errno : EIO;
 			else {
 				writes++;
 				bytes_written += len;
 			}
-			if (!error && (type & NBD_CMD_FLAG_FUA) && fdatasync(image_fd) < 0)
+			if (!error && (type & NBD_CMD_FLAG_FUA) && SERVER_OBSERVE(&io_diagnostics, "image-sync", fdatasync(image_fd)) < 0)
 				error = errno;
 			deadline = frame_deadline(FRAME_TIMEOUT_MS);
-			if (send_reply(sock, &request, error, &deadline) <= 0)
+			if (SERVER_OBSERVE(&io_diagnostics, "reply", send_reply(sock, &request, error, &deadline)) <= 0)
 				break;
 		} else if (command == NBD_CMD_READ) {
-			ssize_t n = pread(image_fd, buffer, len, (off_t)offset);
+			ssize_t n = SERVER_OBSERVE(&io_diagnostics, "image-read", pread(image_fd, buffer, len, (off_t)offset));
 			if (n != (ssize_t)len)
 				error = errno ? errno : EIO;
 			else {
@@ -573,17 +612,17 @@ static void run_server(const char *image, unsigned int port,
 				bytes_read += len;
 			}
 			deadline = frame_deadline(FRAME_TIMEOUT_MS);
-			if (send_reply(sock, &request, error, &deadline) <= 0)
+			if (SERVER_OBSERVE(&io_diagnostics, "reply", send_reply(sock, &request, error, &deadline)) <= 0)
 				break;
-			if (!error && transfer_until(sock, buffer, len, 1, &deadline) <= 0)
+			if (!error && SERVER_OBSERVE(&io_diagnostics, "read-payload", transfer_until(sock, buffer, len, 1, &deadline)) <= 0)
 				break;
 		} else if (command == NBD_CMD_FLUSH) {
-			if (fdatasync(image_fd) < 0)
+			if (SERVER_OBSERVE(&io_diagnostics, "image-sync", fdatasync(image_fd)) < 0)
 				error = errno;
 			else
 				flushes++;
 			deadline = frame_deadline(FRAME_TIMEOUT_MS);
-			if (send_reply(sock, &request, error, &deadline) <= 0)
+			if (SERVER_OBSERVE(&io_diagnostics, "reply", send_reply(sock, &request, error, &deadline)) <= 0)
 				break;
 		} else {
 			break; /* request_valid rejects every other command. */
@@ -594,8 +633,10 @@ closed:
 	native_server_log_refusal_summary(&refusals);
 	active_client = -1;
 	active_listener = -1;
-	if (fdatasync(image_fd) < 0)
+	if (SERVER_OBSERVE(&io_diagnostics, "image-sync", fdatasync(image_fd)) < 0)
 		die("final fdatasync");
+	if (io_diagnostics.suppressed)
+		fprintf(stderr, "MKNBD_SERVER_IO_SUPPRESSED count=%llu\n", (unsigned long long)io_diagnostics.suppressed);
 	printf("MKNBD_SERVER_CLOSED synced=1 reads=%llu read_bytes=%llu writes=%llu write_bytes=%llu flushes=%llu\n",
 	       (unsigned long long)reads, (unsigned long long)bytes_read,
 	       (unsigned long long)writes, (unsigned long long)bytes_written,

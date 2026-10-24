@@ -12,6 +12,8 @@
 #include <unistd.h>
 
 static int port_pipe;
+static ssize_t fixture_pwrite(int fd,const void *data,size_t size,off_t offset);
+#define pwrite fixture_pwrite
 static int fixture_accept(int fd,struct sockaddr *addr,socklen_t *size);
 static int fixture_socket(int family,int type,int protocol);
 static int fixture_bind(int fd,const struct sockaddr *addr,socklen_t size);
@@ -27,6 +29,16 @@ static int fixture_setsockopt(int fd,int level,int option,const void *value,sock
 #undef socket
 #undef bind
 #undef setsockopt
+#undef pwrite
+
+static ssize_t fixture_pwrite(int fd,const void *data,size_t size,off_t offset)
+{
+	/* Exercise real serving and its bounded timing path, preserving a stale
+	 * errno on successful writes as POSIX permits. */
+	if (poll(NULL,0,300)!=0) return -1;
+	errno=EUCLEAN;
+	return pwrite(fd,data,size,offset);
+}
 
 #define CHECK(value) do { if (!(value)) { fprintf(stderr,"pressure fixture line%d errno%d\n",__LINE__,errno);exit(2); } } while(0)
 static int fixture_accept(int fd,struct sockaddr *addr,socklen_t *size)
@@ -107,15 +119,22 @@ int main(int argc,char **argv)
 	int fd=connect_fixture(port);struct hello_wire hello,response;
 	fill_hello(&hello,4096,"pressure-image","pressure-generation");xwrite(fd,&hello,sizeof(hello));
 	CHECK(read_exact_or_eof(fd,&response,sizeof(response))==1 && hello_matches(&response,4096,"pressure-image","pressure-generation"));
-	exchange_request(fd,NBD_CMD_WRITE|NBD_CMD_FLAG_FUA,512);
+	for(int i=0;i<17;i++)exchange_request(fd,NBD_CMD_WRITE|NBD_CMD_FLAG_FUA,512);
 	exchange_request(fd,NBD_CMD_READ,512);exchange_request(fd,NBD_CMD_FLUSH,0);exchange_request(fd,NBD_CMD_DISC,0);close(fd);
 	int status;CHECK(waitpid(child,&status,0)==child && WIFEXITED(status) && WEXITSTATUS(status)==0);
 	char output[8192];ssize_t length=pread(log,output,sizeof(output)-1,0);CHECK(length>0 && length<4096);output[length]=0;
 	int details=0;for(char *p=output;(p=strstr(p,"MKNBD_SERVER_REFUSED reason="));p++)details++;
 	CHECK(details==16 && strstr(output,"MKNBD_SERVER_REFUSALS_SUPPRESSED") && strstr(output,"MKNBD_SERVER_REFUSAL_SUMMARY total=256 details=16 suppressed=240\n"));
 	CHECK(strstr(output,"MKNBD_SERVER_READY") && strstr(output,"MKNBD_SERVER_CLIENT_ACCEPTED\n"));
-	const char *terminal="MKNBD_SERVER_CLOSED synced=1 reads=1 read_bytes=512 writes=1 write_bytes=512 flushes=1\n";
+	const char *terminal="MKNBD_SERVER_CLOSED synced=1 reads=1 read_bytes=512 writes=17 write_bytes=8704 flushes=1\n";
 	CHECK((size_t)length>=strlen(terminal) && !strcmp(output+length-strlen(terminal),terminal));
+	int timed=0;for(char *p=output;(p=strstr(p,"MKNBD_SERVER_IO phase=image-write duration_us="));p++) {
+		long long duration;long result;int error;
+		CHECK(sscanf(p,"MKNBD_SERVER_IO phase=image-write duration_us=%lld result=%ld errno=%d",&duration,&result,&error)==3);
+		CHECK(duration>=250000 && result==512 && error==0);timed++;
+	}
+	CHECK(timed==16 && strstr(output,"MKNBD_SERVER_IO_SUPPRESSED count=1\n"));
+	puts("SERVER_SLOW_IO_TIMING_BOUNDED_AND_ERRNO_PRESERVED_PASS");
 	fputs(output,stdout);printf("SERVER_REFUSAL_PRESSURE_EXPORT_SURVIVAL_PASS refusals=256 log_bytes=%zd\n",length);
 	close(log);CHECK(unlink(argv[1])==0 && unlink(argv[2])==0);
 	/* Limits fixture runs separately so the supervisor retains its limits. */
