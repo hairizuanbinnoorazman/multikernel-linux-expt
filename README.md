@@ -45,13 +45,19 @@ A [client-instrumented repeat](evidence/runtime-20261023/g8-pressure-client-time
 records an NBD timeout before journal abort and failed Docker cleanup. The
 [external restart observation](evidence/runtime-20261024/g8-pressure-external-restart/README.md)
 confirms resources returned and failed storage retained. The underlying timeout
-cause remains under investigation. The latest
+cause remains under investigation. An earlier
 [server-timed run](evidence/runtime-20261024/g8-server-io-pressure-failure/README.md)
 records slow WRITE payload transfers and fails pressure/cleanup. Its
 [operator recovery proof](evidence/runtime-20261024/g8-server-io-quarantine/README.md)
 returns resources and restores raw primary network state while retaining the disk
 and failed ledgers. [Per-phase summary controls](evidence/runtime-20261024/g8-phase-summary-controls/README.md)
-pass; read-only bootstrap queue observation awaits live qualification.
+pass. A later [combined transport trial](evidence/runtime-20261024/g8-coarse-fill-refusal/README.md)
+reaches filesystem ENOSPC with zero native I/O errors and reclaims socket references,
+but its coarse writes leave 496 KiB available, so the strict pressure gate refuses it.
+[Operator quarantine](evidence/runtime-20261024/g8-coarse-fill-quarantine/README.md)
+returns resources and preserves the image; read-only filesystem checking passes.
+The committed probe now flushes coarse writes and consumes the remaining tail
+with bounded 4 KiB writes. Full pressure recovery and normal cleanup remain unqualified.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

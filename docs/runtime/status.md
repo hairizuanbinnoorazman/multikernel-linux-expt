@@ -327,3 +327,13 @@ before any module load. The [clean boot](../../evidence/runtime-20261024/g8-clea
 provides an empty baseline and preserves failed disk/ledger hashes. Candidate
 pressure, live reference cleanup and full G7/G8 are still pending. No force unload,
 queue-size change, request-limit change or deadline relaxation is used.
+
+The [combined transport live trial](../../evidence/runtime-20261024/g8-coarse-fill-refusal/README.md)
+now reaches filesystem ENOSPC without native I/O errors and retires socket-table
+references on the same boot (zero refs, empty VSOCK table). It fails the unchanged
+zero-available-space condition because coarse writes leave 496 KiB. The stopped
+child/QUIESCING export require [operator quarantine](../../evidence/runtime-20261024/g8-coarse-fill-quarantine/README.md);
+that returns CPU/pool/network resources while retaining disk/ledgers, and read-only
+e2fsck returns 0 with unchanged image bytes. This is narrow transport progress,
+not normal cleanup or pressure-gate closure. Probe commits 79b478a/ee87af0 add a
+synchronized, bounded 4 KiB tail fill; live recovery qualification remains pending.
