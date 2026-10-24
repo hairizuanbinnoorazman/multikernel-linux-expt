@@ -421,7 +421,22 @@ static int storage_peer_matches(const struct sockaddr_vm *peer, socklen_t size,
 
 /* Bound slow/error details independently of peer-controlled request count.
  * Preserve syscall errno: observation must not change the serving decision. */
-struct server_io_diagnostics { unsigned int details; uint64_t suppressed; };
+static const char *const server_io_phases[] = {
+	"write-payload", "read-payload", "image-write", "image-read", "image-sync", "reply",
+};
+#define SERVER_IO_PHASE_COUNT (sizeof(server_io_phases) / sizeof(server_io_phases[0]))
+struct server_io_phase { uint64_t calls, errors, slow, max_us; };
+struct server_io_diagnostics {
+	unsigned int details;
+	uint64_t suppressed;
+	struct server_io_phase phase[SERVER_IO_PHASE_COUNT];
+};
+
+static void server_io_increment(uint64_t *value)
+{
+	if (*value != UINT64_MAX)
+		(*value)++;
+}
 
 static void server_io_observe(struct server_io_diagnostics *log, const char *phase,
 			     const struct timespec *started, long result, int error)
@@ -431,6 +446,20 @@ static void server_io_observe(struct server_io_diagnostics *log, const char *pha
 	if (clock_gettime(CLOCK_MONOTONIC, &ended) == 0) {
 		int64_t elapsed = (int64_t)(ended.tv_sec - started->tv_sec) * 1000000000LL +
 			ended.tv_nsec - started->tv_nsec;
+		/* A fixed-size summary covers every observed phase even after the
+		 * detail budget fills, so absence from early details is not mistaken
+		 * for an upper bound on backing-disk or reply latency. */
+		for (size_t i = 0; elapsed >= 0 && i < SERVER_IO_PHASE_COUNT; i++) {
+			if (strcmp(phase, server_io_phases[i]))
+				continue;
+			struct server_io_phase *sample = &log->phase[i];
+			server_io_increment(&sample->calls);
+			if (result < 0) server_io_increment(&sample->errors);
+			if (elapsed >= 250000000LL) server_io_increment(&sample->slow);
+			if ((uint64_t)(elapsed / 1000) > sample->max_us)
+				sample->max_us = (uint64_t)(elapsed / 1000);
+			break;
+		}
 		if (elapsed >= 250000000LL || result < 0) {
 			if (log->details < 16) {
 				fprintf(stderr, "MKNBD_SERVER_IO phase=%s duration_us=%lld result=%ld errno=%d\n",
@@ -635,6 +664,13 @@ closed:
 	active_listener = -1;
 	if (SERVER_OBSERVE(&io_diagnostics, "image-sync", fdatasync(image_fd)) < 0)
 		die("final fdatasync");
+	for (size_t i = 0; i < SERVER_IO_PHASE_COUNT; i++) {
+		const struct server_io_phase *sample = &io_diagnostics.phase[i];
+		fprintf(stderr, "MKNBD_SERVER_IO_SUMMARY phase=%s calls=%llu errors=%llu slow=%llu max_us=%llu\n",
+			server_io_phases[i], (unsigned long long)sample->calls,
+			(unsigned long long)sample->errors, (unsigned long long)sample->slow,
+			(unsigned long long)sample->max_us);
+	}
 	if (io_diagnostics.suppressed)
 		fprintf(stderr, "MKNBD_SERVER_IO_SUPPRESSED count=%llu\n", (unsigned long long)io_diagnostics.suppressed);
 	printf("MKNBD_SERVER_CLOSED synced=1 reads=%llu read_bytes=%llu writes=%llu write_bytes=%llu flushes=%llu\n",

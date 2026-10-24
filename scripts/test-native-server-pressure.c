@@ -134,6 +134,12 @@ int main(int argc,char **argv)
 		CHECK(duration>=250000 && result==512 && error==0);timed++;
 	}
 	CHECK(timed==16 && strstr(output,"MKNBD_SERVER_IO_SUPPRESSED count=1\n"));
+	const char *summary=strstr(output,"MKNBD_SERVER_IO_SUMMARY phase=image-write ");
+	unsigned long long calls,errors,slow,maximum;
+	CHECK(summary && sscanf(summary,"MKNBD_SERVER_IO_SUMMARY phase=image-write calls=%llu errors=%llu slow=%llu max_us=%llu",&calls,&errors,&slow,&maximum)==4);
+	CHECK(calls==17 && errors==0 && slow==17 && maximum>=250000);
+	CHECK(strstr(output,"MKNBD_SERVER_IO_SUMMARY phase=image-sync calls=19 errors=0 "));
+	puts("SERVER_PHASE_SUMMARY_COVERS_SUPPRESSED_IO_PASS");
 	puts("SERVER_SLOW_IO_TIMING_BOUNDED_AND_ERRNO_PRESERVED_PASS");
 	fputs(output,stdout);printf("SERVER_REFUSAL_PRESSURE_EXPORT_SURVIVAL_PASS refusals=256 log_bytes=%zd\n",length);
 	close(log);CHECK(unlink(argv[1])==0 && unlink(argv[2])==0);
