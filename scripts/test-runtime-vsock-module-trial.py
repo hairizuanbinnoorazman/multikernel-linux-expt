@@ -4,14 +4,14 @@
 Requires a private systemd unit and already-staged, root-protected test artifacts.
 Restoration refuses active children or module users; failed ownership is retained.
 """
-import fcntl,hashlib,json,os,pathlib,signal,socket,stat,subprocess,time
+import fcntl,hashlib,json,os,pathlib,signal,socket,stat,subprocess,time,uuid
 P=pathlib.Path
-BOOT='1bcdcae0-428b-435e-aff8-02d7637dc7ba'
-MODULE=P('/opt/mkruntime/g8-vsock-rx-c5e57e3')
+BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
+MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
 WORK=P('/opt/mkruntime/g8-host-39f32fa')
-OLD='65C55BB38C669FF94A4B772';NEW='9361875B2E464E2FD6EDA5B'
+OLD='65C55BB38C669FF94A4B772';NEW='0450DCCF7EDC67FAE2A6CAA'
 OLD_SHA='bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2'
-NEW_SHA='a4c0f4e63212d9da405f196870deb2c9b34addbf04f88452423e46ad97507926'
+NEW_SHA='74e813765d8551d086a603e047337b27ad0cce28dd4cc5de7e983a6e10a1f69f'
 NBD_SHA='c9981a1554230e87098472b586ab0fbe20f01c0b813fbd95df5b5f5c99d4a389'
 def run(args,**kw):return subprocess.run([str(v) for v in args],check=True,timeout=30,**kw)
 def output(args):return subprocess.check_output([str(v) for v in args],text=True,timeout=30).strip()
@@ -27,7 +27,7 @@ def protected(path):
 assert os.geteuid()==0 and socket.gethostname()=='mklinux-g7-storage-20261012'
 assert P('/proc/sys/kernel/random/boot_id').read_text().strip()==BOOT
 for path in [MODULE,WORK,WORK/'bin',WORK/'source',WORK/'source/scripts']:protected(path)
-unit=os.environ['MK_MODULE_TRIAL_UNIT'];assert unit=='g8-vsock-rx-trial-39f32fa.service'
+unit=os.environ['MK_MODULE_TRIAL_UNIT'];assert unit=='g8-vsock-rx-trial-39f32fa-release.service'
 scope=show(unit,'MainPID','InvocationID','PrivateMounts','KillMode')
 assert scope=={'MainPID':str(os.getpid()),'InvocationID':os.environ['INVOCATION_ID'],'PrivateMounts':'yes','KillMode':'process'}
 lock=(MODULE/'module-trial.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -37,6 +37,7 @@ assert 'No memory pool configured' in output(['/opt/mkruntime/kerf-venv/bin/kerf
 assert not output(['/usr/bin/docker','--host','unix:///var/run/docker.sock','ps','--all','--quiet'])
 assert sha(WORK/'bin/mkvsock-nbd')==NBD_SHA
 before_build=json.loads((MODULE/'build-preflight.json').read_text())
+assert output(['uname','-r'])==before_build['kernel_release']
 assert all(sha(p)==h for p,h in before_build['inputs_before'].items())
 trial=MODULE/('trial-'+WORK.name);trial.mkdir(mode=0o700)
 original=trial/'original.ko';candidate=trial/'candidate.ko'
@@ -89,6 +90,7 @@ finally:
             time.sleep(1)
         if loaded() is None:run(['/sbin/insmod',original])
     state['original_restored']=loaded()==OLD
+    record('original-restoration-observed')
     state['primary_after']=primary();state['taint_after']=P('/proc/sys/kernel/tainted').read_text().strip()
     state['primary_unchanged']=state['primary_after']==state['primary_before']
     # An external unsigned test module can add O/E origin taints. Preserve the

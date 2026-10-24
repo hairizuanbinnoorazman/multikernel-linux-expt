@@ -29,7 +29,7 @@ typedef int spinlock_t;
 ACTUAL_TRANSPORT_STRUCT
 struct vsock_sock {struct mk_vsock_sock *trans;};
 struct msghdr {unsigned char *data;size_t position;};
-static int copy_error;static unsigned long visits;
+static int copy_error;static unsigned long visits;static unsigned char payload_tag=0x31;
 static void (*during_copy)(void);
 #define le32_to_cpu(x) (x)
 #define VIRTIO_VSOCK_SKB_CB(skb) (&(skb)->cb)
@@ -44,7 +44,7 @@ static struct sk_buff *__skb_dequeue(struct sk_buff_head *q){struct sk_buff *s=q
 static void kfree_skb(struct sk_buff *s){free(s->data);free(s);}
 static void skb_queue_purge(struct sk_buff_head *q){struct sk_buff *s;while((s=__skb_dequeue(q)))kfree_skb(s);}
 static int skb_copy_datagram_msg(struct sk_buff *s,size_t offset,struct msghdr *m,size_t count){if(during_copy){void (*hook)(void)=during_copy;during_copy=NULL;hook();}if(copy_error)return -EFAULT;memcpy(m->data+m->position,s->data+offset,count);m->position+=count;return 0;}
-static struct sk_buff *packet(u32 length,int full){struct sk_buff *s=calloc(1,sizeof(*s));assert(s);s->data=calloc(1,sizeof(struct virtio_vsock_hdr)+(full?length:0));assert(s->data);((struct virtio_vsock_hdr *)s->data)->len=length;if(full)memset(s->data+sizeof(struct virtio_vsock_hdr),0x71,length);return s;}
+static struct sk_buff *packet(u32 length,int full){struct sk_buff *s=calloc(1,sizeof(*s));assert(s);s->data=calloc(1,sizeof(struct virtio_vsock_hdr)+(full?length:0));assert(s->data);((struct virtio_vsock_hdr *)s->data)->len=length;if(full)memset(s->data+sizeof(struct virtio_vsock_hdr),payload_tag++,length);return s;}
 static u64 reference(struct mk_vsock_sock *v){u64 sum=0;for(struct sk_buff *s=v->rx_queue.head;s;s=s->next)sum+=((struct virtio_vsock_hdr *)s->data)->len-s->cb.offset;return sum;}
 '''
 checks=r'''
@@ -56,10 +56,12 @@ int main(void){
  assert(mk_transport_stream_dequeue(&socket_fixture,&msg,10,0)==-EAGAIN);check();
  mk_transport_queue_rx(&queue,packet(100,1));mk_transport_queue_rx(&queue,packet(200,1));check();
  assert(mk_transport_stream_dequeue(&socket_fixture,&msg,37,0)==37);check();assert(msg.position==37 && queue.fwd_cnt==37);
- for(size_t i=0;i<msg.position;i++)assert(data[i]==0x71);
+ for(size_t i=0;i<msg.position;i++)assert(data[i]==0x31);
  u32 forwarded=queue.fwd_cnt;copy_error=1;msg.position=0;during_copy=concurrent_arrival;
  assert(mk_transport_stream_dequeue(&socket_fixture,&msg,50,0)==-EFAULT);assert(!msg.position && queue.fwd_cnt==forwarded);check();copy_error=0;
- while(reference(&queue)){msg.position=0;assert(mk_transport_stream_dequeue(&socket_fixture,&msg,29,0)>0);for(size_t i=0;i<msg.position;i++)assert(data[i]==0x71);check();}
+ size_t delivered=37;
+ while(reference(&queue)){msg.position=0;assert(mk_transport_stream_dequeue(&socket_fixture,&msg,29,0)>0);for(size_t i=0;i<msg.position;i++,delivered++)assert(data[i]==(delivered<100?0x31:delivered<300?0x32:0x33));check();}
+ assert(delivered==313 && queue.fwd_cnt==313);
  mk_transport_queue_rx(&queue,packet(17,1));mk_transport_queue_rx(&queue,packet(19,1));check();assert(!mk_transport_cancel_pkt(&socket_fixture));check();
  puts("VSOCK_RX_PARTIAL_COPY_FAULT_ARRIVAL_AND_CANCEL_PASS");
  for(unsigned i=0;i<16384;i++)mk_transport_queue_rx(&queue,packet(64,0));
