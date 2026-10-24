@@ -28,7 +28,7 @@ int main(int argc,char **argv)
  int result=native_stream_proxy(left,right),error=errno;
  fprintf(stderr,"PROXY_BACKPRESSURE_RESULT result=%d errno=%d injected=%u\n",result,error,injected);
  if(!strcmp(mode,"transient") && (!injected || result))return 2;
- if(!strcmp(mode,"permanent") && (error!=ETIMEDOUT || injected>100))return 2;
+ if(!strcmp(mode,"permanent") && (error!=ETIMEDOUT || injected>8))return 2;
  if(!strcmp(mode,"left") && (error!=ENOSPC || injected!=1))return 2;
  return result<0;
 }

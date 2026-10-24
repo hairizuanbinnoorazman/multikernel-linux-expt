@@ -50,7 +50,7 @@ static int native_stream_proxy(int left, int right)
 	struct direction {
 		unsigned char data[65536];
 		size_t begin, end;
-		int eof, shutdown;
+		int eof, shutdown, retry_delay;
 		int64_t retry_after, retry_started;
 	} direction[2] = {0};
 	int fd[2] = {left, right};
@@ -136,11 +136,13 @@ static int native_stream_proxy(int left, int right)
 				if (n > 0) {
 					d->begin += (size_t)n;
 					d->retry_after = d->retry_started = 0;
+					d->retry_delay = 0;
 				} else if (n < 0 && errno == ENOSPC && 1-i == NATIVE_PROXY_MK_ENDPOINT) {
 					if (native_proxy_now(&now) < 0)
 						return native_proxy_error("clock", 1-i, errno);
 					if (!d->retry_after) d->retry_started = now;
-					d->retry_after = now + 1;
+					d->retry_delay = d->retry_delay ? (d->retry_delay < 16 ? d->retry_delay * 2 : 16) : 1;
+					d->retry_after = now + d->retry_delay;
 					if (!queue_full_noted) {
 						NATIVE_PROXY_TRACE("mk-queue-full", 1-i, ENOSPC);
 						queue_full_noted = 1;

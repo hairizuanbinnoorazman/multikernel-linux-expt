@@ -89,7 +89,8 @@ deadlines remain the same. Live Docker concurrency remains a separate gate.
 The NBD client explicitly marks only its already-selected Multikernel VSOCK
 endpoint for ring-full handling. Its IPI enqueue path returns `ENOSPC` before
 claiming a slot when the ring is full. The proxy retains those unsent bytes,
-pauses that write direction for 1 ms, and continues servicing the other direction.
+backs off that write direction from 1 to 16 ms, and continues servicing the other
+direction. Successful write progress resets the backoff.
 An uninterrupted queue-full episode has a 15-second deadline; normal NBD and
 absolute server frame deadlines are unchanged. Only the first ring-full event is
 logged per proxy, preventing retry-driven diagnostic growth. Other endpoints and
