@@ -24,8 +24,10 @@ These are operation counts, not a live throughput benchmark.
 
 Run `python3 scripts/test-kernel-vsock-rx-accounting.py`. Full kernel compilation,
 module/source binding, real concurrency, live pressure and export-release checks
-are still required. The patch has not been applied to the instance source tree,
-loaded into a kernel or integrated into the existing module build script.
+are still required. The canonical instance source tree and installed module files remain unchanged.
+The private combined module is now undergoing a guarded live trial; pressure
+qualification remains pending. The existing build script does not yet integrate
+these patches.
 
 The experiment uses direct child kernels without nested virtualization. It does
 not establish containment after child-kernel compromise; see the
@@ -45,3 +47,13 @@ Its original-callback negative control retains a connected-table reference.
 Kernel socket lifetime and module-reference return still need live evidence.
 Forced module unload is excluded; existing orphaned state is not repaired by
 changing source files or by the local fixture.
+
+[Isolated combined compilation](../../../evidence/runtime-20261024/g8-vsock-release-module-build/README.md)
+and the [busy-module refusal](../../../evidence/runtime-20261024/g8-vsock-orphan-guard/README.md)
+are retained. A [clean administrative boot](../../../evidence/runtime-20261024/g8-clean-boot-observation/README.md)
+clears the old orphan state without altering failed disk/ledger bytes. The lab
+trial swaps only an unused fresh-boot transport, checks complete workload cleanup
+before restoration, and restores through a separate idle reboot after traffic.
+Concurrent callback/unregistration lifetime and general hot upgrade are not
+qualified by this experiment. A reboot cannot substitute for the trial's zero
+socket/reference, filesystem and resource cleanup requirements.

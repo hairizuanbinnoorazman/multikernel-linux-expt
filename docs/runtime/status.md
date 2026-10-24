@@ -312,3 +312,18 @@ now retain six phase maxima/counts even after detail suppression and pass requir
 checks. Bootstrap queue observation is read-only and awaits a live result. The
 rejected global queue-limit proposal was not applied. No request/queue/timeout
 limit changed. Pressure, automatic cleanup and full G7/G8 remain open.
+
+The [live queue/phase baseline](../../evidence/runtime-20261024/g8-queue-phase-pressure-failure/README.md)
+observes software queue 256, 4 MiB requests and 15 s configured timeout. Proxy
+ENOSPC comes from VSOCK send before journal abort, not the required filesystem
+exhaustion. Complete phase maxima put WRITE payload receive at 6.23 s and backing
+read/write/sync below 14 ms in that run. [Bounded retry controls](../../evidence/runtime-20261024/g8-ring-full-retry-controls/README.md)
+pass for exact duplex bytes, paced timeout and endpoint-specific refusal.
+A [readiness/release module candidate](../../evidence/runtime-20261024/g8-vsock-release-module-build/README.md)
+removes linear queue walks and retires core socket-table refs on close. Local
+actual-function checks and isolated compilation pass. An initial guarded trial
+[refuses four old orphan refs](../../evidence/runtime-20261024/g8-vsock-orphan-guard/README.md)
+before any module load. The [clean boot](../../evidence/runtime-20261024/g8-clean-boot-observation/README.md)
+provides an empty baseline and preserves failed disk/ledger hashes. Candidate
+pressure, live reference cleanup and full G7/G8 are still pending. No force unload,
+queue-size change, request-limit change or deadline relaxation is used.
