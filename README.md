@@ -58,6 +58,12 @@ remains unresolved. Earlier transport failures, bounded retry/readiness fixes,
 filtered diagnostics and module-restoration evidence are retained in the
 [Docker guest investigation](docs/runtime/research/docker-in-docker-guests.md).
 
+A [live primary-store boundary check](evidence/runtime-20261024/g8-primary-docker-boundary/README.md)
+also holds a child-built image before pruning and proves its ID is absent from
+the primary Docker engine. Primary image/tag, container, volume and network
+inventory fingerprints match before, during pressure, while that image exists,
+and after cleanup. These are inventory identities, not a hash of volume contents.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

@@ -257,3 +257,13 @@ and failed storage, and twenty preserved successful-trial receipt/archive/binary
 hashes. No persistent module/runtime replacement was made. Cleanup was observed
 and committed before reboot. The bounded normal cases are qualified; the full
 G7/G8 operational/security requirements remain open.
+
+The [primary Docker boundary qualification](../../../evidence/runtime-20261024/g8-primary-docker-boundary/README.md)
+adds a built-image hold before guest pruning. The child image exists in its local
+engine and is absent from the installed primary image inventory, whose stable
+engine/image/tag/container/volume/network fingerprints remain unchanged across
+four phases. The fixture publishes no primary names or client credentials.
+[Observation controls](../../../evidence/runtime-20261024/g8-primary-docker-controls/README.md)
+prove retag/presence detection and output/deadline limits. This strengthens the
+store boundary evidence without claiming volume-content parity, hostile-kernel
+containment or full G7/G8 completion. No nested virtualization is used.

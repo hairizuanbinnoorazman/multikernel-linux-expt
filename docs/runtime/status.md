@@ -404,3 +404,16 @@ Twenty successful-trial receipt/archive/component hashes match the preboot
 evidence. Private fixed binaries remain staged; no installed runtime binary or
 module was replaced persistently. Both successful cleanup results precede this
 reboot, which is not counted as cleanup. Full G7/G8 remains OPEN.
+
+The [a262378 primary Docker boundary case](../../evidence/runtime-20261024/g8-primary-docker-boundary/README.md)
+now qualifies an in-flight check: the guest holds its built image before pruning,
+and the observer confirms its ID is absent from the installed primary engine.
+Four bounded snapshots preserve engine identity and image/tag/digest, container,
+volume and network inventory fingerprints before/full/image-held/after. Only
+counts and fingerprints are published. Exact ENOSPC recovery, the build matrix,
+clean release and complete automatic cleanup also pass with unchanged primary
+files/PIDs/network. [Local controls and preflight](../../evidence/runtime-20261024/g8-primary-docker-controls/README.md)
+cover retag drift, image presence, malformed metadata and bounded observation.
+The observer/release share the existing build budget. This does not hash volume
+contents or qualify all G7/G8 requirements; final original-module restoration
+follows separately.
