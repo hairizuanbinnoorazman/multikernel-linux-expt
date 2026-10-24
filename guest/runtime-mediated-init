@@ -37,6 +37,16 @@ insmod /lib/nbd.ko nbds_max=2 || {
 	exec sh -c 'while true; do sleep 3600; done'
 }
 ip link set lo up
+# Observe this child's effective queue without changing device configuration.
+# Keep diagnostics independent of agent exec availability under I/O pressure.
+observe_nbd_queue() {
+	for setting in nr_requests max_sectors_kb max_hw_sectors_kb io_timeout; do
+		value=$(cat "/sys/class/block/nbd0/queue/$setting" 2>/dev/null || true)
+		case "$value" in ''|*[!0-9]*) value=unavailable ;; esac
+		echo "MKNBD_QUEUE_OBSERVATION phase=$1 setting=$setting value=$value"
+	done
+}
+observe_nbd_queue before-connect
 /bin/mkvsock-nbd client 0 "$port" /dev/nbd0 "$size" "$image_id" "$storage_generation" reserved \
 	>/tmp/nbd-client.log 2>&1 &
 nbd_pid=$!
@@ -54,6 +64,7 @@ if [ "$ready" -ne 1 ]; then
 	echo MK_STORAGE_BOOTSTRAP_FAIL reason=nbd-timeout
 	exec sh -c 'while true; do sleep 3600; done'
 fi
+observe_nbd_queue after-setup
 observed_uuid=
 for second in $(seq 1 10); do
 	observed_uuid=$(/bin/mkvsock-nbd uuid /dev/nbd0 2>/dev/null || true)
