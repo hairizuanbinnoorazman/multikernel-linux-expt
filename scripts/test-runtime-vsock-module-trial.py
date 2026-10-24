@@ -54,7 +54,7 @@ def primary():
     services={n:output(['systemctl','show',n,'-p','MainPID','--value']) for n in ['mkruntimed','mknetd','containerd','docker']}
     assert all(output(['systemctl','is-active',n])=='active' and int(pid)>0 for n,pid in services.items())
     return {'file_sha256':{str(p):sha(p) for p in paths},'service_main_pids':services}
-state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'parent_scope':scope,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'events':[]}
+state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'parent_scope':scope,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':'39f32fa','source_archive_sha256':sha(WORK/'source.tar'),'events':[]}
 def record(phase,**values):
     state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded()})
     temporary=trial/'receipt.tmp';temporary.write_text(json.dumps(state,indent=2)+'\n');temporary.chmod(0o600);os.replace(temporary,trial/'primary-module-trial.json')
@@ -88,12 +88,17 @@ finally:
             if time.monotonic()>=deadline:break
             time.sleep(1)
         if loaded() is None:run(['/sbin/insmod',original])
-        state['original_restored']=loaded()==OLD
-        state['primary_after']=primary();state['taint_after']=P('/proc/sys/kernel/tainted').read_text().strip()
-        state['primary_unchanged']=state['primary_after']==state['primary_before']
-        record('restoration-observed')
+    state['original_restored']=loaded()==OLD
+    state['primary_after']=primary();state['taint_after']=P('/proc/sys/kernel/tainted').read_text().strip()
+    state['primary_unchanged']=state['primary_after']==state['primary_before']
+    # An external unsigned test module can add O/E origin taints. Preserve the
+    # observations and reject every other new taint (warnings, oops, etc.).
+    state['taint_added_bits']=int(state['taint_after']) & ~int(state['taint_before'])
+    state['allowed_module_origin_taint_bits']=(1<<12)|(1<<13)
+    state['unexpected_taint_bits']=state['taint_added_bits'] & ~state['allowed_module_origin_taint_bits']
+    record('restoration-observed')
 assert state.get('original_restored') and state.get('primary_unchanged'),state
 if failure:raise failure
 assert state['pressure_scope']['Result']=='success' and state['pressure_scope']['ExecMainStatus']=='0','pressure qualification failed; retained test work must be diagnosed'
-assert state['taint_after']==state['taint_before'],'kernel taint changed during trial'
+assert state['unexpected_taint_bits']==0,'unexpected kernel taint added during trial'
 print('PINNED_MODULE_PRESSURE_TRIAL_AND_ORIGINAL_RESTORATION_PASS')
