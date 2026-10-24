@@ -31,3 +31,17 @@ The experiment uses direct child kernels without nested virtualization. It does
 not establish containment after child-kernel compromise; see the
 [deployment constraint](../architecture.md#deployment-and-containment-constraint).
 Full G7/G8 remain open.
+
+The first guarded module trial subsequently refuses before unloading anything:
+four established VSOCK entries and four module references remain without process
+owners after two failed cases, despite no child kernels or fixture cgroups.
+The observed transport release callback sends shutdown but omits the core table
+unlink operation. The [release patch](../../../patches/linux/linux-v7.0-mk2-vsock-release-sockets.patch)
+calls `vsock_remove_sock`, which removes connected-table references and uses the
+core's SOCK_DEAD rule to preserve bindings during transport reassignment.
+The actual-callback control checks close states, allocation/send failure and
+reassignment binding preservation against that inspected core API contract.
+Its original-callback negative control retains a connected-table reference.
+Kernel socket lifetime and module-reference return still need live evidence.
+Forced module unload is excluded; existing orphaned state is not repaired by
+changing source files or by the local fixture.
