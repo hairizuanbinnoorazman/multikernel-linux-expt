@@ -41,7 +41,11 @@ uncorrected guest filesystem errors. Its disk and ledgers are
 with CPU/pool/network resources returned. Pressure recovery is unqualified. A repeat with
 [bounded child-console capture](evidence/runtime-20261023/g8-pressure-console-failure/README.md)
 records NBD connection reset/broken pipe before the filesystem journal abort.
-The transport failure cause remains under investigation.
+A [client-instrumented repeat](evidence/runtime-20261023/g8-pressure-client-timeout/README.md)
+records an NBD timeout before journal abort and failed Docker cleanup. The
+[external restart observation](evidence/runtime-20261024/g8-pressure-external-restart/README.md)
+confirms resources returned and failed storage retained. The underlying timeout
+cause remains under investigation; bounded server I/O timing is now available.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

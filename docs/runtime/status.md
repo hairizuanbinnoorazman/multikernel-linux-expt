@@ -288,3 +288,13 @@ exit 127. This establishes event ordering, not the transport failure cause.
 The pressure gate and full G7/G8 remain open. Native client terminal diagnostics
 now reach the protected child console after successful peer validation; they
 do not change forwarding limits or error policy.
+
+The [client-instrumented pressure run](../../evidence/runtime-20261023/g8-pressure-client-timeout/README.md)
+records an NBD connection timeout before proxy local-TCP EOF, ioctl return 0,
+and journal abort. Docker cleanup fails with a zombie PID. The user's next
+[external restart](../../evidence/runtime-20261024/g8-pressure-external-restart/README.md)
+returns CPU/pool resources; failed ledgers and disk remain. This is not automatic
+recovery. [Server timing controls](../../evidence/runtime-20261024/g8-server-io-controls/README.md)
+pass with 17 forced slow writes, bounded details, errno preservation, full required
+checks and unchanged forwarding/time-budget policy. Physical pressure and full
+G7/G8 remain open. Tests continue with direct children and no nested virtualization.
