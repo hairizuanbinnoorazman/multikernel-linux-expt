@@ -25,6 +25,7 @@
 #include "native_privileges.h"
 static void native_proxy_trace(const char *stage, int endpoint, int detail);
 #define NATIVE_PROXY_TRACE(stage, endpoint, detail) native_proxy_trace(stage, endpoint, detail)
+#define NATIVE_PROXY_MK_ENDPOINT 1
 #include "native_stream_proxy.h"
 #include "native_server_sandbox.h"
 #include "native_server_limits.h"

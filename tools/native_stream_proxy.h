@@ -3,6 +3,8 @@
 #define MULTIKERNEL_NATIVE_STREAM_PROXY_H
 
 #include <errno.h>
+#include <stdint.h>
+#include <time.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <string.h>
@@ -12,6 +14,24 @@
 #ifndef NATIVE_PROXY_TRACE
 #define NATIVE_PROXY_TRACE(stage, endpoint, detail) ((void)0)
 #endif
+
+/* Only the caller that selected Multikernel VSOCK may interpret its ring-full
+ * ENOSPC as an unsent write. Other endpoints retain normal fatal-error policy. */
+#ifndef NATIVE_PROXY_MK_ENDPOINT
+#define NATIVE_PROXY_MK_ENDPOINT (-1)
+#endif
+#ifndef NATIVE_PROXY_QUEUE_TIMEOUT_MS
+#define NATIVE_PROXY_QUEUE_TIMEOUT_MS 15000
+#endif
+
+static int native_proxy_now(int64_t *milliseconds)
+{
+	struct timespec now;
+	if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
+		return -1;
+	*milliseconds = (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+	return 0;
+}
 
 static int native_proxy_error(const char *stage, int endpoint, int error)
 {
@@ -31,8 +51,10 @@ static int native_stream_proxy(int left, int right)
 		unsigned char data[65536];
 		size_t begin, end;
 		int eof, shutdown;
+		int64_t retry_after, retry_started;
 	} direction[2] = {0};
 	int fd[2] = {left, right};
+	int queue_full_noted = 0;
 	for (int i = 0; i < 2; i++) {
 		int flags = fcntl(fd[i], F_GETFL);
 		if (flags < 0 || fcntl(fd[i], F_SETFL, flags | O_NONBLOCK) < 0)
@@ -40,7 +62,11 @@ static int native_stream_proxy(int left, int right)
 	}
 	for (;;) {
 		struct pollfd ready[2] = {{.fd = left}, {.fd = right}};
-		int completed = 0;
+		int completed = 0, timeout = -1;
+		int write_allowed[2] = {1, 1};
+		int64_t now = 0;
+		if ((direction[0].retry_after || direction[1].retry_after) && native_proxy_now(&now) < 0)
+			return native_proxy_error("clock", -1, errno);
 		for (int i = 0; i < 2; i++) {
 			struct direction *d = &direction[i];
 			if (d->begin == d->end)
@@ -59,8 +85,22 @@ static int native_stream_proxy(int left, int right)
 				completed++;
 			if (!d->eof && d->end < sizeof(d->data))
 				ready[i].events |= POLLIN;
-			if (d->end > d->begin)
-				ready[1-i].events |= POLLOUT;
+			if (d->end > d->begin) {
+				int allow_write = 1;
+				if (d->retry_after) {
+					int64_t budget = NATIVE_PROXY_QUEUE_TIMEOUT_MS - (now - d->retry_started);
+					if (budget <= 0)
+						return native_proxy_error("mk-queue-timeout", 1-i, ETIMEDOUT);
+					if (timeout < 0 || budget < timeout) timeout = (int)budget;
+					int64_t pause = d->retry_after - now;
+					if (pause > 0) {
+						allow_write = 0;
+						write_allowed[i] = 0;
+						if (pause < timeout) timeout = (int)pause;
+					}
+				}
+				if (allow_write) ready[1-i].events |= POLLOUT;
+			}
 		}
 		if (completed == 2) {
 			NATIVE_PROXY_TRACE("complete", -1, 0);
@@ -70,7 +110,7 @@ static int native_stream_proxy(int left, int right)
 		for (int i = 0; i < 2; i++)
 			if (!ready[i].events)
 				ready[i].fd = -1;
-		int result = poll(ready, 2, -1);
+		int result = poll(ready, 2, timeout);
 		if (result < 0 && errno == EINTR)
 			continue;
 		if (result < 0)
@@ -90,12 +130,22 @@ static int native_stream_proxy(int left, int right)
 		}
 		for (int i = 0; i < 2; i++) {
 			struct direction *d = &direction[i];
-			if (d->end > d->begin && (ready[1-i].revents & (POLLOUT | POLLHUP))) {
+			if (d->end > d->begin && write_allowed[i] && (ready[1-i].revents & (POLLOUT | POLLHUP))) {
 				ssize_t n = send(fd[1-i], d->data + d->begin,
 						 d->end - d->begin, MSG_DONTWAIT | MSG_NOSIGNAL);
-				if (n > 0)
+				if (n > 0) {
 					d->begin += (size_t)n;
-				else if (!n || (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)) {
+					d->retry_after = d->retry_started = 0;
+				} else if (n < 0 && errno == ENOSPC && 1-i == NATIVE_PROXY_MK_ENDPOINT) {
+					if (native_proxy_now(&now) < 0)
+						return native_proxy_error("clock", 1-i, errno);
+					if (!d->retry_after) d->retry_started = now;
+					d->retry_after = now + 1;
+					if (!queue_full_noted) {
+						NATIVE_PROXY_TRACE("mk-queue-full", 1-i, ENOSPC);
+						queue_full_noted = 1;
+					}
+				} else if (!n || (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)) {
 					if (!n)
 						errno = EPIPE;
 					return native_proxy_error(n ? "send" : "send-zero", 1-i, errno);

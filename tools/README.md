@@ -85,3 +85,16 @@ by the other endpoint. `scripts/test-native-stream-proxy.py` retains the prior
 blocking-loop deadlock control and verifies full-duplex backpressure, complete
 half-close replies and broken-peer refusal. Export identity, limits and request
 deadlines remain the same. Live Docker concurrency remains a separate gate.
+
+The NBD client explicitly marks only its already-selected Multikernel VSOCK
+endpoint for ring-full handling. Its IPI enqueue path returns `ENOSPC` before
+claiming a slot when the ring is full. The proxy retains those unsent bytes,
+pauses that write direction for 1 ms, and continues servicing the other direction.
+An uninterrupted queue-full episode has a 15-second deadline; normal NBD and
+absolute server frame deadlines are unchanged. Only the first ring-full event is
+logged per proxy, preventing retry-driven diagnostic growth. Other endpoints and
+other errors retain fatal-error behavior. `test-native-stream-backpressure.py`
+checks injected transient exhaustion with exact duplex bytes/half-close replies,
+permanent exhaustion with bounded retry count/timeout, and unmarked ENOSPC refusal.
+This is a protocol retry correction, not a live pressure qualification or a change
+to kernel queue sizing. The receive-readiness kernel patch is qualified separately.

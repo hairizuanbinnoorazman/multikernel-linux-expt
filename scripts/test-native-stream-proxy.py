@@ -93,10 +93,11 @@ def broken_peer(binary):
         if process.poll() is None:process.kill();process.wait()
         client.close()
 
-with tempfile.TemporaryDirectory() as directory:
-    binary = Path(directory) / 'proxy'
-    subprocess.run(['cc', '-O2', '-Wall', '-Wextra', '-Werror', str(root/'scripts/test-native-stream-proxy.c'), '-o', str(binary)], check=True)
-    exercise(binary, control=True)
-    exercise(binary)
-    exercise(binary, reply_after_eof=True)
-    broken_peer(binary)
+if __name__ == '__main__':
+    with tempfile.TemporaryDirectory() as directory:
+        binary = Path(directory) / 'proxy'
+        subprocess.run(['cc', '-O2', '-Wall', '-Wextra', '-Werror', str(root/'scripts/test-native-stream-proxy.c'), '-o', str(binary)], check=True)
+        exercise(binary, control=True)
+        exercise(binary)
+        exercise(binary, reply_after_eof=True)
+        broken_peer(binary)
