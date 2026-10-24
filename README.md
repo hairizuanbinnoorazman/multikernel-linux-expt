@@ -35,7 +35,8 @@ also passes: SIGKILL and adoption occur inside an observed BuildKit RUN with a
 45-second sleep, the interrupted matrix finishes, and fresh builds succeed.
 
 The [bounded storage-pressure case](evidence/runtime-20261024/g8-pressure-recovery-qualified/README.md)
-now passes on GCE with the fixed runtime: exact zero-space ENOSPC, capacity
+and its [same-boot repeat](evidence/runtime-20261024/g8-pressure-warm-repeat/README.md)
+now pass on GCE with the fixed runtime: exact zero-space ENOSPC, capacity
 recovery, same-engine child builds, clean filesystem release and automatic
 CPU/pool/network/storage cleanup. Installed service PIDs/files and raw network
 state match their baseline; VSOCK references return to zero. The
@@ -43,8 +44,9 @@ state match their baseline; VSOCK references return to zero. The
 address the earlier timing-record cleanup refusal. A separate
 [saved-image content proof](evidence/runtime-20261024/g8-pressure-saved-image/README.md)
 verifies the preceding recovery build's output, layer digests and BusyBox input.
-This accepts one bounded pressure/recovery/cleanup case; repeated lifecycle
-behavior and full G7/G8 remain open.
+The repeat uses fresh engine/storage generations on the same CPUs/CID without
+reloading the transport. This accepts the bounded case and one normal repeat;
+broader lifecycle/recovery coverage and full G7/G8 remain open.
 
 [Operator quarantine](evidence/runtime-20261024/g8-pressure-recovery-quarantine/README.md)
 returns resources and retains the recovered disk/failed ledgers; read-only filesystem

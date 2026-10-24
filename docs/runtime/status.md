@@ -384,3 +384,13 @@ before reboot. This closes the bounded pressure/recovery/automatic-cleanup case,
 not full G7/G8. The [previous experiment's cold restoration](../../evidence/runtime-20261024/g8-pressure-cold-restoration/README.md)
 is retained separately; the new candidate remains loaded pending a guarded
 same-boot repeat and final idle cold restoration.
+
+The [guarded same-boot repeat](../../evidence/runtime-20261024/g8-pressure-warm-repeat/README.md)
+now also passes after normal automatic cleanup, with the same component pins,
+CPUs/CID and primary boot, fresh empty engine/filesystem generations, no transport
+reload, exact zero-space/recovery/build checks, clean release, empty resources
+and unchanged primary state. Committed driver 19e6c45 and kernel registration
+journal bind that sequence to the prior accepted receipt. This qualifies one
+normal repeat; arbitrary startup after failed recovery, broader soak/concurrency/
+crash coverage and full G7/G8 remain OPEN. Final idle cold restoration follows
+after these independently observed cleanup results.

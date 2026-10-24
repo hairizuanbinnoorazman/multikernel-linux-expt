@@ -56,6 +56,14 @@ Operational checks do not establish containment after child-kernel compromise.
 - Service hardening on a qualified host, including restart reconciliation.
 - Operator runbook execution by a fresh checkout with no developer-local state.
 
+Bounded [storage-pressure recovery/cleanup](../../../evidence/runtime-20261024/g8-pressure-recovery-qualified/README.md)
+and a [normal same-boot repeat](../../../evidence/runtime-20261024/g8-pressure-warm-repeat/README.md)
+have qualified live evidence, including service-policy observations, generation
+release, filesystem checking and same-boot primary/resource parity. These cover
+part of the failure/recovery and hardening tests above. The complete health,
+diagnostics, recovery, maintainability and fresh-checkout operator requirements
+still govern the full exit gate below.
+
 ## Gate G8
 
 Pass when an operator can determine runtime health and resource ownership from

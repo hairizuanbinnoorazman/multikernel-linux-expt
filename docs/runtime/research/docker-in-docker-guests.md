@@ -239,3 +239,14 @@ now binds each source revision/archive before module mutation. See the earlier
 [cold restoration proof](../../../evidence/runtime-20261024/g8-cold-module-restoration/README.md)
 for the no-hot-unload policy. These are direct child-kernel tests with no nested
 virtualization. Fixed-runtime live cleanup acceptance and full G7/G8 remain open.
+
+The [fixed-runtime live case](../../../evidence/runtime-20261024/g8-pressure-recovery-qualified/README.md)
+and [same-boot repeat](../../../evidence/runtime-20261024/g8-pressure-warm-repeat/README.md)
+now qualify bounded zero-space ENOSPC recovery, builds and normal automatic cleanup.
+Both release the exact storage generation after clean offline checking, return
+CPU/pool/network/child resources and retire VSOCK references without changing
+installed service PIDs/files or raw network state. The repeat reuses CPUs/CID with
+a fresh engine/filesystem and no transport reload, as confirmed by the primary
+registration journal. Previous failed-recovery startup behavior and broader
+G7/G8 exit requirements remain unqualified. Cold restoration is separate from
+normal cleanup; these direct child-kernel tests use no nested virtualization.
