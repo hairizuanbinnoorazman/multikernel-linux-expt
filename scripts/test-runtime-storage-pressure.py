@@ -43,6 +43,11 @@ class StoragePressureTests(unittest.TestCase):
                 full_observation(self.full.replace(old, new), self.error)
         with self.assertRaises(ValueError):
             full_observation(self.full, 'Input/output error')
+        for mixed in ['I/O error', 'Input/output error', 'Read-only file system']:
+            with self.subTest(mixed=mixed), self.assertRaises(ValueError):
+                full_observation(self.full, self.error + mixed)
+        with self.assertRaises(ValueError):
+            full_observation(self.full.replace('FULL_KIB=0', 'FULL_KIB=496'), self.error)
         with self.assertRaises(ValueError):
             full_observation(self.full + 'G8_STORAGE_PRESSURE_FULL_KIB=0\n', self.error)
         with self.assertRaises(ValueError):

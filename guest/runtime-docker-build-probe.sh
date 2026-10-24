@@ -26,6 +26,15 @@ if [ "${1:-}" = --storage-pressure ]; then
     echo "G8_STORAGE_PRESSURE_FS_MAGIC=$(stat -f -c %t "$work")"
     set +e
     LC_ALL=C dd if=/dev/zero of="$work/pressure.bin" bs=1048576 count=2304
+    coarse_status=$?
+    set -e
+    echo "G8_STORAGE_PRESSURE_COARSE_WRITE_EXIT=$coarse_status"
+    test "$coarse_status" -eq 1
+    # A failed 1 MiB allocation can leave a smaller usable tail. Consume at
+    # most one additional MiB in filesystem-sized writes; keep the host's
+    # zero-available-space requirement unchanged.
+    set +e
+    LC_ALL=C dd if=/dev/zero bs=4096 count=256 >> "$work/pressure.bin"
     write_status=$?
     set -e
     echo "G8_STORAGE_PRESSURE_WRITE_EXIT=$write_status"
