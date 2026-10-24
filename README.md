@@ -34,15 +34,17 @@ A [bounded executing-RUN crash case](evidence/runtime-20261023/g8-runtime-active
 also passes: SIGKILL and adoption occur inside an observed BuildKit RUN with a
 45-second sleep, the interrupted matrix finishes, and fresh builds succeed.
 
-The [strict storage-pressure recovery workload](evidence/runtime-20261024/g8-pressure-recovery-cleanup-failure/README.md)
-now reaches zero available space with real ENOSPC, restores capacity, and completes
-the build matrix on the same child-local engine. Its
-[saved image contents](evidence/runtime-20261024/g8-pressure-saved-image/README.md)
-verify against the expected output, layer digests and BusyBox input. Normal cleanup
-still fails: the runtime's close parser rejects the helper's new I/O timing records.
-The [committed parser fix and controls](evidence/runtime-20261024/g8-native-close-timing-controls/README.md)
-validate those bounded records while preserving strict lifecycle checks; live
-acceptance with the fixed runtime is pending.
+The [bounded storage-pressure case](evidence/runtime-20261024/g8-pressure-recovery-qualified/README.md)
+now passes on GCE with the fixed runtime: exact zero-space ENOSPC, capacity
+recovery, same-engine child builds, clean filesystem release and automatic
+CPU/pool/network/storage cleanup. Installed service PIDs/files and raw network
+state match their baseline; VSOCK references return to zero. The
+[parser fix and controls](evidence/runtime-20261024/g8-native-close-timing-controls/README.md)
+address the earlier timing-record cleanup refusal. A separate
+[saved-image content proof](evidence/runtime-20261024/g8-pressure-saved-image/README.md)
+verifies the preceding recovery build's output, layer digests and BusyBox input.
+This accepts one bounded pressure/recovery/cleanup case; repeated lifecycle
+behavior and full G7/G8 remain open.
 
 [Operator quarantine](evidence/runtime-20261024/g8-pressure-recovery-quarantine/README.md)
 returns resources and retains the recovered disk/failed ledgers; read-only filesystem

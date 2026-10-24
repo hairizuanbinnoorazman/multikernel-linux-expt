@@ -374,3 +374,13 @@ validation; storage, daemon and shim race tests and required checks pass.
 returns resources, preserves failed ledgers/image and passes read-only e2fsck.
 Fixed runtime binaries are built from the pinned archive; live automatic cleanup
 acceptance, repeated lifecycle/startup reliability and full G7/G8 remain OPEN.
+
+The [f2d8439 fixed-runtime pressure case](../../evidence/runtime-20261024/g8-pressure-recovery-qualified/README.md)
+is independently qualified on boot 024920df-59b6-43cb-8100-427ca1b7c792. Exact
+zero-space ENOSPC, restored capacity, same-engine builds, matching native counters,
+RELEASED storage with e2fsck-clean digest, empty rootfs/network/lifecycle inventory,
+CPU/pool/child cleanup, unchanged primary state and zero VSOCK references all pass
+before reboot. This closes the bounded pressure/recovery/automatic-cleanup case,
+not full G7/G8. The [previous experiment's cold restoration](../../evidence/runtime-20261024/g8-pressure-cold-restoration/README.md)
+is retained separately; the new candidate remains loaded pending a guarded
+same-boot repeat and final idle cold restoration.
