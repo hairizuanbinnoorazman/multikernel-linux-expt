@@ -30,6 +30,13 @@ if [ "${1:-}" = --storage-pressure ]; then
     set -e
     echo "G8_STORAGE_PRESSURE_COARSE_WRITE_EXIT=$coarse_status"
     test "$coarse_status" -eq 1
+    set +e
+    sync
+    coarse_sync_status=$?
+    set -e
+    echo "G8_STORAGE_PRESSURE_COARSE_SYNC_EXIT=$coarse_sync_status"
+    test "$coarse_sync_status" -eq 0
+    echo "G8_STORAGE_PRESSURE_COARSE_AVAILABLE_KIB=$(df -Pk "$work" | awk 'NR == 2 {print $4}')"
     # A failed 1 MiB allocation can leave a smaller usable tail. Consume at
     # most one additional MiB in filesystem-sized writes; keep the host's
     # zero-available-space requirement unchanged.
