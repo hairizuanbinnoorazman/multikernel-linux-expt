@@ -337,3 +337,16 @@ that returns CPU/pool/network resources while retaining disk/ledgers, and read-o
 e2fsck returns 0 with unchanged image bytes. This is narrow transport progress,
 not normal cleanup or pressure-gate closure. Probe commits 79b478a/ee87af0 add a
 synchronized, bounded 4 KiB tail fill; live recovery qualification remains pending.
+
+A [same-boot ee87af0 repeat](../../evidence/runtime-20261024/g8-warm-start-failure/README.md)
+reaches storage bootstrap and agent start but never emits probe output. It fails
+the existing 300-second hold-point deadline, and Docker cleanup reports a zombie
+task. A live owned NBD helper remains; these references are not orphan proof.
+[Exact operator recovery](../../evidence/runtime-20261024/g8-warm-start-quarantine/README.md)
+gracefully halts that child, terminates its pinned helper, proves zero references
+and an empty VSOCK table, and returns CPU/pool/network resources while preserving
+the failed disk/ledgers. Read-only e2fsck passes.
+[Bootstrap diagnostic controls](../../evidence/runtime-20261024/g8-bootstrap-marker-controls/README.md)
+retain specific storage/agent startup markers with existing redaction and bounds.
+The startup cause, tail-fill live qualification, normal cleanup, repeated
+lifecycle and complete G7/G8 remain OPEN.

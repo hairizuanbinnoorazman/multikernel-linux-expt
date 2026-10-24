@@ -57,7 +57,12 @@ but its coarse writes leave 496 KiB available, so the strict pressure gate refus
 [Operator quarantine](evidence/runtime-20261024/g8-coarse-fill-quarantine/README.md)
 returns resources and preserves the image; read-only filesystem checking passes.
 The committed probe now flushes coarse writes and consumes the remaining tail
-with bounded 4 KiB writes. Full pressure recovery and normal cleanup remain unqualified.
+with bounded 4 KiB writes. A [same-boot repeat](evidence/runtime-20261024/g8-warm-start-failure/README.md)
+stalls after agent start before the build probe and needs
+[exact operator recovery](evidence/runtime-20261024/g8-warm-start-quarantine/README.md).
+[Filtered bootstrap marker controls](evidence/runtime-20261024/g8-bootstrap-marker-controls/README.md)
+now preserve that stage without exporting general agent logs. Full pressure
+recovery, repeated lifecycle behavior and normal cleanup remain unqualified.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
