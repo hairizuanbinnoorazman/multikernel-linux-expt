@@ -201,3 +201,15 @@ them. The next remediation must distinguish socket/proxy, NBD, filesystem and
 memory failure evidence, then repeat the original pressure requirements. Keep
 the fixed image geometry, strict ENOSPC/space restoration checks, post-pressure
 build matrix, native counters and offline-check release hold intact.
+
+The [bounded console repeat](../../../evidence/runtime-20261023/g8-pressure-console-failure/README.md)
+now retains NBD send/receive errors before journal abort. A
+[client-instrumented repeat](../../../evidence/runtime-20261023/g8-pressure-client-timeout/README.md)
+subsequently captures an NBD timeout, local-TCP EOF, ioctl return 0, and explicit
+proxy SIGTERM before the host workload deadline fails. Its cleanup also fails.
+The user's next [external restart](../../../evidence/runtime-20261024/g8-pressure-external-restart/README.md)
+returns resources; it does not qualify automatic recovery. Bounded
+[server I/O timing controls](../../../evidence/runtime-20261024/g8-server-io-controls/README.md)
+now cover payload, backing file, sync and reply phases. The timing-only change
+preserves the original request/timeout limits and pressure requirements. Physical
+pressure qualification and full G7/G8 remain open; no nested virtualization is used.

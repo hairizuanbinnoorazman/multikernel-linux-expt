@@ -208,6 +208,24 @@ The detailed exit criteria and ordering are in
     with host Docker builds, runtime restart and cleanup; retain
     [unit policy and live process observations](../../evidence/runtime-20261022/g8-host-docker-service-policy/README.md).
     Other service restrictions, minimality and full G8 remain open.
+  - [x] Qualify two overlapping child-local build matrices, distinct engines and
+    writable storage, survivor continuity and raw primary-network restoration;
+    retain [two-child proof](../../evidence/runtime-20261023/g8-concurrent-netns/README.md).
+    Repeated concurrency and adversarial load remain open.
+  - [x] Qualify private runtime SIGKILL/adoption, including one observed active
+    BuildKit RUN window, fresh builds and teardown; retain
+    [active-RUN proof](../../evidence/runtime-20261023/g8-runtime-active-run/README.md).
+    Other services, resource-mutation crash points and power loss remain open.
+  - [x] Retain bounded exact-instance console failure evidence and qualify
+    bounded slow server I/O diagnostics with preserved errno and required checks;
+    retain [local timing controls](../../evidence/runtime-20261024/g8-server-io-controls/README.md).
+    This does not establish a complete production diagnostics workflow.
+  - [ ] Qualify bounded child-filesystem ENOSPC, unchanged primary while full,
+    space restoration, fresh build matrix and clean export release. The
+    [client-instrumented run](../../evidence/runtime-20261023/g8-pressure-client-timeout/README.md)
+    fails with an NBD timeout and failed cleanup; the
+    [external restart](../../evidence/runtime-20261024/g8-pressure-external-restart/README.md)
+    returns resources while retaining the damaged disk and failed ledgers.
 - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
   release artifacts, dependency/license inventories, SBOM, provenance, and
   tested install/upgrade/rollback/uninstall paths.
