@@ -222,3 +222,20 @@ restores raw primary network state and resources without rewriting the failed st
 now prevent a full detail budget from hiding all later phase maxima. Read-only
 queue observation is implemented at bootstrap; it awaits live qualification.
 No queue or timeout policy change is applied, and pressure recovery stays open.
+
+The [981bc2a clean-boot run](../../../evidence/runtime-20261024/g8-pressure-recovery-cleanup-failure/README.md)
+now proves zero-space ENOSPC and full-capacity recovery with the same engine and
+complete build matrix. [Read-only archive inspection](../../../evidence/runtime-20261024/g8-pressure-saved-image/README.md)
+verifies the child-built result, input and layer diff IDs. Normal cleanup fails:
+the existing strict close parser does not recognize native I/O timing records.
+The exact transcript is a failing baseline regression and passes with
+[f2d8439's bounded grammar validation](../../../evidence/runtime-20261024/g8-native-close-timing-controls/README.md).
+Unknown, duplicate, missing, contradictory or reordered records still refuse release.
+[Quarantine proof](../../../evidence/runtime-20261024/g8-pressure-recovery-quarantine/README.md)
+returns resources while retaining the failed ledgers and clean recovered disk.
+The [same-boot startup failure](../../../evidence/runtime-20261024/g8-warm-start-failure/README.md)
+remains unresolved; a [pinned repeatable trial](../../../evidence/runtime-20261024/g8-trial-identity-controls/README.md)
+now binds each source revision/archive before module mutation. See the earlier
+[cold restoration proof](../../../evidence/runtime-20261024/g8-cold-module-restoration/README.md)
+for the no-hot-unload policy. These are direct child-kernel tests with no nested
+virtualization. Fixed-runtime live cleanup acceptance and full G7/G8 remain open.

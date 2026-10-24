@@ -34,38 +34,22 @@ A [bounded executing-RUN crash case](evidence/runtime-20261023/g8-runtime-active
 also passes: SIGKILL and adoption occur inside an observed BuildKit RUN with a
 45-second sleep, the interrupted matrix finishes, and fresh builds succeed.
 
-The [storage-pressure attempt](evidence/runtime-20261023/g8-pressure-io-failure/README.md)
-currently fails with guest I/O errors before ENOSPC. A read-only check found
-uncorrected guest filesystem errors. Its disk and ledgers are
-[preserved for diagnosis](evidence/runtime-20261023/g8-pressure-quarantine/README.md),
-with CPU/pool/network resources returned. Pressure recovery is unqualified. A repeat with
-[bounded child-console capture](evidence/runtime-20261023/g8-pressure-console-failure/README.md)
-records NBD connection reset/broken pipe before the filesystem journal abort.
-A [client-instrumented repeat](evidence/runtime-20261023/g8-pressure-client-timeout/README.md)
-records an NBD timeout before journal abort and failed Docker cleanup. The
-[external restart observation](evidence/runtime-20261024/g8-pressure-external-restart/README.md)
-confirms resources returned and failed storage retained. The underlying timeout
-cause remains under investigation. An earlier
-[server-timed run](evidence/runtime-20261024/g8-server-io-pressure-failure/README.md)
-records slow WRITE payload transfers and fails pressure/cleanup. Its
-[operator recovery proof](evidence/runtime-20261024/g8-server-io-quarantine/README.md)
-returns resources and restores raw primary network state while retaining the disk
-and failed ledgers. [Per-phase summary controls](evidence/runtime-20261024/g8-phase-summary-controls/README.md)
-pass. A later [combined transport trial](evidence/runtime-20261024/g8-coarse-fill-refusal/README.md)
-reaches filesystem ENOSPC with zero native I/O errors and reclaims socket references,
-but its coarse writes leave 496 KiB available, so the strict pressure gate refuses it.
-[Operator quarantine](evidence/runtime-20261024/g8-coarse-fill-quarantine/README.md)
-returns resources and preserves the image; read-only filesystem checking passes.
-The committed probe now flushes coarse writes and consumes the remaining tail
-with bounded 4 KiB writes. A [same-boot repeat](evidence/runtime-20261024/g8-warm-start-failure/README.md)
-stalls after agent start before the build probe and needs
-[exact operator recovery](evidence/runtime-20261024/g8-warm-start-quarantine/README.md).
-[Filtered bootstrap marker controls](evidence/runtime-20261024/g8-bootstrap-marker-controls/README.md)
-now preserve that stage without exporting general agent logs. Full pressure
-recovery, repeated lifecycle behavior and normal cleanup remain unqualified.
-[Cold restoration proof](evidence/runtime-20261024/g8-cold-module-restoration/README.md)
-verifies the original module is back on the idle GCE instance, with both failed
-images and their ledgers preserved.
+The [strict storage-pressure recovery workload](evidence/runtime-20261024/g8-pressure-recovery-cleanup-failure/README.md)
+now reaches zero available space with real ENOSPC, restores capacity, and completes
+the build matrix on the same child-local engine. Its
+[saved image contents](evidence/runtime-20261024/g8-pressure-saved-image/README.md)
+verify against the expected output, layer digests and BusyBox input. Normal cleanup
+still fails: the runtime's close parser rejects the helper's new I/O timing records.
+The [committed parser fix and controls](evidence/runtime-20261024/g8-native-close-timing-controls/README.md)
+validate those bounded records while preserving strict lifecycle checks; live
+acceptance with the fixed runtime is pending.
+
+[Operator quarantine](evidence/runtime-20261024/g8-pressure-recovery-quarantine/README.md)
+returns resources and retains the recovered disk/failed ledgers; read-only filesystem
+checking passes. A separate [same-boot startup failure](evidence/runtime-20261024/g8-warm-start-failure/README.md)
+remains unresolved. Earlier transport failures, bounded retry/readiness fixes,
+filtered diagnostics and module-restoration evidence are retained in the
+[Docker guest investigation](docs/runtime/research/docker-in-docker-guests.md).
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

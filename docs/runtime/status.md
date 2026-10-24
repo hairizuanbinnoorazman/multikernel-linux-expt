@@ -359,3 +359,18 @@ installed file hashes, both failed image hashes and all eight failed ledger hash
 are unchanged. Reboot followed already-proved operator cleanup; it does not count
 as automatic cleanup or pressure acceptance. The candidate was not installed
 persistently.
+
+The [981bc2a clean-boot pressure run](../../evidence/runtime-20261024/g8-pressure-recovery-cleanup-failure/README.md)
+passes the strict zero-space hold and recovery workload: before/restored capacity
+1,541,620 KiB, full capacity 0 KiB, same engine, complete build matrix.
+[Saved-image inspection](../../evidence/runtime-20261024/g8-pressure-saved-image/README.md)
+verifies both layer digests, expected output and exact BusyBox input without changing
+the backing image. Overall cleanup fails and leaves STOPPED/QUIESCING ownership.
+The exact native log reproduces the old parser's rejection of timing records.
+[f2d8439 and its controls](../../evidence/runtime-20261024/g8-native-close-timing-controls/README.md)
+validate the complete bounded timing grammar, retaining strict lifecycle/counter
+validation; storage, daemon and shim race tests and required checks pass.
+[Operator quarantine](../../evidence/runtime-20261024/g8-pressure-recovery-quarantine/README.md)
+returns resources, preserves failed ledgers/image and passes read-only e2fsck.
+Fixed runtime binaries are built from the pinned archive; live automatic cleanup
+acceptance, repeated lifecycle/startup reliability and full G7/G8 remain OPEN.
