@@ -2,7 +2,7 @@
 """One pinned GCE lab trial; no installed module files or queue policy are changed.
 
 Requires a private systemd unit and already-staged, root-protected test artifacts.
-Restoration refuses active children or module users; failed ownership is retained.
+Restoration after traffic uses an external idle reboot; cleanup is measured first.
 """
 import fcntl,hashlib,json,os,pathlib,signal,socket,stat,subprocess,time,uuid
 P=pathlib.Path
@@ -80,20 +80,27 @@ try:
 except BaseException as error:
     failure=error;record('trial-error',error=str(error))
 finally:
-    if removed:
+    if removed and loaded() is None:
+        # Failed candidate initialization, before any child trial: reload the
+        # frozen original. Never hot-unload a transport after live traffic here.
+        run(['/sbin/insmod',original])
+    if loaded()==NEW:
         deadline=time.monotonic()+120
-        while loaded()==NEW:
-            inactive=all(status in ['loaded','created','ready'] for status in instances().values())
-            if inactive and P('/sys/module/mk_transport/refcnt').read_text().strip()=='0' and len(output(['ss','-A','vsock','-an']).splitlines())==1:
-                state['vsock_before_restore']=output(['ss','-A','vsock','-an']);state['candidate_refs_before_restore']=0
-                record('candidate-quiescent')
-                result=subprocess.run(['/sbin/rmmod','mk_transport'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
-                if result.returncode==0:break
-            if time.monotonic()>=deadline:break
+        while True:
+            empty=not instances() and P('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
+            refs=int(P('/sys/module/mk_transport/refcnt').read_text())
+            sockets=output(['ss','-A','vsock','-an'])
+            if empty and refs==0 and len(sockets.splitlines())==1:
+                state['vsock_after_trial']=sockets;state['candidate_refs_after_trial']=refs
+                state['candidate_quiescent']=True
+                record('candidate-quiescent-cold-restore-required');break
+            if time.monotonic()>=deadline:
+                state['candidate_quiescent']=False;state['candidate_refs_after_trial']=refs
+                state['vsock_after_trial']=sockets;record('candidate-retained-not-quiescent');break
             time.sleep(1)
-        if loaded() is None:run(['/sbin/insmod',original])
     state['original_restored']=loaded()==OLD
-    record('original-restoration-observed')
+    state['cold_restore_required']=loaded()==NEW
+    record('module-state-observed')
     state['primary_after']=primary();state['taint_after']=P('/proc/sys/kernel/tainted').read_text().strip()
     state['primary_unchanged']=state['primary_after']==state['primary_before']
     # An external unsigned test module can add O/E origin taints. Preserve the
@@ -102,8 +109,9 @@ finally:
     state['allowed_module_origin_taint_bits']=(1<<12)|(1<<13)
     state['unexpected_taint_bits']=state['taint_added_bits'] & ~state['allowed_module_origin_taint_bits']
     record('restoration-observed')
-assert state.get('original_restored') and state.get('primary_unchanged'),state
+assert state.get('primary_unchanged'),state
 if failure:raise failure
 assert state['pressure_scope']['Result']=='success' and state['pressure_scope']['ExecMainStatus']=='0','pressure qualification failed; retained test work must be diagnosed'
+assert state.get('candidate_quiescent') and state.get('cold_restore_required'),state
 assert state['unexpected_taint_bits']==0,'unexpected kernel taint added during trial'
-print('PINNED_MODULE_PRESSURE_TRIAL_AND_ORIGINAL_RESTORATION_PASS')
+print('PINNED_MODULE_PRESSURE_TRIAL_QUIESCENT_COLD_RESTORE_REQUIRED')
