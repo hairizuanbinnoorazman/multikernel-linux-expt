@@ -45,7 +45,13 @@ A [client-instrumented repeat](evidence/runtime-20261023/g8-pressure-client-time
 records an NBD timeout before journal abort and failed Docker cleanup. The
 [external restart observation](evidence/runtime-20261024/g8-pressure-external-restart/README.md)
 confirms resources returned and failed storage retained. The underlying timeout
-cause remains under investigation; bounded server I/O timing is now available.
+cause remains under investigation. The latest
+[server-timed run](evidence/runtime-20261024/g8-server-io-pressure-failure/README.md)
+records slow WRITE payload transfers and fails pressure/cleanup. Its
+[operator recovery proof](evidence/runtime-20261024/g8-server-io-quarantine/README.md)
+returns resources and restores raw primary network state while retaining the disk
+and failed ledgers. [Per-phase summary controls](evidence/runtime-20261024/g8-phase-summary-controls/README.md)
+pass; read-only bootstrap queue observation awaits live qualification.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

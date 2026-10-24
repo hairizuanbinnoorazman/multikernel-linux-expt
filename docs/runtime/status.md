@@ -298,3 +298,17 @@ recovery. [Server timing controls](../../evidence/runtime-20261024/g8-server-io-
 pass with 17 forced slow writes, bounded details, errno preservation, full required
 checks and unchanged forwarding/time-budget policy. Physical pressure and full
 G7/G8 remain open. Tests continue with direct children and no nested virtualization.
+
+The [server-timed physical pressure test](../../evidence/runtime-20261024/g8-server-io-pressure-failure/README.md)
+fails its ENOSPC deadline and Docker cleanup. Its first 16 slow details are completed
+WRITE payload receives of 0.318–2.690 seconds; 20 further details are suppressed,
+so those details cannot rule out later backing latency. The
+[exact operator cleanup proof](../../evidence/runtime-20261024/g8-server-io-quarantine/README.md)
+returns CPUs/pool, preserves the disk and failed ledgers, and restores raw primary
+rules/links/routes. Private network adoption first refuses a missing veth; exact
+endpoint deletion succeeds from a separate protected recovery copy.
+[Aggregate timing controls](../../evidence/runtime-20261024/g8-phase-summary-controls/README.md)
+now retain six phase maxima/counts even after detail suppression and pass required
+checks. Bootstrap queue observation is read-only and awaits a live result. The
+rejected global queue-limit proposal was not applied. No request/queue/timeout
+limit changed. Pressure, automatic cleanup and full G7/G8 remain open.

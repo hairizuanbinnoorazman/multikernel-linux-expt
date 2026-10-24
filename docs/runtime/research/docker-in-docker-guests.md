@@ -213,3 +213,12 @@ returns resources; it does not qualify automatic recovery. Bounded
 now cover payload, backing file, sync and reply phases. The timing-only change
 preserves the original request/timeout limits and pressure requirements. Physical
 pressure qualification and full G7/G8 remain open; no nested virtualization is used.
+
+The [server-timed repeat](../../../evidence/runtime-20261024/g8-server-io-pressure-failure/README.md)
+retains slow WRITE payload receives, subsequent NBD timeout and failed exec/cleanup.
+Its [operator recovery](../../../evidence/runtime-20261024/g8-server-io-quarantine/README.md)
+restores raw primary network state and resources without rewriting the failed stores.
+[Per-phase aggregates](../../../evidence/runtime-20261024/g8-phase-summary-controls/README.md)
+now prevent a full detail budget from hiding all later phase maxima. Read-only
+queue observation is implemented at bootstrap; it awaits live qualification.
+No queue or timeout policy change is applied, and pressure recovery stays open.

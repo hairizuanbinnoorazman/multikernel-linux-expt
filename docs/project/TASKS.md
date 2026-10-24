@@ -226,6 +226,10 @@ The detailed exit criteria and ordering are in
     fails with an NBD timeout and failed cleanup; the
     [external restart](../../evidence/runtime-20261024/g8-pressure-external-restart/README.md)
     returns resources while retaining the damaged disk and failed ledgers.
+    The [server-timed repeat](../../evidence/runtime-20261024/g8-server-io-pressure-failure/README.md)
+    also fails; [exact operator cleanup](../../evidence/runtime-20261024/g8-server-io-quarantine/README.md)
+    restores primary resources/network while retaining failed state. Aggregate
+    phase controls pass; effective bootstrap queue observations still need live proof.
 - [ ] G9: freeze the standalone compatibility contract; add CI, reproducible
   release artifacts, dependency/license inventories, SBOM, provenance, and
   tested install/upgrade/rollback/uninstall paths.
