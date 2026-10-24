@@ -47,6 +47,9 @@ verifies the preceding recovery build's output, layer digests and BusyBox input.
 The repeat uses fresh engine/storage generations on the same CPUs/CID without
 reloading the transport. This accepts the bounded case and one normal repeat;
 broader lifecycle/recovery coverage and full G7/G8 remain open.
+[Final restoration proof](evidence/runtime-20261024/g8-qualified-series-restoration/README.md)
+verifies the original module is restored and successful receipts/binaries plus
+retained failed storage survive unchanged.
 
 [Operator quarantine](evidence/runtime-20261024/g8-pressure-recovery-quarantine/README.md)
 returns resources and retains the recovered disk/failed ledgers; read-only filesystem

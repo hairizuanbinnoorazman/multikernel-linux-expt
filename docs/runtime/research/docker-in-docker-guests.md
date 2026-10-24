@@ -250,3 +250,10 @@ a fresh engine/filesystem and no transport reload, as confirmed by the primary
 registration journal. Previous failed-recovery startup behavior and broader
 G7/G8 exit requirements remain unqualified. Cold restoration is separate from
 normal cleanup; these direct child-kernel tests use no nested virtualization.
+
+[Final series restoration](../../../evidence/runtime-20261024/g8-qualified-series-restoration/README.md)
+now verifies the original module on a new idle boot, preserved installed files
+and failed storage, and twenty preserved successful-trial receipt/archive/binary
+hashes. No persistent module/runtime replacement was made. Cleanup was observed
+and committed before reboot. The bounded normal cases are qualified; the full
+G7/G8 operational/security requirements remain open.

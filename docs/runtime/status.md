@@ -394,3 +394,13 @@ journal bind that sequence to the prior accepted receipt. This qualifies one
 normal repeat; arbitrary startup after failed recovery, broader soak/concurrency/
 crash coverage and full G7/G8 remain OPEN. Final idle cold restoration follows
 after these independently observed cleanup results.
+
+[Final series restoration](../../evidence/runtime-20261024/g8-qualified-series-restoration/README.md)
+is verified on boot b333fa91-8298-4799-9639-d31c85417a3d: original transport
+srcversion 65C55BB38C669FF94A4B772, zero references/sockets, no children/pool, all
+CPUs online and four active installed services. Installed files, original kernel
+source/module, three failed images and twelve failed ledgers are unchanged.
+Twenty successful-trial receipt/archive/component hashes match the preboot
+evidence. Private fixed binaries remain staged; no installed runtime binary or
+module was replaced persistently. Both successful cleanup results precede this
+reboot, which is not counted as cleanup. Full G7/G8 remains OPEN.
