@@ -8,6 +8,7 @@ from runtime_socket_readiness import wait_for_socket_owner
 from runtime_storage_pressure import full_observation, recovered_observation
 from runtime_console_capture import ConsoleCapture
 from runtime_docker_concurrency import sandbox_id_for_container
+from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure'}
@@ -51,6 +52,8 @@ pinned_archive_digest=sha(archive)
 assert pinned_archive_digest=='8af069def93985e73e5688b1d6bff1369597937c93a12a4b26475a32d18e7154'
 private=work/'integration';private.mkdir(mode=0o700)
 (private/'primary-before.json').write_text(json.dumps({'file_sha256':before,'service_main_pids':pids,'boot_id':boot},indent=2)+'\n')
+primary_docker_before=observe_primary_docker()
+(private/'primary-docker-before.json').write_text(json.dumps(primary_docker_before,indent=2)+'\n')
 for name in ['docker-data','docker-exec','containerd-root','containerd-state','exported','input','locks','manifests','daemon-state','rootfs-state','storage-state','storage-runtime','network-state']:(private/name).mkdir(mode=0o755 if name in ['exported','input'] else 0o700)
 # Publish the exact approved xattr-free tree as Docker import data. The original
 # export has capability PAX headers and is deliberately not imported directly.
@@ -262,12 +265,33 @@ try:
     primary_full={'file_sha256':{str(p):sha(p) for p in paths},'service_main_pids':services(),'boot_id':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()}
     (private/'primary-while-full.json').write_text(json.dumps(primary_full,indent=2)+'\n')
     assert primary_full==json.loads((private/'primary-before.json').read_text())
+    primary_docker_full=observe_primary_docker()
+    (private/'primary-docker-while-full.json').write_text(json.dumps(primary_docker_full,indent=2)+'\n')
+    check_primary_docker(primary_docker_before,primary_docker_full)
     pressure_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'observed_monotonic_ns':time.monotonic_ns(),'guest_full':pressure,'owner':owner,'export':{k:export[k] for k in ['sandbox_id','sandbox_generation','export_generation','peer_cid','size_bytes','image_identity','filesystem_uuid']},'observed_backing_size_bytes':identity.st_size,'image_path_sha256':hashlib.sha256(str(image).encode()).hexdigest(),'installed_primary_unchanged_while_full':True,'cleanup_qualified':False}
     (work/'storage-pressure-full-checkpoint.json').write_text(json.dumps(pressure_checkpoint,indent=2)+'\n')
     released=subprocess.run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=40)
     (private/'pressure-release.stdout').write_bytes(released.stdout);(private/'pressure-release.stderr').write_bytes(released.stderr)
     assert released.returncode==0,'failed to release the ENOSPC hold point'
-    observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=180))
+    image_deadline=time.monotonic()+180
+    while 'G8_STORAGE_PRESSURE_IMAGE_READY\n' not in (private/'workload.stdout').read_text():
+     assert attach.poll() is None and time.monotonic()<image_deadline,'guest did not reach the built-image hold point'
+     time.sleep(.2)
+    from runtime_storage_pressure import field
+    image_id=field((private/'workload.stdout').read_text(),'IMAGE_ID')
+    primary_with_image=observe_primary_docker(image_id,deadline=image_deadline)
+    (private/'primary-docker-while-image-ready.json').write_text(json.dumps(primary_with_image,indent=2)+'\n')
+    check_primary_docker(primary_docker_before,primary_with_image)
+    assert primary_with_image['child_image_absent'],'child-built image appeared in primary Docker'
+    guest_engine=next(json.loads(line) for line in (private/'workload.stdout').read_text().splitlines() if line.startswith('{') and '"KernelVersion"' in line)
+    assert fingerprint(guest_engine['ID'])!=primary_docker_before['engine_id_sha256'],'guest selected the primary Docker engine'
+    image_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'observed_monotonic_ns':time.monotonic_ns(),'guest_image_id':image_id,'guest_engine_id':guest_engine['ID'],'primary_snapshot_sha256':sha(private/'primary-docker-while-image-ready.json'),'child_image_absent_from_primary':True,'cleanup_qualified':False}
+    (work/'storage-pressure-image-checkpoint.json').write_text(json.dumps(image_checkpoint,indent=2)+'\n')
+    assert time.monotonic()<image_deadline,'built-image observation exceeded the build budget'
+    image_released=subprocess.run(cli+['kill','--signal=USR2','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(40,image_deadline-time.monotonic()))
+    (private/'image-release.stdout').write_bytes(image_released.stdout);(private/'image-release.stderr').write_bytes(image_released.stderr)
+    assert image_released.returncode==0,'failed to release the built-image hold point'
+    observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=max(.001,image_deadline-time.monotonic())))
     pressure_recovered=recovered_observation((private/'workload.stdout').read_text(),(private/'workload.stderr').read_text())
     assert pressure_recovered['kernel_release']==profile['kernel_release']
     (work/'storage-pressure-recovery.json').write_text(json.dumps({'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'full_checkpoint_sha256':sha(work/'storage-pressure-full-checkpoint.json'),'guest_recovered':pressure_recovered,'cleanup_qualified':False},indent=2)+'\n')
@@ -326,8 +350,12 @@ assert console_stop_error is None,'console observer failed to stop; lifecycle cl
 (private/'primary-after.json').write_text(json.dumps({'file_sha256':after,'service_main_pids':after_pids,'boot_id':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()},indent=2)+'\n')
 assert after==before and after_pids==pids
 assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()==boot
+primary_docker_after=observe_primary_docker()
+(private/'primary-docker-after.json').write_text(json.dumps(primary_docker_after,indent=2)+'\n')
+check_primary_docker(primary_docker_before,primary_docker_after)
 r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
 r['native_nbd_helper_sha256']=sha(nbd_helper)
+r['primary_docker_inventory_sha256']={name:sha(private/('primary-docker-'+name+'.json')) for name in ['before','after']+(['while-full','while-image-ready'] if storage_pressure else [])}
 r['systemd_scope_sha256']=sha(work/'systemd-scope.json')
 r['docker_network_namespace_sha256']=sha(private/'docker-network-namespace.json')
 r['socket_readiness_sha256']=sha(private/'socket-readiness.json')
@@ -337,6 +365,7 @@ r['runtime_crash_during_build_tested']=crash_during_build
 r['storage_pressure_tested']=storage_pressure
 if storage_pressure:r['storage_pressure_recovery_sha256']=sha(work/'storage-pressure-recovery.json')
 if storage_pressure:r['console_capture_sha256']=sha(private/'console-capture.json')
+if storage_pressure:r['storage_pressure_image_checkpoint_sha256']=sha(work/'storage-pressure-image-checkpoint.json')
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
 r['service_capability_nnp_tested']=harden_services

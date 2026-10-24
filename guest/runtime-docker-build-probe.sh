@@ -18,7 +18,9 @@ docker version
 docker info --format '{{json .}}'
 if [ "${1:-}" = --storage-pressure ]; then
     pressure_release=0
+    image_release=0
     trap 'pressure_release=1' USR1
+    trap 'image_release=1' USR2
     trap 'rm -f "$work/pressure.bin"' EXIT
     before_kib=$(df -Pk "$work" | awk 'NR == 2 {print $4}')
     test "$before_kib" -gt 65536
@@ -97,6 +99,12 @@ if [ "$save_status" -ne 0 ] || [ ! -s "$work/image.tar" ]; then
     exit 71
 fi
 sha256sum "$work/image.tar"
+if [ "${1:-}" = --storage-pressure ]; then
+    echo "G8_STORAGE_PRESSURE_IMAGE_ID=$(docker image inspect --format '{{.Id}}' g8-proof:latest)"
+    echo G8_STORAGE_PRESSURE_IMAGE_READY
+    # Keep the built image present until the primary observes its own store.
+    while [ "$image_release" -eq 0 ]; do sleep 1 || :; done
+fi
 sed -i 's@echo G8_OVERLAP_RUN_BEGIN; /bin/busybox sleep 45; echo G8_OVERLAP_RUN_END; @@' "$work/context/Dockerfile"
 sed -i 's/echo multikernel-production-docker-build/exit 37; echo multikernel-production-docker-build/' "$work/context/Dockerfile"
 if docker build --progress=plain --network=none --pull=false -t g8-proof:must-fail "$work/context"; then
