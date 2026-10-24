@@ -33,6 +33,7 @@ assert scope=={'MainPID':str(os.getpid()),'InvocationID':os.environ['INVOCATION_
 lock=(MODULE/'module-trial.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
 assert not instances() and P('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
 assert loaded()==OLD and P('/sys/module/mk_transport/refcnt').read_text().strip()=='0'
+vsock_before=output(['ss','-A','vsock','-an']);assert len(vsock_before.splitlines())==1
 assert 'No memory pool configured' in output(['/opt/mkruntime/kerf-venv/bin/kerf','show'])
 assert not output(['/usr/bin/docker','--host','unix:///var/run/docker.sock','ps','--all','--quiet'])
 assert sha(WORK/'bin/mkvsock-nbd')==NBD_SHA
@@ -55,9 +56,9 @@ def primary():
     services={n:output(['systemctl','show',n,'-p','MainPID','--value']) for n in ['mkruntimed','mknetd','containerd','docker']}
     assert all(output(['systemctl','is-active',n])=='active' and int(pid)>0 for n,pid in services.items())
     return {'file_sha256':{str(p):sha(p) for p in paths},'service_main_pids':services}
-state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'parent_scope':scope,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':'39f32fa','source_archive_sha256':sha(WORK/'source.tar'),'events':[]}
+state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':'39f32fa','source_archive_sha256':sha(WORK/'source.tar'),'events':[]}
 def record(phase,**values):
-    state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded()})
+    state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded(),'module_refcnt':int(P('/sys/module/mk_transport/refcnt').read_text()) if loaded() else None})
     temporary=trial/'receipt.tmp';temporary.write_text(json.dumps(state,indent=2)+'\n');temporary.chmod(0o600);os.replace(temporary,trial/'primary-module-trial.json')
 def interrupted(signum,frame):raise RuntimeError('module trial interrupted by signal '+str(signum))
 signal.signal(signal.SIGTERM,interrupted);signal.signal(signal.SIGINT,interrupted)
@@ -83,7 +84,9 @@ finally:
         deadline=time.monotonic()+120
         while loaded()==NEW:
             inactive=all(status in ['loaded','created','ready'] for status in instances().values())
-            if inactive and P('/sys/module/mk_transport/refcnt').read_text().strip()=='0':
+            if inactive and P('/sys/module/mk_transport/refcnt').read_text().strip()=='0' and len(output(['ss','-A','vsock','-an']).splitlines())==1:
+                state['vsock_before_restore']=output(['ss','-A','vsock','-an']);state['candidate_refs_before_restore']=0
+                record('candidate-quiescent')
                 result=subprocess.run(['/sbin/rmmod','mk_transport'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
                 if result.returncode==0:break
             if time.monotonic()>=deadline:break
