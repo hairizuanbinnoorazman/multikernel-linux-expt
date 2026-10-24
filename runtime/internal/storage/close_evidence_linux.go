@@ -15,6 +15,11 @@ const storageRequestLimit = 4 << 20
 // Validate every record preceding the terminal close, rather than allowing a
 // last matching counter line to override an earlier ambiguous lifecycle.
 func validateClosedStorageBody(body []byte, counters Counters, value Export) error {
+	var err error
+	body, err = validatedStorageIOLifecycle(body)
+	if err != nil {
+		return err
+	}
 	details := uint32(0)
 	suppressed, accepted, diagnostic, summary := false, false, false, false
 	bad := errors.New("storage close evidence has invalid record semantics or ordering")

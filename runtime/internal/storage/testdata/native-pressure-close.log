@@ -1,0 +1,12 @@
+MKNBD_SERVER_READY image=/proc/self/fd/3 image_id=root-627fa6bea79b118c7be162d0ab68f3f5 generation=898c73febe096e6469a70b0ac03c0e6d size=2147483648 port=4061 peer_cid=40
+MKNBD_SERVER_CLIENT_ACCEPTED
+MKNBD_SERVER_IO phase=image-sync duration_us=4712186 result=0 errno=0
+MKNBD_SERVER_IO phase=image-sync duration_us=622309 result=0 errno=0
+MKNBD_SERVER_IO phase=image-sync duration_us=902148 result=0 errno=0
+MKNBD_SERVER_IO_SUMMARY phase=write-payload calls=2110 errors=0 slow=0 max_us=41525
+MKNBD_SERVER_IO_SUMMARY phase=read-payload calls=2033 errors=0 slow=0 max_us=651
+MKNBD_SERVER_IO_SUMMARY phase=image-write calls=2110 errors=0 slow=0 max_us=948
+MKNBD_SERVER_IO_SUMMARY phase=image-read calls=2033 errors=0 slow=0 max_us=620
+MKNBD_SERVER_IO_SUMMARY phase=image-sync calls=986 errors=0 slow=3 max_us=4712186
+MKNBD_SERVER_IO_SUMMARY phase=reply calls=4941 errors=0 slow=0 max_us=28
+MKNBD_SERVER_CLOSED synced=1 reads=2033 read_bytes=256696320 writes=2110 write_bytes=1598365696 flushes=798
