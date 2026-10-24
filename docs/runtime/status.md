@@ -350,3 +350,12 @@ the failed disk/ledgers. Read-only e2fsck passes.
 retain specific storage/agent startup markers with existing redaction and bounds.
 The startup cause, tail-fill live qualification, normal cleanup, repeated
 lifecycle and complete G7/G8 remain OPEN.
+
+[Cold restoration](../../evidence/runtime-20261024/g8-cold-module-restoration/README.md)
+is now verified on boot 77840555-d61f-4ad7-8f77-71ddeed4c407: original transport
+srcversion 65C55BB38C669FF94A4B772, zero references, empty VSOCK, all CPUs online,
+no child/pool and four active installed services. Original module/source and
+installed file hashes, both failed image hashes and all eight failed ledger hashes
+are unchanged. Reboot followed already-proved operator cleanup; it does not count
+as automatic cleanup or pressure acceptance. The candidate was not installed
+persistently.

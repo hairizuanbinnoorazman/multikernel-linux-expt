@@ -63,6 +63,9 @@ stalls after agent start before the build probe and needs
 [Filtered bootstrap marker controls](evidence/runtime-20261024/g8-bootstrap-marker-controls/README.md)
 now preserve that stage without exporting general agent logs. Full pressure
 recovery, repeated lifecycle behavior and normal cleanup remain unqualified.
+[Cold restoration proof](evidence/runtime-20261024/g8-cold-module-restoration/README.md)
+verifies the original module is back on the idle GCE instance, with both failed
+images and their ledgers preserved.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
