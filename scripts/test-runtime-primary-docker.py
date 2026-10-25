@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import json
 import sys
+import pathlib
+import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from runtime_primary_docker import observe, unchanged, bounded_command, ENV, CLI
 
 ID = 'sha256:' + 'a'*64
@@ -64,6 +67,18 @@ class PrimaryDockerTests(unittest.TestCase):
             self.assertNotIn('sensitive-command-error',str(error.exception))
             self.assertLess(time.monotonic()-started,3)
         with self.assertRaises(RuntimeError):bounded_command([sys.executable,'-c','pass'],timeout=0)
+
+    def test_inventory_commands_share_one_absolute_deadline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script=pathlib.Path(directory)/'docker.py'
+            script.write_text("import sys,time\n"
+                              "if sys.argv[1]=='info': print('\\\"primary-engine\\\"')\n"
+                              "else: time.sleep(.15)\n")
+            started=time.monotonic()
+            with patch('runtime_primary_docker.CLI',[sys.executable,str(script)]):
+                with self.assertRaisesRegex(RuntimeError,'deadline|budget exhausted'):
+                    observe(deadline=started+.3)
+            self.assertLess(time.monotonic()-started,2)
 
 
 if __name__=='__main__':unittest.main()
