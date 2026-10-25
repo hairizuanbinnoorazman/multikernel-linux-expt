@@ -25,6 +25,9 @@ Operational checks do not establish containment after child-kernel compromise.
 - Add a bounded diagnostic-bundle collector with explicit redaction and file
   size limits.
 - Define log retention, rotation, pressure, and slow-reader behavior.
+- The disposable [console-window contract](../contracts/diagnostic-console.md)
+  reserves a bounded teardown window within the existing total cap and reports
+  its unobserved interval explicitly; it is not the complete diagnostic bundle.
 - Keep reconciliation generation-bound and inspection-first; do not provide a
   broad destructive repair command.
 
