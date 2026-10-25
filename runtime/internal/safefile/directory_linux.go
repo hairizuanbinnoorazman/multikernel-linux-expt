@@ -247,12 +247,14 @@ func (d *Directory) ReadPrivate(name string, limit int64) ([]byte, bool, error) 
 }
 
 // ReadPrivateIdentity reads a private file and returns the identity of the
-// exact descriptor from which the bytes were read.
+// exact descriptor from which the bytes were read. Nonblocking open prevents
+// an unpaired FIFO from waiting before fstat can reject it; O_NONBLOCK leaves
+// regular-file I/O semantics unchanged.
 func (d *Directory) ReadPrivateIdentity(name string, limit int64) ([]byte, bool, Identity, error) {
 	if filepath.Base(name) != name || name == "." || limit <= 0 {
 		return nil, false, Identity{}, errors.New("invalid private file name or size limit")
 	}
-	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if errors.Is(err, syscall.ENOENT) {
 		return nil, false, Identity{}, nil
 	}
@@ -393,7 +395,7 @@ func (d *Directory) ReadPrivateSnapshot(name string, limit int64) ([]byte, bool,
 	if filepath.Base(name) != name || name == "." || limit <= 0 {
 		return nil, false, errors.New("invalid private file name or size limit")
 	}
-	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if errors.Is(err, syscall.ENOENT) {
 		return nil, false, nil
 	}
@@ -424,7 +426,7 @@ func (d *Directory) InspectPrivate(name string, limit int64) (Identity, bool, er
 	if filepath.Base(name) != name || name == "." || limit <= 0 {
 		return Identity{}, false, errors.New("invalid private file name or size limit")
 	}
-	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if errors.Is(err, syscall.ENOENT) {
 		return Identity{}, false, nil
 	}
@@ -447,9 +449,9 @@ func (d *Directory) OpenPrivateFile(name string, limit int64, writable bool) (*o
 	if filepath.Base(name) != name || name == "." || limit <= 0 {
 		return nil, Identity{}, errors.New("invalid private file open request")
 	}
-	flags := unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW
+	flags := unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW | unix.O_NONBLOCK
 	if writable {
-		flags = unix.O_RDWR | unix.O_CLOEXEC | unix.O_NOFOLLOW
+		flags = unix.O_RDWR | unix.O_CLOEXEC | unix.O_NOFOLLOW | unix.O_NONBLOCK
 	}
 	fd, err := unix.Openat(int(d.file.Fd()), name, flags, 0)
 	if err != nil {
@@ -476,7 +478,7 @@ func (d *Directory) OpenTrustedExecutable(name string, limit int64) (*os.File, I
 	if filepath.Base(name) != name || name == "." || limit <= 0 {
 		return nil, Identity{}, errors.New("invalid executable open request")
 	}
-	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	fd, err := unix.Openat(int(d.file.Fd()), name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, Identity{}, err
 	}
