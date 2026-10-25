@@ -597,3 +597,11 @@ installed hashes/PIDs and raw network parity agree. No held-record leftovers
 remain. This qualifies metadata-loss detection/continuity, not native process
 death or power-loss recovery. Full G7/G8 remains OPEN; direct children use no
 nested virtualization and share the host trust domain.
+
+[Record-loss restoration](../../evidence/runtime-20261025/g8-native-record-loss-restoration/README.md)
+passes on boot e448e676-008f-47c5-a9d2-5cf5d6b1c0dc: original SRC65, zero
+references/sockets/children, no pool, all CPUs online and four active installed
+services. Ten watched hashes and three quarantined images with twelve ledgers
+match. Twenty-six successful-case hashes sampled immediately before reboot
+match postboot samples and committed evidence. Reboot is not normal cleanup.
+Full G7/G8 remains OPEN.

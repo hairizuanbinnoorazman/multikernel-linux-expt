@@ -122,7 +122,9 @@ hidden, doctor reports degraded without changing ownership, and the same child
 engine still runs a fresh inner container. Restoring the original record returns
 diagnostics to consistent; normal cleanup and primary inventories also pass.
 This is metadata loss, with direct child kernels and no nested virtualization;
-process-death recovery and hostile child-kernel containment remain open.
+process-death recovery and hostile child-kernel containment remain open. Its
+[restoration proof](evidence/runtime-20261025/g8-native-record-loss-restoration/README.md)
+confirms the original transport and twenty-six retained artifact hashes.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

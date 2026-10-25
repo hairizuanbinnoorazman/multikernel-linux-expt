@@ -65,7 +65,9 @@ The [fault controls](../../../evidence/runtime-20261025/g8-native-record-loss-co
 cover refusal, client exceptions and conflicting restoration targets. The
 [live GCE proof](../../../evidence/runtime-20261025/g8-live-native-record-loss/README.md)
 qualifies both negative diagnostics, child Docker continuity, exact restoration
-and later normal cleanup with unchanged primary inventories.
+and later normal cleanup with unchanged primary inventories. The
+[separate restoration proof](../../../evidence/runtime-20261025/g8-native-record-loss-restoration/README.md)
+checks the original module and twenty-six preboot/postboot artifact hashes.
 
 This is a metadata-loss test, not a native process kill or host-power-loss test.
 A missing record does not establish that its process has died. Diagnostics must
