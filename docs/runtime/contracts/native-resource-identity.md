@@ -77,3 +77,21 @@ An occupied restore target or modified held record remains preserved for operato
 diagnosis. A killed injector can leave its held record behind. No daemon restart
 or reconciliation is permitted while this deliberate fault is present. Follow
 the recovery guide before acting on a real missing-record finding.
+
+Private regular-file readers now open with O_NONBLOCK before checking file type.
+Previously, an unpaired FIFO could block in open before fstat had a chance to
+reject it. This affected process-record reads and other protected metadata/image/
+executable opens. The [red/green controls](../../../evidence/runtime-20261025/g8-fifo-open-controls/README.md)
+retain the same test against pre-fix and fixed code. Nonblocking open preserves
+regular-file I/O semantics; it does not bound arbitrary filesystem/device stalls.
+
+The private `--storage-record-fifo` scenario, selected through
+`MK_MODULE_TRIAL_RECORD_FAULT=fifo`, retains the original exact live record and
+places an owned, unpaired FIFO at its normal name. Doctor must return the exact
+inconclusive `NATIVE_STORAGE_IDENTITY_UNAVAILABLE` finding, with unchanged claims
+and private ledgers. No writer is opened to release a blocked reader. The helper
+removes only its identified FIFO and restores the original record without
+replacing conflicting evidence. Child Docker continuity and normal cleanup are
+separate required observations. This is a metadata-type fault, not native server
+death, general storage health or power-loss recovery. The same direct-child,
+no-nested-virtualization and shared host trust constraints apply.
