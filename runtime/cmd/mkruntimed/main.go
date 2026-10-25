@@ -109,6 +109,7 @@ func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
+	inspectStorage := flag.Bool("inspect-storage", false, "print bounded read-only durable storage ownership JSON and exit")
 	inspectRuntime := flag.Bool("doctor", false, "print bounded read-only ownership/kernel presence diagnostics and exit")
 	inspectOwnership := flag.Bool("inspect-ownership", false, "print bounded read-only durable ownership JSON and exit")
 	flag.StringVar(&configPath, "config", "/etc/mkruntime/config.json", "strict root-owned host configuration")
@@ -124,7 +125,13 @@ func main() {
 	flag.StringVar(&rootfsStorage, "rootfs-storage-dir", "/srv/multikernel-storage/runtime", "prepared mediated root images")
 	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
-	if *inspectRuntime && *inspectOwnership {
+	modes := 0
+	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage} {
+		if selected {
+			modes++
+		}
+	}
+	if modes > 1 {
 		fmt.Fprintln(os.Stderr, "select one inspection mode")
 		os.Exit(2)
 	}
@@ -135,6 +142,19 @@ func main() {
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
 	timeout := hostConfig.BackendTimeout()
+	if *inspectStorage {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		report, err := daemon.InspectStorageOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if json.NewEncoder(os.Stdout).Encode(report) != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	if *inspectRuntime {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()

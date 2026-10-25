@@ -49,3 +49,22 @@ A valid capability response without `ownership-v1` now yields the distinct code
 `OWNERSHIP_UNAVAILABLE`. Both exit 1 without a legacy fallback. Failed reports
 retain the initially observed `boot_id`; `boot_stable` becomes true only after
 the final matching boot read, so early failures cannot claim boot stability.
+
+`sudo mkruntimed --config=/etc/mkruntime/config.json --inspect-storage` negotiates
+`storage-ownership-v1` and prints a bounded `durable-storage` metadata report.
+It exits before opening local stores, initializing Kerf or reconciling state.
+The same protected Unix socket and caller deadline apply. A missing capability,
+malformed reply, busy store or oversized inventory fails without a legacy
+serialization fallback or partial success.
+
+The view records sandbox/export generations, bound CID, state, filesystem UUID,
+size/quota, inode limit, port, device/inode identity and validated release check/
+counters. It excludes backing paths, image names, source digests, credentials,
+labels and raw errors. At most 256 sorted exports are returned. A busy persistence
+lock yields retryable UNAVAILABLE immediately; no backend operation is performed.
+Released historical records may carry CID zero from an unbound legacy release;
+the view never invents that binding. These are recorded claims, not current
+process/image/socket health or independently verified lifecycle ownership.
+`--doctor` still lists storage exports as unobserved until independent
+correlation/liveness checks qualify that broader scope. The deployment uses no
+nested virtualization; this view does not establish hostile-kernel containment.
