@@ -126,6 +126,15 @@ process-death recovery and hostile child-kernel containment remain open. Its
 [restoration proof](evidence/runtime-20261025/g8-native-record-loss-restoration/README.md)
 confirms the original transport and twenty-six retained artifact hashes.
 
+Private regular-file validation now rejects unpaired FIFOs before opening can
+wait for a writer. The [red/green controls](evidence/runtime-20261025/g8-fifo-open-controls/README.md)
+reproduce the old waits and verify the fix. Its
+[live GCE case](evidence/runtime-20261025/g8-live-fifo-record/README.md) returns
+inconclusive diagnostics promptly while child Docker keeps working, restores
+the exact record, and passes normal cleanup with unchanged primary inventories.
+This qualifies FIFO refusal, with direct kernels and no nested virtualization;
+arbitrary filesystem stalls and full G7/G8 remain open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

@@ -605,3 +605,23 @@ services. Ten watched hashes and three quarantined images with twelve ledgers
 match. Twenty-six successful-case hashes sampled immediately before reboot
 match postboot samples and committed evidence. Reboot is not normal cleanup.
 Full G7/G8 remains OPEN.
+
+Code f07e0cb prevents private-file open from waiting for an unpaired FIFO before
+type validation. The [red/green controls](../../evidence/runtime-20261025/g8-fifo-open-controls/README.md)
+reproduce seven old waits with the identical eight-method subprocess test;
+all eight fixed controls, safefile/storage race, complete Go and required suites
+pass. Eight guarded fault-helper and seven strict checkpoint tests also pass.
+Build/source 4f3a36e adds the selected FIFO scenario. The
+[live GCE proof](../../evidence/runtime-20261025/g8-live-fifo-record/README.md)
+passes parent 148ac951f9854f17bc3bf34b463aabe5 / child
+12de46bec3734e2ab0518cb0fa1b53cc on boot e448e676-008f-47c5-a9d2-5cf5d6b1c0dc.
+Two exact inconclusive native-identity findings return while an owned unpaired
+FIFO occupies the active record name, with no writer introduced. Recorded claims
+and five private ledger/journal hashes remain unchanged; the same child engine
+runs/removes a fresh inner container. The known FIFO is removed, original record
+bytes/inode restored, doctor returns to consistent, and normal cleanup passes.
+Five primary Docker inventories and installed hashes/PIDs/network parity agree.
+This closes FIFO rendezvous refusal for these paths, not arbitrary filesystem/
+device stalls, native process death or full session/content health. Complete
+G7/G8 remains OPEN; direct children use no nested virtualization and share the
+host trust domain after child-kernel compromise.

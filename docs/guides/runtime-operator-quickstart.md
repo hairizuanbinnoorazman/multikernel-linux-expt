@@ -169,6 +169,11 @@ keeps child Docker working while diagnostics correctly degrade. Do not clear
 leases, stop an export or reconstruct a record from a guessed PID based on this
 finding; follow the recovery guide. The lab test restores a known held inode
 and is not a production repair procedure.
+Private-file type validation also refuses an unpaired FIFO promptly;
+[the live FIFO proof](../../evidence/runtime-20261025/g8-live-fifo-record/README.md)
+returns inconclusive native-identity findings without changing ownership or
+interrupting child Docker. This fixes FIFO open rendezvous, not every possible
+filesystem/device stall, and does not authorize replacing malformed metadata.
 Those limits remain explicit in `unobserved` and the
 [native identity contract](../runtime/contracts/native-resource-identity.md).
 The [live GCE proof](../../evidence/runtime-20261025/g8-live-native-resource-identity/README.md)

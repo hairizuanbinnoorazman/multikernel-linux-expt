@@ -95,3 +95,9 @@ replacing conflicting evidence. Child Docker continuity and normal cleanup are
 separate required observations. This is a metadata-type fault, not native server
 death, general storage health or power-loss recovery. The same direct-child,
 no-nested-virtualization and shared host trust constraints apply.
+
+The [live FIFO qualification](../../../evidence/runtime-20261025/g8-live-fifo-record/README.md)
+passes this refusal through the real child Docker ENOSPC/build lifecycle: two
+inconclusive reports preserve claims/ledgers, the child engine still runs a fresh
+inner container, the exact record is restored and normal cleanup returns all
+resources with unchanged primary inventories. No FIFO writer is introduced.
