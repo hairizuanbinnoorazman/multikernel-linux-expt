@@ -260,6 +260,9 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		if s.Service != nil && s.Service.StorageOwnershipAvailable() {
 			features = append(features, protocol.StorageOwnershipCapability, protocol.ResourceOwnershipCapability)
 		}
+		if s.Service != nil && s.Service.NativeResourcesAvailable() {
+			features = append(features, protocol.NativeResourcesCapability)
+		}
 		out.Body = protocol.DaemonCapabilities{ProtocolVersion: protocol.Version, Features: features}
 	case "InspectOwnership":
 		var empty struct{}
@@ -298,6 +301,21 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			break
 		}
 		report, failure := s.Service.ResourceOwnership()
+		out.Error = failure
+		if failure == nil {
+			out.Body = report
+		}
+	case "InspectNativeResources":
+		var empty struct{}
+		if len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "native resource body must be an empty object"}
+			break
+		}
+		if s.Service == nil {
+			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "native resource inspection is unavailable"}
+			break
+		}
+		report, failure := s.Service.NativeResources(ctx)
 		out.Error = failure
 		if failure == nil {
 			out.Body = report

@@ -20,6 +20,9 @@ func (s *Service) ownership(withDescriptors bool) (protocol.StorageOwnershipRepo
 		return protocol.StorageOwnershipReport{}, nil, &protocol.Error{Code: "UNAVAILABLE", Message: "storage ownership snapshot is busy", Retryable: true}
 	}
 	defer s.store.mu.Unlock()
+	return s.ownershipLocked(withDescriptors)
+}
+func (s *Service) ownershipLocked(withDescriptors bool) (protocol.StorageOwnershipReport, []protocol.StorageDescriptorBinding, *protocol.Error) {
 	if len(s.store.data.Exports) > protocol.MaxStorageOwnershipRecords {
 		return protocol.StorageOwnershipReport{}, nil, &protocol.Error{Code: "RESOURCE_EXHAUSTED", Message: "storage ownership exceeds the record limit"}
 	}

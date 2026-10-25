@@ -12,14 +12,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// ProcessInspection is a point-in-time identity observation, not storage health
-// or authority to recover a lease. Missing records/processes are inconclusive.
-// A match identifies the launched executable inode, not its current pathname.
-type ProcessInspection struct {
-	Status     string // record-missing, process-absent, or process-matched
-	Generation string
-}
-
 // InspectProcess never invokes Observe: recovery may remove stale records.
 // It creates no directories, changes no records, takes no image lock, and runs
 // no filesystem check. It does not read mutable image contents or server logs.

@@ -60,3 +60,11 @@ type Observation struct {
 	Generation    string
 	Counters      Counters
 }
+
+// ProcessInspection is a point-in-time identity observation, not storage health
+// or authority to recover a lease. Missing records/processes are inconclusive.
+// A match identifies the launched executable inode, not its current pathname.
+type ProcessInspection struct {
+	Status     string // record-missing, process-absent, or process-matched
+	Generation string
+}
