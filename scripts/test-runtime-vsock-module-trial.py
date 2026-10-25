@@ -13,6 +13,7 @@ assert re.fullmatch(r'[0-9a-f]{7,40}',REVISION),'expected a committed source rev
 ARCHIVE_SHA=os.environ['MK_MODULE_TRIAL_ARCHIVE_SHA256']
 assert re.fullmatch(r'[0-9a-f]{64}',ARCHIVE_SHA),'expected a pinned source archive digest'
 WORK=P('/opt/mkruntime/g8-host-'+REVISION)
+RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1']
 OLD='65C55BB38C669FF94A4B772';NEW='0450DCCF7EDC67FAE2A6CAA'
 OLD_SHA='bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2'
 NEW_SHA='74e813765d8551d086a603e047337b27ad0cce28dd4cc5de7e983a6e10a1f69f'
@@ -61,7 +62,7 @@ def primary():
     services={n:output(['systemctl','show',n,'-p','MainPID','--value']) for n in ['mkruntimed','mknetd','containerd','docker']}
     assert all(output(['systemctl','is-active',n])=='active' and int(pid)>0 for n,pid in services.items())
     return {'file_sha256':{str(p):sha(p) for p in paths},'service_main_pids':services}
-state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'events':[]}
+state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT=='1','events':[]}
 def record(phase,**values):
     state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded(),'module_refcnt':int(P('/sys/module/mk_transport/refcnt').read_text()) if loaded() else None})
     temporary=trial/'receipt.tmp';temporary.write_text(json.dumps(state,indent=2)+'\n');temporary.chmod(0o600);os.replace(temporary,trial/'primary-module-trial.json')
@@ -72,7 +73,7 @@ record('preflight')
 try:
     run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
     run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
-    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-pressure','--harden-services'])
+    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
     deadline=time.monotonic()+1230;invocation=None
     while True:
         observed=show(pressure,'InvocationID','MainPID','ActiveState','SubState','Result','ExecMainStatus')

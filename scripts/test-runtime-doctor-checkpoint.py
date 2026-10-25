@@ -2,7 +2,7 @@
 import copy
 import json
 import unittest
-from runtime_doctor_checkpoint import qualify, UNOBSERVED
+from runtime_doctor_checkpoint import qualify, qualify_missing_record, UNOBSERVED
 
 BOOT = '00ac7aff-a963-4e30-a085-6811e83f0e12'
 OWNER = dict(sandbox_id='box-a', generation='a'*32, state='RUNNING', cpus=[8,9],
@@ -72,6 +72,23 @@ class DoctorCheckpointTests(unittest.TestCase):
             elif mode=='missing':r.pop('native_processes')
             elif mode=='legacy':r['version']=2
             with self.subTest(mode=mode), self.assertRaises(ValueError):qualify(json.dumps(r).encode(),BOOT,OWNER)
+
+    def test_exact_missing_record_counterpart_requires_unchanged_claims(self):
+        baseline=self.report()
+        negative=copy.deepcopy(baseline)
+        negative.update(status='degraded',findings=[dict(code='NATIVE_STORAGE_RECORD_MISSING',sandbox_id=OWNER['sandbox_id'],generation=OWNER['generation'],export_generation='b'*32)])
+        negative['native_processes'][0]['status']='record-missing'
+        self.assertEqual(qualify_missing_record(json.dumps(negative).encode(),BOOT,OWNER,baseline),negative)
+        for mode in ['finding','generation','private','sequence','peer','native','status']:
+            r=copy.deepcopy(negative)
+            if mode=='finding':r['findings']=[]
+            elif mode=='generation':r['findings'][0]['export_generation']='e'*32
+            elif mode=='private':r['native_processes'][0]['private-path']='SECRET'
+            elif mode=='sequence':r['ownership']['sequence']+=1
+            elif mode=='peer':r['resources']['storage']['exports'][0]['peer_cid']+=1
+            elif mode=='native':r['native_processes'][0]['status']='process-absent'
+            elif mode=='status':r['status']='consistent'
+            with self.subTest(mode=mode),self.assertRaises(ValueError):qualify_missing_record(json.dumps(r).encode(),BOOT,OWNER,baseline)
 
     def test_ambiguous_oversized_and_incomplete_cleanup_refuses(self):
         raw=json.dumps(self.report()).encode()

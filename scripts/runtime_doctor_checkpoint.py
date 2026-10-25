@@ -101,3 +101,23 @@ def qualify(data, boot, owner, released=False):
             any(binding.get('required') is not True for binding in resources['storage_bindings'])):
         raise ValueError('lifecycle expectation differs from the storage descriptor')
     return report
+
+
+def qualify_missing_record(data, boot, owner, baseline):
+    """Accept only the exact degraded counterpart of a qualified held report."""
+    if not isinstance(data, bytes) or len(data) > 1 << 20:
+        raise ValueError('doctor checkpoint exceeds its bound')
+    report = json.loads(data, object_pairs_hook=unique_object)
+    if not isinstance(report, dict):
+        raise ValueError('invalid missing-record checkpoint')
+    expected_process = dict(baseline['native_processes'][0], status='record-missing')
+    finding = dict(code='NATIVE_STORAGE_RECORD_MISSING', sandbox_id=owner['sandbox_id'],
+                   generation=owner['generation'], export_generation=expected_process['export_generation'])
+    if (report.get('status') != 'degraded' or report.get('findings') != [finding] or
+            report.get('native_processes') != [expected_process]):
+        raise ValueError('expected exact generation-bound missing-record finding')
+    normalized = dict(report, status='consistent', findings=[], native_processes=baseline['native_processes'])
+    qualified = qualify(json.dumps(normalized).encode(), boot, owner)
+    if qualified != qualify(json.dumps(baseline).encode(), boot, owner):
+        raise ValueError('recorded claims changed during missing-record inspection')
+    return report

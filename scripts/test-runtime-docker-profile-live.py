@@ -9,12 +9,14 @@ from runtime_storage_pressure import full_observation, recovered_observation
 from runtime_console_capture import ConsoleCapture
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
-from runtime_doctor_checkpoint import qualify as qualify_doctor
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure] [--harden-services]'
+from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record
+from runtime_native_record_fault import HiddenNativeRecord
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure'}
-assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent','--storage-pressure'})<=1
-storage_pressure='--storage-pressure' in flags
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss'}
+assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent','--storage-pressure','--storage-record-loss'})<=1
+native_record_fault='--storage-record-loss' in flags
+storage_pressure='--storage-pressure' in flags or native_record_fault
 crash_during_build='--crash-during-build' in flags
 crash_runtime='--crash-runtime' in flags or crash_during_build
 restart_runtime='--restart-runtime' in flags or crash_runtime
@@ -294,9 +296,48 @@ try:
     assert primary_with_image['child_image_absent'],'child-built image appeared in primary Docker'
     guest_engine=next(json.loads(line) for line in (private/'workload.stdout').read_text().splitlines() if line.startswith('{') and '"KernelVersion"' in line)
     assert fingerprint(guest_engine['ID'])!=primary_docker_before['engine_id_sha256'],'guest selected the primary Docker engine'
-    doctor_checkpoint('while-image-ready',image_deadline)
+    image_doctor=doctor_checkpoint('while-image-ready',image_deadline)
     image_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'observed_monotonic_ns':time.monotonic_ns(),'guest_image_id':image_id,'guest_engine_id':guest_engine['ID'],'primary_snapshot_sha256':sha(private/'primary-docker-while-image-ready.json'),'child_image_absent_from_primary':True,'cleanup_qualified':False}
     (work/'storage-pressure-image-checkpoint.json').write_text(json.dumps(image_checkpoint,indent=2)+'\n')
+    if native_record_fault:
+     # Only this private live stack is eligible. Never run recovery or restart
+     # a daemon while the exact record is temporarily held out of view.
+     assert m.poll() is None and storage_root.is_relative_to('/srv/multikernel-storage')
+     fault_started=time.monotonic_ns();fault_deadline=min(image_deadline,time.monotonic()+40)
+     ledger_paths={name:private/name for name in ['daemon-state/state.json','daemon-state/journal.jsonl','storage-state/state.json','rootfs-state/state.json','network-state/state.json']}
+     ledger_before={name:sha(path) for name,path in ledger_paths.items()}
+     with HiddenNativeRecord(private/'storage-runtime',export,nbd_helper) as held:
+      fault_proof=held.proof()
+      negative_hashes=[];ledger_after_missing=[]
+      for index in range(2):
+       held.check_hidden();remaining=fault_deadline-time.monotonic();assert remaining>0
+       result=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+       assert result.returncode==1 and not result.stderr,'missing-record diagnostic did not refuse'
+       negative=qualify_missing_record(result.stdout,boot,owner,image_doctor)
+       target=private/('doctor-record-missing-'+str(index)+'.json');target.write_text(json.dumps(negative,indent=2)+'\n');negative_hashes.append(sha(target))
+       ledger_after_missing.append({name:sha(path) for name,path in ledger_paths.items()})
+       assert ledger_after_missing[-1]==ledger_before,'diagnostic mutated private ownership'
+       held.check_hidden();assert m.poll() is None
+      # A fresh inner Docker operation still uses this child's live engine and
+      # backing export while metadata is absent. It never sees the host socket.
+      probe_script='set -eu; export DOCKER_HOST=unix:///var/run/docker.sock; test "$(docker info --format \'{{.ID}}\')" = '+guest_engine['ID']+'; test "$(docker image inspect --format \'{{.Id}}\' g8-proof:latest)" = '+image_id+'; test "$(docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges g8-proof:latest /bin/busybox cat /result)" = multikernel-production-docker-build; echo G8_NATIVE_RECORD_HIDDEN_CHILD_DOCKER_PASS'
+      remaining=fault_deadline-time.monotonic();assert remaining>0
+      probe=subprocess.run(cli+['exec','--user','1000:1000','g8-materialization','/bin/sh','-ec',probe_script],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(20,remaining))
+      assert len(probe.stdout)+len(probe.stderr)<65536
+      (private/'record-hidden-child.stdout').write_bytes(probe.stdout);(private/'record-hidden-child.stderr').write_bytes(probe.stderr)
+      assert probe.returncode==0 and probe.stdout==b'G8_NATIVE_RECORD_HIDDEN_CHILD_DOCKER_PASS\n' and not probe.stderr
+      held.check_hidden();assert m.poll() is None
+      ledger_after_probe={name:sha(path) for name,path in ledger_paths.items()}
+      assert all(ledger_after_probe[name]==digest for name,digest in ledger_before.items() if not name.startswith('daemon-state/'))
+      fault_primary=observe_primary_docker(image_id,deadline=fault_deadline);check_primary_docker(primary_docker_before,fault_primary)
+      assert fault_primary['child_image_absent']
+      (private/'primary-docker-while-record-hidden.json').write_text(json.dumps(fault_primary,indent=2)+'\n')
+      assert {str(p):sha(p) for p in paths}==before and services()==pids
+     restored=doctor_checkpoint('record-restored',fault_deadline)
+     restored_path=private/'storage-runtime'/(export['sandbox_id']+'-'+export['sandbox_generation'][:12]+'.json')
+     assert sha(restored_path)==fault_proof['record_sha256'] and restored_path.stat().st_ino==fault_proof['record_inode'] and restored_path.stat().st_dev==fault_proof['record_device']
+     fault_receipt=dict(schema_version=1,invocation_id=os.environ['INVOCATION_ID'],boot_id=boot,sandbox_id=owner['sandbox_id'],generation=owner['generation'],export_generation=export['export_generation'],started_monotonic_ns=fault_started,finished_monotonic_ns=time.monotonic_ns(),record=fault_proof,doctor_missing_sha256=negative_hashes,doctor_restored_sha256=sha(private/'doctor-record-restored.json'),ledgers_before=ledger_before,ledgers_after_missing=ledger_after_missing,ledgers_after_probe=ledger_after_probe,record_restored=dict(sha256=sha(restored_path),device=restored_path.stat().st_dev,inode=restored_path.stat().st_ino),inspection_ledgers_unchanged=True,exact_record_restored=True,child_docker_while_hidden=True,primary_unchanged=True,runtime_pid_unchanged=True,child_probe_stdout_sha256=sha(private/'record-hidden-child.stdout'),child_probe_stderr_sha256=sha(private/'record-hidden-child.stderr'),primary_snapshot_sha256=sha(private/'primary-docker-while-record-hidden.json'),cleanup_qualified=False)
+     (work/'native-record-fault-checkpoint.json').write_text(json.dumps(fault_receipt,indent=2)+'\n')
     # Docker may delete the Runtime v2 task as soon as its workload exits.
     # Attach while the held workload still pins this exact live instance.
     console_capture.begin_teardown()
@@ -387,6 +428,8 @@ if storage_pressure:
  r['console_capture_coverage']={k:capture_metadata[k] for k in ['coverage','complete_stream','truncated','teardown_attached']}
 if storage_pressure:r['storage_pressure_image_checkpoint_sha256']=sha(work/'storage-pressure-image-checkpoint.json')
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+r['native_record_fault_tested']=native_record_fault
+if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
 r['service_capability_nnp_tested']=harden_services
