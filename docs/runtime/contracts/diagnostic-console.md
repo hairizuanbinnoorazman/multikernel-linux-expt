@@ -8,7 +8,8 @@ uses direct child kernels without nested virtualization. Console observation
 does not establish containment after child-kernel compromise.
 
 The total retained raw-data budget remains 1 MiB. Startup receives at most
-768 KiB; 256 KiB is reserved for a fresh connection immediately before removal.
+768 KiB; 256 KiB is reserved for a fresh connection before the held workload is
+released.
 Both windows share the 600-second capture deadline after initial attachment.
 Initial instance discovery remains bounded at 300 seconds; teardown attachment
 and thread stop each wait at most two seconds. A saturated startup connection
@@ -46,4 +47,14 @@ for storage-cleanup qualification. Console markers alone do not prove release.
 
 [Eight controls](../../../evidence/runtime-20261025/g8-console-window-controls/README.md)
 cover floods, stop, redaction, replacement and byte limits. Live child handoff is
-qualified separately; complete G7/G8 remains open.
+qualified separately. The [lifetime regression](../../../evidence/runtime-20261025/g8-console-hold-regression/README.md)
+also checks late output after instance-path removal and idempotent selection;
+the [failed late attempt](../../../evidence/runtime-20261025/g8-console-window-late-attachment-failure/README.md)
+remains explicitly failed. Complete G7/G8 remains open.
+
+The [fixed live handoff](../../../evidence/runtime-20261025/g8-console-window-qualified/README.md)
+subsequently captures both shutdown markers exactly once in its teardown
+segment. That run retains 278,945 startup bytes and 370 teardown bytes, below
+both caps; actual flood bounds remain supported by the separate pipe controls.
+It verifies controlled window handoff, not a continuous stream or an arbitrary
+hostile-console diagnostic bundle.

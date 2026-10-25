@@ -473,3 +473,21 @@ installed services. Ten installed/original/candidate hashes, three quarantined
 images and twelve failed ledgers remain unchanged; fifteen successful-case
 artifact hashes, including all three doctor reports, match the preboot evidence.
 Full health/ownership/diagnostic requirements and G7/G8 remain OPEN.
+
+The [8a8a555 console-window qualification](../../evidence/runtime-20261025/g8-console-window-qualified/README.md)
+now retains late diagnostics by selecting a fresh connection during the built
+image hold, before releasing USR2. The preceding efcd79b attempt selected after
+task exit and failed with ENOENT; its [failure](../../evidence/runtime-20261025/g8-console-window-late-attachment-failure/README.md)
+and [idle restoration](../../evidence/runtime-20261025/g8-console-window-failure-restoration/README.md)
+remain separate. The fix and nine-test lifetime/budget controls are committed.
+Parent e7b6cb35d57f4ad78d18eb32f31c5b10 and child
+fc8f5eb7dce44d07ab8c1645f99d2dae pass on boot
+fa0ebb50-036e-44e7-a7dd-b06812f9ef23. Quiesce and disconnect markers occur once
+each in the 370-byte teardown segment and zero times in the 278,945-byte startup
+segment. The total cap stays 1 MiB; coverage is explicitly discontinuous and
+this run did not reach either cap. Pipe tests cover flood bounds separately.
+ENOSPC recovery, build matrix, three doctor reports, primary inventories/files/
+PIDs/raw network parity, synced zero-error close, clean filesystem checking and
+full normal resource return pass. Pinned 8e97313 runtime binaries are reused
+with identical retained Git runtime-tree identities. Original-module restoration
+follows independently; full G7/G8 and complete diagnostic bundles remain OPEN.

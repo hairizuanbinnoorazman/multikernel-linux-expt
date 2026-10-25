@@ -84,6 +84,12 @@ independent native close, filesystem and resource checks prove normal cleanup.
 The [separate restoration proof](evidence/runtime-20261025/g8-live-doctor-restoration/README.md)
 confirms the original transport and retained artifacts after an idle reboot.
 
+The [reserved console window](evidence/runtime-20261025/g8-console-window-qualified/README.md)
+now retains shutdown markers by attaching before the held workload exits.
+Startup and teardown share the existing 1 MiB cap and report the unobserved
+interval explicitly. The earlier late-attachment failure remains recorded;
+complete diagnostics and live arbitrary-console-flood coverage remain open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
