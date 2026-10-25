@@ -7,15 +7,24 @@ contexts, credentials, plugins or remote-host settings from the caller.
 import hashlib
 import json
 import os
+import pathlib
 import re
 import selectors
 import subprocess
 import time
+import uuid
 
 ENV = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C',
        'HOME': '/nonexistent', 'DOCKER_CONFIG': '/proc/self/fd/-1'}
 CLI = ['/usr/bin/docker', '--host', 'unix:///var/run/docker.sock']
 IMAGE_ID = r'sha256:[0-9a-f]{64}'
+
+
+def boot_identity():
+    value = pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+    if str(uuid.UUID(value)) != value:
+        raise ValueError('invalid primary boot identity')
+    return value
 
 
 def bounded_command(argv, timeout=10, limit=1 << 20):
@@ -74,7 +83,8 @@ def identifiers(data, pattern):
     return sorted(rows)
 
 
-def observe(expected_absent_image=None, command=None, deadline=None):
+def observe(expected_absent_image=None, command=None, deadline=None, read_boot=boot_identity):
+    boot = read_boot()
     if command is None:
         def command(args):
             remaining = 10 if deadline is None else min(10, deadline - time.monotonic())
@@ -102,7 +112,9 @@ def observe(expected_absent_image=None, command=None, deadline=None):
             ('volumes', ['volume', 'ls', '--quiet'], r'[A-Za-z0-9][A-Za-z0-9_.-]{0,255}'),
             ('networks', ['network', 'ls', '--no-trunc', '--quiet'], r'[a-z0-9]{12,64}')]:
         inventories[kind] = identifiers(command(CLI + args), pattern)
-    return {'schema_version': 1, 'engine_id_sha256': fingerprint(engine),
+    if read_boot() != boot:
+        raise ValueError('primary boot changed during Docker observation')
+    return {'schema_version': 2, 'boot_id': boot, 'engine_id_sha256': fingerprint(engine),
             'inventories': {kind: {'count': len(rows), 'sha256': fingerprint(rows)}
                             for kind, rows in inventories.items()},
             'checked_absent_image': expected_absent_image,
@@ -111,6 +123,12 @@ def observe(expected_absent_image=None, command=None, deadline=None):
 
 
 def unchanged(before, after):
+    # Inventory identities belong to an observation epoch. A restart can
+    # recreate objects independently of a child workload; never silently
+    # compare an old baseline or blame such a delta on the current workload.
+    if (before.get('schema_version') != 2 or after.get('schema_version') != 2 or
+            not before.get('boot_id') or before['boot_id'] != after.get('boot_id')):
+        raise ValueError('primary Docker observations need the same boot epoch')
     if (before['engine_id_sha256'] != after['engine_id_sha256'] or
             before['inventories'] != after['inventories']):
         raise ValueError('primary Docker engine or inventory changed during the child workload')

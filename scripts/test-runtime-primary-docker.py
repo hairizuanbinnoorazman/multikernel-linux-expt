@@ -46,6 +46,18 @@ class PrimaryDockerTests(unittest.TestCase):
         self.assertTrue(observe(OTHER,command=left)['child_image_absent'])
         with self.assertRaises(ValueError):observe('not-an-image',command=left)
 
+    def test_epoch_change_and_unscoped_baselines_refuse_comparison(self):
+        command,_=self.response()
+        before=observe(command=command,read_boot=lambda:'first-boot')
+        after=observe(command=command,read_boot=lambda:'second-boot')
+        with self.assertRaisesRegex(ValueError,'same boot epoch'):unchanged(before,after)
+        legacy=dict(before);legacy.pop('boot_id')
+        with self.assertRaisesRegex(ValueError,'same boot epoch'):unchanged(legacy,before)
+        with self.assertRaisesRegex(ValueError,'same boot epoch'):unchanged({'schema_version':1},before)
+        identities=iter(['first-boot','second-boot'])
+        with self.assertRaisesRegex(ValueError,'changed during'):
+            observe(command=command,read_boot=lambda:next(identities))
+
     def test_bad_or_ambiguous_metadata_is_refused(self):
         base,_=self.response()
         for payload in [b'{}', b'{"ID":"x","ID":"y"}', b'{"ID":null}', b'not-json']:
