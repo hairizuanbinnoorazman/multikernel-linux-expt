@@ -85,6 +85,27 @@ int main(void) { int fd=open(getenv("TEST_IMAGE"),O_RDONLY); if(fd<0||dup2(fd,3)
         self.assertEqual(self.name.stat().st_ino,inode)
         self.assertEqual(len(list(self.directory.iterdir())),2)
 
+    def test_unpaired_fifo_preserved_and_original_restored_on_exception(self):
+        inode=self.name.stat().st_ino
+        with self.assertRaisesRegex(RuntimeError,'injected doctor failure'):
+            with HiddenNativeRecord(self.directory,self.export,self.binary,placeholder='fifo') as held:
+                self.assertTrue(self.name.lstat().st_mode & 0o010000)
+                held.check_hidden()
+                self.assertEqual(held.proof()['placeholder'],'fifo')
+                self.assertTrue(held.proof()['no_fifo_peer_opened'])
+                raise RuntimeError('injected doctor failure')
+        self.assertEqual(self.name.read_bytes(),self.data)
+        self.assertEqual(self.name.stat().st_ino,inode)
+        self.assertEqual(len(list(self.directory.iterdir())),2)
+
+    def test_changed_fifo_placeholder_is_preserved(self):
+        with self.assertRaisesRegex(ValueError,'changed FIFO placeholder'):
+            with HiddenNativeRecord(self.directory,self.export,self.binary,placeholder='fifo') as held:
+                self.name.unlink()
+                self.name.write_bytes(b'conflicting replacement')
+        self.assertEqual(self.name.read_bytes(),b'conflicting replacement')
+        self.assertEqual((self.directory/held.held).read_bytes(),self.data)
+
     def test_occupied_restore_target_is_preserved_with_held_evidence(self):
         with self.assertRaises(OSError):
             with self.fault() as held:

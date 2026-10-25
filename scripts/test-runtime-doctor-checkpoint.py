@@ -2,7 +2,7 @@
 import copy
 import json
 import unittest
-from runtime_doctor_checkpoint import qualify, qualify_missing_record, UNOBSERVED
+from runtime_doctor_checkpoint import qualify, qualify_missing_record, qualify_unavailable_record, UNOBSERVED
 
 BOOT = '00ac7aff-a963-4e30-a085-6811e83f0e12'
 OWNER = dict(sandbox_id='box-a', generation='a'*32, state='RUNNING', cpus=[8,9],
@@ -89,6 +89,16 @@ class DoctorCheckpointTests(unittest.TestCase):
             elif mode=='native':r['native_processes'][0]['status']='process-absent'
             elif mode=='status':r['status']='consistent'
             with self.subTest(mode=mode),self.assertRaises(ValueError):qualify_missing_record(json.dumps(r).encode(),BOOT,OWNER,baseline)
+
+    def test_unavailable_record_requires_exact_inconclusive_counterpart(self):
+        baseline=self.report();r=copy.deepcopy(baseline)
+        r.update(status='inconclusive',findings=[dict(code='NATIVE_STORAGE_IDENTITY_UNAVAILABLE',sandbox_id=OWNER['sandbox_id'],generation=OWNER['generation'],export_generation='b'*32)])
+        r['native_processes'][0]['status']='unavailable'
+        self.assertEqual(qualify_unavailable_record(json.dumps(r).encode(),BOOT,OWNER,baseline),r)
+        with self.assertRaises(ValueError):qualify_missing_record(json.dumps(r).encode(),BOOT,OWNER,baseline)
+        for key,value in [('status','consistent'),('findings',[]),('boot_stable',False)]:
+            changed=copy.deepcopy(r);changed[key]=value
+            with self.assertRaises(ValueError):qualify_unavailable_record(json.dumps(changed).encode(),BOOT,OWNER,baseline)
 
     def test_ambiguous_oversized_and_incomplete_cleanup_refuses(self):
         raw=json.dumps(self.report()).encode()

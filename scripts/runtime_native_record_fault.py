@@ -76,7 +76,11 @@ def _rename(fd, source, target):
 
 
 class HiddenNativeRecord:
-    def __init__(self, directory, export, binary):
+    def __init__(self, directory, export, binary, placeholder=None):
+        if placeholder not in [None, 'fifo']:
+            raise ValueError('unsupported native record placeholder')
+        self.placeholder = placeholder
+        self.fifo_identity = None
         self.directory = pathlib.Path(directory)
         self.export = export
         self.binary = str(binary)
@@ -115,12 +119,17 @@ class HiddenNativeRecord:
         data, s = _read(self.fd, self.held)
         if data != self.data or _identity(s) != self.held_identity:
             raise ValueError('held native record changed')
-        try:
-            os.stat(self.name, dir_fd=self.fd, follow_symlinks=False)
-        except FileNotFoundError:
-            pass
+        if self.fifo_identity is not None:
+            named = os.stat(self.name, dir_fd=self.fd, follow_symlinks=False)
+            if _identity(named) != self.fifo_identity:
+                raise ValueError('native FIFO placeholder changed')
         else:
-            raise ValueError('native process record was recreated')
+            try:
+                os.stat(self.name, dir_fd=self.fd, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise ValueError('native process record was recreated')
         self._live()
 
     def __enter__(self):
@@ -153,6 +162,12 @@ class HiddenNativeRecord:
             if data != self.data or (held.st_dev, held.st_ino) != (original.st_dev, original.st_ino):
                 raise ValueError('renamed native record differs')
             self.held_identity = _identity(held)
+            if self.placeholder == 'fifo':
+                os.mkfifo(self.name, 0o600, dir_fd=self.fd)
+                named = os.stat(self.name, dir_fd=self.fd, follow_symlinks=False)
+                self.fifo_identity = _identity(named)
+                if not stat.S_ISFIFO(named.st_mode) or named.st_nlink != 1 or stat.S_IMODE(named.st_mode) != 0o600:
+                    raise ValueError('native FIFO placeholder identity is unsafe')
             os.fsync(self.fd)
             self.check_hidden()
             return self
@@ -172,6 +187,20 @@ class HiddenNativeRecord:
                 if data != self.data or _identity(held) != self.held_identity:
                     raise ValueError('refusing restoration of modified held record')
                 self._same_directory()
+                if self.fifo_identity is not None:
+                    named = os.stat(self.name, dir_fd=self.fd, follow_symlinks=False)
+                    if _identity(named) != self.fifo_identity:
+                        raise ValueError('refusing removal of changed FIFO placeholder')
+                    quarantine = '.g8-fifo-remove-' + uuid.uuid4().hex
+                    _rename(self.fd, self.name, quarantine)
+                    moved = os.stat(quarantine, dir_fd=self.fd, follow_symlinks=False)
+                    # Our rename changes ctime. All other identity fields must
+                    # still describe the exact FIFO; preserve conflicts.
+                    if _identity(moved)[:-1] != self.fifo_identity[:-1]:
+                        _rename(self.fd, quarantine, self.name)
+                        raise ValueError('FIFO identity changed during removal')
+                    os.unlink(quarantine, dir_fd=self.fd)
+                    self.fifo_identity = None
                 _rename(self.fd, self.held, self.name)
                 self.hidden = False
                 os.fsync(self.fd)
@@ -185,7 +214,9 @@ class HiddenNativeRecord:
             self.pidfd = self.fd = None
 
     def proof(self):
-        return dict(record_sha256=hashlib.sha256(self.data).hexdigest(),
+        return dict(placeholder='fifo' if self.placeholder else 'missing',
+                    placeholder_identity=list(self.fifo_identity) if self.fifo_identity else None,
+                    no_fifo_peer_opened=True, record_sha256=hashlib.sha256(self.data).hexdigest(),
                     record_device=self.held_identity[0], record_inode=self.held_identity[1],
                     process_live=True, exact_process_incarnation=True,
                     launched_executable_and_backing_fd_match=True)

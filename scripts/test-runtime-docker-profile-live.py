@@ -9,13 +9,14 @@ from runtime_storage_pressure import full_observation, recovered_observation
 from runtime_console_capture import ConsoleCapture
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
-from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record
+from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record, qualify_unavailable_record
 from runtime_native_record_fault import HiddenNativeRecord
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss] [--harden-services]'
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss'}
-assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent','--storage-pressure','--storage-record-loss'})<=1
-native_record_fault='--storage-record-loss' in flags
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo'}
+assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo'})<=1
+native_record_fifo='--storage-record-fifo' in flags
+native_record_fault='--storage-record-loss' in flags or native_record_fifo
 storage_pressure='--storage-pressure' in flags or native_record_fault
 crash_during_build='--crash-during-build' in flags
 crash_runtime='--crash-runtime' in flags or crash_during_build
@@ -306,15 +307,15 @@ try:
      fault_started=time.monotonic_ns();fault_deadline=min(image_deadline,time.monotonic()+40)
      ledger_paths={name:private/name for name in ['daemon-state/state.json','daemon-state/journal.jsonl','storage-state/state.json','rootfs-state/state.json','network-state/state.json']}
      ledger_before={name:sha(path) for name,path in ledger_paths.items()}
-     with HiddenNativeRecord(private/'storage-runtime',export,nbd_helper) as held:
+     with HiddenNativeRecord(private/'storage-runtime',export,nbd_helper,placeholder='fifo' if native_record_fifo else None) as held:
       fault_proof=held.proof()
       negative_hashes=[];ledger_after_missing=[]
       for index in range(2):
        held.check_hidden();remaining=fault_deadline-time.monotonic();assert remaining>0
        result=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
        assert result.returncode==1 and not result.stderr,'missing-record diagnostic did not refuse'
-       negative=qualify_missing_record(result.stdout,boot,owner,image_doctor)
-       target=private/('doctor-record-missing-'+str(index)+'.json');target.write_text(json.dumps(negative,indent=2)+'\n');negative_hashes.append(sha(target))
+       negative=(qualify_unavailable_record if native_record_fifo else qualify_missing_record)(result.stdout,boot,owner,image_doctor)
+       target=private/('doctor-'+('fifo-unavailable' if native_record_fifo else 'record-missing')+'-'+str(index)+'.json');target.write_text(json.dumps(negative,indent=2)+'\n');negative_hashes.append(sha(target))
        ledger_after_missing.append({name:sha(path) for name,path in ledger_paths.items()})
        assert ledger_after_missing[-1]==ledger_before,'diagnostic mutated private ownership'
        held.check_hidden();assert m.poll() is None
@@ -336,7 +337,8 @@ try:
      restored=doctor_checkpoint('record-restored',fault_deadline)
      restored_path=private/'storage-runtime'/(export['sandbox_id']+'-'+export['sandbox_generation'][:12]+'.json')
      assert sha(restored_path)==fault_proof['record_sha256'] and restored_path.stat().st_ino==fault_proof['record_inode'] and restored_path.stat().st_dev==fault_proof['record_device']
-     fault_receipt=dict(schema_version=1,invocation_id=os.environ['INVOCATION_ID'],boot_id=boot,sandbox_id=owner['sandbox_id'],generation=owner['generation'],export_generation=export['export_generation'],started_monotonic_ns=fault_started,finished_monotonic_ns=time.monotonic_ns(),record=fault_proof,doctor_missing_sha256=negative_hashes,doctor_restored_sha256=sha(private/'doctor-record-restored.json'),ledgers_before=ledger_before,ledgers_after_missing=ledger_after_missing,ledgers_after_probe=ledger_after_probe,record_restored=dict(sha256=sha(restored_path),device=restored_path.stat().st_dev,inode=restored_path.stat().st_ino),inspection_ledgers_unchanged=True,exact_record_restored=True,child_docker_while_hidden=True,primary_unchanged=True,runtime_pid_unchanged=True,child_probe_stdout_sha256=sha(private/'record-hidden-child.stdout'),child_probe_stderr_sha256=sha(private/'record-hidden-child.stderr'),primary_snapshot_sha256=sha(private/'primary-docker-while-record-hidden.json'),cleanup_qualified=False)
+     fault_receipt=dict(schema_version=2,fault_kind='unpaired-fifo' if native_record_fifo else 'missing-record',invocation_id=os.environ['INVOCATION_ID'],boot_id=boot,sandbox_id=owner['sandbox_id'],generation=owner['generation'],export_generation=export['export_generation'],started_monotonic_ns=fault_started,finished_monotonic_ns=time.monotonic_ns(),record=fault_proof,doctor_fault_sha256=negative_hashes,doctor_restored_sha256=sha(private/'doctor-record-restored.json'),ledgers_before=ledger_before,ledgers_after_missing=ledger_after_missing,ledgers_after_probe=ledger_after_probe,record_restored=dict(sha256=sha(restored_path),device=restored_path.stat().st_dev,inode=restored_path.stat().st_ino),inspection_ledgers_unchanged=True,exact_record_restored=True,child_docker_while_hidden=True,primary_unchanged=True,runtime_pid_unchanged=True,child_probe_stdout_sha256=sha(private/'record-hidden-child.stdout'),child_probe_stderr_sha256=sha(private/'record-hidden-child.stderr'),primary_snapshot_sha256=sha(private/'primary-docker-while-record-hidden.json'),cleanup_qualified=False)
+     if not native_record_fifo:fault_receipt['doctor_missing_sha256']=negative_hashes
      (work/'native-record-fault-checkpoint.json').write_text(json.dumps(fault_receipt,indent=2)+'\n')
     # Docker may delete the Runtime v2 task as soon as its workload exits.
     # Attach while the held workload still pins this exact live instance.
