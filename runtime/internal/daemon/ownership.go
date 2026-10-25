@@ -8,13 +8,20 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
+// ErrOwnershipUnsupported identifies a valid capability reply that lacks the
+// ownership view. Callers can diagnose compatibility without parsing text.
+var ErrOwnershipUnsupported = errors.New("daemon does not advertise ownership-v1")
+
 func InspectOwnership(ctx context.Context, caller Caller) (protocol.OwnershipReport, error) {
 	var capabilities protocol.DaemonCapabilities
 	if failure := caller.Call(ctx, protocol.Request{Version: protocol.Version, RequestID: "ownership-capabilities-v1", Method: "Capabilities"}, &capabilities); failure != nil {
 		return protocol.OwnershipReport{}, ownershipRPCError(failure)
 	}
-	if capabilities.Validate() != nil || !slices.Contains(capabilities.Features, protocol.OwnershipCapability) {
+	if capabilities.Validate() != nil {
 		return protocol.OwnershipReport{}, errors.New("daemon does not advertise a valid ownership-v1 capability")
+	}
+	if !slices.Contains(capabilities.Features, protocol.OwnershipCapability) {
+		return protocol.OwnershipReport{}, ErrOwnershipUnsupported
 	}
 	var report protocol.OwnershipReport
 	if failure := caller.Call(ctx, protocol.Request{Version: protocol.Version, RequestID: "inspect-ownership-v1", Method: "InspectOwnership"}, &report); failure != nil {

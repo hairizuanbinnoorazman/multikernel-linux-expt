@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -39,7 +40,7 @@ func TestDiagnosticStates(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := Inspect(context.Background(), inputs(tc.sandboxes, tc.ids), "test-revision")
-			if r.Status != tc.status || r.KernelGenerationVerified || len(r.Unobserved) != 7 {
+			if r.Status != tc.status || !r.BootStable || r.BootID != boot || r.KernelGenerationVerified || len(r.Unobserved) != 7 {
 				t.Fatalf("%+v", r)
 			}
 			if tc.code != "" && (len(r.Findings) == 0 || r.Findings[0].Code != tc.code) {
@@ -55,11 +56,15 @@ func TestDiagnosticStates(t *testing.T) {
 	}
 }
 func TestUnknownDriftAndPrivateErrors(t *testing.T) {
-	for _, mode := range []string{"unavailable", "bad-report", "missing-kernel", "oversized", "malformed", "duplicate", "reordered", "boot-change", "sequence-change", "generation-change", "inventory-change", "canceled"} {
+	for _, mode := range []string{"unsupported", "unavailable", "bad-report", "missing-kernel", "oversized", "malformed", "duplicate", "reordered", "boot-change", "sequence-change", "generation-change", "inventory-change", "canceled"} {
 		t.Run(mode, func(t *testing.T) {
 			in := inputs([]protocol.SandboxOwnership{}, []string{})
 			n := 0
 			switch mode {
+			case "unsupported":
+				in.Ownership = func(context.Context) (protocol.OwnershipReport, error) {
+					return protocol.OwnershipReport{}, errors.Join(daemon.ErrOwnershipUnsupported, errors.New("private-token-SECRET"))
+				}
 			case "unavailable":
 				in.Ownership = func(context.Context) (protocol.OwnershipReport, error) {
 					return protocol.OwnershipReport{}, errors.New("private-token-SECRET")
@@ -115,6 +120,15 @@ func TestUnknownDriftAndPrivateErrors(t *testing.T) {
 			b, _ := json.Marshal(r)
 			if r.Status != "inconclusive" || r.Ownership != nil || r.KernelInstances != nil || len(r.Findings) != 1 || strings.Contains(string(b), "SECRET") {
 				t.Fatalf("%s", b)
+			}
+			if mode != "canceled" && r.BootID != boot {
+				t.Fatal("lost initial boot identity")
+			}
+			if mode == "unsupported" && (r.BootStable || r.Findings[0].Code != "OWNERSHIP_UNSUPPORTED") {
+				t.Fatalf("%s", b)
+			}
+			if mode == "boot-change" && r.BootStable {
+				t.Fatal("changed boot presented as stable")
 			}
 		})
 	}

@@ -43,3 +43,9 @@ cannot exclude an unobserved ABA transition. `unobserved` explicitly lists
 storage exports, network endpoints, pool capacity, service readiness, child
 Docker health and containment; `consistent` does not establish full runtime
 health or no leakage. Use the existing protected socket; no repair is attempted.
+
+A valid capability response without `ownership-v1` now yields the distinct code
+`OWNERSHIP_UNSUPPORTED`; unavailable or invalid observations retain
+`OWNERSHIP_UNAVAILABLE`. Both exit 1 without a legacy fallback. Failed reports
+retain the initially observed `boot_id`; `boot_stable` becomes true only after
+the final matching boot read, so early failures cannot claim boot stability.

@@ -3,10 +3,12 @@ package doctor
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"regexp"
 	"sort"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -25,6 +27,7 @@ type Report struct {
 	Scope                    string                    `json:"scope"`
 	Status                   string                    `json:"status"`
 	BootID                   string                    `json:"boot_id,omitempty"`
+	BootStable               bool                      `json:"boot_stable"`
 	Revision                 string                    `json:"revision"`
 	Ownership                *protocol.OwnershipReport `json:"ownership,omitempty"`
 	KernelInstances          []string                  `json:"kernel_instances,omitempty"`
@@ -50,9 +53,12 @@ func Inspect(ctx context.Context, in Inputs, revision string) Report {
 	if err != nil || !bootPattern.MatchString(boot) {
 		return fail("BOOT_UNAVAILABLE")
 	}
+	// Failed observations still identify the boot at which inspection began.
+	// Stability is confirmed only after the final independent boot read.
+	r.BootID = boot
 	before, err := in.Ownership(ctx)
 	if err != nil || before.Validate() != nil {
-		return fail("OWNERSHIP_UNAVAILABLE")
+		return fail(ownershipFailure(err))
 	}
 	first, err := in.Kernel(ctx)
 	if err != nil || !validKernel(first) {
@@ -60,7 +66,7 @@ func Inspect(ctx context.Context, in Inputs, revision string) Report {
 	}
 	after, err := in.Ownership(ctx)
 	if err != nil || after.Validate() != nil {
-		return fail("OWNERSHIP_UNAVAILABLE")
+		return fail(ownershipFailure(err))
 	}
 	second, err := in.Kernel(ctx)
 	if err != nil || !validKernel(second) {
@@ -70,6 +76,7 @@ func Inspect(ctx context.Context, in Inputs, revision string) Report {
 	if err != nil || end != boot {
 		return fail("BOOT_CHANGED")
 	}
+	r.BootStable = true
 	if ctx.Err() != nil {
 		return fail("DEADLINE_OR_CANCELED")
 	}
@@ -133,6 +140,14 @@ func Inspect(ctx context.Context, in Inputs, revision string) Report {
 	}
 	return r
 }
+
+func ownershipFailure(err error) string {
+	if errors.Is(err, daemon.ErrOwnershipUnsupported) {
+		return "OWNERSHIP_UNSUPPORTED"
+	}
+	return "OWNERSHIP_UNAVAILABLE"
+}
+
 func validKernel(ids []string) bool {
 	if ids == nil || len(ids) > protocol.MaxOwnershipRecords || !sort.StringsAreSorted(ids) {
 		return false

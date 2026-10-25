@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -70,6 +71,9 @@ func TestOwnershipClientRefusesUnsafeRepliesAndLegacyFallback(t *testing.T) {
 				return nil
 			})
 			report, err := InspectOwnership(context.Background(), caller)
+			if errors.Is(err, ErrOwnershipUnsupported) != (mode == "old-daemon") {
+				t.Fatalf("incorrect capability classification for %s: %v", mode, err)
+			}
 			if err == nil || report.Sandboxes != nil || strings.Contains(err.Error(), "synthetic-private-secret") {
 				t.Fatalf("unsafe reply accepted/reflected: %+v %v", report, err)
 			}
