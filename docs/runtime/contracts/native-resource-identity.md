@@ -101,3 +101,7 @@ passes this refusal through the real child Docker ENOSPC/build lifecycle: two
 inconclusive reports preserve claims/ledgers, the child engine still runs a fresh
 inner container, the exact record is restored and normal cleanup returns all
 resources with unchanged primary inventories. No FIFO writer is introduced.
+
+The [separate FIFO-case restoration](../../../evidence/runtime-20261025/g8-fifo-record-restoration/README.md)
+verifies the original loaded transport and twenty-six preboot/postboot artifact
+hashes. Reboot is not counted as normal cleanup or as recovery from process death.

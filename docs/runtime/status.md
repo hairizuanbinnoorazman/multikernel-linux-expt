@@ -625,3 +625,11 @@ This closes FIFO rendezvous refusal for these paths, not arbitrary filesystem/
 device stalls, native process death or full session/content health. Complete
 G7/G8 remains OPEN; direct children use no nested virtualization and share the
 host trust domain after child-kernel compromise.
+
+[FIFO-case restoration](../../evidence/runtime-20261025/g8-fifo-record-restoration/README.md)
+passes on boot 00e5da43-7868-403b-b0f4-04bfcf8b216e: original SRC65, zero
+references/sockets/children, no pool, all CPUs online and four active installed
+services. Ten watched hashes and three quarantined images with twelve ledgers
+match. Twenty-six successful-case hashes sampled immediately before reboot
+match postboot samples and committed evidence. Reboot is not normal cleanup;
+full G7/G8 remains OPEN.

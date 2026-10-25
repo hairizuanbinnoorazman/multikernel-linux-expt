@@ -133,7 +133,9 @@ reproduce the old waits and verify the fix. Its
 inconclusive diagnostics promptly while child Docker keeps working, restores
 the exact record, and passes normal cleanup with unchanged primary inventories.
 This qualifies FIFO refusal, with direct kernels and no nested virtualization;
-arbitrary filesystem stalls and full G7/G8 remain open.
+arbitrary filesystem stalls and full G7/G8 remain open. The
+[separate restoration proof](evidence/runtime-20261025/g8-fifo-record-restoration/README.md)
+confirms the original transport and twenty-six retained artifact hashes.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
