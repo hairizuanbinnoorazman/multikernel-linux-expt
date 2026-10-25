@@ -62,7 +62,10 @@ checks two generation-bound missing-record findings with unchanged private
 ownership ledgers, then exercises the child-local engine while the record is
 hidden. The same inode/bytes are restored before continuing normal cleanup.
 The [fault controls](../../../evidence/runtime-20261025/g8-native-record-loss-controls/README.md)
-cover refusal, client exceptions and conflicting restoration targets.
+cover refusal, client exceptions and conflicting restoration targets. The
+[live GCE proof](../../../evidence/runtime-20261025/g8-live-native-record-loss/README.md)
+qualifies both negative diagnostics, child Docker continuity, exact restoration
+and later normal cleanup with unchanged primary inventories.
 
 This is a metadata-loss test, not a native process kill or host-power-loss test.
 A missing record does not establish that its process has died. Diagnostics must

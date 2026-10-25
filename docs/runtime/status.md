@@ -581,3 +581,19 @@ services. Ten installed/original/candidate hashes and three quarantined images
 with twelve ledgers match. Eighteen successful-case hashes sampled immediately
 before reboot match the postboot sample and committed evidence. Reboot is not
 counted as normal cleanup; full G7/G8 remains OPEN.
+
+Code aac4a50 adds a guarded private record-fault helper; a9808ae selects its
+bounded live child Docker scenario. [Controls](../../evidence/runtime-20261025/g8-native-record-loss-controls/README.md)
+pass six real-process safety tests, six strict checkpoint tests and the required
+suite. The [GCE case](../../evidence/runtime-20261025/g8-live-native-record-loss/README.md)
+passes parent 3bd282e4ccc14a6fae99a5920c919975 / child
+14fc583afd0f43e098549ba19f8fef98 on boot 28262509-6abe-4559-9c25-66d47eb18a86.
+Two exact missing-record findings preserve recorded claims and five private
+ledger/journal hashes. The same child engine inspects its image and runs/removes
+a fresh inner container while metadata is hidden. The original record bytes
+and inode are restored, doctor returns to its pre-fault consistent report,
+and normal cleanup independently passes. Five primary Docker inventories,
+installed hashes/PIDs and raw network parity agree. No held-record leftovers
+remain. This qualifies metadata-loss detection/continuity, not native process
+death or power-loss recovery. Full G7/G8 remains OPEN; direct children use no
+nested virtualization and share the host trust domain.

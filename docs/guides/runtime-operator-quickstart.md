@@ -163,6 +163,12 @@ reply from `NATIVE_RESOURCE_IDENTITY_UNAVAILABLE`. There is no partial legacy
 fallback. Early failures retain the initial `boot_id` with `boot_stable: false`.
 Matching names cannot prove the kernel incarnation, and matched native identity
 cannot prove socket/session health, I/O progress, storage contents or containment.
+A missing record can coexist with a live, serving export. The
+[negative-case proof](../../evidence/runtime-20261025/g8-live-native-record-loss/README.md)
+keeps child Docker working while diagnostics correctly degrade. Do not clear
+leases, stop an export or reconstruct a record from a guessed PID based on this
+finding; follow the recovery guide. The lab test restores a known held inode
+and is not a production repair procedure.
 Those limits remain explicit in `unobserved` and the
 [native identity contract](../runtime/contracts/native-resource-identity.md).
 The [live GCE proof](../../evidence/runtime-20261025/g8-live-native-resource-identity/README.md)

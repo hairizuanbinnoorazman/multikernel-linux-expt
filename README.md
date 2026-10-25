@@ -116,6 +116,14 @@ confirms the original transport and eighteen artifact hashes after reboot.
 These checks use direct kernels without
 nested virtualization and retain the shared host trust boundary.
 
+A [live missing-record test](evidence/runtime-20261025/g8-live-native-record-loss/README.md)
+now proves the negative diagnostic path: the exact active export record is
+hidden, doctor reports degraded without changing ownership, and the same child
+engine still runs a fresh inner container. Restoring the original record returns
+diagnostics to consistent; normal cleanup and primary inventories also pass.
+This is metadata loss, with direct child kernels and no nested virtualization;
+process-death recovery and hostile child-kernel containment remain open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
