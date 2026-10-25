@@ -2,6 +2,7 @@
 import json
 import os
 import pathlib
+import stat
 import subprocess
 import tempfile
 import time
@@ -89,10 +90,10 @@ int main(void) { int fd=open(getenv("TEST_IMAGE"),O_RDONLY); if(fd<0||dup2(fd,3)
         inode=self.name.stat().st_ino
         with self.assertRaisesRegex(RuntimeError,'injected doctor failure'):
             with HiddenNativeRecord(self.directory,self.export,self.binary,placeholder='fifo') as held:
-                self.assertTrue(self.name.lstat().st_mode & 0o010000)
+                self.assertTrue(stat.S_ISFIFO(self.name.lstat().st_mode))
                 held.check_hidden()
                 self.assertEqual(held.proof()['placeholder'],'fifo')
-                self.assertTrue(held.proof()['no_fifo_peer_opened'])
+                self.assertTrue(held.proof()['no_fifo_writer_opened'])
                 raise RuntimeError('injected doctor failure')
         self.assertEqual(self.name.read_bytes(),self.data)
         self.assertEqual(self.name.stat().st_ino,inode)

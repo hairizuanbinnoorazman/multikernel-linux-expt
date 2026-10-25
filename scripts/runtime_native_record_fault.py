@@ -216,7 +216,7 @@ class HiddenNativeRecord:
     def proof(self):
         return dict(placeholder='fifo' if self.placeholder else 'missing',
                     placeholder_identity=list(self.fifo_identity) if self.fifo_identity else None,
-                    no_fifo_peer_opened=True, record_sha256=hashlib.sha256(self.data).hexdigest(),
+                    no_fifo_writer_opened=True, record_sha256=hashlib.sha256(self.data).hexdigest(),
                     record_device=self.held_identity[0], record_inode=self.held_identity[1],
                     process_live=True, exact_process_incarnation=True,
                     launched_executable_and_backing_fd_match=True)
