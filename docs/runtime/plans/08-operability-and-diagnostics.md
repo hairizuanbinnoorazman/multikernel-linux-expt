@@ -85,6 +85,14 @@ Storage/network ownership, live incarnation, pool capacity, full service
 readiness and diagnostic bundles remain unobserved by this command and required
 for the complete gate.
 
+The separate [durable storage view](../contracts/storage-ownership.md) now provides
+bounded generation/CID/quota/inode/release metadata through negotiated protected
+RPC. [Tests and GCE qualification](../../../evidence/runtime-20261025/g8-storage-ownership/README.md)
+cover read-only projection, empty state and a copied real completed record.
+Active/intermediate states have unit coverage; live native/lifecycle correlation,
+independent health and retention/pagination remain required. The doctor still
+leaves this broader storage scope unobserved.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

@@ -92,6 +92,11 @@ complete diagnostics and live arbitrary-console-flood coverage remain open.
 Its [cold-restoration proof](evidence/runtime-20261025/g8-console-window-restoration/README.md)
 confirms the original transport and eighteen retained artifact hashes.
 
+The negotiated `mkruntimed --inspect-storage` view now exposes recorded storage
+ownership without backing paths or credentials. Its [GCE proof](evidence/runtime-20261025/g8-storage-ownership/README.md)
+covers empty state and a copy of a real completed export. Live storage/lifecycle
+correlation and native-process health remain open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

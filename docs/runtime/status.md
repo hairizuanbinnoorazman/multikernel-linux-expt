@@ -497,3 +497,22 @@ Ten installed/original/candidate hashes, three quarantined images and twelve
 ledgers are unchanged; eighteen successful-case hashes, including console
 metadata/filtered events and phase-marker metadata, match the preboot evidence.
 Full G7/G8 and complete diagnostic bundles remain OPEN.
+
+Code 551f627 adds negotiated `storage-ownership-v1` / InspectStorageOwnership and
+`mkruntimed --inspect-storage`. Its [metadata contract](contracts/storage-ownership.md)
+excludes backing paths, image names/source digests, credentials, labels and raw
+errors. It checks the 256-record limit before projection and uses a nonblocking
+store lock: busy persistence yields retryable UNAVAILABLE, never a partial
+inventory. Invalid/ambiguous claims refuse; no backend or service-operation lock
+is used. Recorded generations, CID, quota/inode/port identity and validated close
+check/counters remain visible to an authorized operator.
+[Race tests and GCE proof](../../evidence/runtime-20261025/g8-storage-ownership/README.md)
+pass, including three empty reads and three identical reads of a private copy of
+the real 8a8a555 released export. Invocation 53a43d53767044bc8b78e992333133c2 exits
+successfully on boot d27905ea-c79e-46ca-95a7-27bfc78a2f16. Both private daemons
+exit zero and remove their sockets; original/copy state, ten primary hashes,
+four service PIDs and idle kernel observations are unchanged. No child/export
+workload, module reload or reboot is involved. Legacy installed services refuse
+the view and remain unchanged. Active/intermediate states are unit fixtures;
+live lifecycle/native correlation, full health and retention remain OPEN, as do
+complete G7/G8.

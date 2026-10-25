@@ -163,6 +163,22 @@ The [compatible-daemon proof](../../evidence/runtime-20261025/g8-compatible-daem
 subsequently qualifies idle inspection through the production RPC server against
 the real kernel inventory, with private state and unchanged installed services.
 
+With a qualified client and daemon supporting `storage-ownership-v1`, inspect
+recorded storage leases through the same protected socket:
+
+```bash
+sudo mkruntimed --config=/etc/mkruntime/config.json --inspect-storage
+```
+
+The [bounded metadata contract](../runtime/contracts/storage-ownership.md)
+excludes backing paths and credentials. Busy, oversized, unsupported or invalid
+views fail rather than return a partial inventory. These are recorded claims;
+live-state close counters are not current I/O metrics, and a released record is
+not a fresh filesystem check. Follow the recovery guide before any mutation.
+The [GCE qualification](../../evidence/runtime-20261025/g8-storage-ownership/README.md)
+uses private production daemons; installed legacy services remain unchanged and
+do not support this view. Live storage/lifecycle/native correlation remains open.
+
 ## 6. Register the opt-in containerd runtime
 
 Use a separately qualified patched host containerd. The current security
