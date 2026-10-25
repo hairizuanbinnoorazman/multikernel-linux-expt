@@ -74,7 +74,10 @@ retain an inconclusive installed-daemon observation and synthetic RPC cases.
 The subsequent [compatible-daemon check](../../../evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
 qualifies idle presence inspection against the real GCE kernel inventory with
 private production state, explicit compatibility/boot diagnostics and unchanged
-installed services. Active-child/build inspection still requires qualification.
+installed services. [Live child presence inspection](../../../evidence/runtime-20261025/g8-live-child-doctor/README.md)
+subsequently passes during ENOSPC, the built-image hold and after removal.
+Its early console saturation leaves late-console coverage open; independent
+synced native close, filesystem and resource observations qualify normal cleanup.
 Storage/network ownership, live incarnation, pool capacity, full service
 readiness and diagnostic bundles remain unobserved by this command and required
 for the complete gate.

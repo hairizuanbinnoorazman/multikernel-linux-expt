@@ -452,3 +452,18 @@ new diagnostic is `OWNERSHIP_UNSUPPORTED`. Failed observations retain the initia
 boot ID and explicitly distinguish unconfirmed boot stability. This qualifies
 idle presence inspection only: active-child/build inspection, live incarnation,
 storage/network ownership and full readiness/diagnostics remain open.
+
+The [8e97313 live doctor case](../../evidence/runtime-20261025/g8-live-child-doctor/README.md)
+now qualifies presence inspection during the real child Docker pressure flow.
+Parent 098a22b418644b579a864dff002319ee and child
+942b78625fad436db0ae643fa39ed39f succeed on boot
+00ac7aff-a963-4e30-a085-6811e83f0e12. The doctor reports the same RUNNING generation,
+CID and exact kernel name during ENOSPC and the held built image; after removal
+it reports no recorded sandbox or instance. Source/build hashes and all three
+report hashes are retained. Four primary Docker inventory snapshots, installed
+files, service PIDs and raw network comparisons match. Native zero-error close,
+clean offline checking and complete resource return qualify normal cleanup.
+The 1 MiB console collector saturated early (`output-limit`) and did not retain
+late quiesce/disconnect markers; that diagnostic coverage remains open and is
+not used as cleanup proof. Cold original-module restoration follows separately.
+Full health/ownership/diagnostic requirements and G7/G8 remain OPEN.

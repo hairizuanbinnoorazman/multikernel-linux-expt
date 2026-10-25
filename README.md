@@ -76,6 +76,11 @@ A [compatible-daemon check](evidence/runtime-20261025/g8-compatible-daemon-docto
 now verifies three identical presence reports against the real idle GCE kernel
 inventory. Unsupported installed daemons receive `OWNERSHIP_UNSUPPORTED`;
 failed reports retain the initial boot ID without asserting boot stability.
+The [live child qualification](evidence/runtime-20261025/g8-live-child-doctor/README.md)
+now checks the same sandbox generation during ENOSPC and the built-image hold,
+then verifies empty ownership after removal. Primary Docker inventories remain
+unchanged. This run's console hit its bounded output cap before teardown;
+independent native close, filesystem and resource checks prove normal cleanup.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
