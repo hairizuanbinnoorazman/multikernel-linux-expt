@@ -626,16 +626,22 @@ func readRecordIdentityAt(directory *safefile.Directory, name string, expected E
 		}
 		return value, safefile.Identity{}, err
 	}
-	if err = protocol.StrictDecode(data, &value); err != nil || value.Version != 4 {
-		return value, safefile.Identity{}, errors.New("storage process record is malformed")
+	value, err = decodeProcessRecord(data, expected)
+	return value, identity, err
+}
+
+func decodeProcessRecord(data []byte, expected Export) (processRecord, error) {
+	var value processRecord
+	if err := protocol.StrictDecode(data, &value); err != nil || value.Version != 4 {
+		return value, errors.New("storage process record is malformed")
 	}
 	if value.PID <= 1 || value.StartTime == 0 || value.Path != expected.Path || value.Port != expected.Port ||
 		value.ImageID != expected.ImageID || value.ExportGeneration != expected.ExportGeneration || value.PeerCID != expected.PeerCID || !validPeerCID(value.PeerCID) ||
 		value.ImageDevice != expected.ImageIdentity.Device || value.ImageInode != expected.ImageIdentity.Inode ||
 		value.BinaryDevice == 0 || value.BinaryInode == 0 {
-		return value, safefile.Identity{}, errors.New("storage process record differs from its exact export lease")
+		return value, errors.New("storage process record differs from its exact export lease")
 	}
-	return value, identity, nil
+	return value, nil
 }
 
 type processHandle struct {

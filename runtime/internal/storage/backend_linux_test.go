@@ -540,6 +540,13 @@ int main(int argc, char **argv) {
 	if err != nil || !observed.Active || observed.Generation != value.ExportGeneration {
 		t.Fatalf("observation = %+v, %v", observed, err)
 	}
+	inspection, inspectErr := backend.InspectProcess(context.Background(), value)
+	if inspectErr != nil || inspection.Status != "process-matched" || inspection.Generation != value.ExportGeneration {
+		t.Fatalf("read-only process inspection = %+v, %v", inspection, inspectErr)
+	}
+	if imageLockAvailable(t, image.Path) {
+		t.Fatal("inspection disturbed server image lock")
+	}
 	// A fresh backend has no in-memory child handle. It must adopt and stop the
 	// exact durable process record, as happens after mkruntimed restarts.
 	recovered := &LinuxBackend{Binary: binaryPath, RuntimeDir: backend.RuntimeDir, RequiredUID: os.Getuid(), ReadyTimeout: time.Second, StopTimeout: 20 * time.Millisecond}
@@ -605,6 +612,26 @@ int main(int argc, char **argv) {
 	if err != nil || !observed.Active || observed.Generation != value.ExportGeneration {
 		t.Fatalf("public executable replacement observation = %+v, %v", observed, err)
 	}
+	inspection, inspectErr = recovered.InspectProcess(context.Background(), value)
+	if inspectErr != nil || inspection.Status != "process-matched" {
+		t.Fatalf("launched executable identity inspection = %+v, %v", inspection, inspectErr)
+	}
+	// The process still holds fd 3, but replacing the public image must refuse.
+	if err = os.Rename(image.Path, image.Path+".held"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(image.Path, []byte("replacement"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = recovered.InspectProcess(context.Background(), value); err == nil {
+		t.Fatal("replacement backing was accepted")
+	}
+	if err = os.Remove(image.Path); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(image.Path+".held", image.Path); err != nil {
+		t.Fatal(err)
+	}
 	movedRuntime := backend.RuntimeDir + ".original"
 	if err = os.Rename(backend.RuntimeDir, movedRuntime); err != nil {
 		t.Fatal(err)
@@ -615,6 +642,9 @@ int main(int argc, char **argv) {
 	replacementMarker := filepath.Join(backend.RuntimeDir, "replacement")
 	if err = os.WriteFile(replacementMarker, []byte("preserve"), 0600); err != nil {
 		t.Fatal(err)
+	}
+	if _, err = recovered.InspectProcess(context.Background(), value); err == nil {
+		t.Fatal("read-only inspector accepted replacement runtime directory")
 	}
 	if _, err = recovered.Observe(context.Background(), value); err == nil || !strings.Contains(err.Error(), "identity changed") {
 		t.Fatalf("replacement runtime observation error = %v", err)
