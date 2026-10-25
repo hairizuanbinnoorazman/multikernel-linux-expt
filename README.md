@@ -72,6 +72,10 @@ The read-only `mkruntimed --doctor` command now compares recorded ownership with
 kernel instance names. Its [initial proof](evidence/runtime-20261025/g8-runtime-doctor/README.md)
 covers bounded inspection and explicit inconclusive results; complete health,
 storage/network lease checks and live kernel incarnation remain open.
+A [compatible-daemon check](evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
+now verifies three identical presence reports against the real idle GCE kernel
+inventory. Unsupported installed daemons receive `OWNERSHIP_UNSUPPORTED`;
+failed reports retain the initial boot ID without asserting boot stability.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

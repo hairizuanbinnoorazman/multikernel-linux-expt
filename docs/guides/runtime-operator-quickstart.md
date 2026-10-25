@@ -155,8 +155,13 @@ inspection hints and follow the recovery guide before any action. Matching
 names cannot prove the kernel incarnation. The explicit `unobserved` list means
 this is not complete health, storage/network lease verification or containment.
 An unavailable/older daemon yields `inconclusive` without a serialization
-fallback. The [GCE proof](../../evidence/runtime-20261025/g8-runtime-doctor/README.md)
+fallback. `OWNERSHIP_UNSUPPORTED` distinguishes a valid capability reply lacking
+ownership-v1 from `OWNERSHIP_UNAVAILABLE`. Early failures retain the initial
+`boot_id` with `boot_stable: false`. The [GCE proof](../../evidence/runtime-20261025/g8-runtime-doctor/README.md)
 retains that installed-daemon result separately from private fixture controls.
+The [compatible-daemon proof](../../evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
+subsequently qualifies idle inspection through the production RPC server against
+the real kernel inventory, with private state and unchanged installed services.
 
 ## 6. Register the opt-in containerd runtime
 

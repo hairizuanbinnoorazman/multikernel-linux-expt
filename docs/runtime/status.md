@@ -440,3 +440,15 @@ new client reports `inconclusive`, not healthy. Six private RPC fixtures qualify
 the comparison/refusal behavior separately. A compatible daemon qualification,
 kernel incarnation, complete storage/network ownership, pool/service readiness
 and diagnostic collection remain required; full G7/G8 stays OPEN.
+
+[Compatible-daemon inspection](../../evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
+now passes with source 45e784f and private production daemon state on the real
+GCE kernel. Three reports are identical and consistent with the independent
+ownership view and empty instance inventory. Private state is unchanged by the
+reads; the daemon exits zero and removes its socket. Primary hashes, four active
+service PIDs and idle kernel resources match before/after, without reboot or
+transport reload. The installed daemon remains unchanged and incompatible; its
+new diagnostic is `OWNERSHIP_UNSUPPORTED`. Failed observations retain the initial
+boot ID and explicitly distinguish unconfirmed boot stability. This qualifies
+idle presence inspection only: active-child/build inspection, live incarnation,
+storage/network ownership and full readiness/diagnostics remain open.

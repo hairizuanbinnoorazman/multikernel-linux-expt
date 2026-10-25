@@ -71,6 +71,10 @@ negotiated durable ownership with bounded kernel instance names, reports stable
 findings and rejects observed boot/ownership/inventory drift. Its
 [GCE controls](../../../evidence/runtime-20261025/g8-runtime-doctor/README.md)
 retain an inconclusive installed-daemon observation and synthetic RPC cases.
+The subsequent [compatible-daemon check](../../../evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
+qualifies idle presence inspection against the real GCE kernel inventory with
+private production state, explicit compatibility/boot diagnostics and unchanged
+installed services. Active-child/build inspection still requires qualification.
 Storage/network ownership, live incarnation, pool capacity, full service
 readiness and diagnostic bundles remain unobserved by this command and required
 for the complete gate.
