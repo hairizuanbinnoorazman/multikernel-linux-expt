@@ -54,3 +54,21 @@ released history and independently qualified normal cleanup. Full G7/G8 remains 
 The [deployment constraint](../architecture.md#deployment-and-containment-constraint)
 uses direct child kernels without nested virtualization. Children share the
 primary's trust domain after arbitrary child-kernel compromise.
+
+The private GCE harness has an explicit `--storage-record-loss` scenario;
+`MK_MODULE_TRIAL_RECORD_FAULT=1` selects it through the pinned module trial.
+It temporarily holds the exact active process record outside its normal name,
+checks two generation-bound missing-record findings with unchanged private
+ownership ledgers, then exercises the child-local engine while the record is
+hidden. The same inode/bytes are restored before continuing normal cleanup.
+The [fault controls](../../../evidence/runtime-20261025/g8-native-record-loss-controls/README.md)
+cover refusal, client exceptions and conflicting restoration targets.
+
+This is a metadata-loss test, not a native process kill or host-power-loss test.
+A missing record does not establish that its process has died. Diagnostics must
+not stop the export, clear its lease or reconstruct authority from a guessed PID.
+The lab helper knows the exact held inode; it is not a production repair procedure.
+An occupied restore target or modified held record remains preserved for operator
+diagnosis. A killed injector can leave its held record behind. No daemon restart
+or reconciliation is permitted while this deliberate fault is present. Follow
+the recovery guide before acting on a real missing-record finding.
