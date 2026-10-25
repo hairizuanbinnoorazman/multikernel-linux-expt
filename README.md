@@ -63,6 +63,10 @@ also holds a child-built image before pruning and proves its ID is absent from
 the primary Docker engine. Primary image/tag, container, volume and network
 inventory fingerprints match before, during pressure, while that image exists,
 and after cleanup. These are inventory identities, not a hash of volume contents.
+The separate [cold-restoration proof](evidence/runtime-20261024/g8-primary-boundary-restoration/README.md)
+confirms the original module and retained artifacts after reboot. Network IDs
+changed across that reboot; future inventory comparisons require the same boot
+identity, with [guard controls](evidence/runtime-20261024/g8-primary-epoch-controls/README.md).
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

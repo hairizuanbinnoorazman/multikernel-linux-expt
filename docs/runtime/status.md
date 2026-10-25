@@ -415,5 +415,15 @@ clean release and complete automatic cleanup also pass with unchanged primary
 files/PIDs/network. [Local controls and preflight](../../evidence/runtime-20261024/g8-primary-docker-controls/README.md)
 cover retag drift, image presence, malformed metadata and bounded observation.
 The observer/release share the existing build budget. This does not hash volume
-contents or qualify all G7/G8 requirements; final original-module restoration
-follows separately.
+contents or qualify all G7/G8 requirements.
+
+[Original-module restoration](../../evidence/runtime-20261024/g8-primary-boundary-restoration/README.md)
+is now verified on boot 00ac7aff-a963-4e30-a085-6811e83f0e12, with installed
+bytes, three failed disks, twelve failed ledgers and twelve successful-case
+artifact hashes preserved. Normal cleanup preceded the reboot. Postboot engine,
+image, container and volume fingerprints match; the network-ID fingerprint
+changed with its count still three. Its cause is unqualified. The live proof
+compares snapshots within its original boot only. Code a14d789 now binds future
+snapshots to boot identity and rejects cross-boot or legacy-schema comparisons;
+[six controls and a read-only GCE check](../../evidence/runtime-20261024/g8-primary-epoch-controls/README.md)
+verify this observer guard. Full G7/G8 remains OPEN.
