@@ -465,5 +465,11 @@ files, service PIDs and raw network comparisons match. Native zero-error close,
 clean offline checking and complete resource return qualify normal cleanup.
 The 1 MiB console collector saturated early (`output-limit`) and did not retain
 late quiesce/disconnect markers; that diagnostic coverage remains open and is
-not used as cleanup proof. Cold original-module restoration follows separately.
+not used as cleanup proof.
+[Separate cold restoration](../../evidence/runtime-20261025/g8-live-doctor-restoration/README.md)
+is verified on boot 6ff26ad7-fa58-4e40-a861-5fa6441661ef: original transport SRC65,
+zero references/sockets/children, no pool, all 16 CPUs online and four active
+installed services. Ten installed/original/candidate hashes, three quarantined
+images and twelve failed ledgers remain unchanged; fifteen successful-case
+artifact hashes, including all three doctor reports, match the preboot evidence.
 Full health/ownership/diagnostic requirements and G7/G8 remain OPEN.

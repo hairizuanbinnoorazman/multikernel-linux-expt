@@ -81,6 +81,8 @@ now checks the same sandbox generation during ENOSPC and the built-image hold,
 then verifies empty ownership after removal. Primary Docker inventories remain
 unchanged. This run's console hit its bounded output cap before teardown;
 independent native close, filesystem and resource checks prove normal cleanup.
+The [separate restoration proof](evidence/runtime-20261025/g8-live-doctor-restoration/README.md)
+confirms the original transport and retained artifacts after an idle reboot.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
