@@ -108,3 +108,48 @@ func TestInspectProcessMissingRuntimeDoesNotCreateDirectory(t *testing.T) {
 		t.Fatalf("missing directory changed: %v", err)
 	}
 }
+
+// Recovery legitimately removes this stale record; diagnostic inspection must
+// preserve it even when an exact clean terminal log is available.
+func TestInspectProcessDoesNotPerformClosedRecordRecovery(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	value := validBackendLease("/unavailable/backing.ext4")
+	backend := &LinuxBackend{RuntimeDir: directory}
+	record := processRecord{Version: 4, PID: 1 << 30, StartTime: 1, Path: value.Path, Port: value.Port,
+		ImageID: value.ImageID, ExportGeneration: value.ExportGeneration, PeerCID: value.PeerCID,
+		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode, BinaryDevice: 3, BinaryInode: 4}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, logName := backend.paths(value)
+	if err = os.WriteFile(name, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	log := append(readyMarker(value), []byte("MKNBD_SERVER_CLOSED synced=1 reads=0 read_bytes=0 writes=0 write_bytes=0 flushes=0\n")...)
+	if err = os.WriteFile(logName, log, 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := backend.InspectProcess(t.Context(), value)
+	if err != nil || got.Status != "process-absent" {
+		t.Fatalf("inspection = %+v, %v", got, err)
+	}
+	retained, err := os.ReadFile(name)
+	if err != nil || !bytes.Equal(retained, data) {
+		t.Fatal("inspection recovered stale record")
+	}
+	retained, err = os.ReadFile(logName)
+	if err != nil || !bytes.Equal(retained, log) {
+		t.Fatal("inspection changed terminal log")
+	}
+	observed, err := backend.Observe(t.Context(), value)
+	if err != nil || !observed.Closed {
+		t.Fatalf("recovery control = %+v, %v", observed, err)
+	}
+	if _, err = os.Stat(name); !os.IsNotExist(err) {
+		t.Fatal("control did not demonstrate recovery mutation")
+	}
+}
