@@ -14,9 +14,12 @@ Initial instance discovery remains bounded at 300 seconds; teardown attachment
 and thread stop each wait at most two seconds. A saturated startup connection
 is closed, and the observer waits without draining arbitrary workload output.
 
-Before removal the observer checks the same sysfs device/inode and CID, opens a
+While the built-image hold still pins the live workload, the observer checks
+the same sysfs device/inode and CID, opens a
 new protected character device and performs only its first-write CID selection.
-It acknowledges attachment before the harness sends removal. There is no guest
+It acknowledges attachment before the harness releases USR2. Docker can delete
+the Runtime v2 task and child at workload exit, before outer `docker rm`, so
+waiting until that later command is unsafe. There is no guest
 command/input write. Replacement refuses attachment. This binds the observation
 to the held kernel name/inode/CID; it does not independently verify the kernel's
 incarnation against a durable sandbox generation.
