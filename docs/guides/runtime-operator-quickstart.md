@@ -141,31 +141,37 @@ If either service fails, stop here and use
 [Runtime recovery and cleanup](runtime-recovery-and-cleanup.md). Do not edit
 runtime state files to force startup.
 
-With a daemon/client build supporting `resource-ownership-v1`, inspect recorded ownership
-against kernel instance names without opening state or invoking Kerf:
+With a qualified daemon/client build supporting `native-resource-identity-v1`,
+inspect recorded resource ownership and sampled native export identity through
+the protected daemon socket, without invoking recovery or Kerf:
 
 ```bash
 sudo mkruntimed --config=/etc/mkruntime/config.json --doctor
 ```
 
-The bounded JSON reports `consistent`, `degraded` or `inconclusive`; the latter
-two exit 1. Recheck changing observations and intermediate lifecycle states.
-Keep each sandbox generation with its findings. Treat orphan candidates as
-inspection hints and follow the recovery guide before any action. Matching
-names cannot prove the kernel incarnation. Version-2 reports additionally
-correlate explicit storage expectations, lease generations, CID and opaque
-full-descriptor fingerprints. Ordinary sandboxes without storage are supported,
-and released history is not treated as a live orphan. The explicit `unobserved`
-list means this is not native process/file/socket health, network verification
-or containment.
-An unavailable/older daemon yields `inconclusive` without a serialization
-fallback. `RESOURCE_OWNERSHIP_UNSUPPORTED` distinguishes a valid capability reply
-lacking the combined view from `RESOURCE_OWNERSHIP_UNAVAILABLE`. Early failures retain the initial
-`boot_id` with `boot_stable: false`. The [GCE proof](../../evidence/runtime-20261025/g8-runtime-doctor/README.md)
-retains that installed-daemon result separately from private fixture controls.
-The [compatible-daemon proof](../../evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
-subsequently qualifies idle inspection through the production RPC server against
-the real kernel inventory, with private state and unchanged installed services.
+Version-3 JSON reports `consistent`, `degraded` or `inconclusive`; the latter two
+exit 1. It correlates explicit storage expectations, lease generations, CID,
+complete descriptor fingerprints and exact native export process/backing identity.
+Recheck changing observations and intermediate states. An ACTIVE lease with a
+missing record or process is degraded; unavailable identity is inconclusive.
+Released history is explicitly not probed and is not treated as a live orphan.
+Keep sandbox and export generations with findings. These are inspection hints,
+never cleanup authorization; follow the recovery guide before any action.
+
+`NATIVE_RESOURCE_IDENTITY_UNSUPPORTED` distinguishes a valid older capability
+reply from `NATIVE_RESOURCE_IDENTITY_UNAVAILABLE`. There is no partial legacy
+fallback. Early failures retain the initial `boot_id` with `boot_stable: false`.
+Matching names cannot prove the kernel incarnation, and matched native identity
+cannot prove socket/session health, I/O progress, storage contents or containment.
+Those limits remain explicit in `unobserved` and the
+[native identity contract](../runtime/contracts/native-resource-identity.md).
+The [live GCE proof](../../evidence/runtime-20261025/g8-live-native-resource-identity/README.md)
+uses a private qualified stack during child Docker ENOSPC/build/cleanup; installed
+legacy services remain unchanged. Older
+[installed-daemon](../../evidence/runtime-20261025/g8-runtime-doctor/README.md) and
+[compatible-daemon](../../evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
+proofs describe earlier diagnostic versions. Direct children use no nested
+virtualization and share the primary's trust domain after child-kernel compromise.
 
 With a qualified client and daemon supporting `storage-ownership-v1`, inspect
 recorded storage leases through the same protected socket:
@@ -182,8 +188,9 @@ not a fresh filesystem check. Follow the recovery guide before any mutation.
 The [GCE qualification](../../evidence/runtime-20261025/g8-storage-ownership/README.md)
 uses private production daemons; installed legacy services remain unchanged and
 do not support this view. [Recorded correlation during live child activity](../../evidence/runtime-20261025/g8-live-resource-correlation/README.md)
-now passes; independent native liveness and current-file/socket attestation
-remain open. Mismatches are inspection hints, never repair authorization.
+now passes. The separately negotiated [version-3 view](../runtime/contracts/native-resource-identity.md)
+also samples native process/current-file identity; full socket/session health
+remains open. Mismatches are inspection hints, never repair authorization.
 
 ## 6. Register the opt-in containerd runtime
 

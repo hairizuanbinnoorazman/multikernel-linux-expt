@@ -33,11 +33,12 @@ These are recorded leases, not current native-process, image, socket or lifecycl
 observations. Live-state close counters remain zero until release; zero does not
 mean that an active export has performed no I/O. A clean recorded release does
 not recheck the filesystem. There is no cross-subsystem atomicity or independent
-orphan/liveness attestation. The [version-2 doctor](resource-ownership.md) now
-correlates recorded storage/lifecycle expectations, generations, CID and complete
+orphan/liveness attestation in this metadata view. The retained
+[version-2 doctor](resource-ownership.md) correlates recorded storage/lifecycle expectations, generations, CID and complete
 descriptor fingerprints. It explicitly leaves native storage health unobserved.
-History
-retention/pagination beyond this bounded view remains a G8 requirement.
+The separately negotiated [version-3 doctor](native-resource-identity.md) adds
+sampled native process/backing identity; full session/content health remains
+unobserved. History retention/pagination beyond this bounded view remains a G8 requirement.
 
 The [deployment constraint](../architecture.md#deployment-and-containment-constraint)
 uses direct children without nested virtualization. This view helps an operator

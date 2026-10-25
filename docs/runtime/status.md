@@ -551,7 +551,7 @@ backing-fd and executable identity checks. Ten watched hashes, installed service
 PIDs, original transport and idle CPU/child/pool state match before and after;
 no fixture process remains. Local race, complete Go and required suites pass.
 This qualifies an internal primitive using a synthetic server, not an active
-child/native VSOCK session. RPC/doctor integration and full native health remain
+child/native VSOCK session. Doctor integration is qualified below; full native health remains
 OPEN. Direct children need no nested virtualization and share the host trust
 domain; complete G7/G8 remains OPEN.
 
@@ -573,3 +573,11 @@ before any reboot by native synced close, clean e2fsck, returned resources and
 unchanged installed primary/network state. Native socket/session/content health,
 further crash/concurrency cases and full G7/G8 remain OPEN. Direct children use no
 nested virtualization and retain the shared host trust boundary.
+
+[Native identity restoration](../../evidence/runtime-20261025/g8-native-resource-restoration/README.md)
+passes on boot 28262509-6abe-4559-9c25-66d47eb18a86: original SRC65, zero module
+references/sockets/children, no pool, all CPUs online and four active installed
+services. Ten installed/original/candidate hashes and three quarantined images
+with twelve ledgers match. Eighteen successful-case hashes sampled immediately
+before reboot match the postboot sample and committed evidence. Reboot is not
+counted as normal cleanup; full G7/G8 remains OPEN.

@@ -111,7 +111,9 @@ negotiated native identity observations. Its
 [live GCE proof](evidence/runtime-20261025/g8-live-native-resource-identity/README.md)
 passes ENOSPC, child-local builds and normal cleanup, with matched active export
 identity and unchanged primary Docker inventories. Full native export/socket
-health remains open. These checks use direct kernels without
+health remains open. The [separate restoration proof](evidence/runtime-20261025/g8-native-resource-restoration/README.md)
+confirms the original transport and eighteen artifact hashes after reboot.
+These checks use direct kernels without
 nested virtualization and retain the shared host trust boundary.
 
 The profile remains experimental. Further crash points during resource mutation
