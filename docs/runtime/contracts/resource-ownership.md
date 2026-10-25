@@ -45,3 +45,23 @@ incarnation, network, capacity, readiness, Docker and containment unobserved.
 The [deployment constraint](../architecture.md#deployment-and-containment-constraint)
 uses direct children without nested virtualization; hostile child-kernel
 containment and complete G7/G8 remain open.
+
+An internal LinuxBackend.InspectProcess primitive now exists separately from
+Observe, which can remove stale records during recovery. It checks exact private
+record and generation/CID identity, pidfd/proc incarnation, command, launched
+executable inode and live backing-fd/current pathname identity. Record/runtime
+identity checks bracket the sample. It creates no directories, initializes no
+backend state, removes no records, takes no image lock, reads no mutable image
+contents or logs, and runs no recovery/filesystem check. Only signal zero is
+used; ordinary filesystem access-time changes remain possible. Missing records
+or processes are inconclusive; a match grants no recovery authority and says
+nothing about VSOCK sessions, progress, file contents or current executable-path
+approval. The launched executable inode is the identity being checked.
+
+The [GCE controls](../../../evidence/runtime-20261025/g8-native-process-inspection/README.md)
+use a synthetic helper with real pidfds/proc and inherited backing file, retain
+an initial fixture allocation failure and its correction, and prove unchanged
+primary state. This primitive is not exposed through the RPC or doctor yet.
+Doctor version 2 continues to leave native-storage-health unobserved. Live
+native export qualification and complete G7/G8 remain open under the same direct
+child, no-nested-virtualization deployment constraint.

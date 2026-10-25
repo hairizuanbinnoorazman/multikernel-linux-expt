@@ -540,3 +540,17 @@ references/sockets/children, no pool, all CPUs online and four active installed
 services. Ten installed/original/candidate hashes, three quarantined images and
 twelve ledgers are unchanged; eighteen successful-case artifact hashes match.
 Reboot is not counted as normal cleanup. Full G7/G8 remains OPEN.
+
+Code b68871a adds an internal read-only native process inspector, distinct from
+recovery's mutating observer. Control bf311ac demonstrates preservation of a
+stale record that recovery removes; fixture correction 0dde6da provisions fully
+allocated images after formatting. [GCE evidence](../../evidence/runtime-20261025/g8-native-process-inspection/README.md)
+retains both the initial allocation failure and four passing controls under
+invocation bee21d4ecff240019177a08f2d1b69bd, with real pidfd/proc, inherited
+backing-fd and executable identity checks. Ten watched hashes, installed service
+PIDs, original transport and idle CPU/child/pool state match before and after;
+no fixture process remains. Local race, complete Go and required suites pass.
+This qualifies an internal primitive using a synthetic server, not an active
+child/native VSOCK session. RPC/doctor integration and full native health remain
+OPEN. Direct children need no nested virtualization and share the host trust
+domain; complete G7/G8 remains OPEN.
