@@ -105,8 +105,10 @@ confirms the original module and retained correlation artifacts after reboot.
 An internal [native process inspector](evidence/runtime-20261025/g8-native-process-inspection/README.md)
 now checks exact export process and backing-file identity without invoking
 recovery or removing stale records. Its GCE controls pass; the initial fixture
-allocation failure is retained with its correction. Doctor integration and live
-native export/socket health remain open. These checks use direct kernels without
+allocation failure is retained with its correction. The
+[version-3 doctor](docs/runtime/contracts/native-resource-identity.md) now requires
+negotiated native identity observations; live qualification and full native
+export/socket health remain open. These checks use direct kernels without
 nested virtualization and retain the shared host trust boundary.
 
 The profile remains experimental. Further crash points during resource mutation

@@ -1,6 +1,6 @@
 # Correlated recorded resource ownership
 
-Doctor report version 2 uses negotiated `resource-ownership-v1` and
+The retained doctor report version 2 uses negotiated `resource-ownership-v1` and
 InspectResourceOwnership through the existing protected daemon socket. Older
 separate ownership and storage RPCs retain their existing formats. The new
 client refuses unsupported or malformed combined views without substituting a
@@ -61,7 +61,9 @@ approval. The launched executable inode is the identity being checked.
 The [GCE controls](../../../evidence/runtime-20261025/g8-native-process-inspection/README.md)
 use a synthetic helper with real pidfds/proc and inherited backing file, retain
 an initial fixture allocation failure and its correction, and prove unchanged
-primary state. This primitive is not exposed through the RPC or doctor yet.
-Doctor version 2 continues to leave native-storage-health unobserved. Live
+primary state. The [current version-3 contract](native-resource-identity.md) exposes this primitive
+through a separately negotiated RPC and doctor report. Version 2 remains the
+recorded-metadata-only historical view; full native-storage-health remains
+unobserved in version 3 too. Live
 native export qualification and complete G7/G8 remain open under the same direct
 child, no-nested-virtualization deployment constraint.
