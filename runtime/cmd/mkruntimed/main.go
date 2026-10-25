@@ -14,6 +14,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/doctor"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf"
@@ -22,6 +23,7 @@ import (
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
 func validatePoolReport(report hostcheck.Report, ids, forbidden []int, minPrimaryCPUs int, poolMemory, minPrimaryMemory uint64) error {
@@ -107,6 +109,7 @@ func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
+	inspectRuntime := flag.Bool("doctor", false, "print bounded read-only ownership/kernel presence diagnostics and exit")
 	inspectOwnership := flag.Bool("inspect-ownership", false, "print bounded read-only durable ownership JSON and exit")
 	flag.StringVar(&configPath, "config", "/etc/mkruntime/config.json", "strict root-owned host configuration")
 	flag.StringVar(&pool, "pool-cpus", "", "comma-separated pool APIC IDs")
@@ -121,6 +124,10 @@ func main() {
 	flag.StringVar(&rootfsStorage, "rootfs-storage-dir", "/srv/multikernel-storage/runtime", "prepared mediated root images")
 	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
+	if *inspectRuntime && *inspectOwnership {
+		fmt.Fprintln(os.Stderr, "select one inspection mode")
+		os.Exit(2)
+	}
 	hostConfig, e := hostconfig.Load(configPath)
 	if e != nil {
 		fmt.Fprintln(os.Stderr, "host configuration:", e)
@@ -128,6 +135,23 @@ func main() {
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
 	timeout := hostConfig.BackendTimeout()
+	if *inspectRuntime {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		report := doctor.Inspect(ctx, doctor.Inputs{
+			Ownership: func(ctx context.Context) (protocol.OwnershipReport, error) {
+				return daemon.InspectOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
+			},
+			Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
+		}, buildinfo.Revision)
+		if json.NewEncoder(os.Stdout).Encode(report) != nil {
+			os.Exit(1)
+		}
+		if report.Status != "consistent" {
+			os.Exit(1)
+		}
+		return
+	}
 	if *inspectOwnership {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
