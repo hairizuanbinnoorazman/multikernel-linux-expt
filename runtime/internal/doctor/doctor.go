@@ -18,22 +18,25 @@ type Inputs struct {
 	Boot      func() (string, error)
 }
 type Finding struct {
-	Code       string `json:"code"`
-	SandboxID  string `json:"sandbox_id,omitempty"`
-	Generation string `json:"generation,omitempty"`
+	Code               string `json:"code"`
+	SandboxID          string `json:"sandbox_id,omitempty"`
+	Generation         string `json:"generation,omitempty"`
+	ExportGeneration   string `json:"export_generation,omitempty"`
+	ExpectedGeneration string `json:"expected_generation,omitempty"`
 }
 type Report struct {
-	Version                  int                       `json:"version"`
-	Scope                    string                    `json:"scope"`
-	Status                   string                    `json:"status"`
-	BootID                   string                    `json:"boot_id,omitempty"`
-	BootStable               bool                      `json:"boot_stable"`
-	Revision                 string                    `json:"revision"`
-	Ownership                *protocol.OwnershipReport `json:"ownership,omitempty"`
-	KernelInstances          []string                  `json:"kernel_instances,omitempty"`
-	KernelGenerationVerified bool                      `json:"kernel_generation_verified"`
-	Findings                 []Finding                 `json:"findings"`
-	Unobserved               []string                  `json:"unobserved"`
+	Version                  int                               `json:"version"`
+	Scope                    string                            `json:"scope"`
+	Status                   string                            `json:"status"`
+	BootID                   string                            `json:"boot_id,omitempty"`
+	BootStable               bool                              `json:"boot_stable"`
+	Revision                 string                            `json:"revision"`
+	Ownership                *protocol.OwnershipReport         `json:"ownership,omitempty"`
+	KernelInstances          []string                          `json:"kernel_instances,omitempty"`
+	KernelGenerationVerified bool                              `json:"kernel_generation_verified"`
+	Findings                 []Finding                         `json:"findings"`
+	Resources                *protocol.ResourceOwnershipReport `json:"resources,omitempty"`
+	Unobserved               []string                          `json:"unobserved"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
@@ -95,7 +98,7 @@ func Inspect(ctx context.Context, in Inputs, revision string) Report {
 	cpus := map[int]bool{}
 	cids := map[uint32]bool{}
 	add := func(code string, sb protocol.SandboxOwnership) {
-		r.Findings = append(r.Findings, Finding{code, sb.SandboxID, sb.Generation})
+		r.Findings = append(r.Findings, Finding{Code: code, SandboxID: sb.SandboxID, Generation: sb.Generation})
 		r.Status = "degraded"
 	}
 	for _, sb := range after.Sandboxes {
@@ -122,7 +125,7 @@ func Inspect(ctx context.Context, in Inputs, revision string) Report {
 		}
 		switch sb.State {
 		case "ALLOCATING", "STOPPING", "RELEASING":
-			r.Findings = append(r.Findings, Finding{"TRANSITION_REQUIRES_RECHECK", sb.SandboxID, sb.Generation})
+			r.Findings = append(r.Findings, Finding{Code: "TRANSITION_REQUIRES_RECHECK", SandboxID: sb.SandboxID, Generation: sb.Generation})
 			if r.Status == "consistent" {
 				r.Status = "inconclusive"
 			}

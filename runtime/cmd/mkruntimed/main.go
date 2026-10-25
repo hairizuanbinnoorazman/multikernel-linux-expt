@@ -110,7 +110,7 @@ func main() {
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
 	inspectStorage := flag.Bool("inspect-storage", false, "print bounded read-only durable storage ownership JSON and exit")
-	inspectRuntime := flag.Bool("doctor", false, "print bounded read-only ownership/kernel presence diagnostics and exit")
+	inspectRuntime := flag.Bool("doctor", false, "print bounded read-only resource ownership/kernel presence diagnostics and exit")
 	inspectOwnership := flag.Bool("inspect-ownership", false, "print bounded read-only durable ownership JSON and exit")
 	flag.StringVar(&configPath, "config", "/etc/mkruntime/config.json", "strict root-owned host configuration")
 	flag.StringVar(&pool, "pool-cpus", "", "comma-separated pool APIC IDs")
@@ -158,9 +158,9 @@ func main() {
 	if *inspectRuntime {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		report := doctor.Inspect(ctx, doctor.Inputs{
-			Ownership: func(ctx context.Context) (protocol.OwnershipReport, error) {
-				return daemon.InspectOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		report := doctor.InspectResources(ctx, doctor.ResourceInputs{
+			Resources: func(ctx context.Context) (protocol.ResourceOwnershipReport, error) {
+				return daemon.InspectResourceOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
 			},
 			Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
 		}, buildinfo.Revision)

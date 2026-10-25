@@ -3,7 +3,7 @@ import json
 import re
 import uuid
 
-UNOBSERVED = ['kernel-incarnation', 'storage-exports', 'network-endpoints',
+UNOBSERVED = ['kernel-incarnation', 'native-storage-health', 'network-endpoints',
               'pool-capacity', 'service-readiness', 'docker-engine', 'containment']
 
 
@@ -21,12 +21,12 @@ def qualify(data, boot, owner, released=False):
         raise ValueError('doctor checkpoint exceeds its bound')
     report = json.loads(data, object_pairs_hook=unique_object)
     expected = {'version', 'scope', 'status', 'boot_id', 'boot_stable', 'revision',
-                'ownership', 'kernel_generation_verified', 'findings', 'unobserved'}
+                'ownership', 'resources', 'kernel_generation_verified', 'findings', 'unobserved'}
     if not isinstance(report, dict) or set(report) not in [expected, expected | {'kernel_instances'}]:
         raise ValueError('invalid doctor checkpoint fields')
     if (str(uuid.UUID(boot)) != boot or report['boot_id'] != boot or
-            type(report['version']) is not int or report['version'] != 1 or
-            report['scope'] != 'durable-ownership-and-kernel-presence' or
+            type(report['version']) is not int or report['version'] != 2 or
+            report['scope'] != 'durable-resource-ownership-and-kernel-presence' or
             report['status'] != 'consistent' or report['boot_stable'] is not True or
             report['kernel_generation_verified'] is not False or
             report['findings'] != [] or report['unobserved'] != UNOBSERVED or
@@ -47,4 +47,51 @@ def qualify(data, boot, owner, released=False):
             raise ValueError('doctor still observes child ownership after removal')
     elif durable['sandboxes'] != [owner] or report.get('kernel_instances') != [owner['sandbox_id']]:
         raise ValueError('doctor ownership or kernel name differs from the held child')
+    resources = report['resources']
+    if (not isinstance(resources, dict) or set(resources) != {'version', 'source', 'lifecycle', 'storage_bindings', 'storage', 'storage_descriptors'} or
+            type(resources['version']) is not int or resources['version'] != 1 or
+            resources['source'] != 'durable-lifecycle-storage' or resources['lifecycle'] != durable):
+        raise ValueError('invalid combined resource checkpoint')
+    store = resources['storage']
+    if (not isinstance(store, dict) or set(store) != {'version', 'source', 'exports'} or
+            type(store['version']) is not int or store['version'] != 1 or
+            store['source'] != 'durable-storage' or not isinstance(store['exports'], list) or len(store['exports']) != 1):
+        raise ValueError('expected one generation-bound storage lease')
+    lease = store['exports'][0]
+    fields = {'sandbox_id', 'sandbox_generation', 'export_generation', 'peer_cid', 'state', 'filesystem_uuid', 'size_bytes', 'quota_bytes', 'inode_limit', 'port', 'image_device', 'image_inode', 'offline_check', 'counters'}
+    if (not isinstance(lease, dict) or set(lease) != fields or lease['sandbox_id'] != owner['sandbox_id'] or
+            lease['sandbox_generation'] != owner['generation'] or lease['peer_cid'] != owner['child_cid'] or
+            not isinstance(lease['export_generation'], str) or not re.fullmatch('[0-9a-f]{32}', lease['export_generation'])):
+        raise ValueError('storage lease belongs to another child or generation')
+    for key in ['peer_cid', 'size_bytes', 'quota_bytes', 'inode_limit', 'port', 'image_device', 'image_inode']:
+        if type(lease[key]) is not int or not 0 < lease[key] < 1 << 64:
+            raise ValueError('invalid storage numeric metadata')
+    if (not 64 << 20 <= lease['size_bytes'] <= 16 << 30 or lease['size_bytes'] % 4096 or
+            lease['quota_bytes'] != lease['size_bytes'] or not 128 <= lease['inode_limit'] <= 2097152 or
+            not 1024 <= lease['port'] <= 65535 or not isinstance(lease['filesystem_uuid'], str) or
+            not re.fullmatch('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', lease['filesystem_uuid'])):
+        raise ValueError('invalid storage descriptor metadata')
+    counters = lease['counters']
+    if (not isinstance(counters, dict) or set(counters) != {'reads', 'read_bytes', 'writes', 'written_bytes', 'flushes'} or
+            any(type(v) is not int or not 0 <= v < 1 << 64 for v in counters.values())):
+        raise ValueError('invalid recorded close counters')
+    if released:
+        if lease['state'] != 'RELEASED' or not re.fullmatch('e2fsck-clean-sha256:[0-9a-f]{64}', lease['offline_check']):
+            raise ValueError('storage release is not recorded cleanly')
+    elif lease['state'] != 'ACTIVE' or lease['offline_check'] != '' or any(counters.values()):
+        raise ValueError('storage lease is not recorded active')
+    descriptors = resources['storage_descriptors']
+    if not isinstance(descriptors, list) or len(descriptors) != 1:
+        raise ValueError('missing storage descriptor fingerprint')
+    descriptor = descriptors[0]
+    if (not isinstance(descriptor, dict) or set(descriptor) != {'sandbox_id', 'generation', 'export_generation', 'descriptor_sha256'} or
+            descriptor['sandbox_id'] != owner['sandbox_id'] or descriptor['generation'] != owner['generation'] or
+            descriptor['export_generation'] != lease['export_generation'] or not isinstance(descriptor['descriptor_sha256'], str) or
+            not re.fullmatch('[0-9a-f]{64}', descriptor['descriptor_sha256'])):
+        raise ValueError('invalid storage descriptor fingerprint')
+    expected_binding = dict(descriptor, required=True)
+    expected = [] if durable['sandboxes'] == [] else [expected_binding]
+    if (resources['storage_bindings'] != expected or
+            any(binding.get('required') is not True for binding in resources['storage_bindings'])):
+        raise ValueError('lifecycle expectation differs from the storage descriptor')
     return report

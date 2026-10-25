@@ -32,7 +32,7 @@ sequence, generation, inventory or boot identity produces `inconclusive`.
 Unavailable/oversized/malformed observations return stable codes without raw
 remote errors or a partial ownership inventory.
 
-The JSON scope is `durable-ownership-and-kernel-presence`. `consistent` (exit 0)
+The current version-2 JSON scope is `durable-resource-ownership-and-kernel-presence`. `consistent` (exit 0)
 means those sampled names agree; `degraded` or `inconclusive` exits 1. Conflicting
 CPU/CID assignments, missing owned names, released names still present and
 unrecorded names are findings. Intermediate lifecycle states require rechecking.
@@ -68,3 +68,18 @@ process/image/socket health or independently verified lifecycle ownership.
 `--doctor` still lists storage exports as unobserved until independent
 correlation/liveness checks qualify that broader scope. The deployment uses no
 nested virtualization; this view does not establish hostile-kernel containment.
+
+Doctor version 2 requires negotiated `resource-ownership-v1`. Its combined view
+adds explicit per-sandbox storage expectations, recorded export generations and
+opaque fingerprints of the complete typed storage descriptor. It reports missing
+required leases, orphan live leases, generation/CID/export-generation/descriptor
+mismatches and releases inconsistent with a live owner. Ordinary sandboxes with
+no storage expectation are supported; released historical leases hold no live
+authority and are not mistaken for orphans. Intermediate leases require recheck.
+Fingerprints use domain-separated, length-delimited raw bytes and integers; they
+neither expose backing paths nor authorize recovery. Busy stores fail promptly.
+Repeated combined views must match across kernel and boot observations. The
+view is not an atomic transaction or ABA/liveness proof. Native storage health,
+network, capacity, readiness, Docker health and containment remain unobserved.
+Older daemons produce RESOURCE_OWNERSHIP_UNSUPPORTED without a partial fallback;
+the older separate ownership/storage inspection RPCs remain unchanged.

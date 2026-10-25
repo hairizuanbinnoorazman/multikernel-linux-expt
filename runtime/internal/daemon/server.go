@@ -258,7 +258,7 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		}
 		features := []string{protocol.LifecycleAuditCapability, protocol.OwnershipCapability}
 		if s.Service != nil && s.Service.StorageOwnershipAvailable() {
-			features = append(features, protocol.StorageOwnershipCapability)
+			features = append(features, protocol.StorageOwnershipCapability, protocol.ResourceOwnershipCapability)
 		}
 		out.Body = protocol.DaemonCapabilities{ProtocolVersion: protocol.Version, Features: features}
 	case "InspectOwnership":
@@ -283,6 +283,21 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			break
 		}
 		report, failure := s.Service.StorageOwnership()
+		out.Error = failure
+		if failure == nil {
+			out.Body = report
+		}
+	case "InspectResourceOwnership":
+		var empty struct{}
+		if len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "resource ownership body must be an empty object"}
+			break
+		}
+		if s.Service == nil {
+			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "resource ownership is unavailable"}
+			break
+		}
+		report, failure := s.Service.ResourceOwnership()
 		out.Error = failure
 		if failure == nil {
 			out.Body = report
