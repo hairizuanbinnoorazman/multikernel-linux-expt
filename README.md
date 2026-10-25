@@ -89,6 +89,8 @@ now retains shutdown markers by attaching before the held workload exits.
 Startup and teardown share the existing 1 MiB cap and report the unobserved
 interval explicitly. The earlier late-attachment failure remains recorded;
 complete diagnostics and live arbitrary-console-flood coverage remain open.
+Its [cold-restoration proof](evidence/runtime-20261025/g8-console-window-restoration/README.md)
+confirms the original transport and eighteen retained artifact hashes.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

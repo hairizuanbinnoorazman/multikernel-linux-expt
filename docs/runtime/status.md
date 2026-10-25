@@ -489,5 +489,11 @@ this run did not reach either cap. Pipe tests cover flood bounds separately.
 ENOSPC recovery, build matrix, three doctor reports, primary inventories/files/
 PIDs/raw network parity, synced zero-error close, clean filesystem checking and
 full normal resource return pass. Pinned 8e97313 runtime binaries are reused
-with identical retained Git runtime-tree identities. Original-module restoration
-follows independently; full G7/G8 and complete diagnostic bundles remain OPEN.
+with identical retained Git runtime-tree identities.
+[Independent cold restoration](../../evidence/runtime-20261025/g8-console-window-restoration/README.md)
+is verified on boot d27905ea-c79e-46ca-95a7-27bfc78a2f16, original SRC65, zero
+references/sockets/children, no pool, all CPUs online and four active services.
+Ten installed/original/candidate hashes, three quarantined images and twelve
+ledgers are unchanged; eighteen successful-case hashes, including console
+metadata/filtered events and phase-marker metadata, match the preboot evidence.
+Full G7/G8 and complete diagnostic bundles remain OPEN.
