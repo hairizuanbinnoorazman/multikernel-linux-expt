@@ -427,3 +427,16 @@ compares snapshots within its original boot only. Code a14d789 now binds future
 snapshots to boot identity and rejects cross-boot or legacy-schema comparisons;
 [six controls and a read-only GCE check](../../evidence/runtime-20261024/g8-primary-epoch-controls/README.md)
 verify this observer guard. Full G7/G8 remains OPEN.
+
+Code da0adca adds `mkruntimed --doctor`, an early read-only path that compares
+negotiated durable ownership and kernel instance names without opening state or
+invoking Kerf. It reports missing/released/unrecorded instances, CPU/CID conflicts
+and intermediate states; boot/sequence/generation/inventory changes refuse a
+consistent result. [Race tests and GCE controls](../../evidence/runtime-20261025/g8-runtime-doctor/README.md)
+pass, with exact private binary provenance and unchanged primary bytes/PIDs.
+The installed daemon itself remains incompatible: Capabilities advertises only
+`lifecycle-audit-v1`, and InspectOwnership returns `UNSUPPORTED`. Accordingly the
+new client reports `inconclusive`, not healthy. Six private RPC fixtures qualify
+the comparison/refusal behavior separately. A compatible daemon qualification,
+kernel incarnation, complete storage/network ownership, pool/service readiness
+and diagnostic collection remain required; full G7/G8 stays OPEN.

@@ -68,6 +68,11 @@ confirms the original module and retained artifacts after reboot. Network IDs
 changed across that reboot; future inventory comparisons require the same boot
 identity, with [guard controls](evidence/runtime-20261024/g8-primary-epoch-controls/README.md).
 
+The read-only `mkruntimed --doctor` command now compares recorded ownership with
+kernel instance names. Its [initial proof](evidence/runtime-20261025/g8-runtime-doctor/README.md)
+covers bounded inspection and explicit inconclusive results; complete health,
+storage/network lease checks and live kernel incarnation remain open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

@@ -141,6 +141,23 @@ If either service fails, stop here and use
 [Runtime recovery and cleanup](runtime-recovery-and-cleanup.md). Do not edit
 runtime state files to force startup.
 
+With a daemon/client build supporting `ownership-v1`, inspect recorded ownership
+against kernel instance names without opening state or invoking Kerf:
+
+```bash
+sudo mkruntimed --config=/etc/mkruntime/config.json --doctor
+```
+
+The bounded JSON reports `consistent`, `degraded` or `inconclusive`; the latter
+two exit 1. Recheck changing observations and intermediate lifecycle states.
+Keep each sandbox generation with its findings. Treat orphan candidates as
+inspection hints and follow the recovery guide before any action. Matching
+names cannot prove the kernel incarnation. The explicit `unobserved` list means
+this is not complete health, storage/network lease verification or containment.
+An unavailable/older daemon yields `inconclusive` without a serialization
+fallback. The [GCE proof](../../evidence/runtime-20261025/g8-runtime-doctor/README.md)
+retains that installed-daemon result separately from private fixture controls.
+
 ## 6. Register the opt-in containerd runtime
 
 Use a separately qualified patched host containerd. The current security

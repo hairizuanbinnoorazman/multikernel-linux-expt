@@ -66,6 +66,15 @@ still govern the full exit gate below.
 
 ## Gate G8
 
+The initial [read-only doctor](../../../runtime/cmd/mkruntimed/README.md) compares
+negotiated durable ownership with bounded kernel instance names, reports stable
+findings and rejects observed boot/ownership/inventory drift. Its
+[GCE controls](../../../evidence/runtime-20261025/g8-runtime-doctor/README.md)
+retain an inconclusive installed-daemon observation and synthetic RPC cases.
+Storage/network ownership, live incarnation, pool capacity, full service
+readiness and diagnostic bundles remain unobserved by this command and required
+for the complete gate.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.
