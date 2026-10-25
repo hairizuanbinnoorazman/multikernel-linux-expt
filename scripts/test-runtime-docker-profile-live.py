@@ -297,6 +297,9 @@ try:
     doctor_checkpoint('while-image-ready',image_deadline)
     image_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'observed_monotonic_ns':time.monotonic_ns(),'guest_image_id':image_id,'guest_engine_id':guest_engine['ID'],'primary_snapshot_sha256':sha(private/'primary-docker-while-image-ready.json'),'child_image_absent_from_primary':True,'cleanup_qualified':False}
     (work/'storage-pressure-image-checkpoint.json').write_text(json.dumps(image_checkpoint,indent=2)+'\n')
+    # Docker may delete the Runtime v2 task as soon as its workload exits.
+    # Attach while the held workload still pins this exact live instance.
+    console_capture.begin_teardown()
     assert time.monotonic()<image_deadline,'built-image observation exceeded the build budget'
     image_released=subprocess.run(cli+['kill','--signal=USR2','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(40,image_deadline-time.monotonic()))
     (private/'image-release.stdout').write_bytes(image_released.stdout);(private/'image-release.stderr').write_bytes(image_released.stderr)
@@ -316,7 +319,6 @@ try:
  assert profile['kernel_release'] in stdout and '29.9.0' in stdout and 'CACHED' in stderr
  checkpoint={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'cleanup_qualified':False,'execution_script_sha256':sha(pathlib.Path(__file__)),'source_archive_sha256':sha(work/'source.tar'),'profile_sha256':sha(approval),'approved_root_manifest_sha256':profile['docker_guest']['rootfs_manifest_sha256'],'prepared_archive_sha256':sha(archive),'probe_sha256':sha(private/'input/probe.sh'),'busybox_sha256':sha(private/'input/busybox'),'native_nbd_helper_sha256':sha(nbd_helper),'runtime_program_hashes':{name:sha(work/'bin'/name) for name in ['mkruntimed','mknetd','containerd-shim-multikernel-v2']},'qualified_containerd_sha256':sha(work/'bin/containerd'),'workload_stdout_sha256':sha(private/'workload.stdout'),'workload_stderr_sha256':sha(private/'workload.stderr')}
  (work/'workload-checkpoint.json').write_text(json.dumps(checkpoint,indent=2)+'\n')
- if console_capture is not None:console_capture.begin_teardown()
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);container_created=False;run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
  if storage_pressure:doctor_checkpoint('after-remove',time.monotonic()+10,released=True)
 finally:

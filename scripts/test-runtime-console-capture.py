@@ -10,11 +10,56 @@ import time
 import fcntl
 import termios
 import array
+import stat
+import types
 from unittest import mock
 from runtime_console_capture import ConsoleCapture, filtered_events, read_bounded
 
 
 class ConsoleCaptureTests(unittest.TestCase):
+    def test_teardown_connection_survives_instance_removal_after_hold_release(self):
+        a,aw=os.pipe();b,bw=os.pipe()
+        real_open,real_write=os.open,os.write
+        selections=[];opened=[]
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);instance=root/'instance';instance.mkdir()
+            (instance/'id').write_text('40\n')
+            class Fixture(ConsoleCapture):
+                def _await_instance(self, path):return True
+                def _connect(self, path, expected=None):return super()._connect(instance,expected)
+            def open_device(path,flags,*args):
+                if path=='/dev/mktty':
+                    fd=[a,b][len(opened)];opened.append(fd);return fd
+                return real_open(path,flags,*args)
+            def write(fd,data):
+                if fd in [a,b]:selections.append(data);return len(data)
+                return real_write(fd,data)
+            try:
+                device=types.SimpleNamespace(st_mode=stat.S_IFCHR,st_uid=0,st_rdev=os.makedev(10,200))
+                with mock.patch('runtime_console_capture.os.open',side_effect=open_device), mock.patch('runtime_console_capture.os.write',side_effect=write), mock.patch('runtime_console_capture.os.fstat',return_value=device):
+                    capture=Fixture('mk-'+'a'*32+'-'+'b'*16,root);capture.start()
+                    self.assertTrue(capture.attached.wait(timeout=1))
+                    # The held workload still pins its instance at this point.
+                    capture.begin_teardown()
+                    (instance/'id').unlink();instance.rmdir()
+                    # Docker can remove sysfs at task exit, before docker rm.
+                    late=b'MK_STORAGE_NBD_DISCONNECT_PASS\n';real_write(bw,late)
+                    end=time.monotonic()+1
+                    while time.monotonic()<end:
+                        pending=array.array('i',[0]);fcntl.ioctl(b,termios.FIONREAD,pending,True)
+                        if pending[0]==0:break
+                        time.sleep(.001)
+                    else:self.fail('late output was not consumed')
+                    capture.begin_teardown()  # Idempotent, no new selection.
+                    capture.finish()
+                self.assertEqual(selections,[b'40\n',b'40\n'])
+                self.assertIn(late,(root/'console-events.log').read_bytes())
+                self.assertTrue(json.loads((root/'console-capture.json').read_text())['teardown_attached'])
+            finally:
+                for fd in [a,aw,b,bw]:
+                    try:os.close(fd)
+                    except OSError:pass
+
     def run_windows(self, initial, final, finish_early=False, replace=False):
         a, aw = os.pipe(); b, bw = os.pipe()
         os.write(aw, initial); os.close(aw)
