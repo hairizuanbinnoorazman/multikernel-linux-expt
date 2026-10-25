@@ -25,18 +25,19 @@ type Finding struct {
 	ExpectedGeneration string `json:"expected_generation,omitempty"`
 }
 type Report struct {
-	Version                  int                               `json:"version"`
-	Scope                    string                            `json:"scope"`
-	Status                   string                            `json:"status"`
-	BootID                   string                            `json:"boot_id,omitempty"`
-	BootStable               bool                              `json:"boot_stable"`
-	Revision                 string                            `json:"revision"`
-	Ownership                *protocol.OwnershipReport         `json:"ownership,omitempty"`
-	KernelInstances          []string                          `json:"kernel_instances,omitempty"`
-	KernelGenerationVerified bool                              `json:"kernel_generation_verified"`
-	Findings                 []Finding                         `json:"findings"`
-	Resources                *protocol.ResourceOwnershipReport `json:"resources,omitempty"`
-	Unobserved               []string                          `json:"unobserved"`
+	Version                  int                                `json:"version"`
+	Scope                    string                             `json:"scope"`
+	Status                   string                             `json:"status"`
+	BootID                   string                             `json:"boot_id,omitempty"`
+	BootStable               bool                               `json:"boot_stable"`
+	Revision                 string                             `json:"revision"`
+	Ownership                *protocol.OwnershipReport          `json:"ownership,omitempty"`
+	KernelInstances          []string                           `json:"kernel_instances,omitempty"`
+	KernelGenerationVerified bool                               `json:"kernel_generation_verified"`
+	Findings                 []Finding                          `json:"findings"`
+	Resources                *protocol.ResourceOwnershipReport  `json:"resources,omitempty"`
+	NativeProcesses          *[]protocol.StorageProcessIdentity `json:"native_processes,omitempty"`
+	Unobserved               []string                           `json:"unobserved"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)

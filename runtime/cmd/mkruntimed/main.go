@@ -158,9 +158,9 @@ func main() {
 	if *inspectRuntime {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		report := doctor.InspectResources(ctx, doctor.ResourceInputs{
-			Resources: func(ctx context.Context) (protocol.ResourceOwnershipReport, error) {
-				return daemon.InspectResourceOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		report := doctor.InspectNativeResources(ctx, doctor.NativeInputs{
+			Native: func(ctx context.Context) (protocol.NativeResourceReport, error) {
+				return daemon.InspectNativeResources(ctx, daemon.Client{Path: socket, Timeout: timeout})
 			},
 			Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
 		}, buildinfo.Revision)

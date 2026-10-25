@@ -21,12 +21,12 @@ def qualify(data, boot, owner, released=False):
         raise ValueError('doctor checkpoint exceeds its bound')
     report = json.loads(data, object_pairs_hook=unique_object)
     expected = {'version', 'scope', 'status', 'boot_id', 'boot_stable', 'revision',
-                'ownership', 'resources', 'kernel_generation_verified', 'findings', 'unobserved'}
+                'ownership', 'resources', 'native_processes', 'kernel_generation_verified', 'findings', 'unobserved'}
     if not isinstance(report, dict) or set(report) not in [expected, expected | {'kernel_instances'}]:
         raise ValueError('invalid doctor checkpoint fields')
     if (str(uuid.UUID(boot)) != boot or report['boot_id'] != boot or
-            type(report['version']) is not int or report['version'] != 2 or
-            report['scope'] != 'durable-resource-ownership-and-kernel-presence' or
+            type(report['version']) is not int or report['version'] != 3 or
+            report['scope'] != 'durable-resource-ownership-native-process-identity-and-kernel-presence' or
             report['status'] != 'consistent' or report['boot_stable'] is not True or
             report['kernel_generation_verified'] is not False or
             report['findings'] != [] or report['unobserved'] != UNOBSERVED or
@@ -63,6 +63,12 @@ def qualify(data, boot, owner, released=False):
             lease['sandbox_generation'] != owner['generation'] or lease['peer_cid'] != owner['child_cid'] or
             not isinstance(lease['export_generation'], str) or not re.fullmatch('[0-9a-f]{32}', lease['export_generation'])):
         raise ValueError('storage lease belongs to another child or generation')
+    native = report['native_processes']
+    expected_process = dict(sandbox_id=lease['sandbox_id'], generation=lease['sandbox_generation'],
+                            export_generation=lease['export_generation'],
+                            status='not-probed-released' if released else 'process-matched')
+    if native != [expected_process]:
+        raise ValueError('native process identity is missing, unobserved or belongs to another generation')
     for key in ['peer_cid', 'size_bytes', 'quota_bytes', 'inode_limit', 'port', 'image_device', 'image_inode']:
         if type(lease[key]) is not int or not 0 < lease[key] < 1 << 64:
             raise ValueError('invalid storage numeric metadata')
