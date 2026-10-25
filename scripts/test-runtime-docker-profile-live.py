@@ -9,6 +9,7 @@ from runtime_storage_pressure import full_observation, recovered_observation
 from runtime_console_capture import ConsoleCapture
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
+from runtime_doctor_checkpoint import qualify as qualify_doctor
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure'}
@@ -256,6 +257,14 @@ try:
     (private/'pressure-full-ownership.stdout').write_bytes(owners.stdout);(private/'pressure-full-ownership.stderr').write_bytes(owners.stderr)
     ownership=json.loads(owners.stdout);assert not owners.stderr and len(ownership['sandboxes'])==1 and ownership['sandboxes'][0]['state']=='RUNNING'
     owner=ownership['sandboxes'][0]
+    def doctor_checkpoint(label,deadline,released=False):
+     remaining=deadline-time.monotonic();assert remaining>0,'doctor observation budget exhausted'
+     observation=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+     assert observation.returncode==0 and not observation.stderr,'scoped runtime doctor refused the observation'
+     report=qualify_doctor(observation.stdout,boot,owner,released=released)
+     (private/('doctor-'+label+'.json')).write_text(json.dumps(report,indent=2)+'\n')
+     return report
+    doctor_checkpoint('while-full',time.monotonic()+10)
     active=[v for v in json.loads((private/'storage-state/state.json').read_text())['exports'].values() if v['state']=='ACTIVE'];assert len(active)==1
     export=active[0];assert export['sandbox_id']==owner['sandbox_id'] and export['sandbox_generation']==owner['generation'] and export['peer_cid']==owner['child_cid']
     image=pathlib.Path(export['path']);identity=image.stat()
@@ -285,6 +294,7 @@ try:
     assert primary_with_image['child_image_absent'],'child-built image appeared in primary Docker'
     guest_engine=next(json.loads(line) for line in (private/'workload.stdout').read_text().splitlines() if line.startswith('{') and '"KernelVersion"' in line)
     assert fingerprint(guest_engine['ID'])!=primary_docker_before['engine_id_sha256'],'guest selected the primary Docker engine'
+    doctor_checkpoint('while-image-ready',image_deadline)
     image_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'observed_monotonic_ns':time.monotonic_ns(),'guest_image_id':image_id,'guest_engine_id':guest_engine['ID'],'primary_snapshot_sha256':sha(private/'primary-docker-while-image-ready.json'),'child_image_absent_from_primary':True,'cleanup_qualified':False}
     (work/'storage-pressure-image-checkpoint.json').write_text(json.dumps(image_checkpoint,indent=2)+'\n')
     assert time.monotonic()<image_deadline,'built-image observation exceeded the build budget'
@@ -307,6 +317,7 @@ try:
  checkpoint={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'cleanup_qualified':False,'execution_script_sha256':sha(pathlib.Path(__file__)),'source_archive_sha256':sha(work/'source.tar'),'profile_sha256':sha(approval),'approved_root_manifest_sha256':profile['docker_guest']['rootfs_manifest_sha256'],'prepared_archive_sha256':sha(archive),'probe_sha256':sha(private/'input/probe.sh'),'busybox_sha256':sha(private/'input/busybox'),'native_nbd_helper_sha256':sha(nbd_helper),'runtime_program_hashes':{name:sha(work/'bin'/name) for name in ['mkruntimed','mknetd','containerd-shim-multikernel-v2']},'qualified_containerd_sha256':sha(work/'bin/containerd'),'workload_stdout_sha256':sha(private/'workload.stdout'),'workload_stderr_sha256':sha(private/'workload.stderr')}
  (work/'workload-checkpoint.json').write_text(json.dumps(checkpoint,indent=2)+'\n')
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);container_created=False;run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
+ if storage_pressure:doctor_checkpoint('after-remove',time.monotonic()+10,released=True)
 finally:
  if console_capture is not None:
   try:console_capture.finish()
@@ -366,6 +377,7 @@ r['storage_pressure_tested']=storage_pressure
 if storage_pressure:r['storage_pressure_recovery_sha256']=sha(work/'storage-pressure-recovery.json')
 if storage_pressure:r['console_capture_sha256']=sha(private/'console-capture.json')
 if storage_pressure:r['storage_pressure_image_checkpoint_sha256']=sha(work/'storage-pressure-image-checkpoint.json')
+if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
 r['service_capability_nnp_tested']=harden_services
