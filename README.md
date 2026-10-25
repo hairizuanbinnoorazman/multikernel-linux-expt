@@ -99,6 +99,8 @@ covers empty state and a copy of a real completed export. The
 now correlates lifecycle expectations with recorded export generations, CID and
 full-descriptor fingerprints during real child Docker activity. Native-process,
 current-file and socket health remain unobserved.
+The [separate restoration proof](evidence/runtime-20261025/g8-resource-correlation-restoration/README.md)
+confirms the original module and retained correlation artifacts after reboot.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

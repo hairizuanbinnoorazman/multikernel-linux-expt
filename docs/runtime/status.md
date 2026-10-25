@@ -533,5 +533,10 @@ ENOSPC/image-hold reports match the expected export generation, CID, descriptor
 and backing metadata; removal yields empty lifecycle/kernel inventories and
 the same released export with validated close counters. Primary inventories,
 files, PIDs and raw network parity plus complete normal cleanup also pass.
-Native process/file/socket health remains explicitly unobserved. Original-module
-restoration follows separately; full G7/G8 remains OPEN.
+Native process/file/socket health remains explicitly unobserved.
+[Separate restoration](../../evidence/runtime-20261025/g8-resource-correlation-restoration/README.md)
+passes on boot 96cb44a6-de0a-4c0f-af24-888f1b256c11: original SRC65, zero
+references/sockets/children, no pool, all CPUs online and four active installed
+services. Ten installed/original/candidate hashes, three quarantined images and
+twelve ledgers are unchanged; eighteen successful-case artifact hashes match.
+Reboot is not counted as normal cleanup. Full G7/G8 remains OPEN.
