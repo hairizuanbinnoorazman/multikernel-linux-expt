@@ -81,7 +81,7 @@ installed services. [Live child presence inspection](../../../evidence/runtime-2
 subsequently passes during ENOSPC, the built-image hold and after removal.
 Its early console saturation leaves late-console coverage open; independent
 synced native close, filesystem and resource observations qualify normal cleanup.
-Storage/network ownership, live incarnation, pool capacity, full service
+Independent native storage/network ownership, live incarnation, pool capacity, full service
 readiness and diagnostic bundles remain unobserved by this command and required
 for the complete gate.
 
@@ -89,9 +89,13 @@ The separate [durable storage view](../contracts/storage-ownership.md) now provi
 bounded generation/CID/quota/inode/release metadata through negotiated protected
 RPC. [Tests and GCE qualification](../../../evidence/runtime-20261025/g8-storage-ownership/README.md)
 cover read-only projection, empty state and a copied real completed record.
-Active/intermediate states have unit coverage; live native/lifecycle correlation,
-independent health and retention/pagination remain required. The doctor still
-leaves this broader storage scope unobserved.
+The [combined resource contract](../contracts/resource-ownership.md) and
+[live correlation proof](../../../evidence/runtime-20261025/g8-live-resource-correlation/README.md)
+subsequently qualify declared storage expectations, generations, CID and full
+descriptor fingerprints during actual child Docker pressure. The doctor detects
+missing/orphan/mismatched recorded claims and ignores released history as live
+authority. Independent native health, current-file/socket attestation and
+retention/pagination remain required.
 
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested

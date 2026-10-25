@@ -33,8 +33,10 @@ These are recorded leases, not current native-process, image, socket or lifecycl
 observations. Live-state close counters remain zero until release; zero does not
 mean that an active export has performed no I/O. A clean recorded release does
 not recheck the filesystem. There is no cross-subsystem atomicity or independent
-orphan/liveness attestation. The existing doctor continues to list storage as
-unobserved until that broader correlation is implemented and qualified. History
+orphan/liveness attestation. The [version-2 doctor](resource-ownership.md) now
+correlates recorded storage/lifecycle expectations, generations, CID and complete
+descriptor fingerprints. It explicitly leaves native storage health unobserved.
+History
 retention/pagination beyond this bounded view remains a G8 requirement.
 
 The [deployment constraint](../architecture.md#deployment-and-containment-constraint)

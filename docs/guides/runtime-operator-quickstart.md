@@ -141,7 +141,7 @@ If either service fails, stop here and use
 [Runtime recovery and cleanup](runtime-recovery-and-cleanup.md). Do not edit
 runtime state files to force startup.
 
-With a daemon/client build supporting `ownership-v1`, inspect recorded ownership
+With a daemon/client build supporting `resource-ownership-v1`, inspect recorded ownership
 against kernel instance names without opening state or invoking Kerf:
 
 ```bash
@@ -152,11 +152,15 @@ The bounded JSON reports `consistent`, `degraded` or `inconclusive`; the latter
 two exit 1. Recheck changing observations and intermediate lifecycle states.
 Keep each sandbox generation with its findings. Treat orphan candidates as
 inspection hints and follow the recovery guide before any action. Matching
-names cannot prove the kernel incarnation. The explicit `unobserved` list means
-this is not complete health, storage/network lease verification or containment.
+names cannot prove the kernel incarnation. Version-2 reports additionally
+correlate explicit storage expectations, lease generations, CID and opaque
+full-descriptor fingerprints. Ordinary sandboxes without storage are supported,
+and released history is not treated as a live orphan. The explicit `unobserved`
+list means this is not native process/file/socket health, network verification
+or containment.
 An unavailable/older daemon yields `inconclusive` without a serialization
-fallback. `OWNERSHIP_UNSUPPORTED` distinguishes a valid capability reply lacking
-ownership-v1 from `OWNERSHIP_UNAVAILABLE`. Early failures retain the initial
+fallback. `RESOURCE_OWNERSHIP_UNSUPPORTED` distinguishes a valid capability reply
+lacking the combined view from `RESOURCE_OWNERSHIP_UNAVAILABLE`. Early failures retain the initial
 `boot_id` with `boot_stable: false`. The [GCE proof](../../evidence/runtime-20261025/g8-runtime-doctor/README.md)
 retains that installed-daemon result separately from private fixture controls.
 The [compatible-daemon proof](../../evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
@@ -177,7 +181,9 @@ live-state close counters are not current I/O metrics, and a released record is
 not a fresh filesystem check. Follow the recovery guide before any mutation.
 The [GCE qualification](../../evidence/runtime-20261025/g8-storage-ownership/README.md)
 uses private production daemons; installed legacy services remain unchanged and
-do not support this view. Live storage/lifecycle/native correlation remains open.
+do not support this view. [Recorded correlation during live child activity](../../evidence/runtime-20261025/g8-live-resource-correlation/README.md)
+now passes; independent native liveness and current-file/socket attestation
+remain open. Mismatches are inspection hints, never repair authorization.
 
 ## 6. Register the opt-in containerd runtime
 

@@ -94,8 +94,11 @@ confirms the original transport and eighteen retained artifact hashes.
 
 The negotiated `mkruntimed --inspect-storage` view now exposes recorded storage
 ownership without backing paths or credentials. Its [GCE proof](evidence/runtime-20261025/g8-storage-ownership/README.md)
-covers empty state and a copy of a real completed export. Live storage/lifecycle
-correlation and native-process health remain open.
+covers empty state and a copy of a real completed export. The
+[version-2 doctor](evidence/runtime-20261025/g8-live-resource-correlation/README.md)
+now correlates lifecycle expectations with recorded export generations, CID and
+full-descriptor fingerprints during real child Docker activity. Native-process,
+current-file and socket health remain unobserved.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

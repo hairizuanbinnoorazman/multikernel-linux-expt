@@ -516,3 +516,22 @@ workload, module reload or reboot is involved. Legacy installed services refuse
 the view and remain unchanged. Active/intermediate states are unit fixtures;
 live lifecycle/native correlation, full health and retention remain OPEN, as do
 complete G7/G8.
+
+Code 2a6f327 adds negotiated resource-ownership-v1 and doctor report version 2.
+The [combined contract](contracts/resource-ownership.md) carries explicit
+lifecycle storage expectations and opaque complete-descriptor fingerprints,
+without projecting private paths, image names/source digests, labels or tokens.
+Busy persistence fails promptly; lifecycle projections bracket storage, and
+repeated combined views must match around kernel/boot observations. Missing
+required, orphan live, generation/CID/export/descriptor and release mismatches
+are findings. Ordinary storage-free sandboxes and historical released leases
+are supported; intermediate states require rechecking. [Controls](../../evidence/runtime-20261025/g8-resource-correlation-controls/README.md)
+and full suites pass. The [live GCE case](../../evidence/runtime-20261025/g8-live-resource-correlation/README.md)
+passes parent 4842a2afa9224ddaa854ed1d9fffc308 / child
+9bf088ba8bff47c0967739068e6b7536 on boot d27905ea-c79e-46ca-95a7-27bfc78a2f16.
+ENOSPC/image-hold reports match the expected export generation, CID, descriptor
+and backing metadata; removal yields empty lifecycle/kernel inventories and
+the same released export with validated close counters. Primary inventories,
+files, PIDs and raw network parity plus complete normal cleanup also pass.
+Native process/file/socket health remains explicitly unobserved. Original-module
+restoration follows separately; full G7/G8 remains OPEN.
