@@ -59,6 +59,14 @@ func makeExt4(t *testing.T, sparse bool) PreparedImage {
 	if output, err := exec.Command("mke2fs", "-q", "-F", "-t", "ext4", "-E", "nodiscard", "-N", "4096", "-U", uuid, path).CombinedOutput(); err != nil {
 		t.Fatalf("mke2fs: %v: %s", err, output)
 	}
+	// Formatting may punch zero ranges even with discard disabled (notably
+	// tmpfs backing). Provision the non-sparse fixture after formatting too,
+	// preserving the filesystem bytes and the production allocation invariant.
+	if !sparse {
+		if output, err := exec.Command("fallocate", "-l", strconv.Itoa(64<<20), path).CombinedOutput(); err != nil {
+			t.Fatalf("post-format allocation: %v: %s", err, output)
+		}
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
