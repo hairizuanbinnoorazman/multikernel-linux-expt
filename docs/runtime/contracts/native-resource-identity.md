@@ -48,7 +48,9 @@ shared by negotiation and repeated observations.
 
 [RPC controls](../../../evidence/runtime-20261025/g8-native-resource-controls/README.md)
 and the [process primitive controls](../../../evidence/runtime-20261025/g8-native-process-inspection/README.md)
-are separate from live child/VSOCK qualification. Full G7/G8 remains open.
+are separate from the [live child Docker qualification](../../../evidence/runtime-20261025/g8-live-native-resource-identity/README.md),
+which matches active export identity at ENOSPC and built-image hold, then records
+released history and independently qualified normal cleanup. Full G7/G8 remains open.
 The [deployment constraint](../architecture.md#deployment-and-containment-constraint)
 uses direct child kernels without nested virtualization. Children share the
 primary's trust domain after arbitrary child-kernel compromise.

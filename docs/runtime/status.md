@@ -554,3 +554,22 @@ This qualifies an internal primitive using a synthetic server, not an active
 child/native VSOCK session. RPC/doctor integration and full native health remain
 OPEN. Direct children need no nested virtualization and share the host trust
 domain; complete G7/G8 remains OPEN.
+
+Code 4f56e5d negotiates native-resource-identity-v1; e235fae makes --doctor version
+3 require this complete view without legacy fallback. Repeated exact process
+identity observations now supplement durable resource correlation. Missing active
+records/processes are degraded; unavailable identity is inconclusive; released
+history is explicitly not probed. [Controls](../../evidence/runtime-20261025/g8-native-doctor-controls/README.md)
+pass focused race, complete Go, required repository and strict Python checkpoints.
+The [intermediate GCE checkpoint](../../evidence/runtime-20261025/g8-native-identity-full-checkpoint/README.md)
+was retained separately from final cleanup. The
+[complete live case](../../evidence/runtime-20261025/g8-live-native-resource-identity/README.md)
+passes under parent c118fa276f914f76950ead72e37769f9 / child
+433cd01b4b0641299eefec7794eb45a6 on boot 96cb44a6-de0a-4c0f-af24-888f1b256c11.
+Native identity matches at ENOSPC and held child image; metadata and descriptor
+fingerprints agree. Child-local builds resume, the image remains absent from
+primary Docker, four primary inventories agree, and normal cleanup is proven
+before any reboot by native synced close, clean e2fsck, returned resources and
+unchanged installed primary/network state. Native socket/session/content health,
+further crash/concurrency cases and full G7/G8 remain OPEN. Direct children use no
+nested virtualization and retain the shared host trust boundary.
