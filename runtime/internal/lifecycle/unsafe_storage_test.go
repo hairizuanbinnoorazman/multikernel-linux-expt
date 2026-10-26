@@ -63,3 +63,27 @@ func TestUnsafeStorageDeleteIsNonRetryableAndIdempotentlyRetained(t *testing.T) 
 		}
 	}
 }
+
+func TestUnsafeFailureWithAbsentBackendRetainsAllocationClaims(t *testing.T) {
+	service, store, kernel := setup(t)
+	defer store.Close()
+	created, failure := service.Create(t.Context(), config("box-a", 8, 7001), "create-absent-unsafe")
+	if failure != nil {
+		t.Fatal(failure)
+	}
+	sb := created.Sandbox
+	_, failure = service.mutate(t.Context(), "DeleteSandbox", "delete-absent-unsafe", "fingerprint", sb, func(*protocol.Sandbox) error {
+		delete(kernel.states, sb.ID)
+		return storagepkg.ErrUnsafeSession
+	})
+	if failure == nil || failure.Code != "OPERATOR_ACTION" || failure.Retryable {
+		t.Fatalf("failure = %+v", failure)
+	}
+	current, ok := service.Get(sb.ID)
+	if !ok || current.State != "RELEASING" || current.Generation != sb.Generation {
+		t.Fatal("unsafe absence freed allocation claims")
+	}
+	if _, failure = service.Create(t.Context(), config("box-b", 8, 7001), "reuse-unsafe-claims"); failure == nil || failure.Code != "RESOURCE_EXHAUSTED" {
+		t.Fatalf("unsafe claim was reused: %+v", failure)
+	}
+}

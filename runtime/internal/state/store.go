@@ -258,8 +258,7 @@ func (s *Store) Commit(sb protocol.Sandbox, key, fingerprint string, result prot
 }
 
 // CommitFailure atomically retains sandbox ownership and its terminal error
-// replay. Failed deletion never grants absence/reuse authority, even if the
-// backend reports that the kernel instance is absent.
+// replay. This stores an error record, never a successful deletion result.
 func (s *Store) CommitFailure(sb protocol.Sandbox, key, fingerprint string, failure *protocol.Error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

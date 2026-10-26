@@ -433,6 +433,10 @@ func (s *Service) mutate(ctx context.Context, method, key, fp string, sb protoco
 			actual = observed
 			sb.State = failureState(method, actual, sb.State)
 		}
+		if code == "OPERATOR_ACTION" && sb.State == "ABSENT" {
+			// Missing kernel presence does not release an unsafe storage claim.
+			sb.State = "RELEASING"
+		}
 		intent.Phase = "complete"
 		intent.Error = pe
 		intent.State = sb.State
