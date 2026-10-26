@@ -137,6 +137,15 @@ arbitrary filesystem stalls and full G7/G8 remain open. The
 [separate restoration proof](evidence/runtime-20261025/g8-fifo-record-restoration/README.md)
 confirms the original transport and twenty-six retained artifact hashes.
 
+An [actual native export SIGKILL test](evidence/runtime-20261026/g8-live-native-export-crash/README.md)
+now proves process absence detection after an inner build and nonretryable
+`OPERATOR_ACTION` on deletion. The failed image and ownership records remain
+fenced. [Operator quarantine](evidence/runtime-20261026/g8-native-export-crash-quarantine/README.md)
+returns child resources while preserving those records; read-only e2fsck exits 4.
+This qualifies failure retention, with direct child kernels on GCE and no nested
+virtualization. Automatic storage recovery and normal cleanup after this crash
+remain unqualified.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

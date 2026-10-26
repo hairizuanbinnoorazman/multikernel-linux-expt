@@ -633,3 +633,14 @@ services. Ten watched hashes and three quarantined images with twelve ledgers
 match. Twenty-six successful-case hashes sampled immediately before reboot
 match postboot samples and committed evidence. Reboot is not normal cleanup;
 full G7/G8 remains OPEN.
+
+The [actual native export SIGKILL proof](../../evidence/runtime-20261026/g8-live-native-export-crash/README.md)
+now qualifies one post-build failure-retention case: two read-only doctor reports
+identify the absent exact process, ownership stays fenced, and scoped deletion
+returns nonretryable `OPERATOR_ACTION`. The image and original ledgers remain
+retained with no authenticated CLOSED record or invented counters. The
+[operator quarantine](../../evidence/runtime-20261026/g8-native-export-crash-quarantine/README.md)
+returns child resources and preserves that failed image; read-only e2fsck exits 4.
+This is not automatic recovery, successful normal cleanup, or storage release.
+The test uses direct child kernels on GCE without nested virtualization. Shared
+host trust after child-kernel compromise and full G7/G8 acceptance remain open.

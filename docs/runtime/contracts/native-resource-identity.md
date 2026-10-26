@@ -126,3 +126,12 @@ it never qualifies normal cleanup. The image and failed authority remain for
 operator diagnosis; no automatic restart, repair or clean-release relabeling is
 permitted. Direct child kernels still use no nested virtualization and share the
 host trust domain after arbitrary child-kernel compromise.
+
+The [live exact-process SIGKILL case](../../../evidence/runtime-20261026/g8-live-native-export-crash/README.md)
+exercises these refusals after a completed inner build. Both doctor inspections
+report process absence without ledger mutation; attempted deletion retains the
+QUIESCING lease and returns nonretryable `OPERATOR_ACTION`. The
+[separate operator quarantine](../../../evidence/runtime-20261026/g8-native-export-crash-quarantine/README.md)
+retains the image and failed ledgers while returning kernel resources. Read-only
+e2fsck status 4 provides no clean-release evidence. Automatic recovery and crashes
+during active build I/O remain unqualified.
