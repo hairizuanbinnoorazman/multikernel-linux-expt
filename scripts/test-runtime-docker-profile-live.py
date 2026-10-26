@@ -14,6 +14,7 @@ from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
+from runtime_trial_helper import verify as verify_trial_helper
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'}
@@ -56,6 +57,8 @@ before={str(p):sha(p) for p in paths};pids=services();boot=pathlib.Path('/proc/s
 instances=pathlib.Path('/sys/fs/multikernel/instances');assert not list(instances.iterdir())
 assert pathlib.Path('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
 assert sha(work/'bin/containerd')=='dbc252c7f4e3534dcbe674552b87b20194967e7b6069e66de61632dcdd3acc83'
+helper_selection=verify_trial_helper(work/'bin/mkvsock-nbd',os.environ.get('MK_TRIAL_HELPER_VARIANT','qualified'))
+(work/'helper-selection.json').write_text(json.dumps(helper_selection,indent=2)+'\n')
 capacity=observe_trial_capacity('/srv/multikernel-storage',2 if concurrent else 1)
 (work/'storage-admission.json').write_text(json.dumps(capacity,indent=2)+'\n')
 require_trial_capacity(capacity)

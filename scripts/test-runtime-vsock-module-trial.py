@@ -6,6 +6,7 @@ Restoration after traffic uses an external idle reboot; cleanup is measured firs
 """
 import fcntl,hashlib,json,os,pathlib,re,signal,socket,stat,subprocess,time,uuid
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
+from runtime_trial_helper import verify as verify_trial_helper
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
 MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
@@ -18,7 +19,7 @@ RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FA
 OLD='65C55BB38C669FF94A4B772';NEW='0450DCCF7EDC67FAE2A6CAA'
 OLD_SHA='bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2'
 NEW_SHA='74e813765d8551d086a603e047337b27ad0cce28dd4cc5de7e983a6e10a1f69f'
-NBD_SHA='c9981a1554230e87098472b586ab0fbe20f01c0b813fbd95df5b5f5c99d4a389'
+
 def run(args,**kw):return subprocess.run([str(v) for v in args],check=True,timeout=30,**kw)
 def output(args):return subprocess.check_output([str(v) for v in args],text=True,timeout=30).strip()
 def sha(path):return hashlib.file_digest(P(path).open('rb'),'sha256').hexdigest()
@@ -42,7 +43,8 @@ assert loaded()==OLD and P('/sys/module/mk_transport/refcnt').read_text().strip(
 vsock_before=output(['ss','-A','vsock','-an']);assert len(vsock_before.splitlines())==1
 assert 'No memory pool configured' in output(['/opt/mkruntime/kerf-venv/bin/kerf','show'])
 assert not output(['/usr/bin/docker','--host','unix:///var/run/docker.sock','ps','--all','--quiet'])
-assert sha(WORK/'bin/mkvsock-nbd')==NBD_SHA
+helper_selection=verify_trial_helper(WORK/'bin/mkvsock-nbd',os.environ.get('MK_MODULE_TRIAL_HELPER_VARIANT','qualified'))
+NBD_SHA=helper_selection['helper_sha256']
 assert sha(WORK/'source.tar')==ARCHIVE_SHA,'staged source archive differs from the requested trial'
 before_build=json.loads((MODULE/'build-preflight.json').read_text())
 assert output(['uname','-r'])==before_build['kernel_release']
@@ -66,7 +68,7 @@ def primary():
     services={n:output(['systemctl','show',n,'-p','MainPID','--value']) for n in ['mkruntimed','mknetd','containerd','docker']}
     assert all(output(['systemctl','is-active',n])=='active' and int(pid)>0 for n,pid in services.items())
     return {'file_sha256':{str(p):sha(p) for p in paths},'service_main_pids':services}
-state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'events':[]}
+state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'events':[]}
 def record(phase,**values):
     state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded(),'module_refcnt':int(P('/sys/module/mk_transport/refcnt').read_text()) if loaded() else None})
     temporary=trial/'receipt.tmp';temporary.write_text(json.dumps(state,indent=2)+'\n');temporary.chmod(0o600);os.replace(temporary,trial/'primary-module-trial.json')
@@ -77,7 +79,7 @@ record('preflight')
 try:
     run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
     run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
-    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
+    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
     deadline=time.monotonic()+1230;invocation=None
     while True:
         observed=show(pressure,'InvocationID','MainPID','ActiveState','SubState','Result','ExecMainStatus')
