@@ -307,9 +307,6 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 				teardownNotes = append(teardownNotes, fmt.Errorf("close guest agent: %w", closeErr))
 			}
 		}
-		if err := s.stopNamespaceHolder(); err != nil {
-			hostFailures = append(hostFailures, fmt.Errorf("stop network namespace holder: %w", err))
-		}
 		if err := s.stopRelay(); err != nil {
 			hostFailures = append(hostFailures, fmt.Errorf("stop agent relay: %w", err))
 		}
@@ -324,6 +321,12 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 		}
 		if len(hostFailures) != 0 {
 			return abort(errors.Join(append(hostFailures, teardownNotes...)...))
+		}
+		// Keep the host PID representing this task alive while host cleanup is
+		// unresolved. An unsafe storage release must not leave retained task
+		// metadata pointing at a holder that we already killed or reaped.
+		if err := s.stopNamespaceHolder(); err != nil {
+			return abort(errors.Join(append(teardownNotes, fmt.Errorf("stop network namespace holder: %w", err))...))
 		}
 		if note := errors.Join(teardownNotes...); note != nil {
 			fmt.Fprintf(os.Stderr, "multikernel shim: guest teardown completed through sandbox deletion with warnings: %v\n", note)
