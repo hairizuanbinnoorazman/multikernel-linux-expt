@@ -238,3 +238,22 @@ record process exit/return code separately from deadline expiry and bounded-read
 output overflow, before teardown. They identify the observed wait outcome, not
 the underlying storage/transport cause. Their successful receipt remains a
 sampled hold point, separate from final normal cleanup evidence.
+
+
+## Host task PID after refused shim deletion
+
+A shim init Delete now keeps its namespace-holder process until fallible host
+cleanup, delete-event handling and rootfs cleanup have succeeded. This preserves
+the same representative PID and namespace for retained task metadata on failure.
+[Real-process controls](../../evidence/runtime-20261027/g8-delete-holder-retention/README.md)
+cover transient sandbox stop/deletion, event publication, rootfs cleanup and
+nonretryable unsafe storage release. A transient retry releases the original
+holder on success; OPERATOR_ACTION still requires diagnosis and does not authorize
+a retry that changes ownership evidence.
+
+This does not revive an already-dead holder or protect it from an external
+Docker SIGKILL. It also leaves existing event publication ordering unchanged:
+rootfs cleanup may fail after a delete event was accepted. A retained PID is not
+kill authority; retain the boot, process incarnation and sandbox generation when
+inspecting a failure. Worker-crash recovery and live child Docker behavior still
+require separate qualification.

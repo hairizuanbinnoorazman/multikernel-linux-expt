@@ -708,3 +708,18 @@ and on the restarted GCE host; the required suite passes with pinned containerd
 2.2.10. These controls do not reconstruct the previous failure or establish a
 new live workload pass. Full G7/G8 stays open with direct children, no nested
 virtualization and the shared host trust boundary.
+
+
+The [delete-holder retention proof](../../evidence/runtime-20261027/g8-delete-holder-retention/README.md)
+reproduces a separate shim cleanup-order defect: namespace-holder shutdown could
+precede failed sandbox deletion. `7009445` retains the representative host PID
+through host cleanup; `79a87fc` extends retention through delete-event and rootfs
+cleanup steps. Source `2ba5a88` exercises five failures with real subprocesses,
+pidfds and namespace inode observations. All five fail on original code and pass
+on fixed code. Four transient retries retain and then release the exact original
+holder; a nonretryable storage refusal remains retained. Final GCE controls pass
+unprivileged with unchanged primary files/PIDs and idle resources. Complete Go
+and shim race suites pass. The tests inject daemon/publication failures and do
+not qualify real child deletion, the earlier pressure-stall cause, worker crash
+handoff or a new live Docker build. G7/G8 remains open under direct-child,
+no-nested-virtualization deployment and shared host trust after child compromise.

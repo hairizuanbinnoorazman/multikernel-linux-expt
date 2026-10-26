@@ -166,6 +166,11 @@ qualify normal cleanup or authorize reuse. New
 record process exit, deadline or output-limit failures before teardown. The
 previous failure's cause and live Docker requalification remain open.
 
+The shim now [retains its host task PID through failed deletion](evidence/runtime-20261027/g8-delete-holder-retention/README.md).
+Real-process controls cover five failure points and transient retries, locally
+and on GCE. This fixes a cleanup-order defect; it does not establish the pressure
+stall's cause or prevent Docker from externally killing a cached PID.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
