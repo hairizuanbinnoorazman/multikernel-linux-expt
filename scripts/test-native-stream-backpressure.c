@@ -7,6 +7,14 @@
 #include <string.h>
 #include <unistd.h>
 static ssize_t fault_send(int fd,const void *data,size_t length,int flags);
+static unsigned int full_events, resumed_events;
+static void trace_event(const char *stage, int endpoint, int detail)
+{
+ if (!strcmp(stage,"mk-queue-full")) {full_events++;if(endpoint!=1||detail!=ENOSPC)exit(3);}
+ if (!strcmp(stage,"mk-queue-resumed")) {resumed_events++;if(endpoint!=1||detail<=0||detail>65536)exit(3);}
+ fprintf(stderr,"PROXY_TEST_EVENT stage=%s endpoint=%d detail=%d\n",stage,endpoint,detail);
+}
+#define NATIVE_PROXY_TRACE(stage,endpoint,detail) trace_event(stage,endpoint,detail)
 #define send fault_send
 #define NATIVE_PROXY_MK_ENDPOINT 1
 #define NATIVE_PROXY_QUEUE_TIMEOUT_MS 20
@@ -27,8 +35,8 @@ int main(int argc,char **argv)
  int left=atoi(argv[2]),right=atoi(argv[3]);endpoint=!strcmp(mode,"left")?left:right;
  int result=native_stream_proxy(left,right),error=errno;
  fprintf(stderr,"PROXY_BACKPRESSURE_RESULT result=%d errno=%d injected=%u\n",result,error,injected);
- if(!strcmp(mode,"transient") && (!injected || result))return 2;
- if(!strcmp(mode,"permanent") && (error!=ETIMEDOUT || injected>8))return 2;
- if(!strcmp(mode,"left") && (error!=ENOSPC || injected!=1))return 2;
+ if(!strcmp(mode,"transient") && (!injected || result || full_events!=1 || resumed_events!=1))return 2;
+ if(!strcmp(mode,"permanent") && (error!=ETIMEDOUT || injected>8 || full_events!=1 || resumed_events))return 2;
+ if(!strcmp(mode,"left") && (error!=ENOSPC || injected!=1 || full_events || resumed_events))return 2;
  return result<0;
 }

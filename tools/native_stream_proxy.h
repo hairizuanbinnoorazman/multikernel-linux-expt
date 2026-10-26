@@ -54,7 +54,7 @@ static int native_stream_proxy(int left, int right)
 		int64_t retry_after, retry_started;
 	} direction[2] = {0};
 	int fd[2] = {left, right};
-	int queue_full_noted = 0;
+	int queue_full_noted = 0, queue_resume_noted = 0;
 	for (int i = 0; i < 2; i++) {
 		int flags = fcntl(fd[i], F_GETFL);
 		if (flags < 0 || fcntl(fd[i], F_SETFL, flags | O_NONBLOCK) < 0)
@@ -134,6 +134,13 @@ static int native_stream_proxy(int left, int right)
 				ssize_t n = send(fd[1-i], d->data + d->begin,
 						 d->end - d->begin, MSG_DONTWAIT | MSG_NOSIGNAL);
 				if (n > 0) {
+					/* Report only the first observed recovery, without payloads
+					 * or per-write logging. This is positive send progress,
+					 * not completion of the stream or an NBD request. */
+					if (d->retry_after && !queue_resume_noted) {
+						NATIVE_PROXY_TRACE("mk-queue-resumed", 1-i, (int)n);
+						queue_resume_noted = 1;
+					}
 					d->begin += (size_t)n;
 					d->retry_after = d->retry_started = 0;
 					d->retry_delay = 0;
