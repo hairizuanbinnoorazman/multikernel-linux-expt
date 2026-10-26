@@ -135,3 +135,11 @@ QUIESCING lease and returns nonretryable `OPERATOR_ACTION`. The
 retains the image and failed ledgers while returning kernel resources. Read-only
 e2fsck status 4 provides no clean-release evidence. Automatic recovery and crashes
 during active build I/O remain unqualified.
+
+[Absent-preparation history controls](../../../evidence/runtime-20261026/g8-preparation-history-controls/README.md)
+close a separate recovery gap: PREPARING cannot restart an absent server without
+exact pre-acceptance evidence. Missing logs and terminal close do not prove a
+never-used session. Dead-process records remain retained when logs are missing;
+ACTIVE absence without pre-acceptance history also requires operator action.
+These controls include real process death on the GCE host, with no new live
+child Docker recovery claim.

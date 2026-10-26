@@ -650,3 +650,11 @@ confirms the original transport, ten unchanged primary/module files, four retain
 quarantined images, sixteen ledgers and four journals after graceful idle reboot.
 All primary services are active, sixteen CPUs are online and no child or pool
 remains. Reboot is not counted as normal cleanup or automatic crash recovery.
+
+The [preparation-history controls](../../evidence/runtime-20261026/g8-preparation-history-controls/README.md)
+reproduce and fix unsafe absent PREPARING restart when attachment history is
+missing, and loss of dead-process records during missing-log observation.
+Commits `82e1983` and `a957cef` require exact pre-acceptance history and retain
+unknown state for operator action. Six actual SIGKILL cases pass locally and as
+unprivileged host-process fixtures on GCE. This is not a new live child Docker
+recovery qualification; full G7/G8 remains open.
