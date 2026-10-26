@@ -44,3 +44,20 @@ The [deployment constraint](../architecture.md#deployment-and-containment-constr
 uses direct children without nested virtualization. This view helps an operator
 inspect ownership; it does not establish containment after child-kernel compromise
 or close complete G7/G8.
+
+## Disposable Docker trial admission
+
+Before switching the test transport or creating private Docker integration
+state, the current cold-trial driver and Docker harness record a descriptor-based
+minimum-capacity observation. One image needs at least 2147483648 image bytes
+plus the existing 1073741824-byte reserve and 1028 available inodes; the two-image
+scenario needs 4294967296 image bytes plus that reserve and 1032 inodes. Failure
+writes `MINIMUM_FREE_BYTES` and/or `MINIMUM_FREE_INODES` before refusal. Symlinked
+storage path components are rejected. Passing this observation grants no storage
+lease, reserves no capacity, and does not account for source staging or concurrent
+consumption. Full builder admission remains mandatory.
+
+[Actual GCE proof](../../../evidence/runtime-20261027/g8-trial-capacity-admission/README.md)
+qualifies refusal before transport or Docker mutation at the current shortage.
+This is an early-refusal subcase, not a live build, storage recovery, normal
+cleanup or complete G7/G8 acceptance. Failed images remain retained.

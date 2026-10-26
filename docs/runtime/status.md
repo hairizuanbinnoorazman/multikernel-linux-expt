@@ -785,3 +785,15 @@ existing ordered-policy controls, all Go, network race and required suites. GCE 
 unit b2e6ad5e842e42568e4d863fdd158c57 leaves primary identities and resources
 unchanged. This tightens sampled native policy inspection; live child Docker
 requalification and the full G7/G8 gates remain open.
+
+Code `a123ad3` adds a minimum storage floor before module-trial transport switching
+and disposable Docker setup. [Actual GCE refusal proof](../../evidence/runtime-20261027/g8-trial-capacity-admission/README.md)
+records 2875645952 bytes available against 3221225472 required, expected driver
+status 1 and successful external qualification, with unchanged primary identities,
+original transport/resources and retained storage metadata. Neither trial-module
+nor Docker integration directories are created. Local/GCE boundary, symlink and
+ordering controls and the required suite pass. The floor preserves image/reserve
+sizes and does not reserve capacity or replace builder staging admission. Full
+Docker requalification still needs adequate capacity; no failed image is deleted
+or reused. Whole G7/G8 remains open under the documented direct-child,
+no-nested-virtualization/shared-host-trust constraint.

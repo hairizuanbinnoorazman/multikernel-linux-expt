@@ -192,6 +192,12 @@ link flags and forwarding values. [GCE state-value proof](evidence/runtime-20261
 covers real MTU/gateway changes, refusal and restoration in disposable network
 namespaces. This qualifies sampled checks; active child Docker remains open.
 
+The [early trial capacity guard](evidence/runtime-20261027/g8-trial-capacity-admission/README.md)
+now refuses insufficient storage before transport switching or Docker setup.
+It preserves the 2 GiB image and 1 GiB reserve; passing its minimum floor still
+requires the builder's staging and capacity checks. The next full live trial
+remains pending adequate storage capacity.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
