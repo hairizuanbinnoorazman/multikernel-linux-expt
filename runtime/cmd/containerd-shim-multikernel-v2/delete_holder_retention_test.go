@@ -26,6 +26,7 @@ func TestInitDeleteRetainsRealHolderUntilHostCleanupSucceeds(t *testing.T) {
 		{"stop unavailable", "StopSandbox", "UNAVAILABLE", true},
 		{"delete unavailable", "DeleteSandbox", "UNAVAILABLE", true},
 		{"unsafe storage release", "DeleteSandbox", "OPERATOR_ACTION", false},
+		{"event publication unavailable", "", "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			command := exec.Command("/bin/sleep", "30")
@@ -54,6 +55,9 @@ func TestInitDeleteRetainsRealHolderUntilHostCleanupSucceeds(t *testing.T) {
 			close(p.done)
 			failing := true
 			publisher := &fakePublisher{}
+			if tc.method == "" {
+				publisher.failures = 2
+			}
 			bundle := privateTestDirectory(t)
 			if err := os.Mkdir(bundle+"/.multikernel", 0700); err != nil {
 				t.Fatal(err)
@@ -70,7 +74,7 @@ func TestInitDeleteRetainsRealHolderUntilHostCleanupSucceeds(t *testing.T) {
 			if err == nil || response != nil {
 				t.Fatalf("failed cleanup returned success: %+v %v", response, err)
 			}
-			if s.namespaceHolder != holder || s.processes[""] != p || p.deleting || p.deleteEventQueued || len(publisher.topics) != 0 {
+			if s.namespaceHolder != holder || s.processes[""] != p || p.deleting || (p.deleteEventQueued != (tc.method == "")) || len(publisher.topics) != 0 {
 				t.Fatal("failed host cleanup released holder/task or queued deletion")
 			}
 			polls := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
