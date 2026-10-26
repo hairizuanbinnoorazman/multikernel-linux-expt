@@ -97,6 +97,15 @@ missing/orphan/mismatched recorded claims and ignores released history as live
 authority. Independent native health, current-file/socket attestation and
 retention/pagination remain required.
 
+A separate [network ownership CLI](../contracts/network-ownership.md) now
+provides bounded recorded endpoint generations, boot claims, states, counters and
+opaque descriptor fingerprints through mknetd's existing protected socket.
+[GCE controls](../../../evidence/runtime-20261027/g8-network-ownership/README.md)
+qualify actual idle CLI/RPC inspection, installed legacy refusal, cancellation
+and an unchanged retained failed ledger without reconciliation. This does not
+change the doctor's network-unobserved scope or prove live endpoint health,
+policy attestation, combined ownership correlation or Docker requalification.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

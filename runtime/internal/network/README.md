@@ -37,3 +37,15 @@ DROP remains present; CHECK detects it and accepts the restored policy.
 This remains sampled filter-table inspection, with no continuous enforcement,
 other-table attestation or automatic rule repair. Reconciliation uses this CHECK
 and refuses startup on unresolved policy drift.
+
+
+`mknetd --inspect-ownership --socket=/run/mknetd.sock` negotiates a bounded
+recorded ownership projection without opening state or running reconciliation.
+The existing protected socket/UID policy is unchanged. Generations, boot claims,
+states, counters and descriptor fingerprints are exposed; private names, paths,
+addresses and DNS are omitted. Busy snapshots and unsupported/malformed servers
+are explicit failures. One deadline covers negotiation and inspection, and
+cancellation closes pending reads. This is metadata inspection, not backend
+CHECK, native health, isolation or repair authority. See the
+[contract](../../../docs/runtime/contracts/network-ownership.md) and
+[GCE proof](../../../evidence/runtime-20261027/g8-network-ownership/README.md).

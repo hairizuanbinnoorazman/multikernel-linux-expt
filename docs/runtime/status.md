@@ -742,3 +742,19 @@ MK transport or Docker requalification. The data disk currently has roughly
 remain intact. Live storage-stall diagnosis and whole G7/G8 remain open under
 the direct-child/no-nested-virtualization deployment constraint and shared host
 trust boundary.
+
+
+The [network ownership contract](contracts/network-ownership.md), implemented by
+`b0a218f`, adds CAPABILITIES / INSPECT_OWNERSHIP and a separate read-only mknetd
+CLI. `8489762` closes pending RPC reads on cancellation. The bounded projection
+uses the store try-lock, omits private descriptor strings, reports separate
+startup/endpoint boot claims and invokes no backend or reconciliation. Source
+`8489762` passes [GCE qualification](../../evidence/runtime-20261027/g8-network-ownership/README.md):
+two identical reports from an actual private daemon/CLI, explicit installed
+legacy refusal, and projection of the retained failed endpoint without changing
+its original ledger. Primary files/PIDs/resources remain unchanged; final race,
+complete Go and required checks pass. The private test daemon is stopped and
+installed services are unchanged. Doctor network correlation, live policy/
+namespace attestation, populated live child endpoints and Docker requalification
+remain open. Full G7/G8 remains open under the direct-child/no-nested-virtualization
+constraint and shared host trust boundary.

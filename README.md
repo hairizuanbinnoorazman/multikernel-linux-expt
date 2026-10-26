@@ -176,6 +176,11 @@ now distinguishes the first positive send after MK queue-full from the initial
 queue-full observation. Local and GCE socket controls pass; the candidate helper
 is not deployed and this does not resolve the earlier live stall.
 
+A separate [network ownership inspector](docs/runtime/contracts/network-ownership.md)
+now exposes bounded generation/boot metadata and opaque descriptor fingerprints
+through mknetd's existing protected socket. GCE CLI, retained-ledger and privacy
+controls pass; recorded READY state is not a network-health or isolation pass.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
