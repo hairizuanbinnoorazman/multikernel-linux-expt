@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -20,6 +21,7 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kerf"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
+	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage"
@@ -109,6 +111,8 @@ func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
+	inspectNetwork := flag.Bool("doctor-network", false, "print bounded lifecycle/network ownership and kernel presence diagnostics and exit")
+	networkSocket := flag.String("network-socket", "/run/mknetd.sock", "protected mknetd socket for network inspection")
 	inspectStorage := flag.Bool("inspect-storage", false, "print bounded read-only durable storage ownership JSON and exit")
 	inspectRuntime := flag.Bool("doctor", false, "print bounded read-only resource ownership/kernel presence diagnostics and exit")
 	inspectOwnership := flag.Bool("inspect-ownership", false, "print bounded read-only durable ownership JSON and exit")
@@ -126,13 +130,17 @@ func main() {
 	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
 	modes := 0
-	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage} {
+	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork} {
 		if selected {
 			modes++
 		}
 	}
 	if modes > 1 {
 		fmt.Fprintln(os.Stderr, "select one inspection mode")
+		os.Exit(2)
+	}
+	if *inspectNetwork && !filepath.IsAbs(*networkSocket) {
+		fmt.Fprintln(os.Stderr, "network inspection requires an absolute network socket")
 		os.Exit(2)
 	}
 	hostConfig, e := hostconfig.Load(configPath)
@@ -142,6 +150,26 @@ func main() {
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
 	timeout := hostConfig.BackendTimeout()
+	if *inspectNetwork {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		report := doctor.InspectNetwork(ctx, doctor.NetworkInputs{
+			Expectations: func(ctx context.Context) (protocol.NetworkExpectationsReport, error) {
+				return daemon.InspectNetworkExpectations(ctx, daemon.Client{Path: socket, Timeout: timeout})
+			},
+			Network: func(ctx context.Context) (mknetwork.OwnershipReport, error) {
+				return mknetwork.InspectOwnership(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
+			},
+			Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
+		}, buildinfo.Revision)
+		if json.NewEncoder(os.Stdout).Encode(report) != nil {
+			os.Exit(1)
+		}
+		if report.Status != "consistent" {
+			os.Exit(1)
+		}
+		return
+	}
 	if *inspectStorage {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()

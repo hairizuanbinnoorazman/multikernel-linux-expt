@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -19,25 +20,28 @@ type Inputs struct {
 }
 type Finding struct {
 	Code               string `json:"code"`
+	EndpointGeneration string `json:"endpoint_generation,omitempty"`
 	SandboxID          string `json:"sandbox_id,omitempty"`
 	Generation         string `json:"generation,omitempty"`
 	ExportGeneration   string `json:"export_generation,omitempty"`
 	ExpectedGeneration string `json:"expected_generation,omitempty"`
 }
 type Report struct {
-	Version                  int                                `json:"version"`
-	Scope                    string                             `json:"scope"`
-	Status                   string                             `json:"status"`
-	BootID                   string                             `json:"boot_id,omitempty"`
-	BootStable               bool                               `json:"boot_stable"`
-	Revision                 string                             `json:"revision"`
-	Ownership                *protocol.OwnershipReport          `json:"ownership,omitempty"`
-	KernelInstances          []string                           `json:"kernel_instances,omitempty"`
-	KernelGenerationVerified bool                               `json:"kernel_generation_verified"`
-	Findings                 []Finding                          `json:"findings"`
-	Resources                *protocol.ResourceOwnershipReport  `json:"resources,omitempty"`
-	NativeProcesses          *[]protocol.StorageProcessIdentity `json:"native_processes,omitempty"`
-	Unobserved               []string                           `json:"unobserved"`
+	Version                  int                                     `json:"version"`
+	Scope                    string                                  `json:"scope"`
+	Status                   string                                  `json:"status"`
+	BootID                   string                                  `json:"boot_id,omitempty"`
+	BootStable               bool                                    `json:"boot_stable"`
+	Revision                 string                                  `json:"revision"`
+	Ownership                *protocol.OwnershipReport               `json:"ownership,omitempty"`
+	KernelInstances          []string                                `json:"kernel_instances,omitempty"`
+	KernelGenerationVerified bool                                    `json:"kernel_generation_verified"`
+	Findings                 []Finding                               `json:"findings"`
+	Resources                *protocol.ResourceOwnershipReport       `json:"resources,omitempty"`
+	NativeProcesses          *[]protocol.StorageProcessIdentity      `json:"native_processes,omitempty"`
+	Network                  *network.OwnershipReport                `json:"network,omitempty"`
+	NetworkExpectations      *[]protocol.LifecycleNetworkExpectation `json:"network_expectations,omitempty"`
+	Unobserved               []string                                `json:"unobserved"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
