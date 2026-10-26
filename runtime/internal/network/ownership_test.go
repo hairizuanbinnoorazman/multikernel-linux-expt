@@ -209,3 +209,53 @@ func TestOwnershipClientUsesOneDeadlineForNegotiationAndRead(t *testing.T) {
 		t.Fatal("shared deadline did not bound inspection")
 	}
 }
+
+// Explicit lab opt-in. Read the retained failed ledger without starting a
+// daemon or reconciling its prior-boot endpoint; export only the projection.
+func TestOwnershipReadsRetainedFailedLedgerWithoutReconcile(t *testing.T) {
+	dir := os.Getenv("MK_G8_NETWORK_STATE_FIXTURE")
+	if dir == "" {
+		t.Skip("requires explicit retained private GCE fixture")
+	}
+	if dir != "/opt/mkruntime/g8-host-017c52f/integration/network-state" {
+		t.Fatal("unexpected retained fixture")
+	}
+	path := filepath.Join(dir, "state.json")
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	boot, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &fakeBackend{}
+	s, err := NewService(store, backend, "172.30.0.0/24", 1400, DNS{}, strings.TrimSpace(string(boot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, issue := s.Ownership()
+	if issue != nil || r.Validate() != nil || len(r.Endpoints) != 1 {
+		t.Fatalf("retained projection: %+v %v", r, issue)
+	}
+	if len(backend.adds)+len(backend.checks)+len(backend.deletes) != 0 {
+		t.Fatal("retained snapshot invoked backend")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("retained original state changed")
+	}
+	v := r.Endpoints[0]
+	if v.State != "DISCONNECTED" || v.SandboxID == "" || v.PrimaryBootID == r.PrimaryBootID {
+		t.Fatal("prior-boot failed endpoint was silently retired or rebound")
+	}
+	encoded, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("NETWORK_OWNERSHIP_RETAINED_REPORT=" + string(encoded))
+}
