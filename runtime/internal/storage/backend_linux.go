@@ -995,7 +995,7 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 		// synced terminal log authenticates that absence as graceful completion.
 		counters, counterErr := parseCountersAt(directory, logName, value)
 		if counterErr != nil {
-			return Counters{}, errors.New("refuse to stop process without exact storage lease identity or graceful close evidence")
+			return Counters{}, fmt.Errorf("%w: refuse to stop process without exact storage lease identity or graceful close evidence", ErrUnsafeSession)
 		}
 		if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
 			return Counters{}, err
@@ -1028,7 +1028,7 @@ func (b *LinuxBackend) Stop(ctx context.Context, value Export) (Counters, error)
 	}
 	counters, err := parseCountersAt(directory, logName, value)
 	if err != nil {
-		return Counters{}, errors.New("storage server stopped without a complete counter record")
+		return Counters{}, fmt.Errorf("%w: storage server stopped without a complete counter record", ErrUnsafeSession)
 	}
 	if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
 		return Counters{}, err

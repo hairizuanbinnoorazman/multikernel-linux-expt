@@ -485,7 +485,8 @@ func imageLockAvailable(t *testing.T, path string) bool {
 	return false
 }
 
-func TestLinuxBackendProcessIdentityGracefulStopAndOfflineCheck(t *testing.T) {
+func startLinuxProcessFixture(t *testing.T) (*LinuxBackend, Export) {
+	t.Helper()
 	image := makeExt4(t, false)
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {
@@ -541,6 +542,22 @@ int main(int argc, char **argv) {
 	if err := backend.Start(context.Background(), value); err != nil {
 		t.Fatal(err)
 	}
+	recordPath, _ := backend.paths(value)
+	record, err := readRecord(recordPath, value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, matches, err := openProcessHandle(record, backend.Binary)
+	if err != nil || !matches {
+		t.Fatalf("fixture process identity = %v %v", matches, err)
+	}
+	t.Cleanup(func() { _ = unix.PidfdSendSignal(handle.pidfd, unix.SIGKILL, nil, 0); _ = handle.Close() })
+	return backend, value
+}
+
+func TestLinuxBackendProcessIdentityGracefulStopAndOfflineCheck(t *testing.T) {
+	backend, value := startLinuxProcessFixture(t)
+	image, binaryPath := value.PreparedImage, backend.Binary
 	if imageLockAvailable(t, image.Path) {
 		t.Fatal("server did not retain the inspection lock through inherited fd 3")
 	}

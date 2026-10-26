@@ -257,6 +257,32 @@ func (s *Store) Commit(sb protocol.Sandbox, key, fingerprint string, result prot
 	return nil
 }
 
+// CommitFailure atomically retains sandbox ownership and its terminal error
+// replay. Failed deletion never grants absence/reuse authority, even if the
+// backend reports that the kernel instance is absent.
+func (s *Store) CommitFailure(sb protocol.Sandbox, key, fingerprint string, failure *protocol.Error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	previousSandbox, hadSandbox := s.data.Sandboxes[sb.ID]
+	previousResult, hadResult := s.data.Results[key]
+	s.data.Sandboxes[sb.ID] = sb
+	s.data.Results[key] = IdempotentResult{Fingerprint: fingerprint, Error: failure}
+	if err := s.persistLocked(); err != nil {
+		if hadSandbox {
+			s.data.Sandboxes[sb.ID] = previousSandbox
+		} else {
+			delete(s.data.Sandboxes, sb.ID)
+		}
+		if hadResult {
+			s.data.Results[key] = previousResult
+		} else {
+			delete(s.data.Results, key)
+		}
+		return err
+	}
+	return nil
+}
+
 // Tombstone records terminal failure replay while retaining sandbox ownership
 // for a cancellation worker that has not yet proven external cleanup.
 func (s *Store) Tombstone(key, fingerprint string, failure *protocol.Error) error {

@@ -82,6 +82,9 @@ func (s *Service) recoverPreparation(ctx context.Context, value Export) (Export,
 	if err != nil {
 		return Export{}, fmt.Errorf("observe retained storage preparation: %w", err)
 	}
+	if observation.ClientLost {
+		return Export{}, fmt.Errorf("%w: preparing server disappeared after client acceptance", ErrUnsafeSession)
+	}
 	if observation.Active && observation.Generation != value.ExportGeneration {
 		return Export{}, errors.New("preparing storage process has a conflicting generation")
 	}
@@ -251,7 +254,7 @@ func (s *Service) Reconcile(ctx context.Context, owners map[string]Owner) error 
 				return errors.New("active storage process has a conflicting generation")
 			}
 			if observation.ClientLost {
-				return errors.New("active storage server disappeared after client acceptance; automatic session recovery is unsafe")
+				return fmt.Errorf("%w: active server disappeared after client acceptance; automatic session recovery is unsafe", ErrUnsafeSession)
 			}
 			if !observation.PreAcceptance {
 				return errors.New("active storage server is absent without exact pre-acceptance evidence")
@@ -287,7 +290,7 @@ func (s *Service) Reconcile(ctx context.Context, owners map[string]Owner) error 
 					return fmt.Errorf("resume storage quiescence: %w", err)
 				}
 			} else if !observation.Closed {
-				return errors.New("quiescing storage server is absent without a graceful close record")
+				return fmt.Errorf("%w: quiescing server is absent without a graceful close record", ErrUnsafeSession)
 			}
 			result, err := s.backend.OfflineCheck(ctx, value)
 			if err != nil {

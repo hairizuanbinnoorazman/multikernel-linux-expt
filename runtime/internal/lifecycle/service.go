@@ -415,14 +415,19 @@ func (s *Service) mutate(ctx context.Context, method, key, fp string, sb protoco
 	}
 	if e := fn(&sb); e != nil {
 		code := "BACKEND_FAILURE"
-		if errors.Is(e, context.DeadlineExceeded) {
+		if errors.Is(e, storagepkg.ErrUnsafeSession) {
+			code = "OPERATOR_ACTION"
+		} else if errors.Is(e, context.DeadlineExceeded) {
 			code = "BACKEND_TIMEOUT"
 		}
 		message := "backend operation failed"
 		if code == "BACKEND_TIMEOUT" {
 			message = "backend operation timed out"
 		}
-		pe := operationError(code, message, true, op)
+		if code == "OPERATOR_ACTION" {
+			message = "storage session requires operator action"
+		}
+		pe := operationError(code, message, code != "OPERATOR_ACTION", op)
 		actual := ""
 		if observed, observeErr := s.backend.Observe(ctx, sb.ID); observeErr == nil {
 			actual = observed
@@ -437,7 +442,9 @@ func (s *Service) mutate(ctx context.Context, method, key, fp string, sb protoco
 		sb.Error = pe
 		sb.UpdatedAt = time.Now().UTC()
 		var stateErr error
-		if method == "CreateSandbox" && actual == "ABSENT" {
+		if code == "OPERATOR_ACTION" {
+			stateErr = s.store.CommitFailure(sb, key, fp, pe)
+		} else if method == "CreateSandbox" && actual == "ABSENT" {
 			stateErr = s.store.RemoveSandbox(sb.ID)
 		} else {
 			stateErr = s.store.SetSandbox(sb)
