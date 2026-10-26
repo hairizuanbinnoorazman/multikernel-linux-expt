@@ -12,6 +12,7 @@ from runtime_primary_docker import observe as observe_primary_docker, unchanged 
 from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record, qualify_unavailable_record, qualify_absent_process
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
+from runtime_workload_phase import wait_for_phase
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'}
@@ -251,9 +252,9 @@ try:
     console_capture.start()
     attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
     deadline=time.monotonic()+300
-    while 'G8_STORAGE_PRESSURE_FULL\n' not in (private/'workload.stdout').read_text() or 'No space left on device' not in (private/'workload.stderr').read_text():
-     assert attach.poll() is None and time.monotonic()<deadline,'guest did not reach the expected ENOSPC hold point'
-     time.sleep(.2)
+    wait_for_phase(attach,private/'workload.stdout',private/'workload.stderr',
+                   [b'G8_STORAGE_PRESSURE_FULL\n'],[b'No space left on device'],deadline,
+                   work/'storage-pressure-wait-checkpoint.json',os.environ['INVOCATION_ID'],boot,'enospc')
     full_out=(private/'workload.stdout').read_bytes();full_err=(private/'workload.stderr').read_bytes()
     assert len(full_out)<131072 and len(full_err)<131072
     (private/'pressure-full.stdout').write_bytes(full_out);(private/'pressure-full.stderr').write_bytes(full_err)
@@ -475,6 +476,7 @@ r['runtime_restart_tested']=restart_runtime
 r['runtime_crash_tested']=crash_runtime
 r['runtime_crash_during_build_tested']=crash_during_build
 r['storage_pressure_tested']=storage_pressure
+if storage_pressure:r['storage_pressure_wait_sha256']=sha(work/'storage-pressure-wait-checkpoint.json')
 if storage_pressure:r['storage_pressure_recovery_sha256']=sha(work/'storage-pressure-recovery.json')
 if storage_pressure:r['console_capture_sha256']=sha(private/'console-capture.json')
 if storage_pressure:
