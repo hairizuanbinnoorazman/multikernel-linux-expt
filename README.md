@@ -155,6 +155,17 @@ now also detects earlier IPv4/IPv6 INPUT/FORWARD bypasses, with an actual TCP
 control. Continuous enforcement, other firewall tables and live Docker
 requalification remain open.
 
+The latest [combined live requalification](evidence/runtime-20261026/g8-live-network-check-failure/README.md)
+failed before ENOSPC and the new network CHECK points; forced Docker removal
+reported a zombie task and left orphan helpers. The
+[post-restart record](evidence/runtime-20261027/g8-failed-network-post-restart/README.md)
+confirms the host is idle on the original transport while failed ownership and
+the image remain retained. Reboot and a clean read-only filesystem check do not
+qualify normal cleanup or authorize reuse. New
+[bounded wait-outcome controls](evidence/runtime-20261027/g8-pressure-wait-outcomes/README.md)
+record process exit, deadline or output-limit failures before teardown. The
+previous failure's cause and live Docker requalification remain open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

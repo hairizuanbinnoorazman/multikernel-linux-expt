@@ -681,3 +681,30 @@ rules/files/PIDs remain unchanged. Continuous enforcement, other firewall tables
 concurrent policy changes and live child Docker requalification remain open.
 Full G7/G8 remains open; direct children require no nested virtualization and
 share host trust after child-kernel compromise.
+
+
+On 2026-10-26, source `017c52f` attempted combined live requalification of the
+storage and firewall changes with new authenticated mknetd CHECK checkpoints at
+ENOSPC and built-image holds. [The run failed before either checkpoint](../../evidence/runtime-20261026/g8-live-network-check-failure/README.md).
+Its compound wait assertion does not identify attach exit versus deadline.
+Forced Docker removal reported a zombie task, leaving a live NBD helper and
+relay, ACTIVE/RUNNING ownership and an active child. No normal cleanup, synced
+close or live network-check qualification is claimed; cause remains unproven.
+
+The user restarted the instance. [Post-restart evidence](../../evidence/runtime-20261027/g8-failed-network-post-restart/README.md)
+on boot `1c32f948-bf1f-4a8e-8774-24616691bf06` confirms SRC65, zero module
+references/sockets/children, no pool, sixteen CPUs online and four active primary
+services. Failed ledgers/journal and four older quarantined images/sixteen
+ledgers match. The fifth image's inode/size match; its first stable hash is
+post-restart, so unchanged content across reboot is unproven. Read-only e2fsck
+exits 0 without changing that new hash, but missing native close and lifecycle
+release evidence still prohibit reuse. Reboot is not normal cleanup.
+
+Code `5530d39`, with process-confined controls in `5c8b627`, now records a
+bounded [wait outcome before cleanup](../../evidence/runtime-20261027/g8-pressure-wait-outcomes/README.md):
+reached, process-exited/return code, deadline-exceeded or output-limit, with
+invocation/boot identity and output hashes. Real subprocess controls pass locally
+and on the restarted GCE host; the required suite passes with pinned containerd
+2.2.10. These controls do not reconstruct the previous failure or establish a
+new live workload pass. Full G7/G8 stays open with direct children, no nested
+virtualization and the shared host trust boundary.

@@ -214,3 +214,27 @@ policy. Preserve the endpoint generation and bounded rule observations. Do not
 flush host firewall tables to make CHECK pass. The
 [GCE namespace/TCP controls](../../evidence/runtime-20261026/g8-ingress-guard-precedence/README.md)
 explain the tested scope; live Docker requalification remains separate.
+
+
+## Pressure wait failure and retained orphan helpers
+
+The [017c52f live failure](../../evidence/runtime-20261026/g8-live-network-check-failure/README.md)
+shows that a terminal systemd MainPID does not establish that the owned task,
+NBD server, relay or backing file is gone. Forced Docker removal can fail on a
+zombie task PID. Preserve the failed ownership generations and inspect the
+original unit cgroup, executable/incarnation and backing descriptors before
+any scoped recovery. Do not retry old PID-based commands after a restart.
+
+The user restarted this instance before operator quarantine completed. The
+[retention proof](../../evidence/runtime-20261027/g8-failed-network-post-restart/README.md)
+confirms idle resources and preserved ACTIVE/RUNNING claims. Read-only e2fsck
+status 0 is not a substitute for synced close or a lifecycle storage release.
+This private generation must remain retained and excluded from reuse; no broad
+state reset or automatic restart is qualified. The fifth image has only a
+post-restart content hash, so pre/post-restart byte equality cannot be claimed.
+
+New [phase outcome checkpoints](../../evidence/runtime-20261027/g8-pressure-wait-outcomes/README.md)
+record process exit/return code separately from deadline expiry and bounded-read
+output overflow, before teardown. They identify the observed wait outcome, not
+the underlying storage/transport cause. Their successful receipt remains a
+sampled hold point, separate from final normal cleanup evidence.
