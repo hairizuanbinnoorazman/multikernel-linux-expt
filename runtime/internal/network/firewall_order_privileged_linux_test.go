@@ -77,5 +77,37 @@ func TestOrderedFirewallInPrivateNetworkNamespace(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	b.IP6Tables = "/usr/sbin/ip6tables"
+	checks := []struct{ tool, chain, target string }{
+		{tool, "INPUT", "DROP"}, {tool, "FORWARD", chain},
+		{b.IP6Tables, "INPUT", "DROP"}, {b.IP6Tables, "FORWARD", "DROP"},
+	}
+	command := func(tool string, args ...string) {
+		t.Helper()
+		if err := r.Run(ctx, tool, append([]string{"-w"}, args...)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, c := range checks {
+		command(c.tool, "-A", c.chain, "-i", "mkv0123456789a", "-j", c.target)
+	}
+	if err := b.checkIngressPrecedence(ctx, r, "mkv0123456789a", chain); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range checks {
+		for _, target := range []string{"ACCEPT", "RETURN"} {
+			command(c.tool, "-I", c.chain, "1", "-j", target)
+			command(c.tool, "-C", c.chain, "-i", "mkv0123456789a", "-j", c.target)
+			if err := b.checkIngressPrecedence(ctx, r, "mkv0123456789a", chain); err == nil {
+				t.Fatal("shadowed ingress guard accepted")
+			}
+			command(c.tool, "-D", c.chain, "1")
+			if err := b.checkIngressPrecedence(ctx, r, "mkv0123456789a", chain); err != nil {
+				t.Fatal(err)
+			}
+			t.Log(c.tool + " " + c.chain + " " + target + " shadow refused despite guard presence; restored")
+		}
+	}
+	t.Log("IPV4_IPV6_INPUT_FORWARD_SHADOW_REFUSAL_AND_RESTORATION_PASS")
 	t.Log("PRIVATE_NAMESPACE_REAL_IPTABLES_ORDERED_POLICY_AND_BYPASS_REFUSAL_PASS")
 }

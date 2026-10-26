@@ -110,6 +110,26 @@ func runPrimaryAccessFixture(t *testing.T) {
 		}
 	}
 	probe(true)
+	// Required guard presence cannot detect an earlier ACCEPT. Reproduce the
+	// actual primary-access bypass only inside the disposable namespace.
+	if err := runner.Run(ctx, "/usr/sbin/iptables", "-w", "-I", "INPUT", "1", "-i", "mkv0123456789a", "-j", "ACCEPT"); err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.Run(ctx, "/usr/sbin/iptables", "-w", "-C", "INPUT", "-i", "mkv0123456789a", "-j", "DROP"); err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Check(ctx, endpoint); err == nil {
+		t.Fatal("CHECK accepted shadowed primary guard")
+	}
+	probe(false)
+	if err := runner.Run(ctx, "/usr/sbin/iptables", "-w", "-D", "INPUT", "-i", "mkv0123456789a", "-j", "ACCEPT"); err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Check(ctx, endpoint); err != nil {
+		t.Fatal(err)
+	}
+	probe(true)
+	t.Log("SHADOWED_PRIMARY_GUARD_PRESENT_TCP_BYPASS_REPRODUCED_CHECK_REFUSED_RESTORED")
 	// Reproduce the missing-INPUT-policy route only inside this synthetic
 	// namespace. A successful control proves the blocked listener was reachable.
 	if err := runner.Run(ctx, "/usr/sbin/iptables", "-w", "-D", "INPUT", "-i", "mkv0123456789a", "-j", "DROP"); err != nil {
