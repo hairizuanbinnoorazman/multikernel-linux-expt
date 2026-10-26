@@ -210,6 +210,13 @@ unsafe-artifact refusals and static/dynamic native server controls. Current
 runtime binaries and source are staged; no candidate is installed and no full
 child Docker trial has started. Storage expansion is awaiting approval.
 
+The [committed trial-packet builder](docs/runtime/trial-staging.md) now prepares
+protected artifacts from a Git snapshot, excluding dirty sources and ambient Go
+workspace/overlay flags.
+[Real GCE extraction proof](evidence/runtime-20261027/g8-trial-stage-builder/README.md)
+checks all source/binary hashes and root-owned modes without a permissions
+correction. No child trial starts; storage capacity still needs approval.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

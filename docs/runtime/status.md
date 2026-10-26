@@ -827,3 +827,18 @@ no full child trial starts. The qualified helper remains the default. Capacity
 expansion still awaits approval; reserves and failed images remain preserved.
 Actual MK/child Docker pressure and full G7/G8 remain open under direct-child,
 no-nested-virtualization/shared-host-trust constraints.
+
+`a321026` replaces temporary staging recipes with a committed packet builder.
+[Controls and GCE proof](../../evidence/runtime-20261027/g8-trial-stage-builder/README.md)
+cover actual Go builds from committed snapshots despite dirty worktrees and
+hostile ambient flags, protected umask-0002 output, no-overwrite/unsafe-parent
+refusals, and unpublished failures for wrong pins or source symlinks. The actual
+packet extracts on GCE with correct root-owned modes on the first attempt,
+matching all source/binary hashes and explicit candidate selection. Unit
+c12e100918bc44f6ab54830c9b67372e succeeds with unchanged watched primary state,
+PIDs and idle transport/resources; required checks pass. The [staging instructions](trial-staging.md)
+replace developer-local procedure dependencies for this preparation step. Current
+artifacts are staged at /opt/mkruntime/g8-host-a321026, not installed. Fresh
+capacity observation remains below the floor, and expansion awaits approval.
+Full child Docker/MK qualification and full G7/G8 stay open under direct-child,
+no-nested-virtualization/shared-host-trust constraints.

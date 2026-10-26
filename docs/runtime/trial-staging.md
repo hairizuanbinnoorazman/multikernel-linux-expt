@@ -1,0 +1,58 @@
+# Prepare a disposable Docker trial packet
+
+Use the committed [packet builder](../../scripts/build-runtime-trial-stage.py)
+from a trusted checkout. It prepares artifacts only. Boot/kernel/image approval,
+idle-primary checks, protected systemd scope, helper selection, storage admission
+and measured recovery remain requirements of the cold-trial driver.
+
+Prerequisites are Git, Python, the Go toolchain selected by `runtime/go.mod`,
+its dependencies, and the pinned containerd/helper artifacts. Containerd must
+match `dbc252c7f4e3534dcbe674552b87b20194967e7b6069e66de61632dcdd3acc83`.
+The helper must match the selected variant in the committed
+[trial helper pins](../../scripts/runtime_trial_helper.py). The qualified helper
+remains the default; the server-queue candidate requires explicit selection.
+
+For the candidate, supply the materialized static artifact and a new output path:
+
+```bash
+python3 scripts/build-runtime-trial-stage.py \
+  --output /tmp/mk-trial-stage \
+  --containerd /path/to/qualified/containerd \
+  --helper /path/to/pinned/mkvsock-nbd \
+  --helper-variant server-queue-candidate
+```
+
+The default revision is HEAD; `--revision` selects another commit. Runtime code
+and helper pins come from that commit's source archive. Dirty working-tree files
+are excluded. Builds run inside the extracted snapshot with CGO disabled,
+readonly modules, trimpath, GOWORK disabled and ambient GOFLAGS cleared. The
+selected commit, source/archive/binary hashes and actual Go build information
+are recorded in `build.json`.
+
+The output contains `source.tar`, its private extracted tree, five binaries,
+`build.json` and `stage.tar.gz`. The stage root, source root and bin directory
+are mode 0700; binaries are 0500 and metadata/packets are 0600. Packet entries
+have normalized root ownership. This prevents the prior 0775-bin staging error
+under umask 0002. Existing output generations, unsafe parents, source symlinks,
+and mismatched inputs refuse. Failed generations remain private and lack a
+completed packet; choose a new output path after inspecting the failure.
+
+Transfer `stage.tar.gz` to the GCE lab with gcloud and verify its digest against
+the builder's JSON output before privileged extraction. Use a new root-owned
+`/opt/mkruntime/g8-host-<short-commit>` directory at mode 0700. Extract the packet,
+then create its `source` directory at mode 0700 and extract `source.tar` there.
+Verify source identity, all binary hashes, root ownership and protected modes.
+The cold trial's revision must match the stage; candidate trials explicitly set
+`MK_MODULE_TRIAL_HELPER_VARIANT=server-queue-candidate`. The driver forwards the
+same variant to its private Docker harness. No helper is selected by guessing its
+hash or by changing production defaults.
+
+[Real packet proof](../../evidence/runtime-20261027/g8-trial-stage-builder/README.md)
+covers committed-source builds despite dirty/ambient inputs, refusal boundaries,
+packet extraction on GCE, protected modes, binary/source hashes and unchanged
+watched primary state. It does not qualify a child Docker run. The current data
+disk remains below the trial floor; capacity expansion awaits approval. Retained
+failed images and the 2 GiB image/1 GiB reserve remain intact.
+
+Direct child kernels use no nested virtualization. The shared host trust boundary
+after child compromise and the remaining full G7/G8 requirements still apply.

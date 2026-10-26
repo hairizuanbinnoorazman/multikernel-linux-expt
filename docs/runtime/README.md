@@ -18,6 +18,7 @@
   guest-local rootless Docker Engine and ordinary `docker build`/`docker run` verification.
 - [`research/docker-online-python-guest.md`](research/docker-online-python-guest.md):
   online Docker Hub/PyPI Python build/run prototype and scoped network evidence.
+- [`trial-staging.md`](trial-staging.md): committed-source, protected artifact packets for disposable GCE trials.
 - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
 - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
   boundaries.
