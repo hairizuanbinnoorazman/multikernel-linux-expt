@@ -12,6 +12,11 @@
 #include <unistd.h>
 
 static int port_pipe;
+#ifdef MK_SERVER_QUEUE_BACKPRESSURE
+static int queue_selected = -1;
+static ssize_t fixture_queue_send(int fd, const void *data, size_t size, int flags);
+#define send fixture_queue_send
+#endif
 static ssize_t fixture_pwrite(int fd,const void *data,size_t size,off_t offset);
 #define pwrite fixture_pwrite
 static int fixture_accept(int fd,struct sockaddr *addr,socklen_t *size);
@@ -30,6 +35,19 @@ static int fixture_setsockopt(int fd,int level,int option,const void *value,sock
 #undef bind
 #undef setsockopt
 #undef pwrite
+#ifdef MK_SERVER_QUEUE_BACKPRESSURE
+#undef send
+static ssize_t fixture_queue_send(int fd, const void *data, size_t size, int flags)
+{
+ static unsigned int attempts;
+ if (fd == queue_selected) {
+  attempts++;
+  if (attempts <= 3 || attempts % 11 == 0) { errno = ENOSPC; return -1; }
+  if (size > 37) size = 37;
+ }
+ return send(fd, data, size, flags);
+}
+#endif
 
 static ssize_t fixture_pwrite(int fd,const void *data,size_t size,off_t offset)
 {
@@ -45,6 +63,10 @@ static int fixture_accept(int fd,struct sockaddr *addr,socklen_t *size)
 {
  struct sockaddr_in tcp;socklen_t tcp_size=sizeof(tcp);
  int client=accept(fd,(struct sockaddr *)&tcp,&tcp_size);
+#ifdef MK_SERVER_QUEUE_BACKPRESSURE
+ static unsigned int accepted;
+ if (client >= 0 && accepted++ == 256) queue_selected = client;
+#endif
  if(client>=0 && addr && size) {
   struct sockaddr_vm peer={.svm_family=AF_VSOCK,.svm_cid=1,.svm_port=50000};
   socklen_t copy=*size<sizeof(peer) ? *size : sizeof(peer);
@@ -123,6 +145,14 @@ int main(int argc,char **argv)
 	exchange_request(fd,NBD_CMD_READ,512);exchange_request(fd,NBD_CMD_FLUSH,0);exchange_request(fd,NBD_CMD_DISC,0);close(fd);
 	int status;CHECK(waitpid(child,&status,0)==child && WIFEXITED(status) && WEXITSTATUS(status)==0);
 	char output[8192];ssize_t length=pread(log,output,sizeof(output)-1,0);CHECK(length>0 && length<4096);output[length]=0;
+#ifdef MK_SERVER_QUEUE_BACKPRESSURE
+ CHECK(strstr(output,"stage=server-mk-queue-full endpoint=1 detail=28\n"));
+ CHECK(strstr(output,"stage=server-mk-queue-resumed endpoint=1 detail=37\n"));
+ unsigned int queue_events=0;
+ for(char *p=output;(p=strstr(p,"stage=server-mk-queue-"));p++)queue_events++;
+ CHECK(queue_events==2);
+ puts("NATIVE_SERVER_REAL_NBD_REPLIES_AND_READ_PAYLOAD_QUEUE_RETRY_PASS");
+#endif
 	int details=0;for(char *p=output;(p=strstr(p,"MKNBD_SERVER_REFUSED reason="));p++)details++;
 	CHECK(details==16 && strstr(output,"MKNBD_SERVER_REFUSALS_SUPPRESSED") && strstr(output,"MKNBD_SERVER_REFUSAL_SUMMARY total=256 details=16 suppressed=240\n"));
 	CHECK(strstr(output,"MKNBD_SERVER_READY") && strstr(output,"MKNBD_SERVER_CLIENT_ACCEPTED\n"));

@@ -55,5 +55,12 @@ int main(void)
  CHECK(transfer_until(pair[0],&byte,1,1,&deadline)==-1 && errno==ENOSPC);
  CHECK(calls==1);close(pair[0]);close(pair[1]);
  puts("NATIVE_SERVER_UNMARKED_ENOSPC_FATAL_PASS");
+ /* Positive progress cannot renew the original absolute frame deadline. */
+ setup(pair);partial=1;char payload[4096];memset(payload,0x6a,sizeof(payload));
+ deadline=frame_deadline(40);
+ CHECK(transfer_until_kind(pair[0],payload,sizeof(payload),1,&deadline,1)==-1 && errno==ETIMEDOUT);
+ CHECK(accepted>0 && accepted<(int)sizeof(payload));close(pair[0]);close(pair[1]);
+ puts("NATIVE_SERVER_PROGRESS_CANNOT_RENEW_FRAME_DEADLINE_PASS");
+
  return 0;
 }
