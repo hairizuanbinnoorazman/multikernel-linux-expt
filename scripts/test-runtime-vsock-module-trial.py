@@ -5,6 +5,7 @@ Requires a private systemd unit and already-staged, root-protected test artifact
 Restoration after traffic uses an external idle reboot; cleanup is measured first.
 """
 import fcntl,hashlib,json,os,pathlib,re,signal,socket,stat,subprocess,time,uuid
+from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
 MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
@@ -46,6 +47,9 @@ assert sha(WORK/'source.tar')==ARCHIVE_SHA,'staged source archive differs from t
 before_build=json.loads((MODULE/'build-preflight.json').read_text())
 assert output(['uname','-r'])==before_build['kernel_release']
 assert all(sha(p)==h for p,h in before_build['inputs_before'].items())
+capacity=observe_trial_capacity('/srv/multikernel-storage')
+(WORK/'storage-admission-parent.json').write_text(json.dumps(capacity,indent=2)+'\n')
+require_trial_capacity(capacity)
 trial=MODULE/('trial-'+WORK.name);trial.mkdir(mode=0o700)
 original=trial/'original.ko';candidate=trial/'candidate.ko'
 for src,dst,digest in [(P(before_build['source_root'])/'net/vmw_vsock/mk_transport.ko',original,OLD_SHA),(MODULE/'module-proof/mk_transport.ko',candidate,NEW_SHA)]:
