@@ -777,3 +777,11 @@ network policy/session/namespace health, expected descriptor/incarnation, storag
 correlation, live child endpoints and Docker requalification remain open. Full
 G7/G8 remains open with direct kernels, no nested virtualization and shared host
 trust after child-kernel compromise.
+
+Endpoint CHECK now rejects substring lookalikes (`1358d9a`) and has a committed
+real namespace fixture (`cedd87e`). [Retained proof](../../evidence/runtime-20261027/g8-endpoint-state-values/README.md)
+covers ten parser controls, four real MTU/gateway changes with restoration,
+existing ordered-policy controls, all Go, network race and required suites. GCE qualification
+unit b2e6ad5e842e42568e4d863fdd158c57 leaves primary identities and resources
+unchanged. This tightens sampled native policy inspection; live child Docker
+requalification and the full G7/G8 gates remain open.

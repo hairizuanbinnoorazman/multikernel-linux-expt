@@ -101,3 +101,13 @@ qualifies actual private idle CLI/daemons, installed legacy refusal, ordinary
 doctor compatibility and populated injected metadata controls. It does not
 qualify active child endpoints or a new Docker build. Full G7/G8 remains open
 under the same direct-child, no-nested-virtualization/shared-trust constraint.
+
+## Exact sampled CHECK values
+
+[Endpoint state-value qualification](../../../evidence/runtime-20261027/g8-endpoint-state-values/README.md)
+proves CHECK rejects MTU, gateway, device and address substring lookalikes.
+Administrative UP is read from the link flags rather than LOWER_UP or state text;
+IPv4 forwarding must equal 1. Links and routes require one unambiguous output
+line. Real disposable GCE namespace controls cover both MTUs and both gateways,
+with successful restoration after each rejection. This remains a sampled CHECK;
+it does not establish endpoint incarnation or active child Docker health.

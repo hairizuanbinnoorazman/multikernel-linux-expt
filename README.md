@@ -187,6 +187,11 @@ kernel-name observations. New shim tasks declare required networking; legacy
 intent remains unknown. GCE idle CLI and injected mismatch/drift controls pass.
 This does not attest live network policy, child isolation or Docker builds.
 
+Native endpoint CHECK now rejects substring lookalikes in MTU, route, address,
+link flags and forwarding values. [GCE state-value proof](evidence/runtime-20261027/g8-endpoint-state-values/README.md)
+covers real MTU/gateway changes, refusal and restoration in disposable network
+namespaces. This qualifies sampled checks; active child Docker remains open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
