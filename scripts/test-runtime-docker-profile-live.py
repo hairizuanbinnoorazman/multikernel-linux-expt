@@ -101,9 +101,9 @@ service_policies={};service_observations={}
 if harden_services:
  capability_names=subprocess.check_output(['/usr/bin/setpriv','--list-caps'],text=True).splitlines()
  for service_name in ['mkruntimed','mknetd']:
-  unit=source/'deploy/systemd'/(service_name+'.service')
-  policy=parse_policy(unit.read_text(),capability_names)
-  policy['unit_sha256']=sha(unit)
+  service_unit=source/'deploy/systemd'/(service_name+'.service')
+  policy=parse_policy(service_unit.read_text(),capability_names)
+  policy['unit_sha256']=sha(service_unit)
   service_policies[str(work/'bin'/service_name)]=policy
  (private/'service-policies.json').write_text(json.dumps({'capability_names':capability_names,'setpriv_sha256':sha(pathlib.Path('/usr/bin/setpriv')),'policies':service_policies},indent=2)+'\n')
 def start(args,name):
