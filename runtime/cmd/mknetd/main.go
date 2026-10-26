@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -23,6 +24,7 @@ type configuration struct {
 	socket, stateDir, subnet, egress string
 	mtu, allowedUID                  int
 	dns                              network.DNS
+	inspectOwnership                 bool
 }
 
 func parseConfiguration(arguments []string) (configuration, error) {
@@ -34,15 +36,16 @@ func parseConfiguration(arguments []string) (configuration, error) {
 	set.StringVar(&value.egress, "egress", "", "primary egress interface (required)")
 	set.IntVar(&value.mtu, "mtu", 1400, "negotiated endpoint MTU")
 	set.IntVar(&value.allowedUID, "allowed-uid", 0, "UID authorized to issue CNI requests")
+	set.BoolVar(&value.inspectOwnership, "inspect-ownership", false, "read bounded generation-bound ownership through the authenticated socket")
 	var nameservers string
 	set.StringVar(&nameservers, "dns", "", "comma-separated guest DNS servers")
 	if err := set.Parse(arguments); err != nil {
 		return value, err
 	}
-	if set.NArg() != 0 || !filepath.IsAbs(value.socket) || !filepath.IsAbs(value.stateDir) || value.egress == "" || value.allowedUID < 0 {
+	if set.NArg() != 0 || !filepath.IsAbs(value.socket) || !filepath.IsAbs(value.stateDir) || (!value.inspectOwnership && value.egress == "") || value.allowedUID < 0 {
 		return value, errors.New("absolute socket/state-dir, explicit egress, and non-negative allowed-uid are required")
 	}
-	if len(value.egress) > 15 || !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`).MatchString(value.egress) {
+	if value.egress != "" && (len(value.egress) > 15 || !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`).MatchString(value.egress)) {
 		return value, errors.New("egress must be a valid Linux interface name")
 	}
 	if nameservers != "" {
@@ -58,6 +61,13 @@ func parseConfiguration(arguments []string) (configuration, error) {
 }
 
 func run(ctx context.Context, value configuration) error {
+	if value.inspectOwnership {
+		report, err := network.InspectOwnership(ctx, network.Client{Path: value.socket})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(report)
+	}
 	if _, err := (network.ExecRunner{}).Output(ctx, "/usr/sbin/ip", "link", "show", "dev", value.egress); err != nil {
 		return fmt.Errorf("validate egress %q: %w", value.egress, err)
 	}

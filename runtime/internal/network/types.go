@@ -45,10 +45,12 @@ type Request struct {
 }
 
 type Response struct {
-	Version   int       `json:"version"`
-	RequestID string    `json:"request_id"`
-	Endpoint  *Endpoint `json:"endpoint,omitempty"`
-	Error     *APIError `json:"error,omitempty"`
+	Version      int              `json:"version"`
+	RequestID    string           `json:"request_id"`
+	Endpoint     *Endpoint        `json:"endpoint,omitempty"`
+	Error        *APIError        `json:"error,omitempty"`
+	Capabilities *Capabilities    `json:"capabilities,omitempty"`
+	Ownership    *OwnershipReport `json:"ownership,omitempty"`
 }
 
 type APIError struct {

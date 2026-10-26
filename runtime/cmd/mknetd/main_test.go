@@ -33,3 +33,13 @@ func TestParseConfigurationRejectsImplicitOwnership(t *testing.T) {
 		}
 	}
 }
+
+func TestOwnershipInspectionRequiresOnlyAnAbsoluteSocket(t *testing.T) {
+	value, err := parseConfiguration([]string{"--inspect-ownership", "--socket", "/run/private-network.sock"})
+	if err != nil || !value.inspectOwnership || value.egress != "" {
+		t.Fatalf("inspect args: %+v %v", value, err)
+	}
+	if _, err := parseConfiguration([]string{"--inspect-ownership", "--socket", "relative"}); err == nil {
+		t.Fatal("relative inspector socket accepted")
+	}
+}

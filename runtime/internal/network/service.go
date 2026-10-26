@@ -534,6 +534,20 @@ func (s *Service) Dispatch(ctx context.Context, request Request) Response {
 		return response
 	}
 	switch request.Method {
+	case "CAPABILITIES", "INSPECT_OWNERSHIP":
+		if request.Endpoint != nil || request.Generation != "" {
+			response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: "ownership inspection accepts no endpoint or generation"}
+			break
+		}
+		if request.Method == "CAPABILITIES" {
+			response.Capabilities = &Capabilities{Version: 1, Features: []string{OwnershipCapability}}
+		} else {
+			report, failure := s.Ownership()
+			response.Error = failure
+			if failure == nil {
+				response.Ownership = &report
+			}
+		}
 	case "ADD":
 		if request.Endpoint == nil {
 			response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: "endpoint is required"}
