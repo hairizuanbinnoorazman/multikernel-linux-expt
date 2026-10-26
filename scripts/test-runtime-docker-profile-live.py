@@ -11,6 +11,7 @@ from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
 from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record, qualify_unavailable_record, qualify_absent_process
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
+from runtime_network_checkpoint import inspect as inspect_network
 assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'}
@@ -269,7 +270,14 @@ try:
      report=qualify_doctor(observation.stdout,boot,owner,released=released)
      (private/('doctor-'+label+'.json')).write_text(json.dumps(report,indent=2)+'\n')
      return report
+    def network_checkpoint(label):
+     endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
+     assert len(endpoints)==1,'expected one exact runtime network endpoint'
+     report=inspect_network(network_socket,n,endpoints[0],boot,owner,time.monotonic()+10)
+     (private/('network-check-'+label+'.json')).write_text(json.dumps(report,indent=2)+'\n')
+     return report
     doctor_checkpoint('while-full',time.monotonic()+10)
+    full_network=network_checkpoint('while-full')
     active=[v for v in json.loads((private/'storage-state/state.json').read_text())['exports'].values() if v['state']=='ACTIVE'];assert len(active)==1
     export=active[0];assert export['sandbox_id']==owner['sandbox_id'] and export['sandbox_generation']==owner['generation'] and export['peer_cid']==owner['child_cid']
     image=pathlib.Path(export['path']);identity=image.stat()
@@ -300,6 +308,8 @@ try:
     guest_engine=next(json.loads(line) for line in (private/'workload.stdout').read_text().splitlines() if line.startswith('{') and '"KernelVersion"' in line)
     assert fingerprint(guest_engine['ID'])!=primary_docker_before['engine_id_sha256'],'guest selected the primary Docker engine'
     image_doctor=doctor_checkpoint('while-image-ready',image_deadline)
+    image_network=network_checkpoint('while-image-ready')
+    assert image_network['endpoint_generation']==full_network['endpoint_generation']
     image_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'observed_monotonic_ns':time.monotonic_ns(),'guest_image_id':image_id,'guest_engine_id':guest_engine['ID'],'primary_snapshot_sha256':sha(private/'primary-docker-while-image-ready.json'),'child_image_absent_from_primary':True,'cleanup_qualified':False}
     (work/'storage-pressure-image-checkpoint.json').write_text(json.dumps(image_checkpoint,indent=2)+'\n')
     if native_export_crash:
@@ -471,6 +481,7 @@ if storage_pressure:
  capture_metadata=json.loads((private/'console-capture.json').read_text())
  r['console_capture_coverage']={k:capture_metadata[k] for k in ['coverage','complete_stream','truncated','teardown_attached']}
 if storage_pressure:r['storage_pressure_image_checkpoint_sha256']=sha(work/'storage-pressure-image-checkpoint.json')
+if storage_pressure:r['runtime_network_check_sha256']={phase:sha(private/('network-check-'+phase+'.json')) for phase in ['while-full','while-image-ready']}
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
