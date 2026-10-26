@@ -80,3 +80,26 @@ It also pins the reviewed kernel queue error path. These controls use Unix/TCP
 adaptations; the candidate is compiled but undeployed. Qualified helper/image
 pins remain unchanged, and the previous Docker stall's cause remains unproven.
 Full MK transport and child-local build/pressure qualification still apply.
+
+## Fixed helper variants for disposable trials
+
+The [trial selector](../../../scripts/runtime_trial_helper.py) keeps the c9981a1
+qualified pin as its default. The explicit `server-queue-candidate` variant pins
+static amd64 helper
+`591f79b081da9226780cffb8cf1db6e697f72313120aa1c9019218399eb4f428`.
+No arbitrary hash override is accepted. The selector rejects unknown variants,
+unprotected directories and symlinked, nonregular, nonroot, writable, multiply
+linked, empty or mismatched files before transport mutation or Docker setup.
+Selection metadata is not a live-health observation.
+
+The cold driver reads `MK_MODULE_TRIAL_HELPER_VARIANT` and forwards the selected
+variant as `MK_TRIAL_HELPER_VARIANT` to the private Docker harness. Keep the staged
+`bin` directory root-owned and mode 0700; the helper is root-owned mode 0500.
+Existing boot, source, scope, transport, primary-state and capacity guards still
+apply. Production helper defaults and approved image pins do not change.
+
+[Static GCE proof](../../../evidence/runtime-20261027/g8-static-trial-helper/README.md)
+retains source/binary identities, both pin controls, actual static/dynamic NBD
+serving and the separately qualified correction of an initial 0775 directory
+refusal. Runtime binaries/source are prepared at the retained private stage;
+full MK/child Docker qualification remains unstarted and capacity-dependent.

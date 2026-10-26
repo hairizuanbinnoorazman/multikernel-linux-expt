@@ -204,6 +204,12 @@ pass with injected pressure, partial writes and unchanged primary state. The
 candidate is undeployed; actual MK transport and child Docker requalification
 remain open.
 
+Disposable trials now have an explicit [static candidate helper pin](evidence/runtime-20261027/g8-static-trial-helper/README.md)
+while retaining the qualified helper as the default. GCE checks both pins,
+unsafe-artifact refusals and static/dynamic native server controls. Current
+runtime binaries and source are staged; no candidate is installed and no full
+child Docker trial has started. Storage expansion is awaiting approval.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

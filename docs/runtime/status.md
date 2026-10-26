@@ -813,3 +813,17 @@ injected errors on real helper paths, not actual MK pressure or proof of the
 prior Docker stall's cause. Capacity and live Docker qualification remain open,
 as do full G7/G8 under direct-child/no-nested-virtualization/shared-host-trust
 constraints.
+
+`efeb2e0` introduces fixed qualified/default and static server-queue-candidate
+variants for disposable cold trials and their private Docker harness. [GCE proof](../../evidence/runtime-20261027/g8-static-trial-helper/README.md)
+qualifies the static 591f79b candidate rebuild, both pins, real root-owned unsafe
+artifact refusals and dynamic/static sandboxed native server controls. It retains
+the initial staging-directory permissions refusal and its isolated 0700
+correction. Qualified unit 0a00afd843264599813306a412d6c80d exits successfully
+with unchanged watched primary state/PIDs and idle original transport/resources.
+Required checks pass. Current runtime/shim binaries and the committed source
+archive are staged at /opt/mkruntime/g8-host-efeb2e0; they are not installed and
+no full child trial starts. The qualified helper remains the default. Capacity
+expansion still awaits approval; reserves and failed images remain preserved.
+Actual MK/child Docker pressure and full G7/G8 remain open under direct-child,
+no-nested-virtualization/shared-host-trust constraints.
