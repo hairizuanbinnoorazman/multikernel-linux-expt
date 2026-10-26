@@ -27,6 +27,7 @@ func TestInitDeleteRetainsRealHolderUntilHostCleanupSucceeds(t *testing.T) {
 		{"delete unavailable", "DeleteSandbox", "UNAVAILABLE", true},
 		{"unsafe storage release", "DeleteSandbox", "OPERATOR_ACTION", false},
 		{"event publication unavailable", "", "", true},
+		{"rootfs cleanup unavailable", "CleanupRootfs", "UNAVAILABLE", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			command := exec.Command("/bin/sleep", "30")
@@ -70,11 +71,18 @@ func TestInitDeleteRetainsRealHolderUntilHostCleanupSucceeds(t *testing.T) {
 					}
 					return nil
 				})}
+			if tc.method == "CleanupRootfs" {
+				s.sandbox.Config.Storage = &protocol.StorageConfig{SHA256: strings.Repeat("c", 64)}
+			}
 			response, err := s.Delete(t.Context(), &taskapi.DeleteRequest{ID: "task"})
 			if err == nil || response != nil {
 				t.Fatalf("failed cleanup returned success: %+v %v", response, err)
 			}
-			if s.namespaceHolder != holder || s.processes[""] != p || p.deleting || (p.deleteEventQueued != (tc.method == "")) || len(publisher.topics) != 0 {
+			wantTopics := 0
+			if tc.method == "CleanupRootfs" {
+				wantTopics = 1
+			}
+			if s.namespaceHolder != holder || s.processes[""] != p || p.deleting || (p.deleteEventQueued != (tc.method == "" || tc.method == "CleanupRootfs")) || len(publisher.topics) != wantTopics {
 				t.Fatal("failed host cleanup released holder/task or queued deletion")
 			}
 			polls := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
