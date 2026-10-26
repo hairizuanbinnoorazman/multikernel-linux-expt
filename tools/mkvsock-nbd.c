@@ -183,10 +183,13 @@ static struct timespec frame_deadline(int milliseconds)
 
 /* One absolute deadline covers the entire transfer. Per-syscall socket
  * timeouts alone let a trickling peer renew its allowance indefinitely. */
-static int transfer_until(int fd, void *buf, size_t len, int writing,
-			 const struct timespec *deadline)
+static int server_queue_full_noted, server_queue_resume_noted;
+
+static int transfer_until_kind(int fd, void *buf, size_t len, int writing,
+			      const struct timespec *deadline, int mk_send)
 {
 	uint8_t *p = buf;
+	int backoff_ms = 0, queue_waiting = 0;
 	while (len) {
 		struct timespec now;
 		if (stop_requested) {
@@ -213,6 +216,30 @@ static int transfer_until(int fd, void *buf, size_t len, int writing,
 		}
 		ssize_t n = writing ? send(fd, p, len, MSG_DONTWAIT | MSG_NOSIGNAL) :
 			recv(fd, p, len, MSG_DONTWAIT);
+		if (n < 0 && writing && mk_send && errno == ENOSPC) {
+			/* The selected MK transport reports a full unpublished ring.
+			 * Retry only these unsent bytes within the original frame budget;
+			 * POLLOUT alone need not reflect MK ring availability. */
+			queue_waiting = 1;
+			if (!server_queue_full_noted) {
+				native_proxy_trace("server-mk-queue-full", 1, ENOSPC);
+				server_queue_full_noted = 1;
+			}
+			backoff_ms = backoff_ms ? (backoff_ms < 16 ? backoff_ms * 2 : 16) : 1;
+			if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
+				return -1;
+			remaining = (int64_t)(deadline->tv_sec - now.tv_sec) * 1000000000LL +
+				deadline->tv_nsec - now.tv_nsec;
+			if (remaining <= 0) {
+				errno = ETIMEDOUT;
+				return -1;
+			}
+			int pause = (int)((remaining + 999999) / 1000000);
+			if (pause > backoff_ms) pause = backoff_ms;
+			if (poll(NULL, 0, pause) < 0 && errno != EINTR)
+				return -1;
+			continue;
+		}
 		if (n < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
 			continue;
 		if (n < 0)
@@ -222,10 +249,30 @@ static int transfer_until(int fd, void *buf, size_t len, int writing,
 				errno = EPIPE;
 			return writing ? -1 : 0;
 		}
+		if (queue_waiting && !server_queue_resume_noted) {
+			native_proxy_trace("server-mk-queue-resumed", 1, (int)n);
+			server_queue_resume_noted = 1;
+		}
+		queue_waiting = 0;
+		backoff_ms = 0;
 		p += n;
 		len -= (size_t)n;
 	}
 	return 1;
+}
+
+/* Unmarked endpoints retain fatal ENOSPC semantics. Only server writes to the
+ * explicitly selected Multikernel VSOCK use the ring-full interpretation. */
+static int transfer_until(int fd, void *buf, size_t len, int writing,
+			 const struct timespec *deadline)
+{
+	return transfer_until_kind(fd, buf, len, writing, deadline, 0);
+}
+
+static int transfer_mk_until(int fd, void *buf, size_t len,
+			     const struct timespec *deadline)
+{
+	return transfer_until_kind(fd, buf, len, 1, deadline, 1);
 }
 
 static int read_request(int fd, struct nbd_request_wire *request,
@@ -366,7 +413,7 @@ static int server_handshake(int sock, uint64_t size, const char *image_id,
 		response.status = htonl(EACCES);
 	}
 	deadline = frame_deadline(timeout_ms);
-	if (transfer_until(sock, &response, sizeof(response), 1, &deadline) <= 0)
+	if (transfer_mk_until(sock, &response, sizeof(response), &deadline) <= 0)
 		return -1;
 	return accepted;
 }
@@ -410,7 +457,7 @@ static int send_reply(int sock, const struct nbd_request_wire *request, int erro
 		.error = htonl((uint32_t)error),
 	};
 	memcpy(reply.handle, request->handle, sizeof(reply.handle));
-	return transfer_until(sock, &reply, sizeof(reply), 1, deadline);
+	return transfer_mk_until(sock, &reply, sizeof(reply), deadline);
 }
 
 static int storage_peer_matches(const struct sockaddr_vm *peer, socklen_t size,
@@ -644,7 +691,7 @@ static void run_server(const char *image, unsigned int port,
 			deadline = frame_deadline(FRAME_TIMEOUT_MS);
 			if (SERVER_OBSERVE(&io_diagnostics, "reply", send_reply(sock, &request, error, &deadline)) <= 0)
 				break;
-			if (!error && SERVER_OBSERVE(&io_diagnostics, "read-payload", transfer_until(sock, buffer, len, 1, &deadline)) <= 0)
+			if (!error && SERVER_OBSERVE(&io_diagnostics, "read-payload", transfer_mk_until(sock, buffer, len, &deadline)) <= 0)
 				break;
 		} else if (command == NBD_CMD_FLUSH) {
 			if (SERVER_OBSERVE(&io_diagnostics, "image-sync", fdatasync(image_fd)) < 0)
