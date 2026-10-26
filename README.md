@@ -198,6 +198,12 @@ It preserves the 2 GiB image and 1 GiB reserve; passing its minimum floor still
 requires the builder's staging and capacity checks. The next full live trial
 remains pending adequate storage capacity.
 
+The candidate host NBD helper now retries MK ring-full reply/read sends within
+the original frame deadline. [Real server-loop GCE controls](evidence/runtime-20261027/g8-server-queue-retry/README.md)
+pass with injected pressure, partial writes and unchanged primary state. The
+candidate is undeployed; actual MK transport and child Docker requalification
+remain open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

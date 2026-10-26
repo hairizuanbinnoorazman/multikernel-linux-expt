@@ -797,3 +797,19 @@ sizes and does not reserve capacity or replace builder staging admission. Full
 Docker requalification still needs adequate capacity; no failed image is deleted
 or reused. Whole G7/G8 remains open under the documented direct-child,
 no-nested-virtualization/shared-host-trust constraint.
+
+`5e052f4` fixes missing host NBD retry handling for MK ring-full handshake/reply/
+read-payload sends. Only marked MK writes retry, within the existing absolute
+frame deadline; unmarked transfers and image errors retain their policy.
+[Real server-loop controls](../../evidence/runtime-20261027/g8-server-queue-retry/README.md)
+in `dc30eac` pass locally/on GCE with partial sends, transient/recurrent pressure,
+permanent-full timeout, unmarked ENOSPC and nonrenewable progress budgets, under
+existing peer/hello checks, syscall filter and limits. Unit
+13f9a7e8c48a467a81d72b326da749b6 exits successfully with unchanged watched primary
+state, PIDs and idle transport/resources; required checks pass. Source review
+retains the ring-full-before-publication path. The candidate helper compiles but
+is undeployed; existing c9981a1/approved image pins remain unchanged. These are
+injected errors on real helper paths, not actual MK pressure or proof of the
+prior Docker stall's cause. Capacity and live Docker qualification remain open,
+as do full G7/G8 under direct-child/no-nested-virtualization/shared-host-trust
+constraints.

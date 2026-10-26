@@ -61,3 +61,22 @@ consumption. Full builder admission remains mandatory.
 qualifies refusal before transport or Docker mutation at the current shortage.
 This is an early-refusal subcase, not a live build, storage recovery, normal
 cleanup or complete G7/G8 acceptance. Failed images remain retained.
+
+## Candidate host-server ring-full handling
+
+The candidate helper's explicit MK server writes retry an unsent ring-full
+`ENOSPC` for hello responses, NBD replies and read payloads, with capped 1/2/4/8/
+16 ms backoff inside the existing absolute transfer deadline. A successful partial
+write advances only the accepted bytes and never renews that deadline. Ordinary
+unmarked transfer writes, reads, and image I/O retain their failure semantics.
+The helper emits at most one server queue-full and one first-resumed event per
+process; neither contains payload. Positive send acceptance is not peer
+consumption or disk completion.
+
+[Local/GCE proof](../../../evidence/runtime-20261027/g8-server-queue-retry/README.md)
+retains a failure on prior source and successful actual server-loop tests with
+injected queue pressure through the current peer/hello/sandbox/limit controls.
+It also pins the reviewed kernel queue error path. These controls use Unix/TCP
+adaptations; the candidate is compiled but undeployed. Qualified helper/image
+pins remain unchanged, and the previous Docker stall's cause remains unproven.
+Full MK transport and child-local build/pressure qualification still apply.
