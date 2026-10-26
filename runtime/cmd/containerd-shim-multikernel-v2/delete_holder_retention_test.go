@@ -54,7 +54,11 @@ func TestInitDeleteRetainsRealHolderUntilHostCleanupSucceeds(t *testing.T) {
 			close(p.done)
 			failing := true
 			publisher := &fakePublisher{}
-			s := &service{id: "task", namespace: "default", bundle: privateTestDirectory(t), publisher: publisher, namespaceHolder: holder,
+			bundle := privateTestDirectory(t)
+			if err := os.Mkdir(bundle+"/.multikernel", 0700); err != nil {
+				t.Fatal(err)
+			}
+			s := &service{id: "task", namespace: "default", bundle: bundle, publisher: publisher, namespaceHolder: holder,
 				sandbox: protocol.Sandbox{ID: "mk-task", Generation: strings.Repeat("a", 32)}, processes: map[string]*process{"": p}, events: eventJournal{SchemaVersion: 1, NextSequence: 1},
 				daemon: daemonCallFunc(func(_ context.Context, r protocol.Request, _ any) *protocol.Error {
 					if failing && r.Method == tc.method {
