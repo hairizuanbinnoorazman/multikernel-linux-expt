@@ -34,6 +34,8 @@ func (r *inspectingRunner) Output(ctx context.Context, name string, arguments ..
 	}
 	command := strings.Join(arguments, " ")
 	switch {
+	case command == "-w -S MK-0123456789ab":
+		return []byte(canonicalEndpointChain), nil
 	case strings.Contains(command, "-o link show dev mkv"):
 		return []byte("2: mkv0123456789a: <UP> mtu 1400 state UP\n"), nil
 	case strings.Contains(command, "route show 172.31.0.0/30"):

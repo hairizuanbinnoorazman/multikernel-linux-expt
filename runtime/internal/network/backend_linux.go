@@ -279,7 +279,7 @@ func (b LinuxBackend) Check(ctx context.Context, endpoint Endpoint) error {
 			}
 		}
 	}
-	return nil
+	return b.checkEndpointChain(ctx, inspector, chain, childSource)
 }
 
 func (b LinuxBackend) Delete(ctx context.Context, endpoint Endpoint) error {
