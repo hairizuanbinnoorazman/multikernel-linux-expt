@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 static ssize_t fault_send(int fd,const void *data,size_t length,int flags);
 static unsigned int full_events, resumed_events;
 static void trace_event(const char *stage, int endpoint, int detail)
@@ -20,13 +21,17 @@ static void trace_event(const char *stage, int endpoint, int detail)
 #define NATIVE_PROXY_QUEUE_TIMEOUT_MS 20
 #include "../tools/native_stream_proxy.h"
 #undef send
-static int endpoint;static unsigned int injected;static const char *mode;
+static int endpoint;static unsigned int injected, completed_sends, last_recurrent=UINT_MAX;static const char *mode;
 static ssize_t fault_send(int fd,const void *data,size_t length,int flags)
 {
- if(fd==endpoint && (!strcmp(mode,"permanent") || !strcmp(mode,"left") || injected<3)) {
+ if(fd==endpoint && (!strcmp(mode,"permanent") || !strcmp(mode,"left") || injected<3 ||
+    (!strcmp(mode,"recurrent") && completed_sends && completed_sends%7==0 && last_recurrent!=completed_sends))) {
+  if(!strcmp(mode,"recurrent"))last_recurrent=completed_sends;
   injected++;errno=ENOSPC;return -1;
  }
- return send(fd,data,length,flags);
+ ssize_t result=send(fd,data,length,flags);
+ if(fd==endpoint && result>0)completed_sends++;
+ return result;
 }
 int main(int argc,char **argv)
 {
@@ -36,6 +41,7 @@ int main(int argc,char **argv)
  int result=native_stream_proxy(left,right),error=errno;
  fprintf(stderr,"PROXY_BACKPRESSURE_RESULT result=%d errno=%d injected=%u\n",result,error,injected);
  if(!strcmp(mode,"transient") && (!injected || result || full_events!=1 || resumed_events!=1))return 2;
+ if(!strcmp(mode,"recurrent") && (injected<=3 || result || full_events!=1 || resumed_events!=1))return 2;
  if(!strcmp(mode,"permanent") && (error!=ETIMEDOUT || injected>8 || full_events!=1 || resumed_events))return 2;
  if(!strcmp(mode,"left") && (error!=ENOSPC || injected!=1 || full_events || resumed_events))return 2;
  return result<0;

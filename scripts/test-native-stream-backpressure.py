@@ -9,6 +9,9 @@ with tempfile.TemporaryDirectory(prefix='mk-proxy-backpressure-') as directory:
     os.environ['MK_PROXY_TEST_MODE']='transient'
     exercise(binary);exercise(binary,reply_after_eof=True)
     print('NATIVE_PROXY_MK_QUEUE_FULL_DUPLEX_BYTES_AND_HALF_CLOSE_PASS')
+    os.environ['MK_PROXY_TEST_MODE']='recurrent'
+    exercise(binary)
+    print('NATIVE_PROXY_FIRST_QUEUE_RESUME_ONCE_ACROSS_REPEATED_STALLS_PASS')
     for mode in ['permanent','left']:
         os.environ['MK_PROXY_TEST_MODE']=mode
         client,left=socket.socketpair();server,right=socket.socketpair()
