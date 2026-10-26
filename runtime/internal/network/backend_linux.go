@@ -279,7 +279,10 @@ func (b LinuxBackend) Check(ctx context.Context, endpoint Endpoint) error {
 			}
 		}
 	}
-	return b.checkEndpointChain(ctx, inspector, chain, childSource)
+	if err := b.checkEndpointChain(ctx, inspector, chain, childSource); err != nil {
+		return err
+	}
+	return b.checkIngressPrecedence(ctx, inspector, hostIf, chain)
 }
 
 func (b LinuxBackend) Delete(ctx context.Context, endpoint Endpoint) error {

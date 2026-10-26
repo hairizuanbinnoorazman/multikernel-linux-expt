@@ -34,6 +34,14 @@ func (r *inspectingRunner) Output(ctx context.Context, name string, arguments ..
 	}
 	command := strings.Join(arguments, " ")
 	switch {
+	case command == "-w -S INPUT":
+		return []byte("-P INPUT ACCEPT\n-A INPUT -i mkv0123456789a -j DROP\n"), nil
+	case command == "-w -S FORWARD":
+		target := "DROP"
+		if name == "iptables" {
+			target = "MK-0123456789ab"
+		}
+		return []byte("-P FORWARD DROP\n-A FORWARD -i ens4 -o mkv0123456789a -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n-A FORWARD -i mkv0123456789a -j " + target + "\n"), nil
 	case command == "-w -S MK-0123456789ab":
 		return []byte(canonicalEndpointChain), nil
 	case strings.Contains(command, "-o link show dev mkv"):
