@@ -557,6 +557,9 @@ func validateConfig(c protocol.SandboxConfig) error {
 	if len(c.Labels) > 32 {
 		return errors.New("at most 32 labels are allowed")
 	}
+	if _, err := protocol.NetworkExpectation(c); err != nil {
+		return err
+	}
 	for key, value := range c.Labels {
 		if !labelKeyRE.MatchString(key) || len(value) > 256 {
 			return errors.New("invalid label key or value")

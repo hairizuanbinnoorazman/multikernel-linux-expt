@@ -147,7 +147,7 @@ func (s *service) allocate(ctx context.Context, bundle string) (protocol.Sandbox
 		}
 		if free {
 			return protocol.SandboxConfig{SchemaVersion: 1, ID: sandboxID(s.namespace, s.id), CPUs: set, MemoryBytes: 3 << 30, KernelManifest: "gce-mk2", Bundle: bundle,
-				BundleIdentity: s.bundleIdentity, AgentPort: uint32(7200 + i), ChildCID: uint32(40 + i), Storage: &protocol.StorageConfig{Port: uint32(4061 + i)}}, lock, nil
+				Labels: map[string]string{protocol.NetworkExpectationLabel: "required"}, BundleIdentity: s.bundleIdentity, AgentPort: uint32(7200 + i), ChildCID: uint32(40 + i), Storage: &protocol.StorageConfig{Port: uint32(4061 + i)}}, lock, nil
 		}
 	}
 	lock.Close()

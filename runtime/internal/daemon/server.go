@@ -256,7 +256,7 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "capabilities body must be an empty object"}
 			break
 		}
-		features := []string{protocol.LifecycleAuditCapability, protocol.OwnershipCapability}
+		features := []string{protocol.LifecycleAuditCapability, protocol.OwnershipCapability, protocol.NetworkExpectationsCapability}
 		if s.Service != nil && s.Service.StorageOwnershipAvailable() {
 			features = append(features, protocol.StorageOwnershipCapability, protocol.ResourceOwnershipCapability)
 		}
@@ -273,6 +273,21 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		var report protocol.OwnershipReport
 		report, out.Error = s.Service.Ownership()
 		if out.Error == nil {
+			out.Body = report
+		}
+	case "InspectNetworkExpectations":
+		var empty struct{}
+		if len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "network expectations body must be an empty object"}
+			break
+		}
+		if s.Service == nil {
+			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "network expectations are unavailable"}
+			break
+		}
+		report, failure := s.Service.NetworkExpectations()
+		out.Error = failure
+		if failure == nil {
 			out.Body = report
 		}
 	case "InspectStorageOwnership":

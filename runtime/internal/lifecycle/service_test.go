@@ -973,6 +973,9 @@ func TestCreateInputValidation(t *testing.T) {
 		{"bundle", func(c *protocol.SandboxConfig) { c.Bundle = "relative/bundle" }, "key"},
 		{"bundle identity", func(c *protocol.SandboxConfig) { c.BundleIdentity = protocol.DirectoryIdentity{} }, "key"},
 		{"label key", func(c *protocol.SandboxConfig) { c.Labels = map[string]string{"Bad Label": "x"} }, "key"},
+		{"network expectation", func(c *protocol.SandboxConfig) {
+			c.Labels = map[string]string{protocol.NetworkExpectationLabel: "invalid"}
+		}, "key"},
 		{"label value", func(c *protocol.SandboxConfig) { c.Labels = map[string]string{"app": strings.Repeat("x", 257)} }, "key"},
 		{"idempotency empty", func(*protocol.SandboxConfig) {}, ""},
 		{"idempotency long", func(*protocol.SandboxConfig) {}, strings.Repeat("x", 129)},
