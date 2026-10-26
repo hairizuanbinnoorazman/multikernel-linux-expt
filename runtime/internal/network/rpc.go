@@ -150,6 +150,8 @@ func (c Client) Call(ctx context.Context, request Request) (Response, error) {
 		return Response{}, err
 	}
 	defer connection.Close()
+	stopCancellation := protocol.CloseOnContext(ctx, connection)
+	defer stopCancellation()
 	deadline, _ := ctx.Deadline()
 	_ = connection.SetDeadline(deadline)
 	data, err := json.Marshal(request)

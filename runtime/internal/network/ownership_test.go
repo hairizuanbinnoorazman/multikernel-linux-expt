@@ -259,3 +259,31 @@ func TestOwnershipReadsRetainedFailedLedgerWithoutReconcile(t *testing.T) {
 	}
 	fmt.Println("NETWORK_OWNERSHIP_RETAINED_REPORT=" + string(encoded))
 }
+
+func TestOwnershipCancellationClosesPendingCapabilityRead(t *testing.T) {
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+	read := make(chan struct{})
+	go func() {
+		var request Request
+		_ = json.NewDecoder(serverConn).Decode(&request)
+		close(read)
+		_, _ = serverConn.Read(make([]byte, 1))
+	}()
+	client := Client{Path: "memory", Timeout: time.Second, dial: func(context.Context, string, string) (net.Conn, error) { return clientConn, nil }}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { _, err := InspectOwnership(ctx, client); done <- err }()
+	<-read
+	cancel()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("canceled ownership read succeeded")
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("canceled ownership read waited for the socket timeout")
+	}
+}
