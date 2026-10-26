@@ -5,7 +5,6 @@ package network
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"path/filepath"
 	"regexp"
@@ -273,10 +272,8 @@ func (b LinuxBackend) Check(ctx context.Context, endpoint Endpoint) error {
 		if outputErr != nil {
 			return outputErr
 		}
-		for _, expected := range check.want {
-			if !strings.Contains(string(output), expected) {
-				return fmt.Errorf("endpoint check %s %s did not contain %q: %s", check.name, strings.Join(check.args, " "), expected, strings.TrimSpace(string(output)))
-			}
+		if !endpointStateMatches(output, check.want) {
+			return errors.New("endpoint observed link, route, address or forwarding state differs from required values")
 		}
 	}
 	if err := b.checkEndpointChain(ctx, inspector, chain, childSource); err != nil {
