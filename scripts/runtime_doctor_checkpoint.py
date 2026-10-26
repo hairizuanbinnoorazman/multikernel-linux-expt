@@ -131,3 +131,8 @@ def qualify_missing_record(data, boot, owner, baseline):
 def qualify_unavailable_record(data, boot, owner, baseline):
     return _qualify_record_fault(data, boot, owner, baseline, 'unavailable',
                                 'NATIVE_STORAGE_IDENTITY_UNAVAILABLE', 'inconclusive')
+
+
+def qualify_absent_process(data, boot, owner, baseline):
+    return _qualify_record_fault(data, boot, owner, baseline, 'process-absent',
+                                'NATIVE_STORAGE_PROCESS_ABSENT', 'degraded')

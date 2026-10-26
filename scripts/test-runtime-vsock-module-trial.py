@@ -13,7 +13,7 @@ assert re.fullmatch(r'[0-9a-f]{7,40}',REVISION),'expected a committed source rev
 ARCHIVE_SHA=os.environ['MK_MODULE_TRIAL_ARCHIVE_SHA256']
 assert re.fullmatch(r'[0-9a-f]{64}',ARCHIVE_SHA),'expected a pinned source archive digest'
 WORK=P('/opt/mkruntime/g8-host-'+REVISION)
-RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1','fifo']
+RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1','fifo','crash']
 OLD='65C55BB38C669FF94A4B772';NEW='0450DCCF7EDC67FAE2A6CAA'
 OLD_SHA='bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2'
 NEW_SHA='74e813765d8551d086a603e047337b27ad0cce28dd4cc5de7e983a6e10a1f69f'
@@ -73,7 +73,7 @@ record('preflight')
 try:
     run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
     run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
-    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
+    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
     deadline=time.monotonic()+1230;invocation=None
     while True:
         observed=show(pressure,'InvocationID','MainPID','ActiveState','SubState','Result','ExecMainStatus')
@@ -90,7 +90,12 @@ finally:
         # Failed candidate initialization, before any child trial: reload the
         # frozen original. Never hot-unload a transport after live traffic here.
         run(['/sbin/insmod',original])
-    if loaded()==NEW:
+    if loaded()==NEW and RECORD_FAULT=='crash':
+        state['candidate_quiescent']=False
+        state['candidate_refs_after_trial']=int(P('/sys/module/mk_transport/refcnt').read_text())
+        state['vsock_after_trial']=output(['ss','-A','vsock','-an'])
+        record('crash-ownership-retained-for-diagnosis')
+    elif loaded()==NEW:
         deadline=time.monotonic()+120
         while True:
             empty=not instances() and P('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
@@ -119,7 +124,14 @@ finally:
     record('restoration-observed')
 assert state.get('primary_unchanged'),state
 if failure:raise failure
-assert state['pressure_scope']['Result']=='success' and state['pressure_scope']['ExecMainStatus']=='0','pressure qualification failed; retained test work must be diagnosed'
-assert state.get('candidate_quiescent') and state.get('cold_restore_required'),state
-assert state['unexpected_taint_bits']==0,'unexpected kernel taint added during trial'
-print('PINNED_MODULE_PRESSURE_TRIAL_QUIESCENT_COLD_RESTORE_REQUIRED')
+if RECORD_FAULT=='crash':
+    retained=json.loads((WORK/'native-export-crash-retention.json').read_text())
+    assert state['pressure_scope']['ExecMainStatus']=='77' and retained['owner_error']['code']=='OPERATOR_ACTION' and not retained['owner_error']['retryable']
+    assert retained['image_retained'] and retained['storage_state']=='QUIESCING' and not retained['automatic_storage_release_claimed']
+    assert state['unexpected_taint_bits']==0
+    print('NATIVE_EXPORT_CRASH_REFUSAL_RETAINED_NO_NORMAL_CLEANUP_CLAIMED')
+else:
+    assert state['pressure_scope']['Result']=='success' and state['pressure_scope']['ExecMainStatus']=='0','pressure qualification failed; retained test work must be diagnosed'
+    assert state.get('candidate_quiescent') and state.get('cold_restore_required'),state
+    assert state['unexpected_taint_bits']==0,'unexpected kernel taint added during trial'
+    print('PINNED_MODULE_PRESSURE_TRIAL_QUIESCENT_COLD_RESTORE_REQUIRED')

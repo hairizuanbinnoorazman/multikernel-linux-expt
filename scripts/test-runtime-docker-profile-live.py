@@ -9,15 +9,17 @@ from runtime_storage_pressure import full_observation, recovered_observation
 from runtime_console_capture import ConsoleCapture
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
-from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record, qualify_unavailable_record
-from runtime_native_record_fault import HiddenNativeRecord
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo] [--harden-services]'
+from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record, qualify_unavailable_record, qualify_absent_process
+from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo'}
-assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo'})<=1
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'}
+assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
+native_export_crash='--storage-export-crash' in flags
+export_crash_observed=False
 native_record_fifo='--storage-record-fifo' in flags
 native_record_fault='--storage-record-loss' in flags or native_record_fifo
-storage_pressure='--storage-pressure' in flags or native_record_fault
+storage_pressure='--storage-pressure' in flags or native_record_fault or native_export_crash
 crash_during_build='--crash-during-build' in flags
 crash_runtime='--crash-runtime' in flags or crash_during_build
 restart_runtime='--restart-runtime' in flags or crash_runtime
@@ -300,6 +302,33 @@ try:
     image_doctor=doctor_checkpoint('while-image-ready',image_deadline)
     image_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'observed_monotonic_ns':time.monotonic_ns(),'guest_image_id':image_id,'guest_engine_id':guest_engine['ID'],'primary_snapshot_sha256':sha(private/'primary-docker-while-image-ready.json'),'child_image_absent_from_primary':True,'cleanup_qualified':False}
     (work/'storage-pressure-image-checkpoint.json').write_text(json.dumps(image_checkpoint,indent=2)+'\n')
+    if native_export_crash:
+     assert unit in pathlib.Path('/proc/self/cgroup').read_text() and m.poll() is None
+     crash_deadline=min(image_deadline,time.monotonic()+40)
+     ledger_paths={name:private/name for name in ['daemon-state/state.json','daemon-state/journal.jsonl','storage-state/state.json','rootfs-state/state.json','network-state/state.json']}
+     ledger_before={name:sha(path) for name,path in ledger_paths.items()}
+     record_name=export['sandbox_id']+'-'+export['sandbox_generation'][:12]
+     server_log=private/'storage-runtime'/(record_name+'.log')
+     log_before=server_log.read_bytes();assert len(log_before)<1<<20 and log_before.count(b'MKNBD_SERVER_CLIENT_ACCEPTED\n')==1 and b'MKNBD_SERVER_CLOSED' not in log_before
+     crash_proof=kill_native_export(private/'storage-runtime',export,nbd_helper,m.pid,pathlib.Path('/proc/self/cgroup').read_text())
+     negative_hashes=[];after_ledgers=[]
+     for index in range(2):
+      remaining=crash_deadline-time.monotonic();assert remaining>0
+      result=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+      assert result.returncode==1 and not result.stderr
+      negative=qualify_absent_process(result.stdout,boot,owner,image_doctor)
+      target=private/('doctor-export-dead-'+str(index)+'.json');target.write_text(json.dumps(negative,indent=2)+'\n');negative_hashes.append(sha(target))
+      after_ledgers.append({name:sha(path) for name,path in ledger_paths.items()});assert after_ledgers[-1]==ledger_before
+     assert m.poll() is None and b'MKNBD_SERVER_CLOSED' not in server_log.read_bytes()
+     crashed_primary=observe_primary_docker(image_id,deadline=crash_deadline);check_primary_docker(primary_docker_before,crashed_primary);assert crashed_primary['child_image_absent']
+     (private/'primary-docker-after-export-crash.json').write_text(json.dumps(crashed_primary,indent=2)+'\n')
+     assert {str(p):sha(p) for p in paths}==before and services()==pids
+     crash_checkpoint=dict(schema_version=1,invocation_id=os.environ['INVOCATION_ID'],boot_id=boot,owner=owner,export={k:export[k] for k in ['sandbox_id','sandbox_generation','export_generation','peer_cid','image_identity','filesystem_uuid','size_bytes']},process=crash_proof,doctor_absent_sha256=negative_hashes,ledgers_before=ledger_before,ledgers_after_inspection=after_ledgers,primary_snapshot_sha256=sha(private/'primary-docker-after-export-crash.json'),client_acceptance_observed=True,graceful_close_observed=False,automatic_storage_release_claimed=False,cleanup_qualified=False)
+     (work/'native-export-crash-checkpoint.json').write_text(json.dumps(crash_checkpoint,indent=2)+'\n')
+     export_crash_observed=True
+     # Expected nonzero completion. The finally path attempts only this owned
+     # task's deletion; failed ownership/image must remain available for diagnosis.
+     raise SystemExit(77)
     if native_record_fault:
      # Only this private live stack is eligible. Never run recovery or restart
      # a daemon while the exact record is temporarily held out of view.
@@ -388,6 +417,19 @@ finally:
     try:p.wait(timeout=15)
     except subprocess.TimeoutExpired:p.kill();p.wait(timeout=5)
   for f in logs:f.close()
+  if export_crash_observed:
+   life_retained=json.loads((private/'daemon-state/state.json').read_text())
+   storage_retained=json.loads((private/'storage-state/state.json').read_text())
+   held_lease=next(iter(storage_retained['exports'].values()));held_owner=life_retained['sandboxes'].get(owner['sandbox_id'])
+   image_path=pathlib.Path(export['path']);record_path=private/'storage-runtime'/(record_name+'.json')
+   retention=dict(boot_id=boot,invocation_id=os.environ['INVOCATION_ID'],owner_generation=owner['generation'],export_generation=export['export_generation'],owner_state=held_owner['state'] if held_owner else None,owner_error=held_owner.get('error') if held_owner else None,storage_state=held_lease['state'],offline_check=held_lease.get('offline_check',''),counters=held_lease['counters'],record_sha256=sha(record_path) if record_path.exists() else None,image_identity=dict(device=image_path.stat().st_dev,inode=image_path.stat().st_ino),image_sha256=sha(image_path),image_retained=True,graceful_close_observed=b'MKNBD_SERVER_CLOSED' in server_log.read_bytes(),automatic_storage_release_claimed=False,normal_cleanup_qualified=False,instances={p.name:(p/'status').read_text().strip() for p in instances.iterdir()},online_cpus=pathlib.Path('/sys/devices/system/cpu/online').read_text().strip(),primary_files_unchanged={str(p):sha(p) for p in paths}==before,primary_pids_unchanged=services()==pids)
+   (work/'native-export-crash-retention.json').write_text(json.dumps(retention,indent=2)+'\n')
+   assert held_owner and held_owner['generation']==owner['generation'] and held_lease['state']=='QUIESCING' and not held_lease.get('offline_check','')
+   assert held_owner.get('error',{}).get('code')=='OPERATOR_ACTION' and held_owner['error']['retryable'] is False
+   assert retention['record_sha256']==crash_proof['record_sha256'] and not retention['graceful_close_observed']
+   assert retention['primary_files_unchanged'] and retention['primary_pids_unchanged']
+   print('NATIVE_EXPORT_CRASH_RETAINED_OPERATOR_ACTION_REQUIRED',flush=True)
+
 network_after={name:subprocess.check_output(['/usr/sbin/'+name]) for name in network_before}
 for name,data in network_after.items():(private/('firewall-after-'+name+'.rules')).write_bytes(data)
 links_after=subprocess.check_output(['/usr/sbin/ip','-o','link','show']);(private/'links-after.log').write_bytes(links_after)
