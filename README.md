@@ -144,7 +144,8 @@ fenced. [Operator quarantine](evidence/runtime-20261026/g8-native-export-crash-q
 returns child resources while preserving those records; read-only e2fsck exits 4.
 This qualifies failure retention, with direct child kernels on GCE and no nested
 virtualization. Automatic storage recovery and normal cleanup after this crash
-remain unqualified.
+remain unqualified. The [cold restoration proof](evidence/runtime-20261026/g8-native-export-crash-restoration/README.md)
+confirms the original transport and unchanged quarantined images and ledgers.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

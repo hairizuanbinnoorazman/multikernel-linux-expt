@@ -644,3 +644,9 @@ returns child resources and preserves that failed image; read-only e2fsck exits 
 This is not automatic recovery, successful normal cleanup, or storage release.
 The test uses direct child kernels on GCE without nested virtualization. Shared
 host trust after child-kernel compromise and full G7/G8 acceptance remain open.
+
+The [cold restoration proof](../../evidence/runtime-20261026/g8-native-export-crash-restoration/README.md)
+confirms the original transport, ten unchanged primary/module files, four retained
+quarantined images, sixteen ledgers and four journals after graceful idle reboot.
+All primary services are active, sixteen CPUs are online and no child or pool
+remains. Reboot is not counted as normal cleanup or automatic crash recovery.

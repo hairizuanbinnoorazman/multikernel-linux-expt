@@ -190,3 +190,14 @@ not claim normal cleanup. The [native identity contract](../runtime/contracts/na
 and [controls](../../evidence/runtime-20261026/g8-native-death-controls/README.md)
 describe the checked scope. Direct children use no nested virtualization and
 remain in the shared host trust domain; full G7/G8 remains open.
+
+The [live crash case](../../evidence/runtime-20261026/g8-live-native-export-crash/README.md)
+now exercises this retained failure after an inner build. Its
+[operator quarantine](../../evidence/runtime-20261026/g8-native-export-crash-quarantine/README.md)
+uses guarded Kerf operations on the exact stopped generation and returns its pool
+while preserving the image and original failed ledgers. Read-only e2fsck exits 4;
+no filesystem repair or automatic storage release is claimed. The subsequent
+[cold restoration](../../evidence/runtime-20261026/g8-native-export-crash-restoration/README.md)
+restores the original transport and confirms all four quarantined generations
+remain unchanged. Do not hot-unload the candidate transport after traffic; that
+unregister lifetime remains unqualified.
