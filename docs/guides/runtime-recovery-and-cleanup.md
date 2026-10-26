@@ -201,3 +201,16 @@ no filesystem repair or automatic storage release is claimed. The subsequent
 restores the original transport and confirms all four quarantined generations
 remain unchanged. Do not hot-unload the candidate transport after traffic; that
 unregister lifetime remains unqualified.
+
+## Shadowed endpoint firewall guards
+
+An existing DROP or endpoint-chain jump is insufficient if an earlier rule can
+accept or return the packet. Linux endpoint CHECK now inspects filter-table
+IPv4/IPv6 INPUT/FORWARD prefixes as well as the complete private chain. It
+conservatively refuses prefixes without one distinct positive literal ingress
+interface. A same-boot reconciliation failure preserves ownership and requires
+operator diagnosis; this change does not repair rules or continuously enforce
+policy. Preserve the endpoint generation and bounded rule observations. Do not
+flush host firewall tables to make CHECK pass. The
+[GCE namespace/TCP controls](../../evidence/runtime-20261026/g8-ingress-guard-precedence/README.md)
+explain the tested scope; live Docker requalification remains separate.

@@ -669,3 +669,15 @@ unchanged. Global INPUT/FORWARD precedence, atomic firewall attestation and live
 child Docker requalification remain open; this closes only private-chain drift
 refusal. Full G7/G8 remains open under the direct-child, no-nested-virtualization
 constraint and shared host trust boundary.
+
+The [ingress guard precedence proof](../../evidence/runtime-20261026/g8-ingress-guard-precedence/README.md)
+now qualifies sampled IPv4/IPv6 INPUT/FORWARD prefix inspection. Code `e6327b0`
+refuses shadowed endpoint guards while allowing provably disjoint ingress rules.
+The red/green suite covers 24 unsafe prefixes and twelve legitimate prefixes.
+GCE controls reproduce a real simulated-primary TCP bypass with DROP still
+present, prove CHECK refusal, and restore blocking and acceptance. Eight real
+IPv4/IPv6 ACCEPT/RETURN cases pass in ephemeral namespaces; installed primary
+rules/files/PIDs remain unchanged. Continuous enforcement, other firewall tables,
+concurrent policy changes and live child Docker requalification remain open.
+Full G7/G8 remains open; direct children require no nested virtualization and
+share host trust after child-kernel compromise.
