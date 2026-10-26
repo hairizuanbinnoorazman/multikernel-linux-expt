@@ -8,7 +8,7 @@ import tempfile
 import time
 import unittest
 from unittest import mock
-from runtime_native_record_fault import HiddenNativeRecord
+from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 
 
 class RecordFaultTests(unittest.TestCase):
@@ -106,6 +106,18 @@ int main(void) { int fd=open(getenv("TEST_IMAGE"),O_RDONLY); if(fd<0||dup2(fd,3)
                 self.name.write_bytes(b'conflicting replacement')
         self.assertEqual(self.name.read_bytes(),b'conflicting replacement')
         self.assertEqual((self.directory/held.held).read_bytes(),self.data)
+
+    def test_pidfd_crash_retains_record_and_refuses_wrong_scope(self):
+        cgroup=pathlib.Path('/proc/self/cgroup').read_text()
+        for parent,group in [(os.getpid()+1,cgroup),(os.getpid(),'wrong-cgroup')]:
+            with self.assertRaises(ValueError):kill_native_export(self.directory,self.export,self.binary,parent,group)
+            self.assertIsNone(self.process.poll())
+            self.assertEqual(self.name.read_bytes(),self.data)
+        proof=kill_native_export(self.directory,self.export,self.binary,os.getpid(),cgroup)
+        self.assertEqual(self.process.wait(timeout=3),-9)
+        self.assertTrue(proof['pidfd_exit_observed'])
+        self.assertTrue(proof['record_unchanged'])
+        self.assertEqual(self.name.read_bytes(),self.data)
 
     def test_occupied_restore_target_is_preserved_with_held_evidence(self):
         with self.assertRaises(OSError):

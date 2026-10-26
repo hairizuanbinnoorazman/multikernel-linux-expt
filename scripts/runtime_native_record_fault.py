@@ -11,6 +11,7 @@ import os
 import pathlib
 import re
 import signal
+import select
 import stat
 import uuid
 
@@ -132,7 +133,7 @@ class HiddenNativeRecord:
                 raise ValueError('native process record was recreated')
         self._live()
 
-    def __enter__(self):
+    def bind(self):
         try:
             e = self.export
             if (not isinstance(e['sandbox_id'], str) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}', e['sandbox_id']) or
@@ -156,6 +157,18 @@ class HiddenNativeRecord:
             latest, s = _read(self.fd, self.name)
             if latest != self.data or _identity(s) != _identity(original):
                 raise ValueError('native record changed before fault')
+            self.original_identity = _identity(original)
+            return self
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+
+    def __enter__(self):
+        try:
+            self.bind()
+            original = os.stat(self.name, dir_fd=self.fd, follow_symlinks=False)
+            if _identity(original) != self.original_identity:
+                raise ValueError('native record changed after binding')
             _rename(self.fd, self.name, self.held)
             self.hidden = True
             data, held = _read(self.fd, self.held)
@@ -220,3 +233,36 @@ class HiddenNativeRecord:
                     record_device=self.held_identity[0], record_inode=self.held_identity[1],
                     process_live=True, exact_process_incarnation=True,
                     launched_executable_and_backing_fd_match=True)
+
+
+def kill_native_export(directory, export, binary, parent_pid, cgroup, timeout=5):
+    """Kill only the exact lab-owned process; retain its record without edits."""
+    if (type(parent_pid) is not int or parent_pid <= 1 or not isinstance(cgroup, str) or
+            not 0 < len(cgroup) <= 4096 or not 0 < timeout <= 10):
+        raise ValueError('invalid native crash scope')
+    guard = HiddenNativeRecord(directory, export, binary)
+    try:
+        guard.bind()
+        proc = pathlib.Path('/proc') / str(guard.record['pid'])
+        data = (proc / 'stat').read_bytes()
+        if int(data[data.rindex(b')')+2:].split()[1]) != parent_pid or (proc/'cgroup').read_text() != cgroup:
+            raise ValueError('native process is outside the owned parent or cgroup')
+        guard._same_directory()
+        latest, identity = _read(guard.fd, guard.name)
+        if latest != guard.data or _identity(identity) != guard.original_identity:
+            raise ValueError('native record changed before crash')
+        guard._live()
+        signal.pidfd_send_signal(guard.pidfd, signal.SIGKILL)
+        poll = select.poll();poll.register(guard.pidfd, select.POLLIN)
+        if not poll.poll(int(timeout*1000)):
+            raise ValueError('exact native process did not exit after SIGKILL')
+        latest, identity = _read(guard.fd, guard.name)
+        if latest != guard.data or _identity(identity) != guard.original_identity:
+            raise ValueError('native crash changed the durable record')
+        return dict(signal='SIGKILL', pidfd_exit_observed=True, parent_and_cgroup_match=True,
+                    exact_process_incarnation=True, executable_and_backing_fd_match=True,
+                    record_sha256=hashlib.sha256(guard.data).hexdigest(),
+                    record_device=identity.st_dev, record_inode=identity.st_ino,
+                    record_unchanged=True)
+    finally:
+        guard.__exit__(None, None, None)
