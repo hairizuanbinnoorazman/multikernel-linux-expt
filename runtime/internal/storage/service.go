@@ -262,7 +262,7 @@ func (s *Service) Reconcile(ctx context.Context, owners map[string]Owner) error 
 				return fmt.Errorf("%w: active server disappeared after client acceptance; automatic session recovery is unsafe", ErrUnsafeSession)
 			}
 			if !observation.PreAcceptance {
-				return errors.New("active storage server is absent without exact pre-acceptance evidence")
+				return fmt.Errorf("%w: active storage server is absent without exact pre-acceptance evidence", ErrUnsafeSession)
 			}
 			identity, inspectErr := s.backend.InspectCurrent(ctx, value.PreparedImage)
 			if inspectErr == nil && identity != value.ImageIdentity {
