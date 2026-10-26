@@ -58,3 +58,19 @@ segment. That run retains 278,945 startup bytes and 370 teardown bytes, below
 both caps; actual flood bounds remain supported by the separate pipe controls.
 It verifies controlled window handoff, not a continuous stream or an arbitrary
 hostile-console diagnostic bundle.
+
+
+The candidate native proxy now emits `MKNBD_PROXY_EVENT
+stage=mk-queue-resumed endpoint=N detail=B` once, on its first positive send
+after marked MK ENOSPC retries; `B` is accepted bytes, bounded by its 65536-byte
+buffer. It does not mean peer consumption, NBD completion or a healthy session.
+The corresponding `mk-queue-full` remains once per invocation, with errno as its
+detail. Repeated stalls do not produce more full/resumed pairs. Timeout/error
+handling and data forwarding remain unchanged. The
+[controls](../../../evidence/runtime-20261027/g8-queue-resume-diagnostics/README.md)
+use real socketpairs with injected errors and retain the prior binary as a
+negative control. This candidate is not deployed in the pinned live profile.
+
+Check helper identity before interpreting absence: older helpers emit no resume
+line, and bounded console windows can miss events. Neither a missing resume nor
+an observed first resume determines the cause or duration of a later stall.

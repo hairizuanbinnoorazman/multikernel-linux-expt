@@ -723,3 +723,22 @@ and shim race suites pass. The tests inject daemon/publication failures and do
 not qualify real child deletion, the earlier pressure-stall cause, worker crash
 handoff or a new live Docker build. G7/G8 remains open under direct-child,
 no-nested-virtualization deployment and shared host trust after child compromise.
+
+
+Code `de2cc39` adds the first positive-send-after-MK-queue-full event, with
+[bounded diagnostic controls](../../evidence/runtime-20261027/g8-queue-resume-diagnostics/README.md)
+in source `f0ea13b`. Per proxy invocation, at most one full and one resumed event
+are emitted, including across repeated stalls. The latter contains only endpoint
+and accepted byte count, not payload, peer consumption or completion. Identical
+controls fail on the old header and pass after the change. Transient/repeated
+injected full, duplex byte preservation, half-close, bounded permanent-full and
+unmarked fatal ENOSPC cases pass locally and on GCE. Primary hashes/PIDs/resources
+remain unchanged; required checks pass with pinned containerd 2.2.10.
+
+The candidate native helper compiles but is not deployed. The qualified helper
+and approved child artifacts remain pinned, and AF_UNIX injection is not actual
+MK transport or Docker requalification. The data disk currently has roughly
+2.7 GiB available, below image-plus-reserve admission; failed images and reserves
+remain intact. Live storage-stall diagnosis and whole G7/G8 remain open under
+the direct-child/no-nested-virtualization deployment constraint and shared host
+trust boundary.

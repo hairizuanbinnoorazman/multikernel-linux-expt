@@ -171,6 +171,11 @@ Real-process controls cover five failure points and transient retries, locally
 and on GCE. This fixes a cleanup-order defect; it does not establish the pressure
 stall's cause or prevent Docker from externally killing a cached PID.
 
+A [bounded queue recovery diagnostic](evidence/runtime-20261027/g8-queue-resume-diagnostics/README.md)
+now distinguishes the first positive send after MK queue-full from the initial
+queue-full observation. Local and GCE socket controls pass; the candidate helper
+is not deployed and this does not resolve the earlier live stall.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
