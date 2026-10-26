@@ -147,6 +147,12 @@ virtualization. Automatic storage recovery and normal cleanup after this crash
 remain unqualified. The [cold restoration proof](evidence/runtime-20261026/g8-native-export-crash-restoration/README.md)
 confirms the original transport and unchanged quarantined images and ledgers.
 
+[Ordered network-policy checks](evidence/runtime-20261026/g8-ordered-endpoint-firewall/README.md)
+now refuse private endpoint chains with ACCEPT/RETURN bypasses despite all
+required rules being present. Real iptables controls pass in an isolated GCE
+network namespace; global firewall precedence and live Docker requalification
+remain open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

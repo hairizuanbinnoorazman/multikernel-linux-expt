@@ -658,3 +658,14 @@ Commits `82e1983` and `a957cef` require exact pre-acceptance history and retain
 unknown state for operator action. Six actual SIGKILL cases pass locally and as
 unprivileged host-process fixtures on GCE. This is not a new live child Docker
 recovery qualification; full G7/G8 remains open.
+
+The [ordered endpoint firewall proof](../../evidence/runtime-20261026/g8-ordered-endpoint-firewall/README.md)
+reproduces required-rule-presence checks accepting policy bypasses. Code
+`9aa3497` now compares the complete ordered private endpoint chain. Real iptables
+ACCEPT and RETURN injections in an ephemeral GCE network namespace retain every
+required rule yet are refused; removing each restores acceptance. The fixture
+refuses the primary namespace, and primary rule identities/files/PIDs remain
+unchanged. Global INPUT/FORWARD precedence, atomic firewall attestation and live
+child Docker requalification remain open; this closes only private-chain drift
+refusal. Full G7/G8 remains open under the direct-child, no-nested-virtualization
+constraint and shared host trust boundary.

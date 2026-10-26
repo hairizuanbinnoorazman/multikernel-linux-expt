@@ -19,3 +19,10 @@ blocked. Historical passes describe their recorded policy and revisions.
 The store copies endpoint DNS slices on reads and writes. Callers may modify
 their endpoint values without changing durable ownership outside `Put` or
 bypassing the store lock and validation.
+
+Linux CHECK also requires the complete ordered private IPv4 endpoint chain to
+match canonical iptables `-S` output. Required-rule presence alone cannot detect
+an earlier ACCEPT/RETURN bypass. Unknown output, reordering or extra rules fails
+closed without repair. The [GCE proof](../../../../evidence/runtime-20261026/g8-ordered-endpoint-firewall/README.md)
+uses an ephemeral network namespace and preserves primary policy. This sampled
+check does not attest global INPUT/FORWARD precedence or prevent concurrent drift.
