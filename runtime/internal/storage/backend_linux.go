@@ -805,8 +805,12 @@ func (b *LinuxBackend) Observe(ctx context.Context, value Export) (Observation, 
 		if accepted {
 			return Observation{ClientLost: true}, nil
 		}
-		if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
-			return Observation{}, err
+		// Missing logs leave attachment history unknown. Preserve the opaque
+		// process record unless canonical evidence proves pre-acceptance.
+		if preAcceptance {
+			if _, err = directory.RemoveIfIdentity(recordName, recordIdentity); err != nil {
+				return Observation{}, err
+			}
 		}
 		return Observation{PreAcceptance: preAcceptance}, nil
 	}

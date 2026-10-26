@@ -85,6 +85,11 @@ func (s *Service) recoverPreparation(ctx context.Context, value Export) (Export,
 	if observation.ClientLost {
 		return Export{}, fmt.Errorf("%w: preparing server disappeared after client acceptance", ErrUnsafeSession)
 	}
+	// A missing readiness log cannot prove that no client attached before a
+	// crash. Even synced close proves completion, not a never-used session.
+	if !observation.Active && !observation.PreAcceptance {
+		return Export{}, fmt.Errorf("%w: preparing server is absent without exact pre-acceptance evidence", ErrUnsafeSession)
+	}
 	if observation.Active && observation.Generation != value.ExportGeneration {
 		return Export{}, errors.New("preparing storage process has a conflicting generation")
 	}

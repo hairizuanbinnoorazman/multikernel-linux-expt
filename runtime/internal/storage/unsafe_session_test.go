@@ -55,3 +55,34 @@ func TestUnsafeReleaseRetainsQuiescingEvidence(t *testing.T) {
 		t.Fatalf("offline inspection followed unsafe stop: %v", backend.calls)
 	}
 }
+
+func TestAbsentPreparationRequiresExactPreAcceptanceEvidence(t *testing.T) {
+	for _, operation := range []string{"provision", "reconcile"} {
+		for _, evidence := range []string{"missing", "closed"} {
+			t.Run(operation+"-"+evidence, func(t *testing.T) {
+				service, store, backend, image := fixture(t)
+				backend.fail["start"] = errors.New("ambiguous start")
+				if _, err := service.Provision(t.Context(), "box-a", sandboxGeneration, 1, image); err == nil {
+					t.Fatal("start failure missing")
+				}
+				delete(backend.fail, "start")
+				backend.unknown = evidence == "missing"
+				backend.closed = evidence == "closed"
+				backend.calls = nil
+				before := store.List()
+				var err error
+				if operation == "provision" {
+					_, err = service.Provision(t.Context(), "box-a", sandboxGeneration, 1, image)
+				} else {
+					err = service.Reconcile(t.Context(), fixtureOwners(store))
+				}
+				if !errors.Is(err, ErrUnsafeSession) {
+					t.Fatalf("absent preparation without pre-acceptance evidence = %v", err)
+				}
+				if !reflect.DeepEqual(backend.calls, []string{"observe"}) || !reflect.DeepEqual(before, store.List()) {
+					t.Fatal("unknown preparation inspected, restarted or changed ownership")
+				}
+			})
+		}
+	}
+}

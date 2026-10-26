@@ -17,9 +17,11 @@ func TestObserveCanonicalRefusalEvidenceAndRetainAmbiguity(t *testing.T) {
 	accepted := "MKNBD_SERVER_CLIENT_ACCEPTED\n"
 	for _, tc := range []struct {
 		name, body     string
+		missing        bool
 		pre, lost, bad bool
 	}{
 		{name: "ready only", pre: true},
+		{name: "missing log", missing: true},
 		{name: "identity refusal", body: refusal, pre: true},
 		{name: "mixed refusal", body: refusal + ioRefusal, pre: true},
 		{name: "detail bound", body: strings.Repeat(refusal, 16), pre: true},
@@ -54,15 +56,17 @@ func TestObserveCanonicalRefusalEvidenceAndRetainAmbiguity(t *testing.T) {
 			if err = os.WriteFile(recordPath, original, 0600); err != nil {
 				t.Fatal(err)
 			}
-			if err = os.WriteFile(logPath, append(readyMarker(value), []byte(tc.body)...), 0600); err != nil {
-				t.Fatal(err)
+			if !tc.missing {
+				if err = os.WriteFile(logPath, append(readyMarker(value), []byte(tc.body)...), 0600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			got, err := backend.Observe(t.Context(), value)
 			if (err != nil) != tc.bad || !tc.bad && (got.PreAcceptance != tc.pre || got.ClientLost != tc.lost || got.Active || got.Closed) {
 				t.Fatalf("observation=%+v err=%v", got, err)
 			}
 			retained, readErr := os.ReadFile(recordPath)
-			if tc.bad || tc.lost {
+			if tc.bad || tc.lost || tc.missing {
 				if readErr != nil || !bytes.Equal(retained, original) {
 					t.Fatalf("ambiguity/client-loss record changed: %q %v", retained, readErr)
 				}
