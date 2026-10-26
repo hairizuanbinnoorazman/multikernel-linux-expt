@@ -758,3 +758,22 @@ installed services are unchanged. Doctor network correlation, live policy/
 namespace attestation, populated live child endpoints and Docker requalification
 remain open. Full G7/G8 remains open under the direct-child/no-nested-virtualization
 constraint and shared host trust boundary.
+
+
+`322155e` adds immutable network intent to new shim allocations and a separately
+negotiated bounded expectations projection. Legacy omission remains unknown.
+`392116b` adds the separate `--doctor-network` version-4 mode, comparing repeated
+lifecycle intent, endpoint metadata, kernel names and boot observations. The
+[network doctor proof](../../evidence/runtime-20261027/g8-network-doctor/README.md)
+passes GCE invocation `240ed5dea2f44ae99fb4ed669d81d8f9`: two identical actual
+private idle CLI reports, installed legacy refusal, unchanged version-3 ordinary
+doctor output, seventeen populated correlation cases and six refusal/drift
+cases. Focused race, complete Go and required checks pass. Private daemons stop
+with unchanged primary files/PIDs, all CPUs online, no children/pool and original
+transport idle. Findings distinguish missing required endpoints, orphan/stale
+bindings, released owners, explicit no-network intent, boot mismatches and
+recorded degradation; unknown intent and transitions stay inconclusive. Native
+network policy/session/namespace health, expected descriptor/incarnation, storage
+correlation, live child endpoints and Docker requalification remain open. Full
+G7/G8 remains open with direct kernels, no nested virtualization and shared host
+trust after child-kernel compromise.

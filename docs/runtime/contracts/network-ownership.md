@@ -53,3 +53,51 @@ The [deployment constraint](../architecture.md#deployment-and-containment-constr
 uses direct child kernels without nested virtualization. These observations do
 not establish containment after child-kernel compromise; host trust remains
 shared and full G7/G8 remains open.
+
+## Explicit lifecycle intent and correlated doctor
+
+New shim allocations reserve label `io.multikernel.network-expectation-v1` with
+value `required` in immutable SandboxConfig labels. Direct lifecycle clients may
+explicitly declare `none`; omission remains `unknown` for legacy compatibility.
+Other values are rejected by creation validation. This declaration is intent,
+not a permission change or a network allocation. Diagnostic projection copies
+only the parsed enum, never the labels map or arbitrary values.
+
+The runtime advertises `network-expectations-v1` and accepts
+`InspectNetworkExpectations` with an absent or empty-object body. Its version-1
+`durable-lifecycle-network` report contains the lifecycle projection and one
+aligned sandbox/generation/expectation tuple per record, including historical
+ABSENT owners. The store try-lock and existing lifecycle record/CPU limits apply;
+busy, oversized and invalid inventories refuse complete inspection rather than
+substituting partial metadata. The label is part of the existing immutable
+configuration/idempotency binding; no existing RPC shape is extended.
+
+`mkruntimed --doctor-network --network-socket=/run/mknetd.sock` selects the separate
+version-4 `durable-lifecycle-network-ownership-and-kernel-presence` report. One
+caller budget covers negotiated expectations and endpoint reads. Two complete
+pairs bracket kernel-name and boot observations. Any sampled intent, endpoint,
+counter, lifecycle or kernel drift is inconclusive; no atomicity or unobserved
+ABA protection is claimed. The existing `--doctor` stays version 3 and retains
+its prior network-unobserved scope.
+
+The new mode identifies stable recorded mismatches with generation-bound hints:
+missing required RUNNING endpoints, orphan candidates, sandbox generation
+mismatch, endpoints after owner release, unexpected or multiple bindings,
+startup/endpoint boot mismatch and recorded DISCONNECTED/DEGRADED state. Legacy
+unknown intent, incomplete creation/deletion and missing endpoint boot identity
+require rechecking. A required endpoint absent before provision is inconclusive;
+a missing declaration is never interpreted as required or none. Unbound CNI
+endpoints outside runtime ownership are not guessed to be orphans; unbound
+runtime endpoints require rechecking.
+
+`consistent` still means sampled claims and kernel names agree. Expected endpoint
+descriptor/incarnation, native namespace/rule/session health, storage exports,
+pool/readiness, Docker health and containment remain explicitly unobserved.
+Findings confer no cleanup authority. In particular, a matching descriptor
+fingerprint is not a lifecycle-declared descriptor expectation.
+
+[Correlated GCE proof](../../../evidence/runtime-20261027/g8-network-doctor/README.md)
+qualifies actual private idle CLI/daemons, installed legacy refusal, ordinary
+doctor compatibility and populated injected metadata controls. It does not
+qualify active child endpoints or a new Docker build. Full G7/G8 remains open
+under the same direct-child, no-nested-virtualization/shared-trust constraint.

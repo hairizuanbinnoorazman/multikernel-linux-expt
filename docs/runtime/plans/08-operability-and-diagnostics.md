@@ -106,6 +106,14 @@ and an unchanged retained failed ledger without reconciliation. This does not
 change the doctor's network-unobserved scope or prove live endpoint health,
 policy attestation, combined ownership correlation or Docker requalification.
 
+The separate version-4 [network doctor](../contracts/network-ownership.md#explicit-lifecycle-intent-and-correlated-doctor)
+now correlates declared intent with repeated endpoint/lifecycle/kernel/boot
+samples. [GCE proof](../../../evidence/runtime-20261027/g8-network-doctor/README.md)
+qualifies actual idle CLI operation, compatibility and injected populated claims.
+It leaves native network health, expected descriptor/incarnation, active child
+endpoints, storage combination and Docker requalification open. The ordinary
+version-3 doctor's scope remains unchanged.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

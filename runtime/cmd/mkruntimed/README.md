@@ -83,3 +83,13 @@ view is not an atomic transaction or ABA/liveness proof. Native storage health,
 network, capacity, readiness, Docker health and containment remain unobserved.
 Older daemons produce RESOURCE_OWNERSHIP_UNSUPPORTED without a partial fallback;
 the older separate ownership/storage inspection RPCs remain unchanged.
+
+
+The separate `--doctor-network --network-socket=/run/mknetd.sock` mode negotiates
+explicit lifecycle network expectations and mknetd ownership, samples both twice
+around kernel/boot reads, and emits version 4. It reports recorded ownership
+mismatches, not native network health or cleanup authority. Legacy unknown intent
+and sampled drift remain inconclusive; no fallback guesses required networking.
+The existing `--doctor` output remains version 3. See the
+[network ownership contract](../../../docs/runtime/contracts/network-ownership.md)
+and [GCE proof](../../../evidence/runtime-20261027/g8-network-doctor/README.md).

@@ -181,6 +181,12 @@ now exposes bounded generation/boot metadata and opaque descriptor fingerprints
 through mknetd's existing protected socket. GCE CLI, retained-ledger and privacy
 controls pass; recorded READY state is not a network-health or isolation pass.
 
+The separate [network doctor](evidence/runtime-20261027/g8-network-doctor/README.md)
+now correlates explicit lifecycle network intent with repeated endpoint and
+kernel-name observations. New shim tasks declare required networking; legacy
+intent remains unknown. GCE idle CLI and injected mismatch/drift controls pass.
+This does not attest live network policy, child isolation or Docker builds.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
