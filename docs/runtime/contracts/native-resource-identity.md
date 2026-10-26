@@ -105,3 +105,24 @@ resources with unchanged primary inventories. No FIFO writer is introduced.
 The [separate FIFO-case restoration](../../../evidence/runtime-20261025/g8-fifo-record-restoration/README.md)
 verifies the original loaded transport and twenty-six preboot/postboot artifact
 hashes. Reboot is not counted as normal cleanup or as recovery from process death.
+
+Lost accepted sessions are now fenced with a typed operator-action error,
+including ambiguous PREPARING recovery. A missing process without authenticated
+synced terminal close cannot authorize release or session restart. Lifecycle
+mutation replies are sanitized, non-retryable OPERATOR_ACTION; terminal replay
+and retained ownership persist atomically. Even absent kernel presence leaves
+unsafe allocation claims RELEASING, preventing overlapping allocation reuse.
+[Controls](../../../evidence/runtime-20261026/g8-native-death-controls/README.md)
+include actual SIGKILL of exact process fixtures, retained PREPARING/ACTIVE/
+QUIESCING evidence, same-key replay and absent-kernel allocation fencing.
+
+The explicit private `--storage-export-crash` scenario is selected through
+`MK_MODULE_TRIAL_RECORD_FAULT=crash`. It kills only the exact generation-bound
+native export, validated through pidfd/incarnation, command, executable/backing
+fd, direct parent and private cgroup. It requires two degraded process-absent
+observations, unchanged pre-deletion ledgers and retained unsynced storage after
+an owned deletion attempt. Expected exit 77 identifies retained fault completion;
+it never qualifies normal cleanup. The image and failed authority remain for
+operator diagnosis; no automatic restart, repair or clean-release relabeling is
+permitted. Direct child kernels still use no nested virtualization and share the
+host trust domain after arbitrary child-kernel compromise.

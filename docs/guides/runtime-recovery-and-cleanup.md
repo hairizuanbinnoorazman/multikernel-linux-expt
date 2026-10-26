@@ -171,3 +171,22 @@ runtime/network capability, NNP and ambient settings read from the committed
 service units. Raw process masks and executable/unit hashes are retained for
 both runtime processes and the network daemon. Other systemd restrictions,
 crash/power loss and other service restarts remain separate checks.
+
+## Native export process death
+
+A server lost after client acceptance requires operator action. Process absence
+and an apparently clean filesystem are insufficient to recreate the session or
+release its image: a generation-bound synced terminal close is required. The
+runtime retains unsafe PREPARING/ACTIVE/QUIESCING evidence and returns sanitized,
+non-retryable OPERATOR_ACTION on unsafe lifecycle deletion. Repeating the same
+idempotency key returns the retained failure without repeating mutation. Missing
+kernel presence alone does not free unsafe allocation claims.
+
+Keep the image, process record, native log, lifecycle journal and all ownership
+generations. Do not edit a lease to RELEASED, guess a process from a reused PID,
+or run filesystem repair against any live/exported image. The guarded private
+export-crash harness uses expected exit 77 for retained fault completion; it does
+not claim normal cleanup. The [native identity contract](../runtime/contracts/native-resource-identity.md)
+and [controls](../../evidence/runtime-20261026/g8-native-death-controls/README.md)
+describe the checked scope. Direct children use no nested virtualization and
+remain in the shared host trust domain; full G7/G8 remains open.
