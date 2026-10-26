@@ -1,4 +1,4 @@
-"""Bounded workload-phase wait with a durable outcome before teardown."""
+"""Bounded workload-phase wait with a recorded outcome before teardown."""
 import hashlib
 import json
 import time
