@@ -272,6 +272,9 @@ def verify_deployment(root: Path, deployment_id: str):
     directory = rooted(root, BASE / "deployments" / deployment_id)
     if not directory.is_dir() or directory.is_symlink():
         raise ValueError("installed deployment is unavailable")
+    safe_directory(root, BASE / "deployments" / deployment_id, False)
+    if (directory / "deployment-manifest.json").lstat().st_mode & 0o022:
+        raise ValueError("installed deployment manifest is writable")
     manifest = strict_json_bytes(secure_input(directory / "deployment-manifest.json"))
     if set(manifest) != {"schema_version", "deployment", "files"} or manifest["schema_version"] != 1 or manifest["deployment"] != deployment_id:
         raise ValueError("installed deployment manifest identity mismatch")
@@ -283,6 +286,9 @@ def verify_deployment(root: Path, deployment_id: str):
         if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
             raise ValueError(f"installed deployment file hash is malformed: {name}")
         identity.update(name.encode() + b"\0" + expected.encode() + b"\n")
+        safe_directory(root, BASE / "deployments" / deployment_id / Path(name).parent, False)
+        if (directory / name).lstat().st_mode & 0o022:
+            raise ValueError(f"installed deployment file is writable: {name}")
         data = secure_input(directory / name)
         if digest(data) != expected:
             raise ValueError(f"installed deployment file hash mismatch: {name}")
@@ -354,6 +360,8 @@ def install_files(root: Path, files, *, modes=None, expected_active=None):
             shutil.rmtree(staging, ignore_errors=True)
             raise
         verify_deployment(root, deployment_id)
+    if modes is not None and any(stat.S_IMODE((destination / name).lstat().st_mode) != mode for name, mode in modes.items()):
+        raise ValueError("installed deployment modes differ from the cloned generation")
     if expected_active is not None and os.readlink(rooted(root, BASE / "current")) != expected_active:
         raise ValueError("active deployment changed while preparing the storage binding")
     activate(root, deployment_id)

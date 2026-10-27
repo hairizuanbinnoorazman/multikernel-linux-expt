@@ -121,6 +121,18 @@ def main():
             run(root, "update-storage-size", str(expected), str(target), ok=False)
             assert active(root) == "deployments/" + grown_id
         run(root, "activate", first)
+        # A content-identical inactive generation is not reusable after its
+        # protection or cloned modes drift, even though file hashes still match.
+        grown_dir = root / "etc/multikernel/deployments" / grown_id
+        for path, unsafe_mode in [(grown_dir, 0o777), (grown_dir / "libexec", 0o777),
+                                  (grown_dir / "runtime.env", 0o622), (grown_dir / "deployment-manifest.json", 0o666),
+                                  (grown_dir / "libexec/build-runtime-container-initramfs.sh", 0o500)]:
+            previous_mode = path.stat().st_mode & 0o777
+            path.chmod(unsafe_mode)
+            run(root, "update-storage-size", str(old_size), str(larger), ok=False)
+            assert active(root) == "deployments/" + first
+            path.chmod(previous_mode)
+        print("EXISTING_GENERATION_WRITABLE_ANCESTOR_FILE_AND_MODE_DRIFT_REFUSED_BEFORE_SELECTION_PASS")
         print("IMMUTABLE_STORAGE_SIZE_ONLY_CLONE_STANDALONE_AND_STALE_SHRINK_ALIGNMENT_REFUSALS_PASS")
 
         second = json.loads(run(root, "install", *map(os.fspath, second_inputs)).stdout)["installed_and_active"]
