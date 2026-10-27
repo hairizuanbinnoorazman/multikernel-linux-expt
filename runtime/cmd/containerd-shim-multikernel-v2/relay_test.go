@@ -49,7 +49,7 @@ func TestRelayOwnershipKillsDescendantsAndRetainsSocketCleanup(t *testing.T) {
 	})
 
 	t.Run("command has private process group", func(t *testing.T) {
-		command := newRelayCommand("/bin/true", 7001, "/tmp/mk-relay-test.sock")
+		command := newRelayCommand("/bin/true", 40, 7001, "/tmp/mk-relay-test.sock")
 		if command.SysProcAttr == nil || !command.SysProcAttr.Setpgid {
 			t.Fatalf("relay process attributes = %+v", command.SysProcAttr)
 		}

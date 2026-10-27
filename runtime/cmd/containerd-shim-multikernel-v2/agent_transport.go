@@ -49,7 +49,7 @@ func (s *service) relayCommand(port uint32, socket string) *exec.Cmd {
 	if s.newRelay != nil {
 		return s.newRelay(port, socket)
 	}
-	return newRelayCommand(getenv("MK_RELAY", "/opt/mkruntime/bin/mkvsock-relay"), port, socket)
+	return newRelayCommand(getenv("MK_RELAY", "/opt/mkruntime/bin/mkvsock-relay"), s.sandbox.Config.ChildCID, port, socket)
 }
 
 func (s *service) agentRelaySocketPath(port uint32, generation string) string {
@@ -134,8 +134,11 @@ func relaySocketPath(port uint32, generation string) string {
 	return filepath.Join("/run", "mk-agent-"+strconv.Itoa(int(port))+"-"+generation+".sock")
 }
 
-func newRelayCommand(binary string, port uint32, socket string) *exec.Cmd {
-	command := exec.Command(binary, "server", strconv.Itoa(int(port)), socket)
+func newRelayCommand(binary string, cid, port uint32, socket string) *exec.Cmd {
+	// All lifecycle paths use the declared child peer, never a wildcard
+	// fallback. Older helpers must refuse this mode rather than bridge an
+	// arbitrary child into the authenticated agent stream.
+	command := exec.Command(binary, "server-peer", strconv.FormatUint(uint64(cid), 10), strconv.FormatUint(uint64(port), 10), socket)
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	return command
 }

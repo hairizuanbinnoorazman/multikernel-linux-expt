@@ -14,8 +14,9 @@ Use a fresh protected Unix socket served by the explicitly selected native
 remote CID before publishing the socket. Pass the PID of that owned relay as
 `--relay-pid`. `agent.DialPeerContext` checks captured socket ownership and exact
 local PID/UID/GID before writing; explicit reconnect preserves this same check.
-Existing runtime relay callers still use the legacy interface; this diagnostic
-does not qualify their adoption of the new CID gate.
+The current shim also selects this native mode through its shared production
+factory. This diagnostic alone does not qualify shim deployment, recovery or a
+complete Docker lifecycle, and older deployed helpers remain unchanged.
 
 Required flags are `--socket`, `--sandbox-id`, `--generation`, `--endpoint`,
 `--expected-release`, `--relay-pid` and `--token-fd`. `--timeout` defaults to five

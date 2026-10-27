@@ -255,8 +255,10 @@ cause and recovery remain unproven.
 The [CID-gated relay controls](evidence/runtime-20261028/g8-relay-peer-controls/README.md)
 cover a new explicit native helper mode. A [bounded agent diagnostic](runtime/tools/mk-agent-capabilities-probe/README.md)
 checks the local relay identity before one capabilities request, using a sealed
-credential descriptor. Existing runtime relay callers still require adoption;
-these controls do not close the retained startup failure or full G7/G8 gates.
+credential descriptor. The current shim factory also requires the declared
+child CID, without wildcard fallback; deployment and a fresh Docker lifecycle
+qualification remain required. These controls do not close the retained startup
+failure or full G7/G8 gates.
 
 The [actual retained-child probe](evidence/runtime-20261028/g8-retained-agent-capabilities-gce/README.md)
 now receives the expected capabilities over the real MK transport, with primary

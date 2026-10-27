@@ -6,6 +6,18 @@ Containerd Runtime v2 shim planned by
 The shim talks to `mkruntimed`. It must not invoke Kerf or write to the
 Multikernel filesystem directly.
 
+The shared production agent-relay factory requires `server-peer` with the
+sandbox's declared child CID on initial startup, worker recovery and exited
+relay replacement. Deploy a matching pinned native helper; there is no wildcard
+fallback for older helper binaries. The helper rejects other CIDs before Unix
+socket publication or forwarding and emits one fixed refusal diagnostic per
+process, bounded independently of the number of refused peers. This binds the
+transport peer, without attesting a guest process. The existing production agent
+dial remains distinct from the diagnostic's additional local PID/UID/GID check.
+Direct child kernels use no nested virtualization and share host trust after
+compromise. Full Docker lifecycle qualification remains required for changes to
+the deployed shim/helper pair.
+
 Guest stdin and output are bridged in bounded authenticated chunks. The shim
 keeps containerd's FIFO endpoints reusable after detach, drains buffered stdin
 before forwarding `CloseIO`, and maps terminal processes to the child PTY and

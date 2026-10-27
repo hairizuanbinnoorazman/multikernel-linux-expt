@@ -37,6 +37,8 @@ static int vserver_peer(unsigned int port, unsigned int expected_cid)
 		if(client<0) {if(errno==EINTR) continue;close(f);die("vsock accept");}
 		if(relay_peer_matches(&peer,size,expected_cid)) {close(f);return client;}
 		close(client);refused++;
+		/* One bounded diagnostic, without guest-controlled metadata. */
+		if(refused==1) fprintf(stderr,"relay peer rejected before Unix bridge publication\n");
 	}
 	close(f);errno=EACCES;die("relay peer refusal limit");return -1;
 }

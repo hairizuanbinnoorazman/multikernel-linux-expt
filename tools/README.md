@@ -109,9 +109,11 @@ entrypoint protects dumpability before endpoint setup. CID matching does not
 attest a guest process or replace the agent request authentication contract.
 
 The existing `server PORT UNIX` and `client CID PORT UNIX` modes retain their
-interfaces. Runtime producer/default-artifact adoption of the peer-pinned mode
-requires separate integration and live qualification. The new mode is intended
-for explicitly staged diagnostic callers first; it does not retroactively add
-CID enforcement to older deployed relay binaries. These tools support direct
+interfaces. The current shim's shared relay factory uses `server-peer` with the
+sandbox's declared child CID for startup, recovery and replacement. It never
+falls back to `server` for an older helper. Deploy the shim with a pinned helper
+that supports this interface; older deployed binaries do not gain enforcement.
+Live Docker lifecycle qualification of this source change remains separate from
+the earlier capabilities-only diagnostic. These tools support direct
 child kernels without nested virtualization and retain shared host trust after
 child-kernel compromise.
