@@ -67,3 +67,34 @@ recorded-metadata-only historical view; full native-storage-health remains
 unobserved in version 3 too. Live
 native export qualification and complete G7/G8 remain open under the same direct
 child, no-nested-virtualization deployment constraint.
+
+## Combined operator inspection
+
+`mkruntimed --doctor-all --network-socket=/run/mknetd.sock` emits the separate
+version-5 `durable-resource-network-ownership-native-process-identity-and-kernel-presence`
+report. The ordinary `--doctor` stays version 3; `--doctor-network` stays version 4.
+Inspection modes are mutually exclusive and the network socket must be absolute.
+The command exits before opening stores or starting Kerf/reconciliation.
+
+One caller context/deadline covers native resource identity, lifecycle network
+expectations and endpoint ownership. Each sample requires the native resource
+view's complete lifecycle to equal the network expectations' lifecycle, including
+sequence and all owner metadata. Two complete samples bracket the existing
+kernel-name and boot reads. Component capability refusals remain explicit;
+`RESOURCE_NETWORK_LIFECYCLE_CHANGED` identifies mismatched lifecycle snapshots.
+Missing, invalid, changing or canceled reads cannot yield partial combined
+success. Sampled network/counter drift discards all combined claims, retaining
+an inconclusive stable finding. No legacy projection is substituted.
+
+Complete observations retain storage/native findings and add the existing
+network correlations. A consistent endpoint never erases a storage fault;
+degraded findings take precedence over inconclusive transition findings. The
+report uses existing bounded record projections and excludes private labels,
+paths, credentials and raw errors. It performs no repair or cleanup.
+
+This is a sampled combined command, not a cross-daemon atomic transaction or
+unobserved ABA proof. Kernel incarnation, native storage/network health,
+lifecycle-declared network descriptor expectations, capacity, service readiness,
+Docker health and containment remain unobserved. Direct child kernels use no
+nested virtualization and retain shared host trust after compromise. Full G7/G8
+and actual live qualification of version 5 remain open until separately proved.

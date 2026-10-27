@@ -11,6 +11,7 @@ from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
 from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record, qualify_unavailable_record, qualify_absent_process
 from runtime_network_doctor_checkpoint import qualify as qualify_network_doctor
+from runtime_combined_doctor_checkpoint import qualify as qualify_combined_doctor
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
@@ -286,6 +287,12 @@ try:
      assert len(endpoints)==(0 if released else 1),'unexpected endpoint inventory at network doctor checkpoint'
      network_report=qualify_network_doctor(network_observation.stdout,boot,owner,report,None if released else endpoints[0],released=released)
      (private/('network-doctor-'+label+'.json')).write_text(json.dumps(network_report,indent=2)+'\n')
+     remaining=deadline-time.monotonic();assert remaining>0,'combined doctor observation budget exhausted'
+     combined_observation=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor-all','--network-socket='+str(network_socket)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+     (private/('combined-doctor-'+label+'.stdout')).write_bytes(combined_observation.stdout);(private/('combined-doctor-'+label+'.stderr')).write_bytes(combined_observation.stderr)
+     assert combined_observation.returncode==0 and not combined_observation.stderr,'combined runtime doctor refused the observation'
+     combined_report=qualify_combined_doctor(combined_observation.stdout,boot,owner,report,network_report,None if released else endpoints[0],released=released)
+     (private/('combined-doctor-'+label+'.json')).write_text(json.dumps(combined_report,indent=2)+'\n')
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())

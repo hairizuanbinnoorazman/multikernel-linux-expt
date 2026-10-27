@@ -93,3 +93,13 @@ and sampled drift remain inconclusive; no fallback guesses required networking.
 The existing `--doctor` output remains version 3. See the
 [network ownership contract](../../../docs/runtime/contracts/network-ownership.md)
 and [GCE proof](../../../evidence/runtime-20261027/g8-network-doctor/README.md).
+
+`sudo mkruntimed --config=/etc/mkruntime/config.json --doctor-all --network-socket=/run/mknetd.sock`
+emits version 5 with storage/native-process and network ownership in one
+read-only command. It requires exact lifecycle agreement and repeated complete
+component samples under one deadline. Unsupported/unavailable/drifting views
+cannot become partial success. Existing degraded storage findings remain when
+network findings are added. This is sampled correlation, not atomic inspection,
+complete health or recovery authority. See the
+[combined inspection contract](../../../docs/runtime/contracts/resource-ownership.md#combined-operator-inspection).
+The existing version-3 and version-4 modes are unchanged.
