@@ -128,5 +128,8 @@ inspection; a failed observation does not qualify the gate.
 
 These are sampled external checks. They do not combine production report modes,
 add lifecycle descriptor intent, or remove either report's explicit unobserved
-requirements. Active-child qualification remains pending until its separate
-live proof is retained; full G7/G8 remains open.
+requirements. The [actual child proof](../../../evidence/runtime-20261027/g8-live-network-doctor/README.md)
+now qualifies these held/released samples during ENOSPC and repeated Docker
+builds, with exact primary engine/image/inventory boundaries and normal cleanup.
+Startup console truncation is retained explicitly; complete health and full
+G7/G8 remain open.

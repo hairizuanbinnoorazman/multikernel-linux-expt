@@ -114,6 +114,16 @@ It leaves native network health, expected descriptor/incarnation, active child
 endpoints, storage combination and Docker requalification open. The ordinary
 version-3 doctor's scope remains unchanged.
 
+The later [actual child network-doctor proof](../../../evidence/runtime-20261027/g8-live-network-doctor/README.md)
+qualifies version-4 endpoint intent/generation/descriptor/counter correlation
+against the separately checked version-3 storage/native-process report during
+real child Docker ENOSPC, built-image hold and normal removal. Primary engine,
+image absence and exact same-boot inventories remain checked. This closes that
+bounded active-child checkpoint; it does not provide an atomic combined doctor,
+lifecycle-declared descriptor intent, native network/kernel-incarnation health
+or complete readiness/diagnostics. Startup console saturation is explicitly
+retained while the reserved teardown markers remain observed.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

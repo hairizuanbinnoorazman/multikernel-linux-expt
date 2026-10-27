@@ -890,3 +890,16 @@ required checks pass. The initial cold verifier's cross-boot Docker network-ID
 assertion failure is retained; the corrected read-only procedure passes exact
 engine/images/containers/volumes and records changed network IDs separately.
 It does not qualify prior-boot network configuration parity. Full G7/G8 stays open.
+
+Code a29a1a1 adds strict private version-4 network-doctor checkpoints alongside
+the version-3 storage/native-process doctor; c86382f retains adversarial and
+independent Go/Python descriptor controls. The [actual live proof](../../evidence/runtime-20261027/g8-live-network-doctor/README.md)
+57713e8 qualifies the same owner/generation/sequence/boot at real child Docker
+ENOSPC, built-image hold and removal, including required intent and exact sampled
+endpoint descriptor/counters. Both units exit successfully and normal cleanup
+restores all CPUs, removes owned resources and preserves primary Docker engine,
+image absence and exact same-boot inventories. Startup console hits its 768 KiB
+cap; the separate 370-byte teardown window retains quiesce/disconnect markers.
+The public proof records this limitation and does not claim complete console
+coverage or kernel stability. Cold restoration is tracked separately; no full
+G7/G8, atomic doctor or network-incarnation/complete-health gate closes.

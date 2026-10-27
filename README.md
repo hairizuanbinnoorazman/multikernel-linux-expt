@@ -230,6 +230,12 @@ before a cold trial can pass its source-directory guard. The deployment manager
 now supports a protected, size-only immutable storage-binding update; see the
 [operator procedure](docs/guides/runtime-operator-quickstart.md#after-an-approved-storage-grow).
 
+The [latest live network/storage doctor checkpoint](evidence/runtime-20261027/g8-live-network-doctor/README.md)
+now matches the actual child generation, required endpoint and descriptor at
+ENOSPC and built-image holds, then confirms endpoint removal. Child-local builds
+and primary Docker inventory separation still pass. Startup console truncation
+remains explicit; complete health/diagnostics and full G7/G8 stay open.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
