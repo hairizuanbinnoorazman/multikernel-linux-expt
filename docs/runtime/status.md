@@ -4,15 +4,19 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
-## Latest G8 checkpoint (2026-10-27)
+## Latest G8 checkpoint (2026-10-28)
 
 Current test-host state: the 0c50de9 combined-doctor trial failed before reaching
 its live holds. Its exact child/export generation remains retained, with one
 open native backing descriptor and the candidate transport still loaded.
 Normal cleanup and cold restoration are **not** qualified for this attempt.
 The related agent stream reuse bug is independently reproduced and fixed in
-a4b11660; local/full-runtime race and isolated GCE socket controls pass. This has
-not been qualified against the retained child or shown to resolve its startup.
+a4b11660; local/full-runtime race and isolated GCE socket controls pass. A
+[bounded actual-child capabilities probe](../../evidence/runtime-20261028/g8-retained-agent-capabilities-gce/README.md)
+now receives the expected response through a CID-pinned relay with the checked
+local peer and sealed credential descriptor. Primary state and retained resource
+identities match before/after. This qualifies one response, without resolving
+the startup or qualifying Docker health, normal cleanup or version-5 live doctor.
 The last passing earlier cases below retain their scope. Preserve this failed
 private generation and follow the escalation contract before another live trial.
 
@@ -972,3 +976,17 @@ inventories, failed ledgers and native backing-process identity match before and
 after. The original failed child/export and candidate transport remain retained.
 This does not establish that stream reuse caused the 0c50de9 startup failure,
 qualify actual MK/child recovery, or close full G7/G8.
+
+On 2026-10-28, [checked-peer and sealed-descriptor controls](../../evidence/runtime-20261028/g8-agent-peer-probe-controls/README.md)
+and [native CID controls](../../evidence/runtime-20261028/g8-relay-peer-controls/README.md)
+precede the [actual retained-child probe](../../evidence/runtime-20261028/g8-retained-agent-capabilities-gce/README.md).
+Code 30986549 retains the exact local relay identity policy across reconnect;
+the bounded probe sends only Capabilities. GCE invocation 87b73fd6 returns
+protocol 1, expected child kernel release and explicit root UID/GID claims.
+The owned relay exits zero; primary hashes/PIDs/Docker inventories and retained
+ledgers, child/CPU/module and native backing-process identities match. No backing
+image contents are read. Requests are signed, but reply-side cryptographic
+attestation and kernel incarnation are not established. Existing runtime callers
+still require adoption of the explicit CID mode. The failed child/export remains
+retained; startup cause, Docker recovery, normal cleanup and full G7/G8 remain
+open. Direct child kernels use no nested virtualization and share host trust.

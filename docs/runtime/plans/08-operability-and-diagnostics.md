@@ -133,6 +133,15 @@ fails before a live report, retaining an active child/export and unproven agent
 transport failure. It does not qualify version-5 live builds, cleanup or health.
 The failed generation remains retained; complete G7/G8 acceptance remains open.
 
+The [bounded retained-agent probe](../../../evidence/runtime-20261028/g8-retained-agent-capabilities-gce/README.md)
+qualifies one actual capabilities response through a CID-pinned native relay,
+with exact local peer checks, sealed credential FD, and unchanged primary and
+retained resource identities. This narrows diagnosis to a child that answers the
+probe; it does not qualify the failed Docker startup, readiness, recovery,
+version-5 live doctor, normal cleanup or complete G8 diagnostics. Existing
+runtime relay callers still need CID-mode adoption. The child/export remains
+retained. Direct kernels use no nested virtualization and share host trust.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

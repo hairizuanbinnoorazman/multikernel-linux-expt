@@ -258,6 +258,12 @@ checks the local relay identity before one capabilities request, using a sealed
 credential descriptor. Existing runtime relay callers still require adoption;
 these controls do not close the retained startup failure or full G7/G8 gates.
 
+The [actual retained-child probe](evidence/runtime-20261028/g8-retained-agent-capabilities-gce/README.md)
+now receives the expected capabilities over the real MK transport, with primary
+state and retained resource identities unchanged. This qualifies one bounded
+agent response; Docker recovery, version-5 live doctor and normal cleanup remain
+open. The child and its open storage export remain retained for diagnosis.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
