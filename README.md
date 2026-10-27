@@ -238,6 +238,14 @@ and a separate [user-restart verification](evidence/runtime-20261027/g8-user-res
 preserve all 92 retained files and the original transport. Startup console
 truncation remains explicit; complete health/diagnostics and full G7/G8 stay open.
 
+The new `mkruntimed --doctor-all` command combines native/storage and network
+ownership under one deadline. [Controls](evidence/runtime-20261027/g8-combined-doctor-controls/README.md)
+and [real CLI preflight](evidence/runtime-20261027/g8-combined-doctor-cli/README.md)
+pass. Its [child trial fails before the live holds](evidence/runtime-20261027/g8-combined-live-failure/README.md),
+with a retained active child/export and unproven startup cause. Version-5 live
+qualification and normal cleanup remain open; the failed generation is retained
+for diagnosis. Earlier passing child Docker proofs retain their own scope.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

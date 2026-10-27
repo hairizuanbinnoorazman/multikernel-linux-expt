@@ -124,6 +124,15 @@ lifecycle-declared descriptor intent, native network/kernel-incarnation health
 or complete readiness/diagnostics. Startup console saturation is explicitly
 retained while the reserved teardown markers remain observed.
 
+The production `--doctor-all` version-5 command now combines these views under
+one deadline, preserving native/storage severity and rejecting lifecycle or
+component drift. [Controls](../../../evidence/runtime-20261027/g8-combined-doctor-controls/README.md)
+and [actual CLI preflight](../../../evidence/runtime-20261027/g8-combined-doctor-cli/README.md)
+pass. Its [child startup attempt](../../../evidence/runtime-20261027/g8-combined-live-failure/README.md)
+fails before a live report, retaining an active child/export and unproven agent
+transport failure. It does not qualify version-5 live builds, cleanup or health.
+The failed generation remains retained; complete G7/G8 acceptance remains open.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

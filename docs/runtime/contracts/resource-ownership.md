@@ -98,3 +98,10 @@ lifecycle-declared network descriptor expectations, capacity, service readiness,
 Docker health and containment remain unobserved. Direct child kernels use no
 nested virtualization and retain shared host trust after compromise. Full G7/G8
 and actual live qualification of version 5 remain open until separately proved.
+
+[Version-5 controls](../../../evidence/runtime-20261027/g8-combined-doctor-controls/README.md)
+and [real GCE CLI preflight](../../../evidence/runtime-20261027/g8-combined-doctor-cli/README.md)
+pass, including explicit installed legacy refusal and unchanged primary state.
+The [subsequent child attempt](../../../evidence/runtime-20261027/g8-combined-live-failure/README.md)
+fails before its first live doctor hold. Its failed ownership/export remains
+retained, so actual version-5 child qualification and complete health stay open.

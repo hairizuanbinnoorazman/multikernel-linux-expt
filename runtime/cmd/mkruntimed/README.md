@@ -103,3 +103,9 @@ network findings are added. This is sampled correlation, not atomic inspection,
 complete health or recovery authority. See the
 [combined inspection contract](../../../docs/runtime/contracts/resource-ownership.md#combined-operator-inspection).
 The existing version-3 and version-4 modes are unchanged.
+
+[Controls](../../../evidence/runtime-20261027/g8-combined-doctor-controls/README.md)
+and [GCE CLI preflight](../../../evidence/runtime-20261027/g8-combined-doctor-cli/README.md)
+qualify the new command and explicit legacy refusal. The separate
+[child attempt fails before the live hold](../../../evidence/runtime-20261027/g8-combined-live-failure/README.md);
+no version-5 live-build or complete-health pass is claimed.

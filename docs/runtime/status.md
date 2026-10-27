@@ -6,6 +6,14 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-27)
 
+Current test-host state: the 0c50de9 combined-doctor trial failed before reaching
+its live holds. Its exact child/export generation remains retained, with one
+open native backing descriptor and the candidate transport still loaded.
+Normal cleanup and cold restoration are **not** qualified for this attempt.
+The last passing earlier cases below retain their scope. Preserve this failed
+private generation and follow the escalation contract before another live trial.
+
+
 The approved data disk is now 50 GB, with all 92 retained files and 11 old child
 images preserved. The [actual static-candidate trial](../../evidence/runtime-20261027/g8-live-static-candidate/README.md)
 passes child Docker ENOSPC recovery, repeated builds, primary/child engine and
@@ -929,3 +937,19 @@ services active, unchanged primary state and protected 50 GB deployment. The
 a53ebeb remains the original historical checkpoint. No extra workload or agent
 reboot is used for the user-restarted boot. Cross-boot network identity parity
 and full G7/G8 remain unqualified.
+
+Production code 0c50de9 adds `--doctor-all` version 5 under a shared deadline,
+requiring exact repeated native/storage and network lifecycle samples while
+preserving degraded severity. [Control proof](../../evidence/runtime-20261027/g8-combined-doctor-controls/README.md)
+d98d306 and [real GCE CLI preflight](../../evidence/runtime-20261027/g8-combined-doctor-cli/README.md)
+6f69506e pass and are pushed. The actual child attempt subsequently fails before
+any active-child combined-doctor invocation. The [failure proof](../../evidence/runtime-20261027/g8-combined-live-failure/README.md)
+retains a 300-second wait with no workload output, agent sequence-mismatch/refused
+reconnect diagnostics, zombie-PID Docker removal failure, ACTIVE/RUNNING storage
+and lifecycle claims and a DISCONNECTED endpoint. Both units are terminal with
+exit 1; MainPID zero does not mean the retained native server/backing fd or child
+is gone. Primary state hashes/PIDs and primary Docker engine/inventories match,
+but child resources and host networking are not claimed released. Root cause,
+actual version-5 child qualification and full G7/G8 remain open. Private original
+ledgers are copied without mutation; raw console and state stay private. No blind
+retry, hot module unload or automatic storage/ledger release is performed.
