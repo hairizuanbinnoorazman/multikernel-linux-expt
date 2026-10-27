@@ -111,3 +111,22 @@ IPv4 forwarding must equal 1. Links and routes require one unambiguous output
 line. Real disposable GCE namespace controls cover both MTUs and both gateways,
 with successful restoration after each rejection. This remains a sampled CHECK;
 it does not establish endpoint incarnation or active child Docker health.
+
+## Strict private live-trial correlation
+
+The [checkpoint controls](../../../evidence/runtime-20261027/g8-network-doctor-live-controls/README.md)
+qualify the private Docker pressure harness's additional network doctor checks.
+At the full-disk and built-image holds, and after removal, version-4 output must
+agree with the separately qualified version-3 storage/native-process report on
+exact lifecycle sequence/ownership, revision, boot and kernel names. Required
+network intent and the exact READY endpoint generation/owner/descriptor/counters
+must match the private retained endpoint during holds; no endpoint may remain
+after removal. The descriptor is independently reproduced from the documented
+length-framed contract, with a Go/Python shared test vector. No private endpoint
+values are copied into public doctor output. Failure output stays private for
+inspection; a failed observation does not qualify the gate.
+
+These are sampled external checks. They do not combine production report modes,
+add lifecycle descriptor intent, or remove either report's explicit unobserved
+requirements. Active-child qualification remains pending until its separate
+live proof is retained; full G7/G8 remains open.

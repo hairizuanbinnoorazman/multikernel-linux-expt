@@ -43,6 +43,12 @@ the builder's JSON output before privileged extraction. Use a new root-owned
 `/opt/mkruntime/g8-host-<short-commit>` directory at mode 0700. Extract the packet,
 then create its `source` directory at mode 0700 and extract `source.tar` there.
 Verify source identity, all binary hashes, root ownership and protected modes.
+Extraction must preserve the pinned archive's exact modes. Python tarfile's
+`data` filter changes directory/file modes, including private bin directories
+and read-only executable artifacts; it is insufficient for this packet contract.
+For a hash-verified trusted packet, use an extractor that retains permissions
+and ownership, then verify every member before launch. Never infer safe modes
+from successful extraction alone.
 The cold trial's revision must match the stage; candidate trials explicitly set
 `MK_MODULE_TRIAL_HELPER_VARIANT=server-queue-candidate`. The driver forwards the
 same variant to its private Docker harness. No helper is selected by guessing its
