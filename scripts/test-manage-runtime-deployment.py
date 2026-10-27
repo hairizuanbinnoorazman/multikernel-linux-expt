@@ -98,6 +98,31 @@ def main():
         after = next(line for line in runtime_unit.splitlines() if line.startswith("After="))
         assert after.split().count("google-guest-agent.service") == 1
 
+        # Updating the approved disk size clones the verified installed set;
+        # no current repository assets are read, even from a standalone tool.
+        original_manifest = json.loads((root / "etc/multikernel/deployments" / first / "deployment-manifest.json").read_text())
+        original_env = (root / "etc/multikernel/runtime.env").read_bytes()
+        old_size = int(next(line.split(b"=", 1)[1] for line in original_env.splitlines() if line.startswith(b"MKRUNTIME_STORAGE_BYTES=")))
+        larger = old_size + (10 << 30)
+        standalone = work / "standalone" / "manager.py"; standalone.parent.mkdir(); shutil.copyfile(SCRIPT, standalone)
+        grown_run = subprocess.run(["python3", str(standalone), "--root", str(root), "update-storage-size", str(old_size), str(larger)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        assert grown_run.returncode == 0, grown_run.stderr
+        grown = json.loads(grown_run.stdout); grown_id = grown["active"]
+        assert grown["previous"] == first and grown["changed_files"] == ["runtime.env"]
+        assert not grown["disk_resize_performed"] and grown["service_restart_required"]
+        assert active(root) == "deployments/" + grown_id
+        grown_manifest = json.loads((root / "etc/multikernel/deployments" / grown_id / "deployment-manifest.json").read_text())
+        assert [name for name in original_manifest["files"] if original_manifest["files"][name] != grown_manifest["files"][name]] == ["runtime.env"]
+        assert (root / "etc/multikernel/runtime.env").read_bytes() == original_env.replace(str(old_size).encode(), str(larger).encode())
+        assert (root / "etc/multikernel/deployments" / first / "runtime.env").read_bytes() == original_env
+        for name in original_manifest["files"]:
+            assert (root / "etc/multikernel/deployments" / first / name).stat().st_mode & 0o777 == (root / "etc/multikernel/deployments" / grown_id / name).stat().st_mode & 0o777
+        for expected, target in [(old_size, larger), (larger, old_size), (larger, larger+1)]:
+            run(root, "update-storage-size", str(expected), str(target), ok=False)
+            assert active(root) == "deployments/" + grown_id
+        run(root, "activate", first)
+        print("IMMUTABLE_STORAGE_SIZE_ONLY_CLONE_STANDALONE_AND_STALE_SHRINK_ALIGNMENT_REFUSALS_PASS")
+
         second = json.loads(run(root, "install", *map(os.fspath, second_inputs)).stdout)["installed_and_active"]
         assert second != first and active(root) == f"deployments/{second}"
         assert_links(root)

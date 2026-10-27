@@ -320,9 +320,8 @@ def activate(root: Path, deployment_id: str):
         raise
 
 
-def install(root: Path, runtime_env: Path, host_config: Path):
+def install_files(root: Path, files, *, modes=None, expected_active=None):
     preflight_links(root)
-    files = deployment_files(runtime_env, host_config)
     deployment_id = identifier(files)
     preflight_links(root, create_parents=True)
     base = rooted(root, BASE)
@@ -339,6 +338,8 @@ def install(root: Path, runtime_env: Path, host_config: Path):
                 output = staging / name
                 output.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
                 mode = 0o600 if name in ("runtime.env", "mkruntime/config.json") else 0o755 if name in EXECUTABLES else 0o644
+                if modes is not None:
+                    mode = modes[name]
                 descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
                 with os.fdopen(descriptor, "wb") as stream:
                     stream.write(data)
@@ -353,8 +354,47 @@ def install(root: Path, runtime_env: Path, host_config: Path):
             shutil.rmtree(staging, ignore_errors=True)
             raise
         verify_deployment(root, deployment_id)
+    if expected_active is not None and os.readlink(rooted(root, BASE / "current")) != expected_active:
+        raise ValueError("active deployment changed while preparing the storage binding")
     activate(root, deployment_id)
     return deployment_id
+
+
+def install(root: Path, runtime_env: Path, host_config: Path):
+    preflight_links(root)
+    return install_files(root, deployment_files(runtime_env, host_config))
+
+
+def update_storage_size(root: Path, expected_bytes: int, new_bytes: int):
+    if not 0 < expected_bytes < new_bytes <= (1 << 63) or expected_bytes % 512 or new_bytes % 512:
+        raise ValueError("storage binding update requires a sector-aligned growth")
+    preflight_links(root)
+    selector = rooted(root, BASE / "current")
+    if not selector.is_symlink():
+        raise ValueError("no active deployment for storage binding update")
+    previous = os.readlink(selector)
+    previous_id = previous.split("/", 1)[1]
+    manifest = verify_deployment(root, previous_id)
+    directory = rooted(root, BASE / previous)
+    files = {name: secure_input(directory / name) for name in manifest["files"]}
+    modes = {name: stat.S_IMODE((directory / name).lstat().st_mode) for name in files}
+    if any(mode & 0o022 for mode in modes.values()):
+        raise ValueError("active deployment has writable files")
+    environment = files["runtime.env"]
+    validate_environment(environment)
+    matches = list(re.finditer(rb"(?m)^[ \t]*MKRUNTIME_STORAGE_BYTES=([0-9]+)[ \t]*\r?$", environment))
+    if len(matches) != 1 or int(matches[0][1]) != expected_bytes:
+        raise ValueError("active storage byte binding differs from expected old value")
+    match = matches[0]
+    files["runtime.env"] = environment[:match.start(1)] + str(new_bytes).encode("ascii") + environment[match.end(1):]
+    validate_environment(files["runtime.env"])
+    changed = [name for name in files if digest(files[name]) != manifest["files"][name]]
+    if changed != ["runtime.env"]:
+        raise ValueError("storage binding update changed unexpected deployment files")
+    selected = install_files(root, files, modes=modes, expected_active=previous)
+    return {"previous": previous_id, "active": selected, "changed_files": changed,
+            "old_bytes": expected_bytes, "new_bytes": new_bytes,
+            "disk_resize_performed": False, "service_restart_required": True}
 
 
 def inspection(root: Path):
@@ -410,6 +450,9 @@ def main():
     install_parser = commands.add_parser("install")
     install_parser.add_argument("runtime_env", type=Path)
     install_parser.add_argument("host_config", type=Path)
+    storage_parser = commands.add_parser("update-storage-size")
+    storage_parser.add_argument("expected_bytes", type=int)
+    storage_parser.add_argument("new_bytes", type=int)
     activate_parser = commands.add_parser("activate")
     activate_parser.add_argument("deployment")
     uninstall_parser = commands.add_parser("uninstall")
@@ -419,7 +462,7 @@ def main():
     remove_parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
     root = args.root.resolve(strict=True)
-    mutation = args.command in ("install", "activate") or getattr(args, "apply", False)
+    mutation = args.command in ("install", "activate", "update-storage-size") or getattr(args, "apply", False)
     try:
         if mutation and root == Path("/") and os.geteuid() != 0:
             raise PermissionError("system mutation requires root")
@@ -427,6 +470,8 @@ def main():
             result = inspection(root)
         elif args.command == "install":
             result = {"installed_and_active": install(root, args.runtime_env, args.host_config)}
+        elif args.command == "update-storage-size":
+            result = update_storage_size(root, args.expected_bytes, args.new_bytes)
         elif args.command == "activate":
             activate(root, args.deployment)
             result = {"active": args.deployment}
