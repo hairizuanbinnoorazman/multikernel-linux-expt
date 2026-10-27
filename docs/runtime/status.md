@@ -16,6 +16,15 @@ primary services active and retained file hashes unchanged. A committed
 size-only immutable deployment update repairs the stale 30 GB startup binding.
 Docker engine/images/containers/volumes match across boot; built-in network IDs
 changed, and prior-boot network identity parity remains unqualified.
+The later [live network/storage correlation trial](../../evidence/runtime-20261027/g8-live-network-doctor/README.md)
+also passes network-doctor v4 against the actual child at both holds and after
+removal, correlating exact ownership with the storage/native-process doctor.
+Its startup console limit is recorded; complete diagnostic coverage stays open.
+[Separate cold restoration](../../evidence/runtime-20261027/g8-network-doctor-cold-restoration/README.md)
+and [the user's subsequent restart](../../evidence/runtime-20261027/g8-user-restart-3ae4/README.md)
+are both verified without replacing historical receipts. Current boot 3ae4f0d8
+has the original transport, all four services active and all 92 retained files
+unchanged. The protected 50 GB binding remains in place.
 
 Full G7/G8 remains **OPEN**. Host-server queue-error retry remains
 injection-qualified, the earlier stall's cause remains unproven, and crash,
@@ -903,3 +912,20 @@ cap; the separate 370-byte teardown window retains quiesce/disconnect markers.
 The public proof records this limitation and does not claim complete console
 coverage or kernel stability. Cold restoration is tracked separately; no full
 G7/G8, atomic doctor or network-incarnation/complete-health gate closes.
+
+After the passing a29a1a1 trial, the separate cold verifier d0a4865c on boot
+1f78a4c0 succeeds with original transport/refcount zero, unchanged primary state,
+all active services, the unchanged protected 50 GB binding and all 92 retained
+file hashes/identities. The user then restarts again to boot 3ae4f0d8; this
+historical result remains preserved. A distinct read-only verifier c433d8b3
+rehashes the retained files for the user-restarted boot; it does not overwrite
+the first receipt or claim a newly sampled pre-user-restart state.
+
+The [additional user-restart proof](../../evidence/runtime-20261027/g8-user-restart-3ae4/README.md)
+now passes independently: c433d8b3 terminates successfully with all 92 retained
+file identities/hashes unchanged, original transport/refcount zero, all four
+services active, unchanged primary state and protected 50 GB deployment. The
+[earlier cold-restoration proof](../../evidence/runtime-20261027/g8-network-doctor-cold-restoration/README.md)
+a53ebeb remains the original historical checkpoint. No extra workload or agent
+reboot is used for the user-restarted boot. Cross-boot network identity parity
+and full G7/G8 remain unqualified.

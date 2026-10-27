@@ -233,8 +233,10 @@ now supports a protected, size-only immutable storage-binding update; see the
 The [latest live network/storage doctor checkpoint](evidence/runtime-20261027/g8-live-network-doctor/README.md)
 now matches the actual child generation, required endpoint and descriptor at
 ENOSPC and built-image holds, then confirms endpoint removal. Child-local builds
-and primary Docker inventory separation still pass. Startup console truncation
-remains explicit; complete health/diagnostics and full G7/G8 stay open.
+and primary Docker inventory separation still pass. [Cold restoration](evidence/runtime-20261027/g8-network-doctor-cold-restoration/README.md)
+and a separate [user-restart verification](evidence/runtime-20261027/g8-user-restart-3ae4/README.md)
+preserve all 92 retained files and the original transport. Startup console
+truncation remains explicit; complete health/diagnostics and full G7/G8 stay open.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
