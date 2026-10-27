@@ -138,9 +138,18 @@ qualifies one actual capabilities response through a CID-pinned native relay,
 with exact local peer checks, sealed credential FD, and unchanged primary and
 retained resource identities. This narrows diagnosis to a child that answers the
 probe; it does not qualify the failed Docker startup, readiness, recovery,
-version-5 live doctor, normal cleanup or complete G8 diagnostics. Existing
-runtime relay callers still need CID-mode adoption. The child/export remains
+version-5 live doctor, normal cleanup or complete G8 diagnostics. That probe alone
+does not qualify production callers. The child/export remains
 retained. Direct kernels use no nested virtualization and share host trust.
+
+The shared production relay factory subsequently adopts declared-CID enforcement
+without wildcard fallback. [Local controls](../../../evidence/runtime-20261028/g8-production-relay-controls/README.md)
+and [actual GCE qualification](../../../evidence/runtime-20261028/g8-production-relay-gce/README.md)
+prove real wrong-peer refusal before bridge publication and a matched response
+for the retained child's CID. The first failed positive case and fixture
+correction are retained separately. Production local relay identity checks,
+deployment and a complete fresh Docker lifecycle remain required; this factory
+probe does not qualify all startup/recovery/replacement paths on a live workload.
 
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested

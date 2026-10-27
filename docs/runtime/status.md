@@ -986,7 +986,22 @@ protocol 1, expected child kernel release and explicit root UID/GID claims.
 The owned relay exits zero; primary hashes/PIDs/Docker inventories and retained
 ledgers, child/CPU/module and native backing-process identities match. No backing
 image contents are read. Requests are signed, but reply-side cryptographic
-attestation and kernel incarnation are not established. Existing runtime callers
-still require adoption of the explicit CID mode. The failed child/export remains
+attestation and kernel incarnation are not established. That probe predates
+the production factory's CID-mode adoption described below. The failed child/export remains
 retained; startup cause, Docker recovery, normal cleanup and full G7/G8 remain
 open. Direct child kernels use no nested virtualization and share host trust.
+
+The shared production shim relay factory now requires the sandbox's declared
+CID for initial startup, worker recovery and exited relay replacement, with no
+wildcard fallback for older helpers. [Local controls](../../evidence/runtime-20261028/g8-production-relay-controls/README.md)
+cover this selection, legacy-helper refusal and relay lifecycle races. The
+[actual GCE factory qualification](../../evidence/runtime-20261028/g8-production-relay-gce/README.md)
+passes under a12db1ee: declared CID 41 observes a real refusal without Unix
+publication, then CID 40 returns matching capabilities. The
+[earlier failed positive case](../../evidence/runtime-20261028/g8-production-relay-gce-failed/README.md)
+and independently reproduced partial-schema fixture defect remain retained.
+The corrected source is 3f2f8efb; primary and retained resource observations match
+before/after. No installed runtime is replaced. Production local peer checks,
+complete Docker lifecycle/deployment qualification, retained-startup recovery,
+version-5 live doctor and full G7/G8 remain open. No nested virtualization or
+containment after child-kernel compromise is claimed.
