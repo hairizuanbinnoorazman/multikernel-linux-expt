@@ -25,7 +25,48 @@ func (s *service) dialAgent(ctx context.Context, path string) (agentClient, erro
 	if s.agentDial != nil {
 		return s.agentDial(ctx, path, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
 	}
-	return agent.DialContext(ctx, path, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token)
+	s.relayMu.Lock()
+	defer s.relayMu.Unlock()
+	pid, err := s.ownedRelayPIDLocked(path)
+	if err != nil {
+		return nil, err
+	}
+	client, err := agent.DialPeerContext(ctx, path, s.sandbox.ID, s.sandbox.Generation, s.sandbox.Config.AgentPort, s.token, pid)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+// The unreaped exec.Cmd binds the PID to our child. Hold relayMu through peer
+// verification so replacement/cleanup cannot change that ownership mid-dial.
+func (s *service) ownedRelayPIDLocked(path string) (int, error) {
+	if s.relaySocket != path || s.relayOwner == nil || s.relay == nil || s.relay.Process == nil {
+		return 0, errors.New("owned agent relay is unavailable")
+	}
+	live, err := relayProcessLive(s.relay)
+	if err != nil || !live {
+		return 0, errors.Join(errors.New("owned agent relay is not live"), err)
+	}
+	return s.relay.Process.Pid, nil
+}
+
+func (s *service) reconnectAgent(ctx context.Context, path string) error {
+	checked, ok := s.agent.(interface {
+		ReconnectPeerContext(context.Context, string, int) error
+	})
+	if !ok {
+		// Test adapters implement the narrow agentClient interface. The real
+		// production client always takes the checked-peer branch below.
+		return s.agent.ReconnectContext(ctx, path)
+	}
+	s.relayMu.Lock()
+	defer s.relayMu.Unlock()
+	pid, err := s.ownedRelayPIDLocked(path)
+	if err != nil {
+		return err
+	}
+	return checked.ReconnectPeerContext(ctx, path, pid)
 }
 
 func (s *service) negotiateAgentCapabilities(ctx context.Context) error {
@@ -407,7 +448,7 @@ func (s *service) callAgentWithReconnectContext(parent context.Context, method s
 		if errors.As(lastErr, &remoteError) || relaySocket == "" || ctx.Err() != nil {
 			return lastErr
 		}
-		if err := s.agent.ReconnectContext(ctx, relaySocket); err != nil {
+		if err := s.reconnectAgent(ctx, relaySocket); err != nil {
 			lastErr = errors.Join(lastErr, fmt.Errorf("reconnect guest agent transport: %w", err))
 			if _, replaceErr := s.replaceExitedRelay(ctx, relayGeneration); replaceErr != nil {
 				lastErr = errors.Join(lastErr, replaceErr)

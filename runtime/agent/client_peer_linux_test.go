@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -30,6 +31,136 @@ func ownedAgentListener(t *testing.T) (net.Listener, string) {
 		t.Fatal(err)
 	}
 	return listener, path
+}
+
+func TestAgentCheckedPeerRelayHelper(t *testing.T) {
+	path := os.Getenv("MK_AGENT_PEER_RELAY_SOCKET")
+	if path == "" {
+		t.Skip("subprocess relay fixture")
+	}
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal("proxy listener unavailable")
+	}
+	defer listener.Close()
+	if os.Chmod(path, 0600) != nil {
+		t.Fatal("proxy mode unavailable")
+	}
+	for {
+		front, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		go func() {
+			defer front.Close()
+			back, err := net.Dial("unix", os.Getenv("MK_AGENT_PEER_BACKEND_SOCKET"))
+			if err != nil {
+				return
+			}
+			defer back.Close()
+			done := make(chan struct{})
+			go func() { io.Copy(back, front); back.(*net.UnixConn).CloseWrite(); close(done) }()
+			io.Copy(front, back)
+			front.(*net.UnixConn).CloseWrite()
+			<-done
+		}()
+	}
+}
+
+func TestAgentCheckedPeerExplicitReplacementPreservesSequenceAndPolicy(t *testing.T) {
+	listener, backend := ownedAgentListener(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	server := &Server{Manager: NewManager(true), SandboxID: "box", Generation: "0123456789abcdef0123456789abcdef", Endpoint: 7001, Token: []byte("01234567890123456789012345678901")}
+	go server.Serve(ctx, listener)
+	path := filepath.Join(filepath.Dir(backend), "proxy.sock")
+	start := func() *exec.Cmd {
+		command := exec.Command(os.Args[0], "-test.run=^TestAgentCheckedPeerRelayHelper$", "-test.timeout=15s")
+		command.Env = append(os.Environ(), "MK_AGENT_PEER_RELAY_SOCKET="+path, "MK_AGENT_PEER_BACKEND_SOCKET="+backend)
+		if command.Start() != nil {
+			t.Fatal("proxy start failed")
+		}
+		t.Cleanup(func() {
+			if command.ProcessState == nil {
+				command.Process.Kill()
+				command.Wait()
+			}
+		})
+		deadline := time.Now().Add(3 * time.Second)
+		for {
+			if _, err := os.Stat(path); err == nil {
+				return command
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("proxy publication timed out")
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}
+	first := start()
+	client, err := DialPeerContext(t.Context(), path, server.SandboxID, server.Generation, server.Endpoint, server.Token, first.Process.Pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if client.Call("Capabilities", map[string]any{}, nil) != nil {
+		t.Fatal("initial authenticated call failed")
+	}
+	sequence := client.sequence
+	client.Close()
+	if client.Call("Capabilities", map[string]any{}, nil) == nil {
+		t.Fatal("closed stream accepted")
+	}
+	if first.Process.Kill() != nil {
+		t.Fatal("proxy termination failed")
+	}
+	first.Wait()
+	if os.Remove(path) != nil {
+		t.Fatal("owned fixture socket removal failed")
+	}
+	second := start()
+	old := dialAgent
+	dialAgent = func(context.Context, string, string) (net.Conn, error) {
+		t.Error("unverified fallback used")
+		return nil, errors.New("unchecked")
+	}
+	defer func() { dialAgent = old }()
+	if client.ReconnectContext(t.Context(), path) == nil {
+		t.Fatal("ordinary reconnect silently selected a different process")
+	}
+	if client.ReconnectPeerContext(t.Context(), path, first.Process.Pid) == nil {
+		t.Fatal("wrong replacement identity accepted")
+	}
+	if client.sequence != sequence || !client.unusable {
+		t.Fatal("failed verification changed sequence or stream state")
+	}
+	if client.ReconnectContext(t.Context(), path) == nil {
+		t.Fatal("failed explicit rebind changed the old peer policy")
+	}
+	if client.ReconnectPeerContext(t.Context(), path, second.Process.Pid) != nil {
+		t.Fatal("owned replacement rejected")
+	}
+	if client.sequence != sequence {
+		t.Fatal("replacement reset authenticated sequence")
+	}
+	if client.Call("Capabilities", map[string]any{}, nil) != nil {
+		t.Fatal("continued authenticated session refused")
+	}
+	sequence = client.sequence
+	client.Close()
+	if client.ReconnectContext(t.Context(), path) != nil || client.sequence != sequence {
+		t.Fatal("ordinary reconnect did not retain replacement policy and sequence")
+	}
+	if client.Call("Capabilities", map[string]any{}, nil) != nil {
+		t.Fatal("replacement policy lost authentication continuity")
+	}
+}
+
+func TestAgentUncheckedClientCannotSelectReplacementPeer(t *testing.T) {
+	client := &Client{sequence: 41, unusable: true}
+	if client.ReconnectPeerContext(t.Context(), "/unused", os.Getpid()) == nil || client.sequence != 41 || !client.unusable {
+		t.Fatal("unchecked client bypassed peer-policy initialization")
+	}
 }
 func TestAgentCheckedPeerRejectsBeforeWriting(t *testing.T) {
 	for _, mode := range []string{"wrong-pid", "unsafe-socket", "invalid-pid", "canceled"} {

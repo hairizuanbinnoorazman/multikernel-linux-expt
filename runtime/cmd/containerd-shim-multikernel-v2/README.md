@@ -12,8 +12,12 @@ relay replacement. Deploy a matching pinned native helper; there is no wildcard
 fallback for older helper binaries. The helper rejects other CIDs before Unix
 socket publication or forwarding and emits one fixed refusal diagnostic per
 process, bounded independently of the number of refused peers. This binds the
-transport peer, without attesting a guest process. The existing production agent
-dial remains distinct from the diagnostic's additional local PID/UID/GID check.
+transport peer, without attesting a guest process. Production agent dial and
+reconnect also require the exact local PID/UID/GID of the owned live relay,
+with the ownership lock held through verification. An exited relay replacement
+explicitly rebinds that checked policy to its new owned PID while retaining the
+authenticated sequence; failed verification sends no request and retains the
+previous policy. Ordinary reconnect never silently changes the expected PID.
 Direct child kernels use no nested virtualization and share host trust after
 compromise. Full Docker lifecycle qualification remains required for changes to
 the deployed shim/helper pair.

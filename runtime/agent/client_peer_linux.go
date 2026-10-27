@@ -16,14 +16,15 @@ import (
 
 // DialPeerContext requires a protected, captured Unix socket and the exact
 // expected helper PID and caller UID/GID before any request is sent. Reconnect
-// retains the same requirement; replacing a helper requires a new checked dial.
+// retains the same requirement. A trusted owner can explicitly rebind an owned
+// replacement with ReconnectPeerContext, preserving authentication sequence.
 // This checks the local helper, not the remote VSOCK peer or guest incarnation.
 func DialPeerContext(ctx context.Context, path, sandboxID, generation string, endpoint uint32, token []byte, peerPID int) (*Client, error) {
-	if peerPID <= 0 || peerPID > math.MaxInt32 {
-		return nil, errors.New("invalid agent relay peer identity")
-	}
 	uid, gid := uint32(os.Geteuid()), uint32(os.Getegid())
-	dial := func(ctx context.Context, path string) (net.Conn, error) {
+	dialPeer := func(ctx context.Context, path string, peerPID int) (net.Conn, error) {
+		if peerPID <= 0 || peerPID > math.MaxInt32 {
+			return nil, errors.New("invalid agent relay peer identity")
+		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -59,9 +60,33 @@ func DialPeerContext(ctx context.Context, path, sandboxID, generation string, en
 		}
 		return conn, nil
 	}
+	dial := func(ctx context.Context, path string) (net.Conn, error) { return dialPeer(ctx, path, peerPID) }
 	conn, err := dial(ctx, path)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{conn: conn, token: token, sandboxID: sandboxID, generation: generation, endpoint: endpoint, sequence: initialSequence(), reconnectDial: dial}, nil
+	return &Client{conn: conn, token: token, sandboxID: sandboxID, generation: generation, endpoint: endpoint, sequence: initialSequence(), reconnectDial: dial, peerDial: dialPeer}, nil
+}
+
+// ReconnectPeerContext explicitly selects a replacement local relay. The caller
+// must establish ownership of peerPID; the client verifies SO_PEERCRED with that
+// PID and the UID/GID captured at its initial checked dial before any request.
+// Failed verification preserves both the old policy and sequence. Success pins
+// subsequent ordinary reconnects to the replacement, without issuing/replaying
+// any RPC or resetting sequence. Unchecked clients cannot use this method.
+func (c *Client) ReconnectPeerContext(ctx context.Context, path string, peerPID int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.peerDial == nil {
+		return errors.New("agent checked peer policy required")
+	}
+	conn, err := c.peerDial(ctx, path, peerPID)
+	if err != nil {
+		return err
+	}
+	c.replaceConnectionLocked(conn)
+	c.reconnectDial = func(ctx context.Context, path string) (net.Conn, error) {
+		return c.peerDial(ctx, path, peerPID)
+	}
+	return nil
 }

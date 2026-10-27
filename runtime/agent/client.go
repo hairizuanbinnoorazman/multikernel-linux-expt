@@ -29,6 +29,7 @@ type Client struct {
 	Timeout               time.Duration
 	unusable              bool // guarded by mu; cleared only by a successful reconnect
 	reconnectDial         func(context.Context, string) (net.Conn, error)
+	peerDial              func(context.Context, string, int) (net.Conn, error)
 }
 
 // RemoteError is a successfully authenticated agent reply that rejected the
@@ -76,13 +77,19 @@ func (c *Client) ReconnectContext(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
+	c.replaceConnectionLocked(conn)
+	return nil
+}
+
+// replaceConnectionLocked installs a verified connection without resetting the
+// authenticated sequence. The caller holds mu.
+func (c *Client) replaceConnectionLocked(conn net.Conn) {
 	old := c.conn
 	c.conn = conn
 	c.unusable = false
 	if old != nil {
 		_ = old.Close()
 	}
-	return nil
 }
 
 func (c *Client) Call(method string, request, response any) error {

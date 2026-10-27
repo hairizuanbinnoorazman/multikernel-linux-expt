@@ -7,7 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -19,6 +21,81 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
+
+func TestProductionAgentPeerFailuresNeverWriteCredentials(t *testing.T) {
+	path := filepath.Join(privateTestDirectory(t), "relay.sock")
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener.SetUnlinkOnClose(false)
+	defer listener.Close()
+	if os.Chmod(path, 0600) != nil {
+		t.Fatal("socket protection failed")
+	}
+	command := exec.Command("/bin/sleep", "60")
+	command.SysProcAttr = newRelayCommand("/unused", 40, 7200, path).SysProcAttr
+	if command.Start() != nil {
+		t.Fatal("owned child start failed")
+	}
+	s := &service{relay: command, relaySocket: path, token: []byte("01234567890123456789012345678901"), sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32), Config: protocol.SandboxConfig{AgentPort: 7200}}}
+	defer s.stopRelay()
+	if s.acquireRelaySocketOwner(path) != nil {
+		t.Fatal("socket capture failed")
+	}
+	reads := make(chan int, 3)
+	go func() {
+		for {
+			c, e := listener.Accept()
+			if e != nil {
+				return
+			}
+			go func() {
+				defer c.Close()
+				c.SetReadDeadline(time.Now().Add(time.Second))
+				var b [1]byte
+				n, _ := c.Read(b[:])
+				reads <- n
+			}()
+		}
+	}()
+	if client, e := s.dialAgent(t.Context(), path); e == nil || client != nil {
+		t.Fatal("production dial trusted socket owner without exact helper PID")
+	}
+	// Initialize a checked client for the listener PID, then prove the shim
+	// cannot silently retain that policy when its owned command has another PID.
+	client, err := agent.DialPeerContext(t.Context(), path, s.sandbox.ID, s.sandbox.Generation, 7200, s.token, os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.agent = client
+	if s.reconnectAgent(t.Context(), path) == nil {
+		t.Fatal("production reconnect bypassed owned helper PID")
+	}
+	client.Close()
+	for range 3 {
+		select {
+		case n := <-reads:
+			if n != 0 {
+				t.Fatal("credentials sent before peer validation")
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("peer refusal did not close unwritten transport")
+		}
+	}
+	owner := s.relayOwner
+	s.relayOwner = nil
+	if _, err = s.dialAgent(t.Context(), path); err == nil {
+		t.Fatal("uncaptured relay accepted")
+	}
+	s.relayOwner = owner
+	if terminateRelay(command) != nil {
+		t.Fatal("owned child cleanup failed")
+	}
+	if _, err = s.dialAgent(t.Context(), path); err == nil {
+		t.Fatal("reaped helper accepted")
+	}
+}
 
 func TestDefaultRelayBindsDeclaredChildPeer(t *testing.T) {
 	t.Setenv("MK_RELAY", "/opt/approved/mkvsock-relay")
@@ -89,6 +166,7 @@ func TestLiveDefaultRelayDeclaredPeer(t *testing.T) {
 		t.Helper()
 		path := filepath.Join(dir, "relay-"+strconv.Itoa(int(cid))+".sock")
 		s := &service{sandbox: protocol.Sandbox{ID: id, Generation: gen, Config: protocol.SandboxConfig{ChildCID: cid, AgentPort: 7200}}}
+		s.token, s.relaySocket = key, path
 		command := s.relayCommand(7200, path)
 		// Native diagnostics contain only fixed messages; read after Wait to avoid
 		// races with exec's stderr-copy goroutine.
@@ -97,8 +175,9 @@ func TestLiveDefaultRelayDeclaredPeer(t *testing.T) {
 		if err = command.Start(); err != nil {
 			t.Fatal("staged relay launch failed")
 		}
+		s.relay = command
 		defer func() {
-			if terminateRelay(command) != nil {
+			if s.stopRelay() != nil {
 				t.Error("owned relay cleanup failed")
 			}
 		}()
@@ -126,10 +205,10 @@ func TestLiveDefaultRelayDeclaredPeer(t *testing.T) {
 			if err != nil {
 				t.Fatal("protected bridge capture failed")
 			}
-			defer owner.Remove()
+			s.relayOwner = owner
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
-			client, err := agent.DialPeerContext(ctx, path, id, gen, 7200, key, command.Process.Pid)
+			client, err := s.dialAgent(ctx, path)
 			if err != nil {
 				t.Fatal("local relay peer verification failed")
 			}
@@ -141,6 +220,34 @@ func TestLiveDefaultRelayDeclaredPeer(t *testing.T) {
 			if !liveRelayCapabilitiesMatch(c, os.Getenv("MK_LIVE_RELAY_RELEASE")) {
 				t.Fatal("capabilities mismatch")
 			}
+			// Close only our authenticated transport, allowing the owned helper
+			// to exit. Replacement must select and verify its new PID while the
+			// actual guest retains authentication sequence state.
+			s.agent = client
+			client.Close()
+			exitDeadline := time.Now().Add(3 * time.Second)
+			for {
+				live, inspectErr := relayProcessLive(command)
+				if inspectErr != nil {
+					t.Fatal("owned relay exit observation failed")
+				}
+				if !live {
+					break
+				}
+				if time.Now().After(exitDeadline) {
+					t.Fatal("owned relay did not exit after transport close")
+				}
+				time.Sleep(25 * time.Millisecond)
+			}
+			recovery, recoveryCancel := context.WithTimeout(t.Context(), 8*time.Second)
+			defer recoveryCancel()
+			if replaced, replaceErr := s.replaceExitedRelay(recovery, 0); replaceErr != nil || !replaced || s.relay.Process.Pid == command.Process.Pid {
+				t.Fatal("owned exited relay replacement failed")
+			}
+			c = guestCapabilities{}
+			if s.callAgentWithReconnectContext(recovery, "Capabilities", map[string]any{}, &c) != nil || !liveRelayCapabilitiesMatch(c, os.Getenv("MK_LIVE_RELAY_RELEASE")) {
+				t.Fatal("production peer-checked reconnect failed capabilities continuity")
+			}
 		}
 		if terminateRelay(command) != nil {
 			t.Fatal("relay termination failed")
@@ -148,7 +255,7 @@ func TestLiveDefaultRelayDeclaredPeer(t *testing.T) {
 		if !matched && !strings.Contains(stderr.String(), "relay peer rejected before Unix bridge publication") {
 			t.Fatal("no actual peer refusal observed")
 		}
-		outcome := map[string]any{"declared_cid": cid, "bridge_published": published, "capabilities_matched": matched, "actual_peer_refusal_observed": !matched, "mutating_guest_method_attempted": false}
+		outcome := map[string]any{"declared_cid": cid, "bridge_published": published, "capabilities_matched": matched, "owned_replacement_reconnect_matched": matched, "actual_peer_refusal_observed": !matched, "mutating_guest_method_attempted": false}
 		b, _ := json.Marshal(outcome)
 		t.Log(string(b))
 	}

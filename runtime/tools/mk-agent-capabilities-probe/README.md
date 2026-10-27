@@ -13,7 +13,11 @@ Use a fresh protected Unix socket served by the explicitly selected native
 `mkvsock-relay server-peer CID PORT SOCKET`. That mode checks the kernel-provided
 remote CID before publishing the socket. Pass the PID of that owned relay as
 `--relay-pid`. `agent.DialPeerContext` checks captured socket ownership and exact
-local PID/UID/GID before writing; explicit reconnect preserves this same check.
+local PID/UID/GID before writing; ordinary reconnect preserves this same check.
+For production helper replacement, a trusted owner may explicitly select its
+new owned PID with `ReconnectPeerContext`; this retains the initially captured
+UID/GID and authentication sequence and pins later ordinary reconnects to that
+replacement. Failed verification changes neither policy nor sequence.
 The current shim also selects this native mode through its shared production
 factory. This diagnostic alone does not qualify shim deployment, recovery or a
 complete Docker lifecycle, and older deployed helpers remain unchanged.
