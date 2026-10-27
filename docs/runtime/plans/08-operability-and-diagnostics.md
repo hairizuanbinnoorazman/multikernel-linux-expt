@@ -147,9 +147,20 @@ without wildcard fallback. [Local controls](../../../evidence/runtime-20261028/g
 and [actual GCE qualification](../../../evidence/runtime-20261028/g8-production-relay-gce/README.md)
 prove real wrong-peer refusal before bridge publication and a matched response
 for the retained child's CID. The first failed positive case and fixture
-correction are retained separately. Production local relay identity checks,
-deployment and a complete fresh Docker lifecycle remain required; this factory
+correction are retained separately. That factory-only proof does not qualify
+production local relay identity checks. Deployment and a complete fresh Docker lifecycle remain required; this factory
 probe does not qualify all startup/recovery/replacement paths on a live workload.
+
+Subsequent [production peer controls](../../../evidence/runtime-20261028/g8-production-peer-controls/README.md)
+and [actual GCE peer/replacement qualification](../../../evidence/runtime-20261028/g8-production-peer-gce/README.md)
+qualify exact owned PID/UID/GID verification before credentials, zero-byte
+refusal, and sequence-preserving explicit rebind after an owned relay exits.
+The real child returns matching capabilities through the production reconnect
+loop after a new helper PID is verified. Primary and retained resource identities
+match before/after. These transport methods are qualified within that test;
+complete Docker workload/worker recovery, readiness, diagnostics, normal cleanup
+and full G7/G8 still require evidence. No nested virtualization is used, and the
+shared host trust boundary remains explicit.
 
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested

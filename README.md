@@ -273,6 +273,13 @@ replacement share this factory. The first failed positive-case fixture and its
 correction are retained separately; complete Docker lifecycle qualification and
 deployment of the shim/helper pair remain open.
 
+[Production local-peer and replacement qualification](evidence/runtime-20261028/g8-production-peer-gce/README.md)
+also passes on GCE: the shim verifies the owned relay's PID/UID/GID before
+sending credentials and receives matching capabilities after replacing an
+exited helper with a new PID. The authentication sequence is preserved.
+Primary state and retained resource identities match before/after. This covers
+the transport methods; a complete fresh Docker lifecycle remains required.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

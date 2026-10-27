@@ -1001,7 +1001,29 @@ publication, then CID 40 returns matching capabilities. The
 [earlier failed positive case](../../evidence/runtime-20261028/g8-production-relay-gce-failed/README.md)
 and independently reproduced partial-schema fixture defect remain retained.
 The corrected source is 3f2f8efb; primary and retained resource observations match
-before/after. No installed runtime is replaced. Production local peer checks,
-complete Docker lifecycle/deployment qualification, retained-startup recovery,
+before/after. No installed runtime is replaced. That factory-only proof does not
+qualify production local peer checks. Complete Docker lifecycle/deployment qualification, retained-startup recovery,
 version-5 live doctor and full G7/G8 remain open. No nested virtualization or
 containment after child-kernel compromise is claimed.
+
+Production change 2b31b065 then requires protected captured socket identity and
+the owned live relay's exact PID/UID/GID for initial dial and reconnect, with
+relay ownership locked through verification. An explicit checked replacement
+rebind preserves authentication sequence and the initially captured UID/GID;
+ordinary reconnect remains pinned, and failed verification preserves policy and
+sequence. [Local controls](../../evidence/runtime-20261028/g8-production-peer-controls/README.md)
+verify zero writes on production wrong-peer refusal, missing/reaped ownership,
+and authenticated continuity across distinct real proxy subprocesses. The found
+typed-nil adapter failure is retained with its correction. Full runtime race and
+required checks pass with qualified containerd 2.2.10.
+
+[Actual GCE qualification](../../evidence/runtime-20261028/g8-production-peer-gce/README.md)
+under 26412eea uses the production factory, checked dial, exited helper replacement
+and checked reconnect against the retained MK child. The old helper exits, its
+replacement has a new PID, and matching capabilities return through the production
+reconnect loop. Primary hashes/PIDs/Docker inventories and retained resource
+identities match before/after. The child/export remains retained, without image
+content reads or installed runtime replacement. This qualifies these transport
+methods; complete Docker creation/build/worker recovery, version-5 live doctor,
+normal cleanup, readiness and full G7/G8 remain open. No nested virtualization
+is used; direct kernels share host trust after compromise.
