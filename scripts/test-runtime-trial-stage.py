@@ -45,7 +45,7 @@ class TrialStageTests(unittest.TestCase):
             digest=hashlib.sha256(helper.read_bytes()).hexdigest()
             (repo/'scripts/runtime_trial_helper.py').write_text('PINS = '+repr({'qualified':digest})+'\n')
             def git(*args):return sp.check_output(['git',*args],cwd=repo,stderr=sp.PIPE,text=True).strip()
-            git('init','-q');git('add','.')
+            git('init','-q');git('config','tar.umask','0000');git('add','.')
             git('-c','user.name=Fixture','-c','user.email=fixture@invalid','commit','-qm','committed snapshot')
             commit=git('rev-parse','HEAD')
             for name in names:(repo/'runtime/cmd'/name/'main.go').write_text('package main\nfunc main(){panic("dirty worktree used")}\n')
@@ -67,6 +67,11 @@ class TrialStageTests(unittest.TestCase):
                     self.assertFalse(member.mode&0o022)
                     if member.name=='bin':self.assertEqual(member.mode,0o700)
                     if member.name.startswith('bin/'):self.assertEqual(member.mode,0o500)
+            with tarfile.open(output/'source.tar') as source_packet:
+                for member in source_packet.getmembers():
+                    self.assertEqual((member.uid,member.gid),(0,0))
+                    self.assertFalse(member.mode&0o022,member.name)
+                    if member.isdir():self.assertEqual(member.mode,0o755)
             self.assertEqual((output/'bin/mkvsock-nbd').read_bytes(),helper.read_bytes())
             print('REAL_COMMITTED_GO_SNAPSHOT_DIRTY_WORKTREE_AMBIENT_FLAG_ISOLATION_PROTECTED_PACKET_PASS')
             original=helper.read_bytes();helper.write_bytes(original+b'corruption')

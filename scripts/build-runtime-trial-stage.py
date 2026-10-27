@@ -60,7 +60,7 @@ def build(args):
     (output/'source').mkdir(mode=0o700)
     archive = output/'source.tar'
     with archive.open('xb') as file:
-        sp.run(['git','archive',revision,*ROOTS],cwd=source_root,stdout=file,check=True)
+        sp.run(['git','-c','tar.umask=0022','archive',revision,*ROOTS],cwd=source_root,stdout=file,check=True)
     archive.chmod(0o600)
     with tarfile.open(archive) as snapshot:
         if snapshot.pax_headers.get('comment') != revision:
