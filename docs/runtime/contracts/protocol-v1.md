@@ -217,3 +217,14 @@ marshaling failure or an already-canceled caller before wire work preserves an
 otherwise usable stream. Existing timeout/caller-deadline limits and operation
 reconciliation still apply. A partially observed operation may have executed;
 sequence reset or blind non-idempotent replay is not a recovery mechanism.
+
+[Exact baseline and patched-client proof](../../../evidence/runtime-20261027/g8-agent-stream-invalidation/README.md)
+reproduces stale-reply reuse on pipes and Unix sockets, then qualifies connection
+invalidation, explicit sequence-preserving reconnect and semantic-error
+compatibility. This is separate from establishing the failed GCE startup's cause
+or completing G7/G8 child-build qualification.
+
+[Isolated GCE controls](../../../evidence/runtime-20261027/g8-agent-stream-invalidation-gce/README.md)
+independently pass the same socket and authenticated reconnect cases while
+preserving the retained failed generation and primary state. They use a synthetic
+agent, so actual MK/child startup recovery remains separately unqualified.

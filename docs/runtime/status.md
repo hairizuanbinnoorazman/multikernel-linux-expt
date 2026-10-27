@@ -10,6 +10,9 @@ Current test-host state: the 0c50de9 combined-doctor trial failed before reachin
 its live holds. Its exact child/export generation remains retained, with one
 open native backing descriptor and the candidate transport still loaded.
 Normal cleanup and cold restoration are **not** qualified for this attempt.
+The related agent stream reuse bug is independently reproduced and fixed in
+a4b11660; local/full-runtime race and isolated GCE socket controls pass. This has
+not been qualified against the retained child or shown to resolve its startup.
 The last passing earlier cases below retain their scope. Preserve this failed
 private generation and follow the escalation contract before another live trial.
 
@@ -953,3 +956,19 @@ but child resources and host networking are not claimed released. Root cause,
 actual version-5 child qualification and full G7/G8 remain open. Private original
 ledgers are copied without mutation; raw console and state stay private. No blind
 retry, hot module unload or automatic storage/ledger release is performed.
+
+[Agent stream invalidation proof](../../evidence/runtime-20261027/g8-agent-stream-invalidation/README.md)
+408f790c reproduces a separate client defect against exact committed 0c95b5a9 on
+both pipes and real Unix sockets: a canceled response read leaves a usable stream,
+so the next call writes another request and consumes the previous reply as a
+sequence mismatch. Code a4b11660 closes ambiguous framing/deadline failures and
+requires explicit reconnect without resetting the request sequence or replaying
+inside the client. Structured operation errors and complete typed-body rejection
+retain synchronized streams. Full runtime race and required checks pass.
+[GCE controls](../../evidence/runtime-20261027/g8-agent-stream-invalidation-gce/README.md)
+cbbe69ca independently pass under f52117e5 in an isolated unit with synthetic
+authenticated agent sessions and real Unix sockets. Primary files/PIDs/Docker
+inventories, failed ledgers and native backing-process identity match before and
+after. The original failed child/export and candidate transport remain retained.
+This does not establish that stream reuse caused the 0c50de9 startup failure,
+qualify actual MK/child recovery, or close full G7/G8.

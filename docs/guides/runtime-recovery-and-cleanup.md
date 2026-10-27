@@ -257,3 +257,20 @@ rootfs cleanup may fail after a delete event was accepted. A retained PID is not
 kill authority; retain the boot, process incarnation and sandbox generation when
 inspecting a failure. Worker-crash recovery and live child Docker behavior still
 require separate qualification.
+
+## Interrupted agent RPC streams
+
+The [client regression proof](../../evidence/runtime-20261027/g8-agent-stream-invalidation/README.md)
+shows that an interrupted response can leave an old reply pending on an otherwise
+usable connection. The hardened client closes ambiguous frames and returns local
+`ErrReconnectRequired` on later calls before another write or sequence increment.
+An explicit successful reconnect preserves the existing request sequence; failed
+dials do not restore the old stream. Operation identity/reconciliation is still
+required when the first request may have executed. Do not reset the sequence or
+reinterpret this error as permission to replay a non-idempotent operation.
+
+[Isolated GCE controls](../../evidence/runtime-20261027/g8-agent-stream-invalidation-gce/README.md)
+qualify that behavior with a synthetic authenticated agent and real Unix sockets.
+They do not prove the cause of the retained 0c50de9 startup failure or authorize
+cleanup of its active child/export. The generation-bound escalation and retention
+rules above continue to apply before further live trials.

@@ -246,6 +246,12 @@ with a retained active child/export and unproven startup cause. Version-5 live
 qualification and normal cleanup remain open; the failed generation is retained
 for diagnosis. Earlier passing child Docker proofs retain their own scope.
 
+An independently reproduced [agent stream reuse defect](evidence/runtime-20261027/g8-agent-stream-invalidation/README.md)
+is now fixed: interrupted frames close the stream, and later calls require
+explicit reconnect while preserving the request sequence. [GCE socket controls](evidence/runtime-20261027/g8-agent-stream-invalidation-gce/README.md)
+pass with retained ownership and primary state unchanged. The failed startup's
+cause and recovery remain unproven.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
