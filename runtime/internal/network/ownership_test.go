@@ -287,3 +287,23 @@ func TestOwnershipCancellationClosesPendingCapabilityRead(t *testing.T) {
 		t.Fatal("canceled ownership read waited for the socket timeout")
 	}
 }
+
+// Shared with the independent Python live-checkpoint projector. A digest
+// mismatch must stop qualification rather than silently ignoring descriptor drift.
+func TestEndpointDescriptorCrossLanguageVector(t *testing.T) {
+	data, err := os.ReadFile("testdata/endpoint-descriptor.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vector struct {
+		Endpoint         Endpoint `json:"endpoint"`
+		DescriptorSHA256 string   `json:"descriptor_sha256"`
+	}
+	if err := json.Unmarshal(data, &vector); err != nil {
+		t.Fatal(err)
+	}
+	got, err := endpointDescriptor(vector.Endpoint)
+	if err != nil || got != vector.DescriptorSHA256 {
+		t.Fatalf("descriptor=%s err=%v", got, err)
+	}
+}

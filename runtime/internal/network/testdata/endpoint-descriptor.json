@@ -1,0 +1,36 @@
+{
+  "endpoint": {
+    "container_id": "synthetic-private-container",
+    "network_name": "synthetic-private-network",
+    "if_name": "eth0",
+    "netns": "/run/netns/synthetic-private",
+    "address": "192.0.2.2/24",
+    "gateway": "192.0.2.1",
+    "mtu": 1500,
+    "dns": {
+      "domain": "synthetic-private-例",
+      "nameservers": [
+        "192.0.2.53"
+      ],
+      "search": [
+        "synthetic-private-search"
+      ],
+      "options": [
+        "ndots:1"
+      ]
+    },
+    "generation": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "sandbox_id": "box-a",
+    "sandbox_generation": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "primary_boot_id": "00ac7aff-a963-4e30-a085-6811e83f0e12",
+    "owner": "runtime",
+    "managed_namespace": true,
+    "state": "READY",
+    "rx_packets": 12,
+    "tx_packets": 13,
+    "rx_drops": 0,
+    "tx_drops": 0,
+    "errors": 0
+  },
+  "descriptor_sha256": "2d81999bef3d9c14ef48cda2cf1426c61c03158c4892b9f0d91e55aba5d51db5"
+}
