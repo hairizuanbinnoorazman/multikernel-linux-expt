@@ -190,32 +190,45 @@ This does not attest live network policy, child isolation or Docker builds.
 Native endpoint CHECK now rejects substring lookalikes in MTU, route, address,
 link flags and forwarding values. [GCE state-value proof](evidence/runtime-20261027/g8-endpoint-state-values/README.md)
 covers real MTU/gateway changes, refusal and restoration in disposable network
-namespaces. This qualifies sampled checks; active child Docker remains open.
+namespaces. These qualify sampled checks; the later active-child trial is linked below.
 
 The [early trial capacity guard](evidence/runtime-20261027/g8-trial-capacity-admission/README.md)
 now refuses insufficient storage before transport switching or Docker setup.
 It preserves the 2 GiB image and 1 GiB reserve; passing its minimum floor still
-requires the builder's staging and capacity checks. The next full live trial
-remains pending adequate storage capacity.
+requires the builder's staging and capacity checks. The approved data-disk
+expansion has now removed the previous minimum-capacity blocker.
 
 The candidate host NBD helper now retries MK ring-full reply/read sends within
 the original frame deadline. [Real server-loop GCE controls](evidence/runtime-20261027/g8-server-queue-retry/README.md)
 pass with injected pressure, partial writes and unchanged primary state. The
-candidate is undeployed; actual MK transport and child Docker requalification
-remain open.
+installed helper pins remain unchanged; live candidate qualification is tracked
+in the runtime status.
 
 Disposable trials now have an explicit [static candidate helper pin](evidence/runtime-20261027/g8-static-trial-helper/README.md)
 while retaining the qualified helper as the default. GCE checks both pins,
 unsafe-artifact refusals and static/dynamic native server controls. Current
-runtime binaries and source are staged; no candidate is installed and no full
-child Docker trial has started. Storage expansion is awaiting approval.
+runtime binaries and source are staged with installed defaults unchanged. The
+[private candidate trial](evidence/runtime-20261027/g8-live-static-candidate/README.md)
+now passes actual ENOSPC recovery, repeated builds, child-engine/image separation
+and normal cleanup. [Cold restoration proof](evidence/runtime-20261027/g8-live-static-restoration/README.md)
+confirms the original transport, all retained file hashes and primary services
+after one graceful reboot. Full G7/G8 remains open.
 
 The [committed trial-packet builder](docs/runtime/trial-staging.md) now prepares
 protected artifacts from a Git snapshot, excluding dirty sources and ambient Go
 workspace/overlay flags.
 [Real GCE extraction proof](evidence/runtime-20261027/g8-trial-stage-builder/README.md)
-checks all source/binary hashes and root-owned modes without a permissions
-correction. No child trial starts; storage capacity still needs approval.
+checks source/binary hashes and outer root-owned modes. The later
+[source-mode refusal and fix](evidence/runtime-20261027/g8-source-archive-modes/README.md)
+qualifies every nested source mode; packet preparation itself starts no child.
+
+The [approved 30-to-50 GB data-disk expansion](evidence/runtime-20261027/g8-data-disk-expansion/README.md)
+now passes full preservation checks for all 92 retained files, including 11 child
+images, with the original ext4 reserve percentage restored. Image and builder
+reserves remain unchanged. The source archive also now forces protected modes
+before a cold trial can pass its source-directory guard. The deployment manager
+now supports a protected, size-only immutable storage-binding update; see the
+[operator procedure](docs/guides/runtime-operator-quickstart.md#after-an-approved-storage-grow).
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

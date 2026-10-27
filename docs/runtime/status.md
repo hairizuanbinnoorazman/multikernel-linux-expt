@@ -4,6 +4,25 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Latest G8 checkpoint (2026-10-27)
+
+The approved data disk is now 50 GB, with all 92 retained files and 11 old child
+images preserved. The [actual static-candidate trial](../../evidence/runtime-20261027/g8-live-static-candidate/README.md)
+passes child Docker ENOSPC recovery, repeated builds, primary/child engine and
+image separation, sampled authenticated endpoint CHECK and normal cleanup.
+[Cold restoration](../../evidence/runtime-20261027/g8-live-static-restoration/README.md)
+passes after one graceful reboot, restoring the original transport with all
+primary services active and retained file hashes unchanged. A committed
+size-only immutable deployment update repairs the stale 30 GB startup binding.
+Docker engine/images/containers/volumes match across boot; built-in network IDs
+changed, and prior-boot network identity parity remains unqualified.
+
+Full G7/G8 remains **OPEN**. Host-server queue-error retry remains
+injection-qualified, the earlier stall's cause remains unproven, and crash,
+concurrency and other readiness/diagnostic requirements remain open. This uses
+direct child kernels without nested virtualization, with shared host trust after
+child-kernel compromise. Earlier entries below retain their checkpoint scope.
+
 ## Proven results
 
 | Theme | Result | Details |
@@ -842,3 +861,32 @@ artifacts are staged at /opt/mkruntime/g8-host-a321026, not installed. Fresh
 capacity observation remains below the floor, and expansion awaits approval.
 Full child Docker/MK qualification and full G7/G8 stay open under direct-child,
 no-nested-virtualization/shared-host-trust constraints.
+
+The user approved the 30-to-50 GB data-disk expansion. [Complete preservation proof](../../evidence/runtime-20261027/g8-data-disk-expansion/README.md)
+retains the independent pre-mutation checkpoint 42c7e92 and completed result
+d01906c: all 92 file hashes/identities, 11 old child images, directory/link
+inventories and primary hashes/PIDs match. The successful online grow did not
+retain the exact original reserved-block fraction, so a separate adjustment
+restored 5 percent before independent read-only verification passed. The resize
+was not repeated. Post-grow available bytes are 22931456000; the 2 GiB image and
+1 GiB builder reserve remain unchanged. This removes the capacity blocker.
+
+The first a321026 cold attempt correctly refused group-writable nested Git source
+modes before a module switch or child launch. Code db62c25 forces tar.umask=0022;
+a permissive Git-config regression fails before the fix and passes after it. A
+fresh stage passes every extracted source mode/hash check, and its scripted
+Docker pressure/build/recovery and normal cleanup run exits successfully. Final
+public-proof verification and cold restoration remain pending at this checkpoint.
+
+The completed live proof is committed as e6473d6 and separate cold-restoration
+proof as 2c6c07d. The latter includes all 92 retained-file hashes/identities,
+original transport/refcount, unchanged primary state hashes and active services.
+The exact-size mount guard correctly refused the expanded disk's stale 30 GB
+binding. Code 6d059f3 clones the verified immutable deployment and changes only
+the size assignment; 45429c1 strengthens generation/mode protections. The
+applied 50 GB binding retains every other asset byte/mode and the old generation.
+Standalone, stale-size, shrink, alignment and unsafe-generation controls and
+required checks pass. The initial cold verifier's cross-boot Docker network-ID
+assertion failure is retained; the corrected read-only procedure passes exact
+engine/images/containers/volumes and records changed network IDs separately.
+It does not qualify prior-boot network configuration parity. Full G7/G8 stays open.

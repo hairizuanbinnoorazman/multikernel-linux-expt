@@ -126,6 +126,33 @@ sudo ./scripts/manage-runtime-deployment.py install \
 sudo ./scripts/manage-runtime-deployment.py inspect
 ```
 
+### After an approved storage grow
+
+The mount guard binds the exact raw-device byte count. After an independently
+approved disk/filesystem grow, validate the same device, mount, serial, label and
+UUID with the new byte count using the command above. Preserve the retained-image
+hash/identity evidence before changing the binding. Then clone the active
+immutable deployment with only its size assignment changed, for example for an
+approved 30-to-50 GiB grow:
+
+```bash
+sudo ./scripts/manage-runtime-deployment.py update-storage-size 32212254720 53687091200
+sudo ./scripts/manage-runtime-deployment.py inspect
+```
+
+Use the actual old/new byte counts for the host. The command verifies the active
+generation and asset protections, preserves its other bytes/modes and old
+generation, and atomically selects the clone. Stale expected values, shrinking,
+non-sector-aligned sizes and unsafe or mode-drifted generations refuse. It can
+run as a standalone script without importing current repository assets. It does
+not resize storage or restart services. Inspect the resulting generation. During the authorized idle maintenance window,
+run `sudo systemctl daemon-reload` and `sudo systemctl restart mkruntimed.service`
+to load the new binding, then verify its active state and mount-guard result.
+For a first installation, use the next section instead. Do not edit an immutable
+generation in place. The
+[qualified GCE recovery proof](../../evidence/runtime-20261027/g8-live-static-restoration/README.md)
+retains the old-size refusal and new-size validation with the same storage identity.
+
 ## 5. Start the runtime services
 
 The explicit activation step is an opportunity to check paths one final time:

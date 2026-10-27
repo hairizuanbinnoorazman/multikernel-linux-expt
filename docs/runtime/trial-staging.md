@@ -33,7 +33,8 @@ The output contains `source.tar`, its private extracted tree, five binaries,
 `build.json` and `stage.tar.gz`. The stage root, source root and bin directory
 are mode 0700; binaries are 0500 and metadata/packets are 0600. Packet entries
 have normalized root ownership. This prevents the prior 0775-bin staging error
-under umask 0002. Existing output generations, unsafe parents, source symlinks,
+under umask 0002. Git source archives explicitly use tar.umask=0022 so their
+nested directories/files also retain protected modes after extraction. Existing output generations, unsafe parents, source symlinks,
 and mismatched inputs refuse. Failed generations remain private and lack a
 completed packet; choose a new output path after inspecting the failure.
 
@@ -49,10 +50,15 @@ hash or by changing production defaults.
 
 [Real packet proof](../../evidence/runtime-20261027/g8-trial-stage-builder/README.md)
 covers committed-source builds despite dirty/ambient inputs, refusal boundaries,
-packet extraction on GCE, protected modes, binary/source hashes and unchanged
-watched primary state. It does not qualify a child Docker run. The current data
-disk remains below the trial floor; capacity expansion awaits approval. Retained
-failed images and the 2 GiB image/1 GiB reserve remain intact.
+packet extraction on GCE, protected outer modes, binary/source hashes and unchanged
+watched primary state. It does not qualify a child Docker run. The [approved data-disk expansion](../../evidence/runtime-20261027/g8-data-disk-expansion/README.md)
+now provides 50 GB with all retained files preserved. Fresh builder admission
+still applies; failed images and the 2 GiB image/1 GiB reserve remain intact.
+The later [nested-source mode fix](../../evidence/runtime-20261027/g8-source-archive-modes/README.md)
+qualifies every source member's protected mode. The fresh db62c25 stage passes
+[actual child Docker pressure/build/normal cleanup](../../evidence/runtime-20261027/g8-live-static-candidate/README.md)
+and [separate cold restoration](../../evidence/runtime-20261027/g8-live-static-restoration/README.md).
+Installed default helper pins remain unchanged; full G7/G8 remains open.
 
 Direct child kernels use no nested virtualization. The shared host trust boundary
 after child compromise and the remaining full G7/G8 requirements still apply.
