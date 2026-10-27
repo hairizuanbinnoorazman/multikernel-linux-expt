@@ -28,6 +28,7 @@ type Client struct {
 	sequence              uint64
 	Timeout               time.Duration
 	unusable              bool // guarded by mu; cleared only by a successful reconnect
+	reconnectDial         func(context.Context, string) (net.Conn, error)
 }
 
 // RemoteError is a successfully authenticated agent reply that rejected the
@@ -65,7 +66,13 @@ func (c *Client) Reconnect(path string) error {
 func (c *Client) ReconnectContext(ctx context.Context, path string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conn, err := dialAgent(ctx, "unix", path)
+	var conn net.Conn
+	var err error
+	if c.reconnectDial != nil {
+		conn, err = c.reconnectDial(ctx, path)
+	} else {
+		conn, err = dialAgent(ctx, "unix", path)
+	}
 	if err != nil {
 		return err
 	}

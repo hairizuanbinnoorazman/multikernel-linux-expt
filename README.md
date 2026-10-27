@@ -252,6 +252,12 @@ explicit reconnect while preserving the request sequence. [GCE socket controls](
 pass with retained ownership and primary state unchanged. The failed startup's
 cause and recovery remain unproven.
 
+The [CID-gated relay controls](evidence/runtime-20261028/g8-relay-peer-controls/README.md)
+cover a new explicit native helper mode. A [bounded agent diagnostic](runtime/tools/mk-agent-capabilities-probe/README.md)
+checks the local relay identity before one capabilities request, using a sealed
+credential descriptor. Existing runtime relay callers still require adoption;
+these controls do not close the retained startup failure or full G7/G8 gates.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish
