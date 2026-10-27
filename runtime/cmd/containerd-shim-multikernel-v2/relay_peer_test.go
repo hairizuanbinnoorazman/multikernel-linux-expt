@@ -134,15 +134,11 @@ func TestLiveDefaultRelayDeclaredPeer(t *testing.T) {
 				t.Fatal("local relay peer verification failed")
 			}
 			defer client.Close()
-			var c struct {
-				Protocol int                                    `json:"protocol"`
-				Kernel   struct{ Architecture, Release string } `json:"kernel"`
-				Agent    struct{ UID, GID *int }                `json:"agent"`
-			}
+			var c guestCapabilities
 			if client.CallContext(ctx, "Capabilities", map[string]any{}, &c) != nil {
 				t.Fatal("bounded capabilities request failed")
 			}
-			if c.Protocol != 1 || c.Kernel.Architecture != "amd64" || c.Kernel.Release != os.Getenv("MK_LIVE_RELAY_RELEASE") || c.Agent.UID == nil || c.Agent.GID == nil || *c.Agent.UID != 0 || *c.Agent.GID != 0 {
+			if !liveRelayCapabilitiesMatch(c, os.Getenv("MK_LIVE_RELAY_RELEASE")) {
 				t.Fatal("capabilities mismatch")
 			}
 		}
@@ -158,4 +154,38 @@ func TestLiveDefaultRelayDeclaredPeer(t *testing.T) {
 	}
 	run(41, false)
 	run(40, true)
+}
+
+func liveRelayCapabilitiesMatch(c guestCapabilities, release string) bool {
+	uid, uidPresent := c.Agent["uid"].(float64)
+	gid, gidPresent := c.Agent["gid"].(float64)
+	return c.Protocol == 1 && c.Kernel["architecture"] == "amd64" && c.Kernel["release"] == release && uidPresent && gidPresent && uid == 0 && gid == 0
+}
+
+func TestLiveRelayCapabilityProjection(t *testing.T) {
+	// The partial live fixture omitted protocol_features/oci_features and the
+	// kernel/agent details. Strict decoding must remain strict; use the same
+	// complete projection as production negotiation instead.
+	body := []byte(`{"protocol":1,"protocol_features":["signal-operation-id-v1"],"oci_features":["argv"],"kernel":{"architecture":"amd64","release":"test-release","multikernel":true,"cgroup_v2":true,"mk_transport":true,"namespaces":["mnt"]},"agent":{"uid":0,"gid":0,"effective_capabilities":"0","bounding_capabilities":"0","no_new_privileges":"1"}}`)
+	var partial struct {
+		Protocol int `json:"protocol"`
+	}
+	if protocol.StrictDecode(body, &partial) == nil {
+		t.Fatal("partial fixture unexpectedly accepted the full response")
+	}
+	var c guestCapabilities
+	if protocol.StrictDecode(body, &c) != nil || !liveRelayCapabilitiesMatch(c, "test-release") {
+		t.Fatal("complete production capability projection refused")
+	}
+	if liveRelayCapabilitiesMatch(c, "other-release") {
+		t.Fatal("wrong release accepted")
+	}
+	delete(c.Agent, "uid")
+	if liveRelayCapabilitiesMatch(c, "test-release") {
+		t.Fatal("omitted root identity accepted")
+	}
+	c.Agent["uid"] = "0"
+	if liveRelayCapabilitiesMatch(c, "test-release") {
+		t.Fatal("string root identity accepted")
+	}
 }
