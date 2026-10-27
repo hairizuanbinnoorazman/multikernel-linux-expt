@@ -31,9 +31,12 @@ def main():
                 ("mkvsock-nbd", ["client", value, "4061", str(canary), "4096", "image", "generation", "reserved"]),
                 ("mkvsock-relay", ["server", value, str(socket_path)]),
                 ("mkvsock-relay", ["client", value, "4061", str(socket_path)]),
+                ("mkvsock-relay", ["server-peer", value, "4061", str(socket_path)]),
+                ("mkvsock-relay", ["server-peer", "40", value, str(socket_path)]),
                 ("mkvsock-probe", ["server", value]),
                 ("mkvsock-probe", ["client", value, "4061"]),
             ])
+        cases.append(("mkvsock-relay", ["server-peer", "0", "4061", str(socket_path)]))
         for value in ("0", *bad_numbers):
             cases.append(("mkvsock-nbd", ["server", str(canary), "4061", "image", "generation", value]))
         cases.append(("mkvsock-nbd", ["server", str(canary), "4061", "image", "generation"]))

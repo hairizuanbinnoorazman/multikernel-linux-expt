@@ -99,3 +99,19 @@ checks injected transient exhaustion with exact duplex bytes/half-close replies,
 permanent exhaustion with bounded retry count/timeout, and unmarked ENOSPC refusal.
 This is a protocol retry correction, not a live pressure qualification or a change
 to kernel queue sizing. The receive-readiness kernel patch is qualified separately.
+
+`mkvsock-relay server-peer CID PORT UNIX` adds explicit host-side peer selection.
+It checks accepted VSOCK address length/family and the expected nonzero CID before
+publishing the Unix bridge or forwarding bytes. Wrong peers are closed; 64
+refusals terminate the helper without publishing a bridge, and EINTR does not
+consume that budget. Callers must still bound the helper's lifetime. The common
+entrypoint protects dumpability before endpoint setup. CID matching does not
+attest a guest process or replace the agent request authentication contract.
+
+The existing `server PORT UNIX` and `client CID PORT UNIX` modes retain their
+interfaces. Runtime producer/default-artifact adoption of the peer-pinned mode
+requires separate integration and live qualification. The new mode is intended
+for explicitly staged diagnostic callers first; it does not retroactively add
+CID enforcement to older deployed relay binaries. These tools support direct
+child kernels without nested virtualization and retain shared host trust after
+child-kernel compromise.
