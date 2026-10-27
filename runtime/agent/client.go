@@ -13,6 +13,10 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
+// ErrReconnectRequired means the prior stream cannot safely carry another RPC.
+// ReconnectContext preserves the sequence; CallContext never dials or replays.
+var ErrReconnectRequired = errors.New("agent transport requires explicit reconnect")
+
 var initialSequence = func() uint64 { return uint64(time.Now().UnixNano()) }
 
 type Client struct {
@@ -23,6 +27,7 @@ type Client struct {
 	mu                    sync.Mutex
 	sequence              uint64
 	Timeout               time.Duration
+	unusable              bool // guarded by mu; cleared only by a successful reconnect
 }
 
 // RemoteError is a successfully authenticated agent reply that rejected the
@@ -66,6 +71,7 @@ func (c *Client) ReconnectContext(ctx context.Context, path string) error {
 	}
 	old := c.conn
 	c.conn = conn
+	c.unusable = false
 	if old != nil {
 		_ = old.Close()
 	}
@@ -76,12 +82,25 @@ func (c *Client) Call(method string, request, response any) error {
 	return c.CallContext(context.Background(), method, request, response)
 }
 
-func (c *Client) CallContext(ctx context.Context, method string, request, response any) error {
+func (c *Client) CallContext(ctx context.Context, method string, request, response any) (retErr error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if c.unusable || c.conn == nil {
+		return ErrReconnectRequired
+	}
+	wireStarted, boundReply := false, false
+	defer func() {
+		if retErr != nil && wireStarted && !boundReply {
+			// A failed write/read can leave a partial frame or a complete late
+			// reply pending. Never use it as the next request's response.
+			c.unusable = true
+			_ = c.conn.Close()
+		}
+	}()
+
 	timeout := c.Timeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -91,6 +110,8 @@ func (c *Client) CallContext(ctx context.Context, method string, request, respon
 		deadline = contextDeadline
 	}
 	if err := c.conn.SetDeadline(deadline); err != nil {
+		c.unusable = true
+		_ = c.conn.Close()
 		return err
 	}
 	cancelDone := make(chan struct{})
@@ -117,6 +138,7 @@ func (c *Client) CallContext(ctx context.Context, method string, request, respon
 	}
 	var header [4]byte
 	binary.BigEndian.PutUint32(header[:], uint32(len(payload)))
+	wireStarted = true
 	if err = protocol.WriteFull(c.conn, header[:]); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
@@ -156,6 +178,9 @@ func (c *Client) CallContext(ctx context.Context, method string, request, respon
 	if reply.Sequence != c.sequence {
 		return errors.New("agent response sequence mismatch")
 	}
+	// The complete validated reply consumed this request's frame. Semantic
+	// remote errors and typed-body validation failures do not desynchronize it.
+	boundReply = true
 	if reply.Error != "" {
 		if reply.Failure != nil {
 			return &RemoteError{Failure: *reply.Failure}

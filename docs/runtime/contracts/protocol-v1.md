@@ -199,3 +199,21 @@ The machine-readable envelope schemas are
 Method-body semantics remain normative in this document and the Go protocol
 types. Duplicate object names are rejected by the shared strict decoder before
 an envelope or body is dispatched.
+
+### Agent client transport after interrupted frames
+
+The host agent client invalidates and closes a stream when request/reply framing
+becomes ambiguous: failed/partial frame I/O, cancellation during wire work,
+invalid response JSON/size, or wrong reply version/sequence. Failure to establish
+a deadline also invalidates the stream. The failing call retains its original
+error. Later calls return local `ErrReconnectRequired` before another write or
+sequence increment. A successful explicit reconnect preserves the current
+sequence; a failed dial cannot re-enable the old stream. This adds no wire
+message, new authentication rule or automatic request replay.
+
+A complete reply with the expected version/sequence remains synchronized even
+when it reports an operation error or the caller rejects its typed body. Local
+marshaling failure or an already-canceled caller before wire work preserves an
+otherwise usable stream. Existing timeout/caller-deadline limits and operation
+reconciliation still apply. A partially observed operation may have executed;
+sequence reset or blind non-idempotent replay is not a recovery mechanism.

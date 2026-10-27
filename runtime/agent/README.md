@@ -20,3 +20,18 @@ errors and stages fall back to `INTERNAL`. Request decoding failures are
 `INVALID_ARGUMENT`; missing processes, unsupported operations, authentication,
 and state preconditions have explicit categories. A failed execution stage is
 `INTERNAL` and exposes only its approved stage name.
+
+After a request begins wire I/O, incomplete or invalid framing, failed reads/
+writes, cancellation, or a bad reply version/sequence closes that connection.
+A failed deadline setup also closes it. Later calls return the local
+`ErrReconnectRequired` before writing or advancing the sequence. Only a successful
+explicit `ReconnectContext` makes the client usable again, preserving the
+existing authenticated sequence. Failed reconnects retain the unusable state.
+The client itself performs no dial or replay in `CallContext`.
+
+A complete validly bound remote error or typed-body validation error consumes its
+frame and leaves the transport usable. Pre-call cancellation and local request
+marshal rejection leave an untouched stream usable too. The original call error
+and existing timeout/caller-deadline minimum are preserved. An interrupted request
+may already have executed; recovery must use the existing operation identity and
+reconciliation rules. Sequence validation remains strict.
