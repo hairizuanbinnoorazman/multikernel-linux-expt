@@ -215,6 +215,7 @@ Guest/primary engine separation and child-image absence in primary Docker are
 independently checked with unchanged primary inventories, file hashes and PIDs.
 Normal native synced close, offline filesystem check, ownership release and
 resource/network return pass. This closes that bounded fresh lifecycle gap; its
-separate cold-restoration gate and the full interface/readiness/capacity/diagnostic
-requirements remain open. No nested virtualization is used; these direct kernels
+[separate cold restoration](../../../evidence/runtime-20261028/g8-live-combined-cold-restoration/README.md)
+also passes with preserved primary/retained state. The full interface/readiness/
+capacity/diagnostic requirements remain open. No nested virtualization is used; these direct kernels
 retain shared host trust and no hostile-child containment claim is added.

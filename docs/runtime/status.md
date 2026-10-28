@@ -11,8 +11,10 @@ passes actual host-selected child Docker pressure/build/image-engine isolation,
 version-5 combined doctor during ENOSPC and built-image holds and after removal,
 and normal cleanup. Parent 6c3f2f11 and workload efd95334 both finish success/exit
 zero. No child/pool/vsock sockets remain, all CPUs are online and primary
-hashes/PIDs/Docker inventories match. Candidate transport is quiescent at zero
-references pending this trial's separate cold restoration. The older failed
+hashes/PIDs/Docker inventories match. Its [cold restoration](../../evidence/runtime-20261028/g8-live-combined-cold-restoration/README.md)
+passes on boot 0f3e3a52-fe01-4c15-a907-237d67cd19b2: the original transport is
+loaded at zero references, all four services are active and all 93 files/12
+images plus private output/failed ledgers are preserved. The older failed
 0c50de9 generation stays quarantined. Full G7/G8 remains open for readiness,
 capacity, diagnostics and the wider failure/concurrency matrix. Direct child
 kernels use no nested virtualization and retain shared host trust.
@@ -1190,3 +1192,17 @@ inspection of every actual runtime packet owner/mode/binary hash. Protected
 persistent staging avoids losing the only packet copy at reboot. Full live
 Docker/combined-doctor and G7/G8 acceptance remain open; direct child kernels
 use no nested virtualization and retain shared host trust.
+
+
+The fresh passing trial's [separate cold restoration](../../evidence/runtime-20261028/g8-live-combined-cold-restoration/README.md)
+now passes. Preflight c04f4cd8 checks exact successful trial units, idle resources,
+primary state and child-image absence. One guarded graceful idle reboot changes
+boot 28b94738 to 0f3e3a52; post-check c50fdba5 exits zero after verifying the
+original transport, zero references/children/pool/vsock sockets, sixteen online
+CPUs and four active primary services. Primary persistent hashes, Docker engine
+and image/container/volume inventories match, and the exact child-built image
+remains absent. All 93 retained files/12 images, older failed ledgers/journal and
+private stopped output are preserved. Normal cleanup remains qualified for the
+new 8c048020 generation; the older failed case remains quarantined. The complete
+G7/G8 readiness/capacity/diagnostic and wider failure/concurrency requirements
+remain open. Direct kernels use no nested virtualization and share host trust.

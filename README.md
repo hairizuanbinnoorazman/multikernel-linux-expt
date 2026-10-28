@@ -15,9 +15,10 @@ passes host Docker → approved child Docker multistage/repeat builds, ENOSPC
 recovery, child/primary engine and image separation, version-5 doctor checks at
 both live holds and after removal, and normal resource cleanup. Primary file
 hashes, service PIDs and exact Docker inventories remain unchanged. The corrected
-packet includes the pinned CID relay. Cold restoration of this new trial is a
-separate gate; full G7/G8 readiness, capacity and diagnostic requirements remain
-open. These checks use direct kernels and do not establish containment after
+packet includes the pinned CID relay. Its [cold restoration](evidence/runtime-20261028/g8-live-combined-cold-restoration/README.md)
+also passes, restoring the original transport and preserving all 93 retained
+files / 12 images and primary persistent Docker inventories. Full G7/G8
+readiness, capacity and diagnostic requirements remain open. These checks use direct kernels and do not establish containment after
 child-kernel compromise.
 
 Host Docker selects the Multikernel runtime; Docker builds inside an approved

@@ -81,4 +81,6 @@ The [mandatory CID-relay builder proof](../../evidence/runtime-20261028/g8-trial
 qualifies the six-binary packet and refusal of omitted/corrupted relay input.
 The resulting 8c048020 packet passes [actual Docker pressure/build, engine/image
 isolation, live version-5 doctor and normal cleanup](../../evidence/runtime-20261028/g8-live-combined-doctor/README.md).
-Its cold restoration remains separate; complete G7/G8 remains open.
+Its [cold restoration](../../evidence/runtime-20261028/g8-live-combined-cold-restoration/README.md)
+also passes with original transport and retained data preserved. Complete G7/G8
+remains open.
