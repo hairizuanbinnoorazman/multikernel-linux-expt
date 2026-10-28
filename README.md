@@ -241,7 +241,7 @@ truncation remains explicit; complete health/diagnostics and full G7/G8 stay ope
 The new `mkruntimed --doctor-all` command combines native/storage and network
 ownership under one deadline. [Controls](evidence/runtime-20261027/g8-combined-doctor-controls/README.md)
 and [real CLI preflight](evidence/runtime-20261027/g8-combined-doctor-cli/README.md)
-pass. Its [child trial fails before the live holds](evidence/runtime-20261027/g8-combined-live-failure/README.md),
+pass. Its [child trial's host wait fails before live doctor checks](evidence/runtime-20261027/g8-combined-live-failure/README.md),
 with a retained active child/export and unproven startup cause. Version-5 live
 qualification and normal cleanup remain open; the failed generation is retained
 for diagnosis. Earlier passing child Docker proofs retain their own scope.
@@ -285,6 +285,12 @@ now reports guest `init` stopped at PID 616 with exit 137 while its agent answer
 This separates guest task state from the failed host namespace-holder identity;
 the termination cause/time and child Docker engine health remain unproven.
 The active child and open storage export remain retained for diagnosis.
+
+A [non-consuming output summary](evidence/runtime-20261028/g8-retained-stopped-output-gce/README.md)
+also finds workload-begin and full-pressure markers in retained guest stdout,
+despite zero output at the original host wait. Raw output stays out of the report.
+This directs diagnosis toward output delivery/observation; markers do not
+retroactively qualify ENOSPC, builds, live doctor or normal cleanup.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

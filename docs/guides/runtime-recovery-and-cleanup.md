@@ -294,3 +294,18 @@ The separate child Docker engine and open export still require their own checks.
 Do not infer safe storage release or treat this as cleanup authority. The
 generation-bound retention/escalation rules continue to apply. These direct
 child kernels use no nested virtualization and share host trust after compromise.
+
+For a validated STOPPED target, explicit `--stopped-output-summary` adds one
+bounded ReadProcessOutput and a final StateProcess check. Always keep output
+offsets zero: positive offsets in this API can acknowledge/discard earlier
+buffered bytes. The mode never exposes raw payloads, error text or output hashes;
+it reports only counts/offsets/truncation and constant whole-line stdout markers.
+A nonzero retained base or bounded sample can omit prior markers. Matching
+process state does not establish atomic or complete output history.
+
+The [retained GCE output](../../evidence/runtime-20261028/g8-retained-stopped-output-gce/README.md)
+contains workload-begin and full-pressure markers even though the original host
+wait captured zero output. Treat that as a clue for delivery/observation diagnosis,
+without passing the failed pressure/build/doctor gate or inferring release safety.
+Primary state and retained resource identities remain unchanged; the active
+child/open export is still retained under the escalation boundary above.

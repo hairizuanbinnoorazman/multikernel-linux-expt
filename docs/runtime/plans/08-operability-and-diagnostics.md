@@ -171,6 +171,16 @@ task from the host namespace-holder zombie without proving termination cause/tim
 or child Docker health, and preserves primary and retained resource identities.
 It does not authorize cleanup or close the complete operational gate.
 
+The later [stopped-output summary](../../../evidence/runtime-20261028/g8-retained-stopped-output-gce/README.md)
+observes workload-begin/full-pressure markers in retained guest stdout despite
+zero output at the original failed host wait. The explicit mode uses zero offsets
+to avoid acknowledging/discarding bytes, enforces a per-stream limit, brackets
+stopped process identity, and reports only counts/offsets/flags/allowlisted lines.
+These are output clues, not independent build/ENOSPC attestation; the historical
+checkpoint remains failed. This narrows output-delivery/observation diagnosis
+while preserving primary and retained resource identities. Complete diagnostics,
+fresh Docker lifecycle/recovery, cleanup and full G7/G8 remain open.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

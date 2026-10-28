@@ -6,8 +6,8 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-28)
 
-Current test-host state: the 0c50de9 combined-doctor trial failed before reaching
-its live holds. Its exact child/export generation remains retained, with one
+Current test-host state: the 0c50de9 combined-doctor trial's host wait timed out
+with zero output and never reached live doctor checks. Its exact child/export generation remains retained, with one
 open native backing descriptor and the candidate transport still loaded.
 Normal cleanup and cold restoration are **not** qualified for this attempt.
 The related agent stream reuse bug is independently reproduced and fixed in
@@ -22,6 +22,10 @@ reports the agent's `init` as STOPPED, guest PID 616/exit 137, under matched
 capabilities and exact relay identity. The host namespace-holder zombie is a
 separate identity. Termination cause/time and the child Docker engine's health
 remain unproven; no child/export cleanup or installed-runtime replacement occurs.
+The subsequent [non-consuming retained-output summary](../../evidence/runtime-20261028/g8-retained-stopped-output-gce/README.md)
+finds workload-begin and full-pressure stdout markers. That later guest-output
+clue differs from the failed host wait, without retroactively qualifying its
+independent ENOSPC checkpoint or resolving why output was unavailable there.
 The last passing earlier cases below retain their scope. Preserve this failed
 private generation and follow the escalation contract before another live trial.
 
@@ -1047,3 +1051,21 @@ resource identities match before/after; no image contents are read, guest
 mutation requested or cleanup performed. Original failure diagnosis, fresh Docker
 lifecycle qualification, version-5 live doctor and full G7/G8 remain open. Direct
 children use no nested virtualization and share host trust after compromise.
+
+The explicit version-3 stopped-output mode in bf7528c9 then qualifies a bounded,
+non-consuming output observation: zero offsets, 64 KiB per stream, and the same
+stopped ID/status/PID/exit before/after, under one deadline without reconnect or
+replay. [Controls](../../evidence/runtime-20261028/g8-stopped-output-controls/README.md)
+cover non-consumption after prior acknowledgments, required-field/size/offset
+validation, identity drift, deadlines and constant-line marker projection.
+[Actual GCE observation](../../evidence/runtime-20261028/g8-retained-stopped-output-gce/README.md)
+under 8c76ca50 samples 11,958 stdout/344 stderr bytes, both at base zero with
+upstream truncation flags false, and reports workload-begin/full-pressure markers.
+The original host wait remains deadline-exceeded with zero sampled output. This
+narrows investigation to progress not reflected at the host observation boundary;
+it does not establish the transport fault, complete output history, independently
+attested ENOSPC/builds, termination cause or cleanup safety. Payloads, arbitrary
+lines, raw errors and output/credential hashes are excluded. Primary state and
+retained resource identities match; the child/export remains retained. Full
+Docker lifecycle, live doctor, recovery and G7/G8 remain open. No nested
+virtualization is used, and direct kernels retain shared host trust.
