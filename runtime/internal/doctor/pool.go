@@ -107,12 +107,18 @@ func InspectPool(ctx context.Context, in PoolInputs, revision string) PoolReport
 	policy, member, free, claimed := map[uint64]bool{}, map[uint64]bool{}, map[uint64]bool{}, map[uint64]bool{}
 	for _, cpu := range owner.ConfiguredCPUs {
 		policy[uint64(cpu)] = true
+		if cpu == 0 {
+			add("PRIMARY_CPU_ZERO_IN_CONFIGURED_POOL", nil)
+		}
 	}
 	if len(policy) == 0 {
 		add("CPU_POOL_POLICY_UNRESTRICTED", nil)
 	}
 	for _, cpu := range kernel.CPUs.Members {
 		member[cpu] = true
+		if cpu == 0 {
+			add("PRIMARY_CPU_ZERO_IN_KERNEL_POOL", nil)
+		}
 		if len(policy) > 0 && !policy[cpu] {
 			add("KERNEL_CPU_OUTSIDE_CONFIGURED_POLICY", nil)
 		}
@@ -179,5 +185,9 @@ func InspectPool(ctx context.Context, in PoolInputs, revision string) PoolReport
 		actual = kernel.Memory.AvailableBytes - owner.MemoryReserveBytes
 	}
 	r.MemoryCandidateUpperBoundBytes = min(r.RemainingConfiguredMemoryBytes, actual, kernel.Memory.LargestFreeExtentBytes)
+	if r.Status != "consistent" {
+		r.CPUCandidates = nil
+		r.MemoryCandidateUpperBoundBytes = 0
+	}
 	return r
 }

@@ -52,6 +52,13 @@ func TestPoolDoctorCorrelatesCapacityReserveAndFragmentation(t *testing.T) {
 }
 func TestPoolDoctorDetectsOwnershipPolicyAndKernelDrift(t *testing.T) {
 	cases := map[string]func(*protocol.PoolOwnershipReport, *poolinspect.Snapshot){
+		"PRIMARY_CPU_ZERO_IN_CONFIGURED_POOL": func(o *protocol.PoolOwnershipReport, _ *poolinspect.Snapshot) {
+			o.ConfiguredCPUs = append([]int{0}, o.ConfiguredCPUs...)
+		},
+		"PRIMARY_CPU_ZERO_IN_KERNEL_POOL": func(_ *protocol.PoolOwnershipReport, k *poolinspect.Snapshot) {
+			k.CPUs.Members = append([]uint64{0}, k.CPUs.Members...)
+			k.CPUs.Available = append([]uint64{0}, k.CPUs.Available...)
+		},
 		"CLAIMED_CPU_REPORTED_FREE":            func(_ *protocol.PoolOwnershipReport, k *poolinspect.Snapshot) { k.CPUs.Available = []uint64{8, 10, 11} },
 		"CLAIMED_CPU_MISSING_FROM_KERNEL_POOL": func(_ *protocol.PoolOwnershipReport, k *poolinspect.Snapshot) { k.CPUs.Members = []uint64{9, 10, 11} },
 		"CPU_CLAIM_OUTSIDE_CONFIGURED_POLICY":  func(o *protocol.PoolOwnershipReport, _ *poolinspect.Snapshot) { o.ConfiguredCPUs = []int{9, 10, 11} },
@@ -83,7 +90,7 @@ func TestPoolDoctorDetectsOwnershipPolicyAndKernelDrift(t *testing.T) {
 			for _, f := range report.Findings {
 				found = found || f.Code == code
 			}
-			if report.Status != "degraded" || !found {
+			if report.Status != "degraded" || !found || report.MemoryCandidateUpperBoundBytes != 0 || len(report.CPUCandidates) != 0 {
 				t.Fatalf("missing %s: %+v", code, report)
 			}
 		})
