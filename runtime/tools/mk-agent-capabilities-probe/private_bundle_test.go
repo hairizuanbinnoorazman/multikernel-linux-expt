@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -104,5 +105,17 @@ func TestPrivateBundleRejectsUnsafeTargetsAndCanceledPublication(t *testing.T) {
 	}
 	if _, err = os.Lstat(filepath.Join(dir, privateBundleName)); !os.IsNotExist(err) {
 		t.Fatal("canceled publication created artifact")
+	}
+}
+
+func TestCanceledPrivateInspectionDoesNotReadCredential(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	file := credential(t, true)
+	o := options{id: "box", generation: strings.Repeat("a", 32), release: "test-release", processID: "init", stoppedOutputSummary: true, privateBundleDir: "/must-not-open", endpoint: 7200, peerPID: os.Getpid(), tokenFD: 3, timeout: time.Second}
+	result := inspect(ctx, o, file)
+	offset, err := file.Seek(0, 1)
+	if err != nil || offset != 0 || result.Code != "DEADLINE_OR_CANCELED" || result.RequestAttempted || result.CredentialDescriptorVerified {
+		t.Fatal("canceled inspection advanced into private target or credential handling")
 	}
 }

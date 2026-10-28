@@ -76,6 +76,9 @@ func (target *privateBundleTarget) publish(ctx context.Context, r report, sample
 	}
 	r.PrivateBundleWritten = true
 	r.PrivateBundleBytes = len(data)
+	if ctx.Err() != nil {
+		return fail("DEADLINE_OR_CANCELED")
+	}
 	r.Code = "PRIVATE_STOPPED_OUTPUT_BUNDLE_WRITTEN"
 	return r
 }

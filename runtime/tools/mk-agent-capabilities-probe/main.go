@@ -116,6 +116,12 @@ func inspect(parent context.Context, o options, credential *os.File) report {
 	if !valid(o) {
 		return r
 	}
+	ctx, cancel := context.WithTimeout(parent, o.timeout)
+	defer cancel()
+	if ctx.Err() != nil {
+		r.Code = "DEADLINE_OR_CANCELED"
+		return r
+	}
 	r.SandboxID, r.Generation, r.Endpoint = o.id, o.generation, o.endpoint
 	if o.processID != "" {
 		r.Version = 2
@@ -138,8 +144,10 @@ func inspect(parent context.Context, o options, credential *os.File) report {
 		}
 		defer bundle.close()
 	}
-	ctx, cancel := context.WithTimeout(parent, o.timeout)
-	defer cancel()
+	if ctx.Err() != nil {
+		r.Code = "DEADLINE_OR_CANCELED"
+		return r
+	}
 	key, err := readToken(credential)
 	if err != nil {
 		r.Code = "CREDENTIAL_UNAVAILABLE"
