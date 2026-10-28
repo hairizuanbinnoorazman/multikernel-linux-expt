@@ -12,6 +12,7 @@ from runtime_primary_docker import observe as observe_primary_docker, unchanged 
 from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record, qualify_unavailable_record, qualify_absent_process
 from runtime_network_doctor_checkpoint import qualify as qualify_network_doctor
 from runtime_combined_doctor_checkpoint import qualify as qualify_combined_doctor
+from runtime_pool_doctor_checkpoint import qualify as qualify_pool_doctor
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
@@ -296,6 +297,12 @@ try:
      assert combined_observation.returncode==0 and not combined_observation.stderr,'combined runtime doctor refused the observation'
      combined_report=qualify_combined_doctor(combined_observation.stdout,boot,owner,report,network_report,None if released else endpoints[0],released=released)
      (private/('combined-doctor-'+label+'.json')).write_text(json.dumps(combined_report,indent=2)+'\n')
+     remaining=deadline-time.monotonic();assert remaining>0,'pool doctor observation budget exhausted'
+     pool_observation=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor-pool'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+     (private/('pool-doctor-'+label+'.stdout')).write_bytes(pool_observation.stdout);(private/('pool-doctor-'+label+'.stderr')).write_bytes(pool_observation.stderr)
+     assert pool_observation.returncode==0 and not pool_observation.stderr,'pool capacity doctor refused the held observation'
+     pool_report=qualify_pool_doctor(pool_observation.stdout,boot,owner,report,released=released)
+     (private/('pool-doctor-'+label+'.json')).write_text(json.dumps(pool_report,indent=2)+'\n')
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
@@ -510,6 +517,7 @@ if storage_pressure:
  r['console_capture_coverage']={k:capture_metadata[k] for k in ['coverage','complete_stream','truncated','teardown_attached']}
 if storage_pressure:r['storage_pressure_image_checkpoint_sha256']=sha(work/'storage-pressure-image-checkpoint.json')
 if storage_pressure:r['runtime_network_check_sha256']={phase:sha(private/('network-check-'+phase+'.json')) for phase in ['while-full','while-image-ready']}
+if storage_pressure:r['runtime_pool_doctor_sha256']={phase:sha(private/('pool-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
