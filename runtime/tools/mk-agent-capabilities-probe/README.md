@@ -1,7 +1,8 @@
 # Bounded retained-agent diagnostic
 
 This Linux operator tool sends one `Capabilities` request, using the production
-agent client. It has no process execution, signal, quiesce, shutdown or recovery
+agent client. An explicit `--process-id` also requests one `StateProcess` after
+capabilities match. It has no process execution, signal, quiesce, shutdown or recovery
 operation. Build from `runtime` with `go build ./tools/mk-agent-capabilities-probe`.
 The executable requires root and disables process dumpability before reading its
 credential. Supply a 32-byte credential through an inherited anonymous memfd,
@@ -24,7 +25,8 @@ complete Docker lifecycle, and older deployed helpers remain unchanged.
 
 Required flags are `--socket`, `--sandbox-id`, `--generation`, `--endpoint`,
 `--expected-release`, `--relay-pid` and `--token-fd`. `--timeout` defaults to five
-seconds and cannot exceed fifteen. The caller must also bound relay acceptance
+seconds and cannot exceed fifteen for the whole probe, including both calls in
+process mode. The caller must also bound relay acceptance
 and process lifetime, validate the recorded generation/boot/resources before
 launch, and retain before/after observations. Do not reconnect or replay merely
 because an observation times out. A request can advance the guest authentication
@@ -36,6 +38,22 @@ present root UID/GID claims. It checks a response's version/sequence through the
 existing protocol. Requests have MAC authentication; replies do not provide
 cryptographic guest process attestation. Matching a release does not establish
 kernel incarnation, Docker/storage health, lifecycle recovery or containment.
+
+Without `--process-id`, the version-1 capabilities report and single-request
+behavior are preserved. With a valid explicit process ID, version 2 reports
+`observed` only after a bound process state or typed `NOT_FOUND` reply. The
+reported target is a SHA-256 of the requested process ID, not its raw name and
+never a hash of the credential. A valid state must match the exact requested ID,
+known CREATED/RUNNING/STOPPED state, valid guest PID and exit-code range. Output
+contains only that validated state/PID/exit code, excluding stdout/stderr, private
+error text and untrusted reply identifiers. Capability mismatch prevents the
+process query. There is no reconnect or replay.
+
+Exit zero for `observed` means the observation succeeded, including an absent
+process; it does not mean the process is running or Docker is ready. A current
+absence does not establish whether a process existed earlier. The production
+shim maps its initial task to guest process `init`; its host namespace-holder
+PID is a different identity. Keep that distinction when diagnosing startup.
 
 Direct child kernels require no nested virtualization. Primary and child kernels
 share host trust after compromise. This diagnostic cannot close full G7/G8 gates.
