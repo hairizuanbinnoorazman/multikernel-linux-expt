@@ -306,11 +306,13 @@ The [native-close and filesystem proof](evidence/runtime-20261028/g8-retained-na
 then validates strict synced close, no backing-image aliases and clean read-only
 e2fsck with an unchanged post-close hash. [Exact operator resource return](evidence/runtime-20261028/g8-retained-resource-release/README.md)
 unloads/deletes the parked kernel, releases its pool and restores network rules,
-links and routes. All 16 CPUs are online with no children; the candidate
-transport remains loaded at zero references. Historical RUNNING/ACTIVE records
-and the failed image remain unchanged and excluded from reuse. Cold transport
-restoration and a fresh Docker trial remain required; normal cleanup of this
-failed trial and full G7/G8 are not qualified. Direct child kernels require no nested virtualization and share host
+links and routes. That phase returns all 16 CPUs with no children and leaves the candidate
+transport loaded at zero references. Historical RUNNING/ACTIVE records
+and the failed image remain unchanged and excluded from reuse. [Cold restoration](evidence/runtime-20261028/g8-retained-cold-restoration/README.md)
+then restores the original transport after one guarded idle reboot and verifies
+all 93 retained files / 12 images, private output and primary persistent Docker
+inventories. Fresh Docker qualification remains required; normal cleanup of
+this failed trial and full G7/G8 are not qualified. Direct child kernels require no nested virtualization and share host
 trust after a child-kernel compromise.
 
 The profile remains experimental. Further crash points during resource mutation

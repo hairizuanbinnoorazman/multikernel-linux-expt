@@ -13,10 +13,12 @@ the kernel is `loaded`, the original NBD process is terminal and candidate
 transport references are zero. Historical RUNNING/ACTIVE ledgers remain unchanged. Subsequent
 [strict native-close/filesystem checks](../../evidence/runtime-20261028/g8-retained-native-close/README.md)
 and [operator resource return](../../evidence/runtime-20261028/g8-retained-resource-release/README.md)
-pass. Current host state: no child or pool, all 16 CPUs online, restored network
-rules/links/routes, candidate transport loaded at zero references. The failed
-image and original ledgers remain retained and excluded from reuse. Cold
-transport restoration and a fresh full Docker trial remain required.
+pass, followed by [cold restoration](../../evidence/runtime-20261028/g8-retained-cold-restoration/README.md)
+to the original transport after one guarded idle reboot. All 93 files / 12
+images, private output, failed ledgers and primary persistent Docker inventories
+are verified. That restoration checkpoint has no child/pool, all 16 CPUs online
+and zero references. The failed image and original ledgers remain retained and
+excluded from reuse. A fresh full Docker trial remains required.
 Normal cleanup and cold restoration are **not** qualified for this attempt.
 The related agent stream reuse bug is independently reproduced and fixed in
 a4b11660; local/full-runtime race and isolated GCE socket controls pass. A
@@ -1141,3 +1143,19 @@ RUNNING/ACTIVE and DISCONNECTED ledgers remain forensic evidence. The candidate
 transport remains loaded with zero references; no hot unload is qualified. Cold
 restoration and fresh Docker/live-doctor qualification remain open, as does full
 G7/G8. No nested virtualization is used; child kernels share host trust.
+
+
+[Cold operator restoration](../../evidence/runtime-20261028/g8-retained-cold-restoration/README.md)
+passes after one guarded graceful idle reboot to boot
+35947246-b80f-4763-aae7-e98a909fce5d and original transport source
+65C55BB38C669FF94A4B772. Post-check badd5664 verifies all 92 original files/11
+images against their retained content baseline plus the failed image against
+its first post-close hash, totaling 93 files/12 images. Private stopped output,
+failed ledgers/journal and primary persistent hashes/Docker inventories are
+preserved. Built-in network semantics are checked separately across boot;
+general cross-boot network-ID parity is not claimed. All four services are active,
+no child/pool/vsock sockets remain and all CPUs are online at this checkpoint.
+Private before/after cloud inventories match across all five resource categories.
+The failed case remains quarantined and is not relabeled normal cleanup; a fresh
+Docker/live-doctor trial and full G7/G8 remain required. Direct child kernels
+require no nested virtualization and retain shared host trust.

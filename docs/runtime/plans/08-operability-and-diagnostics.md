@@ -194,3 +194,15 @@ open. No nested virtualization or hostile-kernel containment is claimed.
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.
+
+
+The retained 0c50de9 case now has separate [graceful-stop](../../../evidence/runtime-20261028/g8-exact-child-graceful-stop/README.md),
+[strict native-close/filesystem](../../../evidence/runtime-20261028/g8-retained-native-close/README.md),
+[exact operator resource-return](../../../evidence/runtime-20261028/g8-retained-resource-release/README.md)
+and [cold-restoration](../../../evidence/runtime-20261028/g8-retained-cold-restoration/README.md)
+proofs. Original failed ledgers, private output and the image remain preserved
+and excluded from reuse. These close the exact operator recovery checkpoints;
+they do not qualify that failed attempt's normal cleanup, fresh version-5 live
+Docker lifecycle or the complete G8 interface/diagnostics requirements above.
+The corrected staged relay prerequisite is qualified before another trial.
+Direct child kernels use no nested virtualization and retain shared host trust.
