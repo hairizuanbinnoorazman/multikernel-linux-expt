@@ -284,7 +284,8 @@ The [bounded retained-task observation](evidence/runtime-20261028/g8-retained-pr
 now reports guest `init` stopped at PID 616 with exit 137 while its agent answers.
 This separates guest task state from the failed host namespace-holder identity;
 the termination cause/time and child Docker engine health remain unproven.
-The active child and open storage export remain retained for diagnosis.
+At that observation the child and storage export remained active for diagnosis;
+the later graceful-stop result below supersedes that physical state.
 
 A [non-consuming output summary](evidence/runtime-20261028/g8-retained-stopped-output-gce/README.md)
 also finds workload-begin and full-pressure markers in retained guest stdout,
@@ -296,8 +297,16 @@ retroactively qualify ENOSPC, builds, live doctor or normal cleanup.
 now retains the bounded guest output window in a root-only artifact, with only
 redacted metadata published. The [next-trial relay admission fix](evidence/runtime-20261028/g8-relay-trial-admission-gce/README.md)
 also removes a legacy helper mismatch: both trial callers require the qualified
-staged CID relay before lifecycle mutation. The failed child/export still
-requires scoped graceful recovery before a fresh Docker trial.
+staged CID relay before lifecycle mutation.
+
+The [exact-generation graceful stop](evidence/runtime-20261028/g8-exact-child-graceful-stop/README.md)
+now parks the child: its kernel is `loaded`, the original NBD process is terminal,
+and transport references are zero. Primary state and failed ledgers are unchanged.
+The historical RUNNING/ACTIVE records remain retained; native synced-close
+validation, descriptor census, offline filesystem checking and resource release
+are still required before a fresh Docker trial. Normal cleanup and full G7/G8
+remain open. Direct child kernels require no nested virtualization and share host
+trust after a child-kernel compromise.
 
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,

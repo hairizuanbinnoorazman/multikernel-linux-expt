@@ -7,8 +7,10 @@ remain authoritative for their respective areas.
 ## Latest G8 checkpoint (2026-10-28)
 
 Current test-host state: the 0c50de9 combined-doctor trial's host wait timed out
-with zero output and never reached live doctor checks. Its exact child/export generation remains retained, with one
-open native backing descriptor and the candidate transport still loaded.
+with zero output and never reached live doctor checks. Its exact generation is now
+[gracefully parked](../../evidence/runtime-20261028/g8-exact-child-graceful-stop/README.md):
+the kernel is `loaded`, the original NBD process is terminal and candidate
+transport references are zero. Historical RUNNING/ACTIVE ledgers remain unchanged.
 Normal cleanup and cold restoration are **not** qualified for this attempt.
 The related agent stream reuse bug is independently reproduced and fixed in
 a4b11660; local/full-runtime race and isolated GCE socket controls pass. A
@@ -28,7 +30,10 @@ clue differs from the failed host wait, without retroactively qualifying its
 independent ENOSPC checkpoint or resolving why output was unavailable there.
 The bounded output window is now preserved privately; its metadata/protection
 proof is public. The next trial's legacy relay mismatch is also fixed and its
-real-artifact admission controls pass, but no child stop or fresh trial has run.
+real-artifact admission controls pass. The exact production Quiesce/Shutdown
+method then succeeded, with independent host observations and unchanged primary
+state. Synced-close validation, a full backing-descriptor census, read-only
+filesystem checking and resource restoration remain open; no fresh trial has run.
 The last passing earlier cases below retain their scope. Preserve this failed
 private generation and follow the escalation contract before another live trial.
 
@@ -1084,7 +1089,8 @@ cover exclusive publication, unsafe paths, cancellation and public redaction;
 subsequent 7a249f06 charges private-target preflight to the deadline and retains
 publication facts when cancellation occurs. Cloud serial output and the complete
 project ledger are privately captured before any future scoped child stop.
-The active child/open export and failed state remain unchanged.
+At this earlier capture the active child/open export and failed state were
+unchanged; the later graceful-stop observation below supersedes physical state.
 
 The Docker fixture still selected a legacy relay despite the new production
 server-peer requirement. ca8e3265 corrects this prerequisite: both the parent
@@ -1094,6 +1100,18 @@ before lifecycle mutation and forward only its checked path, without fallback.
 and [actual GCE artifact controls](../../evidence/runtime-20261028/g8-relay-trial-admission-gce/README.md)
 under 765b377d pass admission and unsafe/corrupted artifact refusal without a
 child RPC, module change or Docker launch. This prevents an incompatible retry;
-it does not qualify deployment or a complete fresh Docker lifecycle. Scoped
-graceful recovery, independent synced close, live doctor and full G7/G8 remain
-open. Direct kernels use no nested virtualization and retain shared host trust.
+it does not qualify deployment or a complete fresh Docker lifecycle.
+
+The [exact-generation graceful-stop proof](../../evidence/runtime-20261028/g8-exact-child-graceful-stop/README.md)
+records production Quiesce acknowledgment and Shutdown attempt, independently
+followed by kernel `loaded`, the original NBD incarnation terminal and transport
+references zero. Primary hashes, service PIDs, Docker inventories and failed
+ledgers/journal match before/after. Private output and failed-state copies were
+preserved before mutation. No forced stop, NBD signal, unload, deletion, pool
+release or reboot occurred. The loaded kernel/image remain retained, while the
+original forensic ledgers keep their historical RUNNING/ACTIVE claims. Native
+synced-close parsing, descriptor census, post-close image hashing, read-only
+filesystem checking and resource restoration remain separate required gates.
+The failed original pressure/build/doctor trial is not requalified. Live doctor,
+normal cleanup and full G7/G8 remain open. Direct kernels use no nested
+virtualization and retain shared host trust.
