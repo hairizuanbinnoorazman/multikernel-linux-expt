@@ -6,11 +6,13 @@ idle-primary checks, protected systemd scope, helper selection, storage admissio
 and measured recovery remain requirements of the cold-trial driver.
 
 Prerequisites are Git, Python, the Go toolchain selected by `runtime/go.mod`,
-its dependencies, and the pinned containerd/helper artifacts. Containerd must
+its dependencies, and the pinned containerd/helper/CID-relay artifacts. Containerd must
 match `dbc252c7f4e3534dcbe674552b87b20194967e7b6069e66de61632dcdd3acc83`.
 The helper must match the selected variant in the committed
 [trial helper pins](../../scripts/runtime_trial_helper.py). The qualified helper
 remains the default; the server-queue candidate requires explicit selection.
+The relay must match the selected commit's `RELAY_PIN` and implement `server-peer`;
+the builder requires `--relay` and includes its checked bytes in the packet.
 
 For the candidate, supply the materialized static artifact and a new output path:
 
@@ -19,6 +21,7 @@ python3 scripts/build-runtime-trial-stage.py \
   --output /tmp/mk-trial-stage \
   --containerd /path/to/qualified/containerd \
   --helper /path/to/pinned/mkvsock-nbd \
+  --relay /path/to/pinned/mkvsock-relay \
   --helper-variant server-queue-candidate
 ```
 
@@ -29,7 +32,7 @@ readonly modules, trimpath, GOWORK disabled and ambient GOFLAGS cleared. The
 selected commit, source/archive/binary hashes and actual Go build information
 are recorded in `build.json`.
 
-The output contains `source.tar`, its private extracted tree, five binaries,
+The output contains `source.tar`, its private extracted tree, six binaries,
 `build.json` and `stage.tar.gz`. The stage root, source root and bin directory
 are mode 0700; binaries are 0500 and metadata/packets are 0600. Packet entries
 have normalized root ownership. This prevents the prior 0775-bin staging error
@@ -49,6 +52,10 @@ and read-only executable artifacts; it is insufficient for this packet contract.
 For a hash-verified trusted packet, use an extractor that retains permissions
 and ownership, then verify every member before launch. Never infer safe modes
 from successful extraction alone.
+Reboots can clear `/tmp`. Transfer or retain the verified packet in a protected
+persistent directory before a planned reboot, or copy it again afterwards and
+recheck its digest before extraction. Preserve failed staging generations and
+their refusal evidence; use a new output/work directory for a corrected packet.
 The cold trial's revision must match the stage; candidate trials explicitly set
 `MK_MODULE_TRIAL_HELPER_VARIANT=server-queue-candidate`. The driver forwards the
 same variant to its private Docker harness. No helper is selected by guessing its

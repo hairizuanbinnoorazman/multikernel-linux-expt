@@ -16,7 +16,16 @@ BUILDER=ROOT/'scripts/build-runtime-trial-stage.py'
 class TrialStageTests(unittest.TestCase):
     def invoke(self, source, output, containerd, helper, **kw):
         return sp.run(['python3',str(BUILDER),'--source-root',str(source),'--output',str(output),
-                       '--containerd',str(containerd),'--helper',str(helper)],stdout=sp.PIPE,stderr=sp.PIPE,timeout=180,**kw)
+                       '--containerd',str(containerd),'--helper',str(helper),'--relay',str(helper.parent/'relay')],stdout=sp.PIPE,stderr=sp.PIPE,timeout=180,**kw)
+
+    def test_missing_relay_refused_before_output_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)/'stage'
+            result=sp.run(['python3',str(BUILDER),'--output',str(output),
+                           '--containerd','/absent','--helper','/absent'],stdout=sp.PIPE,stderr=sp.PIPE,timeout=5)
+            self.assertEqual(result.returncode,2)
+            self.assertIn(b'--relay',result.stderr)
+            self.assertFalse(output.exists())
 
     def test_existing_generation_and_unsafe_parent_refused_without_overwrite(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -43,7 +52,9 @@ class TrialStageTests(unittest.TestCase):
                 (target/'main.go').write_text('package main\nimport "fmt"\nfunc main(){fmt.Println("committed")}\n')
             helper=base/'helper';helper.write_bytes(b'opaque committed pin fixture, never executed')
             digest=hashlib.sha256(helper.read_bytes()).hexdigest()
-            (repo/'scripts/runtime_trial_helper.py').write_text('PINS = '+repr({'qualified':digest})+'\n')
+            relay=base/'relay';relay.write_bytes(b'opaque committed CID relay fixture, never executed')
+            relay_digest=hashlib.sha256(relay.read_bytes()).hexdigest()
+            (repo/'scripts/runtime_trial_helper.py').write_text('PINS = '+repr({'qualified':digest})+'\nRELAY_PIN = '+repr(relay_digest)+'\n')
             def git(*args):return sp.check_output(['git',*args],cwd=repo,stderr=sp.PIPE,text=True).strip()
             git('init','-q');git('config','tar.umask','0000');git('add','.')
             git('-c','user.name=Fixture','-c','user.email=fixture@invalid','commit','-qm','committed snapshot')
@@ -58,6 +69,8 @@ class TrialStageTests(unittest.TestCase):
             self.assertEqual(result.returncode,0,result.stderr.decode())
             report=json.loads((output/'build.json').read_text());self.assertEqual(report['source_commit'],commit)
             self.assertTrue(report['built_from_committed_snapshot']);self.assertFalse(report['installed']);self.assertFalse(report['full_trial_started'])
+            self.assertEqual(report['relay_sha256'],relay_digest)
+            self.assertEqual(report['relay_interface'],'server-peer')
             for name in names:self.assertEqual(sp.check_output([str(output/'bin'/name)]),b'committed\n')
             for name in ['', 'bin', 'source']:self.assertEqual(stat.S_IMODE((output/name).stat().st_mode),0o700)
             for path in (output/'bin').iterdir():self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o500)
@@ -73,6 +86,7 @@ class TrialStageTests(unittest.TestCase):
                     self.assertFalse(member.mode&0o022,member.name)
                     if member.isdir():self.assertEqual(member.mode,0o755)
             self.assertEqual((output/'bin/mkvsock-nbd').read_bytes(),helper.read_bytes())
+            self.assertEqual((output/'bin/mkvsock-relay').read_bytes(),relay.read_bytes())
             print('REAL_COMMITTED_GO_SNAPSHOT_DIRTY_WORKTREE_AMBIENT_FLAG_ISOLATION_PROTECTED_PACKET_PASS')
             original=helper.read_bytes();helper.write_bytes(original+b'corruption')
             wrong=base/'wrong-pin'
@@ -81,6 +95,14 @@ class TrialStageTests(unittest.TestCase):
             self.assertIn(b'input artifact differs from its committed pin',refused.stderr)
             self.assertFalse((wrong/'stage.tar.gz').exists());self.assertFalse((wrong/'build.json').exists())
             helper.write_bytes(original)
+            original_relay=relay.read_bytes();relay.write_bytes(original_relay+b'corruption')
+            wrong=base/'wrong-relay-pin'
+            refused=self.invoke(repo,wrong,containerd,helper)
+            self.assertNotEqual(refused.returncode,0)
+            self.assertIn(b'input artifact differs from its committed pin',refused.stderr)
+            self.assertFalse((wrong/'stage.tar.gz').exists());self.assertFalse((wrong/'build.json').exists())
+            relay.write_bytes(original_relay)
+            print('COMMITTED_RELAY_PIN_COPIED_CORRUPT_RELAY_REFUSED_UNPUBLISHED_PASS')
             outside=base/'outside-secret';outside.write_bytes(b'synthetic private source boundary')
             (repo/'tools/outside').symlink_to(outside)
             git('add','tools/outside');git('-c','user.name=Fixture','-c','user.email=fixture@invalid','commit','-qm','unsafe source link')

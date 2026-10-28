@@ -85,8 +85,13 @@ def build(args):
             and any(isinstance(name,ast.Name) and name.id=='PINS' for name in node.targets)]
     if len(pins)!=1 or args.helper_variant not in pins[0] or not re.fullmatch('[0-9a-f]{64}',pins[0][args.helper_variant]):
         raise ValueError('selected helper lacks one committed pin')
+    relay_pins = [ast.literal_eval(node.value) for node in assignments if isinstance(node,ast.Assign)
+                  and any(isinstance(name,ast.Name) and name.id=='RELAY_PIN' for name in node.targets)]
+    if len(relay_pins)!=1 or not isinstance(relay_pins[0],str) or not re.fullmatch('[0-9a-f]{64}',relay_pins[0]):
+        raise ValueError('relay lacks one committed pin')
     copy_pinned(args.containerd,output/'bin/containerd',CONTAINERD_SHA)
     copy_pinned(args.helper,output/'bin/mkvsock-nbd',pins[0][args.helper_variant])
+    copy_pinned(args.relay,output/'bin/mkvsock-relay',relay_pins[0])
     env = {**os.environ,'CGO_ENABLED':'0','GOOS':'linux','GOARCH':'amd64','GOAMD64':'v1','GOWORK':'off','GOFLAGS':''}
     for name,package in PACKAGES.items():
         sp.run(['go','build','-mod=readonly','-trimpath','-buildvcs=false',
@@ -95,6 +100,7 @@ def build(args):
         (output/'bin'/name).chmod(0o500)
     report = dict(schema_version=1,source_commit=revision,source_archive_sha256=sha(archive),
                   helper_variant=args.helper_variant,helper_sha256=pins[0][args.helper_variant],
+                  relay_sha256=relay_pins[0],relay_interface='server-peer',
                   binaries={path.name:sha(path) for path in (output/'bin').iterdir()},
                   go_version=sp.check_output(['go','version'],cwd=tree/'runtime',env=env,text=True).strip(),
                   build_info={name:sp.check_output(['go','version','-m',str(output/'bin'/name)],env=env,text=True) for name in PACKAGES},
@@ -119,5 +125,6 @@ if __name__=='__main__':
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--containerd',type=Path,required=True)
     parser.add_argument('--helper',type=Path,required=True)
+    parser.add_argument('--relay',type=Path,required=True)
     parser.add_argument('--helper-variant',choices=('qualified','server-queue-candidate'),default='qualified')
     build(parser.parse_args())
