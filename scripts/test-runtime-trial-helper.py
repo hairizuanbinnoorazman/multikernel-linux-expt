@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
-from runtime_trial_helper import verify,PINS
+from runtime_trial_helper import verify,PINS,verify_relay,RELAY_PIN
 
 class HelperSelectionTests(unittest.TestCase):
     def test_unknown_variant_and_unprotected_inputs_refused(self):
@@ -59,5 +59,46 @@ class HelperSelectionTests(unittest.TestCase):
             with self.assertRaises(ValueError):verify(file,'server-queue-candidate')
             file.unlink()
         print('REAL_PINNED_TRIAL_HELPER_BOTH_VARIANTS_AND_UNSAFE_ARTIFACT_REFUSALS_PASS')
+
+
+    def test_relay_is_bound_before_mutation_without_legacy_fallback(self):
+        root=Path(__file__).resolve().parent
+        parent=(root/'test-runtime-vsock-module-trial.py').read_text()
+        child=(root/'test-runtime-docker-profile-live.py').read_text()
+        for text,mutation in [(parent,"run(['/sbin/rmmod'"),(parent,'trial.mkdir('),(child,'private.mkdir('),(child,"run(['/bin/mount'")]:
+            self.assertLess(text.index('relay_selection=verify_trial_relay'),text.index(mutation))
+        self.assertIn("'MK_RELAY':str(relay_helper)",child)
+        self.assertNotIn("'MK_RELAY':'/opt/mkruntime/g8-boot-",child)
+        self.assertEqual(len(RELAY_PIN),64)
+        for value in ['relative','/tmp/../tmp/helper']:
+            with self.assertRaises(ValueError):verify_relay(value)
+
+    def test_real_cid_relay_pin_and_corruptions(self):
+        source=os.environ.get('MK_G8_TRIAL_RELAY')
+        if not source:self.skipTest('explicit qualified CID relay artifact required')
+        self.assertEqual(os.geteuid(),0)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);file=root/'relay';shutil.copyfile(source,file);file.chmod(0o500)
+            report=verify_relay(file)
+            self.assertEqual(report['helper_sha256'],RELAY_PIN)
+            self.assertEqual(report['interface'],'server-peer')
+            self.assertFalse(report['wildcard_fallback_allowed'])
+            self.assertFalse(report['installed_runtime_changed'])
+            original=file.read_bytes()
+            for mode in ['mutated','writable','hardlink','nonroot','empty','directory-writable','symlink','fifo']:
+                with self.subTest(mode=mode):
+                    file.unlink();file.write_bytes(original);file.chmod(0o500)
+                    if mode=='mutated':file.write_bytes(original[:-1]+bytes([original[-1]^1]))
+                    if mode=='writable':file.chmod(0o522)
+                    if mode=='hardlink':os.link(file,root/'alias')
+                    if mode=='nonroot':os.chown(file,65534,65534)
+                    if mode=='empty':file.write_bytes(b'')
+                    if mode=='directory-writable':root.chmod(0o722)
+                    if mode=='symlink':file.unlink();file.symlink_to(source)
+                    if mode=='fifo':file.unlink();os.mkfifo(file)
+                    with self.assertRaises((OSError,ValueError)):verify_relay(file)
+                    root.chmod(0o700)
+                    if mode=='hardlink':(root/'alias').unlink()
+        print('REAL_PINNED_CID_RELAY_AND_UNSAFE_ARTIFACT_REFUSALS_PASS')
 
 if __name__=='__main__':unittest.main()

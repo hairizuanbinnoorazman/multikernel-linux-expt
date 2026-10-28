@@ -10,9 +10,11 @@ PINS = {
 }
 
 
-def verify(path, variant='qualified'):
-    if variant not in PINS:
-        raise ValueError('unknown disposable trial helper variant')
+# Static native artifact already qualified on real CID/peer/replacement paths.
+RELAY_PIN = '54bc9b1bd1c7db8cf39229bc6d268f6e2d8231d82ee3149d33293dac6386afd9'
+
+
+def _pinned_file(path, expected_digest):
     path = Path(path)
     if not path.is_absolute() or '..' in path.parts:
         raise ValueError('invalid disposable trial helper path')
@@ -28,10 +30,27 @@ def verify(path, variant='qualified'):
                 info.st_mode & 0o022 or not info.st_mode & 0o111 or not 0 < info.st_size <= 16 << 20):
             raise ValueError('unprotected disposable trial helper file')
         digest = hashlib.file_digest(file, 'sha256').hexdigest()
-        if digest != PINS[variant]:
+        if digest != expected_digest:
             raise ValueError('disposable trial helper digest differs from the selected pin')
+    return info, digest
+
+
+def verify(path, variant='qualified'):
+    if variant not in PINS:
+        raise ValueError('unknown disposable trial helper variant')
+    info, digest = _pinned_file(path, PINS[variant])
     return dict(schema_version=1, helper_variant=variant, helper_sha256=digest,
                 file_identity=dict(device=info.st_dev, inode=info.st_ino),
                 size_bytes=info.st_size, static_amd64_pin=True,
                 candidate_selected=variant != 'qualified', production_default_changed=False,
                 live_health_observed=False)
+
+
+def verify_relay(path):
+    info, digest = _pinned_file(path, RELAY_PIN)
+    return dict(schema_version=1, helper_role='agent-relay', interface='server-peer',
+                helper_sha256=digest,
+                file_identity=dict(device=info.st_dev, inode=info.st_ino),
+                size_bytes=info.st_size, static_amd64_pin=True,
+                wildcard_fallback_allowed=False,
+                installed_runtime_changed=False, live_health_observed=False)

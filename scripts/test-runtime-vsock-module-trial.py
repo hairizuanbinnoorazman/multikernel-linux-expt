@@ -6,7 +6,7 @@ Restoration after traffic uses an external idle reboot; cleanup is measured firs
 """
 import fcntl,hashlib,json,os,pathlib,re,signal,socket,stat,subprocess,time,uuid
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
-from runtime_trial_helper import verify as verify_trial_helper
+from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
 MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
@@ -43,6 +43,8 @@ assert loaded()==OLD and P('/sys/module/mk_transport/refcnt').read_text().strip(
 vsock_before=output(['ss','-A','vsock','-an']);assert len(vsock_before.splitlines())==1
 assert 'No memory pool configured' in output(['/opt/mkruntime/kerf-venv/bin/kerf','show'])
 assert not output(['/usr/bin/docker','--host','unix:///var/run/docker.sock','ps','--all','--quiet'])
+relay_selection=verify_trial_relay(WORK/'bin/mkvsock-relay')
+(WORK/'relay-selection-parent.json').write_text(json.dumps(relay_selection,indent=2)+'\n')
 helper_selection=verify_trial_helper(WORK/'bin/mkvsock-nbd',os.environ.get('MK_MODULE_TRIAL_HELPER_VARIANT','qualified'))
 NBD_SHA=helper_selection['helper_sha256']
 assert sha(WORK/'source.tar')==ARCHIVE_SHA,'staged source archive differs from the requested trial'
@@ -68,7 +70,7 @@ def primary():
     services={n:output(['systemctl','show',n,'-p','MainPID','--value']) for n in ['mkruntimed','mknetd','containerd','docker']}
     assert all(output(['systemctl','is-active',n])=='active' and int(pid)>0 for n,pid in services.items())
     return {'file_sha256':{str(p):sha(p) for p in paths},'service_main_pids':services}
-state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'events':[]}
+state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'events':[]}
 def record(phase,**values):
     state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded(),'module_refcnt':int(P('/sys/module/mk_transport/refcnt').read_text()) if loaded() else None})
     temporary=trial/'receipt.tmp';temporary.write_text(json.dumps(state,indent=2)+'\n');temporary.chmod(0o600);os.replace(temporary,trial/'primary-module-trial.json')
