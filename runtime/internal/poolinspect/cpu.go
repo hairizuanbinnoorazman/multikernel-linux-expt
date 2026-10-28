@@ -182,11 +182,14 @@ func ParseCPUs(data []byte) (CPUs, error) {
 			}
 		case 4: // FDT_NOP
 		case 9:
-			if !rootSeen || !rootClosed || len(stack) != 0 || pos != len(structure) || !resources || !compatible || !rootID || members == nil {
+			if !rootSeen || !rootClosed || len(stack) != 0 || pos != len(structure) || !resources || !compatible || !rootID {
 				return fail()
 			}
 			if !freeSeen {
 				return CPUs{}, ErrCPUFreeListUnavailable
+			}
+			if members == nil {
+				return fail()
 			}
 			pool := map[uint64]bool{}
 			for _, v := range members {

@@ -66,6 +66,9 @@ func TestCPUFreeListRequiresCurrentExplicitKernelABI(t *testing.T) {
 	if _, err = ParseCPUs(idle); err != ErrCPUFreeListUnavailable {
 		t.Fatalf("idle CPU 0 treated as free pool capacity: %v", err)
 	}
+	if _, err = ParseCPUs(cpuTree(nil)); err != ErrCPUFreeListUnavailable {
+		t.Fatalf("released root with omitted CPU properties: %v", err)
+	}
 	empty := cpuTree([]testProp{{"cpus", []byte{}}, {"cpus-available", []byte{}}})
 	if got, err = ParseCPUs(empty); err != nil || got.Members == nil || got.Available == nil {
 		t.Fatalf("explicit empty free list: %+v %v", got, err)
