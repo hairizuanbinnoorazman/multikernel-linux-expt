@@ -257,6 +257,9 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			break
 		}
 		features := []string{protocol.LifecycleAuditCapability, protocol.OwnershipCapability, protocol.NetworkExpectationsCapability}
+		if s.Service != nil && s.Service.PoolOwnershipAvailable() {
+			features = append(features, protocol.PoolOwnershipCapability)
+		}
 		if s.Service != nil && s.Service.StorageOwnershipAvailable() {
 			features = append(features, protocol.StorageOwnershipCapability, protocol.ResourceOwnershipCapability)
 		}
@@ -273,6 +276,21 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		var report protocol.OwnershipReport
 		report, out.Error = s.Service.Ownership()
 		if out.Error == nil {
+			out.Body = report
+		}
+	case "InspectPoolOwnership":
+		var empty struct{}
+		if len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "pool ownership body must be an empty object"}
+			break
+		}
+		if s.Service == nil {
+			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "pool ownership is unavailable"}
+			break
+		}
+		report, failure := s.Service.PoolOwnership(ctx)
+		out.Error = failure
+		if failure == nil {
 			out.Body = report
 		}
 	case "InspectNetworkExpectations":
