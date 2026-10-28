@@ -315,6 +315,14 @@ inventories. Fresh Docker qualification remains required; normal cleanup of
 this failed trial and full G7/G8 are not qualified. Direct child kernels require no nested virtualization and share host
 trust after a child-kernel compromise.
 
+The [subsequent user restart](evidence/runtime-20261028/g8-user-restart-28b94738/README.md)
+also preserves all 93 files / 12 images, private output, failed ledgers and primary
+persistent Docker inventories on boot `28b94738…`. The [packet-builder fix](evidence/runtime-20261028/g8-trial-packet-cid-relay/README.md)
+now requires and includes the qualified CID relay alongside protected source
+modes; missing/corrupt relay inputs refuse. Corrected packets are retained in a
+protected persistent directory before launch. These are staged-test artifacts;
+full G7/G8 and fresh live Docker/doctor acceptance remain separate gates.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

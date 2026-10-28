@@ -1159,3 +1159,21 @@ Private before/after cloud inventories match across all five resource categories
 The failed case remains quarantined and is not relabeled normal cleanup; a fresh
 Docker/live-doctor trial and full G7/G8 remain required. Direct child kernels
 require no nested virtualization and retain shared host trust.
+
+
+The user's [subsequent restart](../../evidence/runtime-20261028/g8-user-restart-28b94738/README.md)
+to boot 28b94738-caa4-4e23-9d7e-b6a274d5d7c9 also preserves all 93 files/12 images,
+private output, failed ledgers and primary persistent Docker inventories. Original
+transport has zero references with no child/pool and all CPUs online at the
+checkpoint. Project resource counts remain 1/3/4/0/8; the instance's external IP
+changes, so exact instance-ledger equality is not claimed.
+
+Two [pre-mutation staging refusals](../../evidence/runtime-20261028/g8-trial-staging-refusals/README.md)
+retain missing-after-reboot packet and unprotected manual source-mode failures;
+neither launches a module/Docker trial. The [committed packet-builder fix](../../evidence/runtime-20261028/g8-trial-packet-cid-relay/README.md)
+8c048020 requires the selected committed CID-relay pin and includes the relay
+as the sixth protected binary. Real Go/hostile-input controls pass, followed by
+inspection of every actual runtime packet owner/mode/binary hash. Protected
+persistent staging avoids losing the only packet copy at reboot. Full live
+Docker/combined-doctor and G7/G8 acceptance remain open; direct child kernels
+use no nested virtualization and retain shared host trust.
