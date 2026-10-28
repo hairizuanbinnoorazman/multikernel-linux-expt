@@ -1,6 +1,6 @@
 //go:build linux
 
-// The diagnostic sends Capabilities and optionally one StateProcess request. It cannot execute,
+// The diagnostic makes bounded read-only observations. It cannot execute,
 // signal, quiesce, stop, or repair a guest. Credentials arrive only through a
 // sealed inherited descriptor, never an argument or environment value.
 package main
@@ -26,6 +26,7 @@ import (
 type options struct {
 	socket, id, generation, release string
 	processID                       string
+	stoppedOutputSummary            bool
 	endpoint                        uint
 	peerPID, tokenFD                int
 	timeout                         time.Duration
@@ -50,6 +51,8 @@ type report struct {
 	ExpectedProcessSHA256            string              `json:"expected_process_id_sha256,omitempty"`
 	ProcessQueryAttempted            bool                `json:"process_query_attempted,omitempty"`
 	Process                          *processObservation `json:"process,omitempty"`
+	OutputQueryAttempted             bool                `json:"output_query_attempted,omitempty"`
+	Output                           *outputObservation  `json:"output,omitempty"`
 }
 type processObservation struct {
 	Status   string `json:"status"`
@@ -103,7 +106,7 @@ func readToken(file *os.File) ([]byte, error) {
 	return data, nil
 }
 func valid(o options) bool {
-	return idPattern.MatchString(o.id) && genPattern.MatchString(o.generation) && releasePattern.MatchString(o.release) && (o.processID == "" || processPattern.MatchString(o.processID)) && o.endpoint >= 1024 && o.endpoint <= 65535 && o.peerPID > 0 && o.tokenFD >= 3 && o.tokenFD <= 1024 && o.timeout > 0 && o.timeout <= 15*time.Second
+	return idPattern.MatchString(o.id) && genPattern.MatchString(o.generation) && releasePattern.MatchString(o.release) && (o.processID == "" || processPattern.MatchString(o.processID)) && (!o.stoppedOutputSummary || o.processID != "") && o.endpoint >= 1024 && o.endpoint <= 65535 && o.peerPID > 0 && o.tokenFD >= 3 && o.tokenFD <= 1024 && o.timeout > 0 && o.timeout <= 15*time.Second
 }
 func inspect(parent context.Context, o options, credential *os.File) report {
 	r := report{Version: 1, Scope: "one-credential-bound-capabilities-request", Status: "inconclusive", Code: "INVALID_PROBE_INPUT", Unobserved: []string{"remote-process-attestation", "kernel-incarnation", "docker-health", "storage-health", "containment"}}
@@ -116,6 +119,10 @@ func inspect(parent context.Context, o options, credential *os.File) report {
 		r.Scope = "credential-bound-capabilities-and-process-state"
 		hash := sha256.Sum256([]byte(o.processID))
 		r.ExpectedProcessSHA256 = hex.EncodeToString(hash[:])
+	}
+	if o.stoppedOutputSummary {
+		r.Version, r.Scope = 3, "credential-bound-stopped-process-output-summary"
+		r.Unobserved = append(r.Unobserved, "complete-output-history", "marker-attestation")
 	}
 	ctx, cancel := context.WithTimeout(parent, o.timeout)
 	defer cancel()
@@ -182,6 +189,9 @@ func inspect(parent context.Context, o options, credential *os.File) report {
 			r.Process.ExitCode = &state.ExitCode
 		}
 		r.Status, r.Code = "observed", "PROCESS_STATE_OBSERVED"
+		if o.stoppedOutputSummary {
+			return inspectStoppedOutput(ctx, client, o, r, state)
+		}
 	}
 	return r
 }
@@ -207,6 +217,7 @@ func main() {
 	flag.StringVar(&o.generation, "generation", "", "expected generation")
 	flag.StringVar(&o.release, "expected-release", "", "expected child kernel release")
 	flag.StringVar(&o.processID, "process-id", "", "optional exact guest process ID for one read-only StateProcess query after capabilities match")
+	flag.BoolVar(&o.stoppedOutputSummary, "stopped-output-summary", false, "optional bounded redacted output summary for a stopped process; requires process-id")
 	flag.UintVar(&o.endpoint, "endpoint", 0, "expected agent endpoint")
 	flag.IntVar(&o.peerPID, "relay-pid", 0, "expected local relay PID")
 	flag.IntVar(&o.tokenFD, "token-fd", -1, "sealed inherited 32-byte credential descriptor")

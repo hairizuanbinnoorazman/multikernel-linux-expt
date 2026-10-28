@@ -55,5 +55,28 @@ absence does not establish whether a process existed earlier. The production
 shim maps its initial task to guest process `init`; its host namespace-holder
 PID is a different identity. Keep that distinction when diagnosing startup.
 
+Explicit `--stopped-output-summary --process-id=...` selects version 3. It
+requires a valid STOPPED state, reads at most 64 KiB per stream with fixed zero
+offsets, then checks the same process ID/status/PID/exit again. The four-call
+budget is Capabilities, StateProcess, ReadProcessOutput, StateProcess, within the
+same absolute timeout; there is no reconnect or replay. Positive output offsets
+can acknowledge/discard buffered data in the existing API. This mode always
+uses zero so it does not consume retained bytes, including after a prior reader
+has advanced the retained base.
+
+The summary includes sample byte counts, retained start/end offsets, upstream
+truncation flags and a fixed allowlist of complete newline-terminated Docker
+probe stdout markers. Missing fields, oversized data, offset underflow, wrong
+output state or a changed final process identity refuse the summary. The first
+partial line at a nonzero retained base and an unterminated last line are never
+counted as markers. Stderr text, arbitrary lines, output hashes and payloads
+are excluded; decoded samples are cleared before return.
+
+Markers are guest-output clues. They do not independently attest a build,
+ENOSPC, Docker health or host isolation. A missing marker may have been outside
+the sampled/retained window; complete history and atomic output stability are
+unproven. Only the sampled process-state identity is bracketed. The default
+version-1 and optional process-only version-2 behavior remain unchanged.
+
 Direct child kernels require no nested virtualization. Primary and child kernels
 share host trust after compromise. This diagnostic cannot close full G7/G8 gates.
