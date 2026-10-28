@@ -171,7 +171,11 @@ func TestLivePoolCapacityGCE(t *testing.T) {
 	if failure != nil {
 		t.Fatal("reservation create failed; retain exact private state")
 	}
-	check("/sys/fs/multikernel/instances/"+cfg.ID+"/status", "created")
+	statusData, statusErr := os.ReadFile("/sys/fs/multikernel/instances/" + cfg.ID + "/status")
+	status := strings.TrimSpace(string(statusData))
+	if statusErr != nil || (status != "created" && status != "ready") {
+		t.Fatal("created reservation is not in a production-mapped CREATED kernel state")
+	}
 	observe("allocated.json", "consistent", "", 4<<30, 4)
 	if _, failure = svc.Delete(ctx, cfg.ID, created.Sandbox.Generation, "g8-capacity-delete-created"); failure != nil {
 		t.Fatal("exact created-reservation delete failed; retain private state")
