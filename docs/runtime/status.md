@@ -6,11 +6,17 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-28)
 
-Current test-host state: the 0c50de9 combined-doctor trial's host wait timed out
-with zero output and never reached live doctor checks. Its exact generation is now
+The 0c50de9 combined-doctor trial's host wait timed out
+with zero output and never reached live doctor checks. Its exact generation was subsequently
 [gracefully parked](../../evidence/runtime-20261028/g8-exact-child-graceful-stop/README.md):
 the kernel is `loaded`, the original NBD process is terminal and candidate
-transport references are zero. Historical RUNNING/ACTIVE ledgers remain unchanged.
+transport references are zero. Historical RUNNING/ACTIVE ledgers remain unchanged. Subsequent
+[strict native-close/filesystem checks](../../evidence/runtime-20261028/g8-retained-native-close/README.md)
+and [operator resource return](../../evidence/runtime-20261028/g8-retained-resource-release/README.md)
+pass. Current host state: no child or pool, all 16 CPUs online, restored network
+rules/links/routes, candidate transport loaded at zero references. The failed
+image and original ledgers remain retained and excluded from reuse. Cold
+transport restoration and a fresh full Docker trial remain required.
 Normal cleanup and cold restoration are **not** qualified for this attempt.
 The related agent stream reuse bug is independently reproduced and fixed in
 a4b11660; local/full-runtime race and isolated GCE socket controls pass. A
@@ -32,8 +38,8 @@ The bounded output window is now preserved privately; its metadata/protection
 proof is public. The next trial's legacy relay mismatch is also fixed and its
 real-artifact admission controls pass. The exact production Quiesce/Shutdown
 method then succeeded, with independent host observations and unchanged primary
-state. Synced-close validation, a full backing-descriptor census, read-only
-filesystem checking and resource restoration remain open; no fresh trial has run.
+state. Strict synced-close validation, descriptor census, clean read-only
+filesystem checking and exact resource restoration now pass; no fresh trial has run.
 The last passing earlier cases below retain their scope. Preserve this failed
 private generation and follow the escalation contract before another live trial.
 
@@ -1115,3 +1121,23 @@ filesystem checking and resource restoration remain separate required gates.
 The failed original pressure/build/doctor trial is not requalified. Live doctor,
 normal cleanup and full G7/G8 remain open. Direct kernels use no nested
 virtualization and retain shared host trust.
+
+
+The [strict native-close proof](../../evidence/runtime-20261028/g8-retained-native-close/README.md)
+uses committed storage-package code 3de42a2f and the production parser against
+the exact retained export: synced=1, 1,833 reads, 597 writes and 64 flushes. Three
+process-wide FD scans find no unexpected image aliases or permission failures.
+Read-only e2fsck exits zero against the held locked descriptor; the first
+post-close hash equals the post-check hash. This is not a pre/post-live hash
+claim. Primary and failed ledger/journal bytes are unchanged.
+
+[Exact operator resource return](../../evidence/runtime-20261028/g8-retained-resource-release/README.md)
+then unloads/deletes the parked kernel, releases the pool and reconciles the
+exact disconnected endpoint through a separate recovery copy. All 16 CPUs are
+online, no children/pool remain and firewall rule/policy identities, raw links
+and routes match the fixture baseline. The image retains its post-close hash;
+primary service PIDs, file hashes and Docker inventories are unchanged. Original
+RUNNING/ACTIVE and DISCONNECTED ledgers remain forensic evidence. The candidate
+transport remains loaded with zero references; no hot unload is qualified. Cold
+restoration and fresh Docker/live-doctor qualification remain open, as does full
+G7/G8. No nested virtualization is used; child kernels share host trust.

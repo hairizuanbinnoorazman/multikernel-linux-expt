@@ -324,3 +324,29 @@ checks the staged relay before module/Docker/child filesystem mutation. Do not
 reuse the earlier legacy relay path or substitute arbitrary helper bytes to get
 past admission. These checks do not replace generation-bound graceful shutdown,
 independent native close, offline checking or measured resource restoration.
+
+
+## Gracefully parked retained generation
+
+The [exact 0c50de9 stop](../../evidence/runtime-20261028/g8-exact-child-graceful-stop/README.md)
+qualifies production Quiesce/Shutdown after preserving private stopped output
+and bounded failed-state copies. Independent observations find kernel `loaded`,
+native NBD terminal and transport references zero. This alone is not synced-close
+or offline-check authority. [The next gate](../../evidence/runtime-20261028/g8-retained-native-close/README.md)
+uses the production strict log parser bound to the original export, a full
+process descriptor census, then read-only e2fsck against the exact locked image
+descriptor. It passes with the post-close image hash unchanged. Permission
+failures, unexpected backing aliases or malformed/missing close evidence refuse
+that gate. The census is a point-in-time observation on a trusted lab host.
+
+[Guarded operator resource return](../../evidence/runtime-20261028/g8-retained-resource-release/README.md)
+then unloads/deletes that exact kernel and releases its pool. Endpoint deletion
+uses production reconciliation on a separate recovery copy with exact identity;
+the original failed ledger is preserved. Rules/policies, links/routes, primary
+files/service PIDs/Docker inventories and failed ledgers are checked. Keep the
+image excluded from reuse and retain historical ACTIVE/RUNNING claims: this is
+operator quarantine, not normal runtime cleanup. Restore the transport with a
+guarded graceful idle reboot after private cloud serial/project captures; do
+not hot-unload a candidate that has carried traffic. Fresh Docker and full G7/G8
+qualification remain separate. This direct-child path requires no nested
+virtualization and retains shared host trust after child-kernel compromise.

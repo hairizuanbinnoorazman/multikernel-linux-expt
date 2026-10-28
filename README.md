@@ -302,10 +302,15 @@ staged CID relay before lifecycle mutation.
 The [exact-generation graceful stop](evidence/runtime-20261028/g8-exact-child-graceful-stop/README.md)
 now parks the child: its kernel is `loaded`, the original NBD process is terminal,
 and transport references are zero. Primary state and failed ledgers are unchanged.
-The historical RUNNING/ACTIVE records remain retained; native synced-close
-validation, descriptor census, offline filesystem checking and resource release
-are still required before a fresh Docker trial. Normal cleanup and full G7/G8
-remain open. Direct child kernels require no nested virtualization and share host
+The [native-close and filesystem proof](evidence/runtime-20261028/g8-retained-native-close/README.md)
+then validates strict synced close, no backing-image aliases and clean read-only
+e2fsck with an unchanged post-close hash. [Exact operator resource return](evidence/runtime-20261028/g8-retained-resource-release/README.md)
+unloads/deletes the parked kernel, releases its pool and restores network rules,
+links and routes. All 16 CPUs are online with no children; the candidate
+transport remains loaded at zero references. Historical RUNNING/ACTIVE records
+and the failed image remain unchanged and excluded from reuse. Cold transport
+restoration and a fresh Docker trial remain required; normal cleanup of this
+failed trial and full G7/G8 are not qualified. Direct child kernels require no nested virtualization and share host
 trust after a child-kernel compromise.
 
 The profile remains experimental. Further crash points during resource mutation
