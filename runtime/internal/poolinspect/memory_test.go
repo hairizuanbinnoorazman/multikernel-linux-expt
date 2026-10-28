@@ -15,7 +15,7 @@ func TestMemoryPoolCountsDescendantUnionAcrossChunks(t *testing.T) {
     3100-31ff : another allocation
 `
 	got, err := ParseMemory([]byte(input))
-	if err != nil || got != (Memory{Chunks: 2, TotalBytes: 8192, AllocatedBytes: 1024, AvailableBytes: 7168}) {
+	if err != nil || got != (Memory{Chunks: 2, TotalBytes: 8192, AllocatedBytes: 1024, AvailableBytes: 7168, LargestFreeExtentBytes: 3584}) {
 		t.Fatalf("memory=%+v err=%v", got, err)
 	}
 	empty, err := ParseMemory([]byte("0000-ffff : System RAM\n"))

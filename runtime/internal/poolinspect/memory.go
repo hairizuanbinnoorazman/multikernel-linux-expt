@@ -18,10 +18,11 @@ var errMemoryMap = errors.New("kernel memory map is unavailable, obscured or inv
 var memoryLine = regexp.MustCompile(`^( *)([0-9a-fA-F]{1,16})-([0-9a-fA-F]{1,16}) : ([ -~]{1,256})$`)
 
 type Memory struct {
-	Chunks         int    `json:"chunks"`
-	TotalBytes     uint64 `json:"total_bytes"`
-	AllocatedBytes uint64 `json:"allocated_bytes"`
-	AvailableBytes uint64 `json:"available_bytes"`
+	LargestFreeExtentBytes uint64 `json:"largest_free_extent_bytes"`
+	Chunks                 int    `json:"chunks"`
+	TotalBytes             uint64 `json:"total_bytes"`
+	AllocatedBytes         uint64 `json:"allocated_bytes"`
+	AvailableBytes         uint64 `json:"available_bytes"`
 }
 type interval struct{ start, end uint64 }
 type memoryNode struct {
@@ -115,15 +116,25 @@ func ParseMemory(data []byte) (Memory, error) {
 		regions := allocations[n]
 		sort.Slice(regions, func(i, j int) bool { return regions[i].start < regions[j].start })
 		if len(regions) == 0 {
+			if size := chunk.end - chunk.start + 1; size > result.LargestFreeExtentBytes {
+				result.LargestFreeExtentBytes = size
+			}
 			continue
 		}
 		merged := regions[0]
+		largest := func(size uint64) {
+			if size > result.LargestFreeExtentBytes {
+				result.LargestFreeExtentBytes = size
+			}
+		}
+		largest(merged.start - chunk.start)
 		for _, region := range regions[1:] {
 			if merged.end == ^uint64(0) || region.start <= merged.end+1 {
 				if region.end > merged.end {
 					merged.end = region.end
 				}
 			} else {
+				largest(region.start - merged.end - 1)
 				if !add(&result.AllocatedBytes, merged.end-merged.start+1) {
 					return fail()
 				}
@@ -133,6 +144,7 @@ func ParseMemory(data []byte) (Memory, error) {
 		if !add(&result.AllocatedBytes, merged.end-merged.start+1) {
 			return fail()
 		}
+		largest(chunk.end - merged.end)
 	}
 	if result.AllocatedBytes > result.TotalBytes {
 		return fail()

@@ -22,6 +22,7 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/kernelmanifest"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	mknetwork "github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/poolinspect"
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage"
@@ -111,6 +112,7 @@ func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
+	inspectPool := flag.Bool("doctor-pool", false, "print bounded configured/durable/kernel pool capacity observations; not admission or readiness")
 	inspectCombined := flag.Bool("doctor-all", false, "print bounded combined storage/native-process/network ownership and kernel presence diagnostics and exit")
 	inspectNetwork := flag.Bool("doctor-network", false, "print bounded lifecycle/network ownership and kernel presence diagnostics and exit")
 	networkSocket := flag.String("network-socket", "/run/mknetd.sock", "protected mknetd socket for network inspection")
@@ -131,7 +133,7 @@ func main() {
 	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
 	modes := 0
-	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined} {
+	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool} {
 		if selected {
 			modes++
 		}
@@ -151,6 +153,17 @@ func main() {
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
 	timeout := hostConfig.BackendTimeout()
+	if *inspectPool {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		report := doctor.InspectPool(ctx, doctor.PoolInputs{Ownership: func(ctx context.Context) (protocol.PoolOwnershipReport, error) {
+			return daemon.InspectPoolOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		}, Kernel: func(ctx context.Context) (poolinspect.Snapshot, error) { return poolinspect.Read(ctx, sysfs) }, Boot: doctor.BootIdentity}, buildinfo.Revision)
+		if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
+			os.Exit(1)
+		}
+		return
+	}
 	if *inspectCombined {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()

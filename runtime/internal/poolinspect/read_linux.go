@@ -89,3 +89,22 @@ func readBounded(ctx context.Context, path string, maximum int64, uid uint32) ([
 	}
 	return data, nil
 }
+
+func (s Snapshot) Validate() error {
+	if s.CPUs.Members == nil || s.CPUs.Available == nil || len(s.CPUs.Members) > 4096 || s.Memory.Chunks < 0 || s.Memory.Chunks > maxMemoryMapRanges || s.Memory.AvailableBytes > s.Memory.TotalBytes || s.Memory.AllocatedBytes != s.Memory.TotalBytes-s.Memory.AvailableBytes || s.Memory.LargestFreeExtentBytes > s.Memory.AvailableBytes || s.Memory.Chunks == 0 && s.Memory.TotalBytes != 0 || s.Memory.Chunks > 0 && s.Memory.TotalBytes == 0 {
+		return ErrKernelPoolUnavailable
+	}
+	members := map[uint64]bool{}
+	for n, v := range s.CPUs.Members {
+		if n > 0 && v <= s.CPUs.Members[n-1] {
+			return ErrKernelPoolUnavailable
+		}
+		members[v] = true
+	}
+	for n, v := range s.CPUs.Available {
+		if !members[v] || n > 0 && v <= s.CPUs.Available[n-1] {
+			return ErrKernelPoolUnavailable
+		}
+	}
+	return nil
+}
