@@ -1227,3 +1227,17 @@ degraded observations suppress candidates and CPU zero is excluded. A fresh
 Docker capacity checkpoint, service readiness, diagnostic bundles and full G7/G8
 remain open. Existing version-5 doctor scope is unchanged. Direct child kernels
 require no nested virtualization and retain shared host trust.
+
+
+The [fbbb9109 actual Docker-capacity trial](../../evidence/runtime-20261028/g8-live-docker-pool-capacity/README.md)
+now passes ENOSPC/build/image-engine isolation, version-5 doctor, separate pool
+capacity and normal cleanup. During pressure and built-image holds the pool
+command's lifecycle/sequence equals the separately checked storage/native view;
+configured 8,000,000,000-byte memory/1,000,000,000-byte reserve and actual 8 GiB
+kernel pool/3 GiB allocation yield CPUs 12–15 and a 3,778,774,528-byte candidate.
+After removal it reports all eight pool CPUs/7,000,000,000 bytes before graceful
+pool release. Candidates remain non-reservations; no admission/readiness claim is
+added. Primary file hashes/PIDs/Docker inventories and exact network restoration
+pass. Parent 07a3b92c and workload e3d0949b exit zero; candidate transport is
+quiescent pending separate cold restoration. Full G7/G8 remains open. Direct
+kernels require no nested virtualization and retain shared host trust.

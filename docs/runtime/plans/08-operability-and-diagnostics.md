@@ -230,3 +230,14 @@ report keeps admission_guaranteed false; missing metadata and degraded state
 cannot offer candidates. Live Docker capacity holds, combined-doctor integration,
 readiness and diagnostic collection still govern complete G8 acceptance.
 No nested virtualization or hostile-child containment is claimed.
+
+
+The [actual Docker-capacity checkpoint](../../../evidence/runtime-20261028/g8-live-docker-pool-capacity/README.md)
+subsequently qualifies the pool view during ENOSPC, built-image and post-removal
+holds, independently recomputing bounds and correlating exact lifecycle state.
+Normal cleanup, guest/primary engine/image separation and unchanged primary
+state pass. The version-5 command stays unchanged; its separate pool report does
+not establish readiness or admission. This trial's cold restoration, unified
+capacity integration, service/component health and diagnostics remain separate
+full G8 requirements. No nested virtualization or hostile-child containment is
+claimed.

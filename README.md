@@ -25,8 +25,9 @@ The new [pool-capacity command](docs/runtime/pool-capacity.md) correlates config
 limits and durable ownership with actual kernel CPU free lists and registered
 memory use. [GCE reservation-level proof](evidence/runtime-20261028/g8-pool-capacity-gce/README.md)
 passes candidate bounds and normal resource return with unchanged primary state.
-It does not guarantee admission or service readiness; capacity checks during
-real Docker pressure/builds remain a separate checkpoint.
+The [actual Docker pressure/build capacity checkpoint](evidence/runtime-20261028/g8-live-docker-pool-capacity/README.md)
+also passes with matching live ownership and normal cleanup. Admission and
+service readiness are not guaranteed; full G7/G8 remains open.
 
 Host Docker selects the Multikernel runtime; Docker builds inside an approved
 Docker guest use that child's local engine and storage, without the host Docker
