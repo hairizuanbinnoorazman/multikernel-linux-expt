@@ -75,3 +75,10 @@ Installed default helper pins remain unchanged; full G7/G8 remains open.
 
 Direct child kernels use no nested virtualization. The shared host trust boundary
 after child compromise and the remaining full G7/G8 requirements still apply.
+
+
+The [mandatory CID-relay builder proof](../../evidence/runtime-20261028/g8-trial-packet-cid-relay/README.md)
+qualifies the six-binary packet and refusal of omitted/corrupted relay input.
+The resulting 8c048020 packet passes [actual Docker pressure/build, engine/image
+isolation, live version-5 doctor and normal cleanup](../../evidence/runtime-20261028/g8-live-combined-doctor/README.md).
+Its cold restoration remains separate; complete G7/G8 remains open.

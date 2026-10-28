@@ -187,9 +187,9 @@ non-overwriting artifact while public reports remain redacted. It is one sampled
 window, not the complete diagnostic bundle or cleanup authority. The
 [fresh-trial relay guard](../../../evidence/runtime-20261028/g8-relay-trial-admission-gce/README.md)
 also qualifies the staged compatible helper before lifecycle mutation, fixing a
-legacy fixture path. These prerequisites leave the retained active child/export,
+legacy fixture path. At that checkpoint, the retained active child/export,
 scoped graceful recovery, full Docker/doctor lifecycle, readiness and full G8
-open. No nested virtualization or hostile-kernel containment is claimed.
+remained open; later recovery and fresh-trial proofs follow below. No nested virtualization or hostile-kernel containment is claimed.
 
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
@@ -206,3 +206,15 @@ they do not qualify that failed attempt's normal cleanup, fresh version-5 live
 Docker lifecycle or the complete G8 interface/diagnostics requirements above.
 The corrected staged relay prerequisite is qualified before another trial.
 Direct child kernels use no nested virtualization and retain shared host trust.
+
+
+The [fresh 8c048020 live proof](../../../evidence/runtime-20261028/g8-live-combined-doctor/README.md)
+now qualifies version-5 combined resource/network/native-process correlation
+during actual child Docker ENOSPC and built-image holds and after normal removal.
+Guest/primary engine separation and child-image absence in primary Docker are
+independently checked with unchanged primary inventories, file hashes and PIDs.
+Normal native synced close, offline filesystem check, ownership release and
+resource/network return pass. This closes that bounded fresh lifecycle gap; its
+separate cold-restoration gate and the full interface/readiness/capacity/diagnostic
+requirements remain open. No nested virtualization is used; these direct kernels
+retain shared host trust and no hostile-child containment claim is added.

@@ -6,6 +6,18 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-28)
 
+The [fresh 8c048020 trial](../../evidence/runtime-20261028/g8-live-combined-doctor/README.md)
+passes actual host-selected child Docker pressure/build/image-engine isolation,
+version-5 combined doctor during ENOSPC and built-image holds and after removal,
+and normal cleanup. Parent 6c3f2f11 and workload efd95334 both finish success/exit
+zero. No child/pool/vsock sockets remain, all CPUs are online and primary
+hashes/PIDs/Docker inventories match. Candidate transport is quiescent at zero
+references pending this trial's separate cold restoration. The older failed
+0c50de9 generation stays quarantined. Full G7/G8 remains open for readiness,
+capacity, diagnostics and the wider failure/concurrency matrix. Direct child
+kernels use no nested virtualization and retain shared host trust.
+
+
 The 0c50de9 combined-doctor trial's host wait timed out
 with zero output and never reached live doctor checks. Its exact generation was subsequently
 [gracefully parked](../../evidence/runtime-20261028/g8-exact-child-graceful-stop/README.md):
@@ -18,8 +30,9 @@ to the original transport after one guarded idle reboot. All 93 files / 12
 images, private output, failed ledgers and primary persistent Docker inventories
 are verified. That restoration checkpoint has no child/pool, all 16 CPUs online
 and zero references. The failed image and original ledgers remain retained and
-excluded from reuse. A fresh full Docker trial remains required.
-Normal cleanup and cold restoration are **not** qualified for this attempt.
+excluded from reuse. The fresh passing trial above uses a different generation.
+Normal runtime cleanup of this original failed attempt remains unqualified;
+its separate operator cold restoration is qualified by the linked proof.
 The related agent stream reuse bug is independently reproduced and fixed in
 a4b11660; local/full-runtime race and isolated GCE socket controls pass. A
 [bounded actual-child capabilities probe](../../evidence/runtime-20261028/g8-retained-agent-capabilities-gce/README.md)

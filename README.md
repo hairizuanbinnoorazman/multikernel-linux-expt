@@ -10,6 +10,16 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+The latest [actual Docker/combined-doctor qualification](evidence/runtime-20261028/g8-live-combined-doctor/README.md)
+passes host Docker → approved child Docker multistage/repeat builds, ENOSPC
+recovery, child/primary engine and image separation, version-5 doctor checks at
+both live holds and after removal, and normal resource cleanup. Primary file
+hashes, service PIDs and exact Docker inventories remain unchanged. The corrected
+packet includes the pinned CID relay. Cold restoration of this new trial is a
+separate gate; full G7/G8 readiness, capacity and diagnostic requirements remain
+open. These checks use direct kernels and do not establish containment after
+child-kernel compromise.
+
 Host Docker selects the Multikernel runtime; Docker builds inside an approved
 Docker guest use that child's local engine and storage, without the host Docker
 socket. The latest [two-child qualification](evidence/runtime-20261023/g8-concurrent-netns/README.md)
