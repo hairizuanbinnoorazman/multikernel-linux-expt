@@ -109,3 +109,16 @@ and [GCE CLI preflight](../../../evidence/runtime-20261027/g8-combined-doctor-cl
 qualify the new command and explicit legacy refusal. The separate
 [child attempt fails before the live hold](../../../evidence/runtime-20261027/g8-combined-live-failure/README.md);
 no version-5 live-build or complete-health pass is claimed.
+
+
+`sudo mkruntimed --config=/etc/mkruntime/config.json --doctor-pool` separately
+negotiates configured pool limits/durable claims and correlates them with two
+independent kernel CPU-free-list and memory-map samples. It refuses missing
+metadata, legacy peers, changed samples and policy/ownership mismatch; degraded
+state suppresses all candidates. Memory candidates respect configured reserve
+and the largest free registered extent. `admission_guaranteed` is always false.
+The [pool-capacity contract](../../../docs/runtime/pool-capacity.md) and
+[actual GCE reservation qualification](../../../evidence/runtime-20261028/g8-pool-capacity-gce/README.md)
+define its scope. Version-5 `--doctor-all` is unchanged and still marks pool
+capacity unobserved; service readiness and complete G8 diagnostics remain open.
+Direct child kernels use no nested virtualization and share host trust.

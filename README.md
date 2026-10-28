@@ -21,6 +21,13 @@ files / 12 images and primary persistent Docker inventories. Full G7/G8
 readiness, capacity and diagnostic requirements remain open. These checks use direct kernels and do not establish containment after
 child-kernel compromise.
 
+The new [pool-capacity command](docs/runtime/pool-capacity.md) correlates configured
+limits and durable ownership with actual kernel CPU free lists and registered
+memory use. [GCE reservation-level proof](evidence/runtime-20261028/g8-pool-capacity-gce/README.md)
+passes candidate bounds and normal resource return with unchanged primary state.
+It does not guarantee admission or service readiness; capacity checks during
+real Docker pressure/builds remain a separate checkpoint.
+
 Host Docker selects the Multikernel runtime; Docker builds inside an approved
 Docker guest use that child's local engine and storage, without the host Docker
 socket. The latest [two-child qualification](evidence/runtime-20261023/g8-concurrent-netns/README.md)

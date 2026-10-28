@@ -1206,3 +1206,24 @@ private stopped output are preserved. Normal cleanup remains qualified for the
 new 8c048020 generation; the older failed case remains quarantined. The complete
 G7/G8 readiness/capacity/diagnostic and wider failure/concurrency requirements
 remain open. Direct kernels use no nested virtualization and share host trust.
+
+
+The [new pool-capacity interface](pool-capacity.md) in f259665d–ce2c5129 adds
+negotiated configured limits/durable claims and independent bounded kernel
+CPU/memory inspection, with no allocation or repair in the command.
+[Actual GCE qualification](../../evidence/runtime-20261028/g8-pool-capacity-gce/README.md)
+passes a production CREATED-only reservation: configured 8 GiB/1 GiB reserve,
+3 GiB held on CPUs 8–11, kernel-free CPUs 12–15 and a conservative 4 GiB memory
+candidate. Exact deletion exposes eight free pool CPUs/7 GiB candidate, then
+normal pool release returns all sixteen CPUs. Primary hashes/PIDs/Docker
+inventories and older failed state remain unchanged. No child is booted or
+Docker workload run in this test; full runtime race controls pass.
+
+The [first raw-status fixture failure](../../evidence/runtime-20261028/g8-pool-capacity-first-fixture-return/README.md)
+and [pre-mutation released-root refusal](../../evidence/runtime-20261028/g8-pool-capacity-released-root-refusal/README.md)
+remain retained, with exact operator return separately proved for the first.
+Missing free-list data is explicitly unavailable, never inferred capacity;
+degraded observations suppress candidates and CPU zero is excluded. A fresh
+Docker capacity checkpoint, service readiness, diagnostic bundles and full G7/G8
+remain open. Existing version-5 doctor scope is unchanged. Direct child kernels
+require no nested virtualization and retain shared host trust.

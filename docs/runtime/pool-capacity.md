@@ -18,7 +18,7 @@ projection excludes bundle paths, arbitrary labels, credentials and raw errors.
 The CPU reader requires the root kernel's explicit `cpus-available` property,
 64-bit physical IDs, unique members and a valid free subset. It never assumes
 all pool members are free. With no initialized pool, the current root tree
-contains CPU 0 but no free-list property: the command reports
+can contain CPU 0 or omit both CPU properties after release, with no free-list property: the command reports
 `KERNEL_CPU_FREE_LIST_UNAVAILABLE`, not zero verified capacity or a free child
 CPU. CPU 0 is never a candidate. Incompatible older kernel trees also remain
 inconclusive; no legacy inference is made.
@@ -53,9 +53,13 @@ RPC refusal and private metadata/error redaction. Fuzz runs are bounded controls
 not the full G7 fuzz campaign. The opt-in GCE driver reserves only a CREATED,
 unloaded instance through production lifecycle code, observes capacity through
 the production RPC and CLI, deletes that reservation and returns its pool.
-It never loads/boots a child or invokes Docker. Its live qualification and a
-fresh Docker build/pressure capacity checkpoint remain separate gates until
-actual evidence is linked here.
+It never loads/boots a child or invokes Docker. [Actual GCE qualification](../../evidence/runtime-20261028/g8-pool-capacity-gce/README.md)
+passes configured/durable/kernel correlation, 4 GiB and 7 GiB candidate bounds,
+exact CREATED deletion/pool return and unchanged primary/failed state. A fresh
+Docker build/pressure capacity checkpoint remains a separate gate. The retained
+[first status fixture](../../evidence/runtime-20261028/g8-pool-capacity-first-fixture-return/README.md)
+and [released-root refusal](../../evidence/runtime-20261028/g8-pool-capacity-released-root-refusal/README.md)
+explain corrections without relabeling those attempts successful.
 
 Direct child kernels require no nested virtualization. They share host trust
 after child-kernel compromise; capacity inspection adds no containment boundary.

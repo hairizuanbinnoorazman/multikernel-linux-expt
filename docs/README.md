@@ -24,6 +24,8 @@ storage and lifecycle theme.
 
 - [`runtime/status.md`](runtime/status.md) summarizes proved experiment results,
   the current `ctr`/Docker feature matrix, and the runtime safety boundary.
+- [`runtime/pool-capacity.md`](runtime/pool-capacity.md) defines bounded configured,
+  durable and kernel pool observations and their admission/readiness limits.
 - [`runtime/architecture.md`](runtime/architecture.md) defines the target
   system, trust boundary, component ownership, and lifecycle.
 - [`runtime/decisions/0001-build-a-new-runtime.md`](runtime/decisions/0001-build-a-new-runtime.md)

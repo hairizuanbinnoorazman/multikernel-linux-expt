@@ -219,3 +219,14 @@ resource/network return pass. This closes that bounded fresh lifecycle gap; its
 also passes with preserved primary/retained state. The full interface/readiness/
 capacity/diagnostic requirements remain open. No nested virtualization is used; these direct kernels
 retain shared host trust and no hostile-child containment claim is added.
+
+
+The separate [pool-capacity interface](../pool-capacity.md) now compares negotiated
+configured limits/durable lifecycle with independent kernel free-list and
+registered-memory observations. [GCE reservation proof](../../../evidence/runtime-20261028/g8-pool-capacity-gce/README.md)
+qualifies real 3 GiB/CPU allocation, conservative 4 GiB/7 GiB candidates, exact
+delete/pool return, legacy refusal and unchanged primary/failed state. Every
+report keeps admission_guaranteed false; missing metadata and degraded state
+cannot offer candidates. Live Docker capacity holds, combined-doctor integration,
+readiness and diagnostic collection still govern complete G8 acceptance.
+No nested virtualization or hostile-child containment is claimed.
