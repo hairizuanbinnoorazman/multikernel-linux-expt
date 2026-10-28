@@ -162,6 +162,15 @@ complete Docker workload/worker recovery, readiness, diagnostics, normal cleanup
 and full G7/G8 still require evidence. No nested virtualization is used, and the
 shared host trust boundary remains explicit.
 
+A [bounded process-state diagnostic](../../../evidence/runtime-20261028/g8-retained-process-state-gce/README.md)
+subsequently reports the retained guest task STOPPED/guest PID 616/exit 137 after
+matching capabilities. Its explicit mode validates and redacts state under one
+deadline; absence and stopped states are observations, not readiness success.
+Default capabilities-only behavior remains unchanged. This separates the guest
+task from the host namespace-holder zombie without proving termination cause/time
+or child Docker health, and preserves primary and retained resource identities.
+It does not authorize cleanup or close the complete operational gate.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

@@ -274,3 +274,23 @@ qualify that behavior with a synthetic authenticated agent and real Unix sockets
 They do not prove the cause of the retained 0c50de9 startup failure or authorize
 cleanup of its active child/export. The generation-bound escalation and retention
 rules above continue to apply before further live trials.
+
+## Bound retained guest task observations
+
+Use the [sealed-credential diagnostic](../../runtime/tools/mk-agent-capabilities-probe/README.md)
+with an explicit process ID only after validating the host boot, sandbox and
+generation, declared CID, owned relay and protected bundle identity. The optional
+mode sends Capabilities then StateProcess under one deadline, with no reconnect,
+replay, guest mutation or arbitrary execution. It publishes only validated
+state/PID/exit fields and a target digest; stdout/stderr and private error text
+are excluded. A request may advance authentication sequence.
+
+The [retained GCE task](../../evidence/runtime-20261028/g8-retained-process-state-gce/README.md)
+is reported as guest `init` STOPPED, guest PID 616, exit 137, while its agent
+answers. The initial task maps to `init` in the shim; its host namespace-holder
+PID is a different identity. A successful observation is not readiness, and a
+current absence/stopped record does not determine termination chronology or cause.
+The separate child Docker engine and open export still require their own checks.
+Do not infer safe storage release or treat this as cleanup authority. The
+generation-bound retention/escalation rules continue to apply. These direct
+child kernels use no nested virtualization and share host trust after compromise.

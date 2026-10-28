@@ -280,6 +280,12 @@ exited helper with a new PID. The authentication sequence is preserved.
 Primary state and retained resource identities match before/after. This covers
 the transport methods; a complete fresh Docker lifecycle remains required.
 
+The [bounded retained-task observation](evidence/runtime-20261028/g8-retained-process-state-gce/README.md)
+now reports guest `init` stopped at PID 616 with exit 137 while its agent answers.
+This separates guest task state from the failed host namespace-holder identity;
+the termination cause/time and child Docker engine health remain unproven.
+The active child and open storage export remain retained for diagnosis.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

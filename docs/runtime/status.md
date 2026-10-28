@@ -17,6 +17,11 @@ now receives the expected response through a CID-pinned relay with the checked
 local peer and sealed credential descriptor. Primary state and retained resource
 identities match before/after. This qualifies one response, without resolving
 the startup or qualifying Docker health, normal cleanup or version-5 live doctor.
+The later [retained task-state observation](../../evidence/runtime-20261028/g8-retained-process-state-gce/README.md)
+reports the agent's `init` as STOPPED, guest PID 616/exit 137, under matched
+capabilities and exact relay identity. The host namespace-holder zombie is a
+separate identity. Termination cause/time and the child Docker engine's health
+remain unproven; no child/export cleanup or installed-runtime replacement occurs.
 The last passing earlier cases below retain their scope. Preserve this failed
 private generation and follow the escalation contract before another live trial.
 
@@ -1027,3 +1032,18 @@ content reads or installed runtime replacement. This qualifies these transport
 methods; complete Docker creation/build/worker recovery, version-5 live doctor,
 normal cleanup, readiness and full G7/G8 remain open. No nested virtualization
 is used; direct kernels share host trust after compromise.
+
+The version-2 [bounded process-state diagnostic](../../runtime/tools/mk-agent-capabilities-probe/README.md)
+adds an explicit read-only StateProcess query after capabilities match, under
+one deadline with no reconnect/replay. [Controls](../../evidence/runtime-20261028/g8-process-state-controls/README.md)
+qualify request/identity/state/PID binding, absence semantics and private
+output/error redaction; default version-1 single-request behavior is preserved.
+The [actual retained-init observation](../../evidence/runtime-20261028/g8-retained-process-state-gce/README.md)
+under 0d1717ab reports STOPPED/guest PID 616/exit 137 while capabilities match.
+Exit zero means successful observation, including typed absence, rather than
+readiness. It does not determine when/why the task stopped or whether the
+separately started child Docker engine is healthy. Primary state and retained
+resource identities match before/after; no image contents are read, guest
+mutation requested or cleanup performed. Original failure diagnosis, fresh Docker
+lifecycle qualification, version-5 live doctor and full G7/G8 remain open. Direct
+children use no nested virtualization and share host trust after compromise.
