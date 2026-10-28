@@ -104,7 +104,7 @@ func projectOutput(sample outputSample) *outputObservation {
 	}
 	return r
 }
-func inspectStoppedOutput(ctx context.Context, client *agent.Client, o options, r report, before agent.ProcessState) report {
+func inspectStoppedOutput(ctx context.Context, client *agent.Client, o options, r report, before agent.ProcessState, bundle *privateBundleTarget) report {
 	r.Status = "inconclusive"
 	if before.Status != "STOPPED" {
 		r.Code = "PROCESS_NOT_STOPPED"
@@ -152,5 +152,8 @@ func inspectStoppedOutput(ctx context.Context, client *agent.Client, o options, 
 	r.Output = projected
 	r.Status = "observed"
 	r.Code = "STOPPED_OUTPUT_SUMMARY_OBSERVED"
+	if bundle != nil {
+		return bundle.publish(ctx, r, sample)
+	}
 	return r
 }

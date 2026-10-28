@@ -27,6 +27,7 @@ type options struct {
 	socket, id, generation, release string
 	processID                       string
 	stoppedOutputSummary            bool
+	privateBundleDir                string
 	endpoint                        uint
 	peerPID, tokenFD                int
 	timeout                         time.Duration
@@ -53,6 +54,8 @@ type report struct {
 	Process                          *processObservation `json:"process,omitempty"`
 	OutputQueryAttempted             bool                `json:"output_query_attempted,omitempty"`
 	Output                           *outputObservation  `json:"output,omitempty"`
+	PrivateBundleWritten             bool                `json:"private_bundle_written,omitempty"`
+	PrivateBundleBytes               int                 `json:"private_bundle_bytes,omitempty"`
 }
 type processObservation struct {
 	Status   string `json:"status"`
@@ -106,7 +109,7 @@ func readToken(file *os.File) ([]byte, error) {
 	return data, nil
 }
 func valid(o options) bool {
-	return idPattern.MatchString(o.id) && genPattern.MatchString(o.generation) && releasePattern.MatchString(o.release) && (o.processID == "" || processPattern.MatchString(o.processID)) && (!o.stoppedOutputSummary || o.processID != "") && o.endpoint >= 1024 && o.endpoint <= 65535 && o.peerPID > 0 && o.tokenFD >= 3 && o.tokenFD <= 1024 && o.timeout > 0 && o.timeout <= 15*time.Second
+	return idPattern.MatchString(o.id) && genPattern.MatchString(o.generation) && releasePattern.MatchString(o.release) && (o.processID == "" || processPattern.MatchString(o.processID)) && (!o.stoppedOutputSummary || o.processID != "") && (o.privateBundleDir == "" || o.stoppedOutputSummary) && o.endpoint >= 1024 && o.endpoint <= 65535 && o.peerPID > 0 && o.tokenFD >= 3 && o.tokenFD <= 1024 && o.timeout > 0 && o.timeout <= 15*time.Second
 }
 func inspect(parent context.Context, o options, credential *os.File) report {
 	r := report{Version: 1, Scope: "one-credential-bound-capabilities-request", Status: "inconclusive", Code: "INVALID_PROBE_INPUT", Unobserved: []string{"remote-process-attestation", "kernel-incarnation", "docker-health", "storage-health", "containment"}}
@@ -123,6 +126,17 @@ func inspect(parent context.Context, o options, credential *os.File) report {
 	if o.stoppedOutputSummary {
 		r.Version, r.Scope = 3, "credential-bound-stopped-process-output-summary"
 		r.Unobserved = append(r.Unobserved, "complete-output-history", "marker-attestation")
+	}
+	var bundle *privateBundleTarget
+	if o.privateBundleDir != "" {
+		r.Version, r.Scope = 4, "credential-bound-private-stopped-output-bundle"
+		var err error
+		bundle, err = openPrivateBundleTarget(o.privateBundleDir)
+		if err != nil {
+			r.Code = "PRIVATE_BUNDLE_UNAVAILABLE"
+			return r
+		}
+		defer bundle.close()
 	}
 	ctx, cancel := context.WithTimeout(parent, o.timeout)
 	defer cancel()
@@ -190,7 +204,7 @@ func inspect(parent context.Context, o options, credential *os.File) report {
 		}
 		r.Status, r.Code = "observed", "PROCESS_STATE_OBSERVED"
 		if o.stoppedOutputSummary {
-			return inspectStoppedOutput(ctx, client, o, r, state)
+			return inspectStoppedOutput(ctx, client, o, r, state, bundle)
 		}
 	}
 	return r
@@ -218,6 +232,7 @@ func main() {
 	flag.StringVar(&o.release, "expected-release", "", "expected child kernel release")
 	flag.StringVar(&o.processID, "process-id", "", "optional exact guest process ID for one read-only StateProcess query after capabilities match")
 	flag.BoolVar(&o.stoppedOutputSummary, "stopped-output-summary", false, "optional bounded redacted output summary for a stopped process; requires process-id")
+	flag.StringVar(&o.privateBundleDir, "private-bundle-dir", "", "explicit private capture in an existing caller-owned 0700 directory; requires stopped-output-summary")
 	flag.UintVar(&o.endpoint, "endpoint", 0, "expected agent endpoint")
 	flag.IntVar(&o.peerPID, "relay-pid", 0, "expected local relay PID")
 	flag.IntVar(&o.tokenFD, "token-fd", -1, "sealed inherited 32-byte credential descriptor")

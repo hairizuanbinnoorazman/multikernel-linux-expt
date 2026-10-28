@@ -29,7 +29,7 @@ func TestOutputProjectionAllowsOnlyCompleteConstantStdoutMarkers(t *testing.T) {
 	}
 }
 func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
-	for _, mode := range []string{"observed", "missing-field", "oversized", "offset-underflow", "wrong-output-state", "changed-final-pid", "running", "deadline"} {
+	for _, mode := range []string{"observed", "private-observed", "missing-field", "oversized", "offset-underflow", "wrong-output-state", "changed-final-pid", "running", "deadline"} {
 		t.Run(mode, func(t *testing.T) {
 			dir, err := os.MkdirTemp("/tmp", "mk-out-")
 			if err != nil {
@@ -44,6 +44,12 @@ func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
 			defer listener.Close()
 			os.Chmod(path, 0600)
 			o := options{socket: path, id: "box", generation: "0123456789abcdef0123456789abcdef", release: "test-release", processID: "private-target", stoppedOutputSummary: true, endpoint: 7200, peerPID: os.Getpid(), tokenFD: 3, timeout: 150 * time.Millisecond}
+			if mode == "private-observed" {
+				o.privateBundleDir = filepath.Join(dir, "private")
+				if os.Mkdir(o.privateBundleDir, 0700) != nil {
+					t.Fatal("private directory unavailable")
+				}
+			}
 			served := make(chan []string, 1)
 			go func() {
 				methods := []string{}
@@ -159,12 +165,33 @@ func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
 					t.Fatal("private content escaped summary")
 				}
 			}
-			if r.Version != 3 || r.MutatingMethodAttempted {
+			version := 3
+			if mode == "private-observed" {
+				version = 4
+			}
+			if r.Version != version || r.MutatingMethodAttempted {
 				t.Fatal("summary version or mutation contract violated")
 			}
-			if mode == "observed" {
-				if r.Status != "observed" || r.Code != "STOPPED_OUTPUT_SUMMARY_OBSERVED" || r.Output == nil || !r.Output.StateStable || strings.Join(r.Output.Markers, ",") != "G8_BUILD_WORKLOAD_BEGIN,G8_STORAGE_PRESSURE_FULL" {
+			if mode == "observed" || mode == "private-observed" {
+				code := "STOPPED_OUTPUT_SUMMARY_OBSERVED"
+				if mode == "private-observed" {
+					code = "PRIVATE_STOPPED_OUTPUT_BUNDLE_WRITTEN"
+				}
+				if r.Status != "observed" || r.Code != code || r.Output == nil || !r.Output.StateStable || strings.Join(r.Output.Markers, ",") != "G8_BUILD_WORKLOAD_BEGIN,G8_STORAGE_PRESSURE_FULL" {
 					t.Fatalf("summary missing: %+v", r)
+				}
+				if mode == "private-observed" {
+					data, e := os.ReadFile(filepath.Join(o.privateBundleDir, privateBundleName))
+					if e != nil {
+						t.Fatal(e)
+					}
+					var stored privateStoppedOutput
+					if json.Unmarshal(data, &stored) != nil || !strings.Contains(string(stored.Stdout), "secret-output") || !strings.Contains(string(stored.Stderr), "secret-error") || stored.Generation != o.generation || stored.ProcessSHA256 != r.ExpectedProcessSHA256 || !r.PrivateBundleWritten || r.PrivateBundleBytes != len(data) {
+						t.Fatal("private payload capture lost binding or bytes")
+					}
+					clear(data)
+					clear(stored.Stdout)
+					clear(stored.Stderr)
 				}
 			} else if r.Status != "inconclusive" || r.Output != nil {
 				t.Fatal("incomplete observation published output")

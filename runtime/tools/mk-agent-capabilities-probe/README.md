@@ -78,5 +78,22 @@ the sampled/retained window; complete history and atomic output stability are
 unproven. Only the sampled process-state identity is bracketed. The default
 version-1 and optional process-only version-2 behavior remain unchanged.
 
+For explicit private evidence preservation before a reviewed recovery,
+`--private-bundle-dir=/absolute/existing/private-directory` additionally selects
+version 4 and requires stopped-output-summary mode. The directory must already
+be caller-owned, mode 0700, with no symlink components. After the stopped state
+bracket succeeds, the probe durably creates `stopped-output.json`, mode 0600,
+without replacing any existing entry. The file holds only the bounded sampled
+stdout/stderr window and its validated ownership/process metadata. It includes
+no caller credential, descriptor, client or environment. Workload output remains
+private data; do not put this artifact in a public evidence packet. It is not a
+complete history or a general diagnostic bundle.
+
+The public report still excludes payloads, paths, output hashes and private
+errors, and adds only confirmed-write and byte-count fields. Publication errors
+or uncertainty are inconclusive and do not authorize recovery. Existing entries
+are retained; reruns require a fresh private target. Default modes never persist
+raw output. This capture does not quiesce, stop or otherwise mutate the guest.
+
 Direct child kernels require no nested virtualization. Primary and child kernels
 share host trust after compromise. This diagnostic cannot close full G7/G8 gates.
