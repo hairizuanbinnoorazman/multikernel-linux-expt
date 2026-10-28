@@ -134,7 +134,11 @@ func TestLivePoolCapacityGCE(t *testing.T) {
 			t.Fatal("CLI output bound/redaction differs")
 		}
 		var report doctor.PoolReport
-		if protocol.StrictDecode(out, &report) != nil || report.Status != status || report.AdmissionGuaranteed {
+		if protocol.StrictDecode(out, &report) != nil {
+			t.Fatal("CLI report is malformed")
+		}
+		publish(name, report) // Preserve each safe observation before checking its expected outcome.
+		if report.Status != status || report.AdmissionGuaranteed {
 			t.Fatal("CLI report differs")
 		}
 		if status == "consistent" {
@@ -144,7 +148,6 @@ func TestLivePoolCapacityGCE(t *testing.T) {
 		} else if runErr == nil || len(report.Findings) != 1 || report.Findings[0].Code != code || report.Kernel != nil || report.Ownership != nil {
 			t.Fatal("inconclusive CLI observation differs")
 		}
-		publish(name, report)
 	}
 	observe("before.json", "inconclusive", "KERNEL_CPU_FREE_LIST_UNAVAILABLE", 0, 0)
 	bundle := filepath.Join(private, "bundle")
