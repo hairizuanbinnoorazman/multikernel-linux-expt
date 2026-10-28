@@ -181,6 +181,16 @@ checkpoint remains failed. This narrows output-delivery/observation diagnosis
 while preserving primary and retained resource identities. Complete diagnostics,
 fresh Docker lifecycle/recovery, cleanup and full G7/G8 remain open.
 
+[Private stopped-output preservation](../../../evidence/runtime-20261028/g8-private-bundle-gce/README.md)
+now qualifies explicit bounded payload retention in a protected owner-only,
+non-overwriting artifact while public reports remain redacted. It is one sampled
+window, not the complete diagnostic bundle or cleanup authority. The
+[fresh-trial relay guard](../../../evidence/runtime-20261028/g8-relay-trial-admission-gce/README.md)
+also qualifies the staged compatible helper before lifecycle mutation, fixing a
+legacy fixture path. These prerequisites leave the retained active child/export,
+scoped graceful recovery, full Docker/doctor lifecycle, readiness and full G8
+open. No nested virtualization or hostile-kernel containment is claimed.
+
 Pass when an operator can determine runtime health and resource ownership from
 bounded machine-readable output, collect safe diagnostics, follow tested
 recovery guidance, and run the services with documented least privileges.

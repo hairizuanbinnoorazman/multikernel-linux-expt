@@ -292,6 +292,13 @@ despite zero output at the original host wait. Raw output stays out of the repor
 This directs diagnosis toward output delivery/observation; markers do not
 retroactively qualify ENOSPC, builds, live doctor or normal cleanup.
 
+[Explicit private preservation](evidence/runtime-20261028/g8-private-bundle-gce/README.md)
+now retains the bounded guest output window in a root-only artifact, with only
+redacted metadata published. The [next-trial relay admission fix](evidence/runtime-20261028/g8-relay-trial-admission-gce/README.md)
+also removes a legacy helper mismatch: both trial callers require the qualified
+staged CID relay before lifecycle mutation. The failed child/export still
+requires scoped graceful recovery before a fresh Docker trial.
+
 The profile remains experimental. Further crash points during resource mutation
 or build I/O, host power loss, other service crashes, repeated concurrency,
 hostile workload pressure and complete G7/G8 acceptance remain open. These checks do not establish

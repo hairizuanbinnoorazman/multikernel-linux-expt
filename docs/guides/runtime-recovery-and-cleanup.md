@@ -309,3 +309,18 @@ wait captured zero output. Treat that as a clue for delivery/observation diagnos
 without passing the failed pressure/build/doctor gate or inferring release safety.
 Primary state and retained resource identities remain unchanged; the active
 child/open export is still retained under the escalation boundary above.
+
+Explicit [private preservation](../../evidence/runtime-20261028/g8-private-bundle-gce/README.md)
+is available before a reviewed scoped recovery. It requires a fresh existing
+owner-only directory and exclusively publishes the bounded stopped output
+window, mode 0600. Keep that artifact private; only protection/binding/byte-count
+metadata belongs in public evidence. It contains workload output, not a complete
+history, and does not itself authorize a stop or storage release. Cloud serial
+and project-wide inventory captures remain required before any scoped stop.
+
+Before a fresh trial, stage a compatible shim and qualified CID relay together.
+The [artifact-admission guard](../../evidence/runtime-20261028/g8-relay-trial-admission-gce/README.md)
+checks the staged relay before module/Docker/child filesystem mutation. Do not
+reuse the earlier legacy relay path or substitute arbitrary helper bytes to get
+past admission. These checks do not replace generation-bound graceful shutdown,
+independent native close, offline checking or measured resource restoration.

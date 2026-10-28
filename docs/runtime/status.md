@@ -26,6 +26,9 @@ The subsequent [non-consuming retained-output summary](../../evidence/runtime-20
 finds workload-begin and full-pressure stdout markers. That later guest-output
 clue differs from the failed host wait, without retroactively qualifying its
 independent ENOSPC checkpoint or resolving why output was unavailable there.
+The bounded output window is now preserved privately; its metadata/protection
+proof is public. The next trial's legacy relay mismatch is also fixed and its
+real-artifact admission controls pass, but no child stop or fresh trial has run.
 The last passing earlier cases below retain their scope. Preserve this failed
 private generation and follow the escalation contract before another live trial.
 
@@ -1069,3 +1072,28 @@ lines, raw errors and output/credential hashes are excluded. Primary state and
 retained resource identities match; the child/export remains retained. Full
 Docker lifecycle, live doctor, recovery and G7/G8 remain open. No nested
 virtualization is used, and direct kernels retain shared host trust.
+
+Explicit version-4 private preservation in 0648f7de
+[passes on GCE](../../evidence/runtime-20261028/g8-private-bundle-gce/README.md)
+under 6faeb4c2: the same bounded output/process observation is durably stored in a
+17,133-byte root-owned mode-0600 single-link artifact inside a mode-0700 directory.
+Payload bytes and hashes are excluded from the public packet; generation/process
+and decoded byte counts roundtrip against its redacted report. Default modes do
+not persist payloads. [Controls](../../evidence/runtime-20261028/g8-private-bundle-controls/README.md)
+cover exclusive publication, unsafe paths, cancellation and public redaction;
+subsequent 7a249f06 charges private-target preflight to the deadline and retains
+publication facts when cancellation occurs. Cloud serial output and the complete
+project ledger are privately captured before any future scoped child stop.
+The active child/open export and failed state remain unchanged.
+
+The Docker fixture still selected a legacy relay despite the new production
+server-peer requirement. ca8e3265 corrects this prerequisite: both the parent
+module trial and child fixture now validate the qualified staged CID relay
+before lifecycle mutation and forward only its checked path, without fallback.
+[Local controls](../../evidence/runtime-20261028/g8-relay-trial-admission-controls/README.md)
+and [actual GCE artifact controls](../../evidence/runtime-20261028/g8-relay-trial-admission-gce/README.md)
+under 765b377d pass admission and unsafe/corrupted artifact refusal without a
+child RPC, module change or Docker launch. This prevents an incompatible retry;
+it does not qualify deployment or a complete fresh Docker lifecycle. Scoped
+graceful recovery, independent synced close, live doctor and full G7/G8 remain
+open. Direct kernels use no nested virtualization and retain shared host trust.

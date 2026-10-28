@@ -117,3 +117,14 @@ Live Docker lifecycle qualification of this source change remains separate from
 the earlier capabilities-only diagnostic. These tools support direct
 child kernels without nested virtualization and retain shared host trust after
 child-kernel compromise.
+
+Disposable Docker/module trials now require the staged `bin/mkvsock-relay`
+artifact selected by `scripts/runtime_trial_helper.py`. Both callers validate
+the qualified static CID-relay pin and protected file identity before module or
+Docker/child filesystem mutation, then set MK_RELAY only to that checked path.
+They do not fall back to the older boot-profile relay. Stage the qualified
+shim/helper pair together; a missing or different build must fail admission and
+be separately qualified. The selected native build uses `-static -O2 -Wall
+-Wextra -Werror` and its exact qualified digest, rather than accepting an
+arbitrary caller-supplied hash. This is trial admission, not installed deployment
+or complete Docker lifecycle qualification.
