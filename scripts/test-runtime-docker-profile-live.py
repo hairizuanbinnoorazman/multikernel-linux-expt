@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Disposable host Docker selects Multikernel and runs the offline child build proof."""
-import hashlib,json,os,pathlib,re,signal,subprocess,sys,time
+import hashlib,json,os,pathlib,re,signal,stat,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
 from runtime_service_policy import parse_policy, command_with_policy, check_observation, check_fixture_scope
 from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT, run_markers
@@ -16,6 +16,7 @@ from runtime_pool_doctor_checkpoint import qualify as qualify_pool_doctor
 from runtime_unified_doctor_checkpoint import qualify as qualify_unified_doctor
 from runtime_component_build_checkpoint import qualify as qualify_component_builds
 from runtime_operational_doctor_checkpoint import qualify as qualify_operational_doctor
+from runtime_diagnostic_bundle_checkpoint import qualify_live as qualify_diagnostic_bundle
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
@@ -332,6 +333,18 @@ try:
      assert operational_observation.returncode==0 and not operational_observation.stderr,'version-7 operator report refused the held observation'
      operational_report=qualify_operational_doctor(operational_observation.stdout,boot,owner,report,network_report,None if released else endpoints[0],combined_report,pool_report,unified_report,component_report,compiled_versions,compiled_revisions,released=released)
      (private/('operational-doctor-'+label+'.json')).write_text(json.dumps(operational_report,indent=2)+'\n')
+     remaining=deadline-time.monotonic();assert remaining>0,'diagnostic bundle observation budget exhausted'
+     destination=private/('diagnostic-bundle-'+label+'.json')
+     bundle_observation=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--diagnostic-bundle='+str(destination),'--network-socket='+str(network_socket)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+     (private/('diagnostic-bundle-'+label+'.stdout')).write_bytes(bundle_observation.stdout);(private/('diagnostic-bundle-'+label+'.stderr')).write_bytes(bundle_observation.stderr)
+     assert bundle_observation.returncode==0 and not bundle_observation.stderr,'diagnostic collection refused the held observation'
+     identity=destination.lstat();assert stat.S_ISREG(identity.st_mode) and stat.S_IMODE(identity.st_mode)==0o600 and identity.st_uid==0 and identity.st_nlink==1 and 0<identity.st_size<=8<<20
+     data=destination.read_bytes();after=destination.lstat()
+     assert all(getattr(identity,k)==getattr(after,k) for k in ['st_dev','st_ino','st_mode','st_uid','st_nlink','st_size','st_mtime_ns','st_ctime_ns']),'diagnostic artifact identity changed during qualification'
+     qualify_diagnostic_bundle(data,bundle_observation.stdout,boot,owner,report,network_report,None if released else endpoints[0],combined_report,pool_report,unified_report,component_report,operational_report,compiled_versions,compiled_revisions,released=released)
+     (private/('diagnostic-bundle-'+label+'-receipt.json')).write_bytes(bundle_observation.stdout)
+     (private/('diagnostic-bundle-'+label+'-identity.json')).write_text(json.dumps(dict(device=identity.st_dev,inode=identity.st_ino,uid=identity.st_uid,links=identity.st_nlink,mode='0600',bytes=len(data),sha256=hashlib.sha256(data).hexdigest()),indent=2)+'\n')
+     assert time.monotonic()<=deadline,'diagnostic bundle qualification exceeded the shared hold deadline'
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
@@ -550,6 +563,9 @@ if storage_pressure:r['runtime_pool_doctor_sha256']={phase:sha(private/('pool-do
 if storage_pressure:r['runtime_unified_doctor_sha256']={phase:sha(private/('unified-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_component_build_sha256']={phase:sha(private/('component-builds-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_operational_doctor_sha256']={phase:sha(private/('operational-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+if storage_pressure:r['runtime_diagnostic_bundle_sha256']={phase:sha(private/('diagnostic-bundle-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+if storage_pressure:r['runtime_diagnostic_bundle_receipt_sha256']={phase:sha(private/('diagnostic-bundle-'+phase+'-receipt.json')) for phase in ['while-full','while-image-ready','after-remove']}
+if storage_pressure:r['runtime_diagnostic_bundle_identity_sha256']={phase:sha(private/('diagnostic-bundle-'+phase+'-identity.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['compiled_labels_sha256']=sha(work/'compiled-labels.json')
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 r['native_record_fault_tested']=native_record_fault

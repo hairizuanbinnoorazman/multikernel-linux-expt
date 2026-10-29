@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-import copy,hashlib,json,unittest
-from runtime_diagnostic_bundle_checkpoint import qualify_idle,SCOPE,EXCLUDED,UNOBSERVED
+import copy,hashlib,importlib.util,json,unittest
+from pathlib import Path
+from runtime_diagnostic_bundle_checkpoint import qualify_idle,qualify_live,SCOPE,EXCLUDED,UNOBSERVED
 from runtime_component_build_checkpoint import expected_base
 BOOT='3d317685-064f-4751-8589-a1f4799525b9';REV='abcdef0'
 
@@ -54,5 +55,51 @@ class BundleTests(unittest.TestCase):
    o['findings']=[dict(code=code) for code in codes];b['snapshot']=dict(components=c,operational=o)
    data=json.dumps(b).encode();receipt=dict(version=1,scope=SCOPE,collection_status='captured',observation_status='inconclusive',bytes=len(data),sha256=hashlib.sha256(data).hexdigest())
    self.assertEqual(qualify_idle(data,json.dumps(receipt).encode(),json.dumps(o).encode(),BOOT,REV,versions,revisions,mode),b)
+
+spec=importlib.util.spec_from_file_location('operational_controls',Path(__file__).with_name('test-runtime-operational-doctor-checkpoint.py'))
+controls=importlib.util.module_from_spec(spec);spec.loader.exec_module(controls)
+
+class LiveBundleTests(unittest.TestCase):
+ def fixture(self,released=False):
+  refs=controls.OperationalCheckpointTests().fixture(released)
+  b=dict(version=1,scope=SCOPE,collection_status='captured',started_at='2026-10-29T05:00:00Z',finished_at='2026-10-29T05:00:01Z',snapshot=dict(components=refs[6],operational=refs[-1]),excluded=EXCLUDED)
+  return refs,b
+ def invoke(self,refs,b,released=False,receipt=None,data=None):
+  data=json.dumps(b).encode() if data is None else data
+  receipt=dict(version=1,scope=SCOPE,collection_status='captured',observation_status='consistent',bytes=len(data),sha256=hashlib.sha256(data).hexdigest()) if receipt is None else receipt
+  s,e,n,c,p,u,component,versions,revisions,op=refs
+  return qualify_live(data,json.dumps(receipt).encode(),controls.BOOT,controls.OWNER,s,n,e,c,p,u,component,op,versions,revisions,released=released)
+ def test_exact_live_and_released_with_independent_full_reports(self):
+  for released in [False,True]:
+   refs,b=self.fixture(released);self.assertEqual(self.invoke(refs,b,released),b)
+ def test_self_consistent_forged_reference_views_are_requalified(self):
+  for index in [0,2,3,4,5,6,9]:
+   refs,b=copy.deepcopy(self.fixture());refs=list(refs)
+   refs[index]['status']='inconclusive'
+   with self.subTest(index=index),self.assertRaises(ValueError):self.invoke(refs,b)
+  refs,b=copy.deepcopy(self.fixture());refs[4]['memory_candidate_upper_bound_bytes']+=1
+  with self.assertRaises(ValueError):self.invoke(refs,b)
+ def test_forged_bundle_fields_cannot_hide_behind_a_matching_digest(self):
+  for kind in ['status','admission','artifact','private','partial','sequence','build','capacity','health','float','bool']:
+   refs,b=copy.deepcopy(self.fixture());o=b['snapshot']['operational']
+   if kind=='status':o['status']='inconclusive'
+   elif kind=='admission':o['admission_guaranteed']=True
+   elif kind=='artifact':o['artifact_verified']=True
+   elif kind=='private':b['raw-log']='private-token'
+   elif kind=='partial':b['snapshot'].pop('components')
+   elif kind=='sequence':o['unified']['pool']['ownership']['lifecycle']['sequence']+=1
+   elif kind=='build':b['snapshot']['components']['runtime']['build_revision']='1234567'
+   elif kind=='capacity':o['unified']['pool']['memory_candidate_upper_bound_bytes']+=1
+   elif kind=='health':o['unobserved']=[]
+   elif kind=='float':b['version']=1.0
+   elif kind=='bool':b['version']=True
+   with self.subTest(kind=kind),self.assertRaises(ValueError):self.invoke(refs,b)
+ def test_receipt_digest_duplicate_keys_bounds_and_wrong_phase_refuse(self):
+  refs,b=self.fixture();raw=json.dumps(b).encode()
+  for data in [b'{"version":1,'+raw[1:],b' '*(8<<20)+raw]:
+   with self.assertRaises(ValueError):self.invoke(refs,b,data=data)
+  with self.assertRaises(ValueError):self.invoke(refs,b,receipt=dict(version=1,scope=SCOPE,collection_status='captured',observation_status='consistent',bytes=len(raw),sha256='0'*64))
+  refs,b=self.fixture(True)
+  with self.assertRaises(ValueError):self.invoke(refs,b,released=False)
 
 if __name__=='__main__':unittest.main()

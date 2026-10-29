@@ -71,3 +71,12 @@ passes idle collection with installed legacy services and actual current private
 daemons, exact original-artifact identities/modes, refusal, shutdown and primary
 preservation. These idle bundles are correctly inconclusive after pool release;
 active Docker bundle collection remains a separate pending checkpoint.
+
+The Docker pressure fixture now collects a bundle during ENOSPC, the built-image
+hold and after removal within the same ten-second budget as its independent
+doctor views. The strict bundle checkpoint requalifies complete resource/pool/
+component references before comparing nested reports, receipt digest/size and
+exclusion fields. It rejects forged internally consistent references, partial
+payloads, numeric aliases, altered capacity/ownership/builds and health claims.
+Local active/released fixture controls pass. Actual new Docker qualification
+remains pending until its separate committed GCE evidence is available.
