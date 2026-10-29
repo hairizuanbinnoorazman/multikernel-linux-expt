@@ -1272,3 +1272,10 @@ passes full runtime and targeted CLI race checks, preserves source hashes, and
 records the user-restarted host at boot 92540f33-e781-462b-9b71-2a548a968298:
 original transport/zero references, all CPUs online, no child/pool, four active
 services. That idle observation is not a new retained-content hash qualification.
+
+The [actual version-6 compatibility/staging proof](../../evidence/runtime-20261029/g8-unified-doctor-staging/README.md)
+qualifies protected committed packet 31ee79ad and installed legacy refusal on
+boot 92540f33. [Fresh restart preservation](../../evidence/runtime-20261029/g8-user-restart-92540f33/README.md)
+verifies all 93 retained files / 12 images and primary persistent Docker state
+before launching its independent bounded Docker trial. Live holds and normal
+cleanup require a separate terminal workload proof; full G7/G8 remains open.
