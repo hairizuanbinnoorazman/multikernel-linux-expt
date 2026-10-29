@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import copy,hashlib,importlib.util,json,unittest
 from pathlib import Path
-from runtime_diagnostic_bundle_checkpoint import qualify_idle,qualify_live,SCOPE,EXCLUDED,UNOBSERVED
+from runtime_diagnostic_bundle_checkpoint import qualify_idle,qualify_live,qualify_timing,SCOPE,EXCLUDED,UNOBSERVED
 from runtime_component_build_checkpoint import expected_base
 BOOT='3d317685-064f-4751-8589-a1f4799525b9';REV='abcdef0'
 
@@ -60,6 +60,12 @@ spec=importlib.util.spec_from_file_location('operational_controls',Path(__file__
 controls=importlib.util.module_from_spec(spec);spec.loader.exec_module(controls)
 
 class LiveBundleTests(unittest.TestCase):
+ def test_shared_monotonic_checkpoint_budget_and_numeric_alias_refusal(self):
+  t=dict(version=1,scope='doctor-and-diagnostic-bundle-checkpoint',phase='while-image-ready',configured_budget_ns=10_000_000_000,started_monotonic_ns=100,deadline_monotonic_ns=10_000_000_100,finished_monotonic_ns=200,elapsed_ns=100,report_count=8)
+  self.assertEqual(qualify_timing(json.dumps(t).encode(),'while-image-ready'),t)
+  for key,value in [('deadline_monotonic_ns',180_000_000_100),('finished_monotonic_ns',10_000_000_101),('elapsed_ns',101),('configured_budget_ns',180_000_000_000),('started_monotonic_ns',True),('version',1.0),('report_count',7),('phase','after-remove'),('scope','health')]:
+   altered=dict(t);altered[key]=value
+   with self.subTest(key=key),self.assertRaises(ValueError):qualify_timing(json.dumps(altered).encode(),'while-image-ready')
  def fixture(self,released=False):
   refs=controls.OperationalCheckpointTests().fixture(released)
   b=dict(version=1,scope=SCOPE,collection_status='captured',started_at='2026-10-29T05:00:00Z',finished_at='2026-10-29T05:00:01Z',snapshot=dict(components=refs[6],operational=refs[-1]),excluded=EXCLUDED)

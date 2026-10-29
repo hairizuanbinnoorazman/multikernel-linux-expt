@@ -73,10 +73,16 @@ preservation. These idle bundles are correctly inconclusive after pool release;
 active Docker bundle collection remains a separate pending checkpoint.
 
 The Docker pressure fixture now collects a bundle during ENOSPC, the built-image
-hold and after removal within the same ten-second budget as its independent
-doctor views. The strict bundle checkpoint requalifies complete resource/pool/
+hold and after removal. The strict bundle checkpoint requalifies complete resource/pool/
 component references before comparing nested reports, receipt digest/size and
 exclusion fields. It rejects forged internally consistent references, partial
 payloads, numeric aliases, altered capacity/ownership/builds and health claims.
-Local active/released fixture controls pass. Actual new Docker qualification
-remains pending until its separate committed GCE evidence is available.
+Local active/released fixture controls pass. Initial source `5412c4be` preserves
+the inherited ten-second ENOSPC/removal budgets, but its built-image doctor shares
+the remaining 180-second image-hold budget. Its evidence must retain that scope.
+The subsequent common checkpoint explicitly clamps every phase to ten seconds
+and retains monotonic start/deadline/finish/elapsed metadata, eight-report count
+and a receipt digest for each timing artifact. Local timing controls reject
+extended deadlines, elapsed-time mismatch and numeric aliases. Actual new Docker
+and corrected shared-budget qualification remain pending until their separate
+committed GCE evidence is available.

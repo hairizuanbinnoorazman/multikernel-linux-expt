@@ -53,3 +53,15 @@ def qualify_live(data,receipt_data,boot,owner,storage_report,network_report,endp
                  network_report,endpoint,combined_report,pool_report,unified_report,
                  component_report,versions,revisions,released=released)
  return bind(bundle,components,operational)
+
+def qualify_timing(data,phase):
+ if phase not in ['while-full','while-image-ready','after-remove','record-restored']:raise ValueError('invalid diagnostic checkpoint phase')
+ timing=decode(data,65536)
+ keys={'version','scope','phase','configured_budget_ns','started_monotonic_ns','deadline_monotonic_ns','finished_monotonic_ns','elapsed_ns','report_count'}
+ if not isinstance(timing,dict) or set(timing)!=keys:raise ValueError('invalid diagnostic checkpoint timing')
+ for key in keys-{'scope','phase'}:
+  if type(timing[key]) is not int:raise ValueError('invalid diagnostic checkpoint timing number')
+ if timing['version']!=1 or timing['scope']!='doctor-and-diagnostic-bundle-checkpoint' or timing['phase']!=phase or timing['configured_budget_ns']!=10_000_000_000 or timing['report_count']!=8:raise ValueError('invalid diagnostic checkpoint timing scope')
+ start=timing['started_monotonic_ns'];end=timing['finished_monotonic_ns'];deadline=timing['deadline_monotonic_ns']
+ if not 0<=start<=end<=deadline<=start+timing['configured_budget_ns'] or timing['elapsed_ns']!=end-start:raise ValueError('diagnostic checkpoint exceeded its shared budget')
+ return timing

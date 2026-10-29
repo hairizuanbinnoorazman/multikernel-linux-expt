@@ -17,6 +17,7 @@ from runtime_unified_doctor_checkpoint import qualify as qualify_unified_doctor
 from runtime_component_build_checkpoint import qualify as qualify_component_builds
 from runtime_operational_doctor_checkpoint import qualify as qualify_operational_doctor
 from runtime_diagnostic_bundle_checkpoint import qualify_live as qualify_diagnostic_bundle
+from runtime_diagnostic_bundle_checkpoint import qualify_timing as qualify_diagnostic_timing
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
@@ -290,6 +291,7 @@ try:
     ownership=json.loads(owners.stdout);assert not owners.stderr and len(ownership['sandboxes'])==1 and ownership['sandboxes'][0]['state']=='RUNNING'
     owner=ownership['sandboxes'][0]
     def doctor_checkpoint(label,deadline,released=False):
+     started_ns=time.monotonic_ns();deadline_ns=min(int(deadline*1_000_000_000),started_ns+10_000_000_000);deadline=deadline_ns/1_000_000_000
      remaining=deadline-time.monotonic();assert remaining>0,'doctor observation budget exhausted'
      observation=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
      assert observation.returncode==0 and not observation.stderr,'scoped runtime doctor refused the observation'
@@ -344,7 +346,10 @@ try:
      qualify_diagnostic_bundle(data,bundle_observation.stdout,boot,owner,report,network_report,None if released else endpoints[0],combined_report,pool_report,unified_report,component_report,operational_report,compiled_versions,compiled_revisions,released=released)
      (private/('diagnostic-bundle-'+label+'-receipt.json')).write_bytes(bundle_observation.stdout)
      (private/('diagnostic-bundle-'+label+'-identity.json')).write_text(json.dumps(dict(device=identity.st_dev,inode=identity.st_ino,uid=identity.st_uid,links=identity.st_nlink,mode='0600',bytes=len(data),sha256=hashlib.sha256(data).hexdigest()),indent=2)+'\n')
-     assert time.monotonic()<=deadline,'diagnostic bundle qualification exceeded the shared hold deadline'
+     finished_ns=time.monotonic_ns()
+     timing=dict(version=1,scope='doctor-and-diagnostic-bundle-checkpoint',phase=label,configured_budget_ns=10_000_000_000,started_monotonic_ns=started_ns,deadline_monotonic_ns=deadline_ns,finished_monotonic_ns=finished_ns,elapsed_ns=finished_ns-started_ns,report_count=8)
+     qualify_diagnostic_timing(json.dumps(timing).encode(),label)
+     (private/('diagnostic-checkpoint-timing-'+label+'.json')).write_text(json.dumps(timing,indent=2)+'\n')
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
@@ -566,6 +571,7 @@ if storage_pressure:r['runtime_operational_doctor_sha256']={phase:sha(private/('
 if storage_pressure:r['runtime_diagnostic_bundle_sha256']={phase:sha(private/('diagnostic-bundle-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_diagnostic_bundle_receipt_sha256']={phase:sha(private/('diagnostic-bundle-'+phase+'-receipt.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_diagnostic_bundle_identity_sha256']={phase:sha(private/('diagnostic-bundle-'+phase+'-identity.json')) for phase in ['while-full','while-image-ready','after-remove']}
+if storage_pressure:r['runtime_diagnostic_checkpoint_timing_sha256']={phase:sha(private/('diagnostic-checkpoint-timing-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['compiled_labels_sha256']=sha(work/'compiled-labels.json')
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 r['native_record_fault_tested']=native_record_fault
