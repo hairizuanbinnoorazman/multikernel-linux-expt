@@ -13,6 +13,7 @@ from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing
 from runtime_network_doctor_checkpoint import qualify as qualify_network_doctor
 from runtime_combined_doctor_checkpoint import qualify as qualify_combined_doctor
 from runtime_pool_doctor_checkpoint import qualify as qualify_pool_doctor
+from runtime_unified_doctor_checkpoint import qualify as qualify_unified_doctor
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
@@ -303,6 +304,12 @@ try:
      assert pool_observation.returncode==0 and not pool_observation.stderr,'pool capacity doctor refused the held observation'
      pool_report=qualify_pool_doctor(pool_observation.stdout,boot,owner,report,released=released)
      (private/('pool-doctor-'+label+'.json')).write_text(json.dumps(pool_report,indent=2)+'\n')
+     remaining=deadline-time.monotonic();assert remaining>0,'unified doctor observation budget exhausted'
+     unified_observation=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor-all-pool','--network-socket='+str(network_socket)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+     (private/('unified-doctor-'+label+'.stdout')).write_bytes(unified_observation.stdout);(private/('unified-doctor-'+label+'.stderr')).write_bytes(unified_observation.stderr)
+     assert unified_observation.returncode==0 and not unified_observation.stderr,'unified runtime and pool doctor refused the held observation'
+     unified_report=qualify_unified_doctor(unified_observation.stdout,boot,owner,report,network_report,None if released else endpoints[0],combined_report,pool_report,released=released)
+     (private/('unified-doctor-'+label+'.json')).write_text(json.dumps(unified_report,indent=2)+'\n')
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
@@ -518,6 +525,7 @@ if storage_pressure:
 if storage_pressure:r['storage_pressure_image_checkpoint_sha256']=sha(work/'storage-pressure-image-checkpoint.json')
 if storage_pressure:r['runtime_network_check_sha256']={phase:sha(private/('network-check-'+phase+'.json')) for phase in ['while-full','while-image-ready']}
 if storage_pressure:r['runtime_pool_doctor_sha256']={phase:sha(private/('pool-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+if storage_pressure:r['runtime_unified_doctor_sha256']={phase:sha(private/('unified-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
