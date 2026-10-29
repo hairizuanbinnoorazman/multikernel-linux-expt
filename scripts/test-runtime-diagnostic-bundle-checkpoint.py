@@ -64,8 +64,9 @@ class LiveBundleTests(unittest.TestCase):
   receipt,frames=self.lifecycle()
   with tempfile.TemporaryDirectory() as directory:
    work=Path(directory);integration=work/'integration';integration.mkdir(mode=0o700)
-   for phase,raw in frames.items():(integration/('diagnostic-checkpoint-timing-'+phase+'.json')).write_bytes(raw)
-   root_receipt=work/'integration-receipt.json';root_receipt.write_text(json.dumps(receipt))
+   for phase,raw in frames.items():
+    path=integration/('diagnostic-checkpoint-timing-'+phase+'.json');path.write_bytes(raw);path.chmod(0o600)
+   root_receipt=work/'integration-receipt.json';root_receipt.write_text(json.dumps(receipt));root_receipt.chmod(0o600)
    (integration/'integration-receipt.json').write_text('{"stale":true}')
    report=inspect_fixture_lifecycle_timings(work,BOOT,'9'*32)
    self.assertEqual(report['maximum_elapsed_ns'],100)
