@@ -126,5 +126,6 @@ Direct child kernels use no nested virtualization and share host trust.
 The pool view is also [qualified during actual child Docker pressure/builds and
 normal removal](../../../evidence/runtime-20261028/g8-live-docker-pool-capacity/README.md),
 with exact durable/kernel sample correlation and unchanged primary inventories.
-Its separate cold-restoration and complete G8 readiness/diagnostics requirements
-remain explicit; no allocation or repair occurs in the inspector.
+Its [separate cold restoration](../../../evidence/runtime-20261028/g8-live-docker-pool-capacity-cold-restoration/README.md)
+also passes with the original transport and retained evidence verified. Complete
+G8 readiness/diagnostics requirements remain open; no allocation or repair occurs in the inspector.

@@ -59,7 +59,9 @@ It never loads/boots a child or invokes Docker. [Actual GCE qualification](../..
 passes configured/durable/kernel correlation, 4 GiB and 7 GiB candidate bounds,
 exact CREATED deletion/pool return and unchanged primary/failed state. The [actual Docker pressure/build checkpoint](../../evidence/runtime-20261028/g8-live-docker-pool-capacity/README.md)
 also passes with matching live ownership/kernel samples and normal cleanup.
-That trial's cold restoration remains separate until its own proof is linked. The retained
+Its [separate cold restoration](../../evidence/runtime-20261028/g8-live-docker-pool-capacity-cold-restoration/README.md) passes,
+restoring the original transport and verifying all 93 retained files / 12 images,
+primary persistent Docker inventories and retained failed-fixture state. The retained
 [first status fixture](../../evidence/runtime-20261028/g8-pool-capacity-first-fixture-return/README.md)
 and [released-root refusal](../../evidence/runtime-20261028/g8-pool-capacity-released-root-refusal/README.md)
 explain corrections without relabeling those attempts successful.

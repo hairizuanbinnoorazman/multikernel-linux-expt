@@ -237,7 +237,7 @@ subsequently qualifies the pool view during ENOSPC, built-image and post-removal
 holds, independently recomputing bounds and correlating exact lifecycle state.
 Normal cleanup, guest/primary engine/image separation and unchanged primary
 state pass. The version-5 command stays unchanged; its separate pool report does
-not establish readiness or admission. This trial's cold restoration, unified
-capacity integration, service/component health and diagnostics remain separate
+not establish readiness or admission. Its [separate cold restoration](../../../evidence/runtime-20261028/g8-live-docker-pool-capacity-cold-restoration/README.md)
+also passes. Unified capacity integration, service/component health and diagnostics remain separate
 full G8 requirements. No nested virtualization or hostile-child containment is
 claimed.

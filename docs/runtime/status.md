@@ -6,6 +6,21 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-28)
 
+The latest [fbbb9109 actual Docker-capacity trial](../../evidence/runtime-20261028/g8-live-docker-pool-capacity/README.md)
+passes ENOSPC/build/image-engine isolation, version-5 combined doctor plus the
+separate pool-capacity view at both live holds and after removal, and normal
+cleanup. Its [cold restoration](../../evidence/runtime-20261028/g8-live-docker-pool-capacity-cold-restoration/README.md)
+passes on boot f98b800c-64c9-4b35-9e58-5df8de1bb2ea: original transport at zero
+references, all sixteen CPUs online, no child/pool/vsock sockets, four primary
+services active, all 93 retained files / 12 images and primary persistent Docker
+inventories verified. The missing observer import in the first preflight was
+corrected; that failure is retained and never relabeled a pass. Configured limits
+use decimal bytes: live memory candidate 3,778,774,528 bytes, post-removal
+7,000,000,000 bytes, with admission always unguaranteed. Complete G7/G8 remains
+open for unified capacity, readiness, diagnostics and wider failure/concurrency
+coverage. These direct child kernels use no nested virtualization and share host
+trust after compromise.
+
 The [fresh 8c048020 trial](../../evidence/runtime-20261028/g8-live-combined-doctor/README.md)
 passes actual host-selected child Docker pressure/build/image-engine isolation,
 version-5 combined doctor during ENOSPC and built-image holds and after removal,
@@ -1239,5 +1254,6 @@ After removal it reports all eight pool CPUs/7,000,000,000 bytes before graceful
 pool release. Candidates remain non-reservations; no admission/readiness claim is
 added. Primary file hashes/PIDs/Docker inventories and exact network restoration
 pass. Parent 07a3b92c and workload e3d0949b exit zero; candidate transport is
-quiescent pending separate cold restoration. Full G7/G8 remains open. Direct
+quiescent at the live checkpoint; [separate cold restoration](../../evidence/runtime-20261028/g8-live-docker-pool-capacity-cold-restoration/README.md)
+subsequently passes. Full G7/G8 remains open. Direct
 kernels require no nested virtualization and retain shared host trust.
