@@ -14,12 +14,15 @@ v7 reports equal their separately qualified v6/v1 views and retain admission/
 artifact/kernel verification false. Primary hashes/PIDs/exact Docker inventories
 and network state match; no child/pool/vsock sockets or owned processes remain,
 all sixteen CPUs return, and candidate transport is quiescent at zero references.
-Cold restoration is separate and pending. Full G7/G8 readiness, health, provenance,
+[Cold restoration](../../evidence/runtime-20261029/g8-live-operational-doctor-cold-restoration/README.md)
+passes on boot 3d317685-064f-4751-8589-a1f4799525b9: original transport at zero
+references, all CPUs online, four primary services active, all 93 retained files /
+12 images and primary persistent Docker inventories verified. Full G7/G8 readiness, health, provenance,
 diagnostics and wider failure/concurrency requirements remain open. Direct child
 kernels use no nested virtualization and share host trust after compromise.
 
-The separate [actual component-build qualification](../../evidence/runtime-20261029/g8-component-build-gce/README.md)
-now passes on the same boot ede39b72 with private actual daemon mains: repeated
+The earlier separate [actual component-build qualification](../../evidence/runtime-20261029/g8-component-build-gce/README.md)
+passes on its earlier boot ede39b72 with private actual daemon mains: repeated
 compiled runtime/network labels, installed legacy refusal for each component,
 source-pinned executable observations, declared capability/NNP compatibility,
 clean shutdown and unchanged primary files/PIDs/Docker/network state. All 93

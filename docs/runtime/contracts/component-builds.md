@@ -46,7 +46,8 @@ hashes and declared capability/NNP compatibility for the specific private
 processes, clean shutdown and primary preservation. Build reporting during
 [actual Docker holds](../../../evidence/runtime-20261029/g8-live-operational-doctor/README.md) now passes,
 including separate and nested component reports at ENOSPC, built-image and removal
-checkpoints. Cold restoration remains separate. The API itself still cannot attest
+checkpoints. [Separate cold restoration](../../../evidence/runtime-20261029/g8-live-operational-doctor-cold-restoration/README.md)
+also passes. The API itself still cannot attest
 executable identity, process incarnation, kernel provenance or health.
 
 Direct child kernels use no nested virtualization and share host trust after

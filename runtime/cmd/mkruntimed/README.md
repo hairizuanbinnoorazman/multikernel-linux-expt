@@ -152,8 +152,8 @@ defines limits and remaining provenance/health gaps. Inspection modes are
 mutually exclusive, and the network socket must be absolute. Existing v6 doctor
 scope is unchanged. [Actual private-daemon GCE proof](../../../evidence/runtime-20261029/g8-component-build-gce/README.md)
 now passes; [component reporting during actual Docker holds](../../../evidence/runtime-20261029/g8-live-operational-doctor/README.md)
-also passes with unchanged primary state and normal cleanup. Cold restoration
-remains separate.
+also passes with unchanged primary state and normal cleanup. [Cold restoration](../../../evidence/runtime-20261029/g8-live-operational-doctor-cold-restoration/README.md)
+also verifies original transport and retained contents.
 Executable/process/kernel provenance and health remain unobserved by this API.
 
 `--doctor-all --doctor-format=7` selects the [version-7 operator contract](../../../docs/runtime/contracts/operational-doctor.md),
@@ -165,5 +165,6 @@ format is still 5; explicit format 6 matches `--doctor-all-pool`. A format flag
 without `--doctor-all`, an unsupported format or a relative network socket is
 refused before configuration loading. Local race/CLI controls pass; actual new
 [GCE/Docker qualification](../../../evidence/runtime-20261029/g8-live-operational-doctor/README.md)
-also passes all three holds and normal cleanup. Cold restoration is separate.
+also passes all three holds and normal cleanup, followed by the linked cold
+restoration.
 No health or containment claim is added.

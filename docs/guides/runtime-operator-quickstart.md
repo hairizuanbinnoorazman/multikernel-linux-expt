@@ -263,8 +263,10 @@ The installed legacy GCE services remain unchanged; [actual private-daemon
 CLI qualification](../../evidence/runtime-20261029/g8-component-build-gce/README.md) now passes
 with source-pinned executable observations, declared capability/NNP compatibility
 and primary preservation. [Actual component reports during Docker holds](../../evidence/runtime-20261029/g8-live-operational-doctor/README.md)
-now also pass with the explicit version-7 report and normal cleanup; cold
-restoration is separate. Earlier v6 evidence retains its own scope.
+now also pass with the explicit version-7 report and normal cleanup. [Cold
+restoration](../../evidence/runtime-20261029/g8-live-operational-doctor-cold-restoration/README.md)
+verifies the original transport, retained contents and primary persistent Docker
+state. Earlier v6 evidence retains its own scope.
 Direct children use no nested virtualization and share host trust.
 
 For the correlated resource/pool and compiled-build view, use explicit format 7:

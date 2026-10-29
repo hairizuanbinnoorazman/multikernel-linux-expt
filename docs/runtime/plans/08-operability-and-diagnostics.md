@@ -277,7 +277,7 @@ subsequently passes all three scoped holds, separate compiled-label reports,
 engine/image isolation and normal cleanup, with unchanged primary state.
 Default/explicit v5 equality, v6 alias equality and v7 legacy refusal also pass
 in the preceding staging proof. This closes the bounded component/resource
-correlation checkpoint during real child activity. Cold restoration remains
-separate; health/readiness, ongoing executable/process/kernel provenance,
+correlation checkpoint during real child activity. [Cold restoration](../../../evidence/runtime-20261029/g8-live-operational-doctor-cold-restoration/README.md)
+also passes. Health/readiness, ongoing executable/process/kernel provenance,
 compatibility, diagnostics and wider failure/concurrency coverage still govern
 full G8. No nested virtualization or containment boundary is introduced.

@@ -50,7 +50,8 @@ now passes with exact nested/separate resource and build-label correlation,
 engine/image isolation, unchanged primary state and normal cleanup. [Explicit
 format compatibility/staging](../../../evidence/runtime-20261029/g8-operational-doctor-staging/README.md)
 qualifies default/explicit v5 equality, v6 alias equality and legacy v7 refusal.
-Prior proofs keep their scopes. This trial's cold restoration remains separate;
-complete G7/G8 stays open.
+Prior proofs keep their scopes. [Separate cold restoration](../../../evidence/runtime-20261029/g8-live-operational-doctor-cold-restoration/README.md)
+also passes, verifying original transport, all retained contents and primary
+persistent Docker state. Complete G7/G8 stays open.
 Direct child kernels use no nested virtualization and share host trust after
 compromise. This interface grants no repair or cleanup authority.

@@ -15,8 +15,10 @@ passes host-selected direct-child Docker pressure/build/image-engine isolation,
 correlated resource/network/pool and compiled daemon views at both live holds
 and after removal, and normal cleanup. Primary files, PIDs, exact Docker
 inventories and network state match. Select `--doctor-all --doctor-format=7`;
-default v5 and explicit v6 keep their scopes. Cold restoration is separate, and
-full G7/G8 readiness, provenance, health and diagnostics remain open.
+default v5 and explicit v6 keep their scopes. Its [cold restoration](evidence/runtime-20261029/g8-live-operational-doctor-cold-restoration/README.md)
+also passes: original transport restored, all 93 retained files / 12 images and
+primary persistent Docker inventories verified. Full G7/G8 readiness, provenance,
+health and diagnostics remain open.
 
 The earlier [actual unified-doctor Docker qualification](evidence/runtime-20261029/g8-live-unified-doctor/README.md)
 passes host-selected direct-child Docker ENOSPC recovery, multistage/repeat
@@ -62,8 +64,8 @@ Unknown, unsupported or drifting labels cannot become a complete success.
 passes repeated queries, legacy refusal, declared privilege policy and clean
 shutdown with unchanged primary state. Artifact/kernel attestation and health
 remain unobserved by the API. [Component reporting during real Docker holds](evidence/runtime-20261029/g8-live-operational-doctor/README.md)
-now passes with the explicit version-7 operator report and normal cleanup;
-cold restoration is separate.
+now passes with the explicit version-7 operator report and normal cleanup,
+followed by its linked cold restoration.
 
 Host Docker selects the Multikernel runtime; Docker builds inside an approved
 Docker guest use that child's local engine and storage, without the host Docker
