@@ -89,4 +89,6 @@ boot mismatch, legacy refusal, private errors, severity and cancellation.
 [Actual version-6 Docker qualification](../../evidence/runtime-20261029/g8-live-unified-doctor/README.md)
 now passes ENOSPC, built-image and post-removal holds with exact nested component
 correlation and normal cleanup. The preceding separate-command proofs retain
-their own scope. Cold restoration remains separate; complete G7/G8 stays open.
+their own scope. [Separate cold restoration](../../evidence/runtime-20261029/g8-live-unified-doctor-cold-restoration/README.md)
+also passes and verifies the original transport, all retained contents and primary
+persistent Docker state. Complete G7/G8 stays open.

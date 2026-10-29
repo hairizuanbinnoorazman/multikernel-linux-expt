@@ -139,4 +139,5 @@ absolute. Exit zero means consistent observations, never admission/readiness.
 See the [unified contract](../../../docs/runtime/pool-capacity.md#unified-inspection).
 The version-5 default remains qualified separately; [actual version-6 Docker
 holds and normal cleanup](../../../evidence/runtime-20261029/g8-live-unified-doctor/README.md) now pass.
-Cold restoration and full G8 readiness/diagnostics remain separate. No nested virtualization or containment boundary is introduced.
+[Cold restoration](../../../evidence/runtime-20261029/g8-live-unified-doctor-cold-restoration/README.md)
+also passes; complete G8 readiness/diagnostics remain open. No nested virtualization or containment boundary is introduced.

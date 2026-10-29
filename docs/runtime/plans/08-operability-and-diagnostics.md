@@ -247,6 +247,6 @@ now correlates repeated full combined and pool views under one deadline,
 refusing lifecycle/sequence/boot mismatch and suppressing all capacity candidates
 for any degraded/inconclusive aggregate. Local race controls and [actual
 version-6 Docker holds/normal cleanup](../../../evidence/runtime-20261029/g8-live-unified-doctor/README.md)
-pass. The earlier separate v5/v1 proofs retain their own scope. Cold restoration,
-service/component readiness, build provenance, diagnostics and wider failure/
-concurrency coverage still govern full G8; it remains open.
+pass. The earlier separate v5/v1 proofs retain their own scope. [Cold restoration](../../../evidence/runtime-20261029/g8-live-unified-doctor-cold-restoration/README.md)
+also passes. Service/component readiness, build provenance, diagnostics and wider
+failure/concurrency coverage still govern full G8; it remains open.

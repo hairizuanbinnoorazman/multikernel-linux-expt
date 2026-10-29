@@ -12,8 +12,11 @@ builds, guest/primary engine and image separation, all three version-6 unified
 resource/network/pool holds and normal cleanup on boot 92540f33. Parent 4112062c
 and workload fbe7eb99 both exit success/zero. Primary file hashes/PIDs/exact
 Docker inventories match; all sixteen CPUs return, no child/pool/vsock sockets
-remain, and candidate transport is quiescent at zero references. Separate cold
-restoration is pending. Full G7/G8 remains open for readiness, health, component
+remain, and candidate transport is quiescent at zero references at the live
+checkpoint. Its [cold restoration](../../evidence/runtime-20261029/g8-live-unified-doctor-cold-restoration/README.md)
+passes on boot ede39b72-93e4-4202-9da9-6904724b602e: original transport at zero
+references, all CPUs online, four services active, all 93 retained files / 12
+images and primary persistent Docker inventories verified. Full G7/G8 remains open for readiness, health, component
 provenance, diagnostics and wider failure/concurrency coverage. Direct child
 kernels use no nested virtualization and share host trust after compromise.
 

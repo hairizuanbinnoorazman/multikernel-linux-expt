@@ -14,9 +14,10 @@ The latest [actual unified-doctor Docker qualification](evidence/runtime-2026102
 passes host-selected direct-child Docker ENOSPC recovery, multistage/repeat
 builds, guest/primary engine and image separation, version-6 resource/network/
 pool correlation at both live holds and after removal, and normal cleanup.
-Primary file hashes, PIDs and exact Docker inventories match. Cold restoration
-is separate; complete G7/G8 readiness, health, provenance, diagnostics and wider
-failure/concurrency requirements remain open.
+Primary file hashes, PIDs and exact Docker inventories match. Its [cold restoration](evidence/runtime-20261029/g8-live-unified-doctor-cold-restoration/README.md)
+also passes: original transport restored, all 93 retained files / 12 images and
+primary persistent Docker inventories verified. Complete G7/G8 readiness, health,
+provenance, diagnostics and wider failure/concurrency requirements remain open.
 
 The earlier [actual Docker/combined-doctor qualification](evidence/runtime-20261028/g8-live-combined-doctor/README.md)
 passes host Docker → approved child Docker multistage/repeat builds, ENOSPC
@@ -42,7 +43,8 @@ service readiness are not guaranteed; full G7/G8 remains open.
 The explicit `--doctor-all-pool` command now correlates storage/native/network
 and pool-capacity views under one deadline. [Local race and CLI controls](evidence/runtime-20261029/g8-unified-doctor-controls/README.md)
 pass. [Actual version-6 Docker qualification](evidence/runtime-20261029/g8-live-unified-doctor/README.md)
-also passes all three holds and normal cleanup; cold restoration is separate. Existing separate
+also passes all three holds and normal cleanup, followed by its linked cold
+restoration. Existing separate
 version-5/version-1 commands retain their qualified scope.
 
 Host Docker selects the Multikernel runtime; Docker builds inside an approved

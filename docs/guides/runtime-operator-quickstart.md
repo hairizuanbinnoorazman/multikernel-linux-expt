@@ -239,10 +239,11 @@ does not authorize creating a pool or repairing state to make diagnostics green.
 
 [Actual child Docker ENOSPC/build/removal qualification](../../evidence/runtime-20261029/g8-live-unified-doctor/README.md)
 passes in a private qualified stack with unchanged primary services, engine and
-inventories. The installed legacy GCE services remain unchanged; the new CLI
+inventories. Its [separate cold restoration](../../evidence/runtime-20261029/g8-live-unified-doctor-cold-restoration/README.md)
+also verifies original transport restoration and all retained contents. The installed legacy GCE services remain unchanged; the new CLI
 [refuses them explicitly](../../evidence/runtime-20261029/g8-unified-doctor-staging/README.md)
 without partial results. Use the immutable release/deployment procedures above
-for a separately approved rollout; do not replace running binaries ad hoc.
+for a qualified rollout; do not replace running binaries ad hoc.
 Complete service readiness, health, diagnostics and broader G7/G8 remain open.
 
 With a qualified client and daemon supporting `storage-ownership-v1`, inspect
