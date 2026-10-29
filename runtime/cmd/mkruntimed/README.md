@@ -19,8 +19,8 @@ client never falls back to unrestricted sandbox serialization.
 The source is explicitly `durable-lifecycle`: these are recorded assignments,
 not current child liveness, available capacity, complete storage/network leases,
 or a no-leakage attestation. A read during a transition may show its intermediate
-state. G8's unified doctor, service readiness and independent orphan detection
-remain open. Apply the [deployment constraint](../../../docs/runtime/architecture.md#deployment-and-containment-constraint):
+state. This ownership view alone leaves service readiness and independent
+orphan detection unobserved; the unified command below has a separate scope. Apply the [deployment constraint](../../../docs/runtime/architecture.md#deployment-and-containment-constraint):
 nested virtualization is unavailable and ownership output does not establish
 containment after arbitrary child-kernel compromise.
 
@@ -137,5 +137,6 @@ the aggregate is consistent. An unavailable/unsupported or drifting component
 suppresses both payloads. Modes are mutually exclusive; a network socket must be
 absolute. Exit zero means consistent observations, never admission/readiness.
 See the [unified contract](../../../docs/runtime/pool-capacity.md#unified-inspection).
-The version-5 default remains qualified separately; live version-6 qualification
-is pending. No nested virtualization or containment boundary is introduced.
+The version-5 default remains qualified separately; [actual version-6 Docker
+holds and normal cleanup](../../../evidence/runtime-20261029/g8-live-unified-doctor/README.md) now pass.
+Cold restoration and full G8 readiness/diagnostics remain separate. No nested virtualization or containment boundary is introduced.

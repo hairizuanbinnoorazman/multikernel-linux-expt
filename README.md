@@ -10,7 +10,15 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
-The latest [actual Docker/combined-doctor qualification](evidence/runtime-20261028/g8-live-combined-doctor/README.md)
+The latest [actual unified-doctor Docker qualification](evidence/runtime-20261029/g8-live-unified-doctor/README.md)
+passes host-selected direct-child Docker ENOSPC recovery, multistage/repeat
+builds, guest/primary engine and image separation, version-6 resource/network/
+pool correlation at both live holds and after removal, and normal cleanup.
+Primary file hashes, PIDs and exact Docker inventories match. Cold restoration
+is separate; complete G7/G8 readiness, health, provenance, diagnostics and wider
+failure/concurrency requirements remain open.
+
+The earlier [actual Docker/combined-doctor qualification](evidence/runtime-20261028/g8-live-combined-doctor/README.md)
 passes host Docker → approved child Docker multistage/repeat builds, ENOSPC
 recovery, child/primary engine and image separation, version-5 doctor checks at
 both live holds and after removal, and normal resource cleanup. Primary file
@@ -33,7 +41,8 @@ service readiness are not guaranteed; full G7/G8 remains open.
 
 The explicit `--doctor-all-pool` command now correlates storage/native/network
 and pool-capacity views under one deadline. [Local race and CLI controls](evidence/runtime-20261029/g8-unified-doctor-controls/README.md)
-pass; live version-6 Docker qualification remains open. Existing separate
+pass. [Actual version-6 Docker qualification](evidence/runtime-20261029/g8-live-unified-doctor/README.md)
+also passes all three holds and normal cleanup; cold restoration is separate. Existing separate
 version-5/version-1 commands retain their qualified scope.
 
 Host Docker selects the Multikernel runtime; Docker builds inside an approved
@@ -181,7 +190,7 @@ now also detects earlier IPv4/IPv6 INPUT/FORWARD bypasses, with an actual TCP
 control. Continuous enforcement, other firewall tables and live Docker
 requalification remain open.
 
-The latest [combined live requalification](evidence/runtime-20261026/g8-live-network-check-failure/README.md)
+An earlier [combined live requalification](evidence/runtime-20261026/g8-live-network-check-failure/README.md)
 failed before ENOSPC and the new network CHECK points; forced Docker removal
 reported a zombie task and left orphan helpers. The
 [post-restart record](evidence/runtime-20261027/g8-failed-network-post-restart/README.md)
@@ -256,7 +265,7 @@ before a cold trial can pass its source-directory guard. The deployment manager
 now supports a protected, size-only immutable storage-binding update; see the
 [operator procedure](docs/guides/runtime-operator-quickstart.md#after-an-approved-storage-grow).
 
-The [latest live network/storage doctor checkpoint](evidence/runtime-20261027/g8-live-network-doctor/README.md)
+An earlier [live network/storage doctor checkpoint](evidence/runtime-20261027/g8-live-network-doctor/README.md)
 now matches the actual child generation, required endpoint and descriptor at
 ENOSPC and built-image holds, then confirms endpoint removal. Child-local builds
 and primary Docker inventory separation still pass. [Cold restoration](evidence/runtime-20261027/g8-network-doctor-cold-restoration/README.md)
@@ -268,8 +277,9 @@ The new `mkruntimed --doctor-all` command combines native/storage and network
 ownership under one deadline. [Controls](evidence/runtime-20261027/g8-combined-doctor-controls/README.md)
 and [real CLI preflight](evidence/runtime-20261027/g8-combined-doctor-cli/README.md)
 pass. Its [child trial's host wait fails before live doctor checks](evidence/runtime-20261027/g8-combined-live-failure/README.md),
-with a retained active child/export and unproven startup cause. Version-5 live
-qualification and normal cleanup remain open; the failed generation is retained
+with a retained active child/export and unproven startup cause. At that failed checkpoint, version-5 live
+qualification and normal cleanup remained open; later passing trials above use
+different generations and do not relabel the failure; the failed generation is retained
 for diagnosis. Earlier passing child Docker proofs retain their own scope.
 
 An independently reproduced [agent stream reuse defect](evidence/runtime-20261027/g8-agent-stream-invalidation/README.md)

@@ -86,5 +86,7 @@ unchanged. Matching samples do not exclude ABA changes or prove atomicity.
 [Retained local race/CLI controls](../../evidence/runtime-20261029/g8-unified-doctor-controls/README.md)
 cover correlation, cross-view and between-round drift,
 boot mismatch, legacy refusal, private errors, severity and cancellation.
-Actual version-6 GCE/Docker hold qualification is still pending; the earlier
-linked live proof qualifies separate commands, not this new aggregate command.
+[Actual version-6 Docker qualification](../../evidence/runtime-20261029/g8-live-unified-doctor/README.md)
+now passes ENOSPC, built-image and post-removal holds with exact nested component
+correlation and normal cleanup. The preceding separate-command proofs retain
+their own scope. Cold restoration remains separate; complete G7/G8 stays open.

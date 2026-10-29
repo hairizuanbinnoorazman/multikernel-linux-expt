@@ -4,9 +4,20 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
-## Latest G8 checkpoint (2026-10-28)
+## Latest G8 checkpoint (2026-10-29)
 
-The latest [fbbb9109 actual Docker-capacity trial](../../evidence/runtime-20261028/g8-live-docker-pool-capacity/README.md)
+The [31ee79ad actual unified-doctor trial](../../evidence/runtime-20261029/g8-live-unified-doctor/README.md)
+passes host-selected direct-child Docker ENOSPC recovery, multistage/repeat
+builds, guest/primary engine and image separation, all three version-6 unified
+resource/network/pool holds and normal cleanup on boot 92540f33. Parent 4112062c
+and workload fbe7eb99 both exit success/zero. Primary file hashes/PIDs/exact
+Docker inventories match; all sixteen CPUs return, no child/pool/vsock sockets
+remain, and candidate transport is quiescent at zero references. Separate cold
+restoration is pending. Full G7/G8 remains open for readiness, health, component
+provenance, diagnostics and wider failure/concurrency coverage. Direct child
+kernels use no nested virtualization and share host trust after compromise.
+
+The earlier [fbbb9109 actual Docker-capacity trial](../../evidence/runtime-20261028/g8-live-docker-pool-capacity/README.md)
 passes ENOSPC/build/image-engine isolation, version-5 combined doctor plus the
 separate pool-capacity view at both live holds and after removal, and normal
 cleanup. Its [cold restoration](../../evidence/runtime-20261028/g8-live-docker-pool-capacity-cold-restoration/README.md)
