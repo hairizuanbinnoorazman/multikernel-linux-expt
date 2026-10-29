@@ -3,7 +3,7 @@
 With qualified runtime/network daemons, select the combined operator format:
 
 ```bash
-sudo mkruntimed --config=/etc/mkruntime/config.json --doctor-all \\
+sudo mkruntimed --config=/etc/mkruntime/config.json --doctor-all \
   --doctor-format=7 --network-socket=/run/mknetd.sock
 ```
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Disposable host Docker selects Multikernel and runs the offline child build proof."""
-import hashlib,json,os,pathlib,signal,subprocess,sys,time
+import hashlib,json,os,pathlib,re,signal,subprocess,sys,time
 from runtime_firewall_identity import identity as firewall_identity
 from runtime_service_policy import parse_policy, command_with_policy, check_observation, check_fixture_scope
 from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT, run_markers
@@ -14,6 +14,8 @@ from runtime_network_doctor_checkpoint import qualify as qualify_network_doctor
 from runtime_combined_doctor_checkpoint import qualify as qualify_combined_doctor
 from runtime_pool_doctor_checkpoint import qualify as qualify_pool_doctor
 from runtime_unified_doctor_checkpoint import qualify as qualify_unified_doctor
+from runtime_component_build_checkpoint import qualify as qualify_component_builds
+from runtime_operational_doctor_checkpoint import qualify as qualify_operational_doctor
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
@@ -69,6 +71,14 @@ helper_selection=verify_trial_helper(work/'bin/mkvsock-nbd',os.environ.get('MK_T
 capacity=observe_trial_capacity('/srv/multikernel-storage',2 if concurrent else 1)
 (work/'storage-admission.json').write_text(json.dumps(capacity,indent=2)+'\n')
 require_trial_capacity(capacity)
+compiled_versions={};compiled_revisions={};build_metadata=json.loads((work/'build.json').read_text())
+for component in ['mkruntimed','mknetd']:
+ version_output=subprocess.run([str(work/'bin'/component),'--version'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
+ assert version_output.returncode==0 and not version_output.stderr
+ match=re.fullmatch(re.escape(component)+r' version=([^\s]+) revision=([0-9a-f]{7,40})\n',version_output.stdout.decode())
+ assert match and match[2]==build_metadata['source_commit'][:7]
+ compiled_versions[component],compiled_revisions[component]=match.groups()
+(work/'compiled-labels.json').write_text(json.dumps(dict(versions=compiled_versions,revisions=compiled_revisions),indent=2)+'\n')
 archive=pathlib.Path('/opt/mkruntime/g8-outer-b42ccf3/image.tar')
 pinned_archive_digest=sha(archive)
 assert pinned_archive_digest=='8af069def93985e73e5688b1d6bff1369597937c93a12a4b26475a32d18e7154'
@@ -310,6 +320,18 @@ try:
      assert unified_observation.returncode==0 and not unified_observation.stderr,'unified runtime and pool doctor refused the held observation'
      unified_report=qualify_unified_doctor(unified_observation.stdout,boot,owner,report,network_report,None if released else endpoints[0],combined_report,pool_report,released=released)
      (private/('unified-doctor-'+label+'.json')).write_text(json.dumps(unified_report,indent=2)+'\n')
+     remaining=deadline-time.monotonic();assert remaining>0,'component build observation budget exhausted'
+     component_observation=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--inspect-components','--network-socket='+str(network_socket)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+     (private/('component-builds-'+label+'.stdout')).write_bytes(component_observation.stdout);(private/('component-builds-'+label+'.stderr')).write_bytes(component_observation.stderr)
+     assert component_observation.returncode==0 and not component_observation.stderr,'component build reports refused the held observation'
+     component_report=qualify_component_builds(component_observation.stdout,boot,report['revision'],compiled_versions,compiled_revisions)
+     (private/('component-builds-'+label+'.json')).write_text(json.dumps(component_report,indent=2)+'\n')
+     remaining=deadline-time.monotonic();assert remaining>0,'version-7 doctor observation budget exhausted'
+     operational_observation=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor-all','--doctor-format=7','--network-socket='+str(network_socket)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(10,remaining))
+     (private/('operational-doctor-'+label+'.stdout')).write_bytes(operational_observation.stdout);(private/('operational-doctor-'+label+'.stderr')).write_bytes(operational_observation.stderr)
+     assert operational_observation.returncode==0 and not operational_observation.stderr,'version-7 operator report refused the held observation'
+     operational_report=qualify_operational_doctor(operational_observation.stdout,boot,owner,report,network_report,None if released else endpoints[0],combined_report,pool_report,unified_report,component_report,compiled_versions,compiled_revisions,released=released)
+     (private/('operational-doctor-'+label+'.json')).write_text(json.dumps(operational_report,indent=2)+'\n')
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
@@ -526,6 +548,9 @@ if storage_pressure:r['storage_pressure_image_checkpoint_sha256']=sha(work/'stor
 if storage_pressure:r['runtime_network_check_sha256']={phase:sha(private/('network-check-'+phase+'.json')) for phase in ['while-full','while-image-ready']}
 if storage_pressure:r['runtime_pool_doctor_sha256']={phase:sha(private/('pool-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_unified_doctor_sha256']={phase:sha(private/('unified-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+if storage_pressure:r['runtime_component_build_sha256']={phase:sha(private/('component-builds-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+if storage_pressure:r['runtime_operational_doctor_sha256']={phase:sha(private/('operational-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+if storage_pressure:r['compiled_labels_sha256']=sha(work/'compiled-labels.json')
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
