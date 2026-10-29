@@ -1324,3 +1324,13 @@ Independent post-capture primary Docker, file/PID and idle original-transport
 observations match. This closes the idle component-report checkpoint, not
 component reporting during Docker holds or full artifact/process/kernel
 provenance, readiness/health, diagnostics or complete G7/G8.
+
+Core b2505091 adds the [explicit version-7 operator report](contracts/operational-doctor.md)
+with complete repeated resource/pool and compiled-component views under one
+caller context and boot bracket. Local race/CLI controls refuse outer drift,
+legacy/private failures, invalid/misplaced formats, cross-boot views and canceled
+observations. Aggregate inconclusive/degraded state suppresses capacity candidates.
+Default version 5 and explicit version 6 preserve their existing contracts.
+Actual new GCE/Docker qualification remains pending; no admission, artifact/kernel
+attestation, health or full G7/G8 closure is inferred. Direct child kernels use
+no nested virtualization and share host trust.

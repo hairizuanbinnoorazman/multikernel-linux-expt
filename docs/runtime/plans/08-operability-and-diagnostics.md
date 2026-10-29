@@ -262,3 +262,12 @@ now passes repeated compiled-label queries, legacy refusal, executable/policy
 observations, clean shutdown and primary preservation. Component queries during
 actual Docker holds remain pending; full provenance/readiness and G8 stay open. No nested virtualization or containment
 boundary is introduced.
+
+The explicit [version-7 operator report](../contracts/operational-doctor.md)
+now correlates repeated full resource/pool and compiled component views under
+one caller deadline and boot bracket. Unknown or degraded aggregate state
+cannot expose capacity candidates; incomplete or drifting views expose neither
+payload. Default v5 and explicit v6 semantics remain unchanged. Local race/CLI
+controls pass; actual version-7 Docker holds, health/provenance and full G8 stay
+open. Direct child kernels still use no nested virtualization or hostile-child
+containment boundary.

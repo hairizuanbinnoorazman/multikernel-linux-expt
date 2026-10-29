@@ -115,6 +115,7 @@ func main() {
 	inspectComponents := flag.Bool("inspect-components", false, "print repeated compiled daemon build self-reports; not artifact attestation or health")
 	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
 	inspectPool := flag.Bool("doctor-pool", false, "print bounded configured/durable/kernel pool capacity observations; not admission or readiness")
+	doctorFormat := flag.Int("doctor-format", 5, "explicit --doctor-all output version: 5, 6 or 7")
 	inspectCombined := flag.Bool("doctor-all", false, "print bounded combined storage/native-process/network ownership and kernel presence diagnostics and exit")
 	inspectNetwork := flag.Bool("doctor-network", false, "print bounded lifecycle/network ownership and kernel presence diagnostics and exit")
 	networkSocket := flag.String("network-socket", "/run/mknetd.sock", "protected mknetd socket for network inspection")
@@ -144,6 +145,20 @@ func main() {
 		fmt.Fprintln(os.Stderr, "select one inspection mode")
 		os.Exit(2)
 	}
+	formatSpecified := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "doctor-format" {
+			formatSpecified = true
+		}
+	})
+	if formatSpecified && !*inspectCombined {
+		fmt.Fprintln(os.Stderr, "doctor-format requires --doctor-all")
+		os.Exit(2)
+	}
+	if *inspectCombined && *doctorFormat != 5 && *doctorFormat != 6 && *doctorFormat != 7 {
+		fmt.Fprintln(os.Stderr, "doctor-format must be 5, 6 or 7")
+		os.Exit(2)
+	}
 	if (*inspectNetwork || *inspectCombined || *inspectUnified || *inspectComponents) && !filepath.IsAbs(*networkSocket) {
 		fmt.Fprintln(os.Stderr, "network inspection requires an absolute network socket")
 		os.Exit(2)
@@ -155,29 +170,31 @@ func main() {
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
 	timeout := hostConfig.BackendTimeout()
+	componentInputs := doctor.ComponentInputs{
+		Runtime: func(ctx context.Context) (protocol.ComponentBuildReport, error) {
+			return daemon.InspectComponentBuild(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		},
+		Network: func(ctx context.Context) (protocol.ComponentBuildReport, error) {
+			return mknetwork.InspectComponentBuild(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
+		},
+		Boot: doctor.BootIdentity,
+	}
 	if *inspectComponents {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		report := doctor.InspectComponents(ctx, doctor.ComponentInputs{
-			Runtime: func(ctx context.Context) (protocol.ComponentBuildReport, error) {
-				return daemon.InspectComponentBuild(ctx, daemon.Client{Path: socket, Timeout: timeout})
-			},
-			Network: func(ctx context.Context) (protocol.ComponentBuildReport, error) {
-				return mknetwork.InspectComponentBuild(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
-			},
-			Boot: doctor.BootIdentity,
-		}, buildinfo.Revision)
+		report := doctor.InspectComponents(ctx, componentInputs, buildinfo.Revision)
 		if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
 			os.Exit(1)
 		}
 		return
 	}
+	poolInputs := doctor.PoolInputs{Ownership: func(ctx context.Context) (protocol.PoolOwnershipReport, error) {
+		return daemon.InspectPoolOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
+	}, Kernel: func(ctx context.Context) (poolinspect.Snapshot, error) { return poolinspect.Read(ctx, sysfs) }, Boot: doctor.BootIdentity}
 	if *inspectPool {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		report := doctor.InspectPool(ctx, doctor.PoolInputs{Ownership: func(ctx context.Context) (protocol.PoolOwnershipReport, error) {
-			return daemon.InspectPoolOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
-		}, Kernel: func(ctx context.Context) (poolinspect.Snapshot, error) { return poolinspect.Read(ctx, sysfs) }, Boot: doctor.BootIdentity}, buildinfo.Revision)
+		report := doctor.InspectPool(ctx, poolInputs, buildinfo.Revision)
 		if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
 			os.Exit(1)
 		}
@@ -198,19 +215,21 @@ func main() {
 			},
 			Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
 		}
-		if *inspectUnified {
-			report := doctor.InspectUnified(ctx, inputs, doctor.PoolInputs{
-				Ownership: func(ctx context.Context) (protocol.PoolOwnershipReport, error) {
-					return daemon.InspectPoolOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
-				},
-				Kernel: func(ctx context.Context) (poolinspect.Snapshot, error) { return poolinspect.Read(ctx, sysfs) },
-				Boot:   doctor.BootIdentity,
-			}, buildinfo.Revision)
+		if *inspectCombined && *doctorFormat == 7 {
+			report := doctor.InspectOperational(ctx, inputs, poolInputs, componentInputs, buildinfo.Revision)
 			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
 				os.Exit(1)
 			}
 			return
 		}
+		if *inspectUnified || *doctorFormat == 6 {
+			report := doctor.InspectUnified(ctx, inputs, poolInputs, buildinfo.Revision)
+			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
+				os.Exit(1)
+			}
+			return
+		}
+
 		report := doctor.InspectCombined(ctx, inputs, buildinfo.Revision)
 		if json.NewEncoder(os.Stdout).Encode(report) != nil {
 			os.Exit(1)

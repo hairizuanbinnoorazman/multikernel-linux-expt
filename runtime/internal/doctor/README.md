@@ -42,3 +42,12 @@ attestation. The inspector revision is kept separate. This adds no backend,
 process execution, file-state inspection, readiness or containment claim; see the
 [contract](../../../docs/runtime/contracts/component-builds.md). Direct child
 kernels still use no nested virtualization and share host trust.
+
+`InspectOperational` (version 7) repeats both complete `InspectUnified` and
+`InspectComponents` views under the original context and a common boot bracket.
+It refuses incomplete or outer-round drift without partial payloads. Complete
+inconclusive/degraded observations retain findings and suppress capacity
+candidates in a copied pool report. Known differing labels do not establish
+compatibility; admission and artifact/kernel verification remain false. See the
+[operator contract](../../../docs/runtime/contracts/operational-doctor.md).
+Direct child kernels use no nested virtualization and share host trust.

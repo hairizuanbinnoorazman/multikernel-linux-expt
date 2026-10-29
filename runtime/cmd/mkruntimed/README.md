@@ -153,3 +153,13 @@ mutually exclusive, and the network socket must be absolute. Existing v6 doctor
 scope is unchanged. [Actual private-daemon GCE proof](../../../evidence/runtime-20261029/g8-component-build-gce/README.md)
 now passes; component reporting during actual Docker holds remains pending.
 Executable/process/kernel provenance and health remain unobserved by this API.
+
+`--doctor-all --doctor-format=7` selects the [version-7 operator contract](../../../docs/runtime/contracts/operational-doctor.md),
+which repeats full version-6 resource/pool and version-1 compiled-build views
+under one caller deadline and boot bracket. Unknown/degraded aggregate state
+suppresses all capacity candidates; missing or drifting views suppress both
+payloads. Admission and artifact/kernel verification remain false. The default
+format is still 5; explicit format 6 matches `--doctor-all-pool`. A format flag
+without `--doctor-all`, an unsupported format or a relative network socket is
+refused before configuration loading. Local race/CLI controls pass; actual new
+GCE/Docker qualification is pending. No health or containment claim is added.
