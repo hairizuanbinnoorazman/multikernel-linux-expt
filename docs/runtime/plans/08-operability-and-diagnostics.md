@@ -271,3 +271,13 @@ payload. Default v5 and explicit v6 semantics remain unchanged. Local race/CLI
 controls pass; actual version-7 Docker holds, health/provenance and full G8 stay
 open. Direct child kernels still use no nested virtualization or hostile-child
 containment boundary.
+
+The [actual version-7 Docker proof](../../../evidence/runtime-20261029/g8-live-operational-doctor/README.md)
+subsequently passes all three scoped holds, separate compiled-label reports,
+engine/image isolation and normal cleanup, with unchanged primary state.
+Default/explicit v5 equality, v6 alias equality and v7 legacy refusal also pass
+in the preceding staging proof. This closes the bounded component/resource
+correlation checkpoint during real child activity. Cold restoration remains
+separate; health/readiness, ongoing executable/process/kernel provenance,
+compatibility, diagnostics and wider failure/concurrency coverage still govern
+full G8. No nested virtualization or containment boundary is introduced.

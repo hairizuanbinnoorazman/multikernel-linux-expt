@@ -6,6 +6,18 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-29)
 
+The [actual 4a3e3943 version-7 trial](../../evidence/runtime-20261029/g8-live-operational-doctor/README.md)
+now passes real child Docker ENOSPC/build/image-engine isolation, all three
+correlated resource/pool and compiled component holds, and normal cleanup on
+boot ede39b72. Parent 3b246553 and workload 0cb01a3d exit success/zero. Complete
+v7 reports equal their separately qualified v6/v1 views and retain admission/
+artifact/kernel verification false. Primary hashes/PIDs/exact Docker inventories
+and network state match; no child/pool/vsock sockets or owned processes remain,
+all sixteen CPUs return, and candidate transport is quiescent at zero references.
+Cold restoration is separate and pending. Full G7/G8 readiness, health, provenance,
+diagnostics and wider failure/concurrency requirements remain open. Direct child
+kernels use no nested virtualization and share host trust after compromise.
+
 The separate [actual component-build qualification](../../evidence/runtime-20261029/g8-component-build-gce/README.md)
 now passes on the same boot ede39b72 with private actual daemon mains: repeated
 compiled runtime/network labels, installed legacy refusal for each component,

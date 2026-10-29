@@ -10,7 +10,15 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
-The latest [actual unified-doctor Docker qualification](evidence/runtime-20261029/g8-live-unified-doctor/README.md)
+The latest [actual version-7 Docker qualification](evidence/runtime-20261029/g8-live-operational-doctor/README.md)
+passes host-selected direct-child Docker pressure/build/image-engine isolation,
+correlated resource/network/pool and compiled daemon views at both live holds
+and after removal, and normal cleanup. Primary files, PIDs, exact Docker
+inventories and network state match. Select `--doctor-all --doctor-format=7`;
+default v5 and explicit v6 keep their scopes. Cold restoration is separate, and
+full G7/G8 readiness, provenance, health and diagnostics remain open.
+
+The earlier [actual unified-doctor Docker qualification](evidence/runtime-20261029/g8-live-unified-doctor/README.md)
 passes host-selected direct-child Docker ENOSPC recovery, multistage/repeat
 builds, guest/primary engine and image separation, version-6 resource/network/
 pool correlation at both live holds and after removal, and normal cleanup.
@@ -53,7 +61,9 @@ Unknown, unsupported or drifting labels cannot become a complete success.
 [Actual private-daemon GCE qualification](evidence/runtime-20261029/g8-component-build-gce/README.md)
 passes repeated queries, legacy refusal, declared privilege policy and clean
 shutdown with unchanged primary state. Artifact/kernel attestation and health
-remain unobserved by the API; component reporting during Docker holds is pending.
+remain unobserved by the API. [Component reporting during real Docker holds](evidence/runtime-20261029/g8-live-operational-doctor/README.md)
+now passes with the explicit version-7 operator report and normal cleanup;
+cold restoration is separate.
 
 Host Docker selects the Multikernel runtime; Docker builds inside an approved
 Docker guest use that child's local engine and storage, without the host Docker

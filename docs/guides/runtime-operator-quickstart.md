@@ -262,10 +262,28 @@ stable known self-reports, not readiness or verified executable provenance.
 The installed legacy GCE services remain unchanged; [actual private-daemon
 CLI qualification](../../evidence/runtime-20261029/g8-component-build-gce/README.md) now passes
 with source-pinned executable observations, declared capability/NNP compatibility
-and primary preservation. This qualifies idle build reporting; component queries
-during actual Docker holds remain pending and are not inferred from earlier v6
-Docker evidence.
+and primary preservation. [Actual component reports during Docker holds](../../evidence/runtime-20261029/g8-live-operational-doctor/README.md)
+now also pass with the explicit version-7 report and normal cleanup; cold
+restoration is separate. Earlier v6 evidence retains its own scope.
 Direct children use no nested virtualization and share host trust.
+
+For the correlated resource/pool and compiled-build view, use explicit format 7:
+
+```bash
+sudo mkruntimed --config=/etc/mkruntime/config.json --doctor-all --doctor-format=7 \
+  --network-socket=/run/mknetd.sock
+```
+
+The [version-7 contract](../runtime/contracts/operational-doctor.md) repeats both
+complete views under one caller deadline and boot bracket. Incomplete/drifting
+views suppress both payloads; complete inconclusive/degraded aggregates retain
+findings and suppress capacity candidates. Admission and artifact/kernel
+verification remain false. Default format 5 preserves the prior combined view;
+explicit format 6 matches `--doctor-all-pool`. A format option requires
+`--doctor-all`, so it cannot silently start a daemon. Exit zero is scoped
+consistency, not readiness or verified compatibility/provenance. A clean released
+pool can lack free-list metadata and return inconclusive; never allocate or
+repair resources to make inspection green.
 
 With a qualified client and daemon supporting `storage-ownership-v1`, inspect
 recorded storage leases through the same protected socket:
