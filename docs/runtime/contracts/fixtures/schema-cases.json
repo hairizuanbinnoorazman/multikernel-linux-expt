@@ -183,5 +183,55 @@
     "schema": "kernel-manifest-v1.schema.json",
     "fixture": "kernel-manifest.docker-guest.alias.invalid.json",
     "valid": false
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-runtime.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-network-unknown.valid.json",
+    "valid": true
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-private.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-artifact.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-kernel.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-revision-path.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-component.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-version-bool.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-revision-bound.invalid.json",
+    "valid": false
+  },
+  {
+    "schema": "component-build-v1.schema.json",
+    "fixture": "component-build-version-bound.invalid.json",
+    "valid": false
   }
 ]

@@ -101,6 +101,8 @@ func TestUnifiedInspectionModeCLI(t *testing.T) {
 		args []string
 		want string
 	}{
+		{"component-conflict", []string{"--inspect-components", "--doctor-all-pool"}, "select one inspection mode"},
+		{"component-relative-network", []string{"--inspect-components", "--network-socket=relative.sock"}, "network inspection requires an absolute network socket"},
 		{"combined-conflict", []string{"--doctor-all-pool", "--doctor-all"}, "select one inspection mode"},
 		{"pool-conflict", []string{"--doctor-all-pool", "--doctor-pool"}, "select one inspection mode"},
 		{"relative-network", []string{"--doctor-all-pool", "--network-socket=relative.sock"}, "network inspection requires an absolute network socket"},

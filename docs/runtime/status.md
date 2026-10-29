@@ -1293,3 +1293,14 @@ boot 92540f33. [Fresh restart preservation](../../evidence/runtime-20261029/g8-u
 verifies all 93 retained files / 12 images and primary persistent Docker state
 before launching its independent bounded Docker trial. Live holds and normal
 cleanup require a separate terminal workload proof; full G7/G8 remains open.
+
+The separate [compiled daemon build interface](contracts/component-builds.md)
+now distinguishes negotiated runtime/network build labels from the CLI revision.
+Contract 975d0e6f and RPC implementation 510a31f5 pass race controls, including
+read-only network inspection with store/mutation locks held, strict requests,
+legacy/mixed reply refusal, private-error redaction and shared deadlines. The
+operator mode repeats complete reports within one boot bracket, suppresses
+partial/drifting views and marks unknown labels inconclusive. Executable/kernel
+attestation, process incarnation, compatibility and health remain unobserved;
+actual new CLI/GCE/Docker qualification is pending. These direct child kernels
+use no nested virtualization and share host trust after compromise.

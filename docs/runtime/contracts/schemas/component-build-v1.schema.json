@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multikernel.example/schemas/component-build-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source",
+    "component",
+    "build_version",
+    "build_revision",
+    "artifact_verified",
+    "kernel_verified"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "source": {
+      "const": "compiled-component-self-report"
+    },
+    "component": {
+      "enum": [
+        "mkruntimed",
+        "mknetd"
+      ]
+    },
+    "build_version": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "build_revision": {
+      "type": "string",
+      "maxLength": 40,
+      "oneOf": [
+        {
+          "const": "unknown"
+        },
+        {
+          "pattern": "^[0-9a-f]{7,40}$"
+        }
+      ]
+    },
+    "artifact_verified": {
+      "const": false
+    },
+    "kernel_verified": {
+      "const": false
+    }
+  }
+}

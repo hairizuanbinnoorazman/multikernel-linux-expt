@@ -2,6 +2,8 @@ package protocol
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -46,5 +48,22 @@ func TestComponentBuildStrictBoundedSelfReportedContract(t *testing.T) {
 		if StrictDecode(data, &v) == nil {
 			t.Fatal("ambiguous/extra/type-confused report decoded")
 		}
+	}
+}
+
+func TestComponentBuildSchemaFixturesAgreeWithStrictGoWireValidation(t *testing.T) {
+	for _, name := range []string{"runtime.valid", "network-unknown.valid", "private.invalid", "artifact.invalid", "kernel.invalid", "revision-path.invalid", "component.invalid", "version-bool.invalid", "revision-bound.invalid", "version-bound.invalid"} {
+		t.Run(name, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join("..", "..", "docs", "runtime", "contracts", "fixtures", "component-build-"+name+".json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var r ComponentBuildReport
+			decode := StrictDecode(raw, &r)
+			accepted := decode == nil && r.Validate() == nil
+			if accepted != strings.HasSuffix(name, ".valid") {
+				t.Fatalf("fixture classification differs accepted=%v", accepted)
+			}
+		})
 	}
 }

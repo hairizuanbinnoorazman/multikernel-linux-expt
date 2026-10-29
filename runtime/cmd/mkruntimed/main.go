@@ -112,6 +112,7 @@ func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
+	inspectComponents := flag.Bool("inspect-components", false, "print repeated compiled daemon build self-reports; not artifact attestation or health")
 	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
 	inspectPool := flag.Bool("doctor-pool", false, "print bounded configured/durable/kernel pool capacity observations; not admission or readiness")
 	inspectCombined := flag.Bool("doctor-all", false, "print bounded combined storage/native-process/network ownership and kernel presence diagnostics and exit")
@@ -134,7 +135,7 @@ func main() {
 	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
 	modes := 0
-	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool, *inspectUnified} {
+	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool, *inspectUnified, *inspectComponents} {
 		if selected {
 			modes++
 		}
@@ -143,7 +144,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "select one inspection mode")
 		os.Exit(2)
 	}
-	if (*inspectNetwork || *inspectCombined || *inspectUnified) && !filepath.IsAbs(*networkSocket) {
+	if (*inspectNetwork || *inspectCombined || *inspectUnified || *inspectComponents) && !filepath.IsAbs(*networkSocket) {
 		fmt.Fprintln(os.Stderr, "network inspection requires an absolute network socket")
 		os.Exit(2)
 	}
@@ -154,6 +155,23 @@ func main() {
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
 	timeout := hostConfig.BackendTimeout()
+	if *inspectComponents {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		report := doctor.InspectComponents(ctx, doctor.ComponentInputs{
+			Runtime: func(ctx context.Context) (protocol.ComponentBuildReport, error) {
+				return daemon.InspectComponentBuild(ctx, daemon.Client{Path: socket, Timeout: timeout})
+			},
+			Network: func(ctx context.Context) (protocol.ComponentBuildReport, error) {
+				return mknetwork.InspectComponentBuild(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
+			},
+			Boot: doctor.BootIdentity,
+		}, buildinfo.Revision)
+		if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
+			os.Exit(1)
+		}
+		return
+	}
 	if *inspectPool {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()

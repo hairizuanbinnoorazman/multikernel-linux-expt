@@ -246,6 +246,23 @@ without partial results. Use the immutable release/deployment procedures above
 for a qualified rollout; do not replace running binaries ad hoc.
 Complete service readiness, health, diagnostics and broader G7/G8 remain open.
 
+Qualified client/daemon builds implementing `component-build-v1` also support:
+
+```bash
+sudo mkruntimed --config=/etc/mkruntime/config.json \
+  --inspect-components --network-socket=/run/mknetd.sock
+```
+
+This separate [compiled-build view](../runtime/contracts/component-builds.md)
+reports mkruntimed and mknetd labels independently of the inspector revision.
+Unknown labels are inconclusive; unsupported, invalid or drifting views expose
+no partial payload. Known different labels stay visible without establishing
+compatibility. Artifact/kernel verification remains false; exit zero means
+stable known self-reports, not readiness or verified executable provenance.
+The installed legacy GCE services remain unchanged; new actual CLI/daemon
+qualification is pending and is not inferred from earlier v6 Docker evidence.
+Direct children use no nested virtualization and share host trust.
+
 With a qualified client and daemon supporting `storage-ownership-v1`, inspect
 recorded storage leases through the same protected socket:
 

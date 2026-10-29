@@ -250,3 +250,13 @@ version-6 Docker holds/normal cleanup](../../../evidence/runtime-20261029/g8-liv
 pass. The earlier separate v5/v1 proofs retain their own scope. [Cold restoration](../../../evidence/runtime-20261029/g8-live-unified-doctor-cold-restoration/README.md)
 also passes. Service/component readiness, build provenance, diagnostics and wider
 failure/concurrency coverage still govern full G8; it remains open.
+
+The separate [compiled component build inspection](../contracts/component-builds.md)
+now negotiates bounded daemon labels through existing protected runtime/network
+sockets and distinguishes them from the inspector revision. Repeated unknown,
+unsupported or drifting views cannot become a complete success. Self-reported
+labels leave executable artifact identity, process incarnation, compatibility,
+kernel identity and health unobserved. This is component revision reporting,
+not complete provenance/readiness; actual GCE and Docker qualification remain
+pending for this separate interface. No nested virtualization or containment
+boundary is introduced.

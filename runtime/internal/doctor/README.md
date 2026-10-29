@@ -33,3 +33,12 @@ observes capacity in addition to the version-5 scope; it still does not establis
 atomicity, readiness, admission, allocator internals, current kernel incarnation,
 Docker health or containment. The revision identifies only the CLI build.
 Direct child kernels require no nested virtualization and share host trust.
+
+`InspectComponents` separately repeats negotiated compiled daemon build labels
+under the original caller deadline and boot bracket. It refuses partial or
+drifting views, preserves explicit unknown revisions as inconclusive, and shows
+known differing labels without treating equality as compatibility or artifact
+attestation. The inspector revision is kept separate. This adds no backend,
+process execution, file-state inspection, readiness or containment claim; see the
+[contract](../../../docs/runtime/contracts/component-builds.md). Direct child
+kernels still use no nested virtualization and share host trust.

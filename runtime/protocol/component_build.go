@@ -27,6 +27,7 @@ func (r ComponentBuildReport) Validate() error {
 	if r.Version != 1 || r.Source != "compiled-component-self-report" ||
 		(r.Component != "mkruntimed" && r.Component != "mknetd") ||
 		len(r.BuildVersion) > 64 || !componentBuildVersion.MatchString(r.BuildVersion) ||
+		(len(r.BuildRevision) > 40) ||
 		(r.BuildRevision != "unknown" && !componentBuildRevision.MatchString(r.BuildRevision)) ||
 		r.ArtifactVerified || r.KernelVerified {
 		return errors.New("invalid component build report")

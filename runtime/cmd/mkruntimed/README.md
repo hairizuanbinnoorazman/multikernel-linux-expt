@@ -141,3 +141,13 @@ The version-5 default remains qualified separately; [actual version-6 Docker
 holds and normal cleanup](../../../evidence/runtime-20261029/g8-live-unified-doctor/README.md) now pass.
 [Cold restoration](../../../evidence/runtime-20261029/g8-live-unified-doctor-cold-restoration/README.md)
 also passes; complete G8 readiness/diagnostics remain open. No nested virtualization or containment boundary is introduced.
+
+`--inspect-components` separately negotiates `component-build-v1` with mkruntimed
+and mknetd, repeating compiled build self-reports under one caller deadline and
+boot bracket. Known labels are never copied from the inspector into daemon
+identity. Unknown, unsupported or drifting identity cannot become a complete
+success; stable different labels remain visible without inferring compatibility.
+Artifact/kernel verification flags stay false. The [build-report contract](../../../docs/runtime/contracts/component-builds.md)
+defines limits and remaining provenance/health gaps. Inspection modes are
+mutually exclusive, and the network socket must be absolute. Existing v6 doctor
+scope is unchanged; actual new component CLI/GCE/Docker proof remains pending.

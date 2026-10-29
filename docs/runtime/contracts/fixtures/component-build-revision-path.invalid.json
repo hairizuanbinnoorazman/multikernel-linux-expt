@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "source": "compiled-component-self-report",
+  "component": "mkruntimed",
+  "build_version": "0.0.0-dev",
+  "build_revision": "/private/path",
+  "artifact_verified": false,
+  "kernel_verified": false
+}
