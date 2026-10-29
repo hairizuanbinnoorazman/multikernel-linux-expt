@@ -43,3 +43,15 @@ func TestOwnershipInspectionRequiresOnlyAnAbsoluteSocket(t *testing.T) {
 		t.Fatal("relative inspector socket accepted")
 	}
 }
+
+func TestHealthInspectionModeIsExplicit(t *testing.T) {
+	value, err := parseConfiguration([]string{"--inspect-health", "--socket", "/run/private-network.sock"})
+	if err != nil || !value.inspectHealth || value.egress != "" {
+		t.Fatal(value, err)
+	}
+	for _, args := range [][]string{{"--inspect-health", "--inspect-ownership"}, {"--inspect-health", "--socket", "relative"}} {
+		if _, err := parseConfiguration(args); err == nil {
+			t.Fatal("invalid health mode accepted", args)
+		}
+	}
+}

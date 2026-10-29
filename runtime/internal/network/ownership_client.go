@@ -46,7 +46,7 @@ func InspectOwnership(ctx context.Context, client Client) (OwnershipReport, erro
 	if err != nil {
 		return failure(err)
 	}
-	if response.Ownership == nil || response.Endpoint != nil || response.Capabilities != nil || response.ComponentBuild != nil || response.Ownership.Validate() != nil {
+	if response.Health != nil || response.Ownership == nil || response.Endpoint != nil || response.Capabilities != nil || response.ComponentBuild != nil || response.Ownership.Validate() != nil {
 		return OwnershipReport{}, errors.New("invalid network ownership report")
 	}
 	return *response.Ownership, nil

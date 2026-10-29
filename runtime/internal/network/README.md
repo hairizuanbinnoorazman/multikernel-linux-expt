@@ -49,3 +49,10 @@ cancellation closes pending reads. This is metadata inspection, not backend
 CHECK, native health, isolation or repair authority. See the
 [contract](../../../docs/runtime/contracts/network-ownership.md) and
 [GCE proof](../../../evidence/runtime-20261027/g8-network-ownership/README.md).
+
+`INSPECT_HEALTH` negotiates `network-health-v1` and performs bounded read-only
+backend checks for up to 32 recorded endpoint generations. Busy, stale, invalid
+or changed observations cannot become a checked report. Errors use fixed codes;
+private endpoint descriptors and command output stay off the wire. See the
+[health contract](../../../docs/runtime/contracts/network-health.md) for budgets,
+mutation-lock effects and the remaining end-to-end health/readiness gaps.

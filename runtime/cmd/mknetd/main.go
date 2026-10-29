@@ -25,6 +25,7 @@ type configuration struct {
 	mtu, allowedUID                  int
 	dns                              network.DNS
 	inspectOwnership                 bool
+	inspectHealth                    bool
 }
 
 func parseConfiguration(arguments []string) (configuration, error) {
@@ -37,13 +38,17 @@ func parseConfiguration(arguments []string) (configuration, error) {
 	set.IntVar(&value.mtu, "mtu", 1400, "negotiated endpoint MTU")
 	set.IntVar(&value.allowedUID, "allowed-uid", 0, "UID authorized to issue CNI requests")
 	set.BoolVar(&value.inspectOwnership, "inspect-ownership", false, "read bounded generation-bound ownership through the authenticated socket")
+	set.BoolVar(&value.inspectHealth, "inspect-health", false, "check bounded recorded host network endpoints through the authenticated socket")
 	var nameservers string
 	set.StringVar(&nameservers, "dns", "", "comma-separated guest DNS servers")
 	if err := set.Parse(arguments); err != nil {
 		return value, err
 	}
-	if set.NArg() != 0 || !filepath.IsAbs(value.socket) || !filepath.IsAbs(value.stateDir) || (!value.inspectOwnership && value.egress == "") || value.allowedUID < 0 {
+	if set.NArg() != 0 || !filepath.IsAbs(value.socket) || !filepath.IsAbs(value.stateDir) || (!value.inspectOwnership && !value.inspectHealth && value.egress == "") || value.allowedUID < 0 {
 		return value, errors.New("absolute socket/state-dir, explicit egress, and non-negative allowed-uid are required")
+	}
+	if value.inspectOwnership && value.inspectHealth {
+		return value, errors.New("choose one inspection mode")
 	}
 	if value.egress != "" && (len(value.egress) > 15 || !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`).MatchString(value.egress)) {
 		return value, errors.New("egress must be a valid Linux interface name")
@@ -61,6 +66,19 @@ func parseConfiguration(arguments []string) (configuration, error) {
 }
 
 func run(ctx context.Context, value configuration) error {
+	if value.inspectHealth {
+		report, err := network.InspectHealth(ctx, network.Client{Path: value.socket})
+		if err != nil {
+			return err
+		}
+		if err = json.NewEncoder(os.Stdout).Encode(report); err != nil {
+			return err
+		}
+		if report.Status == "degraded" {
+			return errors.New("network backend checks are degraded")
+		}
+		return nil
+	}
 	if value.inspectOwnership {
 		report, err := network.InspectOwnership(ctx, network.Client{Path: value.socket})
 		if err != nil {

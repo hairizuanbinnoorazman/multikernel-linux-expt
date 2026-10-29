@@ -48,6 +48,7 @@ type Request struct {
 }
 
 type Response struct {
+	Health         *HealthReport                  `json:"health,omitempty"`
 	ComponentBuild *protocol.ComponentBuildReport `json:"component_build,omitempty"`
 	Version        int                            `json:"version"`
 	RequestID      string                         `json:"request_id"`

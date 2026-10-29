@@ -12,7 +12,7 @@ import (
 var ErrComponentBuildUnsupported = errors.New("mknetd does not advertise component-build-v1")
 
 func validInspectionCapabilities(cap Response) bool {
-	if cap.Capabilities == nil || cap.Endpoint != nil || cap.Ownership != nil || cap.ComponentBuild != nil || cap.Capabilities.Version != 1 || len(cap.Capabilities.Features) == 0 || len(cap.Capabilities.Features) > 32 {
+	if cap.Health != nil || cap.Capabilities == nil || cap.Endpoint != nil || cap.Ownership != nil || cap.ComponentBuild != nil || cap.Capabilities.Version != 1 || len(cap.Capabilities.Features) == 0 || len(cap.Capabilities.Features) > 32 {
 		return false
 	}
 	seen := map[string]bool{}
@@ -66,7 +66,7 @@ func InspectComponentBuild(ctx context.Context, client Client) (protocol.Compone
 	if err != nil {
 		return fail(err)
 	}
-	if ctx.Err() != nil || response.ComponentBuild == nil || response.Endpoint != nil || response.Ownership != nil || response.Capabilities != nil || response.ComponentBuild.Validate() != nil || response.ComponentBuild.Component != "mknetd" {
+	if ctx.Err() != nil || response.Health != nil || response.ComponentBuild == nil || response.Endpoint != nil || response.Ownership != nil || response.Capabilities != nil || response.ComponentBuild.Validate() != nil || response.ComponentBuild.Component != "mknetd" {
 		return protocol.ComponentBuildReport{}, errors.New("invalid network component build report")
 	}
 	return *response.ComponentBuild, nil
