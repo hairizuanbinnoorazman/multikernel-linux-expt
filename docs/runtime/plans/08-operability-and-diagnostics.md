@@ -241,3 +241,10 @@ not establish readiness or admission. Its [separate cold restoration](../../../e
 also passes. Unified capacity integration, service/component health and diagnostics remain separate
 full G8 requirements. No nested virtualization or hostile-child containment is
 claimed.
+
+The explicit [version-6 unified command](../pool-capacity.md#unified-inspection)
+now correlates repeated full combined and pool views under one deadline,
+refusing lifecycle/sequence/boot mismatch and suppressing all capacity candidates
+for any degraded/inconclusive aggregate. Local race controls pass; version-6
+GCE/Docker hold qualification remains pending and is not inferred from separate
+version-5/version-1 trials. Complete G8 remains open.

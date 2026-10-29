@@ -129,3 +129,13 @@ with exact durable/kernel sample correlation and unchanged primary inventories.
 Its [separate cold restoration](../../../evidence/runtime-20261028/g8-live-docker-pool-capacity-cold-restoration/README.md)
 also passes with the original transport and retained evidence verified. Complete
 G8 readiness/diagnostics requirements remain open; no allocation or repair occurs in the inspector.
+
+`--doctor-all-pool` explicitly selects version 6: repeated complete combined and
+pool inspections with matching boot/lifecycle/sequence and one shared deadline.
+It retains complete component findings and suppresses capacity candidates unless
+the aggregate is consistent. An unavailable/unsupported or drifting component
+suppresses both payloads. Modes are mutually exclusive; a network socket must be
+absolute. Exit zero means consistent observations, never admission/readiness.
+See the [unified contract](../../../docs/runtime/pool-capacity.md#unified-inspection).
+The version-5 default remains qualified separately; live version-6 qualification
+is pending. No nested virtualization or containment boundary is introduced.

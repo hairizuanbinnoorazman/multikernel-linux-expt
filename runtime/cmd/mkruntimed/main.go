@@ -112,6 +112,7 @@ func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
+	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
 	inspectPool := flag.Bool("doctor-pool", false, "print bounded configured/durable/kernel pool capacity observations; not admission or readiness")
 	inspectCombined := flag.Bool("doctor-all", false, "print bounded combined storage/native-process/network ownership and kernel presence diagnostics and exit")
 	inspectNetwork := flag.Bool("doctor-network", false, "print bounded lifecycle/network ownership and kernel presence diagnostics and exit")
@@ -133,7 +134,7 @@ func main() {
 	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
 	modes := 0
-	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool} {
+	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool, *inspectUnified} {
 		if selected {
 			modes++
 		}
@@ -142,7 +143,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "select one inspection mode")
 		os.Exit(2)
 	}
-	if (*inspectNetwork || *inspectCombined) && !filepath.IsAbs(*networkSocket) {
+	if (*inspectNetwork || *inspectCombined || *inspectUnified) && !filepath.IsAbs(*networkSocket) {
 		fmt.Fprintln(os.Stderr, "network inspection requires an absolute network socket")
 		os.Exit(2)
 	}
@@ -164,10 +165,10 @@ func main() {
 		}
 		return
 	}
-	if *inspectCombined {
+	if *inspectCombined || *inspectUnified {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		report := doctor.InspectCombined(ctx, doctor.CombinedInputs{
+		inputs := doctor.CombinedInputs{
 			Native: func(ctx context.Context) (protocol.NativeResourceReport, error) {
 				return daemon.InspectNativeResources(ctx, daemon.Client{Path: socket, Timeout: timeout})
 			},
@@ -178,7 +179,21 @@ func main() {
 				return mknetwork.InspectOwnership(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
 			},
 			Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
-		}, buildinfo.Revision)
+		}
+		if *inspectUnified {
+			report := doctor.InspectUnified(ctx, inputs, doctor.PoolInputs{
+				Ownership: func(ctx context.Context) (protocol.PoolOwnershipReport, error) {
+					return daemon.InspectPoolOwnership(ctx, daemon.Client{Path: socket, Timeout: timeout})
+				},
+				Kernel: func(ctx context.Context) (poolinspect.Snapshot, error) { return poolinspect.Read(ctx, sysfs) },
+				Boot:   doctor.BootIdentity,
+			}, buildinfo.Revision)
+			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
+				os.Exit(1)
+			}
+			return
+		}
+		report := doctor.InspectCombined(ctx, inputs, buildinfo.Revision)
 		if json.NewEncoder(os.Stdout).Encode(report) != nil {
 			os.Exit(1)
 		}

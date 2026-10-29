@@ -1257,3 +1257,12 @@ pass. Parent 07a3b92c and workload e3d0949b exit zero; candidate transport is
 quiescent at the live checkpoint; [separate cold restoration](../../evidence/runtime-20261028/g8-live-docker-pool-capacity-cold-restoration/README.md)
 subsequently passes. Full G7/G8 remains open. Direct
 kernels require no nested virtualization and retain shared host trust.
+
+The explicit version-6 `--doctor-all-pool` implementation now combines repeated
+full storage/native/network and pool inspections under one caller context.
+Cross-view lifecycle/sequence or boot mismatch and observed between-round drift
+refuse partial payloads; any complete degraded/inconclusive aggregate suppresses
+capacity candidates. Local race controls pass. Earlier actual Docker evidence
+qualifies the separate v5/v1 commands; actual unified CLI/GCE/Docker proof is
+pending. The original contracts remain unchanged. Full G7/G8 stays open; direct
+child kernels use no nested virtualization and share host trust.

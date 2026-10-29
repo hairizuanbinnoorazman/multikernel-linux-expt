@@ -1,6 +1,10 @@
 package main
 
 import (
+	"flag"
+	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck"
@@ -73,6 +77,41 @@ func TestRecoverableIdlePool(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			if recoverableIdlePool(report) {
 				t.Fatal("unsafe idle-pool recovery accepted")
+			}
+		})
+	}
+}
+
+// Run actual argument dispatch in a subprocess: these refusals must precede
+// configuration loading, daemon startup, or any mutation of runtime state.
+func TestUnifiedInspectionModeCLI(t *testing.T) {
+	if os.Getenv("MK_TEST_UNIFIED_MODE_DISPATCH") == "1" {
+		flag.CommandLine = flag.NewFlagSet("mkruntimed", flag.ExitOnError)
+		for i, arg := range os.Args {
+			if arg == "--" {
+				os.Args = append([]string{"mkruntimed"}, os.Args[i+1:]...)
+				break
+			}
+		}
+		main()
+		os.Exit(0)
+	}
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"combined-conflict", []string{"--doctor-all-pool", "--doctor-all"}, "select one inspection mode"},
+		{"pool-conflict", []string{"--doctor-all-pool", "--doctor-pool"}, "select one inspection mode"},
+		{"relative-network", []string{"--doctor-all-pool", "--network-socket=relative.sock"}, "network inspection requires an absolute network socket"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := exec.CommandContext(t.Context(), os.Args[0], append([]string{"-test.run=^TestUnifiedInspectionModeCLI$", "--", "--config=/nonexistent/unified-test-config.json"}, tc.args...)...)
+			cmd.Env = append(os.Environ(), "MK_TEST_UNIFIED_MODE_DISPATCH=1")
+			out, err := cmd.CombinedOutput()
+			exit, ok := err.(*exec.ExitError)
+			if !ok || exit.ExitCode() != 2 || strings.TrimSpace(string(out)) != tc.want {
+				t.Fatalf("status=%v output=%s", err, out)
 			}
 		})
 	}

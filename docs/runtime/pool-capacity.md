@@ -68,3 +68,22 @@ explain corrections without relabeling those attempts successful.
 
 Direct child kernels require no nested virtualization. They share host trust
 after child-kernel compromise; capacity inspection adds no containment boundary.
+
+## Unified inspection
+
+`sudo mkruntimed --config=/etc/mkruntime/config.json --doctor-all-pool`
+adds an explicit version-6 report that nests the qualified version-5 combined
+and version-1 pool contracts. Both complete inspections run twice with one
+absolute caller deadline. Their boot IDs and full lifecycle records (including
+sequence and claims) must match, and both rounds must be equal. Unavailable,
+legacy or drifting views produce an inconclusive result without partial payloads.
+Complete degraded/inconclusive component observations retain their findings and
+suppress pool CPU/memory candidates. Only a consistent aggregate can expose
+candidates; admission remains false. Exit zero means consistent observations,
+not readiness. The separate `--doctor-all` and `--doctor-pool` contracts remain
+unchanged. Matching samples do not exclude ABA changes or prove atomicity.
+
+Local race controls cover correlation, cross-view and between-round drift,
+boot mismatch, legacy refusal, private errors, severity and cancellation.
+Actual version-6 GCE/Docker hold qualification is still pending; the earlier
+linked live proof qualifies separate commands, not this new aggregate command.
