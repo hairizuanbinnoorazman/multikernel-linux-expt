@@ -10,6 +10,15 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+The [structured diagnostic collector](docs/runtime/contracts/diagnostic-bundle.md)
+adds `--diagnostic-bundle=/absolute/private/new.json`: bounded component/resource
+observations, private non-overwriting publication and a byte-count/SHA-256
+receipt. Raw logs, credentials, environments and guest output are excluded.
+[Local race/publication controls](evidence/runtime-20261029/g8-diagnostic-bundle-controls/README.md)
+pass; cloud and live-Docker bundle qualification are separate pending checks.
+Captured diagnostics preserve unavailable/degraded status and do not establish
+service health or readiness. The full G7/G8 gates remain open.
+
 The latest [actual version-7 Docker qualification](evidence/runtime-20261029/g8-live-operational-doctor/README.md)
 passes host-selected direct-child Docker pressure/build/image-engine isolation,
 correlated resource/network/pool and compiled daemon views at both live holds

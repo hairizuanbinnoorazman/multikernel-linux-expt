@@ -69,6 +69,15 @@ still govern the full exit gate below.
 
 ## Gate G8
 
+The [structured diagnostic collector](../contracts/diagnostic-bundle.md) now
+retains bounded component and version-7 reports in a protected exclusive JSON
+artifact, with a byte-count/SHA-256 receipt. [Local controls](../../../evidence/runtime-20261029/g8-diagnostic-bundle-controls/README.md)
+pass cancellation, source-error redaction, size limits, unsafe destinations,
+concurrent publication and the complete runtime race suite. Actual GCE and
+live-Docker collection remain pending. This closes the local collector checkpoint;
+full health/readiness, broader safe diagnostic sources, log retention/pressure,
+recovery and the remaining requirements below still govern complete G8.
+
 The initial [read-only doctor](../../../runtime/cmd/mkruntimed/README.md) compares
 negotiated durable ownership with bounded kernel instance names, reports stable
 findings and rejects observed boot/ownership/inventory drift. Its

@@ -11,9 +11,12 @@ from runtime_socket_readiness import wait_for_socket_owner
 from runtime_service_policy import parse_policy, command_with_policy, check_observation
 from runtime_firewall_identity import identity as firewall_identity
 from runtime_component_build_checkpoint import qualify,qualify_unsupported
+from runtime_diagnostic_bundle_checkpoint import qualify_idle as qualify_bundle
 
 P=Path;sha=lambda p:hashlib.file_digest(P(p).open('rb'),'sha256').hexdigest()
 work=P(sys.argv[1]);source=work/'source';build=json.loads((work/'build.json').read_text());revision=build['source_commit'][:7]
+assert len(sys.argv) in [2,3] and (len(sys.argv)==2 or sys.argv[2]=='--diagnostic-bundles')
+diagnostics=len(sys.argv)==3
 boot=os.environ['MK_COMPONENT_TRIAL_BOOT_ID'];unit='g8-component-build-'+revision+'.service'
 assert os.geteuid()==0 and socket.gethostname()=='mklinux-g7-storage-20261012'
 assert re.fullmatch('[0-9a-f]{40}',build['source_commit']) and work==P('/opt/mkruntime/g8-components-'+revision)
@@ -25,8 +28,8 @@ assert scope==dict(MainPID=str(os.getpid()),InvocationID=os.environ['INVOCATION_
 assert all(sha(work/'bin'/name)==digest for name,digest in build['binaries'].items())
 lock=os.open('/opt/mkruntime/g8-vsock-rx-b688447/module-trial.lock',os.O_RDWR|os.O_NOFOLLOW)
 assert stat.S_ISREG(os.fstat(lock).st_mode);fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-old=P('/opt/mkruntime/g8-host-31ee79a/cold-restoration');baseline=json.loads((old/'after.json').read_text())
-assert baseline['invocation_id']=='5702e90848434faba1d27cde675f02d3' and baseline['retained']['contents_checked']
+old=P('/opt/mkruntime/g8-host-'+('4a3e394' if diagnostics else '31ee79a')+'/cold-restoration');baseline=json.loads((old/'after.json').read_text())
+assert baseline['invocation_id']==('451cd1617a8b43e9bfaa8d1262c0ec47' if diagnostics else '5702e90848434faba1d27cde675f02d3') and baseline['retained']['contents_checked']
 assert baseline['resources']['boot_id']==boot
 failed=P('/opt/mkruntime/g8-host-0c50de9')
 def output(args):return sp.check_output([str(v) for v in args],text=True,timeout=15).strip()
@@ -73,6 +76,30 @@ def inspect(label,config_path,network_path,unsupported=None):
  (work/(label+'.json')).write_text(json.dumps(report,indent=2)+'\n')
  return report
 inspect('installed-legacy','/etc/mkruntime/config.json','/run/mknetd.sock','RUNTIME')
+bundles={}
+def collect_bundle(label,config_path,network_path,unsupported=None):
+ directory=private/'bundles';directory.mkdir(mode=0o700,exist_ok=True);destination=directory/(label+'.json')
+ result=sp.run([str(binary),'--config='+str(config_path),'--network-socket='+str(network_path),'--diagnostic-bundle='+str(destination)],stdout=sp.PIPE,stderr=sp.PIPE,timeout=15)
+ assert result.returncode==1 and result.stderr==b'','idle unavailable collection must retain diagnostic failure'
+ data=destination.read_bytes();s=destination.lstat();assert stat.S_ISREG(s.st_mode) and s.st_uid==0 and s.st_nlink==1 and stat.S_IMODE(s.st_mode)==0o600 and 0<len(data)<=8<<20
+ standalone=sp.run([str(binary),'--config='+str(config_path),'--network-socket='+str(network_path),'--doctor-all','--doctor-format=7'],stdout=sp.PIPE,stderr=sp.PIPE,timeout=15)
+ assert standalone.returncode==1 and not standalone.stderr
+ qualify_bundle(data,result.stdout,standalone.stdout,boot,revision,versions,revisions,unsupported)
+ original=sha(destination)
+ repeat=sp.run([str(binary),'--config='+str(config_path),'--network-socket='+str(network_path),'--diagnostic-bundle='+str(destination)],stdout=sp.PIPE,stderr=sp.PIPE,timeout=15)
+ assert repeat.returncode==1 and repeat.stdout==b'' and repeat.stderr==b'diagnostic bundle destination is unavailable or already exists\n' and sha(destination)==original
+ for suffix,kind in [('alias','symlink'),('shared','directory')]:
+  target=directory/(label+'-'+suffix+('.json' if kind=='symlink' else ''))
+  if kind=='symlink':target.symlink_to(destination);path=target
+  else:target.mkdir(mode=0o755);path=target/'forbidden.json'
+  refused=sp.run([str(binary),'--config='+str(config_path),'--network-socket='+str(network_path),'--diagnostic-bundle='+str(path)],stdout=sp.PIPE,stderr=sp.PIPE,timeout=15)
+  assert refused.returncode==1 and refused.stdout==b'' and sha(destination)==original
+  if kind=='directory':assert stat.S_IMODE(target.stat().st_mode)==0o755 and not list(target.iterdir())
+ (work/(label+'.json')).write_bytes(data)
+ (work/(label+'-receipt.json')).write_bytes(result.stdout)
+ (work/(label+'-operational-reference.json')).write_bytes(standalone.stdout)
+ bundles[label]=dict(bundle_sha256=sha(destination),receipt_sha256=sha(work/(label+'-receipt.json')),operational_reference_sha256=sha(work/(label+'-operational-reference.json')),returncode=result.returncode,file_mode='0600',byte_count=len(data),existing_symlink_shared_refused=True)
+if diagnostics:collect_bundle('bundle-installed-legacy','/etc/mkruntime/config.json','/run/mknetd.sock','RUNTIME')
 children=[];logs=[];observations={};policies={}
 cap_names=output(['/usr/bin/setpriv','--list-caps']).splitlines()
 for name in ['mkruntimed','mknetd']:
@@ -89,11 +116,13 @@ exit_codes={};complete=False
 try:
  runtime=start('mkruntimed',[binary,'--config='+str(host),'--pool-cpus=8,9,10,11,12,13,14,15','--pool-memory=8GB','--pool-memory-reserve=1GB','--storage-state-dir='+str(private/'storage-state'),'--storage-runtime-dir='+str(private/'storage-runtime'),'--storage-server='+str(work/'bin/mkvsock-nbd'),'--rootfs-state-dir='+str(private/'rootfs-state'),'--rootfs-storage-dir='+str(private/'rootfs-images')],P(config['socket_path']))
  inspect('network-legacy',host,'/run/mknetd.sock','NETWORK')
+ if diagnostics:collect_bundle('bundle-network-legacy',host,'/run/mknetd.sock','NETWORK')
  routes=json.loads(sp.check_output(['/usr/sbin/ip','-j','route','show','default'],timeout=15));devices={r['dev'] for r in routes};assert len(devices)==1;egress=devices.pop();assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,14}',egress)
  net=start('mknetd',[work/'bin/mknetd','--socket='+str(network_socket),'--state-dir='+str(private/'network-state'),'--egress='+egress,'--subnet=172.30.0.0/24','--allowed-uid=0'],network_socket)
  state_paths=[private/n/'state.json' for n in ['daemon-state','storage-state','rootfs-state','network-state']]+[private/'daemon-state/journal.jsonl']
  state_before={str(p.relative_to(private)):sha(p) if p.exists() else None for p in state_paths}
  inspect('actual-components',host,network_socket);inspect('actual-components-repeat',host,network_socket)
+ if diagnostics:collect_bundle('bundle-actual-components',host,network_socket)
  assert {str(p.relative_to(private)):sha(p) if p.exists() else None for p in state_paths}==state_before
  empty_queries=[('empty-runtime-ownership',[binary,'--config='+str(host),'--inspect-ownership'],'sandboxes'),('empty-network-ownership',[work/'bin/mknetd','--socket='+str(network_socket),'--inspect-ownership'],'endpoints')]
  for label,args,key in empty_queries:
@@ -123,5 +152,6 @@ for p in P('/proc').iterdir():
  except (FileNotFoundError,ProcessLookupError,PermissionError):pass
 assert not owned
 report=dict(version=1,source_commit=build['source_commit'],boot_id=boot,invocation_id=os.environ['INVOCATION_ID'],scope=scope,primary_before=before,primary_after=after,primary_docker=docker_before,private_daemon_exit_codes=exit_codes,service_policies=policies,service_observations=observations,private_state_sha256=state_before,retained_file_identities_unchanged=True,retained_file_count=93,retained_contents_rehashed=False,failed_fixture_state_and_private_output_preserved=True,network_rules_links_routes_unchanged=True,no_child_pool_export_endpoint_requested=True,owned_processes_remaining=owned,compiled_versions=versions,compiled_revisions=revisions,full_g7_g8_closed=False,raw_logs_exported=False)
+if diagnostics:report.update(diagnostic_bundles=bundles,live_docker_bundle_qualified=False)
 (work/'receipt.json').write_text(json.dumps(report,indent=2)+'\n')
 print('ACTUAL_PRIVATE_DAEMON_COMPONENT_BUILD_RPC_CLI_REPEAT_LEGACY_REFUSAL_AND_CLEAN_SHUTDOWN_PASS_PRIMARY_UNCHANGED_FULL_G7_G8_OPEN')
