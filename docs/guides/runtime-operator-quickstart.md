@@ -395,6 +395,9 @@ credentials, environments and guest output. See the
 [actual idle GCE qualification](../../evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md).
 [Actual Docker hold collection](../../evidence/runtime-20261029/g8-live-diagnostic-bundles/README.md)
 and its linked cold restoration also pass, with their pinned timing scope explicit.
+[Fresh corrected timing proof](../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles/README.md)
+also qualifies each eight-report sequence below ten seconds with a receipt-bound
+parent audit; it does not bound the complete build or establish readiness.
 This does not authorize recovery or prove readiness; direct child kernels need
 no nested virtualization and retain shared host trust after compromise.
 
@@ -415,3 +418,8 @@ sudo systemctl restart mkruntimed mknetd
 An active release or deployment cannot be removed. Review the dry-run JSON
 before applying any removal. The detailed ownership and preservation behavior
 is documented in [`deploy/README.md`](../../deploy/README.md).
+
+The corrected timed trial's [cold restoration](../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles-cold-restoration/README.md)
+also passes with original transport, twelve diagnostic artifacts, both successful
+and failed parent receipts, and all 93 retained files / 12 images preserved.
+This restoration does not close the remaining G7/G8 requirements.

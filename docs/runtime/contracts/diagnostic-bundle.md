@@ -89,8 +89,12 @@ The subsequent common checkpoint explicitly clamps every phase to ten seconds
 and retains monotonic start/deadline/finish/elapsed metadata, eight-report count
 and a receipt digest for each timing artifact. Local timing controls reject
 extended deadlines, elapsed-time mismatch and numeric aliases. Actual Docker
-collection now passes for source 5412c4be with the scope above; corrected
-shared-budget qualification remains pending. Its
+collection passes for source 5412c4be with the scope above. A fresh
+[source-18f278a1 qualification](../../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles/README.md)
+now passes all three corrected eight-report sequences in 110.420, 107.534 and
+99.839 ms, each within ten seconds. Additional native-network CHECK and Docker
+inventory observations have separate bounded contexts; these timings do not
+bound the build or the complete hold. Earlier
 [focused timing controls](../../../evidence/runtime-20261029/g8-diagnostic-checkpoint-timing-controls/README.md)
 are separate from actual timed execution.
 
@@ -103,10 +107,19 @@ bounded, single-link owned regular files, stable descriptor/named identity and
 nonblocking FIFO refusal. Missing or invalid timing cannot become a successful
 normal trial. The intentional export-crash retention case remains a separate
 partial-lifecycle qualification. These checks concern timing evidence, not health
-or containment; actual execution of this parent gate remains pending.
+or containment. The source-18f278a1 execution also passes the integrated parent
+gate with the exact workload receipt, expected boot/invocation, phase order and
+independent post-capture timing records matching.
 The lifecycle receipt is read from the trial root; per-hold timing frames are
 read from its private `integration/` directory. An absent root receipt refuses
 inspection even if another copy exists below `integration/`. The initial
 source-054be555 workload completed, but its parent used the incorrect receipt
-directory and remains a failed parent-gate case; the corrected shared reader
-and filesystem-layout regression require fresh actual qualification.
+directory and remains a [failed parent-gate case](../../../evidence/runtime-20261029/g8-timed-bundle-parent-path-failure/README.md).
+Its separate restoration preserves that failure. The corrected shared reader
+and filesystem-layout regression have now qualified in the fresh execution;
+full service health/readiness, diagnostics and G7/G8 remain open.
+
+The corrected timed trial's [cold restoration](../../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles-cold-restoration/README.md)
+also passes with original transport, twelve diagnostic artifacts, both successful
+and failed parent receipts, and all 93 retained files / 12 images preserved.
+This restoration does not close the remaining G7/G8 requirements.

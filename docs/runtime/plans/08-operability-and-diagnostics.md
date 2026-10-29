@@ -78,8 +78,11 @@ also passes idle legacy/current-daemon collection, exact private modes, refusal
 and primary preservation. [Actual Docker bundle collection](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles/README.md)
 also passes ENOSPC/build/removal holds, original receipt/identity checks and normal
 cleanup. Source 5412c4be retains its inherited wider built-image budget; the
-subsequent shared-ten-second timing correction remains separately pending actual
-qualification. This closes the local, idle cloud and active collection checkpoints.
+subsequent [corrected timed execution](../../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles/README.md)
+passes all three eight-report sequences below ten seconds and the receipt-bound
+integrated parent gate. The initial root-receipt path failure and its restoration
+remain separately retained. This closes local, idle cloud, active collection and
+bounded sequence/parent-gate checkpoints.
 Its [cold restoration](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles-cold-restoration/README.md)
 also passes with original transport and exact live artifact/retained-state preservation.
 Full health/readiness, broader safe diagnostic sources, log retention/pressure,
@@ -297,3 +300,8 @@ correlation checkpoint during real child activity. [Cold restoration](../../../e
 also passes. Health/readiness, ongoing executable/process/kernel provenance,
 compatibility, diagnostics and wider failure/concurrency coverage still govern
 full G8. No nested virtualization or containment boundary is introduced.
+
+The corrected timed trial's [cold restoration](../../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles-cold-restoration/README.md)
+also passes with original transport, twelve diagnostic artifacts, both successful
+and failed parent receipts, and all 93 retained files / 12 images preserved.
+This restoration does not close the remaining G7/G8 requirements.

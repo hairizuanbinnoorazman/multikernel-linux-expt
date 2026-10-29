@@ -1386,3 +1386,28 @@ pass, with actual corrected timing qualification pending. No earlier evidence
 is relabelled. Full health/readiness, broader diagnostics/log pressure, ongoing
 provenance, wider failures/concurrency and G7/G8 remain open. Direct child kernels
 use no nested virtualization and retain shared host trust after compromise.
+
+Source `054be555` subsequently completes its workload but fails the new integrated
+parent timing gate because it reads the lifecycle receipt from `integration/`
+instead of the trial root. [Failure proof](../../evidence/runtime-20261029/g8-timed-bundle-parent-path-failure/README.md)
+and [separate idle restoration](../../evidence/runtime-20261029/g8-timed-bundle-parent-failure-cold-restoration/README.md)
+preserve that failed status, all twelve diagnostic files and original parent
+receipt; no earlier case is relabelled. Corrections `c8890a5f`/`18f278a1` centralize
+the exact root/integration layout and set private fixture modes independently of
+umask. Eleven focused controls and required repository checks pass.
+
+Fresh source `18f278a1` now passes [actual corrected timing qualification](../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles/README.md)
+on boot `9fcb7528-9ffb-45c0-866a-6604afaa92d2`: workload and integrated parent
+exit 0, with eight-report sequences of 110.420/107.534/99.839 ms at ENOSPC,
+built-image and removal holds. Independent receipt/boot/invocation/digest/order
+checks match the parent's qualified record. Engine/image boundaries, normal
+synced close, filesystem check and resource return pass with unchanged primary
+state. The build and separate network/inventory probes retain their own bounds.
+The corrected trial's [cold restoration](../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles-cold-restoration/README.md)
+passes on boot `2f91ba98-e418-41f9-9fec-95935b88f165`: original transport, all
+16 CPUs, four active services, no child/pool/VSOCK, all 93 retained files / 12
+images and twelve current diagnostic artifacts preserved. Both current successful
+and prior failed parent receipts remain unchanged. Complete health/readiness,
+diagnostics/log pressure, provenance, wider failure/concurrency and G7/G8 remain open. Direct
+child kernels still need no nested virtualization and share host trust after
+child-kernel compromise.

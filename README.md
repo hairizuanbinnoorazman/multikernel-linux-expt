@@ -22,8 +22,15 @@ now pass ENOSPC/build/removal capture, receipt/identity checks and normal cleanu
 Their [cold restoration](evidence/runtime-20261029/g8-live-diagnostic-bundles-cold-restoration/README.md)
 also passes: original transport restored, 93 retained files / 12 images and all
 nine live bundle/receipt/identity files preserved.
-That pinned trial retains its wider built-image checkpoint budget; the subsequent
-common ten-second timing correction is locally tested and awaits actual execution.
+That pinned trial retains its wider built-image checkpoint budget. A fresh
+[corrected timed qualification](evidence/runtime-20261029/g8-live-timed-diagnostic-bundles/README.md)
+now passes all three eight-report sequences in 110.420, 107.534 and 99.839 ms,
+each below ten seconds, with a receipt-bound integrated parent gate. Its initial
+[receipt-path failure](evidence/runtime-20261029/g8-timed-bundle-parent-path-failure/README.md)
+remains retained separately with its own restoration proof. The corrected trial's
+[cold restoration](evidence/runtime-20261029/g8-live-timed-diagnostic-bundles-cold-restoration/README.md)
+also passes: original transport, all twelve diagnostic artifacts and both parent
+receipts are preserved, along with 93 retained files / 12 images.
 Captured diagnostics preserve unavailable/degraded status and do not establish
 service health or readiness. The full G7/G8 gates remain open.
 

@@ -13,8 +13,9 @@ nested virtualization; this collector adds no health or containment guarantee.
 passes legacy/current-daemon capture, publication/refusal and primary preservation.
 [Actual Docker bundle collection](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles/README.md)
 also passes all three holds, receipt/artifact checks and normal cleanup. That
-source retains its inherited built-image budget; the subsequent common ten-second
-clamp/timing metadata still needs actual qualification.
+source retains its inherited built-image budget. [Fresh corrected timing proof](../../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles/README.md)
+now passes all three eight-report sequences below ten seconds and the integrated
+receipt-bound parent gate; full readiness/diagnostics remain separate.
 Its [separate cold restoration](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles-cold-restoration/README.md)
 also passes with original transport and preserved live artifacts/retained state.
 
@@ -186,3 +187,8 @@ refused before configuration loading. Local race/CLI controls pass; actual new
 also passes all three holds and normal cleanup, followed by the linked cold
 restoration.
 No health or containment claim is added.
+
+The corrected timed trial's [cold restoration](../../../evidence/runtime-20261029/g8-live-timed-diagnostic-bundles-cold-restoration/README.md)
+also passes with original transport, twelve diagnostic artifacts, both successful
+and failed parent receipts, and all 93 retained files / 12 images preserved.
+This restoration does not close the remaining G7/G8 requirements.
