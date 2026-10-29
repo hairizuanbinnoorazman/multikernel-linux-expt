@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"net"
 	"regexp"
 	"sort"
@@ -534,13 +536,24 @@ func (s *Service) Dispatch(ctx context.Context, request Request) Response {
 		return response
 	}
 	switch request.Method {
-	case "CAPABILITIES", "INSPECT_OWNERSHIP":
+	case "CAPABILITIES", "INSPECT_OWNERSHIP", "INSPECT_COMPONENT_BUILD":
 		if request.Endpoint != nil || request.Generation != "" {
 			response.Error = &APIError{Code: "INVALID_ARGUMENT", Message: "ownership inspection accepts no endpoint or generation"}
 			break
 		}
 		if request.Method == "CAPABILITIES" {
-			response.Capabilities = &Capabilities{Version: 1, Features: []string{OwnershipCapability}}
+			response.Capabilities = &Capabilities{Version: 1, Features: []string{OwnershipCapability, protocol.ComponentBuildCapability}}
+		} else if request.Method == "INSPECT_COMPONENT_BUILD" {
+			if ctx.Err() != nil {
+				response.Error = &APIError{Code: "UNAVAILABLE", Message: "component build request canceled", Retryable: true}
+				break
+			}
+			report, err := buildinfo.Component("mknetd")
+			if err != nil {
+				response.Error = &APIError{Code: "OPERATOR_ACTION", Message: "compiled component build metadata is invalid"}
+				break
+			}
+			response.ComponentBuild = &report
 		} else {
 			report, failure := s.Ownership()
 			response.Error = failure

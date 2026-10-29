@@ -36,20 +36,8 @@ func InspectOwnership(ctx context.Context, client Client) (OwnershipReport, erro
 	if err != nil {
 		return failure(err)
 	}
-	if cap.Capabilities == nil || cap.Endpoint != nil || cap.Ownership != nil || cap.Capabilities.Version != 1 || len(cap.Capabilities.Features) == 0 || len(cap.Capabilities.Features) > 32 {
+	if !validInspectionCapabilities(cap) {
 		return OwnershipReport{}, errors.New("invalid network ownership capabilities")
-	}
-	seen := map[string]bool{}
-	for _, feature := range cap.Capabilities.Features {
-		if len(feature) == 0 || len(feature) > 64 || seen[feature] {
-			return OwnershipReport{}, errors.New("invalid network ownership capabilities")
-		}
-		for _, r := range feature {
-			if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-') {
-				return OwnershipReport{}, errors.New("invalid network ownership capabilities")
-			}
-		}
-		seen[feature] = true
 	}
 	if !slices.Contains(cap.Capabilities.Features, OwnershipCapability) {
 		return OwnershipReport{}, ErrOwnershipUnsupported
@@ -58,7 +46,7 @@ func InspectOwnership(ctx context.Context, client Client) (OwnershipReport, erro
 	if err != nil {
 		return failure(err)
 	}
-	if response.Ownership == nil || response.Endpoint != nil || response.Capabilities != nil || response.Ownership.Validate() != nil {
+	if response.Ownership == nil || response.Endpoint != nil || response.Capabilities != nil || response.ComponentBuild != nil || response.Ownership.Validate() != nil {
 		return OwnershipReport{}, errors.New("invalid network ownership report")
 	}
 	return *response.Ownership, nil

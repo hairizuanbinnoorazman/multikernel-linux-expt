@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
@@ -256,7 +257,7 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "capabilities body must be an empty object"}
 			break
 		}
-		features := []string{protocol.LifecycleAuditCapability, protocol.OwnershipCapability, protocol.NetworkExpectationsCapability}
+		features := []string{protocol.ComponentBuildCapability, protocol.LifecycleAuditCapability, protocol.OwnershipCapability, protocol.NetworkExpectationsCapability}
 		if s.Service != nil && s.Service.PoolOwnershipAvailable() {
 			features = append(features, protocol.PoolOwnershipCapability)
 		}
@@ -267,6 +268,22 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			features = append(features, protocol.NativeResourcesCapability)
 		}
 		out.Body = protocol.DaemonCapabilities{ProtocolVersion: protocol.Version, Features: features}
+	case "InspectComponentBuild":
+		var empty struct{}
+		if r.SandboxID != "" || r.Generation != "" || r.IdempotencyKey != "" || (len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil) {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "component build accepts only an empty object and no selectors"}
+			break
+		}
+		if ctx.Err() != nil {
+			out.Error = &protocol.Error{Code: "UNAVAILABLE", Message: "component build request canceled", Retryable: true}
+			break
+		}
+		report, err := buildinfo.Component("mkruntimed")
+		if err != nil {
+			out.Error = &protocol.Error{Code: "OPERATOR_ACTION", Message: "compiled component build metadata is invalid"}
+			break
+		}
+		out.Body = report
 	case "InspectOwnership":
 		var empty struct{}
 		if len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil {
