@@ -1266,3 +1266,9 @@ capacity candidates. Local race controls pass. Earlier actual Docker evidence
 qualifies the separate v5/v1 commands; actual unified CLI/GCE/Docker proof is
 pending. The original contracts remain unchanged. Full G7/G8 stays open; direct
 child kernels use no nested virtualization and share host trust.
+
+[Retained unified-control proof](../../evidence/runtime-20261029/g8-unified-doctor-controls/README.md)
+passes full runtime and targeted CLI race checks, preserves source hashes, and
+records the user-restarted host at boot 92540f33-e781-462b-9b71-2a548a968298:
+original transport/zero references, all CPUs online, no child/pool, four active
+services. That idle observation is not a new retained-content hash qualification.

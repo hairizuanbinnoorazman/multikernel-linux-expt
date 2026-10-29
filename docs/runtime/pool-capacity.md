@@ -83,7 +83,8 @@ candidates; admission remains false. Exit zero means consistent observations,
 not readiness. The separate `--doctor-all` and `--doctor-pool` contracts remain
 unchanged. Matching samples do not exclude ABA changes or prove atomicity.
 
-Local race controls cover correlation, cross-view and between-round drift,
+[Retained local race/CLI controls](../../evidence/runtime-20261029/g8-unified-doctor-controls/README.md)
+cover correlation, cross-view and between-round drift,
 boot mismatch, legacy refusal, private errors, severity and cancellation.
 Actual version-6 GCE/Docker hold qualification is still pending; the earlier
 linked live proof qualifies separate commands, not this new aggregate command.

@@ -31,6 +31,11 @@ restores the original transport and verifies all 93 retained files / 12 images
 and primary persistent Docker inventories. Admission and
 service readiness are not guaranteed; full G7/G8 remains open.
 
+The explicit `--doctor-all-pool` command now correlates storage/native/network
+and pool-capacity views under one deadline. [Local race and CLI controls](evidence/runtime-20261029/g8-unified-doctor-controls/README.md)
+pass; live version-6 Docker qualification remains open. Existing separate
+version-5/version-1 commands retain their qualified scope.
+
 Host Docker selects the Multikernel runtime; Docker builds inside an approved
 Docker guest use that child's local engine and storage, without the host Docker
 socket. The latest [two-child qualification](evidence/runtime-20261023/g8-concurrent-netns/README.md)
