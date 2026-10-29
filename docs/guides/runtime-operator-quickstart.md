@@ -10,6 +10,12 @@ nodes. Do not make it the default containerd or Docker runtime. Commands that
 start services, create child kernels, or modify container configuration should
 be run only on an otherwise idle disposable host.
 
+The target cloud instances do not provide nested virtualization. Child kernels
+run directly within the instance and share host trust after kernel compromise;
+this workflow is not a hostile-child containment boundary. Host Docker selects
+the child-kernel runtime, while builds inside the container use that child's
+local Docker engine/storage. Do not bind the primary Docker socket into a child.
+
 ## Preconditions
 
 Before installing anything, confirm all of the following:
@@ -210,6 +216,34 @@ legacy services remain unchanged. Older
 [compatible-daemon](../../evidence/runtime-20261025/g8-compatible-daemon-doctor/README.md)
 proofs describe earlier diagnostic versions. Direct children use no nested
 virtualization and share the primary's trust domain after child-kernel compromise.
+
+For the explicit unified view, use qualified client, mkruntimed and mknetd
+builds implementing the [combined ownership](../runtime/contracts/network-ownership.md)
+and [pool-capacity contracts](../runtime/pool-capacity.md#unified-inspection):
+
+```bash
+sudo mkruntimed --config=/etc/mkruntime/config.json \
+  --doctor-all-pool --network-socket=/run/mknetd.sock
+```
+
+Version-6 JSON nests the version-5 resource/network and version-1 pool views.
+Both complete inspections repeat under one caller deadline; boot IDs and full
+lifecycle records/sequence must agree across views and rounds. A consistent
+aggregate can report bounded CPU/memory candidates, always with admission false.
+Degraded or inconclusive aggregates suppress candidates. Missing/unsupported or
+drifting views expose neither component payload. Exit zero means consistent
+observations, not readiness or health. The CLI revision is not daemon/kernel
+provenance, and matching samples do not prove atomicity or exclude ABA changes.
+A released idle pool may lack its free list; the resulting inconclusive finding
+does not authorize creating a pool or repairing state to make diagnostics green.
+
+[Actual child Docker ENOSPC/build/removal qualification](../../evidence/runtime-20261029/g8-live-unified-doctor/README.md)
+passes in a private qualified stack with unchanged primary services, engine and
+inventories. The installed legacy GCE services remain unchanged; the new CLI
+[refuses them explicitly](../../evidence/runtime-20261029/g8-unified-doctor-staging/README.md)
+without partial results. Use the immutable release/deployment procedures above
+for a separately approved rollout; do not replace running binaries ad hoc.
+Complete service readiness, health, diagnostics and broader G7/G8 remain open.
 
 With a qualified client and daemon supporting `storage-ownership-v1`, inspect
 recorded storage leases through the same protected socket:
