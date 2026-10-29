@@ -91,7 +91,7 @@ def collect_bundle(label,config_path,network_path,unsupported=None):
  for suffix,kind in [('alias','symlink'),('shared','directory')]:
   target=directory/(label+'-'+suffix+('.json' if kind=='symlink' else ''))
   if kind=='symlink':target.symlink_to(destination);path=target
-  else:target.mkdir(mode=0o755);path=target/'forbidden.json'
+  else:target.mkdir(mode=0o755);target.chmod(0o755);path=target/'forbidden.json'
   refused=sp.run([str(binary),'--config='+str(config_path),'--network-socket='+str(network_path),'--diagnostic-bundle='+str(path)],stdout=sp.PIPE,stderr=sp.PIPE,timeout=15)
   assert refused.returncode==1 and refused.stdout==b'' and sha(destination)==original
   if kind=='directory':assert stat.S_IMODE(target.stat().st_mode)==0o755 and not list(target.iterdir())
