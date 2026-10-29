@@ -257,6 +257,8 @@ sockets and distinguishes them from the inspector revision. Repeated unknown,
 unsupported or drifting views cannot become a complete success. Self-reported
 labels leave executable artifact identity, process incarnation, compatibility,
 kernel identity and health unobserved. This is component revision reporting,
-not complete provenance/readiness; actual GCE and Docker qualification remain
-pending for this separate interface. No nested virtualization or containment
+not complete provenance/readiness. [Actual private-daemon GCE proof](../../../evidence/runtime-20261029/g8-component-build-gce/README.md)
+now passes repeated compiled-label queries, legacy refusal, executable/policy
+observations, clean shutdown and primary preservation. Component queries during
+actual Docker holds remain pending; full provenance/readiness and G8 stay open. No nested virtualization or containment
 boundary is introduced.

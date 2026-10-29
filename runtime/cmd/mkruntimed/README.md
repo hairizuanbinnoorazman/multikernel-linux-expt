@@ -150,4 +150,6 @@ success; stable different labels remain visible without inferring compatibility.
 Artifact/kernel verification flags stay false. The [build-report contract](../../../docs/runtime/contracts/component-builds.md)
 defines limits and remaining provenance/health gaps. Inspection modes are
 mutually exclusive, and the network socket must be absolute. Existing v6 doctor
-scope is unchanged; actual new component CLI/GCE/Docker proof remains pending.
+scope is unchanged. [Actual private-daemon GCE proof](../../../evidence/runtime-20261029/g8-component-build-gce/README.md)
+now passes; component reporting during actual Docker holds remains pending.
+Executable/process/kernel provenance and health remain unobserved by this API.

@@ -6,6 +6,17 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-29)
 
+The separate [actual component-build qualification](../../evidence/runtime-20261029/g8-component-build-gce/README.md)
+now passes on the same boot ede39b72 with private actual daemon mains: repeated
+compiled runtime/network labels, installed legacy refusal for each component,
+source-pinned executable observations, declared capability/NNP compatibility,
+clean shutdown and unchanged primary files/PIDs/Docker/network state. All 93
+retained file identities and failed/private evidence remain preserved; this
+checkpoint does not rehash retained contents or requalify Docker holds. The API
+keeps artifact/kernel verification false and leaves process/other component
+identity, compatibility and health unobserved. Full G7/G8 stays open. Direct
+child kernels require no nested virtualization and share host trust.
+
 The [31ee79ad actual unified-doctor trial](../../evidence/runtime-20261029/g8-live-unified-doctor/README.md)
 passes host-selected direct-child Docker ENOSPC recovery, multistage/repeat
 builds, guest/primary engine and image separation, all three version-6 unified
@@ -1304,3 +1315,12 @@ partial/drifting views and marks unknown labels inconclusive. Executable/kernel
 attestation, process incarnation, compatibility and health remain unobserved;
 actual new CLI/GCE/Docker qualification is pending. These direct child kernels
 use no nested virtualization and share host trust after compromise.
+
+[Actual e6917a72 component RPC/CLI proof](../../evidence/runtime-20261029/g8-component-build-gce/README.md)
+subsequently qualifies both actual daemon mains in private state, with repeated
+known labels, both installed legacy refusals, exact executable digest/policy
+observations, empty ownership/state preservation and zero-exit shutdown.
+Independent post-capture primary Docker, file/PID and idle original-transport
+observations match. This closes the idle component-report checkpoint, not
+component reporting during Docker holds or full artifact/process/kernel
+provenance, readiness/health, diagnostics or complete G7/G8.

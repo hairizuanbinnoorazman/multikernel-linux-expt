@@ -259,8 +259,12 @@ Unknown labels are inconclusive; unsupported, invalid or drifting views expose
 no partial payload. Known different labels stay visible without establishing
 compatibility. Artifact/kernel verification remains false; exit zero means
 stable known self-reports, not readiness or verified executable provenance.
-The installed legacy GCE services remain unchanged; new actual CLI/daemon
-qualification is pending and is not inferred from earlier v6 Docker evidence.
+The installed legacy GCE services remain unchanged; [actual private-daemon
+CLI qualification](../../evidence/runtime-20261029/g8-component-build-gce/README.md) now passes
+with source-pinned executable observations, declared capability/NNP compatibility
+and primary preservation. This qualifies idle build reporting; component queries
+during actual Docker holds remain pending and are not inferred from earlier v6
+Docker evidence.
 Direct children use no nested virtualization and share host trust.
 
 With a qualified client and daemon supporting `storage-ownership-v1`, inspect

@@ -50,8 +50,10 @@ version-5/version-1 commands retain their qualified scope.
 The separate `--inspect-components` command now reads bounded compiled daemon
 build labels through protected sockets; see the [self-report contract](docs/runtime/contracts/component-builds.md).
 Unknown, unsupported or drifting labels cannot become a complete success.
-Artifact/kernel attestation and health remain unobserved; actual new CLI/GCE
-qualification is pending.
+[Actual private-daemon GCE qualification](evidence/runtime-20261029/g8-component-build-gce/README.md)
+passes repeated queries, legacy refusal, declared privilege policy and clean
+shutdown with unchanged primary state. Artifact/kernel attestation and health
+remain unobserved by the API; component reporting during Docker holds is pending.
 
 Host Docker selects the Multikernel runtime; Docker builds inside an approved
 Docker guest use that child's local engine and storage, without the host Docker

@@ -9,7 +9,7 @@ explicitly unsupported, never assigned the inspector's revision as a fallback.
 The [component schema](schemas/component-build-v1.schema.json) allows only version,
 source, component, compiled build version/revision, and explicit artifact/kernel
 verification flags that must remain false. Component is mkruntimed or mknetd;
-version is bounded to 64 semantic-version characters; revision is 7–40 lowercase
+version labels follow the schema pattern and are limited to 64 characters; revision is 7–40 lowercase
 hexadecimal characters or explicit `unknown`. No paths, configuration, process
 arguments, environment, endpoint descriptions, credentials or raw errors appear.
 The RPCs read compiled labels only and take no lifecycle/network/store mutation
@@ -38,9 +38,14 @@ health and containment remain unobserved. A restart into the same build between
 samples can escape detection. Actual artifact provenance needs independent
 release/digest/process evidence; these labels cannot provide it themselves.
 The existing version-6 unified resource/pool report is unchanged and is not
-silently upgraded by this separate inspection mode. Local race and shared
-schema/Go fixture controls cover this contract; actual GCE daemon/CLI and Docker
-hold qualification remain separate until evidence is linked.
+silently upgraded by this separate inspection mode. [Local race and shared
+schema/Go controls](../../../evidence/runtime-20261029/g8-component-build-controls/README.md) pass.
+[Actual GCE daemon/CLI proof](../../../evidence/runtime-20261029/g8-component-build-gce/README.md)
+qualifies repeated idle queries, both installed legacy refusals, executable
+hashes and declared capability/NNP compatibility for the specific private
+processes, clean shutdown and primary preservation. Build reporting during
+actual Docker holds remains pending. The API itself still cannot attest
+executable identity, process incarnation, kernel provenance or health.
 
 Direct child kernels use no nested virtualization and share host trust after
 child-kernel compromise. Build inspection introduces no containment boundary.
