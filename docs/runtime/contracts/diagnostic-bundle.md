@@ -93,3 +93,14 @@ collection now passes for source 5412c4be with the scope above; corrected
 shared-budget qualification remains pending. Its
 [focused timing controls](../../../evidence/runtime-20261029/g8-diagnostic-checkpoint-timing-controls/README.md)
 are separate from actual timed execution.
+
+The normal-pressure module parent independently requires all three timing frames
+before qualifying its completed trial. It binds them to the expected boot and
+workload systemd invocation, verifies each receipt digest and monotonic budget,
+and refuses reversed or overlapping lifecycle phases. Its artifact reader walks
+without symlinks into the existing owner-only fixture directory and requires
+bounded, single-link owned regular files, stable descriptor/named identity and
+nonblocking FIFO refusal. Missing or invalid timing cannot become a successful
+normal trial. The intentional export-crash retention case remains a separate
+partial-lifecycle qualification. These checks concern timing evidence, not health
+or containment; actual execution of this parent gate remains pending.

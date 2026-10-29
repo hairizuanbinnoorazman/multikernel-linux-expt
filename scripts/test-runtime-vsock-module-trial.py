@@ -7,6 +7,7 @@ Restoration after traffic uses an external idle reboot; cleanup is measured firs
 import fcntl,hashlib,json,os,pathlib,re,signal,socket,stat,subprocess,time,uuid
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
+from runtime_diagnostic_bundle_checkpoint import qualify_lifecycle_timings,read_fixture_artifact
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
 MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
@@ -31,6 +32,9 @@ def instances():return {p.name:(p/'status').read_text().strip() for p in P('/sys
 def protected(path):
     for p in [path,*path.parents]:
         s=p.lstat();assert not stat.S_ISLNK(s.st_mode) and s.st_uid==0 and not s.st_mode&0o022,p
+def read_trial_artifact(name,limit):
+    parent=WORK/'integration';protected(parent)
+    return read_fixture_artifact(parent,name,limit)
 assert os.geteuid()==0 and socket.gethostname()=='mklinux-g7-storage-20261012'
 assert P('/proc/sys/kernel/random/boot_id').read_text().strip()==BOOT
 for path in [MODULE,WORK,WORK/'bin',WORK/'source',WORK/'source/scripts']:protected(path)
@@ -91,6 +95,10 @@ try:
         assert time.monotonic()<deadline,'pressure service exceeded its bounded observation window'
         time.sleep(2)
     record('pressure-terminal',pressure_scope=observed,pressure_invocation=invocation)
+    if RECORD_FAULT!='crash' and observed['Result']=='success' and observed['ExecMainStatus']=='0':
+        frames={phase:read_trial_artifact('diagnostic-checkpoint-timing-'+phase+'.json',65536) for phase in ['while-full','while-image-ready','after-remove']}
+        timings=qualify_lifecycle_timings(read_trial_artifact('integration-receipt.json',1<<20),frames,BOOT,invocation)
+        record('diagnostic-checkpoint-timings-qualified',diagnostic_checkpoint_timings=timings)
 except BaseException as error:
     failure=error;record('trial-error',error=str(error))
 finally:

@@ -1,5 +1,5 @@
 """Strict bundle acceptance against independently qualified observations."""
-import hashlib,json,re
+import hashlib,json,os,re,stat
 from runtime_doctor_checkpoint import unique_object
 from runtime_component_build_checkpoint import qualify,qualify_unsupported
 from runtime_operational_doctor_checkpoint import UNOBSERVED
@@ -7,6 +7,28 @@ from runtime_operational_doctor_checkpoint import qualify as qualify_operational
 
 SCOPE='operational-and-component-observation-snapshot'
 EXCLUDED=['raw-logs','guest-output','credentials','environment','configuration-files','state-files','process-command-lines','kernel-console','service-readiness','executable-attestation','kernel-attestation','containment']
+
+def read_fixture_artifact(parent,name,limit):
+ """Read one bounded immutable file from an existing private fixture parent."""
+ parent=os.fspath(parent)
+ if not os.path.isabs(parent) or os.path.normpath(parent)!=parent or os.path.basename(name)!=name or name in ['','.','..'] or type(limit) is not int or not 0<limit<=1<<20:raise ValueError('invalid fixture artifact request')
+ directory=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+ try:
+  for component in parent.strip('/').split('/'):
+   child=os.open(component,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC|os.O_NOFOLLOW,dir_fd=directory)
+   os.close(directory);directory=child
+  info=os.fstat(directory)
+  if info.st_uid!=os.geteuid() or stat.S_IMODE(info.st_mode)!=0o700:raise ValueError('fixture artifact parent is not private and owned')
+  descriptor=os.open(name,os.O_RDONLY|os.O_CLOEXEC|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=directory)
+  with os.fdopen(descriptor,'rb') as source:
+   before=os.fstat(source.fileno())
+   if not stat.S_ISREG(before.st_mode) or before.st_uid!=os.geteuid() or before.st_nlink!=1 or before.st_mode&0o022 or not 0<before.st_size<=limit:raise ValueError('unsafe fixture artifact file')
+   data=source.read(limit+1);after=os.fstat(source.fileno());named=os.stat(name,dir_fd=directory,follow_symlinks=False)
+   for observed in [after,named]:
+    if any(getattr(before,k)!=getattr(observed,k) for k in ['st_dev','st_ino','st_mode','st_uid','st_nlink','st_size','st_mtime_ns','st_ctime_ns']):raise ValueError('fixture artifact identity changed')
+   if len(data)!=before.st_size:raise ValueError('fixture artifact size changed')
+   return data
+ finally:os.close(directory)
 
 def decode(data,limit):
  if not isinstance(data,bytes) or not 0<len(data)<=limit:raise ValueError('bundle checkpoint exceeds its bound')
@@ -65,3 +87,25 @@ def qualify_timing(data,phase):
  start=timing['started_monotonic_ns'];end=timing['finished_monotonic_ns'];deadline=timing['deadline_monotonic_ns']
  if not 0<=start<=end<=deadline<=start+timing['configured_budget_ns'] or timing['elapsed_ns']!=end-start:raise ValueError('diagnostic checkpoint exceeded its shared budget')
  return timing
+
+def qualify_lifecycle_timings(receipt_data,frames,boot,invocation):
+ """Bind all normal-pressure timings to one completed workload receipt.
+
+ This validates timing evidence only, not health, native isolation or cleanup.
+ The caller independently owns the expected boot and systemd invocation.
+ """
+ phases=['while-full','while-image-ready','after-remove']
+ receipt=decode(receipt_data,1<<20)
+ if not re.fullmatch(r'[a-f0-9]{32}',invocation) or not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}',boot):raise ValueError('invalid expected timing identity')
+ if not isinstance(receipt,dict) or type(receipt.get('schema_version')) is not int or receipt['schema_version']!=1 or receipt.get('boot_id')!=boot or receipt.get('invocation_id')!=invocation:raise ValueError('timing receipt identity mismatch')
+ if receipt.get('storage_pressure_tested') is not True or receipt.get('production_profile_child_build_pass') is not True:raise ValueError('timing receipt lacks completed pressure workload')
+ hashes=receipt.get('runtime_diagnostic_checkpoint_timing_sha256')
+ if not isinstance(hashes,dict) or set(hashes)!=set(phases) or not isinstance(frames,dict) or set(frames)!=set(phases):raise ValueError('incomplete diagnostic lifecycle timing evidence')
+ timings={}
+ for phase in phases:
+  raw=frames[phase]
+  if not isinstance(raw,bytes) or not 0<len(raw)<=65536 or not isinstance(hashes[phase],str) or not re.fullmatch('[a-f0-9]{64}',hashes[phase]) or hashlib.sha256(raw).hexdigest()!=hashes[phase]:raise ValueError('diagnostic timing receipt digest mismatch')
+  timings[phase]=qualify_timing(raw,phase)
+ for earlier,later in zip(phases,phases[1:]):
+  if timings[earlier]['finished_monotonic_ns']>timings[later]['started_monotonic_ns']:raise ValueError('diagnostic lifecycle timing phases overlap or reverse')
+ return dict(version=1,scope='receipt-bound-doctor-bundle-checkpoint-timings',boot_id=boot,invocation_id=invocation,timings=timings,maximum_elapsed_ns=max(v['elapsed_ns'] for v in timings.values()))

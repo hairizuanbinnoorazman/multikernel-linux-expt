@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import copy,hashlib,importlib.util,json,unittest
+import copy,hashlib,importlib.util,json,os,subprocess,sys,tempfile,unittest
 from pathlib import Path
-from runtime_diagnostic_bundle_checkpoint import qualify_idle,qualify_live,qualify_timing,SCOPE,EXCLUDED,UNOBSERVED
+from runtime_diagnostic_bundle_checkpoint import qualify_idle,qualify_live,qualify_timing,qualify_lifecycle_timings,read_fixture_artifact,SCOPE,EXCLUDED,UNOBSERVED
 from runtime_component_build_checkpoint import expected_base
 BOOT='3d317685-064f-4751-8589-a1f4799525b9';REV='abcdef0'
 
@@ -60,6 +60,54 @@ spec=importlib.util.spec_from_file_location('operational_controls',Path(__file__
 controls=importlib.util.module_from_spec(spec);spec.loader.exec_module(controls)
 
 class LiveBundleTests(unittest.TestCase):
+ def test_private_fixture_reader_rejects_aliases_shared_paths_and_oversize(self):
+  with tempfile.TemporaryDirectory() as directory:
+   parent=Path(directory);file=parent/'record.json';file.write_bytes(b'bounded');file.chmod(0o600)
+   self.assertEqual(read_fixture_artifact(parent,'record.json',64),b'bounded')
+   with self.assertRaises(ValueError):read_fixture_artifact(parent,'record.json',1)
+   os.symlink(file,parent/'symlink.json')
+   with self.assertRaises(OSError):read_fixture_artifact(parent,'symlink.json',64)
+   os.link(file,parent/'hardlink.json')
+   with self.assertRaises(ValueError):read_fixture_artifact(parent,'hardlink.json',64)
+   (parent/'hardlink.json').unlink();file.chmod(0o666)
+   with self.assertRaises(ValueError):read_fixture_artifact(parent,'record.json',64)
+   file.chmod(0o600);parent.chmod(0o755)
+   with self.assertRaises(ValueError):read_fixture_artifact(parent,'record.json',64)
+   self.assertEqual(parent.stat().st_mode&0o777,0o755)
+   parent.chmod(0o700);(parent/'alias').symlink_to(parent,target_is_directory=True)
+   with self.assertRaises(OSError):read_fixture_artifact(parent/'alias','record.json',64)
+   with self.assertRaises(ValueError):read_fixture_artifact(parent,'../record.json',64)
+   os.mkfifo(parent/'fifo.json',0o600)
+   code="import sys;sys.path.insert(0,sys.argv[1]);from runtime_diagnostic_bundle_checkpoint import read_fixture_artifact\ntry:read_fixture_artifact(sys.argv[2],'fifo.json',64)\nexcept ValueError:sys.exit(0)\nsys.exit(1)"
+   result=subprocess.run([sys.executable,'-c',code,str(Path(__file__).parent),str(parent)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=2)
+   self.assertEqual(result.returncode,0,result.stderr)
+ def lifecycle(self):
+  frames={}
+  for n,phase in enumerate(['while-full','while-image-ready','after-remove']):
+   start=100+n*1_000_000_000
+   frames[phase]=json.dumps(dict(version=1,scope='doctor-and-diagnostic-bundle-checkpoint',phase=phase,configured_budget_ns=10_000_000_000,started_monotonic_ns=start,deadline_monotonic_ns=start+10_000_000_000,finished_monotonic_ns=start+100,elapsed_ns=100,report_count=8)).encode()
+  receipt=dict(schema_version=1,boot_id=BOOT,invocation_id='9'*32,storage_pressure_tested=True,production_profile_child_build_pass=True,runtime_diagnostic_checkpoint_timing_sha256={k:hashlib.sha256(v).hexdigest() for k,v in frames.items()})
+  return receipt,frames
+ def test_lifecycle_timings_bind_receipt_identity_digests_and_phase_order(self):
+  receipt,frames=self.lifecycle()
+  report=qualify_lifecycle_timings(json.dumps(receipt).encode(),frames,BOOT,'9'*32)
+  self.assertEqual(report['maximum_elapsed_ns'],100);self.assertEqual(set(report['timings']),set(frames))
+  for kind in ['boot','invocation','schema','partial','missing-frame','digest','pressure','build','reordered','oversize','duplicate']:
+   receipt,frames=self.lifecycle()
+   if kind=='boot':receipt['boot_id']='00000000-0000-0000-0000-000000000000'
+   elif kind=='invocation':receipt['invocation_id']='8'*32
+   elif kind=='schema':receipt['schema_version']=True
+   elif kind=='partial':receipt['runtime_diagnostic_checkpoint_timing_sha256'].pop('after-remove')
+   elif kind=='missing-frame':frames.pop('while-full')
+   elif kind=='digest':receipt['runtime_diagnostic_checkpoint_timing_sha256']['while-full']='0'*64
+   elif kind=='pressure':receipt['storage_pressure_tested']=False
+   elif kind=='build':receipt['production_profile_child_build_pass']=False
+   elif kind=='reordered':
+    t=json.loads(frames['while-image-ready']);t.update(started_monotonic_ns=0,finished_monotonic_ns=100,deadline_monotonic_ns=10_000_000_000)
+    frames['while-image-ready']=json.dumps(t).encode();receipt['runtime_diagnostic_checkpoint_timing_sha256']['while-image-ready']=hashlib.sha256(frames['while-image-ready']).hexdigest()
+   elif kind=='oversize':frames['while-full']=b' '*65537
+   elif kind=='duplicate':frames['while-full']=b'{"version":1,'+frames['while-full'][1:];receipt['runtime_diagnostic_checkpoint_timing_sha256']['while-full']=hashlib.sha256(frames['while-full']).hexdigest()
+   with self.subTest(kind=kind),self.assertRaises(ValueError):qualify_lifecycle_timings(json.dumps(receipt).encode(),frames,BOOT,'9'*32)
  def test_shared_monotonic_checkpoint_budget_and_numeric_alias_refusal(self):
   t=dict(version=1,scope='doctor-and-diagnostic-bundle-checkpoint',phase='while-image-ready',configured_budget_ns=10_000_000_000,started_monotonic_ns=100,deadline_monotonic_ns=10_000_000_100,finished_monotonic_ns=200,elapsed_ns=100,report_count=8)
   self.assertEqual(qualify_timing(json.dumps(t).encode(),'while-image-ready'),t)
