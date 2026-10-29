@@ -9,6 +9,9 @@ environments and guest output are excluded. See the
 [bundle contract](../../../docs/runtime/contracts/diagnostic-bundle.md) for
 deadline, redaction, exit and failure semantics. Direct child kernels require no
 nested virtualization; this collector adds no health or containment guarantee.
+[Actual idle GCE collection](../../../evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md)
+passes legacy/current-daemon capture, publication/refusal and primary preservation.
+Bundles during actual Docker activity remain pending.
 
 Privileged node daemon planned by
 [`../../../docs/runtime/plans/02-control-plane.md`](../../../docs/runtime/plans/02-control-plane.md).

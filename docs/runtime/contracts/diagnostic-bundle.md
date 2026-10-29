@@ -63,3 +63,11 @@ executable/kernel provenance, Docker readiness or containment. Full G8 still
 requires health/readiness, additional safe diagnostic sources, log retention and
 pressure, and recovery/failure qualification. Direct child kernels require no
 nested virtualization and retain shared host trust after child-kernel compromise.
+
+[Local controls](../../../evidence/runtime-20261029/g8-diagnostic-bundle-controls/README.md)
+pass the full runtime race suite and bounded publication/redaction controls.
+[Actual GCE proof](../../../evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md)
+passes idle collection with installed legacy services and actual current private
+daemons, exact original-artifact identities/modes, refusal, shutdown and primary
+preservation. These idle bundles are correctly inconclusive after pool release;
+active Docker bundle collection remains a separate pending checkpoint.

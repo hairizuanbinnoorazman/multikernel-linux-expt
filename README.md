@@ -15,7 +15,9 @@ adds `--diagnostic-bundle=/absolute/private/new.json`: bounded component/resourc
 observations, private non-overwriting publication and a byte-count/SHA-256
 receipt. Raw logs, credentials, environments and guest output are excluded.
 [Local race/publication controls](evidence/runtime-20261029/g8-diagnostic-bundle-controls/README.md)
-pass; cloud and live-Docker bundle qualification are separate pending checks.
+pass. [Actual GCE collection](evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md)
+also passes idle legacy/current-daemon capture, private publication, refusal and
+primary preservation. Bundle collection during live Docker activity remains pending.
 Captured diagnostics preserve unavailable/degraded status and do not establish
 service health or readiness. The full G7/G8 gates remain open.
 

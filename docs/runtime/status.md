@@ -1346,6 +1346,24 @@ caller context and boot bracket. Local race/CLI controls refuse outer drift,
 legacy/private failures, invalid/misplaced formats, cross-boot views and canceled
 observations. Aggregate inconclusive/degraded state suppresses capacity candidates.
 Default version 5 and explicit version 6 preserve their existing contracts.
-Actual new GCE/Docker qualification remains pending; no admission, artifact/kernel
-attestation, health or full G7/G8 closure is inferred. Direct child kernels use
-no nested virtualization and share host trust.
+[Actual version-7 Docker qualification](../../evidence/runtime-20261029/g8-live-operational-doctor/README.md)
+subsequently passes both live holds, post-removal inspection and normal cleanup,
+followed by its [cold restoration](../../evidence/runtime-20261029/g8-live-operational-doctor-cold-restoration/README.md).
+No admission, artifact/kernel attestation, health or full G7/G8 closure is inferred.
+Direct child kernels use no nested virtualization and share host trust.
+
+The [structured diagnostic bundle](contracts/diagnostic-bundle.md) now saves
+bounded component and version-7 observations in a private, exclusive JSON artifact
+with a byte-count/SHA-256 receipt. Core `be573a53` passes focused and full-runtime
+race controls. The first actual GCE fixture `f11e78a7` is retained as a
+[failed umask assertion](../../evidence/runtime-20261029/g8-diagnostic-bundle-umask-failure/README.md),
+before private daemons started. Corrected committed source `3f1d2519` passes
+[actual idle GCE collection](../../evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md):
+legacy/current daemon capture, known compiled labels, expected inconclusive
+resource diagnostics, exact original private-artifact identities, refusal and
+clean shutdown. Primary Docker/network/files/PIDs and 93 retained file identities
+remain unchanged; original transport, all 16 CPUs and idle resource state remain.
+Raw logs, credentials, environments, state/configuration files and guest output
+are excluded. Live-Docker bundle collection, health/readiness, broader safe
+diagnostics, log retention/pressure, ongoing provenance and full G7/G8 remain open.
+No nested virtualization or hostile-child containment boundary is introduced.

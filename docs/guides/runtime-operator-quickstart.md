@@ -375,6 +375,27 @@ sudo iptables -S | grep '^\(-N\|-A\) MK-' || true
 
 Any unexpected output is a failed cleanup, not a successful quickstart.
 
+## 9. Collect structured diagnostics
+
+For a protected snapshot of structured observations, first create a private
+directory, then choose a new filename:
+
+```bash
+sudo install -d -m 0700 /var/lib/mkruntime-diagnostics
+sudo mkruntimed --config=/etc/mkruntime/config.json \
+  --network-socket=/run/mknetd.sock \
+  --diagnostic-bundle=/var/lib/mkruntime-diagnostics/incident-001.json
+```
+
+The command preserves inconclusive/degraded observations and exits 1 for them,
+even when collection succeeds. Check the stdout receipt's byte count and SHA-256
+against the saved file. It refuses an existing destination and excludes raw logs,
+credentials, environments and guest output. See the
+[bundle contract](../runtime/contracts/diagnostic-bundle.md) and
+[actual idle GCE qualification](../../evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md).
+This does not authorize recovery or prove readiness; direct child kernels need
+no nested virtualization and retain shared host trust after compromise.
+
 ## Upgrade, rollback, and uninstall
 
 Installing a new release or deployment preserves the prior immutable
