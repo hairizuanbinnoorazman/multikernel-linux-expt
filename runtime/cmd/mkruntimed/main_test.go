@@ -101,6 +101,12 @@ func TestUnifiedInspectionModeCLI(t *testing.T) {
 		args []string
 		want string
 	}{
+		{"bundle-empty", []string{"--diagnostic-bundle="}, "diagnostic-bundle requires a canonical absolute JSON file destination"},
+		{"bundle-relative", []string{"--diagnostic-bundle=local.json"}, "diagnostic-bundle requires a canonical absolute JSON file destination"},
+		{"bundle-noncanonical", []string{"--diagnostic-bundle=/tmp/../tmp/local.json"}, "diagnostic-bundle requires a canonical absolute JSON file destination"},
+		{"bundle-conflict", []string{"--diagnostic-bundle=/tmp/local.json", "--doctor-all"}, "select one inspection mode"},
+		{"bundle-format", []string{"--diagnostic-bundle=/tmp/local.json", "--doctor-format=7"}, "doctor-format requires --doctor-all"},
+		{"bundle-relative-network", []string{"--diagnostic-bundle=/tmp/local.json", "--network-socket=relative.sock"}, "network inspection requires an absolute network socket"},
 		{"format-without-mode", []string{"--doctor-format=7"}, "doctor-format requires --doctor-all"},
 		{"explicit-default-without-mode", []string{"--doctor-format=5"}, "doctor-format requires --doctor-all"},
 		{"format-with-alias", []string{"--doctor-all-pool", "--doctor-format=6"}, "doctor-format requires --doctor-all"},

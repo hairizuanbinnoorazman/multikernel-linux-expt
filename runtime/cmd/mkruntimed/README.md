@@ -1,5 +1,15 @@
 # `mkruntimed`
 
+`--diagnostic-bundle=/absolute/private/new.json` saves bounded structured
+component and version-7 observations through the existing inspection APIs.
+The parent must already be caller-owned and mode 0700; publication is mode 0600,
+exclusive and capped at 8 MiB. Unavailable/degraded results are preserved, with
+an exact byte-count/SHA-256 receipt and a nonzero exit. Raw logs, credentials,
+environments and guest output are excluded. See the
+[bundle contract](../../../docs/runtime/contracts/diagnostic-bundle.md) for
+deadline, redaction, exit and failure semantics. Direct child kernels require no
+nested virtualization; this collector adds no health or containment guarantee.
+
 Privileged node daemon planned by
 [`../../../docs/runtime/plans/02-control-plane.md`](../../../docs/runtime/plans/02-control-plane.md).
 

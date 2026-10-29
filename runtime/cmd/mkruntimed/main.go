@@ -15,6 +15,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/diagnostics"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/doctor"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostcheck"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig"
@@ -113,6 +114,7 @@ func main() {
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
 	inspectComponents := flag.Bool("inspect-components", false, "print repeated compiled daemon build self-reports; not artifact attestation or health")
+	diagnosticBundle := flag.String("diagnostic-bundle", "", "save bounded structured observations to a new JSON file in an existing private directory")
 	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
 	inspectPool := flag.Bool("doctor-pool", false, "print bounded configured/durable/kernel pool capacity observations; not admission or readiness")
 	doctorFormat := flag.Int("doctor-format", 5, "explicit --doctor-all output version: 5, 6 or 7")
@@ -136,7 +138,7 @@ func main() {
 	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
 	modes := 0
-	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool, *inspectUnified, *inspectComponents} {
+	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool, *inspectUnified, *inspectComponents, *diagnosticBundle != ""} {
 		if selected {
 			modes++
 		}
@@ -150,6 +152,10 @@ func main() {
 		if f.Name == "doctor-format" {
 			formatSpecified = true
 		}
+		if f.Name == "diagnostic-bundle" && !diagnostics.ValidDestination(*diagnosticBundle) {
+			fmt.Fprintln(os.Stderr, "diagnostic-bundle requires a canonical absolute JSON file destination")
+			os.Exit(2)
+		}
 	})
 	if formatSpecified && !*inspectCombined {
 		fmt.Fprintln(os.Stderr, "doctor-format requires --doctor-all")
@@ -159,7 +165,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "doctor-format must be 5, 6 or 7")
 		os.Exit(2)
 	}
-	if (*inspectNetwork || *inspectCombined || *inspectUnified || *inspectComponents) && !filepath.IsAbs(*networkSocket) {
+	if (*inspectNetwork || *inspectCombined || *inspectUnified || *inspectComponents || *diagnosticBundle != "") && !filepath.IsAbs(*networkSocket) {
 		fmt.Fprintln(os.Stderr, "network inspection requires an absolute network socket")
 		os.Exit(2)
 	}
@@ -200,21 +206,41 @@ func main() {
 		}
 		return
 	}
+	combinedInputs := doctor.CombinedInputs{
+		Native: func(ctx context.Context) (protocol.NativeResourceReport, error) {
+			return daemon.InspectNativeResources(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		},
+		Expectations: func(ctx context.Context) (protocol.NetworkExpectationsReport, error) {
+			return daemon.InspectNetworkExpectations(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		},
+		Network: func(ctx context.Context) (mknetwork.OwnershipReport, error) {
+			return mknetwork.InspectOwnership(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
+		},
+		Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
+	}
+	if *diagnosticBundle != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		receipt, err := diagnostics.Collect(ctx, *diagnosticBundle, func(ctx context.Context) diagnostics.Snapshot {
+			// Keep build-label diagnostics even when native/resource inspection
+			// is unavailable. Both sections share the original caller budget.
+			components := doctor.InspectComponents(ctx, componentInputs, buildinfo.Revision)
+			operational := doctor.InspectOperational(ctx, combinedInputs, poolInputs, componentInputs, buildinfo.Revision)
+			return diagnostics.Snapshot{Components: components, Operational: operational}
+		})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if json.NewEncoder(os.Stdout).Encode(receipt) != nil || receipt.ObservationStatus != "consistent" {
+			os.Exit(1)
+		}
+		return
+	}
 	if *inspectCombined || *inspectUnified {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		inputs := doctor.CombinedInputs{
-			Native: func(ctx context.Context) (protocol.NativeResourceReport, error) {
-				return daemon.InspectNativeResources(ctx, daemon.Client{Path: socket, Timeout: timeout})
-			},
-			Expectations: func(ctx context.Context) (protocol.NetworkExpectationsReport, error) {
-				return daemon.InspectNetworkExpectations(ctx, daemon.Client{Path: socket, Timeout: timeout})
-			},
-			Network: func(ctx context.Context) (mknetwork.OwnershipReport, error) {
-				return mknetwork.InspectOwnership(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
-			},
-			Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
-		}
+		inputs := combinedInputs
 		if *inspectCombined && *doctorFormat == 7 {
 			report := doctor.InspectOperational(ctx, inputs, poolInputs, componentInputs, buildinfo.Revision)
 			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
