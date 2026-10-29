@@ -11,7 +11,12 @@ deadline, redaction, exit and failure semantics. Direct child kernels require no
 nested virtualization; this collector adds no health or containment guarantee.
 [Actual idle GCE collection](../../../evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md)
 passes legacy/current-daemon capture, publication/refusal and primary preservation.
-Bundles during actual Docker activity remain pending.
+[Actual Docker bundle collection](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles/README.md)
+also passes all three holds, receipt/artifact checks and normal cleanup. That
+source retains its inherited built-image budget; the subsequent common ten-second
+clamp/timing metadata still needs actual qualification.
+Its [separate cold restoration](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles-cold-restoration/README.md)
+also passes with original transport and preserved live artifacts/retained state.
 
 Privileged node daemon planned by
 [`../../../docs/runtime/plans/02-control-plane.md`](../../../docs/runtime/plans/02-control-plane.md).

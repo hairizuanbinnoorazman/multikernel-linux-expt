@@ -75,9 +75,14 @@ artifact, with a byte-count/SHA-256 receipt. [Local controls](../../../evidence/
 pass cancellation, source-error redaction, size limits, unsafe destinations,
 concurrent publication and the complete runtime race suite. [Actual GCE collection](../../../evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md)
 also passes idle legacy/current-daemon collection, exact private modes, refusal
-and primary preservation. Live-Docker bundle collection remains pending. This
-closes the local and idle cloud collector checkpoints;
-full health/readiness, broader safe diagnostic sources, log retention/pressure,
+and primary preservation. [Actual Docker bundle collection](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles/README.md)
+also passes ENOSPC/build/removal holds, original receipt/identity checks and normal
+cleanup. Source 5412c4be retains its inherited wider built-image budget; the
+subsequent shared-ten-second timing correction remains separately pending actual
+qualification. This closes the local, idle cloud and active collection checkpoints.
+Its [cold restoration](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles-cold-restoration/README.md)
+also passes with original transport and exact live artifact/retained-state preservation.
+Full health/readiness, broader safe diagnostic sources, log retention/pressure,
 recovery and the remaining requirements below still govern complete G8.
 
 The initial [read-only doctor](../../../runtime/cmd/mkruntimed/README.md) compares

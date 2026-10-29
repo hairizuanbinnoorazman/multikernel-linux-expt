@@ -70,7 +70,12 @@ pass the full runtime race suite and bounded publication/redaction controls.
 passes idle collection with installed legacy services and actual current private
 daemons, exact original-artifact identities/modes, refusal, shutdown and primary
 preservation. These idle bundles are correctly inconclusive after pool release;
-active Docker bundle collection remains a separate pending checkpoint.
+[Actual active Docker collection](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles/README.md)
+subsequently passes ENOSPC/build/removal capture, exact receipt/artifact checks,
+engine/image isolation and normal cleanup. Its pinned budget scope follows below.
+Its [cold restoration](../../../evidence/runtime-20261029/g8-live-diagnostic-bundles-cold-restoration/README.md)
+also verifies original transport, retained files/images and exact live bundle
+artifact preservation. Neither result closes the full G8 health/diagnostics gate.
 
 The Docker pressure fixture now collects a bundle during ENOSPC, the built-image
 hold and after removal. The strict bundle checkpoint requalifies complete resource/pool/
@@ -83,6 +88,8 @@ the remaining 180-second image-hold budget. Its evidence must retain that scope.
 The subsequent common checkpoint explicitly clamps every phase to ten seconds
 and retains monotonic start/deadline/finish/elapsed metadata, eight-report count
 and a receipt digest for each timing artifact. Local timing controls reject
-extended deadlines, elapsed-time mismatch and numeric aliases. Actual new Docker
-and corrected shared-budget qualification remain pending until their separate
-committed GCE evidence is available.
+extended deadlines, elapsed-time mismatch and numeric aliases. Actual Docker
+collection now passes for source 5412c4be with the scope above; corrected
+shared-budget qualification remains pending. Its
+[focused timing controls](../../../evidence/runtime-20261029/g8-diagnostic-checkpoint-timing-controls/README.md)
+are separate from actual timed execution.

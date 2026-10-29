@@ -1367,3 +1367,22 @@ Raw logs, credentials, environments, state/configuration files and guest output
 are excluded. Live-Docker bundle collection, health/readiness, broader safe
 diagnostics, log retention/pressure, ongoing provenance and full G7/G8 remain open.
 No nested virtualization or hostile-child containment boundary is introduced.
+
+Source `5412c4be` subsequently passes [actual live diagnostic bundles](../../evidence/runtime-20261029/g8-live-diagnostic-bundles/README.md)
+during ENOSPC, the built-image hold and after removal on boot
+`3d317685-064f-4751-8589-a1f4799525b9`. Exact CLI receipts, original protected
+artifact identities and independently queried component/version-7 views match.
+Build/engine/image isolation, normal synced close, offline filesystem check and
+resource/network return pass with unchanged primary state. Its separate
+[cold restoration](../../evidence/runtime-20261029/g8-live-diagnostic-bundles-cold-restoration/README.md)
+passes on boot `b9c15338-f005-4f68-bb72-13872da724fd`, restoring original transport
+and preserving all 93 retained files / 12 images plus the nine live bundle/
+receipt/identity files. Source inspection also corrected an inherited budget mismatch: this
+trial uses the remaining 180-second image-hold budget, while ENOSPC/removal use
+ten seconds. Correction `efc7d0a8` clamps the common eight-report checkpoint to
+ten seconds and retains monotonic timing metadata; its
+[local timing controls](../../evidence/runtime-20261029/g8-diagnostic-checkpoint-timing-controls/README.md)
+pass, with actual corrected timing qualification pending. No earlier evidence
+is relabelled. Full health/readiness, broader diagnostics/log pressure, ongoing
+provenance, wider failures/concurrency and G7/G8 remain open. Direct child kernels
+use no nested virtualization and retain shared host trust after compromise.

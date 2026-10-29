@@ -393,6 +393,8 @@ against the saved file. It refuses an existing destination and excludes raw logs
 credentials, environments and guest output. See the
 [bundle contract](../runtime/contracts/diagnostic-bundle.md) and
 [actual idle GCE qualification](../../evidence/runtime-20261029/g8-diagnostic-bundle-gce/README.md).
+[Actual Docker hold collection](../../evidence/runtime-20261029/g8-live-diagnostic-bundles/README.md)
+and its linked cold restoration also pass, with their pinned timing scope explicit.
 This does not authorize recovery or prove readiness; direct child kernels need
 no nested virtualization and retain shared host trust after compromise.
 
