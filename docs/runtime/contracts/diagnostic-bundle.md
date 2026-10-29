@@ -104,3 +104,9 @@ nonblocking FIFO refusal. Missing or invalid timing cannot become a successful
 normal trial. The intentional export-crash retention case remains a separate
 partial-lifecycle qualification. These checks concern timing evidence, not health
 or containment; actual execution of this parent gate remains pending.
+The lifecycle receipt is read from the trial root; per-hold timing frames are
+read from its private `integration/` directory. An absent root receipt refuses
+inspection even if another copy exists below `integration/`. The initial
+source-054be555 workload completed, but its parent used the incorrect receipt
+directory and remains a failed parent-gate case; the corrected shared reader
+and filesystem-layout regression require fresh actual qualification.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import copy,hashlib,importlib.util,json,os,subprocess,sys,tempfile,unittest
 from pathlib import Path
-from runtime_diagnostic_bundle_checkpoint import qualify_idle,qualify_live,qualify_timing,qualify_lifecycle_timings,read_fixture_artifact,SCOPE,EXCLUDED,UNOBSERVED
+from runtime_diagnostic_bundle_checkpoint import qualify_idle,qualify_live,qualify_timing,qualify_lifecycle_timings,inspect_fixture_lifecycle_timings,read_fixture_artifact,SCOPE,EXCLUDED,UNOBSERVED
 from runtime_component_build_checkpoint import expected_base
 BOOT='3d317685-064f-4751-8589-a1f4799525b9';REV='abcdef0'
 
@@ -60,6 +60,17 @@ spec=importlib.util.spec_from_file_location('operational_controls',Path(__file__
 controls=importlib.util.module_from_spec(spec);spec.loader.exec_module(controls)
 
 class LiveBundleTests(unittest.TestCase):
+ def test_parent_uses_root_receipt_with_integration_frames_and_no_fallback(self):
+  receipt,frames=self.lifecycle()
+  with tempfile.TemporaryDirectory() as directory:
+   work=Path(directory);integration=work/'integration';integration.mkdir(mode=0o700)
+   for phase,raw in frames.items():(integration/('diagnostic-checkpoint-timing-'+phase+'.json')).write_bytes(raw)
+   root_receipt=work/'integration-receipt.json';root_receipt.write_text(json.dumps(receipt))
+   (integration/'integration-receipt.json').write_text('{"stale":true}')
+   report=inspect_fixture_lifecycle_timings(work,BOOT,'9'*32)
+   self.assertEqual(report['maximum_elapsed_ns'],100)
+   root_receipt.unlink();(integration/'integration-receipt.json').write_text(json.dumps(receipt))
+   with self.assertRaises(FileNotFoundError):inspect_fixture_lifecycle_timings(work,BOOT,'9'*32)
  def test_private_fixture_reader_rejects_aliases_shared_paths_and_oversize(self):
   with tempfile.TemporaryDirectory() as directory:
    parent=Path(directory);file=parent/'record.json';file.write_bytes(b'bounded');file.chmod(0o600)

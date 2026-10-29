@@ -109,3 +109,11 @@ def qualify_lifecycle_timings(receipt_data,frames,boot,invocation):
  for earlier,later in zip(phases,phases[1:]):
   if timings[earlier]['finished_monotonic_ns']>timings[later]['started_monotonic_ns']:raise ValueError('diagnostic lifecycle timing phases overlap or reverse')
  return dict(version=1,scope='receipt-bound-doctor-bundle-checkpoint-timings',boot_id=boot,invocation_id=invocation,timings=timings,maximum_elapsed_ns=max(v['elapsed_ns'] for v in timings.values()))
+
+def inspect_fixture_lifecycle_timings(work,boot,invocation):
+ # The lifecycle receipt belongs to the trial root. Per-hold timing frames
+ # belong to integration/. Never search alternate directories or reuse a
+ # stale receipt from another layout when the exact root artifact is absent.
+ work=os.fspath(work)
+ frames={phase:read_fixture_artifact(os.path.join(work,'integration'),'diagnostic-checkpoint-timing-'+phase+'.json',65536) for phase in ['while-full','while-image-ready','after-remove']}
+ return qualify_lifecycle_timings(read_fixture_artifact(work,'integration-receipt.json',1<<20),frames,boot,invocation)
