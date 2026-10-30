@@ -258,6 +258,9 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			break
 		}
 		features := []string{protocol.ComponentBuildCapability, protocol.LifecycleAuditCapability, protocol.OwnershipCapability, protocol.NetworkExpectationsCapability}
+		if s.Service != nil && s.Service.JournalStatusAvailable() {
+			features = append(features, protocol.JournalStatusCapability)
+		}
 		if s.Service != nil && s.Service.PoolOwnershipAvailable() {
 			features = append(features, protocol.PoolOwnershipCapability)
 		}
@@ -268,6 +271,21 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			features = append(features, protocol.NativeResourcesCapability)
 		}
 		out.Body = protocol.DaemonCapabilities{ProtocolVersion: protocol.Version, Features: features}
+	case "InspectJournalStatus":
+		var empty struct{}
+		if r.SandboxID != "" || r.Generation != "" || r.IdempotencyKey != "" || (len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil) {
+			out.Error = &protocol.Error{Code: "INVALID_ARGUMENT", Message: "journal status accepts only an empty object and no selectors"}
+			break
+		}
+		if s.Service == nil || !s.Service.JournalStatusAvailable() {
+			out.Error = &protocol.Error{Code: "UNSUPPORTED", Message: "journal status unavailable"}
+			break
+		}
+		report, failure := s.Service.JournalStatus(ctx)
+		out.Error = failure
+		if failure == nil {
+			out.Body = report
+		}
 	case "InspectComponentBuild":
 		var empty struct{}
 		if r.SandboxID != "" || r.Generation != "" || r.IdempotencyKey != "" || (len(r.Body) != 0 && protocol.StrictDecode(r.Body, &empty) != nil) {

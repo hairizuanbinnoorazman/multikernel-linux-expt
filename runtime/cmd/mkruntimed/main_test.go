@@ -114,6 +114,8 @@ func TestUnifiedInspectionModeCLI(t *testing.T) {
 		{"format-unknown", []string{"--doctor-all", "--doctor-format=8"}, "doctor-format must be 5, 6 or 7"},
 		{"format-negative", []string{"--doctor-all", "--doctor-format=-1"}, "doctor-format must be 5, 6 or 7"},
 		{"format-relative-network", []string{"--doctor-all", "--doctor-format=7", "--network-socket=relative.sock"}, "network inspection requires an absolute network socket"},
+		{"journal-conflict", []string{"--inspect-journal", "--inspect-ownership"}, "select one inspection mode"},
+		{"journal-format-conflict", []string{"--inspect-journal", "--doctor-format=7"}, "doctor-format requires --doctor-all"},
 		{"component-conflict", []string{"--inspect-components", "--doctor-all-pool"}, "select one inspection mode"},
 		{"component-relative-network", []string{"--inspect-components", "--network-socket=relative.sock"}, "network inspection requires an absolute network socket"},
 		{"combined-conflict", []string{"--doctor-all-pool", "--doctor-all"}, "select one inspection mode"},

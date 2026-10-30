@@ -113,6 +113,7 @@ func main() {
 	var configPath, pool, poolmem, poolmemreserve, cmdline string
 	var storageState, storageRuntime, storageServer, e2fsck string
 	var rootfsState, rootfsStorage, rootfsBuilder string
+	inspectJournal := flag.Bool("inspect-journal", false, "print bounded in-process journal failure/pending status; not disk writability or readiness")
 	inspectComponents := flag.Bool("inspect-components", false, "print repeated compiled daemon build self-reports; not artifact attestation or health")
 	diagnosticBundle := flag.String("diagnostic-bundle", "", "save bounded structured observations to a new JSON file in an existing private directory")
 	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
@@ -138,7 +139,7 @@ func main() {
 	flag.StringVar(&rootfsBuilder, "rootfs-builder", "/usr/local/libexec/multikernel/build-runtime-container-initramfs.sh", "privileged rootfs builder")
 	flag.Parse()
 	modes := 0
-	for _, selected := range []bool{*inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool, *inspectUnified, *inspectComponents, *diagnosticBundle != ""} {
+	for _, selected := range []bool{*inspectJournal, *inspectRuntime, *inspectOwnership, *inspectStorage, *inspectNetwork, *inspectCombined, *inspectPool, *inspectUnified, *inspectComponents, *diagnosticBundle != ""} {
 		if selected {
 			modes++
 		}
@@ -176,6 +177,24 @@ func main() {
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
 	timeout := hostConfig.BackendTimeout()
+	if *inspectJournal {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		report, err := daemon.InspectJournalStatus(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err = json.NewEncoder(os.Stdout).Encode(report); err != nil {
+			fmt.Fprintln(os.Stderr, "encode journal status")
+			os.Exit(1)
+		}
+		if report.Status != "idle" {
+			os.Exit(1)
+		}
+		return
+	}
+
 	componentInputs := doctor.ComponentInputs{
 		Runtime: func(ctx context.Context) (protocol.ComponentBuildReport, error) {
 			return daemon.InspectComponentBuild(ctx, daemon.Client{Path: socket, Timeout: timeout})
