@@ -1429,7 +1429,31 @@ is qualified by that proof.
 The Docker fixture now additionally requires generation/descriptor-bound health
 reports at ENOSPC, built-image and post-removal holds, with exact receipt hashes
 and a separate five-second/caller deadline. Local controls refuse stale, partial,
-degraded and mutually forged references. This integration awaits fresh actual
-Docker qualification. Service readiness, broader diagnostics/log pressure,
+degraded and mutually forged references. [Fresh actual Docker qualification](../../evidence/runtime-20261030/g8-live-docker-network-health/README.md)
+now passes for source `46d7e3ac` on boot `2f91ba98-e418-41f9-9fec-95935b88f165`:
+workload `b61688f1b00e4f5a81a06e329d59d732` and parent
+`f5b6c605716b4d429cb795c6f4fc3a5d` exit 0. Backend health is checked at both
+live holds and idle after removal, with exact receipt hashes and public
+reference joins. Eight-report timing remains separate at
+108.805/106.928/96.970 ms; engine/image separation, primary parity, synced close,
+filesystem check and resource return pass. An exporter-only stale full source
+label was corrected from the complete verified archive; both actual lifecycle
+receipts are unchanged and the correction is retained. Service readiness,
+broader diagnostics/log pressure,
 provenance and full G7/G8 remain open. Direct kernels require no nested
 virtualization and retain shared host trust after child-kernel compromise.
+
+
+The actual Docker health trial's [separate cold restoration](../../evidence/runtime-20261030/g8-live-docker-network-health-cold-restoration/README.md)
+passes on boot `5ab3790a-24ee-4ee7-90ec-f2a4bf8ba0ef`, invocation
+`460e5cb35570489485279d7c03177dac`, exit 0, using Type=exec and a real
+25-minute runtime watchdog. Original transport is loaded with zero references,
+all CPUs online, four primary services active and no child/pool/VSOCK. All 93
+retained files / 12 images are hash-checked. Fifteen current bundle/receipt/
+identity/timing/health artifacts, the current successful parent receipt, the
+previous successful case's twelve artifacts/receipt and the earlier failed case's
+twelve artifacts/receipt are preserved. Five normalized cloud resource categories
+match. Private stopped output and raw cloud inventory/serial captures remain
+private; cross-boot network-ID parity is not claimed. The bounded active-network
+health and restoration checkpoints are qualified; full health/readiness,
+diagnostics/log pressure, provenance, wider failure/concurrency and G7/G8 remain open.

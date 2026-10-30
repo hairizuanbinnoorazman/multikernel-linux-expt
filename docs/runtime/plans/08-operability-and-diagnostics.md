@@ -314,6 +314,15 @@ inspection. [Local controls](../../../evidence/runtime-20261030/g8-network-healt
 and [GCE native fault/CLI proof](../../../evidence/runtime-20261030/g8-network-health-gce/README.md)
 pass missing-primary-guard degradation without repair and restored checked status,
 with unchanged primary state. The Docker fixture now binds health to independently
-qualified generation/descriptor references at all three holds. Actual child Docker
-health qualification and integration into readiness/diagnostic collection remain
-required. It does not close the full G8 gate.
+qualified generation/descriptor references at all three holds.
+[Actual child Docker qualification](../../../evidence/runtime-20261030/g8-live-docker-network-health/README.md)
+passes checked observations at ENOSPC/built-image holds and idle after removal,
+with exact receipt hashes, primary engine/image separation and normal cleanup.
+This closes the recorded host-backend health checkpoint during that lifecycle;
+integration into full readiness/diagnostic collection and end-to-end health still
+remain required for complete G8.
+
+The actual Docker health trial's [separate cold restoration](../../../evidence/runtime-20261030/g8-live-docker-network-health-cold-restoration/README.md)
+also passes with original transport, fifteen current diagnostic artifacts,
+both prior cases and 93 retained files / 12 images preserved. Complete service
+readiness and G7/G8 remain open.

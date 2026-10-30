@@ -48,6 +48,13 @@ built-image and post-removal holds, with a separate five-second maximum shortene
 by its original caller deadline. It requalifies the complete independent
 storage/network ownership reference chain before matching endpoint generation,
 descriptor and CHECK_PASSED. Released inventory requires idle and no endpoints.
-All three exact artifact hashes enter the lifecycle receipt. This new live-fixture
-integration has local binding controls; it awaits a fresh actual child Docker run.
+All three exact artifact hashes enter the lifecycle receipt. [Local binding controls](../../../evidence/runtime-20261030/g8-docker-network-health-binding-controls/README.md)
+and [actual child Docker qualification](../../../evidence/runtime-20261030/g8-live-docker-network-health/README.md)
+now pass checked observations at both live holds and idle after removal, with exact
+receipt hashes and independently retained public generation/descriptor joins.
 It does not add a ninth report to the existing eight-report timing measurement.
+
+The actual Docker health trial's [separate cold restoration](../../../evidence/runtime-20261030/g8-live-docker-network-health-cold-restoration/README.md)
+also passes with original transport, fifteen current diagnostic artifacts,
+both prior cases and 93 retained files / 12 images preserved. Complete service
+readiness and G7/G8 remain open.

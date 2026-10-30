@@ -16,8 +16,13 @@ adds `mknetd --inspect-health`: bounded generation-bound host network rule check
 [actual GCE fault/CLI proof](evidence/runtime-20261030/g8-network-health-gce/README.md)
 pass missing-guard detection without repair, restored checks, empty idle inventory,
 legacy refusal and primary preservation. The Docker fixture now requires bound
-health reports at ENOSPC, built-image and removal holds; that integration still
-requires a fresh live qualification. Service readiness and full G7/G8 remain open.
+health reports at ENOSPC, built-image and removal holds.
+[Actual child Docker qualification](evidence/runtime-20261030/g8-live-docker-network-health/README.md)
+now passes checked health at both live holds and idle after removal, with exact
+receipt hashes, engine/image separation, primary preservation and normal cleanup.
+Its [cold restoration](evidence/runtime-20261030/g8-live-docker-network-health-cold-restoration/README.md)
+also preserves the original transport, fifteen current artifacts, both earlier
+cases and 93 retained files / 12 images. Service readiness and full G7/G8 remain open.
 
 The [structured diagnostic collector](docs/runtime/contracts/diagnostic-bundle.md)
 adds `--diagnostic-bundle=/absolute/private/new.json`: bounded component/resource

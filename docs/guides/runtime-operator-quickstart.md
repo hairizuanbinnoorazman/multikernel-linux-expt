@@ -423,3 +423,22 @@ The corrected timed trial's [cold restoration](../../evidence/runtime-20261029/g
 also passes with original transport, twelve diagnostic artifacts, both successful
 and failed parent receipts, and all 93 retained files / 12 images preserved.
 This restoration does not close the remaining G7/G8 requirements.
+
+
+After deploying a daemon build that advertises `network-health-v1`, inspect
+recorded host network policy through the protected socket:
+
+```sh
+sudo mknetd --inspect-health --socket=/run/mknetd.sock
+```
+
+See the [network health contract](../runtime/contracts/network-health.md).
+`checked` requires a nonempty recorded inventory with all backend checks passing;
+`idle` means there are no recorded endpoints. Neither means Docker/service
+readiness. Degraded checks exit 1, while checked/idle reports exit 0. Unsupported
+daemons refuse without state-file or raw-CHECK fallback. The
+[actual child Docker proof](../../evidence/runtime-20261030/g8-live-docker-network-health/README.md)
+and [cold restoration](../../evidence/runtime-20261030/g8-live-docker-network-health-cold-restoration/README.md)
+qualify this bounded workflow separately from the full G7/G8 gates. The installed
+legacy services used in those tests were preserved; the new API requires a
+qualified deployment before using this command against installed services.
