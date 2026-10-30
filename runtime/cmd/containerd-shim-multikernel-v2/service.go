@@ -186,6 +186,7 @@ type stateFileIdentity struct {
 }
 
 type service struct {
+	processDiagnosticSink *processDiagnosticSink
 	mu                    sync.Mutex
 	relayMu               sync.Mutex
 	eventMu               sync.Mutex

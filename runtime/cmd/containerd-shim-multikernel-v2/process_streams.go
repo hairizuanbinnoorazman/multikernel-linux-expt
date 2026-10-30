@@ -77,6 +77,7 @@ func (s *service) readStdinChunk(p *process, reader io.ReadWriteCloser, buffer [
 }
 
 func (s *service) pumpStdin(agentID string, p *process) {
+	diagnostics := s.processDiagnostics(agentID)
 	reader := p.stdinReader
 	if reader != nil {
 		defer func() {
@@ -91,7 +92,7 @@ func (s *service) pumpStdin(agentID string, p *process) {
 		}()
 	}
 	if err := s.deliverPendingStdin(agentID, p); err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel stdin: %v\n", err)
+		diagnostics.emit(diagnosticStdinReplay, 0)
 		return
 	}
 	if reader == nil {
@@ -120,7 +121,7 @@ func (s *service) pumpStdin(agentID string, p *process) {
 					p.stdinPending = append(p.stdinPending[:0], buffer[:n]...)
 					if persistErr := s.persistRecovery(); persistErr != nil {
 						stopped = true
-						fmt.Fprintf(os.Stderr, "multikernel stdin intent: %v\n", persistErr)
+						diagnostics.emit(diagnosticStdinIntent, 0)
 					}
 				}
 				s.mu.Unlock()
@@ -129,12 +130,12 @@ func (s *service) pumpStdin(agentID string, p *process) {
 				}
 			}
 			if callErr := s.deliverPendingStdin(agentID, p); callErr != nil {
-				fmt.Fprintf(os.Stderr, "multikernel stdin: %v\n", callErr)
+				diagnostics.emit(diagnosticStdinDelivery, 0)
 				return
 			}
 		}
 		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
-			fmt.Fprintf(os.Stderr, "multikernel stdin: %v\n", err)
+			diagnostics.emit(diagnosticStdinRead, 0)
 			return
 		}
 		if n == 0 {
@@ -144,7 +145,7 @@ func (s *service) pumpStdin(agentID string, p *process) {
 			drainRemaining := p.stdinDrainRemaining
 			s.mu.Unlock()
 			if closeRequested && drainRemaining != 0 && errors.Is(err, io.EOF) {
-				fmt.Fprintln(os.Stderr, "multikernel stdin: close-drain bytes disappeared before delivery")
+				diagnostics.emit(diagnosticStdinDrain, 0)
 				return
 			}
 			if closeRequested && !closeAcknowledged && drainRemaining == 0 {
@@ -191,6 +192,7 @@ func (s *service) deliverPendingStdin(agentID string, p *process) error {
 }
 
 func (s *service) retryPendingStdinClose(agentID string, p *process) {
+	diagnostics := s.processDiagnostics(agentID)
 	for {
 		s.mu.Lock()
 		requested := p.stdinClosed && !p.stdinCloseAcked
@@ -202,7 +204,7 @@ func (s *service) retryPendingStdinClose(agentID string, p *process) {
 		if err := s.acknowledgeStdinClose(context.Background(), agentID, p); err == nil {
 			return
 		} else {
-			fmt.Fprintf(os.Stderr, "multikernel close stdin: %v\n", err)
+			diagnostics.emit(diagnosticStdinClose, 0)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -240,15 +242,15 @@ func (s *service) acknowledgeStdinClose(ctx context.Context, agentID string, p *
 }
 
 func (s *service) waitProcess(agentID, execID string, p *process) {
+	diagnostics := s.processDiagnostics(agentID)
 	var state agent.ProcessState
 	var pid, exit uint32
 	var err error
-	stdoutTruncationReported, stderrTruncationReported := false, false
 	for {
 		var output processOutput
 		err = s.readProcessOutput(agentID, p.stdoutOffset, p.stderrOffset, &output)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "multikernel output monitor: %v\n", err)
+			diagnostics.emit(diagnosticOutputRead, 0)
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
@@ -280,21 +282,19 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		}
 		s.mu.Unlock()
 		if persistErr != nil {
-			fmt.Fprintf(os.Stderr, "multikernel output acknowledgement: %v\n", persistErr)
+			diagnostics.emit(diagnosticOutputAck, 0)
 		}
 		if stdoutDropped {
-			fmt.Fprintf(os.Stderr, "multikernel stdout: discarded %d bytes after 30s output pressure\n", len(output.Stdout))
+			diagnostics.emit(diagnosticStdoutPressure, uint64(len(output.Stdout)))
 		}
 		if stderrDropped {
-			fmt.Fprintf(os.Stderr, "multikernel stderr: discarded %d bytes after 30s output pressure\n", len(output.Stderr))
+			diagnostics.emit(diagnosticStderrPressure, uint64(len(output.Stderr)))
 		}
-		if output.StdoutTruncated && !stdoutTruncationReported {
-			fmt.Fprintln(os.Stderr, "multikernel stdout: guest retention limit discarded output before delivery")
-			stdoutTruncationReported = true
+		if output.StdoutTruncated {
+			diagnostics.emit(diagnosticStdoutTruncated, 0)
 		}
-		if output.StderrTruncated && !stderrTruncationReported {
-			fmt.Fprintln(os.Stderr, "multikernel stderr: guest retention limit discarded output before delivery")
-			stderrTruncationReported = true
+		if output.StderrTruncated {
+			diagnostics.emit(diagnosticStderrTruncated, 0)
 		}
 		if !stdoutAdvance || !stderrAdvance {
 			time.Sleep(10 * time.Millisecond)
@@ -302,13 +302,13 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		if output.Status == "STOPPED" && len(output.Stdout) == 0 && len(output.Stderr) == 0 {
 			err = s.callAgentWithReconnect("WaitProcess", map[string]string{"ID": agentID}, &state)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "multikernel process wait: %v\n", err)
+				diagnostics.emit(diagnosticProcessWait, 0)
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 			pid, exit, err = stoppedGuestProcess(state, agentID, p.pid)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "multikernel process wait validation: %v\n", err)
+				diagnostics.emit(diagnosticProcessWaitInvalid, 0)
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
@@ -335,7 +335,7 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		p.status, p.pid, p.exit, p.exited, p.stdinPending = oldStatus, oldPID, oldExit, oldExited, oldPending
 		p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement = oldSignal, oldSignalOperation, oldSignalAck
 		s.mu.Unlock()
-		fmt.Fprintf(os.Stderr, "multikernel exit state persistence: %v\n", err)
+		diagnostics.emit(diagnosticExitPersist, 0)
 		time.Sleep(100 * time.Millisecond)
 	}
 	if p.pendingSignalOperation != "" {
@@ -344,22 +344,22 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		ackErr := s.acknowledgeGuestSignal(ackCtx, agentID, operationID)
 		cancel()
 		if ackErr != nil {
-			fmt.Fprintf(os.Stderr, "multikernel signal acknowledgement: %v\n", ackErr)
+			diagnostics.emit(diagnosticSignalAck, 0)
 		} else {
 			p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement = 0, "", false
 			if err = s.persistRecovery(); err != nil {
 				p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement = signal, operationID, true
-				fmt.Fprintf(os.Stderr, "multikernel signal acknowledgement persistence: %v\n", err)
+				diagnostics.emit(diagnosticSignalAckPersist, 0)
 			}
 		}
 	}
 	if err := s.publishExit(context.Background(), execID, p); err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel exit event queue: %v\n", err)
+		diagnostics.emit(diagnosticExitEventQueue, 0)
 	} else {
 		p.exitEventQueued = true
 		if err := s.persistRecovery(); err != nil {
 			p.exitEventQueued = false
-			fmt.Fprintf(os.Stderr, "multikernel exit event acknowledgement: %v\n", err)
+			diagnostics.emit(diagnosticExitEventAck, 0)
 		}
 	}
 	close(p.done)
