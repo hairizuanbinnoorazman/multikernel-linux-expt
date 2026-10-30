@@ -12,6 +12,7 @@ from runtime_primary_docker import observe as observe_primary_docker, unchanged 
 from runtime_doctor_checkpoint import qualify as qualify_doctor, qualify_missing_record, qualify_unavailable_record, qualify_absent_process
 from runtime_network_doctor_checkpoint import qualify as qualify_network_doctor
 from runtime_network_health_checkpoint import qualify as qualify_network_health
+from runtime_journal_status_checkpoint import qualify as qualify_journal_status
 from runtime_combined_doctor_checkpoint import qualify as qualify_combined_doctor
 from runtime_pool_doctor_checkpoint import qualify as qualify_pool_doctor
 from runtime_unified_doctor_checkpoint import qualify as qualify_unified_doctor
@@ -361,6 +362,15 @@ try:
      health_report=qualify_network_health(health.stdout,boot,owner,report,network_report,None if released else endpoints[0],released=released)
      assert time.monotonic()<=health_deadline,'network health observation exceeded its bound'
      (private/('network-health-'+label+'.json')).write_text(json.dumps(health_report,indent=2)+'\n')
+     # Journal status is a separate observation of acknowledged accounting and
+     # known failure, never disk-writability or full readiness evidence.
+     journal_deadline=min(outer_deadline,time.monotonic()+5)
+     remaining=journal_deadline-time.monotonic();assert remaining>0,'journal status observation budget exhausted'
+     journal=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--inspect-journal'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=remaining)
+     assert journal.returncode==0 and not journal.stderr,'journal status refused the steady lifecycle hold'
+     journal_report=qualify_journal_status(journal.stdout,boot,owner,report,released=released)
+     assert time.monotonic()<=journal_deadline,'journal status observation exceeded its bound'
+     (private/('journal-status-'+label+'.json')).write_text(json.dumps(journal_report,indent=2)+'\n')
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
@@ -574,6 +584,7 @@ if storage_pressure:
  capture_metadata=json.loads((private/'console-capture.json').read_text())
  r['console_capture_coverage']={k:capture_metadata[k] for k in ['coverage','complete_stream','truncated','teardown_attached']}
 if storage_pressure:r['storage_pressure_image_checkpoint_sha256']=sha(work/'storage-pressure-image-checkpoint.json')
+if storage_pressure:r['runtime_journal_status_sha256']={phase:sha(private/('journal-status-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_network_health_sha256']={phase:sha(private/('network-health-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_network_check_sha256']={phase:sha(private/('network-check-'+phase+'.json')) for phase in ['while-full','while-image-ready']}
 if storage_pressure:r['runtime_pool_doctor_sha256']={phase:sha(private/('pool-doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}

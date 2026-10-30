@@ -38,3 +38,13 @@ not touch that path. An idle result does not attest current storage, journal byt
 or future durability. Full G8 still requires service readiness, native health,
 recovery, log pressure and the other plan requirements. Direct child kernels
 require no nested virtualization and share host trust after child-kernel compromise.
+
+The Docker pressure fixture additionally requires an idle journal report at
+ENOSPC, built-image and post-removal holds. It requalifies the independent
+storage/native ownership report, then requires exact sequence equality, zero
+pending completions and no observed failure. Each observation has a separate
+five-second maximum shortened by the original caller deadline; it does not
+extend the existing eight-report diagnostic timing scope. All three artifact
+hashes enter the lifecycle receipt. Matching sequence numbers do not exclude
+same-sequence restarts or other ABA; existing incarnation limitations remain.
+This integration requires separate actual child Docker qualification.
