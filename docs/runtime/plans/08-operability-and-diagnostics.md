@@ -305,3 +305,15 @@ The corrected timed trial's [cold restoration](../../../evidence/runtime-2026102
 also passes with original transport, twelve diagnostic artifacts, both successful
 and failed parent receipts, and all 93 retained files / 12 images preserved.
 This restoration does not close the remaining G7/G8 requirements.
+
+The [recorded endpoint health API](../contracts/network-health.md) adds a bounded
+host-backend CHECK projection through mknetd's protected socket. It distinguishes
+empty inventory, passed checks, stale/non-ready claims and failed backend checks,
+with generation/digest binding and redacted failures. This advances native network
+inspection. [Local controls](../../../evidence/runtime-20261030/g8-network-health-controls/README.md)
+and [GCE native fault/CLI proof](../../../evidence/runtime-20261030/g8-network-health-gce/README.md)
+pass missing-primary-guard degradation without repair and restored checked status,
+with unchanged primary state. The Docker fixture now binds health to independently
+qualified generation/descriptor references at all three holds. Actual child Docker
+health qualification and integration into readiness/diagnostic collection remain
+required. It does not close the full G8 gate.

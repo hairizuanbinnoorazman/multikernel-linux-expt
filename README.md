@@ -10,6 +10,15 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+The [recorded endpoint health inspection](docs/runtime/contracts/network-health.md)
+adds `mknetd --inspect-health`: bounded generation-bound host network rule checks.
+[Local controls](evidence/runtime-20261030/g8-network-health-controls/README.md) and
+[actual GCE fault/CLI proof](evidence/runtime-20261030/g8-network-health-gce/README.md)
+pass missing-guard detection without repair, restored checks, empty idle inventory,
+legacy refusal and primary preservation. The Docker fixture now requires bound
+health reports at ENOSPC, built-image and removal holds; that integration still
+requires a fresh live qualification. Service readiness and full G7/G8 remain open.
+
 The [structured diagnostic collector](docs/runtime/contracts/diagnostic-bundle.md)
 adds `--diagnostic-bundle=/absolute/private/new.json`: bounded component/resource
 observations, private non-overwriting publication and a byte-count/SHA-256

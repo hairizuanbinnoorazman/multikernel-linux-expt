@@ -1411,3 +1411,25 @@ and prior failed parent receipts remain unchanged. Complete health/readiness,
 diagnostics/log pressure, provenance, wider failure/concurrency and G7/G8 remain open. Direct
 child kernels still need no nested virtualization and share host trust after
 child-kernel compromise.
+
+
+The negotiated [network backend health API](contracts/network-health.md), source
+`0758c8f1`, passes [local race/refusal controls](../../evidence/runtime-20261030/g8-network-health-controls/README.md)
+and [actual GCE native fault/CLI qualification](../../evidence/runtime-20261030/g8-network-health-gce/README.md).
+Invocation `c7bfbf47d270499fbf50443705ea09f8` on boot
+`2f91ba98-e418-41f9-9fec-95935b88f165` exits 0: real Linux isolation rules in
+fresh network namespaces produce checked, missing-guard degraded without repair,
+and restored checked observations over authenticated RPC. Idle CLI and installed
+legacy refusal pass. Primary seven file hashes, four service PIDs, Docker engine/
+inventories, rules/links/routes and both retained parent receipts match. Original
+transport remains loaded with zero references, all CPUs online and no child/pool/
+VSOCK. The one-shot fixture's ignored RuntimeMaxSec is documented; no unit watchdog
+is qualified by that proof.
+
+The Docker fixture now additionally requires generation/descriptor-bound health
+reports at ENOSPC, built-image and post-removal holds, with exact receipt hashes
+and a separate five-second/caller deadline. Local controls refuse stale, partial,
+degraded and mutually forged references. This integration awaits fresh actual
+Docker qualification. Service readiness, broader diagnostics/log pressure,
+provenance and full G7/G8 remain open. Direct kernels require no nested
+virtualization and retain shared host trust after child-kernel compromise.
