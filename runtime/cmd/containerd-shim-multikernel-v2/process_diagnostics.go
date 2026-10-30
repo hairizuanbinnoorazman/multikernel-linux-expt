@@ -36,6 +36,10 @@ const (
 	diagnosticSignalAckPersist
 	diagnosticExitEventQueue
 	diagnosticExitEventAck
+	diagnosticNetworkRead
+	diagnosticNetworkWrite
+	diagnosticNetworkReport
+	diagnosticGuestTeardownWarnings
 )
 
 var processDiagnosticSpecs = [...]struct{ code, operation string }{
@@ -59,6 +63,10 @@ var processDiagnosticSpecs = [...]struct{ code, operation string }{
 	{"SIGNAL_ACK_PERSIST_FAILED", "persist-signal-ack"},
 	{"EXIT_EVENT_QUEUE_FAILED", "queue-exit-event"},
 	{"EXIT_EVENT_ACK_PERSIST_FAILED", "persist-exit-event-ack"},
+	{"NETWORK_DEVICE_READ_FAILED", "read-network-device"},
+	{"NETWORK_DEVICE_WRITE_FAILED", "write-network-device"},
+	{"NETWORK_REPORT_FAILED", "report-network-state"},
+	{"GUEST_TEARDOWN_WARNINGS", "teardown-guest"},
 }
 
 type processDiagnosticRecord struct {
@@ -203,6 +211,10 @@ func (s *service) processDiagnostics(agentID string) processDiagnosticReporter {
 	s.mu.Lock()
 	sandbox, generation, sink := s.sandbox.ID, s.sandbox.Generation, s.processDiagnosticSink
 	s.mu.Unlock()
+	return newProcessDiagnosticReporter(sandbox, generation, agentID, sink)
+}
+
+func newProcessDiagnosticReporter(sandbox, generation, agentID string, sink *processDiagnosticSink) processDiagnosticReporter {
 	if !diagnosticIdentifier(sandbox) || !diagnosticGeneration(generation) || !diagnosticIdentifier(agentID) {
 		return processDiagnosticReporter{}
 	}

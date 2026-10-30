@@ -1,6 +1,7 @@
-# Bounded process-stream diagnostics
+# Bounded shim process and network diagnostics
 
-The shim's stdin/output/wait monitors emit version-1 JSON diagnostic records to
+The shim's stdin/output/wait and network monitors, plus successful init teardown
+with guest warnings, emit version-1 JSON diagnostic records to
 worker stderr. Each record contains only `component`, `operation`, a fixed `code`,
 validated sandbox ID, generation and agent process ID, UTC `at`, and optional
 numeric `bytes`, alongside `version: 1`. Sandbox/process identifiers are 1–128
@@ -13,7 +14,8 @@ configuration, paths, credentials and arbitrary messages are never accepted by
 this diagnostic interface. Workload stdout/stderr still follows the existing
 Task v2 output path; it is not copied into these host diagnostic records.
 
-A monitor invocation makes at most one enqueue attempt per code, even when the
+A monitor invocation (or successful init-delete attempt) makes at most one
+enqueue attempt per code, even when the
 sink rejects it. This replaces retry-loop error printing and repeated output-drop
 messages. The optional byte count is a sample from the first reported chunk,
 not an aggregate loss count. Restarting a worker or starting a new monitor resets
@@ -39,7 +41,15 @@ committed after guest recovery.
 The code table covers stdin replay/intent/delivery/read/drain/close, output
 read/acknowledgement, stdout/stderr pressure/truncation, process wait/validation,
 exit persistence, signal acknowledgement/persistence and exit-event queue/
-acknowledgement. Other shim/supervisor/daemon log sources and host log rotation,
+acknowledgement, fatal network-device read/write errors, network REPORT failure
+and successful guest teardown with warnings. Network monitors snapshot endpoint
+sandbox ID/generation before starting and use process ID `init`, the sandbox's
+network owner. They never acquire the service mutex for diagnostics while a
+lifecycle caller may be joining them. Network state, addresses, descriptors,
+packets, backend errors and guest teardown notes are excluded. Teardown emits
+`GUEST_TEARDOWN_WARNINGS` only after host cleanup succeeds; failures still follow
+the existing Task RPC error path, which this log interface does not redact.
+Other shim/supervisor/daemon log sources and host log rotation,
 retention, aggregate node pressure and complete G8 diagnostics still require
 separate qualification. Direct child kernels require no nested virtualization
 and share host trust after child-kernel compromise.
@@ -60,5 +70,16 @@ faults during Docker or extend coverage to other log producers.
 Its separate [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-process-diagnostics-cold-restoration/README.md)
 passes with original transport restored, retained data and all current/prior
 diagnostic artifacts preserved, including the private fault fixture. This does
-not widen the producer scope: teardown warnings, network retry, event publication
-and supervisor diagnostics still need separate redaction/pressure qualification.
+not qualify the subsequent network/teardown extension. Event publication and
+supervisor diagnostics still need separate redaction/pressure qualification.
+
+The subsequent network/teardown extension adds `NETWORK_DEVICE_READ_FAILED`,
+`NETWORK_DEVICE_WRITE_FAILED`, `NETWORK_REPORT_FAILED` and
+`GUEST_TEARDOWN_WARNINGS` to the fixed table. Local focused race controls cover
+repeated private report errors, fatal device faults, joins while the service
+mutex is held, and exact exit-37 init deletion with warning text excluded.
+The blocked-writer controls for these new producers use an injected sink writer;
+the older process-monitor controls retain their real OS stderr-pipe scope.
+A fresh source-specific GCE fixture and child-Docker regression remain pending
+for this extension; the earlier source-d88680b5 Docker/restoration proof is not
+relabelled. No additional queue or per-record writer goroutine is introduced.

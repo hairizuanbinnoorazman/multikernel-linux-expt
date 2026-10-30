@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -323,7 +322,8 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 			return abort(errors.Join(append(hostFailures, teardownNotes...)...))
 		}
 		if note := errors.Join(teardownNotes...); note != nil {
-			fmt.Fprintf(os.Stderr, "multikernel shim: guest teardown completed through sandbox deletion with warnings: %v\n", note)
+			diagnostics := s.processDiagnostics("init")
+			diagnostics.emit(diagnosticGuestTeardownWarnings, 0)
 		}
 	}
 	s.mu.Lock()

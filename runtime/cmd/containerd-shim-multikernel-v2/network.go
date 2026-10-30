@@ -54,6 +54,7 @@ func (s *service) startNetworkPump() {
 	s.netReports = make(chan string, 1)
 	s.startNetworkReporter()
 	s.queueNetworkReport("READY")
+	diagnostics := s.networkDiagnostics()
 	s.netWG.Add(1)
 	go func() {
 		defer s.netWG.Done()
@@ -76,7 +77,7 @@ func (s *service) startNetworkPump() {
 			} else if err != nil && !errors.Is(err, syscall.EAGAIN) && !errors.Is(err, syscall.EWOULDBLOCK) {
 				s.netErrors.Add(1)
 				s.queueNetworkReport("DEGRADED")
-				fmt.Fprintf(os.Stderr, "multikernel network: host TUN read: %v\n", err)
+				diagnostics.emit(diagnosticNetworkRead, 0)
 				return
 			}
 			var response struct {
@@ -122,7 +123,7 @@ func (s *service) startNetworkPump() {
 				} else {
 					s.netErrors.Add(1)
 					s.queueNetworkReport("DEGRADED")
-					fmt.Fprintf(os.Stderr, "multikernel network: host TUN write: %v\n", err)
+					diagnostics.emit(diagnosticNetworkWrite, 0)
 					return
 				}
 			}
@@ -196,7 +197,16 @@ func (s *service) queueNetworkReport(state string) {
 	}
 }
 
+// Snapshot endpoint ownership before starting either network monitor. Lifecycle
+// setup/teardown owns these fields, just as it owns netDone/netReports. Do not
+// acquire s.mu in a network goroutine: teardown can join netWG while holding it.
+// The network belongs to the sandbox init process, never an arbitrary guest ID.
+func (s *service) networkDiagnostics() processDiagnosticReporter {
+	return newProcessDiagnosticReporter(s.netEndpoint.SandboxID, s.netEndpoint.SandboxGeneration, "init", s.processDiagnosticSink)
+}
+
 func (s *service) startNetworkReporter() {
+	diagnostics := s.networkDiagnostics()
 	s.netWG.Add(1)
 	go func() {
 		defer s.netWG.Done()
@@ -211,7 +221,7 @@ func (s *service) startNetworkReporter() {
 				if err := s.reportNetwork(state); err == nil {
 					break
 				} else {
-					fmt.Fprintf(os.Stderr, "multikernel network report %s: %v\n", state, err)
+					diagnostics.emit(diagnosticNetworkReport, 0)
 				}
 				timer := time.NewTimer(100 * time.Millisecond)
 				select {
