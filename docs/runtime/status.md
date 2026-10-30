@@ -15,8 +15,27 @@ held and a pre-blocked injected writer, plus exact exit-37 init deletion and hos
 ownership release. Unit invocation a1b7326e exits success/zero on boot cfe746ec;
 seven primary hashes, four service PIDs, Docker/network inventories and all 75
 prior diagnostic artifacts match. No installed services or kernel backends were
-changed. New producer real-stderr-pipe controls and fresh actual child Docker
-remain unqualified; the production packet is built locally but not launched.
+changed. New producer real-stderr-pipe coverage remains unqualified.
+
+The subsequent [actual child-Docker regression](../../evidence/runtime-20261030/g8-live-docker-network-teardown-diagnostics/README.md)
+now passes for 038ce648 on boot cfe746ec: workload 48f65075 and parent 4068f51c
+exit success/zero. ENOSPC recovery, multistage/repeat/cache builds, run/save,
+intentional failure, exact guest/primary engine-image separation and normal
+cleanup pass. Eight-report sequences take 112.543, 113.056 and 98.622 ms within
+their original shared ten-second budgets; journal sequences 6/6/10 and network
+health joins also pass. Private network/teardown faults were not injected during
+Docker and retain their separate injected-writer fixture scope. Its separate
+[cold restoration](../../evidence/runtime-20261030/g8-live-docker-network-teardown-diagnostics-cold-restoration/README.md)
+passes on boot 9de3b768: original transport at zero references, no child/pool/
+VSOCK, all CPUs online and four primary services active. All 93 retained files /
+12 image contents, eighteen current and 75 earlier diagnostic artifacts, failed
+cases and both private fault fixtures are preserved. Primary persistent Docker
+inventory and all five normalized cloud resource categories match; cross-boot
+Docker network-ID parity remains unqualified. One SSH observation timed out
+during restart and an IAP authorization refusal interrupted export; completed
+audit state was verified before packaging was retried, with no repeated reboot
+or audit.
+
 Task RPC errors, event/supervisor/daemon logs, rotation/retention, aggregate
 pressure and full G7/G8 remain open. Direct child kernels require no nested
 virtualization and share host trust after compromise.

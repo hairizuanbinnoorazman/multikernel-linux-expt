@@ -26,8 +26,15 @@ all 75 prior diagnostic artifacts match before/after. Network diagnostic context
 is snapshotted from endpoint ownership before monitor start, with process ID init.
 
 This closes the private-writer network/teardown fault checkpoint. New producer
-real-stderr-pipe and source-specific actual Docker qualification remain pending;
-prior d88680b5 process/Docker/restoration results keep their own scope. Task RPC
+real-stderr-pipe coverage remains unqualified. A subsequent
+[actual child-Docker regression](../../../evidence/runtime-20261030/g8-live-docker-network-teardown-diagnostics/README.md)
+now passes for source 038ce648: ENOSPC/recovery, builds, exact engine/image
+boundary, receipt-bound reports and normal cleanup. Private network/teardown
+faults were not injected during Docker. Its [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-network-teardown-diagnostics-cold-restoration/README.md)
+also passes: original transport, 93 retained files / 12 image contents, eighteen
+current and 75 prior artifacts, failed cases and both private fault fixtures
+survive the graceful idle reboot. Earlier d88680b5 results retain their source
+and scope. Task RPC
 errors and event/supervisor/daemon log producers, rotation/retention, aggregate
 pressure and full G8 remain open. No nested virtualization is used; direct child
 kernels share host trust after compromise.

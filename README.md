@@ -16,8 +16,14 @@ guest warning text is excluded. [Local race controls](evidence/runtime-20261030/
 and a [GCE private fault fixture](evidence/runtime-20261030/g8-network-teardown-diagnostics-gce/README.md)
 pass repeated failures, blocked-writer joins and exact exit-37 deletion without
 changing primary state or the 75 earlier diagnostic artifacts. New producer
-blocked-writer tests use an injected sink writer; their real stderr-pipe and
-fresh child-Docker qualification remain pending. Event/supervisor logs and the
+blocked-writer tests use an injected sink writer; real stderr-pipe coverage for
+those producers remains unqualified. The subsequent [actual child-Docker run](evidence/runtime-20261030/g8-live-docker-network-teardown-diagnostics/README.md)
+now passes for `038ce648`, including ENOSPC recovery, builds, engine/image
+separation, receipt-bound diagnostics and normal cleanup. Its [cold restoration](evidence/runtime-20261030/g8-live-docker-network-teardown-diagnostics-cold-restoration/README.md)
+also passes with original transport, 93 retained files / 12 image contents,
+eighteen current and 75 prior diagnostic artifacts, and both private fault
+fixtures preserved. Private faults retain their separate fixture scope.
+Event/supervisor logs and the
 full G7/G8 gates remain open. Direct child kernels still require no nested
 virtualization and retain the shared host trust boundary.
 

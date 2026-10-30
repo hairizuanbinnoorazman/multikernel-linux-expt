@@ -82,7 +82,17 @@ the older process-monitor controls retain their real OS stderr-pipe scope.
 The source-038ce648 [local race controls](../../../evidence/runtime-20261030/g8-network-teardown-diagnostics-controls/README.md)
 and [GCE private test-binary fixture](../../../evidence/runtime-20261030/g8-network-teardown-diagnostics-gce/README.md)
 now pass this private-writer checkpoint with primary state and all 75 prior
-diagnostic artifacts preserved. New producer real-stderr-pipe controls and a
-fresh child-Docker regression remain pending; the earlier source-d88680b5
-Docker/restoration proof is not relabelled. No additional queue or per-record
+diagnostic artifacts preserved. New producer real-stderr-pipe coverage remains
+unqualified. A subsequent [actual child-Docker regression](../../../evidence/runtime-20261030/g8-live-docker-network-teardown-diagnostics/README.md)
+now passes ENOSPC recovery, builds, exact engine/image boundary, report binding
+and normal cleanup for source 038ce648. It does not inject the private network/
+teardown faults during Docker. Earlier d88680b5 results retain their source and
+scope. No additional queue or per-record
 writer goroutine is introduced.
+
+The [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-network-teardown-diagnostics-cold-restoration/README.md)
+for source `038ce648` also passes with original transport, retained data, all eighteen current and 75
+prior diagnostic artifacts, and both private fault fixtures preserved. This does
+not extend new producer real-stderr-pipe coverage or the remaining Task RPC,
+event/supervisor/daemon log, rotation/retention, aggregate pressure and full G7/G8
+qualification scope.
