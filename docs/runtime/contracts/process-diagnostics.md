@@ -15,8 +15,7 @@ this diagnostic interface. Workload stdout/stderr still follows the existing
 Task v2 output path; it is not copied into these host diagnostic records.
 
 A monitor invocation (or successful init-delete attempt) makes at most one
-enqueue attempt per code, even when the
-sink rejects it. This replaces retry-loop error printing and repeated output-drop
+enqueue attempt per code, even when the sink rejects it. This replaces retry-loop error printing and repeated output-drop
 messages. The optional byte count is a sample from the first reported chunk,
 not an aggregate loss count. Restarting a worker or starting a new monitor resets
 that monitor's attempts; this is not a lifetime quota per sandbox or host.
@@ -80,6 +79,10 @@ repeated private report errors, fatal device faults, joins while the service
 mutex is held, and exact exit-37 init deletion with warning text excluded.
 The blocked-writer controls for these new producers use an injected sink writer;
 the older process-monitor controls retain their real OS stderr-pipe scope.
-A fresh source-specific GCE fixture and child-Docker regression remain pending
-for this extension; the earlier source-d88680b5 Docker/restoration proof is not
-relabelled. No additional queue or per-record writer goroutine is introduced.
+The source-038ce648 [local race controls](../../../evidence/runtime-20261030/g8-network-teardown-diagnostics-controls/README.md)
+and [GCE private test-binary fixture](../../../evidence/runtime-20261030/g8-network-teardown-diagnostics-gce/README.md)
+now pass this private-writer checkpoint with primary state and all 75 prior
+diagnostic artifacts preserved. New producer real-stderr-pipe controls and a
+fresh child-Docker regression remain pending; the earlier source-d88680b5
+Docker/restoration proof is not relabelled. No additional queue or per-record
+writer goroutine is introduced.

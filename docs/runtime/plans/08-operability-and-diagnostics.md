@@ -13,6 +13,25 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## Network and teardown diagnostic extension (2026-10-30)
+
+Source 038ce648 adds four fixed codes to the same bounded sink, eliminating raw
+network device/report errors and successful teardown warnings. The [contract](../contracts/process-diagnostics.md),
+[local race controls](../../../evidence/runtime-20261030/g8-network-teardown-diagnostics-controls/README.md)
+and [GCE private fixture](../../../evidence/runtime-20261030/g8-network-teardown-diagnostics-gce/README.md)
+prove repeated private REPORT errors, fatal device faults, joins with the service
+mutex held under a pre-blocked injected writer and exact exit-37 init deletion
+with host ownership release. The GCE unit exits success/zero; primary state and
+all 75 prior diagnostic artifacts match before/after. Network diagnostic context
+is snapshotted from endpoint ownership before monitor start, with process ID init.
+
+This closes the private-writer network/teardown fault checkpoint. New producer
+real-stderr-pipe and source-specific actual Docker qualification remain pending;
+prior d88680b5 process/Docker/restoration results keep their own scope. Task RPC
+errors and event/supervisor/daemon log producers, rotation/retention, aggregate
+pressure and full G8 remain open. No nested virtualization is used; direct child
+kernels share host trust after compromise.
+
 ## Process-stream diagnostic checkpoint (2026-10-30)
 
 The [contract](../contracts/process-diagnostics.md) and

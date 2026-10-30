@@ -6,6 +6,21 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-30)
 
+Source `038ce648` extends the [bounded diagnostic contract](contracts/process-diagnostics.md)
+to fatal network-device faults, network REPORT retry and successful guest
+teardown warnings. [Local race/required controls](../../evidence/runtime-20261030/g8-network-teardown-diagnostics-controls/README.md)
+and [GCE private test-binary proof](../../evidence/runtime-20261030/g8-network-teardown-diagnostics-gce/README.md)
+pass private-error exclusion, repeated retries and joins with the service mutex
+held and a pre-blocked injected writer, plus exact exit-37 init deletion and host
+ownership release. Unit invocation a1b7326e exits success/zero on boot cfe746ec;
+seven primary hashes, four service PIDs, Docker/network inventories and all 75
+prior diagnostic artifacts match. No installed services or kernel backends were
+changed. New producer real-stderr-pipe controls and fresh actual child Docker
+remain unqualified; the production packet is built locally but not launched.
+Task RPC errors, event/supervisor/daemon logs, rotation/retention, aggregate
+pressure and full G7/G8 remain open. Direct child kernels require no nested
+virtualization and share host trust after compromise.
+
 Source `d88680b5` adds [bounded process-stream diagnostics](contracts/process-diagnostics.md).
 [Local race controls](../../evidence/runtime-20261030/g8-process-diagnostics-controls/README.md)
 and [GCE private agent-fault proof](../../evidence/runtime-20261030/g8-process-diagnostics-gce/README.md)

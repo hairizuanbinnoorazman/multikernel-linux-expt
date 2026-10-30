@@ -10,8 +10,19 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
-The [process-stream diagnostic contract](docs/runtime/contracts/process-diagnostics.md)
-replaces raw shim monitor errors with fixed-code metadata. [Local race controls](evidence/runtime-20261030/g8-process-diagnostics-controls/README.md)
+Source `038ce648` extends the bounded diagnostic sink to network-device errors,
+network REPORT retries and successful guest teardown warnings. Raw backend and
+guest warning text is excluded. [Local race controls](evidence/runtime-20261030/g8-network-teardown-diagnostics-controls/README.md)
+and a [GCE private fault fixture](evidence/runtime-20261030/g8-network-teardown-diagnostics-gce/README.md)
+pass repeated failures, blocked-writer joins and exact exit-37 deletion without
+changing primary state or the 75 earlier diagnostic artifacts. New producer
+blocked-writer tests use an injected sink writer; their real stderr-pipe and
+fresh child-Docker qualification remain pending. Event/supervisor logs and the
+full G7/G8 gates remain open. Direct child kernels still require no nested
+virtualization and retain the shared host trust boundary.
+
+The [process-stream diagnostic contract](docs/runtime/contracts/process-diagnostics.md),
+introduced in `d88680b5`, replaces raw shim monitor errors with fixed-code metadata. [Local race controls](evidence/runtime-20261030/g8-process-diagnostics-controls/README.md)
 and [GCE fault proof](evidence/runtime-20261030/g8-process-diagnostics-gce/README.md)
 pass private-error redaction and exact exit/event persistence with a full,
 undrained stderr pipe. Each monitor attempts each code once; each worker has a
@@ -19,7 +30,7 @@ undrained stderr pipe. Each monitor attempts each code once; each worker has a
 Delivery is best effort; silence does not establish health. A fresh
 [actual child-Docker regression](evidence/runtime-20261030/g8-live-docker-process-diagnostics/README.md)
 now passes ENOSPC recovery, builds, engine/image separation and normal cleanup
-with this source. Its [cold restoration](evidence/runtime-20261030/g8-live-docker-process-diagnostics-cold-restoration/README.md)
+with source d88680b5. Its [cold restoration](evidence/runtime-20261030/g8-live-docker-process-diagnostics-cold-restoration/README.md)
 also passes with original transport, 93 retained files / 12 image contents,
 eighteen current and 57 prior diagnostic artifacts, and the private fault fixture
 preserved. Private-error/blocked-pipe faults retain their separate fixture scope.
