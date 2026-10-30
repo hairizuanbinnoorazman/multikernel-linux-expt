@@ -1,6 +1,9 @@
 package protocol
 
-import "errors"
+import (
+	"encoding/json"
+	"errors"
+)
 
 const JournalStatusCapability = "journal-status-v1"
 
@@ -36,6 +39,20 @@ func (r JournalStatusReport) Validate() error {
 // and counters must not inherit Go zero values and masquerade as idle.
 func (r *JournalStatusReport) UnmarshalJSON(data []byte) error {
 	*r = JournalStatusReport{}
+	if len(data) > 4096 {
+		return errors.New("lifecycle journal status exceeds its wire bound")
+	}
+	// encoding/json matches struct fields without case sensitivity. Require
+	// exact keys so a second case variant cannot mask the failure flag.
+	var fields map[string]json.RawMessage
+	if err := StrictDecode(data, &fields); err != nil || len(fields) != 6 {
+		return errors.New("invalid lifecycle journal status fields")
+	}
+	for _, name := range []string{"version", "source", "status", "sequence", "pending_completions", "journal_failed"} {
+		if _, found := fields[name]; !found {
+			return errors.New("invalid lifecycle journal status fields")
+		}
+	}
 	var wire struct {
 		Version            *int    `json:"version"`
 		Source             *string `json:"source"`

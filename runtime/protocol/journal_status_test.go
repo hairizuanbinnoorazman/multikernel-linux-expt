@@ -46,3 +46,20 @@ func TestJournalStatusRequiresCompleteExplicitConsistentWireFields(t *testing.T)
 		}
 	}
 }
+
+func TestJournalStatusRefusesCaseAliasesThatMaskFailureAndOversize(t *testing.T) {
+	valid := `{"version":1,"source":"in-process-lifecycle-journal","status":"idle","sequence":0,"pending_completions":0,"journal_failed":false}`
+	for _, raw := range []string{
+		strings.Replace(valid, `"journal_failed":false`, `"journal_failed":true,"JOURNAL_FAILED":false`, 1),
+		strings.Replace(valid, `"journal_failed":false`, `"JOURNAL_FAILED":false`, 1),
+		strings.Replace(valid, `"sequence":0`, `"sequence":1,"SEQUENCE":0`, 1),
+		strings.Replace(valid, `"source":"in-process-lifecycle-journal"`, `"source":"private-credential","SOURCE":"in-process-lifecycle-journal"`, 1),
+		valid[:len(valid)-1] + strings.Repeat(" ", 4096) + "}",
+	} {
+		var report JournalStatusReport
+		err := StrictDecode([]byte(raw), &report)
+		if err == nil || report.Version != 0 || strings.Contains(err.Error(), "private-credential") {
+			t.Fatal("alias masking or oversize accepted/reflected", report, err)
+		}
+	}
+}

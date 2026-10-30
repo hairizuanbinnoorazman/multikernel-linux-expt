@@ -4,9 +4,11 @@
 `journal-status-v1` over the existing authenticated runtime socket. It returns a
 version-1 `in-process-lifecycle-journal` report with only status, last acknowledged
 sequence, pending-completion count and the store's observed failure flag. Every
-field is required on the wire; omitted/null flags and counters cannot become an
+field is required with its exact canonical JSON name, and the encoded report is
+bounded to 4 KiB; omitted/null flags and counters cannot become an
 idle report through zero-value decoding. Unknown fields, duplicate keys and
-contradictory status/count/failure combinations refuse inspection.
+contradictory status/count/failure combinations refuse inspection. Case aliases
+cannot mask a failure flag with a later differently cased key.
 
 `idle` means no observed journal failure and no outstanding acknowledged intents.
 `pending` means acknowledged intents still require completions. `failed` means
