@@ -13,6 +13,28 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## Deferred Task-event diagnostic extension (2026-10-30)
+
+Source 3dbf1cf5 adds two fixed codes for deferred publication and startup replay.
+The [contract](../contracts/process-diagnostics.md), [local race controls](../../../evidence/runtime-20261030/g8-event-diagnostics-controls/README.md)
+and [GCE private fixture](../../../evidence/runtime-20261030/g8-event-diagnostics-gce/README.md)
+prove actual durable reconstruction, exact payload order and unchanged durable
+queue bytes on failed startup replay under a pre-blocked injected writer.
+Healthy replay acknowledges all eight events and removes the journal. Atomics
+avoid taking lifecycle locks for emission; immutable ownership is installed by
+create/recovery and cleared on successful rollback. A code gets one enqueue
+attempt per service/worker, even if the sink rejects it. Unknown ownership is
+suppressed without consuming that attempt. Owner changes do not reset quota;
+context does not attest the owner/sequence of a particular pending event.
+
+The GCE unit exits success/zero with no fixture helpers left; primary state and
+all 93 earlier diagnostic artifacts match. This closes this private-writer event
+fault checkpoint. New event real-stderr-pipe coverage and actual child Docker
+for this source remain unqualified. Supervisor/daemon logs, Task RPC errors,
+rotation/retention, aggregate pressure, readiness/provenance and full G8 remain
+open. No nested virtualization is used; direct child kernels share host trust
+after compromise.
+
 ## Network and teardown diagnostic extension (2026-10-30)
 
 Source 038ce648 adds four fixed codes to the same bounded sink, eliminating raw

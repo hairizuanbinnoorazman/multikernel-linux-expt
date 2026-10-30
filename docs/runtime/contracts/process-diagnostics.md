@@ -70,8 +70,9 @@ faults during Docker or extend coverage to other log producers.
 Its separate [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-process-diagnostics-cold-restoration/README.md)
 passes with original transport restored, retained data and all current/prior
 diagnostic artifacts preserved, including the private fault fixture. This does
-not qualify the subsequent network/teardown extension. Event publication and
-supervisor diagnostics still need separate redaction/pressure qualification.
+not qualify later network/teardown or deferred-event changes; their separate
+source-specific results follow below. Supervisor diagnostics still need separate
+redaction/pressure qualification.
 
 The subsequent network/teardown extension adds `NETWORK_DEVICE_READ_FAILED`,
 `NETWORK_DEVICE_WRITE_FAILED`, `NETWORK_REPORT_FAILED` and
@@ -116,8 +117,12 @@ No additional sink or per-record writer goroutine is introduced. Local controls
 for this extension cover actual durable queue reconstruction, exact payload order,
 unchanged queue bytes on failed startup replay, blocked injected-writer behavior,
 concurrent quotas and ownership replacement, and create/recovery/rollback wiring.
-A source-specific GCE fixture and fresh child-Docker regression remain pending;
-earlier source-qualified proofs are not relabelled. Supervisor/daemon logs, Task
-RPC errors, log rotation/retention, aggregate pressure and full G7/G8 remain open.
+The [local race controls](../../../evidence/runtime-20261030/g8-event-diagnostics-controls/README.md)
+and [GCE private test-binary fixture](../../../evidence/runtime-20261030/g8-event-diagnostics-gce/README.md)
+for source `3dbf1cf5` now pass this checkpoint, preserving primary state and all 93
+earlier diagnostic
+artifacts, with no fixture helpers left. New event real-stderr-pipe coverage and
+a fresh actual child-Docker regression remain unqualified; earlier proofs retain their original source and
+scope. Supervisor/daemon logs, Task RPC errors, log rotation/retention, aggregate pressure and full G7/G8 remain open.
 Direct child kernels require no nested virtualization and share host trust after
 child-kernel compromise.

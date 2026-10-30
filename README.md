@@ -10,6 +10,17 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+Source `3dbf1cf5` replaces raw deferred Task-event publication/startup replay
+errors with bounded fixed-code metadata. [Local race controls](evidence/runtime-20261030/g8-event-diagnostics-controls/README.md)
+and a [GCE private fixture](evidence/runtime-20261030/g8-event-diagnostics-gce/README.md)
+pass real durable reconstruction, exact payload order, unchanged queue bytes on
+failed startup replay, blocked injected-writer behavior and concurrent worker
+quotas. Atomic ownership snapshots avoid taking lifecycle locks; context is the
+worker's observed owner, not a particular queued event. Primary state and all 93
+prior diagnostic artifacts match. A fresh actual child-Docker regression and new
+event real-stderr-pipe coverage remain unqualified. Supervisor/daemon logs, Task
+RPC errors and full G7/G8 remain open within the shared host trust boundary.
+
 Source `038ce648` extends the bounded diagnostic sink to network-device errors,
 network REPORT retries and successful guest teardown warnings. Raw backend and
 guest warning text is excluded. [Local race controls](evidence/runtime-20261030/g8-network-teardown-diagnostics-controls/README.md)

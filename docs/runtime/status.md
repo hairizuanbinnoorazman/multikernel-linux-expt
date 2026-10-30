@@ -6,6 +6,26 @@ remain authoritative for their respective areas.
 
 ## Latest G8 checkpoint (2026-10-30)
 
+Source `3dbf1cf5` adds [bounded deferred event diagnostics](contracts/process-diagnostics.md).
+[Local race/required controls](../../evidence/runtime-20261030/g8-event-diagnostics-controls/README.md)
+and [GCE private test-binary proof](../../evidence/runtime-20261030/g8-event-diagnostics-gce/README.md)
+pass real durable reconstruction of eight protobuf events and exact PIDs 11–18
+in order after broker recovery. Repeated failed startup replay preserves identical
+queue bytes; healthy replay acknowledges all events and removes the journal.
+Pre-blocked injected-writer, concurrent one-attempt quotas, atomic owner changes
+and create/recovery/rollback wiring pass. Context identifies the worker's observed
+owner, not a particular pending event or sequence. The shared sink still has 64
+queued records plus one in flight, at most 1024 bytes each.
+
+GCE unit b3f691de exits success/zero on boot 9de3b768, with no test helpers left
+after the fixture. Seven primary hashes, four service PIDs, Docker/network state
+and all 93 prior diagnostic artifacts match; no installed service or kernel
+backend was changed. The production packet is built locally but not launched.
+A fresh actual child-Docker regression, new event real-stderr-pipe coverage,
+supervisor/daemon logs, Task RPC errors, rotation/retention, aggregate pressure,
+complete readiness/provenance and full G7/G8 remain open. Direct child kernels
+need no nested virtualization and share host trust after compromise.
+
 Source `038ce648` extends the [bounded diagnostic contract](contracts/process-diagnostics.md)
 to fatal network-device faults, network REPORT retry and successful guest
 teardown warnings. [Local race/required controls](../../evidence/runtime-20261030/g8-network-teardown-diagnostics-controls/README.md)
