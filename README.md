@@ -16,9 +16,15 @@ and [GCE fault proof](evidence/runtime-20261030/g8-process-diagnostics-gce/READM
 pass private-error redaction and exact exit/event persistence with a full,
 undrained stderr pipe. Each monitor attempts each code once; each worker has a
 64-record queue plus one in flight, with records capped at 1024 bytes.
-Delivery is best effort; silence does not establish health. This source still
-needs a fresh actual child-Docker regression. Other logs, rotation/retention,
-aggregate pressure and full G7/G8 remain open within the shared host trust boundary.
+Delivery is best effort; silence does not establish health. A fresh
+[actual child-Docker regression](evidence/runtime-20261030/g8-live-docker-process-diagnostics/README.md)
+now passes ENOSPC recovery, builds, engine/image separation and normal cleanup
+with this source. Its [cold restoration](evidence/runtime-20261030/g8-live-docker-process-diagnostics-cold-restoration/README.md)
+also passes with original transport, 93 retained files / 12 image contents,
+eighteen current and 57 prior diagnostic artifacts, and the private fault fixture
+preserved. Private-error/blocked-pipe faults retain their separate fixture scope.
+Other logs, rotation/retention, aggregate pressure and full G7/G8 remain open
+within the shared host trust boundary.
 
 The [journal-status inspection](docs/runtime/contracts/journal-status.md) adds
 `mkruntimed --inspect-journal`: idle/pending/failed observations without journal

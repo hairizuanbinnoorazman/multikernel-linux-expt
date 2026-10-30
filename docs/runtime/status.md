@@ -17,10 +17,27 @@ The GCE unit exits success/zero on restored boot `fac42785`, preserving seven
 primary hashes, four service PIDs, Docker/network inventories and all 57 earlier
 diagnostic artifacts. No installed services or kernel backends were changed.
 This is a test-binary/private agent fixture, not a live child-Docker qualification
-for d88680b5 or a new retained-data content audit. A production packet is built
-from that commit locally but has not been launched. Other log sources,
-rotation/retention, aggregate pressure and full G7/G8 remain open. Direct child
-kernels require no nested virtualization and share host trust after compromise.
+for d88680b5 or a new retained-data content audit.
+
+The subsequent [actual Docker regression](../../evidence/runtime-20261030/g8-live-docker-process-diagnostics/README.md)
+for that exact source now passes on boot fac42785, with workload 795259d7 and
+parent a31fca4d both success/zero. ENOSPC recovery, multistage/repeat/cache builds,
+run/save, intentional failure, exact guest/primary engine-image separation and
+normal cleanup pass. The three eight-report sequences take 113.820, 109.222 and
+99.068 ms, within their shared ten-second budgets; journal sequences 6/6/10 and
+network-health joins also pass. No monitor fault was injected during Docker;
+that behavior retains its separate fixture proof.
+
+Its separate [cold restoration](../../evidence/runtime-20261030/g8-live-docker-process-diagnostics-cold-restoration/README.md)
+passes on boot cfe746ec with original transport at zero references, no child/pool/
+VSOCK, all CPUs returned and four primary services active. All 93 retained files /
+12 image contents, eighteen current and 57 earlier diagnostic artifacts, failed
+cases and the private monitor-fault fixture retain their identities/hashes.
+Primary persistent Docker inventory and all five normalized cloud resource
+categories match; cross-boot Docker network-ID parity remains unqualified.
+Other log sources, rotation/retention, aggregate pressure and full G7/G8 remain
+open. Direct child kernels require no nested virtualization and share host trust
+after compromise.
 
 ## Earlier actual Docker and operational checkpoints
 

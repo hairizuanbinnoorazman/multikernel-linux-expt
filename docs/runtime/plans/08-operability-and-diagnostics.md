@@ -27,8 +27,16 @@ exit event. Host state and 57 prior diagnostic artifacts match before/after.
 
 This closes the bounded process-monitor diagnostic fault checkpoint only.
 Queued diagnostics can be lost, a single writer goroutine can stay blocked until
-worker exit, and silence provides no health guarantee. A new actual child-Docker
-regression for this source, other shim/supervisor/network log producers, rotation,
+worker exit, and silence provides no health guarantee. The subsequent
+[actual child-Docker regression](../../../evidence/runtime-20261030/g8-live-docker-process-diagnostics/README.md)
+now passes for this source: ENOSPC/recovery, builds, engine/image boundary,
+receipt-bound reports and normal cleanup. It does not inject the private monitor
+faults during Docker. Its [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-process-diagnostics-cold-restoration/README.md)
+also passes: original transport, 93 retained files / 12 image contents, eighteen
+current and 57 prior diagnostic artifacts and the private fault fixture survive
+the graceful idle reboot. Teardown warnings, network retries, event publication
+and supervisor diagnostics remain outside this process-monitor checkpoint.
+Other shim/supervisor/network log producers, rotation,
 retention, aggregate node pressure and full G8 remain unqualified. No nested
 virtualization is used; direct child kernels share host trust after compromise.
 

@@ -50,3 +50,15 @@ qualify this bounded monitor checkpoint for source d88680b5. The GCE fixture
 uses actual stderr capture and a full undrained OS pipe while the production
 monitor recovers and commits exact exit 37 and its event. It allocates no child
 kernel and does not qualify a new actual Docker run, all host logs or full G8.
+
+A subsequent [actual child-Docker regression](../../../evidence/runtime-20261030/g8-live-docker-process-diagnostics/README.md)
+now passes for the same source, including ENOSPC recovery, builds, guest/primary
+engine-image separation and normal cleanup. It qualifies ordinary lifecycle
+compatibility with this implementation; it does not inject the private monitor
+faults during Docker or extend coverage to other log producers.
+
+Its separate [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-process-diagnostics-cold-restoration/README.md)
+passes with original transport restored, retained data and all current/prior
+diagnostic artifacts preserved, including the private fault fixture. This does
+not widen the producer scope: teardown warnings, network retry, event publication
+and supervisor diagnostics still need separate redaction/pressure qualification.
