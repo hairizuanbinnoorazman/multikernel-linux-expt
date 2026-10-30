@@ -120,9 +120,19 @@ concurrent quotas and ownership replacement, and create/recovery/rollback wiring
 The [local race controls](../../../evidence/runtime-20261030/g8-event-diagnostics-controls/README.md)
 and [GCE private test-binary fixture](../../../evidence/runtime-20261030/g8-event-diagnostics-gce/README.md)
 for source `3dbf1cf5` now pass this checkpoint, preserving primary state and all 93
-earlier diagnostic
-artifacts, with no fixture helpers left. New event real-stderr-pipe coverage and
-a fresh actual child-Docker regression remain unqualified; earlier proofs retain their original source and
-scope. Supervisor/daemon logs, Task RPC errors, log rotation/retention, aggregate pressure and full G7/G8 remain open.
+earlier diagnostic artifacts, with no fixture helpers left. A subsequent [actual child-Docker regression](../../../evidence/runtime-20261030/g8-live-docker-event-diagnostics/README.md)
+now passes ENOSPC recovery, builds, exact engine/image boundary, report binding
+and normal cleanup for source 3dbf1cf5. It does not inject private broker faults
+during Docker; durable replay under injected-writer pressure retains its separate
+fixture proof. New event real-stderr-pipe coverage remains unqualified. Earlier
+proofs retain their original source and scope. Supervisor/daemon logs, Task RPC errors, log rotation/retention, aggregate
+pressure and full G7/G8 remain open.
 Direct child kernels require no nested virtualization and share host trust after
 child-kernel compromise.
+
+The [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-event-diagnostics-cold-restoration/README.md)
+for source `3dbf1cf5` also passes with original transport, retained data, eighteen
+current and 93 prior diagnostic artifacts, and all three private fault fixtures
+preserved. This does not extend injected broker failure during Docker, new event
+real-stderr-pipe coverage, Task RPC error redaction, supervisor/daemon logs,
+rotation/retention, aggregate pressure or full G7/G8 qualification.

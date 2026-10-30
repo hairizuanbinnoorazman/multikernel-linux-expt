@@ -29,8 +29,16 @@ context does not attest the owner/sequence of a particular pending event.
 
 The GCE unit exits success/zero with no fixture helpers left; primary state and
 all 93 earlier diagnostic artifacts match. This closes this private-writer event
-fault checkpoint. New event real-stderr-pipe coverage and actual child Docker
-for this source remain unqualified. Supervisor/daemon logs, Task RPC errors,
+fault checkpoint. A subsequent [actual child-Docker regression](../../../evidence/runtime-20261030/g8-live-docker-event-diagnostics/README.md)
+now passes for this source: ENOSPC/recovery, builds, exact engine/image boundary,
+receipt-bound reports and normal cleanup. Private broker faults were not injected
+during Docker; durable replay fault behavior retains its separate fixture scope.
+Its [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-event-diagnostics-cold-restoration/README.md)
+also passes: original transport, all 93 retained files / 12 image contents,
+eighteen current and 93 prior diagnostic artifacts, failed cases and all three
+private fault fixtures survive the graceful idle reboot. Coverage of a real stderr
+pipe for the new event producer remains unqualified. Supervisor/daemon logs,
+Task RPC errors,
 rotation/retention, aggregate pressure, readiness/provenance and full G8 remain
 open. No nested virtualization is used; direct child kernels share host trust
 after compromise.

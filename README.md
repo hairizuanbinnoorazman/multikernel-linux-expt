@@ -17,8 +17,14 @@ pass real durable reconstruction, exact payload order, unchanged queue bytes on
 failed startup replay, blocked injected-writer behavior and concurrent worker
 quotas. Atomic ownership snapshots avoid taking lifecycle locks; context is the
 worker's observed owner, not a particular queued event. Primary state and all 93
-prior diagnostic artifacts match. A fresh actual child-Docker regression and new
-event real-stderr-pipe coverage remain unqualified. Supervisor/daemon logs, Task
+prior diagnostic artifacts match. A subsequent [actual child-Docker regression](evidence/runtime-20261030/g8-live-docker-event-diagnostics/README.md)
+now passes for `3dbf1cf5`, including ENOSPC recovery, builds, engine/image
+separation, receipt-bound diagnostics and normal cleanup. Its [cold restoration](evidence/runtime-20261030/g8-live-docker-event-diagnostics-cold-restoration/README.md)
+also passes with original transport, 93 retained files / 12 image contents,
+eighteen current and 93 prior diagnostic artifacts, and all three private fault
+fixtures preserved. Private broker faults retain their separate fixture scope;
+new event real-stderr-pipe coverage remains
+unqualified. Supervisor/daemon logs, Task
 RPC errors and full G7/G8 remain open within the shared host trust boundary.
 
 Source `038ce648` extends the bounded diagnostic sink to network-device errors,

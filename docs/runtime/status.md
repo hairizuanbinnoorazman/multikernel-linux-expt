@@ -20,8 +20,26 @@ queued records plus one in flight, at most 1024 bytes each.
 GCE unit b3f691de exits success/zero on boot 9de3b768, with no test helpers left
 after the fixture. Seven primary hashes, four service PIDs, Docker/network state
 and all 93 prior diagnostic artifacts match; no installed service or kernel
-backend was changed. The production packet is built locally but not launched.
-A fresh actual child-Docker regression, new event real-stderr-pipe coverage,
+backend was changed.
+
+The subsequent [actual child-Docker regression](../../evidence/runtime-20261030/g8-live-docker-event-diagnostics/README.md)
+now passes for 3dbf1cf5 on boot 9de3b768: workload 22a45fe3 and parent a02b7b8e
+exit success/zero. ENOSPC recovery, multistage/repeat/cache builds, run/save,
+intentional failure, exact guest/primary engine-image separation and normal
+cleanup pass. The eight-report sequences take 108.706, 108.580 and 100.526 ms,
+within their original shared ten-second deadlines; journal sequences 6/6/10 and
+network-health joins also pass. Private broker faults were not injected during
+Docker; durable reconstruction/replay under injected-writer pressure retains
+its separate private-fixture proof. Its separate
+[cold restoration](../../evidence/runtime-20261030/g8-live-docker-event-diagnostics-cold-restoration/README.md)
+passes on boot 1fca807b: original transport at zero references, no child/pool/
+VSOCK, all CPUs online and four primary services active. All 93 retained files /
+12 image contents, eighteen current and 93 prior diagnostic artifacts, failed
+cases and all three private fault fixtures preserve their identities/hashes.
+Primary persistent Docker inventory and all five normalized cloud resource
+categories match; cross-boot Docker network-ID parity remains unqualified.
+
+New event real-stderr-pipe coverage,
 supervisor/daemon logs, Task RPC errors, rotation/retention, aggregate pressure,
 complete readiness/provenance and full G7/G8 remain open. Direct child kernels
 need no nested virtualization and share host trust after compromise.
