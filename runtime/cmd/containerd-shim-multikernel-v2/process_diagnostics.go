@@ -40,6 +40,8 @@ const (
 	diagnosticNetworkWrite
 	diagnosticNetworkReport
 	diagnosticGuestTeardownWarnings
+	diagnosticEventPublicationDeferred
+	diagnosticEventReplayDeferred
 )
 
 var processDiagnosticSpecs = [...]struct{ code, operation string }{
@@ -67,6 +69,8 @@ var processDiagnosticSpecs = [...]struct{ code, operation string }{
 	{"NETWORK_DEVICE_WRITE_FAILED", "write-network-device"},
 	{"NETWORK_REPORT_FAILED", "report-network-state"},
 	{"GUEST_TEARDOWN_WARNINGS", "teardown-guest"},
+	{"EVENT_PUBLICATION_DEFERRED", "publish-task-event"},
+	{"EVENT_REPLAY_DEFERRED", "replay-task-events"},
 }
 
 type processDiagnosticRecord struct {

@@ -169,6 +169,7 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 		} else {
 			canCleanupPrepared = true
 			s.sandbox = protocol.Sandbox{}
+			s.setEventDiagnosticOwner(s.sandbox)
 		}
 	} else if s.sandbox.ID != "" {
 		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-create-rollback-delete-"+s.sandbox.Generation, nil); err != nil && !daemonErrorCode(err, "NOT_FOUND") {
@@ -176,6 +177,7 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 		} else {
 			canCleanupPrepared = true
 			s.sandbox = protocol.Sandbox{}
+			s.setEventDiagnosticOwner(s.sandbox)
 		}
 	}
 	if prepared != nil && canCleanupPrepared {
@@ -306,6 +308,7 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 		return nil, errors.Join(err, cancelErr)
 	}
 	s.sandbox = created.Sandbox
+	s.setEventDiagnosticOwner(s.sandbox)
 	if _, err = daemon.Mutation(ctx, s.daemon, "LoadSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-load-"+s.sandbox.Generation, nil); err != nil {
 		return nil, err
 	}

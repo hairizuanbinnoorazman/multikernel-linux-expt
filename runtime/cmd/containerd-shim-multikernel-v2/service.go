@@ -187,6 +187,8 @@ type stateFileIdentity struct {
 
 type service struct {
 	processDiagnosticSink *processDiagnosticSink
+	eventDiagnosticOwner  atomic.Pointer[processDiagnosticReporter]
+	eventLogAttempts      atomic.Uint64
 	mu                    sync.Mutex
 	relayMu               sync.Mutex
 	eventMu               sync.Mutex
@@ -321,9 +323,7 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 			_ = bundleDirectory.Close()
 			return nil, err
 		}
-		if err = s.flushEvents(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "multikernel event replay deferred: %v\n", err)
-		}
+		s.replayEvents(ctx)
 		s.startEventRetry(time.Second)
 	}
 	return s, nil

@@ -194,6 +194,14 @@ func (s *service) flushEvents(ctx context.Context) error {
 	return nil
 }
 
+// Startup replay is best effort after reconstruction. A failure retains the
+// durable queue for the existing retry worker; diagnostics cannot block startup.
+func (s *service) replayEvents(ctx context.Context) {
+	if err := s.flushEvents(ctx); err != nil {
+		s.reportEventDiagnostic(diagnosticEventReplayDeferred)
+	}
+}
+
 func (s *service) publish(ctx context.Context, topic string, event any) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -233,7 +241,7 @@ func (s *service) publish(ctx context.Context, topic string, event any) error {
 	// can replay a duplicate; consumers must treat the Task event tuple as
 	// idempotent.
 	if err = s.flushEvents(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel event publication deferred: %v\n", err)
+		s.reportEventDiagnostic(diagnosticEventPublicationDeferred)
 	}
 	return nil
 }

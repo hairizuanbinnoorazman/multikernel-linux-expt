@@ -216,6 +216,7 @@ func TestCreatePostValidationFailureRollbackMatrix(t *testing.T) {
 				}
 				return nil
 			}
+			var observedService *service
 			caller := daemonCallFunc(func(_ context.Context, request protocol.Request, output any) *protocol.Error {
 				calls = append(calls, request.Method)
 				switch request.Method {
@@ -254,6 +255,10 @@ func TestCreatePostValidationFailureRollbackMatrix(t *testing.T) {
 					cancelCalls++
 					return respond(output, map[string]bool{"safe_to_cleanup": true})
 				case "LoadSandbox":
+					owner := observedService.eventDiagnosticOwner.Load()
+					if owner == nil || owner.sandbox != sandboxIdentifier || owner.generation != sandboxGeneration {
+						t.Fatal("create did not install its diagnostic ownership before load")
+					}
 					if stage == "load-sandbox" {
 						return &protocol.Error{Code: "BACKEND_FAILURE", Message: "injected load-sandbox failure"}
 					}
@@ -302,9 +307,13 @@ func TestCreatePostValidationFailureRollbackMatrix(t *testing.T) {
 					return holder, nil
 				},
 			}
+			observedService = service
 			_, err := service.Create(t.Context(), &taskapi.CreateTaskRequest{ID: task, Bundle: bundle})
 			if err == nil {
 				t.Fatal("injected post-validation failure was accepted")
+			}
+			if service.eventDiagnosticOwner.Load() != nil {
+				t.Fatal("successful create rollback retained event diagnostic ownership")
 			}
 			if len(service.processes) != 0 || service.sandbox.ID != "" || len(service.token) != 0 || service.netEndpoint.SandboxID != "" || service.namespaceHolder != nil {
 				t.Fatalf("rollback retained state: processes=%v sandbox=%+v token=%d endpoint=%+v holder=%v",

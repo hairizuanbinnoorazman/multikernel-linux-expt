@@ -319,6 +319,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	if s.sandbox.Config.BundleIdentity != s.bundleIdentity {
 		return errors.New("daemon sandbox bundle identity differs from the service handoff")
 	}
+	s.setEventDiagnosticOwner(s.sandbox)
 	s.token, _, err = loadExistingTokenFromDirectory(runtimeDirectory)
 	if err != nil {
 		return fmt.Errorf("read recovery token: %w", err)

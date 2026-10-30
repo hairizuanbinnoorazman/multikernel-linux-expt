@@ -41,7 +41,8 @@ The code table covers stdin replay/intent/delivery/read/drain/close, output
 read/acknowledgement, stdout/stderr pressure/truncation, process wait/validation,
 exit persistence, signal acknowledgement/persistence and exit-event queue/
 acknowledgement, fatal network-device read/write errors, network REPORT failure
-and successful guest teardown with warnings. Network monitors snapshot endpoint
+successful guest teardown with warnings, and deferred Task-event publication/
+startup replay. Network monitors snapshot endpoint
 sandbox ID/generation before starting and use process ID `init`, the sandbox's
 network owner. They never acquire the service mutex for diagnostics while a
 lifecycle caller may be joining them. Network state, addresses, descriptors,
@@ -96,3 +97,27 @@ prior diagnostic artifacts, and both private fault fixtures preserved. This does
 not extend new producer real-stderr-pipe coverage or the remaining Task RPC,
 event/supervisor/daemon log, rotation/retention, aggregate pressure and full G7/G8
 qualification scope.
+
+Event publication/replay diagnostics use `EVENT_PUBLICATION_DEFERRED` and
+`EVENT_REPLAY_DEFERRED`. Lifecycle setup installs an immutable, validated owner
+snapshot after CreateSandbox or recovered bundle-identity validation; successful
+create rollback clears it. Atomic access avoids re-entering the service or event
+mutex from lifecycle callers. The record identifies the worker's observed owner,
+**not the owner or sequence of a particular pending event**. It carries no topic,
+sequence, event payload or broker error and grants no recovery authority.
+
+Each of those two codes receives at most one enqueue attempt per service/worker,
+including rejection by a full/disabled sink. An owner change does not reset that
+quota. Unknown/invalid ownership is suppressed without consuming the attempt;
+later validated ownership can still report. Startup replay retains the existing
+durable queue and retry behavior. Queue persistence, ordered replay, broker
+acceptance and acknowledgement remain independent of this best-effort logging.
+No additional sink or per-record writer goroutine is introduced. Local controls
+for this extension cover actual durable queue reconstruction, exact payload order,
+unchanged queue bytes on failed startup replay, blocked injected-writer behavior,
+concurrent quotas and ownership replacement, and create/recovery/rollback wiring.
+A source-specific GCE fixture and fresh child-Docker regression remain pending;
+earlier source-qualified proofs are not relabelled. Supervisor/daemon logs, Task
+RPC errors, log rotation/retention, aggregate pressure and full G7/G8 remain open.
+Direct child kernels require no nested virtualization and share host trust after
+child-kernel compromise.

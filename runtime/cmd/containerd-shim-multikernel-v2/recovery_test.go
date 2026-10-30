@@ -100,6 +100,10 @@ func TestRecoverExistingReconstructsExactSandboxProcessAndNetworkGeneration(t *t
 	if err = service.recoverExisting(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	owner := service.eventDiagnosticOwner.Load()
+	if owner == nil || owner.sandbox != sandbox.ID || owner.generation != sandbox.Generation {
+		t.Fatal("recovery did not install validated diagnostic ownership")
+	}
 	if service.sandbox.ID != sandbox.ID || service.sandbox.Generation != sandbox.Generation || service.netEndpoint.Generation != networkGeneration {
 		t.Fatalf("recovered ownership = sandbox:%+v network:%+v", service.sandbox, service.netEndpoint)
 	}
