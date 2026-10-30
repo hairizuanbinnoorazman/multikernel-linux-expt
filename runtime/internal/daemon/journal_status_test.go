@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/hostconfig"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/lifecycle"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -145,11 +147,74 @@ func TestJournalStatusUnixRPCDetectsFailedJournalWhileMetadataStillResponds(t *t
 		time.Sleep(time.Millisecond)
 	}
 	client := Client{Path: socket, Timeout: time.Second}
+	cli := os.Getenv("MK_G8_JOURNAL_CLI")
+	configPath := filepath.Join(dir, "host.json")
+	if cli != "" {
+		if os.Geteuid() != 0 || !filepath.IsAbs(cli) {
+			t.Fatal("CLI fixture requires root and an explicit absolute binary")
+		}
+		data, err := os.ReadFile(os.Getenv("MK_G8_JOURNAL_CONFIG_TEMPLATE"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var config hostconfig.Config
+		if err := protocol.StrictDecode(data, &config); err != nil {
+			t.Fatal(err)
+		}
+		config.SocketPath, config.StateDirectory = socket, filepath.Join(dir, "state")
+		data, err = json.Marshal(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(configPath, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checkCLI := func(expected protocol.JournalStatusReport) {
+		t.Helper()
+		if cli == "" {
+			return
+		}
+		command := exec.CommandContext(ctx, cli, "--inspect-journal", "--config="+configPath)
+		var stdout, stderr strings.Builder
+		command.Stdout, command.Stderr = &stdout, &stderr
+		err := command.Run()
+		exit := 0
+		if err != nil {
+			var failure *exec.ExitError
+			if !errors.As(err, &failure) {
+				t.Fatal("journal CLI could not execute")
+			}
+			exit = failure.ExitCode()
+		}
+		want := 0
+		if expected.Status != "idle" {
+			want = 1
+		}
+		var report protocol.JournalStatusReport
+		if exit != want || stderr.Len() != 0 || protocol.StrictDecode([]byte(stdout.String()), &report) != nil || report != expected {
+			t.Fatal("journal CLI status, framing or exit contract failed")
+		}
+	}
 	before, err := InspectJournalStatus(ctx, client)
 	if err != nil || before.Status != "idle" {
 		t.Fatal(before, err)
 	}
+	checkCLI(before)
+	intent := state.JournalEntry{OperationID: "private-pending", SandboxID: "private-sandbox", Generation: "generation", Method: "DeleteSandbox", Phase: "intent", IdempotencyKey: "private-credential", Fingerprint: "private-fingerprint"}
+	if err := store.Append(intent); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := InspectJournalStatus(ctx, client)
+	if err != nil || pending.Status != "pending" || pending.PendingCompletions != 1 || pending.Sequence != 1 {
+		t.Fatal(pending, err)
+	}
+	checkCLI(pending)
 	path := filepath.Join(dir, "state/journal.jsonl")
+	heldBefore, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.Rename(path, path+".held"); err != nil {
 		t.Fatal(err)
 	}
@@ -164,16 +229,17 @@ func TestJournalStatusUnixRPCDetectsFailedJournalWhileMetadataStillResponds(t *t
 		t.Fatal("metadata became unavailable", metadata, err)
 	}
 	after, err := InspectJournalStatus(ctx, client)
-	if err != nil || after.Validate() != nil || after.Status != "failed" || !after.JournalFailed || after.Sequence != 0 {
+	if err != nil || after.Validate() != nil || after.Status != "failed" || !after.JournalFailed || after.Sequence != 1 || after.PendingCompletions != 1 {
 		t.Fatal(after, err)
 	}
+	checkCLI(after)
 	raw, _ := json.Marshal(after)
 	if strings.Contains(string(raw), "private") {
 		t.Fatal("private journal data reflected")
 	}
 	replacement, _ := os.ReadFile(path)
 	original, _ := os.ReadFile(path + ".held")
-	if string(replacement) != "private-replacement-canary" || len(original) != 0 {
+	if string(replacement) != "private-replacement-canary" || string(original) != string(heldBefore) {
 		t.Fatal("status repaired or mutated journal")
 	}
 	server.Close()
@@ -186,6 +252,9 @@ func TestJournalStatusUnixRPCDetectsFailedJournalWhileMetadataStillResponds(t *t
 		t.Fatal("server remained active")
 	}
 	t.Log("AUTHENTICATED_JOURNAL_STATUS_IDLE_TO_FAILED_METADATA_RESPONSIVE_NO_PRIVATE_PAYLOAD_NO_REPAIR")
+	if cli != "" {
+		t.Log("JOURNAL_CLI_IDLE_PENDING_FAILED_EXACT_REPORTS_EXIT_0_1_1_PASS")
+	}
 }
 
 func TestJournalStatusClientBoundsDiscoveryAndReadTogether(t *testing.T) {
