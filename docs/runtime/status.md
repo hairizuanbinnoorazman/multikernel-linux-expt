@@ -1457,3 +1457,43 @@ match. Private stopped output and raw cloud inventory/serial captures remain
 private; cross-boot network-ID parity is not claimed. The bounded active-network
 health and restoration checkpoints are qualified; full health/readiness,
 diagnostics/log pressure, provenance, wider failure/concurrency and G7/G8 remain open.
+
+
+Journal-status implementation `1e90c0bf`, CLI fixture `87e71eef` and later
+canonical parser `7f4d5f34` pass their respective
+[local producer/race controls](../../evidence/runtime-20261030/g8-journal-status-controls/README.md),
+[GCE real journal-path failure/CLI proof](../../evidence/runtime-20261030/g8-journal-status-gce/README.md)
+and [canonical field/size controls](../../evidence/runtime-20261030/g8-journal-status-canonical-controls/README.md).
+The private GCE RPC/CLI test reports idle/pending/failed with exits 0/1/1 while
+ownership metadata remains responsive after the real append identity refusal.
+No payloads or automatic repair are introduced. Installed services, primary
+state and all 39 previously retained diagnostic artifacts are preserved.
+
+The subsequent [actual child Docker journal-status qualification](../../evidence/runtime-20261030/g8-live-docker-journal-status/README.md)
+passes source `7f4d5f34` on boot `5ab3790a-24ee-4ee7-90ec-f2a4bf8ba0ef`:
+workload `c4a9dcfe96bd4f6da026d8de8ad82de5` and parent
+`e3e08574441648b48dcf075d4b089606` exit 0. All three journal reports are idle,
+zero pending, no known failure, with exact independent lifecycle sequences
+6/6/10 and receipt-bound artifacts. Network backend health remains checked at
+both active holds and idle after removal. Eight-report diagnostic timings remain
+separate at 108.167/110.805/95.888 ms and the parent timing gate passes. Engine/
+image boundaries, primary parity, synced close, filesystem check and resource
+return pass. Source identity is derived from the complete verified archive,
+without an obsolete-label projection. Complete service readiness, current
+filesystem writability, recovery completion, process incarnation, broader
+log pressure/provenance/failure/concurrency and full G7/G8 remain open.
+
+
+Its [separate cold restoration](../../evidence/runtime-20261030/g8-live-docker-journal-status-cold-restoration/README.md)
+passes on boot `fac42785-2d90-4d1a-b3e9-d5e260ef9b31`, invocation
+`f65724192e414b879baf61ac77cd9afc`, exit 0, Type=exec and a real 25-minute
+watchdog. Original transport, all CPUs, four active services and no child/pool/
+VSOCK are verified. All 93 retained files / 12 images are hash-checked. Eighteen
+current artifacts and the current parent receipt, plus all 39 artifacts and
+receipts of the earlier network-health, timing and failed-parent cases, are
+preserved. The cloud inventory's five normalized categories match; raw cloud/
+serial and stopped output remain private. Cross-boot network-ID parity is not
+claimed. Full G7/G8 readiness, native health, log pressure, provenance and wider
+failure/concurrency remain open; this closes the bounded journal-observation and
+separate restoration checkpoints. Direct kernels still need no nested
+virtualization and share host trust after child-kernel compromise.

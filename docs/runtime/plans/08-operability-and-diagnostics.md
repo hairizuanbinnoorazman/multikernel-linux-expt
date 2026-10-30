@@ -326,3 +326,21 @@ The actual Docker health trial's [separate cold restoration](../../../evidence/r
 also passes with original transport, fifteen current diagnostic artifacts,
 both prior cases and 93 retained files / 12 images preserved. Complete service
 readiness and G7/G8 remain open.
+
+
+The [journal-status API](../contracts/journal-status.md) exposes in-process
+observed failure and acknowledged pending intent counts without reading payloads
+or repairing state. [Local controls](../../../evidence/runtime-20261030/g8-journal-status-controls/README.md),
+[GCE identity-failure/CLI proof](../../../evidence/runtime-20261030/g8-journal-status-gce/README.md)
+and later [canonical-key/size controls](../../../evidence/runtime-20261030/g8-journal-status-canonical-controls/README.md)
+pass. Metadata RPCs can remain responsive after journal failure; they are not a
+mutation-readiness signal. [Actual child Docker qualification](../../../evidence/runtime-20261030/g8-live-docker-journal-status/README.md)
+now passes idle journal reports at all three holds, exact lifecycle sequence
+binding, receipt hashes and normal cleanup. This qualifies observed journal-state
+inspection during that lifecycle, not full service readiness, current filesystem
+writability, recovery completion, process incarnation or admission. Those and the
+remaining diagnostic/log-pressure/provenance requirements still govern full G8.
+
+The actual journal-status trial's [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-journal-status-cold-restoration/README.md)
+also passes: original transport, eighteen current artifacts, all three prior
+cases and 93 retained files / 12 images preserved. Full G7/G8 remain open.

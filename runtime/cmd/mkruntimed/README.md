@@ -192,3 +192,18 @@ The corrected timed trial's [cold restoration](../../../evidence/runtime-2026102
 also passes with original transport, twelve diagnostic artifacts, both successful
 and failed parent receipts, and all 93 retained files / 12 images preserved.
 This restoration does not close the remaining G7/G8 requirements.
+
+
+`--inspect-journal` negotiates a bounded in-process journal-status report through
+the protected runtime socket. It exposes only last acknowledged sequence,
+pending count and the known failure flag; idle exits 0, pending/failed exit 1.
+It performs no journal I/O or repair and refuses legacy/malformed replies without
+fallback. See the [journal-status contract](../../../docs/runtime/contracts/journal-status.md),
+[GCE fault/CLI proof](../../../evidence/runtime-20261030/g8-journal-status-gce/README.md)
+and [actual child Docker sequence binding](../../../evidence/runtime-20261030/g8-live-docker-journal-status/README.md).
+A responsive ownership RPC or idle journal report is insufficient to establish
+service readiness, disk writability or recovery authority.
+
+The actual journal-status trial's [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-journal-status-cold-restoration/README.md)
+also passes: original transport, eighteen current artifacts, all three prior
+cases and 93 retained files / 12 images preserved. Full G7/G8 remain open.

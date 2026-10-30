@@ -4,7 +4,7 @@
 `journal-status-v1` over the existing authenticated runtime socket. It returns a
 version-1 `in-process-lifecycle-journal` report with only status, last acknowledged
 sequence, pending-completion count and the store's observed failure flag. Every
-field is required with its exact canonical JSON name, and the encoded report is
+field is required with its exact canonical JSON name, and the JSON report value is
 bounded to 4 KiB; omitted/null flags and counters cannot become an
 idle report through zero-value decoding. Unknown fields, duplicate keys and
 contradictory status/count/failure combinations refuse inspection. Case aliases
@@ -49,4 +49,19 @@ five-second maximum shortened by the original caller deadline; it does not
 extend the existing eight-report diagnostic timing scope. All three artifact
 hashes enter the lifecycle receipt. Matching sequence numbers do not exclude
 same-sequence restarts or other ABA; existing incarnation limitations remain.
-This integration requires separate actual child Docker qualification.
+Actual child Docker qualification is retained separately below.
+
+
+[Local producer/race controls](../../../evidence/runtime-20261030/g8-journal-status-controls/README.md),
+[GCE fault/CLI proof](../../../evidence/runtime-20261030/g8-journal-status-gce/README.md),
+[later canonical parser controls](../../../evidence/runtime-20261030/g8-journal-status-canonical-controls/README.md)
+and [Docker binding controls](../../../evidence/runtime-20261030/g8-docker-journal-status-binding-controls/README.md)
+retain their own source and scope. The subsequent
+[actual child Docker run](../../../evidence/runtime-20261030/g8-live-docker-journal-status/README.md)
+passes all three idle observations with sequences 6/6/10, exact receipt hashes,
+primary parity and normal cleanup. This qualifies the steady-hold observation
+workflow, not writability, admission, native filesystem health or full readiness.
+
+The actual journal-status trial's [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-journal-status-cold-restoration/README.md)
+also passes: original transport, eighteen current artifacts, all three prior
+cases and 93 retained files / 12 images preserved. Full G7/G8 remain open.

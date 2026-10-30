@@ -442,3 +442,25 @@ and [cold restoration](../../evidence/runtime-20261030/g8-live-docker-network-he
 qualify this bounded workflow separately from the full G7/G8 gates. The installed
 legacy services used in those tests were preserved; the new API requires a
 qualified deployment before using this command against installed services.
+
+
+With a qualified daemon and CLI build advertising `journal-status-v1`, inspect
+known lifecycle journal failure/pending state separately:
+
+```sh
+sudo mkruntimed --inspect-journal --config=/etc/mkruntime/config.json
+```
+
+The [journal-status contract](../runtime/contracts/journal-status.md) defines the
+six required canonical fields. Idle exits 0; pending/failed exit 1. Pending can
+mean in-flight or retained recovery work; neither idle nor a responding ownership
+RPC establishes disk writability or full service readiness. Preserve failure
+state for generation-bound inspection; this command never repairs or replays a
+journal. Installed legacy services in the [GCE proof](../../evidence/runtime-20261030/g8-journal-status-gce/README.md)
+were preserved and refuse negotiation. The
+[actual Docker hold proof](../../evidence/runtime-20261030/g8-live-docker-journal-status/README.md)
+qualifies the new command in the private lifecycle fixture.
+
+The actual journal-status trial's [cold restoration](../../evidence/runtime-20261030/g8-live-docker-journal-status-cold-restoration/README.md)
+also passes: original transport, eighteen current artifacts, all three prior
+cases and 93 retained files / 12 images preserved. Full G7/G8 remain open.

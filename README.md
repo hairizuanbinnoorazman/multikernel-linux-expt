@@ -10,6 +10,17 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+The [journal-status inspection](docs/runtime/contracts/journal-status.md) adds
+`mkruntimed --inspect-journal`: idle/pending/failed observations without journal
+payloads or repair. [GCE fault/CLI proof](evidence/runtime-20261030/g8-journal-status-gce/README.md)
+shows a failed journal while ownership metadata still responds; later
+[canonical parsing controls](evidence/runtime-20261030/g8-journal-status-canonical-controls/README.md)
+reject aliases that mask failure. [Actual child Docker qualification](evidence/runtime-20261030/g8-live-docker-journal-status/README.md)
+passes idle reports bound to lifecycle sequences 6/6/10 at ENOSPC, built-image and
+removal holds. Its [cold restoration](evidence/runtime-20261030/g8-live-docker-journal-status-cold-restoration/README.md)
+preserves original transport, eighteen new artifacts, all earlier cases and 93
+retained files / 12 images. Idle does not establish disk writability or full service readiness.
+
 The [recorded endpoint health inspection](docs/runtime/contracts/network-health.md)
 adds `mknetd --inspect-health`: bounded generation-bound host network rule checks.
 [Local controls](evidence/runtime-20261030/g8-network-health-controls/README.md) and
