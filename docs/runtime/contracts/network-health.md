@@ -40,3 +40,14 @@ child-kernel compromise. This host network inspection does not establish
 containment against a compromised child kernel. Live Docker qualification and
 fault injection are required before closing the associated G8 checkpoint; the
 complete G7/G8 gates remain open.
+
+[Local controls](../../../evidence/runtime-20261030/g8-network-health-controls/README.md)
+and [GCE native fault/CLI proof](../../../evidence/runtime-20261030/g8-network-health-gce/README.md)
+pass. The Docker pressure fixture now requires a health report at ENOSPC,
+built-image and post-removal holds, with a separate five-second maximum shortened
+by its original caller deadline. It requalifies the complete independent
+storage/network ownership reference chain before matching endpoint generation,
+descriptor and CHECK_PASSED. Released inventory requires idle and no endpoints.
+All three exact artifact hashes enter the lifecycle receipt. This new live-fixture
+integration has local binding controls; it awaits a fresh actual child Docker run.
+It does not add a ninth report to the existing eight-report timing measurement.
