@@ -13,6 +13,25 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## Process-stream diagnostic checkpoint (2026-10-30)
+
+The [contract](../contracts/process-diagnostics.md) and
+[local race controls](../../../evidence/runtime-20261030/g8-process-diagnostics-controls/README.md)
+now have [GCE private agent-fault proof](../../../evidence/runtime-20261030/g8-process-diagnostics-gce/README.md)
+for source d88680b5. Raw backend errors are excluded from process-monitor events;
+validated fixed-code metadata is attempted once per code per monitor invocation.
+The worker has 64 queued records plus one in flight, each at most 1024 bytes.
+Full queues reject immediately; writer error/short write disables the sink.
+Real stderr redaction and blocked-pipe recovery preserve exact exit 37 and its
+exit event. Host state and 57 prior diagnostic artifacts match before/after.
+
+This closes the bounded process-monitor diagnostic fault checkpoint only.
+Queued diagnostics can be lost, a single writer goroutine can stay blocked until
+worker exit, and silence provides no health guarantee. A new actual child-Docker
+regression for this source, other shim/supervisor/network log producers, rotation,
+retention, aggregate node pressure and full G8 remain unqualified. No nested
+virtualization is used; direct child kernels share host trust after compromise.
+
 ## Operational interface
 
 - Add a read-only doctor/inspect command that reports component revisions,

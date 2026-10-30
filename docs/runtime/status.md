@@ -4,7 +4,25 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
-## Latest G8 checkpoint (2026-10-29)
+## Latest G8 checkpoint (2026-10-30)
+
+Source `d88680b5` adds [bounded process-stream diagnostics](contracts/process-diagnostics.md).
+[Local race controls](../../evidence/runtime-20261030/g8-process-diagnostics-controls/README.md)
+and [GCE private agent-fault proof](../../evidence/runtime-20261030/g8-process-diagnostics-gce/README.md)
+pass fixed-code redaction, bounded nonblocking enqueue, duplicate suppression,
+invalid metadata refusal and writer failure/short-write disabling. Actual stderr
+capture excludes private errors; with a full undrained OS pipe, the production
+monitor still retries and persists exact exit 37 and its exit event after recovery.
+The GCE unit exits success/zero on restored boot `fac42785`, preserving seven
+primary hashes, four service PIDs, Docker/network inventories and all 57 earlier
+diagnostic artifacts. No installed services or kernel backends were changed.
+This is a test-binary/private agent fixture, not a live child-Docker qualification
+for d88680b5 or a new retained-data content audit. A production packet is built
+from that commit locally but has not been launched. Other log sources,
+rotation/retention, aggregate pressure and full G7/G8 remain open. Direct child
+kernels require no nested virtualization and share host trust after compromise.
+
+## Earlier actual Docker and operational checkpoints
 
 The [actual 4a3e3943 version-7 trial](../../evidence/runtime-20261029/g8-live-operational-doctor/README.md)
 now passes real child Docker ENOSPC/build/image-engine isolation, all three

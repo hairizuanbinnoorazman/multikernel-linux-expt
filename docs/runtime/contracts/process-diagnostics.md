@@ -43,3 +43,10 @@ acknowledgement. Other shim/supervisor/daemon log sources and host log rotation,
 retention, aggregate node pressure and complete G8 diagnostics still require
 separate qualification. Direct child kernels require no nested virtualization
 and share host trust after child-kernel compromise.
+
+The [local race controls](../../../evidence/runtime-20261030/g8-process-diagnostics-controls/README.md)
+and [GCE private agent-fault fixture](../../../evidence/runtime-20261030/g8-process-diagnostics-gce/README.md)
+qualify this bounded monitor checkpoint for source d88680b5. The GCE fixture
+uses actual stderr capture and a full undrained OS pipe while the production
+monitor recovers and commits exact exit 37 and its event. It allocates no child
+kernel and does not qualify a new actual Docker run, all host logs or full G8.

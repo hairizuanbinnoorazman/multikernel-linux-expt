@@ -10,6 +10,16 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+The [process-stream diagnostic contract](docs/runtime/contracts/process-diagnostics.md)
+replaces raw shim monitor errors with fixed-code metadata. [Local race controls](evidence/runtime-20261030/g8-process-diagnostics-controls/README.md)
+and [GCE fault proof](evidence/runtime-20261030/g8-process-diagnostics-gce/README.md)
+pass private-error redaction and exact exit/event persistence with a full,
+undrained stderr pipe. Each monitor attempts each code once; each worker has a
+64-record queue plus one in flight, with records capped at 1024 bytes.
+Delivery is best effort; silence does not establish health. This source still
+needs a fresh actual child-Docker regression. Other logs, rotation/retention,
+aggregate pressure and full G7/G8 remain open within the shared host trust boundary.
+
 The [journal-status inspection](docs/runtime/contracts/journal-status.md) adds
 `mkruntimed --inspect-journal`: idle/pending/failed observations without journal
 payloads or repair. [GCE fault/CLI proof](evidence/runtime-20261030/g8-journal-status-gce/README.md)
