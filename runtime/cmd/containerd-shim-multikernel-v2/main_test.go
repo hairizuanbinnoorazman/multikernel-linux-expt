@@ -137,7 +137,12 @@ func TestMain(m *testing.M) {
 	}
 	if marker := os.Getenv("MK_SHIM_SUPERVISOR_BLOCK_WORKER"); marker != "" && os.Getenv("MK_SHIM_WORKER") == "1" {
 		_ = os.WriteFile(marker, []byte(strconv.Itoa(os.Getpid())+"\n"), 0600)
-		select {}
+		// Keep an actual pending timer: an empty select makes an otherwise
+		// idle non-race helper fail the runtime's deadlock detector. The
+		// supervisor owns termination; race instrumentation must not affect it.
+		for {
+			time.Sleep(time.Hour)
+		}
 	}
 	if marker := os.Getenv("MK_SHIM_SUPERVISOR_PROXY_FIRST_MARKER"); marker != "" && os.Getenv("MK_SHIM_WORKER") == "1" {
 		if _, err := os.Stat(marker); errors.Is(err, os.ErrNotExist) {
