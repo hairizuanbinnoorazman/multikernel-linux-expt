@@ -50,5 +50,10 @@ proxy error reaping, and actual SIGKILL restart/PID cleanup with real stderr
 capture or a full undrained OS stderr pipe. The [GCE fixture](../../../evidence/runtime-20261031/g8-supervisor-diagnostics-gce/README.md)
 now passes for source `6e303b6c`, after the [idle-helper repair](../../../evidence/runtime-20261031/g8-supervisor-helper-controls/README.md).
 The [initial failed fixture](../../../evidence/runtime-20261031/g8-supervisor-nonrace-helper-failure/README.md)
-remains retained. Actual child-Docker qualification for this source remains
-pending; earlier source-qualified Docker proofs are not relabelled.
+remains retained. The [actual child-Docker regression](../../../evidence/runtime-20261031/g8-live-docker-supervisor-diagnostics/README.md)
+also passes for this source with normal cleanup and engine/image separation.
+Supervisor faults during Docker were not injected; they retain their separate
+fixture proof. The separate [cold restoration](../../../evidence/runtime-20261031/g8-live-docker-supervisor-diagnostics-cold-restoration/README.md)
+also passes, preserving retained data, current/prior artifacts, four fault
+fixtures and both failed cases. Earlier source-qualified Docker proofs are not
+relabelled.

@@ -10,6 +10,18 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+Source `eb405c97` adds an explicit persistent Docker comparison across distinct
+boot epochs. It checks engine/images/containers/volumes; the workload comparison
+still requires the same boot and exact network inventory. Malformed metadata and
+persistent changes fail closed without echoing private names. [Controls](evidence/runtime-20261031/g8-docker-restart-comparison-controls/README.md)
+and a [GCE restart preflight](evidence/runtime-20261031/g8-supervisor-docker-restart-preflight/README.md)
+pass, including rehashing all 93 retained files / 12 images, fresh service PIDs,
+111 prior diagnostic artifacts and failed-fixture preservation. Cross-boot network
+identity parity is outside this comparison. The frozen child-Docker runtime
+packet remains separately pinned to `6e303b6c`; this host-side helper does not
+relabel its source. No nested virtualization is used; direct kernels share host
+trust after compromise. Full G7/G8 remain open.
+
 Source `0318bc5b` adds [bounded supervisor diagnostics](docs/runtime/contracts/supervisor-diagnostics.md):
 seventeen fixed codes, one attempt per code per supervision invocation, no raw
 errors or paths, and nonblocking enqueue into the existing bounded process sink.
@@ -23,10 +35,21 @@ remains failed and preserved. Fresh service PIDs and same-boot primary/Docker/ne
 state match before and after; 111 prior diagnostic artifacts are unchanged.
 This closes the supervisor diagnostic fault checkpoint. Delivery remains best
 effort; PID/time metadata does not attest incarnation or confer kill authority.
-Actual child-Docker qualification for this source, remaining daemon/Task RPC errors,
+Remaining daemon/Task RPC errors,
 retention, aggregate pressure, readiness/provenance and full G7/G8 remain open.
 Direct child kernels use no nested virtualization and share host trust after
 child-kernel compromise.
+
+The [actual child-Docker regression](evidence/runtime-20261031/g8-live-docker-supervisor-diagnostics/README.md)
+now passes for `6e303b6c`: ENOSPC/recovery, multistage/repeat/cache builds,
+run/save, intentional exit-37 failure, exact guest/primary engine-image separation
+and normal cleanup. All three eight-report holds meet the shared ten-second
+budgets (121.370, 118.827 and 105.190 ms). Private supervisor faults retain their
+separate fixture scope. The [initial restoration preflight refusal](evidence/runtime-20261031/g8-supervisor-cold-preflight-failure/README.md)
+is preserved. The repaired independent [cold restoration](evidence/runtime-20261031/g8-live-docker-supervisor-diagnostics-cold-restoration/README.md)
+now passes: original transport, all 93 retained files / 12 image contents,
+eighteen current and 111 prior diagnostic artifacts, four private fault fixtures
+and both failed cases are preserved. No hot unload follows traffic.
 
 Source `3dbf1cf5` replaces raw deferred Task-event publication/startup replay
 errors with bounded fixed-code metadata. [Local race controls](evidence/runtime-20261030/g8-event-diagnostics-controls/README.md)

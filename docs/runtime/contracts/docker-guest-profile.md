@@ -265,3 +265,40 @@ restart. Child boot ID, local engine ID, saved-image digest and ownership
 generation remain identical; final teardown and raw primary/network comparisons
 pass. Crash/power loss, other service restarts, service privilege bounds and
 complete G7/G8 acceptance remain open.
+
+## Primary baseline after an instance restart
+
+Capture a fresh primary boot ID, Docker observation, active service PIDs and
+protected file hashes before the next child workload. Previous-boot PIDs are
+historical observations; a PID value can be reused after boot. Check idle kernel
+resources and preserve retained failures before admitting another trial.
+
+`runtime_primary_docker.persistent_unchanged_after_restart(previous, fresh)`
+compares schema-2 observations from distinct canonical boot epochs. It requires
+the same primary engine and persistent image/container/volume inventory digests.
+It rejects malformed observations and changed persistent identities without
+echoing private names. Docker may recreate network IDs at boot, so this function
+does not qualify network identity parity. Network policy, service health,
+protected files and retained data contents need their own checks. Inventory
+digests do not verify image filesystem contents.
+
+Use the fresh observation as the workload baseline and call
+`runtime_primary_docker.unchanged(fresh, during_or_after)` throughout the workload.
+That guard still requires the same boot and exact inventory, including networks.
+Check the precise guest-built image's absence from primary Docker separately.
+Never use the restart comparison to accept a boot change during a workload.
+
+The [restart controls](../../../evidence/runtime-20261031/g8-docker-restart-comparison-controls/README.md)
+and [GCE preflight](../../../evidence/runtime-20261031/g8-supervisor-docker-restart-preflight/README.md)
+qualify this distinction, including fresh PIDs and full retained-data hashing.
+The subsequent [actual Docker run](../../../evidence/runtime-20261031/g8-live-docker-supervisor-diagnostics/README.md)
+keeps the child engine/image boundary and normal cleanup intact. Failed trials
+retain their original units and directories. An absent success or after receipt
+must remain absent; a separately exported read-only snapshot does not imply that
+the failed VM procedure wrote such a file. Repair a guard under a new procedure,
+directory and unit, retaining the original refusal.
+
+Direct child kernels require no nested virtualization; the target cloud instance
+cannot use nested virtualization as a containment solution. Child Docker uses
+its guest-local engine, socket and storage. The primary and child kernels still
+share host trust after child-kernel compromise, and full G7/G8 remain open.

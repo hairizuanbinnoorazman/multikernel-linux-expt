@@ -4,6 +4,20 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Fresh baseline after user restart (2026-10-31)
+
+Source `eb405c97` adds an explicit persistent Docker comparison across distinct
+boot epochs. It checks engine/images/containers/volumes; the workload comparison
+still requires the same boot and exact network inventory. Malformed metadata and
+persistent changes fail closed without echoing private names. [Controls](../../evidence/runtime-20261031/g8-docker-restart-comparison-controls/README.md)
+and a [GCE restart preflight](../../evidence/runtime-20261031/g8-supervisor-docker-restart-preflight/README.md)
+pass, including rehashing all 93 retained files / 12 images, fresh service PIDs,
+111 prior diagnostic artifacts and failed-fixture preservation. Cross-boot network
+identity parity is outside this comparison. The frozen child-Docker runtime
+packet remains separately pinned to `6e303b6c`; this host-side helper does not
+relabel its source. No nested virtualization is used; direct kernels share host
+trust after compromise. Full G7/G8 remain open.
+
 ## Supervisor diagnostic checkpoint (2026-10-31)
 
 Source `0318bc5b` replaces supervisor control errors with seventeen fixed JSON
@@ -34,10 +48,32 @@ references, all CPUs online, with no child/pool/VSOCK. Installed services and
 kernel backends were not modified.
 
 This closes the supervisor diagnostic fault checkpoint, with a separate source
-and scope from prior actual Docker proofs. Actual child-Docker qualification for
-6e303b6c, remaining daemon/Task RPC errors, aggregate pressure, rotation/retention,
+and scope from prior actual Docker proofs. Remaining daemon/Task RPC errors,
+aggregate pressure, rotation/retention,
 readiness/provenance and full G7/G8 remain open. No nested virtualization is used;
 direct child kernels share host trust after child-kernel compromise.
+
+The [actual child-Docker regression](../../evidence/runtime-20261031/g8-live-docker-supervisor-diagnostics/README.md)
+now passes for 6e303b6c: workload b857691a and parent 74b5e6ea exit success/zero.
+ENOSPC/recovery, multistage/repeat/cache builds, run/save, intentional exit 37,
+exact engine/image boundary and normal cleanup pass. The three eight-report
+sequences take 121.370, 118.827 and 105.190 ms within shared ten-second budgets;
+network health and journal sequence 6/6/10 joins pass. No child, pool, VSOCK or
+owned process remains, all CPUs return, native close is synced, I/O errors zero,
+offline ext4 check clean and candidate transport references zero. Supervisor
+private error/restart/full stderr faults were not injected during Docker and
+retain separate source-qualified fixture proof. The [initial restoration preflight refusal](../../evidence/runtime-20261031/g8-supervisor-cold-preflight-failure/README.md)
+is preserved. Its repair uses a separate procedure, directory and unit; the
+[cold restoration](../../evidence/runtime-20261031/g8-live-docker-supervisor-diagnostics-cold-restoration/README.md)
+now passes on boot 971c0b9b, post invocation 62e84fc0. Original transport has zero
+references, all CPUs are online, four primary services active and no child/pool/
+VSOCK remains. All 93 retained files / 12 image contents, eighteen current and
+111 prior diagnostic artifacts, four private fault fixtures and both failed
+cases survive. Persistent Docker inventories match through the frozen restart
+comparator; cross-boot network-ID parity remains unqualified. The successful VM
+baseline is `g8-host-6e303b6/cold-restoration-v2/after.json`; the earlier failed
+`cold-restoration` directory remains without a success receipt. No hot unload
+follows traffic.
 
 See the [supervisor contract](contracts/supervisor-diagnostics.md),
 [local controls](../../evidence/runtime-20261031/g8-supervisor-helper-controls/README.md),
