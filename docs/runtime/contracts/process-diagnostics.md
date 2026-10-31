@@ -136,3 +136,9 @@ current and 93 prior diagnostic artifacts, and all three private fault fixtures
 preserved. This does not extend injected broker failure during Docker, new event
 real-stderr-pipe coverage, Task RPC error redaction, supervisor/daemon logs,
 rotation/retention, aggregate pressure or full G7/G8 qualification.
+
+The separate [supervisor producer](supervisor-diagnostics.md) now uses the same
+bounded per-process transport with its own strict schema. It explicitly reports
+unknown workload ownership and does not accept errors, paths or payloads. The
+parent supervisor and exec-created workers each own one sink in their separate
+OS processes; this does not increase the worker's existing queue limits.

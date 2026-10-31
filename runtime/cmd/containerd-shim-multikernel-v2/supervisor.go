@@ -34,32 +34,33 @@ func serverInvocation() bool {
 }
 
 func superviseShimWorker() int {
+	diagnostics := newSupervisorDiagnostics(nil)
 	listener := os.NewFile(3, "shim-listener")
 	if listener == nil {
-		fmt.Fprintln(os.Stderr, "multikernel shim supervisor: inherited listener is missing")
+		diagnostics.emit(supervisorListenerMissing, 0, 0, 0)
 		return 1
 	}
 	self, err := os.Executable()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: executable: %v\n", err)
+		diagnostics.emit(supervisorExecutableFailed, 0, 0, 0)
 		return 1
 	}
 	directory, err := safefile.OpenCurrentOwnedDirectory()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: open current worker directory: %v\n", err)
+		diagnostics.emit(supervisorDirectoryFailed, 0, 0, 0)
 		return 1
 	}
 	defer directory.Close()
 	publicListener, err := net.FileListener(listener)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: open inherited listener: %v\n", err)
+		diagnostics.emit(supervisorListenerFailed, 0, 0, 0)
 		return 1
 	}
 	_ = listener.Close()
 	defer publicListener.Close()
 	containerdConnection, err := publicListener.Accept()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: accept containerd connection: %v\n", err)
+		diagnostics.emit(supervisorAcceptFailed, 0, 0, 0)
 		return 1
 	}
 	reconnect := func(timeout time.Duration) (net.Conn, error) {
@@ -255,6 +256,10 @@ func superviseProxiedShimWorkerWithDirectory(containerdConnection net.Conn, self
 }
 
 func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn, reconnect shimContainerdReconnect, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory) int {
+	return superviseReconnectableShimWorkerWithDirectoryDiagnostics(containerdConnection, reconnect, self, arguments, workingDirectory, environment, directory, newSupervisorDiagnostics(nil))
+}
+
+func superviseReconnectableShimWorkerWithDirectoryDiagnostics(containerdConnection net.Conn, reconnect shimContainerdReconnect, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory, diagnostics *supervisorDiagnosticReporter) int {
 	bridge := newShimConnectionBridge(containerdConnection)
 	defer func() { _ = containerdConnection.Close() }()
 	var err error
@@ -278,18 +283,18 @@ func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn
 	}
 	defer func() { _ = removePID() }()
 	if _, present, _, staleIdentity, readErr := directory.ReadPrivateOrQuarantineIdentity(pidName, 64); readErr != nil {
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: inspect worker PID residue: %v\n", readErr)
+		diagnostics.emit(supervisorPIDInspectFailed, 0, 0, 0)
 		return 1
 	} else if present {
 		if _, err = directory.RemoveIfIdentity(pidName, staleIdentity); err != nil {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID residue: %v\n", err)
+			diagnostics.emit(supervisorPIDResidueFailed, 0, 0, 0)
 			return 1
 		}
 	}
 	for attempt := 0; attempt < 10; attempt++ {
 		privateListener, listenerFile, address, listenErr := privateShimListener()
 		if listenErr != nil {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: prepare private worker listener: %v\n", listenErr)
+			diagnostics.emit(supervisorPrivateListenerFailed, 0, 0, 0)
 			return 1
 		}
 		cmd := exec.Command(self, arguments...)
@@ -301,7 +306,7 @@ func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn
 		if err = cmd.Start(); err != nil {
 			_ = listenerFile.Close()
 			_ = privateListener.Close()
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: start worker: %v\n", err)
+			diagnostics.emit(supervisorStartFailed, 0, 0, 0)
 			return 1
 		}
 		_ = listenerFile.Close()
@@ -310,7 +315,7 @@ func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn
 		if dialErr != nil {
 			_ = cmd.Process.Kill()
 			_ = cmd.Wait()
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: connect private worker listener: %v\n", dialErr)
+			diagnostics.emit(supervisorConnectFailed, 0, 0, 0)
 			return 1
 		}
 		created, published, publishErr := directory.PublishExclusiveIdentity(pidName,
@@ -319,7 +324,7 @@ func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn
 			_ = workerConnection.Close()
 			_ = cmd.Process.Kill()
 			_ = cmd.Wait()
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: publish worker PID: created=%v error=%v\n", created, publishErr)
+			diagnostics.emit(supervisorPIDPublishFailed, 0, 0, 0)
 			return 1
 		}
 		pidIdentity, pidOwned = published, true
@@ -396,12 +401,12 @@ func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn
 			}
 		}
 		if removeErr := removePID(); removeErr != nil {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID: %v\n", removeErr)
+			diagnostics.emit(supervisorPIDRemoveFailed, 0, 0, 0)
 			return 1
 		}
 		if proxyEndedFirst {
 			if proxyErr != nil && !errors.Is(proxyErr, net.ErrClosed) && !errors.Is(proxyErr, io.EOF) {
-				fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker proxy ended: %v\n", proxyErr)
+				diagnostics.emit(supervisorProxyFailed, 0, 0, 0)
 			}
 		}
 		if proxyEndedFirst && !workerEndedDuringGrace {
@@ -418,28 +423,29 @@ func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn
 		}
 		var exitError *exec.ExitError
 		if !errors.As(err, &exitError) {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: wait worker: %v\n", err)
+			diagnostics.emit(supervisorWaitFailed, 0, 0, 0)
 			return 1
 		}
 		status, ok := exitError.Sys().(syscall.WaitStatus)
 		if !ok || !status.Signaled() {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker exited without a recoverable signal: %v\n", err)
+			diagnostics.emit(supervisorExitUnrecoverable, 0, 0, 0)
 			return exitError.ExitCode()
 		}
 		if proxyErr != nil && !errors.Is(proxyErr, net.ErrClosed) && !errors.Is(proxyErr, io.EOF) {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker proxy: %v\n", proxyErr)
+			diagnostics.emit(supervisorProxyFailed, 0, 0, 0)
 		}
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker pid=%d signal=%s restart_attempt=%d\n", cmd.Process.Pid, status.Signal(), attempt+1)
+		diagnostics.emit(supervisorRestart, uint32(cmd.Process.Pid), uint32(attempt+1), uint32(status.Signal()))
 		time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
 	}
-	fmt.Fprintln(os.Stderr, "multikernel shim supervisor: restart budget exhausted")
+	diagnostics.emit(supervisorBudgetExhausted, 0, 0, 0)
 	return 1
 }
 
 func superviseShimWorkerWith(listener *os.File, self string, arguments []string, workingDirectory string, environment []string) int {
+	diagnostics := newSupervisorDiagnostics(nil)
 	directory, err := safefile.OpenOwnedDirectory(workingDirectory)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: open worker directory: %v\n", err)
+		diagnostics.emit(supervisorDirectoryFailed, 0, 0, 0)
 		return 1
 	}
 	defer directory.Close()
@@ -447,6 +453,10 @@ func superviseShimWorkerWith(listener *os.File, self string, arguments []string,
 }
 
 func superviseShimWorkerWithDirectory(listener *os.File, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory) int {
+	return superviseShimWorkerWithDirectoryDiagnostics(listener, self, arguments, workingDirectory, environment, directory, newSupervisorDiagnostics(nil))
+}
+
+func superviseShimWorkerWithDirectoryDiagnostics(listener *os.File, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory, diagnostics *supervisorDiagnosticReporter) int {
 	var err error
 	pidName := ".multikernel-worker.pid"
 	bundleIdentity := directory.Identity()
@@ -468,11 +478,11 @@ func superviseShimWorkerWithDirectory(listener *os.File, self string, arguments 
 	}
 	defer func() { _ = removePID() }()
 	if _, present, _, staleIdentity, readErr := directory.ReadPrivateOrQuarantineIdentity(pidName, 64); readErr != nil {
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: inspect worker PID residue: %v\n", readErr)
+		diagnostics.emit(supervisorPIDInspectFailed, 0, 0, 0)
 		return 1
 	} else if present {
 		if _, err = directory.RemoveIfIdentity(pidName, staleIdentity); err != nil {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID residue: %v\n", err)
+			diagnostics.emit(supervisorPIDResidueFailed, 0, 0, 0)
 			return 1
 		}
 	}
@@ -484,7 +494,7 @@ func superviseShimWorkerWithDirectory(listener *os.File, self string, arguments 
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 		cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
 		if err = cmd.Start(); err != nil {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: start worker: %v\n", err)
+			diagnostics.emit(supervisorStartFailed, 0, 0, 0)
 			return 1
 		}
 		created, published, publishErr := directory.PublishExclusiveIdentity(pidName,
@@ -492,13 +502,13 @@ func superviseShimWorkerWithDirectory(listener *os.File, self string, arguments 
 		if publishErr != nil || !created {
 			_ = cmd.Process.Kill()
 			_ = cmd.Wait()
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: publish worker PID: created=%v error=%v\n", created, publishErr)
+			diagnostics.emit(supervisorPIDPublishFailed, 0, 0, 0)
 			return 1
 		}
 		pidIdentity, pidOwned = published, true
 		err = cmd.Wait()
 		if removeErr := removePID(); removeErr != nil {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: remove worker PID: %v\n", removeErr)
+			diagnostics.emit(supervisorPIDRemoveFailed, 0, 0, 0)
 			return 1
 		}
 		if err == nil {
@@ -506,17 +516,17 @@ func superviseShimWorkerWithDirectory(listener *os.File, self string, arguments 
 		}
 		var exitError *exec.ExitError
 		if !errors.As(err, &exitError) {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: wait worker: %v\n", err)
+			diagnostics.emit(supervisorWaitFailed, 0, 0, 0)
 			return 1
 		}
 		status, ok := exitError.Sys().(syscall.WaitStatus)
 		if !ok || !status.Signaled() {
-			fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker exited without a recoverable signal: %v\n", err)
+			diagnostics.emit(supervisorExitUnrecoverable, 0, 0, 0)
 			return exitError.ExitCode()
 		}
-		fmt.Fprintf(os.Stderr, "multikernel shim supervisor: worker pid=%d signal=%s restart_attempt=%d\n", cmd.Process.Pid, status.Signal(), attempt+1)
+		diagnostics.emit(supervisorRestart, uint32(cmd.Process.Pid), uint32(attempt+1), uint32(status.Signal()))
 		time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
 	}
-	fmt.Fprintln(os.Stderr, "multikernel shim supervisor: restart budget exhausted")
+	diagnostics.emit(supervisorBudgetExhausted, 0, 0, 0)
 	return 1
 }

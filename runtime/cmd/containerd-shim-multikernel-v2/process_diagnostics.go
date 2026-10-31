@@ -135,7 +135,20 @@ func (s *processDiagnosticSink) tryRecord(record processDiagnosticRecord) bool {
 		return false
 	}
 	data, err := json.Marshal(record)
-	if err != nil || len(data)+1 > processDiagnosticRecordLimit {
+	if err != nil {
+		s.dropped.Add(1)
+		return false
+	}
+	return s.tryEncodedDiagnostic(data)
+}
+
+// Only strict, typed diagnostic producers call this shared bounded transport.
+// It is not an input interface for guest data or pre-serialized RPC payloads.
+func (s *processDiagnosticSink) tryEncodedDiagnostic(data []byte) bool {
+	if s == nil {
+		return false
+	}
+	if s.disabled.Load() || len(data)+1 > processDiagnosticRecordLimit {
 		s.dropped.Add(1)
 		return false
 	}
