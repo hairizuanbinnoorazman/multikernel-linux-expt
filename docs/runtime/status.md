@@ -4,6 +4,26 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Daemon terminal diagnostic checkpoint (2026-10-31)
+
+Source `312bb5e2` adds [bounded daemon terminal diagnostics](contracts/daemon-terminal-diagnostics.md).
+Daemon-mode configuration/state/reconciliation/listener/pool failures emit one
+fixed-code record, with no raw backend error, path, durable key or command output.
+A fifty-millisecond delivery budget bounds caller waiting; one private CLOEXEC
+stderr descriptor avoids SIGPIPE without changing signal policy or inherited
+flags. The sole record can be lost; silence does not establish readiness.
+[Local non-race/race and required controls](../../evidence/runtime-20261031/g8-daemon-terminal-controls/README.md)
+and [GCE real-stderr proof](../../evidence/runtime-20261031/g8-daemon-terminal-gce/README.md)
+pass captured, full-undrained and closed stderr with original daemon exit statuses,
+private-state redaction and descriptor bounds. Development SIGPIPE failure and
+sandbox netlink refusal remain separately retained. GCE primary state and all
+129 prior diagnostic artifact identities/content hashes match; installed services
+and kernel backends were not changed. New actual child-Docker qualification for
+this source remains pending; earlier source-qualified Docker results retain their
+scope. Inspector/RPC/flag output, other producers, retention/aggregate pressure,
+readiness/provenance and full G7/G8 remain open. No nested virtualization is used;
+direct child kernels share host trust after child-kernel compromise.
+
 ## Fresh baseline after user restart (2026-10-31)
 
 Source `eb405c97` adds an explicit persistent Docker comparison across distinct

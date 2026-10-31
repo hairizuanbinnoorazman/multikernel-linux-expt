@@ -8,6 +8,36 @@ and listener failures through the same interface. Its internal stage wrapper
 retains the cause for classification but does not format it into the record.
 The fixed table currently contains fifteen runtime and eight network codes.
 
+| Code | First operator inspection |
+| --- | --- |
+| `RUNTIME_HOST_CONFIG_FAILED` | Selected host configuration, schema, ownership and protected parents. |
+| `RUNTIME_POOL_CPUS_INVALID` | Explicit comma-separated pool APIC selection. |
+| `RUNTIME_POOL_CPU_FORBIDDEN` | APIC policy; APIC 0 must never enter the pool. |
+| `RUNTIME_POOL_MEMORY_INVALID` | Configured pool memory quantity. |
+| `RUNTIME_POOL_RESERVE_INVALID` | Reserve quantity and its relation to pool memory. |
+| `RUNTIME_STATE_OPEN_FAILED` | Lifecycle state directory identity, permissions and journal validation. |
+| `RUNTIME_IDLE_POOL_RECOVERY_FAILED` | Read-only host inventory and retained pool ownership; preserve the refusal. |
+| `RUNTIME_HOST_POLICY_REFUSED` | Explicit `mk-host-check` report, requested APICs and primary CPU/memory headroom. |
+| `RUNTIME_STORAGE_STATE_OPEN_FAILED` | Storage ledger identity, permissions and validation. |
+| `RUNTIME_ROOTFS_STATE_OPEN_FAILED` | Prepared-root ledger identity, permissions and validation. |
+| `RUNTIME_ROOTFS_SERVICE_FAILED` | Configured prepared-root storage and service restrictions. |
+| `RUNTIME_RECONCILE_FAILED` | Durable lifecycle ownership, journal and actual backend inventory. |
+| `RUNTIME_ROOTFS_RECONCILE_FAILED` | Prepared-root records and their retained storage owners. |
+| `RUNTIME_LISTEN_FAILED` | Selected Unix socket, protected parent, ownership and listener conflicts. |
+| `RUNTIME_IDLE_POOL_RELEASE_FAILED` | Actual idle-pool resources and references; retain uncertain ownership. |
+| `NETWORK_EGRESS_CHECK_FAILED` | Explicit egress interface through a read-only link query. |
+| `NETWORK_STATE_OPEN_FAILED` | Network ledger identity, permissions and endpoint validation. |
+| `NETWORK_BOOT_ID_READ_FAILED` | Availability of the real primary boot ID in procfs. |
+| `NETWORK_SERVICE_FAILED` | Subnet, MTU, DNS and primary boot configuration. |
+| `NETWORK_RECONCILE_FAILED` | Durable endpoint generations, descriptors and namespace ownership. |
+| `NETWORK_SOCKET_PARENT_FAILED` | Selected network socket's protected parent and permissions. |
+| `NETWORK_LISTEN_FAILED` | Selected Unix socket ownership and listener conflicts. |
+| `NETWORK_TERMINAL_FAILED` | Preserve code, PID/time and source identity for an unclassified terminal failure. |
+
+These are inspection starting points, not repair authority. Do not clear ledgers,
+release uncertain resources or repeatedly restart a retained failed generation to
+make a code disappear. Explicit inspector output has its own disclosure contract.
+
 Each version-1 JSON record has exactly eight fields: `version`, `component`
 (`mkruntimed` or `mknetd`), `scope: "daemon-terminal"`, fixed `code` and `operation`,
 positive current `pid`, `owner_known: false`, and canonical UTC `at`. No error,
@@ -49,8 +79,12 @@ all subprocess or workload bytes.
 Local controls exercise the fixed table, quota, concurrent calls, writer failures,
 short writes, blocked writes, actual SIGPIPE refusal, descriptor bounds/CLOEXEC
 and real daemon CLI failures with captured, full-undrained and closed stderr.
-Source-specific GCE and new actual child-Docker qualification remain pending.
-Earlier source-qualified proofs are not relabelled. Direct child kernels require
+The [local evidence](../../../evidence/runtime-20261031/g8-daemon-terminal-controls/README.md)
+and [GCE private fixture](../../../evidence/runtime-20261031/g8-daemon-terminal-gce/README.md)
+now qualify these fault controls for source `312bb5e2`. The GCE unit exits
+success/zero, primary state and 129 prior diagnostic artifacts match, and no
+installed service or kernel backend is modified. New actual child-Docker
+qualification remains pending. Earlier source-qualified proofs are not relabelled. Direct child kernels require
 no nested virtualization; the target compute instances cannot use nested
 virtualization as a containment solution. Primary and child kernels share host
 trust after child-kernel compromise; full G7/G8 remain open.

@@ -10,6 +10,24 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+Source `312bb5e2` adds [bounded daemon terminal diagnostics](docs/runtime/contracts/daemon-terminal-diagnostics.md).
+Daemon-mode configuration/state/reconciliation/listener/pool failures emit one
+fixed-code record, with no raw backend error, path, durable key or command output.
+A fifty-millisecond delivery budget bounds caller waiting; one private CLOEXEC
+stderr descriptor avoids SIGPIPE without changing signal policy or inherited
+flags. The sole record can be lost; silence does not establish readiness.
+[Local non-race/race and required controls](evidence/runtime-20261031/g8-daemon-terminal-controls/README.md)
+and [GCE real-stderr proof](evidence/runtime-20261031/g8-daemon-terminal-gce/README.md)
+pass captured, full-undrained and closed stderr with original daemon exit statuses,
+private-state redaction and descriptor bounds. Development SIGPIPE failure and
+sandbox netlink refusal remain separately retained. GCE primary state and all
+129 prior diagnostic artifact identities/content hashes match; installed services
+and kernel backends were not changed. New actual child-Docker qualification for
+this source remains pending; earlier source-qualified Docker results retain their
+scope. Inspector/RPC/flag output, other producers, retention/aggregate pressure,
+readiness/provenance and full G7/G8 remain open. No nested virtualization is used;
+direct child kernels share host trust after child-kernel compromise.
+
 Source `eb405c97` adds an explicit persistent Docker comparison across distinct
 boot epochs. It checks engine/images/containers/volumes; the workload comparison
 still requires the same boot and exact network inventory. Malformed metadata and
