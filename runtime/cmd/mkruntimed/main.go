@@ -27,6 +27,7 @@ import (
 	rootfspkg "github.com/hairizuan/multikernel-linux-expt/runtime/internal/rootfs"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/state"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/storage"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/terminallog"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
 
@@ -172,7 +173,11 @@ func main() {
 	}
 	hostConfig, e := hostconfig.Load(configPath)
 	if e != nil {
-		fmt.Fprintln(os.Stderr, "host configuration:", e)
+		if modes == 0 {
+			terminallog.Report(terminallog.RuntimeHostConfig)
+		} else {
+			fmt.Fprintln(os.Stderr, "host configuration:", e)
+		}
 		os.Exit(2)
 	}
 	socket, dir, kpath, sysfs := hostConfig.SocketPath, hostConfig.StateDirectory, hostConfig.KerfExecutable, hostConfig.MultikernelSysfsRoot
@@ -349,28 +354,28 @@ func main() {
 	}
 	ids, e := cpus(pool)
 	if e != nil || len(ids) == 0 {
-		fmt.Fprintln(os.Stderr, "--pool-cpus is required and must be comma-separated integers")
+		terminallog.Report(terminallog.RuntimePoolCPUs)
 		os.Exit(2)
 	}
 	for _, n := range ids {
 		if n == 0 {
-			fmt.Fprintln(os.Stderr, "APIC ID 0 is forbidden")
+			terminallog.Report(terminallog.RuntimeForbiddenCPU)
 			os.Exit(2)
 		}
 	}
 	poolBytes, e := memoryBytes(poolmem)
 	if e != nil {
-		fmt.Fprintln(os.Stderr, "--pool-memory:", e)
+		terminallog.Report(terminallog.RuntimePoolMemory)
 		os.Exit(2)
 	}
 	reserveBytes, e := memoryBytes(poolmemreserve)
 	if e != nil || reserveBytes >= poolBytes {
-		fmt.Fprintln(os.Stderr, "--pool-memory-reserve must be a valid quantity smaller than --pool-memory")
+		terminallog.Report(terminallog.RuntimePoolReserve)
 		os.Exit(2)
 	}
 	st, e := state.Open(dir)
 	if e != nil {
-		fmt.Fprintln(os.Stderr, e)
+		terminallog.Report(terminallog.RuntimeStateOpen)
 		os.Exit(1)
 	}
 	defer st.Close()
@@ -392,34 +397,32 @@ func main() {
 			e = b.ReleasePool(cleanupCtx)
 			cleanupCancel()
 			if e != nil {
-				fmt.Fprintln(os.Stderr, "recover idle Kerf pool:", e)
+				terminallog.Report(terminallog.RuntimeIdlePoolRecover)
 				os.Exit(1)
 			}
 			report = hostcheck.Check(context.Background(), hostOptions)
 		}
 		if e = validatePoolReport(report, ids, hostConfig.ForbiddenAPICIDs, hostConfig.MinPrimaryCPUs, poolBytes, hostConfig.MinPrimaryMemoryBytes); e != nil {
-			encoded, _ := hostcheck.Encode(report)
-			_, _ = os.Stderr.Write(encoded)
-			fmt.Fprintln(os.Stderr, "host allocation policy:", e)
+			terminallog.Report(terminallog.RuntimeHostPolicy)
 			os.Exit(1)
 		}
 	}
 	svc := lifecycle.New(st, b, lifecycle.Artifacts{Cmdline: cmdline})
 	storageStore, e := storage.OpenStore(storageState)
 	if e != nil {
-		fmt.Fprintln(os.Stderr, "storage state:", e)
+		terminallog.Report(terminallog.RuntimeStorageStateOpen)
 		os.Exit(1)
 	}
 	storageBackend := &storage.LinuxBackend{Binary: storageServer, CheckBinary: e2fsck, RuntimeDir: storageRuntime, RequiredUID: 0, ReadyTimeout: timeout, StopTimeout: timeout}
 	svc.SetStorage(storage.NewService(storageStore, storageBackend))
 	rootfsStore, e := rootfspkg.OpenStore(rootfsState)
 	if e != nil {
-		fmt.Fprintln(os.Stderr, "rootfs state:", e)
+		terminallog.Report(terminallog.RuntimeRootfsStateOpen)
 		os.Exit(1)
 	}
 	rootfsService, e := rootfspkg.NewService(rootfsStore, &rootfspkg.LinuxBackend{Builder: rootfsBuilder}, rootfsStorage)
 	if e != nil {
-		fmt.Fprintln(os.Stderr, "rootfs service:", e)
+		terminallog.Report(terminallog.RuntimeRootfsService)
 		os.Exit(1)
 	}
 	svc.SetPreparedBootResolver(rootfsService)
@@ -429,7 +432,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	if e = svc.Reconcile(ctx); e != nil {
-		fmt.Fprintln(os.Stderr, "reconcile:", e)
+		terminallog.Report(terminallog.RuntimeReconcile)
 		os.Exit(1)
 	}
 	storageOwners := map[string]string{}
@@ -439,7 +442,7 @@ func main() {
 		}
 	}
 	if e = rootfsService.Reconcile(ctx, storageOwners); e != nil {
-		fmt.Fprintln(os.Stderr, "rootfs reconcile:", e)
+		terminallog.Report(terminallog.RuntimeRootfsReconcile)
 		os.Exit(1)
 	}
 	srv := &daemon.Server{Service: svc, Rootfs: rootfsService, MaxFrame: hostConfig.MaxFrameSizeBytes}
@@ -448,11 +451,11 @@ func main() {
 	poolErr := svc.ReleaseIdlePool(cleanupCtx)
 	cleanupCancel()
 	if listenErr != nil {
-		fmt.Fprintln(os.Stderr, listenErr)
+		terminallog.Report(terminallog.RuntimeListen)
 		os.Exit(1)
 	}
 	if poolErr != nil {
-		fmt.Fprintln(os.Stderr, "release idle Kerf pool:", poolErr)
+		terminallog.Report(terminallog.RuntimeIdlePoolRelease)
 		os.Exit(1)
 	}
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/network"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/terminallog"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 )
 
@@ -87,30 +88,30 @@ func run(ctx context.Context, value configuration) error {
 		return json.NewEncoder(os.Stdout).Encode(report)
 	}
 	if _, err := (network.ExecRunner{}).Output(ctx, "/usr/sbin/ip", "link", "show", "dev", value.egress); err != nil {
-		return fmt.Errorf("validate egress %q: %w", value.egress, err)
+		return daemonFailure(terminallog.NetworkEgress, err)
 	}
 	store, err := network.OpenStore(value.stateDir)
 	if err != nil {
-		return err
+		return daemonFailure(terminallog.NetworkStateOpen, err)
 	}
 	backend := network.LinuxBackend{Egress: value.egress}
 	bootIDBytes, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
 	if err != nil {
-		return fmt.Errorf("read primary boot ID: %w", err)
+		return daemonFailure(terminallog.NetworkBootID, err)
 	}
 	service, err := network.NewService(store, backend, value.subnet, value.mtu, value.dns, strings.TrimSpace(string(bootIDBytes)))
 	if err != nil {
-		return err
+		return daemonFailure(terminallog.NetworkService, err)
 	}
 	if err = service.Reconcile(ctx); err != nil {
-		return fmt.Errorf("refuse inconsistent durable network state: %w", err)
+		return daemonFailure(terminallog.NetworkReconcile, err)
 	}
 	if err = unixsocket.EnsureParent(value.socket); err != nil {
-		return err
+		return daemonFailure(terminallog.NetworkSocketParent, err)
 	}
 	server := &network.Server{Service: service, AllowedUID: uint32(value.allowedUID)}
 	defer server.Close()
-	return server.Listen(ctx, value.socket)
+	return daemonFailure(terminallog.NetworkListen, server.Listen(ctx, value.socket))
 }
 
 func main() {
@@ -125,7 +126,32 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
 	if err = run(ctx, value); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if value.inspectHealth || value.inspectOwnership {
+			fmt.Fprintln(os.Stderr, err)
+		} else {
+			code := terminallog.NetworkUnexpected
+			var failure *daemonRunFailure
+			if errors.As(err, &failure) {
+				code = failure.code
+			}
+			terminallog.Report(code)
+		}
 		os.Exit(1)
 	}
+}
+
+// The cause is retained for internal classification/tests, never formatted into
+// a terminal daemon diagnostic. Inspector errors keep their separate contract.
+type daemonRunFailure struct {
+	code  terminallog.Code
+	cause error
+}
+
+func (e *daemonRunFailure) Error() string { return "network daemon operation failed" }
+func (e *daemonRunFailure) Unwrap() error { return e.cause }
+func daemonFailure(code terminallog.Code, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &daemonRunFailure{code: code, cause: err}
 }
