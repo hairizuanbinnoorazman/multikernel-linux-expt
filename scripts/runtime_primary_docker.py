@@ -132,3 +132,40 @@ def unchanged(before, after):
     if (before['engine_id_sha256'] != after['engine_id_sha256'] or
             before['inventories'] != after['inventories']):
         raise ValueError('primary Docker engine or inventory changed during the child workload')
+
+
+def persistent_unchanged_after_restart(before, after):
+    """Compare persistent identities across two distinct, canonical boot epochs.
+
+    Docker can recreate network IDs at boot. This deliberately does not qualify
+    their parity, same-boot workload isolation, service health or retained image
+    contents. Callers must capture a fresh baseline before the next workload;
+    ``unchanged`` continues to require that workload's same boot epoch.
+    """
+    def valid(report):
+        try:
+            if type(report['schema_version']) is not int or report['schema_version'] != 2:
+                return False
+            boot = report['boot_id']
+            if not isinstance(boot, str) or str(uuid.UUID(boot)) != boot:
+                return False
+            if not isinstance(report['engine_id_sha256'], str) or not re.fullmatch(r'[0-9a-f]{64}', report['engine_id_sha256']):
+                return False
+            inventories = report['inventories']
+            if set(inventories) != {'images', 'containers', 'volumes', 'networks'}:
+                return False
+            for item in inventories.values():
+                if (set(item) != {'count', 'sha256'} or type(item['count']) is not int or
+                        not 0 <= item['count'] <= 10000 or not isinstance(item['sha256'], str) or
+                        not re.fullmatch(r'[0-9a-f]{64}', item['sha256'])):
+                    return False
+            return True
+        except (KeyError, TypeError, ValueError, AttributeError):
+            return False
+
+    if not valid(before) or not valid(after) or before['boot_id'] == after['boot_id']:
+        raise ValueError('persistent Docker comparison requires valid distinct boot epochs')
+    if (before['engine_id_sha256'] != after['engine_id_sha256'] or
+            any(before['inventories'][kind] != after['inventories'][kind]
+                for kind in ['images', 'containers', 'volumes'])):
+        raise ValueError('primary Docker persistent engine or inventory changed across restart')

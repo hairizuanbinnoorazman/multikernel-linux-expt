@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import copy
 import json
 import sys
 import pathlib
@@ -6,7 +7,7 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
-from runtime_primary_docker import observe, unchanged, bounded_command, ENV, CLI
+from runtime_primary_docker import observe, unchanged, persistent_unchanged_after_restart, bounded_command, ENV, CLI
 
 ID = 'sha256:' + 'a'*64
 OTHER = 'sha256:' + 'b'*64
@@ -66,6 +67,51 @@ class PrimaryDockerTests(unittest.TestCase):
                 observe(command=command)
         def duplicates(args):return (('c'*64+'\n')*2).encode() if args[3]=='container' else base(args)
         with self.assertRaises(ValueError):observe(command=duplicates)
+
+    def test_restart_persistent_comparison_keeps_workload_epoch_guard(self):
+        command,_=self.response()
+        before=observe(command=command,read_boot=lambda:'1fca807b-17f5-4dc4-b8eb-811a66337b7a')
+        after=observe(command=command,read_boot=lambda:'223a37e4-cd7c-416d-8f9f-d3561e123745')
+        after['inventories']['networks']['sha256']='f'*64
+        saved=copy.deepcopy((before,after))
+        persistent_unchanged_after_restart(before,after)
+        self.assertEqual((before,after),saved)
+        with self.assertRaisesRegex(ValueError,'same boot epoch'):unchanged(before,after)
+        fresh=copy.deepcopy(after)
+        unchanged(fresh,after)
+        fresh['inventories']['networks']['sha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'changed during'):unchanged(fresh,after)
+        for kind in ['images','containers','volumes']:
+            changed=copy.deepcopy(after);changed['inventories'][kind]['sha256']='0'*64
+            with self.subTest(kind=kind),self.assertRaisesRegex(ValueError,'persistent engine or inventory changed'):
+                persistent_unchanged_after_restart(before,changed)
+        changed=copy.deepcopy(after);changed['engine_id_sha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'persistent engine or inventory changed'):
+            persistent_unchanged_after_restart(before,changed)
+
+    def test_restart_comparison_refuses_unscoped_or_malformed_observations(self):
+        command,_=self.response()
+        before=observe(command=command,read_boot=lambda:'1fca807b-17f5-4dc4-b8eb-811a66337b7a')
+        after=observe(command=command,read_boot=lambda:'223a37e4-cd7c-416d-8f9f-d3561e123745')
+        for mutate in [
+                lambda r:r.update(boot_id=before['boot_id']),
+                lambda r:r.pop('boot_id'),lambda r:r.update(boot_id='unknown'),
+                lambda r:r.update(boot_id=r['boot_id'].upper()),
+                lambda r:r.update(schema_version=True),lambda r:r.update(schema_version=1),
+                lambda r:r.update(engine_id_sha256='private-engine'),
+                lambda r:r['inventories'].pop('networks'),
+                lambda r:r['inventories']['images'].update(count=True),
+                lambda r:r['inventories']['images'].update(count=-1),
+                lambda r:r['inventories']['images'].update(count=10001),
+                lambda r:r['inventories']['volumes'].update(sha256='private-volume'),
+                lambda r:r.update(inventories=None)]:
+            changed=copy.deepcopy(after);mutate(changed)
+            with self.assertRaisesRegex(ValueError,'valid distinct boot epochs') as caught:
+                persistent_unchanged_after_restart(before,changed)
+            self.assertNotIn('private-',str(caught.exception))
+        for invalid in [None,{},[],{'schema_version':2}]:
+            with self.assertRaises(ValueError):persistent_unchanged_after_restart(invalid,after)
+            with self.assertRaises(ValueError):persistent_unchanged_after_restart(before,invalid)
 
     def test_command_errors_and_pressure_are_bounded_without_echoing_payload(self):
         for body, kwargs in [
