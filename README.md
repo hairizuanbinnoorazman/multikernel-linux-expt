@@ -10,6 +10,24 @@ domain; the outer cloud hypervisor separates instances, not sibling kernels.
 See the [deployment and containment constraint](docs/runtime/architecture.md#deployment-and-containment-constraint)
 before proposing security architecture changes.
 
+Source `0318bc5b` adds [bounded supervisor diagnostics](docs/runtime/contracts/supervisor-diagnostics.md):
+seventeen fixed codes, one attempt per code per supervision invocation, no raw
+errors or paths, and nonblocking enqueue into the existing bounded process sink.
+Source `6e303b6c` repairs an idle test helper exposed by the first non-race GCE
+run. [Local non-race/race controls](evidence/runtime-20261031/g8-supervisor-helper-controls/README.md)
+and [GCE proof after your instance restart](evidence/runtime-20261031/g8-supervisor-diagnostics-gce/README.md)
+pass actual SIGKILL restart/PID cleanup with a full undrained stderr pipe,
+private proxy-error reaping, and ten-crash budget cleanup. The
+[first failed fixture](evidence/runtime-20261031/g8-supervisor-nonrace-helper-failure/README.md)
+remains failed and preserved. Fresh service PIDs and same-boot primary/Docker/network
+state match before and after; 111 prior diagnostic artifacts are unchanged.
+This closes the supervisor diagnostic fault checkpoint. Delivery remains best
+effort; PID/time metadata does not attest incarnation or confer kill authority.
+Actual child-Docker qualification for this source, remaining daemon/Task RPC errors,
+retention, aggregate pressure, readiness/provenance and full G7/G8 remain open.
+Direct child kernels use no nested virtualization and share host trust after
+child-kernel compromise.
+
 Source `3dbf1cf5` replaces raw deferred Task-event publication/startup replay
 errors with bounded fixed-code metadata. [Local race controls](evidence/runtime-20261030/g8-event-diagnostics-controls/README.md)
 and a [GCE private fixture](evidence/runtime-20261030/g8-event-diagnostics-gce/README.md)

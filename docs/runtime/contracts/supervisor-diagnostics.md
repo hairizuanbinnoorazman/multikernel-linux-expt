@@ -47,6 +47,8 @@ child-kernel compromise.
 Local controls cover all seventeen fixed codes and quota/metadata rejection,
 full-queue refusal, actual ten-crash exhaustion with exact PID cleanup, private
 proxy error reaping, and actual SIGKILL restart/PID cleanup with real stderr
-capture or a full undrained OS stderr pipe. Fresh source-specific GCE fixture
-and child-Docker qualification remain pending; earlier source-qualified proofs
-are not relabelled.
+capture or a full undrained OS stderr pipe. The [GCE fixture](../../../evidence/runtime-20261031/g8-supervisor-diagnostics-gce/README.md)
+now passes for source `6e303b6c`, after the [idle-helper repair](../../../evidence/runtime-20261031/g8-supervisor-helper-controls/README.md).
+The [initial failed fixture](../../../evidence/runtime-20261031/g8-supervisor-nonrace-helper-failure/README.md)
+remains retained. Actual child-Docker qualification for this source remains
+pending; earlier source-qualified Docker proofs are not relabelled.

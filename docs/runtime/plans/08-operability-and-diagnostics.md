@@ -13,6 +13,46 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## Supervisor diagnostic checkpoint (2026-10-31)
+
+Source `0318bc5b` replaces supervisor control errors with seventeen fixed JSON
+codes, sharing the bounded nonblocking process transport. Each code gets one
+attempt per supervision invocation across retries and handoffs. No error text,
+paths, argv, environment or guest payload is accepted. The supervisor has no
+validated workload owner (`owner_known: false`); numeric PID/time fields neither
+attest incarnation nor authorize cleanup. Existing worker stdio forwarding remains
+unchanged; best-effort diagnostics can be lost on exit or pressure.
+
+The first GCE non-race fixture exposed an idle test helper's empty-select deadlock.
+It remains failed with its original invocation/log/binary/driver and no qualifying
+receipt. Source `6e303b6c` fixes the helper using a pending sleep timer. Local
+non-race/race controls, full runtime race and required checks pass. A separate new
+GCE unit, invocation `c3141d4f01b145598b685f474563f8e3`, exits success/zero.
+Actual SIGKILL restart/PID cleanup succeeds with captured stderr and a full
+undrained real stderr pipe; private proxy-error reap and ten-crash exhaustion
+cleanup also pass. Fixture children are gone before the driver takes its final
+snapshot; terminal MainPID is zero.
+
+The user restart is observed as boot `223a37e4`, distinct from prior cold
+restoration `1fca807b`. Four fresh service PIDs, seven file hashes, same-boot
+Docker/network snapshots and 111 prior diagnostic artifact hashes match before
+and after. File hashes and persistent Docker engine/images/containers/volumes also
+match the prior restoration; cross-boot network identity parity and retained-data
+content rehashing are outside this fixture. Original transport remains at zero
+references, all CPUs online, with no child/pool/VSOCK. Installed services and
+kernel backends were not modified.
+
+This closes the supervisor diagnostic fault checkpoint, with a separate source
+and scope from prior actual Docker proofs. Actual child-Docker qualification for
+6e303b6c, remaining daemon/Task RPC errors, aggregate pressure, rotation/retention,
+readiness/provenance and full G7/G8 remain open. No nested virtualization is used;
+direct child kernels share host trust after child-kernel compromise.
+
+See the [supervisor contract](../contracts/supervisor-diagnostics.md),
+[local controls](../../../evidence/runtime-20261031/g8-supervisor-helper-controls/README.md),
+[retained failure](../../../evidence/runtime-20261031/g8-supervisor-nonrace-helper-failure/README.md)
+and [GCE proof](../../../evidence/runtime-20261031/g8-supervisor-diagnostics-gce/README.md).
+
 ## Deferred Task-event diagnostic extension (2026-10-30)
 
 Source 3dbf1cf5 adds two fixed codes for deferred publication and startup replay.
