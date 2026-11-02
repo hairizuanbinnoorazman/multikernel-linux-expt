@@ -2,7 +2,7 @@
 set -euo pipefail
 linux_tree=${LINUX_TREE:-"$HOME/src/linux"}
 lab=${LAB_DIR:-"$HOME/multikernel-linux-lab"}
-patch="$lab/patches/linux-v7.0-mk2-vsock-build-safety.patch"
+patch="$lab/patches/linux/linux-v7.0-mk2-vsock-build-safety.patch"
 
 cd "$linux_tree"
 test "$(git rev-parse HEAD)" = 3bdd35b64413da0b4e089ce931bfc2e8b031cbf7

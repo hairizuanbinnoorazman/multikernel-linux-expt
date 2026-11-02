@@ -24,7 +24,7 @@ the same files by experiment theme.
 | Root builders | [`../../scripts/build-daxfs-root.sh`](../../scripts/build-daxfs-root.sh), [`../../scripts/build-daxfs-initramfs.sh`](../../scripts/build-daxfs-initramfs.sh) |
 | Child proofs | [`../../guest/daxfs-bootstrap-init`](../../guest/daxfs-bootstrap-init), [`../../guest/daxfs-proof.sh`](../../guest/daxfs-proof.sh), [`../../guest/docker-proof.sh`](../../guest/docker-proof.sh) |
 | Docker input | [`../../docker/daxfs-proof.Dockerfile`](../../docker/daxfs-proof.Dockerfile) |
-| Compatibility patches | [`../../patches/kerf-v0.2.0-skip-special-files.patch`](../../patches/kerf-v0.2.0-skip-special-files.patch), [`../../patches/kerf-v0.2.0-hardlink-inode-count.patch`](../../patches/kerf-v0.2.0-hardlink-inode-count.patch) |
+| Compatibility patches | [`../../patches/kerf/kerf-v0.2.0-skip-special-files.patch`](../../patches/kerf/kerf-v0.2.0-skip-special-files.patch), [`../../patches/kerf/kerf-v0.2.0-hardlink-inode-count.patch`](../../patches/kerf/kerf-v0.2.0-hardlink-inode-count.patch) |
 | Extended tests | [`../../scripts/test-daxfs-dual-kernel.sh`](../../scripts/test-daxfs-dual-kernel.sh), [`../../scripts/test-daxfs-corruption.py`](../../scripts/test-daxfs-corruption.py) |
 
 ## Direct ext4 feasibility
@@ -45,7 +45,7 @@ the same files by experiment theme.
 | Image preparation | [`../../scripts/mediated-storage-prepare.sh`](../../scripts/mediated-storage-prepare.sh), [`../../scripts/mediated-image-prepare.sh`](../../scripts/mediated-image-prepare.sh) |
 | Root builders | [`../../scripts/build-mediated-transport-initramfs.sh`](../../scripts/build-mediated-transport-initramfs.sh), [`../../scripts/build-mediated-root-initramfs.sh`](../../scripts/build-mediated-root-initramfs.sh) |
 | Lifecycle tests | [`../../scripts/test-mediated-root-a.sh`](../../scripts/test-mediated-root-a.sh), [`../../scripts/test-mediated-dual-root.sh`](../../scripts/test-mediated-dual-root.sh) |
-| Kernel compatibility | [`../../patches/linux-v7.0-mk2-vsock-build-safety.patch`](../../patches/linux-v7.0-mk2-vsock-build-safety.patch) |
+| Kernel compatibility | [`../../patches/linux/linux-v7.0-mk2-vsock-build-safety.patch`](../../patches/linux/linux-v7.0-mk2-vsock-build-safety.patch) |
 
 ## Runtime development
 

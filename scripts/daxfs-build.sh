@@ -28,8 +28,8 @@ apply_kerf_patch() {
 }
 
 # Kerf v0.2.0 needs both fixes to serialize normal OCI root filesystems.
-apply_kerf_patch "$lab_dir/patches/kerf-v0.2.0-skip-special-files.patch"
-apply_kerf_patch "$lab_dir/patches/kerf-v0.2.0-hardlink-inode-count.patch"
+apply_kerf_patch "$lab_dir/patches/kerf/kerf-v0.2.0-skip-special-files.patch"
+apply_kerf_patch "$lab_dir/patches/kerf/kerf-v0.2.0-hardlink-inode-count.patch"
 
 make -C "$daxfs_dir/daxfs" clean KDIR="$linux_dir"
 make -C "$daxfs_dir" -j"$(nproc)" KDIR="$linux_dir" daxfs tools

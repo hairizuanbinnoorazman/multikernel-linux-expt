@@ -126,7 +126,7 @@ sync: ## Copy the verified remote scripts and child init into the VM.
 		$(INSTANCE):~/$(REMOTE_LAB)/docker/ \
 		--project=$(PROJECT) --zone=$(ZONE)
 	$(SSH) --command='mkdir -p ~/$(REMOTE_LAB)/patches'
-	$(GCLOUD) scp patches/*.patch $(INSTANCE):~/$(REMOTE_LAB)/patches/ \
+	$(GCLOUD) scp --recurse patches/* $(INSTANCE):~/$(REMOTE_LAB)/patches/ \
 		--project=$(PROJECT) --zone=$(ZONE)
 	$(GCLOUD) scp scripts/*.sh scripts/*.py \
 		$(INSTANCE):~/$(REMOTE_LAB)/scripts/ \

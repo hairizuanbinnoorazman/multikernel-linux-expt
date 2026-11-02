@@ -183,7 +183,7 @@ restore failures. This is recorded for deferred-publication/ownership-correct
 cleanup, not presented as solved by the mapping fixtures.
 
 
-The [twelfth overlay](../../../kernel-patches/g7/0012-defer-boot-instance-publication.patch)
+The [twelfth overlay](../../../patches/linux/g7/0012-defer-boot-instance-publication.patch)
 defers boot instance IDR/list publication until preparation completes and uses
 private cleanup for partial resource-description copies and borrowed mappings.
 [Source/object and modeled fault proof](../../../evidence/runtime-20261012/g7-kernel-restore-publication/README.md)
@@ -192,7 +192,7 @@ host channel failures retain the prior warning policy. Full cumulative build and
 new host/guest acceptance remain separate from this proof.
 
 
-The [thirteenth overlay](../../../kernel-patches/g7/0013-stop-boot-on-invalid-resource-handoff.patch)
+The [thirteenth overlay](../../../patches/linux/g7/0013-stop-boot-on-invalid-resource-handoff.patch)
 fixes permissive continuation after an invalid boot handoff or restore failure.
 Bad/duplicate handoffs halt during population; the dedicated initcall halts on
 restore errors or absent root policy. Required child DTB/positive ID refusal and
@@ -205,7 +205,7 @@ is preserved in focused checks; actual host/guest boot and recovery policy remai
 unqualified. CPU-assignment semantic validation and rollback remain open.
 
 
-The [fourteenth overlay](../../../kernel-patches/g7/0014-commit-validated-boot-cpu-policy-at-publication.patch)
+The [fourteenth overlay](../../../patches/linux/g7/0014-commit-validated-boot-cpu-policy-at-publication.patch)
 replaces permissive CPU-mask restoration with private policy preparation. It
 requires a nonempty resolvable/present assignment, rejects aliases and requires
 the boot CPU. The present mask is copied only after complete resource/object
@@ -217,7 +217,7 @@ that boot path at source level; early topology registration, physical ownership
 and actual new-kernel host/guest behavior remain separate.
 
 
-The [fifteenth overlay](../../../kernel-patches/g7/0015-pci-refuse-domain-aliases-and-failed-bridge-reads.patch)
+The [fifteenth overlay](../../../patches/linux/g7/0015-pci-refuse-domain-aliases-and-failed-bridge-reads.patch)
 keeps PCI domain values wide until checking representability and refuses failed
 secondary/subordinate bridge reads even when they fill plausible data.
 [Exact guard/object proof](../../../evidence/runtime-20261012/g7-kernel-pci-policy/README.md)

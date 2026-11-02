@@ -61,7 +61,7 @@ deliberately retained and remain billable.
 The pinned tree contains `CONFIG_MULTIKERNEL_VSOCKETS`, but it was disabled in
 the saved config and did not compile when first enabled. The callback type of
 `stream_allow` was stale relative to the same pinned kernel. The checked patch
-[`linux-v7.0-mk2-vsock-build-safety.patch`](../../../patches/linux-v7.0-mk2-vsock-build-safety.patch)
+[`linux-v7.0-mk2-vsock-build-safety.patch`](../../../patches/linux/linux-v7.0-mk2-vsock-build-safety.patch)
 fixes that build break and rejects inconsistent receive lengths before an skb
 is queued.
 

@@ -175,10 +175,10 @@ only 40 unique inodes—405 entries were hardlink aliases—because BusyBox
 applets are hardlinks. Two separately
 documented fixes were needed:
 
-1. [`kerf-v0.2.0-skip-special-files.patch`](../../../patches/kerf-v0.2.0-skip-special-files.patch)
+1. [`kerf-v0.2.0-skip-special-files.patch`](../../../patches/kerf/kerf-v0.2.0-skip-special-files.patch)
    omits device nodes, FIFOs, and sockets. DAXFS supports directories, regular
    files, and symlinks; the child mounts devtmpfs at boot.
-2. [`kerf-v0.2.0-hardlink-inode-count.patch`](../../../patches/kerf-v0.2.0-hardlink-inode-count.patch)
+2. [`kerf-v0.2.0-hardlink-inode-count.patch`](../../../patches/kerf/kerf-v0.2.0-hardlink-inode-count.patch)
    sizes and reports the inode table by unique allocated inode count rather
    than directory-entry count. Without it, the serialized image contains
    phantom zero-mode inodes.
