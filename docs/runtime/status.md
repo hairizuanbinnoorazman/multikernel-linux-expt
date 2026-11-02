@@ -18,9 +18,17 @@ pass captured, full-undrained and closed stderr with original daemon exit status
 private-state redaction and descriptor bounds. Development SIGPIPE failure and
 sandbox netlink refusal remain separately retained. GCE primary state and all
 129 prior diagnostic artifact identities/content hashes match; installed services
-and kernel backends were not changed. New actual child-Docker qualification for
-this source remains pending; earlier source-qualified Docker results retain their
-scope. Inspector/RPC/flag output, other producers, retention/aggregate pressure,
+and kernel backends were not changed during that private fixture. A subsequent
+[actual child-Docker regression](../../evidence/runtime-20261031/g8-live-docker-daemon-terminal-diagnostics/README.md)
+now passes for this source: workload 6c818661 and parent a80c7a95 exit success/zero.
+ENOSPC/recovery, multistage/repeat/cache builds, run/save, intentional exit-37
+rejection, exact guest/primary engine-image separation and normal cleanup pass.
+The three eight-report holds take 119.906, 118.827 and 105.115 ms within their
+shared ten-second budgets; network health and journal 6/6/10 joins pass. Private
+terminal stderr faults were not injected during Docker and retain their separate
+source-qualified fixture proof. Cold restoration remains a separate pending
+checkpoint; no hot unload follows traffic. Earlier source-qualified Docker
+results retain their scope. Inspector/RPC/flag output, other producers, retention/aggregate pressure,
 readiness/provenance and full G7/G8 remain open. No nested virtualization is used;
 direct child kernels share host trust after child-kernel compromise.
 

@@ -83,8 +83,11 @@ The [local evidence](../../../evidence/runtime-20261031/g8-daemon-terminal-contr
 and [GCE private fixture](../../../evidence/runtime-20261031/g8-daemon-terminal-gce/README.md)
 now qualify these fault controls for source `312bb5e2`. The GCE unit exits
 success/zero, primary state and 129 prior diagnostic artifacts match, and no
-installed service or kernel backend is modified. New actual child-Docker
-qualification remains pending. Earlier source-qualified proofs are not relabelled. Direct child kernels require
+installed service or kernel backend is modified. The subsequent [actual child-Docker regression](../../../evidence/runtime-20261031/g8-live-docker-daemon-terminal-diagnostics/README.md)
+also passes for this source with engine/image separation and normal cleanup.
+Terminal stderr faults were not injected during Docker and retain their separate
+fixture proof. Cold restoration remains a separate checkpoint. Earlier
+source-qualified proofs are not relabelled. Direct child kernels require
 no nested virtualization; the target compute instances cannot use nested
 virtualization as a containment solution. Primary and child kernels share host
 trust after child-kernel compromise; full G7/G8 remain open.
