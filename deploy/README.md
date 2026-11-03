@@ -113,6 +113,8 @@ partial main config or replace an existing one. Restart only on an idle
 disposable host, then verify CRI still reports `runc` as its default and the
 new handler separately. Remove only this fragment to roll back.
 
+## Docker registration
+
 For Docker versions that
 require explicit registration, merge the opt-in entry without overwriting any
 existing daemon settings:
@@ -157,6 +159,8 @@ sudo dockerd --validate --config-file "$candidate"
 
 Retain the exact previous configuration before installing the candidate so the
 policy change can be rolled back byte-for-byte after qualification.
+
+## Runtime configuration and storage
 
 Install a strict `/etc/mkruntime/config.json` from the documented host-config
 contract, mount the qualified `mk-mediated-storage` filesystem at

@@ -2,6 +2,9 @@
 
 - [`status.md`](status.md): proved results, current client feature matrix, and
   safety boundary.
+- [Archived checkpoint notes](history/readme-checkpoints-2026-11-03.md): the
+  topic-grouped progress narrative moved out of the root README; historical
+  statements retain their original source and scope.
 - [`architecture.md`](architecture.md): target components, lifecycle, and trust
   boundary.
 - [`decisions/`](decisions/): architecture decision records.

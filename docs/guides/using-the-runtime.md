@@ -66,17 +66,22 @@ sudo ctr containers rm mk-ctr-demo
 ## Pull and run with Docker
 
 Docker may require the opt-in registration described in
-[`deploy/README.md`](../../deploy/README.md). Verify that registration did not
+[Docker deployment instructions](../../deploy/README.md#docker-registration). Verify that registration did not
 change Docker's default runtime.
 
 ```bash
+cat /proc/sys/kernel/random/boot_id
 sudo docker pull docker.io/library/busybox:1.36
 sudo docker run --rm \
   --runtime io.containerd.multikernel.v2 \
   --network none \
   docker.io/library/busybox:1.36 \
-  /bin/sh -c 'uname -r; echo hello-from-child'
+  /bin/sh -c 'uname -r; cat /proc/sys/kernel/random/boot_id; echo hello-from-child'
 ```
+
+The first boot ID belongs to the primary. The container should print a different
+child boot ID, its kernel release and `hello-from-child`. After `--rm` completes,
+use the [cleanup checks](#end-of-session-cleanup) to verify resource return.
 
 For a split lifecycle:
 
@@ -193,8 +198,8 @@ Unsupported seccomp, hooks, writable or propagating mounts, and unapproved OCI
 fields fail closed. Kubernetes `RuntimeClass` is a deferred G12 gate, not a
 supported workflow in this guide.
 
-For the current claim-by-claim status, consult the root
-[`README.md`](../../README.md) and the
+For current claim-by-claim results, consult
+[project and runtime status](../runtime/status.md) and the
 [G4-G6 remediation checklist](../runtime/learnings/g4-g6-remediation-checklist.md).
 
 ## End-of-session cleanup

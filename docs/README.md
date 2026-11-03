@@ -26,6 +26,9 @@ storage and lifecycle theme.
   the current `ctr`/Docker feature matrix, and the runtime safety boundary.
 - [`runtime/pool-capacity.md`](runtime/pool-capacity.md) defines bounded configured,
   durable and kernel pool observations and their admission/readiness limits.
+- [Archived runtime checkpoint notes](runtime/history/readme-checkpoints-2026-11-03.md)
+  preserve the detailed progress/evidence narrative formerly in the root README,
+  grouped by topic with its original qualification scope.
 - [`runtime/architecture.md`](runtime/architecture.md) defines the target
   system, trust boundary, component ownership, and lifecycle.
 - [`runtime/decisions/0001-build-a-new-runtime.md`](runtime/decisions/0001-build-a-new-runtime.md)
@@ -45,3 +48,12 @@ storage and lifecycle theme.
 New runtime evidence should be stored under `evidence/runtime-YYYYMMDD/` with
 an index describing the source revision, environment, command, result, and
 cleanup state.
+
+## Where updates belong
+
+Keep the root README focused on the project, a first workload and navigation.
+Put operational commands in `guides/`, maintained results and limitations in
+`runtime/status.md`, and acceptance criteria in `runtime/plans/`. Keep dated
+checkpoint narratives in `runtime/history/` and source-bound commands, receipts
+and proof under `evidence/`; link them from the maintained docs instead of
+appending progress reports to the root README.
