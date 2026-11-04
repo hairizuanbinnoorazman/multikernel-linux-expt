@@ -21,7 +21,9 @@ rollback, retained MOUNTED/PREPARED ownership, reconciliation, exact-identity re
 stale cleanup refusal, missing bundle paths and malformed/unsupported classification.
 Daemon/rootfs race suites, full runtime race and required checks pass outside the
 sandbox's synthetic permission view; its original refusal remains separately retained.
-These fake-backend controls do not qualify actual Linux mount/child-Docker failures.
+The separate [GCE v2 fixture](../../../evidence/runtime-20261104/g8-rootfs-rpc-gce/README.md)
+also passes, preserving all 183 artifacts and its failed predecessor. These
+fake-backend controls do not qualify actual Linux mount/child-Docker failures.
 
 Task errors, other producers, aggregate diagnostic pressure/retention, provenance/
 readiness and full G7/G8 retain separate scope. No nested virtualization is used;

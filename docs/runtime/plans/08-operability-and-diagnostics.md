@@ -13,6 +13,24 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## Rootfs RPC error checkpoint (2026-11-04)
+
+Runtime source `e467a53b` adds [fixed rootfs RPC failure replies](../contracts/rootfs-rpc-errors.md).
+Prepare/Validate/CleanupRootfs no longer reflect private backend/filesystem errors;
+failed preparation omits its result body. Codes/retry flags and internal ownership,
+rollback/reconciliation behavior remain intact. [Local wire/state/race/required controls](../../../evidence/runtime-20261104/g8-rootfs-rpc-controls/README.md)
+pass. The first GCE qualification loader fails before testing; [its original failure](../../../evidence/runtime-20261104/g8-rootfs-rpc-fixture-loader-failure/README.md)
+is preserved, with no test log or success receipt. Helper source `8604f450` selects
+retained definitions by AST assignment boundary, avoiding literal markers inside
+strings without replaying phase branches. A separate [v2 GCE fixture](../../../evidence/runtime-20261104/g8-rootfs-rpc-gce/README.md)
+passes success/zero (`def59f35`) on boot `fd5f3a6d`: concrete rootfs service/store
+recovery, stale-identity refusal and classification pass with controlled backends.
+All 183 prior artifacts and six failed-v1 files match; installed services and
+kernel backends are unchanged. Actual new-source Docker remains separate.
+Task errors, other producers, aggregate pressure/retention, provenance/readiness
+and full G7/G8 remain open. No nested virtualization is used; direct child kernels
+share host trust after child-kernel compromise.
+
 ## RPC client errors and ATTACH cancellation (2026-11-04)
 
 Source `7e973e47` adds [fixed local RPC client errors](../contracts/rpc-client-errors.md).
