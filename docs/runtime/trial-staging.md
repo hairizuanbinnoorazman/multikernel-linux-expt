@@ -103,3 +103,17 @@ preserved; its repair uses a separate generation. No hot unload follows traffic.
 The [separate v2 cold restoration](../../evidence/runtime-20261104/g8-live-docker-network-mutation-cold-restoration/README.md)
 passes with the pinned validator, original transport and all 165 diagnostic
 artifacts preserved. Its runtime remains source-qualified to `9362d5a4`.
+
+## Reusing retained fixture definitions
+
+Hash-pin and review retained Python source before executing its read-only
+prefix. Use [the AST boundary helper](../../scripts/runtime_fixture_definitions.py)
+to select the prefix before one top-level assignment. Literal text splitting
+can match a marker inside a string/comment or nested function, truncating checks
+or producing invalid code. Missing, duplicate or compound boundaries must refuse.
+The helper selects text; it does not sandbox arbitrary Python or establish that
+the prefix is read-only. Review and source integrity remain caller obligations.
+
+The [retained rootfs qualification refusal](../../evidence/runtime-20261104/g8-rootfs-rpc-fixture-loader-failure/README.md)
+records this failure before any runtime test executed. Its repair preserves the
+failed directory/unit and uses a separate v2 generation with the pinned helper.
