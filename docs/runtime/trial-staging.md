@@ -84,3 +84,18 @@ isolation, live version-5 doctor and normal cleanup](../../evidence/runtime-2026
 Its [cold restoration](../../evidence/runtime-20261028/g8-live-combined-cold-restoration/README.md)
 also passes with original transport and retained data preserved. Complete G7/G8
 remains open.
+
+## Module taints across trial and restoration
+
+The same-boot trial may add the externally-built/unsigned module origin bits
+(O/E), but must preserve every prior bit and reject every other addition. The
+[shared validator](../../scripts/runtime_module_taint.py) returns the exact
+observed post-load value; callers must bind its boot and module identities.
+Recovery preflight must compare against that candidate value rather than the
+original-module baseline. A cold reboot is a distinct epoch: restoration must
+independently check the original module and its expected baseline taint.
+
+The [retained refusal and repair](../../evidence/runtime-20261104/g8-module-taint-cold-preflight/README.md)
+record a preflight that incorrectly required original taint 8192 after an allowed
+candidate transition to 12288. The failed invocation/procedure/journal remain
+preserved; its repair uses a separate generation. No hot unload follows traffic.
