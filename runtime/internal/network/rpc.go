@@ -343,7 +343,7 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		device, openErr := opener(*response.Endpoint)
 		if openErr != nil {
 			response.Endpoint = nil
-			response.Error = &APIError{Code: "INTERNAL", Message: openErr.Error(), Retryable: true}
+			response.Error = &APIError{Code: "INTERNAL", Message: "network device attachment failed", Retryable: true}
 			encoded, _ = json.Marshal(response)
 			encoded = append(encoded, '\n')
 		} else {

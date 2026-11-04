@@ -170,17 +170,17 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 			return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "endpoint allocation is incomplete and requires reconciliation", Retryable: true}
 		}
 		if err := s.Backend.Check(ctx, existing); err != nil {
-			return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: err.Error(), Retryable: true}
+			return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "network backend check failed", Retryable: true}
 		}
 		return existing, nil
 	}
 	address, gateway, err := s.allocate()
 	if err != nil {
-		return Endpoint{}, &APIError{Code: "RESOURCE_EXHAUSTED", Message: err.Error()}
+		return Endpoint{}, &APIError{Code: "RESOURCE_EXHAUSTED", Message: "network address pool is exhausted"}
 	}
 	gen, err := generation()
 	if err != nil {
-		return Endpoint{}, &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "endpoint generation failed", Retryable: true}
 	}
 	now := s.now()
 	requested.Generation, requested.Address, requested.Gateway = gen, address, gateway
@@ -194,7 +194,7 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 		requested.NetNS = managedNamespacePath(requested.Generation)
 	}
 	if err = s.Store.Put(requested); err != nil {
-		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "journal endpoint allocation: " + err.Error(), Retryable: true}
+		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "endpoint allocation persistence failed", Retryable: true}
 	}
 	if requested.ManagedNamespace {
 		namespaces := s.Backend.(NamespaceBackend)
@@ -205,14 +205,14 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 			if rollbackErr == nil {
 				rollbackErr = s.discardAllocationRecord(requested)
 			}
-			return Endpoint{}, &APIError{Code: "INTERNAL", Message: errors.Join(err, rollbackErr).Error(), Retryable: true}
+			return Endpoint{}, allocationFailure("network namespace creation failed", rollbackErr)
 		}
 		if created != requested.NetNS {
 			rollbackErr := s.rollbackAllocation(requested)
 			if rollbackErr == nil {
 				rollbackErr = s.discardAllocationRecord(requested)
 			}
-			return Endpoint{}, &APIError{Code: "INTERNAL", Message: errors.Join(errors.New("network backend returned a non-deterministic namespace path"), rollbackErr).Error(), Retryable: true}
+			return Endpoint{}, allocationFailure("network namespace identity mismatch", rollbackErr)
 		}
 	}
 	if err = s.Backend.Add(ctx, requested); err != nil {
@@ -220,7 +220,7 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 		if rollbackErr == nil {
 			rollbackErr = s.discardAllocationRecord(requested)
 		}
-		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "endpoint ADD rolled back: " + errors.Join(err, rollbackErr).Error(), Retryable: true}
+		return Endpoint{}, allocationFailure("network endpoint creation failed", rollbackErr)
 	}
 	requested.State = "READY"
 	requested.UpdatedAt = s.now()
@@ -229,9 +229,20 @@ func (s *Service) Add(ctx context.Context, requested Endpoint) (Endpoint, *APIEr
 		if rollbackErr == nil {
 			rollbackErr = s.discardAllocationRecord(requested)
 		}
-		return Endpoint{}, &APIError{Code: "INTERNAL", Message: errors.Join(err, rollbackErr).Error(), Retryable: true}
+		return Endpoint{}, allocationFailure("endpoint readiness persistence failed", rollbackErr)
 	}
 	return requested, nil
+}
+
+// allocationFailure accepts only a fixed stage description from this package.
+// Backend and persistence errors must never be reflected in mutation replies.
+// A failed cleanup retains its generation-qualified record for reconciliation.
+func allocationFailure(stage string, rollbackErr error) *APIError {
+	outcome := "; allocation rolled back"
+	if rollbackErr != nil {
+		outcome = "; rollback incomplete; reconciliation required"
+	}
+	return &APIError{Code: "INTERNAL", Message: stage + outcome, Retryable: true}
 }
 
 func (s *Service) Check(ctx context.Context, requested Endpoint) (Endpoint, *APIError) {
@@ -257,7 +268,7 @@ func (s *Service) Check(ctx context.Context, requested Endpoint) (Endpoint, *API
 		return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "endpoint is in a transitional state", Retryable: true}
 	}
 	if err := s.Backend.Check(ctx, existing); err != nil {
-		return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: err.Error(), Retryable: true}
+		return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "network backend check failed", Retryable: true}
 	}
 	return existing, nil
 }
@@ -285,11 +296,11 @@ func (s *Service) Delete(ctx context.Context, requested Endpoint) *APIError {
 		existing.State = "DELETING"
 		existing.UpdatedAt = s.now()
 		if err := s.Store.Put(existing); err != nil {
-			return &APIError{Code: "INTERNAL", Message: "journal endpoint deletion: " + err.Error(), Retryable: true}
+			return &APIError{Code: "INTERNAL", Message: "endpoint deletion transition persistence failed", Retryable: true}
 		}
 	}
 	if err := s.Backend.Delete(ctx, existing); err != nil {
-		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		return &APIError{Code: "INTERNAL", Message: "network endpoint deletion failed", Retryable: true}
 	}
 	if existing.ManagedNamespace {
 		namespaces, ok := s.Backend.(NamespaceBackend)
@@ -297,11 +308,11 @@ func (s *Service) Delete(ctx context.Context, requested Endpoint) *APIError {
 			return &APIError{Code: "INTERNAL", Message: "managed endpoint backend cannot delete namespaces"}
 		}
 		if err := namespaces.DeleteNamespace(ctx, existing.NetNS); err != nil {
-			return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+			return &APIError{Code: "INTERNAL", Message: "network namespace deletion failed", Retryable: true}
 		}
 	}
 	if err := s.Store.Delete(existing.NetworkName, existing.ContainerID, existing.IfName); err != nil {
-		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		return &APIError{Code: "INTERNAL", Message: "endpoint record deletion persistence failed", Retryable: true}
 	}
 	return nil
 }
@@ -335,12 +346,12 @@ func (s *Service) Bind(ctx context.Context, requested Endpoint) (Endpoint, *APIE
 		return Endpoint{}, &APIError{Code: "ALREADY_EXISTS", Message: "endpoint is bound to a different sandbox generation"}
 	}
 	if err := s.Backend.Check(ctx, *match); err != nil {
-		return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: err.Error(), Retryable: true}
+		return Endpoint{}, &APIError{Code: "FAILED_PRECONDITION", Message: "network backend check failed", Retryable: true}
 	}
 	match.SandboxID, match.SandboxGeneration = requested.SandboxID, requested.SandboxGeneration
 	match.UpdatedAt = s.now()
 	if err := s.Store.Put(*match); err != nil {
-		return Endpoint{}, &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		return Endpoint{}, &APIError{Code: "INTERNAL", Message: "endpoint binding persistence failed", Retryable: true}
 	}
 	return *match, nil
 }
@@ -402,14 +413,14 @@ func (s *Service) Release(ctx context.Context, requested Endpoint) *APIError {
 		match.State = "DELETING"
 		match.UpdatedAt = s.now()
 		if err := s.Store.Put(*match); err != nil {
-			return &APIError{Code: "INTERNAL", Message: "journal runtime endpoint deletion: " + err.Error(), Retryable: true}
+			return &APIError{Code: "INTERNAL", Message: "runtime endpoint deletion transition persistence failed", Retryable: true}
 		}
 	}
 	if err := s.rollbackAllocation(*match); err != nil {
-		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		return &APIError{Code: "INTERNAL", Message: "runtime endpoint cleanup failed", Retryable: true}
 	}
 	if err := s.discardAllocationRecord(*match); err != nil {
-		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		return &APIError{Code: "INTERNAL", Message: "runtime endpoint record deletion persistence failed", Retryable: true}
 	}
 	return nil
 }
@@ -437,7 +448,7 @@ func (s *Service) Unbind(requested Endpoint) *APIError {
 	match.SandboxID, match.SandboxGeneration = "", ""
 	match.UpdatedAt = s.now()
 	if err := s.Store.Put(*match); err != nil {
-		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		return &APIError{Code: "INTERNAL", Message: "endpoint unbinding persistence failed", Retryable: true}
 	}
 	return nil
 }
@@ -475,7 +486,7 @@ func (s *Service) Report(requested Endpoint) *APIError {
 	match.RXDrops, match.TXDrops, match.Errors = requested.RXDrops, requested.TXDrops, requested.Errors
 	match.State, match.UpdatedAt = requested.State, s.now()
 	if err := s.Store.Put(*match); err != nil {
-		return &APIError{Code: "INTERNAL", Message: err.Error(), Retryable: true}
+		return &APIError{Code: "INTERNAL", Message: "endpoint counter persistence failed", Retryable: true}
 	}
 	return nil
 }
