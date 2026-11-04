@@ -27,7 +27,9 @@ retains failing-before/fixed-after controls, network race tests, complete runtim
 race tests and required checks. The synthetic payload is deliberately repeated
 and includes a private path; assertions inspect API JSON and actual ATTACH wire
 output without logging the payload. Rollback failure/reconciliation controls
-check that bounded replies do not conceal ownership or change recovery.
+check that bounded replies do not conceal ownership or change recovery. The
+[GCE private fault fixture](../../../evidence/runtime-20261104/g8-network-mutation-gce/README.md)
+passes for the same source with unchanged primary services and transport.
 
 Internal reconciliation errors, other daemon/Task RPC producers, flag/inspector
 output, aggregate pressure and complete G7/G8 acceptance retain separate scope.

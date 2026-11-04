@@ -11,8 +11,9 @@ backend, namespace, device and persistence failures no longer reflect private
 error text into replies. Existing codes, retry flags and generation-qualified
 cleanup remain intact; incomplete rollback explicitly requires reconciliation.
 [Red/green controls, network race tests, full runtime race tests and required checks](../../evidence/runtime-20261104/g8-network-mutation-controls/README.md)
-pass. New-source actual child-Docker qualification and other RPC producers remain
-open; earlier actual Docker results keep their source scope.
+pass. The [GCE private fault fixture](../../evidence/runtime-20261104/g8-network-mutation-gce/README.md)
+also passes with unchanged primary services and transport. New-source actual
+child-Docker qualification and other RPC producers remain open; earlier actual Docker results keep their source scope.
 
 The [read-only GCE restart audit](../../evidence/runtime-20261104/g8-user-restart-preservation/README.md)
 passes on boot `3f4121cf`: original transport, 93 retained files / 12 images,
