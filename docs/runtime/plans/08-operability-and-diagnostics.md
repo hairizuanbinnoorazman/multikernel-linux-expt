@@ -27,8 +27,13 @@ and the [GCE private fixture](../../../evidence/runtime-20261104/g8-rpc-client-g
 successful descriptor transfer and descriptor closure after truncation. GCE
 invocation `3009023f` exits success/zero on restored boot `50deb61b`; primary state
 and all 165 diagnostic artifacts/prior fault and failure proofs remain unchanged.
-Installed services/kernel backends are not changed. New-source actual child
-Docker remains separate; server-side rootfs/Task errors, other producers,
+Installed services/kernel backends are not changed in that fixture. The separate
+[actual Docker regression](../../../evidence/runtime-20261104/g8-live-docker-rpc-client/README.md)
+now passes for the same source: workload `31f3baaf` and parent `9d95bea8` exit
+success/zero. Builds/ENOSPC recovery, engine/image boundary, authority and normal
+cleanup pass; eight-report holds take 112.137, 112.328 and 99.627 ms. Private
+faults were not injected during Docker. Cold restoration, server-side rootfs/Task
+errors, other producers,
 aggregate pressure/retention, provenance/readiness and full G7/G8 remain open.
 No nested virtualization is used; direct child kernels share host trust after
 child-kernel compromise.
