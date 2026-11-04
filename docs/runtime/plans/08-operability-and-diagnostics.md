@@ -21,8 +21,12 @@ error text into replies. Existing codes, retry flags and generation-qualified
 cleanup remain intact; incomplete rollback explicitly requires reconciliation.
 [Red/green controls, network race tests, full runtime race tests and required checks](../../../evidence/runtime-20261104/g8-network-mutation-controls/README.md)
 pass. The [GCE private fault fixture](../../../evidence/runtime-20261104/g8-network-mutation-gce/README.md)
-also passes with unchanged primary services and transport. New-source actual
-child-Docker qualification and other RPC producers remain open; earlier actual Docker results keep their source scope.
+also passes with unchanged primary services and transport. [Actual child-Docker qualification](../../../evidence/runtime-20261104/g8-live-docker-network-mutation/README.md)
+now passes for the same source: workload `e490f774` and parent `a71e19e8` exit
+success/zero. ENOSPC/recovery, builds/run/save/exit-37, engine/image separation,
+normal cleanup and three eight-report holds (113.055, 113.012, 95.793 ms) pass.
+Private faults retain their separate fixture scope. Cold restoration and other
+RPC producers remain open; earlier actual Docker results keep their source scope.
 
 The [read-only GCE restart audit](../../../evidence/runtime-20261104/g8-user-restart-preservation/README.md)
 passes on boot `3f4121cf`: original transport, 93 retained files / 12 images,
