@@ -13,6 +13,27 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## Network mutation replies and restart audit (2026-11-04)
+
+Source `9362d5a4` adds [fixed network mutation errors](../contracts/network-mutation-errors.md):
+backend, namespace, device and persistence failures no longer reflect private
+error text into replies. Existing codes, retry flags and generation-qualified
+cleanup remain intact; incomplete rollback explicitly requires reconciliation.
+[Red/green controls, network race tests, full runtime race tests and required checks](../../../evidence/runtime-20261104/g8-network-mutation-controls/README.md)
+pass. New-source actual child-Docker qualification and other RPC producers remain
+open; earlier actual Docker results keep their source scope.
+
+The [read-only GCE restart audit](../../../evidence/runtime-20261104/g8-user-restart-preservation/README.md)
+passes on boot `3f4121cf`: original transport, 93 retained files / 12 images,
+147 diagnostic artifacts and prior fault/failure evidence are preserved.
+The saved source-`312bb5e2` restoration receipt and persistent journal establish
+historical completion on boot `89c37f4a`; after the user's further restart its
+transient unit is absent, so no historical numeric exit status or immediate
+post-restoration cloud-ledger comparison is claimed. Exported proof is an
+allowlisted summary; richer receipts remain private on the VM. Cross-boot network
+identity parity and full G7/G8 remain open. No nested virtualization is used;
+direct child kernels share host trust after child-kernel compromise.
+
 ## Daemon terminal diagnostic checkpoint (2026-10-31)
 
 Source `312bb5e2` adds [bounded daemon terminal diagnostics](../contracts/daemon-terminal-diagnostics.md).
@@ -35,8 +56,8 @@ rejection, exact guest/primary engine-image separation and normal cleanup pass.
 The three eight-report holds take 119.906, 118.827 and 105.115 ms within their
 shared ten-second budgets; network health and journal 6/6/10 joins pass. Private
 terminal stderr faults were not injected during Docker and retain their separate
-source-qualified fixture proof. Cold restoration remains a separate pending
-checkpoint; no hot unload follows traffic. Earlier source-qualified Docker
+source-qualified fixture proof. Cold restoration is recorded in the qualified restart audit above; no hot unload
+follows traffic. Earlier source-qualified Docker
 results retain their scope. Inspector/RPC/flag output, other producers, retention/aggregate pressure,
 readiness/provenance and full G7/G8 remain open. No nested virtualization is used;
 direct child kernels share host trust after child-kernel compromise.
