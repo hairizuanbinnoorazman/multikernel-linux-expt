@@ -431,7 +431,8 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 		var e error
 		out.Body, e = s.Rootfs.Prepare(ctx, request)
 		if e != nil {
-			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: e.Error()}
+			out.Body = nil
+			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: "rootfs preparation failed"}
 		}
 	case "ValidateRootfs":
 		if s.Rootfs == nil {
@@ -444,7 +445,7 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			break
 		}
 		if e := s.Rootfs.Validate(ctx, request); e != nil {
-			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: e.Error()}
+			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: "rootfs validation failed"}
 		} else {
 			out.Body = map[string]bool{"validated": true}
 		}
@@ -459,7 +460,7 @@ func (s *Server) Dispatch(ctx context.Context, r protocol.Request) protocol.Resp
 			break
 		}
 		if e := s.Rootfs.Cleanup(ctx, request); e != nil {
-			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: e.Error()}
+			out.Error = &protocol.Error{Code: "FAILED_PRECONDITION", Message: "rootfs cleanup failed"}
 		} else {
 			out.Body = map[string]bool{"cleaned": true}
 		}
