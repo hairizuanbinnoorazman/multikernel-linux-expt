@@ -13,6 +13,26 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## RPC client errors and ATTACH cancellation (2026-11-04)
+
+Source `7e973e47` adds [fixed local RPC client errors](../contracts/rpc-client-errors.md).
+Daemon/network connection, deadline, write and read failures no longer expose
+local socket paths or transport payloads. The result does not retain an unwrap
+chain to the private cause. Standard context sentinels, daemon codes/retry flags
+and authenticated server replies retain their semantics. Network clients refuse
+pre-cancelled dialing and failed deadline setup; ATTACH now promptly cancels a
+blocked real Unix descriptor receive and joins its socket-close callback.
+[Local red/green, focused/full runtime race and required controls](../../../evidence/runtime-20261104/g8-rpc-client-controls/README.md)
+and the [GCE private fixture](../../../evidence/runtime-20261104/g8-rpc-client-gce/README.md) pass, including
+successful descriptor transfer and descriptor closure after truncation. GCE
+invocation `3009023f` exits success/zero on restored boot `50deb61b`; primary state
+and all 165 diagnostic artifacts/prior fault and failure proofs remain unchanged.
+Installed services/kernel backends are not changed. New-source actual child
+Docker remains separate; server-side rootfs/Task errors, other producers,
+aggregate pressure/retention, provenance/readiness and full G7/G8 remain open.
+No nested virtualization is used; direct child kernels share host trust after
+child-kernel compromise.
+
 ## Network mutation replies and restart audit (2026-11-04)
 
 Source `9362d5a4` adds [fixed network mutation errors](../contracts/network-mutation-errors.md):

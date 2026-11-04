@@ -30,5 +30,7 @@ aggregate diagnostic pressure/retention and full G7/G8 remain separate work.
 
 [Local controls](../../../evidence/runtime-20261104/g8-rpc-client-controls/README.md)
 retain failing-before/fixed-after tests, race tests, complete runtime race and
-required checks. No nested virtualization or new containment boundary is added;
+required checks. The [GCE private fixture](../../../evidence/runtime-20261104/g8-rpc-client-gce/README.md)
+also passes for this source, preserving primary state and all 165 diagnostic
+artifacts; installed daemons and kernel backends are not changed. No nested virtualization or new containment boundary is added;
 direct child kernels share host trust after child-kernel compromise.
