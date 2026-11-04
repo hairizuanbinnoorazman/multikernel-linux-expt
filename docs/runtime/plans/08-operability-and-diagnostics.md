@@ -26,7 +26,11 @@ strings without replaying phase branches. A separate [v2 GCE fixture](../../../e
 passes success/zero (`def59f35`) on boot `fd5f3a6d`: concrete rootfs service/store
 recovery, stale-identity refusal and classification pass with controlled backends.
 All 183 prior artifacts and six failed-v1 files match; installed services and
-kernel backends are unchanged. Actual new-source Docker remains separate.
+kernel backends are unchanged in that fixture. The separate [actual Docker run](../../../evidence/runtime-20261104/g8-live-docker-rootfs-rpc/README.md)
+now passes for the same source: workload `b139efcd` and parent `95bcaaef` exit
+success/zero. Build/ENOSPC recovery, engine/image separation, authority, normal
+cleanup and timed holds (110.172, 110.735, 98.993 ms) pass. Private backend faults
+were not injected during Docker; cold restoration remains separate.
 Task errors, other producers, aggregate pressure/retention, provenance/readiness
 and full G7/G8 remain open. No nested virtualization is used; direct child kernels
 share host trust after child-kernel compromise.
