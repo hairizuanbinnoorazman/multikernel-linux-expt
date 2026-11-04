@@ -8,6 +8,7 @@ import fcntl,hashlib,json,os,pathlib,re,signal,socket,stat,subprocess,time,uuid
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 from runtime_diagnostic_bundle_checkpoint import inspect_fixture_lifecycle_timings
+from runtime_module_taint import expected_module_taint
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
 MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
@@ -137,6 +138,7 @@ finally:
     record('restoration-observed')
 assert state.get('primary_unchanged'),state
 if failure:raise failure
+expected_module_taint(int(state['taint_before']),int(state['taint_after']))
 if RECORD_FAULT=='crash':
     retained=json.loads((WORK/'native-export-crash-retention.json').read_text())
     assert state['pressure_scope']['ExecMainStatus']=='77' and retained['owner_error']['code']=='OPERATOR_ACTION' and not retained['owner_error']['retryable']
