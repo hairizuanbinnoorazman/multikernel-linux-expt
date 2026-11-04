@@ -29,7 +29,11 @@ and includes a private path; assertions inspect API JSON and actual ATTACH wire
 output without logging the payload. Rollback failure/reconciliation controls
 check that bounded replies do not conceal ownership or change recovery. The
 [GCE private fault fixture](../../../evidence/runtime-20261104/g8-network-mutation-gce/README.md)
-passes for the same source with unchanged primary services and transport.
+passes for the same source with unchanged primary services and transport. The
+[actual Docker regression](../../../evidence/runtime-20261104/g8-live-docker-network-mutation/README.md)
+and its [cold restoration](../../../evidence/runtime-20261104/g8-live-docker-network-mutation-cold-restoration/README.md)
+also pass. Private mutation faults were not injected during that Docker run;
+they retain their separate source-qualified fixture scope.
 
 Internal reconciliation errors, other daemon/Task RPC producers, flag/inspector
 output, aggregate pressure and complete G7/G8 acceptance retain separate scope.

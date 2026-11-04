@@ -99,3 +99,7 @@ The [retained refusal and repair](../../evidence/runtime-20261104/g8-module-tain
 record a preflight that incorrectly required original taint 8192 after an allowed
 candidate transition to 12288. The failed invocation/procedure/journal remain
 preserved; its repair uses a separate generation. No hot unload follows traffic.
+
+The [separate v2 cold restoration](../../evidence/runtime-20261104/g8-live-docker-network-mutation-cold-restoration/README.md)
+passes with the pinned validator, original transport and all 165 diagnostic
+artifacts preserved. Its runtime remains source-qualified to `9362d5a4`.

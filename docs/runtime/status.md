@@ -16,8 +16,13 @@ also passes with unchanged primary services and transport. [Actual child-Docker 
 now passes for the same source: workload `e490f774` and parent `a71e19e8` exit
 success/zero. ENOSPC/recovery, builds/run/save/exit-37, engine/image separation,
 normal cleanup and three eight-report holds (113.055, 113.012, 95.793 ms) pass.
-Private faults retain their separate fixture scope. Cold restoration and other
-RPC producers remain open; earlier actual Docker results keep their source scope.
+Private faults retain their separate fixture scope. A taint-baseline preflight
+refusal is preserved; code `bad7da32` adds the exact origin-taint validator and its
+required controls. The separate [cold restoration](../../evidence/runtime-20261104/g8-live-docker-network-mutation-cold-restoration/README.md)
+passes on boot `50deb61b`, post invocation `69ac319e`, with original transport,
+93 retained files / 12 images and all 165 diagnostic artifacts preserved. Prior
+faults and the new failed preflight remain intact. Other RPC producers, aggregate
+pressure/retention and full G7/G8 remain open; earlier results retain their scope.
 
 The [read-only GCE restart audit](../../evidence/runtime-20261104/g8-user-restart-preservation/README.md)
 passes on boot `3f4121cf`: original transport, 93 retained files / 12 images,
