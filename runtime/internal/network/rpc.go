@@ -73,13 +73,16 @@ func (c Client) Attach(ctx context.Context, request Request) (Response, *os.File
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return Response{}, nil, protocol.ClientFailure(ctx, protocol.AttachConnect, err)
+	}
 	dial := c.dial
 	if dial == nil {
 		dial = (&net.Dialer{}).DialContext
 	}
 	connection, err := dial(ctx, "unix", c.Path)
 	if err != nil {
-		return Response{}, nil, err
+		return Response{}, nil, protocol.ClientFailure(ctx, protocol.AttachConnect, err)
 	}
 	unixConnection, ok := connection.(*net.UnixConn)
 	if !ok {
@@ -87,21 +90,25 @@ func (c Client) Attach(ctx context.Context, request Request) (Response, *os.File
 		return Response{}, nil, errors.New("mknetd ATTACH requires a Unix socket")
 	}
 	defer unixConnection.Close()
+	stopCancellation := protocol.CloseOnContext(ctx, unixConnection)
+	defer stopCancellation()
 	deadline, _ := ctx.Deadline()
-	_ = unixConnection.SetDeadline(deadline)
+	if err = unixConnection.SetDeadline(deadline); err != nil {
+		return Response{}, nil, protocol.ClientFailure(ctx, protocol.AttachDeadline, err)
+	}
 	data, err := json.Marshal(request)
 	if err != nil {
-		return Response{}, nil, err
+		return Response{}, nil, errors.New("mknetd ATTACH request encoding failed")
 	}
 	if err = protocol.WriteFull(unixConnection, append(data, '\n')); err != nil {
-		return Response{}, nil, err
+		return Response{}, nil, protocol.ClientFailure(ctx, protocol.AttachWrite, err)
 	}
 	_ = unixConnection.CloseWrite()
 	dataBuffer := make([]byte, (1<<20)+1)
 	oob := make([]byte, unix.CmsgSpace(4))
 	n, oobn, flags, _, err := unixConnection.ReadMsgUnix(dataBuffer, oob)
 	if err != nil {
-		return Response{}, nil, err
+		return Response{}, nil, protocol.ClientFailure(ctx, protocol.AttachRead, err)
 	}
 	descriptors, err := parseReceivedRights(oob[:oobn])
 	if err != nil {
@@ -141,32 +148,37 @@ func (c Client) Call(ctx context.Context, request Request) (Response, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return Response{}, protocol.ClientFailure(ctx, protocol.NetworkConnect, err)
+	}
 	dial := c.dial
 	if dial == nil {
 		dial = (&net.Dialer{}).DialContext
 	}
 	connection, err := dial(ctx, "unix", c.Path)
 	if err != nil {
-		return Response{}, err
+		return Response{}, protocol.ClientFailure(ctx, protocol.NetworkConnect, err)
 	}
 	defer connection.Close()
 	stopCancellation := protocol.CloseOnContext(ctx, connection)
 	defer stopCancellation()
 	deadline, _ := ctx.Deadline()
-	_ = connection.SetDeadline(deadline)
+	if err = connection.SetDeadline(deadline); err != nil {
+		return Response{}, protocol.ClientFailure(ctx, protocol.NetworkDeadline, err)
+	}
 	data, err := json.Marshal(request)
 	if err != nil {
-		return Response{}, err
+		return Response{}, errors.New("mknetd request encoding failed")
 	}
 	if err = protocol.WriteFull(connection, append(data, '\n')); err != nil {
-		return Response{}, err
+		return Response{}, protocol.ClientFailure(ctx, protocol.NetworkWrite, err)
 	}
 	if unixConnection, ok := connection.(*net.UnixConn); ok {
 		_ = unixConnection.CloseWrite()
 	}
 	data, err = io.ReadAll(io.LimitReader(connection, (1<<20)+1))
 	if err != nil {
-		return Response{}, err
+		return Response{}, protocol.ClientFailure(ctx, protocol.NetworkRead, err)
 	}
 	if len(data) > 1<<20 {
 		return Response{}, errors.New("mknetd response exceeds the one-MiB limit")

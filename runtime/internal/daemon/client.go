@@ -42,7 +42,7 @@ type responseEnvelope struct {
 
 func (c Client) Call(ctx context.Context, request protocol.Request, body any) *protocol.Error {
 	if err := ctx.Err(); err != nil {
-		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
+		return clientUnavailable(ctx, protocol.DaemonConnect, err)
 	}
 	dial := c.dial
 	if dial == nil {
@@ -51,7 +51,7 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 	}
 	conn, err := dial(ctx, "unix", c.Path)
 	if err != nil {
-		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
+		return clientUnavailable(ctx, protocol.DaemonConnect, err)
 	}
 	defer conn.Close()
 	timeout := c.Timeout
@@ -64,7 +64,7 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 		deadline = requestedDeadline
 	}
 	if err = conn.SetDeadline(deadline); err != nil {
-		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
+		return clientUnavailable(ctx, protocol.DaemonDeadline, err)
 	}
 	cancelDone := make(chan struct{})
 	stopCancellation := context.AfterFunc(ctx, func() {
@@ -78,19 +78,17 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 	}()
 	payload, err := json.Marshal(request)
 	if err != nil {
-		return &protocol.Error{Code: "INVALID_ARGUMENT", Message: err.Error()}
+		return &protocol.Error{Code: "INVALID_ARGUMENT", Message: "daemon request encoding failed"}
 	}
 	// Terminate the request without half-closing the socket. The server can
 	// then observe a later caller disconnect and cancel in-flight backend work.
 	payload = append(payload, '\n')
 	if err = protocol.WriteFull(conn, payload); err != nil {
-		err = daemonRequestIOError(ctx, err, requestedDeadline, hasRequestedDeadline)
-		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
+		return clientUnavailable(ctx, protocol.DaemonWrite, err)
 	}
 	data, err := io.ReadAll(io.LimitReader(conn, (1<<20)+1))
 	if err != nil {
-		err = daemonRequestIOError(ctx, err, requestedDeadline, hasRequestedDeadline)
-		return &protocol.Error{Code: "UNAVAILABLE", Message: err.Error(), Retryable: true}
+		return clientUnavailable(ctx, protocol.DaemonRead, err)
 	}
 	if len(data) > 1<<20 {
 		return &protocol.Error{Code: "INTERNAL", Message: "daemon response exceeds the one-MiB limit"}
@@ -116,17 +114,8 @@ func (c Client) Call(ctx context.Context, request protocol.Request, body any) *p
 	return nil
 }
 
-func daemonRequestIOError(ctx context.Context, fallback error, deadline time.Time, hasDeadline bool) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	// The connection deadline and the context timer represent the same caller
-	// deadline. The socket can wake a few microseconds before ctx.Err becomes
-	// observable, so classify that boundary deterministically.
-	if hasDeadline && !time.Now().Before(deadline) {
-		return context.DeadlineExceeded
-	}
-	return fallback
+func clientUnavailable(ctx context.Context, stage protocol.ClientFailureStage, cause error) *protocol.Error {
+	return &protocol.Error{Code: "UNAVAILABLE", Message: protocol.ClientFailure(ctx, stage, cause).Error(), Retryable: true}
 }
 
 func Mutation(ctx context.Context, c Caller, method, id, generation, key string, config *protocol.SandboxConfig) (protocol.MutationResult, error) {
