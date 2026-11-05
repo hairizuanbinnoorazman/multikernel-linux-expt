@@ -21,7 +21,10 @@ kernel backends are unchanged in that fixture. The separate [actual Docker run](
 now passes for the same source: workload `b139efcd` and parent `95bcaaef` exit
 success/zero. Build/ENOSPC recovery, engine/image separation, authority, normal
 cleanup and timed holds (110.172, 110.735, 98.993 ms) pass. Private backend faults
-were not injected during Docker; cold restoration remains separate.
+were not injected during Docker. The [cold restoration](../../evidence/runtime-20261105/g8-live-docker-rootfs-rpc-cold-restoration/README.md)
+passes on November 5, boot `3db378f4`, post invocation `d7d2dd94`: original
+transport, 93 retained files / 12 images, all 201 diagnostic artifacts and both
+rootfs fixture generations are preserved.
 Task errors, other producers, aggregate pressure/retention, provenance/readiness
 and full G7/G8 remain open. No nested virtualization is used; direct child kernels
 share host trust after child-kernel compromise.

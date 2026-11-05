@@ -24,6 +24,10 @@ sandbox's synthetic permission view; its original refusal remains separately ret
 The separate [GCE v2 fixture](../../../evidence/runtime-20261104/g8-rootfs-rpc-gce/README.md)
 also passes, preserving all 183 artifacts and its failed predecessor. These
 fake-backend controls do not qualify actual Linux mount/child-Docker failures.
+The separate [normal actual Docker regression](../../../evidence/runtime-20261104/g8-live-docker-rootfs-rpc/README.md)
+and [cold restoration](../../../evidence/runtime-20261105/g8-live-docker-rootfs-rpc-cold-restoration/README.md)
+also pass for the runtime source; controlled backend faults retain their separate
+fixture scope.
 
 Task errors, other producers, aggregate diagnostic pressure/retention, provenance/
 readiness and full G7/G8 retain separate scope. No nested virtualization is used;
