@@ -4,6 +4,18 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Docker shutdown diagnostic checkpoint (2026-11-05)
+
+Source `4adc7f6f` adds [bounded delivery for six legacy shutdown markers](contracts/shutdown-diagnostics.md).
+Each stage has one attempt; each stream retains at most one active writer and
+private CLOEXEC descriptor, with no queue or busy-stream retries. [Seven exact-parent
+marker passes, fourteen pressure failures and 21 green descriptor cases](../../evidence/runtime-20261105/g8-shutdown-diagnostics-controls/README.md)
+retain error/operation ordering and failure boundaries. Quota/CLOEXEC, full runtime
+race and required checks pass. Missing markers remain missing evidence. Actual
+Docker qualification, live recovery and full G7/G8 remain open; the pending capture
+authorization and retained failed generation are unchanged. No nested virtualization
+is used; direct child kernels share host trust after compromise.
+
 ## Agent terminal diagnostic checkpoint (2026-11-05)
 
 Source `34f1caf0` routes thirteen agent terminal failure sites through fixed,

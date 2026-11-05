@@ -376,3 +376,13 @@ directory across operator invocations. A lost reply never permits an automatic
 retry; an RPC success or stopped-task observation never permits resource release.
 A coordinated controller handoff must exclude competing signal acknowledgements.
 Local synthetic controls pass; live recovery is a separate evidence requirement.
+
+### Shutdown marker delivery under pressure
+
+The [bounded shutdown diagnostic contract](../runtime/contracts/shutdown-diagnostics.md)
+preserves existing marker bytes while limiting delivery to one attempt per stage
+and one active writer per stream. Closed/full pipes must not change stop/remount/
+disconnect failure boundaries or prevent control completion through logging alone.
+Missing or late markers are incomplete evidence; never replace their independent
+native synced-close/identity checks with successful RPC return or quiet output.
+This changes no authority to release the retained failed generation.
