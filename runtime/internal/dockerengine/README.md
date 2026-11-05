@@ -93,3 +93,10 @@ and offline filesystem checking with this production preparation path. Actual
 Docker builds and host Docker integration are qualified separately by the
 [bounded host lifecycle proof](../../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md);
 recovery and adversarial release qualification remain open.
+
+Stop admission now [respects the caller's context](../../../docs/runtime/contracts/docker-stop-queue-budget.md)
+while another stop owns teardown. A canceled waiter leaves the owner's pidfd,
+cgroup and mount authority intact; it does not signal or release anything.
+The zero-value gate allocates no waiter worker or polling loop. Completion is
+published only after the existing cleanup succeeds and remains idempotent.
+Kernel/filesystem operations and stop diagnostics retain separate timing contracts.

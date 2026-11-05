@@ -4,6 +4,19 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Docker stop admission checkpoint (2026-11-05)
+
+Source `a2a99088` makes [Docker service stop admission context-aware](contracts/docker-stop-queue-budget.md).
+A canceled/deadline waiter can leave while the active stop retains its clone-bound
+pidfd and cleanup authority. [Two exact-parent failures and green controlled-process
+cases](../../evidence/runtime-20261105/g8-docker-stop-queue-controls/README.md) preserve owner result,
+live authority, subsequent admission and completed idempotence. Concurrent gate,
+full runtime race and required checks pass. No actual engine/cgroup/mount release
+is performed by these controls; original timeout causality remains unproven.
+Actual Docker qualification, retained recovery and full G7/G8 remain open. The
+capture authorization is still pending. No nested virtualization is used; direct
+child kernels share host trust after compromise.
+
 ## Docker shutdown diagnostic checkpoint (2026-11-05)
 
 Source `4adc7f6f` adds [bounded delivery for six legacy shutdown markers](contracts/shutdown-diagnostics.md).
