@@ -87,7 +87,13 @@ func TestDockerScopeStopDiagnosticsContextBudgetAndPressure(t *testing.T) {
 			}
 			defer cancel()
 			returned := make(chan bool, 1)
-			go func() { returned <- reporter.report(ctx, scopeStopRecord{identity: true}) }()
+			go func() {
+				if mode == "timer" {
+					returned <- reporter.report(ctx, scopeStopRecord{identity: true})
+				} else {
+					returned <- reporter.reportWithBudget(ctx, scopeStopRecord{identity: true}, time.Second)
+				}
+			}()
 			select {
 			case <-writer.entered:
 			case <-time.After(time.Second):
@@ -101,7 +107,7 @@ func TestDockerScopeStopDiagnosticsContextBudgetAndPressure(t *testing.T) {
 				if ok {
 					t.Fatal("blocked writer claimed delivery")
 				}
-			case <-time.After(time.Second):
+			case <-time.After(200 * time.Millisecond):
 				t.Fatal("diagnostic ignored caller/timer budget")
 			}
 			if mode != "timer" && ctx.Err() == nil {

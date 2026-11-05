@@ -64,7 +64,14 @@ var processScopeStopDiagnostics = scopeStopReporter{writer: scopeStopStderrWrite
 // or waiter worker. A timed-out write may retain one record/descriptor/goroutine
 // until stderr resumes or the process exits; it cannot block cleanup callers.
 func (r *scopeStopReporter) report(ctx context.Context, record scopeStopRecord) bool {
-	if r == nil || ctx == nil || !r.attempted.CompareAndSwap(false, true) {
+	return r.reportWithBudget(ctx, record, scopeStopDiagnosticBudget)
+}
+
+// The production wrapper fixes the wait at 50 ms. A separate bounded budget
+// lets controls distinguish caller cancellation from timer expiry without tight
+// scheduling thresholds; it is not runtime configuration or an exported API.
+func (r *scopeStopReporter) reportWithBudget(ctx context.Context, record scopeStopRecord, budget time.Duration) bool {
+	if r == nil || ctx == nil || budget <= 0 || budget > time.Second || !r.attempted.CompareAndSwap(false, true) {
 		return false
 	}
 	if r.writer == nil {
@@ -75,7 +82,7 @@ func (r *scopeStopReporter) report(ctx context.Context, record scopeStopRecord) 
 		return false
 	}
 	done := make(chan bool, 1)
-	timer := time.NewTimer(scopeStopDiagnosticBudget)
+	timer := time.NewTimer(budget)
 	defer timer.Stop()
 	go func() { n, err := r.writer.Write(data); done <- err == nil && n == len(data) }()
 	select {
