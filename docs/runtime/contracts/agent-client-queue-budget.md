@@ -22,7 +22,10 @@ caller count or complete operation-readiness guarantee is added.
 uses real Unix sockets with an active held owner. Six call/reconnect cancellation/
 deadline cases preserve that owner and have zero wire/dial/sequence/policy side
 effects. Thirty-two concurrent authenticated calls preserve framing, sequence and
-per-caller reply binding. Full runtime race and required checks pass.
+per-caller reply binding. Full runtime race and required checks pass. The separate
+[GCE Unix-control fixture](../../../evidence/runtime-20261105/g8-agent-client-gate-gce/README.md)
+also passes success/zero with no credential read or guest RPC, preserving the
+retained failed ownership snapshot.
 
 This defect was found during retained-output/pending-signal investigation. Its
 causal role in the original GCE Docker timeout is unproven. It does not recover

@@ -20,8 +20,11 @@ for calls and both reconnect APIs. Queued cancellation/deadline returns without
 waiting for an unrelated frame, sending/dialing, consuming a sequence or changing
 the active stream/peer policy. [Six exact-parent failures, green Unix-wire/owner
 preservation, concurrent framing, race and required checks](../../../evidence/runtime-20261105/g8-agent-client-gate-controls/README.md)
-pass. Client.Timeout remains wire-phase only; callers need a bounded context for
-queue admission. The defect's causal role in the original GCE timeout is unproven;
+pass. The separate [GCE Unix-control fixture](../../../evidence/runtime-20261105/g8-agent-client-gate-gce/README.md)
+passes success/zero (`bfae34de`) without credential reads or guest RPCs, preserving
+failed ledgers/resources and native identity. Client.Timeout remains wire-phase
+only; callers need a bounded context for queue admission. The defect's causal role
+in the original GCE timeout is unproven;
 retained recovery, normal Docker cleanup and full G7/G8 remain open. No nested
 virtualization is used; direct child kernels share host trust after compromise.
 
