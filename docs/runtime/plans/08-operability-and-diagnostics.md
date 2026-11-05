@@ -24,8 +24,15 @@ pass. Process exact exit 37, supervisor crash restart/PID cleanup and durable ev
 reconstruction/ordered acknowledgement remain intact. The [GCE fixture](../../../evidence/runtime-20261105/g8-diagnostic-stderr-gce/README.md)
 passes success/zero (`9303f71c`) on boot `9c7a1110`, preserving all 219 artifacts and
 19 current proof files without installed-service changes or child allocation.
-New-source actual Docker,
-node aggregate pressure/retention, other producers and full G7/G8 remain separate.
+The [new-source actual Docker attempt](../../../evidence/runtime-20261105/g8-live-docker-diagnostic-stderr-failure/README.md)
+fails: workload `4051ff4c` and parent `fbc85042` exit 1 after the ENOSPC-phase
+deadline, before observed coarse-sync completion. One child/ACTIVE export, two
+module references and three VSOCK rows remain. No normal cleanup/restoration pass
+is claimed and no retry/reboot/hot unload is performed. Custody audit `b7530dc8`
+passes, preserving all 219 prior artifacts, 79 prior proof files and failures;
+installed files/PIDs remain unchanged. Diagnosis, generation-bound recovery,
+actual Docker qualification, node aggregate pressure/retention, other producers
+and full G7/G8 remain open.
 No nested virtualization is used; direct child kernels share host trust after compromise.
 
 ## Task RPC privacy checkpoint (2026-11-05)

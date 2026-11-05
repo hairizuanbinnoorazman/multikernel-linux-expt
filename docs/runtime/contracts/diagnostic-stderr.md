@@ -28,8 +28,12 @@ supervisor crash recovery/PID cleanup and ordered event journal reconstruction/
 acknowledgement. Full runtime race and required checks pass. The separate
 [GCE fixture](../../../evidence/runtime-20261105/g8-diagnostic-stderr-gce/README.md)
 also passes success/zero with real pipes and controlled processes, preserving all
-219 prior artifacts and failure generations. Actual child-Docker
-fault injection and node aggregate pressure/retention remain separate.
+219 prior artifacts and failure generations. The separate [actual Docker attempt](../../../evidence/runtime-20261105/g8-live-docker-diagnostic-stderr-failure/README.md)
+fails before observed coarse-sync completion at the ENOSPC-phase deadline and
+retains a busy child/ACTIVE export. Its private custody audit preserves prior
+proofs; it establishes neither normal cleanup/restoration nor the cause of the
+missing sync completion. Generation-bound recovery, actual Docker qualification,
+production reader-loss injection and node aggregate pressure/retention remain open.
 
 No nested virtualization is used; direct child kernels share host trust after
 child-kernel compromise.
