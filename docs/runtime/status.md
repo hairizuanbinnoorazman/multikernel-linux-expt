@@ -12,7 +12,10 @@ process/PID, protected record identity and the original operation ID. An exclusi
 attempt marker precedes the single request; duplicate attempts refuse before key
 read/dial and uncertain replies stay unknown. [Authenticated Unix controls, full
 runtime race and required checks](../../evidence/runtime-20261105/g8-signal-replay-controls/README.md)
-pass. No actual guest signal or recovery is claimed by these controls. Normal Docker
+pass. The [immutable GCE control fixture](../../evidence/runtime-20261105/g8-signal-replay-gce/README.md)
+also passes success/zero (`d0b1c2df`), preserving failed ownership and native
+identity without credential reads or guest RPCs. No actual guest signal or
+recovery is claimed by these controls. Normal Docker
 cleanup and full G7/G8 remain open. No nested virtualization is used; direct child
 kernels share host trust after compromise.
 
