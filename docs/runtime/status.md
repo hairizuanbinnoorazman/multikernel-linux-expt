@@ -12,7 +12,10 @@ partial bodies are omitted; pinned wire status codes, successful calls, internal
 recovery and Manager forwarding retain their contract. [Local red/green, Unix-wire
 oracle, constructor, race and required checks](../../evidence/runtime-20261105/g8-task-rpc-controls/README.md)
 pass. The initial unsafe fixture permission refusal is retained; production bundle
-permissions were not weakened. GCE/actual Docker qualification, other producers,
+permissions were not weakened. The [GCE fixture](../../evidence/runtime-20261105/g8-task-rpc-gce/README.md)
+passes success/zero (`5bd529bd`) on boot `3db378f4`, preserving all 201 artifacts,
+19 current proof files and prior failure generations. It uses controlled delegates
+without installed-service changes or kernel allocation. Actual Docker, other producers,
 aggregate diagnostics, provenance/readiness and full G7/G8 remain separate.
 No nested virtualization is used; direct child kernels share host trust after compromise.
 

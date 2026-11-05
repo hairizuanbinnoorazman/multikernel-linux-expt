@@ -28,7 +28,10 @@ retains the raw-registration negative control, all-method privacy tests, wire-co
 oracle, exact delegation, panic-on-format cause, production constructor and Manager
 checks. It also retains the initial group-writable bundle fixture refusal; only
 the fixture permission was corrected. Focused/full runtime race and required checks
-pass. Actual child Docker qualification, aggregate diagnostic pressure/retention,
+pass. The separate [GCE fixture](../../../evidence/runtime-20261105/g8-task-rpc-gce/README.md)
+also passes success/zero, preserving all 201 artifacts and prior failures with
+controlled delegates and no installed-service or kernel backend changes.
+Actual child Docker qualification, aggregate diagnostic pressure/retention,
 provenance/readiness and full G7/G8 remain separate.
 
 No nested virtualization is used; direct child kernels share host trust after
