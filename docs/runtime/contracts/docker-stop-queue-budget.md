@@ -33,3 +33,8 @@ This does not establish the cause of the retained Docker timeout or recover that
 workload. Actual source-qualified child-Docker execution, stop/release and full
 G7/G8 remain separate. No nested virtualization is used; direct child kernels
 share host trust after compromise.
+
+The separate [GCE root fixture](../../../evidence/runtime-20261105/g8-docker-stop-queue-gce/README.md)
+passes success/zero (`c7cb4e24`) for the same source. Two fresh controlled pidfd
+processes and gate/idempotence controls preserve retained failed ownership;
+no actual engine stop, cgroup/filesystem release or guest RPC is performed.

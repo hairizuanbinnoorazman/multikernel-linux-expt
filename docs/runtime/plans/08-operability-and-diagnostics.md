@@ -7,8 +7,10 @@ A canceled/deadline waiter can leave while the active stop retains its clone-bou
 pidfd and cleanup authority. [Two exact-parent failures and green controlled-process
 cases](../../../evidence/runtime-20261105/g8-docker-stop-queue-controls/README.md) preserve owner result,
 live authority, subsequent admission and completed idempotence. Concurrent gate,
-full runtime race and required checks pass. No actual engine/cgroup/mount release
-is performed by these controls; original timeout causality remains unproven.
+full runtime race and required checks pass. [GCE fresh-process controls](../../../evidence/runtime-20261105/g8-docker-stop-queue-gce/README.md)
+also pass success/zero (`c7cb4e24`), preserving retained ownership without guest
+RPCs or retained-child signals. No actual engine/cgroup/mount release is performed
+by these controls; original timeout causality remains unproven.
 Actual Docker qualification, retained recovery and full G7/G8 remain open. The
 capture authorization is still pending. No nested virtualization is used; direct
 child kernels share host trust after compromise.
