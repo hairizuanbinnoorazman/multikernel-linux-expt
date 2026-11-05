@@ -33,8 +33,10 @@ also passes success/zero, preserving all 201 artifacts and prior failures with
 controlled delegates and no installed-service or kernel backend changes.
 The separate [actual Docker regression](../../../evidence/runtime-20261105/g8-live-docker-task-rpc/README.md)
 also passes normal build/recovery, separation, diagnostics and cleanup for this
-source, without injecting the controlled private faults. Cold restoration remains
-required. Aggregate diagnostic pressure/retention,
+source, without injecting the controlled private faults. Its [cold restoration](../../../evidence/runtime-20261105/g8-live-docker-task-rpc-cold-restoration/README.md)
+also passes: original transport, rehashed 93 retained files / 12 images, all 219
+diagnostic artifacts and prior failure generations are preserved. Aggregate
+diagnostic pressure/retention,
 provenance/readiness and full G7/G8 remain separate.
 
 No nested virtualization is used; direct child kernels share host trust after

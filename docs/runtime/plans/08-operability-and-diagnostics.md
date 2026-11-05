@@ -29,7 +29,10 @@ regression](../../../evidence/runtime-20261105/g8-live-docker-task-rpc/README.md
 passes: workload `550b1776` and parent `9c6827f8` exit success/zero; build/recovery,
 engine/image separation, authority, diagnostics and normal cleanup pass. Eight-report
 holds take 115.601 / 108.403 / 97.689 ms. Private faults were not injected during
-Docker; cold restoration remains required. Other producers,
+Docker. [Cold restoration](../../../evidence/runtime-20261105/g8-live-docker-task-rpc-cold-restoration/README.md)
+passes success/zero (`4538903f`) on boot `9c7a1110`: original transport, 93 retained
+files / 12 images, all 219 diagnostic artifacts and prior fault/failure generations
+are preserved. Other producers,
 aggregate diagnostics, provenance/readiness and full G7/G8 remain separate.
 No nested virtualization is used; direct child kernels share host trust after compromise.
 
