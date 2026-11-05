@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 const processDiagnosticQueueSize = 64
@@ -168,8 +170,25 @@ func (s *processDiagnosticSink) tryEncodedDiagnostic(data []byte) bool {
 var defaultProcessDiagnosticOnce sync.Once
 var defaultProcessDiagnosticSink *processDiagnosticSink
 
+// Go gives writes to inherited descriptors 1/2 special SIGPIPE termination
+// behavior. The one sink worker writes through a private CLOEXEC descriptor >=3
+// so reader loss is an ordinary EPIPE that disables the lossy sink. Duplication
+// does not change inherited flags or process-wide signal policy. A blocked pipe
+// holds at most this one descriptor until its writer returns or the process exits.
+type processDiagnosticStderrWriter struct{}
+
+func (processDiagnosticStderrWriter) Write(data []byte) (int, error) {
+	fd, err := unix.FcntlInt(2, unix.F_DUPFD_CLOEXEC, 3)
+	if err != nil {
+		return 0, err
+	}
+	file := os.NewFile(uintptr(fd), "shim-diagnostic-stderr")
+	defer file.Close()
+	return file.Write(data)
+}
+
 func processDiagnosticDefault() *processDiagnosticSink {
-	defaultProcessDiagnosticOnce.Do(func() { defaultProcessDiagnosticSink = newProcessDiagnosticSink(os.Stderr) })
+	defaultProcessDiagnosticOnce.Do(func() { defaultProcessDiagnosticSink = newProcessDiagnosticSink(processDiagnosticStderrWriter{}) })
 	return defaultProcessDiagnosticSink
 }
 

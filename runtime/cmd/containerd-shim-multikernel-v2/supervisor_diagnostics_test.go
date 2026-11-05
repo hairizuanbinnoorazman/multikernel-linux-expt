@@ -198,10 +198,21 @@ func TestSupervisorDiagnosticsRealStderrRestartAndPIDCleanup(t *testing.T) {
 			default:
 			}
 		}
+		if mode == "closed-reader" {
+			sink := processDiagnosticDefault()
+			select {
+			case <-sink.done:
+			case <-time.After(time.Second):
+				t.Fatal("closed-reader sink did not stop")
+			}
+			if !sink.disabled.Load() {
+				t.Fatal("closed-reader sink not disabled")
+			}
+		}
 		fmt.Fprintln(os.Stdout, "SUPERVISOR_SIGKILL_RESTART_AND_PID_CLEANUP_COMPLETE_WITH_BOUNDED_STDERR")
 		return
 	}
-	for _, mode := range []string{"capture", "blocked"} {
+	for _, mode := range []string{"capture", "blocked", "closed-reader"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 12*time.Second)
 			defer cancel()
@@ -218,22 +229,27 @@ func TestSupervisorDiagnosticsRealStderrRestartAndPIDCleanup(t *testing.T) {
 				}
 				defer reader.Close()
 				defer writer.Close()
-				fd := int(writer.Fd())
-				if err = unix.SetNonblock(fd, true); err != nil {
-					t.Fatal(err)
-				}
-				for {
-					_, err = unix.Write(fd, bytes.Repeat([]byte("x"), 4096))
-					if errors.Is(err, syscall.EAGAIN) {
-						break
+				if mode == "closed-reader" {
+					reader.Close()
+				} else {
+					fd := int(writer.Fd())
+					if err = unix.SetNonblock(fd, true); err != nil {
+						t.Fatal(err)
 					}
-					if err != nil {
+					for {
+						_, err = unix.Write(fd, bytes.Repeat([]byte("x"), 4096))
+						if errors.Is(err, syscall.EAGAIN) {
+							break
+						}
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					if err = unix.SetNonblock(fd, false); err != nil {
 						t.Fatal(err)
 					}
 				}
-				if err = unix.SetNonblock(fd, false); err != nil {
-					t.Fatal(err)
-				}
+
 				cmd.Stderr = writer
 			}
 			if err := cmd.Run(); err != nil {

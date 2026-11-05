@@ -266,10 +266,21 @@ func TestProcessDiagnosticsRealStderrRedactionAndBlockedPipeProgress(t *testing.
 			default:
 			}
 		}
+		if mode == "closed-reader" {
+			sink := processDiagnosticDefault()
+			select {
+			case <-sink.done:
+			case <-time.After(time.Second):
+				t.Fatal("closed-reader sink did not stop")
+			}
+			if !sink.disabled.Load() {
+				t.Fatal("closed-reader sink not disabled")
+			}
+		}
 		t.Log("PROCESS_MONITOR_RETRIED_PRIVATE_ERRORS_AND_COMMITTED_EXACT_EXIT_WITH_BOUNDED_DIAGNOSTICS")
 		return
 	}
-	for _, mode := range []string{"capture", "blocked"} {
+	for _, mode := range []string{"capture", "blocked", "closed-reader"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
 			defer cancel()
@@ -277,30 +288,35 @@ func TestProcessDiagnosticsRealStderrRedactionAndBlockedPipeProgress(t *testing.
 			cmd.Env = append(os.Environ(), "MK_G8_DIAGNOSTIC_CHILD="+mode)
 			var stdout, stderr bytes.Buffer
 			cmd.Stdout = &stdout
-			if mode == "blocked" {
+			if mode == "blocked" || mode == "closed-reader" {
 				reader, writer, err := os.Pipe()
 				if err != nil {
 					t.Fatal(err)
 				}
 				defer reader.Close()
 				defer writer.Close()
-				pipeFD := int(writer.Fd())
-				if err := unix.SetNonblock(pipeFD, true); err != nil {
-					t.Fatal(err)
-				}
-				padding := bytes.Repeat([]byte("x"), 4096)
-				for {
-					_, err := unix.Write(pipeFD, padding)
-					if errors.Is(err, unix.EAGAIN) {
-						break
+				if mode == "closed-reader" {
+					reader.Close()
+				} else {
+					pipeFD := int(writer.Fd())
+					if err := unix.SetNonblock(pipeFD, true); err != nil {
+						t.Fatal(err)
 					}
-					if err != nil {
+					padding := bytes.Repeat([]byte("x"), 4096)
+					for {
+						_, err := unix.Write(pipeFD, padding)
+						if errors.Is(err, unix.EAGAIN) {
+							break
+						}
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					if err := unix.SetNonblock(pipeFD, false); err != nil {
 						t.Fatal(err)
 					}
 				}
-				if err := unix.SetNonblock(pipeFD, false); err != nil {
-					t.Fatal(err)
-				}
+
 				cmd.Stderr = writer
 			} else {
 				cmd.Stderr = &stderr
