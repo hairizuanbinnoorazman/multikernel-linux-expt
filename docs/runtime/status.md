@@ -4,6 +4,18 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Guarded pending-signal replay controls (2026-11-05)
+
+Source `1d658f9c` adds an [explicit operator replay tool](contracts/pending-signal-replay.md)
+for the exact persisted, unacknowledged signal. Sealed inputs bind boot, ownership,
+process/PID, protected record identity and the original operation ID. An exclusive
+attempt marker precedes the single request; duplicate attempts refuse before key
+read/dial and uncertain replies stay unknown. [Authenticated Unix controls, full
+runtime race and required checks](../../evidence/runtime-20261105/g8-signal-replay-controls/README.md)
+pass. No actual guest signal or recovery is claimed by these controls. Normal Docker
+cleanup and full G7/G8 remain open. No nested virtualization is used; direct child
+kernels share host trust after compromise.
+
 ## Agent caller queue-budget checkpoint (2026-11-05)
 
 Source `9b5bf7dd` makes [agent stream admission context-aware](contracts/agent-client-queue-budget.md)

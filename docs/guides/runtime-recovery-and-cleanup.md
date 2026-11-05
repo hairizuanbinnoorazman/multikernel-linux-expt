@@ -366,3 +366,13 @@ host acknowledgement proves historical signal delivery or authorizes a different
 operation identity. A later marker does not prove it existed before the original
 deadline. Do not extend the wait or pass the failed pressure/doctor/cleanup gate.
 The failed child/export and image remain retained pending generation-bound recovery.
+
+### Explicit pending-signal replay tool
+
+The [guarded replay contract](../runtime/contracts/pending-signal-replay.md) describes
+source `1d658f9c`. It reuses the exact persisted operation ID behind protected-record
+identity checks and a durable attempt marker. Preserve the case-wide attempt
+directory across operator invocations. A lost reply never permits an automatic
+retry; an RPC success or stopped-task observation never permits resource release.
+A coordinated controller handoff must exclude competing signal acknowledgements.
+Local synthetic controls pass; live recovery is a separate evidence requirement.
