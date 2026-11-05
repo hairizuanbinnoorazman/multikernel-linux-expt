@@ -4,6 +4,18 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Scope diagnostic caller-budget proof correction (2026-11-05)
+
+Source `9d6787e0` strengthens [caller-context timing controls](../../evidence/runtime-20261105/g8-docker-scope-context-controls/README.md):
+the earlier short-timer cases could pass via timer expiry. Corrected cancel/
+deadline cases must return within 200 ms before a one-second test timer; removing
+only the context branch fails both. The production wrapper remains fixed at
+50 ms, with no runtime configuration. Corrected controls, stderr/ownership
+regressions, full runtime race and required checks pass. Earlier evidence remains
+retained with its limitation. Actual Docker recovery and full G7/G8 stay open;
+capture authorization is pending. No nested virtualization is used; direct child
+kernels share host trust after compromise.
+
 ## Docker scope-stop diagnostic checkpoint (2026-11-05)
 
 Source `1c309569` adds [one bounded scope-stop failure diagnostic](contracts/docker-scope-stop-diagnostics.md).

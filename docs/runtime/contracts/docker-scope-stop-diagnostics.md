@@ -55,3 +55,10 @@ passes success/zero (`8fa95336`) for the same immutable source. Seven top-level
 controls cover diagnostic delivery and existing stop queue/ownership behavior;
 retained ledgers/resources remain unchanged. No actual Docker stop, cgroup/
 filesystem release or guest RPC is performed.
+
+The [caller-budget proof correction](../../../evidence/runtime-20261105/g8-docker-scope-context-controls/README.md)
+for source `9d6787e0` distinguishes context response from timer expiry. It uses
+a one-second bounded private test budget and a 200 ms observation bound; removing
+only the context branch fails both cancellation cases. Production still calls
+the wrapper fixed at 50 ms, without runtime configuration. Earlier short-timer
+controls did not independently distinguish those paths and remain retained.
