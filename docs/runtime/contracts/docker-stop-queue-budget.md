@@ -38,3 +38,7 @@ The separate [GCE root fixture](../../../evidence/runtime-20261105/g8-docker-sto
 passes success/zero (`c7cb4e24`) for the same source. Two fresh controlled pidfd
 processes and gate/idempotence controls preserve retained failed ownership;
 no actual engine stop, cgroup/filesystem release or guest RPC is performed.
+
+The subsequent [bounded scope-stop failure diagnostic](docker-scope-stop-diagnostics.md)
+removes synchronous logging from that failure path for source `1c309569`.
+Its GCE fixture also reruns these stop queue and pidfd ownership controls.

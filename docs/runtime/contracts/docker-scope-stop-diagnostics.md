@@ -49,3 +49,9 @@ checks pass. No real engine or cgroup/filesystem release occurs in these control
 Original timeout causality, actual source-qualified Docker execution/recovery,
 aggregate node pressure/retention and full G7/G8 remain open. No nested
 virtualization is used; direct child kernels share host trust after compromise.
+
+The [GCE root fixture](../../../evidence/runtime-20261105/g8-docker-scope-log-gce/README.md)
+passes success/zero (`8fa95336`) for the same immutable source. Seven top-level
+controls cover diagnostic delivery and existing stop queue/ownership behavior;
+retained ledgers/resources remain unchanged. No actual Docker stop, cgroup/
+filesystem release or guest RPC is performed.

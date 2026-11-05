@@ -12,8 +12,10 @@ budget and private CLOEXEC descriptor, without original error text. [Three
 exact-parent failures and green real-stderr/1,000-stop controls](../../evidence/runtime-20261105/g8-docker-scope-log-controls/README.md)
 preserve refusal and ownership without publishing completion. Classification,
 context/quota/CLOEXEC, stop queue regression, full runtime race and required checks
-pass. Actual source-qualified Docker release, original timeout causality, retained
-recovery and full G7/G8 remain open. Capture authorization is still pending.
+pass. [GCE root controls](../../evidence/runtime-20261105/g8-docker-scope-log-gce/README.md)
+also pass success/zero (`8fa95336`), preserving retained ownership without guest
+RPCs or real engine/cgroup/filesystem release. Actual source-qualified Docker
+release, original timeout causality, retained recovery and full G7/G8 remain open. Capture authorization is still pending.
 No nested virtualization is used; direct child kernels share host trust after compromise.
 
 ## Docker stop admission checkpoint (2026-11-05)
