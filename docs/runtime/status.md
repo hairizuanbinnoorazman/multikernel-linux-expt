@@ -4,6 +4,18 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Task RPC privacy checkpoint (2026-11-05)
+
+Source `18c97b4f` adds [fixed Task RPC failure replies](contracts/task-rpc-errors.md)
+for all 17 methods through the production shim factory. Failure text/details and
+partial bodies are omitted; pinned wire status codes, successful calls, internal
+recovery and Manager forwarding retain their contract. [Local red/green, Unix-wire
+oracle, constructor, race and required checks](../../evidence/runtime-20261105/g8-task-rpc-controls/README.md)
+pass. The initial unsafe fixture permission refusal is retained; production bundle
+permissions were not weakened. GCE/actual Docker qualification, other producers,
+aggregate diagnostics, provenance/readiness and full G7/G8 remain separate.
+No nested virtualization is used; direct child kernels share host trust after compromise.
+
 ## Rootfs RPC error checkpoint (2026-11-04)
 
 Runtime source `e467a53b` adds [fixed rootfs RPC failure replies](contracts/rootfs-rpc-errors.md).
