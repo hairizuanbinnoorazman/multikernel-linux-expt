@@ -11,8 +11,10 @@ bounded diagnostics. [Twenty-four exact-parent failures and green real-entry
 stderr controls](../../evidence/runtime-20261105/g8-agent-terminal-controls/README.md)
 preserve exit statuses and one-shot credential consumption with captured,
 full-undrained and closed stderr. Reporter quota/descriptor controls, full runtime
-race and required checks pass. Actual Docker qualification and other stop/quiesce
-producers remain separate. The retained failed generation and pending cloud-capture
+race and required checks pass. [GCE root controls](../../evidence/runtime-20261105/g8-agent-terminal-gce/README.md)
+also pass success/zero (`1b229539`), preserving failed ledgers/resources and native
+identity without actual guest RPCs or retained credentials. Actual Docker
+qualification and other stop/quiesce producers remain separate. The retained failed generation and pending cloud-capture
 authorization are unchanged; normal cleanup and full G7/G8 remain open. No nested
 virtualization is used; direct child kernels share host trust after compromise.
 

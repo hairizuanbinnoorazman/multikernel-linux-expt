@@ -133,3 +133,9 @@ workload stdout/stderr, engine logs, console evidence, aggregate node pressure a
 actual source-qualified Docker qualification remain outside this checkpoint.
 Do not use a terminal record as signal, shutdown or resource-release authority.
 No nested virtualization is used; direct child kernels share host trust after compromise.
+
+The separate [GCE root fixture](../../../evidence/runtime-20261105/g8-agent-terminal-gce/README.md)
+passes success/zero (`1b229539`) for the same immutable source. It checks the 24
+entry-point cases, six reporter tests, production executable refusal and synthetic
+Docker stop/retention ordering, while preserving the retained failed ownership.
+No actual child-Docker qualification or recovery is claimed by this fixture.
