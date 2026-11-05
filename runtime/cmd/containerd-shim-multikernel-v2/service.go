@@ -326,7 +326,7 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 		s.replayEvents(ctx)
 		s.startEventRetry(time.Second)
 	}
-	return s, nil
+	return newTaskRPCShim(s), nil
 }
 
 func deleteInvocation(arguments []string) bool {
