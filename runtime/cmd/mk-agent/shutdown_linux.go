@@ -70,24 +70,24 @@ func quiesceMediatedRoot(platform shutdownPlatform, evidence io.Writer) error {
 	if err := platform.remountRootReadonly(); err != nil {
 		var errno syscall.Errno
 		if errors.As(err, &errno) {
-			fmt.Fprintf(evidence, "MK_STORAGE_ROOT_QUIESCE_FAIL stage=remount-ro errno=%d\n", errno)
+			emitShutdownDiagnostic(evidence, rootQuiesceFailed, uint64(errno))
 		} else {
-			fmt.Fprintln(evidence, "MK_STORAGE_ROOT_QUIESCE_FAIL stage=remount-ro")
+			emitShutdownDiagnostic(evidence, rootQuiesceFailed, 0)
 		}
 		return err
 	}
 	platform.syncFilesystem()
-	fmt.Fprintln(evidence, "MK_STORAGE_ROOT_QUIESCE_PASS stages=sync,remount-ro,sync device=/dev/nbd0")
+	emitShutdownDiagnostic(evidence, rootQuiescePassed, 0)
 	return nil
 }
 
 func finishGuestShutdown(mediated bool, platform shutdownPlatform, evidence io.Writer) error {
 	if mediated {
 		if err := platform.disconnectRootNBD(); err != nil {
-			fmt.Fprintln(evidence, "MK_STORAGE_NBD_DISCONNECT_FAIL device=/dev/nbd0")
+			emitShutdownDiagnostic(evidence, nbdDisconnectFailed, 0)
 			return fmt.Errorf("disconnect mediated root: %w", err)
 		}
-		fmt.Fprintln(evidence, "MK_STORAGE_NBD_DISCONNECT_PASS device=/dev/nbd0")
+		emitShutdownDiagnostic(evidence, nbdDisconnectPassed, 0)
 	} else {
 		platform.syncFilesystem()
 	}

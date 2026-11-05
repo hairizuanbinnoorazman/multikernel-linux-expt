@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -60,9 +59,9 @@ func stopDockerBeforeStorage(stop func(context.Context) error, quiesce func() er
 		if err := stop(ctx); err != nil {
 			var errno unix.Errno
 			if errors.As(err, &errno) {
-				fmt.Fprintf(os.Stderr, "MK_DOCKER_STOP_FAIL errno=%d\n", errno)
+				emitShutdownDiagnostic(nil, dockerStopFailed, uint64(errno))
 			} else {
-				fmt.Fprintln(os.Stderr, "MK_DOCKER_STOP_FAIL")
+				emitShutdownDiagnostic(nil, dockerStopFailed, 0)
 			}
 			return errors.New("Docker service has not quiesced")
 		}
@@ -70,7 +69,7 @@ func stopDockerBeforeStorage(stop func(context.Context) error, quiesce func() er
 	if quiesce != nil {
 		err := quiesce()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "MK_DOCKER_STORAGE_QUIESCE_FAIL")
+			emitShutdownDiagnostic(nil, dockerStorageQuiesceFailed, 0)
 		}
 		return err
 	}
