@@ -6,7 +6,9 @@ pool release failures through fixed terminal records. `mknetd` reports egress,
 durable state, boot-ID read, service initialization/reconciliation, socket-parent
 and listener failures through the same interface. Its internal stage wrapper
 retains the cause for classification but does not format it into the record.
-The fixed table currently contains fifteen runtime and eight network codes.
+The fixed table contains fifteen runtime, eight network and thirteen agent codes.
+Agent startup, re-exec and final serve/shutdown failures use the same typed
+terminal reporter; their underlying errors are not passed to it.
 
 | Code | First operator inspection |
 | --- | --- |
@@ -39,7 +41,7 @@ release uncertain resources or repeatedly restart a retained failed generation t
 make a code disappear. Explicit inspector output has its own disclosure contract.
 
 Each version-1 JSON record has exactly eight fields: `version`, `component`
-(`mkruntimed` or `mknetd`), `scope: "daemon-terminal"`, fixed `code` and `operation`,
+(`mkruntimed`, `mknetd` or `mk-agent`), `scope: "daemon-terminal"`, fixed `code` and `operation`,
 positive current `pid`, `owner_known: false`, and canonical UTC `at`. No error,
 path, durable-state key, workload ID, command output, environment, request or
 arbitrary string can be passed to the producer. PID/time observations neither
@@ -91,3 +93,43 @@ source-qualified proofs are not relabelled. Direct child kernels require
 no nested virtualization; the target compute instances cannot use nested
 virtualization as a containment solution. Primary and child kernels share host
 trust after child-kernel compromise; full G7/G8 remain open.
+
+## Agent terminal extension
+
+Source `34f1caf0` routes the thirteen terminal sites in mk-agent through the same
+single-attempt reporter. Existing exit statuses, credential consumption, Docker
+cleanup order, transport policy and shutdown evidence are unchanged. Codes are:
+
+| Code | Operation |
+| --- | --- |
+| `AGENT_DOCKER_BOOTSTRAP_FAILED` | exec-docker-bootstrap |
+| `AGENT_CREDENTIAL_EXEC_FAILED` | exec-oci-credential |
+| `AGENT_OCI_EXEC_FAILED` | exec-oci |
+| `AGENT_ARGUMENTS_INVALID` | validate-agent-arguments |
+| `AGENT_PROTECTION_FAILED` | protect-agent |
+| `AGENT_CREDENTIAL_REFUSED` | consume-agent-credential |
+| `AGENT_SOCKET_REQUIRED` | validate-agent-socket |
+| `AGENT_DOCKER_ROOT_REFUSED` | validate-docker-root |
+| `AGENT_DOCKER_START_FAILED` | start-docker-engine |
+| `AGENT_DOCKER_CLEANUP_FAILED` | stop-docker-engine |
+| `AGENT_LISTEN_FAILED` | listen-agent |
+| `AGENT_SHUTDOWN_FAILED` | shutdown-guest |
+| `AGENT_SERVE_FAILED` | serve-agent |
+
+The [local proof](../../../evidence/runtime-20261105/g8-agent-terminal-controls/README.md)
+compares the exact parent against 24 real entry-point cases: eight invocation/
+validation/listener refusals with captured, full-undrained and closed stderr.
+They preserve intended exits 126/2/1 and one-shot credential consumption, and
+exclude invocation paths, constraint data and credential bytes from the record.
+Shared reporter controls cover every typed code, one attempt, descriptor bounds
+and CLOEXEC, concurrent calls and failed/short/blocked writers. Full runtime race
+and required checks pass.
+
+Docker start/cleanup, protection-syscall failure, serving failure and final shutdown
+failure are not injected by that entry-point matrix. The reporter itself has a
+bounded wait; work performed before it, including existing Docker stop/storage
+quiesce diagnostics and cleanup calls, has separate contracts. Parser errors,
+workload stdout/stderr, engine logs, console evidence, aggregate node pressure and
+actual source-qualified Docker qualification remain outside this checkpoint.
+Do not use a terminal record as signal, shutdown or resource-release authority.
+No nested virtualization is used; direct child kernels share host trust after compromise.

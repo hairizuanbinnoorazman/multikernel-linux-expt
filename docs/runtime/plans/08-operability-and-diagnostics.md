@@ -1,5 +1,17 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Agent terminal diagnostic checkpoint (2026-11-05)
+
+Source `34f1caf0` routes thirteen agent terminal failure sites through fixed,
+bounded diagnostics. [Twenty-four exact-parent failures and green real-entry
+stderr controls](../../../evidence/runtime-20261105/g8-agent-terminal-controls/README.md)
+preserve exit statuses and one-shot credential consumption with captured,
+full-undrained and closed stderr. Reporter quota/descriptor controls, full runtime
+race and required checks pass. Actual Docker qualification and other stop/quiesce
+producers remain separate. The retained failed generation and pending cloud-capture
+authorization are unchanged; normal cleanup and full G7/G8 remain open. No nested
+virtualization is used; direct child kernels share host trust after compromise.
+
 ## Guarded pending-signal replay controls (2026-11-05)
 
 Source `1d658f9c` adds an [explicit operator replay tool](../contracts/pending-signal-replay.md)

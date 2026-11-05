@@ -1,6 +1,6 @@
 # `terminallog`
 
-One typed terminal diagnostic for a daemon process. The fixed table alone selects
+One typed terminal diagnostic for a daemon or agent/re-exec process. The fixed table alone selects
 component, code and operation; no error or workload data enters the producer.
 A single atomic attempt owns at most one record, goroutine and private CLOEXEC
 stderr descriptor. Delivery has a 50 ms timer budget and may fail or be lost.
