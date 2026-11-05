@@ -59,8 +59,8 @@ type Service struct {
 	done       chan struct{}
 	failed     chan struct{}
 	stopping   atomic.Bool
-	stopMu     sync.Mutex
-	closed     bool
+	stopGate   stopGate
+	closed     atomic.Bool
 	started    bool
 	log        tailLog
 }
@@ -161,9 +161,14 @@ func (s *Service) Stop(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("Docker stop context is required")
 	}
-	s.stopMu.Lock()
-	defer s.stopMu.Unlock()
-	if s.closed {
+	if s.closed.Load() {
+		return nil
+	}
+	if err := s.stopGate.lock(ctx); err != nil {
+		return err
+	}
+	defer s.stopGate.unlock()
+	if s.closed.Load() {
 		return nil
 	}
 	if err := ctx.Err(); err != nil {
@@ -206,7 +211,7 @@ func (s *Service) Stop(ctx context.Context) error {
 			return err
 		}
 	}
-	s.closed = true
+	s.closed.Store(true)
 	return nil
 }
 
