@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"io"
 	"math"
 	"net"
 	"os"
@@ -20,6 +19,7 @@ import (
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/sealedinput"
 	"golang.org/x/sys/unix"
 )
 
@@ -95,16 +95,8 @@ func readToken(file *os.File) ([]byte, error) {
 	if file == nil {
 		return nil, errors.New("credential unavailable")
 	}
-	var st unix.Stat_t
-	if unix.Fstat(int(file.Fd()), &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Mode&0777 != 0600 || st.Uid != uint32(os.Geteuid()) || st.Nlink != 0 || st.Size != 32 {
-		return nil, errors.New("credential descriptor rejected")
-	}
-	seals, err := unix.FcntlInt(file.Fd(), unix.F_GET_SEALS, 0)
-	if err != nil || seals&tokenSeals != tokenSeals {
-		return nil, errors.New("credential descriptor rejected")
-	}
-	data, err := io.ReadAll(io.LimitReader(file, 33))
-	if err != nil || len(data) != 32 {
+	data, err := sealedinput.Read(file, 32, 32)
+	if err != nil {
 		return nil, errors.New("credential descriptor rejected")
 	}
 	return data, nil
