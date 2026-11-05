@@ -12,8 +12,13 @@ output offsets, final state bracketing, fixed whole-line markers and payload/has
 exclusion remain enforced. Private capture and conflicting modes refuse before
 authentication. [Unix-wire/privacy/legacy/race/required controls](../../evidence/runtime-20261105/g8-process-output-controls/README.md)
 pass; the first archive-builder VCS refusal is retained, with a separate hash-bound
-v2 build. Live agent availability, the retained `4f6a481` sync failure/recovery,
-normal Docker cleanup and full G7/G8 remain open. No nested virtualization is used;
+v2 build. The [one-shot retained-agent observation](../../evidence/runtime-20261105/g8-retained-process-output-gce/README.md)
+passes success/zero (`d60d43fd`): `init` reports RUNNING PID 613 and its bounded tail
+contains full-pressure/fine-sync markers missing from host capture. Host/persisted
+stdout/stderr offsets are 11711/191; an unacknowledged signal-9 intent remains.
+Failed ownership is unchanged. This narrows delivery/timing/pending-signal diagnosis,
+without proving chronology or signal delivery and without passing the failed gate.
+Generation-bound recovery, normal Docker cleanup and full G7/G8 remain open. No nested virtualization is used;
 direct child kernels share host trust after compromise.
 
 ## Shim diagnostic reader-loss checkpoint (2026-11-05)

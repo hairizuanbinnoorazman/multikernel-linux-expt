@@ -40,3 +40,9 @@ requires current boot, exact generation/CID, protected bundle and native backing
 identity checks, fresh owned relay, and before/after retained ownership evidence.
 Full G7/G8, Docker readiness, recovery and containment remain separate. No nested
 virtualization is used; direct child kernels share host trust after compromise.
+
+The separate [retained GCE observation](../../../evidence/runtime-20261105/g8-retained-process-output-gce/README.md)
+reports RUNNING PID 613 and full-pressure/fine-sync markers beyond the host's
+persisted/captured offsets. Its failed ownership is unchanged, with no guest mutation.
+Later retained markers do not establish original-deadline chronology or prove the
+pending signal was undelivered. The failed Docker/cleanup gate remains open.

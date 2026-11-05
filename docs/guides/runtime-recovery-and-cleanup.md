@@ -350,3 +350,19 @@ guarded graceful idle reboot after private cloud serial/project captures; do
 not hot-unload a candidate that has carried traffic. Fresh Docker and full G7/G8
 qualification remain separate. This direct-child path requires no nested
 virtualization and retains shared host trust after child-kernel compromise.
+
+## Running retained output and pending signal observations
+
+The explicit [version-5 process-output summary](../runtime/contracts/process-output-diagnostic.md)
+can sample a RUNNING or STOPPED exact task without signals, replay, private capture
+or raw output publication. It retains zero offsets and a final state/PID/exit bracket.
+Use the same boot/generation/CID/native/bundle identity checks described above.
+
+For the retained `4f6a481` case, the [GCE observation](../../evidence/runtime-20261105/g8-retained-process-output-gce/README.md)
+finds RUNNING guest PID 613 and full-pressure/fine-sync markers beyond host offsets
+11711/191. The host recovery record also has a signal-9 intent without an observed
+acknowledgement. Preserve that intent; neither a current RUNNING report nor absent
+host acknowledgement proves historical signal delivery or authorizes a different
+operation identity. A later marker does not prove it existed before the original
+deadline. Do not extend the wait or pass the failed pressure/doctor/cleanup gate.
+The failed child/export and image remain retained pending generation-bound recovery.
