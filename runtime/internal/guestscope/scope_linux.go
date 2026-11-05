@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -29,7 +28,7 @@ type Limits struct {
 	MemoryBytes uint64
 }
 type Scope struct {
-	mu                sync.Mutex
+	mu                scopeGate
 	parent, directory int
 	name              string
 	device            uint64
@@ -243,7 +242,9 @@ func (s *Scope) Stop(ctx context.Context) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	s.mu.Lock()
+	if err := s.mu.lockContext(ctx); err != nil {
+		return err
+	}
 	defer s.mu.Unlock()
 	if !s.owned {
 		return ErrIdentity
