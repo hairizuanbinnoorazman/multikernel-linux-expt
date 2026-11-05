@@ -100,3 +100,10 @@ cgroup and mount authority intact; it does not signal or release anything.
 The zero-value gate allocates no waiter worker or polling loop. Completion is
 published only after the existing cleanup succeeds and remains idempotent.
 Kernel/filesystem operations and stop diagnostics retain separate timing contracts.
+
+The [scope-stop failure diagnostic](../../../docs/runtime/contracts/docker-scope-stop-diagnostics.md)
+has one process-wide attempt, a bounded classification-only marker and a wait
+limited by the caller's context or a 50 ms timer. Full/closed stderr cannot hold
+the stop gate through logging alone. Failed cleanup keeps its original ownership
+and refusal; missing output never authorizes release. This is separate from the
+64 KiB private engine tail and from the agent's other diagnostic producers.
