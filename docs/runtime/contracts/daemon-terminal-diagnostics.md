@@ -139,3 +139,8 @@ passes success/zero (`1b229539`) for the same immutable source. It checks the 24
 entry-point cases, six reporter tests, production executable refusal and synthetic
 Docker stop/retention ordering, while preserving the retained failed ownership.
 No actual child-Docker qualification or recovery is claimed by this fixture.
+
+The subsequent [bounded shutdown-marker checkpoint](shutdown-diagnostics.md)
+qualifies the six Docker stop/root-quiesce/NBD-disconnect evidence stages for
+source `4adc7f6f` under local and GCE synthetic pressure controls. Actual
+source-qualified Docker recovery and aggregate node pressure remain separate.

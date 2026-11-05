@@ -7,7 +7,9 @@ Each stage has one attempt; each stream retains at most one active writer and
 private CLOEXEC descriptor, with no queue or busy-stream retries. [Seven exact-parent
 marker passes, fourteen pressure failures and 21 green descriptor cases](../../../evidence/runtime-20261105/g8-shutdown-diagnostics-controls/README.md)
 retain error/operation ordering and failure boundaries. Quota/CLOEXEC, full runtime
-race and required checks pass. Missing markers remain missing evidence. Actual
+race and required checks pass. [GCE root controls](../../../evidence/runtime-20261105/g8-shutdown-diagnostics-gce/README.md)
+also pass success/zero (`15d6034c`), preserving retained ownership without guest
+RPCs or actual shutdown syscalls. Missing markers remain missing evidence. Actual
 Docker qualification, live recovery and full G7/G8 remain open; the pending capture
 authorization and retained failed generation are unchanged. No nested virtualization
 is used; direct child kernels share host trust after compromise.

@@ -55,3 +55,9 @@ then 21 green descriptor cases, repeat/quota/CLOEXEC/failure-order checks and fu
 runtime race/required checks. Actual source-qualified Docker execution, live
 shutdown, aggregate retention/pressure and full G7/G8 remain separate. No nested
 virtualization is used; direct child kernels share host trust after compromise.
+
+The [GCE root fixture](../../../evidence/runtime-20261105/g8-shutdown-diagnostics-gce/README.md)
+passes success/zero (`15d6034c`) for the same immutable source. Its 21 real
+descriptor cases and eight top-level control tests preserve failed ownership;
+all shutdown/engine/device operations remain callbacks. This is not a live
+Docker, kernel shutdown, synced-close or resource-release qualification.
