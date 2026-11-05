@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,6 +11,7 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/dockerengine"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/terminallog"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
 	"golang.org/x/sys/unix"
 )
@@ -22,21 +22,21 @@ func main() {
 	}
 	if len(os.Args) == 2 && os.Args[1] == "__docker_bootstrap" {
 		if err := dockerengine.ExecBootstrap(); err != nil {
-			fmt.Fprintln(os.Stderr, "Docker bootstrap:", err)
+			terminallog.Report(terminallog.AgentDockerBootstrap)
 			os.Exit(126)
 		}
 		return
 	}
 	if len(os.Args) == 3 && os.Args[1] == "__oci_exec_fd" {
 		if err := agent.RunUnprivilegedOCIExec(os.Args[2]); err != nil {
-			fmt.Fprintln(os.Stderr, "OCI credential executor:", err)
+			terminallog.Report(terminallog.AgentCredentialExec)
 			os.Exit(126)
 		}
 		return
 	}
 	if len(os.Args) >= 4 && os.Args[1] == "__oci_exec" {
 		if err := agent.RunOCIExec(os.Args[2], os.Args[3:]); err != nil {
-			fmt.Fprintln(os.Stderr, "OCI executor:", err)
+			terminallog.Report(terminallog.AgentOCIExec)
 			os.Exit(126)
 		}
 		return
@@ -54,20 +54,20 @@ func main() {
 	flag.StringVar(&unixSocket, "unix-socket", "", "child-local Unix control socket")
 	flag.Parse()
 	if id == "" || gen == "" || port < 1024 || tokenFile == "" {
-		fmt.Fprintln(os.Stderr, "sandbox identity, port, and private credential file are required")
+		terminallog.Report(terminallog.AgentArguments)
 		os.Exit(2)
 	}
 	if err := unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0); err != nil {
-		fmt.Fprintln(os.Stderr, "agent process protection failed")
+		terminallog.Report(terminallog.AgentProtection)
 		os.Exit(1)
 	}
 	key, e := consumeAgentToken(tokenFile)
 	if e != nil {
-		fmt.Fprintln(os.Stderr, "private agent credential validation failed")
+		terminallog.Report(terminallog.AgentCredential)
 		os.Exit(2)
 	}
 	if unixSocket == "" {
-		fmt.Fprintln(os.Stderr, "--unix-socket is required; direct Go AF_VSOCK is prohibited")
+		terminallog.Report(terminallog.AgentSocketRequired)
 		os.Exit(2)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -81,7 +81,7 @@ func main() {
 	}
 	if dockerGuest {
 		if noChroot {
-			fmt.Fprintln(os.Stderr, "Docker service requires the trusted guest root")
+			terminallog.Report(terminallog.AgentDockerRoot)
 			os.Exit(2)
 		}
 		s.Manager = agent.NewDockerGuestManager()
@@ -90,7 +90,7 @@ func main() {
 			if service != nil {
 				_ = stopDockerBeforeStorage(service.Stop, nil)
 			}
-			fmt.Fprintln(os.Stderr, "Docker guest startup failed:", startErr)
+			terminallog.Report(terminallog.AgentDockerStart)
 			os.Exit(1)
 		}
 		stopDocker = func() error { return stopDockerBeforeStorage(service.Stop, nil) }
@@ -104,7 +104,7 @@ func main() {
 		}()
 		defer func() {
 			if err := stopDockerBeforeStorage(service.Stop, nil); err != nil {
-				fmt.Fprintln(os.Stderr, "Docker guest cleanup incomplete")
+				terminallog.Report(terminallog.AgentDockerCleanup)
 			}
 		}()
 	} else {
@@ -115,14 +115,14 @@ func main() {
 		if stopDocker != nil {
 			_ = stopDocker()
 		}
-		fmt.Fprintln(os.Stderr, listenErr)
+		terminallog.Report(terminallog.AgentListen)
 		os.Exit(1)
 	}
 	e = s.Serve(ctx, listener)
 	e = errors.Join(e, listener.Close())
 	if errors.Is(e, agent.ErrShutdownRequested) {
 		if e = finishGuestShutdown(mediatedRoot, shutdown, os.Stdout); e != nil {
-			fmt.Fprintln(os.Stderr, "shutdown:", e)
+			terminallog.Report(terminallog.AgentShutdown)
 			os.Exit(1)
 		}
 		return
@@ -131,7 +131,7 @@ func main() {
 		if stopDocker != nil {
 			e = errors.Join(e, stopDocker())
 		}
-		fmt.Fprintln(os.Stderr, e)
+		terminallog.Report(terminallog.AgentServe)
 		os.Exit(1)
 	}
 }

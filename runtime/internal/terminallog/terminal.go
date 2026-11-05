@@ -42,6 +42,19 @@ const (
 	NetworkSocketParent
 	NetworkListen
 	NetworkUnexpected
+	AgentDockerBootstrap
+	AgentCredentialExec
+	AgentOCIExec
+	AgentArguments
+	AgentProtection
+	AgentCredential
+	AgentSocketRequired
+	AgentDockerRoot
+	AgentDockerStart
+	AgentDockerCleanup
+	AgentListen
+	AgentShutdown
+	AgentServe
 )
 
 var specs = [...]struct{ component, code, operation string }{
@@ -69,6 +82,19 @@ var specs = [...]struct{ component, code, operation string }{
 	{"mknetd", "NETWORK_SOCKET_PARENT_FAILED", "prepare-network-socket"},
 	{"mknetd", "NETWORK_LISTEN_FAILED", "serve-network"},
 	{"mknetd", "NETWORK_TERMINAL_FAILED", "run-network-daemon"},
+	{"mk-agent", "AGENT_DOCKER_BOOTSTRAP_FAILED", "exec-docker-bootstrap"},
+	{"mk-agent", "AGENT_CREDENTIAL_EXEC_FAILED", "exec-oci-credential"},
+	{"mk-agent", "AGENT_OCI_EXEC_FAILED", "exec-oci"},
+	{"mk-agent", "AGENT_ARGUMENTS_INVALID", "validate-agent-arguments"},
+	{"mk-agent", "AGENT_PROTECTION_FAILED", "protect-agent"},
+	{"mk-agent", "AGENT_CREDENTIAL_REFUSED", "consume-agent-credential"},
+	{"mk-agent", "AGENT_SOCKET_REQUIRED", "validate-agent-socket"},
+	{"mk-agent", "AGENT_DOCKER_ROOT_REFUSED", "validate-docker-root"},
+	{"mk-agent", "AGENT_DOCKER_START_FAILED", "start-docker-engine"},
+	{"mk-agent", "AGENT_DOCKER_CLEANUP_FAILED", "stop-docker-engine"},
+	{"mk-agent", "AGENT_LISTEN_FAILED", "listen-agent"},
+	{"mk-agent", "AGENT_SHUTDOWN_FAILED", "shutdown-guest"},
+	{"mk-agent", "AGENT_SERVE_FAILED", "serve-agent"},
 }
 
 type record struct {
