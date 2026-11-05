@@ -142,3 +142,6 @@ bounded per-process transport with its own strict schema. It explicitly reports
 unknown workload ownership and does not accept errors, paths or payloads. The
 parent supervisor and exec-created workers each own one sink in their separate
 OS processes; this does not increase the worker's existing queue limits.
+
+The [default stderr transport](diagnostic-stderr.md) also survives reader loss
+without SIGPIPE termination, using one private CLOEXEC descriptor per in-flight write.

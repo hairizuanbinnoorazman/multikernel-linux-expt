@@ -13,6 +13,18 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## Shim diagnostic reader-loss checkpoint (2026-11-05)
+
+Source `4f6a4810` protects [shared shim diagnostic stderr](../contracts/diagnostic-stderr.md)
+with a private CLOEXEC duplicate. A closed reader now disables the lossy sink
+without SIGPIPE termination; full pipes retain one bounded writer/descriptor and
+64 queued records. [Exact-parent red/green, 16 real-pipe default-sink cases,
+lifecycle recovery, race and required controls](../../../evidence/runtime-20261105/g8-diagnostic-stderr-controls/README.md)
+pass. Process exact exit 37, supervisor crash restart/PID cleanup and durable event
+reconstruction/ordered acknowledgement remain intact. GCE, new-source actual Docker,
+node aggregate pressure/retention, other producers and full G7/G8 remain separate.
+No nested virtualization is used; direct child kernels share host trust after compromise.
+
 ## Task RPC privacy checkpoint (2026-11-05)
 
 Source `18c97b4f` adds [fixed Task RPC failure replies](../contracts/task-rpc-errors.md)

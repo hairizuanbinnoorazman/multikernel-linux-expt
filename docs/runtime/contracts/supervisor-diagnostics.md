@@ -57,3 +57,6 @@ fixture proof. The separate [cold restoration](../../../evidence/runtime-2026103
 also passes, preserving retained data, current/prior artifacts, four fault
 fixtures and both failed cases. Earlier source-qualified Docker proofs are not
 relabelled.
+
+The [shared default stderr transport](diagnostic-stderr.md) survives closed readers
+without SIGPIPE; real closed-reader restart/PID cleanup controls retain their own proof.
