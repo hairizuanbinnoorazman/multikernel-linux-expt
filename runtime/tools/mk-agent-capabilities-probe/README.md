@@ -106,3 +106,9 @@ publish a private bundle. Versions 1–4 retain their contracts; four constant c
 fine ENOSPC/sync markers extend the allowlist. Markers are membership clues in host
 allowlist order, not chronology or successful-sync attestation. See the
 [complete contract](../../../docs/runtime/contracts/process-output-diagnostic.md).
+
+The guest anti-replay counter is generation-wide. A separate operator client can
+make an older controller's sequences stale; use only retained/quarantined targets
+or a coordinated control handoff. File/ledger equality does not prove continued
+usability of an older control session. Do not use this as a routine independent
+readiness poll against an actively controlled healthy task.

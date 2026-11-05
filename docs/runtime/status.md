@@ -4,6 +4,18 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Agent caller queue-budget checkpoint (2026-11-05)
+
+Source `9b5bf7dd` makes [agent stream admission context-aware](contracts/agent-client-queue-budget.md)
+for calls and both reconnect APIs. Queued cancellation/deadline returns without
+waiting for an unrelated frame, sending/dialing, consuming a sequence or changing
+the active stream/peer policy. [Six exact-parent failures, green Unix-wire/owner
+preservation, concurrent framing, race and required checks](../../evidence/runtime-20261105/g8-agent-client-gate-controls/README.md)
+pass. Client.Timeout remains wire-phase only; callers need a bounded context for
+queue admission. The defect's causal role in the original GCE timeout is unproven;
+retained recovery, normal Docker cleanup and full G7/G8 remain open. No nested
+virtualization is used; direct child kernels share host trust after compromise.
+
 ## Retained process-output diagnostic checkpoint (2026-11-05)
 
 Source `255c3908` adds an explicit [running/stopped output-summary diagnostic](contracts/process-output-diagnostic.md)

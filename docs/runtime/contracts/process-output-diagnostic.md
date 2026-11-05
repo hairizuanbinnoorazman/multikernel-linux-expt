@@ -6,7 +6,11 @@ StateProcess, ReadProcessOutput and final StateProcess. Capabilities, exact loca
 relay PID/UID/GID and caller-selected sandbox/generation/endpoint must match before
 the query. Credentials arrive only through the existing sealed anonymous descriptor.
 No reconnect, replay, arbitrary execution, signal, quiesce or shutdown is provided.
-Authentication sequence may advance even when a reply is unavailable.
+Authentication sequence may advance even when a reply is unavailable. The guest's
+anti-replay counter is generation-wide; a separate operator client can make an
+older controller's sequences stale. Use this tool only for a retained/quarantined
+generation or a coordinated control handoff. Unchanged file/ledger snapshots do
+not establish unchanged control-session usability.
 
 A valid RUNNING or STOPPED process can be sampled. CREATED tasks are not output-ready.
 The sample status must match the first validated state; the final ID/status/PID/exit

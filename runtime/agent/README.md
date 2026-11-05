@@ -35,3 +35,9 @@ marshal rejection leave an untouched stream usable too. The original call error
 and existing timeout/caller-deadline minimum are preserved. An interrupted request
 may already have executed; recovery must use the existing operation identity and
 reconciliation rules. Sequence validation remains strict.
+
+The [caller queue-budget contract](../../docs/runtime/contracts/agent-client-queue-budget.md)
+also applies to CallContext and both reconnect APIs. Queued cancellation leaves the
+active owner/frame, sequence and peer policy untouched. One context-aware gate per
+client replaces the uninterruptible mutex wait; Client.Timeout remains wire-phase
+only, so callers need a bounded context to bound queue admission.
