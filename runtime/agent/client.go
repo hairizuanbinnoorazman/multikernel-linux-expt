@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -24,7 +23,7 @@ type Client struct {
 	token                 []byte
 	sandboxID, generation string
 	endpoint              uint32
-	mu                    sync.Mutex
+	mu                    clientGate
 	sequence              uint64
 	Timeout               time.Duration
 	unusable              bool // guarded by mu; cleared only by a successful reconnect
@@ -65,8 +64,10 @@ func (c *Client) Reconnect(path string) error {
 }
 
 func (c *Client) ReconnectContext(ctx context.Context, path string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	if err := c.mu.lock(ctx); err != nil {
+		return err
+	}
+	defer c.mu.unlock()
 	var conn net.Conn
 	var err error
 	if c.reconnectDial != nil {
@@ -97,8 +98,10 @@ func (c *Client) Call(method string, request, response any) error {
 }
 
 func (c *Client) CallContext(ctx context.Context, method string, request, response any) (retErr error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	if err := c.mu.lock(ctx); err != nil {
+		return err
+	}
+	defer c.mu.unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}

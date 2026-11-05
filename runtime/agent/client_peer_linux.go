@@ -75,8 +75,10 @@ func DialPeerContext(ctx context.Context, path, sandboxID, generation string, en
 // subsequent ordinary reconnects to the replacement, without issuing/replaying
 // any RPC or resetting sequence. Unchecked clients cannot use this method.
 func (c *Client) ReconnectPeerContext(ctx context.Context, path string, peerPID int) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	if err := c.mu.lock(ctx); err != nil {
+		return err
+	}
+	defer c.mu.unlock()
 	if c.peerDial == nil {
 		return errors.New("agent checked peer policy required")
 	}
