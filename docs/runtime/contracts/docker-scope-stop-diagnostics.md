@@ -62,3 +62,8 @@ a one-second bounded private test budget and a 200 ms observation bound; removin
 only the context branch fails both cancellation cases. Production still calls
 the wrapper fixed at 50 ms, without runtime configuration. Earlier short-timer
 controls did not independently distinguish those paths and remain retained.
+
+The separate [corrected GCE fixture](../../../evidence/runtime-20261105/g8-docker-scope-context-gce/README.md)
+passes success/zero (`0637da03`) for `9d6787e0`, including the independent caller/
+timer cases and earlier stderr/ownership controls. Retained failed ownership is
+unchanged; actual engine/cgroup/filesystem release and guest RPC remain excluded.

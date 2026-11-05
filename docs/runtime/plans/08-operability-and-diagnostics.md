@@ -7,8 +7,9 @@ the earlier short-timer cases could pass via timer expiry. Corrected cancel/
 deadline cases must return within 200 ms before a one-second test timer; removing
 only the context branch fails both. The production wrapper remains fixed at
 50 ms, with no runtime configuration. Corrected controls, stderr/ownership
-regressions, full runtime race and required checks pass. Earlier evidence remains
-retained with its limitation. Actual Docker recovery and full G7/G8 stay open;
+regressions, full runtime race and required checks pass. [Corrected GCE controls](../../../evidence/runtime-20261105/g8-docker-scope-context-gce/README.md)
+also pass success/zero (`0637da03`), preserving retained ownership. Earlier evidence
+remains retained with its limitation. Actual Docker recovery and full G7/G8 stay open;
 capture authorization is pending. No nested virtualization is used; direct child
 kernels share host trust after compromise.
 
