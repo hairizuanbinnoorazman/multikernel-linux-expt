@@ -11,8 +11,10 @@ runtime race and required checks](../../../evidence/runtime-20261105/g8-signal-r
 pass. The [immutable GCE control fixture](../../../evidence/runtime-20261105/g8-signal-replay-gce/README.md)
 also passes success/zero (`d0b1c2df`), preserving failed ownership and native
 identity without credential reads or guest RPCs. No actual guest signal or
-recovery is claimed by these controls. Normal Docker
-cleanup and full G7/G8 remain open. No nested virtualization is used; direct child
+recovery is claimed by these controls. The [VM-side private cloud-capture attempt](../../../evidence/runtime-20261105/g8-signal-replay-cloud-capture-failure/README.md)
+fails on missing SDK authentication (`3cd21352`); automatic approval review rejects
+raw serial/project-inventory transfer using local credentials pending explicit
+authorization. No live recovery is attempted. Normal Docker cleanup and full G7/G8 remain open. No nested virtualization is used; direct child
 kernels share host trust after compromise.
 
 ## Purpose
