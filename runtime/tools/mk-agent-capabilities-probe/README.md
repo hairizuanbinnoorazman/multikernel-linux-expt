@@ -97,3 +97,12 @@ raw output. This capture does not quiesce, stop or otherwise mutate the guest.
 
 Direct child kernels require no nested virtualization. Primary and child kernels
 share host trust after compromise. This diagnostic cannot close full G7/G8 gates.
+
+Explicit `--process-output-summary --process-id=...` selects version 5 for a RUNNING
+or STOPPED process. It uses the same four-call shared deadline, fixed zero offsets,
+bounded samples and final state bracket. CREATED, changed state/PID/exit, malformed
+samples and conflicting/private-capture modes refuse a summary. The new mode cannot
+publish a private bundle. Versions 1–4 retain their contracts; four constant coarse/
+fine ENOSPC/sync markers extend the allowlist. Markers are membership clues in host
+allowlist order, not chronology or successful-sync attestation. See the
+[complete contract](../../../docs/runtime/contracts/process-output-diagnostic.md).

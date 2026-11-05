@@ -13,6 +13,18 @@ inspect generation-bound child ownership and preserve the guest-local engine,
 socket and build-storage boundary; never substitute the host Docker socket.
 Operational checks do not establish containment after child-kernel compromise.
 
+## Retained process-output diagnostic checkpoint (2026-11-05)
+
+Source `255c3908` adds an explicit [running/stopped output-summary diagnostic](../contracts/process-output-diagnostic.md)
+for an exact retained guest task. Four read-only calls share one deadline; zero
+output offsets, final state bracketing, fixed whole-line markers and payload/hash
+exclusion remain enforced. Private capture and conflicting modes refuse before
+authentication. [Unix-wire/privacy/legacy/race/required controls](../../../evidence/runtime-20261105/g8-process-output-controls/README.md)
+pass; the first archive-builder VCS refusal is retained, with a separate hash-bound
+v2 build. Live agent availability, the retained `4f6a481` sync failure/recovery,
+normal Docker cleanup and full G7/G8 remain open. No nested virtualization is used;
+direct child kernels share host trust after compromise.
+
 ## Shim diagnostic reader-loss checkpoint (2026-11-05)
 
 Source `4f6a4810` protects [shared shim diagnostic stderr](../contracts/diagnostic-stderr.md)
