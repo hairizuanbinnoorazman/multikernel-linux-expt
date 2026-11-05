@@ -24,7 +24,12 @@ pass. The initial unsafe fixture permission refusal is retained; production bund
 permissions were not weakened. The [GCE fixture](../../../evidence/runtime-20261105/g8-task-rpc-gce/README.md)
 passes success/zero (`5bd529bd`) on boot `3db378f4`, preserving all 201 artifacts,
 19 current proof files and prior failure generations. It uses controlled delegates
-without installed-service changes or kernel allocation. Actual Docker, other producers,
+without installed-service changes or kernel allocation. The separate [actual Docker
+regression](../../../evidence/runtime-20261105/g8-live-docker-task-rpc/README.md)
+passes: workload `550b1776` and parent `9c6827f8` exit success/zero; build/recovery,
+engine/image separation, authority, diagnostics and normal cleanup pass. Eight-report
+holds take 115.601 / 108.403 / 97.689 ms. Private faults were not injected during
+Docker; cold restoration remains required. Other producers,
 aggregate diagnostics, provenance/readiness and full G7/G8 remain separate.
 No nested virtualization is used; direct child kernels share host trust after compromise.
 

@@ -31,7 +31,10 @@ the fixture permission was corrected. Focused/full runtime race and required che
 pass. The separate [GCE fixture](../../../evidence/runtime-20261105/g8-task-rpc-gce/README.md)
 also passes success/zero, preserving all 201 artifacts and prior failures with
 controlled delegates and no installed-service or kernel backend changes.
-Actual child Docker qualification, aggregate diagnostic pressure/retention,
+The separate [actual Docker regression](../../../evidence/runtime-20261105/g8-live-docker-task-rpc/README.md)
+also passes normal build/recovery, separation, diagnostics and cleanup for this
+source, without injecting the controlled private faults. Cold restoration remains
+required. Aggregate diagnostic pressure/retention,
 provenance/readiness and full G7/G8 remain separate.
 
 No nested virtualization is used; direct child kernels share host trust after
