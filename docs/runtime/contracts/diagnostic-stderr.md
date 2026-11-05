@@ -25,7 +25,10 @@ loss must preserve durable process/event ownership and exact lifecycle completio
 contains six parent-source SIGPIPE failures and green real-pipe default-sink cases
 across all four typed producers. Additional controls preserve exact process exit,
 supervisor crash recovery/PID cleanup and ordered event journal reconstruction/
-acknowledgement. Full runtime race and required checks pass. Actual child-Docker
+acknowledgement. Full runtime race and required checks pass. The separate
+[GCE fixture](../../../evidence/runtime-20261105/g8-diagnostic-stderr-gce/README.md)
+also passes success/zero with real pipes and controlled processes, preserving all
+219 prior artifacts and failure generations. Actual child-Docker
 fault injection and node aggregate pressure/retention remain separate.
 
 No nested virtualization is used; direct child kernels share host trust after

@@ -12,7 +12,10 @@ without SIGPIPE termination; full pipes retain one bounded writer/descriptor and
 64 queued records. [Exact-parent red/green, 16 real-pipe default-sink cases,
 lifecycle recovery, race and required controls](../../evidence/runtime-20261105/g8-diagnostic-stderr-controls/README.md)
 pass. Process exact exit 37, supervisor crash restart/PID cleanup and durable event
-reconstruction/ordered acknowledgement remain intact. GCE, new-source actual Docker,
+reconstruction/ordered acknowledgement remain intact. The [GCE fixture](../../evidence/runtime-20261105/g8-diagnostic-stderr-gce/README.md)
+passes success/zero (`9303f71c`) on boot `9c7a1110`, preserving all 219 artifacts and
+19 current proof files without installed-service changes or child allocation.
+New-source actual Docker,
 node aggregate pressure/retention, other producers and full G7/G8 remain separate.
 No nested virtualization is used; direct child kernels share host trust after compromise.
 
