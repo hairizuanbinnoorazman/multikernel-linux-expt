@@ -29,7 +29,7 @@ func TestOutputProjectionAllowsOnlyCompleteConstantStdoutMarkers(t *testing.T) {
 	}
 }
 func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
-	for _, mode := range []string{"observed", "private-observed", "missing-field", "oversized", "offset-underflow", "wrong-output-state", "changed-final-pid", "running", "deadline"} {
+	for _, mode := range []string{"observed", "private-observed", "missing-field", "oversized", "offset-underflow", "wrong-output-state", "changed-final-pid", "running", "deadline", "process-running", "process-stopped", "process-created", "process-transition", "process-pressure-progress", "process-deadline", "process-wrong-output-state"} {
 		t.Run(mode, func(t *testing.T) {
 			dir, err := os.MkdirTemp("/tmp", "mk-out-")
 			if err != nil {
@@ -44,6 +44,10 @@ func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
 			defer listener.Close()
 			os.Chmod(path, 0600)
 			o := options{socket: path, id: "box", generation: "0123456789abcdef0123456789abcdef", release: "test-release", processID: "private-target", stoppedOutputSummary: true, endpoint: 7200, peerPID: os.Getpid(), tokenFD: 3, timeout: 150 * time.Millisecond}
+			if strings.HasPrefix(mode, "process-") {
+				o.stoppedOutputSummary = false
+				o.processOutputSummary = true
+			}
 			if mode == "private-observed" {
 				o.privateBundleDir = filepath.Join(dir, "private")
 				if os.Mkdir(o.privateBundleDir, 0700) != nil {
@@ -101,9 +105,18 @@ func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
 							return
 						}
 						state := agent.ProcessState{ID: o.processID, Status: "STOPPED", PID: 616, ExitCode: 137, Stdout: "secret-state-data"}
-						if mode == "running" {
+						if mode == "running" || mode == "process-running" || mode == "process-transition" || mode == "process-pressure-progress" || mode == "process-deadline" || mode == "process-wrong-output-state" {
 							state.Status = "RUNNING"
 							state.ExitCode = 0
+						}
+						if mode == "process-created" {
+							state.Status = "CREATED"
+							state.PID = 0
+							state.ExitCode = 0
+						}
+						if mode == "process-transition" && len(methods) == 4 {
+							state.Status = "STOPPED"
+							state.ExitCode = 37
 						}
 						if mode == "changed-final-pid" && len(methods) == 4 {
 							state.PID = 617
@@ -115,17 +128,26 @@ func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
 							methods = append(methods, "INVALID")
 							return
 						}
-						if mode == "deadline" {
+						if mode == "deadline" || mode == "process-deadline" {
 							var closed [1]byte
 							c.Read(closed[:])
 							return
 						}
 						out := []byte("secret-output\nG8_BUILD_WORKLOAD_BEGIN\nG8_STORAGE_PRESSURE_FULL\n")
+						if mode == "process-pressure-progress" {
+							out = []byte("secret-output\nG8_BUILD_WORKLOAD_BEGIN\nG8_STORAGE_PRESSURE_COARSE_WRITE_EXIT=1\n")
+						}
 						stderr := []byte("secret-error\n")
 						if mode == "oversized" {
 							out = make([]byte, outputSampleLimit+1)
 						}
 						sample := map[string]any{"stdout": out, "stderr": stderr, "stdout_offset": len(out), "stderr_offset": len(stderr), "status": "STOPPED", "stdout_truncated": false, "stderr_truncated": false}
+						if o.processOutputSummary && mode != "process-stopped" {
+							sample["status"] = "RUNNING"
+						}
+						if mode == "process-wrong-output-state" {
+							sample["status"] = "STOPPED"
+						}
 						if mode == "missing-field" {
 							delete(sample, "stderr_truncated")
 						}
@@ -151,9 +173,9 @@ func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
 			methods := <-served
 			want := []string{"Capabilities", "StateProcess", "ReadProcessOutput", "StateProcess"}
 			switch mode {
-			case "running":
+			case "running", "process-created":
 				want = want[:2]
-			case "missing-field", "oversized", "offset-underflow", "wrong-output-state", "deadline":
+			case "missing-field", "oversized", "offset-underflow", "wrong-output-state", "deadline", "process-deadline", "process-wrong-output-state":
 				want = want[:3]
 			}
 			if strings.Join(methods, ",") != strings.Join(want, ",") {
@@ -169,15 +191,25 @@ func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
 			if mode == "private-observed" {
 				version = 4
 			}
+			if o.processOutputSummary {
+				version = 5
+			}
 			if r.Version != version || r.MutatingMethodAttempted {
 				t.Fatal("summary version or mutation contract violated")
 			}
-			if mode == "observed" || mode == "private-observed" {
+			if mode == "observed" || mode == "private-observed" || mode == "process-running" || mode == "process-stopped" || mode == "process-pressure-progress" {
 				code := "STOPPED_OUTPUT_SUMMARY_OBSERVED"
 				if mode == "private-observed" {
 					code = "PRIVATE_STOPPED_OUTPUT_BUNDLE_WRITTEN"
 				}
-				if r.Status != "observed" || r.Code != code || r.Output == nil || !r.Output.StateStable || strings.Join(r.Output.Markers, ",") != "G8_BUILD_WORKLOAD_BEGIN,G8_STORAGE_PRESSURE_FULL" {
+				wantMarkers := "G8_BUILD_WORKLOAD_BEGIN,G8_STORAGE_PRESSURE_FULL"
+				if o.processOutputSummary {
+					code = "PROCESS_OUTPUT_SUMMARY_OBSERVED"
+				}
+				if mode == "process-pressure-progress" {
+					wantMarkers = "G8_BUILD_WORKLOAD_BEGIN,G8_STORAGE_PRESSURE_COARSE_WRITE_EXIT=1"
+				}
+				if r.Status != "observed" || r.Code != code || r.Output == nil || !r.Output.StateStable || strings.Join(r.Output.Markers, ",") != wantMarkers {
 					t.Fatalf("summary missing: %+v", r)
 				}
 				if mode == "private-observed" {
@@ -196,10 +228,10 @@ func TestStoppedOutputSummaryProtocolGatesAndBounds(t *testing.T) {
 			} else if r.Status != "inconclusive" || r.Output != nil {
 				t.Fatal("incomplete observation published output")
 			}
-			if mode == "deadline" && r.Code != "DEADLINE_OR_CANCELED" {
+			if (mode == "deadline" || mode == "process-deadline") && r.Code != "DEADLINE_OR_CANCELED" {
 				t.Fatal("shared deadline classification lost")
 			}
-			if mode == "changed-final-pid" && r.Process != nil {
+			if (mode == "changed-final-pid" || mode == "process-transition") && r.Process != nil {
 				t.Fatal("changed process identity retained as authority")
 			}
 		})
@@ -209,5 +241,72 @@ func TestOutputSummaryRequiresExplicitTarget(t *testing.T) {
 	r := inspect(context.Background(), options{stoppedOutputSummary: true}, nil)
 	if r.Code != "INVALID_PROBE_INPUT" || r.RequestAttempted {
 		t.Fatal("summary accepted missing process target")
+	}
+}
+
+func TestProcessOutputModeRequiresExplicitTargetAndRejectsPrivateCapture(t *testing.T) {
+	base := options{socket: "/tmp/socket", id: "box", generation: "0123456789abcdef0123456789abcdef", release: "test-release", processID: "init", endpoint: 7200, peerPID: 123, tokenFD: 3, timeout: time.Second, processOutputSummary: true}
+	if !valid(base) {
+		t.Fatal("explicit summary mode rejected")
+	}
+	for _, mode := range []string{"target", "both", "private"} {
+		o := base
+		switch mode {
+		case "target":
+			o.processID = ""
+		case "both":
+			o.stoppedOutputSummary = true
+		case "private":
+			o.privateBundleDir = "/tmp/private"
+		}
+		r := inspect(context.Background(), o, nil)
+		if r.Code != "INVALID_PROBE_INPUT" || r.RequestAttempted {
+			t.Fatal("unsafe output mode attempted authentication")
+		}
+	}
+}
+func TestOutputProjectionPressureProgressOnlyExactWholeStdoutLines(t *testing.T) {
+	markers := []string{"G8_STORAGE_PRESSURE_COARSE_WRITE_EXIT=1", "G8_STORAGE_PRESSURE_COARSE_SYNC_EXIT=0", "G8_STORAGE_PRESSURE_WRITE_EXIT=1", "G8_STORAGE_PRESSURE_SYNC_EXIT=0"}
+	for _, marker := range markers {
+		for _, mode := range []string{"exact", "suffix", "prefix", "different-value", "unterminated", "partial-base", "stderr"} {
+			t.Run(marker+"/"+mode, func(t *testing.T) {
+				raw := marker + "\n"
+				base := uint64(0)
+				stderr := []byte(nil)
+				switch mode {
+				case "suffix":
+					raw = marker + " private-token\n"
+				case "prefix":
+					raw = "private-token " + raw
+				case "different-value":
+					raw = marker + "7\n"
+				case "unterminated":
+					raw = marker
+				case "partial-base":
+					base = 9
+				case "stderr":
+					stderr = []byte(raw)
+					raw = "private-token\n"
+				}
+				sample := outputSample{Status: "RUNNING", Stdout: []byte(raw), Stderr: stderr, StdoutOffset: uint64(len(raw)) + base, StderrOffset: uint64(len(stderr))}
+				p := projectOutputForState(sample, "RUNNING")
+				if p == nil {
+					t.Fatal("valid bounded sample rejected")
+				}
+				if (len(p.Markers) == 1) != (mode == "exact") {
+					t.Fatal("nonconstant or partial marker accepted")
+				}
+				if mode == "exact" && p.Markers[0] != marker {
+					t.Fatal("wrong constant marker")
+				}
+				if projectOutput(sample) != nil {
+					t.Fatal("legacy stopped-only projection accepted running output")
+				}
+				data, _ := json.Marshal(p)
+				if strings.Contains(string(data), "private-token") {
+					t.Fatal("raw output escaped")
+				}
+			})
+		}
 	}
 }

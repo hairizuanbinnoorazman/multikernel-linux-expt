@@ -75,10 +75,16 @@ var dockerProbeMarkers = []string{
 	"G8_MULTISTAGE_BUILD_PASS", "G8_REPEAT_BUILD_PASS", "G8_BUILT_IMAGE_RUN_PASS",
 	"G8_STORAGE_PRESSURE_IMAGE_READY", "G8_FAILED_BUILD_REJECTED", "G8_BUILD_RESOURCES_REMOVED",
 	"G8_STORAGE_PRESSURE_BUILD_RECOVERED", "G8_BUILD_WORKLOAD_PASS",
+	"G8_STORAGE_PRESSURE_COARSE_WRITE_EXIT=1", "G8_STORAGE_PRESSURE_COARSE_SYNC_EXIT=0",
+	"G8_STORAGE_PRESSURE_WRITE_EXIT=1", "G8_STORAGE_PRESSURE_SYNC_EXIT=0",
 }
 
 func projectOutput(sample outputSample) *outputObservation {
-	if sample.Status != "STOPPED" || len(sample.Stdout) > outputSampleLimit || len(sample.Stderr) > outputSampleLimit || sample.StdoutOffset < uint64(len(sample.Stdout)) || sample.StderrOffset < uint64(len(sample.Stderr)) {
+	return projectOutputForState(sample, "STOPPED")
+}
+
+func projectOutputForState(sample outputSample, expected string) *outputObservation {
+	if (expected != "STOPPED" && expected != "RUNNING") || sample.Status != expected || len(sample.Stdout) > outputSampleLimit || len(sample.Stderr) > outputSampleLimit || sample.StdoutOffset < uint64(len(sample.Stdout)) || sample.StderrOffset < uint64(len(sample.Stderr)) {
 		return nil
 	}
 	r := &outputObservation{LimitPerStream: outputSampleLimit, StdoutBytes: len(sample.Stdout), StderrBytes: len(sample.Stderr), StdoutStart: sample.StdoutOffset - uint64(len(sample.Stdout)), StderrStart: sample.StderrOffset - uint64(len(sample.Stderr)), StdoutEnd: sample.StdoutOffset, StderrEnd: sample.StderrOffset, StdoutTruncated: sample.StdoutTruncated, StderrTruncated: sample.StderrTruncated, Markers: []string{}}
@@ -104,10 +110,19 @@ func projectOutput(sample outputSample) *outputObservation {
 	}
 	return r
 }
-func inspectStoppedOutput(ctx context.Context, client *agent.Client, o options, r report, before agent.ProcessState, bundle *privateBundleTarget) report {
+func inspectProcessOutput(ctx context.Context, client *agent.Client, o options, r report, before agent.ProcessState, bundle *privateBundleTarget) report {
 	r.Status = "inconclusive"
-	if before.Status != "STOPPED" {
+	if before.Status != "STOPPED" && (!o.processOutputSummary || before.Status != "RUNNING") {
 		r.Code = "PROCESS_NOT_STOPPED"
+		if o.processOutputSummary {
+			r.Code = "PROCESS_NOT_OUTPUT_READY"
+		}
+		return r
+	}
+	// Running output is an explicit summary-only mode. Private publication stays
+	// stopped-only, even if an internal caller bypasses option validation.
+	if o.processOutputSummary && bundle != nil {
+		r.Code = "INVALID_PROBE_INPUT"
 		return r
 	}
 	r.OutputQueryAttempted = true
@@ -134,7 +149,7 @@ func inspectStoppedOutput(ctx context.Context, client *agent.Client, o options, 
 		r.Code = "OUTPUT_SAMPLE_MISMATCH"
 		return r
 	}
-	projected := projectOutput(sample)
+	projected := projectOutputForState(sample, before.Status)
 	if projected == nil {
 		r.Code = "OUTPUT_SAMPLE_MISMATCH"
 		return r
@@ -152,6 +167,9 @@ func inspectStoppedOutput(ctx context.Context, client *agent.Client, o options, 
 	r.Output = projected
 	r.Status = "observed"
 	r.Code = "STOPPED_OUTPUT_SUMMARY_OBSERVED"
+	if o.processOutputSummary {
+		r.Code = "PROCESS_OUTPUT_SUMMARY_OBSERVED"
+	}
 	if bundle != nil {
 		return bundle.publish(ctx, r, sample)
 	}
