@@ -20,6 +20,9 @@ from runtime_component_build_checkpoint import qualify as qualify_component_buil
 from runtime_operational_doctor_checkpoint import qualify as qualify_operational_doctor
 from runtime_diagnostic_bundle_checkpoint import qualify_live as qualify_diagnostic_bundle
 from runtime_diagnostic_bundle_checkpoint import qualify_timing as qualify_diagnostic_timing
+from runtime_health_bundle_checkpoint import qualify as qualify_health_doctor
+from runtime_health_bundle_checkpoint import qualify_bundle as qualify_health_bundle
+from runtime_health_bundle_checkpoint import qualify_timing as qualify_health_timing
 from runtime_native_record_fault import HiddenNativeRecord, kill_native_export
 from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
@@ -90,7 +93,7 @@ private=work/'integration';private.mkdir(mode=0o700)
 (private/'primary-before.json').write_text(json.dumps({'file_sha256':before,'service_main_pids':pids,'boot_id':boot},indent=2)+'\n')
 primary_docker_before=observe_primary_docker()
 (private/'primary-docker-before.json').write_text(json.dumps(primary_docker_before,indent=2)+'\n')
-for name in ['docker-data','docker-exec','containerd-root','containerd-state','exported','input','locks','manifests','daemon-state','rootfs-state','storage-state','storage-runtime','network-state']:(private/name).mkdir(mode=0o755 if name in ['exported','input'] else 0o700)
+for name in ['docker-data','docker-exec','containerd-root','containerd-state','exported','input','locks','manifests','daemon-state','rootfs-state','storage-state','storage-runtime','network-state','health-bundles']:(private/name).mkdir(mode=0o755 if name in ['exported','input'] else 0o700)
 # Publish the exact approved xattr-free tree as Docker import data. The original
 # export has capability PAX headers and is deliberately not imported directly.
 archive=private/'approved-image.tar'
@@ -371,6 +374,31 @@ try:
      journal_report=qualify_journal_status(journal.stdout,boot,owner,report,released=released)
      assert time.monotonic()<=journal_deadline,'journal status observation exceeded its bound'
      (private/('journal-status-'+label+'.json')).write_text(json.dumps(journal_report,indent=2)+'\n')
+     # A separate two-report health budget does not relabel the eight-report
+     # sequence above. Both remain capped by the original hold deadline.
+     health_started_ns=time.monotonic_ns();health_deadline_ns=min(int(outer_deadline*1_000_000_000),health_started_ns+5_000_000_000)
+     health_deadline=health_deadline_ns/1_000_000_000
+     endpoint=None if released else endpoints[0]
+     (private/('health-endpoint-'+label+'.json')).write_text(json.dumps(endpoint,indent=2)+'\n')
+     references=(boot,owner,report,network_report,endpoint,combined_report,pool_report,unified_report,component_report,operational_report,journal_report,health_report,compiled_versions,compiled_revisions)
+     remaining=health_deadline-time.monotonic();assert remaining>0,'health pair observation budget exhausted'
+     health_doctor=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor-all','--doctor-format=8','--network-socket='+str(network_socket)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=remaining)
+     assert health_doctor.returncode==0 and not health_doctor.stderr,'version-8 health refused the steady lifecycle hold'
+     qualified_health=qualify_health_doctor(health_doctor.stdout,*references,released=released)
+     (private/('health-doctor-'+label+'.json')).write_text(json.dumps(qualified_health,indent=2)+'\n')
+     destination=private/'health-bundles'/(label+'.json')
+     remaining=health_deadline-time.monotonic();assert remaining>0,'health bundle observation budget exhausted'
+     health_bundle=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--network-socket='+str(network_socket),'--diagnostic-bundle='+str(destination),'--diagnostic-format=2','--diagnostic-max-files='+str(4 if native_record_fault else 3),'--diagnostic-max-bytes=1048576'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=remaining)
+     assert health_bundle.returncode==0 and not health_bundle.stderr,'version-2 health bundle refused the steady lifecycle hold'
+     data=destination.read_bytes();identity=destination.lstat()
+     assert stat.S_ISREG(identity.st_mode) and stat.S_IMODE(identity.st_mode)==0o600 and identity.st_uid==0 and identity.st_nlink==1 and 0<len(data)==identity.st_size<=1<<20
+     qualify_health_bundle(data,health_bundle.stdout,json.dumps(qualified_health).encode(),*references,released=released)
+     (private/('health-bundle-'+label+'-receipt.json')).write_bytes(health_bundle.stdout)
+     (private/('health-bundle-'+label+'-identity.json')).write_text(json.dumps(dict(device=identity.st_dev,inode=identity.st_ino,uid=identity.st_uid,links=identity.st_nlink,mode='0600',bytes=len(data),sha256=hashlib.sha256(data).hexdigest()),indent=2)+'\n')
+     health_finished_ns=time.monotonic_ns()
+     health_timing=dict(version=1,scope='health-doctor-and-health-bundle-checkpoint',phase=label,configured_budget_ns=5_000_000_000,started_monotonic_ns=health_started_ns,deadline_monotonic_ns=health_deadline_ns,finished_monotonic_ns=health_finished_ns,elapsed_ns=health_finished_ns-health_started_ns,report_count=2)
+     qualify_health_timing(json.dumps(health_timing).encode(),label)
+     (private/('health-checkpoint-timing-'+label+'.json')).write_text(json.dumps(health_timing,indent=2)+'\n')
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
@@ -596,6 +624,13 @@ if storage_pressure:r['runtime_diagnostic_bundle_receipt_sha256']={phase:sha(pri
 if storage_pressure:r['runtime_diagnostic_bundle_identity_sha256']={phase:sha(private/('diagnostic-bundle-'+phase+'-identity.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_diagnostic_checkpoint_timing_sha256']={phase:sha(private/('diagnostic-checkpoint-timing-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['compiled_labels_sha256']=sha(work/'compiled-labels.json')
+if storage_pressure:
+ r['runtime_health_bundle_tested']=True
+ for family,prefix in [('doctor','health-doctor'),('endpoint','health-endpoint'),('checkpoint_timing','health-checkpoint-timing')]:
+  r['runtime_health_'+family+'_sha256']={phase:sha(private/(prefix+'-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+ r['runtime_health_bundle_sha256']={phase:sha(private/'health-bundles'/(phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+ for kind in ['receipt','identity']:
+  r['runtime_health_bundle_'+kind+'_sha256']={phase:sha(private/('health-bundle-'+phase+'-'+kind+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')

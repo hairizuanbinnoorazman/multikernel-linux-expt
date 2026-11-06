@@ -8,6 +8,7 @@ import fcntl,hashlib,json,os,pathlib,re,signal,socket,stat,subprocess,time,uuid
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 from runtime_diagnostic_bundle_checkpoint import inspect_fixture_lifecycle_timings
+from runtime_health_bundle_checkpoint import inspect_fixture_health
 from runtime_module_taint import expected_module_taint
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
@@ -96,7 +97,8 @@ try:
     if RECORD_FAULT!='crash' and observed['Result']=='success' and observed['ExecMainStatus']=='0':
         protected(WORK/'integration')
         timings=inspect_fixture_lifecycle_timings(WORK,BOOT,invocation)
-        record('diagnostic-checkpoint-timings-qualified',diagnostic_checkpoint_timings=timings)
+        health_timings=inspect_fixture_health(WORK,BOOT,invocation)
+        record('diagnostic-checkpoint-timings-qualified',diagnostic_checkpoint_timings=timings,health_checkpoint_timings=health_timings)
 except BaseException as error:
     failure=error;record('trial-error',error=str(error))
 finally:

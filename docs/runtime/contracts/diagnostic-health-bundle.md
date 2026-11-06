@@ -67,3 +67,29 @@ audit. The earlier run's audit was interrupted by the user restart and remains
 unqualified; [restart evidence](../../../evidence/runtime-20261106/g8-user-restart-6349/README.md)
 keeps that gap explicit. Kernel inputs are simulated for the positive CLI cases;
 actual new Docker execution and complete G7/G8 remain open.
+
+## Actual Docker hold integration
+
+The pressure harness now requests v8 health and an explicit v2 bundle at ENOSPC,
+built-image and post-removal holds, after the original eight-report sequence and
+separate journal/network observations. Each pair has its own five-second shared
+budget capped by the original hold deadline; its timing scope is distinct from
+the eight-report sequence. The private v2 directory allows three artifacts and
+1 MiB total, or four artifacts for the separate record-fault/restored hold.
+No rotation or deletion occurs on quota refusal.
+
+The new Python qualifier rechecks all independent operational, journal and
+network references, then binds exact product bytes and receipt. Private endpoint
+snapshots are retained at the hold so the parent and postrun audit can requalify
+the full descriptor chain after endpoint deletion. The lifecycle receipt binds
+all three products, endpoint snapshots, identities and timing frames; the
+parent gate rejects missing, drifted or falsely promoted evidence. The reusable
+live audit reports this additional qualification explicitly. Historical receipts
+without it stay historical and do not inherit v8/v2 qualification.
+
+Local controls cover live/released views, forged references with recomputed
+receipts, missing frames, private field/attestation/numeric aliases and timing
+scope/budget refusal. Actual Docker-hold execution of this extension remains
+pending until separately recorded live evidence; earlier v1 bundle proof does
+not qualify it. Health observations remain distinct from readiness, writability
+and hostile-child containment. No nested virtualization is introduced.
