@@ -56,3 +56,11 @@ retains a distinct reuse event and receipt flag. The normal cold path keeps its
 existing original-module admission. Candidate reuse does not qualify cold
 restoration, original failed-generation recovery, host-kernel containment or full
 G7/G8. No nested virtualization is involved.
+
+Trial packets also contain a protected `tmp/` directory. The module-trial driver
+binds it at `/tmp` only inside the disposable workload unit and requests an
+explicit harness identity check of the bound device/inode, owner and mode. This
+keeps sanitized builders' default scratch on the selected staging filesystem
+without allowing ambient TMPDIR into the production builder environment. The
+receipt and postrun audit distinguish this observed private scratch mount from
+legacy trials that did not request it. Production service unit policy is unchanged.

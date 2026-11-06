@@ -57,6 +57,7 @@ def build(args):
     protected_parent(output)
     output.mkdir(mode=0o700)  # Never replace or resume an existing generation.
     (output/'bin').mkdir(mode=0o700)
+    (output/'tmp').mkdir(mode=0o700)
     (output/'source').mkdir(mode=0o700)
     archive = output/'source.tar'
     with archive.open('xb') as file:
@@ -112,7 +113,7 @@ def build(args):
         info.uid=info.gid=0;info.uname=info.gname='root'
         return info
     with tarfile.open(output/'stage.tar.gz','w:gz') as packet:
-        for name in ['source.tar','build.json','bin']:
+        for name in ['source.tar','build.json','bin','tmp']:
             packet.add(output/name,arcname=name,filter=packet_owner)
     (output/'stage.tar.gz').chmod(0o600)
     print(json.dumps(dict(source_commit=revision,packet_sha256=sha(output/'stage.tar.gz'),installed=False,full_trial_started=False)))

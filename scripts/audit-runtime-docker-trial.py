@@ -305,7 +305,7 @@ def audit(args):
     if len(sp.check_output(['ss', '-A', 'vsock', '-an'], text=True, timeout=10).splitlines()) != 1 or 'No memory pool configured' not in sp.check_output(['/opt/mkruntime/kerf-venv/bin/kerf', 'show'], text=True, timeout=10):
         raise ValueError('VSOCK or pool resources remain')
     return dict(schema=1, source_commit=args.source_commit, boot_id=boot, parent_invocation=args.parent_invocation,
-                workload_invocation=args.workload_invocation, same_epoch_completion=True, live_health_pair_qualified=live_health, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=True,
+                workload_invocation=args.workload_invocation, same_epoch_completion=True, live_health_pair_qualified=live_health, trial_scratch_private_mount_qualified=receipt.get('private_trial_tmp_tested') is True, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=True,
                 diagnostic_three_hold_receipts_requalified=True, primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,

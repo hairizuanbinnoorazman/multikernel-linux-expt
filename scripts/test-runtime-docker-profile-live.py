@@ -64,6 +64,12 @@ def services():
   d[name]=subprocess.check_output(['systemctl','show',name,'-p','MainPID','--value'],text=True).strip()
  return d
 for ns in ['mnt']:assert os.readlink('/proc/self/ns/'+ns)!=os.readlink('/proc/1/ns/'+ns)
+private_trial_tmp=os.environ.get('MK_TRIAL_PRIVATE_TMP','0');assert private_trial_tmp in ['0','1']
+if private_trial_tmp=='1':
+ scratch=(work/'tmp').lstat();current=pathlib.Path('/tmp').stat()
+ assert stat.S_ISDIR(scratch.st_mode) and scratch.st_uid==0 and stat.S_IMODE(scratch.st_mode)==0o700
+ assert (scratch.st_dev,scratch.st_ino)==(current.st_dev,current.st_ino),'trial scratch does not match its private unit mount'
+
 config=json.loads(pathlib.Path('/etc/mkruntime/config.json').read_text())
 paths=[pathlib.Path('/etc/mkruntime/config.json'),pathlib.Path(config['state_directory'])/'state.json',pathlib.Path(config['state_directory'])/'journal.jsonl',pathlib.Path('/var/lib/mkruntimed/rootfs/state.json'),pathlib.Path('/var/lib/mkruntimed/storage/state.json'),pathlib.Path('/var/lib/mknetd/state.json')]+sorted(pathlib.Path(config['kernel_manifest_directory']).glob('*.json'))
 before={str(p):sha(p) for p in paths};pids=services();boot=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
@@ -596,6 +602,7 @@ primary_docker_after=observe_primary_docker()
 (private/'primary-docker-after.json').write_text(json.dumps(primary_docker_after,indent=2)+'\n')
 check_primary_docker(primary_docker_before,primary_docker_after)
 r={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'private_mount_namespace':True,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'private_daemon_state':True,'network_rules_and_links_restored':True,'rootfs_records_remaining':0,'network_endpoints_remaining':0,'live_storage_exports_remaining':0,'pool_released':True,'children_remaining':0,'online_cpus_restored':'0-15','docker_import_create_export_pass':True,'export_matches_approved_source':True,'production_files_unchanged':True,'four_service_pids_unchanged':True,'execution_script_sha256':sha(pathlib.Path(__file__)),'workload_checkpoint_sha256':sha(work/'workload-checkpoint.json'),'firewall_comparison':'exact-rules-and-policies-excluding-timestamps-and-chain-counters','export_root_mode':oct((private/'exported').stat().st_mode&0o777),'strict_source_comparison':True,'pinned_original_archive_sha256':pinned_archive_digest,'source_image_archive_sha256':sha(archive),'approved_tree_packaged_without_xattrs':True,'export_manifest_sha256':sha(scan),'host_docker_version':subprocess.check_output(['/usr/bin/docker','--version'],text=True).strip(),'qualified_containerd_sha256':sha(work/'bin/containerd')}
+r['private_trial_tmp_tested']=private_trial_tmp=='1'
 r['native_nbd_helper_sha256']=sha(nbd_helper)
 r['primary_docker_inventory_sha256']={name:sha(private/('primary-docker-'+name+'.json')) for name in ['before','after']+(['while-full','while-image-ready'] if storage_pressure else [])}
 r['systemd_scope_sha256']=sha(work/'systemd-scope.json')

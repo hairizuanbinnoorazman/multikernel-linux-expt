@@ -40,7 +40,7 @@ def protected(path):
         s=p.lstat();assert not stat.S_ISLNK(s.st_mode) and s.st_uid==0 and not s.st_mode&0o022,p
 assert os.geteuid()==0 and socket.gethostname()=='mklinux-g7-storage-20261012'
 assert P('/proc/sys/kernel/random/boot_id').read_text().strip()==BOOT
-for path in [MODULE,WORK,WORK/'bin',WORK/'source',WORK/'source/scripts']:protected(path)
+for path in [MODULE,WORK,WORK/'bin',WORK/'source',WORK/'source/scripts',WORK/'tmp']:protected(path)
 unit=os.environ['MK_MODULE_TRIAL_UNIT'];assert unit=='g8-vsock-rx-trial-'+REVISION+'-release.service'
 scope=show(unit,'MainPID','InvocationID','PrivateMounts','KillMode')
 assert scope=={'MainPID':str(os.getpid()),'InvocationID':os.environ['INVOCATION_ID'],'PrivateMounts':'yes','KillMode':'process'}
@@ -109,7 +109,7 @@ try:
     else:
         run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
         run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
-    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
+    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
     deadline=time.monotonic()+1230;invocation=None
     while True:
         observed=show(pressure,'InvocationID','MainPID','ActiveState','SubState','Result','ExecMainStatus')

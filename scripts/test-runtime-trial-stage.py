@@ -72,13 +72,13 @@ class TrialStageTests(unittest.TestCase):
             self.assertEqual(report['relay_sha256'],relay_digest)
             self.assertEqual(report['relay_interface'],'server-peer')
             for name in names:self.assertEqual(sp.check_output([str(output/'bin'/name)]),b'committed\n')
-            for name in ['', 'bin', 'source']:self.assertEqual(stat.S_IMODE((output/name).stat().st_mode),0o700)
+            for name in ['', 'bin', 'source', 'tmp']:self.assertEqual(stat.S_IMODE((output/name).stat().st_mode),0o700)
             for path in (output/'bin').iterdir():self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o500)
             with tarfile.open(output/'stage.tar.gz') as packet:
                 for member in packet.getmembers():
                     self.assertEqual((member.uid,member.gid),(0,0))
                     self.assertFalse(member.mode&0o022)
-                    if member.name=='bin':self.assertEqual(member.mode,0o700)
+                    if member.name in ['bin','tmp']:self.assertEqual(member.mode,0o700)
                     if member.name.startswith('bin/'):self.assertEqual(member.mode,0o500)
             with tarfile.open(output/'source.tar') as source_packet:
                 for member in source_packet.getmembers():
