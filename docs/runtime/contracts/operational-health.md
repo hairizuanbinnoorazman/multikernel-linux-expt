@@ -51,3 +51,26 @@ canonical complete fields, preventing case aliases from masking failed CHECKs.
 [Exact-parent controls](../../../evidence/runtime-20261106/g8-network-health-canonical-controls/README.md)
 and [GCE version-8 regression proof](../../../evidence/runtime-20261106/g8-network-health-canonical-gce/README.md)
 cover this additional hardening separately from the original format-8 evidence.
+
+`TestHealthReportProductionServersIdlePendingAndFailedJournal` exercises the
+production runtime/network RPC servers and actual private journal state. It
+reconciles only synthetic ABSENT history through a non-resource test backend,
+then installs an empty storage observer and prohibits backend activity during
+inspection. Idle, pending, replaced/failed and repeated-failed observations must
+preserve all fixture state. Pinned build labels permit the positive consistent
+case; ordinary unknown development builds correctly remain inconclusive.
+
+`TestInstalledHealthCLIProductionRPCAndJournalFailure` additionally runs the real
+CLI using explicit pinned inputs (`MK_TEST_HEALTH_CLI` and an existing protected
+`MK_TEST_HEALTH_FIXTURE_PARENT`). Each CLI process gets a fresh mount namespace;
+only there does a fixed synthetic memory map replace `/proc/iomem`. Synthetic
+CPU/instance files stay under its private fixture. The helper checks namespace
+separation before mounts, uses private propagation and a read-only memory-map
+bind, then execs the CLI with a minimal environment. No host namespace unmount,
+actual pool initialization, child load or physical resource change is performed.
+Default/explicit v5 equality and v7's existing scope remain checked. This is
+positive CLI/RPC integration with simulated kernel metadata, not a positive
+production-daemon main startup or live child-Docker qualification. Without the
+explicit installed inputs the mount-namespace tests skip, rather than weakening
+host configuration validation or substituting a caller-selected production
+memory-map path.
