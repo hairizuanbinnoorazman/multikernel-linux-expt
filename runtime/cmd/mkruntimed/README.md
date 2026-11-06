@@ -213,3 +213,9 @@ network CHECK health to repeated v7 observations under the same caller budget.
 It refuses drift/cross-binding and suppresses capacity candidates on aggregate
 trouble. See the [version-8 contract](../../../docs/runtime/contracts/operational-health.md).
 This is not a readiness or admission API; defaults and bundle format are unchanged.
+
+`--diagnostic-bundle=/absolute/private/new.json --diagnostic-format=2` retains
+independent component labels and the version-8 health view with a version-2
+receipt. Troubled observations are saved with nonzero exit status. The default
+remains version 1; both use the same limits and private exclusive publisher.
+See the [health-bundle contract](../../../docs/runtime/contracts/diagnostic-health-bundle.md).

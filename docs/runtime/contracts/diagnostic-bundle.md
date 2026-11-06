@@ -155,3 +155,8 @@ proof](../../../evidence/runtime-20261106/g8-diagnostic-retention-controls/READM
 and [GCE process/retention proof](../../../evidence/runtime-20261106/g8-diagnostic-retention-gce/README.md).
 These close the optional capture-budget subcheck only. They do not establish a
 persisted or node-wide log retention policy, live readiness, recovery or full G8.
+
+Explicit `--diagnostic-format=2` now selects a [health-inclusive bundle](diagnostic-health-bundle.md)
+with independent component labels and the version-8 journal/network-health view.
+Default version 1 remains unchanged. Both formats share the same protected
+publisher and optional per-directory retention budget.

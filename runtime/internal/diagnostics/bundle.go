@@ -64,8 +64,12 @@ func (b *boundedBuffer) Write(data []byte) (int, error) {
 }
 
 func observationStatus(snapshot Snapshot) (string, bool) {
+	return aggregateStatus(snapshot.Components.Status, snapshot.Operational.Status)
+}
+
+func aggregateStatus(values ...string) (string, bool) {
 	status := "consistent"
-	for _, value := range []string{snapshot.Components.Status, snapshot.Operational.Status} {
+	for _, value := range values {
 		switch value {
 		case "degraded":
 			status = "degraded"
@@ -104,7 +108,38 @@ func CollectWithBudget(ctx context.Context, path string, budget DirectoryBudget,
 	return collect(ctx, path, &budget, inspect)
 }
 
+// capturedSnapshot is constructed only by the typed legacy/health adapters.
+type capturedSnapshot struct {
+	version       int
+	scope, status string
+	snapshot      any
+}
+
+type bundleEnvelope struct {
+	Version          int      `json:"version"`
+	Scope            string   `json:"scope"`
+	CollectionStatus string   `json:"collection_status"`
+	StartedAt        string   `json:"started_at"`
+	FinishedAt       string   `json:"finished_at"`
+	Snapshot         any      `json:"snapshot"`
+	Excluded         []string `json:"excluded"`
+}
+
 func collect(ctx context.Context, path string, budget *DirectoryBudget, inspect func(context.Context) Snapshot) (Receipt, error) {
+	if inspect == nil {
+		return Receipt{}, errors.New("invalid diagnostic bundle destination or collector")
+	}
+	return collectSnapshot(ctx, path, budget, func(ctx context.Context) (capturedSnapshot, error) {
+		snapshot := inspect(ctx)
+		status, valid := observationStatus(snapshot)
+		if !valid || snapshot.Components.Version != 1 || snapshot.Components.Scope != "compiled-runtime-network-build-self-reports" || snapshot.Operational.Version != 7 || snapshot.Operational.Scope != "resource-network-pool-and-compiled-component-observations" {
+			return capturedSnapshot{}, errors.New("diagnostic collector returned an invalid report contract")
+		}
+		return capturedSnapshot{version: 1, scope: Scope, status: status, snapshot: snapshot}, nil
+	})
+}
+
+func collectSnapshot(ctx context.Context, path string, budget *DirectoryBudget, inspect func(context.Context) (capturedSnapshot, error)) (Receipt, error) {
 	fail := func(message string) (Receipt, error) { return Receipt{}, errors.New(message) }
 	if !ValidDestination(path) || inspect == nil {
 		return fail("invalid diagnostic bundle destination or collector")
@@ -135,13 +170,12 @@ func collect(ctx context.Context, path string, budget *DirectoryBudget, inspect 
 		return fail("diagnostic bundle destination is unavailable or already exists")
 	}
 	started := time.Now().UTC().Format(time.RFC3339Nano)
-	snapshot := inspect(ctx)
-	status, valid := observationStatus(snapshot)
-	if !valid || snapshot.Components.Version != 1 || snapshot.Components.Scope != "compiled-runtime-network-build-self-reports" || snapshot.Operational.Version != 7 || snapshot.Operational.Scope != "resource-network-pool-and-compiled-component-observations" {
-		return fail("diagnostic collector returned an invalid report contract")
+	capture, err := inspect(ctx)
+	if err != nil {
+		return Receipt{}, err
 	}
-	bundle := Bundle{Version: 1, Scope: Scope, CollectionStatus: "captured", StartedAt: started,
-		FinishedAt: time.Now().UTC().Format(time.RFC3339Nano), Snapshot: snapshot,
+	bundle := bundleEnvelope{Version: capture.version, Scope: capture.scope, CollectionStatus: "captured", StartedAt: started,
+		FinishedAt: time.Now().UTC().Format(time.RFC3339Nano), Snapshot: capture.snapshot,
 		Excluded: []string{"raw-logs", "guest-output", "credentials", "environment", "configuration-files", "state-files", "process-command-lines", "kernel-console", "service-readiness", "executable-attestation", "kernel-attestation", "containment"}}
 	var output boundedBuffer
 	if json.NewEncoder(&output).Encode(bundle) != nil {
@@ -180,5 +214,5 @@ func collect(ctx context.Context, path string, budget *DirectoryBudget, inspect 
 		return fail("diagnostic bundle parent identity changed after publication; inspect the original directory")
 	}
 	digest := sha256.Sum256(output.Bytes())
-	return Receipt{Version: 1, Scope: Scope, CollectionStatus: "captured", ObservationStatus: status, Bytes: output.Len(), SHA256: hex.EncodeToString(digest[:])}, nil
+	return Receipt{Version: capture.version, Scope: capture.scope, CollectionStatus: "captured", ObservationStatus: capture.status, Bytes: output.Len(), SHA256: hex.EncodeToString(digest[:])}, nil
 }

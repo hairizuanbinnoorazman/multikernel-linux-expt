@@ -14,3 +14,7 @@ See the [bundle contract](../../../docs/runtime/contracts/diagnostic-bundle.md).
 limits, metadata-only inventory checks and drift refusal. All current collectors
 serialize through a nonblocking directory-inode lock. No capture deletes prior
 evidence, persists a quota policy or reserves filesystem capacity.
+
+`CollectHealth` / `CollectHealthWithBudget` publish explicit version-2 health
+bundles through the same publisher. Independent component labels remain available
+when health/resource inspection is unavailable. See the [health-bundle contract](../../../docs/runtime/contracts/diagnostic-health-bundle.md).

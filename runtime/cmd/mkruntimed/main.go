@@ -117,6 +117,7 @@ func main() {
 	inspectJournal := flag.Bool("inspect-journal", false, "print bounded in-process journal failure/pending status; not disk writability or readiness")
 	inspectComponents := flag.Bool("inspect-components", false, "print repeated compiled daemon build self-reports; not artifact attestation or health")
 	diagnosticBundle := flag.String("diagnostic-bundle", "", "save bounded structured observations to a new JSON file in an existing private directory")
+	diagnosticFormat := flag.Int("diagnostic-format", 1, "explicit diagnostic-bundle version: 1 (legacy) or 2 (v8 health)")
 	diagnosticMaxFiles := flag.Int("diagnostic-max-files", 0, "optional private diagnostic directory file budget, paired with diagnostic-max-bytes")
 	diagnosticMaxBytes := flag.Int64("diagnostic-max-bytes", 0, "optional private diagnostic directory logical byte budget, paired with diagnostic-max-files")
 	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
@@ -153,7 +154,11 @@ func main() {
 	}
 	formatSpecified := false
 	diagnosticBudgetSpecified := false
+	diagnosticFormatSpecified := false
 	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "diagnostic-format" {
+			diagnosticFormatSpecified = true
+		}
 		if f.Name == "diagnostic-max-files" || f.Name == "diagnostic-max-bytes" {
 			diagnosticBudgetSpecified = true
 		}
@@ -165,6 +170,15 @@ func main() {
 			os.Exit(2)
 		}
 	})
+	if diagnosticFormatSpecified && *diagnosticBundle == "" {
+		fmt.Fprintln(os.Stderr, "diagnostic-format requires diagnostic-bundle")
+		os.Exit(2)
+	}
+	if *diagnosticFormat != 1 && *diagnosticFormat != 2 {
+		fmt.Fprintln(os.Stderr, "diagnostic-format must be 1 or 2")
+		os.Exit(2)
+	}
+
 	diagnosticBudget := diagnostics.DirectoryBudget{MaxFiles: *diagnosticMaxFiles, MaxBytes: *diagnosticMaxBytes}
 	if diagnosticBudgetSpecified && (*diagnosticBundle == "" || !diagnosticBudget.Valid()) {
 		fmt.Fprintln(os.Stderr, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits")
@@ -209,6 +223,15 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	}
+
+	healthInputs := doctor.HealthInputs{
+		Journal: func(ctx context.Context) (protocol.JournalStatusReport, error) {
+			return daemon.InspectJournalStatus(ctx, daemon.Client{Path: socket, Timeout: timeout})
+		},
+		Network: func(ctx context.Context) (mknetwork.HealthReport, error) {
+			return mknetwork.InspectHealth(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
+		},
 	}
 
 	componentInputs := doctor.ComponentInputs{
@@ -265,7 +288,18 @@ func main() {
 		}
 		var receipt diagnostics.Receipt
 		var err error
-		if diagnosticBudgetSpecified {
+		if *diagnosticFormat == 2 {
+			healthInspect := func(ctx context.Context) diagnostics.HealthSnapshot {
+				components := doctor.InspectComponents(ctx, componentInputs, buildinfo.Revision)
+				health := doctor.InspectHealth(ctx, combinedInputs, poolInputs, componentInputs, healthInputs, buildinfo.Revision)
+				return diagnostics.HealthSnapshot{Components: components, Health: health}
+			}
+			if diagnosticBudgetSpecified {
+				receipt, err = diagnostics.CollectHealthWithBudget(ctx, *diagnosticBundle, diagnosticBudget, healthInspect)
+			} else {
+				receipt, err = diagnostics.CollectHealth(ctx, *diagnosticBundle, healthInspect)
+			}
+		} else if diagnosticBudgetSpecified {
 			receipt, err = diagnostics.CollectWithBudget(ctx, *diagnosticBundle, diagnosticBudget, inspect)
 		} else {
 			receipt, err = diagnostics.Collect(ctx, *diagnosticBundle, inspect)
@@ -284,14 +318,7 @@ func main() {
 		defer cancel()
 		inputs := combinedInputs
 		if *inspectCombined && *doctorFormat == 8 {
-			report := doctor.InspectHealth(ctx, inputs, poolInputs, componentInputs, doctor.HealthInputs{
-				Journal: func(ctx context.Context) (protocol.JournalStatusReport, error) {
-					return daemon.InspectJournalStatus(ctx, daemon.Client{Path: socket, Timeout: timeout})
-				},
-				Network: func(ctx context.Context) (mknetwork.HealthReport, error) {
-					return mknetwork.InspectHealth(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
-				},
-			}, buildinfo.Revision)
+			report := doctor.InspectHealth(ctx, inputs, poolInputs, componentInputs, healthInputs, buildinfo.Revision)
 			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
 				os.Exit(1)
 			}
