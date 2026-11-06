@@ -74,3 +74,11 @@ production-daemon main startup or live child-Docker qualification. Without the
 explicit installed inputs the mount-namespace tests skip, rather than weakening
 host configuration validation or substituting a caller-selected production
 memory-map path.
+
+[Real RPC-service lifecycle and local race/required controls](../../../evidence/runtime-20261106/g8-health-services-controls/README.md)
+and [GCE positive CLI, failed-journal mutation and cleanup proof](../../../evidence/runtime-20261106/g8-health-services-cli-gce/README.md)
+now pass. The latter qualifies seven real CLI invocations using the production
+RPC servers and simulated kernel metadata in private child namespaces. It also
+rejects a false exit-0 result after removing only failed-journal severity. Actual
+production-daemon main startup, kernel-pool and new live Docker qualification
+remain separate; no readiness or full G8 closure is inferred.

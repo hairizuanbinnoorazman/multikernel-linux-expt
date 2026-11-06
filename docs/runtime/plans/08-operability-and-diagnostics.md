@@ -1,5 +1,22 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Positive health CLI / real RPC checkpoint (2026-11-06)
+
+Source `d9cfac4b` adds [production RPC/journal lifecycle controls](../../../evidence/runtime-20261106/g8-health-services-controls/README.md)
+and [installed positive CLI qualification](../../../evidence/runtime-20261106/g8-health-services-cli-gce/README.md).
+Local pinned-service race, full runtime race and required checks pass. GCE
+(`449f72c5`) passes seven candidate CLI invocations: idle exit 0, pending/failed
+exit 1 with capacity suppressed, repeated failure stability and legacy v5/v7 scope.
+A single failed-journal-severity mutation falsely exits 0 and is rejected. Real
+RPC servers use fresh protected stores/sockets; simulated kernel data stays in
+private child namespaces. Parent namespace/map and fixture contents/state remain
+unchanged; independent audit confirms unit/case removal and retained parity.
+This closes positive CLI/RPC integration with simulated kernel inputs, not
+production-daemon main startup, actual pool/active-network health, readiness or
+a new live child-Docker lifecycle. Full G7/G8 and retained recovery remain open;
+cloud-capture authorization is pending. No nested virtualization is used; direct
+child kernels share host trust after compromise.
+
 ## Network health canonical decoder checkpoint (2026-11-06)
 
 Code `503ec3fa`, client tests `64083415`, prevents case aliases from masking
