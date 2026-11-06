@@ -69,7 +69,7 @@ func collectHealth(ctx context.Context, path string, budget *DirectoryBudget, in
 	return collectSnapshot(ctx, path, budget, func(ctx context.Context) (capturedSnapshot, error) {
 		snapshot := inspect(ctx)
 		status, valid := healthCaptureStatus(snapshot.Health)
-		if snapshot.Components.Version != 1 || snapshot.Components.Scope != "compiled-runtime-network-build-self-reports" {
+		if snapshot.Components.Version != 1 || snapshot.Components.Scope != "compiled-runtime-network-build-self-reports" || snapshot.Components.ArtifactVerified || snapshot.Components.KernelVerified {
 			valid = false
 		}
 		aggregate, aggregateValid := aggregateStatus(snapshot.Components.Status, status)

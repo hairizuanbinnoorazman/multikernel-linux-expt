@@ -65,11 +65,16 @@ func TestInstalledHealthCLIChild(t *testing.T) {
 	if err = unix.Mount("", "/proc/iomem", "", unix.MS_REMOUNT|unix.MS_BIND|unix.MS_RDONLY|unix.MS_NOSUID|unix.MS_NODEV|unix.MS_NOEXEC, ""); err != nil {
 		t.Fatal("private memory map seal refused", err)
 	}
-	args := []string{cli, "--config=" + filepath.Join(root, "host.json"), "--doctor-all", "--network-socket=" + filepath.Join(root, "network.sock")}
+	args := []string{cli, "--config=" + filepath.Join(root, "host.json"), "--network-socket=" + filepath.Join(root, "network.sock")}
 	switch mode := os.Getenv("MK_TEST_HEALTH_CLI_FORMAT"); mode {
 	case "5", "7", "8":
-		args = append(args, "--doctor-format="+mode)
+		args = append(args, "--doctor-all", "--doctor-format="+mode)
 	case "default":
+		args = append(args, "--doctor-all")
+	case "legacy-bundle":
+		args = append(args, "--diagnostic-bundle="+filepath.Join(root, "legacy-bundles/legacy.json"))
+	case "health-bundle-idle", "health-bundle-pending", "health-bundle-failed", "health-bundle-full":
+		args = append(args, "--diagnostic-bundle="+filepath.Join(root, "health-bundles", mode+".json"), "--diagnostic-format=2", "--diagnostic-max-files=3", "--diagnostic-max-bytes=1048576")
 	default:
 		t.Fatal("unexpected CLI format")
 	}
@@ -127,7 +132,8 @@ func (b *healthCLIOutput) Write(data []byte) (int, error) {
 	return b.Buffer.Write(data)
 }
 
-func TestInstalledHealthCLIProductionRPCAndJournalFailure(t *testing.T) {
+func newInstalledHealthCLIFixture(t *testing.T) (string, *healthServices) {
+	t.Helper()
 	cli := os.Getenv("MK_TEST_HEALTH_CLI")
 	if cli == "" || os.Getenv("MK_TEST_HEALTH_FIXTURE_PARENT") == "" {
 		t.Skip("explicit pinned CLI and protected fixture parent required")
@@ -136,7 +142,6 @@ func TestInstalledHealthCLIProductionRPCAndJournalFailure(t *testing.T) {
 		t.Fatal("installed CLI qualification requires root and pinned build labels")
 	}
 	f := newHealthServices(t)
-	observations := f.history.observations.Load()
 	for _, dir := range []string{"sysfs", "sysfs/instances", "manifests"} {
 		if err := os.Mkdir(filepath.Join(f.root, dir), 0700); err != nil {
 			t.Fatal(err)
@@ -155,6 +160,10 @@ func TestInstalledHealthCLIProductionRPCAndJournalFailure(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(f.root, "host.json"), data, 0600); err != nil {
 		t.Fatal(err)
 	}
+	return cli, f
+}
+
+func runHealthCLI(t *testing.T, f *healthServices, cli, format string, wantExit int, wantStderr string) []byte {
 	parentNS, err := os.Readlink("/proc/self/ns/mnt")
 	if err != nil {
 		t.Fatal(err)
@@ -164,41 +173,46 @@ func TestInstalledHealthCLIProductionRPCAndJournalFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	parentHash := sha256.Sum256(parentMap)
-	run := func(format string, wantExit int) []byte {
-		t.Helper()
-		before, stateBefore := f.files(t), f.store.Snapshot()
-		ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
-		defer cancel()
-		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestInstalledHealthCLIChild$")
-		cmd.Env = []string{"PATH=/usr/bin:/bin", "MK_TEST_HEALTH_CLI_CHILD=1", "MK_TEST_HEALTH_CLI=" + cli, "MK_TEST_HEALTH_CLI_ROOT=" + f.root, "MK_TEST_HEALTH_PARENT_MOUNT_NS=" + parentNS, "MK_TEST_HEALTH_CLI_FORMAT=" + format}
-		cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: unix.CLONE_NEWNS}
-		cmd.WaitDelay = time.Second
-		var stdout, stderr healthCLIOutput
-		cmd.Stdout, cmd.Stderr = &stdout, &stderr
-		err := cmd.Run()
-		exit := 0
-		var failure *exec.ExitError
-		if errors.As(err, &failure) {
-			exit = failure.ExitCode()
-		} else if err != nil {
-			t.Fatal("private CLI helper failed to run", err)
-		}
-		if exit != wantExit || stderr.Len() != 0 || ctx.Err() != nil {
-			t.Fatalf("CLI format %s exit=%d expected=%d stderr-bytes=%d stdout-bytes=%d", format, exit, wantExit, stderr.Len(), stdout.Len())
-		}
-		if bytes.Contains(stdout.Bytes(), []byte("SYNTHETIC_HEALTH_PRIVATE_CANARY")) {
-			t.Fatal("private fixture metadata leaked")
-		}
-		if !reflect.DeepEqual(before, f.files(t)) || !reflect.DeepEqual(stateBefore, f.store.Snapshot()) {
-			t.Fatal("CLI repaired or mutated service state")
-		}
-		nowNS, _ := os.Readlink("/proc/self/ns/mnt")
-		nowMap, e := os.ReadFile("/proc/iomem")
-		if e != nil || nowNS != parentNS || sha256.Sum256(nowMap) != parentHash {
-			t.Fatal("child simulation changed parent mount namespace or memory map")
-		}
-		return append([]byte(nil), stdout.Bytes()...)
+	t.Helper()
+	before, stateBefore := f.files(t), f.store.Snapshot()
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestInstalledHealthCLIChild$")
+	cmd.Env = []string{"PATH=/usr/bin:/bin", "MK_TEST_HEALTH_CLI_CHILD=1", "MK_TEST_HEALTH_CLI=" + cli, "MK_TEST_HEALTH_CLI_ROOT=" + f.root, "MK_TEST_HEALTH_PARENT_MOUNT_NS=" + parentNS, "MK_TEST_HEALTH_CLI_FORMAT=" + format}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: unix.CLONE_NEWNS}
+	cmd.WaitDelay = time.Second
+	var stdout, stderr healthCLIOutput
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	err = cmd.Run()
+	exit := 0
+	var failure *exec.ExitError
+	if errors.As(err, &failure) {
+		exit = failure.ExitCode()
+	} else if err != nil {
+		t.Fatal("private CLI helper failed to run", err)
 	}
+	if exit != wantExit || stderr.String() != wantStderr || ctx.Err() != nil {
+		t.Fatalf("CLI format %s exit=%d expected=%d stderr-bytes=%d stdout-bytes=%d", format, exit, wantExit, stderr.Len(), stdout.Len())
+	}
+	if bytes.Contains(stdout.Bytes(), []byte("SYNTHETIC_HEALTH_PRIVATE_CANARY")) {
+		t.Fatal("private fixture metadata leaked")
+	}
+	if !reflect.DeepEqual(before, f.files(t)) || !reflect.DeepEqual(stateBefore, f.store.Snapshot()) {
+		t.Fatal("CLI repaired or mutated service state")
+	}
+	nowNS, _ := os.Readlink("/proc/self/ns/mnt")
+	nowMap, e := os.ReadFile("/proc/iomem")
+	if e != nil || nowNS != parentNS || sha256.Sum256(nowMap) != parentHash {
+		t.Fatal("child simulation changed parent mount namespace or memory map")
+	}
+	return append([]byte(nil), stdout.Bytes()...)
+}
+
+func TestInstalledHealthCLIProductionRPCAndJournalFailure(t *testing.T) {
+	cli, f := newInstalledHealthCLIFixture(t)
+	observations := f.history.observations.Load()
+	run := func(format string, wantExit int) []byte { return runHealthCLI(t, f, cli, format, wantExit, "") }
+
 	check := func(phase string, wantExit int, wantStatus string) []byte {
 		t.Helper()
 		data := run("8", wantExit)

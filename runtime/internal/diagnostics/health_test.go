@@ -108,7 +108,7 @@ func TestHealthBundleCanceledBudgetRetainsUnavailableReports(t *testing.T) {
 }
 
 func TestHealthBundleInvalidReportsRefuseWithoutPublication(t *testing.T) {
-	for _, mode := range []string{"version", "scope", "status", "admission", "partial", "no-payload-consistent", "boot", "op-version", "op-attestation", "journal", "network", "component-version", "component-status", "masked-journal"} {
+	for _, mode := range []string{"version", "scope", "status", "admission", "partial", "no-payload-consistent", "boot", "op-version", "op-attestation", "journal", "network", "component-version", "component-status", "component-attestation", "masked-journal"} {
 		t.Run(mode, func(t *testing.T) {
 			s := healthBundleFixture("consistent")
 			switch mode {
@@ -141,6 +141,8 @@ func TestHealthBundleInvalidReportsRefuseWithoutPublication(t *testing.T) {
 				s.Components.Version = 0
 			case "component-status":
 				s.Components.Status = "ready"
+			case "component-attestation":
+				s.Components.ArtifactVerified = true
 			case "masked-journal":
 				s.Health.Journal.JournalFailed = true
 				s.Health.Journal.Status = "failed"
@@ -253,6 +255,38 @@ func TestHealthBundleReusesUnsafeDestinationAndSizeGuards(t *testing.T) {
 				if _, err := os.Lstat(path); !os.IsNotExist(err) {
 					t.Fatal("truncated health artifact published")
 				}
+			}
+		})
+	}
+}
+
+func TestHealthBundleByteBudgetUsesEncodedBytesWithoutRemovingEvidence(t *testing.T) {
+	dir := privateDirectory(t)
+	first := filepath.Join(dir, "first.json")
+	receipt, err := CollectHealth(t.Context(), first, func(context.Context) HealthSnapshot { return healthBundleFixture("consistent") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(first)
+	for _, mode := range []string{"already-full", "insufficient-remaining"} {
+		t.Run(mode, func(t *testing.T) {
+			budget := DirectoryBudget{MaxFiles: 3, MaxBytes: int64(receipt.Bytes)}
+			if mode == "insufficient-remaining" {
+				budget.MaxBytes++
+			}
+			calls := 0
+			_, err := CollectHealthWithBudget(t.Context(), filepath.Join(dir, "next.json"), budget, func(context.Context) HealthSnapshot { calls++; return healthBundleFixture("consistent") })
+			want := 0
+			if mode == "insufficient-remaining" {
+				want = 1
+			}
+			if err == nil || calls != want {
+				t.Fatal("health byte budget bypassed", err, calls)
+			}
+			after, _ := os.ReadFile(first)
+			entries, _ := os.ReadDir(dir)
+			if !bytes.Equal(before, after) || len(entries) != 1 {
+				t.Fatal("byte budget modified evidence")
 			}
 		})
 	}
