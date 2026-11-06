@@ -58,3 +58,14 @@ The actual Docker health trial's [separate cold restoration](../../../evidence/r
 also passes with original transport, fifteen current diagnostic artifacts,
 both prior cases and 93 retained files / 12 images preserved. Complete service
 readiness and G7/G8 remain open.
+
+Network health JSON now requires all five canonical report fields and all three
+canonical endpoint fields, with no case aliases, duplicate/unknown fields,
+omissions or nulls. Each report JSON value is limited to 16 KiB (the enclosing
+RPC retains its separate frame bound). Go's case-insensitive struct matching
+must not let `Status` or `Code` overwrite a prior degraded status or failed CHECK.
+Ordinary `json.Unmarshal` and the negotiated client use the same fail-closed
+contract. A failed report decode clears any previously decoded healthy snapshot;
+fixed errors contain no field names or payloads. Valid idle, single-endpoint and
+maximum-32-endpoint reports retain their existing representation and semantics.
+This tightens decoding, not backend health, service readiness or containment.
