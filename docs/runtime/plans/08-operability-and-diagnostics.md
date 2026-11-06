@@ -1,5 +1,19 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Docker readiness peer admission checkpoint (2026-11-06)
+
+Code `0ccb68a4` makes [scope peer verification context-aware](../contracts/docker-peer-check-budget.md)
+and retains the explicit probe budget across HTTP's detached dial context.
+[Local race/required checks and two separate behavioral mutations](../../../evidence/runtime-20261106/g8-peer-admission-controls/README.md)
+pass. [Native GCE proof](../../../evidence/runtime-20261106/g8-peer-admission-gce/README.md)
+passes (`4776e46f`): two frozen-admission mutation failures, two candidate passes,
+four owned scopes released, outside processes preserved and independent cgroup/
+retained-state parity. Detached-dial noncontact cases pass separately. This closes
+peer queue cancellation and probe-budget wiring controls, not end-to-end Docker
+readiness, startup syscall timing or retained recovery. Full G7/G8 remain open;
+cloud-capture authorization is still pending. No nested virtualization is used;
+direct child kernels share host trust after compromise.
+
 ## Scope stop admission checkpoint (2026-11-06)
 
 Code `65f0ffa5` makes [scope stop admission context-aware](../contracts/scope-stop-admission.md) beneath the

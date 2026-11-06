@@ -30,3 +30,9 @@ survival. Installed tests must run separately; local skips do not qualify them.
 These checks do not establish ongoing Docker health, child-kernel containment,
 normal retained-workload recovery or full G7/G8. Direct child kernels require no
 nested virtualization and share host trust after child-kernel compromise.
+
+[Local race/required and two behavioral mutations](../../../evidence/runtime-20261106/g8-peer-admission-controls/README.md)
+pass. [Native GCE frozen-admission and detached-dial proof](../../../evidence/runtime-20261106/g8-peer-admission-gce/README.md)
+also passes: two mutation timing failures, two candidate timing passes, four fresh
+scopes released, outside processes preserved, delegated hierarchy absent and
+retained failure state unchanged. This is not end-to-end live Docker readiness.

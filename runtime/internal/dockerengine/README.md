@@ -16,7 +16,9 @@ prepare mounts before launch. The historical diagnostic bootstrap exits on socke
 incompatible with this lifecycle. The approved-profile builder/init path now installs the outer generation and
 selects this mode; direct-child boot/build qualification is still required.
 
-Startup is bounded to 30 seconds. A Unix connection must have UID 1000 and a
+After clone admission, readiness probing uses a context capped at 30 seconds.
+This does not bound clone admission or subsequent cleanup syscalls. A Unix
+connection must have UID 1000 and a
 live `SO_PEERPIDFD` peer in the owned non-delegated cgroup. Kernels without that
 socket option are refused; there is no numeric-PID fallback. HTTP requests to
 `/_ping` and `/info` have bounded response headers/bodies and deadlines, refuse

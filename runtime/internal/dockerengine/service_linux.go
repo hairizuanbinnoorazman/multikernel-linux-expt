@@ -66,7 +66,8 @@ type Service struct {
 // Launch takes ownership of scope. command must be a caller-constructed fixed
 // outer-root bootstrap which remains foreground until engine shutdown. Even on
 // failure a non-nil Service retains cleanup authority for retry. No shell is
-// selected from workload input. The startup deadline is at most 30 seconds.
+// selected from workload input. After clone admission, the readiness context is
+// capped at 30 seconds; admission and cleanup syscalls have separate contracts.
 func Launch(ctx context.Context, scope *guestscope.Scope, command *exec.Cmd, socket string) (*Service, error) {
 	return launch(ctx, scope, command, socket, nil)
 }
