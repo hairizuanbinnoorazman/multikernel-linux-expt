@@ -1,5 +1,27 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Current-source actual child Docker trial on boot 6349 (2026-11-06)
+
+[Fresh actual GCE proof](../../../evidence/runtime-20261106/g8-live-docker-boot6349/README.md)
+qualifies runtime/harness `0acea0b6` through host Docker selecting a direct child,
+child-local rootless Docker ENOSPC/free-space recovery, build/cache/run/save and
+intentional failure, exact child-image absence from primary Docker, recorded
+native close/offline check and normal resource release. Parent `9b48e2f5` and
+workload `98e8deac` exit successfully. Independent audit code `0dddf459` verifies
+same-epoch completion, private receipts, archived references, primary isolation
+and current resource return. Maximum eight-report sequence duration is about
+113 ms under its ten-second bound. The earlier failed generation remains
+preserved/unrecovered, and its missing old audit is not reconstructed.
+
+The [reusable audit command](../contracts/live-docker-trial-audit.md) passes
+root cgroup/input controls and actual wrong-boot/invocation/build-pin refusal;
+disabling only its epoch guard produces a detected false acceptance. The
+completed workload unit retains an explicitly empty leaf cgroup, not an absent
+one. Raw private payloads remain on the VM. Candidate transport remains loaded
+and quiescent; cold restoration, current-source wider recovery/concurrency,
+actual Docker-hold v8/v2 health, readiness and full G7/G8 remain open. No nested
+virtualization is used; child-kernel compromise still shares host trust.
+
 ## Storage process boot authority (2026-11-06)
 
 Code `235c4381` adds version-5 native process records with primary boot identity.

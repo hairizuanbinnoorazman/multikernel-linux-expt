@@ -130,3 +130,9 @@ retains storage and full-runtime races, private fault controls, boot-guard mutat
 failures and candidate passes with independent same-boot completion/cleanup
 and baseline parity. Production deployment and actual child Docker recovery are
 not qualified by these disposable process-record controls.
+
+[Current-source actual Docker qualification](../../../evidence/runtime-20261106/g8-live-docker-boot6349/README.md)
+now verifies a fresh single-child pressure/build/release lifecycle with these
+process-record guards present, plus independent same-boot resource and primary
+parity checks. It does not qualify deploying over old live records or recovering
+the retained prior-boot failed generation.

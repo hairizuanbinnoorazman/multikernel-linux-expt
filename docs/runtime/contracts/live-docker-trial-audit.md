@@ -57,3 +57,8 @@ Successful audit explicitly leaves cold restoration and full G7/G8 unqualified.
 Direct child kernels need no nested virtualization; arbitrary child-kernel
 compromise still shares primary trust. This is not a hostile-kernel containment
 proof or proof of general Docker build compatibility.
+
+[Actual GCE proof and negative controls](../../../evidence/runtime-20261106/g8-live-docker-boot6349/README.md)
+retain the successful current-source lifecycle, all four root controls, wrong
+boot/invocation/build-pin refusal and detection of a separately disabled epoch
+guard. Earlier failed ownership remains preserved and unrecovered.
