@@ -59,3 +59,11 @@ When the host restarts between execution and the independent post-run audit,
 follow the [fixture epoch rule](fixture-epoch.md). Preserve the original
 functional receipt/logs; do not substitute post-reboot absence for the missing
 same-boot audit or qualify normal cleanup from the reboot.
+
+[Local health-bundle controls](../../../evidence/runtime-20261106/g8-health-bundle-controls/README.md)
+and [fresh-boot GCE CLI/receipt/quota proof](../../../evidence/runtime-20261106/g8-health-bundle-gce/README.md)
+pass, including a false-consistent-receipt mutation and a same-boot independent
+audit. The earlier run's audit was interrupted by the user restart and remains
+unqualified; [restart evidence](../../../evidence/runtime-20261106/g8-user-restart-6349/README.md)
+keeps that gap explicit. Kernel inputs are simulated for the positive CLI cases;
+actual new Docker execution and complete G7/G8 remain open.

@@ -25,3 +25,10 @@ recovery into a passing normal-cleanup gate.
 
 Direct child kernels require no nested virtualization and retain shared host
 trust after child-kernel compromise. Full G7/G8 require separate qualification.
+
+[Local epoch controls](../../../evidence/runtime-20261106/g8-fixture-epoch-controls/README.md)
+reject a copied old success after removing only the boot guard. [Actual user
+restart evidence](../../../evidence/runtime-20261106/g8-user-restart-6349/README.md)
+records the old audit gap and a separately checked fresh baseline. Subsequent
+[health-bundle qualification](../../../evidence/runtime-20261106/g8-health-bundle-gce/README.md)
+passes its own current-epoch independent audit without rewriting history.

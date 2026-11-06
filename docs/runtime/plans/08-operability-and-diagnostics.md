@@ -1,5 +1,27 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Health bundles and user restart 6349 (2026-11-06)
+
+Code `6afc3bf9`, guard/integration `de558d8e` and label tests `be3def94` add
+[explicit v2 diagnostic health bundles](../contracts/diagnostic-health-bundle.md).
+[Local race/required and mutation controls](../../../evidence/runtime-20261106/g8-health-bundle-controls/README.md)
+pass. The user restarted the VM after original execution `f975d9ec`, before its
+independent same-boot audit. [Epoch guard `74a77adb` and restart preservation](../../../evidence/runtime-20261106/g8-user-restart-6349/README.md)
+retain that missing audit; reboot absence is not normal runtime cleanup. Old
+RUNNING/ACTIVE ledgers and numeric PIDs remain prior-boot data without live authority.
+
+The fresh boot has original transport, zero children/references, released pool,
+all CPUs online and preserved primary/persistent Docker and failed-ledger/image
+identity. Backing contents/health remain unqualified. [Fresh-boot bundle proof](../../../evidence/runtime-20261106/g8-health-bundle-gce/README.md)
+passes (`c3c8b675`): v2 idle/pending/failed receipts, exact private bytes, quota
+refusal, false-success mutation rejection and prior seven-command CLI regression,
+with an independent same-boot audit and retained parity. Kernel inputs are
+simulated in private namespaces. Private receipt export was rejected by approval
+review; only validated outcome flags and synthetic logs were exported instead.
+Actual pool/new child-Docker execution, original recovery/normal cleanup and full
+G7/G8 remain open. No nested virtualization is used; direct child kernels share
+host trust after compromise.
+
 ## Positive health CLI / real RPC checkpoint (2026-11-06)
 
 Source `d9cfac4b` adds [production RPC/journal lifecycle controls](../../../evidence/runtime-20261106/g8-health-services-controls/README.md)
