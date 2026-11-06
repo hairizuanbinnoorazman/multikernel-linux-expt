@@ -101,6 +101,13 @@ func TestUnifiedInspectionModeCLI(t *testing.T) {
 		args []string
 		want string
 	}{
+		{"budget-no-bundle", []string{"--diagnostic-max-files=1", "--diagnostic-max-bytes=4096"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
+		{"budget-files-only", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-files=1"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
+		{"budget-bytes-only", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-bytes=4096"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
+		{"budget-zero", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-files=0", "--diagnostic-max-bytes=0"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
+		{"budget-negative", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-files=-1", "--diagnostic-max-bytes=4096"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
+		{"budget-many-files", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-files=257", "--diagnostic-max-bytes=4096"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
+		{"budget-many-bytes", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-files=1", "--diagnostic-max-bytes=1073741825"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
 		{"bundle-empty", []string{"--diagnostic-bundle="}, "diagnostic-bundle requires a canonical absolute JSON file destination"},
 		{"bundle-relative", []string{"--diagnostic-bundle=local.json"}, "diagnostic-bundle requires a canonical absolute JSON file destination"},
 		{"bundle-noncanonical", []string{"--diagnostic-bundle=/tmp/../tmp/local.json"}, "diagnostic-bundle requires a canonical absolute JSON file destination"},

@@ -117,6 +117,8 @@ func main() {
 	inspectJournal := flag.Bool("inspect-journal", false, "print bounded in-process journal failure/pending status; not disk writability or readiness")
 	inspectComponents := flag.Bool("inspect-components", false, "print repeated compiled daemon build self-reports; not artifact attestation or health")
 	diagnosticBundle := flag.String("diagnostic-bundle", "", "save bounded structured observations to a new JSON file in an existing private directory")
+	diagnosticMaxFiles := flag.Int("diagnostic-max-files", 0, "optional private diagnostic directory file budget, paired with diagnostic-max-bytes")
+	diagnosticMaxBytes := flag.Int64("diagnostic-max-bytes", 0, "optional private diagnostic directory logical byte budget, paired with diagnostic-max-files")
 	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
 	inspectPool := flag.Bool("doctor-pool", false, "print bounded configured/durable/kernel pool capacity observations; not admission or readiness")
 	doctorFormat := flag.Int("doctor-format", 5, "explicit --doctor-all output version: 5, 6 or 7")
@@ -150,7 +152,11 @@ func main() {
 		os.Exit(2)
 	}
 	formatSpecified := false
+	diagnosticBudgetSpecified := false
 	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "diagnostic-max-files" || f.Name == "diagnostic-max-bytes" {
+			diagnosticBudgetSpecified = true
+		}
 		if f.Name == "doctor-format" {
 			formatSpecified = true
 		}
@@ -159,6 +165,11 @@ func main() {
 			os.Exit(2)
 		}
 	})
+	diagnosticBudget := diagnostics.DirectoryBudget{MaxFiles: *diagnosticMaxFiles, MaxBytes: *diagnosticMaxBytes}
+	if diagnosticBudgetSpecified && (*diagnosticBundle == "" || !diagnosticBudget.Valid()) {
+		fmt.Fprintln(os.Stderr, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits")
+		os.Exit(2)
+	}
 	if formatSpecified && !*inspectCombined {
 		fmt.Fprintln(os.Stderr, "doctor-format requires --doctor-all")
 		os.Exit(2)
@@ -245,13 +256,20 @@ func main() {
 	if *diagnosticBundle != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		receipt, err := diagnostics.Collect(ctx, *diagnosticBundle, func(ctx context.Context) diagnostics.Snapshot {
+		inspect := func(ctx context.Context) diagnostics.Snapshot {
 			// Keep build-label diagnostics even when native/resource inspection
 			// is unavailable. Both sections share the original caller budget.
 			components := doctor.InspectComponents(ctx, componentInputs, buildinfo.Revision)
 			operational := doctor.InspectOperational(ctx, combinedInputs, poolInputs, componentInputs, buildinfo.Revision)
 			return diagnostics.Snapshot{Components: components, Operational: operational}
-		})
+		}
+		var receipt diagnostics.Receipt
+		var err error
+		if diagnosticBudgetSpecified {
+			receipt, err = diagnostics.CollectWithBudget(ctx, *diagnosticBundle, diagnosticBudget, inspect)
+		} else {
+			receipt, err = diagnostics.Collect(ctx, *diagnosticBundle, inspect)
+		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

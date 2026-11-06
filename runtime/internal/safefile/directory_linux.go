@@ -184,6 +184,30 @@ func (d *Directory) TryLockExclusive() (bool, error) {
 	return err == nil, err
 }
 
+// EntryNames returns a bounded name inventory from the held directory inode.
+// A separate open file description avoids changing the caller's directory offset
+// or lock. No entry contents are read and no symlink is followed.
+func (d *Directory) EntryNames(limit int) ([]string, error) {
+	if limit < 1 || limit > 4096 {
+		return nil, errors.New("invalid directory inventory limit")
+	}
+	fd, err := unix.Openat(int(d.file.Fd()), ".", unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	file := os.NewFile(uintptr(fd), "directory-inventory")
+	defer file.Close()
+	names, err := file.Readdirnames(limit + 1)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	if len(names) > limit {
+		return nil, errors.New("directory inventory exceeds limit")
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
 // EntryIdentity observes a simple name without following it. Callers must use
 // a type-specific capture method before trusting contents or removing it.
 func (d *Directory) EntryIdentity(name string) (Identity, bool, error) {

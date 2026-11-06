@@ -91,6 +91,20 @@ func observationStatus(snapshot Snapshot) (string, bool) {
 // directory, symlink or raced competing collector is never overwritten. Errors
 // are fixed strings, excluding private paths and raw filesystem/RPC errors.
 func Collect(ctx context.Context, path string, inspect func(context.Context) Snapshot) (Receipt, error) {
+	return collect(ctx, path, nil, inspect)
+}
+
+// CollectWithBudget adds an opt-in aggregate file/count guard. The directory is
+// dedicated to private JSON artifacts. Other files, unsafe metadata or observed
+// drift refuse capture. Existing evidence is never removed to make room.
+func CollectWithBudget(ctx context.Context, path string, budget DirectoryBudget, inspect func(context.Context) Snapshot) (Receipt, error) {
+	if !budget.Valid() {
+		return Receipt{}, errors.New("invalid diagnostic directory budget")
+	}
+	return collect(ctx, path, &budget, inspect)
+}
+
+func collect(ctx context.Context, path string, budget *DirectoryBudget, inspect func(context.Context) Snapshot) (Receipt, error) {
 	fail := func(message string) (Receipt, error) { return Receipt{}, errors.New(message) }
 	if !ValidDestination(path) || inspect == nil {
 		return fail("invalid diagnostic bundle destination or collector")
@@ -100,6 +114,22 @@ func Collect(ctx context.Context, path string, inspect func(context.Context) Sna
 		return fail("diagnostic bundle parent must be an existing private owned directory without symlinks")
 	}
 	defer parent.Close()
+	// All current collectors share this directory-inode lock, including legacy
+	// mode. Contention refuses immediately, without a worker, wait or retry.
+	locked, err := parent.TryLockExclusive()
+	if err != nil || !locked {
+		return fail("diagnostic bundle directory is busy or unavailable")
+	}
+	var before directoryInventory
+	if budget != nil {
+		before, err = inventory(parent)
+		if err != nil {
+			return fail("diagnostic directory inventory is unavailable or unsafe")
+		}
+		if len(before.files) >= budget.MaxFiles || before.bytes >= budget.MaxBytes {
+			return fail("diagnostic directory retention limit reached")
+		}
+	}
 	name := filepath.Base(path)
 	if _, exists, err := parent.EntryIdentity(name); err != nil || exists {
 		return fail("diagnostic bundle destination is unavailable or already exists")
@@ -116,6 +146,15 @@ func Collect(ctx context.Context, path string, inspect func(context.Context) Sna
 	var output boundedBuffer
 	if json.NewEncoder(&output).Encode(bundle) != nil {
 		return fail("diagnostic bundle encoding failed or exceeded the byte limit")
+	}
+	if budget != nil {
+		after, err := inventory(parent)
+		if err != nil || !before.same(after) {
+			return fail("diagnostic directory contents changed during collection")
+		}
+		if int64(output.Len()) > budget.MaxBytes-before.bytes {
+			return fail("diagnostic directory retention limit reached")
+		}
 	}
 	parentStillNamed := func() bool {
 		current, err := safefile.OpenDirectory(filepath.Dir(path), false)

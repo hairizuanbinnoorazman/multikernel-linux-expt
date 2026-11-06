@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
+	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/doctor"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -171,23 +171,37 @@ func TestOversizeAndInvalidReportsPublishNothing(t *testing.T) {
 
 func TestConcurrentCollectorsNeverOverwrite(t *testing.T) {
 	path := filepath.Join(privateDirectory(t), "capture.json")
-	var ready sync.WaitGroup
-	ready.Add(2)
-	results := make(chan error, 2)
-	for range 2 {
-		go func() {
-			_, err := Collect(t.Context(), path, func(ctx context.Context) Snapshot { ready.Done(); ready.Wait(); return fixture(ctx) })
-			results <- err
-		}()
-	}
-	success := 0
-	for range 2 {
-		if <-results == nil {
-			success++
+	entered, release := make(chan struct{}), make(chan struct{})
+	result := make(chan error, 1)
+	go func() {
+		_, err := Collect(t.Context(), path, func(ctx context.Context) Snapshot { close(entered); <-release; return fixture(ctx) })
+		result <- err
+	}()
+	released := false
+	defer func() {
+		if !released {
+			close(release)
 		}
+	}()
+	select {
+	case <-entered:
+	case err := <-result:
+		t.Fatal("owner refused before inspection", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("owner inspection did not start")
 	}
-	if success != 1 {
-		t.Fatal("publication was not exclusive", success)
+	called := false
+	_, err := Collect(t.Context(), path, func(ctx context.Context) Snapshot { called = true; return fixture(ctx) })
+	close(release)
+	released = true
+	var ownerErr error
+	select {
+	case ownerErr = <-result:
+	case <-time.After(2 * time.Second):
+		t.Fatal("owner did not finish publication")
+	}
+	if err == nil || called || ownerErr != nil {
+		t.Fatal("competing capture was not refused before inspection")
 	}
 	entries, _ := os.ReadDir(filepath.Dir(path))
 	if len(entries) != 1 || entries[0].Name() != "capture.json" {

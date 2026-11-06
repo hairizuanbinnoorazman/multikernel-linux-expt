@@ -25,6 +25,32 @@ most 128 bytes). Relative paths, traversal, an explicitly empty destination and
 conflicting inspection/format modes exit 2. The network socket must be absolute.
 These argument checks precede configuration load.
 
+For a dedicated directory with an aggregate retention budget, supply both limits:
+
+```sh
+sudo mkruntimed --config=/etc/mkruntime/config.json \
+  --network-socket=/run/mknetd.sock \
+  --diagnostic-bundle=/var/lib/mkruntime-diagnostics/incident-002.json \
+  --diagnostic-max-files=32 --diagnostic-max-bytes=67108864
+```
+
+Both limits must be positive: at most 256 files and 1 GiB of logical file bytes.
+Invalid or incomplete budgets exit 2 before configuration load. Existing entries
+must be owned, single-link, mode-0600 regular files with valid JSON basenames,
+each no larger than 8 MiB. Inventory reads metadata only, without parsing or
+reading prior payloads. Full directories refuse before inspection; insufficient
+space for the encoded bundle refuses before publication. Observed inventory
+changes during inspection also refuse. Existing evidence is never deleted,
+rotated or repaired to make room.
+
+All collectors in this version, including captures without limits, take the same
+nonblocking directory-inode lock for the entire capture. Contention refuses
+immediately. Budgets apply only to the capture that supplies them; they are not
+persisted or inherited by later commands. Supply both flags on every bounded
+capture. Legacy collectors, older binaries or unrelated writers can exceed a
+previous capture's budget. Logical-byte accounting is neither a filesystem space
+reservation nor a node-wide quota. The default remains the per-bundle 8 MiB cap.
+
 The bundle contains UTC start/finish times, the two structured reports and an
 explicit exclusion list. It does not collect raw logs, guest stdout/stderr,
 kernel console, environments, process command lines, configuration or durable
