@@ -1,5 +1,20 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Operational health correlation checkpoint (2026-11-06)
+
+Code `059a4098`, wire test source `cbe07456`, adds [explicit doctor format 8](../contracts/operational-health.md).
+It binds repeated journal and recorded network CHECK observations to v7 lifecycle
+sequence, boot and exact endpoint descriptors. Failed/pending/degraded states
+preserve severity and suppress aggregate capacity candidates. [Local race/required,
+wire and four behavioral mutation controls](../../../evidence/runtime-20261106/g8-operational-health-controls/README.md)
+pass. [GCE proof](../../../evidence/runtime-20261106/g8-operational-health-gce/README.md)
+passes six groups and production CLI unavailable-service refusal (`65ee4fb1`),
+with independent cleanup/parity and unchanged retained failure. Positive CLI
+execution against production daemons, readiness, writability, new child-Docker
+qualification and retained recovery remain open. Full G7/G8 are not closed;
+cloud-capture authorization remains pending. No nested virtualization is used;
+direct child kernels share host trust after compromise.
+
 ## Docker readiness peer admission checkpoint (2026-11-06)
 
 Code `0ccb68a4` makes [scope peer verification context-aware](../contracts/docker-peer-check-budget.md)

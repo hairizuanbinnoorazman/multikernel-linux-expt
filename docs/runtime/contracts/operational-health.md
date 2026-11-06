@@ -40,3 +40,8 @@ sync/probe behavior is not inferred from a responsive metadata socket.
 This advances G8 health correlation; it does not close full G7/G8 or qualify a
 new live child-Docker lifecycle. Direct child kernels require no nested
 virtualization and share host trust after child-kernel compromise.
+
+[Local race/required, Unix-wire and four guard mutations](../../../evidence/runtime-20261106/g8-operational-health-controls/README.md)
+and [GCE wire/CLI refusal with independent cleanup audit](../../../evidence/runtime-20261106/g8-operational-health-gce/README.md)
+pass. Positive CLI execution against production daemons and new live Docker
+qualification remain separate requirements; these controls do not close full G8.
