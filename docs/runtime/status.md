@@ -11,8 +11,11 @@ Docker supervisor; native test source is `af4cd9a0`. [Exact-parent queue failure
 and local authority/shared-lock/race/required controls](../../evidence/runtime-20261106/g8-scope-admission-controls/README.md)
 pass. Canceled requests do not observe cached completion/identity or disturb the
 active admission owner. Start retains its lock through clone/exec. The installed
-frozen-admission case is explicitly skipped locally and remains separately
-qualified. Actual child-Docker recovery and full G7/G8 stay open. Capture
+frozen-admission case is skipped locally; [native GCE red/green proof](../../evidence/runtime-20261106/g8-scope-admission-gce/README.md)
+passes success/zero (`96fdd0b5`): parent fails two timing cases, candidate passes
+two, all four fresh scopes are released, children reaped and outside processes
+preserved. Independent audit finds the delegated cgroup absent and retained
+ownership/controller settings unchanged. Actual child-Docker recovery and full G7/G8 stay open. Capture
 authorization is still pending. No nested virtualization is used; direct child
 kernels share host trust after compromise.
 

@@ -39,3 +39,11 @@ and [cgroup freezer/kill semantics](https://www.kernel.org/doc/html/latest/admin
 No production freeze/repair API is added. A native primary-kernel pass would not
 qualify actual child-Docker builds/recovery or containment after child-kernel
 compromise. Those and full G7/G8 remain open. No nested virtualization is used.
+
+The [native GCE fault proof](../../../evidence/runtime-20261106/g8-scope-admission-gce/README.md)
+now passes success/zero (`96fdd0b5`) for `af4cd9a0`: exact-parent timing failures
+and candidate passes use identical tests; all four owned scopes are normally
+released, children reaped and outside processes preserved. A post-run audit
+confirms the delegated unit cgroup is absent and original controller/retained
+ownership state is unchanged. This is primary-kernel primitive qualification;
+actual new-source child-Docker recovery and full G7/G8 remain separate.
