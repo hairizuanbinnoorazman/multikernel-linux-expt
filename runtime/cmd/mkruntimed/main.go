@@ -121,7 +121,7 @@ func main() {
 	diagnosticMaxBytes := flag.Int64("diagnostic-max-bytes", 0, "optional private diagnostic directory logical byte budget, paired with diagnostic-max-files")
 	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
 	inspectPool := flag.Bool("doctor-pool", false, "print bounded configured/durable/kernel pool capacity observations; not admission or readiness")
-	doctorFormat := flag.Int("doctor-format", 5, "explicit --doctor-all output version: 5, 6 or 7")
+	doctorFormat := flag.Int("doctor-format", 5, "explicit --doctor-all output version: 5, 6, 7 or 8")
 	inspectCombined := flag.Bool("doctor-all", false, "print bounded combined storage/native-process/network ownership and kernel presence diagnostics and exit")
 	inspectNetwork := flag.Bool("doctor-network", false, "print bounded lifecycle/network ownership and kernel presence diagnostics and exit")
 	networkSocket := flag.String("network-socket", "/run/mknetd.sock", "protected mknetd socket for network inspection")
@@ -174,8 +174,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "doctor-format requires --doctor-all")
 		os.Exit(2)
 	}
-	if *inspectCombined && *doctorFormat != 5 && *doctorFormat != 6 && *doctorFormat != 7 {
-		fmt.Fprintln(os.Stderr, "doctor-format must be 5, 6 or 7")
+	if *inspectCombined && *doctorFormat != 5 && *doctorFormat != 6 && *doctorFormat != 7 && *doctorFormat != 8 {
+		fmt.Fprintln(os.Stderr, "doctor-format must be 5, 6, 7 or 8")
 		os.Exit(2)
 	}
 	if (*inspectNetwork || *inspectCombined || *inspectUnified || *inspectComponents || *diagnosticBundle != "") && !filepath.IsAbs(*networkSocket) {
@@ -283,6 +283,20 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		inputs := combinedInputs
+		if *inspectCombined && *doctorFormat == 8 {
+			report := doctor.InspectHealth(ctx, inputs, poolInputs, componentInputs, doctor.HealthInputs{
+				Journal: func(ctx context.Context) (protocol.JournalStatusReport, error) {
+					return daemon.InspectJournalStatus(ctx, daemon.Client{Path: socket, Timeout: timeout})
+				},
+				Network: func(ctx context.Context) (mknetwork.HealthReport, error) {
+					return mknetwork.InspectHealth(ctx, mknetwork.Client{Path: *networkSocket, Timeout: timeout})
+				},
+			}, buildinfo.Revision)
+			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
+				os.Exit(1)
+			}
+			return
+		}
 		if *inspectCombined && *doctorFormat == 7 {
 			report := doctor.InspectOperational(ctx, inputs, poolInputs, componentInputs, buildinfo.Revision)
 			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {

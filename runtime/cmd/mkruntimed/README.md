@@ -207,3 +207,9 @@ service readiness, disk writability or recovery authority.
 The actual journal-status trial's [cold restoration](../../../evidence/runtime-20261030/g8-live-docker-journal-status-cold-restoration/README.md)
 also passes: original transport, eighteen current artifacts, all three prior
 cases and 93 retained files / 12 images preserved. Full G7/G8 remain open.
+
+`--doctor-all --doctor-format=8` adds correlated journal status and recorded
+network CHECK health to repeated v7 observations under the same caller budget.
+It refuses drift/cross-binding and suppresses capacity candidates on aggregate
+trouble. See the [version-8 contract](../../../docs/runtime/contracts/operational-health.md).
+This is not a readiness or admission API; defaults and bundle format are unchanged.

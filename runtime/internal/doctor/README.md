@@ -51,3 +51,8 @@ candidates in a copied pool report. Known differing labels do not establish
 compatibility; admission and artifact/kernel verification remain false. See the
 [operator contract](../../../docs/runtime/contracts/operational-doctor.md).
 Direct child kernels use no nested virtualization and share host trust.
+
+Explicit format 8 additionally correlates repeated journal and recorded network
+CHECK observations with full v7 ownership, endpoint descriptors and sequence.
+Aggregate trouble suppresses capacity candidates. See the [health contract](../../../docs/runtime/contracts/operational-health.md);
+readiness, writability, Docker health and containment remain unobserved.
