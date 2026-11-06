@@ -293,7 +293,20 @@ func (s *Scope) Stop(ctx context.Context) error {
 // This non-delegated scope admits no nested cgroups. Numeric PIDs alone never
 // authorize a peer; a live pinned process must appear in this owned group.
 func (s *Scope) ContainsLivePeer(pid int, pidfd int) (bool, error) {
-	s.mu.Lock()
+	return s.ContainsLivePeerContext(context.Background(), pid, pidfd)
+}
+
+// ContainsLivePeerContext adds cancelable admission for deadline-bound socket
+// checks. Cancellation before admission observes no scope or peer state. The
+// caller still owns the peer pidfd; this method never signals or closes it.
+// Kernel reads retain their existing bounded-size, synchronous contract.
+func (s *Scope) ContainsLivePeerContext(ctx context.Context, pid int, pidfd int) (bool, error) {
+	if ctx == nil {
+		return false, errors.New("service peer context is required")
+	}
+	if err := s.mu.lockContext(ctx); err != nil {
+		return false, err
+	}
 	defer s.mu.Unlock()
 	if !s.owned {
 		return false, ErrIdentity
@@ -327,6 +340,9 @@ func (s *Scope) ContainsLivePeer(pid int, pidfd int) (bool, error) {
 	}
 	if !found {
 		return false, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
 	}
 	return alive()
 }

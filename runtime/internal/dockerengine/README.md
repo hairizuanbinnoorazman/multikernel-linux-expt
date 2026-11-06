@@ -107,3 +107,8 @@ limited by the caller's context or a 50 ms timer. Full/closed stderr cannot hold
 the stop gate through logging alone. Failed cleanup keeps its original ownership
 and refusal; missing output never authorizes release. This is separate from the
 64 KiB private engine tail and from the agent's other diagnostic producers.
+
+Readiness socket peer admission now uses the [explicit probe context](../../../docs/runtime/contracts/docker-peer-check-budget.md).
+It can abandon a busy scope gate without weakening pinned-peer membership or
+changing cleanup authority. The transport retains the probe budget even when
+HTTP supplies a detached dial context; expired probes make no new connection.

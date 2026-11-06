@@ -50,3 +50,8 @@ scope authority intact. Legacy operations retain one shared serial lock. A
 canceled request reports no cached state; a fresh live request retains completed
 idempotence and zero-scope refusal. Native frozen-admission testing is separate
 from local unit/race controls and from actual child-Docker qualification.
+
+`ContainsLivePeerContext` provides cancelable peer-check admission for Docker
+readiness probes. Cancellation observes no cached state and preserves the caller's
+pidfd and active scope owner. Legacy `ContainsLivePeer` remains blocking. See the
+[peer-check budget contract](../../../docs/runtime/contracts/docker-peer-check-budget.md).

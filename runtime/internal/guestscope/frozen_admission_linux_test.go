@@ -34,6 +34,14 @@ func TestFrozenScopeAdmissionChild(t *testing.T) {
 // must keep every test group below its own systemd control group for a bounded
 // failure backstop, and must verify that parent is empty after this binary exits.
 func TestInstalledScopeStopQueueDuringFrozenAdmission(t *testing.T) {
+	testInstalledScopeQueueDuringFrozenAdmission(t, false)
+}
+
+func TestInstalledScopePeerQueueDuringFrozenAdmission(t *testing.T) {
+	testInstalledScopeQueueDuringFrozenAdmission(t, true)
+}
+
+func testInstalledScopeQueueDuringFrozenAdmission(t *testing.T, peer bool) {
 	parent := os.Getenv("MK_TEST_GUEST_SCOPE_PARENT")
 	if parent == "" || os.Getenv("MK_TEST_FROZEN_SCOPE_ADMISSION") != "1" {
 		t.Skip("explicit fresh delegated cgroup parent and frozen-admission opt-in required")
@@ -182,12 +190,24 @@ func TestInstalledScopeStopQueueDuringFrozenAdmission(t *testing.T) {
 			defer cancel()
 			returned := make(chan error, 1)
 			entered := make(chan struct{})
-			go func() { close(entered); returned <- scope.Stop(ctx) }()
+			go func() {
+				close(entered)
+				if peer {
+					// Invalid peer arguments must remain unobserved while queued.
+					inside, err := scope.ContainsLivePeerContext(ctx, 1, -1)
+					if inside {
+						err = errors.New("canceled peer check claimed membership")
+					}
+					returned <- err
+				} else {
+					returned <- scope.Stop(ctx)
+				}
+			}()
 			<-entered
 			if mode == "cancel" {
 				select {
 				case <-returned:
-					t.Fatal("stop returned before cancellation")
+					t.Fatal("caller returned before cancellation")
 				case <-time.After(20 * time.Millisecond):
 				}
 				cancel()
@@ -201,13 +221,13 @@ func TestInstalledScopeStopQueueDuringFrozenAdmission(t *testing.T) {
 			}
 			select {
 			case <-startDone:
-				t.Fatal("canceled stop disturbed active frozen admission")
+				t.Fatal("canceled caller disturbed active frozen admission")
 			default:
 			}
 			events, e := readControl(witness, "cgroup.events")
 			members, m := readControl(witness, "cgroup.procs")
 			if e != nil || m != nil || strings.TrimSpace(members) != frozenPID || !strings.Contains("\n"+events+"\n", "\nfrozen 1\n") || scope.closing || scope.closed {
-				t.Fatal("canceled stop changed frozen member or cleanup authority")
+				t.Fatal("canceled caller changed frozen member or cleanup authority")
 			}
 			if early {
 				t.Log("QUEUED_CONTEXT_RETURNED_WITH_ADMISSION_STILL_FROZEN")
@@ -228,11 +248,11 @@ func TestInstalledScopeStopQueueDuringFrozenAdmission(t *testing.T) {
 				select {
 				case stopErr = <-returned:
 				case <-time.After(time.Second):
-					t.Fatal("queued stop did not return after admission resumed")
+					t.Fatal("queued caller did not return after admission resumed")
 				}
 			}
 			if !errors.Is(stopErr, expected) {
-				t.Fatal("queued stop returned wrong result", stopErr)
+				t.Fatal("queued caller returned wrong result", stopErr)
 			}
 			ready := make(chan bool, 1)
 			go func() {
@@ -247,7 +267,7 @@ func TestInstalledScopeStopQueueDuringFrozenAdmission(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("thawed child readiness deadline")
 			}
-			if inside, e := scope.ContainsLivePeer(command.Process.Pid, pidfd); e != nil || !inside {
+			if inside, e := scope.ContainsLivePeerContext(t.Context(), command.Process.Pid, pidfd); e != nil || !inside {
 				t.Fatal("thawed child lost exact live membership", inside, e)
 			}
 			outsideFD := -1
@@ -307,7 +327,7 @@ func TestInstalledScopeStopQueueDuringFrozenAdmission(t *testing.T) {
 			}
 			t.Log("OWNED_SCOPE_REMOVED_CHILD_REAPED_OUTSIDE_PROCESS_ALIVE")
 			if !early {
-				t.Error("queued stop did not return before frozen admission resumed")
+				t.Error("queued caller did not return before frozen admission resumed")
 			}
 		})
 	}

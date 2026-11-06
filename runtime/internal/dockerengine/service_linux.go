@@ -240,7 +240,7 @@ func peerConnection(ctx context.Context, scope *guestscope.Scope, socket string)
 			}
 			peerfd = received
 			unix.CloseOnExec(peerfd)
-			member, e := scope.ContainsLivePeer(int(cred.Pid), peerfd)
+			member, e := scope.ContainsLivePeerContext(ctx, int(cred.Pid), peerfd)
 			if e != nil || !member {
 				err = errors.New("Docker socket peer is outside owned scope")
 			}
@@ -271,11 +271,17 @@ func (c *peerConn) Close() error {
 	return err
 }
 
+// readinessTransport preserves the explicit probe budget even when net/http
+// gives DialContext a context detached from request cancellation.
+func readinessTransport(budget context.Context, scope *guestscope.Scope, socket string) *http.Transport {
+	return &http.Transport{Proxy: nil, DisableKeepAlives: true, MaxResponseHeaderBytes: 8192,
+		DialContext: func(_ context.Context, _, _ string) (net.Conn, error) { return peerConnection(budget, scope, socket) }}
+}
+
 func probe(ctx context.Context, scope *guestscope.Scope, socket string) error {
 	ctx, cancel := context.WithTimeout(ctx, 750*time.Millisecond)
 	defer cancel()
-	transport := &http.Transport{Proxy: nil, DisableKeepAlives: true, MaxResponseHeaderBytes: 8192,
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return peerConnection(ctx, scope, socket) }}
+	transport := readinessTransport(ctx, scope, socket)
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("Docker readiness redirect refused") }}
 	get := func(path string, limit int64) ([]byte, error) {
