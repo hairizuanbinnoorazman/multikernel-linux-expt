@@ -4,11 +4,14 @@
 Requires a private systemd unit and already-staged, root-protected test artifacts.
 Restoration after traffic uses an external idle reboot; cleanup is measured first.
 """
-import fcntl,hashlib,json,os,pathlib,re,signal,socket,stat,subprocess,time,uuid
+import fcntl,hashlib,json,os,pathlib,re,runpy,signal,socket,stat,subprocess,time,uuid
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 from runtime_diagnostic_bundle_checkpoint import inspect_fixture_lifecycle_timings
 from runtime_health_bundle_checkpoint import inspect_fixture_health
+from runtime_trial_reuse import qualify as qualify_trial_reuse
+from runtime_fixture_epoch import unit_properties, qualify_unit_epoch
+from runtime_diagnostic_bundle_checkpoint import read_fixture_artifact
 from runtime_module_taint import expected_module_taint
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
@@ -19,6 +22,7 @@ ARCHIVE_SHA=os.environ['MK_MODULE_TRIAL_ARCHIVE_SHA256']
 assert re.fullmatch(r'[0-9a-f]{64}',ARCHIVE_SHA),'expected a pinned source archive digest'
 WORK=P('/opt/mkruntime/g8-host-'+REVISION)
 RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1','fifo','crash']
+REUSE=os.environ.get('MK_MODULE_TRIAL_PRIOR_REVISION','');assert not REUSE or re.fullmatch('[a-f0-9]{7,40}',REUSE)
 OLD='65C55BB38C669FF94A4B772';NEW='0450DCCF7EDC67FAE2A6CAA'
 OLD_SHA='bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2'
 NEW_SHA='74e813765d8551d086a603e047337b27ad0cce28dd4cc5de7e983a6e10a1f69f'
@@ -42,7 +46,7 @@ scope=show(unit,'MainPID','InvocationID','PrivateMounts','KillMode')
 assert scope=={'MainPID':str(os.getpid()),'InvocationID':os.environ['INVOCATION_ID'],'PrivateMounts':'yes','KillMode':'process'}
 lock=(MODULE/'module-trial.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
 assert not instances() and P('/sys/devices/system/cpu/online').read_text().strip()=='0-15'
-assert loaded()==OLD and P('/sys/module/mk_transport/refcnt').read_text().strip()=='0'
+assert loaded()==(NEW if REUSE else OLD) and P('/sys/module/mk_transport/refcnt').read_text().strip()=='0'
 vsock_before=output(['ss','-A','vsock','-an']);assert len(vsock_before.splitlines())==1
 assert 'No memory pool configured' in output(['/opt/mkruntime/kerf-venv/bin/kerf','show'])
 assert not output(['/usr/bin/docker','--host','unix:///var/run/docker.sock','ps','--all','--quiet'])
@@ -73,7 +77,25 @@ def primary():
     services={n:output(['systemctl','show',n,'-p','MainPID','--value']) for n in ['mkruntimed','mknetd','containerd','docker']}
     assert all(output(['systemctl','is-active',n])=='active' and int(pid)>0 for n,pid in services.items())
     return {'file_sha256':{str(p):sha(p) for p in paths},'service_main_pids':services}
-state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'events':[]}
+prior=None
+if REUSE:
+    prior_sha=os.environ['MK_MODULE_TRIAL_PRIOR_SHA256'];assert re.fullmatch('[a-f0-9]{64}',prior_sha)
+    prior_archive=os.environ['MK_MODULE_TRIAL_PRIOR_ARCHIVE_SHA256'];assert re.fullmatch('[a-f0-9]{64}',prior_archive)
+    prior_path=MODULE/('trial-g8-host-'+REUSE)/'primary-module-trial.json';protected(prior_path)
+    prior_bytes=read_fixture_artifact(prior_path.parent,prior_path.name,1<<20)
+    assert hashlib.sha256(prior_bytes).hexdigest()==prior_sha
+    prior_parent=os.environ['MK_MODULE_TRIAL_PRIOR_PARENT_INVOCATION'];prior_workload=os.environ['MK_MODULE_TRIAL_PRIOR_WORKLOAD_INVOCATION']
+    prior=qualify_trial_reuse(prior_bytes,BOOT,REUSE,prior_archive,prior_parent,prior_workload)
+    # A saved receipt never substitutes for current exact-epoch unit checks.
+    check_empty=runpy.run_path(str(P(__file__).parent/'audit-runtime-docker-trial.py'))['empty_cgroup']
+    for name,invocation in [('g8-vsock-rx-trial-'+REUSE+'-release.service',prior_parent),('g8-host-docker-storage-pressure-'+REUSE+'.service',prior_workload)]:
+        current=unit_properties(output(['systemctl','show',name,*[v for k in ['MainPID','InvocationID','SubState','Result','ExecMainStatus','ControlGroup'] for v in ['-p',k]]]))
+        assert qualify_unit_epoch(BOOT,invocation,P('/proc/sys/kernel/random/boot_id').read_text().strip(),current)['unit_completion_qualified']
+        if current['ControlGroup']:
+            assert current['ControlGroup']=='/system.slice/'+name
+            check_empty(P('/sys/fs/cgroup')/current['ControlGroup'].lstrip('/'))
+    assert primary()==prior['primary_after']
+state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'candidate_reused_without_reload':bool(REUSE),'prior_trial_sha256':prior_sha if REUSE else None,'events':[]}
 def record(phase,**values):
     state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded(),'module_refcnt':int(P('/sys/module/mk_transport/refcnt').read_text()) if loaded() else None})
     temporary=trial/'receipt.tmp';temporary.write_text(json.dumps(state,indent=2)+'\n');temporary.chmod(0o600);os.replace(temporary,trial/'primary-module-trial.json')
@@ -82,8 +104,11 @@ signal.signal(signal.SIGTERM,interrupted);signal.signal(signal.SIGINT,interrupte
 pressure='g8-host-docker-storage-pressure-'+REVISION+'.service';removed=False;failure=None
 record('preflight')
 try:
-    run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
-    run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
+    if REUSE:
+        record('same-boot-candidate-reuse-qualified')
+    else:
+        run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
+        run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
     run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
     deadline=time.monotonic()+1230;invocation=None
     while True:

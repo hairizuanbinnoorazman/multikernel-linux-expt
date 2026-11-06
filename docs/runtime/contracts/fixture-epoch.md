@@ -32,3 +32,27 @@ restart evidence](../../../evidence/runtime-20261106/g8-user-restart-6349/README
 records the old audit gap and a separately checked fresh baseline. Subsequent
 [health-bundle qualification](../../../evidence/runtime-20261106/g8-health-bundle-gce/README.md)
 passes its own current-epoch independent audit without rewriting history.
+
+## Guarded same-boot candidate reuse
+
+The pinned module-trial driver supports an explicit prior revision through
+`MK_MODULE_TRIAL_PRIOR_REVISION`. This mode requires a separately pinned private
+prior receipt digest, source archive identity and exact parent/workload invocation
+IDs (`MK_MODULE_TRIAL_PRIOR_SHA256`, `MK_MODULE_TRIAL_PRIOR_ARCHIVE_SHA256`,
+`MK_MODULE_TRIAL_PRIOR_PARENT_INVOCATION`,
+`MK_MODULE_TRIAL_PRIOR_WORKLOAD_INVOCATION`). No arbitrary prior path is accepted.
+
+The [reuse qualifier](../../../scripts/runtime_trial_reuse.py) refuses prior-boot,
+failed, ambiguous, restored, drifting or incompletely timed records. The caller
+also rechecks both exact completed invocations in the current boot and requires
+any retained unit cgroup to be empty. Current quiescence, primary file/service
+parity, capacity, source/helper/module pins and exclusive trial-lock admission
+still apply. Passing the archived-record qualifier alone grants no current
+resource authority.
+
+Only after these checks can a new private Docker workload use the already loaded
+candidate transport; this mode executes no module removal or insertion. It
+retains a distinct reuse event and receipt flag. The normal cold path keeps its
+existing original-module admission. Candidate reuse does not qualify cold
+restoration, original failed-generation recovery, host-kernel containment or full
+G7/G8. No nested virtualization is involved.
