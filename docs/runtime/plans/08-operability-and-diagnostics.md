@@ -1,5 +1,17 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Scope stop admission checkpoint (2026-11-06)
+
+Code `65f0ffa5` makes [scope stop admission context-aware](../contracts/scope-stop-admission.md) beneath the
+Docker supervisor; native test source is `af4cd9a0`. [Exact-parent queue failures
+and local authority/shared-lock/race/required controls](../../../evidence/runtime-20261106/g8-scope-admission-controls/README.md)
+pass. Canceled requests do not observe cached completion/identity or disturb the
+active admission owner. Start retains its lock through clone/exec. The installed
+frozen-admission case is explicitly skipped locally and remains separately
+qualified. Actual child-Docker recovery and full G7/G8 stay open. Capture
+authorization is still pending. No nested virtualization is used; direct child
+kernels share host trust after compromise.
+
 ## Scope diagnostic caller-budget proof correction (2026-11-05)
 
 Source `9d6787e0` strengthens [caller-context timing controls](../../../evidence/runtime-20261105/g8-docker-scope-context-controls/README.md):

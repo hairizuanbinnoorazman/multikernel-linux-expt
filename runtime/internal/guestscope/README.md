@@ -43,3 +43,10 @@ target cloud instances.
 membership with a bounded population read. The supervisor obtains both peer
 credentials and pidfd from the same Unix socket; numeric PIDs alone are not
 authority. No nested cgroup delegation is permitted.
+
+Stop now [respects its context while queued](../../../docs/runtime/contracts/scope-stop-admission.md)
+behind admission or inspection. Cancellation leaves the active owner and all
+scope authority intact. Legacy operations retain one shared serial lock. A
+canceled request reports no cached state; a fresh live request retains completed
+idempotence and zero-scope refusal. Native frozen-admission testing is separate
+from local unit/race controls and from actual child-Docker qualification.
