@@ -149,3 +149,9 @@ The corrected timed trial's [cold restoration](../../../evidence/runtime-2026102
 also passes with original transport, twelve diagnostic artifacts, both successful
 and failed parent receipts, and all 93 retained files / 12 images preserved.
 This restoration does not close the remaining G7/G8 requirements.
+
+Optional directory retention now has [local race and capacity-guard mutation
+proof](../../../evidence/runtime-20261106/g8-diagnostic-retention-controls/README.md)
+and [GCE process/retention proof](../../../evidence/runtime-20261106/g8-diagnostic-retention-gce/README.md).
+These close the optional capture-budget subcheck only. They do not establish a
+persisted or node-wide log retention policy, live readiness, recovery or full G8.
