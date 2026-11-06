@@ -69,3 +69,8 @@ contract. A failed report decode clears any previously decoded healthy snapshot;
 fixed errors contain no field names or payloads. Valid idle, single-endpoint and
 maximum-32-endpoint reports retain their existing representation and semantics.
 This tightens decoding, not backend health, service readiness or containment.
+
+[Exact-parent local controls and full race/required checks](../../../evidence/runtime-20261106/g8-network-health-canonical-controls/README.md)
+and [GCE red/green plus version-8 regressions](../../../evidence/runtime-20261106/g8-network-health-canonical-gce/README.md)
+pass for canonical decoding. Their twenty ordinary decode cases and two masked
+client replies have separate scopes; they do not qualify a new Docker lifecycle.

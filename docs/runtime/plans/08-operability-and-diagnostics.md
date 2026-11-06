@@ -1,5 +1,19 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Network health canonical decoder checkpoint (2026-11-06)
+
+Code `503ec3fa`, client tests `64083415`, prevents case aliases from masking
+network degraded status or failed CHECK codes. [Local exact-parent red/green,
+race and required controls](../../../evidence/runtime-20261106/g8-network-health-canonical-controls/README.md)
+pass twenty ordinary decode and two masked-client cases with distinct scopes.
+[GCE qualification](../../../evidence/runtime-20261106/g8-network-health-canonical-gce/README.md)
+passes the same comparison plus all six v8 regression groups (`cbfa4b29`), with
+independent cleanup/parity and unchanged retained failure. Valid idle/maximal
+reports retain their representation. Positive production-daemon CLI, new live
+Docker qualification, readiness and retained recovery remain open; full G7/G8 are
+not closed. No nested virtualization is used; direct child kernels share host
+trust after compromise.
+
 ## Operational health correlation checkpoint (2026-11-06)
 
 Code `059a4098`, wire test source `cbe07456`, adds [explicit doctor format 8](../contracts/operational-health.md).

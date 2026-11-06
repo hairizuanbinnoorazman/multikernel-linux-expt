@@ -45,3 +45,9 @@ virtualization and share host trust after child-kernel compromise.
 and [GCE wire/CLI refusal with independent cleanup audit](../../../evidence/runtime-20261106/g8-operational-health-gce/README.md)
 pass. Positive CLI execution against production daemons and new live Docker
 qualification remain separate requirements; these controls do not close full G8.
+
+The underlying [network-health decoder](network-health.md) now also requires
+canonical complete fields, preventing case aliases from masking failed CHECKs.
+[Exact-parent controls](../../../evidence/runtime-20261106/g8-network-health-canonical-controls/README.md)
+and [GCE version-8 regression proof](../../../evidence/runtime-20261106/g8-network-health-canonical-gce/README.md)
+cover this additional hardening separately from the original format-8 evidence.
