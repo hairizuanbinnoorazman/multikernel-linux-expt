@@ -64,3 +64,12 @@ keeps sanitized builders' default scratch on the selected staging filesystem
 without allowing ambient TMPDIR into the production builder environment. The
 receipt and postrun audit distinguish this observed private scratch mount from
 legacy trials that did not request it. Production service unit policy is unchanged.
+
+[Actual warm health-hold proof](../../../evidence/runtime-20261106/g8-live-health-holds/README.md)
+passes source/epoch/predecessor/cgroup admission, no driver module reload,
+three v8/v2 pairs and independent normal resource return. Prior failed ownership
+remains unrecovered. The storage-backed staging bind is intentionally retained;
+it is not a production mount configuration or automatic boot remount. A later
+reboot must preserve its persistent backing and separately qualify alias
+restoration before inspecting it through the original path. Its absence after
+reboot alone must not be relabelled artifact deletion or normal cleanup.

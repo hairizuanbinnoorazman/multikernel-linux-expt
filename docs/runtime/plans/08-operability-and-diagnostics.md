@@ -1,5 +1,34 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Actual v8/v2 Docker holds and guarded warm repeat (2026-11-06)
+
+Code `3407af03` adds actual-hold health/reference/receipt binding; `2c2447dc`
+adds exact-epoch candidate reuse and `2aa0e52a` isolates builder scratch on its
+staging filesystem. [Local health controls](../../../evidence/runtime-20261106/g8-health-hold-controls/README.md)
+and [reuse/scratch controls](../../../evidence/runtime-20261106/g8-warm-health-admission-controls/README.md)
+pass with behavioral mutations and required checks.
+
+[Actual GCE proof](../../../evidence/runtime-20261106/g8-live-health-holds/README.md)
+passes source `2aa0e52a`, parent `f45da2c1`, workload `50542a90`: v8 health and v2
+bundles at ENOSPC, built-image and removal holds; endpoint retention for full
+post-removal reference requalification; exact private identities/receipts; quota;
+and independent parent/postrun audit. Health pairs take 226/227/90 ms under a
+separate five-second bound and their original hold deadlines. Legacy eight-report
+sequences stay separate. A forged captured wrong-boot view with a recomputed
+receipt refuses; a single equality-guard mutation falsely accepts it and is
+detected without editing original evidence.
+
+The real child-local pressure/build/release repeat preserves primary Docker/
+network and retained failed ownership, releases native/kernel resources and
+uses the guarded current candidate without driver unload/reload. Root-space
+preflight refusal and a post-extraction setup error remain recorded as unlaunched
+preparation attempts. Final staging uses a fresh protected storage-backed bind
+and private unit scratch, now empty. The staging bind and completed empty unit
+cgroup metadata remain explicitly retained. Cold restoration, prior failed
+recovery, broader crash/restart/concurrency, readiness/writability/log pressure
+and full G7/G8 remain open. Direct child kernels use no nested virtualization;
+arbitrary child-kernel compromise still shares host trust.
+
 ## Current-source actual child Docker trial on boot 6349 (2026-11-06)
 
 [Fresh actual GCE proof](../../../evidence/runtime-20261106/g8-live-docker-boot6349/README.md)

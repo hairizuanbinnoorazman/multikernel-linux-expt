@@ -87,9 +87,15 @@ parent gate rejects missing, drifted or falsely promoted evidence. The reusable
 live audit reports this additional qualification explicitly. Historical receipts
 without it stay historical and do not inherit v8/v2 qualification.
 
-Local controls cover live/released views, forged references with recomputed
-receipts, missing frames, private field/attestation/numeric aliases and timing
-scope/budget refusal. Actual Docker-hold execution of this extension remains
-pending until separately recorded live evidence; earlier v1 bundle proof does
-not qualify it. Health observations remain distinct from readiness, writability
-and hostile-child containment. No nested virtualization is introduced.
+[Local controls](../../../evidence/runtime-20261106/g8-health-hold-controls/README.md)
+cover live/released views, forged references with recomputed receipts, missing
+frames, private field/attestation/numeric aliases and timing scope/budget refusal.
+[Actual GCE Docker-hold qualification](../../../evidence/runtime-20261106/g8-live-health-holds/README.md)
+now passes all three pairs, exact private products/receipts, full post-removal
+reference requalification, directory quota and both timing scopes. Maximum
+health-pair duration is about 227 ms under five seconds; the pairs also stay
+within their original hold deadlines. An actual captured wrong-boot view with
+a recomputed receipt refuses; omitting only reference equality produces a
+detected false acceptance. Earlier v1 bundle proof remains separate. Health
+observations do not qualify readiness, writability, wider recovery, hostile-child
+containment or full G7/G8. No nested virtualization is introduced.

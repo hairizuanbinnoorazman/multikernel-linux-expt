@@ -62,3 +62,11 @@ proof or proof of general Docker build compatibility.
 retain the successful current-source lifecycle, all four root controls, wrong
 boot/invocation/build-pin refusal and detection of a separately disabled epoch
 guard. Earlier failed ownership remains preserved and unrecovered.
+
+For new health-enabled receipts the audit additionally requalifies v8 health/v2
+bundles, private endpoint snapshots, original product identities and shared
+health timings against the exact parent record. `live_health_pair_qualified`
+reports this scope; legacy receipts cannot inherit it. The private trial scratch
+identity check is reported separately as `trial_scratch_private_mount_qualified`.
+[Actual warm proof](../../../evidence/runtime-20261106/g8-live-health-holds/README.md)
+passes both with root controls and a forged-receipt mutation comparison.
