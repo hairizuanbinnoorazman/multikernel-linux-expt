@@ -54,3 +54,8 @@ Service readiness, current journal writability/bytes, executable/kernel provenan
 end-to-end network/Docker health, recovery and containment remain unobserved as
 defined by the producer. Full G7/G8 remain open. Direct child kernels need no
 nested virtualization and share host trust after compromise.
+
+When the host restarts between execution and the independent post-run audit,
+follow the [fixture epoch rule](fixture-epoch.md). Preserve the original
+functional receipt/logs; do not substitute post-reboot absence for the missing
+same-boot audit or qualify normal cleanup from the reboot.
