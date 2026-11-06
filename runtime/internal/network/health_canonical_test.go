@@ -1,10 +1,13 @@
 package network
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 )
@@ -93,5 +96,39 @@ func TestHealthWireCanonicalRoundTripAndCardinality(t *testing.T) {
 		if err = protocol.StrictDecode(data, &decoded); err != nil || decoded.Validate() != nil || len(decoded.Endpoints) != count {
 			t.Fatal("valid bounded health round trip refused", count, err)
 		}
+	}
+}
+
+func TestHealthWireCanonicalClientRefusesMaskedDegradation(t *testing.T) {
+	for _, mode := range []string{"status-alias", "code-alias"} {
+		t.Run(mode, func(t *testing.T) {
+			c := Client{Path: "memory", Timeout: time.Second, dial: func(context.Context, string, string) (net.Conn, error) {
+				client, server := net.Pipe()
+				go func() {
+					defer server.Close()
+					var req Request
+					if json.NewDecoder(server).Decode(&req) != nil {
+						return
+					}
+					if req.Method == "CAPABILITIES" {
+						_ = json.NewEncoder(server).Encode(Response{Version: 1, RequestID: req.RequestID, Capabilities: &Capabilities{Version: 1, Features: []string{HealthCapability}}})
+						return
+					}
+					v := HealthReport{Version: 1, Source: "host-network-backend-check", PrimaryBootID: "00000000-0000-0000-0000-000000000001", Status: "checked", Endpoints: []EndpointHealth{{EndpointGeneration: strings.Repeat("a", 32), DescriptorSHA256: strings.Repeat("b", 64), Code: "CHECK_PASSED"}}}
+					data, _ := json.Marshal(v)
+					if mode == "status-alias" {
+						data = []byte(strings.Replace(string(data), `"status":"checked"`, `"status":"degraded","Status":"checked"`, 1))
+					} else {
+						data = []byte(strings.Replace(string(data), `"code":"CHECK_PASSED"`, `"code":"BACKEND_CHECK_FAILED","Code":"CHECK_PASSED"`, 1))
+					}
+					_ = json.NewEncoder(server).Encode(map[string]any{"version": 1, "request_id": req.RequestID, "health": json.RawMessage(data)})
+				}()
+				return client, nil
+			}}
+			report, err := InspectHealth(t.Context(), c)
+			if err == nil || report.Version != 0 {
+				t.Fatal("negotiated health client accepted masked degradation")
+			}
+		})
 	}
 }
