@@ -291,3 +291,31 @@ func TestHealthBundleByteBudgetUsesEncodedBytesWithoutRemovingEvidence(t *testin
 		})
 	}
 }
+
+func TestHealthBundleKeepsIndependentLabelsWhenHealthIsUnavailable(t *testing.T) {
+	for _, mode := range []string{"canceled", "unavailable"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			path := filepath.Join(privateDirectory(t), "labels.json")
+			receipt, err := CollectHealth(ctx, path, func(got context.Context) HealthSnapshot {
+				s := healthBundleFixture("consistent")
+				s.Components.Runtime = &protocol.ComponentBuildReport{Version: 1, Source: "compiled-component-self-report", Component: "mkruntimed", BuildVersion: "0.0.0-dev", BuildRevision: "abcdef0"}
+				s.Components.Network = &protocol.ComponentBuildReport{Version: 1, Source: "compiled-component-self-report", Component: "mknetd", BuildVersion: "0.0.0-dev", BuildRevision: "abcdef0"}
+				if mode == "canceled" {
+					cancel()
+				}
+				s.Health = doctor.InspectHealth(got, doctor.CombinedInputs{}, doctor.PoolInputs{}, doctor.ComponentInputs{}, doctor.HealthInputs{}, "fixture")
+				return s
+			})
+			if err != nil || receipt.ObservationStatus != "inconclusive" {
+				t.Fatal("unavailable health discarded component labels", err)
+			}
+			data, _ := os.ReadFile(path)
+			var bundle HealthBundle
+			if json.Unmarshal(data, &bundle) != nil || bundle.Snapshot.Components.Runtime == nil || bundle.Snapshot.Components.Network == nil || bundle.Snapshot.Components.Runtime.BuildRevision != "abcdef0" || bundle.Snapshot.Components.Network.BuildRevision != "abcdef0" || bundle.Snapshot.Health.Operational != nil {
+				t.Fatal("independent labels lost or unavailable health laundered")
+			}
+		})
+	}
+}
