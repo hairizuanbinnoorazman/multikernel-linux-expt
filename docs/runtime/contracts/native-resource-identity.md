@@ -20,7 +20,7 @@ without partial output. No lifecycle mutation/global or storage-operation lock
 is acquired, and inspection never calls the recovery observer.
 
 Each non-released lease uses the exact read-only native process primitive:
-protected record, generation/CID, pidfd/proc start time, exact command, launched
+protected version-5 record, current host boot ID, generation/CID, pidfd/proc start time, exact command, launched
 executable inode, inherited backing file and current named backing inode/size.
 `process-matched` describes that sampled identity predicate. `record-missing` and
 `process-absent` are observations of absence; `unavailable` covers refusals,

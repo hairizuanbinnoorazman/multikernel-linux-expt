@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,6 +39,7 @@ type managedExport struct {
 
 type processRecord struct {
 	Version          int    `json:"version"`
+	BootID           string `json:"boot_id"`
 	PID              int    `json:"pid"`
 	StartTime        uint64 `json:"start_time"`
 	Path             string `json:"path"`
@@ -448,11 +450,34 @@ func atomicRecordAt(directory *safefile.Directory, name string, value processRec
 	return identity, nil
 }
 
+var storageBootIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+func storageBootIdentity() (string, error) {
+	file, err := os.Open("/proc/sys/kernel/random/boot_id")
+	if err != nil {
+		return "", errors.New("storage host boot identity is unavailable")
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, 38))
+	if err != nil || len(data) > 37 {
+		return "", errors.New("storage host boot identity is unavailable")
+	}
+	value := strings.TrimSuffix(string(data), "\n")
+	if !storageBootIDPattern.MatchString(value) {
+		return "", errors.New("storage host boot identity is malformed")
+	}
+	return value, nil
+}
+
 func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if err := validateBackendLease(value); err != nil {
+		return err
+	}
+	bootID, err := storageBootIdentity()
+	if err != nil {
 		return err
 	}
 	b.mu.Lock()
@@ -550,7 +575,7 @@ func (b *LinuxBackend) Start(ctx context.Context, value Export) error {
 		b.mu.Unlock()
 		return err
 	}
-	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
+	record := processRecord{Version: 5, BootID: bootID, PeerCID: value.PeerCID, PID: command.Process.Pid, StartTime: startTime, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: opened.identity.Device, ImageInode: opened.identity.Inode,
 		BinaryDevice: server.identity.Device, BinaryInode: server.identity.Inode}
@@ -632,7 +657,7 @@ func readRecordIdentityAt(directory *safefile.Directory, name string, expected E
 
 func decodeProcessRecord(data []byte, expected Export) (processRecord, error) {
 	var value processRecord
-	if err := protocol.StrictDecode(data, &value); err != nil || value.Version != 4 {
+	if err := protocol.StrictDecode(data, &value); err != nil || value.Version != 5 || !storageBootIDPattern.MatchString(value.BootID) {
 		return value, errors.New("storage process record is malformed")
 	}
 	if value.PID <= 1 || value.StartTime == 0 || value.Path != expected.Path || value.Port != expected.Port ||
@@ -671,6 +696,16 @@ func readProcessFileAt(directory *os.File, name string, limit int64) ([]byte, er
 }
 
 func openProcessHandle(record processRecord, binary string) (*processHandle, bool, error) {
+	// Start ticks, PID and filesystem identities can repeat after reboot. Refuse
+	// before PID lookup; absence must not authorize log-based recovery/removal.
+	bootID, err := storageBootIdentity()
+	if err != nil {
+		return nil, false, err
+	}
+	if record.Version != 5 || record.BootID != bootID {
+		return nil, false, errors.New("storage process record lacks current host boot identity")
+	}
+
 	pidfd, err := unix.PidfdOpen(record.PID, 0)
 	if err != nil {
 		if errors.Is(err, syscall.ESRCH) {

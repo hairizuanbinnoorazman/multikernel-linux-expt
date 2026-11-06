@@ -144,7 +144,11 @@ class HiddenNativeRecord:
             self.fd = _open_directory(self.directory)
             self.data, original = _read(self.fd, self.name)
             r = self.record = json.loads(self.data, object_pairs_hook=_unique)
-            expected = dict(version=4, path=e['path'], port=e['port'], image_id=e['image_id'],
+            with open('/proc/sys/kernel/random/boot_id', 'rb') as boot_file:
+                boot = boot_file.read(38).decode('ascii').removesuffix('\n')
+            if not re.fullmatch('[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', boot):
+                raise ValueError('host boot identity is invalid')
+            expected = dict(version=5, boot_id=boot, path=e['path'], port=e['port'], image_id=e['image_id'],
                             export_generation=e['export_generation'], peer_cid=e['peer_cid'],
                             image_device=e['image_identity']['device'], image_inode=e['image_identity']['inode'])
             if (not isinstance(r, dict) or set(r) != set(expected) | {'pid', 'start_time', 'binary_device', 'binary_inode'} or

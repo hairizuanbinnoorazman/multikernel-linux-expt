@@ -47,7 +47,7 @@ int main(void) { int fd=open(getenv("TEST_IMAGE"),O_RDONLY); if(fd<0||dup2(fd,3)
             time.sleep(.01)
         proc = pathlib.Path('/proc') / str(self.process.pid)
         data = (proc/'stat').read_bytes()
-        self.record = dict(version=4, pid=self.process.pid, start_time=int(data[data.rindex(b')')+2:].split()[19]),
+        self.record = dict(version=5, boot_id=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(), pid=self.process.pid, start_time=int(data[data.rindex(b')')+2:].split()[19]),
                            path=str(self.image), port=4061, image_id='fixture', export_generation='b'*32,
                            peer_cid=40, image_device=self.image.stat().st_dev, image_inode=self.image.stat().st_ino,
                            binary_device=self.binary.stat().st_dev, binary_inode=self.binary.stat().st_ino)
@@ -63,6 +63,25 @@ int main(void) { int fd=open(getenv("TEST_IMAGE"),O_RDONLY); if(fd<0||dup2(fd,3)
 
     def fault(self):
         return HiddenNativeRecord(self.directory, self.export, self.binary)
+
+    def test_historical_epoch_refused_before_pidfd_or_fault(self):
+        for version, boot in [(4, None), (5, '11111111-1111-4111-8111-111111111111'), (5, 'private-invalid-canary')]:
+            with self.subTest(version=version, boot=boot):
+                record = dict(self.record, version=version)
+                if boot is None:
+                    record.pop('boot_id')
+                else:
+                    record['boot_id'] = boot
+                data = json.dumps(record).encode()
+                self.name.write_bytes(data)
+                with mock.patch('runtime_native_record_fault.os.pidfd_open', side_effect=AssertionError('PID lookup before boot refusal')):
+                    with self.assertRaises(ValueError) as caught:
+                        with self.fault():
+                            self.fail('historical record hidden')
+                self.assertNotIn('private-invalid-canary', str(caught.exception))
+                self.assertEqual(self.name.read_bytes(), data)
+                self.assertIsNone(self.process.poll())
+                self.assertEqual(len(list(self.directory.iterdir())), 2)
 
     def test_exact_inode_and_bytes_restored_after_exception(self):
         inode=self.name.stat().st_ino

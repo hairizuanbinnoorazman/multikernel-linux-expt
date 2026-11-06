@@ -547,6 +547,9 @@ int main(int argc, char **argv) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if record.Version != 5 || record.BootID != currentStorageBoot(t) {
+		t.Fatal("server record does not bind current host boot")
+	}
 	handle, matches, err := openProcessHandle(record, backend.Binary)
 	if err != nil || !matches {
 		t.Fatalf("fixture process identity = %v %v", matches, err)
@@ -912,7 +915,7 @@ func TestProcessRecordIsPrivateStableAndExactBeforeUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: os.Getpid(), StartTime: start, Path: value.Path,
+	record := processRecord{Version: 5, BootID: currentStorageBoot(t), PeerCID: value.PeerCID, PID: os.Getpid(), StartTime: start, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -961,7 +964,7 @@ func TestProcessRecordReadRecoversIdentityBoundQuarantine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: os.Getpid(), StartTime: start, Path: value.Path,
+	record := processRecord{Version: 5, BootID: currentStorageBoot(t), PeerCID: value.PeerCID, PID: os.Getpid(), StartTime: start, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -1046,7 +1049,7 @@ func TestObserveRetainsAcceptedClientCrashForDiagnosis(t *testing.T) {
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
 	recordPath, logPath := backend.paths(value)
-	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
+	record := processRecord{Version: 5, BootID: currentStorageBoot(t), PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -1089,7 +1092,7 @@ func TestObserveDistinguishesExactPreAcceptanceFromUnknownAbsence(t *testing.T) 
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
 	recordPath, logPath := backend.paths(value)
-	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
+	record := processRecord{Version: 5, BootID: currentStorageBoot(t), PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}
@@ -1128,7 +1131,7 @@ func TestStopAcceptsExactGracefulCloseAfterRecoveredProcessExited(t *testing.T) 
 	value := validBackendLease("/var/lib/multikernel/root.ext4")
 	backend := &LinuxBackend{RuntimeDir: directory, RequiredUID: os.Getuid()}
 	recordPath, logPath := backend.paths(value)
-	record := processRecord{Version: 4, PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
+	record := processRecord{Version: 5, BootID: currentStorageBoot(t), PeerCID: value.PeerCID, PID: 1 << 30, StartTime: 1, Path: value.Path,
 		Port: value.Port, ImageID: value.ImageID, ExportGeneration: value.ExportGeneration,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode,
 		BinaryDevice: 3, BinaryInode: 4}

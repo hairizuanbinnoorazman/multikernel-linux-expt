@@ -22,7 +22,7 @@ func TestInspectProcessPreservesStaleEvidenceAndBackendState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := processRecord{Version: 4, PID: os.Getpid(), StartTime: start + 1, Path: value.Path, Port: value.Port,
+	record := processRecord{Version: 5, BootID: currentStorageBoot(t), PID: os.Getpid(), StartTime: start + 1, Path: value.Path, Port: value.Port,
 		ImageID: value.ImageID, ExportGeneration: value.ExportGeneration, PeerCID: value.PeerCID,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode, BinaryDevice: 3, BinaryInode: 4}
 	data, err := json.Marshal(record)
@@ -118,7 +118,7 @@ func TestInspectProcessDoesNotPerformClosedRecordRecovery(t *testing.T) {
 	}
 	value := validBackendLease("/unavailable/backing.ext4")
 	backend := &LinuxBackend{RuntimeDir: directory}
-	record := processRecord{Version: 4, PID: 1 << 30, StartTime: 1, Path: value.Path, Port: value.Port,
+	record := processRecord{Version: 5, BootID: currentStorageBoot(t), PID: 1 << 30, StartTime: 1, Path: value.Path, Port: value.Port,
 		ImageID: value.ImageID, ExportGeneration: value.ExportGeneration, PeerCID: value.PeerCID,
 		ImageDevice: value.ImageIdentity.Device, ImageInode: value.ImageIdentity.Inode, BinaryDevice: 3, BinaryInode: 4}
 	data, err := json.Marshal(record)

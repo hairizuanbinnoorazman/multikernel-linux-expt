@@ -168,8 +168,9 @@ upgrade; restarting mknetd alone does not migrate its policy. Existing primary
 administrative services must not be exposed by weakening the endpoint guards.
 
 Native storage exports bind the intended nonzero child CID to sandbox and
-export generations. State version3 persists this CID; process record version4
-and the exact server command line include it. `mkvsock-nbd server IMAGE PORT
+export generations. State version3 persists this CID; process record version5
+and the exact server command line include it. The process record also binds the
+current primary boot ID before any PID lookup, adoption or stop signal. `mkvsock-nbd server IMAGE PORT
 IMAGE_ID GENERATION PEER_CID` requires the CID. The accepted address must be an
 exact AF_VSOCK address with that CID before any hello bytes are read or returned.
 Peer refusal shares the bounded refusal-log budget. Image/size/generation

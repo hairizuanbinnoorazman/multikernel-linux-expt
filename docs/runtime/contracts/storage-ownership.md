@@ -103,3 +103,24 @@ retains source/binary identities, both pin controls, actual static/dynamic NBD
 serving and the separately qualified correction of an initial 0775 directory
 refusal. Runtime binaries/source are prepared at the retained private stage;
 full MK/child Docker qualification remains unstarted and capacity-dependent.
+
+## Native process records across host restart
+
+New servers persist private process record version 5 with the primary boot ID.
+Inspection, reconciliation and stop require an exact current boot match before
+opening a PID handle. PID/start ticks, argv and inode checks remain mandatory
+within that boot. A prior-boot record produces an error, including when its PID
+is absent and its generation-private log contains a valid close marker; it does
+not authorize record deletion, adoption, signaling or log-based recovery.
+
+Version-4 records lack boot authority and are refused without automatic upgrade.
+Drain live exports using the previous version before deploying this change;
+retain ambiguous or failed records for operator review. Do not roll back newer
+active records to old snapshots. The private native-record fault harness now
+requires version 5 and the current boot too; retained historical harness/code
+pins remain historical and must not be mixed with a new daemon.
+
+This guard applies when a process record exists. It does not add boot identity
+to durable storage leases or server logs, qualify missing-record recovery, prove
+image contents, or make host reboot equivalent to normal session cleanup.
+Full G7/G8 remain open.
