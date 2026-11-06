@@ -23,6 +23,12 @@ class StageBindingTests(unittest.TestCase):
         for bound in [False,True]:
             with mock.patch.object(binding,'topology',return_value=bound),mock.patch.object(binding.libc,'mount',side_effect=AssertionError('mount reached')),mock.patch.object(binding.libc,'umount2',side_effect=AssertionError('umount reached')):
                 self.assertFalse(binding.change(self.record(),bound))
+    def test_replaced_opened_descriptor_is_refused_before_bind(self):
+        with tempfile.TemporaryDirectory() as raw:
+            parent=Path(raw);source=parent/'source';target=parent/'target';source.mkdir(mode=0o700);target.mkdir(mode=0o700)
+            value=dict(self.record(),volume=str(parent),backing=str(source),alias=str(target),backing_inode=source.stat().st_ino+1,underlay_inode=target.stat().st_ino)
+            with mock.patch.object(binding,'topology',return_value=False),mock.patch.object(binding.libc,'mount',side_effect=AssertionError('bind reached replaced descriptor')):
+                with self.assertRaises(ValueError):binding.change(value,True)
     def test_publish_never_overwrites_and_load_refuses_digest_alias_or_ambiguity(self):
         if os.geteuid()!=0:self.skipTest('root-owned private record control requires root')
         with tempfile.TemporaryDirectory() as raw:

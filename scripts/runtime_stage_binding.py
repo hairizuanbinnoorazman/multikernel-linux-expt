@@ -206,11 +206,16 @@ def change(value,restore):
         source=os.open(value['backing'],os.O_PATH|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         target=os.open(alias,os.O_PATH|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         try:
+            source_info,target_info=os.fstat(source),os.fstat(target)
+            if (source_info.st_ino!=value['backing_inode'] or source_info.st_dev!=Path(value['volume']).stat().st_dev or
+                    target_info.st_ino!=value['underlay_inode'] or target_info.st_dev!=alias.parent.stat().st_dev or
+                    any(info.st_uid!=0 or not stat.S_ISDIR(info.st_mode) or stat.S_IMODE(info.st_mode)!=0o700 for info in [source_info,target_info])):
+                raise refuse()
             if libc.mount(f'/proc/self/fd/{source}'.encode(),f'/proc/self/fd/{target}'.encode(),None,MS_BIND,None):
                 raise OSError(ctypes.get_errno(),'stage alias mount refused')
         finally:os.close(source);os.close(target)
     else:
-        if underlay_inode(alias)!=value['underlay_inode']:
+        if underlay_inode(alias)!=value['underlay_inode'] or not topology(value):
             raise refuse()
         if libc.umount2(os.fsencode(alias),UMOUNT_NOFOLLOW):
             raise OSError(ctypes.get_errno(),'stage alias detach refused')
