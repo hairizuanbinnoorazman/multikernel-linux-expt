@@ -124,3 +124,9 @@ This guard applies when a process record exists. It does not add boot identity
 to durable storage leases or server logs, qualify missing-record recovery, prove
 image contents, or make host reboot equivalent to normal session cleanup.
 Full G7/G8 remain open.
+
+[Local/GCE epoch proof](../../../evidence/runtime-20261106/g8-storage-process-epoch/README.md)
+retains storage and full-runtime races, private fault controls, boot-guard mutation
+failures and candidate passes with independent same-boot completion/cleanup
+and baseline parity. Production deployment and actual child Docker recovery are
+not qualified by these disposable process-record controls.

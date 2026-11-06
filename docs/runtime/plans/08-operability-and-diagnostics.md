@@ -1,5 +1,19 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Storage process boot authority (2026-11-06)
+
+Code `235c4381` adds version-5 native process records with primary boot identity.
+[Retained local/GCE proof](../../../evidence/runtime-20261106/g8-storage-process-epoch/README.md)
+passes storage/full runtime races, ten private fault controls, required checks,
+and mutation-red/candidate-green execution on restarted boot `6349e148`, followed
+by an independent same-epoch baseline/cleanup audit. Prior-boot, legacy and
+malformed records cannot authorize PID lookup, adoption, stop signals or
+log-based record removal. Same-boot exact adoption and graceful stop still pass.
+[Upgrade constraints](../contracts/storage-ownership.md#native-process-records-across-host-restart)
+require draining exports before deploying; failed old records remain retained.
+This qualifies the existing-process-record epoch subcase only. Missing-record
+recovery, actual child Docker recovery/cleanup and full G7/G8 remain open.
+
 ## Health bundles and user restart 6349 (2026-11-06)
 
 Code `6afc3bf9`, guard/integration `de558d8e` and label tests `be3def94` add
