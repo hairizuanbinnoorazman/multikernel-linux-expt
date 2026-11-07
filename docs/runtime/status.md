@@ -4,6 +4,27 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Concurrent child builds and survivor rebuild (2026-11-07)
+
+Source `1030d6f3` passes [actual GCE two-child proof](../../evidence/runtime-20261107/g8-live-concurrent-builds-1030d6f/README.md)
+on new boot `509d5e93`. Separate engines/canaries/sentinel images, disjoint owners
+and native backings pass; both original RUNs overlap around primary observation
+(116.523 ms). Both build matrices complete, the sibling is removed without
+survivor drift, and a new survivor build preserves its original archive. Exact
+image absence, primary parity, both native releases/offline checks and resource
+return pass independent audit. [Controls and prefix mutation](../../evidence/runtime-20261107/g8-concurrent-build-controls/README.md),
+root groups, seventeen live refusals and a live-data guard mutation pass. See the
+[concurrency contract](contracts/concurrent-child-builds.md).
+
+The [user restart preservation check](../../evidence/runtime-20261107/g8-user-restart-509d/README.md)
+observed original transport restored and idle before this trial, preserved prior
+receipts/state and rejected old-unit completion in the new boot. Referenced
+history stays in its original epoch. Only the named two-child/survivor subcase
+closes. Churn, broader fault combinations, readiness, cold restoration and full
+G7/G8 remain open. Empty completed cgroups and idle candidate transport remain
+retained. Direct children need no nested virtualization and share host trust
+after kernel compromise.
+
 ## Private-runtime crash during synced child writes (2026-11-07)
 
 Source `9dd78847` passes [actual fixed-source GCE proof](../../evidence/runtime-20261107/g8-live-synced-write-crash-9dd7884/README.md)

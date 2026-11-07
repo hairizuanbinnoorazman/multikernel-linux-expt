@@ -48,7 +48,9 @@ changing all UID/GID values; every helper thread receives NNP before that change
 The requested environment, cwd and executable are used after dropping identity.
 The [bounded host Docker lifecycle proof](../../../evidence/runtime-20261022/g8-host-docker-lifecycle/README.md)
 now qualifies runtime selection, offline builds and teardown with private daemon
-state. Recovery, concurrency and adversarial release qualification remain open.
+state. Later [synced-write recovery proof](synced-write-runtime-crash.md) and
+[two-child/survivor proof](concurrent-child-builds.md) qualify their named bounded
+cases. Wider recovery/churn, adversarial release and complete G7/G8 remain open.
 
 Root-owned copies alone cannot isolate arbitrary guest UID 0. This profile's
 separate workload identity protects outer bootstrap/control ownership without

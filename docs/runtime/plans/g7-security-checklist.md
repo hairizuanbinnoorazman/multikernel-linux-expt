@@ -516,6 +516,13 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   evidence under pressure. Coordinate diagnostic implementation with G8.
 
 - [ ] **SEC-09 — Execute the G7 failure and soak matrix (TM-08).**
+  [Two-child concurrent builds and survivor rebuild](../../../evidence/runtime-20261107/g8-live-concurrent-builds-1030d6f/README.md)
+  pass source `1030d6f3` after the user's restart: separate engines/canaries/images,
+  disjoint owners/backings, simultaneous unfinished RUNs, two original matrices,
+  sibling removal and a further survivor matrix with original archive preserved.
+  Independent same-epoch audit passes primary isolation and both native/kernel
+  releases, with root/live refusal and guard-mutation controls. This covers the
+  named bounded two-child case; parallel churn, fault mixtures and soak remain open.
   [Private-runtime death during synced child writes](../../../evidence/runtime-20261107/g8-live-synced-write-crash-9dd7884/README.md)
   passes source `9dd78847`: new synced progress while the runtime is confirmed
   dead and beyond confirmed adoption, 1,951 completed payloads, last-iteration

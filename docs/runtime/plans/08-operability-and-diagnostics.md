@@ -1,5 +1,25 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Fresh-boot two-child build separation and survivor work (2026-11-07)
+
+The [concurrent-child contract](../contracts/concurrent-child-builds.md) passes
+[source-qualified live GCE execution and independent audit](../../../evidence/runtime-20261107/g8-live-concurrent-builds-1030d6f/README.md)
+for `1030d6f3` on boot `509d5e93`. Two distinct child engines/canaries/images and
+owner/backing allocations complete simultaneous RUNs and full build matrices.
+Sibling release preserves the survivor, which completes another build while
+preserving its original archive. Primary engine/inventories, exact image absence,
+file/service/network parity, both native generations' release/offline checking
+and current resource return pass. Root controls, seventeen live refusals and
+prefix-guard mutation detection pass.
+
+The user restart had already restored original transport and idle resources;
+referenced prior receipts/state stayed historical and old-unit audit refused
+the new boot. This trial preserves that baseline/history. Only this two-child
+build/sibling-release/survivor-work subcase closes. Churn, broader fault mixtures,
+readiness, cold restoration and full G7/G8 stay open. Empty completed cgroups and
+idle candidate transport remain retained. No nested virtualization is used;
+compromised child kernels share primary trust.
+
 ## Synced writes through private-runtime death and adoption (2026-11-07)
 
 The [version-4 synced-write contract](../contracts/synced-write-runtime-crash.md)

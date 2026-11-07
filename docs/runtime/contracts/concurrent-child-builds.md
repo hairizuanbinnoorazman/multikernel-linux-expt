@@ -36,6 +36,14 @@ archive, actual checkpoint requalification and idle resources before reuse.
 Local controls pass shared identity/backing/CPU refusals, owner/generation drift,
 survivor/archive drift, missing builds, authority mismatch, primary image leakage,
 finished/unbound overlap, wrong epoch/scope and timing limits, including
-recomputed hashes. Actual current-source concurrent execution remains pending.
-Cold restoration and full G7/G8 remain open. No nested virtualization is used;
+recomputed hashes. [Actual GCE proof on restarted boot 509d](../../../evidence/runtime-20261107/g8-live-concurrent-builds-1030d6f/README.md)
+passes source `1030d6f3`, both exact invocations and separate postrun audit.
+Both original matrices and the additional survivor matrix pass; overlap spans
+116.523 ms around primary observation. Root controls, seventeen live refusals
+and a live-data in-memory prefix-guard mutation pass. Retained prior-boot data
+and the new-boot preservation receipt stay unchanged.
+
+This closes the named two-child build-separation/sibling-release/survivor-rebuild
+subcase. Concurrency churn, broader fault combinations, readiness, cold
+restoration and full G7/G8 remain open. No nested virtualization is used;
 arbitrary child-kernel compromise shares primary trust.
