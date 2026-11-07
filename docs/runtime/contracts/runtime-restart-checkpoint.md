@@ -1,7 +1,8 @@
 # Private runtime restart and child Docker continuity
 
 The disposable module-trial driver accepts only the named `pressure`,
-`runtime-restart` or `runtime-crash` scenario through `MK_MODULE_TRIAL_SCENARIO`.
+`runtime-restart`, `runtime-crash` or `runtime-crash-during-build` scenario through
+`MK_MODULE_TRIAL_SCENARIO`.
 The recovery scenarios select normal SIGTERM or forced SIGKILL private-daemon
 replacement after the first complete child build. They do not restart
 the installed primary services. Record-fault modes cannot be mixed into this
@@ -15,7 +16,8 @@ A second build matrix executes through the recovered control plane, while the
 original saved archive remains byte-identical. Caller-selected recovery policy
 requires the exact signal/status and matching lifecycle crash boolean in the
 version-2 checkpoint. Normal and crash evidence cannot inherit one another's
-scope. Legacy and crash-during-build checkpoints remain excluded.
+scope. Legacy checkpoints remain excluded. The in-flight case uses its own
+version-3 contract described below.
 
 Same-boot transport reuse accepts an explicitly named, pinned pressure or
 recovery predecessor. Recovery predecessors bind their exact normalized view,
@@ -65,3 +67,30 @@ refusal. Seven recovery/four reuse/four audit/four layout groups pass as root.
 The fault occurs after the first build while its child stays alive. In-flight
 build crash, other components, wider recovery/concurrency, cold restoration and
 full G7/G8 remain open.
+
+## Crash during the original child build
+
+`runtime-crash-during-build` selects the existing 45-second BuildKit RUN overlap
+probe. Version 3 binds raw stderr snapshots before kill, after kill and after
+adoption. Each must contain exactly one executed BEGIN marker and no END, be an
+exact prefix of the original final stderr, and bind the corresponding old/new
+runtime PID. Strict monotonic timestamps must bracket the observed SIGKILL/-9
+exit, order adoption after exit, and fit inside the 45-second probe window.
+Echoed Dockerfile commands do not count as executed markers. Matching hashes
+alone cannot qualify an unrelated or already finished RUN snapshot.
+
+The original final stderr must contain executed BEGIN then END, and the original
+stdout must contain the complete build matrix and exact first image ID. These
+streams bind through the original workload checkpoint and lifecycle receipt.
+Before/after-adoption child snapshots intentionally have no saved-image digest:
+the first archive does not exist yet. Completed-first and post-rebuild snapshots
+must keep the original child/engine/owner, and the saved first archive must be
+preserved after the second build. Primary engine/inventory is sampled around
+kill/adoption; exact image absence is checked after original completion and
+after rebuild. The new scope cannot inherit normal or after-build crash evidence.
+
+Nine recovery/four reuse/four layout control groups pass locally, including
+recomputed-hash finished/unbound/reordered/replaced RUN refusals. Actual in-flight
+crash execution and independent postrun qualification remain pending. No nested
+virtualization or stronger child-kernel containment is introduced; full G7/G8
+remain open.

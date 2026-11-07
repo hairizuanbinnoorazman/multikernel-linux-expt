@@ -100,6 +100,9 @@ if REUSE:
         if current['ControlGroup']:
             assert current['ControlGroup']=='/system.slice/'+name
             check_empty(P('/sys/fs/cgroup')/current['ControlGroup'].lstrip('/'))
+        else:
+            directory=P('/sys/fs/cgroup/system.slice')/name
+            assert not directory.exists() and not directory.is_symlink(),'unannounced predecessor cgroup remains'
     if prior_scenario!='pressure':
         prior_work=stage_path(REUSE,prior.get('stage_location','root'));protected(prior_work)
         assert sha(prior_work/'source.tar')==prior_archive

@@ -15,6 +15,8 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(workload_unit('abcdef0','runtime-restart'),'g8-host-docker-runtime-restart-abcdef0.service')
         self.assertEqual(scenario_flag('runtime-crash'),'--crash-runtime')
         self.assertEqual(workload_unit('abcdef0','runtime-crash'),'g8-host-docker-runtime-crash-abcdef0.service')
+        self.assertEqual(scenario_flag('runtime-crash-during-build'),'--crash-during-build')
+        self.assertEqual(workload_unit('abcdef0','runtime-crash-during-build'),'g8-host-docker-runtime-crash-during-build-abcdef0.service')
         for bad in ['--crash-runtime','restart; other',None,True]:
             with self.assertRaises(ValueError):scenario_flag(bad)
     def test_unknown_root_traversal_alias_prefix_or_revision_refuses(self):

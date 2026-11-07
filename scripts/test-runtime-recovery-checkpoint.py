@@ -95,4 +95,64 @@ class RecoveryTests(unittest.TestCase):
                 work=Path(d);self.retained(work,mode)
                 with self.subTest(mode=mode),self.assertRaises(ValueError):inspect_fixture_recovery(work,BOOT,INV)
 
+    def retained_active(self,work,forge=None):
+        self.retained(work,scenario='runtime-crash');private=work/'integration'
+        r=json.loads((work/'recovery-checkpoint.json').read_bytes());e=json.loads((work/'runtime-exit-checkpoint.json').read_bytes());life=json.loads((work/'integration-receipt.json').read_bytes())
+        def write(parent,name,value):
+            data=value if type(value) is bytes else raw(value);(parent/name).write_bytes(data);return sha(data)
+        r.update(schema_version=3,crash_during_build=True);life['runtime_crash_during_build_tested']=True
+        for key in ['before','after']:r[key].pop('saved_image_sha256')
+        for phase in ['before','after']:
+            name='primary-docker-recovery-'+phase+'.json';sample=json.loads((private/name).read_bytes());sample.update(checked_absent_image=None,child_image_absent=False)
+            r['primary_docker_'+phase+'_recovery_sha256']=write(private,name,sample)
+        sample=json.loads((private/'primary-docker-recovery-after-rebuild.json').read_bytes());sample.update(checked_absent_image=r['original_image_id'],child_image_absent=True)
+        r['primary_docker_completed_first_sha256']=write(private,'primary-docker-recovery-completed-first.json',sample)
+        out=(private/'post-recovery-workload.stdout').read_bytes().replace(r['post_recovery_image_id'].encode(),r['original_image_id'].encode())
+        prefix=b'#9 0.01 G8_OVERLAP_RUN_BEGIN\n';err=prefix+b'#9 45.01 G8_OVERLAP_RUN_END\nCACHED\nexit code: 37\n'
+        if forge=='missing-completion':err=prefix+b'CACHED\nexit code: 37\n'
+        if forge=='original-image':out=out.replace(r['original_image_id'].encode(),('sha256:'+'0'*64).encode())
+        if forge=='missing-first-build':out=out.replace(b'G8_REPEAT_BUILD_PASS\n',b'')
+        workload=dict(boot_id=BOOT,invocation_id=INV,workload_stdout_sha256=write(private,'workload.stdout',out),workload_stderr_sha256=write(private,'workload.stderr',err))
+        life['workload_checkpoint_sha256']=write(work,'workload-checkpoint.json',workload)
+        e['observed_monotonic_ns']=150;r['runtime_exit_checkpoint_sha256']=write(work,'runtime-exit-checkpoint.json',e)
+        frames={}
+        for phase,t,pid in [('before-kill',100,r['runtime_pid_before']),('after-kill',200,r['runtime_pid_before']),('after-adoption',300,r['runtime_pid_after'])]:
+            snapshot=prefix
+            if phase=='after-adoption':
+                if forge=='early-end':snapshot+=b'#9 45.01 G8_OVERLAP_RUN_END\n'
+                if forge=='forged-prefix':snapshot+=b'synthetic-forged-line\n'
+                if forge=='pid':pid=r['runtime_pid_before']
+                if forge=='deadline':t=46_000_000_100
+                if forge=='clock':t=175
+            name='active-run-'+phase+'.stderr'
+            frames[phase]=dict(observed_monotonic_ns=t,runtime_pid=pid,markers=['BEGIN'],stderr_snapshot=name,stderr_sha256=write(private,name,snapshot))
+        if forge=='missing-stage':frames.pop('after-kill')
+        if forge=='numeric-bool':frames['after-adoption']['runtime_pid']=True
+        active=dict(version=1,boot_id=BOOT,invocation_id=INV,stages=frames,cleanup_qualified=False)
+        if forge=='active-boot':active['boot_id']=CHILD
+        if forge=='active-cleanup':active['cleanup_qualified']=True
+        if forge=='wrong-snapshot':frames['after-adoption']['stderr_snapshot']='active-run-before-kill.stderr'
+        active_raw=raw(active)
+        if forge=='duplicate-version':active_raw=b'{"version":1,'+active_raw[1:]
+        r['active_run_checkpoint_sha256']=write(work,'active-run-checkpoint.json',active_raw)
+        if forge=='mask-active':life['runtime_crash_during_build_tested']=False
+        if forge=='schema':r['schema_version']=2
+        if forge=='first-archive':r['original_image_sha256_after_rebuild']='0'*64
+        life['recovery_checkpoint_sha256']=write(work,'recovery-checkpoint.json',r);write(work,'integration-receipt.json',life)
+        for p in [*work.glob('*.json'),*private.iterdir()]:p.chmod(0o600)
+
+    def test_active_run_window_original_completion_and_second_build_require_explicit_scope(self):
+        with tempfile.TemporaryDirectory() as d:
+            work=Path(d);self.retained_active(work)
+            result=inspect_fixture_recovery(work,BOOT,INV,'runtime-crash-during-build')
+            self.assertIs(result['active_run_window_observed'],True);self.assertIs(result['cleanup_qualified'],False)
+            for scenario in ['runtime-restart','runtime-crash']:
+                with self.assertRaises(ValueError):inspect_fixture_recovery(work,BOOT,INV,scenario)
+
+    def test_recomputed_active_receipts_cannot_mask_finished_unbound_reordered_or_replaced_run(self):
+        for mode in ['early-end','forged-prefix','pid','deadline','clock','missing-stage','numeric-bool','active-boot','active-cleanup','wrong-snapshot','duplicate-version','mask-active','schema','first-archive','missing-completion','original-image','missing-first-build']:
+            with tempfile.TemporaryDirectory() as d:
+                work=Path(d);self.retained_active(work,mode)
+                with self.subTest(mode=mode),self.assertRaises(ValueError):inspect_fixture_recovery(work,BOOT,INV,'runtime-crash-during-build')
+
 if __name__=='__main__':unittest.main()

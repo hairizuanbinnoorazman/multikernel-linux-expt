@@ -144,7 +144,7 @@ def audit(args):
                 raise ValueError('trial cgroup identity differs')
             empty_cgroup(directory)
             retained_empty_cgroup = True
-        elif directory.exists():
+        elif directory.exists() or directory.is_symlink():
             raise ValueError('trial cgroup changed')
     private = work/'integration'
     receipt = read(work, 'integration-receipt.json')
@@ -164,6 +164,9 @@ def audit(args):
     workload = read(work, 'workload-checkpoint.json')
     if digest(work/'workload-checkpoint.json') != receipt['workload_checkpoint_sha256']:
         raise ValueError('workload checkpoint differs from lifecycle receipt')
+    for stream in ['stdout','stderr']:
+        if digest(private/('workload.'+stream),131072)!=workload['workload_'+stream+'_sha256']:
+            raise ValueError('original workload stream differs from receipt')
     if workload['runtime_program_hashes'] != {name:build['binaries'][name] for name in ['mkruntimed','mknetd','containerd-shim-multikernel-v2']}:
         raise ValueError('runtime receipt differs from staged programs')
     live_health=False;timings=None
@@ -321,6 +324,7 @@ def audit(args):
     return dict(schema=1, source_commit=args.source_commit, boot_id=boot, parent_invocation=args.parent_invocation,
                 workload_invocation=args.workload_invocation, same_epoch_completion=True, live_health_pair_qualified=live_health, trial_scratch_private_mount_qualified=receipt.get('private_trial_tmp_tested') is True, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=scenario=='pressure', runtime_restart_build_continuity_qualified=scenario=='runtime-restart',
                 runtime_crash_build_continuity_qualified=scenario=='runtime-crash',
+                runtime_inflight_crash_build_continuity_qualified=scenario=='runtime-crash-during-build',
                 diagnostic_three_hold_receipts_requalified=scenario=='pressure', primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,
@@ -330,7 +334,7 @@ def audit(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
-    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash'],default='pressure')
+    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build'],default='pressure')
     for name in ['boot-id', 'parent-invocation', 'workload-invocation', 'source-commit', 'build-sha256']:
         parser.add_argument('--'+name, required=True)
     args = parser.parse_args()

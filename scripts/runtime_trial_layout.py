@@ -25,9 +25,9 @@ def validate_stage(value, revision=None):
 
 
 def scenario_flag(value):
-    if type(value) is not str or value not in {'pressure','runtime-restart','runtime-crash'}:
+    if type(value) is not str or value not in {'pressure','runtime-restart','runtime-crash','runtime-crash-during-build'}:
         raise ValueError('invalid private trial scenario')
-    return {'pressure':'--storage-pressure','runtime-restart':'--restart-runtime','runtime-crash':'--crash-runtime'}[value]
+    return {'pressure':'--storage-pressure','runtime-restart':'--restart-runtime','runtime-crash':'--crash-runtime','runtime-crash-during-build':'--crash-during-build'}[value]
 
 
 def workload_unit(revision,scenario):

@@ -40,7 +40,7 @@ class ReuseTests(unittest.TestCase):
             with self.assertRaises(ValueError) as caught:qualify(bad,BOOT,REV,ARCHIVE,PARENT,CHILD)
             self.assertNotIn('private-canary',str(caught.exception))
     def test_named_recovery_predecessor_binds_scope_and_boolean_types_without_current_authority(self):
-        for scenario in ['runtime-restart','runtime-crash']:
+        for scenario in ['runtime-restart','runtime-crash','runtime-crash-during-build']:
             p=self.fixture();p.pop('diagnostic_checkpoint_timings');p['scenario']=scenario
             p['runtime_recovery_checkpoint']=recovery_view(BOOT,CHILD,scenario)
             self.assertEqual(qualify(json.dumps(p).encode(),BOOT,REV,ARCHIVE,PARENT,CHILD,scenario),p)

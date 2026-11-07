@@ -222,11 +222,11 @@ try:
      time.sleep(.2)
     active_run_checkpoints={}
     def record_active_run(phase,runtime_pid):
-     text=(private/'workload.stderr').read_text()
-     assert len(text)<131072 and run_markers(text)=={'BEGIN'} and attach.poll() is None,'SIGKILL/adoption did not occur inside the observed RUN window'
-     name='active-run-'+phase+'.stderr';(private/name).write_text(text)
+     raw=(private/'workload.stderr').read_bytes()
+     assert len(raw)<131072 and run_markers(raw.decode())=={'BEGIN'} and attach.poll() is None,'SIGKILL/adoption did not occur inside the observed RUN window'
+     name='active-run-'+phase+'.stderr';(private/name).write_bytes(raw)
      active_run_checkpoints[phase]={'observed_monotonic_ns':time.monotonic_ns(),'runtime_pid':runtime_pid,'markers':['BEGIN'],'stderr_snapshot':name,'stderr_sha256':sha(private/name)}
-     (work/'active-run-checkpoint.json').write_text(json.dumps({'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'stages':active_run_checkpoints,'cleanup_qualified':False},indent=2)+'\n')
+     (work/'active-run-checkpoint.json').write_text(json.dumps({'version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'stages':active_run_checkpoints,'cleanup_qualified':False},indent=2)+'\n')
     def child_snapshot(phase,include_image=True):
      boot_result=run(cli+['exec','--user','1000:1000','g8-materialization','/bin/cat','/proc/sys/kernel/random/boot_id'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
      engine_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/local/bin/docker','info','--format','{{json .}}'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -251,12 +251,12 @@ try:
      return values[0].decode()
     def recovery_primary(phase,image_id):
      observation=observe_primary_docker(image_id);check_primary_docker(primary_docker_before,observation)
-     assert observation['child_image_absent'],'child-built image appeared in primary Docker'
+     assert image_id is None or observation['child_image_absent'],'child-built image appeared in primary Docker'
      destination=private/('primary-docker-recovery-'+phase+'.json');destination.write_text(json.dumps(observation,indent=2)+'\n')
      return sha(destination)
     original_image_id=None if crash_during_build else build_image_id((private/'workload.stdout').read_bytes())
     prior=child_snapshot('before',not crash_during_build);old_pid=m.pid
-    primary_before_recovery=None if crash_during_build else recovery_primary('before',original_image_id)
+    primary_before_recovery=recovery_primary('before',original_image_id)
     assert m.poll() is None,'runtime already stopped before the intentional restart'
     runtime_arguments=m.args
     if crash_during_build:record_active_run('before-kill',old_pid)
@@ -270,7 +270,7 @@ try:
     m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
     assert m.pid!=old_pid and m.poll() is None
     subsequent=child_snapshot('after',not crash_during_build);assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
-    primary_after_recovery=None if crash_during_build else recovery_primary('after',original_image_id)
+    primary_after_recovery=recovery_primary('after',original_image_id)
     if crash_during_build:
      record_active_run('after-adoption',m.pid)
      while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
@@ -278,6 +278,9 @@ try:
       time.sleep(.2)
     completed_first=child_snapshot('completed-first')
     assert all(completed_first[key]==prior[key] for key in ['child_boot_id','engine_id','ownership'])
+    if crash_during_build:
+     original_image_id=build_image_id((private/'workload.stdout').read_bytes())
+     primary_completed_first=recovery_primary('completed-first',original_image_id)
     # Preserve the first completed archive, then prove new child-local writes and
     # builds work through the recovered control plane, not just inspection.
     rebuilt=subprocess.run(cli+['exec','--user','1000:1000','g8-materialization','/bin/sh','-ec','test ! -e /home/rootless/.local/tmp/g8-build-before-restart; mv /home/rootless/.local/tmp/g8-build /home/rootless/.local/tmp/g8-build-before-restart; /bin/sh /work/input/probe.sh'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
@@ -297,7 +300,8 @@ try:
     recovery['completed_first_build']=completed_first
     recovery['crash_during_build']=crash_during_build
     recovery.update(schema_version=2,original_image_id=original_image_id,post_recovery_image_id=post_recovery_image_id,original_image_sha256_after_rebuild=old_image.stdout.decode().split()[0],primary_docker_before_recovery_sha256=primary_before_recovery,primary_docker_after_recovery_sha256=primary_after_recovery,primary_docker_after_rebuild_sha256=primary_after_rebuild)
-    if crash_during_build:recovery['active_run_checkpoint_sha256']=sha(work/'active-run-checkpoint.json')
+    if crash_during_build:
+     recovery.update(schema_version=3,active_run_checkpoint_sha256=sha(work/'active-run-checkpoint.json'),primary_docker_completed_first_sha256=primary_completed_first)
     (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
     run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))

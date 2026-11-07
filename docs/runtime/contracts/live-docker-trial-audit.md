@@ -60,6 +60,12 @@ Select `runtime-restart` or `runtime-crash` explicitly for a recovery trial;
 these bind the corresponding exact signal/status, actual recovery inputs and
 parent-normalized view rather than claiming pressure/health hold evidence.
 Their output distinguishes normal restart and forced-crash build continuity.
+Select `runtime-crash-during-build` for the version-3 in-flight contract. It
+additionally binds the three unfinished RUN snapshots to the original completed
+build streams and exact kill/adoption ordering; its output has a separate
+`runtime_inflight_crash_build_continuity_qualified` flag. Original workload
+stdout/stderr hashes are verified for every scenario. Reuse and audit refuse
+unannounced cgroup paths, including dangling aliases, before claiming absence.
 Direct child kernels need no nested virtualization; arbitrary child-kernel
 compromise still shares primary trust. This is not a hostile-kernel containment
 proof or proof of general Docker build compatibility.
