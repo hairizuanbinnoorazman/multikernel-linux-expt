@@ -119,6 +119,24 @@ Offline filesystem repair requires the runtime services and all exports using
 the image to be stopped. Preserve the server log and identify the exact image
 before invoking `e2fsck`; do not run it against a mounted filesystem.
 
+## Retained disposable stage aliases
+
+A private lab stage bind can add a second mount of the storage device. The
+unchanged production startup guard correctly refuses that topology. Before
+service maintenance, preserve the stage mapping and completed-epoch evidence,
+verify the owned work has finished, and release only its exact alias through the
+[stage binding retention tool](../runtime/contracts/stage-binding-retention.md).
+Do not relax the single-mount rule or use lazy/forced unmount as recovery.
+
+After a restart, inspect the persistent backing and root-trusted record first.
+Restore an alias only in a private, nonpropagating inspection namespace; the host
+alias can remain absent while archived products are checked there. Keep old
+reports and PIDs attributed to their capture boot. A missing alias or transient
+unit does not prove workload cleanup or loss of its persistent files. The
+[5ad restart evidence](../../evidence/runtime-20261107/g8-stage-restart-5ad/README.md)
+shows this process and its record-digest/device-renumbering limitations; it does
+not recover the older failed generation or close full G7/G8.
+
 ## Host inventory after cleanup
 
 Cleanup is complete only when all scoped inventories agree:

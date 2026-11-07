@@ -49,7 +49,9 @@ A release rechecks the underlay in a private namespace before detaching the
 real alias. A busy mount refuses: there is no lazy/forced unmount, signaling or
 repair. Restore requires an isolated mount namespace with no propagating mounts, the
 original empty underlay and revalidated descriptor-pinned source/target objects.
-Host-namespace restore refuses before opening or mounting the targets. A caller
+A restore that would create a binding refuses in the host namespace before
+opening descriptors or mounting the targets. An already correct binding is an
+idempotent observation, not startup/readiness authority. A caller
 can enter a private inspection session with `sudo unshare --mount --propagation
 private -- /bin/bash`, restore and inspect there, then release or exit; the host
 alias stays absent. Existing correct state is idempotent; replaced, occupied,
@@ -72,3 +74,12 @@ requalify the mounted volume and record before any alias restore; capture boot
 is historical, not current process/session authority. Full G7/G8 remain open.
 Direct child kernels require no nested virtualization and share host trust
 after arbitrary child-kernel compromise.
+
+[New-boot GCE evidence](../../../evidence/runtime-20261107/g8-stage-restart-5ad/README.md)
+passes six root groups, real synthetic bind/busy/replacement controls, current
+host restore refusal and private inspection of the real preserved stage after
+the user's restart. Its original transport is restored and global startup guard
+passes. The whole original binding-record digest was not independently retained
+before that restart; this limitation remains explicit. A new private fsynced
+verification receipt pins the record at the new boot for future checks. Device
+renumbering and complete cold restoration/full G7/G8 remain unqualified.

@@ -68,8 +68,12 @@ legacy trials that did not request it. Production service unit policy is unchang
 [Actual warm health-hold proof](../../../evidence/runtime-20261106/g8-live-health-holds/README.md)
 passes source/epoch/predecessor/cgroup admission, no driver module reload,
 three v8/v2 pairs and independent normal resource return. Prior failed ownership
-remains unrecovered. The storage-backed staging bind is intentionally retained;
-it is not a production mount configuration or automatic boot remount. A later
-reboot must preserve its persistent backing and separately qualify alias
-restoration before inspecting it through the original path. Its absence after
-reboot alone must not be relabelled artifact deletion or normal cleanup.
+remains unrecovered. That checkpoint retained its staging bind for capture;
+subsequent retention work released the alias before the user restart. The
+[new-boot preservation/private-inspection proof](../../../evidence/runtime-20261107/g8-stage-restart-5ad/README.md)
+keeps archived reports in their original epoch, verifies persistent artifact
+identities and restores the alias only inside a nonpropagating inspection
+namespace. The host alias stays absent and the unchanged single-device-mount
+startup guard passes. Alias absence after reboot is neither artifact deletion
+nor a new normal-cleanup result. See the [stage retention contract](stage-binding-retention.md)
+for explicit root-trusted record/pin and historical limitations.

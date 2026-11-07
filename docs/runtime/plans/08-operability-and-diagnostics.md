@@ -1,5 +1,29 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## User restart 5ad and private stage inspection (2026-11-07)
+
+Code `80edf5a9`/`2bc117c5` adds strict persistent stage mapping and descriptor/
+underlay admission; `b4de258e` permits new bindings only in nonpropagating private
+inspection namespaces. [New-boot GCE proof](../../../evidence/runtime-20261107/g8-stage-restart-5ad/README.md)
+passes six root groups, native bind/busy/replacement controls, host restore
+refusal and private restore/requalification/release of the real stage. Original
+transport, zero child/reference/socket resources, released pool, all CPUs and
+the unchanged single-mount storage startup guard pass after the user restart.
+Global alias stays absent; primary watched bytes and persistent Docker inventory
+are preserved, and current service PIDs are stable within the new boot.
+
+Archived live-health and completion evidence remains attributed to boot 6349;
+copying old success into new boot 5ad refuses. Older failed ledgers/native record
+and image inode/size/mode remain preserved without reading backing contents or
+claiming recovery. A prior independent whole binding-record digest was absent;
+that historical limitation is not reconstructed. A new private verification
+receipt is persisted for future use. Required checks pass with the existing
+pinned containerd after preserving the local unqualified-version refusal; no
+version policy is relaxed. Namespace-admission mutation is detected before real
+mount calls. Device-renumbering, complete cold restoration, broader recovery/
+concurrency, readiness/log-pressure and full G7/G8 remain open. No nested
+virtualization is used; arbitrary child-kernel compromise shares host trust.
+
 ## Actual v8/v2 Docker holds and guarded warm repeat (2026-11-06)
 
 Code `3407af03` adds actual-hold health/reference/receipt binding; `2c2447dc`
