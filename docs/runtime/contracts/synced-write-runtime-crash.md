@@ -11,16 +11,19 @@ sleep-based overlap barrier in this variant.
 The harness waits for the first synced write before killing its disposable
 private runtime. After confirmed SIGKILL/-9 exit it records a new stderr baseline,
 then requires a newer synced sequence while that runtime remains dead. Only then
-may it start the replacement. It requires further synced progress after adoption.
+may it start the replacement. After exact child ownership adoption is confirmed,
+it records a new baseline and requires further synced progress beyond that sample.
 No installed primary service is restarted and no retained failed generation is
 recovered or signaled.
 
-The version-2 active checkpoint contains four exact frames: before-kill,
-confirmed-dead, after-kill and after-adoption. They bind old/new runtime PIDs,
+The version-3 active checkpoint contains five exact frames: before-kill,
+confirmed-dead, after-kill, adoption-baseline and after-adoption. They bind old/new runtime PIDs,
 confirmed exit status, strict host monotonic order, executed RUN/progress markers
 and raw prefixes of the final original stream. Synced sequence numbers must be
 canonical, increasing and advance strictly from confirmed-dead to after-kill,
-then again after adoption. Existing child/engine/owner, original build completion,
+then again beyond the confirmed-adoption baseline. Progress that occurred while
+the replacement was starting cannot stand in for a new post-adoption write.
+Existing child/engine/owner, original build completion,
 archive preservation, rebuild and primary-isolation requirements still apply.
 
 Each iteration stamps a fixed-width sequence header over its zero-filled file
@@ -44,3 +47,10 @@ GCE qualification is pending. Broader storage/network-server failures, abrupt
 child loss, autonomous failure detection, concurrency, cold restoration and full
 G7/G8 remain open. Direct children use no nested virtualization and share host
 trust after arbitrary child-kernel compromise.
+
+The first four-frame I/O attempt (`0484f730`) cannot close the confirmed-adoption
+boundary: a marker sampled after adoption could have been emitted during
+replacement startup. Its evidence remains retained separately. Current
+qualification requires the fifth baseline and refuses old version-2 activity
+receipts. Weakening only the post-adoption comparison to the earlier after-kill
+sample is detected by the adopted-no-progress control.

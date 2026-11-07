@@ -240,7 +240,7 @@ try:
      active_run_checkpoints[phase]={'observed_monotonic_ns':time.monotonic_ns(),'runtime_pid':runtime_pid,'markers':['BEGIN'],'stderr_snapshot':name,'stderr_sha256':sha(private/name)}
      if crash_during_io:active_run_checkpoints[phase]['io_synced_seq']=sequence
      if phase=='confirmed-dead':active_run_checkpoints[phase]['runtime_exit_status']=m.returncode
-     (work/'active-run-checkpoint.json').write_text(json.dumps({'version':2 if crash_during_io else 1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'stages':active_run_checkpoints,'cleanup_qualified':False},indent=2)+'\n')
+     (work/'active-run-checkpoint.json').write_text(json.dumps({'version':3 if crash_during_io else 1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'stages':active_run_checkpoints,'cleanup_qualified':False},indent=2)+'\n')
     def child_snapshot(phase,include_image=True):
      boot_result=run(cli+['exec','--user','1000:1000','g8-materialization','/bin/cat','/proc/sys/kernel/random/boot_id'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
      engine_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/local/bin/docker','info','--format','{{json .}}'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -287,7 +287,8 @@ try:
     subsequent=child_snapshot('after',not crash_during_build);assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
     primary_after_recovery=recovery_primary('after',original_image_id)
     if crash_during_build:
-     record_active_run('after-adoption',m.pid,active_run_checkpoints['after-kill']['io_synced_seq'] if crash_during_io else None)
+     if crash_during_io:record_active_run('adoption-baseline',m.pid)
+     record_active_run('after-adoption',m.pid,active_run_checkpoints['adoption-baseline']['io_synced_seq'] if crash_during_io else None)
      while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
       assert attach.poll() is None and time.monotonic()<deadline,'original in-flight build did not complete'
       time.sleep(.2)

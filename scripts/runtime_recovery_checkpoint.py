@@ -114,8 +114,8 @@ def inspect_active_run(work,recovery,receipt):
     data=read(work,'active-run-checkpoint.json');active=decode(data,1<<20)
     if hashlib.sha256(data).hexdigest()!=recovery['active_run_checkpoint_sha256']:raise ValueError('active RUN checkpoint digest differs')
     if type(active) is not dict or set(active)!={'version','boot_id','invocation_id','stages','cleanup_qualified'}:raise ValueError('invalid active RUN envelope')
-    equal({k:v for k,v in active.items() if k!='stages'},dict(version=2 if io else 1,boot_id=recovery['boot_id'],invocation_id=recovery['invocation_id'],cleanup_qualified=False))
-    stage_names={'before-kill','after-kill','after-adoption'}|({'confirmed-dead'} if io else set())
+    equal({k:v for k,v in active.items() if k!='stages'},dict(version=3 if io else 1,boot_id=recovery['boot_id'],invocation_id=recovery['invocation_id'],cleanup_qualified=False))
+    stage_names={'before-kill','after-kill','after-adoption'}|({'confirmed-dead','adoption-baseline'} if io else set())
     if type(active['stages']) is not dict or set(active['stages'])!=stage_names:raise ValueError('incomplete active RUN stages')
     workload_data=read(work,'workload-checkpoint.json');workload=decode(workload_data,1<<20)
     if hashlib.sha256(workload_data).hexdigest()!=receipt['workload_checkpoint_sha256'] or workload['boot_id']!=recovery['boot_id'] or workload['invocation_id']!=recovery['invocation_id']:raise ValueError('original workload receipt differs')
@@ -131,7 +131,9 @@ def inspect_active_run(work,recovery,receipt):
     times=[];last_size=0
     phases=[('before-kill',recovery['runtime_pid_before'])]
     if io:phases.append(('confirmed-dead',recovery['runtime_pid_before']))
-    phases.extend([('after-kill',recovery['runtime_pid_before']),('after-adoption',recovery['runtime_pid_after'])])
+    phases.append(('after-kill',recovery['runtime_pid_before']))
+    if io:phases.append(('adoption-baseline',recovery['runtime_pid_after']))
+    phases.append(('after-adoption',recovery['runtime_pid_after']))
     for phase,pid in phases:
         frame=active['stages'][phase]
         fields={'observed_monotonic_ns','runtime_pid','markers','stderr_snapshot','stderr_sha256'}|({'io_synced_seq'} if io else set())|({'runtime_exit_status'} if phase=='confirmed-dead' else set())

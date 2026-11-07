@@ -27,12 +27,12 @@ def sync_sequence(raw):
 def inspect_synced_io(work,recovery,streams,active):
     """All metadata has already passed the common source/epoch/RUN qualifier."""
     stages=active['stages'];seq=[]
-    for phase in ['before-kill','confirmed-dead','after-kill','after-adoption']:
+    for phase in ['before-kill','confirmed-dead','after-kill','adoption-baseline','after-adoption']:
         frame=stages[phase];raw=read_fixture_artifact(work/'integration',frame['stderr_snapshot'],1<<20)
         value=sync_sequence(raw)
         if type(frame['io_synced_seq']) is not int or frame['io_synced_seq']!=value:raise ValueError('synced write frame differs from its stream')
         seq.append(value)
-    if not seq[0]<=seq[1]<seq[2]<seq[3]:raise ValueError('synced writes did not advance during outage and adoption')
+    if not seq[0]<=seq[1]<seq[2]<=seq[3]<seq[4]:raise ValueError('synced writes did not advance during outage and adoption')
     # Only executed BuildKit RUN lines count; an echoed Dockerfile is not output.
     final=re.findall(rb'^#\d+\s+\d+(?:\.\d+)?\s+G8_IO_FINAL_SEQ=([1-9][0-9]{0,6})\s*$',streams['stderr'],re.M)
     hashes=re.findall(rb'^#\d+\s+\d+(?:\.\d+)?\s+G8_IO_FINAL_SHA256=([a-f0-9]{64})\s*$',streams['stderr'],re.M)
