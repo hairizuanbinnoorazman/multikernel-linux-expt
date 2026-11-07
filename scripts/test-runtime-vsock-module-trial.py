@@ -182,7 +182,7 @@ if RECORD_FAULT=='crash':
     assert state['unexpected_taint_bits']==0
     print('NATIVE_EXPORT_CRASH_REFUSAL_RETAINED_NO_NORMAL_CLEANUP_CLAIMED')
 else:
-    assert state['pressure_scope']['Result']=='success' and state['pressure_scope']['ExecMainStatus']=='0','pressure qualification failed; retained test work must be diagnosed'
+    assert state['pressure_scope']['Result']=='success' and state['pressure_scope']['ExecMainStatus']=='0','workload qualification failed; retained test work must be diagnosed'
     assert state.get('candidate_quiescent') and state.get('cold_restore_required'),state
     assert state['unexpected_taint_bits']==0,'unexpected kernel taint added during trial'
-    print('PINNED_MODULE_PRESSURE_TRIAL_QUIESCENT_COLD_RESTORE_REQUIRED')
+    print('PINNED_MODULE_'+SCENARIO.replace('-','_').upper()+'_TRIAL_QUIESCENT_COLD_RESTORE_REQUIRED')
