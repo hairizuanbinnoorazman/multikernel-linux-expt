@@ -157,6 +157,8 @@ def audit(args):
             raise ValueError('lifecycle outcome is unqualified')
     if receipt.get('storage_pressure_tested') is not (scenario=='pressure'):
         raise ValueError('trial scenario differs from caller authority')
+    if receipt.get('concurrent_guest_builds_tested') is not (scenario=='concurrent'):
+        raise ValueError('concurrent scenario differs from caller authority')
     if receipt['execution_script_sha256'] != digest(work/'source/scripts/test-runtime-docker-profile-live.py'):
         raise ValueError('execution source differs from receipt')
     if receipt['source_image_archive_sha256'] != digest(private/'approved-image.tar', 1 << 30):
@@ -241,6 +243,12 @@ def audit(args):
             health_timings = inspect_fixture_health(work, boot, args.workload_invocation)
             if parent.get('health_checkpoint_timings') != health_timings:
                 raise ValueError('parent health checkpoint differs from lifecycle receipt')
+    elif scenario=='concurrent':
+        from runtime_concurrency_checkpoint import inspect_fixture_concurrency
+        concurrent=inspect_fixture_concurrency(work,boot,args.workload_invocation)
+        parent=read(Path('/opt/mkruntime/g8-vsock-rx-b688447')/('trial-'+work.name),'primary-module-trial.json')
+        if (parent.get('scenario')!='concurrent' or parent.get('concurrency_checkpoint')!=concurrent or parent['boot_id']!=boot or parent['parent_scope']['InvocationID']!=args.parent_invocation or parent['pressure_invocation']!=args.workload_invocation or parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or parent.get('cold_restore_required') is not True):
+            raise ValueError('parent concurrency checkpoint differs from exact lifecycle')
     else:
         from runtime_recovery_checkpoint import inspect_fixture_recovery
         recovery=inspect_fixture_recovery(work,boot,args.workload_invocation,scenario)
@@ -311,9 +319,9 @@ def audit(args):
     if owned:
         raise ValueError('owned fixture processes remain')
     exports = list(read(private/'storage-state', 'state.json')['exports'].values())
-    if len(exports) != 1 or exports[0]['state'] != 'RELEASED' or not re.fullmatch('e2fsck-clean-sha256:[a-f0-9]{64}', exports[0].get('offline_check', '')):
+    if len(exports) != (2 if scenario=='concurrent' else 1) or any(v['state']!='RELEASED' or not re.fullmatch('e2fsck-clean-sha256:[a-f0-9]{64}',v.get('offline_check','')) for v in exports):
         raise ValueError('native release/offline check is unqualified')
-    if exports[0]['counters']['written_bytes'] < (full['guest_full']['pressure_file_bytes'] if scenario=='pressure' else 1):
+    if any(v['counters']['written_bytes'] < (full['guest_full']['pressure_file_bytes'] if scenario=='pressure' else 1) for v in exports):
         raise ValueError('native counters do not cover pressure writes')
     if read(private/'rootfs-state', 'state.json')['records'] or read(private/'network-state', 'state.json')['endpoints']:
         raise ValueError('private ownership remains')
@@ -330,6 +338,7 @@ def audit(args):
                 runtime_crash_build_continuity_qualified=scenario=='runtime-crash',
                 runtime_inflight_crash_build_continuity_qualified=scenario=='runtime-crash-during-build',
                 runtime_synced_io_crash_continuity_qualified=scenario=='runtime-crash-during-io',
+                concurrent_child_build_separation_and_survivor_rebuild_qualified=scenario=='concurrent',
                 diagnostic_three_hold_receipts_requalified=scenario=='pressure', primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,
@@ -339,7 +348,7 @@ def audit(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
-    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io'],default='pressure')
+    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io','concurrent'],default='pressure')
     for name in ['boot-id', 'parent-invocation', 'workload-invocation', 'source-commit', 'build-sha256']:
         parser.add_argument('--'+name, required=True)
     args = parser.parse_args()

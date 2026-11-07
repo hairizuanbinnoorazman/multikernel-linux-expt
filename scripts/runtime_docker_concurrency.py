@@ -5,6 +5,8 @@ import re
 import secrets
 import subprocess
 import time
+from pathlib import Path
+from runtime_primary_docker import observe as observe_primary,unchanged as unchanged_primary
 
 # The authenticated signal targets the complete process group, including sleep.
 # Its interruption must not trigger the wrapper's errexit before normal exit.
@@ -32,13 +34,37 @@ def owner_for_container(container_id, owners):
     return matches[0]
 
 
-def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_release):
+def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_release,boot,invocation):
     names = ['g8-materialization', 'g8-sibling']
     cases = ['a', 'b']
     canaries = {case: secrets.token_hex(16) for case in cases}
     processes = {}
     streams = []
     sibling_created = False
+    primary_before=json.loads((private/'primary-docker-before.json').read_text())
+    primary_hashes={}
+    digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+
+    def primary(phase,image=None):
+        report=observe_primary(image,deadline=time.monotonic()+10)
+        unchanged_primary(primary_before,report)
+        assert image is None or report['child_image_absent'],'child image appeared in primary Docker'
+        path=private/('concurrency-primary-'+phase+'.json');path.write_text(json.dumps(report,indent=2)+'\n')
+        primary_hashes[phase]=digest(path)
+
+    def build_id(case,label=None):
+        path=private/((label or case+'-workload')+'.stdout')
+        values=re.findall(rb'^G8_BUILD_IMAGE_ID=(sha256:[a-f0-9]{64})$',path.read_bytes(),re.M)
+        assert len(values)==1,'missing exact concurrent build image identity'
+        return values[0].decode()
+
+    def overlap_capture(phase):
+        result={}
+        for case in cases:
+            raw=(private/(case+'-workload.stderr')).read_bytes()
+            assert len(raw)<=131072 and run_markers(raw.decode())=={'BEGIN'} and processes[case].poll() is None,'both RUN windows must remain unfinished'
+            path=private/('run-overlap-'+phase+'-'+case+'.stderr');path.write_bytes(raw);result[case]=digest(path)
+        return result
 
     def invoke(arguments, label, success=True, timeout=100):
         try:
@@ -58,6 +84,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         assert len(result.stdout) < 131072 and len(result.stderr) < 131072
         (private / (label + '.stdout')).write_bytes(result.stdout)
         (private / (label + '.stderr')).write_bytes(result.stderr)
+        (private / (label + '.exit.json')).write_text(json.dumps({'returncode':result.returncode})+'\n')
         if success:
             assert result.returncode == 0, label + ': ' + result.stderr.decode(errors='replace')
         return result
@@ -99,7 +126,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
             import os
             observed = os.stat(value['path'])
             assert value['image_identity'] == {'device': observed.st_dev, 'inode': observed.st_ino}
-            result.append({'peer_cid': value['peer_cid'], 'port': value['port'],
+            result.append({'sandbox_id':value['sandbox_id'],'sandbox_generation':value['sandbox_generation'],'export_generation':value['export_generation'],'peer_cid': value['peer_cid'], 'port': value['port'],
                            'filesystem_uuid': value['filesystem_uuid'], 'image_identity': value['image_identity'],
                            'image_path_sha256': hashlib.sha256(value['path'].encode()).hexdigest()})
         assert len({(v['image_identity']['device'], v['image_identity']['inode']) for v in result}) == count
@@ -123,6 +150,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         value = {'child_boot_id': boot, 'engine_id': engine['ID'], 'canary': canary, 'sentinel_image_id': own}
         if built:
             value['saved_image_sha256'] = execute(index, ['/usr/bin/sha256sum', '/home/rootless/.local/tmp/g8-build/image.tar'], prefix + '-saved-image').stdout.decode().split()[0]
+            value['built_image_id']=build_id(case,'survivor-rebuild' if phase=='survivor-rebuilt' else None)
         return value
 
     try:
@@ -162,13 +190,17 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
             markers = {case: run_markers((private / (case + '-workload.stderr')).read_text()) for case in cases}
             assert not any('END' in value for value in markers.values()), 'RUN overlap was not observed'
             if all('BEGIN' in value for value in markers.values()):
-                overlap = {'observed_monotonic_ns': time.monotonic_ns(), 'markers': {k: sorted(v) for k, v in markers.items()}}
+                before_overlap=overlap_capture('before');before_ns=time.monotonic_ns()
+                primary('overlap')
+                after_overlap=overlap_capture('after');after_ns=time.monotonic_ns()
+                overlap = {'version':1,'boot_id':boot,'invocation_id':invocation,'before_monotonic_ns':before_ns,'after_monotonic_ns':after_ns,'captures':{'before':before_overlap,'after':after_overlap},'primary_sha256':primary_hashes['overlap'],'cleanup_qualified':False}
                 (private / 'run-overlap.json').write_text(json.dumps(overlap, indent=2) + '\n')
                 break
             assert all(p.poll() is None for p in processes.values()) and time.monotonic() < deadline
             time.sleep(.1)
         wait_for('G8_CONCURRENT_BUILD_READY')
         after = {case: snapshot(index, 'after', True) for index, case in enumerate(cases)}
+        for case in cases:primary('two-built-'+case,after[case]['built_image_id'])
         for case in cases:
             assert {k: after[case][k] for k in before[case]} == before[case]
             output = (private / (case + '-workload.stdout')).read_text()
@@ -190,14 +222,29 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         remaining = json.loads(invoke(inspect_arguments, 'survivor-ownership').stdout)
         active = [s for s in remaining['sandboxes'] if s['state'] != 'ABSENT']
         assert active == [case_owners['a']]
-        result = {'before': before, 'after': after, 'survivor': survivor,
+        assert len(list(Path('/sys/fs/multikernel/instances').iterdir()))==1,'sibling kernel instance remains'
+        primary('survivor',after['a']['built_image_id'])
+        # Keep the original archive and demonstrate new work after sibling release.
+        rebuilt=execute(0,['/bin/sh','-ec','test ! -e /home/rootless/.local/tmp/g8-build-before-sibling-removal; mv /home/rootless/.local/tmp/g8-build /home/rootless/.local/tmp/g8-build-before-sibling-removal; /bin/sh /work/input/probe.sh'],'survivor-rebuild')
+        original=execute(0,['/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build-before-sibling-removal/image.tar'],'survivor-original-archive').stdout.decode().split()[0]
+        assert original==after['a']['saved_image_sha256'],'original survivor archive changed'
+        survivor_rebuilt=snapshot(0,'survivor-rebuilt',True)
+        assert {k:survivor_rebuilt[k] for k in before['a']}==before['a']
+        primary('survivor-rebuild',survivor_rebuilt['built_image_id'])
+        result = {'schema_version':2,'boot_id':boot,'invocation_id':invocation,'before': before, 'after': after, 'survivor': survivor,
                   'two_running_owners': owners['sandboxes'], 'case_owners': case_owners, 'remaining_owner': active[0],
                   'two_storage_exports': storage_before, 'survivor_storage_export': storage_survivor,
                   'run_overlap_observed': True, 'sibling_removed_without_survivor_change': True,
+                  'survivor_rebuilt':survivor_rebuilt,'original_archive_after_rebuild_sha256':original,
+                  'survivor_rebuild_stdout_sha256':hashlib.sha256(rebuilt.stdout).hexdigest(),'survivor_rebuild_stderr_sha256':hashlib.sha256(rebuilt.stderr).hexdigest(),
+                  'run_overlap_checkpoint_sha256':digest(private/'run-overlap.json'),'primary_snapshots_sha256':primary_hashes,
+                  'case_stdout_sha256':{case:digest(private/(case+'-workload.stdout')) for case in cases},'case_stderr_sha256':{case:digest(private/(case+'-workload.stderr')) for case in cases},
                   'cleanup_qualified': False}
-        (private / 'concurrency-checkpoint.json').write_text(json.dumps(result, indent=2) + '\n')
         invoke(cli + ['kill', '--signal=USR1', names[0]], 'release-primary')
         assert processes['a'].wait(timeout=60) == 0
+        result['case_stdout_sha256']={case:digest(private/(case+'-workload.stdout')) for case in cases}
+        result['case_stderr_sha256']={case:digest(private/(case+'-workload.stderr')) for case in cases}
+        (private / 'concurrency-checkpoint.json').write_text(json.dumps(result, indent=2) + '\n')
         return subprocess.CompletedProcess(processes['a'].args, 0)
     finally:
         if sibling_created:

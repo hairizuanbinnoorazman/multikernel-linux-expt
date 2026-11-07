@@ -8,11 +8,12 @@ import re
 from runtime_doctor_checkpoint import unique_object
 from runtime_diagnostic_bundle_checkpoint import qualify_timing,equal
 from runtime_recovery_checkpoint import recovery_view
+from runtime_concurrency_checkpoint import concurrency_view
 
 
 def qualify(data, boot, revision, archive_sha256, parent_invocation, workload_invocation, scenario='pressure'):
     bad = ValueError('prior transport trial is not qualified for same-boot reuse')
-    if (type(scenario) is not str or scenario not in {'pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io'} or
+    if (type(scenario) is not str or scenario not in {'pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io','concurrent'} or
             type(data) is not bytes or not 0 < len(data) <= 1 << 20 or
             any(type(v) is not str for v in [boot, revision, archive_sha256, parent_invocation, workload_invocation]) or
             not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', boot) or
@@ -46,6 +47,8 @@ def qualify(data, boot, revision, archive_sha256, parent_invocation, workload_in
             frames = {phase:qualify_timing(json.dumps(frame).encode(), phase) for phase,frame in timing['timings'].items()}
             if timing['maximum_elapsed_ns'] != max(v['elapsed_ns'] for v in frames.values()):
                 raise bad
+        elif scenario=='concurrent':
+            equal(prior['concurrency_checkpoint'],concurrency_view(boot,workload_invocation))
         else:
             equal(prior['runtime_recovery_checkpoint'],recovery_view(boot,workload_invocation,scenario))
     except (KeyError, TypeError, ValueError, AttributeError):

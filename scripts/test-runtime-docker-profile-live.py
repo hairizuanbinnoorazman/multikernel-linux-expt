@@ -211,7 +211,7 @@ try:
  (private/'source-differences.json').write_text(json.dumps(differences,indent=2)+'\n')
  assert not differences,'Docker materialization differs; inspect retained source-differences.json before approving'
  if concurrent:
-  observed=qualify_concurrency(cli,private,children,created.args,[work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],profile['kernel_release'])
+  observed=qualify_concurrency(cli,private,children,created.args,[work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],profile['kernel_release'],boot,os.environ['INVOCATION_ID'])
   shutil.copyfile(private/'a-workload.stdout',private/'workload.stdout');shutil.copyfile(private/'a-workload.stderr',private/'workload.stderr')
  else:
   with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:

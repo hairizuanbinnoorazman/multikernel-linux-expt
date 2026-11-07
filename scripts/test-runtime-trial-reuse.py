@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 from runtime_trial_reuse import qualify
 from runtime_recovery_checkpoint import recovery_view
+from runtime_concurrency_checkpoint import concurrency_view
 spec=importlib.util.spec_from_file_location('bundle_controls',Path(__file__).with_name('test-runtime-diagnostic-bundle-checkpoint.py'))
 c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
 BOOT=c.BOOT;PARENT='8'*32;CHILD='9'*32;REV='0acea0b';ARCHIVE='a'*64
@@ -53,5 +54,16 @@ class ReuseTests(unittest.TestCase):
                 elif mode=='cleanup':view['cleanup_qualified']=True
                 elif mode=='extra':view['unexpected']='private-canary'
                 with self.subTest(scenario=scenario,mode=mode),self.assertRaises(ValueError):qualify(json.dumps(trial).encode(),BOOT,REV,ARCHIVE,PARENT,CHILD,scenario)
+
+    def test_concurrent_predecessor_cannot_inherit_pressure_or_recovery_scope(self):
+        p=self.fixture();p.pop('diagnostic_checkpoint_timings');p['scenario']='concurrent';p['concurrency_checkpoint']=concurrency_view(BOOT,CHILD)
+        self.assertEqual(qualify(json.dumps(p).encode(),BOOT,REV,ARCHIVE,PARENT,CHILD,'concurrent'),p)
+        for mode in ['wrong-epoch','numeric-mask','cleanup']:
+            v=copy.deepcopy(p)
+            if mode=='wrong-epoch':v['concurrency_checkpoint']['boot_id']='6349e148-e008-4fa9-a36c-83549cfe2501'
+            elif mode=='numeric-mask':v['concurrency_checkpoint']['two_child_engines_and_storage_separate']=1
+            else:v['concurrency_checkpoint']['cleanup_qualified']=True
+            with self.subTest(mode=mode),self.assertRaises(ValueError):qualify(json.dumps(v).encode(),BOOT,REV,ARCHIVE,PARENT,CHILD,'concurrent')
+        with self.assertRaises(ValueError):qualify(json.dumps(p).encode(),BOOT,REV,ARCHIVE,PARENT,CHILD)
 
 if __name__=='__main__':unittest.main()

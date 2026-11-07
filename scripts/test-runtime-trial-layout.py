@@ -17,6 +17,8 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(workload_unit('abcdef0','runtime-crash'),'g8-host-docker-runtime-crash-abcdef0.service')
         self.assertEqual(scenario_flag('runtime-crash-during-build'),'--crash-during-build')
         self.assertEqual(scenario_flag('runtime-crash-during-io'),'--crash-during-io')
+        self.assertEqual(scenario_flag('concurrent'),'--concurrent')
+        self.assertEqual(workload_unit('abcdef0','concurrent'),'g8-host-docker-concurrent-abcdef0.service')
         self.assertEqual(workload_unit('abcdef0','runtime-crash-during-build'),'g8-host-docker-runtime-crash-during-build-abcdef0.service')
         for bad in ['--crash-runtime','restart; other',None,True]:
             with self.assertRaises(ValueError):scenario_flag(bad)

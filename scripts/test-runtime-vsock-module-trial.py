@@ -15,6 +15,7 @@ from runtime_diagnostic_bundle_checkpoint import read_fixture_artifact
 from runtime_module_taint import expected_module_taint
 from runtime_trial_layout import stage_path,scenario_flag,workload_unit
 from runtime_recovery_checkpoint import inspect_fixture_recovery
+from runtime_concurrency_checkpoint import inspect_fixture_concurrency
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
 MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
@@ -63,7 +64,7 @@ assert sha(WORK/'source.tar')==ARCHIVE_SHA,'staged source archive differs from t
 before_build=json.loads((MODULE/'build-preflight.json').read_text())
 assert output(['uname','-r'])==before_build['kernel_release']
 assert all(sha(p)==h for p,h in before_build['inputs_before'].items())
-capacity=observe_trial_capacity('/srv/multikernel-storage')
+capacity=observe_trial_capacity('/srv/multikernel-storage',2 if SCENARIO=='concurrent' else 1)
 (WORK/'storage-admission-parent.json').write_text(json.dumps(capacity,indent=2)+'\n')
 require_trial_capacity(capacity)
 trial=MODULE/('trial-'+WORK.name);trial.mkdir(mode=0o700)
@@ -106,7 +107,8 @@ if REUSE:
     if prior_scenario!='pressure':
         prior_work=stage_path(REUSE,prior.get('stage_location','root'));protected(prior_work)
         assert sha(prior_work/'source.tar')==prior_archive
-        assert inspect_fixture_recovery(prior_work,BOOT,prior_workload,prior_scenario)==prior['runtime_recovery_checkpoint']
+        if prior_scenario=='concurrent':assert inspect_fixture_concurrency(prior_work,BOOT,prior_workload)==prior['concurrency_checkpoint']
+        else:assert inspect_fixture_recovery(prior_work,BOOT,prior_workload,prior_scenario)==prior['runtime_recovery_checkpoint']
     assert primary()==prior['primary_after']
 state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'stage_location':STAGE_LOCATION,'scenario':SCENARIO,'candidate_reused_without_reload':bool(REUSE),'prior_trial_sha256':prior_sha if REUSE else None,'events':[]}
 def record(phase,**values):
@@ -138,6 +140,9 @@ try:
             timings=inspect_fixture_lifecycle_timings(WORK,BOOT,invocation)
             health_timings=inspect_fixture_health(WORK,BOOT,invocation)
             record('diagnostic-checkpoint-timings-qualified',diagnostic_checkpoint_timings=timings,health_checkpoint_timings=health_timings)
+        elif SCENARIO=='concurrent':
+            concurrent=inspect_fixture_concurrency(WORK,BOOT,invocation)
+            record('concurrent-guest-checkpoint-qualified',concurrency_checkpoint=concurrent)
         else:
             recovery=inspect_fixture_recovery(WORK,BOOT,invocation,SCENARIO)
             record('runtime-recovery-checkpoint-qualified',runtime_recovery_checkpoint=recovery)
