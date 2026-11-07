@@ -42,8 +42,19 @@ archive and workload checkpoint in the independent audit.
 Local controls cover no-progress during outage/adoption, data mismatch, native
 underreporting, wrong owner, missing confirmed-dead frame/status/time and
 cross-policy refusal with recomputed hashes. Removing only synced-progress
-ordering produces detected false acceptance of both no-progress cases. Actual
-GCE qualification is pending. Broader storage/network-server failures, abrupt
+ordering produces detected false acceptance of both no-progress cases.
+[Actual fixed-source GCE proof](../../../evidence/runtime-20261107/g8-live-synced-write-crash-9dd7884/README.md)
+passes `9dd78847`, both exact invocations and separate source/epoch audit. Synced
+sequence advances 9 to 50 during confirmed runtime death, then 50 to 101 beyond
+confirmed adoption. All 1,951 iterations complete, with 8,183,087,104 logical
+payload bytes covered by 8,319,582,208 native written bytes, correct last-iteration
+image readback, preserved archive, rebuild and native release/offline checking.
+Root controls, seventeen live drift/authority refusals, three alternative-policy
+refusals and a live-data in-memory progress-guard mutation pass. Earlier receipt
+bytes remain unchanged; the old four-frame attempt is refused under this scope.
+
+This closes the named private-runtime crash during synced child writes subcase.
+Broader storage/network-server failures, abrupt
 child loss, autonomous failure detection, concurrency, cold restoration and full
 G7/G8 remain open. Direct children use no nested virtualization and share host
 trust after arbitrary child-kernel compromise.

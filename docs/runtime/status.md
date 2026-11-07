@@ -4,6 +4,27 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Private-runtime crash during synced child writes (2026-11-07)
+
+Source `9dd78847` passes [actual fixed-source GCE proof](../../evidence/runtime-20261107/g8-live-synced-write-crash-9dd7884/README.md)
+on boot `5ad22222`: new fsynced writes complete while the original private runtime
+is confirmed dead, and again beyond a confirmed-adoption baseline. Same-child/
+engine/owner continuity, final iteration-stamped image readback, archive
+preservation, rebuild, primary parity and native release/offline checking pass
+independent audit. The first loop completes 1,951 iterations, 8.18 GB of logical
+payload writes. [Initial controls](../../evidence/runtime-20261107/g8-synced-write-crash-controls/README.md)
+and [adoption-boundary mutation/fix](../../evidence/runtime-20261107/g8-write-adoption-boundary-controls/README.md),
+root controls, seventeen live refusals, three policy refusals and an in-memory
+progress-guard mutation pass. See the [synced-write contract](contracts/synced-write-runtime-crash.md).
+
+The [first four-frame attempt](../../evidence/runtime-20261107/g8-live-synced-write-crash-0484f73/README.md)
+passes its original schema but remains insufficient for the confirmed-adoption
+boundary; it is preserved and rejected by current qualification. Only the named
+private-runtime synced-write crash subcase closes. Other component/operation
+faults, autonomous detection, concurrency, cold restoration and full G7/G8 remain
+open. Completed empty cgroups and idle candidate transport remain retained. No
+nested virtualization is used; compromised children share primary trust.
+
 ## Private-runtime crash inside the original BuildKit RUN (2026-11-07)
 
 Source `c4ab1c5e` passes [actual GCE in-flight crash proof](../../evidence/runtime-20261107/g8-live-inflight-crash-c4ab1c5/README.md)

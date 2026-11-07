@@ -23,6 +23,7 @@
   online Docker Hub/PyPI Python build/run prototype and scoped network evidence.
 - [`trial-staging.md`](trial-staging.md): committed-source, protected artifact packets for disposable GCE trials.
 - [`contracts/runtime-restart-checkpoint.md`](contracts/runtime-restart-checkpoint.md): normal private-runtime restart, same-child Docker rebuild continuity and exact primary image absence.
+- [`contracts/synced-write-runtime-crash.md`](contracts/synced-write-runtime-crash.md): synced child writes during confirmed runtime outage/adoption, stamped data readback and native byte coverage.
 - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
 - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
   boundaries.

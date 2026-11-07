@@ -1,5 +1,25 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Synced writes through private-runtime death and adoption (2026-11-07)
+
+The [version-4 synced-write contract](../contracts/synced-write-runtime-crash.md)
+passes [actual GCE execution and independent audit](../../../evidence/runtime-20261107/g8-live-synced-write-crash-9dd7884/README.md)
+for `9dd78847`. Five frames bind progress beyond confirmed runtime death and
+confirmed adoption; same-child/engine/owner, original completion, generation-
+stamped image data, archive preservation, rebuild, primary parity, native byte
+coverage/offline release and resource return pass. The loop completes 1,951
+fsynced payloads (8.18 GB logical writes). Local/root controls, seventeen live
+refusals, three policy refusals and progress-guard mutation detection pass.
+
+The earlier four-frame result remains retained without closing this boundary;
+its missing adoption baseline cannot be reconstructed. Current code rejects it
+and the fixed trial preserves its pinned receipt/state/source bytes. Only this
+private-runtime synced-write crash subcase closes. Storage/network-server or
+child-loss faults, autonomous detection, concurrency, cold restoration and full
+G7/G8 remain open. Empty completed cgroups and idle candidate transport remain
+retained. Direct children need no nested virtualization and share host trust
+after child-kernel compromise.
+
 ## Private-runtime SIGKILL during the original child build (2026-11-07)
 
 Source `c4ab1c5e` adds version-3 [RUN-window recovery binding](../contracts/runtime-restart-checkpoint.md#crash-during-the-original-child-build).

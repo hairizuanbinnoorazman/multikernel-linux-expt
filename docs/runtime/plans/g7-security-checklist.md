@@ -516,6 +516,15 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   evidence under pressure. Coordinate diagnostic implementation with G8.
 
 - [ ] **SEC-09 — Execute the G7 failure and soak matrix (TM-08).**
+  [Private-runtime death during synced child writes](../../../evidence/runtime-20261107/g8-live-synced-write-crash-9dd7884/README.md)
+  passes source `9dd78847`: new synced progress while the runtime is confirmed
+  dead and beyond confirmed adoption, 1,951 completed payloads, last-iteration
+  data readback, archive preservation/rebuild, primary parity and native/kernel
+  release. Independent epoch/source audit, live refusals and progress-guard
+  mutation detection pass. The first four-frame attempt remains insufficient
+  and current code refuses it; no adoption baseline is retroactively invented.
+  Other fault components/locations, autonomous detection, sustained network I/O,
+  concurrency and complete soak/failure qualification remain open.
   [Private-runtime SIGKILL during a child BuildKit RUN wait](../../../evidence/runtime-20261107/g8-live-inflight-crash-c4ab1c5/README.md)
   passes same-child adoption, original build completion, archive preservation,
   rebuild, primary parity, native/kernel release and independent source/epoch
