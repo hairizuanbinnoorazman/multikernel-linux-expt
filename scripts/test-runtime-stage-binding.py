@@ -27,8 +27,13 @@ class StageBindingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             parent=Path(raw);source=parent/'source';target=parent/'target';source.mkdir(mode=0o700);target.mkdir(mode=0o700)
             value=dict(self.record(),volume=str(parent),backing=str(source),alias=str(target),backing_inode=source.stat().st_ino+1,underlay_inode=target.stat().st_ino)
-            with mock.patch.object(binding,'topology',return_value=False),mock.patch.object(binding.libc,'mount',side_effect=AssertionError('bind reached replaced descriptor')):
+            with mock.patch.object(binding,'topology',return_value=False),mock.patch.object(binding,'require_private_namespace'),mock.patch.object(binding.libc,'mount',side_effect=AssertionError('bind reached replaced descriptor')):
                 with self.assertRaises(ValueError):binding.change(value,True)
+    def test_restore_refuses_host_or_propagating_namespace_before_open(self):
+        for shared,links in [(False,['same','same']),(True,['private','host'])]:
+            with mock.patch.object(binding,'topology',return_value=False),mock.patch.object(binding.os,'readlink',side_effect=links),mock.patch.object(binding,'entries',return_value=[dict(propagating=shared)]),mock.patch.object(binding.os,'open',side_effect=AssertionError('opened before namespace refusal')):
+                with self.assertRaises(ValueError):binding.change(self.record(),True)
+        with mock.patch.object(binding.os,'readlink',side_effect=['private','host']),mock.patch.object(binding,'entries',return_value=[dict(propagating=False)]):binding.require_private_namespace()
     def test_publish_never_overwrites_and_load_refuses_digest_alias_or_ambiguity(self):
         if os.geteuid()!=0:self.skipTest('root-owned private record control requires root')
         with tempfile.TemporaryDirectory() as raw:

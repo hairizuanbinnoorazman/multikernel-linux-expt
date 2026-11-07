@@ -56,7 +56,8 @@ def entries():
                 value = value.replace(a,b)
             return value
         result.append(dict(device=fields[2], root=unescape(fields[3]), path=unescape(fields[4]),
-                           options=set(fields[5].split(',')), kind=tail[0]))
+                           options=set(fields[5].split(',')), kind=tail[0],
+                           propagating=any(v.startswith(('shared:','master:','propagate_from:')) for v in fields[6:])))
     return result
 
 
@@ -197,12 +198,19 @@ def publish(path,value):
     finally:os.close(fd)
 
 
+def require_private_namespace():
+    if (os.readlink('/proc/self/ns/mnt')==os.readlink('/proc/1/ns/mnt') or
+            any(m['propagating'] for m in entries())):
+        raise refuse()
+
+
 def change(value,restore):
     bound=topology(value)
     if bound==restore:
         return False
     alias=Path(value['alias'])
     if restore:
+        require_private_namespace()
         source=os.open(value['backing'],os.O_PATH|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         target=os.open(alias,os.O_PATH|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         try:

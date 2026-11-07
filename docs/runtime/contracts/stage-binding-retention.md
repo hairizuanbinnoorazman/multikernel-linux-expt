@@ -28,6 +28,7 @@ sudo python3 scripts/manage-runtime-stage-binding.py check \
   --record /PRIVATE-PARENT/binding.json --record-sha256 TRUSTED_SHA256
 sudo python3 scripts/manage-runtime-stage-binding.py release \
   --record /PRIVATE-PARENT/binding.json --record-sha256 TRUSTED_SHA256
+# Restore only inside an inspection namespace created with unshare --mount --propagation private.
 sudo python3 scripts/manage-runtime-stage-binding.py restore \
   --record /PRIVATE-PARENT/binding.json --record-sha256 TRUSTED_SHA256
 ```
@@ -46,8 +47,12 @@ mount topology. It permits only the base volume plus this exact alias, with no
 nested aliases, unexpected duplicate device mounts or foreign target mounts.
 A release rechecks the underlay in a private namespace before detaching the
 real alias. A busy mount refuses: there is no lazy/forced unmount, signaling or
-repair. Restore requires the original empty underlay and binds descriptor-pinned
-source/target objects. Existing correct state is idempotent; replaced, occupied,
+repair. Restore requires an isolated mount namespace with no propagating mounts, the
+original empty underlay and revalidated descriptor-pinned source/target objects.
+Host-namespace restore refuses before opening or mounting the targets. A caller
+can enter a private inspection session with `sudo unshare --mount --propagation
+private -- /bin/bash`, restore and inspect there, then release or exit; the host
+alias stays absent. Existing correct state is idempotent; replaced, occupied,
 aliased, malformed, shared, unpinned or mismatched records/paths refuse.
 
 The namespace child has a five-second observation wait and is reaped; kernel
