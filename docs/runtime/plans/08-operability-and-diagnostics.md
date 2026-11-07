@@ -1,5 +1,15 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Docker startup completion cancellation (2026-11-07)
+
+The startup probe checks its context after validating the final API body.
+[Local race checks and a single-check mutation](../../../evidence/runtime-20261107/g8-readiness-completion-controls/README.md)
+show cancellation/deadline at final EOF refuse, while the live control succeeds.
+The production transport still requires its pinned rootless peer and bounded
+startup budget. This closes a local completion boundary, not ongoing health,
+admission readiness or full G7/G8. Installed testing remains separate. Direct
+children need no nested virtualization and share host trust after compromise.
+
 ## Fresh-boot two-child build separation and survivor work (2026-11-07)
 
 The [concurrent-child contract](../contracts/concurrent-child-builds.md) passes

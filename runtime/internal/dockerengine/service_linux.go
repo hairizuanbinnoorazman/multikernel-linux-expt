@@ -285,6 +285,12 @@ func probe(ctx context.Context, scope *guestscope.Scope, socket string) error {
 	transport := readinessTransport(ctx, scope, socket)
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("Docker readiness redirect refused") }}
+	return probeAPI(ctx, client)
+}
+
+// probeAPI checks the fixed API observations under the same startup budget.
+// A complete response is not success after cancellation has been observed.
+func probeAPI(ctx context.Context, client *http.Client) error {
 	get := func(path string, limit int64) ([]byte, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker"+path, nil)
 		if err != nil {
@@ -315,7 +321,10 @@ func probe(ctx context.Context, scope *guestscope.Scope, socket string) error {
 	if err != nil {
 		return err
 	}
-	return validateInfo(data)
+	if err := validateInfo(data); err != nil {
+		return err
+	}
+	return ctx.Err()
 }
 
 func validateInfo(data []byte) error {

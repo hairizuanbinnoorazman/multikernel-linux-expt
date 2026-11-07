@@ -114,3 +114,9 @@ Readiness socket peer admission now uses the [explicit probe context](../../../d
 It can abandon a busy scope gate without weakening pinned-peer membership or
 changing cleanup authority. The transport retains the probe budget even when
 HTTP supplies a detached dial context; expired probes make no new connection.
+
+Startup probes also check their context after the final `/info` body is read
+and its profile is validated. A complete valid response cannot turn an observed
+cancellation or deadline into readiness success. The regression fixture cancels
+at the final body EOF; its live control still succeeds. These are startup API
+observations, not an ongoing health or workload-admission guarantee.
