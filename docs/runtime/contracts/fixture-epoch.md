@@ -77,3 +77,12 @@ namespace. The host alias stays absent and the unchanged single-device-mount
 startup guard passes. Alias absence after reboot is neither artifact deletion
 nor a new normal-cleanup result. See the [stage retention contract](stage-binding-retention.md)
 for explicit root-trusted record/pin and historical limitations.
+
+New module trials default to the direct storage-stage layout
+`/srv/multikernel-storage/stages/g8-host-SOURCE7`. Their backing-image directory
+remains the separate `/srv/multikernel-storage/g8-host-SOURCE7`; scratch stays
+inside the stage and is bound at `/tmp` only within the workload unit. No host
+stage bind or automatic alias restore is needed. The layout selector accepts
+only `storage` and the explicit legacy `root` layout, retaining existing
+canonical/protected directory, source, revision and capacity checks. The legacy
+layout remains inspectable; it is not silently selected on a missing stage.

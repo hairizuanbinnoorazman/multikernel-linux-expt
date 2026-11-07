@@ -15,6 +15,7 @@ import stat
 import subprocess as sp
 import sys
 import tarfile
+from runtime_trial_layout import validate_stage
 
 
 def digest(path, limit=128 << 20):
@@ -80,6 +81,7 @@ def empty_cgroup(directory):
 
 def audit(args):
     work = args.work
+    validate_stage(work,args.source_commit[:7])
     if (os.geteuid() != 0 or not work.is_absolute() or str(work) != os.path.normpath(work) or
             work.name != 'g8-host-' + args.source_commit[:7] or
             not re.fullmatch('[a-f0-9]{40}', args.source_commit) or

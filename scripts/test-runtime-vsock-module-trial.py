@@ -13,6 +13,7 @@ from runtime_trial_reuse import qualify as qualify_trial_reuse
 from runtime_fixture_epoch import unit_properties, qualify_unit_epoch
 from runtime_diagnostic_bundle_checkpoint import read_fixture_artifact
 from runtime_module_taint import expected_module_taint
+from runtime_trial_layout import stage_path
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
 MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
@@ -20,7 +21,8 @@ REVISION=os.environ['MK_MODULE_TRIAL_REVISION']
 assert re.fullmatch(r'[0-9a-f]{7,40}',REVISION),'expected a committed source revision'
 ARCHIVE_SHA=os.environ['MK_MODULE_TRIAL_ARCHIVE_SHA256']
 assert re.fullmatch(r'[0-9a-f]{64}',ARCHIVE_SHA),'expected a pinned source archive digest'
-WORK=P('/opt/mkruntime/g8-host-'+REVISION)
+STAGE_LOCATION=os.environ.get('MK_MODULE_TRIAL_STAGE_LOCATION','storage')
+WORK=stage_path(REVISION,STAGE_LOCATION)
 RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1','fifo','crash']
 REUSE=os.environ.get('MK_MODULE_TRIAL_PRIOR_REVISION','');assert not REUSE or re.fullmatch('[a-f0-9]{7,40}',REUSE)
 OLD='65C55BB38C669FF94A4B772';NEW='0450DCCF7EDC67FAE2A6CAA'
@@ -95,7 +97,7 @@ if REUSE:
             assert current['ControlGroup']=='/system.slice/'+name
             check_empty(P('/sys/fs/cgroup')/current['ControlGroup'].lstrip('/'))
     assert primary()==prior['primary_after']
-state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'candidate_reused_without_reload':bool(REUSE),'prior_trial_sha256':prior_sha if REUSE else None,'events':[]}
+state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'stage_location':STAGE_LOCATION,'candidate_reused_without_reload':bool(REUSE),'prior_trial_sha256':prior_sha if REUSE else None,'events':[]}
 def record(phase,**values):
     state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded(),'module_refcnt':int(P('/sys/module/mk_transport/refcnt').read_text()) if loaded() else None})
     temporary=trial/'receipt.tmp';temporary.write_text(json.dumps(state,indent=2)+'\n');temporary.chmod(0o600);os.replace(temporary,trial/'primary-module-trial.json')

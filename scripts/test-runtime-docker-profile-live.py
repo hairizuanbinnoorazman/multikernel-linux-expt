@@ -6,6 +6,7 @@ from runtime_service_policy import parse_policy, command_with_policy, check_obse
 from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_WAIT, run_markers
 from runtime_socket_readiness import wait_for_socket_owner
 from runtime_storage_pressure import full_observation, recovered_observation
+from runtime_trial_layout import validate_stage
 from runtime_console_capture import ConsoleCapture
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
@@ -45,7 +46,7 @@ concurrent='--concurrent' in flags
 assert not (concurrent and restart_runtime), 'concurrency and restart are separate bounded scenarios'
 work=pathlib.Path(sys.argv[1]);source=pathlib.Path(sys.argv[2])
 assert work.is_absolute() and source.is_absolute()
-assert str(work).startswith('/opt/mkruntime/g8-host-')
+assert validate_stage(work)==work
 for path in [work,work/'bin',source,source/'scripts']:
  st=path.stat();assert path.is_dir() and not path.is_symlink() and st.st_uid==0 and st.st_mode&0o022==0
 
@@ -85,6 +86,7 @@ capacity=observe_trial_capacity('/srv/multikernel-storage',2 if concurrent else 
 (work/'storage-admission.json').write_text(json.dumps(capacity,indent=2)+'\n')
 require_trial_capacity(capacity)
 compiled_versions={};compiled_revisions={};build_metadata=json.loads((work/'build.json').read_text())
+assert validate_stage(work,build_metadata['source_commit'][:7])==work
 for component in ['mkruntimed','mknetd']:
  version_output=subprocess.run([str(work/'bin'/component),'--version'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
  assert version_output.returncode==0 and not version_output.stderr
