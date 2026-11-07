@@ -1,7 +1,8 @@
 # Private runtime restart and child Docker continuity
 
 The disposable module-trial driver accepts only the named `pressure`,
-`runtime-restart`, `runtime-crash` or `runtime-crash-during-build` scenario through
+`runtime-restart`, `runtime-crash`, `runtime-crash-during-build` or
+`runtime-crash-during-io` scenario through
 `MK_MODULE_TRIAL_SCENARIO`.
 Normal and after-build recovery select SIGTERM or SIGKILL private-daemon
 replacement after the first complete child build. In-flight recovery selects
@@ -105,3 +106,8 @@ subcase. Sustained storage/network writes at fault time, autonomous failure
 detection, other components/locations, concurrency and cold restoration remain
 separate. No nested virtualization or stronger child-kernel containment is
 introduced; full G7/G8 remain open.
+
+The separate [synced-write crash contract](synced-write-runtime-crash.md) uses
+version 4 to require write progress while the original runtime is confirmed dead
+and again after adoption, known-data image readback and native write coverage.
+The version-3 RUN-wait proof cannot inherit that stronger scope.

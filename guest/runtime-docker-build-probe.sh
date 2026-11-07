@@ -2,7 +2,7 @@
 # Disposable qualification workload for the approved production Docker profile.
 # Supply this script and a static x86-64 BusyBox through copied /work inputs.
 set -eu
-[ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && { [ "$1" = --overlap-proof ] || [ "$1" = --storage-pressure ]; }; }
+[ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && { [ "$1" = --overlap-proof ] || [ "$1" = --io-overlap-proof ] || [ "$1" = --storage-pressure ]; }; }
 export DOCKER_HOST=unix:///var/run/docker.sock
 work=/home/rootless/.local/tmp/g8-build
 test ! -e "$work"
@@ -76,6 +76,20 @@ DOCKERFILE
 if [ "${1:-}" = --overlap-proof ]; then
     sed -i 's@/bin/busybox mkdir -p /out; @/bin/busybox mkdir -p /out; echo G8_OVERLAP_RUN_BEGIN; /bin/busybox sleep 45; echo G8_OVERLAP_RUN_END; @' "$work/context/Dockerfile"
 fi
+if [ "${1:-}" = --io-overlap-proof ]; then
+    cp /work/input/io-run.sh "$work/context/io-run.sh"
+    cat > "$work/context/Dockerfile" <<'DOCKERFILE'
+FROM scratch AS build
+COPY busybox /bin/busybox
+COPY io-run.sh /io-run.sh
+RUN ["/bin/busybox", "sh", "/io-run.sh"]
+FROM scratch
+COPY --from=build /out/result /result
+COPY --from=build /out/io.bin /io.bin
+COPY --from=build /bin/busybox /bin/busybox
+CMD ["/bin/busybox", "cat", "/result"]
+DOCKERFILE
+fi
 docker build --progress=plain --network=none --pull=false -t g8-proof:latest "$work/context"
 echo G8_MULTISTAGE_BUILD_PASS
 docker build --progress=plain --network=none --pull=false -t g8-proof:cached "$work/context"
@@ -83,6 +97,14 @@ echo G8_REPEAT_BUILD_PASS
 test "$(docker run --rm --network=none g8-proof:latest)" = multikernel-production-docker-build
 echo G8_BUILT_IMAGE_RUN_PASS
 echo "G8_BUILD_IMAGE_ID=$(docker image inspect --format '{{.Id}}' g8-proof:latest)"
+if [ "${1:-}" = --io-overlap-proof ]; then
+    io_sha=$(docker run --rm --network=none g8-proof:latest /bin/busybox sha256sum /io.bin | cut -d' ' -f1)
+    io_bytes=$(docker run --rm --network=none g8-proof:latest /bin/busybox stat -c %s /io.bin)
+    test "$io_sha" = bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8
+    test "$io_bytes" = 4194304
+    echo "G8_IO_IMAGE_SHA256=$io_sha"
+    echo "G8_IO_IMAGE_BYTES=$io_bytes"
+fi
 echo G8_NESTED_AUTHORITY_BEGIN
 docker run --rm --network=none g8-proof:latest /bin/busybox sh -ec \
     '/bin/busybox id; /bin/busybox grep -E "^(CapEff|NoNewPrivs|Seccomp):" /proc/self/status; /bin/busybox cat /proc/self/uid_map'
@@ -108,6 +130,10 @@ if [ "${1:-}" = --storage-pressure ]; then
 fi
 sed -i 's@echo G8_OVERLAP_RUN_BEGIN; /bin/busybox sleep 45; echo G8_OVERLAP_RUN_END; @@' "$work/context/Dockerfile"
 sed -i 's/echo multikernel-production-docker-build/exit 37; echo multikernel-production-docker-build/' "$work/context/Dockerfile"
+if [ "${1:-}" = --io-overlap-proof ]; then
+    # The intentional failure must not execute another write loop.
+    sed -i 's@RUN \["/bin/busybox", "sh", "/io-run.sh"\]@RUN ["/bin/busybox", "sh", "-ec", "exit 37"]@' "$work/context/Dockerfile"
+fi
 if docker build --progress=plain --network=none --pull=false -t g8-proof:must-fail "$work/context"; then
     echo G8_FAILED_BUILD_UNEXPECTEDLY_PASSED
     exit 1

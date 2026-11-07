@@ -105,7 +105,7 @@ def audit(args):
             name = Path(member.name)
             if name.is_absolute() or '..' in name.parts or not (member.isdir() or member.isfile()):
                 raise ValueError('unsafe source member')
-            if member.isfile() and name.suffix == '.py' and name.parts[0] == 'scripts':
+            if member.isfile() and (name.suffix == '.py' and name.parts[0] == 'scripts' or name.suffix=='.sh' and name.parts[0]=='guest'):
                 if hashlib.sha256(archive.extractfile(member).read()).hexdigest() != digest(work/'source'/name):
                     raise ValueError('acceptance source differs from archive')
     for name, expected in build['binaries'].items():
@@ -164,6 +164,10 @@ def audit(args):
     workload = read(work, 'workload-checkpoint.json')
     if digest(work/'workload-checkpoint.json') != receipt['workload_checkpoint_sha256']:
         raise ValueError('workload checkpoint differs from lifecycle receipt')
+    if digest(private/'input/probe.sh')!=workload['probe_sha256'] or workload['probe_sha256']!=digest(work/'source/guest/runtime-docker-build-probe.sh'):
+        raise ValueError('workload probe differs from archived source')
+    if scenario=='runtime-crash-during-io' and (digest(private/'input/io-run.sh')!=workload['io_run_script_sha256'] or workload['io_run_script_sha256']!=digest(work/'source/guest/runtime-docker-io-run.sh')):
+        raise ValueError('workload I/O loop differs from archived source')
     for stream in ['stdout','stderr']:
         if digest(private/('workload.'+stream),131072)!=workload['workload_'+stream+'_sha256']:
             raise ValueError('original workload stream differs from receipt')
@@ -325,6 +329,7 @@ def audit(args):
                 workload_invocation=args.workload_invocation, same_epoch_completion=True, live_health_pair_qualified=live_health, trial_scratch_private_mount_qualified=receipt.get('private_trial_tmp_tested') is True, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=scenario=='pressure', runtime_restart_build_continuity_qualified=scenario=='runtime-restart',
                 runtime_crash_build_continuity_qualified=scenario=='runtime-crash',
                 runtime_inflight_crash_build_continuity_qualified=scenario=='runtime-crash-during-build',
+                runtime_synced_io_crash_continuity_qualified=scenario=='runtime-crash-during-io',
                 diagnostic_three_hold_receipts_requalified=scenario=='pressure', primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,
@@ -334,7 +339,7 @@ def audit(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
-    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build'],default='pressure')
+    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io'],default='pressure')
     for name in ['boot-id', 'parent-invocation', 'workload-invocation', 'source-commit', 'build-sha256']:
         parser.add_argument('--'+name, required=True)
     args = parser.parse_args()

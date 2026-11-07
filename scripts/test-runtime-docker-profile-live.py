@@ -29,16 +29,18 @@ from runtime_network_checkpoint import inspect as inspect_network
 from runtime_workload_phase import wait_for_phase
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
+from runtime_io_recovery_checkpoint import sync_sequence
+assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--crash-during-io|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'}
-assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'}
+assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
 native_export_crash='--storage-export-crash' in flags
 export_crash_observed=False
 native_record_fifo='--storage-record-fifo' in flags
 native_record_fault='--storage-record-loss' in flags or native_record_fifo
 storage_pressure='--storage-pressure' in flags or native_record_fault or native_export_crash
-crash_during_build='--crash-during-build' in flags
+crash_during_io='--crash-during-io' in flags
+crash_during_build='--crash-during-build' in flags or crash_during_io
 crash_runtime='--crash-runtime' in flags or crash_during_build
 restart_runtime='--restart-runtime' in flags or crash_runtime
 harden_services='--harden-services' in flags
@@ -113,7 +115,7 @@ run(['/bin/mount','--make-rprivate','/']);run(['/bin/mount','--bind',private/'do
 sock=private/'containerd.sock';dsock=private/'docker.sock'
 daemon_socket=private/'control.sock';network_socket=private/'network.sock'
 import shutil
-for a,b,mode in [('/bin/busybox','busybox',0o555),(source/'guest/runtime-docker-build-probe.sh','probe.sh',0o444)]:
+for a,b,mode in [('/bin/busybox','busybox',0o555),(source/'guest/runtime-docker-build-probe.sh','probe.sh',0o444),(source/'guest/runtime-docker-io-run.sh','io-run.sh',0o444)]:
  shutil.copyfile(a,private/'input'/b);(private/'input'/b).chmod(mode)
 profile=json.loads(pathlib.Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json').read_text())
 approval=private/'manifests/gce-mk2.json';approval.write_text(json.dumps(profile));approval.chmod(0o600)
@@ -186,7 +188,7 @@ try:
  workload=['/bin/sh','/work/input/probe.sh']
  if storage_pressure:workload+=['--storage-pressure']
  if restart_runtime:
-  probe='/bin/sh /work/input/probe.sh' + (' --overlap-proof' if crash_during_build else '')
+  probe='/bin/sh /work/input/probe.sh' + (' --io-overlap-proof' if crash_during_io else ' --overlap-proof' if crash_during_build else '')
   workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; ' + probe + '; echo G8_RUNTIME_RECOVERY_READY; ' + RELEASE_WAIT + '; echo G8_RUNTIME_RECOVERY_RELEASED']
  if concurrent:
   # Normal release must not create an exec whose completion races init exit.
@@ -221,12 +223,24 @@ try:
      assert attach.poll() is None and time.monotonic()<deadline,'workload did not reach the recovery checkpoint'
      time.sleep(.2)
     active_run_checkpoints={}
-    def record_active_run(phase,runtime_pid):
-     raw=(private/'workload.stderr').read_bytes()
-     assert len(raw)<131072 and run_markers(raw.decode())=={'BEGIN'} and attach.poll() is None,'SIGKILL/adoption did not occur inside the observed RUN window'
+    def record_active_run(phase,runtime_pid,after_seq=None):
+     until=time.monotonic()+10;sequence=None
+     while True:
+      raw=(private/'workload.stderr').read_bytes()
+      assert len(raw)<131072 and run_markers(raw.decode())=={'BEGIN'} and attach.poll() is None,'SIGKILL/adoption did not occur inside the observed RUN window'
+      if not crash_during_io:break
+      if phase in ['confirmed-dead','after-kill']:assert m.poll()==-signal.SIGKILL,'write progress was not observed with the original runtime confirmed dead'
+      else:assert m.poll() is None,'write progress observed without a live selected runtime'
+      try:sequence=sync_sequence(raw)
+      except ValueError:sequence=None
+      if sequence is not None and (after_seq is None or sequence>after_seq):break
+      assert time.monotonic()<until,'synced write progress did not advance within its phase budget'
+      time.sleep(.05)
      name='active-run-'+phase+'.stderr';(private/name).write_bytes(raw)
      active_run_checkpoints[phase]={'observed_monotonic_ns':time.monotonic_ns(),'runtime_pid':runtime_pid,'markers':['BEGIN'],'stderr_snapshot':name,'stderr_sha256':sha(private/name)}
-     (work/'active-run-checkpoint.json').write_text(json.dumps({'version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'stages':active_run_checkpoints,'cleanup_qualified':False},indent=2)+'\n')
+     if crash_during_io:active_run_checkpoints[phase]['io_synced_seq']=sequence
+     if phase=='confirmed-dead':active_run_checkpoints[phase]['runtime_exit_status']=m.returncode
+     (work/'active-run-checkpoint.json').write_text(json.dumps({'version':2 if crash_during_io else 1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'stages':active_run_checkpoints,'cleanup_qualified':False},indent=2)+'\n')
     def child_snapshot(phase,include_image=True):
      boot_result=run(cli+['exec','--user','1000:1000','g8-materialization','/bin/cat','/proc/sys/kernel/random/boot_id'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
      engine_result=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/local/bin/docker','info','--format','{{json .}}'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -266,13 +280,14 @@ try:
      m.terminate();assert m.wait(timeout=30)==0,'first runtime did not stop normally'
     exit_checkpoint={'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'runtime_pid':old_pid,'runtime_exit_signal':'SIGKILL' if crash_runtime else 'SIGTERM','runtime_exit_status':m.returncode,'observed_monotonic_ns':time.monotonic_ns(),'cleanup_qualified':False}
     (work/'runtime-exit-checkpoint.json').write_text(json.dumps(exit_checkpoint,indent=2)+'\n')
-    if crash_during_build:record_active_run('after-kill',old_pid)
+    if crash_during_io:record_active_run('confirmed-dead',old_pid)
+    if crash_during_build:record_active_run('after-kill',old_pid,active_run_checkpoints['confirmed-dead']['io_synced_seq'] if crash_during_io else None)
     m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
     assert m.pid!=old_pid and m.poll() is None
     subsequent=child_snapshot('after',not crash_during_build);assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
     primary_after_recovery=recovery_primary('after',original_image_id)
     if crash_during_build:
-     record_active_run('after-adoption',m.pid)
+     record_active_run('after-adoption',m.pid,active_run_checkpoints['after-kill']['io_synced_seq'] if crash_during_io else None)
      while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
       assert attach.poll() is None and time.monotonic()<deadline,'original in-flight build did not complete'
       time.sleep(.2)
@@ -301,7 +316,7 @@ try:
     recovery['crash_during_build']=crash_during_build
     recovery.update(schema_version=2,original_image_id=original_image_id,post_recovery_image_id=post_recovery_image_id,original_image_sha256_after_rebuild=old_image.stdout.decode().split()[0],primary_docker_before_recovery_sha256=primary_before_recovery,primary_docker_after_recovery_sha256=primary_after_recovery,primary_docker_after_rebuild_sha256=primary_after_rebuild)
     if crash_during_build:
-     recovery.update(schema_version=3,active_run_checkpoint_sha256=sha(work/'active-run-checkpoint.json'),primary_docker_completed_first_sha256=primary_completed_first)
+     recovery.update(schema_version=4 if crash_during_io else 3,active_run_checkpoint_sha256=sha(work/'active-run-checkpoint.json'),primary_docker_completed_first_sha256=primary_completed_first)
     (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
     run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=60))
@@ -557,6 +572,7 @@ try:
  for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:assert marker in stdout,marker
  assert profile['kernel_release'] in stdout and '29.9.0' in stdout and 'CACHED' in stderr
  checkpoint={'schema_version':1,'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'host_docker_selects_multikernel':True,'production_profile_child_build_pass':True,'cleanup_qualified':False,'execution_script_sha256':sha(pathlib.Path(__file__)),'source_archive_sha256':sha(work/'source.tar'),'profile_sha256':sha(approval),'approved_root_manifest_sha256':profile['docker_guest']['rootfs_manifest_sha256'],'prepared_archive_sha256':sha(archive),'probe_sha256':sha(private/'input/probe.sh'),'busybox_sha256':sha(private/'input/busybox'),'native_nbd_helper_sha256':sha(nbd_helper),'runtime_program_hashes':{name:sha(work/'bin'/name) for name in ['mkruntimed','mknetd','containerd-shim-multikernel-v2']},'qualified_containerd_sha256':sha(work/'bin/containerd'),'workload_stdout_sha256':sha(private/'workload.stdout'),'workload_stderr_sha256':sha(private/'workload.stderr')}
+ if crash_during_io:checkpoint['io_run_script_sha256']=sha(private/'input/io-run.sh')
  (work/'workload-checkpoint.json').write_text(json.dumps(checkpoint,indent=2)+'\n')
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);container_created=False;run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
  if storage_pressure:doctor_checkpoint('after-remove',time.monotonic()+10,released=True)
@@ -632,6 +648,7 @@ r['socket_readiness_sha256']=sha(private/'socket-readiness.json')
 r['runtime_restart_tested']=restart_runtime
 r['runtime_crash_tested']=crash_runtime
 r['runtime_crash_during_build_tested']=crash_during_build
+r['runtime_io_during_crash_tested']=crash_during_io
 r['storage_pressure_tested']=storage_pressure
 if storage_pressure:r['storage_pressure_wait_sha256']=sha(work/'storage-pressure-wait-checkpoint.json')
 if storage_pressure:r['storage_pressure_recovery_sha256']=sha(work/'storage-pressure-recovery.json')

@@ -66,6 +66,11 @@ build streams and exact kill/adoption ordering; its output has a separate
 `runtime_inflight_crash_build_continuity_qualified` flag. Original workload
 stdout/stderr hashes are verified for every scenario. Reuse and audit refuse
 unannounced cgroup paths, including dangling aliases, before claiming absence.
+`runtime-crash-during-io` selects the [version-4 synced-write contract](synced-write-runtime-crash.md).
+Its distinct `runtime_synced_io_crash_continuity_qualified` flag requires a
+confirmed-dead progress baseline, new completed synced writes during the outage,
+post-adoption progress, known-data readback and native written-byte coverage.
+The guest probe and write-loop inputs also bind to their committed archive bytes.
 Direct child kernels need no nested virtualization; arbitrary child-kernel
 compromise still shares primary trust. This is not a hostile-kernel containment
 proof or proof of general Docker build compatibility.

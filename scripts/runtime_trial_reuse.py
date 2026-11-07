@@ -12,7 +12,7 @@ from runtime_recovery_checkpoint import recovery_view
 
 def qualify(data, boot, revision, archive_sha256, parent_invocation, workload_invocation, scenario='pressure'):
     bad = ValueError('prior transport trial is not qualified for same-boot reuse')
-    if (type(scenario) is not str or scenario not in {'pressure','runtime-restart','runtime-crash','runtime-crash-during-build'} or
+    if (type(scenario) is not str or scenario not in {'pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io'} or
             type(data) is not bytes or not 0 < len(data) <= 1 << 20 or
             any(type(v) is not str for v in [boot, revision, archive_sha256, parent_invocation, workload_invocation]) or
             not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', boot) or
