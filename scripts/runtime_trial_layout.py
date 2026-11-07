@@ -25,12 +25,12 @@ def validate_stage(value, revision=None):
 
 
 def scenario_flag(value):
-    if type(value) is not str or value not in {'pressure','runtime-restart'}:
+    if type(value) is not str or value not in {'pressure','runtime-restart','runtime-crash'}:
         raise ValueError('invalid private trial scenario')
-    return '--storage-pressure' if value=='pressure' else '--restart-runtime'
+    return {'pressure':'--storage-pressure','runtime-restart':'--restart-runtime','runtime-crash':'--crash-runtime'}[value]
 
 
 def workload_unit(revision,scenario):
     stage_path(revision);scenario_flag(scenario)
-    kind='storage-pressure' if scenario=='pressure' else 'runtime-restart'
+    kind='storage-pressure' if scenario=='pressure' else scenario
     return 'g8-host-docker-'+kind+'-'+revision+'.service'

@@ -13,6 +13,8 @@ class LayoutTests(unittest.TestCase):
     def test_scenario_cannot_inject_a_command_or_unit(self):
         self.assertEqual(scenario_flag('runtime-restart'),'--restart-runtime')
         self.assertEqual(workload_unit('abcdef0','runtime-restart'),'g8-host-docker-runtime-restart-abcdef0.service')
+        self.assertEqual(scenario_flag('runtime-crash'),'--crash-runtime')
+        self.assertEqual(workload_unit('abcdef0','runtime-crash'),'g8-host-docker-runtime-crash-abcdef0.service')
         for bad in ['--crash-runtime','restart; other',None,True]:
             with self.assertRaises(ValueError):scenario_flag(bad)
     def test_unknown_root_traversal_alias_prefix_or_revision_refuses(self):

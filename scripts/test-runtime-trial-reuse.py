@@ -3,6 +3,7 @@ import copy,importlib.util,json
 from pathlib import Path
 import unittest
 from runtime_trial_reuse import qualify
+from runtime_recovery_checkpoint import recovery_view
 spec=importlib.util.spec_from_file_location('bundle_controls',Path(__file__).with_name('test-runtime-diagnostic-bundle-checkpoint.py'))
 c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
 BOOT=c.BOOT;PARENT='8'*32;CHILD='9'*32;REV='0acea0b';ARCHIVE='a'*64
@@ -38,5 +39,19 @@ class ReuseTests(unittest.TestCase):
         for bad in [b'{}',b'{"boot_id":"private-canary",'+data[1:],b' '*(1<<20)+data]:
             with self.assertRaises(ValueError) as caught:qualify(bad,BOOT,REV,ARCHIVE,PARENT,CHILD)
             self.assertNotIn('private-canary',str(caught.exception))
+    def test_named_recovery_predecessor_binds_scope_and_boolean_types_without_current_authority(self):
+        for scenario in ['runtime-restart','runtime-crash']:
+            p=self.fixture();p.pop('diagnostic_checkpoint_timings');p['scenario']=scenario
+            p['runtime_recovery_checkpoint']=recovery_view(BOOT,CHILD,scenario)
+            self.assertEqual(qualify(json.dumps(p).encode(),BOOT,REV,ARCHIVE,PARENT,CHILD,scenario),p)
+            with self.assertRaises(ValueError):qualify(json.dumps(p).encode(),BOOT,REV,ARCHIVE,PARENT,CHILD)
+            for mode in ['scope','invocation','numeric-bool','cleanup','extra']:
+                trial=copy.deepcopy(p);view=trial['runtime_recovery_checkpoint']
+                if mode=='scope':view['scope']='receipt-bound-private-runtime-other-and-child-build-continuity'
+                elif mode=='invocation':view['invocation_id']='0'*32
+                elif mode=='numeric-bool':view['child_continuity_observed']=1
+                elif mode=='cleanup':view['cleanup_qualified']=True
+                elif mode=='extra':view['unexpected']='private-canary'
+                with self.subTest(scenario=scenario,mode=mode),self.assertRaises(ValueError):qualify(json.dumps(trial).encode(),BOOT,REV,ARCHIVE,PARENT,CHILD,scenario)
 
 if __name__=='__main__':unittest.main()

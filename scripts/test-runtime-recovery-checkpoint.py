@@ -15,8 +15,24 @@ class RecoveryTests(unittest.TestCase):
         r=dict(schema_version=2,invocation_id=INV,boot_id=BOOT,runtime_pid_before=101,runtime_pid_after=102,runtime_restarts=1,runtime_exit_signal='SIGTERM',runtime_exit_status=0,before=snapshot,after=copy.deepcopy(snapshot),after_build=dict(copy.deepcopy(snapshot),saved_image_sha256='b'*64),completed_first_build=copy.deepcopy(snapshot),post_recovery_build_tested=True,child_continuity_pass=True,cleanup_qualified=False,runtime_exit_checkpoint_sha256=sha(raw(exit)),crash_during_build=False,original_image_id='sha256:'+'c'*64,post_recovery_image_id='sha256:'+'d'*64,original_image_sha256_after_rebuild='a'*64,primary_docker_before_recovery_sha256='e'*64,primary_docker_after_recovery_sha256='e'*64,primary_docker_after_rebuild_sha256='e'*64,post_recovery_stdout_sha256='f'*64,post_recovery_stderr_sha256='f'*64)
         receipt=dict(boot_id=BOOT,invocation_id=INV,runtime_restart_tested=True,runtime_crash_tested=False,runtime_crash_during_build_tested=False,storage_pressure_tested=False,production_profile_child_build_pass=True,recovery_checkpoint_sha256=sha(raw(r)))
         return r,exit,receipt
-    def bind(self,r,exit,receipt):
-        r['runtime_exit_checkpoint_sha256']=sha(raw(exit));receipt['recovery_checkpoint_sha256']=sha(raw(r));return qualify(raw(r),raw(exit),receipt,BOOT,INV)
+    def bind(self,r,exit,receipt,scenario='runtime-restart'):
+        r['runtime_exit_checkpoint_sha256']=sha(raw(exit));receipt['recovery_checkpoint_sha256']=sha(raw(r));return qualify(raw(r),raw(exit),receipt,BOOT,INV,scenario)
+    def test_crash_requires_explicit_caller_selection_and_exact_signal_status_receipt(self):
+        r,e,receipt=self.fixture()
+        for v in [r,e]:v.update(runtime_exit_signal='SIGKILL',runtime_exit_status=-9)
+        receipt['runtime_crash_tested']=True
+        self.assertEqual(self.bind(r,e,receipt,'runtime-crash'),r)
+        with self.assertRaises(ValueError):self.bind(r,e,receipt)
+        for mode in ['signal','status','receipt','active-run','drift']:
+            trial,exit,life=copy.deepcopy((r,e,receipt))
+            if mode=='signal':trial['runtime_exit_signal']='SIGTERM'
+            elif mode=='status':exit['runtime_exit_status']=0
+            elif mode=='receipt':life['runtime_crash_tested']=False
+            elif mode=='active-run':trial['crash_during_build']=True;life['runtime_crash_during_build_tested']=True
+            elif mode=='drift':trial['after']['engine_id']='replacement-child-engine'
+            with self.subTest(mode=mode),self.assertRaises(ValueError):self.bind(trial,exit,life,'runtime-crash')
+        for bad in [None,True,'crash-during-build','--crash-runtime']:
+            with self.assertRaises(ValueError):self.bind(r,e,receipt,bad)
     def test_exact_same_boot_recovery_preserves_continuity_without_cleanup_authority(self):
         r,e,receipt=self.fixture();self.assertEqual(self.bind(r,e,receipt),r);self.assertIs(r['cleanup_qualified'],False)
     def test_wrong_epoch_signal_pid_or_child_drift_refuses_recomputed_receipts(self):
@@ -43,8 +59,11 @@ class RecoveryTests(unittest.TestCase):
             with self.assertRaises(ValueError):qualify(data,raw(e),receipt,BOOT,INV)
         receipt['recovery_checkpoint_sha256']='0'*64
         with self.assertRaises(ValueError):qualify(raw(r),raw(e),receipt,BOOT,INV)
-    def retained(self,work,forge=None):
+    def retained(self,work,forge=None,scenario='runtime-restart'):
         private=work/'integration';private.mkdir(mode=0o700);r,e,receipt=self.fixture()
+        if scenario=='runtime-crash':
+            for v in [r,e]:v.update(runtime_exit_signal='SIGKILL',runtime_exit_status=-9)
+            receipt['runtime_crash_tested']=True
         def write(parent,name,data):
             path=parent/name;path.write_bytes(data);path.chmod(0o600);return sha(data)
         baseline=dict(schema_version=2,boot_id=BOOT,engine_id_sha256=fingerprint('primary-engine'),inventories={name:dict(count=1,sha256='e'*64) for name in ['images','containers','volumes','networks']})
@@ -63,6 +82,13 @@ class RecoveryTests(unittest.TestCase):
     def test_private_lifecycle_binds_build_streams_and_exact_primary_image_absence(self):
         with tempfile.TemporaryDirectory() as d:
             work=Path(d);self.retained(work);r=inspect_fixture_recovery(work,BOOT,INV);self.assertTrue(r['post_recovery_build_observed']);self.assertIs(r['cleanup_qualified'],False)
+    def test_private_crash_lifecycle_requalifies_only_under_caller_selected_scope(self):
+        with tempfile.TemporaryDirectory() as d:
+            work=Path(d);self.retained(work,scenario='runtime-crash')
+            r=inspect_fixture_recovery(work,BOOT,INV,'runtime-crash')
+            self.assertEqual(r['scope'],'receipt-bound-private-runtime-crash-and-child-build-continuity')
+            self.assertIs(r['cleanup_qualified'],False)
+            with self.assertRaises(ValueError):inspect_fixture_recovery(work,BOOT,INV)
     def test_matching_recomputed_hashes_cannot_mask_primary_engine_image_or_missing_build(self):
         for mode in ['image','engine','build']:
             with tempfile.TemporaryDirectory() as d:

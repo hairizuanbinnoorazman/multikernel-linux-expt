@@ -236,9 +236,9 @@ def audit(args):
                 raise ValueError('parent health checkpoint differs from lifecycle receipt')
     else:
         from runtime_recovery_checkpoint import inspect_fixture_recovery
-        recovery=inspect_fixture_recovery(work,boot,args.workload_invocation)
+        recovery=inspect_fixture_recovery(work,boot,args.workload_invocation,scenario)
         parent=read(Path('/opt/mkruntime/g8-vsock-rx-b688447')/('trial-'+work.name),'primary-module-trial.json')
-        if (parent.get('scenario')!='runtime-restart' or parent.get('runtime_recovery_checkpoint')!=recovery or parent['boot_id']!=boot or parent['parent_scope']['InvocationID']!=args.parent_invocation or parent['pressure_invocation']!=args.workload_invocation or parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or parent.get('cold_restore_required') is not True):
+        if (parent.get('scenario')!=scenario or parent.get('runtime_recovery_checkpoint')!=recovery or parent['boot_id']!=boot or parent['parent_scope']['InvocationID']!=args.parent_invocation or parent['pressure_invocation']!=args.workload_invocation or parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or parent.get('cold_restore_required') is not True):
             raise ValueError('parent recovery checkpoint differs from exact lifecycle')
     before, after = read(private, 'primary-before.json'), read(private, 'primary-after.json')
     if before != after or before['boot_id'] != boot:
@@ -320,6 +320,7 @@ def audit(args):
         raise ValueError('VSOCK or pool resources remain')
     return dict(schema=1, source_commit=args.source_commit, boot_id=boot, parent_invocation=args.parent_invocation,
                 workload_invocation=args.workload_invocation, same_epoch_completion=True, live_health_pair_qualified=live_health, trial_scratch_private_mount_qualified=receipt.get('private_trial_tmp_tested') is True, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=scenario=='pressure', runtime_restart_build_continuity_qualified=scenario=='runtime-restart',
+                runtime_crash_build_continuity_qualified=scenario=='runtime-crash',
                 diagnostic_three_hold_receipts_requalified=scenario=='pressure', primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,
@@ -329,7 +330,7 @@ def audit(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
-    parser.add_argument('--scenario',choices=['pressure','runtime-restart'],default='pressure')
+    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash'],default='pressure')
     for name in ['boot-id', 'parent-invocation', 'workload-invocation', 'source-commit', 'build-sha256']:
         parser.add_argument('--'+name, required=True)
     args = parser.parse_args()

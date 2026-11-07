@@ -1,4 +1,4 @@
-"""Bind a normal private-control-plane restart to its same-boot build receipt.
+"""Bind an explicitly selected private-runtime recovery to its build receipt.
 
 No repair, live-process authority or full gate follows from archived snapshots.
 """
@@ -7,7 +7,22 @@ from runtime_diagnostic_bundle_checkpoint import decode,equal,read_fixture_artif
 from runtime_primary_docker import unchanged,fingerprint
 
 
-def qualify(data,exit_data,receipt,boot,invocation):
+def recovery_policy(scenario):
+    if type(scenario) is not str or scenario not in {'runtime-restart','runtime-crash'}:
+        raise ValueError('invalid runtime recovery scenario')
+    return ('SIGTERM',0,False) if scenario=='runtime-restart' else ('SIGKILL',-9,True)
+
+
+def recovery_view(boot,invocation,scenario='runtime-restart'):
+    recovery_policy(scenario)
+    kind='restart' if scenario=='runtime-restart' else 'crash'
+    return dict(version=1,scope='receipt-bound-private-runtime-'+kind+'-and-child-build-continuity',boot_id=boot,invocation_id=invocation,
+                child_continuity_observed=True,original_archive_preserved=True,post_recovery_build_observed=True,
+                exact_child_image_absence_observed=True,primary_engine_and_inventory_unchanged=True,cleanup_qualified=False)
+
+
+def qualify(data,exit_data,receipt,boot,invocation,scenario='runtime-restart'):
+    expected_signal,expected_status,expected_crash=recovery_policy(scenario)
     r=decode(data,1<<20);exit=decode(exit_data,65536)
     if any(type(v) is not dict for v in [r,exit,receipt]):raise ValueError('invalid runtime recovery envelope')
     fields={'schema_version','invocation_id','boot_id','runtime_pid_before','runtime_pid_after','runtime_restarts','runtime_exit_signal','runtime_exit_status','before','after','after_build','post_recovery_build_tested','post_recovery_stdout_sha256','post_recovery_stderr_sha256','child_continuity_pass','cleanup_qualified','runtime_exit_checkpoint_sha256','completed_first_build','crash_during_build','original_image_id','post_recovery_image_id','original_image_sha256_after_rebuild','primary_docker_before_recovery_sha256','primary_docker_after_recovery_sha256','primary_docker_after_rebuild_sha256'}
@@ -16,18 +31,18 @@ def qualify(data,exit_data,receipt,boot,invocation):
             not re.fullmatch('[a-f0-9]{32}',invocation) or r.get('boot_id')!=boot or r.get('invocation_id')!=invocation or
             type(r.get('schema_version')) is not int or r['schema_version']!=2 or
             receipt.get('boot_id')!=boot or receipt.get('invocation_id')!=invocation or
-            receipt.get('runtime_restart_tested') is not True or receipt.get('runtime_crash_tested') is not False or
+            receipt.get('runtime_restart_tested') is not True or receipt.get('runtime_crash_tested') is not expected_crash or
             receipt.get('runtime_crash_during_build_tested') is not False or receipt.get('storage_pressure_tested') is not False or
             receipt.get('production_profile_child_build_pass') is not True or
             type(r.get('runtime_restarts')) is not int or r['runtime_restarts']!=1 or
-            r.get('runtime_exit_signal')!='SIGTERM' or type(r.get('runtime_exit_status')) is not int or r['runtime_exit_status']!=0 or
+            r.get('runtime_exit_signal')!=expected_signal or type(r.get('runtime_exit_status')) is not int or r['runtime_exit_status']!=expected_status or
             r.get('crash_during_build') is not False or r.get('post_recovery_build_tested') is not True or
             r.get('child_continuity_pass') is not True or r.get('cleanup_qualified') is not False):
         raise ValueError('runtime recovery checkpoint is unqualified')
     for key in ['runtime_pid_before','runtime_pid_after']:
         if type(r.get(key)) is not int or not 1<r[key]<1<<31:raise ValueError('runtime recovery process identity is invalid')
     if r['runtime_pid_before']==r['runtime_pid_after']:raise ValueError('runtime recovery process did not change')
-    expected_exit=dict(invocation_id=invocation,boot_id=boot,runtime_pid=r['runtime_pid_before'],runtime_exit_signal='SIGTERM',runtime_exit_status=0,observed_monotonic_ns=exit.get('observed_monotonic_ns'),cleanup_qualified=False)
+    expected_exit=dict(invocation_id=invocation,boot_id=boot,runtime_pid=r['runtime_pid_before'],runtime_exit_signal=expected_signal,runtime_exit_status=expected_status,observed_monotonic_ns=exit.get('observed_monotonic_ns'),cleanup_qualified=False)
     if type(exit.get('observed_monotonic_ns')) is not int or exit['observed_monotonic_ns']<0:raise ValueError('invalid runtime exit timing')
     equal(exit,expected_exit)
     if hashlib.sha256(exit_data).hexdigest()!=r.get('runtime_exit_checkpoint_sha256') or hashlib.sha256(data).hexdigest()!=receipt.get('recovery_checkpoint_sha256'):
@@ -54,11 +69,11 @@ def qualify(data,exit_data,receipt,boot,invocation):
     return r
 
 
-def inspect_fixture_recovery(work,boot,invocation):
+def inspect_fixture_recovery(work,boot,invocation,scenario='runtime-restart'):
     private=work/'integration'
     read=lambda parent,name:read_fixture_artifact(parent,name,1<<20)
     receipt=decode(read(work,'integration-receipt.json'),1<<20)
-    recovery=qualify(read(work,'recovery-checkpoint.json'),read(work,'runtime-exit-checkpoint.json'),receipt,boot,invocation)
+    recovery=qualify(read(work,'recovery-checkpoint.json'),read(work,'runtime-exit-checkpoint.json'),receipt,boot,invocation,scenario)
     baseline=decode(read(private,'primary-docker-before.json'),1<<20)
     for phase,image in [('before',recovery['original_image_id']),('after',recovery['original_image_id']),('after-rebuild',recovery['post_recovery_image_id'])]:
         raw=read(private,'primary-docker-recovery-'+phase+'.json');report=decode(raw,1<<20)
@@ -75,6 +90,4 @@ def inspect_fixture_recovery(work,boot,invocation):
                 if raw.splitlines().count(marker.encode())!=1:raise ValueError('post-recovery build matrix is incomplete')
             if re.findall(rb'^G8_BUILD_IMAGE_ID=(sha256:[a-f0-9]{64})$',raw,re.M)!=[recovery['post_recovery_image_id'].encode()]:raise ValueError('post-recovery image marker differs')
         elif b'CACHED' not in raw or b'exit code: 37' not in raw:raise ValueError('post-recovery build cache/failure proof absent')
-    return dict(version=1,scope='receipt-bound-private-runtime-restart-and-child-build-continuity',boot_id=boot,invocation_id=invocation,
-                child_continuity_observed=True,original_archive_preserved=True,post_recovery_build_observed=True,
-                exact_child_image_absence_observed=True,primary_engine_and_inventory_unchanged=True,cleanup_qualified=False)
+    return recovery_view(boot,invocation,scenario)

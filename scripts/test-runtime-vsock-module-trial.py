@@ -90,15 +90,20 @@ if REUSE:
     prior_bytes=read_fixture_artifact(prior_path.parent,prior_path.name,1<<20)
     assert hashlib.sha256(prior_bytes).hexdigest()==prior_sha
     prior_parent=os.environ['MK_MODULE_TRIAL_PRIOR_PARENT_INVOCATION'];prior_workload=os.environ['MK_MODULE_TRIAL_PRIOR_WORKLOAD_INVOCATION']
-    prior=qualify_trial_reuse(prior_bytes,BOOT,REUSE,prior_archive,prior_parent,prior_workload)
+    prior_scenario=os.environ.get('MK_MODULE_TRIAL_PRIOR_SCENARIO','pressure');scenario_flag(prior_scenario)
+    prior=qualify_trial_reuse(prior_bytes,BOOT,REUSE,prior_archive,prior_parent,prior_workload,prior_scenario)
     # A saved receipt never substitutes for current exact-epoch unit checks.
     check_empty=runpy.run_path(str(P(__file__).parent/'audit-runtime-docker-trial.py'))['empty_cgroup']
-    for name,invocation in [('g8-vsock-rx-trial-'+REUSE+'-release.service',prior_parent),('g8-host-docker-storage-pressure-'+REUSE+'.service',prior_workload)]:
+    for name,invocation in [('g8-vsock-rx-trial-'+REUSE+'-release.service',prior_parent),(workload_unit(REUSE,prior_scenario),prior_workload)]:
         current=unit_properties(output(['systemctl','show',name,*[v for k in ['MainPID','InvocationID','SubState','Result','ExecMainStatus','ControlGroup'] for v in ['-p',k]]]))
         assert qualify_unit_epoch(BOOT,invocation,P('/proc/sys/kernel/random/boot_id').read_text().strip(),current)['unit_completion_qualified']
         if current['ControlGroup']:
             assert current['ControlGroup']=='/system.slice/'+name
             check_empty(P('/sys/fs/cgroup')/current['ControlGroup'].lstrip('/'))
+    if prior_scenario!='pressure':
+        prior_work=stage_path(REUSE,prior.get('stage_location','root'));protected(prior_work)
+        assert sha(prior_work/'source.tar')==prior_archive
+        assert inspect_fixture_recovery(prior_work,BOOT,prior_workload,prior_scenario)==prior['runtime_recovery_checkpoint']
     assert primary()==prior['primary_after']
 state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'stage_location':STAGE_LOCATION,'scenario':SCENARIO,'candidate_reused_without_reload':bool(REUSE),'prior_trial_sha256':prior_sha if REUSE else None,'events':[]}
 def record(phase,**values):
@@ -131,7 +136,7 @@ try:
             health_timings=inspect_fixture_health(WORK,BOOT,invocation)
             record('diagnostic-checkpoint-timings-qualified',diagnostic_checkpoint_timings=timings,health_checkpoint_timings=health_timings)
         else:
-            recovery=inspect_fixture_recovery(WORK,BOOT,invocation)
+            recovery=inspect_fixture_recovery(WORK,BOOT,invocation,SCENARIO)
             record('runtime-recovery-checkpoint-qualified',runtime_recovery_checkpoint=recovery)
 except BaseException as error:
     failure=error;record('trial-error',error=str(error))

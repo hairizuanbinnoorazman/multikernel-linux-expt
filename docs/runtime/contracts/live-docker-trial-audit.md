@@ -1,7 +1,8 @@
 # Read-only audit of a disposable child Docker trial
 
 `scripts/audit-runtime-docker-trial.py` audits a completed, source-bound GCE lab
-storage-pressure trial without signaling processes, changing ownership, probing
+storage-pressure or explicitly selected private-runtime recovery trial without
+signaling processes, changing ownership, probing
 writability or restoring transport. It is specifically for the existing pinned
 `test-runtime-vsock-module-trial.py` and Docker-profile harness layout, CPU set
 and candidate transport. It is not a general production readiness command.
@@ -10,7 +11,8 @@ From a fresh checkout containing the audit tool, run on the qualified lab host:
 
 ```bash
 sudo python3 scripts/audit-runtime-docker-trial.py \
-  --work /opt/mkruntime/g8-host-SOURCE7 \
+  --scenario pressure \
+  --work /srv/multikernel-storage/stages/g8-host-SOURCE7 \
   --source-commit SOURCE40 \
   --build-sha256 TRUSTED_BUILD_JSON_SHA256 \
   --boot-id EXPECTED_BOOT_UUID \
@@ -54,6 +56,10 @@ JSON output contains only fixed outcome flags, caller-pinned identities and the
 maximum diagnostic sequence duration. Raw receipts, state, logs, guest streams,
 backing paths, inventories and internal fingerprints stay on the host.
 Successful audit explicitly leaves cold restoration and full G7/G8 unqualified.
+Select `runtime-restart` or `runtime-crash` explicitly for a recovery trial;
+these bind the corresponding exact signal/status, actual recovery inputs and
+parent-normalized view rather than claiming pressure/health hold evidence.
+Their output distinguishes normal restart and forced-crash build continuity.
 Direct child kernels need no nested virtualization; arbitrary child-kernel
 compromise still shares primary trust. This is not a hostile-kernel containment
 proof or proof of general Docker build compatibility.

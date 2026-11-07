@@ -1,8 +1,9 @@
 # Private runtime restart and child Docker continuity
 
-The disposable module-trial driver accepts only the named `pressure` or
-`runtime-restart` scenario through `MK_MODULE_TRIAL_SCENARIO`. The latter runs
-the existing normal SIGTERM private-daemon restart workflow. It does not restart
+The disposable module-trial driver accepts only the named `pressure`,
+`runtime-restart` or `runtime-crash` scenario through `MK_MODULE_TRIAL_SCENARIO`.
+The recovery scenarios select normal SIGTERM or forced SIGKILL private-daemon
+replacement after the first complete child build. They do not restart
 the installed primary services. Record-fault modes cannot be mixed into this
 scenario, and unsupported scenarios/paths refuse before trial mutation.
 
@@ -11,9 +12,19 @@ child alive. Before and after the private runtime restart it samples child boot,
 Docker engine, exact running owner and saved-archive identity. The replacement
 runtime must have a different PID in the same boot and adopt the original child.
 A second build matrix executes through the recovered control plane, while the
-original saved archive remains byte-identical. Only the normal restart scenario
-is qualified by the new version-2 recovery checkpoint; legacy/crash checkpoints
-cannot silently inherit this scope.
+original saved archive remains byte-identical. Caller-selected recovery policy
+requires the exact signal/status and matching lifecycle crash boolean in the
+version-2 checkpoint. Normal and crash evidence cannot inherit one another's
+scope. Legacy and crash-during-build checkpoints remain excluded.
+
+Same-boot transport reuse accepts an explicitly named, pinned pressure or
+recovery predecessor. Recovery predecessors bind their exact normalized view,
+including boolean types, to their scenario. The driver still requires current
+completed unit epochs and empty cgroups, unchanged primary state and idle
+resources. Before a recovery predecessor can authorize a new trial, its original
+source archive and actual recovery files are requalified. This does not unload
+the candidate transport, recover an older failed generation or claim current
+admission from an archived receipt alone.
 
 The build probe emits an exact image-ID marker before removing its build
 resources. Primary Docker observations around restart and after rebuild require
@@ -42,3 +53,7 @@ Completed units retain empty leaf cgroups; candidate transport remains loaded
 and idle pending cold restoration. Full G7/G8 remain open. Direct
 child kernels use no nested virtualization and share primary trust after
 arbitrary child-kernel compromise.
+
+The forced-crash extension passes local signal/status/scenario, receipt drift,
+engine drift and predecessor scope/type controls; disabling only the crash
+receipt flag check is detected. Its actual live qualification is pending.
