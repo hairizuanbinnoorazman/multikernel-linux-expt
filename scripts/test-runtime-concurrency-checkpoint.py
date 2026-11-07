@@ -33,7 +33,7 @@ class ConcurrentCheckpointTests(unittest.TestCase):
         if mode=='cleanup-mask':r['cleanup_qualified']=True
         if mode=='storage-owner':storage[1]['sandbox_generation']='0'*32
         (p/'manifests').mkdir(mode=0o700);write(p/'manifests','gce-mk2.json',dict(kernel_release='test-kernel'))
-        write(p,'two-child-ownership.stdout',dict(source='durable-lifecycle',version=1,sandboxes=owners))
+        write(p,'two-child-ownership.stdout',dict(source='durable-lifecycle',version=1.0 if mode=='owner-version-float' else 1,sandboxes=owners))
         for case in ['a','b']:
             phases=[('before',r['before'][case],False),('after',r['after'][case],True)]
             if case=='a':phases.extend([('survivor',r['survivor'],True),('survivor-rebuilt',r['survivor_rebuilt'],True)])
@@ -53,6 +53,7 @@ class ConcurrentCheckpointTests(unittest.TestCase):
         for case in ['a','b']:
             item=dict(Id=case*64,Config=dict(User='1000:1000'),HostConfig=dict(Runtime='io.containerd.multikernel.v2',Privileged=False,CapDrop=['ALL'],SecurityOpt=['no-new-privileges=true']),Mounts=[dict(Destination='/work/input',RW=False)])
             if mode=='outer-authority' and case=='b':item['HostConfig']['Privileged']=True
+            if mode=='mount-numeric-mask' and case=='b':item['Mounts'][0]['RW']=0
             write(p,'owner-map-'+case+'.stdout',[item])
             for phase in ['before','after','survivor','survivor-rebuilt'] if case=='a' else ['before','after']:
                 write(p,phase+'-'+case+'-foreign-image.stderr',('No such image: g8-isolation:'+('b' if case=='a' else 'a')+'\n').encode())
@@ -96,7 +97,7 @@ class ConcurrentCheckpointTests(unittest.TestCase):
             self.assertIs(view['two_child_engines_and_storage_separate'],True);self.assertIs(view['survivor_rebuild_and_original_archive_preservation'],True);self.assertIs(view['cleanup_qualified'],False)
 
     def test_recomputed_receipts_cannot_mask_shared_identity_overlap_drift_or_primary_leak(self):
-        for mode in ['shared-engine','shared-canary','cpu-overlap','cpu-float','backing-overlap','storage-owner','released-owner','released-generation','survivor-drift','original-archive','remaining-owner','wrong-epoch','legacy','cleanup-mask','outer-authority','foreign-accepted','missing-build','primary-image','finished-overlap','unbound-overlap','overlap-clock','overlap-budget','wrong-scenario']:
+        for mode in ['shared-engine','shared-canary','cpu-overlap','cpu-float','backing-overlap','storage-owner','released-owner','released-generation','survivor-drift','original-archive','remaining-owner','wrong-epoch','legacy','cleanup-mask','outer-authority','owner-version-float','mount-numeric-mask','foreign-accepted','missing-build','primary-image','finished-overlap','unbound-overlap','overlap-clock','overlap-budget','wrong-scenario']:
             with tempfile.TemporaryDirectory() as d:
                 work=Path(d);self.fixture(work,mode)
                 with self.subTest(mode=mode),self.assertRaises(ValueError):inspect_fixture_concurrency(work,BOOT,INV)
