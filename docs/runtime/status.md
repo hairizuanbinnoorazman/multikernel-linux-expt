@@ -4,6 +4,24 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Normal private-runtime restart and child Docker rebuild (2026-11-07)
+
+Source `d3d20749` passes [actual GCE restart/build proof](../../evidence/runtime-20261107/g8-live-runtime-restart-d3d2074/README.md)
+on boot `5ad22222`: host Docker selects the child, the private runtime exits
+normally and restarts, the same child/engine/owner survives, and a second complete
+child-local build matrix succeeds while preserving the original saved archive.
+Exact image absence, primary Docker/network/service parity, native offline check
+and resource return pass independent same-epoch audit. Direct storage staging
+keeps the installed single-mount guard satisfied. [Local and mutation controls](../../evidence/runtime-20261107/g8-runtime-restart-controls/README.md)
+and root controls pass. See the [checkpoint contract](contracts/runtime-restart-checkpoint.md).
+
+This closes the normal private-runtime restart/build continuity subcase only.
+Completed empty unit cgroups and idle candidate transport remain retained.
+Cold restoration, wider crash/concurrency/recovery, earlier failed-generation
+recovery and full G7/G8 remain open. This is not an installed-service or host
+restart qualification. No nested virtualization is used; compromised child
+kernels share host trust.
+
 ## Scope stop admission checkpoint (2026-11-06)
 
 Code `65f0ffa5` makes [scope stop admission context-aware](contracts/scope-stop-admission.md) beneath the

@@ -1,5 +1,24 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Normal private-runtime restart/build continuity (2026-11-07)
+
+The [receipt-bound restart contract](../contracts/runtime-restart-checkpoint.md)
+passes [actual source-qualified GCE execution and independent audit](../../../evidence/runtime-20261107/g8-live-runtime-restart-d3d2074/README.md)
+on boot `5ad22222`, source `d3d20749`. Normal private-daemon SIGTERM/replacement
+preserves child boot, engine and owner; a second child-local build matrix passes
+and the original archive is preserved. Primary engine/inventories, exact built
+image absence, service PIDs and network identity pass. Native release/offline
+check and current CPU/pool/child/reference/socket return pass. Direct storage
+staging leaves no global stage alias and the installed single-mount guard passes.
+Historical evidence and prior failed-generation metadata remain preserved.
+
+Only this normal private-runtime restart/build subcase is closed. Completed units
+retain empty cgroup leaves and the candidate transport remains loaded and idle.
+Cold restoration, installed-service/host restart qualification, wider faults,
+concurrency and earlier failed-generation recovery remain separate; full G7/G8
+stay open. Direct children use no nested virtualization and share host trust
+after arbitrary child-kernel compromise.
+
 ## User restart 5ad and private stage inspection (2026-11-07)
 
 Code `80edf5a9`/`2bc117c5` adds strict persistent stage mapping and descriptor/

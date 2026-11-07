@@ -22,6 +22,7 @@
 - [`research/docker-online-python-guest.md`](research/docker-online-python-guest.md):
   online Docker Hub/PyPI Python build/run prototype and scoped network evidence.
 - [`trial-staging.md`](trial-staging.md): committed-source, protected artifact packets for disposable GCE trials.
+- [`contracts/runtime-restart-checkpoint.md`](contracts/runtime-restart-checkpoint.md): normal private-runtime restart, same-child Docker rebuild continuity and exact primary image absence.
 - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
 - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
   boundaries.

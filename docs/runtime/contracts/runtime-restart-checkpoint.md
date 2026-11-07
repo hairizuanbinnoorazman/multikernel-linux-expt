@@ -33,7 +33,12 @@ storage staging with private unit scratch, without a host-wide stage alias.
 
 Local controls pass canonical recovery, wrong boot/invocation/signal/PID,
 child/engine/owner/archive drift, duplicate/oversize input, missing build markers
-and forged image absence even with recomputed receipt hashes. Actual execution
-is pending separately retained live evidence. Full G7/G8 remain open. Direct
+and forged image absence even with recomputed receipt hashes. The
+[actual GCE run on boot 5ad](../../../evidence/runtime-20261107/g8-live-runtime-restart-d3d2074/README.md)
+passes source `d3d20749`, both exact unit invocations and the separate postrun
+audit, including native release/offline checking and current resource return.
+The five recovery/four audit/four layout control groups also pass as root.
+Completed units retain empty leaf cgroups; candidate transport remains loaded
+and idle pending cold restoration. Full G7/G8 remain open. Direct
 child kernels use no nested virtualization and share primary trust after
 arbitrary child-kernel compromise.
