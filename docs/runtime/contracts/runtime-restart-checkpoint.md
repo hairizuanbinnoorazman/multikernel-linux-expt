@@ -3,13 +3,14 @@
 The disposable module-trial driver accepts only the named `pressure`,
 `runtime-restart`, `runtime-crash` or `runtime-crash-during-build` scenario through
 `MK_MODULE_TRIAL_SCENARIO`.
-The recovery scenarios select normal SIGTERM or forced SIGKILL private-daemon
-replacement after the first complete child build. They do not restart
-the installed primary services. Record-fault modes cannot be mixed into this
-scenario, and unsupported scenarios/paths refuse before trial mutation.
+Normal and after-build recovery select SIGTERM or SIGKILL private-daemon
+replacement after the first complete child build. In-flight recovery selects
+SIGKILL while the original BuildKit RUN is unfinished. Installed primary
+services are not restarted. Record-fault modes cannot be mixed into recovery
+scenarios, and unsupported scenarios/paths refuse before trial mutation.
 
-The workload completes its original child-local build matrix and holds the
-child alive. Before and after the private runtime restart it samples child boot,
+For normal and after-build recovery, the workload completes its original
+child-local build matrix and holds the child alive. Before and after the private runtime restart it samples child boot,
 Docker engine, exact running owner and saved-archive identity. The replacement
 runtime must have a different PID in the same boot and adopt the original child.
 A second build matrix executes through the recovered control plane, while the
@@ -29,8 +30,9 @@ the candidate transport, recover an older failed generation or claim current
 admission from an archived receipt alone.
 
 The build probe emits an exact image-ID marker before removing its build
-resources. Primary Docker observations around restart and after rebuild require
-both exact built-image absence and unchanged engine/inventories. The child
+resources. Once an image ID exists, primary Docker observations require exact
+built-image absence and unchanged engine/inventories. In-flight observations
+before image creation qualify engine/inventory parity only. The child
 engine must differ from the primary. The recovery checkpoint binds these
 observations, the runtime exit tuple and both bounded post-recovery streams.
 The parent reads the exact root lifecycle receipt and independently qualifies
