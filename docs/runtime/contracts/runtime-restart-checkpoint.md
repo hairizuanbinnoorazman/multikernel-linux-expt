@@ -90,7 +90,16 @@ kill/adoption; exact image absence is checked after original completion and
 after rebuild. The new scope cannot inherit normal or after-build crash evidence.
 
 Nine recovery/four reuse/four layout control groups pass locally, including
-recomputed-hash finished/unbound/reordered/replaced RUN refusals. Actual in-flight
-crash execution and independent postrun qualification remain pending. No nested
-virtualization or stronger child-kernel containment is introduced; full G7/G8
-remain open.
+recomputed-hash finished/unbound/reordered/replaced RUN refusals. [Actual in-flight
+GCE proof](../../../evidence/runtime-20261107/g8-live-inflight-crash-c4ab1c5/README.md)
+passes source `c4ab1c5e`, both exact invocations, separate postrun audit and root
+controls. Fifteen actual-input refusals and both alternative recovery-policy
+refusals pass. Removing only the prefix guard in isolated in-memory code falsely
+accepts a forged live snapshot; the control detects it while original evidence
+remains unchanged. Both earlier recovery trials stay preserved and qualified.
+
+This closes the controlled BuildKit RUN-wait crash/adoption/build-continuity
+subcase. Sustained storage/network writes at fault time, autonomous failure
+detection, other components/locations, concurrency and cold restoration remain
+separate. No nested virtualization or stronger child-kernel containment is
+introduced; full G7/G8 remain open.

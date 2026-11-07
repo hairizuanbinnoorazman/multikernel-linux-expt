@@ -1,5 +1,24 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Private-runtime SIGKILL during the original child build (2026-11-07)
+
+Source `c4ab1c5e` adds version-3 [RUN-window recovery binding](../contracts/runtime-restart-checkpoint.md#crash-during-the-original-child-build).
+[Controls and prefix mutation](../../../evidence/runtime-20261107/g8-inflight-crash-controls/README.md)
+and [actual GCE execution/independent audit](../../../evidence/runtime-20261107/g8-live-inflight-crash-c4ab1c5/README.md)
+pass. Captures before kill, after kill and after adoption contain unfinished
+executed RUN markers, match original stream prefixes and preserve exact PID/time
+ordering. The original build completes; archive preservation and a second build
+pass on the same child/engine/owner. Primary identity/parity, native release and
+offline checking, current resource return and predecessor preservation pass.
+Fifteen actual-input refusals plus two policy refusals and a live-data in-memory
+guard mutation prevent forged/cross-scope acceptance.
+
+Only the controlled RUN-wait crash/adoption subcase closes. Storage/network write
+stress at fault time, autonomous failure detection, other component/operation
+faults, concurrency and cold restoration remain open, with complete G7/G8.
+Completed empty cgroups and idle candidate transport remain retained. Direct
+children use no nested virtualization and share host trust after compromise.
+
 ## Forced private-runtime crash after a completed child build (2026-11-07)
 
 Source `bcd11391` adds explicit SIGKILL/-9 recovery policy and scenario-bound

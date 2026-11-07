@@ -4,6 +4,25 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Private-runtime crash inside the original BuildKit RUN (2026-11-07)
+
+Source `c4ab1c5e` passes [actual GCE in-flight crash proof](../../evidence/runtime-20261107/g8-live-inflight-crash-c4ab1c5/README.md)
+on boot `5ad22222`. Three unfinished RUN snapshots bracket SIGKILL and adoption,
+bind to the original final stderr and keep the same child/engine/owner. The
+original build completes, its archive survives and a second build succeeds.
+Separate audit passes exact image absence after completion, primary parity,
+native release/offline checking and resource return. Earlier normal/after-build
+recovery evidence stays qualified without transport reload. [Local controls and
+prefix-guard mutation](../../evidence/runtime-20261107/g8-inflight-crash-controls/README.md),
+root controls, fifteen actual-input refusals, both alternative-policy refusals
+and an in-memory mutation of the live prefix guard pass.
+
+The fault is inside a controlled 45-second RUN wait. Sustained storage/network
+writes during fault, autonomous detection, other component faults, concurrency,
+cold restoration and full G7/G8 remain open. Completed empty cgroup leaves and
+idle candidate transport remain retained. No nested virtualization is used;
+compromised child kernels share primary trust.
+
 ## Forced private-runtime crash and child Docker continuity (2026-11-07)
 
 Source `bcd11391` passes [actual GCE SIGKILL/rebuild proof](../../evidence/runtime-20261107/g8-live-runtime-crash-bcd1139/README.md)

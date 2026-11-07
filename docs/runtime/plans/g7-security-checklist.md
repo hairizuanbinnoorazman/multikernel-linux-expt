@@ -516,6 +516,13 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   evidence under pressure. Coordinate diagnostic implementation with G8.
 
 - [ ] **SEC-09 — Execute the G7 failure and soak matrix (TM-08).**
+  [Private-runtime SIGKILL during a child BuildKit RUN wait](../../../evidence/runtime-20261107/g8-live-inflight-crash-c4ab1c5/README.md)
+  passes same-child adoption, original build completion, archive preservation,
+  rebuild, primary parity, native/kernel release and independent source/epoch
+  audit. Three unfinished RUN snapshots bind the kill/adoption window to the
+  original completed stream; live refusal and guard-mutation controls pass.
+  This uses a controlled RUN wait, not sustained storage/network writes at fault
+  time or autonomous failure detection. The complete failure/soak matrix stays open.
   [Normal private-runtime restart](../../../evidence/runtime-20261107/g8-live-runtime-restart-d3d2074/README.md)
   and [forced SIGKILL after a completed child Docker build](../../../evidence/runtime-20261107/g8-live-runtime-crash-bcd1139/README.md)
   pass exact-child/engine/owner continuity, a second build, original archive
