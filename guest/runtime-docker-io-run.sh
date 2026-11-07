@@ -9,10 +9,11 @@ sequence=0
 last_tick=-1
 echo G8_OVERLAP_RUN_BEGIN
 while :; do
+    sequence=$((sequence + 1))
     # Fixed live footprint; fsync completes before any progress is published.
     "$bb" dd if=/dev/zero of=/out/io.bin bs=1048576 count=4 conv=fsync >/dev/null 2>&1
+    printf 'G8_IO_DATA_SEQ=%07d\n' "$sequence" | "$bb" dd of=/out/io.bin bs=1 conv=notrunc,fsync >/dev/null 2>&1
     test "$("$bb" stat -c %s /out/io.bin)" = 4194304
-    sequence=$((sequence + 1))
     tick=$("$bb" cut -d. -f1 /proc/uptime)
     if [ "$tick" -ne "$last_tick" ]; then
         echo "G8_IO_SYNCED_SEQ=$sequence"

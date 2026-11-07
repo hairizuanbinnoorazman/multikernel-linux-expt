@@ -2,11 +2,16 @@
 
 Progress is inspection evidence; this never authorizes storage recovery/signals.
 """
-import re
+import hashlib,re
 from runtime_diagnostic_bundle_checkpoint import decode,read_fixture_artifact
 
 IO_BYTES=4<<20
-IO_SHA256='bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8'
+
+
+def payload_sha256(sequence):
+    if type(sequence) is not int or not 1<=sequence<=1048576:raise ValueError('invalid synced write data sequence')
+    header=('G8_IO_DATA_SEQ=%07d\n'%sequence).encode()
+    return hashlib.sha256(header+bytes(IO_BYTES-len(header))).hexdigest()
 
 
 def sync_sequence(raw):
@@ -31,8 +36,11 @@ def inspect_synced_io(work,recovery,streams,active):
     # Only executed BuildKit RUN lines count; an echoed Dockerfile is not output.
     final=re.findall(rb'^#\d+\s+\d+(?:\.\d+)?\s+G8_IO_FINAL_SEQ=([1-9][0-9]{0,6})\s*$',streams['stderr'],re.M)
     hashes=re.findall(rb'^#\d+\s+\d+(?:\.\d+)?\s+G8_IO_FINAL_SHA256=([a-f0-9]{64})\s*$',streams['stderr'],re.M)
-    if len(final)!=1 or not seq[-1]<=int(final[0])<=1048576 or hashes!=[IO_SHA256.encode()]:raise ValueError('final synced write artifact is unqualified')
-    if re.findall(rb'^G8_IO_IMAGE_SHA256=([a-f0-9]{64})$',streams['stdout'],re.M)!=[IO_SHA256.encode()] or streams['stdout'].splitlines().count(b'G8_IO_IMAGE_BYTES=4194304')!=1:
+    if len(final)!=1 or not seq[-1]<=int(final[0])<=1048576:raise ValueError('final synced write sequence is unqualified')
+    expected=payload_sha256(int(final[0])).encode()
+    if hashes!=[expected]:raise ValueError('final synced write artifact is unqualified')
+    header=('G8_IO_IMAGE_HEADER=G8_IO_DATA_SEQ=%07d'%int(final[0])).encode()
+    if re.findall(rb'^G8_IO_IMAGE_SHA256=([a-f0-9]{64})$',streams['stdout'],re.M)!=[expected] or streams['stdout'].splitlines().count(b'G8_IO_IMAGE_BYTES=4194304')!=1 or streams['stdout'].splitlines().count(header)!=1:
         raise ValueError('built image synced data differs')
     storage=decode(read_fixture_artifact(work/'integration/storage-state','state.json',1<<20),1<<20)
     exports=storage.get('exports')

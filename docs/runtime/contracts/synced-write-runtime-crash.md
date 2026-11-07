@@ -23,8 +23,12 @@ canonical, increasing and advance strictly from confirmed-dead to after-kill,
 then again after adoption. Existing child/engine/owner, original build completion,
 archive preservation, rebuild and primary-isolation requirements still apply.
 
-The first image includes the synced file. The workload reads it back through the
-child-local engine and requires the known SHA-256 of 4 MiB zeros and exact size.
+Each iteration stamps a fixed-width sequence header over its zero-filled file
+and fsyncs that header before publishing progress. The first image includes the
+synced file. The workload reads it back through the child-local engine and
+requires exact size and a digest reconstructed from its header and zero tail.
+The independent qualifier reconstructs the expected digest from the final
+executed RUN sequence, so stale earlier data cannot inherit the last iteration.
 Final native written bytes must cover the total logical bytes of all completed
 fsynced iterations. The exact owner's lease must be RELEASED with its clean
 offline-check marker; ordinary postrun resource checks remain separate. The

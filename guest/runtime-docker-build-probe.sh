@@ -100,10 +100,18 @@ echo "G8_BUILD_IMAGE_ID=$(docker image inspect --format '{{.Id}}' g8-proof:lates
 if [ "${1:-}" = --io-overlap-proof ]; then
     io_sha=$(docker run --rm --network=none g8-proof:latest /bin/busybox sha256sum /io.bin | cut -d' ' -f1)
     io_bytes=$(docker run --rm --network=none g8-proof:latest /bin/busybox stat -c %s /io.bin)
-    test "$io_sha" = bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8
+    io_header=$(docker run --rm --network=none g8-proof:latest /bin/busybox head -c 23 /io.bin)
+    case "$io_header" in
+        G8_IO_DATA_SEQ=[0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+        *) exit 79 ;;
+    esac
     test "$io_bytes" = 4194304
+    dd if=/dev/zero of="$work/expected-io.bin" bs=1048576 count=4 >/dev/null 2>&1
+    printf '%s\n' "$io_header" | dd of="$work/expected-io.bin" bs=1 conv=notrunc >/dev/null 2>&1
+    test "$io_sha" = "$(sha256sum "$work/expected-io.bin" | cut -d' ' -f1)"
     echo "G8_IO_IMAGE_SHA256=$io_sha"
     echo "G8_IO_IMAGE_BYTES=$io_bytes"
+    echo "G8_IO_IMAGE_HEADER=$io_header"
 fi
 echo G8_NESTED_AUTHORITY_BEGIN
 docker run --rm --network=none g8-proof:latest /bin/busybox sh -ec \

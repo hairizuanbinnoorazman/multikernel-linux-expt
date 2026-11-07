@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import importlib.util,json,tempfile,unittest
 from pathlib import Path
-from runtime_io_recovery_checkpoint import sync_sequence,IO_SHA256,IO_BYTES
+from runtime_io_recovery_checkpoint import sync_sequence,payload_sha256,IO_BYTES
 from runtime_recovery_checkpoint import inspect_fixture_recovery
 spec=importlib.util.spec_from_file_location('recovery_controls',Path(__file__).with_name('test-runtime-recovery-checkpoint.py'))
 c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
@@ -16,13 +16,16 @@ class SyncedIOTests(unittest.TestCase):
         def write(parent,name,value):
             data=value if type(value) is bytes else raw(value);p=parent/name;p.write_bytes(data);p.chmod(0o600);return sha(data)
         beginning=b'#9 0.01 G8_OVERLAP_RUN_BEGIN\n'
+        expected=payload_sha256(5)
         progress=lambda n:('#9 '+str(n)+'.0 G8_IO_SYNCED_SEQ='+str(n)+'\n').encode()
         prefixes={n:beginning+b''.join(progress(i) for i in range(1,n+1)) for n in range(1,6)}
-        err=prefixes[5]+b'#9 45.0 G8_IO_FINAL_SEQ=5\n#9 45.0 G8_IO_FINAL_SHA256='+IO_SHA256.encode()+b'\n#9 45.0 G8_OVERLAP_RUN_END\nCACHED\nexit code: 37\n'
-        if mode=='final-hash':err=err.replace(IO_SHA256.encode(),b'0'*64)
+        err=prefixes[5]+b'#9 45.0 G8_IO_FINAL_SEQ=5\n#9 45.0 G8_IO_FINAL_SHA256='+expected.encode()+b'\n#9 45.0 G8_OVERLAP_RUN_END\nCACHED\nexit code: 37\n'
+        if mode=='final-hash':err=err.replace(expected.encode(),b'0'*64)
         if mode=='final-count':err=err.replace(b'G8_IO_FINAL_SEQ=5',b'G8_IO_FINAL_SEQ=3')
-        out=(private/'workload.stdout').read_bytes()+b'G8_IO_IMAGE_SHA256='+IO_SHA256.encode()+b'\nG8_IO_IMAGE_BYTES=4194304\n'
-        if mode=='image-hash':out=out.replace(IO_SHA256.encode(),b'0'*64)
+        out=(private/'workload.stdout').read_bytes()+b'G8_IO_IMAGE_SHA256='+expected.encode()+b'\nG8_IO_IMAGE_BYTES=4194304\nG8_IO_IMAGE_HEADER=G8_IO_DATA_SEQ=0000005\n'
+        if mode=='image-hash':out=out.replace(expected.encode(),b'0'*64)
+        if mode=='stale-sequence':out=out.replace(b'G8_IO_DATA_SEQ=0000005',b'G8_IO_DATA_SEQ=0000004')
+        if mode=='stale-payload':out=out.replace(expected.encode(),payload_sha256(4).encode());err=err.replace(expected.encode(),payload_sha256(4).encode())
         if mode=='image-size':out=out.replace(b'G8_IO_IMAGE_BYTES=4194304',b'G8_IO_IMAGE_BYTES=4194303')
         workload=json.loads((work/'workload-checkpoint.json').read_bytes())
         workload.update(workload_stdout_sha256=write(private,'workload.stdout',out),workload_stderr_sha256=write(private,'workload.stderr',err))
@@ -65,7 +68,7 @@ class SyncedIOTests(unittest.TestCase):
                 with self.assertRaises(ValueError):inspect_fixture_recovery(work,BOOT,INV,scenario)
 
     def test_recomputed_receipts_cannot_mask_missing_outage_progress_data_drift_or_native_underreporting(self):
-        for mode in ['dead-no-progress','adopted-no-progress','final-hash','final-count','image-hash','image-size','missing-dead','not-dead','dead-clock','bool-sequence','native-underreports','native-bool','native-owner','native-offline','native-active','schema','masked-io']:
+        for mode in ['dead-no-progress','adopted-no-progress','final-hash','final-count','image-hash','image-size','stale-sequence','stale-payload','missing-dead','not-dead','dead-clock','bool-sequence','native-underreports','native-bool','native-owner','native-offline','native-active','schema','masked-io']:
             with tempfile.TemporaryDirectory() as d:
                 work=Path(d);self.fixture(work,mode)
                 with self.subTest(mode=mode),self.assertRaises(ValueError):inspect_fixture_recovery(work,BOOT,INV,'runtime-crash-during-io')
