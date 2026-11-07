@@ -1,5 +1,23 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Forced private-runtime crash after a completed child build (2026-11-07)
+
+Source `bcd11391` adds explicit SIGKILL/-9 recovery policy and scenario-bound
+same-boot predecessor validation. [Control and mutation proof](../../../evidence/runtime-20261107/g8-runtime-crash-controls/README.md)
+and [actual GCE execution/postrun audit](../../../evidence/runtime-20261107/g8-live-runtime-crash-bcd1139/README.md)
+pass. The replacement private runtime adopts the original child/engine/owner,
+another complete child-local build succeeds, original archive bytes survive,
+primary engine/inventories/services/network stay unchanged and native release,
+offline check and resource return pass. The earlier normal-restart predecessor
+is preserved and requalified; no transport reload occurs. Eleven actual-input
+refusals plus normal-policy refusal prevent cross-scope/forged acceptance.
+
+Only this after-build private-runtime crash subcase closes. In-flight I/O and
+other failure-matrix components, concurrency, retained failed recovery and cold
+restoration remain open, as do complete G7/G8. Completed empty cgroup leaves and
+idle candidate transport remain retained. Direct children use no nested
+virtualization and share host trust after child-kernel compromise.
+
 ## Normal private-runtime restart/build continuity (2026-11-07)
 
 The [receipt-bound restart contract](../contracts/runtime-restart-checkpoint.md)

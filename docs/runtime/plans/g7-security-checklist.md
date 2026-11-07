@@ -516,6 +516,13 @@ Do not replace a whole-task checkoff with another scoped kernel milestone.
   evidence under pressure. Coordinate diagnostic implementation with G8.
 
 - [ ] **SEC-09 — Execute the G7 failure and soak matrix (TM-08).**
+  [Normal private-runtime restart](../../../evidence/runtime-20261107/g8-live-runtime-restart-d3d2074/README.md)
+  and [forced SIGKILL after a completed child Docker build](../../../evidence/runtime-20261107/g8-live-runtime-crash-bcd1139/README.md)
+  pass exact-child/engine/owner continuity, a second build, original archive
+  preservation, primary parity and native/kernel resource release with
+  independent same-epoch audits. These cover only the identified private-daemon
+  after-build cases; in-flight I/O, other components, complete detection timing,
+  soak and the rest of SEC-09 remain open.
   [Native peer-log/resource bounds](../../../evidence/runtime-20261012/g7-storage-resource-bounds/README.md)
   retain256 refused hellos then healthy-client I/O with sub1KiB logs/canonical
   terminal evidence in a loopback real-server fixture, production musl/root

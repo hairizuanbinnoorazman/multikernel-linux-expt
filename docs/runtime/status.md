@@ -4,6 +4,25 @@ This page summarizes the results proved by the retained experiment and runtime
 evidence. Detailed procedures, architecture, learnings, and evidence contracts
 remain authoritative for their respective areas.
 
+## Forced private-runtime crash and child Docker continuity (2026-11-07)
+
+Source `bcd11391` passes [actual GCE SIGKILL/rebuild proof](../../evidence/runtime-20261107/g8-live-runtime-crash-bcd1139/README.md)
+on boot `5ad22222`. After the first build, the private runtime is killed and its
+replacement adopts the same child/engine/owner. A second complete build matrix
+passes, preserving the original archive. Independent audit qualifies exact
+image absence, unchanged primary Docker/network/services, native release/offline
+checking and resource return. The prior normal-restart evidence stays intact
+and qualified; candidate transport is reused without reload. [Local controls and
+guard-removal mutation](../../evidence/runtime-20261107/g8-runtime-crash-controls/README.md),
+root controls and eleven actual-input refusal controls pass. Normal-restart
+policy refuses crash evidence.
+
+Only the after-build forced private-runtime crash subcase closes. In-flight I/O,
+other components, wider recovery/concurrency, retained failed-generation recovery,
+cold restoration and full G7/G8 remain open. Empty completed cgroup leaves and
+idle candidate transport remain retained. No nested virtualization is used;
+child-kernel compromise still shares primary trust.
+
 ## Normal private-runtime restart and child Docker rebuild (2026-11-07)
 
 Source `d3d20749` passes [actual GCE restart/build proof](../../evidence/runtime-20261107/g8-live-runtime-restart-d3d2074/README.md)

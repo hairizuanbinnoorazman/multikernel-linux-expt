@@ -56,4 +56,12 @@ arbitrary child-kernel compromise.
 
 The forced-crash extension passes local signal/status/scenario, receipt drift,
 engine drift and predecessor scope/type controls; disabling only the crash
-receipt flag check is detected. Its actual live qualification is pending.
+receipt flag check is detected. [Actual GCE forced-crash proof](../../../evidence/runtime-20261107/g8-live-runtime-crash-bcd1139/README.md)
+passes source `bcd11391`, both exact unit invocations and independent postrun
+audit. It preserves and requalifies the original normal-restart predecessor
+without transport reload, completes a second child build and normal release,
+and passes eleven actual-input refusal controls plus default-normal-policy
+refusal. Seven recovery/four reuse/four audit/four layout groups pass as root.
+The fault occurs after the first build while its child stays alive. In-flight
+build crash, other components, wider recovery/concurrency, cold restoration and
+full G7/G8 remain open.
