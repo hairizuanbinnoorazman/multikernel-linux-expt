@@ -13,7 +13,8 @@ from runtime_trial_reuse import qualify as qualify_trial_reuse
 from runtime_fixture_epoch import unit_properties, qualify_unit_epoch
 from runtime_diagnostic_bundle_checkpoint import read_fixture_artifact
 from runtime_module_taint import expected_module_taint
-from runtime_trial_layout import stage_path
+from runtime_trial_layout import stage_path,scenario_flag,workload_unit
+from runtime_recovery_checkpoint import inspect_fixture_recovery
 P=pathlib.Path
 BOOT=os.environ['MK_MODULE_TRIAL_BOOT_ID'];assert str(uuid.UUID(BOOT))==BOOT
 MODULE=P('/opt/mkruntime/g8-vsock-rx-b688447')
@@ -24,6 +25,8 @@ assert re.fullmatch(r'[0-9a-f]{64}',ARCHIVE_SHA),'expected a pinned source archi
 STAGE_LOCATION=os.environ.get('MK_MODULE_TRIAL_STAGE_LOCATION','storage')
 WORK=stage_path(REVISION,STAGE_LOCATION)
 RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1','fifo','crash']
+SCENARIO=os.environ.get('MK_MODULE_TRIAL_SCENARIO','pressure');scenario_flag(SCENARIO)
+assert SCENARIO=='pressure' or RECORD_FAULT=='0'
 REUSE=os.environ.get('MK_MODULE_TRIAL_PRIOR_REVISION','');assert not REUSE or re.fullmatch('[a-f0-9]{7,40}',REUSE)
 OLD='65C55BB38C669FF94A4B772';NEW='0450DCCF7EDC67FAE2A6CAA'
 OLD_SHA='bef1b888e7c66705f0d652b1437a239835584f2fb376ad6bfea2a77ecaa1c3d2'
@@ -97,13 +100,13 @@ if REUSE:
             assert current['ControlGroup']=='/system.slice/'+name
             check_empty(P('/sys/fs/cgroup')/current['ControlGroup'].lstrip('/'))
     assert primary()==prior['primary_after']
-state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'stage_location':STAGE_LOCATION,'candidate_reused_without_reload':bool(REUSE),'prior_trial_sha256':prior_sha if REUSE else None,'events':[]}
+state={'boot_id':BOOT,'original_sha256':OLD_SHA,'candidate_sha256':NEW_SHA,'nbd_sha256':NBD_SHA,'helper_selection':helper_selection,'relay_selection':relay_selection,'parent_scope':scope,'vsock_before':vsock_before,'primary_before':primary(),'taint_before':P('/proc/sys/kernel/tainted').read_text().strip(),'trial_driver_sha256':sha(__file__),'harness_source_commit':REVISION,'source_archive_sha256':ARCHIVE_SHA,'native_record_fault_requested':RECORD_FAULT!='0','native_record_fault_kind':RECORD_FAULT,'stage_location':STAGE_LOCATION,'scenario':SCENARIO,'candidate_reused_without_reload':bool(REUSE),'prior_trial_sha256':prior_sha if REUSE else None,'events':[]}
 def record(phase,**values):
     state.update(values);state['events'].append({'phase':phase,'monotonic_ns':time.monotonic_ns(),'loaded_srcversion':loaded(),'module_refcnt':int(P('/sys/module/mk_transport/refcnt').read_text()) if loaded() else None})
     temporary=trial/'receipt.tmp';temporary.write_text(json.dumps(state,indent=2)+'\n');temporary.chmod(0o600);os.replace(temporary,trial/'primary-module-trial.json')
 def interrupted(signum,frame):raise RuntimeError('module trial interrupted by signal '+str(signum))
 signal.signal(signal.SIGTERM,interrupted);signal.signal(signal.SIGINT,interrupted)
-pressure='g8-host-docker-storage-pressure-'+REVISION+'.service';removed=False;failure=None
+pressure=workload_unit(REVISION,SCENARIO);removed=False;failure=None
 record('preflight')
 try:
     if REUSE:
@@ -111,7 +114,7 @@ try:
     else:
         run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
         run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
-    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else '--storage-pressure','--harden-services'])
+    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else scenario_flag(SCENARIO),'--harden-services'])
     deadline=time.monotonic()+1230;invocation=None
     while True:
         observed=show(pressure,'InvocationID','MainPID','ActiveState','SubState','Result','ExecMainStatus')
@@ -123,9 +126,13 @@ try:
     record('pressure-terminal',pressure_scope=observed,pressure_invocation=invocation)
     if RECORD_FAULT!='crash' and observed['Result']=='success' and observed['ExecMainStatus']=='0':
         protected(WORK/'integration')
-        timings=inspect_fixture_lifecycle_timings(WORK,BOOT,invocation)
-        health_timings=inspect_fixture_health(WORK,BOOT,invocation)
-        record('diagnostic-checkpoint-timings-qualified',diagnostic_checkpoint_timings=timings,health_checkpoint_timings=health_timings)
+        if SCENARIO=='pressure':
+            timings=inspect_fixture_lifecycle_timings(WORK,BOOT,invocation)
+            health_timings=inspect_fixture_health(WORK,BOOT,invocation)
+            record('diagnostic-checkpoint-timings-qualified',diagnostic_checkpoint_timings=timings,health_checkpoint_timings=health_timings)
+        else:
+            recovery=inspect_fixture_recovery(WORK,BOOT,invocation)
+            record('runtime-recovery-checkpoint-qualified',runtime_recovery_checkpoint=recovery)
 except BaseException as error:
     failure=error;record('trial-error',error=str(error))
 finally:

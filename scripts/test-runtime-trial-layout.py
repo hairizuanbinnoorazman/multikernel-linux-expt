@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import unittest
-from runtime_trial_layout import stage_path,validate_stage
+from runtime_trial_layout import stage_path,validate_stage,scenario_flag,workload_unit
 
 class LayoutTests(unittest.TestCase):
     def test_storage_default_is_separate_from_image_directory(self):
@@ -10,6 +10,11 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(validate_stage(p,'abcdef0'),p)
     def test_legacy_layout_stays_explicit_and_inspectable(self):
         p=stage_path('abcdef0','root');self.assertEqual(p,Path('/opt/mkruntime/g8-host-abcdef0'));self.assertEqual(validate_stage(p),p)
+    def test_scenario_cannot_inject_a_command_or_unit(self):
+        self.assertEqual(scenario_flag('runtime-restart'),'--restart-runtime')
+        self.assertEqual(workload_unit('abcdef0','runtime-restart'),'g8-host-docker-runtime-restart-abcdef0.service')
+        for bad in ['--crash-runtime','restart; other',None,True]:
+            with self.assertRaises(ValueError):scenario_flag(bad)
     def test_unknown_root_traversal_alias_prefix_or_revision_refuses(self):
         for p in ['/tmp/g8-host-abcdef0','/srv/multikernel-storage/g8-host-abcdef0','/opt/mkruntime/g8-host-abcdef0/../g8-host-1234567','/opt/mkruntime-evil/g8-host-abcdef0','relative','/opt/mkruntime/g8-host-private-canary']:
             with self.subTest(path=p),self.assertRaisesRegex(ValueError,'^invalid private trial layout$'):validate_stage(p)

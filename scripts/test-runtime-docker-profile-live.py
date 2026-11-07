@@ -45,7 +45,7 @@ harden_services='--harden-services' in flags
 concurrent='--concurrent' in flags
 assert not (concurrent and restart_runtime), 'concurrency and restart are separate bounded scenarios'
 work=pathlib.Path(sys.argv[1]);source=pathlib.Path(sys.argv[2])
-assert work.is_absolute() and source.is_absolute()
+assert work.is_absolute() and source.is_absolute() and source==work/'source'
 assert validate_stage(work)==work
 for path in [work,work/'bin',source,source/'scripts']:
  st=path.stat();assert path.is_dir() and not path.is_symlink() and st.st_uid==0 and st.st_mode&0o022==0
@@ -241,11 +241,22 @@ try:
      child_boot=boot_result.stdout.decode().strip()
      assert child_boot!=boot and len(child_boot)==36
      assert engine['ID'] and engine['KernelVersion']==profile['kernel_release'] and engine['ServerVersion']=='29.9.0'
+     assert fingerprint(engine['ID'])!=primary_docker_before['engine_id_sha256'],'guest selected the primary Docker engine'
      result={'child_boot_id':child_boot,'engine_id':engine['ID'],'ownership':ownership['sandboxes']}
      if include_image:
       result['saved_image_sha256']=image_result.stdout.decode().split()[0];assert len(result['saved_image_sha256'])==64
      return result
+    def build_image_id(raw):
+     values=re.findall(rb'^G8_BUILD_IMAGE_ID=(sha256:[a-f0-9]{64})$',raw,re.M);assert len(values)==1,'expected one exact built image marker'
+     return values[0].decode()
+    def recovery_primary(phase,image_id):
+     observation=observe_primary_docker(image_id);check_primary_docker(primary_docker_before,observation)
+     assert observation['child_image_absent'],'child-built image appeared in primary Docker'
+     destination=private/('primary-docker-recovery-'+phase+'.json');destination.write_text(json.dumps(observation,indent=2)+'\n')
+     return sha(destination)
+    original_image_id=None if crash_during_build else build_image_id((private/'workload.stdout').read_bytes())
     prior=child_snapshot('before',not crash_during_build);old_pid=m.pid
+    primary_before_recovery=None if crash_during_build else recovery_primary('before',original_image_id)
     assert m.poll() is None,'runtime already stopped before the intentional restart'
     runtime_arguments=m.args
     if crash_during_build:record_active_run('before-kill',old_pid)
@@ -259,6 +270,7 @@ try:
     m=start(runtime_arguments,'mkruntimed-restarted.log');wait(daemon_socket,m);observe_service(m,'mkruntimed')
     assert m.pid!=old_pid and m.poll() is None
     subsequent=child_snapshot('after',not crash_during_build);assert subsequent==prior,'child/engine/image/ownership changed across runtime restart'
+    primary_after_recovery=None if crash_during_build else recovery_primary('after',original_image_id)
     if crash_during_build:
      record_active_run('after-adoption',m.pid)
      while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
@@ -274,6 +286,8 @@ try:
     for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_IMAGE_SAVE_EXIT=0','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:assert marker.encode() in rebuilt.stdout,marker
     assert b'CACHED' in rebuilt.stderr and b'exit code: 37' in rebuilt.stderr
     rebuilt_state=child_snapshot('after-build')
+    post_recovery_image_id=build_image_id(rebuilt.stdout)
+    primary_after_rebuild=recovery_primary('after-rebuild',post_recovery_image_id)
     assert all(rebuilt_state[key]==prior[key] for key in ['child_boot_id','engine_id','ownership'])
     old_image=run(cli+['exec','--user','1000:1000','g8-materialization','/usr/bin/sha256sum','/home/rootless/.local/tmp/g8-build-before-restart/image.tar'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     (private/'post-recovery-original-image.stdout').write_bytes(old_image.stdout);(private/'post-recovery-original-image.stderr').write_bytes(old_image.stderr)
@@ -282,6 +296,7 @@ try:
     recovery['runtime_exit_checkpoint_sha256']=sha(work/'runtime-exit-checkpoint.json')
     recovery['completed_first_build']=completed_first
     recovery['crash_during_build']=crash_during_build
+    recovery.update(schema_version=2,original_image_id=original_image_id,post_recovery_image_id=post_recovery_image_id,original_image_sha256_after_rebuild=old_image.stdout.decode().split()[0],primary_docker_before_recovery_sha256=primary_before_recovery,primary_docker_after_recovery_sha256=primary_after_recovery,primary_docker_after_rebuild_sha256=primary_after_rebuild)
     if crash_during_build:recovery['active_run_checkpoint_sha256']=sha(work/'active-run-checkpoint.json')
     (work/'recovery-checkpoint.json').write_text(json.dumps(recovery,indent=2)+'\n')
     run(cli+['kill','--signal=USR1','g8-materialization'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)

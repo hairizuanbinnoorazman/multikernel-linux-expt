@@ -82,6 +82,7 @@ docker build --progress=plain --network=none --pull=false -t g8-proof:cached "$w
 echo G8_REPEAT_BUILD_PASS
 test "$(docker run --rm --network=none g8-proof:latest)" = multikernel-production-docker-build
 echo G8_BUILT_IMAGE_RUN_PASS
+echo "G8_BUILD_IMAGE_ID=$(docker image inspect --format '{{.Id}}' g8-proof:latest)"
 echo G8_NESTED_AUTHORITY_BEGIN
 docker run --rm --network=none g8-proof:latest /bin/busybox sh -ec \
     '/bin/busybox id; /bin/busybox grep -E "^(CapEff|NoNewPrivs|Seccomp):" /proc/self/status; /bin/busybox cat /proc/self/uid_map'

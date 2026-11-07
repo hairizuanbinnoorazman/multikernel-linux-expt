@@ -22,3 +22,15 @@ def validate_stage(value, revision=None):
     if not re.fullmatch('[a-f0-9]{7,40}',suffix) or revision is not None and suffix!=revision:
         raise ValueError('invalid private trial layout')
     return path
+
+
+def scenario_flag(value):
+    if type(value) is not str or value not in {'pressure','runtime-restart'}:
+        raise ValueError('invalid private trial scenario')
+    return '--storage-pressure' if value=='pressure' else '--restart-runtime'
+
+
+def workload_unit(revision,scenario):
+    stage_path(revision);scenario_flag(scenario)
+    kind='storage-pressure' if scenario=='pressure' else 'runtime-restart'
+    return 'g8-host-docker-'+kind+'-'+revision+'.service'

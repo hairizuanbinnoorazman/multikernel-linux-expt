@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only same-boot audit of a committed disposable Docker pressure trial.
+"""Read-only same-boot audit of a committed Docker pressure or runtime-restart trial.
 
 Print only fixed outcome flags and caller-pinned source/epoch identities. Raw
 receipts, guest streams, backing paths and inventory fingerprints stay private.
@@ -15,7 +15,7 @@ import stat
 import subprocess as sp
 import sys
 import tarfile
-from runtime_trial_layout import validate_stage
+from runtime_trial_layout import validate_stage,scenario_flag,workload_unit
 
 
 def digest(path, limit=128 << 20):
@@ -82,6 +82,7 @@ def empty_cgroup(directory):
 def audit(args):
     work = args.work
     validate_stage(work,args.source_commit[:7])
+    scenario=getattr(args,'scenario','pressure');scenario_flag(scenario)
     if (os.geteuid() != 0 or not work.is_absolute() or str(work) != os.path.normpath(work) or
             work.name != 'g8-host-' + args.source_commit[:7] or
             not re.fullmatch('[a-f0-9]{40}', args.source_commit) or
@@ -129,7 +130,7 @@ def audit(args):
 
     boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
     units = [('g8-vsock-rx-trial-' + args.source_commit[:7] + '-release.service', args.parent_invocation),
-             ('g8-host-docker-storage-pressure-' + args.source_commit[:7] + '.service', args.workload_invocation)]
+             (workload_unit(args.source_commit[:7],scenario), args.workload_invocation)]
     retained_empty_cgroup = False
     for unit, invocation in units:
         text = sp.check_output(['systemctl', 'show', unit, '-p', 'MainPID', '-p', 'InvocationID',
@@ -151,9 +152,11 @@ def audit(args):
         raise ValueError('lifecycle receipt differs from exact epoch')
     for key in ['host_docker_selects_multikernel', 'production_profile_child_build_pass', 'private_mount_namespace',
                 'private_daemon_state', 'network_rules_and_links_restored', 'pool_released', 'production_files_unchanged',
-                'four_service_pids_unchanged', 'strict_source_comparison', 'storage_pressure_tested', 'service_capability_nnp_tested']:
+                'four_service_pids_unchanged', 'strict_source_comparison', 'service_capability_nnp_tested']:
         if receipt[key] is not True:
             raise ValueError('lifecycle outcome is unqualified')
+    if receipt.get('storage_pressure_tested') is not (scenario=='pressure'):
+        raise ValueError('trial scenario differs from caller authority')
     if receipt['execution_script_sha256'] != digest(work/'source/scripts/test-runtime-docker-profile-live.py'):
         raise ValueError('execution source differs from receipt')
     if receipt['source_image_archive_sha256'] != digest(private/'approved-image.tar', 1 << 30):
@@ -163,72 +166,80 @@ def audit(args):
         raise ValueError('workload checkpoint differs from lifecycle receipt')
     if workload['runtime_program_hashes'] != {name:build['binaries'][name] for name in ['mkruntimed','mknetd','containerd-shim-multikernel-v2']}:
         raise ValueError('runtime receipt differs from staged programs')
-    families = {'runtime_doctor': 'doctor', 'runtime_network_health': 'network-health', 'runtime_journal_status': 'journal-status',
-                'runtime_pool_doctor': 'pool-doctor', 'runtime_unified_doctor': 'unified-doctor',
-                'runtime_component_build': 'component-builds', 'runtime_operational_doctor': 'operational-doctor',
-                'runtime_diagnostic_checkpoint_timing': 'diagnostic-checkpoint-timing',
-                'runtime_diagnostic_bundle_receipt': 'diagnostic-bundle', 'runtime_diagnostic_bundle_identity': 'diagnostic-bundle'}
-    for family, prefix in families.items():
-        suffix = '-receipt' if family.endswith('_receipt') else '-identity' if family.endswith('_identity') else ''
+    live_health=False;timings=None
+    if scenario=='pressure':
+        families = {'runtime_doctor': 'doctor', 'runtime_network_health': 'network-health', 'runtime_journal_status': 'journal-status',
+                    'runtime_pool_doctor': 'pool-doctor', 'runtime_unified_doctor': 'unified-doctor',
+                    'runtime_component_build': 'component-builds', 'runtime_operational_doctor': 'operational-doctor',
+                    'runtime_diagnostic_checkpoint_timing': 'diagnostic-checkpoint-timing',
+                    'runtime_diagnostic_bundle_receipt': 'diagnostic-bundle', 'runtime_diagnostic_bundle_identity': 'diagnostic-bundle'}
+        for family, prefix in families.items():
+            suffix = '-receipt' if family.endswith('_receipt') else '-identity' if family.endswith('_identity') else ''
+            for phase in ['while-full', 'while-image-ready', 'after-remove']:
+                if digest(private/(prefix+'-'+phase+suffix+'.json')) != receipt[family+'_sha256'][phase]:
+                    raise ValueError('archived observation differs from lifecycle receipt')
+        full = read(work, 'storage-pressure-full-checkpoint.json')
+        owner = full['owner']
+        labels = read(work, 'compiled-labels.json')
         for phase in ['while-full', 'while-image-ready', 'after-remove']:
-            if digest(private/(prefix+'-'+phase+suffix+'.json')) != receipt[family+'_sha256'][phase]:
-                raise ValueError('archived observation differs from lifecycle receipt')
-    full = read(work, 'storage-pressure-full-checkpoint.json')
-    owner = full['owner']
-    labels = read(work, 'compiled-labels.json')
-    for phase in ['while-full', 'while-image-ready', 'after-remove']:
-        def report(prefix):
-            return read(private, prefix+'-'+phase+'.json')
-        storage, network = report('doctor'), report('network-doctor')
-        released = phase == 'after-remove'
-        # These are archived observations already accepted at each live hold.
-        # Rebind exact product bytes; do not claim a fresh native CHECK or
-        # reconstruct a deleted private endpoint from public metadata.
-        data = raw(private, 'diagnostic-bundle-'+phase+'.json', 1 << 20)
-        product = envelope(data, raw(private, 'diagnostic-bundle-'+phase+'-receipt.json'), 'consistent')
-        components, operational = report('component-builds'), report('operational-doctor')
-        bind(product, components, operational)
-        if (operational['version'] != 7 or operational['status'] != 'consistent' or
-                operational['boot_id'] != boot or not operational['boot_stable'] or
-                operational['unified'] != report('unified-doctor') or operational['components'] != components or
-                operational['unified']['combined'] != report('combined-doctor') or
-                operational['unified']['pool'] != report('pool-doctor') or operational['findings']):
-            raise ValueError('archived diagnostic references differ')
-        from runtime_doctor_checkpoint import qualify as qualify_storage
-        from runtime_pool_doctor_checkpoint import qualify as qualify_pool
-        from runtime_component_build_checkpoint import qualify as qualify_components
-        qualify_storage(json.dumps(storage).encode(), boot, owner, released=released)
-        qualify_pool(raw(private, 'pool-doctor-'+phase+'.json'), boot, owner, storage, released=released)
-        qualify_components(raw(private, 'component-builds-'+phase+'.json'), boot, storage['revision'], labels['versions'], labels['revisions'])
-        qualify_journal(raw(private, 'journal-status-'+phase+'.json'), boot, owner, storage, released=released)
-        health = report('network-health')
-        expected = dict(version=1, source='host-network-backend-check', primary_boot_id=boot,
-                        status='idle' if released else 'checked', endpoints=[dict(endpoint_generation=e['endpoint_generation'],
-                        descriptor_sha256=e['descriptor_sha256'], code='CHECK_PASSED') for e in network['network']['endpoints']])
-        if health != expected:
-            raise ValueError('archived network health differs')
-        path = private/('diagnostic-bundle-'+phase+'.json')
-        info = path.lstat()
-        bound = read(private, 'diagnostic-bundle-'+phase+'-identity.json')
-        if (stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != 0 or info.st_nlink != 1 or
-                bound != dict(device=info.st_dev, inode=info.st_ino, uid=info.st_uid, links=info.st_nlink,
-                              mode='0600', bytes=info.st_size, sha256=digest(path))):
-            raise ValueError('original diagnostic artifact identity changed')
-        if digest(path) != receipt['runtime_diagnostic_bundle_sha256'][phase]:
-            raise ValueError('diagnostic artifact differs from lifecycle receipt')
-    timings = inspect_fixture_lifecycle_timings(work, boot, args.workload_invocation)
-    parent = read(Path('/opt/mkruntime/g8-vsock-rx-b688447')/('trial-'+work.name), 'primary-module-trial.json')
-    if (parent['boot_id'] != boot or parent['parent_scope']['InvocationID'] != args.parent_invocation or
-            parent['pressure_invocation'] != args.workload_invocation or parent['diagnostic_checkpoint_timings'] != timings or
-            parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or
-            parent.get('cold_restore_required') is not True):
-        raise ValueError('parent checkpoint differs from exact lifecycle')
-    live_health = receipt.get('runtime_health_bundle_tested') is True
-    if live_health:
-        from runtime_health_bundle_checkpoint import inspect_fixture_health
-        health_timings = inspect_fixture_health(work, boot, args.workload_invocation)
-        if parent.get('health_checkpoint_timings') != health_timings:
-            raise ValueError('parent health checkpoint differs from lifecycle receipt')
+            def report(prefix):
+                return read(private, prefix+'-'+phase+'.json')
+            storage, network = report('doctor'), report('network-doctor')
+            released = phase == 'after-remove'
+            # These are archived observations already accepted at each live hold.
+            # Rebind exact product bytes; do not claim a fresh native CHECK or
+            # reconstruct a deleted private endpoint from public metadata.
+            data = raw(private, 'diagnostic-bundle-'+phase+'.json', 1 << 20)
+            product = envelope(data, raw(private, 'diagnostic-bundle-'+phase+'-receipt.json'), 'consistent')
+            components, operational = report('component-builds'), report('operational-doctor')
+            bind(product, components, operational)
+            if (operational['version'] != 7 or operational['status'] != 'consistent' or
+                    operational['boot_id'] != boot or not operational['boot_stable'] or
+                    operational['unified'] != report('unified-doctor') or operational['components'] != components or
+                    operational['unified']['combined'] != report('combined-doctor') or
+                    operational['unified']['pool'] != report('pool-doctor') or operational['findings']):
+                raise ValueError('archived diagnostic references differ')
+            from runtime_doctor_checkpoint import qualify as qualify_storage
+            from runtime_pool_doctor_checkpoint import qualify as qualify_pool
+            from runtime_component_build_checkpoint import qualify as qualify_components
+            qualify_storage(json.dumps(storage).encode(), boot, owner, released=released)
+            qualify_pool(raw(private, 'pool-doctor-'+phase+'.json'), boot, owner, storage, released=released)
+            qualify_components(raw(private, 'component-builds-'+phase+'.json'), boot, storage['revision'], labels['versions'], labels['revisions'])
+            qualify_journal(raw(private, 'journal-status-'+phase+'.json'), boot, owner, storage, released=released)
+            health = report('network-health')
+            expected = dict(version=1, source='host-network-backend-check', primary_boot_id=boot,
+                            status='idle' if released else 'checked', endpoints=[dict(endpoint_generation=e['endpoint_generation'],
+                            descriptor_sha256=e['descriptor_sha256'], code='CHECK_PASSED') for e in network['network']['endpoints']])
+            if health != expected:
+                raise ValueError('archived network health differs')
+            path = private/('diagnostic-bundle-'+phase+'.json')
+            info = path.lstat()
+            bound = read(private, 'diagnostic-bundle-'+phase+'-identity.json')
+            if (stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != 0 or info.st_nlink != 1 or
+                    bound != dict(device=info.st_dev, inode=info.st_ino, uid=info.st_uid, links=info.st_nlink,
+                                  mode='0600', bytes=info.st_size, sha256=digest(path))):
+                raise ValueError('original diagnostic artifact identity changed')
+            if digest(path) != receipt['runtime_diagnostic_bundle_sha256'][phase]:
+                raise ValueError('diagnostic artifact differs from lifecycle receipt')
+        timings = inspect_fixture_lifecycle_timings(work, boot, args.workload_invocation)
+        parent = read(Path('/opt/mkruntime/g8-vsock-rx-b688447')/('trial-'+work.name), 'primary-module-trial.json')
+        if (parent['boot_id'] != boot or parent['parent_scope']['InvocationID'] != args.parent_invocation or
+                parent['pressure_invocation'] != args.workload_invocation or parent['diagnostic_checkpoint_timings'] != timings or
+                parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or
+                parent.get('cold_restore_required') is not True):
+            raise ValueError('parent checkpoint differs from exact lifecycle')
+        live_health = receipt.get('runtime_health_bundle_tested') is True
+        if live_health:
+            from runtime_health_bundle_checkpoint import inspect_fixture_health
+            health_timings = inspect_fixture_health(work, boot, args.workload_invocation)
+            if parent.get('health_checkpoint_timings') != health_timings:
+                raise ValueError('parent health checkpoint differs from lifecycle receipt')
+    else:
+        from runtime_recovery_checkpoint import inspect_fixture_recovery
+        recovery=inspect_fixture_recovery(work,boot,args.workload_invocation)
+        parent=read(Path('/opt/mkruntime/g8-vsock-rx-b688447')/('trial-'+work.name),'primary-module-trial.json')
+        if (parent.get('scenario')!='runtime-restart' or parent.get('runtime_recovery_checkpoint')!=recovery or parent['boot_id']!=boot or parent['parent_scope']['InvocationID']!=args.parent_invocation or parent['pressure_invocation']!=args.workload_invocation or parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or parent.get('cold_restore_required') is not True):
+            raise ValueError('parent recovery checkpoint differs from exact lifecycle')
     before, after = read(private, 'primary-before.json'), read(private, 'primary-after.json')
     if before != after or before['boot_id'] != boot:
         raise ValueError('primary baseline differs')
@@ -239,17 +250,18 @@ def audit(args):
         if sp.check_output(['systemctl', 'show', name, '-p', 'MainPID', '--value'], text=True, timeout=10).strip() != pid:
             raise ValueError('primary service changed')
     docker_before = read(private, 'primary-docker-before.json')
-    for phase in ['while-full', 'while-image-ready', 'after']:
+    for phase in (['while-full', 'while-image-ready', 'after'] if scenario=='pressure' else ['after']):
         unchanged(docker_before, read(private, 'primary-docker-'+phase+'.json'))
-    image = read(work, 'storage-pressure-image-checkpoint.json')
-    image_primary = read(private, 'primary-docker-while-image-ready.json')
-    from runtime_primary_docker import fingerprint
-    if (image['boot_id'] != boot or image['invocation_id'] != args.workload_invocation or
-            image['child_image_absent_from_primary'] is not True or image_primary['child_image_absent'] is not True or
-            image_primary['checked_absent_image'] != image['guest_image_id'] or
-            fingerprint(image['guest_engine_id']) == docker_before['engine_id_sha256'] or
-            digest(private/'primary-docker-while-image-ready.json') != image['primary_snapshot_sha256']):
-        raise ValueError('child-local Docker identity/absence is unqualified')
+    if scenario=='pressure':
+        image = read(work, 'storage-pressure-image-checkpoint.json')
+        image_primary = read(private, 'primary-docker-while-image-ready.json')
+        from runtime_primary_docker import fingerprint
+        if (image['boot_id'] != boot or image['invocation_id'] != args.workload_invocation or
+                image['child_image_absent_from_primary'] is not True or image_primary['child_image_absent'] is not True or
+                image_primary['checked_absent_image'] != image['guest_image_id'] or
+                fingerprint(image['guest_engine_id']) == docker_before['engine_id_sha256'] or
+                digest(private/'primary-docker-while-image-ready.json') != image['primary_snapshot_sha256']):
+            raise ValueError('child-local Docker identity/absence is unqualified')
     unchanged(docker_before, observe())
     for name in ['iptables-save', 'ip6tables-save']:
         a = firewall_identity(raw(private, 'firewall-before-'+name+'.rules'))
@@ -259,7 +271,7 @@ def audit(args):
         if raw(private, name+'-before.log') != raw(private, name+'-after.log') or raw(private, name+'-before.log') != sp.check_output(command, timeout=10):
             raise ValueError('primary network changed')
     stdout, stderr = raw(private, 'workload.stdout', 131072), raw(private, 'workload.stderr', 131072)
-    recovered_observation(stdout.decode(), stderr.decode())
+    if scenario=='pressure':recovered_observation(stdout.decode(), stderr.decode())
     markers = ['G8_MULTISTAGE_BUILD_PASS', 'G8_REPEAT_BUILD_PASS', 'G8_BUILT_IMAGE_RUN_PASS', 'G8_FAILED_BUILD_REJECTED', 'G8_BUILD_RESOURCES_REMOVED', 'G8_BUILD_WORKLOAD_PASS']
     if any(stdout.splitlines().count(m.encode()) != 1 for m in markers) or b'CACHED' not in stderr or b'exit code: 37' not in stderr:
         raise ValueError('build matrix is unqualified')
@@ -294,7 +306,7 @@ def audit(args):
     exports = list(read(private/'storage-state', 'state.json')['exports'].values())
     if len(exports) != 1 or exports[0]['state'] != 'RELEASED' or not re.fullmatch('e2fsck-clean-sha256:[a-f0-9]{64}', exports[0].get('offline_check', '')):
         raise ValueError('native release/offline check is unqualified')
-    if exports[0]['counters']['written_bytes'] < full['guest_full']['pressure_file_bytes']:
+    if exports[0]['counters']['written_bytes'] < (full['guest_full']['pressure_file_bytes'] if scenario=='pressure' else 1):
         raise ValueError('native counters do not cover pressure writes')
     if read(private/'rootfs-state', 'state.json')['records'] or read(private/'network-state', 'state.json')['endpoints']:
         raise ValueError('private ownership remains')
@@ -307,16 +319,17 @@ def audit(args):
     if len(sp.check_output(['ss', '-A', 'vsock', '-an'], text=True, timeout=10).splitlines()) != 1 or 'No memory pool configured' not in sp.check_output(['/opt/mkruntime/kerf-venv/bin/kerf', 'show'], text=True, timeout=10):
         raise ValueError('VSOCK or pool resources remain')
     return dict(schema=1, source_commit=args.source_commit, boot_id=boot, parent_invocation=args.parent_invocation,
-                workload_invocation=args.workload_invocation, same_epoch_completion=True, live_health_pair_qualified=live_health, trial_scratch_private_mount_qualified=receipt.get('private_trial_tmp_tested') is True, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=True,
-                diagnostic_three_hold_receipts_requalified=True, primary_docker_and_network_preserved=True,
+                workload_invocation=args.workload_invocation, same_epoch_completion=True, live_health_pair_qualified=live_health, trial_scratch_private_mount_qualified=receipt.get('private_trial_tmp_tested') is True, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=scenario=='pressure', runtime_restart_build_continuity_qualified=scenario=='runtime-restart',
+                diagnostic_three_hold_receipts_requalified=scenario=='pressure', primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,
-                diagnostic_maximum_elapsed_ns=timings['maximum_elapsed_ns'])
+                diagnostic_maximum_elapsed_ns=timings['maximum_elapsed_ns'] if timings else 0)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
+    parser.add_argument('--scenario',choices=['pressure','runtime-restart'],default='pressure')
     for name in ['boot-id', 'parent-invocation', 'workload-invocation', 'source-commit', 'build-sha256']:
         parser.add_argument('--'+name, required=True)
     args = parser.parse_args()

@@ -1,0 +1,39 @@
+# Private runtime restart and child Docker continuity
+
+The disposable module-trial driver accepts only the named `pressure` or
+`runtime-restart` scenario through `MK_MODULE_TRIAL_SCENARIO`. The latter runs
+the existing normal SIGTERM private-daemon restart workflow. It does not restart
+the installed primary services. Record-fault modes cannot be mixed into this
+scenario, and unsupported scenarios/paths refuse before trial mutation.
+
+The workload completes its original child-local build matrix and holds the
+child alive. Before and after the private runtime restart it samples child boot,
+Docker engine, exact running owner and saved-archive identity. The replacement
+runtime must have a different PID in the same boot and adopt the original child.
+A second build matrix executes through the recovered control plane, while the
+original saved archive remains byte-identical. Only the normal restart scenario
+is qualified by the new version-2 recovery checkpoint; legacy/crash checkpoints
+cannot silently inherit this scope.
+
+The build probe emits an exact image-ID marker before removing its build
+resources. Primary Docker observations around restart and after rebuild require
+both exact built-image absence and unchanged engine/inventories. The child
+engine must differ from the primary. The recovery checkpoint binds these
+observations, the runtime exit tuple and both bounded post-recovery streams.
+The parent reads the exact root lifecycle receipt and independently qualifies
+continuity, original archive preservation, successful rebuild and isolation;
+matching recomputed digests cannot mask a changed child/owner or primary engine.
+
+The postrun audit selects its scenario explicitly and repeats receipt/reference
+checks plus normal native release/offline checking, current resource return and
+primary file/service/Docker/network parity. Recovery snapshots themselves always
+leave cleanup unqualified. This scenario collects no ENOSPC/v8/v2 hold sequences;
+pressure qualification and readiness remain separate. Current source uses direct
+storage staging with private unit scratch, without a host-wide stage alias.
+
+Local controls pass canonical recovery, wrong boot/invocation/signal/PID,
+child/engine/owner/archive drift, duplicate/oversize input, missing build markers
+and forged image absence even with recomputed receipt hashes. Actual execution
+is pending separately retained live evidence. Full G7/G8 remain open. Direct
+child kernels use no nested virtualization and share primary trust after
+arbitrary child-kernel compromise.
