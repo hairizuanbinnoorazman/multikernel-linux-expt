@@ -57,23 +57,14 @@ func superviseShimWorker() int {
 		return 1
 	}
 	_ = listener.Close()
-	defer publicListener.Close()
-	containerdConnection, err := publicListener.Accept()
+	router := newShimInspectionRouter(publicListener)
+	defer router.close()
+	containerdConnection, err := router.taskConnection(0)
 	if err != nil {
 		diagnostics.emit(supervisorAcceptFailed, 0, 0, 0)
 		return 1
 	}
-	reconnect := func(timeout time.Duration) (net.Conn, error) {
-		deadline := time.Now().Add(timeout)
-		if deadlineListener, ok := publicListener.(interface{ SetDeadline(time.Time) error }); ok {
-			if err := deadlineListener.SetDeadline(deadline); err != nil {
-				return nil, err
-			}
-			defer deadlineListener.SetDeadline(time.Time{})
-		}
-		return publicListener.Accept()
-	}
-	return superviseReconnectableShimWorkerWithDirectory(containerdConnection, reconnect, self, os.Args[1:], directory.ProcPath(), os.Environ(), directory)
+	return superviseRoutedShimWorker(containerdConnection, router.taskConnection, self, os.Args[1:], directory.ProcPath(), os.Environ(), directory, newSupervisorDiagnostics(nil), router)
 }
 
 type shimContainerdReconnect func(time.Duration) (net.Conn, error)
@@ -260,6 +251,13 @@ func superviseReconnectableShimWorkerWithDirectory(containerdConnection net.Conn
 }
 
 func superviseReconnectableShimWorkerWithDirectoryDiagnostics(containerdConnection net.Conn, reconnect shimContainerdReconnect, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory, diagnostics *supervisorDiagnosticReporter) int {
+	return superviseRoutedShimWorker(containerdConnection, reconnect, self, arguments, workingDirectory, environment, directory, diagnostics, nil)
+}
+
+func superviseRoutedShimWorker(containerdConnection net.Conn, reconnect shimContainerdReconnect, self string, arguments []string, workingDirectory string, environment []string, directory *safefile.Directory, diagnostics *supervisorDiagnosticReporter, router *shimInspectionRouter) int {
+	if router != nil {
+		defer router.setWorker("")
+	}
 	bridge := newShimConnectionBridge(containerdConnection)
 	defer func() { _ = containerdConnection.Close() }()
 	var err error
@@ -328,6 +326,9 @@ func superviseReconnectableShimWorkerWithDirectoryDiagnostics(containerdConnecti
 			return 1
 		}
 		pidIdentity, pidOwned = published, true
+		if router != nil {
+			router.setWorker(address)
+		}
 		workerDone := make(chan error, 1)
 		go func() { workerDone <- cmd.Wait() }()
 		var proxyErr error
@@ -340,6 +341,9 @@ func superviseReconnectableShimWorkerWithDirectoryDiagnostics(containerdConnecti
 			go func(connection net.Conn) { proxyDone <- bridge.serveWorker(connection) }(workerConnection)
 			select {
 			case err = <-workerDone:
+				if router != nil {
+					router.setWorker("")
+				}
 				_ = workerConnection.Close()
 				proxyErr = <-proxyDone
 				break connectionLoop
@@ -367,6 +371,9 @@ func superviseReconnectableShimWorkerWithDirectoryDiagnostics(containerdConnecti
 				workerExited := false
 				select {
 				case err = <-workerDone:
+					if router != nil {
+						router.setWorker("")
+					}
 					workerExited = true
 					workerEndedDuringGrace = true
 				case <-time.After(250 * time.Millisecond):
@@ -399,6 +406,9 @@ func superviseReconnectableShimWorkerWithDirectoryDiagnostics(containerdConnecti
 				proxyEndedFirst = false
 				workerEndedDuringGrace = false
 			}
+		}
+		if router != nil {
+			router.setWorker("")
 		}
 		if removeErr := removePID(); removeErr != nil {
 			diagnostics.emit(supervisorPIDRemoveFailed, 0, 0, 0)

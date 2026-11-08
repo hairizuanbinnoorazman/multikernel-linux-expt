@@ -6,6 +6,17 @@ The owning shim keeps the child agent's authenticated control connection.
 shim TTRPC socket. A standard shim plugin registers the extension; the existing
 same-effective-UID/GID peer handshake protects it. No listener or token is added.
 
+The supervisor accepts bounded concurrent clients on that existing listener.
+It authenticates the original peer before reading its first frame. Task RPCs
+retain their reconnectable bridge; an inspection connection accepts one bounded
+inspection request and uses an independent connection to the captured current
+worker. It never enters the task replay queue. Worker replacement cancels that
+observation, with no redial or transfer to the next worker. Malformed requests,
+foreign services, absent workers and excess clients refuse. At most eight
+connections are classified or inspected concurrently, with a five-second budget
+including classification. The worker independently authenticates the proxy and
+matches the complete owner before using its existing agent connection.
+
 The protobuf request and response use `google.protobuf.BytesValue` containing
 strict bounded JSON. The wire definition is `runtime/inspection/inspection.proto`.
 The request has exactly `version=1`, `namespace`, `container_id`, `sandbox_id`
