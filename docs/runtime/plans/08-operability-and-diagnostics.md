@@ -53,7 +53,17 @@ parity, native clean release and kernel resource return independently qualify.
 Five live identity/build/source refusals pass. The failed predecessor remains
 unchanged. This closes that live engine-observation/build subcase; post-trial
 cold restoration, broader readiness/admission/fault mixtures and full G7/G8 remain
-required. The candidate stays loaded idle and is not hot-unloaded.
+required immediately after the trial. The candidate stays loaded idle and is not hot-unloaded.
+Its [separate cold restoration](../../../evidence/runtime-20261108/g8-live-engine-observation-aa173749-cold-restoration/README.md)
+then passes on actual boot 029447b9: original idle transport, returned resources,
+225 artifacts/five absences and two approved static archives preserved, earlier
+failed history retained, archived frames kept in the trial epoch, old unit
+completion refused on the new boot, and a fresh stable primary baseline.
+This closes this case's cold-restoration checkpoint. The engine query is still
+separate from node-wide doctor v8/bundle v2, which explicitly leave Docker engine
+health unobserved. Correlating relevant active child owners with these observations
+under the aggregate deadline remains an integration gap; broader readiness,
+admission and complete G7/G8 remain open.
 Actual Docker/child execution
 remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
 virtualization is used; child-kernel compromise shares primary trust.

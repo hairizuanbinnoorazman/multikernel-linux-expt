@@ -82,3 +82,9 @@ return and five live epoch/source/build refusals while preserving the earlier
 failed attempt. This closes that sampled engine/build-lifecycle subcase only;
 post-trial cold restoration, broader readiness/admission and complete G7/G8
 remain separate requirements.
+
+Its [separate cold-restoration proof](../../../evidence/runtime-20261108/g8-live-engine-observation-aa173749-cold-restoration/README.md)
+also passes with original idle transport, returned resources, selected artifact
+and failed-history preservation, archived frames confined to their original
+epoch, old completion refused on the new boot and a fresh primary baseline.
+Aggregate doctor/readiness integration and full G7/G8 remain open.
