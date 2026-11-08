@@ -326,6 +326,7 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 		s.replayEvents(ctx)
 		s.startEventRetry(time.Second)
 	}
+	registerEngineInspection(s)
 	return newTaskRPCShim(s), nil
 }
 

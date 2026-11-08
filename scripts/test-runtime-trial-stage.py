@@ -46,7 +46,7 @@ class TrialStageTests(unittest.TestCase):
             base=Path(directory);repo=base/'repo';repo.mkdir()
             for name in ['scripts','guest','deploy','runtime','tools']:(repo/name).mkdir();(repo/name/'.keep').write_bytes(b'')
             (repo/'runtime/go.mod').write_text('module trialfixture\n\ngo 1.26.9\n')
-            names=['mkruntimed','mknetd','containerd-shim-multikernel-v2']
+            names=['mkruntimed','mknetd','mk-agent','mk-shimctl','containerd-shim-multikernel-v2']
             for name in names:
                 target=repo/'runtime/cmd'/name;target.mkdir(parents=True)
                 (target/'main.go').write_text('package main\nimport "fmt"\nfunc main(){fmt.Println("committed")}\n')

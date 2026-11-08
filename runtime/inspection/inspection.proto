@@ -1,0 +1,8 @@
+syntax = "proto3";
+package multikernel.inspection.v1;
+import "google/protobuf/wrappers.proto";
+// BytesValue wraps bounded versioned JSON defined by engine.go. The manual
+// registration uses these standard protobuf types without generated messages.
+service Inspection {
+  rpc InspectDockerEngine(google.protobuf.BytesValue) returns (google.protobuf.BytesValue);
+}

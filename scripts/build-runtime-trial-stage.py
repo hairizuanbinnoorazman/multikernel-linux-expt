@@ -14,6 +14,7 @@ import tarfile
 CONTAINERD_SHA = 'dbc252c7f4e3534dcbe674552b87b20194967e7b6069e66de61632dcdd3acc83'
 ROOTS = ('scripts', 'guest', 'deploy', 'runtime', 'tools')
 PACKAGES = {'mkruntimed':'./cmd/mkruntimed', 'mknetd':'./cmd/mknetd',
+            'mk-agent':'./cmd/mk-agent','mk-shimctl':'./cmd/mk-shimctl',
             'containerd-shim-multikernel-v2':'./cmd/containerd-shim-multikernel-v2'}
 
 

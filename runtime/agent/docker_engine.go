@@ -15,13 +15,21 @@ var ErrDockerEngineObservationUnsupported = errors.New("agent does not advertise
 // InspectDockerEngine negotiates over the existing authenticated connection.
 // It neither reconnects/replays nor falls back to executing workload commands.
 func (c *Client) InspectDockerEngine(ctx context.Context) (protocol.DockerEngineObservation, error) {
+	return InspectDockerEngine(ctx, c)
+}
+
+// InspectDockerEngine permits an owner to use its existing narrow agent caller.
+// It has the same no-reconnect/no-replay contract as the concrete client method.
+func InspectDockerEngine(ctx context.Context, caller interface {
+	CallContext(context.Context, string, any, any) error
+}) (protocol.DockerEngineObservation, error) {
 	if ctx == nil {
 		return protocol.DockerEngineObservation{}, errors.New("Docker observation context is required")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var caps map[string]json.RawMessage
-	if err := c.CallContext(ctx, "Capabilities", map[string]any{}, &caps); err != nil {
+	if err := caller.CallContext(ctx, "Capabilities", map[string]any{}, &caps); err != nil {
 		return protocol.DockerEngineObservation{}, err
 	}
 	var version int
@@ -41,7 +49,7 @@ func (c *Client) InspectDockerEngine(ctx context.Context) (protocol.DockerEngine
 		return protocol.DockerEngineObservation{}, ErrDockerEngineObservationUnsupported
 	}
 	var report protocol.DockerEngineObservation
-	if err := c.CallContext(ctx, "InspectDockerEngine", map[string]any{}, &report); err != nil {
+	if err := caller.CallContext(ctx, "InspectDockerEngine", map[string]any{}, &report); err != nil {
 		return protocol.DockerEngineObservation{}, err
 	}
 	if ctx.Err() != nil || report.Validate() != nil {
