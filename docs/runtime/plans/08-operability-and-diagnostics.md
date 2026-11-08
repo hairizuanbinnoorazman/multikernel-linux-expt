@@ -10,8 +10,12 @@ pass. The optional pressure trial now stages the committed agent through a fully
 validated private approval and binds inspections at full filesystem, original
 unfinished RUN, built image and removed owner. [Receipt/profile controls and
 prefix mutation](../../../evidence/runtime-20261108/g8-live-engine-observation-controls/README.md)
-pass. Actual Docker/child execution remains required before closing the live
-subcase; complete readiness/admission and G7/G8 remain open. No nested
+pass. A subsequent [constructor-repeat check](../../../evidence/runtime-20261108/g8-shim-inspection-initializer/README.md)
+reproduces and fixes duplicate plugin registration: the binary now registers
+once and binds its exact owner before graph loading. The [first built packet](../../../evidence/runtime-20261108/g8-live-engine-observation-7fc41cb/README.md)
+stays superseded and unlaunched after two failed SSH boot preflights. GCE reports
+RUNNING, which does not prove guest readiness. Actual Docker/child execution
+remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
 virtualization is used; child-kernel compromise shares primary trust.
 
 ## Authenticated child Docker API/launcher observation (2026-11-08)

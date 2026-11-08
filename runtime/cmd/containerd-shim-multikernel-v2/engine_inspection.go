@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/plugin"
+	"github.com/containerd/containerd/runtime/v2/shim"
 	"github.com/containerd/ttrpc"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/inspection"
@@ -22,10 +23,28 @@ func (i *engineInspectionService) RegisterTTRPC(server *ttrpc.Server) error {
 	return nil
 }
 
-// shim.Run wraps TaskService before registration, so a separate standard shim
-// plugin registers this extension on the same authenticated socket.
-func registerEngineInspection(s *service) {
-	plugin.Register(&plugin.Registration{Type: plugin.TTRPCPlugin, ID: "multikernel-inspection", InitFn: func(*plugin.InitContext) (interface{}, error) { return &engineInspectionService{owner: s}, nil }})
+// Register once per binary invocation, outside the reusable service constructor.
+// shim.Run constructs the owner before loading the plugin graph. The binding is
+// immutable once its TTRPC service is published; no process-global owner is used.
+func inspectionInitializer(register func(*plugin.Registration)) shim.Init {
+	binding := &engineInspectionService{}
+	register(&plugin.Registration{Type: plugin.TTRPCPlugin, ID: "multikernel-inspection", InitFn: func(*plugin.InitContext) (interface{}, error) {
+		if binding.owner == nil {
+			return nil, errors.New("engine inspection owner is not initialized")
+		}
+		return binding, nil
+	}})
+	return func(ctx context.Context, id string, publisher shim.Publisher, shutdown func()) (shim.Shim, error) {
+		if binding.owner != nil {
+			return nil, errors.New("shim inspection owner is already initialized")
+		}
+		owner, err := newServiceOwner(ctx, id, publisher, shutdown)
+		if err != nil {
+			return nil, err
+		}
+		binding.owner = owner
+		return newTaskRPCShim(owner), nil
+	}
 }
 
 func (s *service) inspectDockerEngine(parent context.Context, request inspection.Request) (inspection.Report, error) {

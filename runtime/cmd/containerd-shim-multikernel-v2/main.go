@@ -10,6 +10,7 @@ import (
 
 	taskapi "github.com/containerd/containerd/api/runtime/task/v2"
 	types "github.com/containerd/containerd/api/types"
+	"github.com/containerd/containerd/plugin"
 	"github.com/containerd/containerd/runtime/v2/shim"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"google.golang.org/protobuf/proto"
@@ -77,5 +78,5 @@ func main() {
 	if serverInvocation() && os.Getenv("MK_SHIM_WORKER") != "1" {
 		os.Exit(superviseShimWorker())
 	}
-	shim.Run(runtimeName, newService)
+	shim.Run(runtimeName, inspectionInitializer(plugin.Register))
 }

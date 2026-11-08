@@ -297,6 +297,14 @@ func lockContext(ctx context.Context, mutex *sync.Mutex) error {
 }
 
 func newService(ctx context.Context, id string, publisher shim.Publisher, shutdown func()) (shim.Shim, error) {
+	s, err := newServiceOwner(ctx, id, publisher, shutdown)
+	if err != nil {
+		return nil, err
+	}
+	return newTaskRPCShim(s), nil
+}
+
+func newServiceOwner(ctx context.Context, id string, publisher shim.Publisher, shutdown func()) (*service, error) {
 	ns, err := namespaces.NamespaceRequired(ctx)
 	if err != nil {
 		return nil, err
@@ -326,8 +334,7 @@ func newService(ctx context.Context, id string, publisher shim.Publisher, shutdo
 		s.replayEvents(ctx)
 		s.startEventRetry(time.Second)
 	}
-	registerEngineInspection(s)
-	return newTaskRPCShim(s), nil
+	return s, nil
 }
 
 func deleteInvocation(arguments []string) bool {

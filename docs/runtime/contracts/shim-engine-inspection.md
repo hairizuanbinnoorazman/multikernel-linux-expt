@@ -62,3 +62,10 @@ bundle v2 scopes remain unchanged.
 [Shim/client race and source-stage controls](../../../evidence/runtime-20261108/g8-shim-engine-inspection-controls/README.md)
 and [receipt/profile policy and prefix mutation controls](../../../evidence/runtime-20261108/g8-live-engine-observation-controls/README.md)
 pass locally. Actual real-child qualification is still required.
+
+The binary registers its inspection plugin once, then binds the concrete owner
+returned by its initializer before loading the plugin graph. Reusable service
+construction does not mutate containerd's process-global plugin registry. An
+unbound plugin or a second initialization refuses. [Repeated-constructor and
+registration-factory proof](../../../evidence/runtime-20261108/g8-shim-inspection-initializer/README.md)
+retains the original duplicate-ID panic and the corrected race-enabled controls.

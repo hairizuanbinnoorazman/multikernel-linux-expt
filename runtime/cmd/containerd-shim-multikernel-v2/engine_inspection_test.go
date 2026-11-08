@@ -5,6 +5,9 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/containerd/containerd/namespaces"
+	"github.com/containerd/containerd/plugin"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -113,5 +116,58 @@ func TestShimEngineInspectionQueueCancellation(t *testing.T) {
 	}
 	if s.agent != a || s.sandbox.Generation != q.Generation || s.processes[""].status != tasktypes.Status_RUNNING {
 		t.Fatal("queued observation changed owner")
+	}
+}
+
+// Exercise the actual binary initializer without mutating containerd's global
+// plugin registry. Repeated owner construction must remain independently usable.
+func TestShimEngineInspectionBinaryInitializerBinding(t *testing.T) {
+	for attempt := 0; attempt < 2; attempt++ {
+		bundle := t.TempDir()
+		if err := os.Chmod(bundle, 0700); err != nil {
+			t.Fatal(err)
+		}
+		t.Chdir(bundle)
+		for _, name := range []string{"MK_SHIM_BUNDLE_DEVICE", "MK_SHIM_BUNDLE_INODE", "MK_SHIM_BUNDLE_UID"} {
+			t.Setenv(name, "")
+		}
+		var registration *plugin.Registration
+		initialize := inspectionInitializer(func(r *plugin.Registration) {
+			if registration != nil {
+				t.Fatal("duplicate registration")
+			}
+			registration = r
+		})
+		if registration == nil || registration.ID != "multikernel-inspection" || registration.Type != plugin.TTRPCPlugin {
+			t.Fatal("wrong extension registration")
+		}
+		if _, err := registration.InitFn(nil); err == nil {
+			t.Fatal("unbound owner published")
+		}
+		created, err := initialize(namespaces.WithNamespace(t.Context(), "inspection-test"), "task", nil, func() {})
+		if err != nil {
+			t.Fatal(err)
+		}
+		facade, ok := created.(*taskRPCShim)
+		if !ok {
+			t.Fatal("initializer lost protected Task facade")
+		}
+		owner, ok := facade.delegate.(*service)
+		if !ok {
+			t.Fatal("initializer lost concrete owner")
+		}
+		instance, err := registration.InitFn(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		registered, ok := instance.(*engineInspectionService)
+		if !ok || registered.owner != owner {
+			t.Fatal("registered inspection targets another service")
+		}
+		if _, err := initialize(namespaces.WithNamespace(t.Context(), "inspection-test"), "task", nil, func() {}); err == nil {
+			t.Fatal("initializer retargeted its published owner")
+		}
+		owner.stopEventRetry()
+		owner.closeBundleIdentity()
 	}
 }
