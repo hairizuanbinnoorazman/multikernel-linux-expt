@@ -1,5 +1,19 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Aggregate Docker-mode observations (2026-11-08)
+
+The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
+Docker observations using a private current target snapshot. It requires exact
+coverage of every running owner, two engine sample sets bracketed by complete
+v8 health snapshots under one deadline, fixed/redacted failures and capacity
+suppression on degradation. Missing/stale owners and unsupported agents remain
+inconclusive; legacy formats keep their scopes. [Local controls](../../../evidence/runtime-20261108/g8-aggregate-docker-health-controls/README.md)
+pass real protected Unix queries, two-owner coverage/subset refusal, drift,
+privacy, cancellation, private target/publication safety and existing race and
+required suites. Installed CLI/native and actual child-build aggregate execution
+remain unqualified. This advances aggregation; full readiness/admission/G7/G8
+remain open. No nested virtualization or hostile child-kernel containment is added.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a

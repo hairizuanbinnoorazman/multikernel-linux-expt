@@ -101,6 +101,11 @@ func TestUnifiedInspectionModeCLI(t *testing.T) {
 		args []string
 		want string
 	}{
+		{"docker-targets-empty-without-mode", []string{"--engine-targets="}, "engine-targets requires doctor-format=9 or diagnostic-format=3"},
+		{"docker-health-no-targets", []string{"--doctor-all", "--doctor-format=9"}, "Docker health requires a canonical absolute engine-targets snapshot"},
+		{"docker-bundle-no-targets", []string{"--diagnostic-bundle=/tmp/new.json", "--diagnostic-format=3"}, "Docker health requires a canonical absolute engine-targets snapshot"},
+		{"docker-targets-wrong-mode", []string{"--doctor-all", "--doctor-format=8", "--engine-targets=/tmp/private.json"}, "engine-targets requires doctor-format=9 or diagnostic-format=3"},
+		{"docker-targets-noncanonical", []string{"--doctor-all", "--doctor-format=9", "--engine-targets=/tmp/../tmp/private.json"}, "Docker health requires a canonical absolute engine-targets snapshot"},
 		{"budget-no-bundle", []string{"--diagnostic-max-files=1", "--diagnostic-max-bytes=4096"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
 		{"budget-files-only", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-files=1"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
 		{"budget-bytes-only", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-bytes=4096"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
@@ -110,8 +115,8 @@ func TestUnifiedInspectionModeCLI(t *testing.T) {
 		{"budget-many-bytes", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-max-files=1", "--diagnostic-max-bytes=1073741825"}, "diagnostic directory budgets require diagnostic-bundle and both valid file/byte limits"},
 		{"health-bundle-format-only", []string{"--diagnostic-format=2"}, "diagnostic-format requires diagnostic-bundle"},
 		{"explicit-default-bundle-format-only", []string{"--diagnostic-format=1"}, "diagnostic-format requires diagnostic-bundle"},
-		{"health-bundle-bad-format", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-format=3"}, "diagnostic-format must be 1 or 2"},
-		{"health-bundle-negative-format", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-format=-1"}, "diagnostic-format must be 1 or 2"},
+		{"health-bundle-bad-format", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-format=4"}, "diagnostic-format must be 1, 2 or 3"},
+		{"health-bundle-negative-format", []string{"--diagnostic-bundle=/tmp/capture.json", "--diagnostic-format=-1"}, "diagnostic-format must be 1, 2 or 3"},
 		{"bundle-empty", []string{"--diagnostic-bundle="}, "diagnostic-bundle requires a canonical absolute JSON file destination"},
 		{"bundle-relative", []string{"--diagnostic-bundle=local.json"}, "diagnostic-bundle requires a canonical absolute JSON file destination"},
 		{"bundle-noncanonical", []string{"--diagnostic-bundle=/tmp/../tmp/local.json"}, "diagnostic-bundle requires a canonical absolute JSON file destination"},
@@ -122,8 +127,8 @@ func TestUnifiedInspectionModeCLI(t *testing.T) {
 		{"explicit-default-without-mode", []string{"--doctor-format=5"}, "doctor-format requires --doctor-all"},
 		{"format-with-alias", []string{"--doctor-all-pool", "--doctor-format=6"}, "doctor-format requires --doctor-all"},
 		{"format-with-components", []string{"--inspect-components", "--doctor-format=7"}, "doctor-format requires --doctor-all"},
-		{"format-unknown", []string{"--doctor-all", "--doctor-format=9"}, "doctor-format must be 5, 6, 7 or 8"},
-		{"format-negative", []string{"--doctor-all", "--doctor-format=-1"}, "doctor-format must be 5, 6, 7 or 8"},
+		{"format-unknown", []string{"--doctor-all", "--doctor-format=10"}, "doctor-format must be 5, 6, 7, 8 or 9"},
+		{"format-negative", []string{"--doctor-all", "--doctor-format=-1"}, "doctor-format must be 5, 6, 7, 8 or 9"},
 		{"health-format-without-mode", []string{"--doctor-format=8"}, "doctor-format requires --doctor-all"},
 		{"health-format-relative-network", []string{"--doctor-all", "--doctor-format=8", "--network-socket=relative.sock"}, "network inspection requires an absolute network socket"},
 		{"format-relative-network", []string{"--doctor-all", "--doctor-format=7", "--network-socket=relative.sock"}, "network inspection requires an absolute network socket"},

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/hairizuan/multikernel-linux-expt/runtime/inspection"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/diagnostics"
@@ -117,12 +118,13 @@ func main() {
 	inspectJournal := flag.Bool("inspect-journal", false, "print bounded in-process journal failure/pending status; not disk writability or readiness")
 	inspectComponents := flag.Bool("inspect-components", false, "print repeated compiled daemon build self-reports; not artifact attestation or health")
 	diagnosticBundle := flag.String("diagnostic-bundle", "", "save bounded structured observations to a new JSON file in an existing private directory")
-	diagnosticFormat := flag.Int("diagnostic-format", 1, "explicit diagnostic-bundle version: 1 (legacy) or 2 (v8 health)")
+	diagnosticFormat := flag.Int("diagnostic-format", 1, "explicit diagnostic-bundle version: 1 (legacy), 2 (v8 health) or 3 (v9 Docker health)")
 	diagnosticMaxFiles := flag.Int("diagnostic-max-files", 0, "optional private diagnostic directory file budget, paired with diagnostic-max-bytes")
 	diagnosticMaxBytes := flag.Int64("diagnostic-max-bytes", 0, "optional private diagnostic directory logical byte budget, paired with diagnostic-max-files")
 	inspectUnified := flag.Bool("doctor-all-pool", false, "print correlated storage/native-process/network and pool-capacity observations; not readiness or admission")
 	inspectPool := flag.Bool("doctor-pool", false, "print bounded configured/durable/kernel pool capacity observations; not admission or readiness")
-	doctorFormat := flag.Int("doctor-format", 5, "explicit --doctor-all output version: 5, 6, 7 or 8")
+	engineTargets := flag.String("engine-targets", "", "private owned JSON snapshot mapping all running Docker-mode owners to protected shim sockets")
+	doctorFormat := flag.Int("doctor-format", 5, "explicit --doctor-all output version: 5, 6, 7, 8 or 9")
 	inspectCombined := flag.Bool("doctor-all", false, "print bounded combined storage/native-process/network ownership and kernel presence diagnostics and exit")
 	inspectNetwork := flag.Bool("doctor-network", false, "print bounded lifecycle/network ownership and kernel presence diagnostics and exit")
 	networkSocket := flag.String("network-socket", "/run/mknetd.sock", "protected mknetd socket for network inspection")
@@ -153,9 +155,13 @@ func main() {
 		os.Exit(2)
 	}
 	formatSpecified := false
+	engineTargetsSpecified := false
 	diagnosticBudgetSpecified := false
 	diagnosticFormatSpecified := false
 	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "engine-targets" {
+			engineTargetsSpecified = true
+		}
 		if f.Name == "diagnostic-format" {
 			diagnosticFormatSpecified = true
 		}
@@ -174,8 +180,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "diagnostic-format requires diagnostic-bundle")
 		os.Exit(2)
 	}
-	if *diagnosticFormat != 1 && *diagnosticFormat != 2 {
-		fmt.Fprintln(os.Stderr, "diagnostic-format must be 1 or 2")
+	if *diagnosticFormat != 1 && *diagnosticFormat != 2 && *diagnosticFormat != 3 {
+		fmt.Fprintln(os.Stderr, "diagnostic-format must be 1, 2 or 3")
 		os.Exit(2)
 	}
 
@@ -188,8 +194,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, "doctor-format requires --doctor-all")
 		os.Exit(2)
 	}
-	if *inspectCombined && *doctorFormat != 5 && *doctorFormat != 6 && *doctorFormat != 7 && *doctorFormat != 8 {
-		fmt.Fprintln(os.Stderr, "doctor-format must be 5, 6, 7 or 8")
+	if *inspectCombined && *doctorFormat != 5 && *doctorFormat != 6 && *doctorFormat != 7 && *doctorFormat != 8 && *doctorFormat != 9 {
+		fmt.Fprintln(os.Stderr, "doctor-format must be 5, 6, 7, 8 or 9")
+		os.Exit(2)
+	}
+	dockerMode := (*inspectCombined && *doctorFormat == 9) || (*diagnosticBundle != "" && *diagnosticFormat == 3)
+	if dockerMode && (*engineTargets == "" || !filepath.IsAbs(*engineTargets) || filepath.Clean(*engineTargets) != *engineTargets) {
+		fmt.Fprintln(os.Stderr, "Docker health requires a canonical absolute engine-targets snapshot")
+		os.Exit(2)
+	}
+	if !dockerMode && engineTargetsSpecified {
+		fmt.Fprintln(os.Stderr, "engine-targets requires doctor-format=9 or diagnostic-format=3")
 		os.Exit(2)
 	}
 	if (*inspectNetwork || *inspectCombined || *inspectUnified || *inspectComponents || *diagnosticBundle != "") && !filepath.IsAbs(*networkSocket) {
@@ -276,6 +291,19 @@ func main() {
 		},
 		Kernel: func(ctx context.Context) ([]string, error) { return doctor.KernelInventory(ctx, sysfs) }, Boot: doctor.BootIdentity,
 	}
+	dockerInspect := func(ctx context.Context) doctor.DockerHealthReport {
+		return doctor.InspectDockerHealth(ctx, doctor.DockerHealthInputs{
+			Health: func(ctx context.Context) doctor.HealthReport {
+				return doctor.InspectHealth(ctx, combinedInputs, poolInputs, componentInputs, healthInputs, buildinfo.Revision)
+			},
+			Targets: func(ctx context.Context) ([]doctor.EngineTarget, error) {
+				return doctor.LoadEngineTargets(ctx, *engineTargets)
+			},
+			Engine: func(ctx context.Context, target doctor.EngineTarget) (inspection.Report, error) {
+				return inspection.ObserveSocket(ctx, target.Socket, target.Owner)
+			},
+		}, buildinfo.Revision)
+	}
 	if *diagnosticBundle != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -288,7 +316,17 @@ func main() {
 		}
 		var receipt diagnostics.Receipt
 		var err error
-		if *diagnosticFormat == 2 {
+		if *diagnosticFormat == 3 {
+			capture := func(ctx context.Context) diagnostics.DockerHealthSnapshot {
+				components := doctor.InspectComponents(ctx, componentInputs, buildinfo.Revision)
+				return diagnostics.DockerHealthSnapshot{Components: components, DockerHealth: dockerInspect(ctx)}
+			}
+			if diagnosticBudgetSpecified {
+				receipt, err = diagnostics.CollectDockerHealthWithBudget(ctx, *diagnosticBundle, diagnosticBudget, capture)
+			} else {
+				receipt, err = diagnostics.CollectDockerHealth(ctx, *diagnosticBundle, capture)
+			}
+		} else if *diagnosticFormat == 2 {
 			healthInspect := func(ctx context.Context) diagnostics.HealthSnapshot {
 				components := doctor.InspectComponents(ctx, componentInputs, buildinfo.Revision)
 				health := doctor.InspectHealth(ctx, combinedInputs, poolInputs, componentInputs, healthInputs, buildinfo.Revision)
@@ -317,6 +355,13 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		inputs := combinedInputs
+		if *inspectCombined && *doctorFormat == 9 {
+			report := dockerInspect(ctx)
+			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {
+				os.Exit(1)
+			}
+			return
+		}
 		if *inspectCombined && *doctorFormat == 8 {
 			report := doctor.InspectHealth(ctx, inputs, poolInputs, componentInputs, healthInputs, buildinfo.Revision)
 			if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "consistent" {

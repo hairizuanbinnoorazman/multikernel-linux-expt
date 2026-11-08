@@ -69,6 +69,10 @@ func TestInstalledHealthCLIChild(t *testing.T) {
 	switch mode := os.Getenv("MK_TEST_HEALTH_CLI_FORMAT"); mode {
 	case "5", "7", "8":
 		args = append(args, "--doctor-all", "--doctor-format="+mode)
+	case "9":
+		args = append(args, "--doctor-all", "--doctor-format=9", "--engine-targets="+filepath.Join(root, "engine-targets.json"))
+	case "docker-health-bundle":
+		args = append(args, "--diagnostic-bundle="+filepath.Join(root, "docker-bundles/idle.json"), "--diagnostic-format=3", "--engine-targets="+filepath.Join(root, "engine-targets.json"))
 	case "default":
 		args = append(args, "--doctor-all")
 	case "legacy-bundle":

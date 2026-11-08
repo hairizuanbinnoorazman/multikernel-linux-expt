@@ -219,3 +219,14 @@ independent component labels and the version-8 health view with a version-2
 receipt. Troubled observations are saved with nonzero exit status. The default
 remains version 1; both use the same limits and private exclusive publisher.
 See the [health-bundle contract](../../../docs/runtime/contracts/diagnostic-health-bundle.md).
+
+
+`--doctor-all --doctor-format=9 --engine-targets=/private/targets.json` opts into
+[aggregate Docker-mode health](../../../docs/runtime/contracts/aggregate-docker-health.md).
+It requires exact current target coverage of every running owner, brackets two
+engine sample sets with complete v8 health observations under one deadline, and
+suppresses capacity on aggregate failure. `--diagnostic-format=3` retains the same
+view in a private bundle. Target maps remain private; unsupported agents and
+stale/missing owners yield inconclusive rather than partial success. This is
+sampled health, not admission or full readiness. Existing formats keep their
+previous contracts.
