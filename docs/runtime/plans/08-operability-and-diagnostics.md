@@ -41,7 +41,12 @@ passes local and [native GCE capture/refusal checks](../../../evidence/runtime-2
 It preserves the failed attempt's control artifacts and missing checkpoints
 before reboot and refuses same-boot verification. A changed-boot observer and
 new committed-source trial packet are prepared; actual cold restoration and
-corrected real-child engine/build execution remain pending the external restart.
+corrected real-child engine/build execution initially remain pending the external restart.
+The user subsequently authorizes the agent to restart the idle existing instance.
+[Reset and independent new-boot verification](../../../evidence/runtime-20261108/g8-authorized-restart-aa173749/README.md)
+pass on fc6f4cd8, preserving all 23 artifacts/seven absences and historical state,
+with original idle transport, returned resources and a fresh primary baseline.
+The corrected real-child engine/build trial remains separately required.
 Actual Docker/child execution
 remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
 virtualization is used; child-kernel compromise shares primary trust.
