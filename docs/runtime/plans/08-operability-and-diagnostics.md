@@ -36,6 +36,12 @@ passes concurrent inspection/refusal and continued Task/Connect responsiveness,
 with independent source/primary/resource checks and complete test-unit cleanup.
 This closes that frontend regression; it does not requalify the preserved failed
 real-child trial. A new cold-restored real-child trial is still required.
+The [explicit cold-retention helper](../contracts/trial-cold-retention.md)
+passes local and [native GCE capture/refusal checks](../../../evidence/runtime-20261108/g8-failed-engine-cold-retention/README.md).
+It preserves the failed attempt's control artifacts and missing checkpoints
+before reboot and refuses same-boot verification. A changed-boot observer and
+new committed-source trial packet are prepared; actual cold restoration and
+corrected real-child engine/build execution remain pending the external restart.
 Actual Docker/child execution
 remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
 virtualization is used; child-kernel compromise shares primary trust.
