@@ -15,7 +15,19 @@ reports all nine selected groups passing, including installed CLI dispatch, but
 its harness fails on nonempty stderr. The exact failed unit and private streams
 remain preserved; independent primary/resource/retention checks pass. Native
 checkpoint and actual child-build aggregate execution remain unqualified. This
-advances aggregation; full readiness/admission/G7/G8 remain open. No nested virtualization or hostile child-kernel containment is added.
+advances aggregation; full readiness/admission/G7/G8 remain open.
+The preserved stderr is subsequently classified as a synthetic deadline-response
+broken pipe. A [fixture-local logger and drained shutdown](../../../evidence/runtime-20261108/g8-aggregate-transport-cancellation-controls/README.md)
+pass fifty repeated protected-socket race controls and the full normal suite;
+the native harness still requires empty stderr. A fresh
+[committed-source native run](../../../evidence/runtime-20261108/g8-aggregate-docker-health-native-99984534/README.md)
+then passes all nine groups without skips and empty stderr, including installed
+v9/v3 idle dispatch and active synthetic engine queries. Exact successful epoch,
+primary/retention/resource preservation and complete own-unit/scratch cleanup
+independently qualify. The failed predecessor remains unchanged. This closes the
+native aggregate checkpoint; real active-child aggregate lifecycle execution and
+production transport-log redaction remain unqualified. No nested virtualization
+or hostile child-kernel containment is added.
 
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
