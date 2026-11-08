@@ -69,3 +69,7 @@ quiescence and release. They do not run real Docker or prove child-kernel health
 
 Direct child kernels require no nested virtualization. Arbitrary child-kernel
 compromise shares primary trust; this observation introduces no containment claim.
+
+[Local controls](../../../evidence/runtime-20261108/g8-engine-observation-controls/README.md)
+and [native GCE synthetic controls/mutation/preservation](../../../evidence/runtime-20261108/g8-engine-observation-gce/README.md)
+pass. Actual Docker and child-kernel observations remain unqualified by these tests.

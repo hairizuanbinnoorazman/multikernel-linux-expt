@@ -6,11 +6,17 @@ The [new observation contract](../contracts/docker-engine-observation.md) adds
 `InspectDockerEngine` only to configured Docker supervisors. The agent and
 opt-in CLI negotiate a fixed, bounded, read-only status with no workload command
 fallback. Held-launcher liveness brackets the owned rootless socket/API/profile
-probe; teardown and quiescence cannot publish stale responding state.
+probe. Stop and observation share a gate; observation refuses busy/completed
+agent quiescence at admission.
 [Local controls](../../../evidence/runtime-20261108/g8-engine-observation-controls/README.md)
 cover authentication, strict/redacted output, cancellation, unreaped launcher
-death and CLI behavior. Installed synthetic and actual child-Docker proof remain
-separate. Storage writability, build capacity, full admission readiness and G7/G8
+death and CLI behavior. [Native GCE synthetic proof](../../../evidence/runtime-20261108/g8-engine-observation-gce/README.md)
+also passes owned API degradation/recovery, foreign socket replacement, stop,
+authenticated quiescence and a live-API/dead-launcher pidfd mutation. Its exact
+unit completes and its cgroup hierarchy is absent; primary state and original
+idle resources remain preserved after the user restart. The first postrun
+observer's empty-versus-absent assumption is retained and corrected without
+rerunning workloads. Actual Docker/child qualification remains separate. Storage writability, build capacity, full admission readiness and G7/G8
 remain open. No nested virtualization is used; child-kernel compromise shares
 primary trust.
 
