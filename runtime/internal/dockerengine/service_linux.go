@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/guestscope"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
 
@@ -60,6 +61,7 @@ type Service struct {
 	stopGate   stopGate
 	closed     atomic.Bool
 	started    bool
+	socket     string
 	log        tailLog
 }
 
@@ -84,7 +86,7 @@ func launch(ctx context.Context, scope *guestscope.Scope, command *exec.Cmd, soc
 	if ctx == nil || scope == nil || command == nil || socket == "" {
 		return nil, errors.New("Docker supervisor requires trusted startup inputs")
 	}
-	s := &Service{scope: scope, filesystem: filesystem, pidfd: -1, done: make(chan struct{}), failed: make(chan struct{})}
+	s := &Service{scope: scope, filesystem: filesystem, socket: socket, pidfd: -1, done: make(chan struct{}), failed: make(chan struct{})}
 	if ctx.Err() != nil {
 		return s, ctx.Err()
 	}
@@ -152,6 +154,71 @@ func launch(ctx context.Context, scope *guestscope.Scope, command *exec.Cmd, soc
 // UnexpectedExit closes only for an unrequested launcher exit. Requested Stop
 // must allow the authenticated quiesce/shutdown reply to finish.
 func (s *Service) UnexpectedExit() <-chan struct{} { return s.failed }
+
+// Observe uses only launch-owned inputs. The budget includes waiting behind
+// Stop; holding its gate prevents probing mounts or pidfds released by cleanup.
+// No observation restarts the engine, alters ownership, or admits a workload.
+func (s *Service) Observe(ctx context.Context) (protocol.DockerEngineObservation, error) {
+	if ctx == nil {
+		return protocol.DockerEngineObservation{}, errors.New("Docker observation context is required")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 750*time.Millisecond)
+	defer cancel()
+	if err := s.stopGate.lock(ctx); err != nil {
+		return protocol.DockerEngineObservation{}, err
+	}
+	defer s.stopGate.unlock()
+	report := protocol.DockerEngineObservation{Version: 1, Source: "owned-child-docker-api-and-launcher", Status: "unavailable"}
+	if s.closed.Load() {
+		report.Status = "stopped"
+		return report, nil
+	}
+	if s.stopping.Load() {
+		report.Status = "stopping"
+		return report, nil
+	}
+	if !s.started {
+		return report, nil
+	}
+	exited, launcherErr := s.launcherExited()
+	if exited {
+		report.Status = "exited"
+		return report, nil
+	}
+	if launcherErr != nil {
+		return report, nil
+	}
+	err := probe(ctx, s.scope, s.socket)
+	if ctx.Err() != nil {
+		return protocol.DockerEngineObservation{}, ctx.Err()
+	}
+	exited, launcherErr = s.launcherExited()
+	if exited {
+		report.Status = "exited"
+	} else if launcherErr == nil && err == nil {
+		report.Status = "responding"
+	}
+	return report, nil
+}
+
+// Called with stopGate held. Wait may still be draining inherited log pipes
+// after launcher death, so done alone is insufficient evidence of liveness.
+func (s *Service) launcherExited() (bool, error) {
+	select {
+	case <-s.done:
+		return true, nil
+	default:
+	}
+	if s.pidfd < 0 {
+		return false, errors.New("Docker launcher pidfd unavailable")
+	}
+	fds := []unix.PollFd{{Fd: int32(s.pidfd), Events: unix.POLLIN}}
+	_, err := unix.Poll(fds, 0)
+	if err != nil || fds[0].Revents&(unix.POLLERR|unix.POLLNVAL) != 0 {
+		return false, errors.New("Docker launcher liveness unavailable")
+	}
+	return fds[0].Revents&(unix.POLLIN|unix.POLLHUP) != 0, nil
+}
 
 // Stop signals only the launcher's held pidfd, gives it a short grace period,
 // then kills the entire owned scope. Returning success proves population zero.

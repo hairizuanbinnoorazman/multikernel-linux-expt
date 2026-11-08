@@ -79,7 +79,8 @@ func TestEngineReadinessWorker(t *testing.T) {
 		case "/_ping":
 			fmt.Fprint(w, "OK")
 		case "/info":
-			if os.Getenv("MK_TEST_ENGINE_BAD_INFO") == "1" {
+			control, _ := os.ReadFile(os.Getenv("MK_TEST_ENGINE_HEALTH_CONTROL"))
+			if os.Getenv("MK_TEST_ENGINE_BAD_INFO") == "1" || string(control) == "unavailable" {
 				fmt.Fprint(w, `{"Driver":"overlay2"}`)
 			} else {
 				fmt.Fprint(w, validInfo)

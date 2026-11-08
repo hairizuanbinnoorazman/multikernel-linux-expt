@@ -28,3 +28,6 @@
 - [`plans/README.md`](plans/README.md): ordered implementation and test gates.
 - [`../../runtime/README.md`](../../runtime/README.md): future source-tree
   boundaries.
+
+The optional [child Docker API/launcher observation](contracts/docker-engine-observation.md)
+adds authenticated, read-only engine status without claiming build admission.

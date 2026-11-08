@@ -1,5 +1,19 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Authenticated child Docker API/launcher observation (2026-11-08)
+
+The [new observation contract](../contracts/docker-engine-observation.md) adds
+`InspectDockerEngine` only to configured Docker supervisors. The agent and
+opt-in CLI negotiate a fixed, bounded, read-only status with no workload command
+fallback. Held-launcher liveness brackets the owned rootless socket/API/profile
+probe; teardown and quiescence cannot publish stale responding state.
+[Local controls](../../../evidence/runtime-20261108/g8-engine-observation-controls/README.md)
+cover authentication, strict/redacted output, cancellation, unreaped launcher
+death and CLI behavior. Installed synthetic and actual child-Docker proof remain
+separate. Storage writability, build capacity, full admission readiness and G7/G8
+remain open. No nested virtualization is used; child-kernel compromise shares
+primary trust.
+
 ## Docker startup completion cancellation (2026-11-07)
 
 The startup probe checks its context after validating the final API body.

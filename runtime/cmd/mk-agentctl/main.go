@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -107,7 +108,7 @@ func main() {
 	}
 	var id, generation, tokenFile, bundle, unixSocket, relay string
 	var port uint
-	var authMatrix bool
+	var authMatrix, inspectDockerEngine bool
 	flag.StringVar(&id, "sandbox-id", "", "sandbox ID")
 	flag.StringVar(&generation, "generation", "", "generation")
 	flag.StringVar(&tokenFile, "token-file", "", "private authentication credential file")
@@ -116,6 +117,7 @@ func main() {
 	flag.StringVar(&unixSocket, "unix-socket", "", "primary relay Unix socket")
 	flag.StringVar(&relay, "relay", "", "relay binary used for reconnect qualification")
 	flag.BoolVar(&authMatrix, "auth-matrix", false, "run the safe live authentication and framing matrix")
+	flag.BoolVar(&inspectDockerEngine, "inspect-docker-engine", false, "print a read-only child Docker API/launcher observation; never workload admission")
 	flag.Parse()
 	if id == "" || generation == "" || port < 1024 || tokenFile == "" {
 		fmt.Fprintln(os.Stderr, "identity, port, and private credential file are required")
@@ -134,6 +136,29 @@ func main() {
 	if unixSocket == "" {
 		fmt.Fprintln(os.Stderr, "--unix-socket is required")
 		os.Exit(2)
+	}
+	if inspectDockerEngine {
+		if authMatrix {
+			fmt.Fprintln(os.Stderr, "Docker observation and authentication matrix are mutually exclusive")
+			os.Exit(2)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		client, err := agent.DialContext(ctx, unixSocket, id, generation, uint32(port), key)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Docker observation connection failed")
+			os.Exit(1)
+		}
+		report, err := client.InspectDockerEngine(ctx)
+		_ = client.Close()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Docker observation failed")
+			os.Exit(1)
+		}
+		if json.NewEncoder(os.Stdout).Encode(report) != nil || report.Status != "responding" {
+			os.Exit(1)
+		}
+		return
 	}
 	if authMatrix && relay == "" {
 		fmt.Fprintln(os.Stderr, "--relay is required for reconnect qualification")

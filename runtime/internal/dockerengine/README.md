@@ -120,3 +120,10 @@ and its profile is validated. A complete valid response cannot turn an observed
 cancellation or deadline into readiness success. The regression fixture cancels
 at the final body EOF; its live control still succeeds. These are startup API
 observations, not an ongoing health or workload-admission guarantee.
+
+`Service.Observe` provides the [authenticated ongoing API/launcher observation](../../../docs/runtime/contracts/docker-engine-observation.md).
+It shares the stop gate, uses a 750 ms queue/probe budget and only the trusted
+launch socket. It polls the held launcher pidfd before and after the existing
+peer/profile probe, since log reaping may outlive the launcher. Failed observations
+never trigger cleanup/restart and never return raw daemon output. This does not
+assert disk writability, build capacity or ongoing workload admission.

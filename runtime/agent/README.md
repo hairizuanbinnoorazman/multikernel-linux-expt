@@ -41,3 +41,10 @@ also applies to CallContext and both reconnect APIs. Queued cancellation leaves 
 active owner/frame, sequence and peer policy untouched. One context-aware gate per
 client replaces the uninterruptible mutex wait; Client.Timeout remains wire-phase
 only, so callers need a bounded context to bound queue admission.
+
+The optional [Docker engine observation](../../docs/runtime/contracts/docker-engine-observation.md)
+uses authenticated `InspectDockerEngine`, advertised only by a configured Docker
+supervisor. It returns fixed API/launcher classifications and no daemon output.
+Busy/completed quiescence refuses. Client negotiation has no command fallback or
+reconnect. `mk-agentctl --inspect-docker-engine` exposes the read-only mode;
+`responding` is an observation and reserves no build resources.

@@ -94,6 +94,7 @@ func main() {
 			os.Exit(1)
 		}
 		stopDocker = func() error { return stopDockerBeforeStorage(service.Stop, nil) }
+		s.ObserveDockerEngine = service.Observe
 		s.BeforeShutdown = func() error { return stopDockerBeforeStorage(service.Stop, storageQuiesce) }
 		go func() {
 			select {

@@ -93,6 +93,7 @@ type Server struct {
 	Endpoint              uint32
 	Token                 []byte
 	BeforeShutdown        func() error
+	ObserveDockerEngine   func(context.Context) (protocol.DockerEngineObservation, error)
 	mu                    sync.Mutex
 	last                  uint64
 	quiesceMu             sync.Mutex
@@ -224,13 +225,50 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 		return r
 	}
 	r.authenticated = true
-	if s.isQuiesced() && e.Method != "Capabilities" && e.Method != "Quiesce" && e.Method != "Shutdown" {
+	// Observation must not queue behind filesystem/service quiescence. A busy
+	// gate refuses conservatively, without invoking any engine callback.
+	if e.Method == "InspectDockerEngine" {
+		if !s.quiesceMu.TryLock() {
+			r.setError(errorf(failedPrecondition, "agent quiescence is busy"))
+			return r
+		}
+		quiesced := s.quiesced
+		s.quiesceMu.Unlock()
+		if quiesced {
+			r.setError(errorf(failedPrecondition, "agent is quiesced"))
+			return r
+		}
+	} else if s.isQuiesced() && e.Method != "Capabilities" && e.Method != "Quiesce" && e.Method != "Shutdown" {
 		r.setError(errorf(failedPrecondition, "agent is quiesced"))
 		return r
 	}
 	switch e.Method {
 	case "Capabilities":
-		r.Body = capabilityReport()
+		report := capabilityReport()
+		if s.ObserveDockerEngine != nil {
+			report["protocol_features"] = append(report["protocol_features"].([]string), protocol.DockerEngineObservationCapability)
+		}
+		r.Body = report
+	case "InspectDockerEngine":
+		var q struct{}
+		if x := decode(e.Body, &q); x != nil {
+			r.setError(x)
+		} else if s.ObserveDockerEngine == nil {
+			r.setError(errorf(unsupported, "Docker observation is not enabled"))
+		} else {
+			budget, cancel := context.WithTimeout(ctx, 750*time.Millisecond)
+			defer cancel()
+			if budget.Err() != nil {
+				r.setError(budget.Err())
+				break
+			}
+			report, x := s.ObserveDockerEngine(budget)
+			if x != nil || budget.Err() != nil || report.Validate() != nil {
+				r.setError(errors.New("Docker engine observation failed"))
+			} else {
+				r.Body = report
+			}
+		}
 	case "CreateProcess":
 		var q struct{ ID, Bundle string }
 		if x := decode(e.Body, &q); x != nil {
