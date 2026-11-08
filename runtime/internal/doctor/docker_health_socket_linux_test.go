@@ -4,17 +4,47 @@ package doctor
 
 import (
 	"context"
+	"errors"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
+	containerdlog "github.com/containerd/log"
 	"github.com/containerd/ttrpc"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/inspection"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+	"github.com/sirupsen/logrus"
 )
+
+// The deadline deliberately closes the client before the server can reply.
+// Keep the resulting transport diagnostic private to this synthetic fixture,
+// but still fail on any message other than its typed broken-pipe response.
+// The server is drained before checking the hook so late logs cannot escape.
+type engineFixtureLogs struct {
+	sync.Mutex
+	allowBrokenPipe bool
+	count           int
+	unexpected      bool
+}
+
+func (*engineFixtureLogs) Levels() []logrus.Level { return logrus.AllLevels }
+
+func (l *engineFixtureLogs) Fire(entry *logrus.Entry) error {
+	l.Lock()
+	defer l.Unlock()
+	l.count++
+	err, ok := entry.Data["error"].(error)
+	if !l.allowBrokenPipe || l.count > 1 || entry.Level != logrus.ErrorLevel || entry.Message != "failed sending message on channel" || len(entry.Data) != 1 || !ok || !errors.Is(err, syscall.EPIPE) {
+		l.unexpected = true
+	}
+	return nil
+}
 
 func TestDockerHealthThroughProtectedShimSockets(t *testing.T) {
 	for _, mode := range []string{"responding", "unavailable", "deadline"} {
@@ -51,9 +81,35 @@ func TestDockerHealthThroughProtectedShimSockets(t *testing.T) {
 					}
 					return inspection.Report{Version: 1, Owner: q, Observation: protocol.DockerEngineObservation{Version: 1, Source: "owned-child-docker-api-and-launcher", Status: state}}, nil
 				})
-				ctx, cancel := context.WithCancel(t.Context())
-				go func() { _ = server.Serve(ctx, listener) }()
-				t.Cleanup(func() { cancel(); _ = server.Close(); _ = listener.Close() })
+				logs := &engineFixtureLogs{allowBrokenPipe: mode == "deadline"}
+				logger := logrus.New()
+				logger.SetOutput(io.Discard)
+				logger.AddHook(logs)
+				ctx, cancel := context.WithCancel(containerdlog.WithLogger(t.Context(), logrus.NewEntry(logger)))
+				done := make(chan error, 1)
+				go func() { done <- server.Serve(ctx, listener) }()
+				t.Cleanup(func() {
+					cancel()
+					shutdown, stop := context.WithTimeout(context.Background(), 2*time.Second)
+					defer stop()
+					if err := server.Shutdown(shutdown); err != nil {
+						t.Error("synthetic inspection server did not drain")
+						_ = server.Close()
+					}
+					select {
+					case err := <-done:
+						if err != nil && !errors.Is(err, ttrpc.ErrServerClosed) {
+							t.Error("synthetic inspection listener failed")
+						}
+					case <-shutdown.Done():
+						t.Error("synthetic inspection listener did not exit")
+					}
+					logs.Lock()
+					defer logs.Unlock()
+					if logs.unexpected {
+						t.Error("unexpected synthetic inspection transport diagnostic")
+					}
+				})
 				targets[i].Socket = address
 			}
 			in.Targets = func(context.Context) ([]EngineTarget, error) { return targets, nil }
