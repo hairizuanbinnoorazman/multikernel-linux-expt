@@ -46,7 +46,14 @@ The user subsequently authorizes the agent to restart the idle existing instance
 [Reset and independent new-boot verification](../../../evidence/runtime-20261108/g8-authorized-restart-aa173749/README.md)
 pass on fc6f4cd8, preserving all 23 artifacts/seven absences and historical state,
 with original idle transport, returned resources and a fresh primary baseline.
-The corrected real-child engine/build trial remains separately required.
+The corrected [real-child engine/build trial](../../../evidence/runtime-20261108/g8-live-engine-observation-aa173749/README.md)
+then passes on that new boot. All four owner-bound engine phases, original RUN
+prefix binding, complete Docker build matrix, health/diagnostic timing, primary
+parity, native clean release and kernel resource return independently qualify.
+Five live identity/build/source refusals pass. The failed predecessor remains
+unchanged. This closes that live engine-observation/build subcase; post-trial
+cold restoration, broader readiness/admission/fault mixtures and full G7/G8 remain
+required. The candidate stays loaded idle and is not hot-unloaded.
 Actual Docker/child execution
 remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
 virtualization is used; child-kernel compromise shares primary trust.

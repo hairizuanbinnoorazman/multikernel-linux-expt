@@ -73,3 +73,12 @@ compromise shares primary trust; this observation introduces no containment clai
 [Local controls](../../../evidence/runtime-20261108/g8-engine-observation-controls/README.md)
 and [native GCE synthetic controls/mutation/preservation](../../../evidence/runtime-20261108/g8-engine-observation-gce/README.md)
 pass. Actual Docker and child-kernel observations remain unqualified by these tests.
+
+The corrected [committed-source real-child GCE trial](../../../evidence/runtime-20261108/g8-live-engine-observation-aa173749/README.md)
+now qualifies responding samples at filesystem-full, original unfinished build
+and built-image holds, then refusal of the removed owner. Independent audit
+also verifies the full build matrix, primary parity, native release/resource
+return and five live epoch/source/build refusals while preserving the earlier
+failed attempt. This closes that sampled engine/build-lifecycle subcase only;
+post-trial cold restoration, broader readiness/admission and complete G7/G8
+remain separate requirements.

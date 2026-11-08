@@ -86,3 +86,12 @@ fixed by the [bounded router controls](../../../evidence/runtime-20261108/g8-shi
 [Committed-source GCE proof](../../../evidence/runtime-20261108/g8-shim-inspection-router-gce/README.md)
 qualifies actual concurrent frontend delivery and continued task responsiveness
 without a child kernel. Real-child engine/build qualification remains separate.
+
+The corrected [committed-source real-child GCE trial](../../../evidence/runtime-20261108/g8-live-engine-observation-aa173749/README.md)
+now qualifies responding samples at filesystem-full, original unfinished build
+and built-image holds, then refusal of the removed owner. Independent audit
+also verifies the full build matrix, primary parity, native release/resource
+return and five live epoch/source/build refusals while preserving the earlier
+failed attempt. This closes that sampled engine/build-lifecycle subcase only;
+post-trial cold restoration, broader readiness/admission and complete G7/G8
+remain separate requirements.
