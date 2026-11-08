@@ -10,9 +10,12 @@ suppression on degradation. Missing/stale owners and unsupported agents remain
 inconclusive; legacy formats keep their scopes. [Local controls](../../../evidence/runtime-20261108/g8-aggregate-docker-health-controls/README.md)
 pass real protected Unix queries, two-owner coverage/subset refusal, drift,
 privacy, cancellation, private target/publication safety and existing race and
-required suites. Installed CLI/native and actual child-build aggregate execution
-remain unqualified. This advances aggregation; full readiness/admission/G7/G8
-remain open. No nested virtualization or hostile child-kernel containment is added.
+required suites. A [committed-source GCE native attempt](../../../evidence/runtime-20261108/g8-aggregate-docker-health-gce/README.md)
+reports all nine selected groups passing, including installed CLI dispatch, but
+its harness fails on nonempty stderr. The exact failed unit and private streams
+remain preserved; independent primary/resource/retention checks pass. Native
+checkpoint and actual child-build aggregate execution remain unqualified. This
+advances aggregation; full readiness/admission/G7/G8 remain open. No nested virtualization or hostile child-kernel containment is added.
 
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
