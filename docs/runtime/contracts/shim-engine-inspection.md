@@ -80,3 +80,9 @@ construction does not mutate containerd's process-global plugin registry. An
 unbound plugin or a second initialization refuses. [Repeated-constructor and
 registration-factory proof](../../../evidence/runtime-20261108/g8-shim-inspection-initializer/README.md)
 retains the original duplicate-ID panic and the corrected race-enabled controls.
+
+The supervised public listener's original single-client stall is reproduced and
+fixed by the [bounded router controls](../../../evidence/runtime-20261108/g8-shim-inspection-router-controls/README.md).
+[Committed-source GCE proof](../../../evidence/runtime-20261108/g8-shim-inspection-router-gce/README.md)
+qualifies actual concurrent frontend delivery and continued task responsiveness
+without a child kernel. Real-child engine/build qualification remains separate.

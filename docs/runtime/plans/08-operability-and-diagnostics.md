@@ -26,6 +26,16 @@ confirms primary preservation, returned kernel resources and clean native releas
 a private native-runtime entry remains. No engine checkpoint or build matrix
 qualifies, and cold module restoration is still required. No permanent resolver, IAM/cloud-network change or guest reboot is
 needed for that client recovery.
+The real compiled supervisor then reproduces the query stall: an additional
+client waits in the public listener backlog until containerd disconnects. The
+[bounded inspection router](../../../evidence/runtime-20261108/g8-shim-inspection-router-controls/README.md)
+authenticates and serves inspection clients independently on the existing
+listener without task replay. Its committed-source
+[GCE frontend proof](../../../evidence/runtime-20261108/g8-shim-inspection-router-gce/README.md)
+passes concurrent inspection/refusal and continued Task/Connect responsiveness,
+with independent source/primary/resource checks and complete test-unit cleanup.
+This closes that frontend regression; it does not requalify the preserved failed
+real-child trial. A new cold-restored real-child trial is still required.
 Actual Docker/child execution
 remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
 virtualization is used; child-kernel compromise shares primary trust.
