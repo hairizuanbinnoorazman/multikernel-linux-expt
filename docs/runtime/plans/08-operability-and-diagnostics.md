@@ -14,7 +14,10 @@ pass. A subsequent [constructor-repeat check](../../../evidence/runtime-20261108
 reproduces and fixes duplicate plugin registration: the binary now registers
 once and binds its exact owner before graph loading. The [first built packet](../../../evidence/runtime-20261108/g8-live-engine-observation-7fc41cb/README.md)
 stays superseded and unlaunched after two failed SSH boot preflights. GCE reports
-RUNNING, which does not prove guest readiness. Actual Docker/child execution
+RUNNING, which does not prove guest readiness. The [corrected committed-source
+packet and guarded launch](../../../evidence/runtime-20261108/g8-live-engine-observation-f173b71/README.md)
+are prepared; three SSH banner failures leave it unuploaded and unlaunched.
+Actual Docker/child execution
 remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
 virtualization is used; child-kernel compromise shares primary trust.
 
