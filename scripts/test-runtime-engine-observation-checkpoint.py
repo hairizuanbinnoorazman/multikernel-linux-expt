@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Receipt-bound positive cases and recomputed-hash semantic refusals."""
-import copy,hashlib,json,os,tempfile,unittest
+import copy,hashlib,json,os,subprocess,sys,tempfile,time,unittest
 from pathlib import Path
 from unittest.mock import patch
 import runtime_engine_observation_checkpoint as subject
@@ -12,6 +12,25 @@ sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 class EngineCheckpoint(unittest.TestCase):
  def setUp(self):self.previous_umask=os.umask(0o077)
  def tearDown(self):os.umask(self.previous_umask)
+ def test_real_command_timeout_retains_bounded_streams_without_checkpoint(self):
+  with tempfile.TemporaryDirectory() as directory:
+   p=Path(directory);phase='while-full'
+   command=[sys.executable,'-c',"import os,time; os.write(1,b'x'*4096); os.write(2,b'y'*512); time.sleep(30)"]
+   start=time.monotonic()
+   with self.assertRaises(subprocess.TimeoutExpired):subject.run_probe(command,p,phase,0.5)
+   self.assertLess(time.monotonic()-start,5)
+   self.assertEqual((p/'engine-while-full.stdout').read_bytes(),b'x'*2048)
+   self.assertEqual((p/'engine-while-full.stderr').read_bytes(),b'y'*256)
+   self.assertEqual(json.loads((p/'engine-while-full-failure.json').read_text()),dict(version=1,phase=phase,failure='command-timeout',qualified=False,stream_truncated=dict(stdout=True,stderr=True)))
+   self.assertFalse((p/'engine-while-full.json').exists())
+   self.assertEqual((p/'engine-while-full-failure.json').stat().st_mode&0o777,0o600)
+ def test_timeout_without_output_preserves_empty_streams(self):
+  with tempfile.TemporaryDirectory() as directory:
+   p=Path(directory)
+   with self.assertRaises(subprocess.TimeoutExpired):subject.run_probe([sys.executable,'-c','import time; time.sleep(30)'],p,'while-full',0.1)
+   self.assertEqual((p/'engine-while-full.stdout').read_bytes(),b'')
+   self.assertEqual((p/'engine-while-full.stderr').read_bytes(),b'')
+   self.assertEqual(json.loads((p/'engine-while-full-failure.json').read_text())['stream_truncated'],dict(stdout=False,stderr=False))
  def fixture(self,base):
   work=base/'work';work.mkdir(mode=0o700);p=work/'integration';p.mkdir(mode=0o700)
   for n in ['bin']:(work/n).mkdir(mode=0o700)

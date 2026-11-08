@@ -8,6 +8,21 @@ from runtime_trial_agent_profile import sha as artifact_sha
 PHASES=['while-full','during-build','while-image-ready','after-remove']
 ORIGINAL_PROFILE=Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json')
 
+def run_probe(args,private,phase,timeout):
+    try:
+        return sp.run(args,stdout=sp.PIPE,stderr=sp.PIPE,timeout=timeout)
+    except sp.TimeoutExpired as failure:
+        # A failed probe is diagnostic evidence only. Never publish a phase
+        # checkpoint or extend the qualification budget to wait for the CLI.
+        streams={'stdout':failure.stdout or b'','stderr':failure.stderr or b''}
+        limits={'stdout':2048,'stderr':256}
+        for suffix,data in streams.items():
+            (private/('engine-'+phase+'.'+suffix)).write_bytes(data[:limits[suffix]])
+        record=dict(version=1,phase=phase,failure='command-timeout',qualified=False,
+                    stream_truncated={k:len(v)>limits[k] for k,v in streams.items()})
+        (private/('engine-'+phase+'-failure.json')).write_text(json.dumps(record,sort_keys=True)+'\n')
+        raise
+
 def capture(work,boot,invocation,container,owner,phase,deadline):
     private=work/'integration';assert phase in PHASES
     request=dict(version=1,namespace='moby',container_id=container,sandbox_id=owner['sandbox_id'],generation=owner['generation'])
@@ -25,7 +40,7 @@ def capture(work,boot,invocation,container,owner,phase,deadline):
         before=(private/'workload.stderr').read_bytes();assert len(before)<=131072 and run_markers(before.decode())=={'BEGIN'}
         (private/'engine-build-before.stderr').write_bytes(before)
     start=time.monotonic_ns();end=min(int(deadline*1_000_000_000),start+5_000_000_000);assert end>start
-    result=sp.run([str(work/'bin/mk-shimctl'),'--socket='+reference['address'],'--namespace=moby','--container-id='+container,'--sandbox-id='+owner['sandbox_id'],'--generation='+owner['generation']],stdout=sp.PIPE,stderr=sp.PIPE,timeout=(end-start)/1_000_000_000)
+    result=run_probe([str(work/'bin/mk-shimctl'),'--socket='+reference['address'],'--namespace=moby','--container-id='+container,'--sandbox-id='+owner['sandbox_id'],'--generation='+owner['generation']],private,phase,(end-start)/1_000_000_000)
     assert len(result.stdout)<=2048 and len(result.stderr)<=256
     for suffix,data in [('stdout',result.stdout),('stderr',result.stderr)]:(private/('engine-'+phase+'.'+suffix)).write_bytes(data)
     hashes={}

@@ -19,8 +19,12 @@ packet and guarded launch](../../../evidence/runtime-20261108/g8-live-engine-obs
 initially stay unuploaded after three SSH banner failures. A subsequent client
 IPv6/IAP diagnostic recovers standard authenticated SSH using process-scoped
 `RES_OPTIONS=no-aaaa`, verifies the expected boot and launches the exact guarded
-trial. Real parent/workload epochs are retained; terminal qualification remains
-pending. No permanent resolver, IAM/cloud-network change or guest reboot is
+trial. Real parent/workload epochs are retained. Both subsequently fail at the first
+five-second engine query after the full-filesystem hold. The independent
+[failure audit](../../../evidence/runtime-20261108/g8-live-engine-observation-f173b71/failure-audit.json)
+confirms primary preservation, returned kernel resources and clean native release;
+a private native-runtime entry remains. No engine checkpoint or build matrix
+qualifies, and cold module restoration is still required. No permanent resolver, IAM/cloud-network change or guest reboot is
 needed for that client recovery.
 Actual Docker/child execution
 remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
