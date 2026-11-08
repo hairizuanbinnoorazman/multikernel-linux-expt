@@ -76,4 +76,13 @@ class Retention(unittest.TestCase):
    with self.assertRaises(ValueError):subject.verify_after_boot(m,NEXT)
    Path(missing).unlink();Path(missing).write_text('forged checkpoint')
    with self.assertRaises(ValueError):subject.verify_after_boot(m,NEXT)
+ def test_removed_generation_uses_existing_parent_without_weakening_traversal(self):
+  with tempfile.TemporaryDirectory() as d:
+   paths=self.fixture(d);root=Path(d)/'backing';root.mkdir(mode=0o700)
+   generation=root/'released-generation';image=generation/'disk.img'
+   with self.assertRaises(FileNotFoundError):subject.capture(paths,BOOT,[str(image)])
+   m=subject.capture(paths,BOOT,[str(generation)])
+   self.assertTrue(subject.verify_after_boot(m,NEXT)['artifacts_preserved'])
+   generation.mkdir(mode=0o700)
+   with self.assertRaises(ValueError):subject.verify_after_boot(m,NEXT)
 if __name__=='__main__':unittest.main()
