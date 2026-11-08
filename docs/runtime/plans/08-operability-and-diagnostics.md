@@ -16,7 +16,12 @@ once and binds its exact owner before graph loading. The [first built packet](..
 stays superseded and unlaunched after two failed SSH boot preflights. GCE reports
 RUNNING, which does not prove guest readiness. The [corrected committed-source
 packet and guarded launch](../../../evidence/runtime-20261108/g8-live-engine-observation-f173b71/README.md)
-are prepared; three SSH banner failures leave it unuploaded and unlaunched.
+initially stay unuploaded after three SSH banner failures. A subsequent client
+IPv6/IAP diagnostic recovers standard authenticated SSH using process-scoped
+`RES_OPTIONS=no-aaaa`, verifies the expected boot and launches the exact guarded
+trial. Real parent/workload epochs are retained; terminal qualification remains
+pending. No permanent resolver, IAM/cloud-network change or guest reboot is
+needed for that client recovery.
 Actual Docker/child execution
 remains required before closing the live subcase; complete readiness/admission and G7/G8 remain open. No nested
 virtualization is used; child-kernel compromise shares primary trust.
