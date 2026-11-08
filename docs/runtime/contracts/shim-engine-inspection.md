@@ -47,3 +47,18 @@ Doctor/bundle formats and ordinary Docker workload paths stay unchanged.
 Direct child kernels use no nested virtualization and share primary trust after
 arbitrary child-kernel compromise. Actual host Docker/child execution and
 complete G7/G8 require separate qualification.
+
+The optional disposable pressure qualifier sets
+`MK_MODULE_TRIAL_ENGINE_OBSERVATION=1` on its parent and uses
+`--engine-observation` on the host fixture. It stages the committed agent and a
+new privately approved base archive, with full original/new bootstrap validation.
+Its guest pressure/build mode includes a finite original RUN window for sampling.
+Samples at full filesystem, unfinished build and built image require responding;
+removal must refuse the old owner. The independent audit must explicitly select
+`--require-engine-observation` to claim this subcase. Existing pressure/build/
+health/network/native-release/resource gates remain required. Doctor v8 and
+bundle v2 scopes remain unchanged.
+
+[Shim/client race and source-stage controls](../../../evidence/runtime-20261108/g8-shim-engine-inspection-controls/README.md)
+and [receipt/profile policy and prefix mutation controls](../../../evidence/runtime-20261108/g8-live-engine-observation-controls/README.md)
+pass locally. Actual real-child qualification is still required.

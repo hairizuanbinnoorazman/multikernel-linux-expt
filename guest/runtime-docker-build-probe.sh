@@ -2,7 +2,7 @@
 # Disposable qualification workload for the approved production Docker profile.
 # Supply this script and a static x86-64 BusyBox through copied /work inputs.
 set -eu
-[ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && { [ "$1" = --overlap-proof ] || [ "$1" = --io-overlap-proof ] || [ "$1" = --storage-pressure ]; }; }
+[ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && { [ "$1" = --overlap-proof ] || [ "$1" = --io-overlap-proof ] || [ "$1" = --storage-pressure ] || [ "$1" = --storage-pressure-engine-observation ]; }; }
 export DOCKER_HOST=unix:///var/run/docker.sock
 work=/home/rootless/.local/tmp/g8-build
 test ! -e "$work"
@@ -16,7 +16,7 @@ uname -r
 grep -E '^(CapEff|CapBnd|NoNewPrivs|Seccomp):' /proc/self/status
 docker version
 docker info --format '{{json .}}'
-if [ "${1:-}" = --storage-pressure ]; then
+if [ "${1:-}" = --storage-pressure ] || [ "${1:-}" = --storage-pressure-engine-observation ]; then
     pressure_release=0
     image_release=0
     trap 'pressure_release=1' USR1
@@ -73,7 +73,7 @@ COPY --from=build /out/result /result
 COPY --from=build /bin/busybox /bin/busybox
 CMD ["/bin/busybox", "cat", "/result"]
 DOCKERFILE
-if [ "${1:-}" = --overlap-proof ]; then
+if [ "${1:-}" = --overlap-proof ] || [ "${1:-}" = --storage-pressure-engine-observation ]; then
     sed -i 's@/bin/busybox mkdir -p /out; @/bin/busybox mkdir -p /out; echo G8_OVERLAP_RUN_BEGIN; /bin/busybox sleep 45; echo G8_OVERLAP_RUN_END; @' "$work/context/Dockerfile"
 fi
 if [ "${1:-}" = --io-overlap-proof ]; then
@@ -130,7 +130,7 @@ if [ "$save_status" -ne 0 ] || [ ! -s "$work/image.tar" ]; then
     exit 71
 fi
 sha256sum "$work/image.tar"
-if [ "${1:-}" = --storage-pressure ]; then
+if [ "${1:-}" = --storage-pressure ] || [ "${1:-}" = --storage-pressure-engine-observation ]; then
     echo "G8_STORAGE_PRESSURE_IMAGE_ID=$(docker image inspect --format '{{.Id}}' g8-proof:latest)"
     echo G8_STORAGE_PRESSURE_IMAGE_READY
     # Keep the built image present until the primary observes its own store.
@@ -151,7 +151,7 @@ docker image rm g8-proof:latest g8-proof:cached
 docker builder prune --all --force
 test -z "$(docker ps -aq)"
 echo G8_BUILD_RESOURCES_REMOVED
-if [ "${1:-}" = --storage-pressure ]; then
+if [ "${1:-}" = --storage-pressure ] || [ "${1:-}" = --storage-pressure-engine-observation ]; then
     docker info --format '{{json .}}'
     echo G8_STORAGE_PRESSURE_BUILD_RECOVERED
 fi

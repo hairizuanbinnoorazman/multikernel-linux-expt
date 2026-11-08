@@ -8,10 +8,10 @@ from runtime_operational_doctor_checkpoint import qualify as qualify_operational
 SCOPE='operational-and-component-observation-snapshot'
 EXCLUDED=['raw-logs','guest-output','credentials','environment','configuration-files','state-files','process-command-lines','kernel-console','service-readiness','executable-attestation','kernel-attestation','containment']
 
-def read_fixture_artifact(parent,name,limit):
+def read_fixture_artifact(parent,name,limit,*,allow_empty=False):
  """Read one bounded immutable file from an existing private fixture parent."""
  parent=os.fspath(parent)
- if not os.path.isabs(parent) or os.path.normpath(parent)!=parent or os.path.basename(name)!=name or name in ['','.','..'] or type(limit) is not int or not 0<limit<=1<<20:raise ValueError('invalid fixture artifact request')
+ if type(allow_empty) is not bool or not os.path.isabs(parent) or os.path.normpath(parent)!=parent or os.path.basename(name)!=name or name in ['','.','..'] or type(limit) is not int or not 0<limit<=1<<20:raise ValueError('invalid fixture artifact request')
  directory=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
  try:
   for component in parent.strip('/').split('/'):
@@ -22,7 +22,7 @@ def read_fixture_artifact(parent,name,limit):
   descriptor=os.open(name,os.O_RDONLY|os.O_CLOEXEC|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=directory)
   with os.fdopen(descriptor,'rb') as source:
    before=os.fstat(source.fileno())
-   if not stat.S_ISREG(before.st_mode) or before.st_uid!=os.geteuid() or before.st_nlink!=1 or before.st_mode&0o022 or not 0<before.st_size<=limit:raise ValueError('unsafe fixture artifact file')
+   if not stat.S_ISREG(before.st_mode) or before.st_uid!=os.geteuid() or before.st_nlink!=1 or before.st_mode&0o022 or not (0 if allow_empty else 1)<=before.st_size<=limit:raise ValueError('unsafe fixture artifact file')
    data=source.read(limit+1);after=os.fstat(source.fileno());named=os.stat(name,dir_fd=directory,follow_symlinks=False)
    for observed in [after,named]:
     if any(getattr(before,k)!=getattr(observed,k) for k in ['st_dev','st_ino','st_mode','st_uid','st_nlink','st_size','st_mtime_ns','st_ctime_ns']):raise ValueError('fixture artifact identity changed')

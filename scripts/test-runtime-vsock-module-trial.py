@@ -27,6 +27,7 @@ STAGE_LOCATION=os.environ.get('MK_MODULE_TRIAL_STAGE_LOCATION','storage')
 WORK=stage_path(REVISION,STAGE_LOCATION)
 RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1','fifo','crash']
 SCENARIO=os.environ.get('MK_MODULE_TRIAL_SCENARIO','pressure');scenario_flag(SCENARIO)
+ENGINE_OBSERVATION=os.environ.get('MK_MODULE_TRIAL_ENGINE_OBSERVATION','0');assert ENGINE_OBSERVATION in ['0','1'] and (ENGINE_OBSERVATION=='0' or SCENARIO=='pressure' and RECORD_FAULT=='0')
 assert SCENARIO=='pressure' or RECORD_FAULT=='0'
 REUSE=os.environ.get('MK_MODULE_TRIAL_PRIOR_REVISION','');assert not REUSE or re.fullmatch('[a-f0-9]{7,40}',REUSE)
 OLD='65C55BB38C669FF94A4B772';NEW='0450DCCF7EDC67FAE2A6CAA'
@@ -124,7 +125,7 @@ try:
     else:
         run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
         run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
-    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else scenario_flag(SCENARIO),'--harden-services'])
+    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else scenario_flag(SCENARIO),'--harden-services']+(['--engine-observation'] if ENGINE_OBSERVATION=='1' else []))
     deadline=time.monotonic()+1230;invocation=None
     while True:
         observed=show(pressure,'InvocationID','MainPID','ActiveState','SubState','Result','ExecMainStatus')
@@ -139,6 +140,9 @@ try:
         if SCENARIO=='pressure':
             timings=inspect_fixture_lifecycle_timings(WORK,BOOT,invocation)
             health_timings=inspect_fixture_health(WORK,BOOT,invocation)
+            if ENGINE_OBSERVATION=='1':
+                from runtime_engine_observation_checkpoint import inspect_fixture_engine_observation
+                record('engine-observation-checkpoint-qualified',engine_observation_checkpoint=inspect_fixture_engine_observation(WORK,BOOT,invocation))
             record('diagnostic-checkpoint-timings-qualified',diagnostic_checkpoint_timings=timings,health_checkpoint_timings=health_timings)
         elif SCENARIO=='concurrent':
             concurrent=inspect_fixture_concurrency(WORK,BOOT,invocation)

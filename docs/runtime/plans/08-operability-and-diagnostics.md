@@ -1,5 +1,19 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+## Owning-shim engine inspection and actual-trial binding (2026-11-08)
+
+The [protected shim extension](../contracts/shim-engine-inspection.md) lets a
+host operator inspect the child engine through its owning shim's authenticated
+connection, with exact current owner matching and no new listener or credential
+exposure. [Local race/stage controls](../../../evidence/runtime-20261108/g8-shim-engine-inspection-controls/README.md)
+pass. The optional pressure trial now stages the committed agent through a fully
+validated private approval and binds inspections at full filesystem, original
+unfinished RUN, built image and removed owner. [Receipt/profile controls and
+prefix mutation](../../../evidence/runtime-20261108/g8-live-engine-observation-controls/README.md)
+pass. Actual Docker/child execution remains required before closing the live
+subcase; complete readiness/admission and G7/G8 remain open. No nested
+virtualization is used; child-kernel compromise shares primary trust.
+
 ## Authenticated child Docker API/launcher observation (2026-11-08)
 
 The [new observation contract](../contracts/docker-engine-observation.md) adds

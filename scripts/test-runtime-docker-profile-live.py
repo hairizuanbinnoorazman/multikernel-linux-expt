@@ -30,9 +30,9 @@ from runtime_workload_phase import wait_for_phase
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 from runtime_io_recovery_checkpoint import sync_sequence
-assert 3<=len(sys.argv)<=5, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--crash-during-io|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
+assert 3<=len(sys.argv)<=6, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--crash-during-io|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'}
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation'}
 assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
 native_export_crash='--storage-export-crash' in flags
 export_crash_observed=False
@@ -45,6 +45,8 @@ crash_runtime='--crash-runtime' in flags or crash_during_build
 restart_runtime='--restart-runtime' in flags or crash_runtime
 harden_services='--harden-services' in flags
 concurrent='--concurrent' in flags
+engine_observation='--engine-observation' in flags
+assert not engine_observation or storage_pressure and not (native_record_fault or native_export_crash or restart_runtime or concurrent), 'engine observation requires the ordinary pressure scenario'
 assert not (concurrent and restart_runtime), 'concurrency and restart are separate bounded scenarios'
 work=pathlib.Path(sys.argv[1]);source=pathlib.Path(sys.argv[2])
 assert work.is_absolute() and source.is_absolute() and source==work/'source'
@@ -118,7 +120,12 @@ import shutil
 for a,b,mode in [('/bin/busybox','busybox',0o555),(source/'guest/runtime-docker-build-probe.sh','probe.sh',0o444),(source/'guest/runtime-docker-io-run.sh','io-run.sh',0o444)]:
  shutil.copyfile(a,private/'input'/b);(private/'input'/b).chmod(mode)
 profile=json.loads(pathlib.Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json').read_text())
-approval=private/'manifests/gce-mk2.json';approval.write_text(json.dumps(profile));approval.chmod(0o600)
+approval=private/'manifests/gce-mk2.json'
+if engine_observation:
+ from runtime_trial_agent_profile import prepare as prepare_current_agent_profile
+ profile=prepare_current_agent_profile(work,pathlib.Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json'),approval)
+else:
+ approval.write_text(json.dumps(profile));approval.chmod(0o600)
 config.update(state_directory=str(private/'daemon-state'),socket_path=str(daemon_socket),kernel_manifest_directory=str(private/'manifests'))
 host_config=private/'host.json';host_config.write_text(json.dumps(config));host_config.chmod(0o600)
 storage_root=pathlib.Path('/srv/multikernel-storage')/work.name
@@ -186,7 +193,7 @@ try:
  imported=run(cli+['import',archive,'g8-approved:fixture'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  (private/'import.stdout').write_bytes(imported.stdout);(private/'import.stderr').write_bytes(imported.stderr)
  workload=['/bin/sh','/work/input/probe.sh']
- if storage_pressure:workload+=['--storage-pressure']
+ if storage_pressure:workload+=['--storage-pressure-engine-observation' if engine_observation else '--storage-pressure']
  if restart_runtime:
   probe='/bin/sh /work/input/probe.sh' + (' --io-overlap-proof' if crash_during_io else ' --overlap-proof' if crash_during_build else '')
   workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; ' + probe + '; echo G8_RUNTIME_RECOVERY_READY; ' + RELEASE_WAIT + '; echo G8_RUNTIME_RECOVERY_RELEASED']
@@ -449,6 +456,9 @@ try:
      report=inspect_network(network_socket,n,endpoints[0],boot,owner,time.monotonic()+10)
      (private/('network-check-'+label+'.json')).write_text(json.dumps(report,indent=2)+'\n')
      return report
+    if engine_observation:
+     from runtime_engine_observation_checkpoint import capture as capture_engine
+     capture_engine(work,boot,os.environ['INVOCATION_ID'],created.stdout.decode().strip(),owner,'while-full',time.monotonic()+5)
     doctor_checkpoint('while-full',time.monotonic()+10)
     full_network=network_checkpoint('while-full')
     active=[v for v in json.loads((private/'storage-state/state.json').read_text())['exports'].values() if v['state']=='ACTIVE'];assert len(active)==1
@@ -469,6 +479,12 @@ try:
     (private/'pressure-release.stdout').write_bytes(released.stdout);(private/'pressure-release.stderr').write_bytes(released.stderr)
     assert released.returncode==0,'failed to release the ENOSPC hold point'
     image_deadline=time.monotonic()+180
+    if engine_observation:
+     while run_markers((private/'workload.stderr').read_text())!={'BEGIN'}:
+      assert attach.poll() is None and time.monotonic()<image_deadline,'original build did not enter its observed RUN window'
+      time.sleep(.05)
+     capture_engine(work,boot,os.environ['INVOCATION_ID'],created.stdout.decode().strip(),owner,'during-build',image_deadline)
+     assert attach.poll() is None,'original build exited during its engine observation'
     while 'G8_STORAGE_PRESSURE_IMAGE_READY\n' not in (private/'workload.stdout').read_text():
      assert attach.poll() is None and time.monotonic()<image_deadline,'guest did not reach the built-image hold point'
      time.sleep(.2)
@@ -480,6 +496,7 @@ try:
     assert primary_with_image['child_image_absent'],'child-built image appeared in primary Docker'
     guest_engine=next(json.loads(line) for line in (private/'workload.stdout').read_text().splitlines() if line.startswith('{') and '"KernelVersion"' in line)
     assert fingerprint(guest_engine['ID'])!=primary_docker_before['engine_id_sha256'],'guest selected the primary Docker engine'
+    if engine_observation:capture_engine(work,boot,os.environ['INVOCATION_ID'],created.stdout.decode().strip(),owner,'while-image-ready',image_deadline)
     image_doctor=doctor_checkpoint('while-image-ready',image_deadline)
     image_network=network_checkpoint('while-image-ready')
     assert image_network['endpoint_generation']==full_network['endpoint_generation']
@@ -576,6 +593,7 @@ try:
  if crash_during_io:checkpoint['io_run_script_sha256']=sha(private/'input/io-run.sh')
  (work/'workload-checkpoint.json').write_text(json.dumps(checkpoint,indent=2)+'\n')
  run(cli+['rm','g8-materialization'],stdout=subprocess.DEVNULL);container_created=False;run(cli+['image','rm','g8-approved:fixture'],stdout=subprocess.DEVNULL)
+ if engine_observation:capture_engine(work,boot,os.environ['INVOCATION_ID'],created.stdout.decode().strip(),owner,'after-remove',time.monotonic()+5)
  if storage_pressure:doctor_checkpoint('after-remove',time.monotonic()+10,released=True)
 finally:
  try:
@@ -651,6 +669,10 @@ r['runtime_crash_tested']=crash_runtime
 r['runtime_crash_during_build_tested']=crash_during_build
 r['runtime_io_during_crash_tested']=crash_during_io
 r['storage_pressure_tested']=storage_pressure
+r['engine_observation_tested']=engine_observation
+if engine_observation:
+ r['engine_observation_sha256']={phase:sha(private/('engine-'+phase+'.json')) for phase in ['while-full','during-build','while-image-ready','after-remove']}
+ r['engine_profile_receipt_sha256']=sha(private/'current-agent-profile-receipt.json')
 if storage_pressure:r['storage_pressure_wait_sha256']=sha(work/'storage-pressure-wait-checkpoint.json')
 if storage_pressure:r['storage_pressure_recovery_sha256']=sha(work/'storage-pressure-recovery.json')
 if storage_pressure:r['console_capture_sha256']=sha(private/'console-capture.json')
