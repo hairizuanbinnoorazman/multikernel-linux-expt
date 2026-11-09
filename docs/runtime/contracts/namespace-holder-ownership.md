@@ -19,6 +19,16 @@ sandbox cancellation/deletion and prepared-root cleanup order. A repeated stop
 after completed cleanup is a no-op. This does not authorize signaling a historic
 PID, deleting an uncertain generation or a broad destructive repair.
 
+Each later stage is also a barrier: a failed network release prevents sandbox
+cancellation/deletion and prepared-root cleanup; uncertain sandbox cleanup or a
+cancellation without `safe_to_cleanup=true` prevents prepared-root cleanup.
+Confirmed network release stays recorded. Local sandbox, diagnostic-owner,
+token and task context remain until prepared-root cleanup also succeeds. A
+remotely deleted sandbox can remain as retry context; this is not evidence that
+it is still running. Retrying uses the original generation/configuration and
+idempotency key. Existing NOT_FOUND handling permits a confirmed prior release
+or deletion to complete without replacing the original owner.
+
 Incomplete create rollback also closes the service's Create admission path,
 including failures before a sandbox or task record exists. A subsequent Create
 refuses before bundle validation or allocation and cannot replace retained

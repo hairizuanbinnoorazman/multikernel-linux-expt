@@ -158,43 +158,37 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 	// A missing task record does not prove that prior Create ownership is gone.
 	// Fail closed across every cleanup stage, including pre-sandbox rootfs work.
 	s.createCleanupPending = true
-	var failures []error
-	canCleanupPrepared := !lifecycleAttempted
 	if err := s.stopNamespaceHolder(); err != nil {
 		// The helper still owns the namespace. Keep its network, sandbox and
 		// prepared-root ownership intact for an explicit cleanup retry.
 		return fmt.Errorf("stop network namespace holder: %w", err)
 	}
 	if err := s.releaseNetwork(ctx); err != nil {
-		failures = append(failures, err)
+		return fmt.Errorf("release create network: %w", err)
 	}
 	if lifecycleAttempted {
 		if err := s.cancelCreate(ctx, config, createKey); err != nil {
-			failures = append(failures, fmt.Errorf("cancel allocated sandbox: %w", err))
-		} else {
-			canCleanupPrepared = true
-			s.sandbox = protocol.Sandbox{}
-			s.setEventDiagnosticOwner(s.sandbox)
+			return fmt.Errorf("cancel allocated sandbox: %w", err)
 		}
 	} else if s.sandbox.ID != "" {
 		if _, err := daemon.Mutation(ctx, s.daemon, "DeleteSandbox", s.sandbox.ID, s.sandbox.Generation, "shim-create-rollback-delete-"+s.sandbox.Generation, nil); err != nil && !daemonErrorCode(err, "NOT_FOUND") {
-			failures = append(failures, fmt.Errorf("delete allocated sandbox: %w", err))
-		} else {
-			canCleanupPrepared = true
-			s.sandbox = protocol.Sandbox{}
-			s.setEventDiagnosticOwner(s.sandbox)
+			return fmt.Errorf("delete allocated sandbox: %w", err)
 		}
 	}
-	if prepared != nil && canCleanupPrepared {
+	if prepared != nil {
 		if err := s.cleanupRootfs(ctx, *prepared); err != nil {
-			failures = append(failures, fmt.Errorf("cleanup prepared rootfs: %w", err))
+			return fmt.Errorf("cleanup prepared rootfs: %w", err)
 		}
 	}
+	// Retain local lifecycle/task/credential context until every cleanup stage
+	// succeeds. A remotely deleted sandbox may remain here as retry context;
+	// it is not a claim that the sandbox is still live.
+	s.sandbox = protocol.Sandbox{}
+	s.setEventDiagnosticOwner(s.sandbox)
 	s.token = nil
 	delete(s.processes, "")
-	err := errors.Join(failures...)
-	s.createCleanupPending = err != nil
-	return err
+	s.createCleanupPending = false
+	return nil
 }
 
 func (s *service) cancelCreate(ctx context.Context, config protocol.SandboxConfig, key string) error {
