@@ -35,6 +35,15 @@ and independent source/agent/engine/health/owner/phase/identity requalification.
 Local semantic, subprocess and recomputed-receipt controls pass. A new actual
 aggregate real-child trial, independent live audit and cold restoration remain
 required before that lifecycle can qualify.
+The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
+then builds the full new packet and verifies all code/modes/pins. Its conservative
+budget retains the previous eight-GiB floor after staging, without changing the
+two-GiB image or one-GiB builder reserve. A pinned current-boot GCE observer
+correctly refuses 7,281,209,344 available bytes against 8,927,830,016 required;
+original idle primary/resources/retention remain verified. The packet stays
+local. A concrete 50-to-58 GiB data-disk/filesystem/binding maintenance plan awaits
+approval; prior approval covered only 30-to-50 GiB. No evidence deletion, reserve
+reduction, new resize or real child launch is performed.
 
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
