@@ -6,9 +6,19 @@ pool release failures through fixed terminal records. `mknetd` reports egress,
 durable state, boot-ID read, service initialization/reconciliation, socket-parent
 and listener failures through the same interface. Its internal stage wrapper
 retains the cause for classification but does not format it into the record.
-The fixed table contains fifteen runtime, eight network and thirteen agent codes.
+The fixed table contains fifteen runtime, eight network, thirteen agent and one
+shim discovery code.
 Agent startup, re-exec and final serve/shutdown failures use the same typed
 terminal reporter; their underlying errors are not passed to it.
+
+The shim's `-info` discovery failure reports `SHIM_RUNTIME_INFO_FAILED`
+(`write-runtime-info`) through this same bounded reporter, retaining exit 1.
+Successful discovery still writes the original protobuf response to stdout.
+Malformed/oversized options and input/output failures share this fixed code;
+the underlying error is not supplied to the reporter. This covers the discovery
+branch only. Direct startup errors inside the vendored shim runner retain their
+separate, unresolved stderr behavior; FIFO setup and manager delegation are
+unchanged. No terminal record establishes readiness or closes G7/G8.
 
 | Code | First operator inspection |
 | --- | --- |

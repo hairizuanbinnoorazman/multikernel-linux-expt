@@ -55,6 +55,7 @@ const (
 	AgentListen
 	AgentShutdown
 	AgentServe
+	ShimRuntimeInfo
 )
 
 var specs = [...]struct{ component, code, operation string }{
@@ -95,6 +96,7 @@ var specs = [...]struct{ component, code, operation string }{
 	{"mk-agent", "AGENT_LISTEN_FAILED", "listen-agent"},
 	{"mk-agent", "AGENT_SHUTDOWN_FAILED", "shutdown-guest"},
 	{"mk-agent", "AGENT_SERVE_FAILED", "serve-agent"},
+	{"containerd-shim-multikernel-v2", "SHIM_RUNTIME_INFO_FAILED", "write-runtime-info"},
 }
 
 type record struct {

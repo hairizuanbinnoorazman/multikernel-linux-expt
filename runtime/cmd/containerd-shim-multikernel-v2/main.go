@@ -13,6 +13,7 @@ import (
 	"github.com/containerd/containerd/plugin"
 	"github.com/containerd/containerd/runtime/v2/shim"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/terminallog"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -71,7 +72,7 @@ func main() {
 	// before the vendored 1.7 shim runner parses flags.
 	if len(os.Args) == 2 && os.Args[1] == "-info" {
 		if err := writeRuntimeInfo(os.Stdin, os.Stdout); err != nil {
-			fmt.Fprintf(os.Stderr, "%s: runtime info: %v\n", runtimeName, err)
+			terminallog.Report(terminallog.ShimRuntimeInfo)
 			os.Exit(1)
 		}
 		return
