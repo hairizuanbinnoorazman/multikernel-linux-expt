@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -84,7 +85,7 @@ func TestCreateRefusesAdmissionUntilRollbackCompletes(t *testing.T) {
 			endpoint, sandbox, token, held := s.netEndpoint, s.sandbox, append([]byte(nil), s.token...), s.namespaceHolder
 			for range 2 {
 				result, err := s.Create(t.Context(), &taskapi.CreateTaskRequest{ID: "task", Bundle: bundle})
-				if result != nil || !errors.Is(err, errdefs.ErrFailedPrecondition) || !reflect.DeepEqual(calls, before) {
+				if result != nil || !errors.Is(err, errdefs.ErrFailedPrecondition) || !slices.Equal(calls, before) {
 					t.Fatal("incomplete rollback allowed new Create setup")
 				}
 				if !reflect.DeepEqual(s.netEndpoint, endpoint) || !reflect.DeepEqual(s.sandbox, sandbox) || !reflect.DeepEqual(s.token, token) || s.namespaceHolder != held {
@@ -98,7 +99,7 @@ func TestCreateRefusesAdmissionUntilRollbackCompletes(t *testing.T) {
 			}
 			before = append([]string(nil), calls...)
 			result, err := s.Create(t.Context(), &taskapi.CreateTaskRequest{ID: "task", Bundle: bundle})
-			if result != nil || err == nil || !strings.Contains(err.Error(), "VALIDATION_SENTINEL") || !reflect.DeepEqual(calls, append(before, "ValidateRootfs")) {
+			if result != nil || err == nil || !strings.Contains(err.Error(), "VALIDATION_SENTINEL") || !slices.Equal(calls, append(before, "ValidateRootfs")) {
 				t.Fatal("completed rollback did not reopen ordinary validation")
 			}
 		})
