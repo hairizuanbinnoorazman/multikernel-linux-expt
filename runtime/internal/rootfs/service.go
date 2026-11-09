@@ -843,7 +843,7 @@ func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if !filepath.IsAbs(path) || path == string(filepath.Separator) || filepath.Clean(path) != path || !sha256RE.MatchString(digest) {
+		if !filepath.IsAbs(path) || path == string(filepath.Separator) || strings.IndexByte(path, 0) >= 0 || filepath.Clean(path) != path || !sha256RE.MatchString(digest) {
 			return errors.New("lifecycle rootfs ownership input is invalid")
 		}
 		paths = append(paths, path)

@@ -138,7 +138,7 @@ func TestReconcileClaimedPartialPreparationIsNotOrphaned(t *testing.T) {
 }
 
 func TestReconcileMalformedOwnerSnapshotRefusesBeforeCleanup(t *testing.T) {
-	for _, kind := range []string{"relative-path", "noncanonical-path", "empty-digest", "invalid-digest", "unrelated-invalid-claim"} {
+	for _, kind := range []string{"relative-path", "noncanonical-path", "nul-path", "empty-digest", "invalid-digest", "unrelated-invalid-claim"} {
 		t.Run(kind, func(t *testing.T) {
 			service, backend, request, base := rootfsFixture(t)
 			result, err := service.Prepare(t.Context(), request)
@@ -151,6 +151,8 @@ func TestReconcileMalformedOwnerSnapshotRefusesBeforeCleanup(t *testing.T) {
 				path = "private/root.ext4"
 			case "noncanonical-path":
 				path = filepath.Dir(path) + "/../" + filepath.Base(filepath.Dir(path)) + "/root.ext4"
+			case "nul-path":
+				path = "/private/\x00/root.ext4"
 			case "empty-digest":
 				digest = ""
 			case "invalid-digest":
