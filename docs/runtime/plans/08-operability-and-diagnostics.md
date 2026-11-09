@@ -97,6 +97,17 @@ This qualifies actual helper refusal and service ownership fixtures; actual
 successful namespace entry, vendored startup errors, aggregate child execution
 and full G7/G8 remain open. No capacity expansion or real child is performed.
 
+The subsequent [rejected-holder ownership checkpoint](../../../evidence/runtime-20261109/g8-namespace-holder-retention/README.md)
+retains startup/validation cleanup failures, refuses PID publication or reuse of
+rejected helpers, and blocks create rollback before releasing other owners when
+holder stop fails. Source-bound controls reproduce the previous handle loss and
+premature cleanup. GCE invocation `4ae1dc23` passes ten groups/forty-one cases,
+including a real process retained during injected stop refusal and killed/reaped
+on retry. Full shim race and required checks pass; independent primary/retention/
+resource preservation and own-unit/cgroup cleanup qualify. This closes the native
+in-process cleanup subcase; durable helper recovery, actual aggregate child
+execution, disk-expansion approval and full G7/G8 remain open.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a

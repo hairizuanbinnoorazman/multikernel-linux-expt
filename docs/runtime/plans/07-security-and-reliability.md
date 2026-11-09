@@ -49,6 +49,14 @@ resources, reconciliation action, and final cleanup.
 
 ## Long-running tests
 
+The [rejected namespace-holder checkpoint](../../../evidence/runtime-20261109/g8-namespace-holder-retention/README.md)
+closes a scoped in-process ownership leak: a failed helper stop preserves the
+exact handle and blocks replacement/PID publication and premature rollback
+release. Baseline regressions, full shim race/required checks and source-pinned
+GCE native controls pass, including real-process liveness and eventual reap under
+an injected refusal. Durable recovery, actual syscall failures and the complete
+idle/I/O failure matrix remain separate; this does not close G7.
+
 - Repeated create/start/stop/delete cycles.
 - Parallel sandbox churn.
 - Resource exhaustion and recovery.

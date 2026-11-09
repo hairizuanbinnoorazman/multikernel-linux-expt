@@ -25,3 +25,9 @@ they do not add a durable holder identity or establish restart reconciliation,
 Docker health, successful namespace entry or complete G7/G8 acceptance. Direct
 child kernels require no nested virtualization and share primary trust after
 child-kernel compromise.
+
+The [committed-source comparison and GCE proof](../../../evidence/runtime-20261109/g8-namespace-holder-retention/README.md)
+reproduce prior rejected-handle loss and rollback release, and qualify factory,
+validation, startup cleanup, rollback barriers and explicit retries. A real
+owned process stays live during an injected stop refusal, then is killed/reaped
+through its exact retained handle. Actual signal syscall failure is not induced.
