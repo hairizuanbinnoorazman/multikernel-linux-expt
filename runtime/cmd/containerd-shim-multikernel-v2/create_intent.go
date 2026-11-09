@@ -14,7 +14,7 @@ const createIntentName = ".multikernel-create.json"
 // configuration, guest output, process IDs or destructive commands in it.
 func (s *service) refusePendingCreate() error {
 	if err := s.ensureBundleIdentity(); err != nil {
-		return errors.New("create intent bundle identity is unavailable")
+		return errors.New("bundle directory identity changed or unavailable for create intent")
 	}
 	present, err := s.bundleDirectory.EntryOrRemovalPending(createIntentName, 256)
 	if err != nil || present {
