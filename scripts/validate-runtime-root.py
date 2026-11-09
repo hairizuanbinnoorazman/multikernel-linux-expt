@@ -2,6 +2,7 @@
 """Resolve an OCI root path without traversal or symlinked path components."""
 
 import argparse
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -44,6 +45,58 @@ def validated_bundle_anchor(bundle):
     return anchor
 
 
+def directory_identity(descriptor):
+    info = os.fstat(descriptor)
+    return info.st_dev, info.st_ino
+
+
+def directory_contains(ancestor, descendant):
+    """Compare held directory identities while walking at most 256 parents."""
+    expected = directory_identity(ancestor)
+    current = os.dup(descendant)
+    try:
+        for _ in range(256):
+            observed = directory_identity(current)
+            if observed == expected:
+                return True
+            parent = os.open("..", os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=current)
+            try:
+                at_root = directory_identity(parent) == observed
+            except BaseException:
+                os.close(parent)
+                raise
+            if at_root:
+                os.close(parent)
+                return False
+            os.close(current)
+            current = parent
+        raise ValueError("OCI source ancestry exceeds the inspection bound")
+    finally:
+        os.close(current)
+
+
+def reject_control_overlap(bundle, candidate, expected):
+    """Never turn the active host bundle/control subtree into a child root."""
+    flags = os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    with ExitStack() as held:
+        inherited = re.fullmatch(r"/proc/self/fd/([0-9]+)", os.fspath(bundle))
+        bundle_fd = os.dup(int(inherited.group(1))) if inherited else os.open(bundle, flags)
+        held.callback(os.close, bundle_fd)
+        source_fd = os.open(candidate, flags)
+        held.callback(os.close, source_fd)
+        if directory_identity(source_fd) != (expected.st_dev, expected.st_ino):
+            raise ValueError("OCI source identity changed during overlap validation")
+        if directory_contains(source_fd, bundle_fd):
+            raise ValueError("OCI source includes the host bundle control directory")
+        try:
+            runtime_fd = os.open(".multikernel", flags, dir_fd=bundle_fd)
+        except FileNotFoundError:
+            return
+        held.callback(os.close, runtime_fd)
+        if directory_contains(runtime_fd, source_fd):
+            raise ValueError("OCI source is inside host runtime control state")
+
+
 def resolve(bundle, configured, allowed_absolute):
     bundle = validated_bundle_anchor(bundle)
     raw = PurePosixPath(configured)
@@ -61,6 +114,8 @@ def resolve(bundle, configured, allowed_absolute):
     else:
         if not raw.parts or any(part == "" for part in raw.parts):
             raise ValueError("relative root.path contains traversal or non-canonical components")
+        if raw.parts[0] == ".multikernel":
+            raise ValueError("OCI source is inside host runtime control state")
         candidate, anchor = bundle.joinpath(*raw.parts), bundle
         if not beneath(candidate, bundle):
             raise ValueError("relative root.path escapes the bundle")
@@ -68,6 +123,7 @@ def resolve(bundle, configured, allowed_absolute):
     info = candidate.stat(follow_symlinks=False)
     if not stat.S_ISDIR(info.st_mode):
         raise ValueError("root.path is not a directory")
+    reject_control_overlap(bundle, candidate, info)
     return candidate, info
 
 

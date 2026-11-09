@@ -90,6 +90,10 @@ if [[ ${MK_VALIDATE_ONLY:-0} == 1 ]]; then
 fi
 : "${task_identity:?MK_TASK_IDENTITY is required}"
 : "${storage_port:?MK_STORAGE_PORT is required}"
+# Reject host control-directory roots before bootstrap lookup or source export.
+# Validation-only callers may not have mounted the OCI root yet, so this belongs
+# to preparation, after basic OCI validation and before building any payload.
+run_python validate-runtime-root.py "$bundle" "$validated_config" --json >"$metadata/source-preflight.json"
 busybox=${BUSYBOX:-$(command -v busybox)}
 nbd_helper=${MK_NBD_HELPER:-/usr/local/libexec/multikernel/mkvsock-nbd}
 bootstrap=$metadata/bootstrap.json

@@ -31,6 +31,11 @@ Use one already-proven mechanism first:
 Do not share a writable DAXFS root across children. Do not expose one writable
 ext4 image to multiple children.
 
+The [source-root boundary](../contracts/root-source-boundary.md) also excludes
+the active host bundle, observed ancestors and private runtime subtree from
+image-root selection, even under a broad absolute allowlist. Held inode checks
+preserve this rule through bundle rename; ordinary image roots remain supported.
+
 The ext4 builder copies an admitted source into a private staging tree with
 archive semantics, accounts for that staging allocation in its high-water
 check, and normalizes imported atime/mtime there. Because POSIX cannot assign
