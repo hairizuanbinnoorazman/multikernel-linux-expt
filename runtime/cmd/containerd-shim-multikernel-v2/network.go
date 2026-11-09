@@ -263,7 +263,13 @@ func (s *service) provisionNetwork(ctx context.Context, netns string) error {
 	return nil
 }
 
-func (s *service) ensureNamespaceHolder() error {
+func (s *service) ensureNamespaceHolder() (retErr error) {
+	defer func() {
+		if retErr != nil {
+			diagnostics := s.networkDiagnostics()
+			diagnostics.emit(diagnosticNamespaceHolder, 0)
+		}
+	}()
 	if s.namespaceHolder != nil {
 		if err := s.namespaceHolder.Validate(s.netEndpoint.NetNS); err == nil {
 			return nil

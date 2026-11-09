@@ -44,6 +44,7 @@ const (
 	diagnosticGuestTeardownWarnings
 	diagnosticEventPublicationDeferred
 	diagnosticEventReplayDeferred
+	diagnosticNamespaceHolder
 )
 
 var processDiagnosticSpecs = [...]struct{ code, operation string }{
@@ -73,6 +74,7 @@ var processDiagnosticSpecs = [...]struct{ code, operation string }{
 	{"GUEST_TEARDOWN_WARNINGS", "teardown-guest"},
 	{"EVENT_PUBLICATION_DEFERRED", "publish-task-event"},
 	{"EVENT_REPLAY_DEFERRED", "replay-task-events"},
+	{"NETWORK_NAMESPACE_HOLDER_FAILED", "prepare-network-namespace-holder"},
 }
 
 type processDiagnosticRecord struct {

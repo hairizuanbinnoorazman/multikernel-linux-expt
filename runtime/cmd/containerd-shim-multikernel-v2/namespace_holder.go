@@ -78,7 +78,11 @@ func startNamespaceHolder(netns string) (_ namespaceHolder, retErr error) {
 	// leave /proc/PID/ns/net pointing at the original namespace.
 	command := exec.Command("/usr/bin/nsenter", "--net="+netns, "--", self, namespaceHolderMode)
 	command.ExtraFiles = []*os.File{writer}
-	command.Stderr = os.Stderr
+	// nsenter can print the selected namespace path before the Go helper runs.
+	// Its raw stream must neither escape the Task error boundary nor block
+	// helper termination on an unread shim log FIFO. A nil stderr goes directly
+	// to /dev/null (no pipe, reader goroutine or retained error buffer). The
+	// owning service reports failure through its bounded diagnostic sink.
 	command.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
 	if err = command.Start(); err != nil {
 		writer.Close()

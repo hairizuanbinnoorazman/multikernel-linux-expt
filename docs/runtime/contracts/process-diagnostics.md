@@ -1,5 +1,17 @@
 # Bounded shim process and network diagnostics
 
+Namespace-holder setup failures also emit `NETWORK_NAMESPACE_HOLDER_FAILED`
+(`prepare-network-namespace-holder`) using the endpoint's sandbox/generation and
+init-process ownership. The record contains no namespace path, helper stderr or
+underlying error. The actual `nsenter` subprocess sends stderr directly to
+`/dev/null`, without a buffering pipe or drain worker, so it cannot expose raw
+paths or block helper termination on an unread shim log FIFO. Setup retains its
+internal error causes, holder validation, rejected-holder cleanup and refusal
+to replace a holder whose stop failed. Success emits no failure record.
+The existing bounded lossy sink handles delivery; this is not durable evidence
+or authority to release an uncertain network owner. Vendored shim startup errors
+remain a separate boundary.
+
 The shim's stdin/output/wait and network monitors, plus successful init teardown
 with guest warnings, emit version-1 JSON diagnostic records to
 worker stderr. Each record contains only `component`, `operation`, a fixed `code`,
