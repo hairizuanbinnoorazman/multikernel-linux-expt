@@ -66,6 +66,11 @@ also prevents network/lifecycle failure from permitting later destructive
 cleanup and retains exact retry context until rootfs cleanup succeeds. Eight
 controlled cases qualify on GCE; real child network/storage fault injection
 and the full idle/I/O matrix remain open.
+The [durable Create-marker proof](../../../evidence/runtime-20261109/g8-create-intent-marker/README.md)
+also prevents a fresh worker from treating an interrupted Create as an empty
+bundle. Real owned-process exit and source-pinned GCE controls qualify detection
+and refusal, not adoption of cleanup authority, power-loss behavior or completed
+restart reconciliation. Those broader failure-matrix requirements stay open.
 
 - Repeated create/start/stop/delete cycles.
 - Parallel sandbox churn.

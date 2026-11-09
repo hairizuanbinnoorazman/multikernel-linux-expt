@@ -39,7 +39,10 @@ ownership. The existing task-record check keeps its AlreadyExists behavior.
 Only a successfully completed rollback clears this in-process admission block;
 there is no public flag that bypasses cleanup. The block covers helper, network,
 sandbox cancellation/deletion and prepared-root cleanup errors. It does not add
-a new operator repair API or persist the state across a shim restart.
+a new operator repair API or persist the full cleanup state across a shim restart.
+The separate [durable Create marker](create-intent-marker.md) now fences fresh
+entry after worker exit; it detects uncertainty without adopting cleanup
+authority or automatically reconciling the original operation.
 The [source-bound regression and GCE proof](../../../evidence/runtime-20261109/g8-create-rollback-admission/README.md)
 qualify six failed-cleanup stages, repeated refusal without owner changes, and
 readmission only after explicit cleanup completes. This per-service refusal is

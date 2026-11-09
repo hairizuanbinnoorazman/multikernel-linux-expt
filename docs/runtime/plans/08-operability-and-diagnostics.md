@@ -131,6 +131,19 @@ rollback subcase; live child-Docker fault injection, durable/operator recovery,
 the aggregate child trial and full G7/G8 remain open. No capacity expansion or
 installed-runtime mutation is performed.
 
+The [durable Create-marker checkpoint](../../../evidence/runtime-20261109/g8-create-intent-marker/README.md)
+then fences incomplete Create across worker exit, before allocation, through a
+private identity-owned marker. Fresh workers/Create/Cleanup refuse surviving
+names or removal quarantines; a post-publication removal error retains the task.
+Four baseline entry regressions reproduce. Corrected source `335e00b2` passes
+full shim/safefile race and required checks, then GCE invocation `af9ed7cf`
+passes eighteen groups/sixty-nine subcases with independently pinned source,
+boot, epoch, primary/retention/resource preservation and own-unit/cgroup cleanup.
+The initial bundle-identity error-classification failure is preserved and fixed
+without weakening guards. This closes the native uncertainty-marker subcase;
+full durable cleanup/reconciliation, operator repair, power-loss and actual
+child-Docker fault/recovery, aggregate trial and full G7/G8 remain open.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a

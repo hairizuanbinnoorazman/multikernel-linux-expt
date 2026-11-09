@@ -29,6 +29,11 @@ network journals and generation ownership first. Durable recovery and explicit
 operator completion remain open G7/G8 work. Process-exit tests do not qualify
 power-loss durability or an actual child-Docker fault/recovery lifecycle.
 
+The [source-bound regression and GCE proof](../../../evidence/runtime-20261109/g8-create-intent-marker/README.md)
+qualify four fresh entry paths, real owned-process exit, private publication,
+quarantine/inventory refusal and post-publication task retention. The full shim
+and safefile race suites and required checks pass for the corrected source.
+
 See the [ownership and rollback contract](namespace-holder-ownership.md).
 Direct child kernels need no nested virtualization and share primary trust
 after child-kernel compromise.
