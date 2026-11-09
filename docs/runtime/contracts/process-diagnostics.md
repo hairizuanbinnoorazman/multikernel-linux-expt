@@ -11,6 +11,11 @@ to replace a holder whose stop failed. Success emits no failure record.
 The existing bounded lossy sink handles delivery; this is not durable evidence
 or authority to release an uncertain network owner. Vendored shim startup errors
 remain a separate boundary.
+The [source-bound comparison and GCE proof](../../../evidence/runtime-20261109/g8-namespace-helper-diagnostics/README.md)
+reproduce the old actual-nsenter raw-path/full-pipe failures and qualify the
+corrected refusal transports, fixed owner schema, blocked writer and retained
+holder contracts. Actual successful namespace entry and child-Docker execution
+remain separate qualifications.
 
 The shim's stdin/output/wait and network monitors, plus successful init teardown
 with guest warnings, emit version-1 JSON diagnostic records to

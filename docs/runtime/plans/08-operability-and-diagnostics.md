@@ -85,6 +85,18 @@ the successful fixture is not rerun. This closes only the native discovery
 diagnostic subcase. Vendored startup errors, actual aggregate child execution,
 disk expansion approval and full G7/G8 remain open.
 
+The [namespace-helper stderr checkpoint](../../../evidence/runtime-20261109/g8-namespace-helper-diagnostics/README.md)
+then closes a separate direct subprocess bypass: `nsenter` no longer inherits
+the shim FIFO, and setup failures attempt a fixed, owner-bound diagnostic through
+the bounded sink. A source-bound baseline reproduces raw-path output and a
+five-second full-pipe stall. Corrected GCE invocation `459702cf` passes all five
+native groups and twenty-nine transport/outcome cases, with independently pinned
+source/boot/epoch, primary/retention/resource preservation and own-unit/cgroup
+cleanup. Full shim race and required checks pass with required socket permissions.
+This qualifies actual helper refusal and service ownership fixtures; actual
+successful namespace entry, vendored startup errors, aggregate child execution
+and full G7/G8 remain open. No capacity expansion or real child is performed.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a
