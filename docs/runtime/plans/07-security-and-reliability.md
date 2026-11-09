@@ -61,6 +61,11 @@ also prevents a new request entering setup while prior rollback is incomplete,
 including before any sandbox/task record exists. Six cleanup-stage controls and
 source-pinned GCE verification qualify this in-process barrier; durable recovery
 and the complete failure matrix remain open.
+The [ordered rollback proof](../../../evidence/runtime-20261109/g8-create-rollback-barriers/README.md)
+also prevents network/lifecycle failure from permitting later destructive
+cleanup and retains exact retry context until rootfs cleanup succeeds. Eight
+controlled cases qualify on GCE; real child network/storage fault injection
+and the full idle/I/O matrix remain open.
 
 - Repeated create/start/stop/delete cycles.
 - Parallel sandbox churn.

@@ -120,6 +120,17 @@ passing source. This qualifies in-process cleanup refusal, not durable recovery,
 operator repair or host capacity admission. Actual aggregate child execution,
 disk-expansion approval and full G7/G8 remain open.
 
+The [ordered rollback checkpoint](../../../evidence/runtime-20261109/g8-create-rollback-barriers/README.md)
+then prevents cleanup from crossing uncertain network/lifecycle ownership and
+retains local retry context until prepared-root cleanup succeeds. Seven prior
+source regressions reproduce; eight controlled failure/retry cases qualify.
+GCE invocation `72e86013` passes twelve groups/fifty-five cases with independent
+source/boot/epoch, primary/retention/resource preservation and own-unit/cgroup
+cleanup. Full shim race and required checks pass. This closes the native ordered
+rollback subcase; live child-Docker fault injection, durable/operator recovery,
+the aggregate child trial and full G7/G8 remain open. No capacity expansion or
+installed-runtime mutation is performed.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a

@@ -28,6 +28,9 @@ remotely deleted sandbox can remain as retry context; this is not evidence that
 it is still running. Retrying uses the original generation/configuration and
 idempotency key. Existing NOT_FOUND handling permits a confirmed prior release
 or deletion to complete without replacing the original owner.
+The [source-bound comparison and GCE proof](../../../evidence/runtime-20261109/g8-create-rollback-barriers/README.md)
+reproduce seven prior barrier/context regressions and qualify eight controlled
+failure/retry cases. Actual live child network/storage faults are not injected.
 
 Incomplete create rollback also closes the service's Create admission path,
 including failures before a sandbox or task record exists. A subsequent Create
