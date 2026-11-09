@@ -91,3 +91,9 @@ splitting a function or adding an artificial abstraction to meet a line count.
 Tests follow the same responsibilities, with shared fakes in `*_fakes_test.go`.
 The split preserves the existing service fields and locking behavior; changing
 component ownership or lock ordering requires a separate behavioral review.
+
+Library logrus records cross the [fixed bounded diagnostic boundary](../../../docs/runtime/contracts/shim-library-diagnostics.md)
+before formatting or FIFO output. Raw fields/causes, caller/context state and
+stack dumps are removed; fixed classes/severity and host PID/time remain.
+The shim keeps its FIFO setup and fatal/RPC semantics. Direct startup stderr
+and other non-logrus output remain outside this contract.

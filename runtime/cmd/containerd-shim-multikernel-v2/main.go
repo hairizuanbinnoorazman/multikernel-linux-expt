@@ -13,6 +13,7 @@ import (
 	"github.com/containerd/containerd/plugin"
 	"github.com/containerd/containerd/runtime/v2/shim"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -75,6 +76,9 @@ func main() {
 		}
 		return
 	}
+	// Keep the vendored shim's FIFO setup and process semantics. Its library
+	// records must cross the fixed, bounded boundary before formatting/writing.
+	logrus.AddHook(newLibraryLogBoundary(nil))
 	if serverInvocation() && os.Getenv("MK_SHIM_WORKER") != "1" {
 		os.Exit(superviseShimWorker())
 	}

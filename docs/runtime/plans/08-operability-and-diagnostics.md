@@ -45,6 +45,22 @@ local. A concrete 50-to-58 GiB data-disk/filesystem/binding maintenance plan awa
 approval; prior approval covered only 30-to-50 GiB. No evidence deletion, reserve
 reduction, new resize or real child launch is performed.
 
+## Shim library records and pipe isolation (2026-11-09)
+
+The [library diagnostic contract](../contracts/shim-library-diagnostics.md)
+removes raw default-logrus fields, causes, hidden formatter errors, caller/context
+state and stack dumps before they reach formatters or the log FIFO. Fixed
+code/operation/severity plus host PID/time feed the existing bounded lossy sink,
+one attempt per class/severity. The original FIFO setup, RPC and terminal
+semantics stay intact. [Local race, real-stderr and Unix refusal controls](../../../evidence/runtime-20261109/g8-shim-library-diagnostics-controls/README.md)
+pass. A controlled probe of actual committed e0980a84 supervisor/worker debug and
+SIGUSR1 logs reproduces its private synthetic path; the old source remains
+unqualified. Corrected compiled/native proof is still required. Direct startup
+stderr and other non-logrus output remain outside this boundary, so complete
+production logging, real-child aggregate execution and full G7/G8 stay open.
+The disk-expansion approval remains pending; this work creates no child and
+performs no storage or installed-runtime mutation.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a

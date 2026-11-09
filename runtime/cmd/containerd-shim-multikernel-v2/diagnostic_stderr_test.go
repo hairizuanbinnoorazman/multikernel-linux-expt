@@ -18,6 +18,7 @@ import (
 	eventstypes "github.com/containerd/containerd/api/events"
 	ctruntime "github.com/containerd/containerd/runtime"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -50,6 +51,13 @@ func TestDiagnosticStderrDefaultSurvivesReaderLoss(t *testing.T) {
 			accepted = s.reportEventDiagnostic(diagnosticEventPublicationDeferred)
 		case "supervisor":
 			accepted = newSupervisorDiagnostics(nil).emit(supervisorProxyFailed, 0, 0, 0)
+		case "library":
+			logger := logrus.New()
+			logger.SetOutput(os.Stderr) // A raw write would block or receive SIGPIPE.
+			boundary := newLibraryLogBoundary(nil)
+			logger.AddHook(boundary)
+			logger.WithField("path", "SYNTHETIC_PRIVATE_LIBRARY_PATH").WithError(errors.New("SYNTHETIC_PRIVATE_LIBRARY_ERROR")).Error("failed sending message on channel")
+			accepted = boundary.attempted[libraryRPCSend].Load() != 0
 		}
 		if !accepted {
 			t.Fatal("first typed diagnostic refused")
@@ -135,7 +143,7 @@ func TestDiagnosticStderrDefaultSurvivesReaderLoss(t *testing.T) {
 		}
 		os.Exit(23)
 	}
-	for _, kind := range []string{"process", "network", "event", "supervisor"} {
+	for _, kind := range []string{"process", "network", "event", "supervisor", "library"} {
 		for _, transport := range []string{"capture", "closed-reader", "closed-fd", "full"} {
 			t.Run(kind+"/"+transport, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
@@ -189,7 +197,11 @@ func TestDiagnosticStderrDefaultSurvivesReaderLoss(t *testing.T) {
 					if json.Unmarshal(bytes.TrimSpace(stderr.Bytes()), &record) != nil || record["component"] != "containerd-shim-multikernel-v2" {
 						t.Fatal("expected exactly one structured diagnostic")
 					}
-					if kind == "supervisor" {
+					if kind == "library" {
+						if record["code"] != "SHIM_RPC_SEND_FAILED" || record["scope"] != "shim-library" || record["owner_known"] != false || len(record) != 9 || bytes.Contains(stderr.Bytes(), []byte("SYNTHETIC_PRIVATE")) {
+							t.Fatal("unsafe library diagnostic on real stderr")
+						}
+					} else if kind == "supervisor" {
 						if record["code"] != "SUPERVISOR_PROXY_FAILED" {
 							t.Fatal("wrong supervisor code")
 						}
