@@ -28,3 +28,9 @@ Keep absolute source allowlists narrow. Direct child kernels use no nested
 virtualization and share primary trust after child-kernel compromise. Full
 G7/G8, broader source authority review and actual child-Docker fault/recovery
 qualification remain separate requirements.
+
+The [source-bound baseline and GCE proof](../../../evidence/runtime-20261109/g7-g8-root-source-boundary/README.md)
+qualify thirteen controls for private source rejection, accepted image roots,
+held-descriptor rename, descriptor cleanup and actual pre-bootstrap builder
+refusal. Rootfs race and required checks also pass. The fixture does not build
+or boot a child image, and does not induce every mount-alias configuration.

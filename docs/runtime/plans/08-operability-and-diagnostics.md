@@ -155,6 +155,16 @@ seventy-nine subcases, the compiled CLI probe, primary/retention/resource parity
 and own-unit/cgroup cleanup. This closes native marker inspection, not operator
 repair, durable reconciliation, actual aggregate child execution or full G7/G8.
 
+The [source-root preparation boundary](../../../evidence/runtime-20261109/g7-g8-root-source-boundary/README.md)
+then rejects active host control trees before bootstrap lookup or payload copy,
+with fixed overlap reasons and held-directory ancestry checks. Broad allowlist
+and inherited-rename baseline regressions reproduce. Thirteen source-bound GCE
+controls, rootfs race and required checks pass; independent source/boot/epoch,
+primary/retention/resource preservation and own-unit/cgroup cleanup qualify.
+This closes native source selection/preflight, not live child image export,
+all mount-alias authority, the aggregate trial or full G7/G8. No installed runtime,
+data-disk capacity or real-child state is changed.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a

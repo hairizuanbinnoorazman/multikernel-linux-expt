@@ -76,6 +76,13 @@ adds private bounded observation without granting cleanup authority. Its shared
 listing guard now detects a marker published between stat and listing; a local
 predicate mutation reproduces the former miss. GCE qualifies the compiled
 inspector and output-pressure controls, while the full failure matrix stays open.
+The [active-bundle source boundary](../../../evidence/runtime-20261109/g7-g8-root-source-boundary/README.md)
+also prevents a broad absolute source allowlist from exporting the current
+bundle/ancestors or private runtime subtree into a child root. Baseline unsafe
+selections reproduce; thirteen controls pass on source-pinned GCE, with inode
+rename binding, early builder refusal and primary/retention/resource parity.
+Other-bundle and complete bind-mount authority review, actual child export/fault
+qualification and full G7 remain open.
 
 - Repeated create/start/stop/delete cycles.
 - Parallel sandbox churn.
