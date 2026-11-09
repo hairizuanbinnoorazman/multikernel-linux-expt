@@ -163,6 +163,9 @@ func (s *service) Cleanup(ctx context.Context) (*taskapi.DeleteResponse, error) 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if err := s.refusePendingCreate(); err != nil {
+		return nil, err
+	}
 	var failures []error
 	runtimeDirectory, err := s.ensureRuntimeDirectory()
 	if errors.Is(err, os.ErrNotExist) {

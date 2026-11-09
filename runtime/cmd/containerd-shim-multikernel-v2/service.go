@@ -218,6 +218,7 @@ type service struct {
 	netEndpoint           mknetwork.Endpoint
 	namespaceHolder       namespaceHolder
 	createCleanupPending  bool // Protected by mu; only completed rollback clears it.
+	createIntentIdentity  *safefile.Identity
 	netClient             networkClient
 	newNamespaceHolder    namespaceHolderFactory
 	agentDial             agentDialer
@@ -325,6 +326,10 @@ func newServiceOwner(ctx context.Context, id string, publisher shim.Publisher, s
 		daemon:    daemon.Client{Path: getenv("MK_DAEMON_SOCKET", "/run/mkruntimed.sock")},
 		netClient: mknetwork.Client{Path: getenv("MK_NETWORK_SOCKET", "/run/mknetd.sock")}, processes: map[string]*process{},
 		events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
+	if err = s.refusePendingCreate(); err != nil {
+		_ = bundleDirectory.Close()
+		return nil, err
+	}
 	if !deleteInvocation(os.Args[1:]) {
 		if err = s.loadEventJournal(); err != nil {
 			_ = bundleDirectory.Close()

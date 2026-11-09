@@ -221,6 +221,29 @@ func (d *Directory) EntryIdentity(name string) (Identity, bool, error) {
 	return entry, err == nil, err
 }
 
+// EntryOrRemovalPending observes a name or any associated removal quarantine
+// without following entries or trusting their contents. Ambiguous quarantine
+// names also count as pending. The directory inventory is explicitly bounded.
+func (d *Directory) EntryOrRemovalPending(name string, limit int) (bool, error) {
+	if filepath.Base(name) != name || name == "." || limit < 1 || limit > 4096 {
+		return false, errors.New("invalid pending-entry observation")
+	}
+	_, present, err := d.EntryIdentity(name)
+	if err != nil || present {
+		return present, err
+	}
+	names, err := d.EntryNames(limit)
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range names {
+		if strings.HasPrefix(entry, removalPrefix(name)) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func inspectPrivate(file *os.File, limit int64) (Identity, error) {
 	if limit <= 0 {
 		return Identity{}, errors.New("private file size limit must be positive")

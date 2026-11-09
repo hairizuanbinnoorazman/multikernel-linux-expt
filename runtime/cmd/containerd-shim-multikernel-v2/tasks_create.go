@@ -183,6 +183,9 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 	// Retain local lifecycle/task/credential context until every cleanup stage
 	// succeeds. A remotely deleted sandbox may remain here as retry context;
 	// it is not a claim that the sandbox is still live.
+	if err := s.clearCreateIntent(); err != nil {
+		return err
+	}
 	s.sandbox = protocol.Sandbox{}
 	s.setEventDiagnosticOwner(s.sandbox)
 	s.token = nil
@@ -249,6 +252,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err := s.ensureBundleIdentity(); err != nil {
 		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
 	}
+	if err := s.refusePendingCreate(); err != nil {
+		return nil, err
+	}
 	netns, err := bundleNetworkNamespaceFrom(s.bundleDirectory)
 	if err != nil {
 		return nil, err
@@ -260,6 +266,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	if err = s.validateRootfs(ctx, rootfspkg.ValidateRequest{Version: rootfspkg.Version, Bundle: r.Bundle,
 		BundleIdentity: s.bundleIdentity}); err != nil {
 		return nil, fmt.Errorf("validate OCI bundle before allocation: %w", err)
+	}
+	if err = s.beginCreateIntent(); err != nil {
+		return nil, err
 	}
 	var prepared *rootfspkg.CleanupRequest
 	lifecycleAttempted := false
@@ -334,6 +343,12 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 		return nil, err
 	}
 	fail = false
+	// The create event has committed. A failed marker removal must retain the
+	// task for inspection, not destroy an already published task in rollback.
+	if err = s.clearCreateIntent(); err != nil {
+		s.createCleanupPending = true
+		return nil, err
+	}
 	return &taskapi.CreateTaskResponse{Pid: pid}, nil
 }
 
@@ -349,6 +364,10 @@ func (s *service) Start(ctx context.Context, r *taskapi.StartRequest) (*taskapi.
 	}
 	if err := lockContext(ctx, &s.mu); err != nil {
 		return nil, err
+	}
+	if s.createCleanupPending {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
 	}
 	p, ok := s.processes[r.ExecID]
 	if !ok {

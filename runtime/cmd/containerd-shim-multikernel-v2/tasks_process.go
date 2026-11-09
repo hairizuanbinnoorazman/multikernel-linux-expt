@@ -241,6 +241,10 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 	if err := lockContext(ctx, &s.mu); err != nil {
 		return nil, err
 	}
+	if s.createCleanupPending {
+		s.mu.Unlock()
+		return nil, errdefs.ErrFailedPrecondition
+	}
 	p, ok := s.processes[r.ExecID]
 	if !ok {
 		s.mu.Unlock()
