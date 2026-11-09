@@ -217,6 +217,7 @@ type service struct {
 	netWG                 sync.WaitGroup
 	netEndpoint           mknetwork.Endpoint
 	namespaceHolder       namespaceHolder
+	createCleanupPending  bool // Protected by mu; only completed rollback clears it.
 	netClient             networkClient
 	newNamespaceHolder    namespaceHolderFactory
 	agentDial             agentDialer

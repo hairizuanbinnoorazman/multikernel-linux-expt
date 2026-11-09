@@ -19,6 +19,15 @@ sandbox cancellation/deletion and prepared-root cleanup order. A repeated stop
 after completed cleanup is a no-op. This does not authorize signaling a historic
 PID, deleting an uncertain generation or a broad destructive repair.
 
+Incomplete create rollback also closes the service's Create admission path,
+including failures before a sandbox or task record exists. A subsequent Create
+refuses before bundle validation or allocation and cannot replace retained
+ownership. The existing task-record check keeps its AlreadyExists behavior.
+Only a successfully completed rollback clears this in-process admission block;
+there is no public flag that bypasses cleanup. The block covers helper, network,
+sandbox cancellation/deletion and prepared-root cleanup errors. It does not add
+a new operator repair API or persist the state across a shim restart.
+
 The fixed [diagnostic boundary](process-diagnostics.md) carries no underlying
 error or namespace path. These rules preserve in-process cleanup ownership;
 they do not add a durable holder identity or establish restart reconciliation,

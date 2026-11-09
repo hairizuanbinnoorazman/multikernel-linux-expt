@@ -155,6 +155,9 @@ func (s *service) allocate(ctx context.Context, bundle string) (protocol.Sandbox
 }
 
 func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.CleanupRequest, lifecycleAttempted bool, config protocol.SandboxConfig, createKey string) error {
+	// A missing task record does not prove that prior Create ownership is gone.
+	// Fail closed across every cleanup stage, including pre-sandbox rootfs work.
+	s.createCleanupPending = true
 	var failures []error
 	canCleanupPrepared := !lifecycleAttempted
 	if err := s.stopNamespaceHolder(); err != nil {
@@ -189,7 +192,9 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 	}
 	s.token = nil
 	delete(s.processes, "")
-	return errors.Join(failures...)
+	err := errors.Join(failures...)
+	s.createCleanupPending = err != nil
+	return err
 }
 
 func (s *service) cancelCreate(ctx context.Context, config protocol.SandboxConfig, key string) error {
@@ -243,6 +248,9 @@ func (s *service) Create(ctx context.Context, r *taskapi.CreateTaskRequest) (_ *
 	}
 	if len(s.processes) != 0 {
 		return nil, errdefs.ErrAlreadyExists
+	}
+	if s.createCleanupPending {
+		return nil, fmt.Errorf("%w: prior create cleanup is incomplete", errdefs.ErrFailedPrecondition)
 	}
 	if err := s.ensureBundleIdentity(); err != nil {
 		return nil, fmt.Errorf("%w: %v", errdefs.ErrInvalidArgument, err)
