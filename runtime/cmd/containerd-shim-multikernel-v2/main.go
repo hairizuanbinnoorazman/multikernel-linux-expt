@@ -68,6 +68,9 @@ func main() {
 	if buildinfo.PrintRequested(os.Stdout, "containerd-shim-multikernel-v2", os.Args[1:]) {
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--inspect-create-intent" {
+		os.Exit(runCreateIntentInspection(os.Args[2:], intentStdoutWriter{}))
+	}
 	// The containerd 2.x discovery probe is a command-like flag. Intercept it
 	// before the vendored 1.7 shim runner parses flags.
 	if len(os.Args) == 2 && os.Args[1] == "-info" {

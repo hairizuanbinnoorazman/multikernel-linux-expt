@@ -225,6 +225,10 @@ func (d *Directory) EntryIdentity(name string) (Identity, bool, error) {
 // without following entries or trusting their contents. Ambiguous quarantine
 // names also count as pending. The directory inventory is explicitly bounded.
 func (d *Directory) EntryOrRemovalPending(name string, limit int) (bool, error) {
+	return d.entryOrRemovalPendingWithHook(name, limit, nil)
+}
+
+func (d *Directory) entryOrRemovalPendingWithHook(name string, limit int, beforeListing func()) (bool, error) {
 	if filepath.Base(name) != name || name == "." || limit < 1 || limit > 4096 {
 		return false, errors.New("invalid pending-entry observation")
 	}
@@ -232,12 +236,15 @@ func (d *Directory) EntryOrRemovalPending(name string, limit int) (bool, error) 
 	if err != nil || present {
 		return present, err
 	}
+	if beforeListing != nil {
+		beforeListing()
+	}
 	names, err := d.EntryNames(limit)
 	if err != nil {
 		return false, err
 	}
 	for _, entry := range names {
-		if strings.HasPrefix(entry, removalPrefix(name)) {
+		if entry == name || strings.HasPrefix(entry, removalPrefix(name)) {
 			return true, nil
 		}
 	}
