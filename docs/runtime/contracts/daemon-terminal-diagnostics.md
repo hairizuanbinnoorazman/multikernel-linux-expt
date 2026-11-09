@@ -19,6 +19,10 @@ the underlying error is not supplied to the reporter. This covers the discovery
 branch only. Direct startup errors inside the vendored shim runner retain their
 separate, unresolved stderr behavior; FIFO setup and manager delegation are
 unchanged. No terminal record establishes readiness or closes G7/G8.
+The [committed-source comparison and GCE native proof](../../../evidence/runtime-20261109/g8-shim-info-diagnostics/README.md)
+qualify malformed/oversized options and input read failures with captured,
+closed-reader and full-undrained stderr, plus two successful discovery controls.
+Output write faults and real-child execution are not injected by this proof.
 
 | Code | First operator inspection |
 | --- | --- |

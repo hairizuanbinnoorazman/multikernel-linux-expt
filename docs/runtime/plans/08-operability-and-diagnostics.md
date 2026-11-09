@@ -73,6 +73,18 @@ and own-unit/cgroup/scratch cleanup pass. This closes the bounded library-record
 native subcase. Direct startup stderr, actual aggregate child execution and full
 G7/G8 remain open; no capacity expansion or real child is performed.
 
+The [shim discovery checkpoint](../../../evidence/runtime-20261109/g8-shim-info-diagnostics/README.md)
+then replaces the separate raw `-info` failure write with the fixed, bounded
+terminal reporter, preserving exit 1 and successful protobuf output. Exact
+baseline/candidate builds reproduce three old full-pipe hangs and pass nine
+corrected failure/two success cases. GCE invocation `569cb764` passes the same
+native controls; independent source/boot/epoch, primary/retention/resource
+preservation and own-unit/cgroup cleanup qualify. A prelaunch scratch-accounting
+refusal and an observer cgroup-state refusal are retained with their corrections;
+the successful fixture is not rerun. This closes only the native discovery
+diagnostic subcase. Vendored startup errors, actual aggregate child execution,
+disk expansion approval and full G7/G8 remain open.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a
