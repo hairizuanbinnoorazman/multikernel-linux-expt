@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -829,14 +830,48 @@ func (s *Service) Cleanup(ctx context.Context, request CleanupRequest) error {
 
 // Reconcile repairs interrupted preparations and removes prepared images that
 // are not owned by a live lifecycle record. The map binds an exact backing
-// path to its content digest, so a reused path cannot inherit stale ownership.
+// path to its immutable preparation digest. A conflicting claim is uncertainty,
+// not proof that a backing is orphaned; preflight all claims before cleanup.
 func (s *Service) Reconcile(ctx context.Context, storageOwners map[string]string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	for _, record := range s.store.List() {
+	paths := make([]string, 0, len(storageOwners))
+	for path, digest := range storageOwners {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if !filepath.IsAbs(path) || path == string(filepath.Separator) || filepath.Clean(path) != path || !sha256RE.MatchString(digest) {
+			return errors.New("lifecycle rootfs ownership input is invalid")
+		}
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	records := s.store.List()
+	for _, record := range records {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := s.validateArtifactPaths(record); err != nil {
+			return err
+		}
+		expected := filepath.Join(record.StorageDir, "root.ext4")
+		for _, tree := range []string{record.Root, record.RuntimeDir, record.StorageDir} {
+			if _, claimed := storageOwners[tree]; claimed {
+				return errors.New("lifecycle rootfs ownership conflicts with preparation state")
+			}
+			prefix := tree + string(filepath.Separator)
+			for i := sort.SearchStrings(paths, prefix); i < len(paths) && strings.HasPrefix(paths[i], prefix); i++ {
+				path := paths[i]
+				if path != expected || record.Phase != "PREPARED" || record.Storage == nil || record.Storage.Path != expected || record.Storage.SHA256 != storageOwners[path] {
+					return errors.New("lifecycle rootfs ownership conflicts with preparation state")
+				}
+			}
+		}
+	}
+	for _, record := range records {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
