@@ -27,3 +27,10 @@ The policy does not discover every filesystem alias or prove storage/network
 health, actual child-Docker recovery or full G7/G8 completion. Direct child
 kernels use no nested virtualization and share primary trust after child-kernel
 compromise.
+
+The [baseline comparison and GCE proof](../../../evidence/runtime-20261109/g8-rootfs-reconcile-claims/README.md)
+reproduce the unsafe baseline in five negative groups and qualify eleven native
+groups/fifteen subcases from committed source. Rootfs/daemon/lifecycle race and
+required checks pass. The GCE receipt also verifies private preservation and
+own-unit/cgroup cleanup. These synthetic fixtures qualify refusal and existing
+positive cleanup paths, not actual child recovery or arbitrary crash behavior.

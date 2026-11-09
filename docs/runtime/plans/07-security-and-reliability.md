@@ -84,6 +84,14 @@ rename binding, early builder refusal and primary/retention/resource parity.
 Other-bundle and complete bind-mount authority review, actual child export/fault
 qualification and full G7 remain open.
 
+The [rootfs ownership preflight](../../../evidence/runtime-20261109/g8-rootfs-reconcile-claims/README.md)
+also refuses conflicting lifecycle claims before any record cleanup, including
+partial preparations and absent bundles. Five baseline negative groups reproduce
+unsafe acceptance or cleanup; eleven groups/fifteen subcases qualify on pinned
+GCE with state preservation and own-unit cleanup. Exact writable owners and
+unrelated sibling cleanup retain their prior behavior. This closes the native
+synthetic refusal check; real-child crash/I/O reconciliation and full G7 stay open.
+
 - Repeated create/start/stop/delete cycles.
 - Parallel sandbox churn.
 - Resource exhaustion and recovery.

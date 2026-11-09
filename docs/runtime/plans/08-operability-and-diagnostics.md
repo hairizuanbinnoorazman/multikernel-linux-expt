@@ -165,6 +165,16 @@ This closes native source selection/preflight, not live child image export,
 all mount-alias authority, the aggregate trial or full G7/G8. No installed runtime,
 data-disk capacity or real-child state is changed.
 
+The [rootfs ownership reconciliation proof](../../../evidence/runtime-20261109/g8-rootfs-reconcile-claims/README.md)
+then qualifies whole-batch refusal before backend calls or durable/file mutation
+when lifecycle claims conflict with preparation state. Five baseline negative
+groups reproduce the former unsafe behavior; committed-source GCE controls pass
+eleven groups/fifteen subcases, with exact-owner verification, known-orphan
+cleanup, primary/retention parity and own-unit/cgroup cleanup preserved. Local
+rootfs/daemon/lifecycle race and required checks pass. Native synthetic refusal
+is qualified; actual child restart recovery, aggregate acceptance and full G7/G8
+remain open.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a
