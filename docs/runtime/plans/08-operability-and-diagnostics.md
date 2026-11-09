@@ -60,6 +60,18 @@ stderr and other non-logrus output remain outside this boundary, so complete
 production logging, real-child aggregate execution and full G7/G8 stay open.
 The disk-expansion approval remains pending; this work creates no child and
 performs no storage or installed-runtime mutation.
+The first ab80716 packet passes the local compiled probe but its full test
+binary leaves four event-helper scratch directories when deliberate os.Exit
+bypasses t.TempDir callbacks. That prelaunch refusal remains preserved; GCE
+confirms its packet is intact and no unit/stage/scratch was created. The fixture
+now removes its own empty directory before child exit, with parent-side scratch
+checks. A [fresh committed native packet](../../../evidence/runtime-20261109/g8-shim-library-native-f42d9291/README.md)
+then passes all five groups/all twenty transport cases, no skips and empty
+stderr, plus actual compiled debug/stack/FIFO/client controls on GCE invocation
+3093b28d. Independent source/boot/epoch, primary/225-control/resource preservation
+and own-unit/cgroup/scratch cleanup pass. This closes the bounded library-record
+native subcase. Direct startup stderr, actual aggregate child execution and full
+G7/G8 remain open; no capacity expansion or real child is performed.
 
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
