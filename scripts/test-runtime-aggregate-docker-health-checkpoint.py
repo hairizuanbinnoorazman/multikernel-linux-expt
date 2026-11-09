@@ -227,13 +227,13 @@ class AggregateCheckpoint(unittest.TestCase):
                             subject.inspect_fixture_aggregate(work, BOOT, INV)
 
     def test_actual_subprocess_capture_and_original_deadline_timeout(self):
-        for mode in ['pass', 'timeout', 'stderr']:
+        for mode in ['pass', 'timeout', 'stderr', 'oversized']:
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 work = Path(directory); private = work/'integration'; private.mkdir(mode=0o700)
                 (private/'aggregate-bundles').mkdir(mode=0o700); (work/'bin').mkdir(mode=0o700)
                 args, doctor, bundle = self.fixture()
                 self.write(private/'engine-shim-address.json', dict(address='unix:///private/shim.sock', container_id=CONTAINER))
-                self.write(work/'command-fixture.json', dict(doctor=doctor, bundle=bundle, timeout=mode == 'timeout', stderr=mode == 'stderr'))
+                self.write(work/'command-fixture.json', dict(doctor=doctor, bundle=bundle, timeout=mode == 'timeout', stderr=mode == 'stderr', oversized=mode == 'oversized'))
                 cli = work/'bin/mkruntimed'
                 cli.write_text('''#!/usr/bin/python3
 import hashlib,json,os,pathlib,sys,time
@@ -241,7 +241,10 @@ args=dict(s.split('=',1) if '=' in s else (s,'') for s in sys.argv[1:])
 cfg=json.loads(pathlib.Path(args['--config']).read_text())
 target=pathlib.Path(args['--engine-targets']);assert target.stat().st_mode&0o777==0o600
 assert len(json.loads(target.read_text())['targets'])==1 and args['--network-socket']=='/private/network.sock'
-if cfg['timeout']:time.sleep(10)
+if cfg['timeout']:
+ os.write(1,b'begin\\n');os.write(2,b'waiting\\n');time.sleep(10)
+if cfg['oversized']:
+ os.write(1,b'x'*((1<<20)+1));os.write(2,b'y'*5000);sys.exit(0)
 if cfg['stderr']:sys.stderr.write('synthetic private failure\\n')
 if '--doctor-all' in args:
  assert args['--doctor-format']=='9';print(json.dumps(cfg['doctor']))
@@ -252,7 +255,7 @@ else:
  print(json.dumps(dict(version=3,scope=cfg['bundle']['scope'],collection_status='captured',observation_status='consistent',bytes=len(data),sha256=hashlib.sha256(data).hexdigest())))
 '''); cli.chmod(0o500)
                 start = time.monotonic_ns()
-                budget = 5_000_000_000 if mode == 'pass' else 100_000_000
+                budget = 300_000_000 if mode == 'timeout' else 5_000_000_000
                 pair = dict(version=1, scope='health-doctor-and-health-bundle-checkpoint', phase='while-full',
                     configured_budget_ns=5_000_000_000, started_monotonic_ns=start, deadline_monotonic_ns=start+budget,
                     finished_monotonic_ns=start, elapsed_ns=0, report_count=2)
@@ -263,6 +266,7 @@ else:
                     timing = json.loads(subject.artifact_paths(work, 'while-full')['timing'].read_text())
                     self.assertEqual(timing['deadline_monotonic_ns'], pair['deadline_monotonic_ns'])
                     self.assertEqual(timing['report_count'], 4)
+                    self.assertFalse((private/'aggregate-command-doctor-while-full-failure.json').exists())
                 elif mode == 'timeout':
                     with self.assertRaises(subprocess.TimeoutExpired): call()
                     self.assertLess(time.monotonic_ns()-start, 2_000_000_000)
@@ -270,6 +274,19 @@ else:
                 else:
                     with self.assertRaises(ValueError): call()
                     self.assertFalse(subject.artifact_paths(work, 'while-full')['timing'].exists())
+                if mode != 'pass':
+                    failure = json.loads((private/'aggregate-command-doctor-while-full-failure.json').read_text())
+                    self.assertEqual(failure['failure'], 'command-timeout' if mode == 'timeout' else 'command-output-refused')
+                    self.assertIs(failure['qualified'], False)
+                    self.assertEqual(failure['stream_truncated'], dict(stdout=mode == 'oversized', stderr=mode == 'oversized'))
+                    raw = private/'aggregate-command-doctor-while-full.stdout'
+                    self.assertEqual(raw.stat().st_mode & 0o777, 0o600)
+                    if mode == 'oversized':
+                        self.assertEqual(raw.read_bytes(), b'x'*(1<<20))
+                        self.assertEqual((private/'aggregate-command-doctor-while-full.stderr').read_bytes(), b'y'*4096)
+                    elif mode == 'timeout':
+                        self.assertEqual(raw.read_bytes(), b'begin\n')
+                        self.assertEqual((private/'aggregate-command-doctor-while-full.stderr').read_bytes(), b'waiting\n')
 
     def test_auditor_requires_pressure_before_stage_access(self):
         spec = importlib.util.spec_from_file_location('aggregate_live_audit', Path(__file__).with_name('audit-runtime-docker-trial.py'))

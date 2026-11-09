@@ -102,6 +102,23 @@ def write_private(path, value):
         os.fsync(output.fileno())
 
 
+def retain_command_streams(private, phase, command, stdout, stderr, failure=None):
+    if phase not in PHASES or command not in ['doctor', 'bundle'] or failure not in [None, 'command-timeout', 'command-output-refused'] or not isinstance(stdout, bytes) or not isinstance(stderr, bytes):
+        raise ValueError('invalid aggregate command stream scope')
+    limits = {'stdout': 1 << 20, 'stderr': 4096}
+    streams = {'stdout': stdout, 'stderr': stderr}
+    for suffix, data in streams.items():
+        with (private/('aggregate-command-'+command+'-'+phase+'.'+suffix)).open('xb') as output:
+            os.fchmod(output.fileno(), 0o600)
+            output.write(data[:limits[suffix]])
+            output.flush()
+            os.fsync(output.fileno())
+    if failure:
+        write_private(private/('aggregate-command-'+command+'-'+phase+'-failure.json'),
+            dict(version=1, phase=phase, command=command, failure=failure, qualified=False,
+                 stream_truncated={k: len(v) > limits[k] for k, v in streams.items()}))
+
+
 def identity(path, data):
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != os.geteuid() or info.st_nlink != 1 or info.st_size != len(data):
@@ -129,20 +146,27 @@ def capture(work, container, owner, phase, references, health_data, health_timin
     write_private(target_path, mapping)
     base = [str(work/'bin/mkruntimed'), '--config='+str(config), '--network-socket='+str(network_socket),
             '--engine-targets='+str(target_path)]
-    def invoke(args):
+    def invoke(command, args):
         remaining = (deadline-time.monotonic_ns())/1_000_000_000
         if remaining <= 0:
             raise ValueError('original health budget exhausted')
-        result = subprocess.run(base+args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=remaining)
-        if result.returncode != 0 or result.stderr or not 0 < len(result.stdout) <= 1 << 20:
+        try:
+            result = subprocess.run(base+args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=remaining)
+        except subprocess.TimeoutExpired as failure:
+            retain_command_streams(private, phase, command, failure.stdout or b'', failure.stderr or b'', 'command-timeout')
+            raise
+        valid = result.returncode == 0 and not result.stderr and 0 < len(result.stdout) <= 1 << 20
+        retain_command_streams(private, phase, command, result.stdout, result.stderr,
+                               None if valid else 'command-output-refused')
+        if not valid:
             raise ValueError('aggregate health command refused the steady hold')
         return result.stdout
-    doctor = invoke(['--doctor-all', '--doctor-format=9'])
+    doctor = invoke('doctor', ['--doctor-all', '--doctor-format=9'])
     qualified = qualify(doctor, *references, released=released)
     equal(qualified['health'], decode(health_data, 1 << 20))
     write_private(private/('aggregate-doctor-'+phase+'.json'), qualified)
     destination = private/'aggregate-bundles'/(phase+'.json')
-    receipt = invoke(['--diagnostic-bundle='+str(destination), '--diagnostic-format=3',
+    receipt = invoke('bundle', ['--diagnostic-bundle='+str(destination), '--diagnostic-format=3',
                       '--diagnostic-max-files=3', '--diagnostic-max-bytes=1048576'])
     data = read_fixture_artifact(destination.parent, destination.name, 1 << 20)
     qualify_bundle(data, receipt, doctor, *references, released=released)

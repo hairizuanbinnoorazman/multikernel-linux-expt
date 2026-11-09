@@ -82,6 +82,10 @@ share the original five-second health deadline and original hold deadline. The
 old pair retains its own two-report timing, and a separate four-report timing
 records the entire sequence with exactly the same start and deadline. Neither
 timeout nor inconclusive/degraded output can publish a successful checkpoint.
+Command streams are retained privately as exclusive synced mode-0600 files;
+stdout is capped at one MiB and stderr at 4096 bytes. Failed commands retain
+fixed failure/truncation metadata with `qualified=false`, without publishing
+a successful phase timing. These streams are diagnostics, not gate evidence.
 
 The receipt binds every target/report/bundle/receipt/file-identity/timing
 artifact. `audit-runtime-docker-trial.py --require-aggregate-docker-health`
