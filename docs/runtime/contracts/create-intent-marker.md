@@ -63,8 +63,12 @@ has one at-most-1024-byte attempt with a separate 50 ms budget and no stderr
 fallback or retry. A blocked worker can remain until this standalone process
 exits. Closed/full stdout preserves exit 1 through a private CLOEXEC duplicate;
 inherited descriptor flags and signal policy are unchanged. Discard incomplete
-output or output from a nonzero exit; the inconclusive JSON, when delivered,
-still gives a fixed refusal reason. The helper is not for resident polling loops.
+JSON. Do not treat a nonzero exit as a successful observation; a complete
+inconclusive report can still explain the fixed refusal reason. The helper is
+not for resident polling loops.
+The [committed CLI and GCE proof](../../../evidence/runtime-20261109/g8-create-intent-inspection/README.md)
+qualify private schema, drift/cancellation, blocked/failed output and actual
+closed/full stdout while preserving synthetic marker contents and identities.
 
 Direct child kernels need no nested virtualization and share primary trust
 after child-kernel compromise.

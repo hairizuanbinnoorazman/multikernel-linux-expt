@@ -144,6 +144,17 @@ without weakening guards. This closes the native uncertainty-marker subcase;
 full durable cleanup/reconciliation, operator repair, power-loss and actual
 child-Docker fault/recovery, aggregate trial and full G7/G8 remain open.
 
+The [bounded read-only marker inspector](../../../evidence/runtime-20261109/g8-create-intent-inspection/README.md)
+now exposes `--inspect-create-intent --bundle PATH` with fixed private JSON,
+two-second observation and separate 50 ms output budgets, no contents/authority
+and no stderr fallback. Actual compiled CLI capture/closed/full stdout controls
+pass. The source also fixes a concurrent-publication miss in the bounded listing;
+a local old-predicate mutation reproduces it. Full shim/safefile race and required
+checks pass. GCE invocation `a389b422` independently qualifies twenty-two groups/
+seventy-nine subcases, the compiled CLI probe, primary/retention/resource parity
+and own-unit/cgroup cleanup. This closes native marker inspection, not operator
+repair, durable reconciliation, actual aggregate child execution or full G7/G8.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a

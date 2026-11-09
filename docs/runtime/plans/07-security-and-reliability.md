@@ -71,6 +71,11 @@ also prevents a fresh worker from treating an interrupted Create as an empty
 bundle. Real owned-process exit and source-pinned GCE controls qualify detection
 and refusal, not adoption of cleanup authority, power-loss behavior or completed
 restart reconciliation. Those broader failure-matrix requirements stay open.
+The [read-only marker inspector](../../../evidence/runtime-20261109/g8-create-intent-inspection/README.md)
+adds private bounded observation without granting cleanup authority. Its shared
+listing guard now detects a marker published between stat and listing; a local
+predicate mutation reproduces the former miss. GCE qualifies the compiled
+inspector and output-pressure controls, while the full failure matrix stays open.
 
 - Repeated create/start/stop/delete cycles.
 - Parallel sandbox churn.
