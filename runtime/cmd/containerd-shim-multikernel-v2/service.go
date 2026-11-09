@@ -160,6 +160,8 @@ type namespaceHolder interface {
 	Stop() error
 }
 
+// A failed factory may return a rejected holder whose cleanup failed. The
+// caller must retain that handle until Stop succeeds, without publishing its PID.
 type namespaceHolderFactory func(string) (namespaceHolder, error)
 
 type startShimSocket interface {

@@ -18,6 +18,26 @@ const namespaceHolderMode = "__multikernel_namespace_holder"
 
 type commandNamespaceHolder struct{ command *exec.Cmd }
 
+// A rejected helper remains cleanup ownership, never a task representative.
+// Even if its namespace later appears valid, startup did not complete. Only a
+// successful Stop may release this exact handle before a replacement starts.
+type rejectedNamespaceHolder struct{ namespaceHolder }
+
+func (*rejectedNamespaceHolder) PID() uint32 { return 0 }
+func (*rejectedNamespaceHolder) Validate(string) error {
+	return errors.New("rejected namespace holder requires cleanup")
+}
+
+func finishNamespaceHolderStart(holder namespaceHolder, cause error) (namespaceHolder, error) {
+	if cause == nil {
+		return holder, nil
+	}
+	if stopErr := holder.Stop(); stopErr != nil {
+		return &rejectedNamespaceHolder{holder}, errors.Join(cause, stopErr)
+	}
+	return nil, cause
+}
+
 func (h *commandNamespaceHolder) PID() uint32 {
 	if h == nil || h.command == nil || h.command.Process == nil {
 		return 0
@@ -60,7 +80,7 @@ func (h *commandNamespaceHolder) Stop() error {
 	return waitErr
 }
 
-func startNamespaceHolder(netns string) (_ namespaceHolder, retErr error) {
+func startNamespaceHolder(netns string) (result namespaceHolder, retErr error) {
 	if !filepath.IsAbs(netns) || filepath.Clean(netns) != netns {
 		return nil, errors.New("network namespace holder requires an absolute canonical path")
 	}
@@ -91,9 +111,7 @@ func startNamespaceHolder(netns string) (_ namespaceHolder, retErr error) {
 	holder := &commandNamespaceHolder{command: command}
 	defer func() {
 		_ = writer.Close()
-		if retErr != nil {
-			_ = holder.Stop()
-		}
+		result, retErr = finishNamespaceHolderStart(holder, retErr)
 	}()
 	if err = writer.Close(); err != nil {
 		return nil, err

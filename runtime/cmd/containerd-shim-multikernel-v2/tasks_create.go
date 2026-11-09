@@ -158,7 +158,9 @@ func (s *service) rollbackCreate(ctx context.Context, prepared *rootfspkg.Cleanu
 	var failures []error
 	canCleanupPrepared := !lifecycleAttempted
 	if err := s.stopNamespaceHolder(); err != nil {
-		failures = append(failures, fmt.Errorf("stop network namespace holder: %w", err))
+		// The helper still owns the namespace. Keep its network, sandbox and
+		// prepared-root ownership intact for an explicit cleanup retry.
+		return fmt.Errorf("stop network namespace holder: %w", err)
 	}
 	if err := s.releaseNetwork(ctx); err != nil {
 		failures = append(failures, err)

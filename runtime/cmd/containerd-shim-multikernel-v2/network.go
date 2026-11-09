@@ -287,16 +287,19 @@ func (s *service) ensureNamespaceHolder() (retErr error) {
 	}
 	holder, err := factory(s.netEndpoint.NetNS)
 	if err != nil {
+		// A factory can return cleanup ownership with its startup error. Do not
+		// lose it or trust a later namespace-only validation as successful startup.
+		if holder != nil {
+			s.namespaceHolder = &rejectedNamespaceHolder{holder}
+		}
 		return fmt.Errorf("start network namespace holder: %w", err)
 	}
 	if holder == nil {
 		return errors.New("network namespace holder factory returned no holder")
 	}
 	if err = holder.Validate(s.netEndpoint.NetNS); err != nil {
-		if holder != nil {
-			_ = holder.Stop()
-		}
-		return fmt.Errorf("validate network namespace holder: %w", err)
+		s.namespaceHolder, err = finishNamespaceHolderStart(holder, fmt.Errorf("validate network namespace holder: %w", err))
+		return err
 	}
 	s.namespaceHolder = holder
 	return nil
