@@ -149,7 +149,8 @@ func TestDiagnosticStderrDefaultSurvivesReaderLoss(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
 				defer cancel()
 				cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestDiagnosticStderrDefaultSurvivesReaderLoss$")
-				cmd.Env = append(os.Environ(), "MK_G8_DIAGNOSTIC_STDERR_CHILD="+kind+":"+transport)
+				childScratch := privateTestDirectory(t)
+				cmd.Env = append(os.Environ(), "MK_G8_DIAGNOSTIC_STDERR_CHILD="+kind+":"+transport, "TMPDIR="+childScratch, "GOTMPDIR="+childScratch)
 				var stdout, stderr bytes.Buffer
 				cmd.Stdout = &stdout
 				if transport == "capture" || transport == "closed-fd" {
@@ -191,6 +192,9 @@ func TestDiagnosticStderrDefaultSurvivesReaderLoss(t *testing.T) {
 				}
 				if stdout.String() != "DIAGNOSTIC_STDERR_LIFECYCLE_PROGRESS_PASS\n" {
 					t.Fatal("missing independent lifecycle progress marker")
+				}
+				if entries, err := os.ReadDir(childScratch); err != nil || len(entries) != 0 {
+					t.Fatal("deliberate diagnostic child exit left synthetic scratch")
 				}
 				if transport == "capture" {
 					var record map[string]any
@@ -264,7 +268,18 @@ func requireDiagnosticDuplicateCLOEXEC(t *testing.T) {
 // disabled after the real transport test above. Recovery reads the actual file.
 func diagnosticEventJournalSurvivesDisabledSink(t *testing.T) {
 	t.Helper()
-	bundle := privateTestDirectory(t)
+	// This helper returns to a child that deliberately calls os.Exit. Its
+	// t.Cleanup callbacks would never run. Remove only this new empty directory
+	// before that exit, preserving unexpected residual content as a failure.
+	bundle, err := os.MkdirTemp("", "diagnostic-event-")
+	if err != nil {
+		t.Fatal("create synthetic event scratch")
+	}
+	defer func() {
+		if err := os.Remove(bundle); err != nil {
+			t.Error("synthetic event scratch did not return empty")
+		}
+	}()
 	s := &service{bundle: bundle, namespace: "tests", publisher: &privateFailurePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	s.setEventDiagnosticOwner(protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)})
 	s.mu.Lock()
