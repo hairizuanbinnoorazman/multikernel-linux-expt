@@ -65,3 +65,36 @@ coverage. Installed CLI/native and actual child-build qualification are separate
 requirements; this implementation does not close complete G7/G8. Direct child
 kernels require no nested virtualization and share primary trust after arbitrary
 child-kernel compromise.
+
+## Receipt-bound real-child pressure trial
+
+The ordinary pressure fixture can opt in with `--aggregate-docker-health` and
+`--engine-observation`. Its guarded module-trial parent requires
+`MK_MODULE_TRIAL_AGGREGATE_DOCKER_HEALTH=1` together with
+`MK_MODULE_TRIAL_ENGINE_OBSERVATION=1`. Restart, concurrency and native-record
+fault scenarios do not qualify through this mode.
+
+At the full-filesystem, built-image and released holds, the fixture writes a
+fresh private target snapshot from its exact Docker container/owner and saved
+protected shim address. Active holds require the one running owner; the released
+hold requires no running owners. The existing v8/v2 pair and added v9/v3 pair
+share the original five-second health deadline and original hold deadline. The
+old pair retains its own two-report timing, and a separate four-report timing
+records the entire sequence with exactly the same start and deadline. Neither
+timeout nor inconclusive/degraded output can publish a successful checkpoint.
+
+The receipt binds every target/report/bundle/receipt/file-identity/timing
+artifact. `audit-runtime-docker-trial.py --require-aggregate-docker-health`
+also requires the existing engine proof. Acceptance requalifies the complete
+agent approval, original unfinished RUN, all engine phases, all independent
+v8 health references and both bundle products. Aggregate owner generation must
+match that engine proof. Its observations must occur after their corresponding
+engine samples and before the following build/removal phase. Bundle identity,
+source binary/build label, phase order and the unchanged shared deadline are
+checked again. Raw targets, outputs and artifact hashes remain private.
+
+The local checkpoint tests include recomputed-hash semantic attacks, real
+subprocess capture/timeout/stderr refusal, and propagation of independent engine
+qualification failure. Their archived fixture isolates that separately tested
+engine validator; it is not a real-child pass. Actual aggregate pressure-trial
+execution and its independent audit/cold-restoration evidence are still required.

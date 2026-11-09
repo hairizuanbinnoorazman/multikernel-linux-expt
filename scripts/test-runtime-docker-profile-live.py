@@ -32,7 +32,7 @@ from runtime_trial_helper import verify as verify_trial_helper, verify_relay as 
 from runtime_io_recovery_checkpoint import sync_sequence
 assert 3<=len(sys.argv)<=6, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--crash-during-io|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation'}
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health'}
 assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
 native_export_crash='--storage-export-crash' in flags
 export_crash_observed=False
@@ -46,6 +46,8 @@ restart_runtime='--restart-runtime' in flags or crash_runtime
 harden_services='--harden-services' in flags
 concurrent='--concurrent' in flags
 engine_observation='--engine-observation' in flags
+aggregate_docker_health='--aggregate-docker-health' in flags
+assert not aggregate_docker_health or engine_observation, 'aggregate Docker health requires the approved-agent engine observation trial'
 assert not engine_observation or storage_pressure and not (native_record_fault or native_export_crash or restart_runtime or concurrent), 'engine observation requires the ordinary pressure scenario'
 assert not (concurrent and restart_runtime), 'concurrency and restart are separate bounded scenarios'
 work=pathlib.Path(sys.argv[1]);source=pathlib.Path(sys.argv[2])
@@ -106,6 +108,7 @@ private=work/'integration';private.mkdir(mode=0o700)
 primary_docker_before=observe_primary_docker()
 (private/'primary-docker-before.json').write_text(json.dumps(primary_docker_before,indent=2)+'\n')
 for name in ['docker-data','docker-exec','containerd-root','containerd-state','exported','input','locks','manifests','daemon-state','rootfs-state','storage-state','storage-runtime','network-state','health-bundles']:(private/name).mkdir(mode=0o755 if name in ['exported','input'] else 0o700)
+if aggregate_docker_health:(private/'aggregate-bundles').mkdir(mode=0o700)
 # Publish the exact approved xattr-free tree as Docker import data. The original
 # export has capability PAX headers and is deliberately not imported directly.
 archive=private/'approved-image.tar'
@@ -449,6 +452,9 @@ try:
      health_timing=dict(version=1,scope='health-doctor-and-health-bundle-checkpoint',phase=label,configured_budget_ns=5_000_000_000,started_monotonic_ns=health_started_ns,deadline_monotonic_ns=health_deadline_ns,finished_monotonic_ns=health_finished_ns,elapsed_ns=health_finished_ns-health_started_ns,report_count=2)
      qualify_health_timing(json.dumps(health_timing).encode(),label)
      (private/('health-checkpoint-timing-'+label+'.json')).write_text(json.dumps(health_timing,indent=2)+'\n')
+     if aggregate_docker_health:
+      from runtime_aggregate_docker_health_checkpoint import capture as capture_aggregate
+      capture_aggregate(work,created.stdout.decode().strip(),owner,label,references,health_doctor.stdout,health_timing,host_config,network_socket)
      return report
     def network_checkpoint(label):
      endpoints=list(json.loads((private/'network-state/state.json').read_text())['endpoints'].values())
@@ -700,6 +706,11 @@ if storage_pressure:
  for kind in ['receipt','identity']:
   r['runtime_health_bundle_'+kind+'_sha256']={phase:sha(private/('health-bundle-'+phase+'-'+kind+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
 if storage_pressure:r['runtime_doctor_sha256']={phase:sha(private/('doctor-'+phase+'.json')) for phase in ['while-full','while-image-ready','after-remove']}
+r['aggregate_docker_health_tested']=aggregate_docker_health
+if aggregate_docker_health:
+ from runtime_aggregate_docker_health_checkpoint import artifact_paths,PHASES as aggregate_phases
+ for family in artifact_paths(work,aggregate_phases[0]):
+  r['aggregate_docker_health_'+family+'_sha256']={phase:sha(artifact_paths(work,phase)[family]) for phase in aggregate_phases}
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
 r['concurrent_guest_builds_tested']=concurrent

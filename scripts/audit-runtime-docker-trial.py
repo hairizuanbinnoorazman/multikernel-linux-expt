@@ -81,9 +81,10 @@ def empty_cgroup(directory):
 
 def audit(args):
     work = args.work
-    validate_stage(work,args.source_commit[:7])
     scenario=getattr(args,'scenario','pressure');scenario_flag(scenario)
-    if getattr(args,'require_engine_observation',False) and scenario!='pressure':raise ValueError('engine observation requires pressure scenario')
+    require_engine=getattr(args,'require_engine_observation',False) or getattr(args,'require_aggregate_docker_health',False)
+    if require_engine and scenario!='pressure':raise ValueError('engine observation requires pressure scenario')
+    validate_stage(work,args.source_commit[:7])
     if (os.geteuid() != 0 or not work.is_absolute() or str(work) != os.path.normpath(work) or
             work.name != 'g8-host-' + args.source_commit[:7] or
             not re.fullmatch('[a-f0-9]{40}', args.source_commit) or
@@ -238,10 +239,14 @@ def audit(args):
                 parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or
                 parent.get('cold_restore_required') is not True):
             raise ValueError('parent checkpoint differs from exact lifecycle')
-        if getattr(args,'require_engine_observation',False):
+        if require_engine:
             from runtime_engine_observation_checkpoint import inspect_fixture_engine_observation
             engine_view=inspect_fixture_engine_observation(work,boot,args.workload_invocation)
             if parent.get('engine_observation_checkpoint')!=engine_view:raise ValueError('parent engine observation checkpoint differs')
+        if getattr(args,'require_aggregate_docker_health',False):
+            from runtime_aggregate_docker_health_checkpoint import inspect_fixture_aggregate
+            if parent.get('aggregate_docker_health_checkpoint') != inspect_fixture_aggregate(work,boot,args.workload_invocation):
+                raise ValueError('parent aggregate health checkpoint differs')
         live_health = receipt.get('runtime_health_bundle_tested') is True
         if live_health:
             from runtime_health_bundle_checkpoint import inspect_fixture_health
@@ -339,7 +344,7 @@ def audit(args):
     if len(sp.check_output(['ss', '-A', 'vsock', '-an'], text=True, timeout=10).splitlines()) != 1 or 'No memory pool configured' not in sp.check_output(['/opt/mkruntime/kerf-venv/bin/kerf', 'show'], text=True, timeout=10):
         raise ValueError('VSOCK or pool resources remain')
     return dict(schema=1, source_commit=args.source_commit, boot_id=boot, parent_invocation=args.parent_invocation,
-                workload_invocation=args.workload_invocation, same_epoch_completion=True, real_child_engine_observation_qualified=getattr(args,'require_engine_observation',False), live_health_pair_qualified=live_health, trial_scratch_private_mount_qualified=receipt.get('private_trial_tmp_tested') is True, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=scenario=='pressure', runtime_restart_build_continuity_qualified=scenario=='runtime-restart',
+                workload_invocation=args.workload_invocation, same_epoch_completion=True, real_child_aggregate_docker_health_qualified=getattr(args,'require_aggregate_docker_health',False), real_child_engine_observation_qualified=require_engine, live_health_pair_qualified=live_health, trial_scratch_private_mount_qualified=receipt.get('private_trial_tmp_tested') is True, retained_empty_systemd_cgroup=retained_empty_cgroup, enospc_build_recovery=scenario=='pressure', runtime_restart_build_continuity_qualified=scenario=='runtime-restart',
                 runtime_crash_build_continuity_qualified=scenario=='runtime-crash',
                 runtime_inflight_crash_build_continuity_qualified=scenario=='runtime-crash-during-build',
                 runtime_synced_io_crash_continuity_qualified=scenario=='runtime-crash-during-io',
@@ -354,10 +359,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--require-engine-observation',action='store_true')
+    parser.add_argument('--require-aggregate-docker-health',action='store_true')
     parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io','concurrent'],default='pressure')
     for name in ['boot-id', 'parent-invocation', 'workload-invocation', 'source-commit', 'build-sha256']:
         parser.add_argument('--'+name, required=True)
     args = parser.parse_args()
+    if args.require_aggregate_docker_health:
+        args.require_engine_observation = True
     try:
         result = audit(args)
     except Exception:

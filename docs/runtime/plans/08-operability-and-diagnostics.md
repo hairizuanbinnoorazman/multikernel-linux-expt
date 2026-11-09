@@ -28,6 +28,13 @@ independently qualify. The failed predecessor remains unchanged. This closes the
 native aggregate checkpoint; real active-child aggregate lifecycle execution and
 production transport-log redaction remain unqualified. No nested virtualization
 or hostile child-kernel containment is added.
+The [real-trial capture and receipt controls](../../../evidence/runtime-20261109/g8-aggregate-docker-trial-controls/README.md)
+now add opt-in v9/v3 reports at the full-filesystem/image/released holds. Both
+health pairs share the original five-second deadline, with four-report timing
+and independent source/agent/engine/health/owner/phase/identity requalification.
+Local semantic, subprocess and recomputed-receipt controls pass. A new actual
+aggregate real-child trial, independent live audit and cold restoration remain
+required before that lifecycle can qualify.
 
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
