@@ -32,7 +32,7 @@ readonly modules, trimpath, GOWORK disabled and ambient GOFLAGS cleared. The
 selected commit, source/archive/binary hashes and actual Go build information
 are recorded in `build.json`.
 
-The output contains `source.tar`, its private extracted tree, six binaries,
+The output contains `source.tar`, its private extracted tree, eight binaries,
 `build.json` and `stage.tar.gz`. The stage root, source root and bin directory
 are mode 0700; binaries are 0500 and metadata/packets are 0600. Packet entries
 have normalized root ownership. This prevents the prior 0775-bin staging error
@@ -41,9 +41,36 @@ nested directories/files also retain protected modes after extraction. Existing 
 and mismatched inputs refuse. Failed generations remain private and lack a
 completed packet; choose a new output path after inspecting the failure.
 
+Measure the complete packet before transfer with the read-only
+[staging preflight](../../scripts/runtime_trial_staging_capacity.py):
+
+```bash
+python3 scripts/runtime_trial_staging_capacity.py \
+  --packet /tmp/mk-trial-stage/stage.tar.gz \
+  --packet-sha256 <builder-packet-sha256> \
+  --source-commit <full-committed-revision>
+```
+
+It pins the held code packet, all eight binary hashes and nested source commit,
+refuses unsafe modes/aliases/duplicates/paths and bounds archive expansion. Its
+budget includes the retained compressed packet, outer extraction and expanded
+source separately, doubles data allocation and adds per-object and scratch
+margins. The lab staging policy keeps the previous eight-GiB floor **after** that
+budget, plus inode headroom. This is a conservative code-stage preflight; it
+does not reserve disk space or prove Docker's complete peak usage. It does not
+replace the two-GiB image, one-GiB builder reserve, actual mount guard or fresh
+admission inside the trial. If capacity is short, preserve the refusal and
+historical artifacts; do not lower reserves or silently reuse a failed stage.
+
 Transfer `stage.tar.gz` to the GCE lab with gcloud and verify its digest against
 the builder's JSON output before privileged extraction. Use a new root-owned
-`/opt/mkruntime/g8-host-<short-commit>` directory at mode 0700. Extract the packet,
+`/srv/multikernel-storage/stages/g8-host-<short-commit>` directory at mode 0700
+(or the separately supported `/opt/mkruntime` layout). Before extraction, run
+the same preflight on the held verified packet with `--check-storage`; its
+nonzero capacity refusal must stop staging. The default check observes the
+dedicated `/srv/multikernel-storage` filesystem through a held no-symlink
+descriptor. Recheck free space and the retained floor after staging; other
+writers and the actual filesystem allocator remain authoritative. Extract the packet,
 then create its `source` directory at mode 0700 and extract `source.tar` there.
 Verify source identity, all binary hashes, root ownership and protected modes.
 Extraction must preserve the pinned archive's exact modes. Python tarfile's
