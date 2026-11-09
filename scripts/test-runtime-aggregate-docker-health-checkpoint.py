@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -244,7 +245,7 @@ assert len(json.loads(target.read_text())['targets'])==1 and args['--network-soc
 if cfg['timeout']:
  os.write(1,b'begin\\n');os.write(2,b'waiting\\n');time.sleep(10)
 if cfg['oversized']:
- os.write(1,b'x'*((1<<20)+1));os.write(2,b'y'*5000);sys.exit(0)
+ os.write(1,b'x'*((1<<20)+1));sys.exit(0)
 if cfg['stderr']:sys.stderr.write('synthetic private failure\\n')
 if '--doctor-all' in args:
  assert args['--doctor-format']=='9';print(json.dumps(cfg['doctor']))
@@ -278,15 +279,43 @@ else:
                     failure = json.loads((private/'aggregate-command-doctor-while-full-failure.json').read_text())
                     self.assertEqual(failure['failure'], 'command-timeout' if mode == 'timeout' else 'command-output-refused')
                     self.assertIs(failure['qualified'], False)
-                    self.assertEqual(failure['stream_truncated'], dict(stdout=mode == 'oversized', stderr=mode == 'oversized'))
+                    self.assertEqual(failure['stream_truncated'], dict(stdout=mode == 'oversized', stderr=False))
                     raw = private/'aggregate-command-doctor-while-full.stdout'
                     self.assertEqual(raw.stat().st_mode & 0o777, 0o600)
                     if mode == 'oversized':
                         self.assertEqual(raw.read_bytes(), b'x'*(1<<20))
-                        self.assertEqual((private/'aggregate-command-doctor-while-full.stderr').read_bytes(), b'y'*4096)
+                        self.assertEqual((private/'aggregate-command-doctor-while-full.stderr').read_bytes(), b'')
                     elif mode == 'timeout':
                         self.assertEqual(raw.read_bytes(), b'begin\n')
                         self.assertEqual((private/'aggregate-command-doctor-while-full.stderr').read_bytes(), b'waiting\n')
+
+    def test_collection_limits_stop_stream_writers_before_deadline(self):
+        for stream, limit in [('stdout', 1 << 20), ('stderr', 4096)]:
+            with self.subTest(stream=stream):
+                # A finite burst followed by a long hold distinguishes early
+                # limit refusal from collecting the burst until timeout.
+                code = 'import os,time;os.write(%d,b"x"*(%d));time.sleep(10)' % (1 if stream == 'stdout' else 2, limit+65536)
+                start = time.monotonic_ns()
+                with self.assertRaises(subject.CommandOutputLimit) as caught:
+                    subject.bounded_command([sys.executable, '-c', code], start+2_000_000_000)
+                self.assertLess(time.monotonic_ns()-start, 1_500_000_000)
+                failure = caught.exception
+                self.assertEqual(len(getattr(failure, stream)), limit+1)
+                self.assertEqual(getattr(failure, 'stderr' if stream == 'stdout' else 'stdout'), b'')
+
+    def test_collection_exact_limits_nonzero_exit_eof_and_empty_budget(self):
+        code = 'import os,sys;os.write(1,b"x"*(1<<20));os.write(2,b"y"*4096);sys.exit(7)'
+        result = subject.bounded_command([sys.executable, '-c', code], time.monotonic_ns()+2_000_000_000)
+        self.assertEqual((result.returncode, len(result.stdout), len(result.stderr)), (7, 1 << 20, 4096))
+        # Closing both pipes is not command completion or a renewed wait budget.
+        start = time.monotonic_ns()
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            subject.bounded_command([sys.executable, '-c', 'import os,time;os.close(1);os.close(2);time.sleep(10)'], start+150_000_000)
+        self.assertLess(time.monotonic_ns()-start, 1_000_000_000)
+        self.assertEqual((caught.exception.stdout, caught.exception.stderr), (b'', b''))
+        with patch.object(subject.subprocess, 'Popen') as spawn, self.assertRaises(subprocess.TimeoutExpired):
+            subject.bounded_command(['/never-execute'], time.monotonic_ns()-1)
+        spawn.assert_not_called()
 
     def test_auditor_requires_pressure_before_stage_access(self):
         spec = importlib.util.spec_from_file_location('aggregate_live_audit', Path(__file__).with_name('audit-runtime-docker-trial.py'))

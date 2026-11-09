@@ -87,6 +87,15 @@ stdout is capped at one MiB and stderr at 4096 bytes. Failed commands retain
 fixed failure/truncation metadata with `qualified=false`, without publishing
 a successful phase timing. These streams are diagnostics, not gate evidence.
 
+Collection also enforces these limits while reading both pipes, retaining at
+most one extra overflow byte per stream in memory. It never collects an entire
+unbounded stream before truncating it. Overflow refuses immediately, preserving
+only observed truncation flags; unread output is not claimed as captured. EOF
+does not grant a new process-exit budget. Deadline/overflow refusal kills the
+command's private process group while its leader remains unreaped, closes both
+pipes and allows at most one second for reaping. That cleanup allowance never
+extends checkpoint acceptance. An already exhausted deadline spawns no command.
+
 The receipt binds every target/report/bundle/receipt/file-identity/timing
 artifact. `audit-runtime-docker-trial.py --require-aggregate-docker-health`
 also requires the existing engine proof. Acceptance requalifies the complete
