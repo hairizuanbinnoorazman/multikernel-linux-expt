@@ -27,6 +27,10 @@ Only a successfully completed rollback clears this in-process admission block;
 there is no public flag that bypasses cleanup. The block covers helper, network,
 sandbox cancellation/deletion and prepared-root cleanup errors. It does not add
 a new operator repair API or persist the state across a shim restart.
+The [source-bound regression and GCE proof](../../../evidence/runtime-20261109/g8-create-rollback-admission/README.md)
+qualify six failed-cleanup stages, repeated refusal without owner changes, and
+readmission only after explicit cleanup completes. This per-service refusal is
+not a host capacity or general readiness/admission guarantee.
 
 The fixed [diagnostic boundary](process-diagnostics.md) carries no underlying
 error or namespace path. These rules preserve in-process cleanup ownership;

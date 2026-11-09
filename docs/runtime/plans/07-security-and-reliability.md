@@ -56,6 +56,11 @@ release. Baseline regressions, full shim race/required checks and source-pinned
 GCE native controls pass, including real-process liveness and eventual reap under
 an injected refusal. Durable recovery, actual syscall failures and the complete
 idle/I/O failure matrix remain separate; this does not close G7.
+The [follow-on Create refusal proof](../../../evidence/runtime-20261109/g8-create-rollback-admission/README.md)
+also prevents a new request entering setup while prior rollback is incomplete,
+including before any sandbox/task record exists. Six cleanup-stage controls and
+source-pinned GCE verification qualify this in-process barrier; durable recovery
+and the complete failure matrix remain open.
 
 - Repeated create/start/stop/delete cycles.
 - Parallel sandbox churn.

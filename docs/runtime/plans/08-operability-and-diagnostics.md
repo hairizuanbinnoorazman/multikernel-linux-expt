@@ -108,6 +108,18 @@ resource preservation and own-unit/cgroup cleanup qualify. This closes the nativ
 in-process cleanup subcase; durable helper recovery, actual aggregate child
 execution, disk-expansion approval and full G7/G8 remain open.
 
+The [incomplete-rollback Create checkpoint](../../../evidence/runtime-20261109/g8-create-rollback-admission/README.md)
+then closes reentry when no task record exists: a failed rollback blocks another
+Create before bundle validation/allocation until explicit cleanup succeeds.
+Six source-bound baseline cases reproduce prior backend reentry; corrected
+source `a5157296` passes the full shim race and required checks. GCE invocation
+`5aab751f` passes eleven groups/forty-seven cases with independent source/boot/
+epoch, primary/retention/resource preservation and own-unit/cgroup cleanup.
+The initial nil/empty test-fixture assertion is corrected and not claimed as a
+passing source. This qualifies in-process cleanup refusal, not durable recovery,
+operator repair or host capacity admission. Actual aggregate child execution,
+disk-expansion approval and full G7/G8 remain open.
+
 ## Owning-shim engine inspection and actual-trial binding (2026-11-08)
 
 The [protected shim extension](../contracts/shim-engine-inspection.md) lets a
