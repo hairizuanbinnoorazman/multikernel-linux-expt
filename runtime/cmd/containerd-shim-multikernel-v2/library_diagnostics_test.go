@@ -187,7 +187,7 @@ func TestLibraryDiagnosticsRealUnixHandshakeRefusalKeepsInspectionResponsive(t *
 	sink := newProcessDiagnosticSink(diagnosticChannelWriter{records})
 	defer sink.close()
 	logger, _ := libraryTestLogger(t, sink)
-	address := filepath.Join(privateTestDirectory(t), "SYNTHETIC_PRIVATE.sock")
+	address := filepath.Join(privateTestDirectory(t), "peer.sock")
 	listener, err := net.Listen("unix", address)
 	if err != nil {
 		t.Fatal(err)
