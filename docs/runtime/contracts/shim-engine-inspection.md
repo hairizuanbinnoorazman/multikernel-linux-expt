@@ -116,3 +116,11 @@ New evidence files are exclusive, synced and mode 0600 independently of umask.
 Existing phase streams, success or failure records refuse before the command
 executes; retry cannot rewrite the retained sample. These collection rules do
 not add engine readiness, process containment or real-child aggregate acceptance.
+
+The [source-bound baseline and GCE proof](../../../evidence/runtime-20261112/g8-engine-probe-bounds/README.md)
+reproduce full-burst collection, permissive evidence modes and retained-stream
+overwrite on the old source. Eight engine/eight health/nine aggregate controls
+pass locally and on GCE, including actual synthetic CLI capture through all four
+phases. Independent current-boot preservation, source pins and own-unit/cgroup
+cleanup qualify this native boundary. Full real-child aggregate qualification
+and complete G7/G8 remain open.

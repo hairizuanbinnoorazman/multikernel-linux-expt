@@ -52,6 +52,16 @@ persistent primary Docker, 225 retained controls/five absences, idle kernel
 resources and own-unit/cgroup cleanup. Historical baselines remain untouched.
 This closes the native four-report collection boundary; full real-child
 aggregate acceptance and complete G7/G8 remain open.
+The [engine-probe collection proof](../../../evidence/runtime-20261112/g8-engine-probe-bounds/README.md)
+then applies the probe's smaller 2048/256-byte limits during collection, retains
+the absolute deadline and preserves exclusive private phase evidence. The old
+probe consumes whole bursts, creates non-private files under permissive umask
+and overwrites a retained timeout stream; each case is reproduced. Twenty-five
+source-bound engine/health/aggregate controls qualify on GCE, with synthetic CLI
+capture in all four phases, independent current-boot preservation and complete
+own-unit/cgroup cleanup. Required checks pass. This closes the native probe
+collection/evidence boundary, not actual child-engine aggregate acceptance,
+arbitrary descendant containment or full G7/G8.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
