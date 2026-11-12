@@ -10,7 +10,7 @@ def attach_command(argv):
         raise ValueError('invalid attached trial command')
     # Apply the limit in the exec child, never via threaded Python preexec_fn
     # or by changing the controller/runtime/storage helper's file-size limits.
-    return ['/usr/bin/prlimit', '--fsize='+str(ATTACH_LIMIT)+':'+str(ATTACH_LIMIT), '--', *argv]
+    return ['/usr/bin/prlimit', '--fsize='+str(ATTACH_LIMIT)+':'+str(ATTACH_LIMIT), '--core=0:0', '--', *argv]
 
 
 def read_output(path):

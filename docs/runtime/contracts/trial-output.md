@@ -2,7 +2,7 @@
 
 The four profile/concurrency attach call sites (ordinary, restart, pressure and concurrent trials)
 exec the trusted CLI through `/usr/bin/prlimit` with soft/hard `RLIMIT_FSIZE`
-131072. The kernel therefore caps each attached regular stdout/stderr file
+131072 and child `RLIMIT_CORE` zero. The kernel therefore caps each attached regular stdout/stderr file
 before a polling reader runs. The controller, runtime, Docker daemon and storage
 helpers do not inherit this child-only change; two-GiB image writes remain under
 their existing policies. No threaded Python `preexec_fn` is used.

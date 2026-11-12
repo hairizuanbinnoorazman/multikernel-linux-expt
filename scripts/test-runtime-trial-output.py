@@ -34,18 +34,20 @@ class TrialOutput(unittest.TestCase):
 
     def test_normal_output_and_child_only_resource_limits(self):
         before=resource.getrlimit(resource.RLIMIT_FSIZE)
+        core_before=resource.getrlimit(resource.RLIMIT_CORE)
         with tempfile.TemporaryDirectory() as directory:
             root=pathlib.Path(directory);out=root/'out';err=root/'err'
-            command=subject.attach_command([sys.executable,'-c','import resource,json;print(json.dumps(resource.getrlimit(resource.RLIMIT_FSIZE)))'])
+            command=subject.attach_command([sys.executable,'-c','import resource,json;print(json.dumps(dict(file=resource.getrlimit(resource.RLIMIT_FSIZE),core=resource.getrlimit(resource.RLIMIT_CORE))))'])
             with out.open('wb') as stdout,err.open('wb') as stderr:r=subprocess.run(command,stdout=stdout,stderr=stderr,timeout=5)
             self.assertEqual(r.returncode,0);self.assertEqual(err.read_bytes(),b'')
-            self.assertEqual(json.loads(subject.read_output(out)),[subject.ATTACH_LIMIT]*2)
+            self.assertEqual(json.loads(subject.read_output(out)),dict(file=[subject.ATTACH_LIMIT]*2,core=[0,0]))
             out.write_bytes(b'x'*(subject.ATTACH_LIMIT-1));self.assertEqual(len(subject.read_output(out)),subject.ATTACH_LIMIT-1)
             out.write_bytes(b'x'*subject.ATTACH_LIMIT)
             with self.assertRaises(ValueError):subject.read_output(out)
             out.write_bytes(b'x'*(subject.ATTACH_LIMIT+1))
             with self.assertRaises(ValueError):subject.read_output(out)
         self.assertEqual(resource.getrlimit(resource.RLIMIT_FSIZE),before)
+        self.assertEqual(resource.getrlimit(resource.RLIMIT_CORE),core_before)
 
     def test_reader_refuses_aliases_and_special_files_without_blocking(self):
         with tempfile.TemporaryDirectory() as directory:
