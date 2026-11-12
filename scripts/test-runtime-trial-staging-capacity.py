@@ -145,6 +145,25 @@ class StagingCapacity(unittest.TestCase):
                 self.assertEqual(plan['source_entries'],2)
                 self.assertEqual(plan['storage_floor_bytes'],8<<30)
 
+    def test_file_mutation_after_preflight_never_reaches_library_parser(self):
+        with tempfile.TemporaryDirectory() as directory:
+            packet,digest=self.packet(Path(directory));original=subject.metadata_preflight;changed=False
+            header=tarfile.TarInfo('hostile-extended-header');header.type=tarfile.XHDTYPE;header.size=1<<30
+            malicious=gzip.compress(header.tobuf()+bytes(1024))
+            def mutate_after_preflight(*args):
+                nonlocal changed
+                result=original(*args)
+                if not changed:packet.write_bytes(malicious);changed=True
+                return result
+            library=tarfile.TarInfo._proc_pax
+            def forbid_oversize(node,archive):
+                if node.size>65536:raise AssertionError('mutated metadata reached library parser')
+                return library(node,archive)
+            with patch.object(subject,'metadata_preflight',mutate_after_preflight),patch.object(tarfile.TarInfo,'_proc_pax',forbid_oversize):
+                with self.assertRaisesRegex(ValueError,'code packet identity changed'):subject.measure(packet,digest,REV)
+            self.assertTrue(changed)
+            self.assertEqual(packet.read_bytes(),malicious)
+
     def test_recomputed_packet_hash_cannot_hide_unsafe_members_or_manifest(self):
         variants = ['source-alias', 'source-owner', 'source-mode', 'source-path', 'source-duplicate', 'source-empty',
             'source-commit', 'binary-pin', 'manifest-source', 'manifest-number', 'installed', 'outer-mode',

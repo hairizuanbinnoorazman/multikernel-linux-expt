@@ -66,6 +66,10 @@ processing. Existing source/outer payload, member, digest, permission and commit
 checks still apply after resolution. These bounds do not lower the eight-GiB
 code-staging floor or grant a capacity reservation; this is a normalized code
 packet reader, not a general tar importer.
+Both metadata preflight and logical parsing use one immutable hash-verified
+compressed snapshot, bounded by the existing 128-MiB packet cap. The held-file
+identity is still checked afterward; mutation cannot substitute new metadata
+between the two parser passes and is refused without staging or extraction.
 
 [Actual GCE proof](../../../evidence/runtime-20261027/g8-trial-capacity-admission/README.md)
 qualifies refusal before transport or Docker mutation at the current shortage.

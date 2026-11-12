@@ -152,27 +152,22 @@ def measure(packet, expected_digest, revision):
         if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.geteuid() or before.st_nlink != 1 or
                 before.st_mode & 0o022 or not 0 < before.st_size <= PACKET_LIMIT):
             raise ValueError('unsafe committed code packet')
-        digest = hashlib.sha256()
-        count = 0
-        while chunk := stream.read(1 << 20):
-            count += len(chunk)
-            if count > before.st_size:
-                raise ValueError('code packet grew')
-            digest.update(chunk)
-        if count != before.st_size or digest.hexdigest() != expected_digest:
+        # Both parser passes must see the same bounded, pin-verified bytes.
+        # Re-reading a mutable descriptor after preflight would reopen the
+        # metadata-allocation race before the final identity check can refuse.
+        packet_data = stream.read(before.st_size+1)
+        if len(packet_data) != before.st_size or hashlib.sha256(packet_data).hexdigest() != expected_digest:
             raise ValueError('code packet differs from caller pin')
-        stream.seek(0)
         expected = {'source.tar', 'build.json', 'bin', 'tmp'} | {'bin/'+name for name in BINARIES}
-        with gzip.GzipFile(fileobj=stream, mode='rb') as expanded:
+        with gzip.GzipFile(fileobj=io.BytesIO(packet_data), mode='rb') as expanded:
             metadata_preflight(expanded, OUTER_LIMIT, len(expected))
-        stream.seek(0)
         hashes = {}
         source = None
         build = None
         allocated = 0
         total = 0
         seen = set()
-        with tarfile.open(fileobj=stream, mode='r|gz') as archive:
+        with tarfile.open(fileobj=io.BytesIO(packet_data), mode='r|gz') as archive:
             for member in archive:
                 name = member.name
                 directory = name in {'bin', 'tmp'}
