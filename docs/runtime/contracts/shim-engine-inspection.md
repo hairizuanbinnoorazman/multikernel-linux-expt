@@ -101,7 +101,8 @@ also passes with original idle transport, returned resources, selected artifact
 and failed-history preservation, archived frames confined to their original
 epoch, old completion refused on the new boot and a fresh primary baseline.
 Aggregate doctor/readiness integration and full G7/G8 remain open.
-# Trial probe collection
+
+## Trial probe collection
 
 The real-child trial's owning-shim probe uses the shared bounded collector with
 2048 stdout bytes and 256 stderr bytes, plus one overflow byte per stream.
