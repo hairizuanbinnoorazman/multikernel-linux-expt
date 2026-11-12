@@ -30,6 +30,7 @@ from runtime_workload_phase import wait_for_phase
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 from runtime_io_recovery_checkpoint import sync_sequence
+from runtime_bounded_command import bounded_command
 assert 3<=len(sys.argv)<=6, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--crash-during-io|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health'}
@@ -435,13 +436,13 @@ try:
      (private/('health-endpoint-'+label+'.json')).write_text(json.dumps(endpoint,indent=2)+'\n')
      references=(boot,owner,report,network_report,endpoint,combined_report,pool_report,unified_report,component_report,operational_report,journal_report,health_report,compiled_versions,compiled_revisions)
      remaining=health_deadline-time.monotonic();assert remaining>0,'health pair observation budget exhausted'
-     health_doctor=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor-all','--doctor-format=8','--network-socket='+str(network_socket)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=remaining)
+     health_doctor=bounded_command([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--doctor-all','--doctor-format=8','--network-socket='+str(network_socket)],health_deadline_ns)
      assert health_doctor.returncode==0 and not health_doctor.stderr,'version-8 health refused the steady lifecycle hold'
      qualified_health=qualify_health_doctor(health_doctor.stdout,*references,released=released)
      (private/('health-doctor-'+label+'.json')).write_text(json.dumps(qualified_health,indent=2)+'\n')
      destination=private/'health-bundles'/(label+'.json')
      remaining=health_deadline-time.monotonic();assert remaining>0,'health bundle observation budget exhausted'
-     health_bundle=subprocess.run([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--network-socket='+str(network_socket),'--diagnostic-bundle='+str(destination),'--diagnostic-format=2','--diagnostic-max-files='+str(4 if native_record_fault else 3),'--diagnostic-max-bytes=1048576'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=remaining)
+     health_bundle=bounded_command([str(work/'bin/mkruntimed'),'--config='+str(host_config),'--network-socket='+str(network_socket),'--diagnostic-bundle='+str(destination),'--diagnostic-format=2','--diagnostic-max-files='+str(4 if native_record_fault else 3),'--diagnostic-max-bytes=1048576'],health_deadline_ns)
      assert health_bundle.returncode==0 and not health_bundle.stderr,'version-2 health bundle refused the steady lifecycle hold'
      data=destination.read_bytes();identity=destination.lstat()
      assert stat.S_ISREG(identity.st_mode) and stat.S_IMODE(identity.st_mode)==0o600 and identity.st_uid==0 and identity.st_nlink==1 and 0<len(data)==identity.st_size<=1<<20

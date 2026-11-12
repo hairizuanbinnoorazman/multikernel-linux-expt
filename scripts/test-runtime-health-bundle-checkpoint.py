@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 import copy
+import ast
 import hashlib
 import importlib.util
 import json
 from pathlib import Path
 import unittest
 import tempfile
+import subprocess
+import time
+from runtime_bounded_command import bounded_command, CommandOutputLimit
 from runtime_health_bundle_checkpoint import inspect_fixture_health
 from runtime_health_bundle_checkpoint import qualify, qualify_bundle, qualify_timing, SCOPE, UNOBSERVED
 from runtime_diagnostic_bundle_checkpoint import EXCLUDED
@@ -13,6 +17,40 @@ spec=importlib.util.spec_from_file_location('op_controls',Path(__file__).with_na
 controls=importlib.util.module_from_spec(spec);spec.loader.exec_module(controls)
 
 class HealthCheckpointTests(unittest.TestCase):
+    def live_command(self, name, work, deadline):
+        # Execute the actual command expression from the live harness without
+        # importing that harness's privileged trial setup or lifecycle actions.
+        tree=ast.parse(Path(__file__).with_name('test-runtime-docker-profile-live.py').read_text())
+        values=[n.value for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id==name for t in n.targets)]
+        self.assertEqual(len(values),1)
+        return eval(compile(ast.Expression(values[0]),'<live-health-command>','eval'),dict(
+            work=work,host_config=work/'config.json',network_socket=work/'network.sock',
+            destination=work/'bundle.json',native_record_fault=False,
+            bounded_command=bounded_command,subprocess=subprocess,
+            remaining=max(0,(deadline-time.monotonic_ns())/1e9),health_deadline_ns=deadline))
+    def test_live_commands_refuse_stream_flood_before_writer_completes(self):
+        for name in ['health_doctor','health_bundle']:
+            for fd in [1,2]:
+                with self.subTest(command=name,stream=fd),tempfile.TemporaryDirectory() as directory:
+                    work=Path(directory);(work/'bin').mkdir(mode=0o700)
+                    marker=work/'burst-completed';cli=work/'bin/mkruntimed'
+                    cli.write_text('#!/usr/bin/python3\nimport os,pathlib,time\nos.write('+str(fd)+',b"x"*(8<<20))\npathlib.Path('+repr(str(marker))+').touch()\ntime.sleep(5)\n');cli.chmod(0o500)
+                    with self.assertRaises(CommandOutputLimit) as caught:
+                        self.live_command(name,work,time.monotonic_ns()+2_000_000_000)
+                    self.assertFalse(marker.exists())
+                    self.assertEqual(len(caught.exception.stdout if fd==1 else caught.exception.stderr),(1<<20 if fd==1 else 4096)+1)
+    def test_live_command_normal_status_and_shared_deadline_survive_eof(self):
+        for name in ['health_doctor','health_bundle']:
+            with self.subTest(command=name),tempfile.TemporaryDirectory() as directory:
+                work=Path(directory);(work/'bin').mkdir(mode=0o700);cli=work/'bin/mkruntimed'
+                cli.write_text('#!/usr/bin/python3\nimport os,sys\nos.write(1,b"synthetic health");os.write(2,b"synthetic refusal");sys.exit(7)\n');cli.chmod(0o500)
+                result=self.live_command(name,work,time.monotonic_ns()+1_000_000_000)
+                self.assertEqual((result.returncode,result.stdout,result.stderr),(7,b'synthetic health',b'synthetic refusal'))
+                cli.chmod(0o600)
+                cli.write_text('#!/usr/bin/python3\nimport os,time\nos.close(1);os.close(2);time.sleep(5)\n');cli.chmod(0o500)
+                start=time.monotonic_ns()
+                with self.assertRaises(subprocess.TimeoutExpired):self.live_command(name,work,start+200_000_000)
+                self.assertLess(time.monotonic_ns()-start,1_000_000_000)
     def fixture(self,released=False):
         s,e,n,c,p,u,b,versions,revisions,op=controls.OperationalCheckpointTests().fixture(released)
         journal=dict(version=1,source='in-process-lifecycle-journal',status='idle',sequence=s['ownership']['sequence'],pending_completions=0,journal_failed=False)

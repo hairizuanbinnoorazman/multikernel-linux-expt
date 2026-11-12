@@ -95,6 +95,10 @@ does not grant a new process-exit budget. Deadline/overflow refusal kills the
 command's private process group while its leader remains unreaped, closes both
 pipes and allows at most one second for reaping. That cleanup allowance never
 extends checkpoint acceptance. An already exhausted deadline spawns no command.
+The ordinary v8 health doctor and v2 bundle command also use this shared
+collector and pass their original `health_deadline_ns` directly. This applies
+even when the aggregate opt-in is disabled. Other trial subprocesses retain
+their existing collection policies; this boundary covers the four health reports.
 
 The [actual capture baseline and GCE controls](../../../evidence/runtime-20261109/g8-aggregate-command-bounds/README.md)
 show the prior capture consuming complete synthetic eight-MiB stdout/stderr
