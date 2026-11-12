@@ -23,6 +23,7 @@ class ConcurrentCommandTests(unittest.TestCase):
                 code='import os,pathlib\np=b"x"*(1<<20)\nn=0\nwhile n<len(p):n+=os.write('+str(fd)+',p[n:])\npathlib.Path('+repr(str(done))+').touch()'
                 with self.assertRaises(CommandOutputLimit) as error:self.invoke(root)([sys.executable,'-c',code],'flood')
                 self.assertFalse(done.exists());self.assertEqual(error.exception.stdout,b'');self.assertEqual(error.exception.stderr,b'')
+                self.assertIsNone(error.exception.__context__);self.assertIsNone(error.exception.__cause__)
                 selected=root/('flood.stdout' if fd==1 else 'flood.stderr')
                 self.assertEqual(selected.stat().st_size,LIMIT)
                 self.assertTrue(json.loads((root/'flood-failure.json').read_text())['output_refused'])
@@ -52,6 +53,7 @@ class ConcurrentCommandTests(unittest.TestCase):
             with self.assertRaises(subprocess.TimeoutExpired) as error:
                 self.invoke(root)([sys.executable,'-c','from pathlib import Path;Path('+repr(str(done))+').touch()'],'expired',timeout=0)
             self.assertNotIn(str(done),str(error.exception));self.assertFalse(done.exists())
+            self.assertIsNone(error.exception.__context__);self.assertIsNone(error.exception.__cause__)
             start=time.monotonic()
             with self.assertRaises(subprocess.TimeoutExpired):
                 self.invoke(root)([sys.executable,'-c','import os,time;os.close(1);os.close(2);time.sleep(5)'],'eof',timeout=.15)

@@ -24,6 +24,7 @@ def capture(arguments,private,label,success,deadline):
         def retain(stdout,stderr):
             for suffix,data in [('.stdout',stdout),('.stderr',stderr)]:
                 f=streams[suffix];f.write(data[:LIMIT]);f.flush();os.fsync(f.fileno())
+        failure=None
         try:
             result=bounded_trial_command([str(x) for x in arguments],deadline)
         except (subprocess.TimeoutExpired,CommandOutputLimit) as error:
@@ -32,11 +33,11 @@ def capture(arguments,private,label,success,deadline):
                 timed_out=isinstance(error,subprocess.TimeoutExpired),output_refused=isinstance(error,CommandOutputLimit),
                 stdout_truncated=len(stdout)>LIMIT,stderr_truncated=len(stderr)>LIMIT,
                 deadline_monotonic_ns=deadline,qualified=False))
-            # Preserve the exception class used by diagnostic cleanup without
-            # carrying command arguments or guest bytes into terminal errors.
-            if isinstance(error,subprocess.TimeoutExpired):
-                raise subprocess.TimeoutExpired(['concurrent-trial-command'],0) from None
-            raise CommandOutputLimit(b'',b'') from None
+            failure='timeout' if isinstance(error,subprocess.TimeoutExpired) else 'output'
+        # Raise outside the handler so even __context__ cannot retain the
+        # original command arguments or guest bytes in the public exception.
+        if failure=='timeout':raise subprocess.TimeoutExpired(['concurrent-trial-command'],0)
+        if failure=='output':raise CommandOutputLimit(b'',b'')
         retain(result.stdout,result.stderr);record('.exit.json',dict(returncode=result.returncode))
         if success and result.returncode:
             raise ValueError('concurrent trial command failed; private evidence retained')

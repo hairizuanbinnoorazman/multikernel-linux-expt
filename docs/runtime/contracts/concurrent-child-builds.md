@@ -47,7 +47,7 @@ This closes the named two-child build-separation/sibling-release/survivor-rebuil
 subcase. Concurrency churn, broader fault combinations, readiness, cold
 restoration and full G7/G8 remain open. No nested virtualization is used;
 arbitrary child-kernel compromise shares primary trust.
-# Private command collection
+## Private command collection
 
 The two-child trial's `invoke` path now enforces its existing strict
 less-than-131072-byte stdout/stderr policy during collection, including nested
