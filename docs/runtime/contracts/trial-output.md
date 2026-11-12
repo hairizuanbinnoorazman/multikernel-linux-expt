@@ -40,3 +40,22 @@ refusal, private logging policy agreement and installed Docker configuration
 validation: 21 native controls pass. Independent observation verifies source
 pins, primary/retained-state parity, tool preservation and own-unit/cgroup cleanup.
 Actual container log rotation and the aggregate real-child trial remain open.
+
+`scripts/test-runtime-docker-logging-live.py` is an opt-in native logging trial
+for a source-pinned, delegated lab unit with private network/mount namespaces
+and an exclusive runtime directory. An outer guard must check boot, primary
+preservation, protected tools and reserves. It starts private containerd/Docker
+instances, imports only a protected static BusyBox fixture, and runs two native
+runc containers with inherited versus explicit logging policy. Both containers
+have no network, host mounts or capabilities and use a read-only rootfs.
+Their cgroups stay below the delegated unit. The script requires successful
+container exits and clean daemon shutdown, retaining private state for audit.
+
+`runtime_docker_log_rotation.py` checks only metadata of the two expected local
+log files, without following directory/file aliases or reading contents. It
+requires a rotated file reaching the decimal 1m threshold and each observed
+file at most 1,000,000 + 65,536 bytes, allowing record overhead. That conservative
+sample bound is not an exact disk quota or a peak measurement. Missing,
+additional, unrotated, aliased, shared or oversized samples refuse. A successful
+native trial would qualify installed daemon behavior on that fixture, while
+real-child rotation, logging loss behavior and full G7/G8 remain open.
