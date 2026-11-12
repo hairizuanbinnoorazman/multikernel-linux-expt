@@ -66,3 +66,10 @@ size, shrink, alignment, writable assets, candidate collisions, manager pinning
 and private CLI refusals. This is a point-in-time plan, not an activation or a
 guarantee against later changes. The real manager must revalidate at execution,
 after separate maintenance approval and geometry qualification.
+
+The [native installed-binding proof](../../../evidence/runtime-20261112/g8-storage-binding-plan-corrected/README.md)
+now verifies this plan on the actual GCE deployment. Independent verification
+recomputes the private plan identically and checks unchanged installed graph
+metadata, prior proofs/refusal metadata, primary state and before-phase geometry.
+This qualifies preparation only; the proposed increase and actual activation
+remain unperformed.
