@@ -49,3 +49,20 @@ post-grow phases refuse on the actual old device before metadata reads.
 Independent verification preserves prior state/refused attempts, stops only
 the successful own unit and requires its cgroup absent. Post-grow phases remain
 unqualified until approved maintenance actually produces those states.
+
+Before irreversible maintenance, `scripts/plan-runtime-storage-binding.py`
+checks the selected immutable deployment and prepares the proposed byte-size
+change through the pinned manager's existing validation path. It intercepts
+the persistence entry point before directory creation or selection. Only
+`runtime.env` may differ, all asset modes must match, and an already existing
+candidate directory (including a dangling alias) refuses. The selected
+deployment is verified again after preparation. No disk or service operation
+is invoked. CLI output contains fixed flags and old/new byte counts; deployment
+IDs, file inventory and environment values remain private.
+
+Six controls compare the prediction with a real update in a disposable copied
+root, require unchanged source-root content and metadata, and exercise stale
+size, shrink, alignment, writable assets, candidate collisions, manager pinning
+and private CLI refusals. This is a point-in-time plan, not an activation or a
+guarantee against later changes. The real manager must revalidate at execution,
+after separate maintenance approval and geometry qualification.
