@@ -8,7 +8,8 @@ preservation, tool identities and reserves. Keep all artifacts root-private.
 import argparse,hashlib,io,json,os
 from pathlib import Path
 import re,stat,subprocess as sp,tarfile,time
-from runtime_primary_docker import bounded_command,ENV
+from runtime_primary_docker import ENV
+from runtime_trial_docker_command import capture
 from runtime_docker_log_rotation import qualify_rotation
 from runtime_trial_output import logging_arguments,logging_config,require_logging
 
@@ -37,8 +38,11 @@ def execute(work,run,boot):
         if space.f_bavail*space.f_frsize<(1<<30)+(64<<20):raise ValueError('logging trial reserve is unavailable')
     def record(name,value):
         with (work/name).open('x') as f:json.dump(value,f,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())
+    command_index=0
     def command(argv):
-        return bounded_command(['/usr/bin/env','TMPDIR='+str(scratch),'DOCKER_TMPDIR='+str(scratch),*argv],timeout=min(15,deadline-time.monotonic()),limit=65536)
+        nonlocal command_index
+        command_index+=1
+        return capture(argv,work,command_index,int(min(deadline,time.monotonic()+15)*1_000_000_000),private_env)
     # No external registry, host mounts, child kernel or daemon credentials.
     busy=Path('/usr/bin/busybox');payload=busy.read_bytes()
     if not 0<len(payload)<8<<20:raise ValueError('logging fixture binary exceeds bound')
@@ -64,7 +68,7 @@ def execute(work,run,boot):
         cli=['/usr/bin/docker','--host','unix://'+str(dsock)]
         while True:
             try:info=json.loads(command(cli+['info','--format','{{json .}}']));break
-            except RuntimeError:
+            except ValueError:
                 if any(p.poll() is not None for p in processes) or time.monotonic()>=deadline:raise
                 time.sleep(.05)
         if info['DockerRootDir']!=str(data) or info['LoggingDriver']!='local':raise ValueError('private logging daemon identity differs')

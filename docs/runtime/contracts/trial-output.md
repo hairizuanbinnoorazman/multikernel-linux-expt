@@ -50,6 +50,10 @@ runc containers with inherited versus explicit logging policy. Both containers
 have no network, host mounts or capabilities and use a read-only rootfs.
 Their cgroups stay below the delegated unit. The script requires successful
 container exits and clean daemon shutdown, retaining private state for audit.
+Native CLI commands retain separate bounded stdout/stderr and fixed status
+records exclusively under the private trial directory. Warnings cannot corrupt
+machine-readable identities; expiry, overflow and nonzero status refuse, leaving
+diagnostics private. Existing evidence refuses before command execution.
 The supervisor runs in the unit's `supervisor` leaf and Docker uses the sibling
 `workloads` subtree, keeping processes out of the delegated domain root before
 enabling cgroup-v2 controllers. It never adopts or moves primary service tasks.
