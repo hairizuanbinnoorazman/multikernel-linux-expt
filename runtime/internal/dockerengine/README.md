@@ -33,6 +33,11 @@ profile fields. Those fields must use canonical `OSType`, `Driver`,
 remain accepted. Profile refusal keeps a fixed error and reflects no document
 names or values. The projection itself enforces the existing 64-KiB response
 bound too; it never resolves contradictory input by accepting the last value.
+The [baseline and native GCE proof](../../../evidence/runtime-20261112/g8-engine-info-projection/README.md)
+reproduce fourteen prior acceptances and qualify five groups/twenty-three
+subcases, including real HTTP and existing cancellation controls. Engine/agent
+race and required checks pass. This qualifies parser behavior with synthetic
+responses, not an actual Docker API or an honest-engine attestation.
 
 The launcher receives a kernel-created pidfd at clone time. Logging continuously
 drains stdout/stderr into a shared 64 KiB tail, without returning daemon output

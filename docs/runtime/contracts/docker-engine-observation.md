@@ -23,6 +23,15 @@ budget includes queue admission and both API requests. It probes only the socket
 captured at trusted launch, with no proxy/TCP/host-socket fallback. Existing
 UID-1000, `SO_PEERPIDFD`, owned cgroup, bounded HTTP header/body, redirect refusal,
 Linux/vfs/rootless data-directory/profile and final cancellation checks remain.
+
+The [unambiguous info projection](../../../evidence/runtime-20261112/g8-engine-info-projection/README.md)
+now rejects duplicate names and case/Unicode-fold aliases of the four profile
+fields, preserving canonical responses with unrelated Docker fields. Fourteen
+baseline acceptance cases reproduce; five groups/twenty-three subcases qualify
+on GCE with real fixture HTTP, cancellation controls, private preservation and
+own-unit/cgroup/short-scratch cleanup. Engine/agent race and required checks pass.
+This is native parsing evidence, not current Docker compatibility or attestation
+of a compromised engine's response.
 The held launcher pidfd is polled directly: a still-open log-reaping channel is
 not proof of process liveness. Context failure returns no successful report.
 Synchronous kernel/filesystem operations retain their existing latency limits.

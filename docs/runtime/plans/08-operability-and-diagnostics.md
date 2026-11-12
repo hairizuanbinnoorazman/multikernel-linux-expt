@@ -79,6 +79,14 @@ compiled binary's synthetic initialization refusal qualify on GCE, with source
 pins, private preservation and own-unit/cgroup cleanup. Full shim/terminal race
 and required checks pass. Earlier library setup errors, full-stderr budget
 safety, actual child fault/recovery and complete G7/G8 remain open.
+The [strict extensible info projection](../../../evidence/runtime-20261112/g8-engine-info-projection/README.md)
+also prevents duplicate/case/Unicode aliases from winning rootless profile
+validation. Fourteen baseline acceptances reproduce while canonical extensions
+remain valid. Five groups/twenty-three native subcases qualify on source-pinned
+GCE, including real fixture HTTP and existing cancellation/deadline controls,
+with primary/retention parity and own-unit/cgroup/short-scratch cleanup. Engine/
+agent race and required checks pass. Actual Docker API compatibility, honest
+engine attestation and full G7/G8 remain unqualified by this parser check.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
