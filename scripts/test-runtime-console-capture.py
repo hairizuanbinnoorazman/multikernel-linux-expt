@@ -236,5 +236,21 @@ class ConsoleCaptureTests(unittest.TestCase):
         self.assertNotIn(b'private=',events)
         self.assertTrue(set(events.splitlines())<=(set(MARKERS)|{code for _,code in CATEGORIES}))
 
+    def test_existing_regular_or_symlinked_metadata_is_preserved(self):
+        for symlink in [False,True]:
+            with self.subTest(symlink=symlink),tempfile.TemporaryDirectory() as directory:
+                root=pathlib.Path(directory);retained=root/'retained-private-proof'
+                retained.write_bytes(b'SYNTHETIC_RETAINED_METADATA');inode=retained.stat().st_ino
+                metadata=root/'console-capture.json'
+                if symlink:metadata.symlink_to(retained.name)
+                else:metadata.write_bytes(b'SYNTHETIC_OLD_METADATA')
+                old=metadata.read_bytes();identity=metadata.lstat()
+                capture=ConsoleCapture('mk-'+'a'*32+'-'+'b'*16,root)
+                with mock.patch.object(capture,'_await_instance',return_value=False),mock.patch.object(capture,'_connect') as connect:
+                    with self.assertRaises(FileExistsError):capture._capture()
+                connect.assert_not_called()
+                self.assertEqual(metadata.lstat().st_ino,identity.st_ino);self.assertEqual(metadata.read_bytes(),old)
+                self.assertEqual(retained.stat().st_ino,inode);self.assertEqual(retained.read_bytes(),b'SYNTHETIC_RETAINED_METADATA')
+
 
 if __name__ == '__main__':unittest.main()
