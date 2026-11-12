@@ -139,6 +139,17 @@ native controls and required checks pass, with independently pinned source/epoch
 primary/retention/tools/latest-logging-proof preservation and own-unit/cgroup/
 scratch cleanup. Actual new-source two-child/aggregate execution, peak-RSS and
 full G7/G8 remain open.
+The [main-profile collection and rebuilt full packet](../../../evidence/runtime-20261112/g8-profile-command-bounds/README.md)
+also bounds post-recovery builds and hidden-record child probes, preserving
+the latter's stricter exact-marker/combined-size/deadline checks. Four old
+whole-stream collections and two exact-cap recovery-audit acceptances reproduce;
+31 native controls and required checks pass with complete same-boot preservation
+and own-unit/cgroup/scratch cleanup. The complete current eight-binary packet
+and five compiled labels verify locally. Fresh admission refuses 6,805,229,568
+free bytes against 8,929,517,568 required, preserving the eight-GiB floor. Cloud
+target/attachment/50-GiB size and the reviewed binding-manager pin verify read-only.
+The full packet stays local; the reviewed 50-to-58 GiB maintenance still needs
+separate approval. Actual current child/aggregate lifecycle and full G7/G8 stay open.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the

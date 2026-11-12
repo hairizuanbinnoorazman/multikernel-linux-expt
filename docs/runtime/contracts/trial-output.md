@@ -100,3 +100,10 @@ Recovery checkpoint requalification rejects exact-cap rebuilt/original streams
 and active RUN snapshots, including otherwise consistent recomputed receipts.
 `runtime_concurrency_command` remains a compatibility import for the common
 collector. Other profile command producers retain their existing policies.
+The [profile collection and complete-packet proof](../../../evidence/runtime-20261112/g8-profile-command-bounds/README.md)
+reproduces four old whole-stream collections and two exact-cap recovery-audit
+acceptances with recomputed receipts. Thirty-one native controls and required
+checks pass, with source/epoch/preservation and own-unit/cgroup/scratch cleanup.
+The complete eight-binary packet and five compiled labels are locally verified;
+fresh GCE admission refuses its unchanged floor requirement. These controls
+do not qualify the new actual child lifecycle or full G7/G8.
