@@ -33,3 +33,10 @@ helper logs, peak CPU/memory and all other output producers retain their existin
 policies. These limits do not establish arbitrary hostile-kernel containment or
 close full G7/G8. Direct children use no nested virtualization and share primary
 trust after child-kernel compromise.
+
+The [committed regression and GCE proof](../../../evidence/runtime-20261112/g8-attached-output/README.md)
+qualifies all four attach expressions with controlled writers, exact-boundary
+refusal, private logging policy agreement and installed Docker configuration
+validation: 21 native controls pass. Independent observation verifies source
+pins, primary/retained-state parity, tool preservation and own-unit/cgroup cleanup.
+Actual container log rotation and the aggregate real-child trial remain open.

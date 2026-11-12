@@ -96,6 +96,16 @@ independently preserves primary/retained state and cleans the own unit/cgroup,
 while refusing the actual new plan: 6,899,658,752 free bytes versus 8,929,107,968
 required. The full packet stays local; no floor is reduced or disk resized.
 Actual aggregate child execution and full G7/G8 remain open.
+The [attached-output proof](../../../evidence/runtime-20261112/g8-attached-output/README.md)
+adds kernel-enforced 128-KiB limits to all four trusted attach clients and
+disables their core dumps without changing controller limits. Eight baseline
+synthetic streams wrote 1 MiB each; every candidate stream stops at the cap.
+Exact-cap phase output now refuses. Twenty-one native controls and the installed
+Docker configuration dry run pass, with independently verified preservation,
+scratch and own-unit/cgroup cleanup. Private daemon defaults and explicit
+container flags select bounded local logging with nonblocking delivery; actual
+rotation and aggregate child execution remain unqualified. The earlier full
+packet from `06090296` predates these changes and must be rebuilt before use.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
