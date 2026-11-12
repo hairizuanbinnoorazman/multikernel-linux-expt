@@ -23,6 +23,11 @@ runtime-info/flag output, other producers and successful Task payloads remain
 separate from this error contract. Internal service calls and recovery retain their
 original errors and behavior.
 
+The binary now applies a separate [service-entry boundary](shim-entry-errors.md)
+outside this reusable facade. It sanitizes service initialization and manager
+terminal errors before the upstream runner formats stderr, while this facade's
+internal manager delegation and Task wire-code contract remain unchanged.
+
 [Local proof](../../../evidence/runtime-20261105/g8-task-rpc-controls/README.md)
 retains the raw-registration negative control, all-method privacy tests, wire-code
 oracle, exact delegation, panic-on-format cause, production constructor and Manager

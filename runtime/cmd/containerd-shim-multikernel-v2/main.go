@@ -86,5 +86,5 @@ func main() {
 	if serverInvocation() && os.Getenv("MK_SHIM_WORKER") != "1" {
 		os.Exit(superviseShimWorker())
 	}
-	shim.Run(runtimeName, inspectionInitializer(plugin.Register))
+	shim.Run(runtimeName, protectShimEntry(inspectionInitializer(plugin.Register)))
 }
