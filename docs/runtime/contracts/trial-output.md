@@ -50,6 +50,9 @@ runc containers with inherited versus explicit logging policy. Both containers
 have no network, host mounts or capabilities and use a read-only rootfs.
 Their cgroups stay below the delegated unit. The script requires successful
 container exits and clean daemon shutdown, retaining private state for audit.
+The supervisor runs in the unit's `supervisor` leaf and Docker uses the sibling
+`workloads` subtree, keeping processes out of the delegated domain root before
+enabling cgroup-v2 controllers. It never adopts or moves primary service tasks.
 
 `runtime_docker_log_rotation.py` checks only metadata of the two expected local
 log files, without following directory/file aliases or reading contents. It

@@ -24,8 +24,9 @@ def execute(work,run,boot):
         if not stat.S_ISDIR(info.st_mode) or info.st_uid!=0 or info.st_mode&0o022:
             raise ValueError('unprotected logging trial directory')
     cgroup=Path('/proc/self/cgroup').read_text().splitlines()
-    if len(cgroup)!=1 or not re.fullmatch(r'0::/system.slice/g8-log-live-[a-f0-9]{8}\.service',cgroup[0]):
+    if len(cgroup)!=1 or not re.fullmatch(r'0::/system.slice/g8-log-live-[a-f0-9]{8}\.service/supervisor',cgroup[0]):
         raise ValueError('logging trial requires its own delegated unit')
+    parent_cgroup=cgroup[0][3:].removesuffix('/supervisor')
     if any(os.readlink('/proc/self/ns/'+ns)==os.readlink('/proc/1/ns/'+ns) for ns in ['net','mnt']):
         raise ValueError('logging trial namespaces are not private')
     os.umask(0o077);work.mkdir(mode=0o700);data=work/'data';deadline=time.monotonic()+90
@@ -76,7 +77,7 @@ def execute(work,run,boot):
         script='i=0; while [ "$i" -lt 4096 ]; do /bin/busybox printf "%4095s\\n" x; i=$((i+1)); if [ $((i%64)) -eq 0 ]; then /bin/busybox sleep 0.01; fi; done'
         for case,flags in [('default',[]),('explicit',logging_arguments())]:
             name='g8-log-'+case
-            created=command(cli+['create',*flags,'--name',name,'--runtime','runc','--network','none','--read-only','--user','65534:65534','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--pids-limit','16','--memory','64m','--cgroup-parent',cgroup[0][3:]+'/workloads',image,'/bin/busybox','sh','-ec',script]).decode().strip()
+            created=command(cli+['create',*flags,'--name',name,'--runtime','runc','--network','none','--read-only','--user','65534:65534','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--pids-limit','16','--memory','64m','--cgroup-parent',parent_cgroup+'/workloads',image,'/bin/busybox','sh','-ec',script]).decode().strip()
             if not re.fullmatch('[a-f0-9]{64}',created):raise ValueError('private logging container identity differs')
             before=json.loads(command(cli+['inspect',name]))[0];require_logging(before['HostConfig'].get('LogConfig'))
             command(cli+['start',name])
