@@ -21,6 +21,19 @@ def bounded_command(argv, deadline, *, stdout_limit=1 << 20, stderr_limit=4096):
     """
     if type(stdout_limit) is not int or not 1 <= stdout_limit <= 1 << 20 or type(stderr_limit) is not int or not 1 <= stderr_limit <= 4096:
         raise ValueError('invalid checkpoint stream limits')
+    return _collect(argv, deadline, stdout_limit, stderr_limit)
+
+
+def bounded_trial_command(argv, deadline):
+    """Fixed trial profile: preserve strict <131072 acceptance on both streams.
+
+    Checkpoint callers keep their existing stricter stderr option validation.
+    No externally supplied setting can enlarge either trial stream limit.
+    """
+    return _collect(argv, deadline, 131071, 131071)
+
+
+def _collect(argv, deadline, stdout_limit, stderr_limit):
     remaining = (deadline-time.monotonic_ns())/1_000_000_000
     if remaining <= 0:
         raise subprocess.TimeoutExpired(argv, 0, output=b'', stderr=b'')

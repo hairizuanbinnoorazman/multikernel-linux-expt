@@ -47,3 +47,26 @@ This closes the named two-child build-separation/sibling-release/survivor-rebuil
 subcase. Concurrency churn, broader fault combinations, readiness, cold
 restoration and full G7/G8 remain open. No nested virtualization is used;
 arbitrary child-kernel compromise shares primary trust.
+# Private command collection
+
+The two-child trial's `invoke` path now enforces its existing strict
+less-than-131072-byte stdout/stderr policy during collection, including nested
+`docker exec`, survivor rebuild and failure diagnostics. The shared collector
+uses a fixed trial profile; ordinary checkpoint callers keep their previous
+stderr limits and option validation. Collection, EOF handling and exit wait use
+one absolute deadline. On refusal the owned private process group is terminated
+before its leader can be reaped and its PID reused; this is not arbitrary
+descendant containment or peak-RSS qualification.
+
+Each command reserves exclusive mode-0600 private stdout/stderr files, preserves
+bounded partial streams and a fixed failure record, and publishes exit status
+only after successful collection. Existing or aliased evidence refuses before
+execution. Diagnostic timeout/overflow handling retains the original files
+without appending markers or overwriting them. Terminal exceptions contain no
+guest bytes or original command arguments. Expected nonzero queries still
+return their private result; an unexpected failure emits a fixed error.
+
+These controls harden the host-facing collection boundary. Actual new-source
+two-child execution, aggregate lifecycle and full G7/G8 still require their
+live proof; direct children use no nested virtualization and share primary
+trust after arbitrary child-kernel compromise.

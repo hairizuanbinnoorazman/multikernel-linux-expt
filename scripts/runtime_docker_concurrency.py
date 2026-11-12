@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from runtime_trial_output import attach_command, read_output, require_logging
 from runtime_primary_docker import observe as observe_primary,unchanged as unchanged_primary
+from runtime_concurrency_command import capture as capture_command
+from runtime_bounded_command import CommandOutputLimit
 
 # The authenticated signal targets the complete process group, including sleep.
 # Its interruption must not trigger the wrapper's errexit before normal exit.
@@ -68,27 +70,8 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         return result
 
     def invoke(arguments, label, success=True, timeout=100):
-        try:
-            result = subprocess.run([str(x) for x in arguments], stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, timeout=timeout)
-        except subprocess.TimeoutExpired as error:
-            # Preserve the original command's partial output before finally
-            # starts cleanup. A timeout must never become an unrecorded retry.
-            (private / (label + '.stdout')).write_bytes((error.stdout or b'')[:131072])
-            (private / (label + '.stderr')).write_bytes((error.stderr or b'')[:131072])
-            (private / (label + '-timeout.json')).write_text(json.dumps({
-                'deadline_seconds': timeout, 'timed_out': True,
-                'stdout_truncated': len(error.stdout or b'') > 131072,
-                'stderr_truncated': len(error.stderr or b'') > 131072,
-            }, indent=2) + '\n')
-            raise
-        assert len(result.stdout) < 131072 and len(result.stderr) < 131072
-        (private / (label + '.stdout')).write_bytes(result.stdout)
-        (private / (label + '.stderr')).write_bytes(result.stderr)
-        (private / (label + '.exit.json')).write_text(json.dumps({'returncode':result.returncode})+'\n')
-        if success:
-            assert result.returncode == 0, label + ': ' + result.stderr.decode(errors='replace')
-        return result
+        deadline=time.monotonic_ns()+int(timeout*1_000_000_000)
+        return capture_command(arguments,private,label,success,deadline)
 
     def execute(index, arguments, label, success=True):
         return invoke(cli + ['exec', '--user', '1000:1000', names[index]] + arguments,
@@ -101,9 +84,9 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         for index, case in enumerate(cases):
             try:
                 invoke(cli + ['exec', '--user', '1000:1000', names[index], '/bin/sh', '-c', command], 'failure-diagnostic-' + case, False, 25)
-            except subprocess.TimeoutExpired as error:
-                (private / ('failure-diagnostic-' + case + '.stdout')).write_bytes((error.stdout or b'')[:131072])
-                (private / ('failure-diagnostic-' + case + '.stderr')).write_bytes((error.stderr or b'')[:131072] + b'\nDIAGNOSTIC_DEADLINE_EXCEEDED\n')
+            except (subprocess.TimeoutExpired,CommandOutputLimit):
+                # invoke already retained exclusive bounded failure evidence.
+                pass
 
     def wait_for(marker, limit=360):
         deadline = time.monotonic() + limit
