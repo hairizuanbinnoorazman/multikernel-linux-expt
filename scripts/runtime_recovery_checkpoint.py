@@ -97,7 +97,7 @@ def inspect_fixture_recovery(work,boot,invocation,scenario='runtime-restart'):
             raise ValueError('recovery child engine/image isolation is unqualified')
     for stream in ['stdout','stderr']:
         raw=read(private,'post-recovery-workload.'+stream)
-        if len(raw)>131072 or hashlib.sha256(raw).hexdigest()!=recovery['post_recovery_'+stream+'_sha256']:raise ValueError('recovery build stream differs')
+        if len(raw)>=131072 or hashlib.sha256(raw).hexdigest()!=recovery['post_recovery_'+stream+'_sha256']:raise ValueError('recovery build stream differs')
         if stream=='stdout':
             for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_IMAGE_SAVE_EXIT=0','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:
                 if raw.splitlines().count(marker.encode())!=1:raise ValueError('post-recovery build matrix is incomplete')
@@ -121,7 +121,7 @@ def inspect_active_run(work,recovery,receipt):
     if hashlib.sha256(workload_data).hexdigest()!=receipt['workload_checkpoint_sha256'] or workload['boot_id']!=recovery['boot_id'] or workload['invocation_id']!=recovery['invocation_id']:raise ValueError('original workload receipt differs')
     streams={s:read(private,'workload.'+s) for s in ['stdout','stderr']}
     for stream,raw in streams.items():
-        if len(raw)>131072 or hashlib.sha256(raw).hexdigest()!=workload['workload_'+stream+'_sha256']:raise ValueError('original workload stream differs')
+        if len(raw)>=131072 or hashlib.sha256(raw).hexdigest()!=workload['workload_'+stream+'_sha256']:raise ValueError('original workload stream differs')
     events=lambda raw:re.findall(rb'^#\d+\s+\d+(?:\.\d+)?\s+G8_OVERLAP_RUN_(BEGIN|END)\s*$',raw,re.M)
     if events(streams['stderr'])!=[b'BEGIN',b'END']:raise ValueError('original RUN completion is unqualified')
     for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_IMAGE_SAVE_EXIT=0','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:
@@ -145,7 +145,7 @@ def inspect_active_run(work,recovery,receipt):
         t=frame['observed_monotonic_ns']
         if type(t) is not int or not 0<t<1<<64:raise ValueError('invalid active RUN timing')
         raw=read(private,expected['stderr_snapshot'])
-        if not last_size<=len(raw)<=131072 or hashlib.sha256(raw).hexdigest()!=frame['stderr_sha256'] or events(raw)!=[b'BEGIN'] or not streams['stderr'].startswith(raw):raise ValueError('active RUN snapshot differs from original stream')
+        if not last_size<=len(raw)<131072 or hashlib.sha256(raw).hexdigest()!=frame['stderr_sha256'] or events(raw)!=[b'BEGIN'] or not streams['stderr'].startswith(raw):raise ValueError('active RUN snapshot differs from original stream')
         last_size=len(raw);times.append(t)
     exit=decode(read(work,'runtime-exit-checkpoint.json'),65536)
     ordered=times[0]<exit['observed_monotonic_ns']<times[1] and all(a<b for a,b in zip(times,times[1:]))

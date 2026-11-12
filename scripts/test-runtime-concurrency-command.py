@@ -36,7 +36,7 @@ class ConcurrentCommandTests(unittest.TestCase):
             self.assertEqual(result.returncode,0);self.assertEqual(len(result.stdout),LIMIT);self.assertEqual(len(result.stderr),LIMIT)
             result=invoke([sys.executable,'-c','import sys;print("private cause",file=sys.stderr);sys.exit(7)'],'negative',False)
             self.assertEqual(result.returncode,7)
-            with self.assertRaisesRegex(ValueError,'^concurrent trial command failed; private evidence retained$'):
+            with self.assertRaisesRegex(ValueError,'^trial command failed; private evidence retained$'):
                 invoke([sys.executable,'-c','import sys;print("private cause",file=sys.stderr);sys.exit(7)'],'failure')
             self.assertEqual((root/'failure.stderr').read_bytes(),b'private cause\n')
 
@@ -68,7 +68,7 @@ class ConcurrentCommandTests(unittest.TestCase):
             self.assertTrue(all(p.stat().st_mode&0o777==0o600 for p in root.iterdir()))
             before={p.name:p.read_bytes() for p in root.iterdir()};marker=root/'unexpected'
             code='from pathlib import Path;Path('+repr(str(marker))+').touch()'
-            with self.assertRaisesRegex(ValueError,'^concurrent command evidence already exists$'):invoke([sys.executable,'-c',code],'owned')
+            with self.assertRaisesRegex(ValueError,'^trial command evidence already exists$'):invoke([sys.executable,'-c',code],'owned')
             self.assertFalse(marker.exists());self.assertEqual(before,{p.name:p.read_bytes() for p in root.iterdir()})
             (root/'alias.stdout').symlink_to(root/'owned.stdout')
             with self.assertRaises(ValueError):invoke([sys.executable,'-c',code],'alias')

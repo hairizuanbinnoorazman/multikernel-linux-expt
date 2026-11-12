@@ -87,3 +87,16 @@ failed predecessor metadata sets remain unchanged; own-unit stop, absent
 cgroup/runtime directory and empty scratch independently qualify. These are
 private native VFS/runc fixtures; the child/containerd-snapshotter path still
 requires its actual lifecycle trial.
+
+`runtime_trial_command.capture` also collects the main profile's post-recovery
+build and hidden-native-record child probe. These guest-facing pipes now use
+the same fixed strict less-than-131072-byte per-stream collection profile as
+concurrent commands, preserving the recovery build's prior accepted boundary.
+The hidden-record probe additionally retains its stricter combined-size and
+exact-marker/empty-stderr checks; collection bounds do not replace those checks.
+Its command shares the original fault deadline, capped at twenty seconds.
+The caller no longer rewrites the helper's exclusive private streams.
+Recovery checkpoint requalification rejects exact-cap rebuilt/original streams
+and active RUN snapshots, including otherwise consistent recomputed receipts.
+`runtime_concurrency_command` remains a compatibility import for the common
+collector. Other profile command producers retain their existing policies.

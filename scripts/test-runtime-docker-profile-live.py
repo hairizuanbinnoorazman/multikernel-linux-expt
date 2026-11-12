@@ -31,6 +31,7 @@ from runtime_trial_admission import observe as observe_trial_capacity, require a
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 from runtime_io_recovery_checkpoint import sync_sequence
 from runtime_trial_output import attach_command, read_output, logging_config, logging_arguments, require_logging
+from runtime_trial_command import capture as capture_owned_command
 from runtime_bounded_command import bounded_command
 assert 3<=len(sys.argv)<=6, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--crash-during-io|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
@@ -312,8 +313,7 @@ try:
      primary_completed_first=recovery_primary('completed-first',original_image_id)
     # Preserve the first completed archive, then prove new child-local writes and
     # builds work through the recovered control plane, not just inspection.
-    rebuilt=subprocess.run(cli+['exec','--user','1000:1000','g8-materialization','/bin/sh','-ec','test ! -e /home/rootless/.local/tmp/g8-build-before-restart; mv /home/rootless/.local/tmp/g8-build /home/rootless/.local/tmp/g8-build-before-restart; /bin/sh /work/input/probe.sh'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
-    (private/'post-recovery-workload.stdout').write_bytes(rebuilt.stdout);(private/'post-recovery-workload.stderr').write_bytes(rebuilt.stderr)
+    rebuilt=capture_owned_command(cli+['exec','--user','1000:1000','g8-materialization','/bin/sh','-ec','test ! -e /home/rootless/.local/tmp/g8-build-before-restart; mv /home/rootless/.local/tmp/g8-build /home/rootless/.local/tmp/g8-build-before-restart; /bin/sh /work/input/probe.sh'],private,'post-recovery-workload',True,time.monotonic_ns()+180_000_000_000)
     assert rebuilt.returncode==0 and len(rebuilt.stdout)<131072 and len(rebuilt.stderr)<131072,'post-recovery build failed'
     for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_IMAGE_SAVE_EXIT=0','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:assert marker.encode() in rebuilt.stdout,marker
     assert b'CACHED' in rebuilt.stderr and b'exit code: 37' in rebuilt.stderr
@@ -561,9 +561,8 @@ try:
       # backing export while metadata is absent. It never sees the host socket.
       probe_script='set -eu; export DOCKER_HOST=unix:///var/run/docker.sock; test "$(docker info --format \'{{.ID}}\')" = '+guest_engine['ID']+'; test "$(docker image inspect --format \'{{.Id}}\' g8-proof:latest)" = '+image_id+'; test "$(docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges g8-proof:latest /bin/busybox cat /result)" = multikernel-production-docker-build; echo G8_NATIVE_RECORD_HIDDEN_CHILD_DOCKER_PASS'
       remaining=fault_deadline-time.monotonic();assert remaining>0
-      probe=subprocess.run(cli+['exec','--user','1000:1000','g8-materialization','/bin/sh','-ec',probe_script],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(20,remaining))
+      probe=capture_owned_command(cli+['exec','--user','1000:1000','g8-materialization','/bin/sh','-ec',probe_script],private,'record-hidden-child',True,int(min(fault_deadline,time.monotonic()+20)*1_000_000_000))
       assert len(probe.stdout)+len(probe.stderr)<65536
-      (private/'record-hidden-child.stdout').write_bytes(probe.stdout);(private/'record-hidden-child.stderr').write_bytes(probe.stderr)
       assert probe.returncode==0 and probe.stdout==b'G8_NATIVE_RECORD_HIDDEN_CHILD_DOCKER_PASS\n' and not probe.stderr
       held.check_hidden();assert m.poll() is None
       ledger_after_probe={name:sha(path) for name,path in ledger_paths.items()}

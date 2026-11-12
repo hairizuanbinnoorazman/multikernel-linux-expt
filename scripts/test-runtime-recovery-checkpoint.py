@@ -82,6 +82,14 @@ class RecoveryTests(unittest.TestCase):
     def test_private_lifecycle_binds_build_streams_and_exact_primary_image_absence(self):
         with tempfile.TemporaryDirectory() as d:
             work=Path(d);self.retained(work);r=inspect_fixture_recovery(work,BOOT,INV);self.assertTrue(r['post_recovery_build_observed']);self.assertIs(r['cleanup_qualified'],False)
+    def test_recomputed_exact_cap_streams_refuse_with_valid_build_markers(self):
+        for stream in ['stdout','stderr']:
+            with self.subTest(stream=stream),tempfile.TemporaryDirectory() as d:
+                work=Path(d);self.retained(work);private=work/'integration';path=private/('post-recovery-workload.'+stream)
+                data=path.read_bytes();data+=b'x'*(131072-len(data));path.write_bytes(data)
+                r=json.loads((work/'recovery-checkpoint.json').read_bytes());r['post_recovery_'+stream+'_sha256']=sha(data)
+                (work/'recovery-checkpoint.json').write_bytes(raw(r));receipt=json.loads((work/'integration-receipt.json').read_bytes());receipt['recovery_checkpoint_sha256']=sha(raw(r));(work/'integration-receipt.json').write_bytes(raw(receipt))
+                with self.assertRaisesRegex(ValueError,'^recovery build stream differs$'):inspect_fixture_recovery(work,BOOT,INV)
     def test_private_crash_lifecycle_requalifies_only_under_caller_selected_scope(self):
         with tempfile.TemporaryDirectory() as d:
             work=Path(d);self.retained(work,scenario='runtime-crash')
