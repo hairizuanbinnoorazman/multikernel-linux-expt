@@ -29,13 +29,15 @@ def execute(work,run,boot):
     if any(os.readlink('/proc/self/ns/'+ns)==os.readlink('/proc/1/ns/'+ns) for ns in ['net','mnt']):
         raise ValueError('logging trial namespaces are not private')
     os.umask(0o077);work.mkdir(mode=0o700);data=work/'data';deadline=time.monotonic()+90
+    scratch=work/'tmp';scratch.mkdir(mode=0o700)
+    private_env=dict(ENV,TMPDIR=str(scratch),DOCKER_TMPDIR=str(scratch))
     for p in [work,run]:
         space=os.statvfs(p)
         if space.f_bavail*space.f_frsize<(1<<30)+(64<<20):raise ValueError('logging trial reserve is unavailable')
     def record(name,value):
         with (work/name).open('x') as f:json.dump(value,f,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())
     def command(argv):
-        return bounded_command(argv,timeout=min(15,deadline-time.monotonic()),limit=65536)
+        return bounded_command(['/usr/bin/env','TMPDIR='+str(scratch),'DOCKER_TMPDIR='+str(scratch),*argv],timeout=min(15,deadline-time.monotonic()),limit=65536)
     # No external registry, host mounts, child kernel or daemon credentials.
     busy=Path('/usr/bin/busybox');payload=busy.read_bytes()
     if not 0<len(payload)<8<<20:raise ValueError('logging fixture binary exceeds bound')
@@ -50,7 +52,7 @@ def execute(work,run,boot):
     processes=[];logs=[]
     def start(argv,name,socket):
         stream=(work/name).open('xb');logs.append(stream)
-        proc=sp.Popen(['/usr/bin/prlimit','--fsize=16777216:16777216','--core=0:0','--',*argv],stdin=sp.DEVNULL,stdout=stream,stderr=sp.STDOUT,env=ENV);processes.append(proc)
+        proc=sp.Popen(['/usr/bin/prlimit','--fsize=16777216:16777216','--core=0:0','--',*argv],stdin=sp.DEVNULL,stdout=stream,stderr=sp.STDOUT,env=private_env);processes.append(proc)
         while not socket.exists():
             if proc.poll() is not None or time.monotonic()>=deadline:raise ValueError('private logging daemon unavailable')
             time.sleep(.05)
@@ -95,6 +97,7 @@ def execute(work,run,boot):
     # Recheck after daemon shutdown, retaining raw logs only inside owned data.
     for case in ['default','explicit']:
         if qualify_rotation(json.loads((work/(case+'-inspect.json')).read_text()),data)!=observations[case]:raise ValueError('local logging sample changed after shutdown')
+    if list(scratch.iterdir()):raise ValueError('private logging scratch remains')
     record('result.json',dict(native_private_docker_rotation_qualified=True,default_and_explicit_policy_verified=True,two_rotated_samples_within_observed_bound=True,private_daemons_stopped=True,child_kernel_started=False,full_g7_g8_qualified=False))
 
 
