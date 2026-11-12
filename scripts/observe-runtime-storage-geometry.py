@@ -76,13 +76,16 @@ def observe(args):
     finally:os.close(fd)
 
 
+class PrivateParser(argparse.ArgumentParser):
+    def error(self,message):raise ValueError('invalid geometry arguments')
+
+
 def main():
-    parser=argparse.ArgumentParser(description=__doc__)
+    parser=PrivateParser(description=__doc__)
     for name in ['mountpoint','device','serial','uuid','label']:parser.add_argument('--'+name,required=True)
     parser.add_argument('--phase',choices=PHASES,required=True)
     for name in ['old-bytes','new-bytes']:parser.add_argument('--'+name,type=int,required=True)
-    args=parser.parse_args()
-    try:result=observe(args)
+    try:result=observe(parser.parse_args())
     except Exception:
         print('runtime storage geometry refused',file=sys.stderr);return 1
     print(json.dumps(result,sort_keys=True));return 0

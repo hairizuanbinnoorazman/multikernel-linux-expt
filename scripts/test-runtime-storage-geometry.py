@@ -58,7 +58,14 @@ class GeometryTests(unittest.TestCase):
             with self.assertRaises(ValueError):qualify(superblock(),phase,device,old,new)
 
     def test_cli_refusal_keeps_private_device_and_identity_values_out_of_output(self):
-        r=subprocess.run([sys.executable,str(path),'--mountpoint','/srv/multikernel-storage','--device','/nonexistent/PRIVATE_GEOMETRY_CAUSE','--serial','private-serial','--uuid',UUID,'--label',LABEL,'--phase','before','--old-bytes',str(OLD),'--new-bytes',str(NEW)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=5)
-        self.assertEqual(r.returncode,1);self.assertEqual(r.stdout,b'');self.assertEqual(r.stderr,b'runtime storage geometry refused\n')
+        original=[sys.executable,str(path),'--mountpoint','/srv/multikernel-storage','--device','/nonexistent/PRIVATE_GEOMETRY_CAUSE','--serial','private-serial','--uuid',UUID,'--label',LABEL,'--phase','before','--old-bytes',str(OLD),'--new-bytes',str(NEW)]
+        for mode in ['device','phase','size','unknown']:
+            args=original[:]
+            if mode=='phase':args[args.index('--phase')+1]='PRIVATE_PHASE'
+            if mode=='size':args[args.index('--old-bytes')+1]='PRIVATE_SIZE'
+            if mode=='unknown':args+=['--PRIVATE_OPTION','PRIVATE_VALUE']
+            with self.subTest(mode=mode):
+                r=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=5)
+                self.assertEqual(r.returncode,1);self.assertEqual(r.stdout,b'');self.assertEqual(r.stderr,b'runtime storage geometry refused\n')
 
 if __name__=='__main__':unittest.main()
