@@ -26,6 +26,14 @@ redirects, and require Linux, `vfs`, the fixed rootless data directory and
 `name=rootless`. This verifies daemon identity/configuration and readiness; it
 cannot establish honesty of a compromised, previously approved engine.
 
+The `/info` projection also refuses duplicate object names (including escaped
+names and nested extension objects) and case/Unicode-fold aliases of its four
+profile fields. Those fields must use canonical `OSType`, `Driver`,
+`DockerRootDir` and `SecurityOptions` names. Ordinary unrelated Docker fields
+remain accepted. Profile refusal keeps a fixed error and reflects no document
+names or values. The projection itself enforces the existing 64-KiB response
+bound too; it never resolves contradictory input by accepting the last value.
+
 The launcher receives a kernel-created pidfd at clone time. Logging continuously
 drains stdout/stderr into a shared 64 KiB tail, without returning daemon output
 in RPC errors. Shutdown signals the held pidfd, allows up to two seconds for

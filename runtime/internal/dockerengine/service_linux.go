@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os/exec"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -24,6 +25,7 @@ import (
 )
 
 const logLimit = 64 << 10
+const infoResponseLimit = 64 << 10
 
 // tailLog always drains command output while retaining only a bounded tail.
 // Logs stay local; error classifications never reflect daemon output.
@@ -384,7 +386,7 @@ func probeAPI(ctx context.Context, client *http.Client) error {
 	if string(ping) != "OK" {
 		return errors.New("Docker ping response refused")
 	}
-	data, err := get("/info", 64<<10)
+	data, err := get("/info", infoResponseLimit)
 	if err != nil {
 		return err
 	}
@@ -395,6 +397,26 @@ func probeAPI(ctx context.Context, client *http.Client) error {
 }
 
 func validateInfo(data []byte) error {
+	refuse := func() error { return errors.New("Docker daemon does not match offline rootless profile") }
+	if len(data) > infoResponseLimit {
+		return refuse()
+	}
+	// Docker's /info document is extensible, so unrelated fields remain valid.
+	// Decode the object once through the duplicate-aware protocol parser before
+	// projecting fields. Its errors and all raw document data remain private.
+	var fields map[string]json.RawMessage
+	if protocol.StrictDecode(data, &fields) != nil || fields == nil {
+		return refuse()
+	}
+	for key := range fields {
+		for _, canonical := range []string{"OSType", "Driver", "DockerRootDir", "SecurityOptions"} {
+			// encoding/json also accepts Unicode simple-fold aliases. EqualFold
+			// covers those as well as ASCII case collisions, unlike ToLower.
+			if key != canonical && strings.EqualFold(key, canonical) {
+				return refuse()
+			}
+		}
+	}
 	var info struct {
 		OSType          string
 		Driver          string
@@ -402,7 +424,7 @@ func validateInfo(data []byte) error {
 		SecurityOptions []string
 	}
 	if json.Unmarshal(data, &info) != nil || info.OSType != "linux" || info.Driver != "vfs" || info.DockerRootDir != "/home/rootless/.local/share/docker" || !slices.Contains(info.SecurityOptions, "name=rootless") {
-		return errors.New("Docker daemon does not match offline rootless profile")
+		return refuse()
 	}
 	return nil
 }
