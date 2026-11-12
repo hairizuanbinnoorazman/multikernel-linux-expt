@@ -70,11 +70,14 @@ class AuditTests(unittest.TestCase):
 
     def test_primary_alias_under_writable_parent_refuses(self):
         if os.geteuid()!=0:self.skipTest('root-owned primary alias control requires root')
-        # Use a root-owned protected parent; /tmp's writable sticky parent is
-        # intentionally not accepted for primary deployment aliases.
+        # Construct the writable parent explicitly: TMPDIR may itself be a
+        # protected private directory on a native qualification host.
         with tempfile.TemporaryDirectory() as raw:
             d=Path(raw);f=d/'generation';f.write_bytes(b'approved');alias=d/'active';alias.symlink_to(f)
-            with self.assertRaisesRegex(ValueError,'^unprotected primary watched path$'):audit.primary_digest(alias)
+            d.chmod(0o777)
+            try:
+                with self.assertRaisesRegex(ValueError,'^unprotected primary watched path$'):audit.primary_digest(alias)
+            finally:d.chmod(0o700)
 
     def test_digest_preserves_empty_file_and_refuses_alias_shared_or_large_input(self):
         if os.geteuid()!=0:self.skipTest('root-owned audit input control requires root')
