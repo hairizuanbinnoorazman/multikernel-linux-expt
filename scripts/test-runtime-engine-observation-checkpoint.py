@@ -15,22 +15,71 @@ class EngineCheckpoint(unittest.TestCase):
  def test_real_command_timeout_retains_bounded_streams_without_checkpoint(self):
   with tempfile.TemporaryDirectory() as directory:
    p=Path(directory);phase='while-full'
-   command=[sys.executable,'-c',"import os,time; os.write(1,b'x'*4096); os.write(2,b'y'*512); time.sleep(30)"]
+   command=[sys.executable,'-c',"import os,time; os.write(1,b'x'*100); os.write(2,b'y'*50); time.sleep(30)"]
    start=time.monotonic()
-   with self.assertRaises(subprocess.TimeoutExpired):subject.run_probe(command,p,phase,0.5)
+   with self.assertRaises(subprocess.TimeoutExpired):subject.run_probe(command,p,phase,time.monotonic_ns()+500_000_000)
    self.assertLess(time.monotonic()-start,5)
-   self.assertEqual((p/'engine-while-full.stdout').read_bytes(),b'x'*2048)
-   self.assertEqual((p/'engine-while-full.stderr').read_bytes(),b'y'*256)
-   self.assertEqual(json.loads((p/'engine-while-full-failure.json').read_text()),dict(version=1,phase=phase,failure='command-timeout',qualified=False,stream_truncated=dict(stdout=True,stderr=True)))
+   self.assertEqual((p/'engine-while-full.stdout').read_bytes(),b'x'*100)
+   self.assertEqual((p/'engine-while-full.stderr').read_bytes(),b'y'*50)
+   self.assertEqual(json.loads((p/'engine-while-full-failure.json').read_text()),dict(version=1,phase=phase,failure='command-timeout',qualified=False,stream_truncated=dict(stdout=False,stderr=False)))
    self.assertFalse((p/'engine-while-full.json').exists())
    self.assertEqual((p/'engine-while-full-failure.json').stat().st_mode&0o777,0o600)
  def test_timeout_without_output_preserves_empty_streams(self):
   with tempfile.TemporaryDirectory() as directory:
    p=Path(directory)
-   with self.assertRaises(subprocess.TimeoutExpired):subject.run_probe([sys.executable,'-c','import time; time.sleep(30)'],p,'while-full',0.1)
+   with self.assertRaises(subprocess.TimeoutExpired):subject.run_probe([sys.executable,'-c','import time; time.sleep(30)'],p,'while-full',time.monotonic_ns()+100_000_000)
    self.assertEqual((p/'engine-while-full.stdout').read_bytes(),b'')
    self.assertEqual((p/'engine-while-full.stderr').read_bytes(),b'')
    self.assertEqual(json.loads((p/'engine-while-full-failure.json').read_text())['stream_truncated'],dict(stdout=False,stderr=False))
+ def test_overflow_refuses_before_writer_finishes_with_private_capped_evidence(self):
+  for fd,limit,suffix in [(1,2048,'stdout'),(2,256,'stderr')]:
+   with self.subTest(stream=suffix),tempfile.TemporaryDirectory() as directory:
+    p=Path(directory);marker=p/'writer-finished'
+    command=[sys.executable,'-c','import os,pathlib,time;os.write('+str(fd)+',b"x"*(8<<20));pathlib.Path('+repr(str(marker))+').touch();time.sleep(5)']
+    prior=os.umask(0)
+    try:
+     with self.assertRaises(subject.CommandOutputLimit):subject.run_probe(command,p,'while-full',time.monotonic_ns()+2_000_000_000)
+    finally:os.umask(prior)
+    self.assertFalse(marker.exists())
+    self.assertEqual((p/('engine-while-full.'+suffix)).read_bytes(),b'x'*limit)
+    for name in ['engine-while-full.stdout','engine-while-full.stderr','engine-while-full-failure.json']:self.assertEqual((p/name).stat().st_mode&0o777,0o600)
+    failure=json.loads((p/'engine-while-full-failure.json').read_text())
+    self.assertEqual(failure['failure'],'command-output-refused');self.assertIs(failure['qualified'],False)
+    self.assertEqual(failure['stream_truncated'],dict(stdout=fd==1,stderr=fd==2))
+    self.assertFalse((p/'engine-while-full.json').exists())
+ def test_existing_evidence_and_invalid_scope_prevent_command_execution(self):
+  for suffix in ['.stdout','.stderr','.json','-failure.json']:
+   with self.subTest(suffix=suffix),tempfile.TemporaryDirectory() as directory:
+    p=Path(directory);retained=p/('engine-while-full'+suffix);retained.write_bytes(b'SYNTHETIC_RETAINED_PROOF');inode=retained.stat().st_ino
+    with patch.object(subject,'bounded_command') as command,self.assertRaises(ValueError):subject.run_probe(['/never-execute'],p,'while-full',time.monotonic_ns()+1_000_000_000)
+    command.assert_not_called();self.assertEqual(retained.stat().st_ino,inode);self.assertEqual(retained.read_bytes(),b'SYNTHETIC_RETAINED_PROOF')
+    self.assertEqual(len(list(p.iterdir())),1)
+  with tempfile.TemporaryDirectory() as directory:
+   with patch.object(subject,'bounded_command') as command,self.assertRaises(ValueError):subject.run_probe(['/never-execute'],Path(directory),'../unbound',time.monotonic_ns()+1_000_000_000)
+   command.assert_not_called()
+ def test_absolute_expired_budget_spawns_no_command_and_retains_refusal(self):
+  with tempfile.TemporaryDirectory() as directory:
+   p=Path(directory)
+   with patch('runtime_bounded_command.subprocess.Popen') as command,self.assertRaises(subprocess.TimeoutExpired):subject.run_probe(['/never-execute'],p,'while-full',time.monotonic_ns()-1)
+   command.assert_not_called()
+   self.assertEqual(json.loads((p/'engine-while-full-failure.json').read_text())['failure'],'command-timeout')
+ def test_actual_capture_all_phases_preserves_owner_and_build_window(self):
+  for phase in subject.PHASES:
+   with self.subTest(phase=phase),tempfile.TemporaryDirectory() as directory:
+    work=Path(directory);p=work/'integration';p.mkdir(mode=0o700);(work/'bin').mkdir(mode=0o700)
+    container='a'*64;owner=dict(sandbox_id=sandbox_id_for_container(container),generation='b'*32)
+    address=p/'containerd-state/io.containerd.runtime.v2.task/moby'/container/'address';address.parent.mkdir(parents=True,mode=0o700);address.write_text('unix:///private/shim.sock\n')
+    subject.write_private(p/'engine-shim-address.json',(json.dumps(dict(address='unix:///private/shim.sock',container_id=container))+'\n').encode())
+    (p/'workload.stderr').write_bytes(b'#7 0.1 G8_OVERLAP_RUN_BEGIN\n')
+    request=dict(version=1,namespace='moby',container_id=container,**owner)
+    value=dict(version=1,owner=request,observation=dict(version=1,source='owned-child-docker-api-and-launcher',status='responding'))
+    cli=work/'bin/mk-shimctl'
+    cli.write_text('#!/usr/bin/python3\nimport os,sys\n'+('os.write(2,b"Docker engine inspection unavailable\\n");sys.exit(1)\n' if phase=='after-remove' else 'os.write(1,'+repr((json.dumps(value)+'\n').encode())+')\n'));cli.chmod(0o500)
+    sample=subject.capture(work,BOOT,INV,container,owner,phase,time.monotonic()+2)
+    self.assertEqual(sample['owner'],request);self.assertLessEqual(sample['finished_monotonic_ns'],sample['deadline_monotonic_ns'])
+    self.assertEqual((p/('engine-'+phase+'.json')).stat().st_mode&0o777,0o600)
+    if phase=='during-build':self.assertEqual((p/'engine-build-before.stderr').read_bytes(),(p/'engine-build-after.stderr').read_bytes())
+    with self.assertRaises((ValueError,FileExistsError)):subject.capture(work,BOOT,INV,container,owner,phase,time.monotonic()+2)
  def fixture(self,base):
   work=base/'work';work.mkdir(mode=0o700);p=work/'integration';p.mkdir(mode=0o700)
   for n in ['bin']:(work/n).mkdir(mode=0o700)

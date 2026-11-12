@@ -12,20 +12,22 @@ class CommandOutputLimit(ValueError):
         self.stdout, self.stderr = stdout, stderr
 
 
-def bounded_command(argv, deadline):
+def bounded_command(argv, deadline, *, stdout_limit=1 << 20, stderr_limit=4096):
     """Collect at most each stream's limit plus one overflow byte.
 
     Keep the owned leader unreaped until collection completes so its PID cannot
     be reused before refusal terminates the private process group. Cleanup has
     a separate one-second reap bound; it never grants checkpoint time.
     """
+    if type(stdout_limit) is not int or not 1 <= stdout_limit <= 1 << 20 or type(stderr_limit) is not int or not 1 <= stderr_limit <= 4096:
+        raise ValueError('invalid checkpoint stream limits')
     remaining = (deadline-time.monotonic_ns())/1_000_000_000
     if remaining <= 0:
         raise subprocess.TimeoutExpired(argv, 0, output=b'', stderr=b'')
     process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, start_new_session=True)
     data = {'stdout': bytearray(), 'stderr': bytearray()}
-    limits = {'stdout': 1 << 20, 'stderr': 4096}
+    limits = {'stdout': stdout_limit, 'stderr': stderr_limit}
     complete = False
     try:
         with selectors.DefaultSelector() as poll:

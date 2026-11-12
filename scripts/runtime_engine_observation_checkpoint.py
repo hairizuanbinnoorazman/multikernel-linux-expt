@@ -4,24 +4,35 @@ from pathlib import Path
 from runtime_diagnostic_bundle_checkpoint import read_fixture_artifact,decode,equal
 from runtime_docker_concurrency import sandbox_id_for_container,run_markers
 from runtime_trial_agent_profile import sha as artifact_sha
+from runtime_bounded_command import bounded_command,CommandOutputLimit
 
 PHASES=['while-full','during-build','while-image-ready','after-remove']
 ORIGINAL_PROFILE=Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json')
 
-def run_probe(args,private,phase,timeout):
+def write_private(path,data):
+    with path.open('xb') as output:
+        os.fchmod(output.fileno(),0o600)
+        output.write(data);output.flush();os.fsync(output.fileno())
+
+def run_probe(args,private,phase,deadline_ns):
+    if phase not in PHASES:raise ValueError('invalid engine probe phase')
+    names=['engine-'+phase+suffix for suffix in ['.stdout','.stderr','.json','-failure.json']]
+    if any(os.path.lexists(private/name) for name in names):raise ValueError('engine probe evidence already exists')
     try:
-        return sp.run(args,stdout=sp.PIPE,stderr=sp.PIPE,timeout=timeout)
-    except sp.TimeoutExpired as failure:
+        result=bounded_command(args,deadline_ns,stdout_limit=2048,stderr_limit=256)
+    except (sp.TimeoutExpired,CommandOutputLimit) as failure:
         # A failed probe is diagnostic evidence only. Never publish a phase
         # checkpoint or extend the qualification budget to wait for the CLI.
         streams={'stdout':failure.stdout or b'','stderr':failure.stderr or b''}
         limits={'stdout':2048,'stderr':256}
         for suffix,data in streams.items():
-            (private/('engine-'+phase+'.'+suffix)).write_bytes(data[:limits[suffix]])
-        record=dict(version=1,phase=phase,failure='command-timeout',qualified=False,
+            write_private(private/('engine-'+phase+'.'+suffix),data[:limits[suffix]])
+        record=dict(version=1,phase=phase,failure='command-timeout' if isinstance(failure,sp.TimeoutExpired) else 'command-output-refused',qualified=False,
                     stream_truncated={k:len(v)>limits[k] for k,v in streams.items()})
-        (private/('engine-'+phase+'-failure.json')).write_text(json.dumps(record,sort_keys=True)+'\n')
+        write_private(private/('engine-'+phase+'-failure.json'),(json.dumps(record,sort_keys=True)+'\n').encode())
         raise
+    for suffix,data in [('stdout',result.stdout),('stderr',result.stderr)]:write_private(private/('engine-'+phase+'.'+suffix),data)
+    return result
 
 def capture(work,boot,invocation,container,owner,phase,deadline):
     private=work/'integration';assert phase in PHASES
@@ -32,27 +43,28 @@ def capture(work,boot,invocation,container,owner,phase,deadline):
     if not saved.exists():
         info=address_file.lstat();assert stat.S_ISREG(info.st_mode) and info.st_uid==0 and info.st_nlink==1 and not info.st_mode&0o022 and 0<info.st_size<4096
         address=address_file.read_text().strip();assert address.startswith('unix:///') and '\n' not in address
-        saved.write_text(json.dumps(dict(address=address,container_id=container),sort_keys=True)+'\n')
+        write_private(saved,(json.dumps(dict(address=address,container_id=container),sort_keys=True)+'\n').encode())
     reference=json.loads(saved.read_text());assert reference['container_id']==container
     if phase!='after-remove':assert address_file.read_text().strip()==reference['address']
     before=None
     if phase=='during-build':
-        before=(private/'workload.stderr').read_bytes();assert len(before)<=131072 and run_markers(before.decode())=={'BEGIN'}
-        (private/'engine-build-before.stderr').write_bytes(before)
+        with (private/'workload.stderr').open('rb') as stream:before=stream.read(131073)
+        assert len(before)<=131072 and run_markers(before.decode())=={'BEGIN'}
+        write_private(private/'engine-build-before.stderr',before)
     start=time.monotonic_ns();end=min(int(deadline*1_000_000_000),start+5_000_000_000);assert end>start
-    result=run_probe([str(work/'bin/mk-shimctl'),'--socket='+reference['address'],'--namespace=moby','--container-id='+container,'--sandbox-id='+owner['sandbox_id'],'--generation='+owner['generation']],private,phase,(end-start)/1_000_000_000)
+    result=run_probe([str(work/'bin/mk-shimctl'),'--socket='+reference['address'],'--namespace=moby','--container-id='+container,'--sandbox-id='+owner['sandbox_id'],'--generation='+owner['generation']],private,phase,end)
     assert len(result.stdout)<=2048 and len(result.stderr)<=256
-    for suffix,data in [('stdout',result.stdout),('stderr',result.stderr)]:(private/('engine-'+phase+'.'+suffix)).write_bytes(data)
     hashes={}
     if phase=='during-build':
-        after=(private/'workload.stderr').read_bytes();assert len(after)<=131072 and after.startswith(before) and run_markers(after.decode())=={'BEGIN'}
-        (private/'engine-build-after.stderr').write_bytes(after)
+        with (private/'workload.stderr').open('rb') as stream:after=stream.read(131073)
+        assert len(after)<=131072 and after.startswith(before) and run_markers(after.decode())=={'BEGIN'}
+        write_private(private/'engine-build-after.stderr',after)
         hashes={which:hashlib.sha256(raw).hexdigest() for which,raw in [('before',before),('after',after)]}
     finish=time.monotonic_ns();assert finish<=end
     if phase=='after-remove':assert result.returncode==1 and not result.stdout and result.stderr==b'Docker engine inspection unavailable\n'
     else:assert result.returncode==0 and not result.stderr and json.loads(result.stdout)==dict(version=1,owner=request,observation=dict(version=1,source='owned-child-docker-api-and-launcher',status='responding'))
     record=dict(version=1,boot_id=boot,invocation_id=invocation,phase=phase,owner=request,budget_ns=5_000_000_000,started_monotonic_ns=start,deadline_monotonic_ns=end,finished_monotonic_ns=finish,exit_status=result.returncode,stdout_sha256=hashlib.sha256(result.stdout).hexdigest(),stderr_sha256=hashlib.sha256(result.stderr).hexdigest(),build_stream_sha256=hashes)
-    (private/('engine-'+phase+'.json')).write_text(json.dumps(record,sort_keys=True)+'\n')
+    write_private(private/('engine-'+phase+'.json'),(json.dumps(record,sort_keys=True)+'\n').encode())
     return record
 
 

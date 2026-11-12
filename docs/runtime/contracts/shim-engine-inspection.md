@@ -101,3 +101,17 @@ also passes with original idle transport, returned resources, selected artifact
 and failed-history preservation, archived frames confined to their original
 epoch, old completion refused on the new boot and a fresh primary baseline.
 Aggregate doctor/readiness integration and full G7/G8 remain open.
+# Trial probe collection
+
+The real-child trial's owning-shim probe uses the shared bounded collector with
+2048 stdout bytes and 256 stderr bytes, plus one overflow byte per stream.
+Overflow refuses immediately; timeout and overflow retain capped diagnostics
+and fixed failure/truncation metadata, never a successful phase sample. The
+collector receives the original absolute probe deadline without restarting it.
+Build-window stream reads are capped at 131073 bytes before applying the existing
+131072-byte acceptance bound and unfinished-RUN checks.
+
+New evidence files are exclusive, synced and mode 0600 independently of umask.
+Existing phase streams, success or failure records refuse before the command
+executes; retry cannot rewrite the retained sample. These collection rules do
+not add engine readiness, process containment or real-child aggregate acceptance.
