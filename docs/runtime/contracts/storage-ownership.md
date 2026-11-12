@@ -57,6 +57,16 @@ storage path components are rejected. Passing this observation grants no storage
 lease, reserves no capacity, and does not account for source staging or concurrent
 consumption. Full builder admission remains mandatory.
 
+Code-packet capacity measurement preflights raw tar headers before `tarfile`
+interprets extended metadata. The normalized code format permits bounded
+path/mtime/comment records and bounded GNU long names, with at most 64 KiB per
+metadata member, 16 MiB total and eight consecutive metadata headers. Sparse,
+size-override, duplicate-key and other extension metadata refuse before library
+processing. Existing source/outer payload, member, digest, permission and commit
+checks still apply after resolution. These bounds do not lower the eight-GiB
+code-staging floor or grant a capacity reservation; this is a normalized code
+packet reader, not a general tar importer.
+
 [Actual GCE proof](../../../evidence/runtime-20261027/g8-trial-capacity-admission/README.md)
 qualifies refusal before transport or Docker mutation at the current shortage.
 This is an early-refusal subcase, not a live build, storage recovery, normal

@@ -5,6 +5,7 @@ replaces, the ordinary two-GiB child image/one-GiB builder reserve checks.
 It neither reserves capacity nor proves the complete Docker workload peak.
 """
 import argparse
+import gzip
 import hashlib
 import io
 import json
@@ -23,6 +24,74 @@ ENTRY_LIMIT = 16384
 ROOTS = {'scripts', 'guest', 'deploy', 'runtime', 'tools'}
 BINARIES = {'containerd', 'mkruntimed', 'mknetd', 'mk-agent', 'mk-shimctl',
             'containerd-shim-multikernel-v2', 'mkvsock-nbd', 'mkvsock-relay'}
+METADATA_MEMBER_LIMIT = 64 << 10
+METADATA_TOTAL_LIMIT = 16 << 20
+METADATA_CHAIN_LIMIT = 8
+
+
+def metadata_preflight(stream, payload_limit, entry_limit):
+    """Bound raw headers before tarfile can allocate/interpret their metadata.
+
+    This accepts the normalized code writers' path/time/comment metadata, not
+    arbitrary tar extensions. In particular, no sparse or size overrides reach
+    tarfile's recursive extension processing. Logical member checks still run
+    separately after the library resolves the accepted metadata.
+    """
+    def read_exact(size, retain=False):
+        parts = []
+        while size:
+            chunk = stream.read(min(size, 1 << 20))
+            if not chunk:
+                raise ValueError('short code archive record')
+            size -= len(chunk)
+            if retain:
+                parts.append(chunk)
+        return b''.join(parts)
+
+    metadata_total = payload_total = entries = chain = 0
+    for _ in range(2*entry_limit+16):
+        raw = read_exact(512, True)
+        if raw == bytes(512):
+            return
+        try:
+            header = tarfile.TarInfo.frombuf(raw, 'utf-8', 'surrogateescape')
+        except tarfile.HeaderError:
+            raise ValueError('code archive header refused') from None
+        if header.type in (tarfile.XHDTYPE, tarfile.XGLTYPE, tarfile.GNUTYPE_LONGNAME):
+            chain += 1
+            metadata_total += header.size
+            if (not 0 < header.size <= METADATA_MEMBER_LIMIT or metadata_total > METADATA_TOTAL_LIMIT or
+                    chain > METADATA_CHAIN_LIMIT):
+                raise ValueError('code archive metadata exceeds bound')
+            data = read_exact(header.size, True)
+            if header.type != tarfile.GNUTYPE_LONGNAME:
+                pos = 0
+                seen = set()
+                while pos < len(data):
+                    space = data.find(b' ', pos, min(len(data), pos+8))
+                    length = data[pos:space] if space >= 0 else b''
+                    if not length or not length.isdigit():
+                        raise ValueError('code archive metadata framing refused')
+                    end = pos+int(length)
+                    if end <= space+3 or end > len(data) or data[end-1:end] != b'\n':
+                        raise ValueError('code archive metadata framing refused')
+                    key, equals, _ = data[space+1:end-1].partition(b'=')
+                    if equals != b'=' or key not in {b'path', b'mtime', b'comment'} or key in seen:
+                        raise ValueError('unsupported code archive metadata')
+                    seen.add(key)
+                    pos = end
+            read_exact((-header.size) % 512)
+        elif header.type in (tarfile.REGTYPE, tarfile.AREGTYPE, tarfile.DIRTYPE):
+            chain = 0
+            entries += 1
+            payload_total += header.size
+            if (entries > entry_limit or not 0 <= header.size <= SOURCE_LIMIT or
+                    payload_total > payload_limit or header.isdir() and header.size != 0):
+                raise ValueError('code archive payload exceeds bound')
+            read_exact(((header.size+511)//512)*512)
+        else:
+            raise ValueError('unsupported code archive header type')
+    raise ValueError('code archive header count exceeds bound')
 
 
 def unique(pairs):
@@ -48,6 +117,7 @@ def source_measurement(data, revision):
     allocated = 0
     seen = set()
     files = 0
+    metadata_preflight(io.BytesIO(data), SOURCE_LIMIT, ENTRY_LIMIT)
     with tarfile.open(fileobj=io.BytesIO(data), mode='r:') as archive:
         if archive.pax_headers.get('comment') != revision:
             raise ValueError('source commit differs')
@@ -93,6 +163,9 @@ def measure(packet, expected_digest, revision):
             raise ValueError('code packet differs from caller pin')
         stream.seek(0)
         expected = {'source.tar', 'build.json', 'bin', 'tmp'} | {'bin/'+name for name in BINARIES}
+        with gzip.GzipFile(fileobj=stream, mode='rb') as expanded:
+            metadata_preflight(expanded, OUTER_LIMIT, len(expected))
+        stream.seek(0)
         hashes = {}
         source = None
         build = None

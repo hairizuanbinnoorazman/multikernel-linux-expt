@@ -44,11 +44,27 @@ class StagingCapacity(unittest.TestCase):
             elif variant == 'source-path': node.name = 'runtime/../private'
             elif variant == 'source-duplicate': entries.append(copy.deepcopy(entries[-1]))
             elif variant == 'source-empty': entries = entries[:1]
+        if variant == 'source-pax-total':
+            entries = entries[:1]+[self.member('runtime/code-'+str(i)+'.go') for i in range(300)]
+            for node, _ in entries[1:]:node.pax_headers={'comment':'x'*60000}
+        elif variant.startswith('source-pax-'):
+            node=entries[-1][0]
+            if variant == 'source-pax-large':node.pax_headers={'comment':'x'*70000}
+            elif variant == 'source-pax-sparse':node.pax_headers={'GNU.sparse.map':'0,'+str(node.size)}
+            elif variant == 'source-pax-size':node.pax_headers={'size':str(node.size)}
+            elif variant == 'source-pax-unknown':node.pax_headers={'arbitrary-extension':'synthetic'}
+            elif variant == 'source-pax-supported':node.pax_headers={'path':node.name,'comment':'normal fixture','mtime':'123.25'}
         source = io.BytesIO()
         with tarfile.open(fileobj=source, mode='w', format=tarfile.PAX_FORMAT,
                           pax_headers={'comment': 'b'*40 if variant == 'source-commit' else REV}) as archive:
             for node, data in entries:
                 archive.addfile(node, io.BytesIO(data) if data is not None else None)
+        def prefix(duplicate=False):
+            payload=b'11 mtime=0\n'+(b'11 mtime=1\n' if duplicate else b'')
+            node=tarfile.TarInfo('normalized-global-metadata');node.type=tarfile.XGLTYPE;node.size=len(payload)
+            return node.tobuf()+payload+bytes((-len(payload))%512)
+        if variant == 'source-pax-chain':source=io.BytesIO(prefix()*9+source.getvalue())
+        if variant == 'source-pax-duplicate':source=io.BytesIO(prefix(True)+source.getvalue())
         binaries = {name: ('synthetic-'+name).encode() for name in subject.BINARIES}
         manifest = dict(schema_version=1, source_commit=REV, source_archive_sha256=sha(source.getvalue()),
             binaries={name: sha(data) for name, data in binaries.items()}, built_from_committed_snapshot=True,
@@ -70,10 +86,19 @@ class StagingCapacity(unittest.TestCase):
         elif variant == 'outer-duplicate': outer.append(copy.deepcopy(outer[0]))
         elif variant == 'outer-missing': outer = outer[:-1]
         elif variant == 'outer-special': node.type = tarfile.FIFOTYPE
+        if variant.startswith('outer-pax-'):
+            node=outer[4][0]
+            if variant == 'outer-pax-large':node.pax_headers={'comment':'x'*70000}
+            elif variant == 'outer-pax-sparse':node.pax_headers={'GNU.sparse.map':'0,'+str(node.size)}
+            elif variant == 'outer-pax-size':node.pax_headers={'size':str(node.size)}
+            elif variant == 'outer-pax-unknown':node.pax_headers={'arbitrary-extension':'synthetic'}
+            elif variant == 'outer-pax-supported':node.pax_headers={'comment':'normal fixture','mtime':'123.25'}
         out = root/'stage.tar.gz'
         with tarfile.open(out, 'w:gz') as archive:
             for node, data in outer:
                 archive.addfile(node, io.BytesIO(data) if data is not None else None)
+        if variant == 'outer-pax-chain':out.write_bytes(gzip.compress(prefix()*9+gzip.decompress(out.read_bytes())))
+        if variant == 'outer-pax-duplicate':out.write_bytes(gzip.compress(prefix(True)+gzip.decompress(out.read_bytes())))
         out.chmod(0o600)
         return out, sha(out.read_bytes())
 
@@ -91,6 +116,34 @@ class StagingCapacity(unittest.TestCase):
             self.assertIs(plan['capacity_reserved'], False)
             self.assertIs(plan['full_builder_admission_claimed'], False)
             self.assertNotIn(directory, json.dumps(plan))
+
+    def test_extended_header_limits_and_sparse_overrides_refuse_with_recomputed_pin(self):
+        variants=['source-pax-large','outer-pax-large','source-pax-total','source-pax-sparse','outer-pax-sparse',
+                  'source-pax-size','outer-pax-size','source-pax-unknown','outer-pax-unknown',
+                  'source-pax-chain','outer-pax-chain','source-pax-duplicate','outer-pax-duplicate']
+        for variant in variants:
+            with self.subTest(variant=variant),tempfile.TemporaryDirectory() as directory:
+                packet,digest=self.packet(Path(directory),variant);before=packet.stat()
+                with self.assertRaises(ValueError):subject.measure(packet,digest,REV)
+                self.assertEqual(packet.stat(),before)
+
+    def test_oversize_metadata_refuses_before_library_metadata_processing(self):
+        original=tarfile.TarInfo._proc_pax
+        def guarded_library(node,archive):
+            if node.size>65536:raise AssertionError('library received oversized metadata before admission')
+            return original(node,archive)
+        for variant in ['source-pax-large','outer-pax-large']:
+            with self.subTest(variant=variant),tempfile.TemporaryDirectory() as directory:
+                packet,digest=self.packet(Path(directory),variant)
+                with patch.object(tarfile.TarInfo,'_proc_pax',guarded_library),self.assertRaises(ValueError):subject.measure(packet,digest,REV)
+
+    def test_supported_normalized_metadata_remains_measurable(self):
+        for variant in ['source-pax-supported','outer-pax-supported']:
+            with self.subTest(variant=variant),tempfile.TemporaryDirectory() as directory:
+                packet,digest=self.packet(Path(directory),variant)
+                plan=subject.measure(packet,digest,REV)
+                self.assertEqual(plan['source_entries'],2)
+                self.assertEqual(plan['storage_floor_bytes'],8<<30)
 
     def test_recomputed_packet_hash_cannot_hide_unsafe_members_or_manifest(self):
         variants = ['source-alias', 'source-owner', 'source-mode', 'source-path', 'source-duplicate', 'source-empty',
