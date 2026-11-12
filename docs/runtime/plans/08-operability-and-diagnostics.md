@@ -106,6 +106,15 @@ scratch and own-unit/cgroup cleanup. Private daemon defaults and explicit
 container flags select bounded local logging with nonblocking delivery; actual
 rotation and aggregate child execution remain unqualified. The earlier full
 packet from `06090296` predates these changes and must be rebuilt before use.
+The [independent logging audit proof](../../../evidence/runtime-20261112/g8-log-policy-audit-corrected/README.md)
+then makes closing acceptance recheck daemon defaults, observed driver and
+container log policy, including both concurrent owner maps. Ten altered-policy/
+exact-cap baseline acceptances reproduce; candidate refusals retain valid
+cases. Ten native tests pass without skips after fixing a writable-parent
+fixture assumption. Independent observation preserves the failed predecessor's
+metadata/epoch, primary/resources and tool identities, with empty scratch and
+successful own-unit/cgroup cleanup. The production required suite passes.
+Actual log rotation, live aggregate child execution and full G7/G8 remain open.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the

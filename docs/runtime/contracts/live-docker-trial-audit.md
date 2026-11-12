@@ -64,6 +64,12 @@ when workload markers and receipt hashes otherwise match. Attached streams
 at the 131072-byte cap refuse in both ordinary and concurrent acceptance.
 These archived observations do not establish actual rotation behavior or
 cryptographically attest an honest Docker daemon.
+The [committed-source and native controls](../../../evidence/runtime-20261112/g8-log-policy-audit-corrected/README.md)
+reproduce ten baseline acceptances of altered policy/exact-cap evidence and
+verify candidate refusal while preserving valid cases. All ten native tests
+pass without skips after an explicitly constructed writable-parent fixture
+replaces its `/tmp` assumption. The failed predecessor remains preserved.
+This qualifies audit acceptance controls, not a new actual child trial.
 Select `runtime-restart` or `runtime-crash` explicitly for a recovery trial;
 these bind the corresponding exact signal/status, actual recovery inputs and
 parent-normalized view rather than claiming pressure/health hold evidence.
