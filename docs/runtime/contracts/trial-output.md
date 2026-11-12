@@ -56,6 +56,11 @@ enabling cgroup-v2 controllers. It never adopts or moves primary service tasks.
 
 `runtime_docker_log_rotation.py` checks only metadata of the two expected local
 log files, without following directory/file aliases or reading contents. It
+derives the lab-only internal path from the owned data root and container ID;
+Docker deliberately leaves the local driver's API `LogPath` empty. This
+internal layout is a version-specific observation, not a stable Docker API.
+See the [upstream local logger setup](https://github.com/moby/moby/blob/master/daemon/container/container.go).
+It
 requires a rotated file reaching the decimal 1m threshold and each observed
 file at most 1,000,000 + 65,536 bytes, allowing record overhead. That conservative
 sample bound is not an exact disk quota or a peak measurement. Missing,

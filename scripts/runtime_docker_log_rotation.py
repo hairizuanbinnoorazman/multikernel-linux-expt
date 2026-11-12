@@ -18,8 +18,11 @@ def qualify_rotation(item, data_root):
     if type(identifier) is not str or not re.fullmatch('[a-f0-9]{64}', identifier):
         raise ValueError('invalid logging container identity')
     directory = Path(data_root)/'containers'/identifier/'local-logs'
-    if item.get('LogPath') != str(directory/'container.log'):
-        raise ValueError('logging path differs from owned data root')
+    # Docker deliberately leaves this API field empty for the local driver.
+    # Derive the lab-only internal path from the pinned data root and ID;
+    # never accept a caller-provided path to a log file.
+    if item.get('LogPath') != '':
+        raise ValueError('local logging API path is unexpected')
     # Open every component relative to held directories; aliases cannot turn
     # an observation into a traversal through primary daemon state.
     descriptor = os.open(data_root, os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)

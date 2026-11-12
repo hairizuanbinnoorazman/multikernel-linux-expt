@@ -11,7 +11,7 @@ class RotationTests(unittest.TestCase):
         for name,size in [('container.log',4096),('container.log.1',1_000_020)]:
             with (directory/name).open('wb') as f:f.truncate(size)
             (directory/name).chmod(0o600)
-        return directory,dict(Id=identifier,State=dict(Status='exited',ExitCode=0),HostConfig=dict(LogConfig=dict(Type='local',Config=logging_config()['log-opts'])),LogPath=str(directory/'container.log'))
+        return directory,dict(Id=identifier,State=dict(Status='exited',ExitCode=0),HostConfig=dict(LogConfig=dict(Type='local',Config=logging_config()['log-opts'])),LogPath='')
 
     def test_rotated_owned_sample_with_record_overhead_accepts_without_reading(self):
         with tempfile.TemporaryDirectory() as raw:
