@@ -39,7 +39,8 @@ qualifies all four attach expressions with controlled writers, exact-boundary
 refusal, private logging policy agreement and installed Docker configuration
 validation: 21 native controls pass. Independent observation verifies source
 pins, primary/retained-state parity, tool preservation and own-unit/cgroup cleanup.
-Actual container log rotation and the aggregate real-child trial remain open.
+Native daemon behavior is qualified below; actual child log rotation and the
+aggregate real-child trial remain open.
 
 `scripts/test-runtime-docker-logging-live.py` is an opt-in native logging trial
 for a source-pinned, delegated lab unit with private network/mount namespaces
@@ -70,10 +71,19 @@ derives the lab-only internal path from the owned data root and container ID;
 Docker deliberately leaves the local driver's API `LogPath` empty. This
 internal layout is a version-specific observation, not a stable Docker API.
 See the [upstream local logger setup](https://github.com/moby/moby/blob/master/daemon/container/container.go).
-It
-requires a rotated file reaching the decimal 1m threshold and each observed
+It requires a rotated file reaching the decimal 1m threshold and each observed
 file at most 1,000,000 + 65,536 bytes, allowing record overhead. That conservative
 sample bound is not an exact disk quota or a peak measurement. Missing,
 additional, unrotated, aliased, shared or oversized samples refuse. A successful
-native trial would qualify installed daemon behavior on that fixture, while
+native trial qualifies installed daemon behavior on that fixture, while
 real-child rotation, logging loss behavior and full G7/G8 remain open.
+
+The [whole native logging proof](../../../evidence/runtime-20261112/g8-native-docker-logging-cleanup/README.md)
+passes both inherited-default and explicit-policy samples on the installed
+daemon: two retained files totaling 1,859,924 bytes per sample, independently
+checked after zero-exit daemon shutdown. Nine native metadata/cleanup/command
+controls and required checks pass. Primary/retained state, tools and both
+failed predecessor metadata sets remain unchanged; own-unit stop, absent
+cgroup/runtime directory and empty scratch independently qualify. These are
+private native VFS/runc fixtures; the child/containerd-snapshotter path still
+requires its actual lifecycle trial.

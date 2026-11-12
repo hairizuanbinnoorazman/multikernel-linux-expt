@@ -115,6 +115,19 @@ fixture assumption. Independent observation preserves the failed predecessor's
 metadata/epoch, primary/resources and tool identities, with empty scratch and
 successful own-unit/cgroup cleanup. The production required suite passes.
 Actual log rotation, live aggregate child execution and full G7/G8 remain open.
+The [installed native logging proof](../../../evidence/runtime-20261112/g8-native-docker-logging-cleanup/README.md)
+then runs inherited-default and explicit-policy containers on private native
+Docker/containerd instances. Both controlled 16-MiB writers exit zero and leave
+two local log files totaling 1,859,924 bytes per sample, below the conservative
+2,131,072-byte observed bound. Separate bounded CLI streams retain real swap
+warnings without corrupting identities. Exact empty-directory-only scratch
+cleanup and private daemon exit records follow two preserved failed attempts.
+Nine native controls and required checks pass; independent source/epoch,
+primary/retention/tool/predecessor preservation, daemon zero exits, empty scratch
+and own-unit/cgroup/runtime cleanup qualify. The observer handles an already
+removed empty cgroup without rerunning the successful workload. Native VFS/runc
+logging is qualified; real-child logging, loss/peak accounting, aggregate child
+execution and full G7/G8 remain open.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
