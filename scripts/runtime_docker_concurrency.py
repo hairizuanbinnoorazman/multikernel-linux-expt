@@ -6,6 +6,7 @@ import secrets
 import subprocess
 import time
 from pathlib import Path
+from runtime_trial_output import attach_command, read_output, require_logging
 from runtime_primary_docker import observe as observe_primary,unchanged as unchanged_primary
 
 # The authenticated signal targets the complete process group, including sleep.
@@ -54,14 +55,14 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
 
     def build_id(case,label=None):
         path=private/((label or case+'-workload')+'.stdout')
-        values=re.findall(rb'^G8_BUILD_IMAGE_ID=(sha256:[a-f0-9]{64})$',path.read_bytes(),re.M)
+        values=re.findall(rb'^G8_BUILD_IMAGE_ID=(sha256:[a-f0-9]{64})$',read_output(path),re.M)
         assert len(values)==1,'missing exact concurrent build image identity'
         return values[0].decode()
 
     def overlap_capture(phase):
         result={}
         for case in cases:
-            raw=(private/(case+'-workload.stderr')).read_bytes()
+            raw=read_output(private/(case+'-workload.stderr'))
             assert len(raw)<=131072 and run_markers(raw.decode())=={'BEGIN'} and processes[case].poll() is None,'both RUN windows must remain unfinished'
             path=private/('run-overlap-'+phase+'-'+case+'.stderr');path.write_bytes(raw);result[case]=digest(path)
         return result
@@ -107,9 +108,9 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
     def wait_for(marker, limit=360):
         deadline = time.monotonic() + limit
         while True:
-            if all(marker in (private / (case + '-workload.stdout')).read_text() for case in cases):
+            if all(marker in read_output(private / (case + '-workload.stdout')).decode() for case in cases):
                 return
-            output = {case: (private / (case + '-workload.stdout')).read_text() for case in cases}
+            output = {case: read_output(private / (case + '-workload.stdout')).decode() for case in cases}
             failed = any('G8_CONCURRENT_BUILD_FAILED' in value for value in output.values())
             if failed or not all(p.poll() is None for p in processes.values()):
                 diagnose_failure()
@@ -162,7 +163,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
             out = (private / (case + '-workload.stdout')).open('wb')
             err = (private / (case + '-workload.stderr')).open('wb')
             streams += [out, err]
-            process = subprocess.Popen(cli + ['start', '--attach', name], stdout=out, stderr=err)
+            process = subprocess.Popen(attach_command(cli + ['start', '--attach', name]), stdout=out, stderr=err)
             children.append(process)
             processes[case] = process
         wait_for('G8_CONCURRENT_BOOT_READY')
@@ -179,6 +180,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         case_owners = {}
         for name, case in zip(names, cases):
             inspected = json.loads(invoke(cli + ['inspect', name], 'owner-map-' + case).stdout)[0]
+            require_logging(inspected['HostConfig'].get('LogConfig'))
             case_owners[case] = owner_for_container(inspected['Id'], owners['sandboxes'])
         assert case_owners['a']['sandbox_id'] != case_owners['b']['sandbox_id']
         storage_before = storage_snapshot('two-child', 2)
@@ -187,7 +189,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
             execute(index, ['/bin/touch', '/home/rootless/.local/tmp/g8-concurrency/build'], 'release-build-' + case)
         deadline = time.monotonic() + 180
         while True:
-            markers = {case: run_markers((private / (case + '-workload.stderr')).read_text()) for case in cases}
+            markers = {case: run_markers(read_output(private / (case + '-workload.stderr')).decode()) for case in cases}
             assert not any('END' in value for value in markers.values()), 'RUN overlap was not observed'
             if all('BEGIN' in value for value in markers.values()):
                 before_overlap=overlap_capture('before');before_ns=time.monotonic_ns()
@@ -203,8 +205,8 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         for case in cases:primary('two-built-'+case,after[case]['built_image_id'])
         for case in cases:
             assert {k: after[case][k] for k in before[case]} == before[case]
-            output = (private / (case + '-workload.stdout')).read_text()
-            errors = (private / (case + '-workload.stderr')).read_text()
+            output = read_output(private / (case + '-workload.stdout')).decode()
+            errors = read_output(private / (case + '-workload.stderr')).decode()
             for marker in ['G8_MULTISTAGE_BUILD_PASS', 'G8_REPEAT_BUILD_PASS', 'G8_BUILT_IMAGE_RUN_PASS', 'G8_FAILED_BUILD_REJECTED', 'G8_BUILD_WORKLOAD_PASS']:
                 assert marker in output
             assert 'CACHED' in errors and 'exit code: 37' in errors

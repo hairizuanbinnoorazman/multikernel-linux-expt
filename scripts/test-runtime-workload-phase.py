@@ -24,5 +24,10 @@ class PhaseTests(unittest.TestCase):
         r=self.exercise('exec sleep 5',b'synthetic-secret'*20000);self.assertEqual(r['outcome'],'output-limit');self.assertEqual(r['output']['stdout']['sample_bytes'],131073);self.assertNotIn('synthetic-secret',json.dumps(r))
     def test_expired_deadline_does_not_accept_markers(self):
         self.assertEqual(self.exercise('exec sleep 5',b'FULL\n',b'No space left',duration=-1)['outcome'],'deadline-exceeded')
+    def test_exact_file_cap_refuses_even_with_valid_phase_markers(self):
+        output=b'FULL\n'+b'x'*(131072-len(b'FULL\n'))
+        report=self.exercise('exec sleep 5',output,b'No space left')
+        self.assertEqual(report['outcome'],'output-limit')
+        self.assertFalse(report['output']['stdout']['sample_complete'])
 
 if __name__=='__main__':unittest.main()

@@ -5,6 +5,7 @@ from runtime_diagnostic_bundle_checkpoint import read_fixture_artifact,decode,eq
 from runtime_docker_concurrency import sandbox_id_for_container,run_markers
 from runtime_trial_agent_profile import sha as artifact_sha
 from runtime_bounded_command import bounded_command,CommandOutputLimit
+from runtime_trial_output import read_output
 
 PHASES=['while-full','during-build','while-image-ready','after-remove']
 ORIGINAL_PROFILE=Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json')
@@ -48,16 +49,16 @@ def capture(work,boot,invocation,container,owner,phase,deadline):
     if phase!='after-remove':assert address_file.read_text().strip()==reference['address']
     before=None
     if phase=='during-build':
-        with (private/'workload.stderr').open('rb') as stream:before=stream.read(131073)
-        assert len(before)<=131072 and run_markers(before.decode())=={'BEGIN'}
+        before=read_output(private/'workload.stderr')
+        assert run_markers(before.decode())=={'BEGIN'}
         write_private(private/'engine-build-before.stderr',before)
     start=time.monotonic_ns();end=min(int(deadline*1_000_000_000),start+5_000_000_000);assert end>start
     result=run_probe([str(work/'bin/mk-shimctl'),'--socket='+reference['address'],'--namespace=moby','--container-id='+container,'--sandbox-id='+owner['sandbox_id'],'--generation='+owner['generation']],private,phase,end)
     assert len(result.stdout)<=2048 and len(result.stderr)<=256
     hashes={}
     if phase=='during-build':
-        with (private/'workload.stderr').open('rb') as stream:after=stream.read(131073)
-        assert len(after)<=131072 and after.startswith(before) and run_markers(after.decode())=={'BEGIN'}
+        after=read_output(private/'workload.stderr')
+        assert after.startswith(before) and run_markers(after.decode())=={'BEGIN'}
         write_private(private/'engine-build-after.stderr',after)
         hashes={which:hashlib.sha256(raw).hexdigest() for which,raw in [('before',before),('after',after)]}
     finish=time.monotonic_ns();assert finish<=end

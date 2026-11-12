@@ -2,6 +2,7 @@
 import hashlib
 import json
 import time
+from runtime_trial_output import ATTACH_LIMIT
 
 
 class PhaseFailure(RuntimeError):
@@ -17,11 +18,11 @@ def wait_for_phase(process, stdout, stderr, required_stdout, required_stderr,
         oversized = False
         for name, path in [('stdout', stdout), ('stderr', stderr)]:
             with path.open('rb') as file:
-                value = file.read(131073)
-            oversized |= len(value) > 131072
+                value = file.read(ATTACH_LIMIT+1)
+            oversized |= len(value) >= ATTACH_LIMIT
             data[name] = value
             samples[name] = dict(sample_bytes=len(value), sha256=hashlib.sha256(value).hexdigest(),
-                                 sample_complete=len(value) <= 131072)
+                                 sample_complete=len(value) < ATTACH_LIMIT)
         returncode = process.poll()
         observed = time.monotonic_ns()
         if oversized:

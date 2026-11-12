@@ -30,6 +30,7 @@ from runtime_workload_phase import wait_for_phase
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 from runtime_io_recovery_checkpoint import sync_sequence
+from runtime_trial_output import attach_command, read_output, logging_config, logging_arguments, require_logging
 from runtime_bounded_command import bounded_command
 assert 3<=len(sys.argv)<=6, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--crash-during-io|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
 flags=sys.argv[3:]
@@ -149,7 +150,7 @@ cc.write_text("version = 3\nroot = "+repr(str(private/'containerd-root'))+"\nsta
 # Append a fresh version of the manager environment instead of duplicate TOML.
 text=cc.read_text();text=text[:text.index('[plugins.')]+"[plugins.'io.containerd.shim.v1.manager']\nenv = "+repr(['PATH='+str(work/'bin')+':/usr/sbin:/usr/bin:/sbin:/bin']+[k+'='+v for k,v in extra.items()])+"\n";cc.write_text(text)
 dc=private/'docker.json'
-dc.write_text(json.dumps({'data-root':'/var/lib/docker','exec-root':str(private/'docker-exec'),'pidfile':str(private/'docker.pid'),'hosts':['unix://'+str(dsock)],'containerd':str(sock),'bridge':'none','iptables':False,'ip6tables':False,'ip-forward':False,'ip-masq':False,'features':{'containerd-snapshotter':True},'runtimes':{'io.containerd.multikernel.v2':{'runtimeType':'io.containerd.multikernel.v2'}}}))
+dc.write_text(json.dumps({'data-root':'/var/lib/docker','exec-root':str(private/'docker-exec'),'pidfile':str(private/'docker.pid'),'hosts':['unix://'+str(dsock)],'containerd':str(sock),'bridge':'none','iptables':False,'ip6tables':False,'ip-forward':False,'ip-masq':False,'features':{'containerd-snapshotter':True},'runtimes':{'io.containerd.multikernel.v2':{'runtimeType':'io.containerd.multikernel.v2'}},**logging_config()}))
 children=[];logs=[];socket_readiness={}
 service_policies={};service_observations={}
 if harden_services:
@@ -194,6 +195,7 @@ try:
  while subprocess.run(cli+['info'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
   assert d.poll() is None and time.monotonic()<until;time.sleep(.1)
  info=subprocess.check_output(cli+['info','--format','{{json .}}']);(private/'docker-info.json').write_bytes(info)
+ assert json.loads(info).get('LoggingDriver')=='local','disposable Docker logging driver differs'
  imported=run(cli+['import',archive,'g8-approved:fixture'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  (private/'import.stdout').write_bytes(imported.stdout);(private/'import.stderr').write_bytes(imported.stderr)
  workload=['/bin/sh','/work/input/probe.sh']
@@ -206,7 +208,7 @@ try:
   # Docker exec is scoped to the lifetime of init. Exercise that boundary in
   # a separate reliability case rather than requiring the release exec to win.
   workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; mkdir -m 700 /home/rootless/.local/tmp/g8-concurrency; echo G8_CONCURRENT_BOOT_READY; while [ ! -f /home/rootless/.local/tmp/g8-concurrency/build ]; do sleep 1; done; set +e; /bin/sh /work/input/probe.sh --overlap-proof; probe_status=$?; set -e; echo G8_CONCURRENT_PROBE_EXIT=$probe_status; if [ "$probe_status" -eq 0 ]; then echo G8_CONCURRENT_BUILD_READY; else echo G8_CONCURRENT_BUILD_FAILED; fi; ' + RELEASE_WAIT + '; echo G8_CONCURRENT_RELEASED; exit "$probe_status"']
- created=run(cli+['create','--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture']+workload,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+ created=run(cli+['create',*logging_arguments(),'--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture']+workload,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  container_created=True
  (private/'create.stdout').write_bytes(created.stdout);(private/'create.stderr').write_bytes(created.stderr)
  exported=private/'export.tar'
@@ -227,17 +229,17 @@ try:
  else:
   with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:
    if restart_runtime:
-    attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
+    attach=subprocess.Popen(attach_command(cli+['start','--attach','g8-materialization']),stdout=out,stderr=err);children.append(attach)
     deadline=time.monotonic()+300
-    while (run_markers((private/'workload.stderr').read_text())!={'BEGIN'} if crash_during_build else 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text()):
-     assert not crash_during_build or 'END' not in run_markers((private/'workload.stderr').read_text()),'missed the executing RUN window'
+    while (run_markers(read_output(private/'workload.stderr').decode())!={'BEGIN'} if crash_during_build else 'G8_RUNTIME_RECOVERY_READY' not in read_output(private/'workload.stdout').decode()):
+     assert not crash_during_build or 'END' not in run_markers(read_output(private/'workload.stderr').decode()),'missed the executing RUN window'
      assert attach.poll() is None and time.monotonic()<deadline,'workload did not reach the recovery checkpoint'
      time.sleep(.2)
     active_run_checkpoints={}
     def record_active_run(phase,runtime_pid,after_seq=None):
      until=time.monotonic()+10;sequence=None
      while True:
-      raw=(private/'workload.stderr').read_bytes()
+      raw=read_output(private/'workload.stderr')
       assert len(raw)<131072 and run_markers(raw.decode())=={'BEGIN'} and attach.poll() is None,'SIGKILL/adoption did not occur inside the observed RUN window'
       if not crash_during_io:break
       if phase in ['confirmed-dead','after-kill']:assert m.poll()==-signal.SIGKILL,'write progress was not observed with the original runtime confirmed dead'
@@ -279,7 +281,7 @@ try:
      assert image_id is None or observation['child_image_absent'],'child-built image appeared in primary Docker'
      destination=private/('primary-docker-recovery-'+phase+'.json');destination.write_text(json.dumps(observation,indent=2)+'\n')
      return sha(destination)
-    original_image_id=None if crash_during_build else build_image_id((private/'workload.stdout').read_bytes())
+    original_image_id=None if crash_during_build else build_image_id(read_output(private/'workload.stdout'))
     prior=child_snapshot('before',not crash_during_build);old_pid=m.pid
     primary_before_recovery=recovery_primary('before',original_image_id)
     assert m.poll() is None,'runtime already stopped before the intentional restart'
@@ -300,13 +302,13 @@ try:
     if crash_during_build:
      if crash_during_io:record_active_run('adoption-baseline',m.pid)
      record_active_run('after-adoption',m.pid,active_run_checkpoints['adoption-baseline']['io_synced_seq'] if crash_during_io else None)
-     while 'G8_RUNTIME_RECOVERY_READY' not in (private/'workload.stdout').read_text():
+     while 'G8_RUNTIME_RECOVERY_READY' not in read_output(private/'workload.stdout').decode():
       assert attach.poll() is None and time.monotonic()<deadline,'original in-flight build did not complete'
       time.sleep(.2)
     completed_first=child_snapshot('completed-first')
     assert all(completed_first[key]==prior[key] for key in ['child_boot_id','engine_id','ownership'])
     if crash_during_build:
-     original_image_id=build_image_id((private/'workload.stdout').read_bytes())
+     original_image_id=build_image_id(read_output(private/'workload.stdout'))
      primary_completed_first=recovery_primary('completed-first',original_image_id)
     # Preserve the first completed archive, then prove new child-local writes and
     # builds work through the recovered control plane, not just inspection.
@@ -335,12 +337,12 @@ try:
    elif storage_pressure:
     console_capture=ConsoleCapture(sandbox_id_for_container(created.stdout.decode().strip()),private)
     console_capture.start()
-    attach=subprocess.Popen(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err);children.append(attach)
+    attach=subprocess.Popen(attach_command(cli+['start','--attach','g8-materialization']),stdout=out,stderr=err);children.append(attach)
     deadline=time.monotonic()+300
     wait_for_phase(attach,private/'workload.stdout',private/'workload.stderr',
                    [b'G8_STORAGE_PRESSURE_FULL\n'],[b'No space left on device'],deadline,
                    work/'storage-pressure-wait-checkpoint.json',os.environ['INVOCATION_ID'],boot,'enospc')
-    full_out=(private/'workload.stdout').read_bytes();full_err=(private/'workload.stderr').read_bytes()
+    full_out=read_output(private/'workload.stdout');full_err=read_output(private/'workload.stderr')
     assert len(full_out)<131072 and len(full_err)<131072
     (private/'pressure-full.stdout').write_bytes(full_out);(private/'pressure-full.stderr').write_bytes(full_err)
     pressure=full_observation(full_out.decode(),full_err.decode())
@@ -487,21 +489,21 @@ try:
     assert released.returncode==0,'failed to release the ENOSPC hold point'
     image_deadline=time.monotonic()+180
     if engine_observation:
-     while run_markers((private/'workload.stderr').read_text())!={'BEGIN'}:
+     while run_markers(read_output(private/'workload.stderr').decode())!={'BEGIN'}:
       assert attach.poll() is None and time.monotonic()<image_deadline,'original build did not enter its observed RUN window'
       time.sleep(.05)
      capture_engine(work,boot,os.environ['INVOCATION_ID'],created.stdout.decode().strip(),owner,'during-build',image_deadline)
      assert attach.poll() is None,'original build exited during its engine observation'
-    while 'G8_STORAGE_PRESSURE_IMAGE_READY\n' not in (private/'workload.stdout').read_text():
+    while 'G8_STORAGE_PRESSURE_IMAGE_READY\n' not in read_output(private/'workload.stdout').decode():
      assert attach.poll() is None and time.monotonic()<image_deadline,'guest did not reach the built-image hold point'
      time.sleep(.2)
     from runtime_storage_pressure import field
-    image_id=field((private/'workload.stdout').read_text(),'IMAGE_ID')
+    image_id=field(read_output(private/'workload.stdout').decode(),'IMAGE_ID')
     primary_with_image=observe_primary_docker(image_id,deadline=image_deadline)
     (private/'primary-docker-while-image-ready.json').write_text(json.dumps(primary_with_image,indent=2)+'\n')
     check_primary_docker(primary_docker_before,primary_with_image)
     assert primary_with_image['child_image_absent'],'child-built image appeared in primary Docker'
-    guest_engine=next(json.loads(line) for line in (private/'workload.stdout').read_text().splitlines() if line.startswith('{') and '"KernelVersion"' in line)
+    guest_engine=next(json.loads(line) for line in read_output(private/'workload.stdout').decode().splitlines() if line.startswith('{') and '"KernelVersion"' in line)
     assert fingerprint(guest_engine['ID'])!=primary_docker_before['engine_id_sha256'],'guest selected the primary Docker engine'
     if engine_observation:capture_engine(work,boot,os.environ['INVOCATION_ID'],created.stdout.decode().strip(),owner,'while-image-ready',image_deadline)
     image_doctor=doctor_checkpoint('while-image-ready',image_deadline)
@@ -584,15 +586,15 @@ try:
     (private/'image-release.stdout').write_bytes(image_released.stdout);(private/'image-release.stderr').write_bytes(image_released.stderr)
     assert image_released.returncode==0,'failed to release the built-image hold point'
     observed=subprocess.CompletedProcess(attach.args,attach.wait(timeout=max(.001,image_deadline-time.monotonic())))
-    pressure_recovered=recovered_observation((private/'workload.stdout').read_text(),(private/'workload.stderr').read_text())
+    pressure_recovered=recovered_observation(read_output(private/'workload.stdout').decode(),read_output(private/'workload.stderr').decode())
     assert pressure_recovered['kernel_release']==profile['kernel_release']
     (work/'storage-pressure-recovery.json').write_text(json.dumps({'invocation_id':os.environ['INVOCATION_ID'],'boot_id':boot,'full_checkpoint_sha256':sha(work/'storage-pressure-full-checkpoint.json'),'guest_recovered':pressure_recovered,'cleanup_qualified':False},indent=2)+'\n')
    else:
-    observed=subprocess.run(cli+['start','--attach','g8-materialization'],stdout=out,stderr=err,timeout=300)
+    observed=subprocess.run(attach_command(cli+['start','--attach','g8-materialization']),stdout=out,stderr=err,timeout=300)
  assert observed.returncode==0,'host Docker start/build failed; retained workload output'
  inspected=subprocess.check_output(cli+['inspect','g8-materialization']);(private/'inspect.json').write_bytes(inspected)
- item=json.loads(inspected)[0];assert item['State']['Status']=='exited' and item['State']['ExitCode']==0 and item['HostConfig']['Runtime']=='io.containerd.multikernel.v2',item['State']
- stdout=(private/'workload.stdout').read_text();stderr=(private/'workload.stderr').read_text()
+ item=json.loads(inspected)[0];require_logging(item['HostConfig'].get('LogConfig'));assert item['State']['Status']=='exited' and item['State']['ExitCode']==0 and item['HostConfig']['Runtime']=='io.containerd.multikernel.v2',item['State']
+ stdout=read_output(private/'workload.stdout').decode();stderr=read_output(private/'workload.stderr').decode()
  assert len(stdout)<131072 and len(stderr)<131072
  for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:assert marker in stdout,marker
  assert profile['kernel_release'] in stdout and '29.9.0' in stdout and 'CACHED' in stderr
