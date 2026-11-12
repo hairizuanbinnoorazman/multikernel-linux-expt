@@ -99,6 +99,12 @@ The ordinary v8 health doctor and v2 bundle command also use this shared
 collector and pass their original `health_deadline_ns` directly. This applies
 even when the aggregate opt-in is disabled. Other trial subprocesses retain
 their existing collection policies; this boundary covers the four health reports.
+The [shared-pair regression and restarted-boot proof](../../../evidence/runtime-20261112/g8-health-command-bounds/README.md)
+execute both actual v8/v2 command expressions from committed source: all four
+baseline stdout/stderr bursts complete before timeout, while candidate capture
+refuses before the writer finishes. Eight health and nine aggregate controls
+qualify on GCE with current service epochs, retained-state parity and successful
+own-unit/cgroup cleanup. Historical baseline files and PID authority are unchanged.
 
 The [actual capture baseline and GCE controls](../../../evidence/runtime-20261109/g8-aggregate-command-bounds/README.md)
 show the prior capture consuming complete synthetic eight-MiB stdout/stderr

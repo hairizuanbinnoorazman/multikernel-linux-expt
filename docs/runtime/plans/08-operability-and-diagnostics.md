@@ -43,6 +43,15 @@ native controls qualify on source-pinned GCE with the original deadline,
 EOF/process-exit handling, private preservation and own-unit/cgroup cleanup.
 Required checks pass. This closes collection bounds, not the real-child
 aggregate lifecycle, peak-RSS qualification or full G7/G8.
+The [shared health-pair proof](../../../evidence/runtime-20261112/g8-health-command-bounds/README.md)
+extends those limits to the ordinary v8/v2 pair even without aggregate opt-in.
+Actual command expressions reproduce four baseline stream-flood failures;
+seventeen health/aggregate controls and required checks pass. Independent GCE
+qualification on the user-restarted boot verifies fresh service epochs,
+persistent primary Docker, 225 retained controls/five absences, idle kernel
+resources and own-unit/cgroup cleanup. Historical baselines remain untouched.
+This closes the native four-report collection boundary; full real-child
+aggregate acceptance and complete G7/G8 remain open.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
