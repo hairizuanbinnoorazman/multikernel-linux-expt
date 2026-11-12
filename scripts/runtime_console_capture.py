@@ -9,21 +9,42 @@ import select
 import stat
 import threading
 import time
+from collections import deque
 
 LIMIT = 1024 * 1024
 TEARDOWN_LIMIT = 256 * 1024
+FILTERED_FORMAT = 'fixed-console-event-codes-v1'
+MARKERS = (
+    b'MK_STORAGE_BOOTSTRAP_READY', b'MK_STORAGE_BOOTSTRAP_FAIL',
+    b'MK_AGENT_START', b'MK_AGENT_BOOT_CONFIG_MISSING', b'MK_AGENT_INSECURE_BOOT_CREDENTIAL',
+    b'MK_DOCKER_STORAGE_QUIESCE_FAIL', b'MK_STORAGE_ROOT_QUIESCE_PASS', b'MK_STORAGE_ROOT_QUIESCE_FAIL',
+    b'MK_STORAGE_NBD_DISCONNECT_PASS', b'MK_STORAGE_NBD_DISCONNECT_FAIL',
+)
+MARKER_PATTERN = re.compile(rb'^(' + b'|'.join(MARKERS) + rb')(?:[ \t\r]|$)')
+CATEGORIES = (
+    (re.compile(rb'nbd', re.I), b'MK_CONSOLE_NBD'),
+    (re.compile(rb'mkvsock|forward_stream', re.I), b'MK_CONSOLE_TRANSPORT'),
+    (re.compile(rb'ext4', re.I), b'MK_CONSOLE_EXT4'),
+    (re.compile(rb'out of memory|oom|killed process', re.I), b'MK_CONSOLE_MEMORY_PRESSURE'),
+    (re.compile(rb'I/O error', re.I), b'MK_CONSOLE_IO_ERROR'),
+)
 
 
 def filtered_events(data):
-    result = []
-    for line in data.decode(errors='replace').splitlines():
-        if re.search(r'nbd|mkvsock|forward_stream|ext4|out of memory|oom|killed process|I/O error', line, re.I) or re.match(
-                r'MK_STORAGE_BOOTSTRAP_(?:READY|FAIL)\b|MK_AGENT_(?:START|BOOT_CONFIG_MISSING|INSECURE_BOOT_CREDENTIAL)\b', line):
-            line = re.sub(r'\b[0-9a-fA-F]{64}\b', '[REDACTED_HEX64]', line)
-            line = re.sub(r'(?i)\b(token|password|secret|authorization)\s*[=:].*', r'\1=[REDACTED]', line)
-            result.append(line[:1024])
-    encoded = ('\n'.join(result) + ('\n' if result else '')).encode()
-    return encoded[-65536:].decode(errors='ignore').encode()
+    # Guest-controlled text is never a safe export merely because selected
+    # credential spellings were removed. Project only fixed codes from complete
+    # LF-terminated lines. Codes are observations of text, not authenticated facts.
+    result = deque()
+    size = 0
+    for line in data.split(b'\n')[:-1]:
+        marker = MARKER_PATTERN.match(line)
+        codes = [marker.group(1)] if marker else [code for pattern, code in CATEGORIES if pattern.search(line)]
+        for code in codes:
+            event = code + b'\n'
+            result.append(event); size += len(event)
+            while size > 65536:
+                size -= len(result.popleft())
+    return b''.join(result)
 
 
 def read_bounded(fd, stop, limit=LIMIT, timeout=600, empty_is_idle=False):
@@ -156,14 +177,18 @@ class ConsoleCapture:
             # Filter each segment separately: a cut line in one window cannot
             # combine with the next window to fabricate a diagnostic event.
             events = b''.join(filtered_events(part[:part.rfind(b'\n')+1]) for part in segments)
-            events = events[-65536:].decode(errors='ignore').encode()
-            self.record.update(filtered_bytes=len(events), filtered_sha256=hashlib.sha256(events).hexdigest())
+            if len(events) > 65536:
+                # Preserve whole fixed-code lines across the two windows too.
+                events = events[len(events)-65536:]
+                events = events[events.find(b'\n')+1:]
+            self.record.update(filtered_format=FILTERED_FORMAT, filtered_bytes=len(events), filtered_sha256=hashlib.sha256(events).hexdigest())
             # The raw concatenation is private and explicitly discontinuous.
-            for name, payload in [('console-private.log', data), ('console-events.log', events)]:
-                handle = os.open(self.output / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            for name, payload in [('console-private.log', data), ('console-events.log', events),
+                                  ('console-capture.json', (json.dumps(self.record, indent=2) + '\n').encode())]:
+                handle = os.open(self.output / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
                 with os.fdopen(handle, 'wb') as stream:
-                    stream.write(payload)
-            (self.output / 'console-capture.json').write_text(json.dumps(self.record, indent=2) + '\n')
+                    os.fchmod(stream.fileno(), 0o600)
+                    stream.write(payload); stream.flush(); os.fsync(stream.fileno())
 
     @staticmethod
     def _phase(name, data, reason, limit):

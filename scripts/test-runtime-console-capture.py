@@ -13,7 +13,7 @@ import array
 import stat
 import types
 from unittest import mock
-from runtime_console_capture import ConsoleCapture, filtered_events, read_bounded
+from runtime_console_capture import ConsoleCapture, filtered_events, read_bounded, MARKERS, CATEGORIES, FILTERED_FORMAT
 
 
 class ConsoleCaptureTests(unittest.TestCase):
@@ -104,6 +104,8 @@ class ConsoleCaptureTests(unittest.TestCase):
                 self.assertEqual(metadata['filtered_sha256'],hashlib.sha256(events).hexdigest())
                 self.assertLessEqual(len(raw),256)
                 self.assertFalse(metadata['complete_stream'])
+                self.assertEqual(metadata['filtered_format'],FILTERED_FORMAT)
+                for name in ['console-private.log','console-events.log','console-capture.json']:self.assertEqual((root/name).stat().st_mode&0o777,0o600)
                 return metadata, raw, events
         finally:
             for fd in [a,b,bw]:
@@ -173,7 +175,8 @@ class ConsoleCaptureTests(unittest.TestCase):
         self.assertNotIn(secret.encode(), result)
         self.assertNotIn(b'private-value', result)
         self.assertNotIn(b'environment line', result)
-        self.assertIn(b'EXT4-fs error: invalid bitmap', result)
+        self.assertIn(b'MK_CONSOLE_EXT4\n', result)
+        self.assertNotIn(b'invalid bitmap', result)
         self.assertTrue(all(len(line)<=1024 for line in result.splitlines()))
         self.assertLessEqual(len(filtered_events(b'nbd error\n'*10000)), 65536)
         filtered_events(('nbd '+('\u2603'*2000)+'\n').encode()*100).decode()
@@ -193,12 +196,45 @@ class ConsoleCaptureTests(unittest.TestCase):
             b'MK_AGENT_REQUEST payload=private-value\n'
             b'prefix MK_AGENT_START payload=private-value\n')
         self.assertEqual(result, (
-            b'MK_STORAGE_BOOTSTRAP_READY sandbox=owned\n'
-            b'MK_STORAGE_BOOTSTRAP_FAIL reason=mount\n'
-            b'MK_AGENT_START sandbox=owned token=[REDACTED]\n'
+            b'MK_STORAGE_BOOTSTRAP_READY\n'
+            b'MK_STORAGE_BOOTSTRAP_FAIL\n'
+            b'MK_AGENT_START\n'
             b'MK_AGENT_BOOT_CONFIG_MISSING\n'
             b'MK_AGENT_INSECURE_BOOT_CREDENTIAL\n'))
         self.assertNotIn(b'private-value', result)
+
+    def test_unlabelled_json_binary_and_control_payloads_never_leave_projection(self):
+        payloads=[b'SYNTHETIC_UNLABELLED_PRIVATE',b'{"credential":"synthetic-value"}',
+                  b'https://user:synthetic-value@example.invalid/path',b'\x1b[31mSYNTHETIC_CONTROL\x1b[0m',
+                  bytes(range(256)),b'c3ludGhldGljLXByaXZhdGU=']
+        allowed=set(MARKERS)|{code for _,code in CATEGORIES}
+        for prefix in [b'nbd ',b'EXT4-fs error ',b'mkvsock ',b'out of memory ',b'I/O error ',* [marker+b' ' for marker in MARKERS]]:
+            for payload in payloads:
+                with self.subTest(prefix=prefix,payload_length=len(payload)):
+                    projected=filtered_events(prefix+payload+b'\n')
+                    self.assertTrue(projected)
+                    self.assertTrue(set(projected.splitlines())<=allowed)
+                    self.assertNotIn(b'synthetic-value',projected)
+                    self.assertNotIn(b'SYNTHETIC_',projected)
+    def test_complete_line_boundaries_and_whole_code_suffix_remain_explicit(self):
+        self.assertEqual(filtered_events(b'MK_AGENT_START private'),b'')
+        self.assertEqual(filtered_events(b'MK_AGENT_STARTUP private\n'),b'')
+        self.assertEqual(filtered_events(b'prefix MK_AGENT_START private\n'),b'')
+        self.assertEqual(filtered_events(b'MK_AGENT_START\r\n'),b'MK_AGENT_START\n')
+        allowed=set(MARKERS)|{code for _,code in CATEGORIES}
+        projected=filtered_events(b'ext4 nbd mkvsock oom I/O error SYNTHETIC\n'*10000)
+        self.assertLessEqual(len(projected),65536)
+        self.assertTrue(projected.endswith(b'\n'))
+        self.assertTrue(set(projected.splitlines())<=allowed)
+    def test_pipe_capture_preserves_private_raw_but_exports_only_codes_under_umask_zero(self):
+        prior=os.umask(0)
+        try:
+            metadata,raw,events=self.run_windows(b'nbd SYNTHETIC_UNLABELLED_PRIVATE\n'+b'x'*200,b'MK_STORAGE_NBD_DISCONNECT_PASS private=synthetic\n')
+        finally:os.umask(prior)
+        self.assertIn(b'SYNTHETIC_UNLABELLED_PRIVATE',raw)
+        self.assertNotIn(b'SYNTHETIC_',events)
+        self.assertNotIn(b'private=',events)
+        self.assertTrue(set(events.splitlines())<=(set(MARKERS)|{code for _,code in CATEGORIES}))
 
 
 if __name__ == '__main__':unittest.main()

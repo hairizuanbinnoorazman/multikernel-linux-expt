@@ -36,9 +36,21 @@ with the console metadata hash.
 The private raw file concatenates the two segments; phase lengths/hashes identify
 the discontinuity. It stays mode 0600 and is excluded from evidence exports.
 Filtering happens independently per segment and drops incomplete final lines,
-so a cut boundary cannot fabricate a diagnostic event. The filtered export is
-at most 64 KiB. Existing pattern filtering/redaction does not constitute a
-complete secret-safe diagnostic bundle for arbitrary hostile console text.
+so a cut boundary cannot fabricate a diagnostic event. The filtered file is now
+a closed vocabulary of fixed ASCII event codes, with
+`filtered_format: fixed-console-event-codes-v1` in the metadata. Known startup
+and shutdown markers keep only their marker name; storage, transport, filesystem,
+memory-pressure and I/O text matches project to fixed `MK_CONSOLE_*` codes.
+No guest line, suffix, credential spelling, path, free-form reason or dynamic
+number is copied. Only complete LF-terminated lines are considered; CRLF marker
+lines are accepted. Whole-code suffix retention bounds the output at 64 KiB.
+
+Codes describe matching guest-controlled text, not authenticated kernel facts,
+readiness or cleanup. A guest can forge codes and influence their order/count;
+this does not establish covert-channel isolation or a complete diagnostic bundle.
+Historical runs using the earlier pattern redactor keep their original scope.
+Raw, code and metadata files are exclusive, synced and mode 0600 independently
+of umask; existing console evidence is never overwritten.
 
 Normal removal and forced cleanup both precede observer shutdown. Attachment or
 stop failure remains visible while owned cleanup is still attempted. Independent
