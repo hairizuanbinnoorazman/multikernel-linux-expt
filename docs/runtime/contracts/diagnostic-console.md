@@ -57,7 +57,7 @@ stop failure remains visible while owned cleanup is still attempted. Independent
 synced native close, offline checking and resource observations remain necessary
 for storage-cleanup qualification. Console markers alone do not prove release.
 
-[Eight controls](../../../evidence/runtime-20261025/g8-console-window-controls/README.md)
+[Historical eight controls](../../../evidence/runtime-20261025/g8-console-window-controls/README.md)
 cover floods, stop, redaction, replacement and byte limits. Live child handoff is
 qualified separately. The [lifetime regression](../../../evidence/runtime-20261025/g8-console-hold-regression/README.md)
 also checks late output after instance-path removal and idempotent selection;
@@ -86,3 +86,12 @@ negative control. This candidate is not deployed in the pinned live profile.
 Check helper identity before interpreting absence: older helpers emit no resume
 line, and bounded console windows can miss events. Neither a missing resume nor
 an observed first resume determines the cause or duration of a later stall.
+
+The [fixed-code projection proof](../../../evidence/runtime-20261112/g8-console-fixed-codes/README.md)
+reproduces ten free-text disclosures plus permissive metadata modes and regular/
+symlink overwrite on prior source. Thirteen committed-source native controls and
+required checks pass, including synthetic payloads, actual pipe windows and
+metadata preservation. GCE independently verifies primary/retention/resource
+parity and successful own-unit/cgroup cleanup. This closes the native free-text
+projection and metadata boundary; actual child use, covert-channel containment
+and complete G7/G8 remain open.

@@ -62,6 +62,14 @@ capture in all four phases, independent current-boot preservation and complete
 own-unit/cgroup cleanup. Required checks pass. This closes the native probe
 collection/evidence boundary, not actual child-engine aggregate acceptance,
 arbitrary descendant containment or full G7/G8.
+The [console fixed-code proof](../../../evidence/runtime-20261112/g8-console-fixed-codes/README.md)
+also removes arbitrary guest text from the projected console file. Ten prior
+selected-line canary disclosures and metadata permission/overwrite failures
+reproduce; the candidate emits only fixed codes and retains exclusive private
+artifacts. Thirteen source-pinned native controls and required checks pass, with
+independent primary/retention/resource preservation and own-unit/cgroup cleanup.
+This qualifies synthetic projection and metadata behavior. Guest-forged codes,
+order/count channels, live-child use and full G7/G8 remain unqualified.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
