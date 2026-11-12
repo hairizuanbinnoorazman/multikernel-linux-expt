@@ -70,3 +70,13 @@ These controls harden the host-facing collection boundary. Actual new-source
 two-child execution, aggregate lifecycle and full G7/G8 still require their
 live proof; direct children use no nested virtualization and share primary
 trust after arbitrary child-kernel compromise.
+
+The [committed-source and GCE collection proof](../../../evidence/runtime-20261112/g8-concurrent-command-bounds/README.md)
+reproduces both old full-stream collections and private-cause error disclosure
+through actual invocation definitions. The candidate stops controlled writers
+before completion, retains bounded private diagnostics and normalizes errors
+without the original exception context. Twenty-one native controls and required
+checks pass. Independent observation preserves the latest logging proof,
+predecessor metadata and primary state, with own-unit/cgroup/scratch cleanup.
+This qualifies the collection boundary; actual new-source two-child execution
+and aggregate lifecycle remain separate live requirements.

@@ -128,6 +128,17 @@ and own-unit/cgroup/runtime cleanup qualify. The observer handles an already
 removed empty cgroup without rerunning the successful workload. Native VFS/runc
 logging is qualified; real-child logging, loss/peak accounting, aggregate child
 execution and full G7/G8 remain open.
+The [concurrent command collection proof](../../../evidence/runtime-20261112/g8-concurrent-command-bounds/README.md)
+then bounds the two-child trial's nested exec/inspection/survivor-build pipes
+during collection. Both prior controlled 1-MiB writers finish before the old
+postcollection check and a controlled stderr cause reaches its raised error;
+the candidate stops writers early and keeps fixed errors/private bounded
+evidence without original exception context. The prior strict 128-KiB boundary,
+expected nonzero queries and stricter checkpoint API remain intact. Twenty-one
+native controls and required checks pass, with independently pinned source/epoch,
+primary/retention/tools/latest-logging-proof preservation and own-unit/cgroup/
+scratch cleanup. Actual new-source two-child/aggregate execution, peak-RSS and
+full G7/G8 remain open.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
