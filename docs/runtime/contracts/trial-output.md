@@ -57,6 +57,12 @@ diagnostics private. Existing evidence refuses before command execution.
 The supervisor runs in the unit's `supervisor` leaf and Docker uses the sibling
 `workloads` subtree, keeping processes out of the delegated domain root before
 enabling cgroup-v2 controllers. It never adopts or moves primary service tasks.
+After both daemons exit, scratch cleanup removes only owned empty directories
+created in this invocation's exclusive scratch (Docker can leave an empty
+`moby` directory). It preflights every entry before removal and refuses files,
+aliases, special files or nonempty directories. It never recursively deletes
+contents or cleans a historical failed trial. Daemon exit statuses and forced
+termination flags are retained privately before cleanup acceptance.
 
 `runtime_docker_log_rotation.py` checks only metadata of the two expected local
 log files, without following directory/file aliases or reading contents. It

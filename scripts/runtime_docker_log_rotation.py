@@ -9,6 +9,36 @@ MAX_FILE = 1_000_000
 RECORD_SLACK = 65536
 
 
+def cleanup_empty_scratch(path):
+    """Remove only empty directories in this invocation's exclusive scratch.
+
+    Validate the complete set first. Never recurse or remove file contents.
+    The caller must have stopped every writer and own the fresh directory.
+    """
+    root=os.open(path,os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+    held=[]
+    try:
+        parent=os.fstat(root)
+        if parent.st_uid!=os.geteuid() or parent.st_mode&0o077:
+            raise ValueError('unprotected logging scratch')
+        names=os.listdir(root)
+        for name in names:
+            fd=os.open(name,os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC,dir_fd=root);held.append((name,fd))
+            info=os.fstat(fd)
+            if info.st_uid!=os.geteuid() or info.st_mode&0o077 or os.listdir(fd):
+                raise ValueError('logging scratch is not an owned empty directory')
+        for name,fd in held:
+            before=os.fstat(fd);named=os.stat(name,dir_fd=root,follow_symlinks=False)
+            if (before.st_dev,before.st_ino)!=(named.st_dev,named.st_ino) or os.listdir(fd):
+                raise ValueError('logging scratch changed')
+            os.rmdir(name,dir_fd=root)
+        if os.listdir(root):raise ValueError('logging scratch remains')
+        return dict(empty_directories_removed=len(held),file_contents_removed=False)
+    finally:
+        for _,fd in held:os.close(fd)
+        os.close(root)
+
+
 def qualify_rotation(item, data_root):
     """Require rotation and a conservative observed bound; never read logs."""
     require_logging(item['HostConfig'].get('LogConfig'))

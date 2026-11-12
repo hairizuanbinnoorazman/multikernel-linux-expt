@@ -10,7 +10,7 @@ from pathlib import Path
 import re,stat,subprocess as sp,tarfile,time
 from runtime_primary_docker import ENV
 from runtime_trial_docker_command import capture
-from runtime_docker_log_rotation import qualify_rotation
+from runtime_docker_log_rotation import qualify_rotation,cleanup_empty_scratch
 from runtime_trial_output import logging_arguments,logging_config,require_logging
 
 
@@ -91,18 +91,23 @@ def execute(work,run,boot):
         record('observations.json',observations)
     finally:
         clean=True
-        for proc in reversed(processes):
+        exits=[]
+        for role,proc in reversed(list(zip(['containerd','dockerd'],processes))):
+            requested=forced=False
             if proc.poll() is None:
+                requested=True
                 proc.terminate()
                 try:proc.wait(timeout=10)
-                except sp.TimeoutExpired:proc.kill();proc.wait(timeout=2)
+                except sp.TimeoutExpired:forced=True;proc.kill();proc.wait(timeout=2)
             clean &= proc.returncode==0
+            exits.append(dict(role=role,exit_status=proc.returncode,termination_requested=requested,forced_kill=forced))
         for stream in logs:stream.close()
+        record('daemon-exits.json',exits)
         if not clean:raise ValueError('private logging daemon did not stop cleanly')
     # Recheck after daemon shutdown, retaining raw logs only inside owned data.
     for case in ['default','explicit']:
         if qualify_rotation(json.loads((work/(case+'-inspect.json')).read_text()),data)!=observations[case]:raise ValueError('local logging sample changed after shutdown')
-    if list(scratch.iterdir()):raise ValueError('private logging scratch remains')
+    record('scratch-cleanup.json',cleanup_empty_scratch(scratch))
     record('result.json',dict(native_private_docker_rotation_qualified=True,default_and_explicit_policy_verified=True,two_rotated_samples_within_observed_bound=True,private_daemons_stopped=True,child_kernel_started=False,full_g7_g8_qualified=False))
 
 

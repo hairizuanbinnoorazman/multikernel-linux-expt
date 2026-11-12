@@ -6,6 +6,23 @@ from runtime_trial_output import logging_config
 
 
 class RotationTests(unittest.TestCase):
+    def test_owned_empty_daemon_temp_directory_is_removed_without_recursion(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root=Path(raw);(root/'moby-owned').mkdir(mode=0o700)
+            self.assertEqual(subject.cleanup_empty_scratch(root),dict(empty_directories_removed=1,file_contents_removed=False))
+            self.assertEqual(list(root.iterdir()),[])
+
+    def test_nonempty_file_and_alias_scratch_refuse_before_any_removal(self):
+        for kind in ['nonempty','file','alias','fifo']:
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as raw:
+                root=Path(raw);safe=root/'moby-empty';safe.mkdir(mode=0o700);bad=root/'unsafe'
+                if kind=='nonempty':bad.mkdir(mode=0o700);(bad/'retained').write_bytes(b'private')
+                elif kind=='file':bad.write_bytes(b'private')
+                elif kind=='alias':bad.symlink_to(safe,target_is_directory=True)
+                else:__import__('os').mkfifo(bad)
+                with self.assertRaises((ValueError,OSError)):subject.cleanup_empty_scratch(root)
+                self.assertTrue(safe.is_dir());self.assertTrue(bad.exists() or bad.is_symlink())
+
     def fixture(self, root):
         identifier='a'*64;directory=root/'containers'/identifier/'local-logs';directory.mkdir(parents=True)
         for name,size in [('container.log',4096),('container.log.1',1_000_020)]:
