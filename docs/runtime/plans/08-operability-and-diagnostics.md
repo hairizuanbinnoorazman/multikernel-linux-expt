@@ -150,6 +150,16 @@ free bytes against 8,929,517,568 required, preserving the eight-GiB floor. Cloud
 target/attachment/50-GiB size and the reviewed binding-manager pin verify read-only.
 The full packet stays local; the reviewed 50-to-58 GiB maintenance still needs
 separate approval. Actual current child/aggregate lifecycle and full G7/G8 stay open.
+The [storage geometry preflight](../../../evidence/runtime-20261112/g8-storage-geometry-whitelist/README.md)
+also verifies that raw disk and ext4 both actually span the existing 50 GiB,
+with exactly five-percent reserved blocks. Six native controls, fixed bounded
+metadata reads and an installed independent ext4-header comparison pass.
+Unperformed post-grow phases refuse before metadata reads. Primary, prior
+proof/failure metadata and tools remain unchanged; independent own-unit/cgroup/
+scratch cleanup passes. Original manifest/schema refusals stay preserved.
+This prepares the reviewed maintenance postconditions and exposes no extra
+unused device span. The pending billable increase, actual post-grow states,
+live aggregate execution and full G7/G8 remain open.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the

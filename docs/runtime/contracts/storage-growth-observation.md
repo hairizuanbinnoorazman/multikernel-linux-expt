@@ -40,3 +40,12 @@ and device paths stay private. CLI refusal is fixed and omits exception text.
 This is a maintenance pre/postcondition, not staging admission or full G7/G8.
 Direct children use no nested virtualization and share primary trust after
 arbitrary child-kernel compromise.
+
+The [committed-source and native proof](../../../evidence/runtime-20261112/g8-storage-geometry-whitelist/README.md)
+passes six controls plus the actual before-phase observation: raw device and
+ext4 both span 50 GiB, with 4096-byte blocks and exactly five-percent reserve.
+An installed independent ext4 header reader agrees. Both not-yet-performed
+post-grow phases refuse on the actual old device before metadata reads.
+Independent verification preserves prior state/refused attempts, stops only
+the successful own unit and requires its cgroup absent. Post-grow phases remain
+unqualified until approved maintenance actually produces those states.
