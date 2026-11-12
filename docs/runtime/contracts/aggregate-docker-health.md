@@ -96,6 +96,13 @@ command's private process group while its leader remains unreaped, closes both
 pipes and allows at most one second for reaping. That cleanup allowance never
 extends checkpoint acceptance. An already exhausted deadline spawns no command.
 
+The [actual capture baseline and GCE controls](../../../evidence/runtime-20261109/g8-aggregate-command-bounds/README.md)
+show the prior capture consuming complete synthetic eight-MiB stdout/stderr
+bursts before timeout, and the corrected capture refusing before either writer
+finishes. Nine source-pinned native controls, required checks and independent
+preservation/unit cleanup qualify this collection boundary. They do not qualify
+the actual child aggregate pressure lifecycle.
+
 The receipt binds every target/report/bundle/receipt/file-identity/timing
 artifact. `audit-runtime-docker-trial.py --require-aggregate-docker-health`
 also requires the existing engine proof. Acceptance requalifies the complete

@@ -35,6 +35,14 @@ and independent source/agent/engine/health/owner/phase/identity requalification.
 Local semantic, subprocess and recomputed-receipt controls pass. A new actual
 aggregate real-child trial, independent live audit and cold restoration remain
 required before that lifecycle can qualify.
+The [command collection bounds](../../../evidence/runtime-20261109/g8-aggregate-command-bounds/README.md)
+also enforce stdout/stderr limits while reading, before retaining diagnostics.
+Actual baseline capture consumes each synthetic eight-MiB burst before timeout;
+candidate capture refuses at its stream limit before the writer finishes. Nine
+native controls qualify on source-pinned GCE with the original deadline,
+EOF/process-exit handling, private preservation and own-unit/cgroup cleanup.
+Required checks pass. This closes collection bounds, not the real-child
+aggregate lifecycle, peak-RSS qualification or full G7/G8.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
