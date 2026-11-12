@@ -70,6 +70,15 @@ artifacts. Thirteen source-pinned native controls and required checks pass, with
 independent primary/retention/resource preservation and own-unit/cgroup cleanup.
 This qualifies synthetic projection and metadata behavior. Guest-forged codes,
 order/count channels, live-child use and full G7/G8 remain unqualified.
+The [shim service-entry proof](../../../evidence/runtime-20261112/g8-shim-entry-errors/README.md)
+also prevents initialization and manager errors from reaching the upstream
+terminal formatter verbatim. A raw-registration oracle exposes the synthetic
+cause; protected entry emits fixed descriptions with unchanged failure exit
+and successful manager/Task behavior. Four groups/fourteen subcases plus the
+compiled binary's synthetic initialization refusal qualify on GCE, with source
+pins, private preservation and own-unit/cgroup cleanup. Full shim/terminal race
+and required checks pass. Earlier library setup errors, full-stderr budget
+safety, actual child fault/recovery and complete G7/G8 remain open.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
