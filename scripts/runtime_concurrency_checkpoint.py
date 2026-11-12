@@ -3,6 +3,7 @@ import hashlib,re
 from runtime_diagnostic_bundle_checkpoint import decode,equal,read_fixture_artifact
 from runtime_primary_docker import unchanged,fingerprint
 from runtime_docker_concurrency import owner_for_container
+from runtime_trial_output import ATTACH_LIMIT, require_logging
 
 BOOT=r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}'
 HEX=r'[a-f0-9]{64}'
@@ -25,7 +26,7 @@ def valid_owner(owner):
 
 
 def matrix(stdout,stderr,image,authority=False):
-    if len(stdout)>131072 or len(stderr)>131072:raise ValueError('concurrent build stream exceeds bound')
+    if len(stdout)>=ATTACH_LIMIT or len(stderr)>=ATTACH_LIMIT:raise ValueError('concurrent build stream exceeds bound')
     for marker in ['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_IMAGE_SAVE_EXIT=0','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS']:
         if stdout.splitlines().count(marker.encode())!=1:raise ValueError('concurrent build matrix incomplete')
     if re.findall(rb'^G8_BUILD_IMAGE_ID=(sha256:[a-f0-9]{64})$',stdout,re.M)!=[image.encode()] or b'CACHED' not in stderr or b'exit code: 37' not in stderr:
@@ -90,6 +91,7 @@ def inspect_fixture_concurrency(work,boot,invocation):
         item=decode(read(private,'owner-map-'+case+'.stdout'),1<<20)
         if type(item) is not list or len(item)!=1:raise ValueError('outer container identity is ambiguous')
         item=item[0];equal(r['case_owners'][case],owner_for_container(item['Id'],owners))
+        require_logging(item['HostConfig'].get('LogConfig'))
         if type(item['Mounts']) is not list or any(type(v.get('RW')) is not bool for v in item['Mounts']):raise ValueError('concurrent mount authority is not canonical')
         if item['Config']['User']!='1000:1000' or item['HostConfig']['Runtime']!='io.containerd.multikernel.v2' or item['HostConfig']['Privileged'] is not False or item['HostConfig']['CapDrop']!=['ALL'] or 'no-new-privileges=true' not in item['HostConfig']['SecurityOpt'] or [{'destination':v['Destination'],'read_only':not v['RW']} for v in item['Mounts']]!=[dict(destination='/work/input',read_only=True)]:raise ValueError('outer concurrent authority differs')
     equal(r['remaining_owner'],r['case_owners']['a'])

@@ -79,6 +79,17 @@ def empty_cgroup(directory):
         os.close(descriptor)
 
 
+def qualify_trial_logging(read, private, item):
+    """Requalify recorded policy, independently of the harness's pass flags."""
+    from runtime_trial_output import logging_config, require_logging
+    config = read(private, 'docker.json')
+    expected = logging_config()
+    if ({key: config.get(key) for key in expected} != expected or
+            read(private, 'docker-info.json').get('LoggingDriver') != expected['log-driver']):
+        raise ValueError('disposable daemon log policy differs')
+    require_logging(item['HostConfig'].get('LogConfig'))
+
+
 def audit(args):
     work = args.work
     scenario=getattr(args,'scenario','pressure');scenario_flag(scenario)
@@ -296,11 +307,14 @@ def audit(args):
         if raw(private, name+'-before.log') != raw(private, name+'-after.log') or raw(private, name+'-before.log') != sp.check_output(command, timeout=10):
             raise ValueError('primary network changed')
     stdout, stderr = raw(private, 'workload.stdout', 131072), raw(private, 'workload.stderr', 131072)
+    if len(stdout) >= 131072 or len(stderr) >= 131072:
+        raise ValueError('attached workload reached its acceptance limit')
     if scenario=='pressure':recovered_observation(stdout.decode(), stderr.decode())
     markers = ['G8_MULTISTAGE_BUILD_PASS', 'G8_REPEAT_BUILD_PASS', 'G8_BUILT_IMAGE_RUN_PASS', 'G8_FAILED_BUILD_REJECTED', 'G8_BUILD_RESOURCES_REMOVED', 'G8_BUILD_WORKLOAD_PASS']
     if any(stdout.splitlines().count(m.encode()) != 1 for m in markers) or b'CACHED' not in stderr or b'exit code: 37' not in stderr:
         raise ValueError('build matrix is unqualified')
     item = read(private, 'inspect.json')[0]
+    qualify_trial_logging(read, private, item)
     if (item['State']['Status'] != 'exited' or item['State']['ExitCode'] != 0 or item['Config']['User'] != '1000:1000' or
             item['HostConfig']['Runtime'] != 'io.containerd.multikernel.v2' or item['HostConfig']['Privileged'] or item['HostConfig']['CapDrop'] != ['ALL']):
         raise ValueError('outer workload authority differs')

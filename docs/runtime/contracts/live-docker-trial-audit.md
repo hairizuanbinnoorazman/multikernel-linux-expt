@@ -56,6 +56,14 @@ JSON output contains only fixed outcome flags, caller-pinned identities and the
 maximum diagnostic sequence duration. Raw receipts, state, logs, guest streams,
 backing paths, inventories and internal fingerprints stay on the host.
 Successful audit explicitly leaves cold restoration and full G7/G8 unqualified.
+The audit independently rechecks the retained private `docker.json` logging
+defaults, `docker-info.json` driver and final container `LogConfig` against the
+[trial output policy](trial-output.md). Concurrent checkpoints also recheck
+both containers' log configurations. Missing or altered policy refuses even
+when workload markers and receipt hashes otherwise match. Attached streams
+at the 131072-byte cap refuse in both ordinary and concurrent acceptance.
+These archived observations do not establish actual rotation behavior or
+cryptographically attest an honest Docker daemon.
 Select `runtime-restart` or `runtime-crash` explicitly for a recovery trial;
 these bind the corresponding exact signal/status, actual recovery inputs and
 parent-normalized view rather than claiming pressure/health hold evidence.

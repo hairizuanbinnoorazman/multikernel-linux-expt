@@ -4,6 +4,8 @@ from pathlib import Path
 from runtime_concurrency_checkpoint import inspect_fixture_concurrency
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import fingerprint
+from runtime_trial_output import logging_config
+from runtime_concurrency_checkpoint import matrix
 BOOT='509d5e93-31b8-4e8f-925a-4caa9fcf4788';INV='9'*32
 raw=lambda v:json.dumps(v).encode()
 sha=lambda b:hashlib.sha256(b).hexdigest()
@@ -52,6 +54,9 @@ class ConcurrentCheckpointTests(unittest.TestCase):
         write(p,'survivor-ownership.stdout',dict(sandboxes=[r['remaining_owner']]))
         for case in ['a','b']:
             item=dict(Id=case*64,Config=dict(User='1000:1000'),HostConfig=dict(Runtime='io.containerd.multikernel.v2',Privileged=False,CapDrop=['ALL'],SecurityOpt=['no-new-privileges=true']),Mounts=[dict(Destination='/work/input',RW=False)])
+            item['HostConfig']['LogConfig']=dict(Type='local',Config=logging_config()['log-opts'])
+            if mode=='unbounded-logs' and case=='b':item['HostConfig']['LogConfig']=dict(Type='json-file',Config={})
+            if mode=='missing-log-policy' and case=='a':del item['HostConfig']['LogConfig']
             if mode=='outer-authority' and case=='b':item['HostConfig']['Privileged']=True
             if mode=='mount-numeric-mask' and case=='b':item['Mounts'][0]['RW']=0
             write(p,'owner-map-'+case+'.stdout',[item])
@@ -97,10 +102,21 @@ class ConcurrentCheckpointTests(unittest.TestCase):
             self.assertIs(view['two_child_engines_and_storage_separate'],True);self.assertIs(view['survivor_rebuild_and_original_archive_preservation'],True);self.assertIs(view['cleanup_qualified'],False)
 
     def test_recomputed_receipts_cannot_mask_shared_identity_overlap_drift_or_primary_leak(self):
-        for mode in ['shared-engine','shared-canary','cpu-overlap','cpu-float','backing-overlap','storage-owner','released-owner','released-generation','survivor-drift','original-archive','remaining-owner','wrong-epoch','legacy','cleanup-mask','outer-authority','owner-version-float','mount-numeric-mask','foreign-accepted','missing-build','primary-image','finished-overlap','unbound-overlap','overlap-clock','overlap-budget','wrong-scenario']:
+        for mode in ['unbounded-logs','missing-log-policy','shared-engine','shared-canary','cpu-overlap','cpu-float','backing-overlap','storage-owner','released-owner','released-generation','survivor-drift','original-archive','remaining-owner','wrong-epoch','legacy','cleanup-mask','outer-authority','owner-version-float','mount-numeric-mask','foreign-accepted','missing-build','primary-image','finished-overlap','unbound-overlap','overlap-clock','overlap-budget','wrong-scenario']:
             with tempfile.TemporaryDirectory() as d:
                 work=Path(d);self.fixture(work,mode)
                 with self.subTest(mode=mode),self.assertRaises(ValueError):inspect_fixture_concurrency(work,BOOT,INV)
+
+    def test_exact_stream_limit_refuses_even_with_valid_matrix(self):
+        image='sha256:'+'a'*64
+        markers=['G8_MULTISTAGE_BUILD_PASS','G8_REPEAT_BUILD_PASS','G8_BUILT_IMAGE_RUN_PASS','G8_FAILED_BUILD_REJECTED','G8_IMAGE_SAVE_EXIT=0','G8_BUILD_RESOURCES_REMOVED','G8_BUILD_WORKLOAD_PASS','G8_BUILD_IMAGE_ID='+image]
+        stdout=('\n'.join(markers)+'\n').encode();stderr=b'CACHED\nexit code: 37\n'
+        matrix(stdout,stderr,image)
+        for fd in [0,1]:
+            streams=[stdout,stderr]
+            streams[fd]+=b'x'*(131071-len(streams[fd]));matrix(*streams,image)
+            streams[fd]+=b'x'
+            with self.subTest(fd=fd),self.assertRaisesRegex(ValueError,'^concurrent build stream exceeds bound$'):matrix(*streams,image)
 
     def test_caller_epoch_and_ambiguous_or_unbounded_private_artifacts_refuse(self):
         with tempfile.TemporaryDirectory() as d:
