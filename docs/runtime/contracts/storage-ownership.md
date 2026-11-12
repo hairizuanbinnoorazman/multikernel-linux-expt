@@ -71,6 +71,15 @@ compressed snapshot, bounded by the existing 128-MiB packet cap. The held-file
 identity is still checked afterward; mutation cannot substitute new metadata
 between the two parser passes and is refused without staging or extraction.
 
+The [metadata and fresh full-packet proof](../../../evidence/runtime-20261112/g8-staging-metadata/README.md)
+reproduces thirteen accepted metadata cases plus two early library-processing
+failures on prior source, and qualifies nine controls on GCE. The complete
+eight-binary packet is rebuilt from `06090296`, with all five compiled revision
+labels checked. Its actual current-boot staging observation refuses 6,899,658,752
+free bytes against 8,929,107,968 required. Primary/retention/resource parity and
+own-unit/cgroup cleanup pass. This qualifies metadata admission and a capacity
+refusal, not full packet staging or the actual aggregate child lifecycle.
+
 [Actual GCE proof](../../../evidence/runtime-20261027/g8-trial-capacity-admission/README.md)
 qualifies refusal before transport or Docker mutation at the current shortage.
 This is an early-refusal subcase, not a live build, storage recovery, normal

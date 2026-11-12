@@ -87,6 +87,15 @@ GCE, including real fixture HTTP and existing cancellation/deadline controls,
 with primary/retention parity and own-unit/cgroup/short-scratch cleanup. Engine/
 agent race and required checks pass. Actual Docker API compatibility, honest
 engine attestation and full G7/G8 remain unqualified by this parser check.
+The [raw metadata and refreshed full-packet proof](../../../evidence/runtime-20261112/g8-staging-metadata/README.md)
+now bounds archive extensions before library processing and binds both passes to
+one pin-verified snapshot. Thirteen prior acceptances and two early-parser cases
+reproduce; nine native controls and required checks pass. The complete packet
+is rebuilt from `06090296` and its five compiled source labels verified. GCE
+independently preserves primary/retained state and cleans the own unit/cgroup,
+while refusing the actual new plan: 6,899,658,752 free bytes versus 8,929,107,968
+required. The full packet stays local; no floor is reduced or disk resized.
+Actual aggregate child execution and full G7/G8 remain open.
 The [committed packet/capacity preflight](../../../evidence/runtime-20261109/g8-code-staging-capacity-e0980a84/README.md)
 then builds the full new packet and verifies all code/modes/pins. Its conservative
 budget retains the previous eight-GiB floor after staging, without changing the
