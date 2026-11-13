@@ -30,6 +30,15 @@ class GeometryTests(unittest.TestCase):
         for phase,device,fs in [('filesystem-grown',NEW,OLD),('filesystem-grown',OLD,NEW),('before',NEW,OLD),('disk-grown',NEW,NEW),('disk-grown',OLD,OLD)]:
             with self.subTest(phase=phase,device=device,fs=fs),self.assertRaisesRegex(ValueError,'^filesystem and device growth phase differ$'):qualify(superblock(fs),phase,device)
 
+    def test_approved_two_hundred_gib_target_preserves_phase_and_reserve_checks(self):
+        target=200<<30
+        for phase,device,fs in [('before',OLD,OLD),('disk-grown',target,OLD),('filesystem-grown',target,target)]:
+            result=qualify(superblock(fs),phase,device,OLD,target)
+            self.assertEqual(result['filesystem_bytes'],fs)
+            self.assertTrue(result['five_percent_reserve_verified'])
+        with self.assertRaises(ValueError):
+            qualify(superblock(target,reserved=OLD//4096//20),'filesystem-grown',target,OLD,target)
+
     def test_high_block_and_reserve_words_are_used_only_with_64bit_feature(self):
         old=320<<40;new=384<<40;data=superblock(old)
         result=qualify(data,'before',old,old,new);self.assertEqual(result['filesystem_bytes'],old);self.assertGreater(result['reserved_blocks'],0xffffffff)
