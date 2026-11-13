@@ -33,7 +33,7 @@ from runtime_io_recovery_checkpoint import sync_sequence
 from runtime_trial_output import attach_command, read_output, logging_config, logging_arguments, require_logging
 from runtime_trial_command import capture as capture_owned_command
 from runtime_bounded_command import bounded_command
-assert 3<=len(sys.argv)<=6, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [--restart-runtime|--crash-runtime|--crash-during-build|--crash-during-io|--concurrent|--storage-pressure|--storage-record-loss|--storage-record-fifo|--storage-export-crash] [--harden-services]'
+assert 3<=len(sys.argv)<=7, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [SCENARIO] [--harden-services] [--engine-observation] [--aggregate-docker-health]'
 flags=sys.argv[3:]
 assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health'}
 assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
