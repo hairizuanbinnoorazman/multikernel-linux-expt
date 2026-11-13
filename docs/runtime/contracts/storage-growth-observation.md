@@ -31,8 +31,8 @@ reducing reserves or modifying a historical baseline.
 
 The previous approved 30-to-50 GiB grow required a separate reserve correction;
 its [retained proof](../../../evidence/runtime-20261027/g8-data-disk-expansion/README.md)
-shows why the ratio must be checked after growth. The proposed 50-to-58 GiB
-maintenance still needs its separate approval. Native preparation must preserve
+shows why the ratio must be checked after growth. The historical 50-to-58 GiB
+proposal was superseded by the user-approved 200-GiB expansion below. Native preparation must preserve
 existing primary state and failed-image metadata without reading image contents.
 The observer exports fixed flags and numeric geometry only; UUID/serial/label
 and device paths stay private. CLI refusal is fixed and omits exception text.
@@ -60,7 +60,7 @@ deployment is verified again after preparation. No disk or service operation
 is invoked. CLI output contains fixed flags and old/new byte counts; deployment
 IDs, file inventory and environment values remain private.
 
-Six controls compare the prediction with a real update in a disposable copied
+Binding controls compare the prediction with a real update in a disposable copied
 root, require unchanged source-root content and metadata, and exercise stale
 size, shrink, alignment, writable assets, candidate collisions, manager pinning
 and private CLI refusals. This is a point-in-time plan, not an activation or a
@@ -71,5 +71,10 @@ The [native installed-binding proof](../../../evidence/runtime-20261112/g8-stora
 now verifies this plan on the actual GCE deployment. Independent verification
 recomputes the private plan identically and checks unchanged installed graph
 metadata, prior proofs/refusal metadata, primary state and before-phase geometry.
-This qualifies preparation only; the proposed increase and actual activation
-remain unperformed.
+That checkpoint qualifies preparation only. The subsequent
+[approved 200-GiB maintenance](../../../evidence/runtime-20261113/g8-data-disk-200g/README.md)
+now proves actual disk/filesystem growth, reserve restoration, exact clone
+selection, running-daemon binding and preservation. Seven geometry controls
+include the explicit 200-GiB transition and old-reserve refusal. Full-packet
+staging admission passes. Old size/service-epoch snapshots remain historical;
+future preflights must use the fresh private maintenance baseline.
