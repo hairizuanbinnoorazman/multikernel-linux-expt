@@ -35,8 +35,8 @@ from runtime_trial_command import capture as capture_owned_command
 from runtime_bounded_command import bounded_command
 assert 3<=len(sys.argv)<=7, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [SCENARIO] [--harden-services] [--engine-observation] [--aggregate-docker-health]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health'}
-assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--concurrent','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--child-log-pressure','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health'}
+assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--concurrent','--child-log-pressure','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
 native_export_crash='--storage-export-crash' in flags
 export_crash_observed=False
 native_record_fifo='--storage-record-fifo' in flags
@@ -48,6 +48,7 @@ crash_runtime='--crash-runtime' in flags or crash_during_build
 restart_runtime='--restart-runtime' in flags or crash_runtime
 harden_services='--harden-services' in flags
 concurrent='--concurrent' in flags
+child_log_pressure='--child-log-pressure' in flags
 engine_observation='--engine-observation' in flags
 aggregate_docker_health='--aggregate-docker-health' in flags
 assert not aggregate_docker_health or engine_observation, 'aggregate Docker health requires the approved-agent engine observation trial'
@@ -127,7 +128,7 @@ for a,b,mode in [('/bin/busybox','busybox',0o555),(source/'guest/runtime-docker-
  shutil.copyfile(a,private/'input'/b);(private/'input'/b).chmod(mode)
 profile=json.loads(pathlib.Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json').read_text())
 approval=private/'manifests/gce-mk2.json'
-if engine_observation or concurrent:
+if engine_observation or concurrent or child_log_pressure:
  from runtime_trial_agent_profile import prepare as prepare_current_agent_profile
  profile=prepare_current_agent_profile(work,pathlib.Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json'),approval)
 else:
@@ -209,6 +210,9 @@ try:
   # Docker exec is scoped to the lifetime of init. Exercise that boundary in
   # a separate reliability case rather than requiring the release exec to win.
   workload=['/bin/sh','-ec','release=0; trap "release=1" USR1; mkdir -m 700 /home/rootless/.local/tmp/g8-concurrency; echo G8_CONCURRENT_BOOT_READY; while [ ! -f /home/rootless/.local/tmp/g8-concurrency/build ]; do sleep 1; done; set +e; /bin/sh /work/input/probe.sh --overlap-proof; probe_status=$?; set -e; echo G8_CONCURRENT_PROBE_EXIT=$probe_status; if [ "$probe_status" -eq 0 ]; then echo G8_CONCURRENT_BUILD_READY; else echo G8_CONCURRENT_BUILD_FAILED; fi; ' + RELEASE_WAIT + '; echo G8_CONCURRENT_RELEASED; exit "$probe_status"']
+ if child_log_pressure:
+  from runtime_child_log_pressure import WORKLOAD
+  workload=list(WORKLOAD)
  created=run(cli+['create',*logging_arguments(),'--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture']+workload,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  container_created=True
  (private/'create.stdout').write_bytes(created.stdout);(private/'create.stderr').write_bytes(created.stderr)
@@ -227,6 +231,9 @@ try:
  if concurrent:
   observed=qualify_concurrency(cli,private,children,created.args,[work/'bin/mkruntimed','--config='+str(host_config),'--inspect-ownership'],profile['kernel_release'],boot,os.environ['INVOCATION_ID'])
   shutil.copyfile(private/'a-workload.stdout',private/'workload.stdout');shutil.copyfile(private/'a-workload.stderr',private/'workload.stderr')
+ elif child_log_pressure:
+  from runtime_child_log_pressure import qualify as qualify_child_log_pressure
+  observed=qualify_child_log_pressure(cli,private,boot,os.environ['INVOCATION_ID'])
  else:
   with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:
    if restart_runtime:
@@ -715,6 +722,8 @@ if aggregate_docker_health:
   r['aggregate_docker_health_'+family+'_sha256']={phase:sha(artifact_paths(work,phase)[family]) for phase in aggregate_phases}
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
+r['child_log_pressure_tested']=child_log_pressure
+if child_log_pressure:r['child_log_pressure_sha256']=sha(private/'child-log-pressure.json')
 r['concurrent_guest_builds_tested']=concurrent
 if concurrent:
  r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')

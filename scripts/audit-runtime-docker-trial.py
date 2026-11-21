@@ -172,6 +172,7 @@ def audit(args):
         raise ValueError('trial scenario differs from caller authority')
     if receipt.get('concurrent_guest_builds_tested') is not (scenario=='concurrent'):
         raise ValueError('concurrent scenario differs from caller authority')
+    if receipt.get('child_log_pressure_tested',False) is not (scenario=='logging'):raise ValueError('logging scenario differs from caller authority')
     if receipt['execution_script_sha256'] != digest(work/'source/scripts/test-runtime-docker-profile-live.py'):
         raise ValueError('execution source differs from receipt')
     if receipt['source_image_archive_sha256'] != digest(private/'approved-image.tar', 1 << 30):
@@ -270,6 +271,12 @@ def audit(args):
         parent=read(Path('/opt/mkruntime/g8-vsock-rx-b688447')/('trial-'+work.name),'primary-module-trial.json')
         if (parent.get('scenario')!='concurrent' or parent.get('concurrency_checkpoint')!=concurrent or parent['boot_id']!=boot or parent['parent_scope']['InvocationID']!=args.parent_invocation or parent['pressure_invocation']!=args.workload_invocation or parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or parent.get('cold_restore_required') is not True):
             raise ValueError('parent concurrency checkpoint differs from exact lifecycle')
+    elif scenario=='logging':
+        from runtime_child_log_checkpoint import inspect_fixture_logging
+        logging=inspect_fixture_logging(work,boot,args.workload_invocation)
+        parent=read(Path('/opt/mkruntime/g8-vsock-rx-b688447')/('trial-'+work.name),'primary-module-trial.json')
+        if (parent.get('scenario')!='logging' or parent.get('child_log_pressure_checkpoint')!=logging or parent['boot_id']!=boot or parent['parent_scope']['InvocationID']!=args.parent_invocation or parent['pressure_invocation']!=args.workload_invocation or parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or parent.get('cold_restore_required') is not True):
+            raise ValueError('parent logging checkpoint differs from exact lifecycle')
     else:
         from runtime_recovery_checkpoint import inspect_fixture_recovery
         recovery=inspect_fixture_recovery(work,boot,args.workload_invocation,scenario)
@@ -363,6 +370,7 @@ def audit(args):
                 runtime_inflight_crash_build_continuity_qualified=scenario=='runtime-crash-during-build',
                 runtime_synced_io_crash_continuity_qualified=scenario=='runtime-crash-during-io',
                 concurrent_child_build_separation_and_survivor_rebuild_qualified=scenario=='concurrent',
+                child_build_and_log_rotation_qualified=scenario=='logging',
                 diagnostic_three_hold_receipts_requalified=scenario=='pressure', primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,
@@ -374,7 +382,7 @@ def main():
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--require-engine-observation',action='store_true')
     parser.add_argument('--require-aggregate-docker-health',action='store_true')
-    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io','concurrent'],default='pressure')
+    parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io','concurrent','logging'],default='pressure')
     for name in ['boot-id', 'parent-invocation', 'workload-invocation', 'source-commit', 'build-sha256']:
         parser.add_argument('--'+name, required=True)
     args = parser.parse_args()

@@ -36,7 +36,7 @@ class ProfileArguments(unittest.TestCase):
 
     def test_duplicate_unknown_and_conflicting_scenarios_still_refuse(self):
         for flags in [['--storage-pressure','--storage-pressure'],['--unknown'],
-                      ['--concurrent','--crash-runtime'],['--storage-pressure','--crash-during-io']]:
+                      ['--concurrent','--crash-runtime'],['--child-log-pressure','--concurrent'],['--child-log-pressure','--engine-observation'],['--storage-pressure','--crash-during-io']]:
             with self.subTest(flags=flags),self.assertRaises(AssertionError):parse(flags)
 
     def test_existing_ordinary_and_engine_scenarios_still_accept(self):
@@ -47,7 +47,7 @@ class ProfileArguments(unittest.TestCase):
         tree=ast.parse(SOURCE.read_text())
         branch=next(node for node in tree.body if isinstance(node,ast.If) and any(isinstance(child,ast.ImportFrom) and child.module=='runtime_trial_agent_profile' for child in node.body))
         condition=compile(ast.Expression(branch.test),str(SOURCE),'eval')
-        for flags,expected in [(['--concurrent','--harden-services'],True),(['--storage-pressure','--engine-observation'],True),(['--storage-pressure'],False)]:
+        for flags,expected in [(['--concurrent','--harden-services'],True),(['--child-log-pressure','--harden-services'],True),(['--storage-pressure','--engine-observation'],True),(['--storage-pressure'],False)]:
             with self.subTest(flags=flags):self.assertIs(eval(condition,parse(flags)),expected)
 
 

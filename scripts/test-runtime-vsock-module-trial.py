@@ -151,6 +151,9 @@ try:
         elif SCENARIO=='concurrent':
             concurrent=inspect_fixture_concurrency(WORK,BOOT,invocation)
             record('concurrent-guest-checkpoint-qualified',concurrency_checkpoint=concurrent)
+        elif SCENARIO=='logging':
+            from runtime_child_log_checkpoint import inspect_fixture_logging
+            record('child-log-pressure-checkpoint-qualified',child_log_pressure_checkpoint=inspect_fixture_logging(WORK,BOOT,invocation))
         else:
             recovery=inspect_fixture_recovery(WORK,BOOT,invocation,SCENARIO)
             record('runtime-recovery-checkpoint-qualified',runtime_recovery_checkpoint=recovery)
