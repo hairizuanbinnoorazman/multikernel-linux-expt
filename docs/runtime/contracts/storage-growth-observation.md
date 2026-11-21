@@ -14,6 +14,14 @@ including high counts only with the 64-bit feature. It checks geometry/identity
 and the five-percent reserved-block policy with less than one block of rounding.
 It is not a checksum verifier, fsck, repair or hostile-filesystem attestation.
 
+The observer also samples statvfs through a held directory on the same mounted
+device. Free space minus unprivileged available space must cover the on-disk
+reserve. It refuses when free space is too low to distinguish that reserve.
+Other kernel reservations may reduce availability further: this is a lower-bound
+check that detects an exposed stale reserve, not an exact kernel counter view.
+An immediately correct superblock after mounted `tune2fs` is insufficient proof
+of the mounted policy or persistence across reboot.
+
 The caller pins old/new byte sizes and chooses exactly one phase:
 
 | Phase | Raw device | Filesystem |
@@ -76,5 +84,12 @@ That checkpoint qualifies preparation only. The subsequent
 now proves actual disk/filesystem growth, reserve restoration, exact clone
 selection, running-daemon binding and preservation. Seven geometry controls
 include the explicit 200-GiB transition and old-reserve refusal. Full-packet
-staging admission passes. Old size/service-epoch snapshots remain historical;
-future preflights must use the fresh private maintenance baseline.
+staging admission passes. Its initial mounted reserve adjustment subsequently
+reverted to the exact post-grow count after reboot. The
+[durable correction and cold-restoration proof](../../../evidence/runtime-20261121/g8-reserve-restoration/README.md)
+retains that refusal, corrects the reserve while the block device is verified
+unused, then checks remounted availability and a separate fresh boot. The disk
+and filesystem remain 200 GiB, with exactly 2,621,440 reserved 4096-byte blocks.
+Nine geometry controls and required checks pass. Old size/service-epoch
+snapshots remain historical. Future preflights must use the new verified
+baseline in that proof, including its mounted-reserve check.

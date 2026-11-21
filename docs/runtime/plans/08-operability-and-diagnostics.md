@@ -2,6 +2,22 @@
 
 ## Aggregate Docker-mode observations (2026-11-08)
 
+Current qualification (2026-11-21): the
+[complete real-child pressure trial](../../../evidence/runtime-20261113/g8-aggregate-arguments/README.md)
+from `3a83a1ed` and its
+[independent cold restoration](../../../evidence/runtime-20261121/g8-reserve-restoration/README.md)
+pass. The actual host-selected child builds complete the matrix, engine holds,
+v8/v9 and v2/v3 report sequences, native release and primary/resource checks.
+All aggregate holds preserve the original shared five-second budget; the
+maximum sequence is 896,757,767 ns. Five identity refusals pass. Cold verification
+preserves current and historical artifacts/absences, requalifies archived frames
+only in their original boot, rejects old unit completion on the new boot, and
+establishes original idle transport plus a fresh 200-GiB primary baseline with a
+durable five-percent reserve. This supersedes the preparation-only status below
+for the ordinary aggregate pressure lifecycle. Other fault/concurrency mixtures,
+broader readiness, production log coverage and full G7/G8 remain open. No nested
+virtualization or hostile child-kernel containment is introduced.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete

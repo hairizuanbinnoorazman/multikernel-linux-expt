@@ -126,5 +126,14 @@ checked again. Raw targets, outputs and artifact hashes remain private.
 The local checkpoint tests include recomputed-hash semantic attacks, real
 subprocess capture/timeout/stderr refusal, and propagation of independent engine
 qualification failure. Their archived fixture isolates that separately tested
-engine validator; it is not a real-child pass. Actual aggregate pressure-trial
-execution and its independent audit/cold-restoration evidence are still required.
+engine validator; it is not a real-child pass. The subsequent
+[complete actual pressure trial](../../../evidence/runtime-20261113/g8-aggregate-arguments/README.md)
+now passes its independent aggregate/engine/build-lifecycle audit and five
+identity-refusal controls. All three v9/v3 holds cover the exact running-owner
+set within the unchanged shared five-second budget; the maximum observed
+sequence is 896,757,767 ns. Its
+[independent cold restoration](../../../evidence/runtime-20261121/g8-reserve-restoration/README.md)
+also qualifies, retaining reports in their original boot while rejecting old
+completion as authority on the new boot. This closes the ordinary pressure
+aggregate lifecycle and restoration checkpoints. Broader readiness, other fault
+mixtures, concurrency coverage and full G7/G8 remain separate.
