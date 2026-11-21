@@ -38,4 +38,10 @@ slow-reader fairness, durable delivery or all production logging paths. Detached
 output deliberately does not pass through an attached CLI; existing attached
 stream limits remain unchanged. Direct child kernels use no nested
 virtualization and share primary trust after arbitrary child-kernel compromise.
-Actual execution and complete G7/G8 qualification require live evidence.
+The [corrected real-child GCE proof](../../../evidence/runtime-20261121/g8-child-log-pressure-corrected/README.md)
+now qualifies source `75e5e188`: both exact units exit zero, the full child
+build matrix and current-agent approval requalify, and two rotated local files
+total 1,503,596 bytes within the original 2,131,072-byte sample bound. Primary
+state and native cleanup pass, including five altered-identity refusals. Its
+failed 30-second predecessor stays preserved and unqualified. Cold restoration
+remains separately pending. Loss/peak accounting and complete G7/G8 remain open.
