@@ -1,6 +1,6 @@
 # Current verified GCE lab state
 
-This is the latest verified checkpoint, not a replacement for live admission.
+Revalidate this checkpoint before live admission.
 Run the read-only observer from a checkout with authenticated `gcloud` access:
 
 ```sh
@@ -39,3 +39,9 @@ production log coverage, fault mixtures and full G7/G8 remain open. Direct child
 kernels use no nested virtualization and share primary trust after arbitrary
 child-kernel compromise. See the [lab runbook](gce-lab-runbook.md) for setup and
 the [runtime plans](../runtime/plans/README.md) for remaining requirements.
+
+The later [readiness-budget controls](../../evidence/runtime-20261122/g8-child-log-budget/README.md)
+qualify source `506c145c` on this same boot without loading a candidate or
+starting a child. The primary baseline is unchanged. That control proof keeps
+its native deadline scope; the actual child lifecycle above retains source
+`75e5e188`.

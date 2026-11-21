@@ -51,3 +51,14 @@ failed 30-second predecessor stays preserved and unqualified. Independent cold r
 earlier sets survive, archived success retains its original boot, old unit
 completion refuses the new boot, original resources return idle and fresh
 primary state plus the durable 200 GiB/5% reserve qualify. Loss/peak accounting and complete G7/G8 remain open.
+
+The [shared readiness-deadline proof](../../../evidence/runtime-20261122/g8-child-log-budget/README.md)
+reproduces actual source `75e5e188` accepting a controlled success at 301 seconds
+following a 300-second polling window. Source `506c145c` rejects the identical
+sequence and clips the final probe to the original deadline. Six source-pinned
+GCE control programs pass without skips, including real subprocess timeout and
+success capture, with primary/history/idle and scratch preservation. Required
+checks pass. This closes that command-budget acceptance boundary; it does not
+relabel the earlier successful child lifecycle as new-source execution. Existing
+owned-process cleanup and private artifact fsync retain their separate contracts
+and never grant readiness success or another probe.

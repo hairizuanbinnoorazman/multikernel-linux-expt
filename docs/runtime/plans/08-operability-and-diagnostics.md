@@ -54,6 +54,16 @@ plus the durable 200 GiB/5% reserve qualify. The
 [current lab state](../../guides/gce-lab-current-state.md) points to the latest
 baseline and observer. Loss/peak accounting and full G7/G8 remain open.
 
+The [shared child log-readiness deadline](../../../evidence/runtime-20261122/g8-child-log-budget/README.md)
+also fixes acceptance after the declared polling window. Actual prior source
+accepts a controlled 301-second success after a 300-second window; candidate
+`506c145c` rejects it, clips each probe and admits no new probe after expiration.
+The prior-loop reproduction and six exact staged-source GCE control programs
+pass without skips, including native capture timeout/success and current
+primary/history/idle/scratch preservation. Required checks pass. This closes the
+native caller-budget boundary; actual new-source child execution and full G7/G8
+remain separately scoped.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete
