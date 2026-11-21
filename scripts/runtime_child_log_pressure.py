@@ -11,6 +11,11 @@ WRITER_BYTES=16 << 20
 # Ordinary execs keep their separate 30-second command deadline.
 START_BUDGET=180
 BUILD_ROOT='/home/rootless/.local/tmp/g8-log-pressure'
+WRITER_SCRIPT='''/bin/busybox dd if=/dev/zero bs=65536 count=256 2>"$p/writer-stderr"
+writer_status=$?; printf '%s\\n' "$writer_status" >"$p/writer-status"
+test "$writer_status" -eq 0 || exit "$writer_status"
+printf '16777216\\n' >"$p/writer-bytes"
+'''
 WORKLOAD=['/bin/sh','-c', '''umask 077
 release=0; trap 'release=1' USR1
 p=/home/rootless/.local/tmp/g8-log-pressure
@@ -18,8 +23,7 @@ mkdir -m 700 "$p" || exit 1
 /bin/sh /work/input/probe.sh >"$p/stdout" 2>"$p/stderr"
 status=$?; printf '%s\n' "$status" >"$p/status"
 test "$status" -eq 0 || exit "$status"
-/bin/busybox yes G8_CONTROLLED_CHILD_LOG_PRESSURE | /bin/busybox head -c 16777216
-test "$?" -eq 0 || exit 1
+'''+WRITER_SCRIPT+'''
 : >"$p/done"
 while [ "$release" -eq 0 ]; do sleep 1 || :; done
 exit 0
@@ -56,6 +60,9 @@ def qualify(cli,private,boot,invocation):
         cli+['exec','--user','1000:1000',name,'/bin/sh','-c','test -f '+BUILD_ROOT+'/done'],
         private,'log-ready-'+str(attempt),False,deadline),time.monotonic_ns()+300_000_000_000)
     assert execute(['/bin/cat',BUILD_ROOT+'/status'],'log-status').stdout==b'0\n'
+    assert execute(['/bin/cat',BUILD_ROOT+'/writer-status'],'log-writer-status').stdout==b'0\n'
+    assert execute(['/bin/cat',BUILD_ROOT+'/writer-bytes'],'log-writer-bytes').stdout==str(WRITER_BYTES).encode()+b'\n'
+    execute(['/bin/cat',BUILD_ROOT+'/writer-stderr'],'log-writer-diagnostic')
     stdout=execute(['/bin/cat',BUILD_ROOT+'/stdout'],'log-build-out').stdout
     stderr=execute(['/bin/cat',BUILD_ROOT+'/stderr'],'log-build-err').stdout
     images=re.findall(rb'^G8_BUILD_IMAGE_ID=(sha256:[a-f0-9]{64})$',stdout,re.M);assert len(images)==1
@@ -76,10 +83,10 @@ def qualify(cli,private,boot,invocation):
     rotation=qualify_rotation(item,private/'docker-data')
     # A separate metadata observation while the stopped container is retained.
     assert qualify_rotation(item,private/'docker-data')==rotation
-    result=dict(version=1,boot_id=boot,invocation_id=invocation,writer_bytes=WRITER_BYTES,
+    result=dict(version=2,boot_id=boot,invocation_id=invocation,writer_bytes=WRITER_BYTES,writer_exit_status=0,writer_completed_bytes=WRITER_BYTES,
                 detached_start=True,agent_profile_receipt_sha256=agent,build_image_id=image,
                 saved_image_sha256=saved.decode(),rotation=rotation,log_primary_sha256=digest(private/'log-primary.json'),
-                command_stdout_sha256={name:digest(private/(name+'.stdout')) for name in ['log-status','log-build-out','log-build-err','log-saved-image','log-engine','log-wait','log-inspect']},
+                command_stdout_sha256={name:digest(private/(name+'.stdout')) for name in ['log-status','log-writer-status','log-writer-bytes','log-writer-diagnostic','log-build-out','log-build-err','log-saved-image','log-engine','log-wait','log-inspect']},
                 workload_stdout_sha256=digest(private/'workload.stdout'),workload_stderr_sha256=digest(private/'workload.stderr'),
                 log_contents_read=False,loss_accounting_qualified=False,cleanup_qualified=False)
     (private/'child-log-pressure.json').write_text(json.dumps(result,sort_keys=True)+'\n')

@@ -8,9 +8,9 @@ from runtime_primary_docker import unchanged,fingerprint
 
 
 def view(boot,invocation):
-    return dict(version=1,scope='current-agent-child-build-and-local-log-rotation',boot_id=boot,invocation_id=invocation,
+    return dict(version=2,scope='current-agent-child-build-and-local-log-rotation',boot_id=boot,invocation_id=invocation,
                 current_agent_and_approved_bootstrap_bound=True,complete_child_build_matrix_requalified=True,
-                detached_writer_completed=True,local_log_rotation_observed=True,primary_engine_and_image_absence_observed=True,
+                detached_writer_completed=True,finite_writer_exit_and_exact_byte_count_bound=True,local_log_rotation_observed=True,primary_engine_and_image_absence_observed=True,
                 log_contents_read=False,loss_accounting_qualified=False,cleanup_qualified=False)
 
 
@@ -24,18 +24,19 @@ def inspect_fixture_logging(work,boot,invocation):
     for key in ['storage_pressure_tested','concurrent_guest_builds_tested','runtime_restart_tested','runtime_crash_tested','engine_observation_tested','aggregate_docker_health_tested']:
         if receipt.get(key) is not False:raise ValueError('logging lifecycle scope differs')
     data=read('child-log-pressure.json');r=decode(data,1<<20)
-    fields={'version','boot_id','invocation_id','writer_bytes','detached_start','agent_profile_receipt_sha256','build_image_id','saved_image_sha256','rotation','log_primary_sha256','command_stdout_sha256','workload_stdout_sha256','workload_stderr_sha256','log_contents_read','loss_accounting_qualified','cleanup_qualified'}
+    fields={'version','boot_id','invocation_id','writer_bytes','writer_exit_status','writer_completed_bytes','detached_start','agent_profile_receipt_sha256','build_image_id','saved_image_sha256','rotation','log_primary_sha256','command_stdout_sha256','workload_stdout_sha256','workload_stderr_sha256','log_contents_read','loss_accounting_qualified','cleanup_qualified'}
     if type(r) is not dict or set(r)!=fields or hashlib.sha256(data).hexdigest()!=receipt.get('child_log_pressure_sha256'):raise ValueError('logging envelope differs')
-    equal({key:r[key] for key in ['version','boot_id','invocation_id','writer_bytes','detached_start','log_contents_read','loss_accounting_qualified','cleanup_qualified']},dict(version=1,boot_id=boot,invocation_id=invocation,writer_bytes=WRITER_BYTES,detached_start=True,log_contents_read=False,loss_accounting_qualified=False,cleanup_qualified=False))
+    equal({key:r[key] for key in ['version','boot_id','invocation_id','writer_bytes','writer_exit_status','writer_completed_bytes','detached_start','log_contents_read','loss_accounting_qualified','cleanup_qualified']},dict(version=2,boot_id=boot,invocation_id=invocation,writer_bytes=WRITER_BYTES,writer_exit_status=0,writer_completed_bytes=WRITER_BYTES,detached_start=True,log_contents_read=False,loss_accounting_qualified=False,cleanup_qualified=False))
     inspect_current_agent(work,r['agent_profile_receipt_sha256'])
     if not re.fullmatch('sha256:[a-f0-9]{64}',r['build_image_id']) or not re.fullmatch('[a-f0-9]{64}',r['saved_image_sha256']):raise ValueError('logging build identity differs')
-    labels=['log-status','log-build-out','log-build-err','log-saved-image','log-engine','log-wait','log-inspect']
+    labels=['log-status','log-writer-status','log-writer-bytes','log-writer-diagnostic','log-build-out','log-build-err','log-saved-image','log-engine','log-wait','log-inspect']
     if type(r['command_stdout_sha256']) is not dict or set(r['command_stdout_sha256'])!=set(labels):raise ValueError('logging captures incomplete')
     for label in labels:
         if hashlib.sha256(read(label+'.stdout')).hexdigest()!=r['command_stdout_sha256'][label]:raise ValueError('logging command differs')
         equal(decode(read(label+'.exit.json'),65536),dict(returncode=0))
         read(label+'.stderr',True)
     if read('log-status.stdout')!=b'0\n' or read('log-wait.stdout')!=b'0\n':raise ValueError('logging workload completion differs')
+    if read('log-writer-status.stdout')!=b'0\n' or read('log-writer-bytes.stdout')!=str(WRITER_BYTES).encode()+b'\n':raise ValueError('finite logging writer completion differs')
     stdout,stderr=read('workload.stdout'),read('workload.stderr')
     if stdout!=read('log-build-out.stdout') or stderr!=read('log-build-err.stdout') or hashlib.sha256(stdout).hexdigest()!=r['workload_stdout_sha256'] or hashlib.sha256(stderr).hexdigest()!=r['workload_stderr_sha256']:raise ValueError('logging build streams differ')
     matrix(stdout,stderr,r['build_image_id'],True)

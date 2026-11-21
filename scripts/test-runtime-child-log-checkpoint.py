@@ -31,7 +31,10 @@ class ChildLogTests(unittest.TestCase):
         if mode=='writer-changed':item['Config']['Cmd']=['/bin/sh','-c','echo fake']
         if mode=='failed-exit':item['State']['ExitCode']=1
         if mode=='boolean-exit':item['State']['ExitCode']=False
-        captures={'log-status':b'0\n','log-build-out':stdout,'log-build-err':stderr,'log-saved-image':('c'*64+' /home/rootless/.local/tmp/g8-build/image.tar\n').encode(),'log-engine':(p/'before-a-engine.stdout').read_bytes(),'log-wait':b'0\n','log-inspect':json.dumps([item]).encode()}
+        captures={'log-writer-status':b'0\n','log-writer-bytes':str(WRITER_BYTES).encode()+b'\n','log-writer-diagnostic':b'256+0 records in\n256+0 records out\n','log-status':b'0\n','log-build-out':stdout,'log-build-err':stderr,'log-saved-image':('c'*64+' /home/rootless/.local/tmp/g8-build/image.tar\n').encode(),'log-engine':(p/'before-a-engine.stdout').read_bytes(),'log-wait':b'0\n','log-inspect':json.dumps([item]).encode()}
+        if mode=='writer-status-record':captures['log-writer-status']=b'1\n'
+        if mode=='writer-byte-record':captures['log-writer-bytes']=b'1\n'
+        if mode=='writer-byte-float-record':captures['log-writer-bytes']=b'16777216.0\n'
         if mode=='status':captures['log-status']=b'1\n'
         if mode=='wait':captures['log-wait']=b'1\n'
         if mode=='engine':captures['log-engine']=json.dumps(dict(ID='other',KernelVersion='test-kernel',ServerVersion='29.9.0',SecurityOptions=[])).encode()
@@ -41,12 +44,17 @@ class ChildLogTests(unittest.TestCase):
         primary=json.loads((p/'concurrency-primary-two-built-a.json').read_text())
         if mode=='image-leak':primary['child_image_absent']=False
         if mode=='wrong-image':primary['checked_absent_image']='sha256:'+'0'*64
-        r=dict(version=1,boot_id=BOOT,invocation_id=INV,writer_bytes=WRITER_BYTES,detached_start=True,
+        r=dict(version=2,boot_id=BOOT,invocation_id=INV,writer_bytes=WRITER_BYTES,writer_exit_status=0,writer_completed_bytes=WRITER_BYTES,detached_start=True,
                agent_profile_receipt_sha256=sha((p/'current-agent-profile-receipt.json').read_bytes()),build_image_id=image,saved_image_sha256='c'*64,
                rotation=dict(rotated_file_count=2,observed_bytes=1_004_116,conservative_sample_bound=2_131_072,log_contents_read=False),
                log_primary_sha256=write('log-primary.json',primary),command_stdout_sha256=commands,
                workload_stdout_sha256=write('workload.stdout',stdout),workload_stderr_sha256=write('workload.stderr',stderr),
                log_contents_read=False,loss_accounting_qualified=False,cleanup_qualified=False)
+        if mode=='legacy-writer':r['version']=1
+        if mode=='writer-failed':r['writer_exit_status']=1
+        if mode=='writer-boolean-status':r['writer_exit_status']=False
+        if mode=='writer-short':r['writer_completed_bytes']=1
+        if mode=='writer-float-count':r['writer_completed_bytes']=float(WRITER_BYTES)
         if mode=='small-writer':r['writer_bytes']=1024
         if mode=='attached':r['detached_start']=False
         if mode=='oversize':r['rotation']['observed_bytes']=2_131_073
@@ -77,7 +85,7 @@ class ChildLogTests(unittest.TestCase):
             work=Path(raw);self.make(work);self.assertEqual(self.inspect(work),view(BOOT,INV))
 
     def test_recomputed_receipts_refuse_incomplete_builds_scope_policy_and_rotation(self):
-        for mode in ['matrix','unbounded-policy','wrong-runtime','privileged','writer-changed','failed-exit','boolean-exit','status','wait','engine','command-exit','image-leak','wrong-image','small-writer','attached','oversize','no-rotation','tiny','extra-rotation-field','float-count','contents-read','loss-claim','cleanup-claim','stale-agent','wrong-boot','missing-command','archive','missing-claim','mixed-scope']:
+        for mode in ['legacy-writer','writer-failed','writer-boolean-status','writer-short','writer-float-count','writer-status-record','writer-byte-record','writer-byte-float-record','matrix','unbounded-policy','wrong-runtime','privileged','writer-changed','failed-exit','boolean-exit','status','wait','engine','command-exit','image-leak','wrong-image','small-writer','attached','oversize','no-rotation','tiny','extra-rotation-field','float-count','contents-read','loss-claim','cleanup-claim','stale-agent','wrong-boot','missing-command','archive','missing-claim','mixed-scope']:
             with self.subTest(mode=mode),tempfile.TemporaryDirectory() as raw:
                 work=Path(raw);self.make(work,mode)
                 with self.assertRaises(ValueError):self.inspect(work)

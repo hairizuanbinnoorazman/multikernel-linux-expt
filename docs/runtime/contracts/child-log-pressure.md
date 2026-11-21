@@ -62,3 +62,21 @@ checks pass. This closes that command-budget acceptance boundary; it does not
 relabel the earlier successful child lifecycle as new-source execution. Existing
 owned-process cleanup and private artifact fsync retain their separate contracts
 and never grant readiness success or another probe.
+
+## Finite writer completion
+
+Current checkpoint/view version 2 uses a finite BusyBox `dd` writer reading
+`/dev/zero` with 256 blocks of 65,536 bytes. Its exit status must be zero before
+the private exact-byte record and done marker are published. The host captures
+writer status, byte record and diagnostics separately; the checkpoint binds
+those original command results to the exact fixed container command. Short
+producer failure, closed output, nonzero status, wrong/float byte records and
+legacy envelopes refuse even after receipt hashes are recomputed. This binds
+completion of the configured 16 MiB producer; delivered/dropped logging bytes,
+peak resource use and full G7/G8 remain separate requirements.
+
+Earlier version-1 proofs retain their configured-writer and observed-rotation
+scope. Their `yes | head` pipeline can return success on short producer EOF;
+version 2 does not reclassify those archived observations as finite-writer proof.
+Actual new-source child execution requires its own source/epoch audit and cold
+restoration. No nested virtualization or hostile-kernel boundary is added.
