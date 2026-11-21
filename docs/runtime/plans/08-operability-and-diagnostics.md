@@ -33,6 +33,19 @@ transport/resources return idle, primary files/persistent Docker are preserved,
 and a fresh primary baseline plus durable 200 GiB/5% reserve are verified.
 This closes that current-agent lifecycle subcase; complete G7/G8 remain open.
 
+The [detached child log-pressure controls](../../../evidence/runtime-20261121/g8-child-log-pressure/README.md)
+now add a current-agent actual-child scenario and independent strict checkpoint.
+Five source-pinned GCE programs pass without skips, including 29 recomputed
+receipt attacks. The first live attempt refuses its too-short detached-start
+command deadline before publishing build/rotation success. Its failed epochs,
+94 control artifacts/17 absences plus seven private diagnostics survive cold
+restoration; primary/history and original idle resources qualify. Correction
+`75e5e188` gives only cold start the existing 180-second concurrent-start window;
+ordinary commands remain at 30 seconds and the outer trial at 1200 seconds.
+Its [complete corrected packet](../../../evidence/runtime-20261121/g8-child-log-pressure-corrected/README.md)
+and required checks pass. Corrected live child logging execution remains pending;
+full G7/G8 remain open.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete
