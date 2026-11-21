@@ -18,6 +18,17 @@ for the ordinary aggregate pressure lifecycle. Other fault/concurrency mixtures,
 broader readiness, production log coverage and full G7/G8 remain open. No nested
 virtualization or hostile child-kernel containment is introduced.
 
+The [current-agent concurrent-child proof](../../../evidence/runtime-20261121/g8-current-agent-concurrency/README.md)
+additionally qualifies source `91d7a7e9` with the exact staged agent and normally
+approved derived initramfs (checkpoint schema 3/view 2). Both original Docker
+build matrices and a new survivor matrix pass; receipt-bound unfinished RUN
+captures span 127,759,410 ns under the unchanged ten-second observation bound.
+Child engines, sentinels, owner allocations and native backing remain separate;
+sibling removal preserves the survivor and original archive. Independent exact
+unit/source/build audit, five identity refusals, primary state parity and clean
+native release/resource return pass. Cold restoration is separately pending.
+This closes that current-agent lifecycle subcase; complete G7/G8 remain open.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete
