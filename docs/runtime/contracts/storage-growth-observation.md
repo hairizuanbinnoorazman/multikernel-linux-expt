@@ -91,5 +91,10 @@ retains that refusal, corrects the reserve while the block device is verified
 unused, then checks remounted availability and a separate fresh boot. The disk
 and filesystem remain 200 GiB, with exactly 2,621,440 reserved 4096-byte blocks.
 Nine geometry controls and required checks pass. Old size/service-epoch
-snapshots remain historical. Future preflights must use the new verified
-baseline in that proof, including its mounted-reserve check.
+snapshots remain historical. Preflights must use the latest verified current-boot baseline, including the
+mounted-reserve check; the later restoration below establishes its next epoch.
+
+The subsequent [current-agent concurrent-child cold restoration](../../../evidence/runtime-20261121/g8-current-agent-concurrency/README.md)
+verifies the same 200 GiB binding and durable 5% reserve on boot
+`336e570b-67ba-4ae6-a037-2582809e71d2`. Its `cold-after-primary.json` is the
+current private primary baseline; earlier fixed-boot observers stay historical.

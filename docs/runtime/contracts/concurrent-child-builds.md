@@ -75,9 +75,10 @@ without appending markers or overwriting them. Terminal exceptions contain no
 guest bytes or original command arguments. Expected nonzero queries still
 return their private result; an unexpected failure emits a fixed error.
 
-These controls harden the host-facing collection boundary. Actual new-source
-two-child execution, aggregate lifecycle and full G7/G8 still require their
-live proof; direct children use no nested virtualization and share primary
+These controls harden the host-facing collection boundary. At that collection checkpoint, new-source
+two-child execution and aggregate lifecycle still required their live proof;
+the later current-agent qualification below supplies the two-child proof.
+Full G7/G8 remain open; direct children use no nested virtualization and share primary
 trust after arbitrary child-kernel compromise.
 
 The [committed-source and GCE collection proof](../../../evidence/runtime-20261112/g8-concurrent-command-bounds/README.md)
@@ -87,8 +88,9 @@ before completion, retains bounded private diagnostics and normalizes errors
 without the original exception context. Twenty-one native controls and required
 checks pass. Independent observation preserves the latest logging proof,
 predecessor metadata and primary state, with own-unit/cgroup/scratch cleanup.
-This qualifies the collection boundary; actual new-source two-child execution
-and aggregate lifecycle remain separate live requirements.
+This qualifies the collection boundary. The current-agent live qualification
+below separately supplies new-source two-child execution; the ordinary pressure
+aggregate lifecycle has its own proof.
 
 ## Current-agent live qualification
 
@@ -101,5 +103,10 @@ budget. Separate engines/native backing/sentinels, sibling removal, original
 survivor archive preservation, exact-image absence, primary file/service/Docker/
 network parity and native offline cleanup all requalify independently. Five
 altered audit identities refuse. This extends the legacy installed-agent proof
-to the exact staged current agent; cold restoration remains separately pending.
+to the exact staged current agent. Independent cold restoration also passes on
+new boot `336e570b-67ba-4ae6-a037-2582809e71d2`: all 252 control artifacts and
+101 absences survive, prior evidence stays intact, the original transport and
+all resources return idle, primary files/persistent Docker are preserved, and
+the 200 GiB binding plus 5% reserve persist. Archived success requalifies only
+in its original boot; old unit completion refuses the new boot.
 Full G7/G8 remain open.

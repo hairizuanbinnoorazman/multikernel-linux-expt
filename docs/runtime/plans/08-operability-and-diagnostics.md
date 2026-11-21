@@ -26,7 +26,11 @@ captures span 127,759,410 ns under the unchanged ten-second observation bound.
 Child engines, sentinels, owner allocations and native backing remain separate;
 sibling removal preserves the survivor and original archive. Independent exact
 unit/source/build audit, five identity refusals, primary state parity and clean
-native release/resource return pass. Cold restoration is separately pending.
+native release/resource return pass. Independent cold restoration also passes:
+252 explicit artifacts and 101 absences plus historical sets survive, archived
+proof retains its original boot, old completion refuses the new boot, original
+transport/resources return idle, primary files/persistent Docker are preserved,
+and a fresh primary baseline plus durable 200 GiB/5% reserve are verified.
 This closes that current-agent lifecycle subcase; complete G7/G8 remain open.
 
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
