@@ -27,8 +27,15 @@ native release/offline records must match both original export generations and
 owners. The postrun audit additionally checks current resource return and
 primary file/service/Docker/network parity.
 
-Version-2 concurrency evidence binds source/boot/invocation, both original
-streams, overlap captures, primary observations and survivor rebuild. The
+Current concurrency evidence uses checkpoint schema 3 and qualified view
+version 2. It additionally binds the exact staged `mk-agent` binary and derived
+initramfs to the committed build, the unchanged original approval, and successful
+normal validation of both profiles. Only the agent/initramfs paths and digests
+may differ in the derived approval; credential injection is refused. Missing,
+stale or downgraded provenance cannot qualify a current-agent trial.
+
+The checkpoint also binds source/boot/invocation, both original streams, overlap
+captures, primary observations and survivor rebuild. The
 inspection helper grants neither cleanup nor process/signal authority. Archived
 predecessor success still requires current exact unit epochs, cgroups, source
 archive, actual checkpoint requalification and idle resources before reuse.
@@ -38,6 +45,8 @@ survivor/archive drift, missing builds, authority mismatch, primary image leakag
 finished/unbound overlap, wrong epoch/scope and timing limits, including
 recomputed hashes. [Actual GCE proof on restarted boot 509d](../../../evidence/runtime-20261107/g8-live-concurrent-builds-1030d6f/README.md)
 passes source `1030d6f3`, both exact invocations and separate postrun audit.
+That archived schema-2 proof retains its original installed-agent scope; it is
+not reclassified as a staged-current-agent proof.
 Both original matrices and the additional survivor matrix pass; overlap spans
 116.523 ms around primary observation. Root controls, seventeen live refusals
 and a live-data in-memory prefix-guard mutation pass. Retained prior-boot data
