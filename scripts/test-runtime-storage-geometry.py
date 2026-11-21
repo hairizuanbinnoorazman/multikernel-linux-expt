@@ -39,6 +39,20 @@ class GeometryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             qualify(superblock(target,reserved=OLD//4096//20),'filesystem-grown',target,OLD,target)
 
+    def test_disk_correct_but_cached_old_mounted_reserve_is_refused(self):
+        geometry=qualify(superblock(200<<30),'filesystem-grown',200<<30,OLD,200<<30)
+        # Observed post-grow reserve count and mounted statvfs counters. The
+        # old metadata-only qualifier accepts a five-percent on-disk value.
+        with self.assertRaisesRegex(ValueError,'^mounted availability exposes filesystem reserve$'):
+            subject.qualify_available_space(geometry,4096,40708835,38471311)
+        self.assertTrue(subject.qualify_available_space(geometry,4096,40708835,40708835-2621440-4096))
+
+    def test_ambiguous_low_free_space_and_invalid_availability_refuse(self):
+        geometry=qualify(superblock())
+        for fragment,free,available in [(4096,10,0),(4096,1000000,1000001),(0,1000000,0),(4096,True,0)]:
+            with self.subTest(fragment=fragment,free=free,available=available),self.assertRaises(ValueError):
+                subject.qualify_available_space(geometry,fragment,free,available)
+
     def test_high_block_and_reserve_words_are_used_only_with_64bit_feature(self):
         old=320<<40;new=384<<40;data=superblock(old)
         result=qualify(data,'before',old,old,new);self.assertEqual(result['filesystem_bytes'],old);self.assertGreater(result['reserved_blocks'],0xffffffff)

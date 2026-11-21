@@ -52,6 +52,24 @@ def qualify(geometry,phase,device_bytes,old_bytes,new_bytes,expected_uuid,expect
                 metadata_only=True,growth_performed=False)
 
 
+def qualify_available_space(geometry,fragment_size,free_blocks,available_blocks):
+    """Refuse disk-only reserve changes not reflected by mounted availability.
+
+    Other kernel reservations may make availability smaller. This lower bound
+    detects an exposed stale reserve; it does not attest every kernel counter.
+    Require enough free space for this observation to distinguish the reserve.
+    """
+    if (any(type(v) is not int for v in [fragment_size,free_blocks,available_blocks])
+            or fragment_size<=0 or not 0<=available_blocks<=free_blocks):
+        raise ValueError('invalid mounted availability metadata')
+    reserved=geometry['reserved_blocks']*geometry['block_size']
+    if free_blocks*fragment_size<reserved:
+        raise ValueError('insufficient free space to qualify mounted reserve')
+    if (free_blocks-available_blocks)*fragment_size<reserved:
+        raise ValueError('mounted availability exposes filesystem reserve')
+    return True
+
+
 def observe(args):
     if os.geteuid()!=0 or args.phase not in PHASES:raise ValueError('invalid geometry observation authority')
     p=Path(__file__).with_name('validate-runtime-storage-mount.py');data=p.read_bytes()
@@ -72,6 +90,13 @@ def observe(args):
         after=qualify(parse_superblock(os.pread(fd,1024,1024)),args.phase,required_device,args.old_bytes,args.new_bytes,args.uuid,args.label)
         if result!=after or Path(args.device).resolve(strict=True)!=path or Path(args.mountpoint).stat().st_dev!=info.st_rdev:
             raise ValueError('storage geometry changed during observation')
+        directory=os.open(args.mountpoint,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+        try:
+            if os.fstat(directory).st_dev!=info.st_rdev:raise ValueError('availability filesystem differs from binding')
+            available=os.fstatvfs(directory)
+            qualify_available_space(result,available.f_frsize,available.f_bfree,available.f_bavail)
+        finally:os.close(directory)
+        result['kernel_available_space_respects_reserve']=True
         return result
     finally:os.close(fd)
 
