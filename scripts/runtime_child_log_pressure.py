@@ -29,6 +29,19 @@ exit 0
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def wait_for_writer(probe,deadline):
+    """Share one poll/collection/completion budget; never accept a late success."""
+    for attempt in range(301):
+        now=time.monotonic_ns()
+        if now>=deadline:break
+        ready=probe(attempt,min(deadline,now+30_000_000_000))
+        remaining=deadline-time.monotonic_ns()
+        if remaining<=0:break
+        if ready.returncode==0:return
+        time.sleep(min(1,remaining/1_000_000_000))
+    raise ValueError('child log writer did not complete within deadline')
+
+
 def qualify(cli,private,boot,invocation):
     # Imports stay lazy: the concurrency checkpoint imports its own fixture.
     from runtime_concurrency_checkpoint import matrix
@@ -39,13 +52,9 @@ def qualify(cli,private,boot,invocation):
     agent=digest(private/'current-agent-profile-receipt.json')
     inspect_current_agent(private.parent,agent)
     command(['start',name],'log-start',timeout=START_BUDGET)
-    deadline=time.monotonic()+300
-    for attempt in range(301):
-        ready=execute(['/bin/sh','-c','test -f '+BUILD_ROOT+'/done'],'log-ready-'+str(attempt),False)
-        if ready.returncode==0:break
-        assert time.monotonic()<deadline,'child log writer did not complete'
-        time.sleep(1)
-    else:raise ValueError('child log writer did not complete')
+    wait_for_writer(lambda attempt,deadline:capture(
+        cli+['exec','--user','1000:1000',name,'/bin/sh','-c','test -f '+BUILD_ROOT+'/done'],
+        private,'log-ready-'+str(attempt),False,deadline),time.monotonic_ns()+300_000_000_000)
     assert execute(['/bin/cat',BUILD_ROOT+'/status'],'log-status').stdout==b'0\n'
     stdout=execute(['/bin/cat',BUILD_ROOT+'/stdout'],'log-build-out').stdout
     stderr=execute(['/bin/cat',BUILD_ROOT+'/stderr'],'log-build-err').stdout
