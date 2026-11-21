@@ -98,3 +98,7 @@ The subsequent [current-agent concurrent-child cold restoration](../../../eviden
 verifies the same 200 GiB binding and durable 5% reserve on boot
 `336e570b-67ba-4ae6-a037-2582809e71d2`. Its `cold-after-primary.json` is the
 current private primary baseline; earlier fixed-boot observers stay historical.
+
+The [current verified lab state](../../guides/gce-lab-current-state.md) tracks
+the latest cold-restored primary baseline without changing these historical
+size/service-epoch observations.

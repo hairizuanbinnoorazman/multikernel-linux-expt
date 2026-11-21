@@ -47,8 +47,12 @@ and required checks pass. Corrected actual child execution now passes its exact
 unit/source/build audit and five identity refusals: current-agent approval, the
 complete build matrix, configured 16 MiB detached writer, two log files totaling
 1,503,596 bytes under the 2,131,072-byte sample bound, primary parity and clean
-native release/resource return qualify. Cold restoration remains separately
-pending; loss/peak accounting and full G7/G8 remain open.
+native release/resource return qualify. Independent cold restoration also passes: 264 artifacts/107 absences and all
+earlier sets survive, archived success remains boot-bound, old completion
+refuses the new boot, original resources return idle and fresh primary state
+plus the durable 200 GiB/5% reserve qualify. The
+[current lab state](../../guides/gce-lab-current-state.md) points to the latest
+baseline and observer. Loss/peak accounting and full G7/G8 remain open.
 
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact

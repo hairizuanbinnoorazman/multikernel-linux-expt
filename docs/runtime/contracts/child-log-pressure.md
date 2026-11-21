@@ -43,5 +43,7 @@ now qualifies source `75e5e188`: both exact units exit zero, the full child
 build matrix and current-agent approval requalify, and two rotated local files
 total 1,503,596 bytes within the original 2,131,072-byte sample bound. Primary
 state and native cleanup pass, including five altered-identity refusals. Its
-failed 30-second predecessor stays preserved and unqualified. Cold restoration
-remains separately pending. Loss/peak accounting and complete G7/G8 remain open.
+failed 30-second predecessor stays preserved and unqualified. Independent cold restoration also passes: 264 artifacts/107 absences and all
+earlier sets survive, archived success retains its original boot, old unit
+completion refuses the new boot, original resources return idle and fresh
+primary state plus the durable 200 GiB/5% reserve qualify. Loss/peak accounting and complete G7/G8 remain open.

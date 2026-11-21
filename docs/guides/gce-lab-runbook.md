@@ -5,6 +5,10 @@ This guide preserves the verified procedure for evaluating Multikernel Linux
 [`../experiments/`](../experiments/README.md); future runtime work is under
 [`../runtime/`](../runtime/README.md).
 
+The [current verified lab state](gce-lab-current-state.md) records the latest
+primary baseline and its read-only observer. Historical experiments below retain
+their original scopes and epochs.
+
 ## Guide map
 
 - [Current status and experiment outcome](#status)
