@@ -7,7 +7,10 @@ credentials. It cannot be combined with pressure, concurrency, recovery or
 engine-observation scenarios. Same-boot candidate reuse from this new scenario
 is not yet supported.
 
-The host Docker container starts detached. Its fixed unprivileged init runs the
+The host Docker container starts detached, with the existing concurrent
+trial's 180-second cold-start window. Ordinary exec captures keep their
+30-second command deadline; build/writer polling has a separate 300-second
+window within the unchanged 1200-second outer trial limit. Its fixed unprivileged init runs the
 complete child-local rootless Docker build/cache/run/save/failure matrix into
 private child files, then writes a controlled 16 MiB to stdout. A completion
 file is created only after the build succeeds and the fixed writer finishes.

@@ -7,6 +7,9 @@ from runtime_primary_docker import observe,unchanged
 from runtime_trial_agent_profile import inspect_current_agent
 
 WRITER_BYTES=16 << 20
+# Match the existing concurrent trial's cold child-start admission window.
+# Ordinary execs keep their separate 30-second command deadline.
+START_BUDGET=180
 BUILD_ROOT='/home/rootless/.local/tmp/g8-log-pressure'
 WORKLOAD=['/bin/sh','-c', '''umask 077
 release=0; trap 'release=1' USR1
@@ -35,7 +38,7 @@ def qualify(cli,private,boot,invocation):
     def execute(args,label,success=True):return command(['exec','--user','1000:1000',name,*args],label,success)
     agent=digest(private/'current-agent-profile-receipt.json')
     inspect_current_agent(private.parent,agent)
-    command(['start',name],'log-start')
+    command(['start',name],'log-start',timeout=START_BUDGET)
     deadline=time.monotonic()+300
     for attempt in range(301):
         ready=execute(['/bin/sh','-c','test -f '+BUILD_ROOT+'/done'],'log-ready-'+str(attempt),False)
