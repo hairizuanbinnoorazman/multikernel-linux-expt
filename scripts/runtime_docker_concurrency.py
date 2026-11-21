@@ -10,6 +10,7 @@ from runtime_trial_output import attach_command, read_output, require_logging
 from runtime_primary_docker import observe as observe_primary,unchanged as unchanged_primary
 from runtime_concurrency_command import capture as capture_command
 from runtime_bounded_command import CommandOutputLimit
+from runtime_trial_agent_profile import inspect_current_agent
 
 # The authenticated signal targets the complete process group, including sleep.
 # Its interruption must not trigger the wrapper's errexit before normal exit.
@@ -47,6 +48,8 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
     primary_before=json.loads((private/'primary-docker-before.json').read_text())
     primary_hashes={}
     digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+    agent_profile_sha=digest(private/'current-agent-profile-receipt.json')
+    assert inspect_current_agent(private.parent,agent_profile_sha)
 
     def primary(phase,image=None):
         report=observe_primary(image,deadline=time.monotonic()+10)
@@ -216,7 +219,7 @@ def qualify(cli, private, children, create_arguments, inspect_arguments, kernel_
         survivor_rebuilt=snapshot(0,'survivor-rebuilt',True)
         assert {k:survivor_rebuilt[k] for k in before['a']}==before['a']
         primary('survivor-rebuild',survivor_rebuilt['built_image_id'])
-        result = {'schema_version':2,'boot_id':boot,'invocation_id':invocation,'before': before, 'after': after, 'survivor': survivor,
+        result = {'schema_version':3,'current_agent_profile_receipt_sha256':agent_profile_sha,'boot_id':boot,'invocation_id':invocation,'before': before, 'after': after, 'survivor': survivor,
                   'two_running_owners': owners['sandboxes'], 'case_owners': case_owners, 'remaining_owner': active[0],
                   'two_storage_exports': storage_before, 'survivor_storage_export': storage_survivor,
                   'run_overlap_observed': True, 'sibling_removed_without_survivor_change': True,

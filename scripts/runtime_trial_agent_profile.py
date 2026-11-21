@@ -7,6 +7,31 @@ from pathlib import Path
 import stat
 import subprocess as sp
 
+ORIGINAL_PROFILE=Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json')
+
+
+def inspect_current_agent(work,expected_receipt_sha256):
+    """Bind a captured full-policy derivation to this stage's actual agent."""
+    from runtime_diagnostic_bundle_checkpoint import decode,equal,read_fixture_artifact
+    work=Path(work);private=work/'integration'
+    read=lambda path,empty=False:read_fixture_artifact(path.parent,path.name,1<<20,allow_empty=empty)
+    try:
+        data=read(private/'current-agent-profile-receipt.json')
+        if hashlib.sha256(data).hexdigest()!=expected_receipt_sha256:raise ValueError('receipt differs')
+        receipt=decode(data,1<<20);build=decode(read(work/'build.json'),1<<20)
+        agent=work/'bin/mk-agent';archive=private/'current-agent.cpio.gz';approval=private/'manifests/gce-mk2.json'
+        equal(receipt,dict(version=1,source_commit=build['source_commit'],original_profile_sha256=sha(ORIGINAL_PROFILE),derived_profile_sha256=sha(approval),agent_sha256=sha(agent),initramfs_sha256=sha(archive),full_original_and_derived_validation=True,installed_approval_changed=False,credential_injection_requested=False))
+        if receipt['agent_sha256']!=build['binaries']['mk-agent']:raise ValueError('stage agent differs')
+        original=decode(read(ORIGINAL_PROFILE),1<<20);derived=decode(read(approval),1<<20)
+        equal(derived,{**original,'agent':dict(path=str(agent),sha256=receipt['agent_sha256']),'initramfs':dict(path=str(archive),sha256=receipt['initramfs_sha256'])})
+        for which in ['original','current']:
+            if read(private/(which+'-agent-profile-validation.stderr'),True):raise ValueError('validation diagnostic')
+            validated=decode(read(private/(which+'-agent-profile-validation.stdout')),1<<20)
+            if validated['agent']!=(str(agent) if which=='current' else original['agent']['path']):raise ValueError('validated agent differs')
+    except (KeyError,TypeError,ValueError,OSError):
+        raise ValueError('current staged-agent approval provenance refused') from None
+    return True
+
 
 def sha(path):
     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC|os.O_NONBLOCK)

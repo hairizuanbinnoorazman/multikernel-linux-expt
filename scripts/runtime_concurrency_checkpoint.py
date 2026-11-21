@@ -11,7 +11,7 @@ IMAGE='sha256:'+HEX
 
 
 def concurrency_view(boot,invocation):
-    return dict(version=1,scope='receipt-bound-two-child-build-separation-and-survivor-rebuild',boot_id=boot,invocation_id=invocation,
+    return dict(version=2,scope='receipt-bound-two-child-build-separation-and-survivor-rebuild',boot_id=boot,invocation_id=invocation,current_agent_and_approved_bootstrap_bound=True,
                 two_child_engines_and_storage_separate=True,simultaneous_unfinished_runs_observed=True,sibling_release_preserves_survivor=True,
                 survivor_rebuild_and_original_archive_preservation=True,primary_engine_inventory_and_exact_image_absence_observed=True,cleanup_qualified=False)
 
@@ -50,8 +50,12 @@ def inspect_fixture_concurrency(work,boot,invocation):
     if receipt.get('runtime_io_during_crash_tested',False) is not False:raise ValueError('concurrent lifecycle scope differs')
     data=read(private,'concurrency-checkpoint.json');r=decode(data,1<<20)
     fields={'schema_version','boot_id','invocation_id','before','after','survivor','two_running_owners','case_owners','remaining_owner','two_storage_exports','survivor_storage_export','run_overlap_observed','sibling_removed_without_survivor_change','cleanup_qualified','survivor_rebuilt','original_archive_after_rebuild_sha256','survivor_rebuild_stdout_sha256','survivor_rebuild_stderr_sha256','run_overlap_checkpoint_sha256','primary_snapshots_sha256','case_stdout_sha256','case_stderr_sha256'}
+    fields.add('current_agent_profile_receipt_sha256')
     if type(r) is not dict or set(r)!=fields or hashlib.sha256(data).hexdigest()!=receipt.get('concurrency_checkpoint_sha256'):raise ValueError('concurrency checkpoint envelope differs')
-    if type(r['schema_version']) is not int or r['schema_version']!=2 or r['boot_id']!=boot or r['invocation_id']!=invocation or r['run_overlap_observed'] is not True or r['sibling_removed_without_survivor_change'] is not True or r['cleanup_qualified'] is not False:raise ValueError('concurrency checkpoint is unqualified')
+    if type(r['schema_version']) is not int or r['schema_version']!=3 or r['boot_id']!=boot or r['invocation_id']!=invocation or r['run_overlap_observed'] is not True or r['sibling_removed_without_survivor_change'] is not True or r['cleanup_qualified'] is not False:raise ValueError('concurrency checkpoint is unqualified')
+    if receipt.get('concurrency_current_agent_tested') is not True or receipt.get('concurrency_agent_profile_receipt_sha256')!=r['current_agent_profile_receipt_sha256']:raise ValueError('concurrent staged agent provenance missing')
+    from runtime_trial_agent_profile import inspect_current_agent
+    inspect_current_agent(work,r['current_agent_profile_receipt_sha256'])
     for field in ['before','after','case_owners','case_stdout_sha256','case_stderr_sha256']:
         if type(r[field]) is not dict or set(r[field])!={'a','b'}:raise ValueError('concurrent case identities are ambiguous')
     base={'child_boot_id','engine_id','canary','sentinel_image_id'}

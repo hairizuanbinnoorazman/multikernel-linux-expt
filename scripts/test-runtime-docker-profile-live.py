@@ -127,7 +127,7 @@ for a,b,mode in [('/bin/busybox','busybox',0o555),(source/'guest/runtime-docker-
  shutil.copyfile(a,private/'input'/b);(private/'input'/b).chmod(mode)
 profile=json.loads(pathlib.Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json').read_text())
 approval=private/'manifests/gce-mk2.json'
-if engine_observation:
+if engine_observation or concurrent:
  from runtime_trial_agent_profile import prepare as prepare_current_agent_profile
  profile=prepare_current_agent_profile(work,pathlib.Path('/opt/mkruntime/g8-boot-d4643c8/private/profile.json'),approval)
 else:
@@ -716,7 +716,10 @@ if aggregate_docker_health:
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
 r['concurrent_guest_builds_tested']=concurrent
-if concurrent:r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
+if concurrent:
+ r['concurrency_checkpoint_sha256']=sha(private/'concurrency-checkpoint.json')
+ r['concurrency_current_agent_tested']=True
+ r['concurrency_agent_profile_receipt_sha256']=sha(private/'current-agent-profile-receipt.json')
 r['service_capability_nnp_tested']=harden_services
 if harden_services:r.update(service_policy_sha256=sha(private/'service-policies.json'),service_observations_sha256=sha(private/'service-observations.json'))
 if restart_runtime:r['recovery_checkpoint_sha256']=sha(work/'recovery-checkpoint.json')

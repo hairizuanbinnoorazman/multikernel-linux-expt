@@ -43,5 +43,12 @@ class ProfileArguments(unittest.TestCase):
         for flags in [[],['--storage-pressure'],['--storage-pressure','--harden-services','--engine-observation'],['--concurrent','--harden-services'],['--crash-during-io','--harden-services']]:
             with self.subTest(flags=flags):parse(flags)
 
+    def test_concurrent_and_engine_scenarios_select_current_agent_derivation(self):
+        tree=ast.parse(SOURCE.read_text())
+        branch=next(node for node in tree.body if isinstance(node,ast.If) and any(isinstance(child,ast.ImportFrom) and child.module=='runtime_trial_agent_profile' for child in node.body))
+        condition=compile(ast.Expression(branch.test),str(SOURCE),'eval')
+        for flags,expected in [(['--concurrent','--harden-services'],True),(['--storage-pressure','--engine-observation'],True),(['--storage-pressure'],False)]:
+            with self.subTest(flags=flags):self.assertIs(eval(condition,parse(flags)),expected)
+
 
 if __name__=='__main__':unittest.main()

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import copy,hashlib,json,tempfile,unittest
 from pathlib import Path
-from runtime_concurrency_checkpoint import inspect_fixture_concurrency
+from unittest.mock import patch
+from runtime_concurrency_checkpoint import inspect_fixture_concurrency as inspect_concurrency
+import runtime_trial_agent_profile as agent_profile
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import fingerprint
 from runtime_trial_output import logging_config
@@ -9,6 +11,11 @@ from runtime_concurrency_checkpoint import matrix
 BOOT='509d5e93-31b8-4e8f-925a-4caa9fcf4788';INV='9'*32
 raw=lambda v:json.dumps(v).encode()
 sha=lambda b:hashlib.sha256(b).hexdigest()
+
+
+def inspect_fixture_concurrency(work,boot,invocation):
+    with patch.object(agent_profile,'ORIGINAL_PROFILE',work/'original-profile.json'):
+        return inspect_concurrency(work,boot,invocation)
 
 
 class ConcurrentCheckpointTests(unittest.TestCase):
@@ -21,7 +28,7 @@ class ConcurrentCheckpointTests(unittest.TestCase):
         owners=[dict(sandbox_id=sandbox_id_for_container(case*64),generation=case*32,state='RUNNING',cpus=list(range(8 if case=='a' else 12,12 if case=='a' else 16)),memory_bytes=3<<30,child_cid=cid,agent_port=7200) for case,cid in [('a',40),('b',41)]]
         storage=[dict(sandbox_id=o['sandbox_id'],sandbox_generation=o['generation'],export_generation=('c' if i==0 else 'd')*32,peer_cid=o['child_cid'],port=10809+i,filesystem_uuid=str(i+3)*8+'-'+str(i+3)*4+'-4'+str(i+3)*3+'-8'+str(i+3)*3+'-'+str(i+3)*12,image_identity=dict(device=123,inode=100+i),image_path_sha256=('e' if i==0 else 'f')*64) for i,o in enumerate(owners)]
         rebuilt=dict(after['a'],saved_image_sha256='1'*64,built_image_id='sha256:'+'2'*64)
-        r=dict(schema_version=2,boot_id=BOOT,invocation_id=INV,before=before,after=after,survivor=copy.deepcopy(after['a']),two_running_owners=owners,case_owners=dict(zip(['a','b'],copy.deepcopy(owners))),remaining_owner=copy.deepcopy(owners[0]),two_storage_exports=storage,survivor_storage_export=[copy.deepcopy(storage[0])],run_overlap_observed=True,sibling_removed_without_survivor_change=True,cleanup_qualified=False,survivor_rebuilt=rebuilt,original_archive_after_rebuild_sha256=after['a']['saved_image_sha256'])
+        r=dict(schema_version=3,boot_id=BOOT,invocation_id=INV,before=before,after=after,survivor=copy.deepcopy(after['a']),two_running_owners=owners,case_owners=dict(zip(['a','b'],copy.deepcopy(owners))),remaining_owner=copy.deepcopy(owners[0]),two_storage_exports=storage,survivor_storage_export=[copy.deepcopy(storage[0])],run_overlap_observed=True,sibling_removed_without_survivor_change=True,cleanup_qualified=False,survivor_rebuilt=rebuilt,original_archive_after_rebuild_sha256=after['a']['saved_image_sha256'])
         if mode=='shared-engine':r['before']['b']['engine_id']=r['before']['a']['engine_id'];r['after']['b']['engine_id']=r['before']['a']['engine_id']
         if mode=='shared-canary':r['before']['b']['canary']=r['before']['a']['canary'];r['after']['b']['canary']=r['before']['a']['canary']
         if mode=='cpu-overlap':owners[1]['cpus']=owners[0]['cpus'][:]
@@ -34,7 +41,24 @@ class ConcurrentCheckpointTests(unittest.TestCase):
         if mode=='legacy':r['schema_version']=1
         if mode=='cleanup-mask':r['cleanup_qualified']=True
         if mode=='storage-owner':storage[1]['sandbox_generation']='0'*32
-        (p/'manifests').mkdir(mode=0o700);write(p/'manifests','gce-mk2.json',dict(kernel_release='test-kernel'))
+        (p/'manifests').mkdir(mode=0o700);(work/'bin').mkdir(mode=0o700)
+        agent=work/'bin/mk-agent';agent.write_bytes(b'current staged agent fixture');agent.chmod(0o500)
+        archive=p/'current-agent.cpio.gz';archive.write_bytes(b'current bootstrap fixture');archive.chmod(0o600)
+        original=dict(kernel_release='test-kernel',agent=dict(path='/approved/original-agent',sha256='a'*64),initramfs=dict(path='/approved/original.cpio.gz',sha256='b'*64))
+        write(work,'original-profile.json',original)
+        build=dict(source_commit='a'*40,binaries={'mk-agent':sha(agent.read_bytes())});write(work,'build.json',build)
+        derived={**original,'agent':dict(path=str(agent),sha256=sha(agent.read_bytes())),'initramfs':dict(path=str(archive),sha256=sha(archive.read_bytes()))}
+        if mode=='agent-old-path':derived['agent']=original['agent']
+        if mode=='agent-binary-drift':agent.chmod(0o700);agent.write_bytes(b'different staged agent');agent.chmod(0o500);derived['agent']['sha256']=sha(agent.read_bytes())
+        write(p/'manifests','gce-mk2.json',derived)
+        profile_receipt=dict(version=1,source_commit=build['source_commit'],original_profile_sha256=sha((work/'original-profile.json').read_bytes()),derived_profile_sha256=sha((p/'manifests/gce-mk2.json').read_bytes()),agent_sha256=sha(agent.read_bytes()),initramfs_sha256=sha(archive.read_bytes()),full_original_and_derived_validation=True,installed_approval_changed=False,credential_injection_requested=mode=='agent-credential')
+        profile_sha=write(p,'current-agent-profile-receipt.json',profile_receipt)
+        r['current_agent_profile_receipt_sha256']=profile_sha
+        for which in ['original','current']:
+            write(p,which+'-agent-profile-validation.stdout',dict(agent=str(agent) if which=='current' and mode!='agent-validation-forged' else original['agent']['path']))
+            write(p,which+'-agent-profile-validation.stderr',b'private validation cause' if mode=='agent-validation-stderr' and which=='current' else b'')
+        if mode=='agent-schema-downgrade':r['schema_version']=2
+        if mode=='agent-receipt-missing':(p/'current-agent-profile-receipt.json').unlink()
         write(p,'two-child-ownership.stdout',dict(source='durable-lifecycle',version=1.0 if mode=='owner-version-float' else 1,sandboxes=owners))
         for case in ['a','b']:
             phases=[('before',r['before'][case],False),('after',r['after'][case],True)]
@@ -92,7 +116,7 @@ class ConcurrentCheckpointTests(unittest.TestCase):
         if mode=='overlap-clock':overlap['after_monotonic_ns']=99
         if mode=='overlap-budget':overlap['after_monotonic_ns']=10_000_000_101
         r['run_overlap_checkpoint_sha256']=write(p,'run-overlap.json',overlap)
-        receipt=dict(boot_id=BOOT,invocation_id=INV,concurrent_guest_builds_tested=True,production_profile_child_build_pass=True,storage_pressure_tested=False,runtime_restart_tested=False,runtime_crash_tested=False,runtime_crash_during_build_tested=False,runtime_io_during_crash_tested=False)
+        receipt=dict(boot_id=BOOT,invocation_id=INV,concurrent_guest_builds_tested=True,production_profile_child_build_pass=True,storage_pressure_tested=False,runtime_restart_tested=False,runtime_crash_tested=False,runtime_crash_during_build_tested=False,runtime_io_during_crash_tested=False,concurrency_current_agent_tested=mode!='agent-missing-claim',concurrency_agent_profile_receipt_sha256=profile_sha)
         if mode=='wrong-scenario':receipt['concurrent_guest_builds_tested']=False
         receipt['concurrency_checkpoint_sha256']=write(p,'concurrency-checkpoint.json',r);write(work,'integration-receipt.json',receipt)
 
@@ -100,6 +124,13 @@ class ConcurrentCheckpointTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             work=Path(d);self.fixture(work);view=inspect_fixture_concurrency(work,BOOT,INV)
             self.assertIs(view['two_child_engines_and_storage_separate'],True);self.assertIs(view['survivor_rebuild_and_original_archive_preservation'],True);self.assertIs(view['cleanup_qualified'],False)
+            self.assertIs(view['current_agent_and_approved_bootstrap_bound'],True)
+
+    def test_recomputed_concurrent_receipts_cannot_claim_stale_or_unvalidated_agent(self):
+        for mode in ['agent-old-path','agent-binary-drift','agent-credential','agent-validation-forged','agent-validation-stderr','agent-schema-downgrade','agent-receipt-missing','agent-missing-claim']:
+            with tempfile.TemporaryDirectory() as d:
+                work=Path(d);self.fixture(work,mode)
+                with self.subTest(mode=mode),self.assertRaises(ValueError):inspect_fixture_concurrency(work,BOOT,INV)
 
     def test_recomputed_receipts_cannot_mask_shared_identity_overlap_drift_or_primary_leak(self):
         for mode in ['unbounded-logs','missing-log-policy','shared-engine','shared-canary','cpu-overlap','cpu-float','backing-overlap','storage-owner','released-owner','released-generation','survivor-drift','original-archive','remaining-owner','wrong-epoch','legacy','cleanup-mask','outer-authority','owner-version-float','mount-numeric-mask','foreign-accepted','missing-build','primary-image','finished-overlap','unbound-overlap','overlap-clock','overlap-budget','wrong-scenario']:
