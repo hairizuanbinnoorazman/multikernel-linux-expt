@@ -89,3 +89,17 @@ checks pass. Independent observation preserves the latest logging proof,
 predecessor metadata and primary state, with own-unit/cgroup/scratch cleanup.
 This qualifies the collection boundary; actual new-source two-child execution
 and aggregate lifecycle remain separate live requirements.
+
+## Current-agent live qualification
+
+The [current-agent GCE proof](../../../evidence/runtime-20261121/g8-current-agent-concurrency/README.md)
+qualifies source `91d7a7e9`, checkpoint schema 3 and qualified view 2 on boot
+`94c1057c-41c0-462a-9da8-6f8cda4d4732`. Both original build matrices and a new
+survivor matrix pass. Original unfinished RUN captures bind to completed streams
+around a 127.759 ms primary Docker observation under the original ten-second
+budget. Separate engines/native backing/sentinels, sibling removal, original
+survivor archive preservation, exact-image absence, primary file/service/Docker/
+network parity and native offline cleanup all requalify independently. Five
+altered audit identities refuse. This extends the legacy installed-agent proof
+to the exact staged current agent; cold restoration remains separately pending.
+Full G7/G8 remain open.
