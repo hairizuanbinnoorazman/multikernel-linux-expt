@@ -18,6 +18,7 @@ import (
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/daemon"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/unixsocket"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
 
@@ -70,6 +71,7 @@ func (s *service) reconnectAgent(ctx context.Context, path string) error {
 }
 
 func (s *service) negotiateAgentCapabilities(ctx context.Context) error {
+	s.agentOutputAccounting.Store(false)
 	var capabilities guestCapabilities
 	if err := s.callAgentWithReconnectContext(ctx, "Capabilities", map[string]any{}, &capabilities); err != nil {
 		return fmt.Errorf("query guest capabilities: %w", err)
@@ -82,6 +84,11 @@ func (s *service) negotiateAgentCapabilities(ctx context.Context) error {
 	}
 	if err := requireCapabilitySet(capabilities.OCIFeatures, requiredAgentOCIFeatures, "OCI"); err != nil {
 		return err
+	}
+	for _, feature := range capabilities.ProtocolFeatures {
+		if feature == protocol.ProcessOutputAccountingCapability {
+			s.agentOutputAccounting.Store(true)
+		}
 	}
 	return nil
 }

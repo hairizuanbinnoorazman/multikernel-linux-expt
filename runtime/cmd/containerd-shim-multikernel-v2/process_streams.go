@@ -318,10 +318,13 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 			time.Sleep(20 * time.Millisecond)
 		}
 	}
+	finalAccounting := s.collectFinalOutputAccounting(agentID, pid, p.stdoutOffset, p.stderrOffset)
 	now := time.Now().UTC()
 	for {
 		s.mu.Lock()
 		closeProcessIO(p)
+		oldAccounting := p.finalOutputAccounting
+		p.finalOutputAccounting = finalAccounting
 		oldStatus, oldPID, oldExit, oldExited := p.status, p.pid, p.exit, p.exited
 		oldPending := append([]byte(nil), p.stdinPending...)
 		oldSignal, oldSignalOperation, oldSignalAck := p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement
@@ -332,6 +335,7 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		if err = s.persistRecovery(); err == nil {
 			break
 		}
+		p.finalOutputAccounting = oldAccounting
 		p.status, p.pid, p.exit, p.exited, p.stdinPending = oldStatus, oldPID, oldExit, oldExited, oldPending
 		p.pendingSignal, p.pendingSignalOperation, p.pendingSignalAcknowledgement = oldSignal, oldSignalOperation, oldSignalAck
 		s.mu.Unlock()

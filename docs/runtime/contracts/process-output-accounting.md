@@ -41,6 +41,25 @@ forged-sum overflow. Wire counters are unsigned integers. Replies contain no
 stdout/stderr, errors, command lines, paths, environment or credential material.
 No observation consumes, clears or repairs retained output.
 
+The host shim negotiates this optional feature through its owning client. After
+the final empty output read and a separately validated `WaitProcess`, it requests
+one final report under the ordinary bounded agent I/O deadline. A valid report
+must be STOPPED, conserve bytes, have no pending or buffered input, and match the
+process PID and both durable output offsets exactly. It is persisted alongside
+the verified exit in the private recovery record as `final_output_accounting`
+with state `validated`. This qualifies guest-buffer counters only; nil stream
+destinations and FIFO replay do not become delivery evidence.
+
+An older agent records `unsupported`; an advertised but unavailable, exhausted
+or invalid report records `unavailable`. Neither carries a report or implies
+zero loss. Failure of optional observation does not block the separately verified
+exit transition. Recovery that discovers a newly stopped guest without draining
+its streams records `unavailable`. Legacy recovery records with no field remain
+unobserved. Existing stopped reports survive reconstruction and are validated
+against the persisted process and offsets; they grant no new lifecycle authority.
+The optional field extends recovery schema 4; older strict readers refuse such
+records and must not be used for a downgrade while they exist.
+
 This is the guest-buffer accounting layer. Host FIFO disposition/retry behavior,
 worker recovery, Docker logger rotation/loss and payload/heap/RSS peaks require
 separate evidence. Full G7/G8 and end-to-end loss/peak accounting remain open.

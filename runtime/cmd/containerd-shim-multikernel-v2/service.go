@@ -86,6 +86,7 @@ func requireCapabilitySet(observed, required []string, name string) error {
 }
 
 type process struct {
+	finalOutputAccounting          *finalOutputAccounting
 	id, stdin, stdout, stderr      string
 	stdinIdentity                  processIOIdentity
 	stdoutIdentity                 processIOIdentity
@@ -188,6 +189,7 @@ type stateFileIdentity struct {
 }
 
 type service struct {
+	agentOutputAccounting atomic.Bool
 	processDiagnosticSink *processDiagnosticSink
 	eventDiagnosticOwner  atomic.Pointer[processDiagnosticReporter]
 	eventLogAttempts      atomic.Uint64
