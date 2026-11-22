@@ -68,6 +68,9 @@ func main() {
 	if buildinfo.PrintRequested(os.Stdout, "containerd-shim-multikernel-v2", os.Args[1:]) {
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--inspect-completed-output" {
+		os.Exit(runCompletedOutputInspection(os.Args[2:], intentStdoutWriter{}))
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--inspect-create-intent" {
 		os.Exit(runCreateIntentInspection(os.Args[2:], intentStdoutWriter{}))
 	}

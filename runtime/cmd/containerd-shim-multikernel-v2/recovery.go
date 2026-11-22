@@ -27,17 +27,18 @@ import (
 )
 
 type persisted struct {
-	SchemaVersion  int                         `json:"schema_version"`
-	BundleIdentity rootfspkg.DirectoryIdentity `json:"bundle_identity"`
-	ID             string                      `json:"id"`
-	Generation     string                      `json:"generation"`
-	PID            uint32                      `json:"pid,omitempty"`
-	Exit           uint32                      `json:"exit"`
-	Exited         time.Time                   `json:"exited"`
-	Network        mknetwork.Endpoint          `json:"network"`
-	TaskIdentity   string                      `json:"task_identity"`
-	StorageSHA256  string                      `json:"storage_sha256"`
-	Processes      []persistedProcess          `json:"processes,omitempty"`
+	CompletedOutputAccounting *completedOutputAccounting  `json:"completed_output_accounting,omitempty"`
+	SchemaVersion             int                         `json:"schema_version"`
+	BundleIdentity            rootfspkg.DirectoryIdentity `json:"bundle_identity"`
+	ID                        string                      `json:"id"`
+	Generation                string                      `json:"generation"`
+	PID                       uint32                      `json:"pid,omitempty"`
+	Exit                      uint32                      `json:"exit"`
+	Exited                    time.Time                   `json:"exited"`
+	Network                   mknetwork.Endpoint          `json:"network"`
+	TaskIdentity              string                      `json:"task_identity"`
+	StorageSHA256             string                      `json:"storage_sha256"`
+	Processes                 []persistedProcess          `json:"processes,omitempty"`
 }
 
 type persistedProcess struct {
@@ -101,6 +102,9 @@ func validProcessIOIdentity(path string, value processIOIdentity, stdin bool) bo
 }
 
 func validatePersistedRecovery(value persisted, namespace, task string) error {
+	if err := value.CompletedOutputAccounting.validate(); err != nil {
+		return err
+	}
 	if (value.SchemaVersion != 3 && value.SchemaVersion != 4) || value.BundleIdentity.Device == 0 || value.BundleIdentity.Inode == 0 ||
 		value.BundleIdentity.UID != uint32(os.Geteuid()) || value.ID != sandboxID(namespace, task) ||
 		!recoveryGeneration.MatchString(value.Generation) ||
@@ -248,7 +252,7 @@ func (s *service) persistRecovery() error {
 		return nil
 	}
 	network := s.networkReport("READY")
-	p := persisted{SchemaVersion: 4, BundleIdentity: s.bundleIdentity, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
+	p := persisted{CompletedOutputAccounting: s.completedOutputAccounting, SchemaVersion: 4, BundleIdentity: s.bundleIdentity, ID: s.sandbox.ID, Generation: s.sandbox.Generation, Network: network,
 		TaskIdentity: storageTaskIdentity(s.namespace, s.id)}
 	if s.sandbox.Config.Storage != nil {
 		p.StorageSHA256 = s.sandbox.Config.Storage.SHA256
@@ -333,6 +337,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	if s.sandbox.Config.BundleIdentity != s.bundleIdentity {
 		return errors.New("daemon sandbox bundle identity differs from the service handoff")
 	}
+	s.completedOutputAccounting = recovery.CompletedOutputAccounting
 	s.setEventDiagnosticOwner(s.sandbox)
 	s.token, _, err = loadExistingTokenFromDirectory(runtimeDirectory)
 	if err != nil {

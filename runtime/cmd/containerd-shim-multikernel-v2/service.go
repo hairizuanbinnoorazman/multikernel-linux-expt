@@ -190,60 +190,61 @@ type stateFileIdentity struct {
 }
 
 type service struct {
-	agentOutputAccounting atomic.Bool
-	processDiagnosticSink *processDiagnosticSink
-	eventDiagnosticOwner  atomic.Pointer[processDiagnosticReporter]
-	eventLogAttempts      atomic.Uint64
-	mu                    sync.Mutex
-	relayMu               sync.Mutex
-	eventMu               sync.Mutex
-	runtimeMu             sync.Mutex
-	eventRetryStop        sync.Once
-	bundleClose           sync.Once
-	id, namespace, bundle string
-	bundleDirectory       *safefile.Directory
-	bundleIdentity        rootfspkg.DirectoryIdentity
-	runtimeDirectory      *safefile.Directory
-	publisher             shim.Publisher
-	shutdown              func()
-	daemon                daemon.Caller
-	sandbox               protocol.Sandbox
-	token                 []byte
-	agent                 agentClient
-	relay                 *exec.Cmd
-	relaySocket           string
-	relayOwner            relayPathOwner
-	relayGeneration       uint64
-	netDevice             *os.File
-	netDone               chan struct{}
-	netReports            chan string
-	netWG                 sync.WaitGroup
-	netEndpoint           mknetwork.Endpoint
-	namespaceHolder       namespaceHolder
-	createCleanupPending  bool // Protected by mu; only completed rollback clears it.
-	createIntentIdentity  *safefile.Identity
-	netClient             networkClient
-	newNamespaceHolder    namespaceHolderFactory
-	agentDial             agentDialer
-	newRelay              relayFactory
-	relayPath             relayPathFactory
-	newRelayOwner         relayOwnerFactory
-	newShimSocketOwner    relayOwnerFactory
-	shimArguments         []string
-	ioCallTimeout         time.Duration
-	networkCloseTimeout   time.Duration
-	netRXPackets          atomic.Uint64
-	netTXPackets          atomic.Uint64
-	netRXDrops            atomic.Uint64
-	netTXDrops            atomic.Uint64
-	netErrors             atomic.Uint64
-	processes             map[string]*process
-	events                eventJournal
-	eventJournalIdentity  *safefile.Identity
-	recoveryIdentity      *safefile.Identity
-	eventRetryCancel      context.CancelFunc
-	eventRetryDone        chan struct{}
-	shuttingDown          bool
+	completedOutputAccounting *completedOutputAccounting
+	agentOutputAccounting     atomic.Bool
+	processDiagnosticSink     *processDiagnosticSink
+	eventDiagnosticOwner      atomic.Pointer[processDiagnosticReporter]
+	eventLogAttempts          atomic.Uint64
+	mu                        sync.Mutex
+	relayMu                   sync.Mutex
+	eventMu                   sync.Mutex
+	runtimeMu                 sync.Mutex
+	eventRetryStop            sync.Once
+	bundleClose               sync.Once
+	id, namespace, bundle     string
+	bundleDirectory           *safefile.Directory
+	bundleIdentity            rootfspkg.DirectoryIdentity
+	runtimeDirectory          *safefile.Directory
+	publisher                 shim.Publisher
+	shutdown                  func()
+	daemon                    daemon.Caller
+	sandbox                   protocol.Sandbox
+	token                     []byte
+	agent                     agentClient
+	relay                     *exec.Cmd
+	relaySocket               string
+	relayOwner                relayPathOwner
+	relayGeneration           uint64
+	netDevice                 *os.File
+	netDone                   chan struct{}
+	netReports                chan string
+	netWG                     sync.WaitGroup
+	netEndpoint               mknetwork.Endpoint
+	namespaceHolder           namespaceHolder
+	createCleanupPending      bool // Protected by mu; only completed rollback clears it.
+	createIntentIdentity      *safefile.Identity
+	netClient                 networkClient
+	newNamespaceHolder        namespaceHolderFactory
+	agentDial                 agentDialer
+	newRelay                  relayFactory
+	relayPath                 relayPathFactory
+	newRelayOwner             relayOwnerFactory
+	newShimSocketOwner        relayOwnerFactory
+	shimArguments             []string
+	ioCallTimeout             time.Duration
+	networkCloseTimeout       time.Duration
+	netRXPackets              atomic.Uint64
+	netTXPackets              atomic.Uint64
+	netRXDrops                atomic.Uint64
+	netTXDrops                atomic.Uint64
+	netErrors                 atomic.Uint64
+	processes                 map[string]*process
+	events                    eventJournal
+	eventJournalIdentity      *safefile.Identity
+	recoveryIdentity          *safefile.Identity
+	eventRetryCancel          context.CancelFunc
+	eventRetryDone            chan struct{}
+	shuttingDown              bool
 }
 
 const (

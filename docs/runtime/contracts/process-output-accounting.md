@@ -88,6 +88,36 @@ and cannot qualify exactly-once delivery. Observations and these counters grant
 no lifecycle or cleanup authority. A newly recovered stopped process can retain
 an unresolved intent; its mere stopped state does not settle that uncertainty.
 
+Exec deletion retains a counter-only `completed_output_accounting` tail in the
+same private recovery record while the container's init is retained. The process
+removal and tail append commit atomically, or both roll back. At most 16 records
+survive, with continuous sequence numbers and exact recorded-deletion/eviction
+counts. These counts start when the tail is initialized; they do not claim a
+complete history before an upgrade. Overflow leaves the existing tail intact
+and sticks `accounting_exhausted`; further deletions cannot fabricate new
+observations. Legacy absence remains unobserved. Deleted exec IDs can be reused;
+sequence numbers distinguish retained observations and are not process-incarnation
+authority. Container deletion may remove the entire bundle; this tail is not an
+external archive or cleanup receipt.
+
+Authorized host operators can inspect it without a second agent session:
+
+```sh
+containerd-shim-multikernel-v2 --inspect-completed-output \
+  --bundle /absolute/private/bundle --namespace moby --task TASK_ID
+```
+
+The standalone command validates private file ownership/bounds, strict recovery
+semantics, task/namespace selectors and the actual bundle identity before
+returning a typed snapshot. It emits no stream contents, stdio paths, command
+lines, environment or tokens. Its two-second observation and single 50 ms output
+attempt bound the standalone process; do not use its worker as a resident poller.
+Replies are limited to 64 KiB. Missing history is `unobserved`, exhausted history
+is `unqualified`, and unavailable/changed/invalid state refuses with fixed codes.
+An observed private snapshot does not attest to a live worker, child kernel or
+Docker delivery. Caller-side trial/source/epoch and live identity checks remain
+necessary before using it as evidence.
+
 This covers guest-buffer and logical host-disposition accounting. Actual-child
 integration, worker recovery under real faults, Docker logger rotation/loss and payload/heap/RSS peaks require
 separate evidence. Full G7/G8 and end-to-end loss/peak accounting remain open.

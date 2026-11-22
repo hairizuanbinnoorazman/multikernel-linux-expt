@@ -368,7 +368,10 @@ func (s *service) Delete(ctx context.Context, r *taskapi.DeleteRequest) (*taskap
 	s.mu.Lock()
 	delete(s.processes, r.ExecID)
 	if r.ExecID != "" {
+		oldAccounting := s.completedOutputAccounting
+		s.completedOutputAccounting = oldAccounting.append(r.ExecID, p)
 		if err := s.persistRecovery(); err != nil {
+			s.completedOutputAccounting = oldAccounting
 			s.processes[r.ExecID] = p
 			p.deleting = false
 			s.mu.Unlock()
