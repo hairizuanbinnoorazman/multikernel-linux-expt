@@ -1,5 +1,18 @@
 # Current verified lab state
 
+The [host output-disposition checkpoint](../../evidence/runtime-20261122/g8-host-output-disposition/README.md)
+qualifies source `81fd9a0a` in a bounded native GCE run. A real FIFO reader consumes
+4,194,304 bytes, matching committed complete writes; guest-buffer drop is 17,
+replay exposure is zero for that finite-writer case, and verified exit is 37.
+Pressure/unconfigured discards, partial retry, failed offset publication, durable
+intent ordering, legacy unknown prefixes and overflow controls pass. Independent
+exact-unit/source audit, successful unit stop and cgroup/scratch removal pass.
+Fourteen artifacts/two absences are sealed and reverified in the same boot,
+alongside preceding native/refused cases and the unchanged primary baseline.
+Required checks and full shim races pass; five environment-dependent cases skip.
+Actual-child integration, real worker faults, Docker retention/loss, RSS and cold
+restoration of the new seals remain open.
+
 The [owning shim final-accounting checkpoint](../../evidence/runtime-20261122/g8-host-final-output-accounting/README.md)
 qualifies source `3f8de5a7` in a bounded native GCE run. The negotiated owning
 client durably commits validated guest counters alongside independently verified

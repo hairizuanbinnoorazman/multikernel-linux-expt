@@ -1,5 +1,19 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [native host-disposition proof](../../../evidence/runtime-20261122/g8-host-output-disposition/README.md)
+qualifies source `81fd9a0a`: durable offsets partition into complete writes,
+unconfigured discards, pressure drops and legacy unknown prefixes. Payload-free
+bounded intents precede configured writes; failed publication and partial retry
+retain conservative exposure. A real native FIFO consumer observes 4,194,304
+bytes matching committed writes, guest drop 17, zero exposure for that successful
+case and verified exit 37. Ordering, refusal, uncertainty and overflow controls,
+full shim races and required checks pass, with five environment-dependent skips.
+Independent exact-unit/source GCE audit, successful stop, cgroup/scratch removal
+and same-boot 14-artifact/two-absence preservation qualify alongside earlier
+retained sets. This closes native logical disposition accounting and the finite
+FIFO consumer subcase. Actual-child accounting, real worker faults, Docker
+retention/loss, RSS, cold restoration of new seals and full G7/G8 remain open.
+
 The [owning shim final-accounting proof](../../../evidence/runtime-20261122/g8-host-final-output-accounting/README.md)
 qualifies source `3f8de5a7` through a bounded native GCE run and independent
 exact-unit/source audit. One owning checked client negotiates support, drains the
