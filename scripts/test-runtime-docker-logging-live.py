@@ -53,7 +53,16 @@ def execute(work,run,boot):
     config=work/'containerd.toml'
     config.write_text('version = 2\nroot = '+json.dumps(str(work/'containerd-root'))+'\nstate = '+json.dumps(str(run/'containerd-state'))+'\ndisabled_plugins = ["io.containerd.grpc.v1.cri", "io.containerd.cri.v1.images", "io.containerd.cri.v1.runtime", "io.containerd.nri.v1.nri"]\n[grpc]\naddress = '+json.dumps(str(csock))+'\n')
     dc=work/'docker.json'
-    dc.write_text(json.dumps(dict(logging_config(),**{'data-root':str(data),'exec-root':str(run/'docker-exec'),'pidfile':str(run/'docker.pid'),'hosts':['unix://'+str(dsock)],'containerd':str(csock),'storage-driver':'vfs','features':{'containerd-snapshotter':False},'bridge':'none','iptables':False,'ip6tables':False,'ip-forward':False,'ip-masq':False,'exec-opts':['native.cgroupdriver=cgroupfs']})))
+    base={'default-runtime':'runc','data-root':str(data),'exec-root':str(run/'docker-exec'),'pidfile':str(run/'docker.pid'),'hosts':['unix://'+str(dsock)],'containerd':str(csock),'storage-driver':'vfs','features':{'containerd-snapshotter':False},'bridge':'none','iptables':False,'ip6tables':False,'ip-forward':False,'ip-masq':False,'exec-opts':['native.cgroupdriver=cgroupfs']}
+    record('docker-base.json',base)
+    merger=Path(__file__).with_name('merge-runtime-docker-config.py')
+    command(['/usr/bin/python3',str(merger),str(work/'docker-base.json'),str(dc),'--enable-bounded-logging'])
+    generated=json.loads(dc.read_text())
+    expected=dict(base,**logging_config(),runtimes={'io.containerd.multikernel.v2':{'runtimeType':'io.containerd.multikernel.v2'}})
+    if generated!=expected or stat.S_IMODE(dc.stat().st_mode)!=0o600:
+        raise ValueError('deployment-generated logging configuration differs')
+    command(['/usr/bin/dockerd','--validate','--config-file',str(dc)])
+    record('deployment-config.json',dict(input_sha256=hashlib.sha256((work/'docker-base.json').read_bytes()).hexdigest(),candidate_sha256=hashlib.sha256(dc.read_bytes()).hexdigest(),merger_sha256=hashlib.sha256(merger.read_bytes()).hexdigest(),bounded_logging_explicit=True,default_runtime_preserved=True,candidate_mode=0o600,installed_parser_validated=True))
     processes=[];logs=[]
     def start(argv,name,socket):
         stream=(work/name).open('xb');logs.append(stream)
@@ -71,7 +80,7 @@ def execute(work,run,boot):
             except ValueError:
                 if any(p.poll() is not None for p in processes) or time.monotonic()>=deadline:raise
                 time.sleep(.05)
-        if info['DockerRootDir']!=str(data) or info['LoggingDriver']!='local':raise ValueError('private logging daemon identity differs')
+        if info['DockerRootDir']!=str(data) or info['LoggingDriver']!='local' or info['DefaultRuntime']!='runc':raise ValueError('private logging daemon identity differs')
         record('docker-info.json',info)
         image=command(cli+['import',str(work/'image.tar'),'g8-log-fixture:native']).decode().strip()
         if not re.fullmatch('sha256:[a-f0-9]{64}',image):raise ValueError('private logging image identity differs')
@@ -108,7 +117,7 @@ def execute(work,run,boot):
     for case in ['default','explicit']:
         if qualify_rotation(json.loads((work/(case+'-inspect.json')).read_text()),data)!=observations[case]:raise ValueError('local logging sample changed after shutdown')
     record('scratch-cleanup.json',cleanup_empty_scratch(scratch))
-    record('result.json',dict(native_private_docker_rotation_qualified=True,default_and_explicit_policy_verified=True,two_rotated_samples_within_observed_bound=True,private_daemons_stopped=True,child_kernel_started=False,full_g7_g8_qualified=False))
+    record('result.json',dict(native_private_docker_rotation_qualified=True,default_and_explicit_policy_verified=True,two_rotated_samples_within_observed_bound=True,private_daemons_stopped=True,deployment_generated_policy_consumed=True,child_kernel_started=False,full_g7_g8_qualified=False))
 
 
 if __name__=='__main__':
