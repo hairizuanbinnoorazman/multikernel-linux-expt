@@ -5,6 +5,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"io"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -88,7 +90,7 @@ func TestDiagnosticLifetimeBudgetConcurrentAdmissionAndExactBoundary(t *testing.
 	case <-time.After(time.Second):
 		t.Fatal("last frame stalled")
 	}
-	if exact.reservedBytes.Load() != processDiagnosticLifetimeByteLimit || exact.tryRecord(record) {
+	if !exact.budgetClosed.Load() || exact.reservedBytes.Load() != processDiagnosticLifetimeByteLimit || exact.tryRecord(record) {
 		t.Fatal("exhausted budget reset")
 	}
 	// Every typed producer must use the same fully exhausted allowance.
@@ -102,8 +104,56 @@ func TestDiagnosticLifetimeBudgetConcurrentAdmissionAndExactBoundary(t *testing.
 	if exact.dropped.Load() != before+1 {
 		t.Fatal("library bypassed shared budget")
 	}
-	exact.reservedBytes.Store(^uint64(0))
-	if exact.tryRecord(record) || exact.reservedBytes.Load() != ^uint64(0) {
+	overflow := newProcessDiagnosticSink(io.Discard)
+	defer overflow.close()
+	overflow.reservedBytes.Store(^uint64(0))
+	if overflow.tryRecord(record) || !overflow.budgetClosed.Load() || overflow.reservedBytes.Load() != ^uint64(0) {
 		t.Fatal("overflowed counter regained allowance")
 	}
+}
+
+func TestDiagnosticExhaustionLatchesTailAndSkipsProducerAllocations(t *testing.T) {
+	sink := newProcessDiagnosticSink(io.Discard)
+	defer sink.close()
+	record := diagnosticTestRecord()
+	encoded, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// One newline byte too little for this frame. A smaller frame would fit,
+	// but cannot reopen the allowance after the first refusal.
+	tail := uint64(len(encoded))
+	sink.reservedBytes.Store(processDiagnosticLifetimeByteLimit - tail)
+	if sink.tryRecord(record) || !sink.budgetClosed.Load() {
+		t.Fatal("unfittable frame did not latch exhaustion")
+	}
+	if sink.tryEncodedDiagnostic([]byte("{}")) || sink.reservedBytes.Load() != processDiagnosticLifetimeByteLimit-tail {
+		t.Fatal("smaller frame reopened unused tail")
+	}
+	reporter := newProcessDiagnosticReporter("box", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "init", sink)
+	supervisor := newSupervisorDiagnostics(sink)
+	boundary := newLibraryLogBoundary(sink)
+	before := sink.dropped.Load()
+	allocations := testing.AllocsPerRun(1000, func() {
+		sink.tryRecord(record)
+		sink.tryLibraryRecord(libraryDiagnosticRecord{})
+		sink.trySupervisorRecord(supervisorDiagnosticRecord{})
+		reporter.attempted = 0
+		reporter.emit(diagnosticOutputRead, 0)
+		supervisor.attempted = 0
+		supervisor.emit(supervisorStartFailed, 0, 0, 0)
+		boundary.attempted[libraryCode("private")].Store(0)
+		entry := logrus.Entry{Message: "private", Level: logrus.ErrorLevel}
+		boundary.Fire(&entry)
+		if entry.Message != "shim library diagnostic" || entry.Logger != boundary.discard {
+			panic("exhaustion bypassed library redaction")
+		}
+	})
+	if allocations != 0 {
+		t.Fatalf("exhausted producers allocated: %g", allocations)
+	}
+	if sink.dropped.Load()-before != 6*1001 {
+		t.Fatal("exhausted attempts not counted exactly once")
+	}
+	t.Log("exhausted_producer_allocations=0 unused_tail_closed=true library_redaction=true")
 }

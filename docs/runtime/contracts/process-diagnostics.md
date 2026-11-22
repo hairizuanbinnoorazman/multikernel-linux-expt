@@ -46,6 +46,11 @@ is a conservative reservation budget rather than delivered-byte accounting.
 Reservations use at most eight compare-and-swap attempts and refuse contention
 without waiting for writer I/O or a lifecycle lock. The counter cannot wrap to
 restore allowance. Budget refusals increment the existing dropped-record count.
+The first frame that cannot fit closes the allowance permanently; a smaller
+later frame cannot reclaim its unused tail. Exact-limit reservations still
+deliver their last frame. Contention refusals do not close the allowance.
+After closure, producers skip timestamp formatting, validation and JSON encoding;
+library entries are still sanitized before this early return.
 Once exhausted, the process retains its durable lifecycle behavior and loses
 further best-effort diagnostics. A new process has a new budget; this is not a
 host-wide or sandbox-wide lifetime quota. Task stdout/stderr retains its separate

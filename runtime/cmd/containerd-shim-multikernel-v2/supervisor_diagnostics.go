@@ -84,10 +84,10 @@ func validSupervisorDiagnosticRecord(r supervisorDiagnosticRecord) bool {
 	return false
 }
 func (s *processDiagnosticSink) trySupervisorRecord(r supervisorDiagnosticRecord) bool {
-	if s == nil {
+	if s.refuseUnavailableDiagnostic() {
 		return false
 	}
-	if s.disabled.Load() || !validSupervisorDiagnosticRecord(r) {
+	if !validSupervisorDiagnosticRecord(r) {
 		s.dropped.Add(1)
 		return false
 	}
@@ -125,6 +125,9 @@ func (r *supervisorDiagnosticReporter) emit(code supervisorDiagnosticCode, worke
 		return false
 	}
 	r.attempted |= bit
+	if r.sink.refuseUnavailableDiagnostic() {
+		return false
+	}
 	spec := supervisorDiagnosticSpecs[code]
 	return r.sink.trySupervisorRecord(supervisorDiagnosticRecord{Version: 1, Component: "containerd-shim-multikernel-v2", Scope: "worker-supervisor", Code: spec.code, Operation: spec.operation, SupervisorPID: r.pid, OwnerKnown: false, WorkerPID: workerPID, Attempt: attempt, Signal: signal, At: time.Now().UTC().Format(time.RFC3339Nano)})
 }

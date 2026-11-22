@@ -105,6 +105,7 @@ type processDiagnosticSink struct {
 	done          chan struct{}
 	closeOnce     sync.Once
 	disabled      atomic.Bool
+	budgetClosed  atomic.Bool
 	dropped       atomic.Uint64
 	reservedBytes atomic.Uint64
 }
@@ -137,11 +138,25 @@ func (s *processDiagnosticSink) close() {
 	s.disabled.Store(true)
 	s.closeOnce.Do(func() { close(s.stop) })
 }
-func (s *processDiagnosticSink) tryRecord(record processDiagnosticRecord) bool {
+
+// Refuse before validating, formatting timestamps or encoding exhausted records.
+// This latch is separate from writer failure: a budget-closed worker may still
+// deliver its already reserved frames. Every refused attempt is counted once.
+func (s *processDiagnosticSink) refuseUnavailableDiagnostic() bool {
 	if s == nil {
+		return true
+	}
+	if s.disabled.Load() || s.budgetClosed.Load() {
+		s.dropped.Add(1)
+		return true
+	}
+	return false
+}
+func (s *processDiagnosticSink) tryRecord(record processDiagnosticRecord) bool {
+	if s.refuseUnavailableDiagnostic() {
 		return false
 	}
-	if s.disabled.Load() || !validProcessDiagnosticRecord(record) {
+	if !validProcessDiagnosticRecord(record) {
 		s.dropped.Add(1)
 		return false
 	}
@@ -156,10 +171,10 @@ func (s *processDiagnosticSink) tryRecord(record processDiagnosticRecord) bool {
 // Only strict, typed diagnostic producers call this shared bounded transport.
 // It is not an input interface for guest data or pre-serialized RPC payloads.
 func (s *processDiagnosticSink) tryEncodedDiagnostic(data []byte) bool {
-	if s == nil {
+	if s.refuseUnavailableDiagnostic() {
 		return false
 	}
-	if s.disabled.Load() || len(data)+1 > processDiagnosticRecordLimit {
+	if len(data)+1 > processDiagnosticRecordLimit {
 		s.dropped.Add(1)
 		return false
 	}
@@ -188,9 +203,13 @@ func (s *processDiagnosticSink) reserveDiagnosticBytes(size uint64) bool {
 	for attempt := 0; attempt < processDiagnosticReservationAttempts; attempt++ {
 		used := s.reservedBytes.Load()
 		if used > processDiagnosticLifetimeByteLimit || size > processDiagnosticLifetimeByteLimit-used {
+			s.budgetClosed.Store(true)
 			return false
 		}
 		if s.reservedBytes.CompareAndSwap(used, used+size) {
+			if used+size == processDiagnosticLifetimeByteLimit {
+				s.budgetClosed.Store(true)
+			}
 			return true
 		}
 	}
@@ -301,7 +320,7 @@ func (r *processDiagnosticReporter) emit(code processDiagnosticCode, bytes uint6
 		return false
 	}
 	r.attempted |= bit
-	if r.sink == nil {
+	if r.sink.refuseUnavailableDiagnostic() {
 		return false
 	}
 	spec := processDiagnosticSpecs[code]

@@ -121,7 +121,7 @@ func validLibraryDiagnosticRecord(r libraryDiagnosticRecord) bool {
 // Every admitted record has a strict fixed schema before it reaches the shared
 // bounded sink. Neither raw messages nor entry fields/cause methods are used.
 func (s *processDiagnosticSink) tryLibraryRecord(r libraryDiagnosticRecord) bool {
-	if s == nil {
+	if s.refuseUnavailableDiagnostic() {
 		return false
 	}
 	if !validLibraryDiagnosticRecord(r) {
@@ -179,6 +179,9 @@ func (b *libraryLogBoundary) Fire(entry *logrus.Entry) error {
 		if b.attempted[code].CompareAndSwap(previous, previous|bit) {
 			break
 		}
+	}
+	if b.sink.refuseUnavailableDiagnostic() {
+		return nil
 	}
 	spec := libraryDiagnosticSpecs[code]
 	b.sink.tryLibraryRecord(libraryDiagnosticRecord{Version: 1, Component: "containerd-shim-multikernel-v2",

@@ -227,6 +227,16 @@ func TestProcessDiagnosticsRealStderrRedactionAndBlockedPipeProgress(t *testing.
 		if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 			t.Fatal(err)
 		}
+		if mode == "budget-exhausted" {
+			sink := processDiagnosticDefault()
+			for i := 0; i < 10000 && !sink.budgetClosed.Load(); i++ {
+				r := newProcessDiagnosticReporter("box", strings.Repeat("a", 32), "budget-flood", sink)
+				r.emit(diagnosticStdinReplay, 0)
+			}
+			if !sink.budgetClosed.Load() {
+				t.Fatal("fixture did not exhaust diagnostic budget")
+			}
+		}
 		a := &diagnosticFaultAgent{}
 		p := &process{pid: 41, status: tasktypes.Status_RUNNING, done: make(chan struct{})}
 		s := &service{id: "task", namespace: "tests", bundle: bundle, sandbox: protocol.Sandbox{ID: "box", Generation: strings.Repeat("a", 32)}, agent: a, processes: map[string]*process{"": p}, publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
@@ -255,6 +265,14 @@ func TestProcessDiagnosticsRealStderrRedactionAndBlockedPipeProgress(t *testing.
 		if status != tasktypes.Status_STOPPED || exit != 37 || !queued {
 			t.Fatal("wrong exit after diagnostic pressure")
 		}
+		data, err := os.ReadFile(filepath.Join(bundle, ".multikernel", "sandbox.json"))
+		var saved persisted
+		if err != nil || json.Unmarshal(data, &saved) != nil || len(saved.Processes) != 1 || saved.Processes[0].Status != tasktypes.Status_STOPPED || saved.Processes[0].Exit != 37 || !saved.Processes[0].ExitEventQueued {
+			t.Fatal("exact exit and event acknowledgement not durable")
+		}
+		if mode == "budget-exhausted" && !processDiagnosticDefault().budgetClosed.Load() {
+			t.Fatal("lifecycle reopened diagnostic allowance")
+		}
 		if mode == "blocked" {
 			sink := processDiagnosticDefault()
 			if sink.disabled.Load() {
@@ -280,7 +298,7 @@ func TestProcessDiagnosticsRealStderrRedactionAndBlockedPipeProgress(t *testing.
 		t.Log("PROCESS_MONITOR_RETRIED_PRIVATE_ERRORS_AND_COMMITTED_EXACT_EXIT_WITH_BOUNDED_DIAGNOSTICS")
 		return
 	}
-	for _, mode := range []string{"capture", "blocked", "closed-reader"} {
+	for _, mode := range []string{"capture", "blocked", "closed-reader", "budget-exhausted"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
 			defer cancel()
@@ -327,19 +345,29 @@ func TestProcessDiagnosticsRealStderrRedactionAndBlockedPipeProgress(t *testing.
 			if !strings.Contains(stdout.String(), "PROCESS_MONITOR_RETRIED_PRIVATE_ERRORS_AND_COMMITTED_EXACT_EXIT_WITH_BOUNDED_DIAGNOSTICS") {
 				t.Fatal("missing exact-exit proof")
 			}
-			if mode == "capture" {
+			if mode == "capture" || mode == "budget-exhausted" {
 				raw := stderr.Bytes()
 				if bytes.Contains(raw, []byte(diagnosticSyntheticSecret)) || bytes.Contains(raw, []byte("/private/guest/path")) {
 					t.Fatal("private guest error leaked to host stderr")
 				}
 				lines := bytes.Split(bytes.TrimSpace(raw), []byte("\n"))
-				if len(lines) != 1 {
+				if mode == "capture" && len(lines) != 1 {
 					t.Fatal("retry diagnostic volume was not bounded", len(lines))
 				}
-				var record processDiagnosticRecord
-				if json.Unmarshal(lines[0], &record) != nil || !validProcessDiagnosticRecord(record) || record.Code != "OUTPUT_READ_FAILED" {
-					t.Fatal("invalid real stderr event")
+				if len(raw) > processDiagnosticLifetimeByteLimit {
+					t.Fatal("real stderr exceeded lifetime budget")
 				}
+				expected := processDiagnosticSpecs[diagnosticOutputRead].code
+				if mode == "budget-exhausted" {
+					expected = processDiagnosticSpecs[diagnosticStdinReplay].code
+				}
+				for _, line := range lines {
+					var record processDiagnosticRecord
+					if json.Unmarshal(line, &record) != nil || !validProcessDiagnosticRecord(record) || record.Code != expected {
+						t.Fatal("invalid real stderr event or post-exhaustion emission")
+					}
+				}
+				t.Logf("mode=%s exact_exit=37 durable_exit=true event_ack=true stderr_bytes=%d", mode, len(raw))
 			}
 		})
 	}
