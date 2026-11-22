@@ -14,6 +14,7 @@ from runtime_fixture_epoch import unit_properties, qualify_unit_epoch
 from runtime_diagnostic_bundle_checkpoint import read_fixture_artifact
 from runtime_module_taint import expected_module_taint
 from runtime_trial_layout import stage_path,scenario_flag,workload_unit
+from runtime_trial_shim_variant import require_admission
 from runtime_recovery_checkpoint import inspect_fixture_recovery
 from runtime_concurrency_checkpoint import inspect_fixture_concurrency
 P=pathlib.Path
@@ -27,6 +28,7 @@ STAGE_LOCATION=os.environ.get('MK_MODULE_TRIAL_STAGE_LOCATION','storage')
 WORK=stage_path(REVISION,STAGE_LOCATION)
 RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1','fifo','crash']
 SCENARIO=os.environ.get('MK_MODULE_TRIAL_SCENARIO','pressure');scenario_flag(SCENARIO)
+DIAGNOSTIC_EXHAUSTION=os.environ.get('MK_MODULE_TRIAL_DIAGNOSTIC_EXHAUSTION','0');assert DIAGNOSTIC_EXHAUSTION in ['0','1'] and (DIAGNOSTIC_EXHAUSTION=='0' or SCENARIO=='logging')
 ENGINE_OBSERVATION=os.environ.get('MK_MODULE_TRIAL_ENGINE_OBSERVATION','0');assert ENGINE_OBSERVATION in ['0','1'] and (ENGINE_OBSERVATION=='0' or SCENARIO=='pressure' and RECORD_FAULT=='0')
 AGGREGATE_DOCKER_HEALTH=os.environ.get('MK_MODULE_TRIAL_AGGREGATE_DOCKER_HEALTH','0');assert AGGREGATE_DOCKER_HEALTH in ['0','1'] and (AGGREGATE_DOCKER_HEALTH=='0' or ENGINE_OBSERVATION=='1')
 assert SCENARIO=='pressure' or RECORD_FAULT=='0'
@@ -49,6 +51,7 @@ def protected(path):
 assert os.geteuid()==0 and socket.gethostname()=='mklinux-g7-storage-20261012'
 assert P('/proc/sys/kernel/random/boot_id').read_text().strip()==BOOT
 for path in [MODULE,WORK,WORK/'bin',WORK/'source',WORK/'source/scripts',WORK/'tmp']:protected(path)
+require_admission(json.loads((WORK/'build.json').read_text()),DIAGNOSTIC_EXHAUSTION=='1')
 unit=os.environ['MK_MODULE_TRIAL_UNIT'];assert unit=='g8-vsock-rx-trial-'+REVISION+'-release.service'
 scope=show(unit,'MainPID','InvocationID','PrivateMounts','KillMode')
 assert scope=={'MainPID':str(os.getpid()),'InvocationID':os.environ['INVOCATION_ID'],'PrivateMounts':'yes','KillMode':'process'}
@@ -126,7 +129,7 @@ try:
     else:
         run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
         run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
-    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else scenario_flag(SCENARIO),'--harden-services']+(['--engine-observation'] if ENGINE_OBSERVATION=='1' else [])+(['--aggregate-docker-health'] if AGGREGATE_DOCKER_HEALTH=='1' else []))
+    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else scenario_flag(SCENARIO),'--harden-services']+(['--engine-observation'] if ENGINE_OBSERVATION=='1' else [])+(['--aggregate-docker-health'] if AGGREGATE_DOCKER_HEALTH=='1' else [])+(['--diagnostic-exhaustion-worker'] if DIAGNOSTIC_EXHAUSTION=='1' else []))
     deadline=time.monotonic()+1230;invocation=None
     while True:
         observed=show(pressure,'InvocationID','MainPID','ActiveState','SubState','Result','ExecMainStatus')
@@ -154,6 +157,9 @@ try:
         elif SCENARIO=='logging':
             from runtime_child_log_checkpoint import inspect_fixture_logging
             record('child-log-pressure-checkpoint-qualified',child_log_pressure_checkpoint=inspect_fixture_logging(WORK,BOOT,invocation))
+            if DIAGNOSTIC_EXHAUSTION=='1':
+                from runtime_diagnostic_exhaustion_worker import inspect_fixture_exhaustion
+                record('diagnostic-exhaustion-checkpoint-qualified',diagnostic_exhaustion_checkpoint=inspect_fixture_exhaustion(WORK,BOOT,invocation))
         else:
             recovery=inspect_fixture_recovery(WORK,BOOT,invocation,SCENARIO)
             record('runtime-recovery-checkpoint-qualified',runtime_recovery_checkpoint=recovery)

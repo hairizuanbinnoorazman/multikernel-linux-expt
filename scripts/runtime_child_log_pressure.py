@@ -46,7 +46,7 @@ def wait_for_writer(probe,deadline):
     raise ValueError('child log writer did not complete within deadline')
 
 
-def qualify(cli,private,boot,invocation):
+def qualify(cli,private,boot,invocation,diagnostic_exhaustion=False):
     # Imports stay lazy: the concurrency checkpoint imports its own fixture.
     from runtime_concurrency_checkpoint import matrix
     name='g8-materialization'
@@ -56,6 +56,10 @@ def qualify(cli,private,boot,invocation):
     agent=digest(private/'current-agent-profile-receipt.json')
     inspect_current_agent(private.parent,agent)
     command(['start',name],'log-start',timeout=START_BUDGET)
+    if diagnostic_exhaustion:
+        from runtime_diagnostic_exhaustion_worker import capture_worker
+        build=json.loads((private.parent/'build.json').read_text())
+        capture_worker(private,build,boot,'after-start')
     wait_for_writer(lambda attempt,deadline:capture(
         cli+['exec','--user','1000:1000',name,'/bin/sh','-c','test -f '+BUILD_ROOT+'/done'],
         private,'log-ready-'+str(attempt),False,deadline),time.monotonic_ns()+300_000_000_000)
@@ -76,6 +80,7 @@ def qualify(cli,private,boot,invocation):
     assert engine['KernelVersion']==profile['kernel_release'] and engine['ServerVersion']=='29.9.0' and 'name=rootless' in engine['SecurityOptions']
     baseline=json.loads((private/'primary-docker-before.json').read_text());primary=observe(image);unchanged(baseline,primary);assert primary['child_image_absent']
     (private/'log-primary.json').write_text(json.dumps(primary,sort_keys=True)+'\n')
+    if diagnostic_exhaustion:capture_worker(private,build,boot,'before-release')
     command(['kill','--signal=USR1',name],'log-release')
     assert command(['wait',name],'log-wait',timeout=60).stdout==b'0\n'
     item=json.loads(command(['inspect',name],'log-inspect').stdout)[0]
@@ -91,4 +96,7 @@ def qualify(cli,private,boot,invocation):
                 workload_stdout_sha256=digest(private/'workload.stdout'),workload_stderr_sha256=digest(private/'workload.stderr'),
                 log_contents_read=False,loss_accounting_qualified=False,cleanup_qualified=False)
     (private/'child-log-pressure.json').write_text(json.dumps(result,sort_keys=True)+'\n')
+    if diagnostic_exhaustion:
+        from runtime_diagnostic_exhaustion_worker import checkpoint
+        checkpoint(private,build,boot,invocation)
     return subprocess.CompletedProcess(cli,0)

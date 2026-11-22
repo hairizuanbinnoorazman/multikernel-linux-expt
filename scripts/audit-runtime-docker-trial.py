@@ -93,6 +93,8 @@ def qualify_trial_logging(read, private, item):
 def audit(args):
     work = args.work
     scenario=getattr(args,'scenario','pressure');scenario_flag(scenario)
+    require_exhaustion=getattr(args,'require_diagnostic_exhaustion',False)
+    if type(require_exhaustion) is not bool or require_exhaustion and scenario!='logging':raise ValueError('diagnostic exhaustion audit scenario differs')
     require_engine=getattr(args,'require_engine_observation',False) or getattr(args,'require_aggregate_docker_health',False)
     if require_engine and scenario!='pressure':raise ValueError('engine observation requires pressure scenario')
     validate_stage(work,args.source_commit[:7])
@@ -109,8 +111,8 @@ def audit(args):
         raise ValueError('build manifest differs from caller pin')
     # Pin before importing any fixture-specific acceptance code.
     build = json.loads((work/'build.json').read_text())
-    from runtime_trial_shim_variant import require_production
-    require_production(build)
+    from runtime_trial_shim_variant import require_admission
+    require_admission(build,require_exhaustion)
     if build['source_commit'] != args.source_commit or digest(work/'source.tar') != build['source_archive_sha256']:
         raise ValueError('staged source identity differs')
     with tarfile.open(work/'source.tar') as archive:
@@ -174,6 +176,7 @@ def audit(args):
         raise ValueError('trial scenario differs from caller authority')
     if receipt.get('concurrent_guest_builds_tested') is not (scenario=='concurrent'):
         raise ValueError('concurrent scenario differs from caller authority')
+    if receipt.get('diagnostic_exhaustion_tested',False) is not require_exhaustion:raise ValueError('diagnostic exhaustion scope differs from caller authority')
     if receipt.get('child_log_pressure_tested',False) is not (scenario=='logging'):raise ValueError('logging scenario differs from caller authority')
     if receipt['execution_script_sha256'] != digest(work/'source/scripts/test-runtime-docker-profile-live.py'):
         raise ValueError('execution source differs from receipt')
@@ -276,9 +279,13 @@ def audit(args):
     elif scenario=='logging':
         from runtime_child_log_checkpoint import inspect_fixture_logging
         logging=inspect_fixture_logging(work,boot,args.workload_invocation)
+        if require_exhaustion:
+            from runtime_diagnostic_exhaustion_worker import inspect_fixture_exhaustion
+            exhaustion=inspect_fixture_exhaustion(work,boot,args.workload_invocation)
         parent=read(Path('/opt/mkruntime/g8-vsock-rx-b688447')/('trial-'+work.name),'primary-module-trial.json')
         if (parent.get('scenario')!='logging' or parent.get('child_log_pressure_checkpoint')!=logging or parent['boot_id']!=boot or parent['parent_scope']['InvocationID']!=args.parent_invocation or parent['pressure_invocation']!=args.workload_invocation or parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or parent.get('cold_restore_required') is not True):
             raise ValueError('parent logging checkpoint differs from exact lifecycle')
+        if require_exhaustion and parent.get('diagnostic_exhaustion_checkpoint')!=exhaustion:raise ValueError('parent exhaustion checkpoint differs')
     else:
         from runtime_recovery_checkpoint import inspect_fixture_recovery
         recovery=inspect_fixture_recovery(work,boot,args.workload_invocation,scenario)
@@ -373,6 +380,7 @@ def audit(args):
                 runtime_synced_io_crash_continuity_qualified=scenario=='runtime-crash-during-io',
                 concurrent_child_build_separation_and_survivor_rebuild_qualified=scenario=='concurrent',
                 child_build_and_log_rotation_qualified=scenario=='logging',
+                real_child_diagnostic_exhaustion_qualified=require_exhaustion,
                 diagnostic_three_hold_receipts_requalified=scenario=='pressure', primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,
@@ -383,6 +391,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--require-engine-observation',action='store_true')
+    parser.add_argument('--require-diagnostic-exhaustion',action='store_true')
     parser.add_argument('--require-aggregate-docker-health',action='store_true')
     parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io','concurrent','logging'],default='pressure')
     for name in ['boot-id', 'parent-invocation', 'workload-invocation', 'source-commit', 'build-sha256']:

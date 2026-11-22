@@ -224,3 +224,13 @@ or contradictory variant metadata is refused. Ordinary live-trial and audit
 entry points explicitly reject the instrumented variant; historical production
 packets without variant fields remain supported. Receipt-bound real-child trial
 admission is still pending.
+
+The [receipt-bound integration](../../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
+adds explicit parent, workload and audit admission for the logging scenario.
+Version-2 private preload receipts bind native boot, start ticks and bundle
+identity. Live captures check the supervisor marker and exact executable before
+and after the held child matrix; archive acceptance links both captures to the
+complete build/writer checkpoint and parent lifecycle. These captures grant no
+cleanup, reuse or current-process authority after the workload exits. Actual
+new-source child execution and cold restoration remain unqualified until their
+independent evidence is collected.

@@ -24,3 +24,13 @@ def variant(build):
 def require_production(build):
     if variant(build) != PRODUCTION:
         raise ValueError('instrumented diagnostic worker requires separate trial admission')
+
+
+def require_admission(build,diagnostic_exhaustion=False):
+    if type(diagnostic_exhaustion) is not bool:
+        raise ValueError('invalid diagnostic exhaustion admission')
+    if diagnostic_exhaustion:
+        if variant(build)!=EXHAUSTION:
+            raise ValueError('diagnostic exhaustion requires the instrumented packet')
+    else:
+        require_production(build)

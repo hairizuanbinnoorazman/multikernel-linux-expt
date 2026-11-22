@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from runtime_trial_shim_variant import variant, require_production, PRODUCTION, EXHAUSTION
+from runtime_trial_shim_variant import variant, require_production, PRODUCTION, EXHAUSTION, require_admission
 
 
 class VariantTests(unittest.TestCase):
@@ -14,6 +14,13 @@ class VariantTests(unittest.TestCase):
         self.assertEqual(variant(build), EXHAUSTION)
         with self.assertRaisesRegex(ValueError, 'separate trial admission'):
             require_production(build)
+
+    def test_explicit_admission_is_bound_to_declared_variant(self):
+        instrumented=dict(shim_variant=EXHAUSTION,instrumented_test_executable=True)
+        require_admission(instrumented,True)
+        require_admission({},False)
+        for build,request in [(instrumented,False),({},True),(instrumented,1),(instrumented,'true')]:
+            with self.subTest(build=build,request=request),self.assertRaises(ValueError):require_admission(build,request)
 
     def test_unknown_partial_and_inconsistent_metadata_refused(self):
         cases = [None, [], dict(shim_variant=EXHAUSTION), dict(instrumented_test_executable=True)]

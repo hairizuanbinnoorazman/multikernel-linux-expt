@@ -13,7 +13,8 @@ TAG = 'diagnostic_exhaustion_worker'
 PACKAGE = './cmd/containerd-shim-multikernel-v2'
 FIELDS = {'version', 'scope', 'source_revision', 'worker_pid', 'limit_bytes',
           'reserved_bytes', 'synthetic_preload_attempts', 'synthetic_preload_admitted',
-          'allowance_closed_before_production_entry', 'instrumented_test_executable'}
+          'allowance_closed_before_production_entry', 'instrumented_test_executable', 'boot_id',
+          'worker_start_ticks', 'bundle_device', 'bundle_inode', 'bundle_uid'}
 
 
 def main():
@@ -22,7 +23,7 @@ def main():
         root = Path(directory)
         fixture, production = root/'fixture', root/'production'
         common = ['-mod=readonly', '-tags='+TAG, '-trimpath', '-buildvcs=false',
-                  '-ldflags=-X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=fixture']
+                  '-ldflags=-X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision=abc0123']
         for command, output in [(['test', '-c'], fixture), (['build'], production)]:
             sp.run(['go', *command, *common, '-o', str(output), PACKAGE],
                    cwd=ROOT/'runtime', env=environment, check=True, timeout=180,
@@ -47,14 +48,19 @@ def main():
         assert result.returncode == 0 and result.stdout == b''
         receipt = probe/RECEIPT
         before = receipt.read_bytes(); value = json.loads(before)
-        assert set(value) == FIELDS and value['version'] == 1
+        assert set(value) == FIELDS and value['version'] == 2
         assert value['scope'] == 'diagnostic-exhaustion-test-worker'
-        assert value['source_revision'] == 'fixture' and value['worker_pid'] > 0
+        assert value['source_revision'] == 'abc0123' and value['worker_pid'] > 0
+        assert value['boot_id'] == Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        assert value['worker_start_ticks'] > 0
+        assert (value['bundle_device'],value['bundle_inode'],value['bundle_uid']) == (probe.stat().st_dev,probe.stat().st_ino,os.geteuid())
         assert value['limit_bytes'] == 1 << 20
         assert 0 < value['reserved_bytes'] <= 1 << 20
         assert 0 < value['synthetic_preload_admitted'] <= value['synthetic_preload_attempts'] <= 10000
         assert value['allowance_closed_before_production_entry'] is True
         assert value['instrumented_test_executable'] is True
+        from runtime_diagnostic_exhaustion_worker import validate_preload
+        validate_preload(value,'abc0123',value['boot_id'])
         assert stat.S_IMODE(receipt.stat().st_mode) == 0o600 and receipt.stat().st_nlink == 1
         assert len(result.stderr) <= 1 << 20
         for line in result.stderr.splitlines():

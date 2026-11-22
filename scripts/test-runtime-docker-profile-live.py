@@ -7,7 +7,7 @@ from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_W
 from runtime_socket_readiness import wait_for_socket_owner
 from runtime_storage_pressure import full_observation, recovered_observation
 from runtime_trial_layout import validate_stage
-from runtime_trial_shim_variant import require_production
+from runtime_trial_shim_variant import require_admission
 from runtime_console_capture import ConsoleCapture
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
@@ -36,7 +36,7 @@ from runtime_trial_command import capture as capture_owned_command
 from runtime_bounded_command import bounded_command
 assert 3<=len(sys.argv)<=7, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [SCENARIO] [--harden-services] [--engine-observation] [--aggregate-docker-health]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--child-log-pressure','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health'}
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--child-log-pressure','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health','--diagnostic-exhaustion-worker'}
 assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--concurrent','--child-log-pressure','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
 native_export_crash='--storage-export-crash' in flags
 export_crash_observed=False
@@ -50,6 +50,8 @@ restart_runtime='--restart-runtime' in flags or crash_runtime
 harden_services='--harden-services' in flags
 concurrent='--concurrent' in flags
 child_log_pressure='--child-log-pressure' in flags
+diagnostic_exhaustion='--diagnostic-exhaustion-worker' in flags
+assert not diagnostic_exhaustion or child_log_pressure, 'diagnostic exhaustion requires the logging scenario'
 engine_observation='--engine-observation' in flags
 aggregate_docker_health='--aggregate-docker-health' in flags
 assert not aggregate_docker_health or engine_observation, 'aggregate Docker health requires the approved-agent engine observation trial'
@@ -97,7 +99,7 @@ capacity=observe_trial_capacity('/srv/multikernel-storage',2 if concurrent else 
 (work/'storage-admission.json').write_text(json.dumps(capacity,indent=2)+'\n')
 require_trial_capacity(capacity)
 compiled_versions={};compiled_revisions={};build_metadata=json.loads((work/'build.json').read_text())
-require_production(build_metadata)
+require_admission(build_metadata,diagnostic_exhaustion)
 assert validate_stage(work,build_metadata['source_commit'][:7])==work
 for component in ['mkruntimed','mknetd']:
  version_output=subprocess.run([str(work/'bin'/component),'--version'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
@@ -240,7 +242,7 @@ try:
   shutil.copyfile(private/'a-workload.stdout',private/'workload.stdout');shutil.copyfile(private/'a-workload.stderr',private/'workload.stderr')
  elif child_log_pressure:
   from runtime_child_log_pressure import qualify as qualify_child_log_pressure
-  observed=qualify_child_log_pressure(cli,private,boot,os.environ['INVOCATION_ID'])
+  observed=qualify_child_log_pressure(cli,private,boot,os.environ['INVOCATION_ID'],diagnostic_exhaustion=diagnostic_exhaustion)
  else:
   with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:
    if restart_runtime:
@@ -729,6 +731,8 @@ if aggregate_docker_health:
   r['aggregate_docker_health_'+family+'_sha256']={phase:sha(artifact_paths(work,phase)[family]) for phase in aggregate_phases}
 r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
+r['diagnostic_exhaustion_tested']=diagnostic_exhaustion
+if diagnostic_exhaustion:r['diagnostic_exhaustion_sha256']=sha(private/'diagnostic-exhaustion-checkpoint.json')
 r['child_log_pressure_tested']=child_log_pressure
 if child_log_pressure:r['child_log_pressure_sha256']=sha(private/'child-log-pressure.json')
 r['concurrent_guest_builds_tested']=concurrent

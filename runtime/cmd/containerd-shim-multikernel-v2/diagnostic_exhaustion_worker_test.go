@@ -5,7 +5,9 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 )
@@ -48,18 +50,51 @@ func exhaustDiagnosticTestWorker() bool {
 	if !sink.budgetClosed.Load() || sink.disabled.Load() || sink.reservedBytes.Load() > processDiagnosticLifetimeByteLimit {
 		return false
 	}
+	processStat, err := os.ReadFile("/proc/self/stat")
+	if err != nil {
+		return false
+	}
+	end := strings.LastIndexByte(string(processStat), ')')
+	if end < 0 {
+		return false
+	}
+	fields := strings.Fields(string(processStat)[end+1:])
+	if len(fields) < 20 {
+		return false
+	}
+	startTicks, err := strconv.ParseUint(fields[19], 10, 64)
+	if err != nil || startTicks == 0 {
+		return false
+	}
+	boot, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
+	if err != nil || len(strings.TrimSpace(string(boot))) != 36 {
+		return false
+	}
+	bundle, err := os.Stat(".")
+	if err != nil {
+		return false
+	}
+	identity, ok := bundle.Sys().(*syscall.Stat_t)
+	if !ok || !bundle.IsDir() || identity.Uid != uint32(os.Geteuid()) || bundle.Mode().Perm()&0022 != 0 {
+		return false
+	}
 	receipt := struct {
-		Version        int    `json:"version"`
-		Scope          string `json:"scope"`
-		SourceRevision string `json:"source_revision"`
-		WorkerPID      int    `json:"worker_pid"`
-		Limit          uint64 `json:"limit_bytes"`
-		Reserved       uint64 `json:"reserved_bytes"`
-		Attempts       int    `json:"synthetic_preload_attempts"`
-		Admitted       int    `json:"synthetic_preload_admitted"`
-		Closed         bool   `json:"allowance_closed_before_production_entry"`
-		Instrumented   bool   `json:"instrumented_test_executable"`
-	}{1, "diagnostic-exhaustion-test-worker", buildinfo.Revision, os.Getpid(), processDiagnosticLifetimeByteLimit, sink.reservedBytes.Load(), attempts, admitted, true, true}
+		Version          int    `json:"version"`
+		Scope            string `json:"scope"`
+		SourceRevision   string `json:"source_revision"`
+		BootID           string `json:"boot_id"`
+		WorkerStartTicks uint64 `json:"worker_start_ticks"`
+		BundleDevice     uint64 `json:"bundle_device"`
+		BundleInode      uint64 `json:"bundle_inode"`
+		BundleUID        uint32 `json:"bundle_uid"`
+		WorkerPID        int    `json:"worker_pid"`
+		Limit            uint64 `json:"limit_bytes"`
+		Reserved         uint64 `json:"reserved_bytes"`
+		Attempts         int    `json:"synthetic_preload_attempts"`
+		Admitted         int    `json:"synthetic_preload_admitted"`
+		Closed           bool   `json:"allowance_closed_before_production_entry"`
+		Instrumented     bool   `json:"instrumented_test_executable"`
+	}{2, "diagnostic-exhaustion-test-worker", buildinfo.Revision, strings.TrimSpace(string(boot)), startTicks, uint64(identity.Dev), identity.Ino, identity.Uid, os.Getpid(), processDiagnosticLifetimeByteLimit, sink.reservedBytes.Load(), attempts, admitted, true, true}
 	data, err := json.Marshal(receipt)
 	if err != nil {
 		return false
