@@ -1,12 +1,21 @@
 # Current verified lab state
 
+The [instrumented exhaustion live audit](../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
+qualifies source `c836df51` for the complete real-child nested Docker matrix with
+the host worker's diagnostic allowance exhausted before production entry. The
+same live worker/receipt/executable is bound before and after the held matrix;
+writer completion, logging bounds, primary isolation, native release and resource
+return pass. The candidate is quiescent and cold restoration is pending. The
+previous original-transport baseline is archived; it grants no present execution
+or cleanup authority during this restoration window.
+
 The [latest public compatibility summary](../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
 qualifies source `7803b554` for ordinary real-child nested builds and independent
 cold restoration. Public reporting contains fixed flags and selected counters;
 environment identifiers, private paths and detailed authority records remain
 in the lab.
 
-The original transport/resources are idle, primary preservation and fresh
+The earlier cold-restored baseline qualified original idle transport/resources, primary preservation and fresh
 service state qualify, and the durable 200 GiB filesystem retains its 5% reserve.
 The complete committed packet has eight verified binaries and five revision
 labels. Retention verification covers 307 artifacts/118 absences plus the prior
