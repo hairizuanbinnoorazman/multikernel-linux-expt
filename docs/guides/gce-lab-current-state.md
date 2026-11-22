@@ -4,7 +4,7 @@ Revalidate this checkpoint before live admission, from a checkout with
 authenticated `gcloud` access:
 
 ```sh
-python3 evidence/runtime-20261122/g8-inherited-child-logging-corrected/current-status.py
+python3 evidence/runtime-20261122/g8-user-restart-99a71c03/current-status.py
 ```
 
 The observer pins committed source libraries, checks the fresh primary file/
@@ -20,13 +20,19 @@ retain their original boot pins and are superseded for current admission.
 | Project | `new-demo-project-462517` |
 | Zone | `asia-southeast1-b` |
 | Existing instance | `mklinux-g7-storage-20261012` |
-| Boot | `81623584-a54e-471b-9511-a82f96a63c28` |
+| Boot | `99a71c03-15ed-48f3-afe8-84ffbf1d461c` |
 | Transport | Original `65C55BB38C669FF94A4B772`, idle, zero references |
 | CPUs | `0-15` online; no child, memory pool or VSOCK endpoint |
 | Data filesystem | 200 GiB; exactly 5% reserved; mounted availability checked |
 | Running daemon binding | 214,748,364,800 bytes |
-| Private baseline | `/srv/multikernel-storage/stages/g8-finite-writer-b166f29/cold-after-primary.json` |
+| Private baseline | `/srv/multikernel-storage/stages/g8-finite-writer-b166f29/user-restarts/99a71c03-15ed-48f3-afe8-84ffbf1d461c/cold-after-primary.json` |
 | Complete packet | Source `b166f294`; all eight binary hashes and five labels verified |
+
+The [user-requested restart verification](../../evidence/runtime-20261122/g8-user-restart-99a71c03/README.md)
+rechecks this boot without requesting an additional reset. The previous
+`81623584` baseline remains retained. All current/prior native seals, archived
+v3 acceptance in its original boot, module roles, primary persistence and
+storage geometry requalify; fresh service epochs are stored separately.
 
 The [inherited deployment-logging proof](../../evidence/runtime-20261122/g8-inherited-child-logging-corrected/README.md)
 qualifies source `b166f294` on prior boot `143300f7`: actual merger-generated
@@ -37,7 +43,7 @@ the 2,131,072-byte sample bound. Primary files/service epochs/Docker/network,
 exact child-image absence, native offline release and resource return qualify.
 
 One authorized reset preserves the existing instance. Independent restoration
-on this boot verifies all 304 artifacts/118 absences, approved static archives,
+on boot `81623584` verifies all 304 artifacts/118 absences, approved static archives,
 prior finite 280/111 and native 78/two/155 sets plus selected historical/failed
 sets. Legacy history and archived v3 acceptance run in separate processes;
 current acceptance-module origins are exact, archived success remains bound to
