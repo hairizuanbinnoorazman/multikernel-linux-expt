@@ -129,7 +129,7 @@ if test -e /etc/docker/daemon.json; then
   sudo cp --no-clobber --preserve=mode,ownership,timestamps \
     /etc/docker/daemon.json /etc/docker/daemon.json.pre-multikernel
 fi
-sudo install -m 0644 "$candidate" /etc/docker/.daemon.json.multikernel-candidate
+sudo install -m 0600 "$candidate" /etc/docker/.daemon.json.multikernel-candidate
 sudo mv /etc/docker/.daemon.json.multikernel-candidate /etc/docker/daemon.json
 sudo systemctl reload docker
 sudo docker info --format '{{json .Runtimes}}'
@@ -159,6 +159,38 @@ sudo dockerd --validate --config-file "$candidate"
 
 Retain the exact previous configuration before installing the candidate so the
 policy change can be rolled back byte-for-byte after qualification.
+
+### Explicit bounded Docker logging
+
+Registration preserves the operator's logging settings. To stage the bounded
+policy used in the G8 trials, use a fresh candidate path:
+
+```bash
+./scripts/merge-runtime-docker-config.py --enable-bounded-logging \
+  /etc/docker/daemon.json "$candidate"
+sudo dockerd --validate --config-file "$candidate"
+```
+
+This selects `local`, `max-size=1m`, `max-file=2`, `compress=false`,
+`mode=non-blocking`, and `max-buffer-size=1m`. Compatible partial settings are
+completed; conflicting drivers, options, and extra options are refused before
+creating the candidate. It may be combined with `--enable-live-restore`, but
+neither policy option may be combined with `--remove`. Candidate files are
+created exclusively with mode `0600`, since daemon settings can contain secrets.
+Retain that mode when installing them.
+
+Retain the exact previous configuration and follow the idle-host installation
+procedure above, using a daemon restart to apply logging defaults. Existing
+containers must be recreated to adopt them; explicit container logging options
+can override daemon defaults. See the
+[Docker logging configuration guide](https://docs.docker.com/engine/logging/configure/).
+Nonblocking logging can discard messages when its buffer fills. The trial's
+metadata bound is a sampled storage check, not a peak-space or delivery guarantee.
+This option does not qualify the full G8 isolation gate.
+
+`--remove` removes only the runtime registration and preserves logging policy.
+Restore the exact previous file to roll back the policy, then restart on the
+idle qualification host and recreate affected containers.
 
 ## Runtime configuration and storage
 

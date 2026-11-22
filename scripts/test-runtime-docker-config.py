@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import json
+import os
+import stat
 from pathlib import Path
 import subprocess
 import tempfile
@@ -65,6 +67,70 @@ class DockerConfigTests(unittest.TestCase):
             "{}", "--enable-live-restore", "--remove")
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(output.exists())
+
+    def test_bounded_logging_preserves_settings_and_is_idempotent(self):
+        source = {"default-runtime": "runc", "debug": False,
+                  "log-driver": "local", "log-opts": {"max-size": "1m"}}
+        result, output = self.run_merge(json.dumps(source), "--enable-bounded-logging",
+                                        "--enable-live-restore")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        value = json.loads(output.read_text())
+        self.assertEqual(value["default-runtime"], "runc")
+        self.assertIs(value["debug"], False)
+        self.assertIs(value["live-restore"], True)
+        self.assertEqual(value["log-opts"], {
+            "max-size": "1m", "max-file": "2", "compress": "false",
+            "mode": "non-blocking", "max-buffer-size": "1m"})
+        repeated, final = self.run_merge(output.read_text(), "--enable-bounded-logging")
+        self.assertEqual(repeated.returncode, 0, repeated.stderr)
+        self.assertEqual(json.loads(final.read_text()), value)
+        removed, final = self.run_merge(output.read_text(), "--remove")
+        self.assertEqual(removed.returncode, 0, removed.stderr)
+        expected = dict(value)
+        expected.pop("runtimes")
+        self.assertEqual(json.loads(final.read_text()), expected)
+
+    def test_bounded_logging_rejects_conflicts_before_creating_output(self):
+        cases = [{"log-driver": driver} for driver in (None, "json-file", 1, {})]
+        cases += [{"log-opts": options} for options in (
+            None, [], "secret-marker", {"max-file": 2}, {"mode": "blocking"},
+            {"env": "secret-marker"}, {"max-size": "2m"})]
+        for source in cases:
+            with self.subTest(source=source):
+                result, output = self.run_merge(json.dumps(source), "--enable-bounded-logging")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(output.exists())
+                self.assertNotIn("secret-marker", result.stderr)
+        result, output = self.run_merge("{}", "--remove", "--enable-bounded-logging")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(output.exists())
+
+    def test_registration_preserves_existing_logging_policy(self):
+        source = {"log-driver": "json-file", "log-opts": {"labels": "application"}}
+        result, output = self.run_merge(json.dumps(source))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        value = json.loads(output.read_text())
+        for key in source:
+            self.assertEqual(value[key], source[key])
+
+    def test_candidate_is_private_under_permissive_umask_and_never_replaces(self):
+        old = os.umask(0)
+        try:
+            result, output = self.run_merge("{}", "--enable-bounded-logging")
+        finally:
+            os.umask(old)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
+        original = output.read_bytes()
+        for candidate in (output, output.parent / "link.json"):
+            if candidate != output:
+                candidate.symlink_to(output)
+            result = subprocess.run([str(SCRIPT), str(output.parent / "daemon.json"),
+                                     str(candidate), "--enable-bounded-logging"],
+                                    text=True, capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(output.read_bytes(), original)
+        self.assertTrue((output.parent / "link.json").is_symlink())
 
     def test_rejects_duplicate_keys_and_conflicting_entry(self):
         for source in (
