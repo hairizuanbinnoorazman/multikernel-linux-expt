@@ -10,10 +10,16 @@ SOURCE='a'*40
 
 class BindingTests(unittest.TestCase):
     def test_live_native_process_and_recomputed_record_refusals(self):
+        self.exercise('/bin/sleep')
+
+    def test_multicall_sleep_preserves_dispatch_name(self):
+        self.exercise('/bin/busybox')
+
+    def exercise(self,program):
         with tempfile.TemporaryDirectory(prefix='mk-worker-binding-') as directory:
             work=Path(directory);private=work/'integration';private.mkdir(mode=0o700)
             binary=work/'bin/containerd-shim-multikernel-v2';binary.parent.mkdir(mode=0o700)
-            shutil.copyfile('/bin/sleep',binary);binary.chmod(0o500)
+            shutil.copyfile(program,binary);binary.chmod(0o500)
             container='b'*64
             bundle=private/'containerd-state/io.containerd.runtime.v2.task/moby'/container
             bundle.mkdir(parents=True,mode=0o700)
@@ -21,7 +27,7 @@ class BindingTests(unittest.TestCase):
                 path.write_bytes(value if isinstance(value,bytes) else json.dumps(value).encode());path.chmod(0o600)
             write(private/'create.stdout',(container+'\n').encode())
             build=dict(source_commit=SOURCE,shim_variant='diagnostic-exhaustion-test-worker',instrumented_test_executable=True,binaries={'containerd-shim-multikernel-v2':hashlib.sha256(binary.read_bytes()).hexdigest()})
-            process=subprocess.Popen([str(binary),'60'],cwd=bundle)
+            process=subprocess.Popen(['sleep','60'],executable=str(binary),cwd=bundle)
             try:
                 info=bundle.stat();frames=LIMIT//FRAME_BYTES
                 receipt=dict(version=2,scope='diagnostic-exhaustion-test-worker',source_revision=SOURCE[:7],worker_pid=process.pid,worker_start_ticks=process_start(process.pid),boot_id=BOOT,bundle_device=info.st_dev,bundle_inode=info.st_ino,bundle_uid=os.geteuid(),limit_bytes=LIMIT,reserved_bytes=frames*FRAME_BYTES,synthetic_preload_attempts=frames+bool(LIMIT%FRAME_BYTES),synthetic_preload_admitted=1,allowance_closed_before_production_entry=True,instrumented_test_executable=True)
