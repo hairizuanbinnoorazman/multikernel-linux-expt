@@ -65,7 +65,14 @@ func TestFinalOutputAccountingNativeOwningClientDurableExit(t *testing.T) {
 		t.Fatal("managed producer exit differs", err)
 	}
 	defer manager.Delete("init")
-	socket := filepath.Join(privateTestDirectory(t), "agent.sock")
+	// The unit scratch directory can exceed the Unix pathname limit. Use a
+	// short private directory, including when TMPDIR is a long lab path.
+	socketDir, err := os.MkdirTemp("/tmp", "mk-accounting-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(socketDir)
+	socket := filepath.Join(socketDir, "agent.sock")
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
