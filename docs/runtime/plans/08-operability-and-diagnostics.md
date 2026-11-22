@@ -73,8 +73,12 @@ and passes seven source-pinned GCE control programs without skips, including
 full build matrix, zero writer exit, exact 16 MiB completion, two log files
 totaling 1,797,083 bytes within the original bound, primary parity, native
 release/resource return and five identity refusals. All historical/failed sets
-and previous native control seals stay preserved. Cold restoration remains
-separate; loss/peak accounting and full G7/G8 remain open.
+and previous native control seals stay preserved. Independent cold restoration
+also passes: 280 artifacts/111 absences plus historical/native sets survive,
+archived v2 acceptance is bound to the exact current source after a preserved
+legacy import-path refusal, old completion refuses the new boot and original
+resources plus fresh primary/200 GiB/5% reserve qualify. Loss/peak accounting
+and full G7/G8 remain open.
 
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact

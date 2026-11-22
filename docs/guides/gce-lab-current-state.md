@@ -4,7 +4,7 @@ Revalidate this checkpoint before live admission.
 Run the read-only observer from a checkout with authenticated `gcloud` access:
 
 ```sh
-python3 evidence/runtime-20261121/g8-child-log-pressure-corrected/current-status.py
+python3 evidence/runtime-20261122/g8-finite-child-writer/current-status.py
 ```
 
 It pins the qualified source libraries explicitly, verifies the current boot and
@@ -19,20 +19,21 @@ process, cleanup or reuse authority.
 | Project | `new-demo-project-462517` |
 | Zone | `asia-southeast1-b` |
 | Existing instance | `mklinux-g7-storage-20261012` |
-| Boot | `54ed0c5f-701a-4f1e-aefa-d72f3bebcab9` |
+| Boot | `143300f7-d035-4506-872e-8027be260f1e` |
 | Transport | Original `65C55BB38C669FF94A4B772`, idle, zero references |
 | CPUs | `0-15` online; no allocated child or memory pool |
 | Data filesystem | 200 GiB; exactly 5% reserved; mounted availability checked |
-| Private baseline | `/srv/multikernel-storage/stages/g8-child-logging-live-75e5e18/cold-after-primary.json` |
+| Private baseline | `/srv/multikernel-storage/stages/g8-finite-writer-2ad6cda/cold-after-primary.json` |
 
-The [child build/log-pressure proof](../../evidence/runtime-20261121/g8-child-log-pressure-corrected/README.md)
-qualifies source `75e5e188`: complete child-local Docker build/cache/run/save/
-controlled-failure matrix, configured 16 MiB detached writer, metadata-only
-rotation, unchanged primary state and native offline cleanup. Two local log
-files total 1,503,596 bytes below the 2,131,072-byte sample bound. Independent
-cold restoration preserves 264 artifacts/107 absences plus all prior and failed
-sets, requalifies archived success only in its original boot and establishes
-this fresh primary baseline. Original failed-start evidence remains unqualified.
+The [finite child-writer proof](../../evidence/runtime-20261122/g8-finite-child-writer/README.md)
+qualifies source `2ad6cda1`: complete child-local build/cache/run/save/failure
+matrix, exact finite 16 MiB producer completion, metadata-only rotation, primary
+preservation and native offline cleanup. Two local log files total 1,797,083
+bytes below the 2,131,072-byte sample bound. Independent cold restoration
+preserves 280 artifacts/111 absences and all previous/failed/native sets,
+requalifies archived v2 success only in its original boot and establishes this
+fresh primary baseline. Original failed-start and verifier-refusal evidence
+remain retained in their original scopes.
 
 These are scoped observations. Loss/peak accounting, broader readiness,
 production log coverage, fault mixtures and full G7/G8 remain open. Direct child
@@ -40,8 +41,8 @@ kernels use no nested virtualization and share primary trust after arbitrary
 child-kernel compromise. See the [lab runbook](gce-lab-runbook.md) for setup and
 the [runtime plans](../runtime/plans/README.md) for remaining requirements.
 
-The later [readiness-budget controls](../../evidence/runtime-20261122/g8-child-log-budget/README.md)
-qualify source `506c145c` on this same boot without loading a candidate or
-starting a child. The primary baseline is unchanged. That control proof keeps
-its native deadline scope; the actual child lifecycle above retains source
-`75e5e188`.
+The [readiness-budget controls](../../evidence/runtime-20261122/g8-child-log-budget/README.md)
+qualify source `506c145c` on prior boot `54ed0c5f` without loading a candidate
+or starting a child. Their 51-artifact/3-absence seal survives the later cold
+restoration. That control proof keeps its native deadline scope; the actual
+finite child lifecycle above uses source `2ad6cda1`.

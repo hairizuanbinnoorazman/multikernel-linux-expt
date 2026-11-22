@@ -87,5 +87,9 @@ independent v2 audit binds zero writer exit, exact 16 MiB completion, full child
 build matrix, saved archive readback and primary image/engine separation. Two
 log files total 1,797,083 bytes below the original 2,131,072-byte bound; primary
 parity, native offline release/resource return and five identity refusals pass.
-Cold restoration remains separate. Older v1 proofs retain their own scopes;
+Independent cold restoration also passes with 280 artifacts/111 absences and
+all historical/native control sets preserved, exact current-source module
+binding, archived original-boot frame requalification and fresh primary state.
+Original resources and the durable 200 GiB/5% reserve return verified. Older v1
+proofs retain their own scopes;
 loss/peak accounting and full G7/G8 remain open.
