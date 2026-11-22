@@ -234,3 +234,12 @@ complete build/writer checkpoint and parent lifecycle. These captures grant no
 cleanup, reuse or current-process authority after the workload exits. Actual
 new-source child execution and cold restoration remain unqualified until their
 independent evidence is collected.
+
+The instrumented executable also has a native qualification-only
+`--diagnostic-exhaustion-binding-hold` mode. It writes the real preload receipt
+and a fixed readiness marker, then stays alive until its owning test terminates
+and reaps it. The live-binding tests use that exact staged binary through
+`MK_DIAGNOSTIC_WORKER_TEST_BINARY` and its pinned
+`MK_DIAGNOSTIC_WORKER_TEST_SOURCE`; local controls build the same explicit tag.
+This avoids using a renamed host utility as the live producer. Normal `go build`
+excludes this hold mode, and the hold creates no child kernel or Docker task.

@@ -39,8 +39,9 @@ def main():
             assert expected.returncode == actual.returncode == 0
             assert expected.stdout == actual.stdout and actual.stdout
             assert not (probe/RECEIPT).exists(), 'discovery consumed worker allowance'
-        refused = run(production, ['--diagnostic-exhaustion-probe'], probe)
-        assert refused.returncode != 0 and not (probe/RECEIPT).exists(), 'go build exposed test entry'
+        for option in ['--diagnostic-exhaustion-probe','--diagnostic-exhaustion-binding-hold']:
+            refused = run(production, [option], probe)
+            assert refused.returncode != 0 and not (probe/RECEIPT).exists(), 'go build exposed test entry'
         controls = run(fixture, ['-test.run=^TestDiagnosticExhaustionLatchesTailAndSkipsProducerAllocations$', '-test.v'], probe)
         assert controls.returncode == 0 and b'exhausted_producer_allocations=0' in controls.stdout
         assert not (probe/RECEIPT).exists(), 'test invocation entered production shim'

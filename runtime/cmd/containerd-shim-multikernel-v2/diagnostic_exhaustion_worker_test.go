@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo"
 )
@@ -26,9 +27,18 @@ func runDiagnosticExhaustionTestEntry() bool {
 		}
 	}
 	probe := len(os.Args) == 2 && os.Args[1] == "--diagnostic-exhaustion-probe"
-	if probe || os.Getenv("MK_SHIM_WORKER") == "1" && serverInvocation() {
+	hold := len(os.Args) == 2 && os.Args[1] == "--diagnostic-exhaustion-binding-hold"
+	if probe || hold || os.Getenv("MK_SHIM_WORKER") == "1" && serverInvocation() {
 		if !exhaustDiagnosticTestWorker() {
 			os.Exit(93)
+		}
+	}
+	if hold {
+		if _, err := os.Stdout.WriteString("DIAGNOSTIC_EXHAUSTION_BINDING_READY\n"); err != nil {
+			os.Exit(94)
+		}
+		for {
+			time.Sleep(time.Hour)
 		}
 	}
 	if !probe {
