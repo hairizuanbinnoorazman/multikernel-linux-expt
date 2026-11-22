@@ -37,6 +37,20 @@ messages. The optional byte count is a sample from the first reported chunk,
 not an aggregate loss count. Restarting a worker or starting a new monitor resets
 that monitor's attempts; this is not a lifetime quota per sandbox or host.
 
+The shared sink also reserves at most 1 MiB of encoded diagnostic bytes,
+including newlines, over its lifetime. Fresh process/monitor identities and the
+library, event, network and supervisor producers all spend that same sink budget.
+A continuously drained writer cannot bypass it. Valid submissions reserve bytes
+before queue admission; queue-full refusals are not refunded, so this counter
+is a conservative reservation budget rather than delivered-byte accounting.
+Reservations use at most eight compare-and-swap attempts and refuse contention
+without waiting for writer I/O or a lifecycle lock. The counter cannot wrap to
+restore allowance. Budget refusals increment the existing dropped-record count.
+Once exhausted, the process retains its durable lifecycle behavior and loses
+further best-effort diagnostics. A new process has a new budget; this is not a
+host-wide or sandbox-wide lifetime quota. Task stdout/stderr retains its separate
+output/logging policy.
+
 Each worker lazily creates one sink goroutine with a 64-record queue. Encoded
 records, including newline, are capped at 1024 bytes. A blocked writer can hold
 one additional in-flight record; queued record payload is at most 64 KiB.

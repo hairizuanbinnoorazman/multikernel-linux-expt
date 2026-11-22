@@ -16,6 +16,12 @@ import (
 const processDiagnosticQueueSize = 64
 const processDiagnosticRecordLimit = 1024
 
+// Bound cumulative diagnostics even when stderr drains faster than the queue
+// fills and callers create fresh monitor identities. This is a reservation
+// budget, not delivery accounting; queue refusals do not refund reservations.
+const processDiagnosticLifetimeByteLimit = 1 << 20
+const processDiagnosticReservationAttempts = 8
+
 type processDiagnosticCode uint8
 
 const (
@@ -94,12 +100,13 @@ type processDiagnosticRecord struct {
 // write or writer error disables the sink instead of retrying or appending later
 // records to a possibly incomplete JSON line. Close never waits on writer I/O.
 type processDiagnosticSink struct {
-	queue     chan []byte
-	stop      chan struct{}
-	done      chan struct{}
-	closeOnce sync.Once
-	disabled  atomic.Bool
-	dropped   atomic.Uint64
+	queue         chan []byte
+	stop          chan struct{}
+	done          chan struct{}
+	closeOnce     sync.Once
+	disabled      atomic.Bool
+	dropped       atomic.Uint64
+	reservedBytes atomic.Uint64
 }
 
 func newProcessDiagnosticSink(writer io.Writer) *processDiagnosticSink {
@@ -156,6 +163,10 @@ func (s *processDiagnosticSink) tryEncodedDiagnostic(data []byte) bool {
 		s.dropped.Add(1)
 		return false
 	}
+	if !s.reserveDiagnosticBytes(uint64(len(data) + 1)) {
+		s.dropped.Add(1)
+		return false
+	}
 	data = append(data, '\n')
 	select {
 	case <-s.stop:
@@ -167,6 +178,23 @@ func (s *processDiagnosticSink) tryEncodedDiagnostic(data []byte) bool {
 		s.dropped.Add(1)
 		return false
 	}
+}
+
+// A finite CAS budget keeps producers from waiting on either writer I/O or
+// unbounded contention. Conservative contention loss is allowed by this sink.
+// Subtraction before addition makes the lifetime counter saturating, never
+// wrapping back into a fresh byte allowance.
+func (s *processDiagnosticSink) reserveDiagnosticBytes(size uint64) bool {
+	for attempt := 0; attempt < processDiagnosticReservationAttempts; attempt++ {
+		used := s.reservedBytes.Load()
+		if used > processDiagnosticLifetimeByteLimit || size > processDiagnosticLifetimeByteLimit-used {
+			return false
+		}
+		if s.reservedBytes.CompareAndSwap(used, used+size) {
+			return true
+		}
+	}
+	return false
 }
 
 var defaultProcessDiagnosticOnce sync.Once
