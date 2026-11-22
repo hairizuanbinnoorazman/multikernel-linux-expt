@@ -5,6 +5,7 @@ Run the read-only observer from a checkout with authenticated `gcloud` access:
 
 ```sh
 python3 evidence/runtime-20261122/g8-finite-child-writer/current-status.py
+python3 evidence/runtime-20261122/g8-deployment-logging-live/current-status-gce.py
 ```
 
 It pins the qualified source libraries explicitly, verifies the current boot and
@@ -12,7 +13,9 @@ fresh primary file/service/Docker baseline, requires the original idle transport
 and empty child/pool/VSOCK resources, and remeasures the complete committed trial
 packet with the unchanged 8 GiB staging floor. A later restart or state change
 requires fresh verification; historical PIDs and successful units grant no
-process, cleanup or reuse authority.
+process, cleanup or reuse authority. The second observer also verifies the
+subsequent native deployment-policy seal and backing metadata without changing
+services or qualifying historical unit completion.
 
 | Item | Latest verified value |
 | --- | --- |
