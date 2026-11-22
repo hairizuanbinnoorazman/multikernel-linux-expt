@@ -1,11 +1,12 @@
 # Current verified GCE lab state
 
-A source-`7803b554` real-child compatibility trial is now active on boot
+A source-`7803b554` real-child compatibility trial has exited on boot
 `99a71c03-15ed-48f3-afe8-84ffbf1d461c`. Parent
 `98280b2a8ca3494099a19b5972ba0dd1` and workload
 `5f4145eb758d4cf5913bdd56d129314b` are pinned in the
 [trial evidence](../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md).
-The candidate is loaded and child startup is underway. The original-idle
+Both exact units exit success/zero; the candidate is quiescent and cold
+restoration remains required. Independent audit is pending. The original-idle
 observers below are baseline checks and must refuse during this trial; they
 grant no current reuse authority. Observe the exact invocations. After traffic,
 use cold restoration rather than hot unloading.
