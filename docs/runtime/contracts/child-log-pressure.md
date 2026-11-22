@@ -80,3 +80,12 @@ scope. Their `yes | head` pipeline can return success on short producer EOF;
 version 2 does not reclassify those archived observations as finite-writer proof.
 Actual new-source child execution requires its own source/epoch audit and cold
 restoration. No nested virtualization or hostile-kernel boundary is added.
+
+The [finite-writer actual-child proof](../../../evidence/runtime-20261122/g8-finite-child-writer/README.md)
+now qualifies source `2ad6cda1` in exact successful parent/workload epochs. The
+independent v2 audit binds zero writer exit, exact 16 MiB completion, full child
+build matrix, saved archive readback and primary image/engine separation. Two
+log files total 1,797,083 bytes below the original 2,131,072-byte bound; primary
+parity, native offline release/resource return and five identity refusals pass.
+Cold restoration remains separate. Older v1 proofs retain their own scopes;
+loss/peak accounting and full G7/G8 remain open.

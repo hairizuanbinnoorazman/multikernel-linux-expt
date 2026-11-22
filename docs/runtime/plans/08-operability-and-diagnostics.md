@@ -64,6 +64,18 @@ primary/history/idle/scratch preservation. Required checks pass. This closes the
 native caller-budget boundary; actual new-source child execution and full G7/G8
 remain separately scoped.
 
+The [finite child-writer proof](../../../evidence/runtime-20261122/g8-finite-child-writer/README.md)
+also closes short-producer false completion. Actual prior pipeline code accepts
+five bytes and done from an injected producer exiting 23. Source `2ad6cda1`
+refuses that fault, binds finite writer exit/byte records in checkpoint/view v2,
+and passes seven source-pinned GCE control programs without skips, including
+37 recomputed-receipt attacks. Exact successful actual-child epochs then pass
+full build matrix, zero writer exit, exact 16 MiB completion, two log files
+totaling 1,797,083 bytes within the original bound, primary parity, native
+release/resource return and five identity refusals. All historical/failed sets
+and previous native control seals stay preserved. Cold restoration remains
+separate; loss/peak accounting and full G7/G8 remain open.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete
