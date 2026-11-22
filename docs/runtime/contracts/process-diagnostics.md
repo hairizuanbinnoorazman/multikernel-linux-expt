@@ -214,3 +214,13 @@ trial packet's shim or inherit that packet's acceptance. A real-child trial must
 explicitly admit the variant, bind its binary/source and worker receipts, and
 verify the complete Docker build lifecycle plus cleanup and restoration. That
 integration and execution remain pending.
+
+The committed packet builder now exposes `--shim-variant diagnostic-exhaustion-test-worker` for that fixture. Its manifest declares the
+variant and `instrumented_test_executable: true`; production remains the default.
+Only the shim changes build form (`go test -c` with the explicit tag). The other
+seven packet binaries retain their ordinary build/copy paths. Read-only staging
+can measure the packet without granting execution authority. Unknown, partial
+or contradictory variant metadata is refused. Ordinary live-trial and audit
+entry points explicitly reject the instrumented variant; historical production
+packets without variant fields remain supported. Receipt-bound real-child trial
+admission is still pending.

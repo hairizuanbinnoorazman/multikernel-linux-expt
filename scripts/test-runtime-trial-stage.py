@@ -14,9 +14,9 @@ ROOT=Path(__file__).resolve().parent.parent
 BUILDER=ROOT/'scripts/build-runtime-trial-stage.py'
 
 class TrialStageTests(unittest.TestCase):
-    def invoke(self, source, output, containerd, helper, **kw):
+    def invoke(self, source, output, containerd, helper, variant=None, **kw):
         return sp.run(['python3',str(BUILDER),'--source-root',str(source),'--output',str(output),
-                       '--containerd',str(containerd),'--helper',str(helper),'--relay',str(helper.parent/'relay')],stdout=sp.PIPE,stderr=sp.PIPE,timeout=180,**kw)
+                       '--containerd',str(containerd),'--helper',str(helper),'--relay',str(helper.parent/'relay')]+(['--shim-variant',variant] if variant else []),stdout=sp.PIPE,stderr=sp.PIPE,timeout=180,**kw)
 
     def test_missing_relay_refused_before_output_creation(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -50,6 +50,7 @@ class TrialStageTests(unittest.TestCase):
             for name in names:
                 target=repo/'runtime/cmd'/name;target.mkdir(parents=True)
                 (target/'main.go').write_text('package main\nimport "fmt"\nfunc main(){fmt.Println("committed")}\n')
+            (repo/'runtime/cmd/containerd-shim-multikernel-v2/entry_test.go').write_text('package main\nimport ("os"; "testing")\nfunc TestMain(m *testing.M){ main(); os.Exit(0) }\n')
             helper=base/'helper';helper.write_bytes(b'opaque committed pin fixture, never executed')
             digest=hashlib.sha256(helper.read_bytes()).hexdigest()
             relay=base/'relay';relay.write_bytes(b'opaque committed CID relay fixture, never executed')
@@ -69,6 +70,7 @@ class TrialStageTests(unittest.TestCase):
             self.assertEqual(result.returncode,0,result.stderr.decode())
             report=json.loads((output/'build.json').read_text());self.assertEqual(report['source_commit'],commit)
             self.assertTrue(report['built_from_committed_snapshot']);self.assertFalse(report['installed']);self.assertFalse(report['full_trial_started'])
+            self.assertEqual(report['shim_variant'],'production');self.assertFalse(report['instrumented_test_executable'])
             self.assertEqual(report['relay_sha256'],relay_digest)
             self.assertEqual(report['relay_interface'],'server-peer')
             for name in names:self.assertEqual(sp.check_output([str(output/'bin'/name)]),b'committed\n')
@@ -88,6 +90,18 @@ class TrialStageTests(unittest.TestCase):
             self.assertEqual((output/'bin/mkvsock-nbd').read_bytes(),helper.read_bytes())
             self.assertEqual((output/'bin/mkvsock-relay').read_bytes(),relay.read_bytes())
             print('REAL_COMMITTED_GO_SNAPSHOT_DIRTY_WORKTREE_AMBIENT_FLAG_ISOLATION_PROTECTED_PACKET_PASS')
+            instrumented=base/'instrumented'
+            built=self.invoke(repo,instrumented,containerd,helper,variant='diagnostic-exhaustion-test-worker')
+            self.assertEqual(built.returncode,0,built.stderr.decode())
+            instrumented_report=json.loads((instrumented/'build.json').read_text())
+            self.assertEqual(instrumented_report['source_commit'],commit)
+            self.assertEqual(instrumented_report['shim_variant'],'diagnostic-exhaustion-test-worker')
+            self.assertIs(instrumented_report['instrumented_test_executable'],True)
+            self.assertNotEqual(instrumented_report['binaries']['containerd-shim-multikernel-v2'],report['binaries']['containerd-shim-multikernel-v2'])
+            for name in set(report['binaries'])-{'containerd-shim-multikernel-v2'}:
+                self.assertEqual(instrumented_report['binaries'][name],report['binaries'][name])
+            self.assertEqual(sp.check_output([str(instrumented/'bin/containerd-shim-multikernel-v2')]),b'committed\n')
+            print('INSTRUMENTED_TEST_SHIM_EXPLICIT_PACKET_VARIANT_OTHER_SEVEN_BINARIES_UNCHANGED_PASS')
             original=helper.read_bytes();helper.write_bytes(original+b'corruption')
             wrong=base/'wrong-pin'
             refused=self.invoke(repo,wrong,containerd,helper)

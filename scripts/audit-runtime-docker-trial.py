@@ -109,6 +109,8 @@ def audit(args):
         raise ValueError('build manifest differs from caller pin')
     # Pin before importing any fixture-specific acceptance code.
     build = json.loads((work/'build.json').read_text())
+    from runtime_trial_shim_variant import require_production
+    require_production(build)
     if build['source_commit'] != args.source_commit or digest(work/'source.tar') != build['source_archive_sha256']:
         raise ValueError('staged source identity differs')
     with tarfile.open(work/'source.tar') as archive:

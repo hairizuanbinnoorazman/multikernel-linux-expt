@@ -7,6 +7,7 @@ from runtime_docker_concurrency import qualify as qualify_concurrency, RELEASE_W
 from runtime_socket_readiness import wait_for_socket_owner
 from runtime_storage_pressure import full_observation, recovered_observation
 from runtime_trial_layout import validate_stage
+from runtime_trial_shim_variant import require_production
 from runtime_console_capture import ConsoleCapture
 from runtime_docker_concurrency import sandbox_id_for_container
 from runtime_primary_docker import observe as observe_primary_docker, unchanged as check_primary_docker, fingerprint
@@ -96,6 +97,7 @@ capacity=observe_trial_capacity('/srv/multikernel-storage',2 if concurrent else 
 (work/'storage-admission.json').write_text(json.dumps(capacity,indent=2)+'\n')
 require_trial_capacity(capacity)
 compiled_versions={};compiled_revisions={};build_metadata=json.loads((work/'build.json').read_text())
+require_production(build_metadata)
 assert validate_stage(work,build_metadata['source_commit'][:7])==work
 for component in ['mkruntimed','mknetd']:
  version_output=subprocess.run([str(work/'bin'/component),'--version'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)

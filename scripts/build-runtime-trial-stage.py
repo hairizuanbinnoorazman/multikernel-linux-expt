@@ -10,6 +10,7 @@ import re
 import stat
 import subprocess as sp
 import tarfile
+from runtime_trial_shim_variant import PRODUCTION, EXHAUSTION, VARIANTS
 
 CONTAINERD_SHA = 'dbc252c7f4e3534dcbe674552b87b20194967e7b6069e66de61632dcdd3acc83'
 ROOTS = ('scripts', 'guest', 'deploy', 'runtime', 'tools')
@@ -96,11 +97,13 @@ def build(args):
     copy_pinned(args.relay,output/'bin/mkvsock-relay',relay_pins[0])
     env = {**os.environ,'CGO_ENABLED':'0','GOOS':'linux','GOARCH':'amd64','GOAMD64':'v1','GOWORK':'off','GOFLAGS':''}
     for name,package in PACKAGES.items():
-        sp.run(['go','build','-mod=readonly','-trimpath','-buildvcs=false',
+        command = ['go','test','-c','-tags=diagnostic_exhaustion_worker'] if name == 'containerd-shim-multikernel-v2' and args.shim_variant == EXHAUSTION else ['go','build']
+        sp.run([*command,'-mod=readonly','-trimpath','-buildvcs=false',
                 '-ldflags=-X github.com/hairizuan/multikernel-linux-expt/runtime/internal/buildinfo.Revision='+revision[:7],
                 '-o',str(output/'bin'/name),package],cwd=tree/'runtime',env=env,check=True)
         (output/'bin'/name).chmod(0o500)
     report = dict(schema_version=1,source_commit=revision,source_archive_sha256=sha(archive),
+                  shim_variant=args.shim_variant,instrumented_test_executable=args.shim_variant == EXHAUSTION,
                   helper_variant=args.helper_variant,helper_sha256=pins[0][args.helper_variant],
                   relay_sha256=relay_pins[0],relay_interface='server-peer',
                   binaries={path.name:sha(path) for path in (output/'bin').iterdir()},
@@ -128,5 +131,7 @@ if __name__=='__main__':
     parser.add_argument('--containerd',type=Path,required=True)
     parser.add_argument('--helper',type=Path,required=True)
     parser.add_argument('--relay',type=Path,required=True)
+    parser.add_argument('--shim-variant',choices=VARIANTS,default=PRODUCTION,
+                        help='instrumented test workers are staging-only until separately admitted')
     parser.add_argument('--helper-variant',choices=('qualified','server-queue-candidate'),default='qualified')
     build(parser.parse_args())

@@ -73,6 +73,9 @@ class StagingCapacity(unittest.TestCase):
         if variant == 'manifest-source': manifest['source_commit'] = 'b'*40
         if variant == 'manifest-number': manifest['schema_version'] = True
         if variant == 'installed': manifest['installed'] = True
+        if variant in ['shim-instrumented', 'shim-mismatch', 'shim-unknown', 'shim-partial']:
+            manifest['shim_variant'] = 'unknown' if variant == 'shim-unknown' else 'diagnostic-exhaustion-test-worker'
+            if variant != 'shim-partial':manifest['instrumented_test_executable'] = variant != 'shim-mismatch'
         outer = [self.member('source.tar', source.getvalue()), self.member('build.json', json.dumps(manifest).encode()),
                  self.member('bin', directory=True), self.member('tmp', directory=True)]
         outer.extend(self.member('bin/'+name, data) for name, data in binaries.items())
@@ -116,6 +119,13 @@ class StagingCapacity(unittest.TestCase):
             self.assertIs(plan['capacity_reserved'], False)
             self.assertIs(plan['full_builder_admission_claimed'], False)
             self.assertNotIn(directory, json.dumps(plan))
+
+    def test_instrumented_packet_staging_grants_no_execution_authority(self):
+        with tempfile.TemporaryDirectory() as directory:
+            packet, digest = self.packet(Path(directory), 'shim-instrumented')
+            plan = subject.measure(packet, digest, REV)
+            self.assertIs(plan['full_builder_admission_claimed'], False)
+            self.assertIs(plan['new_child_started'], False)
 
     def test_extended_header_limits_and_sparse_overrides_refuse_with_recomputed_pin(self):
         variants=['source-pax-large','outer-pax-large','source-pax-total','source-pax-sparse','outer-pax-sparse',
@@ -166,7 +176,7 @@ class StagingCapacity(unittest.TestCase):
 
     def test_recomputed_packet_hash_cannot_hide_unsafe_members_or_manifest(self):
         variants = ['source-alias', 'source-owner', 'source-mode', 'source-path', 'source-duplicate', 'source-empty',
-            'source-commit', 'binary-pin', 'manifest-source', 'manifest-number', 'installed', 'outer-mode',
+            'source-commit', 'binary-pin', 'manifest-source', 'manifest-number', 'installed', 'shim-mismatch', 'shim-unknown', 'shim-partial', 'outer-mode',
             'outer-owner', 'outer-path', 'outer-alias', 'outer-duplicate', 'outer-missing', 'outer-special']
         for variant in variants:
             with self.subTest(variant=variant), tempfile.TemporaryDirectory() as directory:

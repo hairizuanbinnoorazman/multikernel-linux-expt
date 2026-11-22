@@ -15,6 +15,7 @@ import re
 import stat
 import sys
 import tarfile
+from runtime_trial_shim_variant import variant as shim_variant
 
 STORAGE_FLOOR = 8 << 30
 PACKET_LIMIT = 128 << 20
@@ -212,6 +213,7 @@ def measure(packet, expected_digest, revision):
                 set(build['binaries']) != BINARIES or
                 any(build['binaries'][name] != hashes['bin/'+name] for name in BINARIES)):
             raise ValueError('committed packet manifest differs')
+        shim_variant(build)  # Staging is not authority to execute an instrumented worker.
         source_allocated, source_entries = source_measurement(source, revision)
         after = os.fstat(stream.fileno())
         named = packet.lstat()
