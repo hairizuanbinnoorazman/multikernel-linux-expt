@@ -6,11 +6,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"golang.org/x/sys/unix"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -33,6 +35,10 @@ func TestFinalOutputAccountingProducer(t *testing.T) {
 }
 
 func TestFinalOutputAccountingNativeOwningClientDurableExit(t *testing.T) {
+	testNativeFinalAccounting(t, false)
+}
+func TestOutputDispositionNativeFIFOConsumer(t *testing.T) { testNativeFinalAccounting(t, true) }
+func testNativeFinalAccounting(t *testing.T, fifo bool) {
 	guest := privateTestDirectory(t)
 	if err := os.Mkdir(filepath.Join(guest, "rootfs"), 0700); err != nil {
 		t.Fatal(err)
@@ -94,6 +100,37 @@ func TestFinalOutputAccountingNativeOwningClientDurableExit(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := &process{pid: uint32(state.PID), status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	var received chan int64
+	if fifo {
+		p.stdout = filepath.Join(bundle, "stdout.fifo")
+		if err = syscall.Mkfifo(p.stdout, 0600); err != nil {
+			t.Fatal(err)
+		}
+		p.stdoutIdentity, err = inspectBoundProcessIOPath(p.stdout, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reader, err := openKnownProcessIOPath(ctx, p.stdout, unix.O_RDONLY|unix.O_NONBLOCK, p.stdoutIdentity)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reader.Close()
+		p.stdoutWriter, p.stdoutGuard, err = openOutput(ctx, p.stdout, p.stdoutIdentity)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer closeProcessIO(p)
+		received = make(chan int64, 1)
+		go func() {
+			n, err := io.Copy(io.Discard, reader)
+			if err != nil {
+				received <- -1
+				return
+			}
+			received <- n
+		}()
+	}
+
 	s := &service{id: "task", namespace: "tests", bundle: bundle, agent: client, ioCallTimeout: time.Second, processes: map[string]*process{"": p}, sandbox: protocol.Sandbox{ID: sandboxID("tests", "task"), Generation: server.Generation}, publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	defer s.closeBundleIdentity()
 	if err = s.negotiateAgentCapabilities(ctx); err != nil {
@@ -119,6 +156,25 @@ func TestFinalOutputAccountingNativeOwningClientDurableExit(t *testing.T) {
 	report := value.FinalOutputAccounting.Report
 	if report.Stdout.ObservedBytes != 4194321 || report.Stdout.AcknowledgedBytes != 4194304 || report.Stdout.DroppedBytes != 17 || report.Stdout.BufferedPeakBytes != 4194304 || report.Stderr.AcknowledgedBytes != 14 || value.StdoutOffset != 4194304 || value.StderrOffset != 14 {
 		t.Fatal("final conservation differs")
+	}
+	if value.OutputDisposition == nil || value.OutputDisposition.validate(4194304, 14) != nil {
+		t.Fatal("disposition was not committed with exit")
+	}
+	if fifo {
+		select {
+		case n := <-received:
+			if n != 4194304 {
+				t.Fatal("FIFO consumer byte count differs", n)
+			}
+		case <-ctx.Done():
+			t.Fatal("FIFO consumer not closed")
+		}
+		if value.OutputDisposition.Stdout.WrittenBytes != 4194304 || value.OutputDisposition.Stdout.ReplayExposureBytes != 0 || value.OutputDisposition.Stdout.InFlightBytes != 0 {
+			t.Fatal("FIFO disposition differs")
+		}
+		t.Log("fifo_consumer_bytes=4194304 durable_written=4194304 replay_exposure=0 guest_dropped=17 stderr_no_destination=14")
+	} else if value.OutputDisposition.Stdout.NoDestinationBytes != 4194304 || value.OutputDisposition.Stderr.NoDestinationBytes != 14 {
+		t.Fatal("unconfigured streams not counted")
 	}
 	t.Log("owning_checked_peer=true durable_exit=37 stdout_observed=4194321 acknowledged=4194304 dropped=17 retained_peak=4194304 stderr_acknowledged=14")
 }

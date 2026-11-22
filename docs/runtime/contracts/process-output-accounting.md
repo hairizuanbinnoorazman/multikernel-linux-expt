@@ -57,9 +57,37 @@ exit transition. Recovery that discovers a newly stopped guest without draining
 its streams records `unavailable`. Legacy recovery records with no field remain
 unobserved. Existing stopped reports survive reconstruction and are validated
 against the persisted process and offsets; they grant no new lifecycle authority.
-The optional field extends recovery schema 4; older strict readers refuse such
+The optional fields extend recovery schema 4; older strict readers refuse such
 records and must not be used for a downgrade while they exist.
 
-This is the guest-buffer accounting layer. Host FIFO disposition/retry behavior,
-worker recovery, Docker logger rotation/loss and payload/heap/RSS peaks require
+Host recovery also records `output_disposition` version 1 with separate stdout
+and stderr counters. For each stream, the durably acknowledged offset equals
+`written_bytes + no_destination_bytes + pressure_dropped_bytes + unknown_prefix_bytes`.
+Written bytes count committed complete-chunk writer success. Unconfigured
+streams are explicitly discarded; they do not count as written. The existing
+30-second pressure policy remains unchanged. Legacy offsets enter as an unknown
+prefix and cannot become retrospectively qualified delivery.
+
+Before a configured nonempty write, the shim persists `in_flight_bytes`, bounded
+by the existing 4,096-byte chunk, without output contents. It makes no write if
+that publication fails. Completion clears the intent and commits the disposition
+with the offsets in one recovery-file replacement. An offset-publication failure
+retains the durable intent and unchanged offsets; retry must first persist the
+uncertainty. Recovery or retry of an unfinished intent adds its length to
+`replay_exposure_bytes`. A partial or erroneous nonzero writer result also adds
+the chunk length conservatively. A definite zero-byte result adds no exposure
+when its completion publication succeeds. Snapshot updates never mutate the
+previous durable accounting object.
+
+Replay exposure is an upper bound for uncertain write attempts, not an exact
+duplicate count. A crash before the write itself can produce exposure without
+physical duplication. Exposure arithmetic saturates and sticks
+`exposure_exhausted` on overflow; exhausted accounting cannot qualify a finite
+bound. Unresolved intents, unknown prefixes and nonzero exposure remain visible
+and cannot qualify exactly-once delivery. Observations and these counters grant
+no lifecycle or cleanup authority. A newly recovered stopped process can retain
+an unresolved intent; its mere stopped state does not settle that uncertainty.
+
+This covers guest-buffer and logical host-disposition accounting. Actual-child
+integration, worker recovery under real faults, Docker logger rotation/loss and payload/heap/RSS peaks require
 separate evidence. Full G7/G8 and end-to-end loss/peak accounting remain open.

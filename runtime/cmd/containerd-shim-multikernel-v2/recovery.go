@@ -41,34 +41,35 @@ type persisted struct {
 }
 
 type persistedProcess struct {
-	FinalOutputAccounting *finalOutputAccounting `json:"final_output_accounting,omitempty"`
-	ID                    string                 `json:"id"`
-	Stdin                 string                 `json:"stdin,omitempty"`
-	Stdout                string                 `json:"stdout,omitempty"`
-	Stderr                string                 `json:"stderr,omitempty"`
-	StdinIdentity         processIOIdentity      `json:"stdin_identity,omitempty"`
-	StdoutIdentity        processIOIdentity      `json:"stdout_identity,omitempty"`
-	StderrIdentity        processIOIdentity      `json:"stderr_identity,omitempty"`
-	Terminal              bool                   `json:"terminal,omitempty"`
-	Width                 uint32                 `json:"width,omitempty"`
-	Height                uint32                 `json:"height,omitempty"`
-	SizeSet               bool                   `json:"size_set,omitempty"`
-	StdinClosed           bool                   `json:"stdin_closed,omitempty"`
-	StdinCloseAcked       bool                   `json:"stdin_close_acked,omitempty"`
-	StdinOffset           uint64                 `json:"stdin_offset,omitempty"`
-	StdinDrainRemaining   uint32                 `json:"stdin_drain_remaining,omitempty"`
-	StdinPending          []byte                 `json:"stdin_pending,omitempty"`
-	Status                tasktypes.Status       `json:"status"`
-	PID                   uint32                 `json:"pid,omitempty"`
-	Exit                  uint32                 `json:"exit,omitempty"`
-	Exited                time.Time              `json:"exited,omitempty"`
-	StdoutOffset          uint64                 `json:"stdout_offset,omitempty"`
-	StderrOffset          uint64                 `json:"stderr_offset,omitempty"`
-	ExitEventQueued       bool                   `json:"exit_event_queued,omitempty"`
-	DeleteEventQueued     bool                   `json:"delete_event_queued,omitempty"`
-	PendingSignal         uint32                 `json:"pending_signal,omitempty"`
-	PendingSignalOp       string                 `json:"pending_signal_operation,omitempty"`
-	PendingSignalAck      bool                   `json:"pending_signal_acknowledgement,omitempty"`
+	OutputDisposition     *processOutputDisposition `json:"output_disposition,omitempty"`
+	FinalOutputAccounting *finalOutputAccounting    `json:"final_output_accounting,omitempty"`
+	ID                    string                    `json:"id"`
+	Stdin                 string                    `json:"stdin,omitempty"`
+	Stdout                string                    `json:"stdout,omitempty"`
+	Stderr                string                    `json:"stderr,omitempty"`
+	StdinIdentity         processIOIdentity         `json:"stdin_identity,omitempty"`
+	StdoutIdentity        processIOIdentity         `json:"stdout_identity,omitempty"`
+	StderrIdentity        processIOIdentity         `json:"stderr_identity,omitempty"`
+	Terminal              bool                      `json:"terminal,omitempty"`
+	Width                 uint32                    `json:"width,omitempty"`
+	Height                uint32                    `json:"height,omitempty"`
+	SizeSet               bool                      `json:"size_set,omitempty"`
+	StdinClosed           bool                      `json:"stdin_closed,omitempty"`
+	StdinCloseAcked       bool                      `json:"stdin_close_acked,omitempty"`
+	StdinOffset           uint64                    `json:"stdin_offset,omitempty"`
+	StdinDrainRemaining   uint32                    `json:"stdin_drain_remaining,omitempty"`
+	StdinPending          []byte                    `json:"stdin_pending,omitempty"`
+	Status                tasktypes.Status          `json:"status"`
+	PID                   uint32                    `json:"pid,omitempty"`
+	Exit                  uint32                    `json:"exit,omitempty"`
+	Exited                time.Time                 `json:"exited,omitempty"`
+	StdoutOffset          uint64                    `json:"stdout_offset,omitempty"`
+	StderrOffset          uint64                    `json:"stderr_offset,omitempty"`
+	ExitEventQueued       bool                      `json:"exit_event_queued,omitempty"`
+	DeleteEventQueued     bool                      `json:"delete_event_queued,omitempty"`
+	PendingSignal         uint32                    `json:"pending_signal,omitempty"`
+	PendingSignalOp       string                    `json:"pending_signal_operation,omitempty"`
+	PendingSignalAck      bool                      `json:"pending_signal_acknowledgement,omitempty"`
 }
 
 type processIOIdentity struct {
@@ -129,6 +130,9 @@ func validatePersistedRecovery(value persisted, namespace, task string) error {
 			agentID = "init"
 		}
 		if err := process.FinalOutputAccounting.validate(agentID, process.PID, process.Status, process.StdoutOffset, process.StderrOffset); err != nil {
+			return err
+		}
+		if err := process.OutputDisposition.validate(process.StdoutOffset, process.StderrOffset); err != nil {
 			return err
 		}
 		seen[process.ID] = true
@@ -255,6 +259,7 @@ func (s *service) persistRecovery() error {
 		}
 		p.Processes = append(p.Processes, persistedProcess{
 			FinalOutputAccounting: process.finalOutputAccounting,
+			OutputDisposition:     process.outputDisposition,
 			ID:                    process.id, Stdin: process.stdin, Stdout: process.stdout, Stderr: process.stderr,
 			StdinIdentity: process.stdinIdentity, StdoutIdentity: process.stdoutIdentity, StderrIdentity: process.stderrIdentity,
 			Terminal: process.terminal, Width: process.width, Height: process.height,
@@ -426,6 +431,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	for _, saved := range recovery.Processes {
 		p := &process{
 			finalOutputAccounting: saved.FinalOutputAccounting,
+			outputDisposition:     saved.OutputDisposition,
 			id:                    saved.ID, stdin: saved.Stdin, stdout: saved.Stdout, stderr: saved.Stderr,
 			stdinIdentity: saved.StdinIdentity, stdoutIdentity: saved.StdoutIdentity, stderrIdentity: saved.StderrIdentity,
 			terminal: saved.Terminal, width: saved.Width, height: saved.Height,

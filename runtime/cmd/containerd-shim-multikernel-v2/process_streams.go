@@ -254,10 +254,21 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
+		stdoutWriter, stderrWriter, intentErr := s.prepareOutputDelivery(p, output)
+		if intentErr != nil {
+			diagnostics.emit(diagnosticOutputAck, 0)
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
 		now := time.Now()
-		stdoutAdvance, stdoutDropped := deliverOutput(p.stdoutWriter, output.Stdout, &p.stdoutPressure, now, 30*time.Second)
-		stderrAdvance, stderrDropped := deliverOutput(p.stderrWriter, output.Stderr, &p.stderrPressure, now, 30*time.Second)
+		stdoutAdvance, stdoutDropped, stdoutUncertain := deliverOutputAttempt(stdoutWriter, output.Stdout, &p.stdoutPressure, now, 30*time.Second)
+		stderrAdvance, stderrDropped, stderrUncertain := deliverOutputAttempt(stderrWriter, output.Stderr, &p.stderrPressure, now, 30*time.Second)
 		s.mu.Lock()
+		oldDisposition := p.outputDisposition
+		nextDisposition := p.nextOutputDisposition()
+		nextDisposition.Stdout.finish(uint64(len(output.Stdout)), stdoutAdvance, stdoutDropped, stdoutWriter != nil, stdoutUncertain)
+		nextDisposition.Stderr.finish(uint64(len(output.Stderr)), stderrAdvance, stderrDropped, stderrWriter != nil, stderrUncertain)
+		p.outputDisposition = nextDisposition
 		oldStdoutOffset, oldStderrOffset := p.stdoutOffset, p.stderrOffset
 		if stdoutAdvance {
 			p.stdoutOffset = output.StdoutOffset
@@ -268,9 +279,10 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		stdoutChanged := p.stdoutOffset != oldStdoutOffset
 		stderrChanged := p.stderrOffset != oldStderrOffset
 		var persistErr error
-		if stdoutChanged || stderrChanged {
+		if stdoutChanged || stderrChanged || oldDisposition != nil && *oldDisposition != *nextDisposition {
 			persistErr = s.persistRecovery()
 			if persistErr != nil {
+				p.outputDisposition = oldDisposition
 				p.stdoutOffset, p.stderrOffset = oldStdoutOffset, oldStderrOffset
 				if stdoutChanged {
 					stdoutAdvance = false
@@ -402,23 +414,29 @@ func validateProcessOutput(stdoutOffset, stderrOffset uint64, output processOutp
 // cannot retain the shim forever: after the documented bound the chunk is
 // deliberately discarded and acknowledged with a diagnostic.
 func deliverOutput(writer io.Writer, data []byte, pressure *time.Time, now time.Time, timeout time.Duration) (advance, dropped bool) {
+	advance, dropped, _ = deliverOutputAttempt(writer, data, pressure, now, timeout)
+	return
+}
+func deliverOutputAttempt(writer io.Writer, data []byte, pressure *time.Time, now time.Time, timeout time.Duration) (advance, dropped, uncertain bool) {
 	if len(data) == 0 || writer == nil {
 		*pressure = time.Time{}
-		return true, false
+		return true, false, false
 	}
 	n, err := writer.Write(data)
 	if err == nil && n == len(data) {
 		*pressure = time.Time{}
-		return true, false
+		return true, false, false
 	}
+	// Any partial or impossible write result can have side effects before retry.
+	uncertain = n != 0
 	if pressure.IsZero() {
 		*pressure = now
 	}
 	if timeout > 0 && now.Sub(*pressure) >= timeout {
 		*pressure = time.Time{}
-		return true, true
+		return true, true, uncertain
 	}
-	return false, false
+	return false, false, uncertain
 }
 
 func (s *service) publishExit(ctx context.Context, execID string, p *process) error {

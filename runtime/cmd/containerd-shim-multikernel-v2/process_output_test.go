@@ -170,7 +170,10 @@ func TestProcessOutputRequiresBoundedContiguousOffsetsAndKnownState(t *testing.T
 
 func TestOutputOffsetRetriesWhenDurableAcknowledgementFails(t *testing.T) {
 	bundle := privateTestDirectory(t)
-	client := &outputAckAgent{offsets: make(chan uint64, 4)}
+	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	client := &outputAckAgent{offsets: make(chan uint64, 1000)}
 	writer := &controlledOutputWriter{writes: make(chan controlledOutputWrite)}
 	p := &process{status: tasktypes.Status_RUNNING, stdoutWriter: writer, done: make(chan struct{})}
 	s := &service{id: "task", namespace: "tests", bundle: bundle,
@@ -182,15 +185,40 @@ func TestOutputOffsetRetriesWhenDurableAcknowledgementFails(t *testing.T) {
 	if string(first.data) != "once" {
 		t.Fatalf("first output write = %q", first.data)
 	}
+	// The first writer cannot run until its intent is durable. Remove the
+	// owned recovery pathname while the writer is held, so the post-write
+	// offset/disposition publication fails without destroying the original inode.
+	recoveryPath := filepath.Join(bundle, ".multikernel/sandbox.json")
+	original, err := os.ReadFile(recoveryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var intent persisted
+	if json.Unmarshal(original, &intent) != nil || intent.Processes[0].OutputDisposition.Stdout.InFlightBytes != 4 {
+		t.Fatal("write preceded durable bounded intent")
+	}
+	if err = os.Rename(recoveryPath, recoveryPath+".held"); err != nil {
+		t.Fatal(err)
+	}
 	close(first.release)
-	// The missing recovery directory makes the first offset publication fail.
-	// Reaching the second write proves the request offset rolled back to zero.
+	if offset := <-client.offsets; offset != 0 {
+		t.Fatal("initial offset differs")
+	}
+	if offset := <-client.offsets; offset != 0 {
+		t.Fatal("failed publication advanced offset")
+	}
+	// No retry can write before the next intent publication succeeds.
+	select {
+	case <-writer.writes:
+		t.Fatal("write bypassed failed intent publication")
+	default:
+	}
+	if err = os.Rename(recoveryPath+".held", recoveryPath); err != nil {
+		t.Fatal(err)
+	}
 	second := <-writer.writes
 	if string(second.data) != "once" {
-		t.Fatalf("retried output write = %q", second.data)
-	}
-	if err := os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
-		t.Fatal(err)
+		t.Fatal("retry payload differs")
 	}
 	close(second.release)
 	select {
@@ -198,8 +226,17 @@ func TestOutputOffsetRetriesWhenDurableAcknowledgementFails(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("process did not finish after durable output acknowledgement recovered")
 	}
-	if firstOffset, secondOffset, finalOffset := <-client.offsets, <-client.offsets, <-client.offsets; firstOffset != 0 || secondOffset != 0 || finalOffset != 4 {
-		t.Fatalf("output request offsets = %d, %d, %d", firstOffset, secondOffset, finalOffset)
+	for {
+		offset := <-client.offsets
+		if offset == 4 {
+			break
+		}
+		if offset != 0 {
+			t.Fatal("retry offset differs")
+		}
+	}
+	if p.outputDisposition.Stdout.WrittenBytes != 4 || p.outputDisposition.Stdout.ReplayExposureBytes != 4 || p.outputDisposition.Stdout.InFlightBytes != 0 {
+		t.Fatal("retry exposure or committed disposition differs")
 	}
 	s.mu.Lock()
 	status, exit, stdoutOffset := p.status, p.exit, p.stdoutOffset
