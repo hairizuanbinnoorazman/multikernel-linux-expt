@@ -1,5 +1,15 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [native diagnostic exhaustion checkpoint](../../../evidence/runtime-20261122/g8-diagnostic-exhaustion-progress/README.md)
+qualifies source `47249643`: exhausted producers allocate zero memory, library
+redaction remains active, and the actual monitor retries synthetic guest errors
+before durably recording exact exit 37 and its event acknowledgement. Five
+native GCE test groups, full shim race tests and required repository checks pass.
+The successful unit is stopped and 15 artifacts/one absence are sealed, including
+a preserved inventory refusal corrected without a workload rerun. Cold
+restoration of that new seal and actual-child exhaustion remain unqualified;
+full G7/G8 remain open.
+
 ## Aggregate Docker-mode observations (2026-11-08)
 
 Current qualification (2026-11-21): the

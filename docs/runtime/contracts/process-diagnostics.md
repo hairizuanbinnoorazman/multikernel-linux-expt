@@ -62,6 +62,10 @@ concurrency/boundary/producer-sharing controls and the full shim race suite.
 The subsequent [ordinary child compatibility summary](../../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
 qualifies nested builds and cold restoration at this source. Diagnostic-budget
 exhaustion during actual child execution remains a separate checkpoint.
+The [exhaustion progress controls](../../../evidence/runtime-20261122/g8-diagnostic-exhaustion-progress/README.md)
+subsequently qualify zero-allocation refusal and exact durable monitor completion
+under exhaustion on GCE using a synthetic guest backend; they do not upgrade the
+older actual-child source qualification.
 
 Each worker lazily creates one sink goroutine with a 64-record queue. Encoded
 records, including newline, are capped at 1024 bytes. A blocked writer can hold

@@ -25,6 +25,13 @@ reservation cap under a drained-pipe flood; the latter proves the complete child
 build/logging matrix, primary separation, native cleanup and restoration with
 that implementation. Neither establishes exhaustion during child execution.
 
+The later [native exhaustion progress checkpoint](../../evidence/runtime-20261122/g8-diagnostic-exhaustion-progress/README.md)
+qualifies source `47249643` with a synthetic guest backend: zero allocations
+after exhaustion, private error redaction and exact durable monitor exit/event
+acknowledgement pass. Its successful native unit is stopped; 15 artifacts and
+one absence are sealed separately. This new seal has not undergone cold
+restoration and does not change the older actual-child source qualification.
+
 Diagnostic exhaustion during actual child execution, workload-log loss/peak
 accounting, broader producer/fault coverage, readiness and full G7/G8 remain
 open. Direct children use no nested virtualization and share primary trust
