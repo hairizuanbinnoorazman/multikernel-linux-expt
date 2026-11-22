@@ -134,6 +134,20 @@ checks pass. Twenty-five artifacts/one absence are sealed and independently
 rechecked. This closes the native diagnostic-volume checkpoint; new-source child
 compatibility, broader producer/fault coverage and full G7/G8 stay open.
 
+The [diagnostic-budget child compatibility summary](../../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
+qualifies source `7803b554` in the ordinary inherited-default scenario. Eight
+binaries/five labels, normal bootstrap approval and nine staged control programs
+pass. Independent verification covers the complete nested build matrix, exact
+16 MiB writer completion, 1,797,083-byte rotation sample, primary separation and
+native cleanup. One authorized reset and cold verification preserve 307
+artifacts/118 absences and earlier selected sets. Public reporting retains only
+source identity, fixed flags and selected counters; environment and private
+authority details remain in the lab. Archived completion grants no restored-host
+authority. This closes ordinary compatibility/restoration; diagnostic exhaustion
+during child execution, broader fault mixtures, loss/peak accounting/readiness
+and full G7/G8 remain open. Direct children use no nested virtualization and
+share primary trust after arbitrary kernel compromise.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete

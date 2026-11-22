@@ -1,95 +1,32 @@
-# Current verified GCE lab state
+# Current verified lab state
 
-A source-`7803b554` real-child compatibility trial has exited on boot
-`99a71c03-15ed-48f3-afe8-84ffbf1d461c`. Parent
-`98280b2a8ca3494099a19b5972ba0dd1` and workload
-`5f4145eb758d4cf5913bdd56d129314b` are pinned in the
-[trial evidence](../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md).
-Both exact units exit success/zero; the candidate is quiescent and cold
-restoration remains required. Independent audit is pending. The original-idle
-observers below are baseline checks and must refuse during this trial; they
-grant no current reuse authority. Observe the exact invocations. After traffic,
-use cold restoration rather than hot unloading.
+The [latest public compatibility summary](../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
+qualifies source `7803b554` for ordinary real-child nested builds and independent
+cold restoration. Public reporting contains fixed flags and selected counters;
+environment identifiers, private paths and detailed authority records remain
+in the lab.
 
-Revalidate this checkpoint before live admission, from a checkout with
-authenticated `gcloud` access:
+The original transport/resources are idle, primary preservation and fresh
+service state qualify, and the durable 200 GiB filesystem retains its 5% reserve.
+The complete committed packet has eight verified binaries and five revision
+labels. Retention verification covers 307 artifacts/118 absences plus the prior
+child and native sets, including the diagnostic budget's 25 artifacts/one
+absence. The unchanged 8 GiB staging floor has capacity available.
 
-```sh
-python3 evidence/runtime-20261122/g8-user-restart-99a71c03/current-status.py
-```
+Authorized operators should revalidate the current private baseline, exact
+source/binary identities, retained sets and live resource state before admission.
+A restart or state change requires fresh verification. Historical completion,
+process identifiers and successful old units grant no current execution,
+cleanup or reuse authority. Earlier observers keep their original epoch pins.
 
-The observer pins committed source libraries, checks the fresh primary file/
-service/Docker baseline and original idle transport, verifies 304 artifacts/
-118 absences plus the prior native 78-artifact/two-absence/155-metadata set,
-and remeasures the complete packet with the unchanged 8 GiB staging floor.
-It does not grant full builder admission or historical process/cleanup authority.
-A later restart or state change requires fresh verification. Earlier observers
-retain their original boot pins and are superseded for current admission.
+The native real-pipe diagnostic-budget experiment and ordinary child-compatibility
+experiment retain separate scopes. The former proves the shared 1 MiB
+reservation cap under a drained-pipe flood; the latter proves the complete child
+build/logging matrix, primary separation, native cleanup and restoration with
+that implementation. Neither establishes exhaustion during child execution.
 
-| Item | Latest verified value |
-| --- | --- |
-| Project | `new-demo-project-462517` |
-| Zone | `asia-southeast1-b` |
-| Existing instance | `mklinux-g7-storage-20261012` |
-| Boot | `99a71c03-15ed-48f3-afe8-84ffbf1d461c` |
-| Transport | Original `65C55BB38C669FF94A4B772`, idle, zero references |
-| CPUs | `0-15` online; no child, memory pool or VSOCK endpoint |
-| Data filesystem | 200 GiB; exactly 5% reserved; mounted availability checked |
-| Running daemon binding | 214,748,364,800 bytes |
-| Private baseline | `/srv/multikernel-storage/stages/g8-finite-writer-b166f29/user-restarts/99a71c03-15ed-48f3-afe8-84ffbf1d461c/cold-after-primary.json` |
-| Complete packet | Source `b166f294`; all eight binary hashes and five labels verified |
-
-The [user-requested restart verification](../../evidence/runtime-20261122/g8-user-restart-99a71c03/README.md)
-rechecks this boot without requesting an additional reset. The previous
-`81623584` baseline remains retained. All current/prior native seals, archived
-v3 acceptance in its original boot, module roles, primary persistence and
-storage geometry requalify; fresh service epochs are stored separately.
-
-The [inherited deployment-logging proof](../../evidence/runtime-20261122/g8-inherited-child-logging-corrected/README.md)
-qualifies source `b166f294` on prior boot `143300f7`: actual merger-generated
-private daemon configuration, an exact child create command without logging
-overrides, full child build/cache/run/save/failure matrix, finite 16 MiB writer
-completion and metadata-only rotation. Two files total 1,797,083 bytes under
-the 2,131,072-byte sample bound. Primary files/service epochs/Docker/network,
-exact child-image absence, native offline release and resource return qualify.
-
-One authorized reset preserves the existing instance. Independent restoration
-on boot `81623584` verifies all 304 artifacts/118 absences, approved static archives,
-prior finite 280/111 and native 78/two/155 sets plus selected historical/failed
-sets. Legacy history and archived v3 acceptance run in separate processes;
-current acceptance-module origins are exact, archived success remains bound to
-its original boot, and actual old units refuse current completion. The original
-transport, fresh primary baseline and durable 200 GiB/5% reserve qualify.
-
-The first cold verifier's cross-role module comparison remains refused and
-retained. Separate checks prove the child bootstrap module against its sealed
-approval/child vermagic and the host original/frozen copy against the pinned
-host hash, host vermagic and loaded source version. Native backing and workload
-log bodies are never read by retention observers.
-
-Retain the current stage and its `cold-retention-0..2.json` manifests, all
-historical sets, and the prior native stage
-`g8-deployment-logging-live-5cab2889` with `cold-retention.json` and
-`native-state-metadata.json`. Both staging-only deployment directories
-`g8-deployment-logging-fbddde6d` and `g8-deployment-logging-fbddde6d-v2`
-remain retained. Historical refusals keep their original scopes.
-
-The [native diagnostic-budget proof](../../evidence/runtime-20261122/g8-diagnostic-lifetime-budget/README.md)
-then qualifies source `7803b554` on this boot without loading a module or starting
-a child. Its exact successful unit is stopped and the cgroup absent; source-bound
-real-pipe comparisons, concurrent/boundary/shared-producer controls and primary
-preservation pass. Retain `g8-diag-budget-7803b55/before-cold-retention.json`
-(25 artifacts/one absence) in subsequent admission/restoration checks. Revalidate
-that additional seal with:
-
-```sh
-python3 evidence/runtime-20261122/g8-diagnostic-lifetime-budget/run-current-gce.py current-native-gce.py
-```
-
-New-source actual child compatibility remains unqualified. The complete qualified
-child packet/baseline above continues to refer to source `b166f294`.
-
-Loss/peak accounting, broader producer coverage, readiness, fault mixtures and
-full G7/G8 remain open. Direct child kernels use no nested virtualization and
-share primary trust after arbitrary child-kernel compromise. See the
-[lab runbook](gce-lab-runbook.md) and [runtime plans](../runtime/plans/README.md).
+Diagnostic exhaustion during actual child execution, workload-log loss/peak
+accounting, broader producer/fault coverage, readiness and full G7/G8 remain
+open. Direct children use no nested virtualization and share primary trust
+after arbitrary kernel compromise. See the [lab runbook](gce-lab-runbook.md)
+and [runtime plans](../runtime/plans/README.md).

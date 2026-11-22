@@ -54,7 +54,9 @@ output/logging policy.
 The [source-bound native comparison](../../../evidence/runtime-20261122/g8-diagnostic-lifetime-budget/README.md)
 proves the prior fast-reader bypass and the new lifetime cap on GCE, alongside
 concurrency/boundary/producer-sharing controls and the full shim race suite.
-Actual child compatibility at this new source remains a separate checkpoint.
+The subsequent [ordinary child compatibility summary](../../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
+qualifies nested builds and cold restoration at this source. Diagnostic-budget
+exhaustion during actual child execution remains a separate checkpoint.
 
 Each worker lazily creates one sink goroutine with a 64-record queue. Encoded
 records, including newline, are capped at 1024 bytes. A blocked writer can hold
