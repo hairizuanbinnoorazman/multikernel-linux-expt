@@ -60,8 +60,10 @@ The [source-bound native comparison](../../../evidence/runtime-20261122/g8-diagn
 proves the prior fast-reader bypass and the new lifetime cap on GCE, alongside
 concurrency/boundary/producer-sharing controls and the full shim race suite.
 The subsequent [ordinary child compatibility summary](../../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
-qualifies nested builds and cold restoration at this source. Diagnostic-budget
-exhaustion during actual child execution remains a separate checkpoint.
+qualifies ordinary nested builds and cold restoration at that frozen source.
+The later [receipt-bound instrumented trial](../../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
+qualifies actual-child execution with exhausted diagnostics and independent cold
+restoration at source `c836df51`; its scope is described below.
 The [exhaustion progress controls](../../../evidence/runtime-20261122/g8-diagnostic-exhaustion-progress/README.md)
 subsequently qualify zero-allocation refusal and exact durable monitor completion
 under exhaustion on GCE using a synthetic guest backend; they do not upgrade the
@@ -195,51 +197,54 @@ without SIGPIPE termination, using one private CLOEXEC descriptor per in-flight 
 
 ## Instrumented worker qualification
 
-An explicitly tagged Go test executable can consume the default sink's actual
-allowance before entering the production worker. Build it with `go test -c
--tags=diagnostic_exhaustion_worker` for the shim package. Its synthetic preload
-does not change the cap, guest transport, monitors, task journals or lifecycle
-code. A worker writes an exclusive mode-0600 private fixture receipt before
-production entry; existing files, symlinks and hard links refuse replacement.
-A worker restart therefore cannot silently reuse that receipt.
+Build the explicit fault fixture with `go test -c
+-tags=diagnostic_exhaustion_worker` for the shim package, or select
+`--shim-variant diagnostic-exhaustion-test-worker` in the committed packet builder.
+Its manifest declares the variant and `instrumented_test_executable: true`.
+Only the shim changes build form; the other seven packet binaries keep their
+ordinary build/copy paths. Normal `go build` excludes every test entry, including
+when given the same tag. Version/info discovery does not consume the allowance.
 
-This entry exists only in `_test.go` files. Ordinary `go build`, including a
-build given the same tag, excludes it. Version/info discovery does not exhaust
-the sink; test flags retain the normal test runner. The explicit
-`--diagnostic-exhaustion-probe` command qualifies preload/receipt behavior only.
-It is not proof of a child lifecycle.
+The instrumented worker spends the default sink's actual 1 MiB reservation
+allowance before entering the production shim. It changes no guest transport,
+monitor, journal or lifecycle implementation. Its exclusive mode-0600 version-2
+preload receipt binds native boot, source revision, worker PID/start ticks and
+bundle identity. Existing receipts, symlinks and hard links refuse replacement;
+a restart cannot silently reuse an earlier receipt.
 
-This executable is an instrumented fault fixture. It must not replace a normal
-trial packet's shim or inherit that packet's acceptance. A real-child trial must
-explicitly admit the variant, bind its binary/source and worker receipts, and
-verify the complete Docker build lifecycle plus cleanup and restoration. That
-integration and execution remain pending.
+Admission requires the instrumented packet plus explicit matching scope:
+`MK_MODULE_TRIAL_DIAGNOSTIC_EXHAUSTION=1` in the logging parent scenario,
+`--diagnostic-exhaustion-worker` in the workload, and
+`--require-diagnostic-exhaustion` in the independent audit. Ordinary admission
+refuses an instrumented packet; exhaustion admission refuses a production packet.
+Historical production manifests without variant fields remain supported.
+Unknown, partial or contradictory variant metadata is refused. Read-only
+staging measurement grants no execution authority.
 
-The committed packet builder now exposes `--shim-variant diagnostic-exhaustion-test-worker` for that fixture. Its manifest declares the
-variant and `instrumented_test_executable: true`; production remains the default.
-Only the shim changes build form (`go test -c` with the explicit tag). The other
-seven packet binaries retain their ordinary build/copy paths. Read-only staging
-can measure the packet without granting execution authority. Unknown, partial
-or contradictory variant metadata is refused. Ordinary live-trial and audit
-entry points explicitly reject the instrumented variant; historical production
-packets without variant fields remain supported. Receipt-bound real-child trial
-admission is still pending.
+`--diagnostic-exhaustion-probe` tests preload/receipt behavior only. The separate
+`--diagnostic-exhaustion-binding-hold` mode writes a real preload receipt and fixed
+readiness marker, then stays alive until its owning test terminates and reaps it.
+Native controls bind that actual staged executable using
+`MK_DIAGNOSTIC_WORKER_TEST_BINARY` and `MK_DIAGNOSTIC_WORKER_TEST_SOURCE`.
+Neither native mode creates a child kernel or proves a Docker lifecycle.
 
-The [receipt-bound integration](../../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
-adds explicit parent, workload and audit admission for the logging scenario.
-Version-2 private preload receipts bind native boot, start ticks and bundle
-identity. Live captures check the supervisor marker and exact executable before
-and after the held child matrix; archive acceptance links both captures to the
-complete build/writer checkpoint and parent lifecycle. These captures grant no
-cleanup, reuse or current-process authority after the workload exits. Actual
-new-source child execution and cold restoration remain unqualified until their
-independent evidence is collected.
+The real-child workload captures the supervisor marker, exact executable,
+process start time and bundle identity after start and before release. Both
+captures must describe the same worker and preload receipt across the complete
+held child matrix. The independent checkpoint also binds the complete nested
+build/cache/run/save/failure matrix, finite writer and zero exit. Archived
+captures grant no current process, cleanup or reuse authority.
 
-The instrumented executable also has a native qualification-only
-`--diagnostic-exhaustion-binding-hold` mode. It writes the real preload receipt
-and a fixed readiness marker, then stays alive until its owning test terminates
-and reaps it. The live-binding tests use that exact staged binary through
-`MK_DIAGNOSTIC_WORKER_TEST_BINARY` and its pinned
-`MK_DIAGNOSTIC_WORKER_TEST_SOURCE`; local controls build the same explicit tag.
-This avoids using a renamed host utility as the live producer. Normal `go build`
-excludes this hold mode, and the hold creates no child kernel or Docker task.
+The [qualified GCE trial and cold restoration](../../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
+prove this mixture at `c836df51`: 12 exact staged programs without skips, 75
+recomputed-receipt attacks, full ordinary/tagged shim race suites and required
+repository checks pass. Independent live audit qualifies the matrix, finite
+16 MiB writer, logging bounds, primary separation and native resource return.
+All 329 artifacts/118 absences and prior native/refused sets survive one authorized
+cold reset. Archived acceptance stays in its original boot; old completion
+refuses the new boot and original idle transport plus fresh primary state return.
+
+This is an instrumented fault qualification, not a production release or an
+upgrade of earlier ordinary packet identities. Workload-log loss/peak accounting,
+broader producer/fault coverage and full G7/G8 remain open. Direct children use
+no nested virtualization and share primary trust after arbitrary kernel compromise.

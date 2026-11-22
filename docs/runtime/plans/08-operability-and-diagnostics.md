@@ -1,14 +1,28 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [receipt-bound instrumented exhaustion lifecycle](../../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
+now qualifies source `c836df51` through actual child execution and independent
+cold restoration. Twelve exact staged programs pass without skips, including 75
+recomputed-receipt attacks. The same exhausted worker is bound across the full
+nested Docker matrix; finite writer exit 0/16 MiB, local logging bounds, primary
+separation and native release/resource return pass. Five altered identity controls
+and ordinary-production scope refuse. All 329 artifacts/118 absences, the native
+15-artifact seal, both refused 59-artifact generations and historical sets survive
+one authorized cold reset. Archived proof stays in its original boot, old
+completion refuses the new boot, and original idle resources plus fresh primary
+state and durable 200 GiB/5% reserve qualify. This closes the instrumented
+actual-child exhaustion/restoration mixture; full G7/G8 and loss/peak accounting,
+broader producer/fault coverage and readiness remain open.
+
 The [native diagnostic exhaustion checkpoint](../../../evidence/runtime-20261122/g8-diagnostic-exhaustion-progress/README.md)
 qualifies source `47249643`: exhausted producers allocate zero memory, library
 redaction remains active, and the actual monitor retries synthetic guest errors
 before durably recording exact exit 37 and its event acknowledgement. Five
 native GCE test groups, full shim race tests and required repository checks pass.
 The successful unit is stopped and 15 artifacts/one absence are sealed, including
-a preserved inventory refusal corrected without a workload rerun. Cold
-restoration of that new seal and actual-child exhaustion remain unqualified;
-full G7/G8 remain open.
+a preserved inventory refusal corrected without a workload rerun. That native checkpoint did not establish actual-child exhaustion. Its seal now
+survives the later receipt-bound cold reset described above; full G7/G8 remain
+open.
 
 The [instrumented worker preparation](../../../evidence/runtime-20261122/g8-diagnostic-test-worker/README.md)
 adds a test-only entry that exhausts the real default sink before production
@@ -16,8 +30,9 @@ worker entry. Ordinary and tagged shim race suites pass. Source `19c993a2`
 provides an explicitly labelled eight-binary packet, verifies revision/hash
 identity and the native preload probe, and refuses that packet in ordinary
 live-trial/audit admission. GCE primary and retained evidence revalidation passes;
-receipt-bound real-child admission/execution is still pending. No actual-child
-exhaustion or further G7/G8 closure is claimed by this preparation.
+that packet remains preparation only. Actual execution is separately qualified
+for the later explicitly admitted `c836df51` fixture above. No further full-gate
+closure is claimed by the earlier preparation.
 
 ## Aggregate Docker-mode observations (2026-11-08)
 

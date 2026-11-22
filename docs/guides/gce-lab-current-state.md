@@ -1,48 +1,35 @@
 # Current verified lab state
 
-The [instrumented exhaustion live audit](../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
+The [latest instrumented exhaustion proof](../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
 qualifies source `c836df51` for the complete real-child nested Docker matrix with
-the host worker's diagnostic allowance exhausted before production entry. The
-same live worker/receipt/executable is bound before and after the held matrix;
-writer completion, logging bounds, primary isolation, native release and resource
-return pass. The candidate is quiescent and cold restoration is pending. The
-previous original-transport baseline is archived; it grants no present execution
-or cleanup authority during this restoration window.
+the host worker's diagnostic allowance exhausted before production entry.
+Independent live audit and cold restoration pass. The same worker/receipt and
+exact executable are bound across the held matrix; the finite 16 MiB writer,
+logging bounds, primary separation, native release and resource return qualify.
 
-The [latest public compatibility summary](../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
-qualifies source `7803b554` for ordinary real-child nested builds and independent
-cold restoration. Public reporting contains fixed flags and selected counters;
-environment identifiers, private paths and detailed authority records remain
+The original transport/resources are idle and a fresh primary baseline is stable.
+The durable 200 GiB filesystem retains its 5% reserve. Current retention covers
+329 artifacts/118 absences in three manifests, plus the native 15-artifact/one-
+absence seal, two refused pretraffic generations of 59 artifacts/five absences
+each, the earlier 307-artifact/118-absence child case and historical/native sets.
+Old completion refuses the new boot; archived proof retains its original epoch.
+
+The frozen instrumented packet has eight verified binaries and five revision
+labels. A [fresh current observation](../../evidence/runtime-20261122/g8-diagnostic-child-binding/current-status.json)
+rechecks the new baseline and seals; the unchanged 8 GiB staging floor has capacity
+available. Full builder peak admission remains separate. It is a fault fixture and has not been installed as a production runtime.
+The [ordinary child compatibility proof](../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
+retains its separate source identity. Public reporting contains flags and selected
+counters; environment identifiers, private paths and authority records remain
 in the lab.
 
-The earlier cold-restored baseline qualified original idle transport/resources, primary preservation and fresh
-service state qualify, and the durable 200 GiB filesystem retains its 5% reserve.
-The complete committed packet has eight verified binaries and five revision
-labels. Retention verification covers 307 artifacts/118 absences plus the prior
-child and native sets, including the diagnostic budget's 25 artifacts/one
-absence. The unchanged 8 GiB staging floor has capacity available.
-
-Authorized operators should revalidate the current private baseline, exact
-source/binary identities, retained sets and live resource state before admission.
+Authorized operators must revalidate the current private baseline, exact
+source/binary identities, retained sets and idle resources before admission.
 A restart or state change requires fresh verification. Historical completion,
-process identifiers and successful old units grant no current execution,
-cleanup or reuse authority. Earlier observers keep their original epoch pins.
+process identifiers and old units grant no present execution, cleanup or reuse
+authority. Earlier observers keep their original boot pins.
 
-The native real-pipe diagnostic-budget experiment and ordinary child-compatibility
-experiment retain separate scopes. The former proves the shared 1 MiB
-reservation cap under a drained-pipe flood; the latter proves the complete child
-build/logging matrix, primary separation, native cleanup and restoration with
-that implementation. Neither establishes exhaustion during child execution.
-
-The later [native exhaustion progress checkpoint](../../evidence/runtime-20261122/g8-diagnostic-exhaustion-progress/README.md)
-qualifies source `47249643` with a synthetic guest backend: zero allocations
-after exhaustion, private error redaction and exact durable monitor exit/event
-acknowledgement pass. Its successful native unit is stopped; 15 artifacts and
-one absence are sealed separately. This new seal has not undergone cold
-restoration and does not change the older actual-child source qualification.
-
-Diagnostic exhaustion during actual child execution, workload-log loss/peak
-accounting, broader producer/fault coverage, readiness and full G7/G8 remain
-open. Direct children use no nested virtualization and share primary trust
-after arbitrary kernel compromise. See the [lab runbook](gce-lab-runbook.md)
-and [runtime plans](../runtime/plans/README.md).
+Workload-log loss/peak accounting, broader producer/fault coverage, readiness and
+full G7/G8 remain open. Direct children use no nested virtualization and share
+primary trust after arbitrary kernel compromise. See the
+[lab runbook](gce-lab-runbook.md) and [runtime plans](../runtime/plans/README.md).
