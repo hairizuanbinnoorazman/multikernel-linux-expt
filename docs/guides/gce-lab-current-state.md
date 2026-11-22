@@ -46,3 +46,13 @@ qualify source `506c145c` on prior boot `54ed0c5f` without loading a candidate
 or starting a child. Their 51-artifact/3-absence seal survives the later cold
 restoration. That control proof keeps its native deadline scope; the actual
 finite child lifecycle above uses source `2ad6cda1`.
+
+The [deployment logging candidate proof](../../evidence/runtime-20261122/g8-deployment-logging/README.md)
+then validates source `fbddde6d` on this same boot: ten CLI groups and four
+installed-`dockerd` parser checks pass with primary invariants unchanged and
+capacity available. No configuration is installed and no daemon/child is
+started. Preserve both private stage directories
+`g8-deployment-logging-fbddde6d` and `g8-deployment-logging-fbddde6d-v2`
+in subsequent retention inventories. The first collector refusal remains
+retained; candidate generation does not grant runtime enforcement or full-gate
+acceptance.

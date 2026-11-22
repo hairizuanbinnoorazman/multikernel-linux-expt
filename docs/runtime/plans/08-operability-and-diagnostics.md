@@ -80,6 +80,17 @@ legacy import-path refusal, old completion refuses the new boot and original
 resources plus fresh primary/200 GiB/5% reserve qualify. Loss/peak accounting
 and full G7/G8 remain open.
 
+The [deployment logging candidate proof](../../../evidence/runtime-20261122/g8-deployment-logging/README.md)
+qualifies explicit `--enable-bounded-logging` at source `fbddde6d`: shared fixed
+policy, conflict refusal, private exclusive candidates, preserved defaults and
+removal semantics. Ten CLI groups pass locally/on GCE, and installed `dockerd`
+validates four candidates. Required checks pass with five environment-dependent
+skips. A preserved collector refusal compared changing capacity counters;
+its separate correction repeats validation and verifies primary invariants and
+available capacity independently. This closes candidate generation/parser
+validation only; new-source runtime enforcement, loss/peak accounting and full
+G7/G8 remain open.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete
