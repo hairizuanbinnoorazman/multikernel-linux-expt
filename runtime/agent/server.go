@@ -170,7 +170,7 @@ func capabilityReport() map[string]any {
 	}
 	return map[string]any{
 		"protocol":          1,
-		"protocol_features": []string{"signal-operation-id-v1", "stdin-offset-v1", "two-phase-shutdown-v1"},
+		"protocol_features": []string{"signal-operation-id-v1", "stdin-offset-v1", "two-phase-shutdown-v1", protocol.ProcessOutputAccountingCapability},
 		"oci_features": []string{"argv", "environment", "cwd", "split-stdio", "exit-code", "stdin", "attach", "terminal", "terminal-resize",
 			"no-new-privileges", "rlimits", "linux-capabilities", "hostname", "masked-paths", "readonly-paths", "readonly-root", "standard-mounts", "readonly-bind-inputs-v1"},
 		"kernel": map[string]any{
@@ -403,6 +403,17 @@ func (s *Server) DispatchContext(ctx context.Context, e Envelope) Reply {
 			st.Stdout = ""
 			st.Stderr = ""
 			r.Body = st
+		}
+	case "ProcessOutputAccounting":
+		var q struct{ ID string }
+		if x := decode(e.Body, &q); x != nil {
+			r.setError(x)
+		} else if s.Manager == nil {
+			r.setError(errorf(failedPrecondition, "process manager unavailable"))
+		} else if stats, x := s.Manager.OutputAccounting(q.ID); x != nil {
+			r.setError(x)
+		} else {
+			r.Body = stats
 		}
 	case "StatsProcess":
 		var q struct{ ID string }

@@ -26,6 +26,7 @@ import (
 	"github.com/containerd/console"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/safefile"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
 
@@ -128,16 +129,18 @@ type signalResult struct {
 }
 
 type lockedBuffer struct {
-	mu        sync.Mutex
-	b         bytes.Buffer
-	base      uint64
-	space     chan struct{}
-	truncated bool
+	mu                               sync.Mutex
+	b                                bytes.Buffer
+	base                             uint64
+	space                            chan struct{}
+	truncated                        bool
+	observed, pending, dropped, peak uint64
+	accountingExhausted              bool
 }
 
 const (
 	maxProcesses       = 1024
-	maxOutputBytes     = 4 << 20
+	maxOutputBytes     = protocol.ProcessOutputBufferLimit
 	maxProcessArgs     = 256
 	maxProcessEnv      = 1024
 	maxProcessText     = 128 << 10
@@ -146,6 +149,15 @@ const (
 
 func (b *lockedBuffer) Write(p []byte) (int, error) {
 	total := len(p)
+	b.mu.Lock()
+	if b.accountingExhausted || uint64(total) > ^uint64(0)-b.observed {
+		b.accountingExhausted = true
+		b.mu.Unlock()
+		return 0, errors.New("output byte accounting exhausted")
+	}
+	b.observed += uint64(total)
+	b.pending += uint64(total)
+	b.mu.Unlock()
 	timer := time.NewTimer(100 * time.Millisecond)
 	defer timer.Stop()
 	for len(p) > 0 {
@@ -159,6 +171,10 @@ func (b *lockedBuffer) Write(p []byte) (int, error) {
 				available = len(p)
 			}
 			_, _ = b.b.Write(p[:available])
+			b.pending -= uint64(available)
+			if uint64(b.b.Len()) > b.peak {
+				b.peak = uint64(b.b.Len())
+			}
 			p = p[available:]
 			b.mu.Unlock()
 			continue
@@ -170,6 +186,8 @@ func (b *lockedBuffer) Write(p []byte) (int, error) {
 		case <-timer.C:
 			b.mu.Lock()
 			b.truncated = true
+			b.pending -= uint64(len(p))
+			b.dropped += uint64(len(p))
 			b.mu.Unlock()
 			return total, nil
 		}
@@ -208,6 +226,12 @@ func (b *lockedBuffer) slice(offset, limit uint64) ([]byte, uint64) {
 	endIndex := end - b.base
 	data := append([]byte(nil), b.b.Bytes()[startIndex:endIndex]...)
 	return data, end
+}
+
+func (b *lockedBuffer) accounting() protocol.OutputBufferAccounting {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return protocol.OutputBufferAccounting{ObservedBytes: b.observed, AcknowledgedBytes: b.base, BufferedBytes: uint64(b.b.Len()), PendingBytes: b.pending, DroppedBytes: b.dropped, BufferedPeakBytes: b.peak, LimitBytes: maxOutputBytes, Truncated: b.truncated, AccountingExhausted: b.accountingExhausted}
 }
 
 func (b *lockedBuffer) String() string {
@@ -912,6 +936,19 @@ func (m *Manager) ReadOutput(id string, stdoutOffset, stderrOffset, limit uint64
 	stdout, nextStdout := p.stdout.slice(stdoutOffset, limit)
 	stderr, nextStderr := p.stderr.slice(stderrOffset, limit)
 	return stdout, stderr, nextStdout, nextStderr, status, nil
+}
+
+// OutputAccounting observes counters without acknowledging or consuming output.
+func (m *Manager) OutputAccounting(id string) (protocol.ProcessOutputAccounting, error) {
+	m.mu.Lock()
+	p, ok := m.processes[id]
+	if !ok {
+		m.mu.Unlock()
+		return protocol.ProcessOutputAccounting{}, errorf(notFound, "process not found")
+	}
+	pid, status := p.state.PID, p.state.Status
+	m.mu.Unlock()
+	return protocol.ProcessOutputAccounting{Version: 1, ID: id, PID: pid, Status: status, Stdout: p.stdout.accounting(), Stderr: p.stderr.accounting()}, nil
 }
 
 func (m *Manager) Resize(id string, width, height uint32) error {

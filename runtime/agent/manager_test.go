@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hairizuan/multikernel-linux-expt/runtime/internal/boundedexec"
+	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
 	"golang.org/x/sys/unix"
 )
 
@@ -1159,7 +1160,7 @@ func TestAuthenticationAndReplay(t *testing.T) {
 		t.Fatalf("oci_features type = %T", capabilities["oci_features"])
 	}
 	protocolFeatures, ok := capabilities["protocol_features"].([]string)
-	if !ok || !slices.Contains(protocolFeatures, "signal-operation-id-v1") || !slices.Contains(protocolFeatures, "stdin-offset-v1") || !slices.Contains(protocolFeatures, "two-phase-shutdown-v1") {
+	if !ok || !slices.Contains(protocolFeatures, "signal-operation-id-v1") || !slices.Contains(protocolFeatures, "stdin-offset-v1") || !slices.Contains(protocolFeatures, "two-phase-shutdown-v1") || !slices.Contains(protocolFeatures, protocol.ProcessOutputAccountingCapability) {
 		t.Fatalf("protocol features = %#v", capabilities["protocol_features"])
 	}
 	for _, feature := range features {

@@ -74,7 +74,7 @@ reconnects resources, so replacement-local state cannot rebind a sandbox to a
 different bundle inode.
 Agent methods are `Capabilities`, `CreateProcess`,
 `ExecProcess`, `StartProcess`, `SignalProcess`, `AcknowledgeSignal`, `ResizeProcess`, `WriteProcess`,
-`CloseProcessStdin`, `ReadProcessOutput`, `WaitProcess`, `StateProcess`,
+`CloseProcessStdin`, `ReadProcessOutput`, `ProcessOutputAccounting`, `StatsProcess`, `WaitProcess`, `StateProcess`,
 `DeleteProcess`, `ConfigureNetwork`, `ExchangeNetwork`, `CloseNetwork`,
 `Quiesce`, and `Shutdown`. Stdin writes and output reads are limited to 64 KiB
 per request; network exchange carries at most one 65,535-byte packet in each
@@ -228,3 +228,9 @@ or completing G7/G8 child-build qualification.
 independently pass the same socket and authenticated reconnect cases while
 preserving the retained failed generation and primary state. They use a synthetic
 agent, so actual MK/child startup recovery remains separately unqualified.
+
+The optional `process-output-accounting-v1` capability advertises the read-only
+`ProcessOutputAccounting` method. Its [counter contract](process-output-accounting.md)
+conserves admitted guest-buffer input without returning output payloads. It does
+not alter `ReadProcessOutput`, require the feature from older agents or establish
+host FIFO/Docker-log delivery. Authentication sequence still advances.

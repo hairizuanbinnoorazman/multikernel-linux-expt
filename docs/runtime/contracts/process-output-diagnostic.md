@@ -50,3 +50,10 @@ reports RUNNING PID 613 and full-pressure/fine-sync markers beyond the host's
 persisted/captured offsets. Its failed ownership is unchanged, with no guest mutation.
 Later retained markers do not establish original-deadline chronology or prove the
 pending signal was undelivered. The failed Docker/cleanup gate remains open.
+
+Exact guest-buffer counts are a separate optional
+[output accounting RPC](process-output-accounting.md). The existing summary modes
+have not been upgraded to consume it. Accounting observations use the same
+owning client or an explicit coordinated handoff, because authentication sequence
+remains generation-wide. Payload high-water counts do not establish peak RSS or
+end-to-end Docker-log loss.
