@@ -1,5 +1,16 @@
 # Current verified GCE lab state
 
+A real-child inherited-logging trial is active on boot
+`143300f7-d035-4506-872e-8027be260f1e` at source `b166f294`.
+Parent `d7310d0db24c4856805b8c67df3548c7` and workload
+`b1f1630f759949a98bdc1217348f8001` are pinned by the
+[trial evidence](../../evidence/runtime-20261122/g8-inherited-child-logging-corrected/README.md).
+The first observation verifies both running and child-start preparation underway.
+The candidate transport is loaded; the original-idle observers below must refuse
+during this trial. They remain baseline/restoration checks. Do not hot-unload or
+use the earlier idle snapshot as current admission authority. Observe these exact
+invocations; after traffic, cold restoration is required.
+
 Revalidate this checkpoint before live admission.
 Run the read-only observer from a checkout with authenticated `gcloud` access:
 
