@@ -193,6 +193,12 @@ checks an actual merger-generated configuration on a running private daemon,
 both inherited/explicit policy rotation and clean shutdown. Its source and
 native scope remain separate from actual-child qualification.
 
+The [real-child inheritance proof](../evidence/runtime-20261122/g8-inherited-child-logging-corrected/README.md)
+additionally binds an actual deployment-generated daemon candidate and a child
+create command without logging overrides to the complete nested build/finite
+writer/rotation lifecycle and independent cold restoration. Its sample bounds
+and source remain explicit; loss/peak accounting and full G7/G8 stay open.
+
 `--remove` removes only the runtime registration and preserves logging policy.
 Restore the exact previous file to roll back the policy, then restart on the
 idle qualification host and recreate affected containers.

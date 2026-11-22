@@ -103,6 +103,25 @@ reading native backing or workload log bodies. This closes the native deployment
 policy lifecycle; new-source child integration, loss/peak accounting and full
 G7/G8 remain open.
 
+The [inherited-default real-child proof](../../../evidence/runtime-20261122/g8-inherited-child-logging-corrected/README.md)
+qualifies source `b166f294`: the actual deployment merger supplies host-daemon
+logging defaults, and checkpoint v3 binds configuration/source receipts, actual
+daemon defaults and exact create arguments without logging overrides. Nine
+staged GCE programs pass without skips, including 57 receipt attacks and actual
+installed-parser preparation. Exact child/parent epochs then pass the complete
+nested build matrix, zero finite-writer exit with 16 MiB completion, two logs
+at 1,797,083 bytes, primary/image separation and native release/resource return.
+One authorized reset and independent cold verification preserve 304 artifacts/
+118 absences plus prior finite 280/111 and native 78/two/155 sets. Legacy history
+is isolated from v3 acceptance; old completion refuses the new boot and fresh
+primary/original transport/200 GiB/5% reserve qualify. The initial obsolete wiring
+check, pre-execution publisher refusal and cross-role module-verifier refusal
+remain retained. Correct role checks bind approved child and pinned host modules
+separately. This closes inherited-default child lifecycle/restoration subcases;
+loss/peak accounting, broader producers/readiness/fault mixtures and full G7/G8
+remain open. No nested virtualization is used; arbitrary child-kernel compromise
+still shares primary trust.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete
