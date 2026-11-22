@@ -30,7 +30,7 @@ from runtime_workload_phase import wait_for_phase
 from runtime_trial_admission import observe as observe_trial_capacity, require as require_trial_capacity
 from runtime_trial_helper import verify as verify_trial_helper, verify_relay as verify_trial_relay
 from runtime_io_recovery_checkpoint import sync_sequence
-from runtime_trial_output import attach_command, read_output, logging_config, logging_arguments, require_logging
+from runtime_trial_output import attach_command, read_output, logging_arguments, require_logging
 from runtime_trial_command import capture as capture_owned_command
 from runtime_bounded_command import bounded_command
 assert 3<=len(sys.argv)<=7, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [SCENARIO] [--harden-services] [--engine-observation] [--aggregate-docker-health]'
@@ -151,8 +151,8 @@ cc=private/'containerd.toml'
 cc.write_text("version = 3\nroot = "+repr(str(private/'containerd-root'))+"\nstate = "+repr(str(private/'containerd-state'))+"\ndisabled_plugins = ['io.containerd.cri.v1.images', 'io.containerd.cri.v1.runtime', 'io.containerd.grpc.v1.cri', 'io.containerd.nri.v1.nri']\n[grpc]\naddress = "+repr(str(sock))+"\n[plugins.'io.containerd.shim.v1.manager']\nenv = ['PATH="+str(work/'bin')+":/usr/sbin:/usr/bin:/sbin:/bin']\n")
 # Append a fresh version of the manager environment instead of duplicate TOML.
 text=cc.read_text();text=text[:text.index('[plugins.')]+"[plugins.'io.containerd.shim.v1.manager']\nenv = "+repr(['PATH='+str(work/'bin')+':/usr/sbin:/usr/bin:/sbin:/bin']+[k+'='+v for k,v in extra.items()])+"\n";cc.write_text(text)
-dc=private/'docker.json'
-dc.write_text(json.dumps({'data-root':'/var/lib/docker','exec-root':str(private/'docker-exec'),'pidfile':str(private/'docker.pid'),'hosts':['unix://'+str(dsock)],'containerd':str(sock),'bridge':'none','iptables':False,'ip6tables':False,'ip-forward':False,'ip-masq':False,'features':{'containerd-snapshotter':True},'runtimes':{'io.containerd.multikernel.v2':{'runtimeType':'io.containerd.multikernel.v2'}},**logging_config()}))
+from runtime_deployment_logging import prepare as prepare_deployment_logging
+dc=prepare_deployment_logging(work)
 children=[];logs=[];socket_readiness={}
 service_policies={};service_observations={}
 if harden_services:
@@ -197,7 +197,7 @@ try:
  while subprocess.run(cli+['info'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
   assert d.poll() is None and time.monotonic()<until;time.sleep(.1)
  info=subprocess.check_output(cli+['info','--format','{{json .}}']);(private/'docker-info.json').write_bytes(info)
- assert json.loads(info).get('LoggingDriver')=='local','disposable Docker logging driver differs'
+ assert json.loads(info).get('LoggingDriver')=='local' and json.loads(info).get('DefaultRuntime')=='runc','disposable Docker logging defaults differ'
  imported=run(cli+['import',archive,'g8-approved:fixture'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  (private/'import.stdout').write_bytes(imported.stdout);(private/'import.stderr').write_bytes(imported.stderr)
  workload=['/bin/sh','/work/input/probe.sh']
@@ -213,7 +213,12 @@ try:
  if child_log_pressure:
   from runtime_child_log_pressure import WORKLOAD
   workload=list(WORKLOAD)
- created=run(cli+['create',*logging_arguments(),'--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture']+workload,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+ create_argv=cli+['create',*([] if child_log_pressure else logging_arguments()),'--name','g8-materialization','--runtime','io.containerd.multikernel.v2','--network','none','--user','1000:1000','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=unconfined','--security-opt','seccomp=unconfined','--sysctl','net.ipv4.ip_unprivileged_port_start=1024','--sysctl','net.ipv4.ping_group_range=1 0','--device-cgroup-rule','a *:* rwm','--mount','type=bind,source='+str(private/'input')+',target=/work/input,readonly','g8-approved:fixture']+workload
+ if child_log_pressure:
+  from runtime_deployment_logging import inherited_create_argv
+  create_argv=inherited_create_argv(private,workload)
+ (private/'docker-create-argv.json').write_text(json.dumps(create_argv)+'\n')
+ created=run(create_argv,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  container_created=True
  (private/'create.stdout').write_bytes(created.stdout);(private/'create.stderr').write_bytes(created.stderr)
  exported=private/'export.tar'

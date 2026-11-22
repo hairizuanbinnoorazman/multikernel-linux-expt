@@ -83,8 +83,9 @@ def qualify(cli,private,boot,invocation):
     rotation=qualify_rotation(item,private/'docker-data')
     # A separate metadata observation while the stopped container is retained.
     assert qualify_rotation(item,private/'docker-data')==rotation
-    result=dict(version=2,boot_id=boot,invocation_id=invocation,writer_bytes=WRITER_BYTES,writer_exit_status=0,writer_completed_bytes=WRITER_BYTES,
-                detached_start=True,agent_profile_receipt_sha256=agent,build_image_id=image,
+    result=dict(version=3,boot_id=boot,invocation_id=invocation,writer_bytes=WRITER_BYTES,writer_exit_status=0,writer_completed_bytes=WRITER_BYTES,
+                detached_start=True,deployment_config_receipt_sha256=digest(private/'docker-deployment-config.json'),
+                create_argv_sha256=digest(private/'docker-create-argv.json'),create_logging_policy_source='daemon-default',agent_profile_receipt_sha256=agent,build_image_id=image,
                 saved_image_sha256=saved.decode(),rotation=rotation,log_primary_sha256=digest(private/'log-primary.json'),
                 command_stdout_sha256={name:digest(private/(name+'.stdout')) for name in ['log-status','log-writer-status','log-writer-bytes','log-writer-diagnostic','log-build-out','log-build-err','log-saved-image','log-engine','log-wait','log-inspect']},
                 workload_stdout_sha256=digest(private/'workload.stdout'),workload_stderr_sha256=digest(private/'workload.stderr'),
