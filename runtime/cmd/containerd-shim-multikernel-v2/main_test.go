@@ -107,7 +107,13 @@ func testBundleIdentity(t *testing.T, path string) rootfspkg.DirectoryIdentity {
 	return rootfspkg.DirectoryIdentity{Device: identity.Device, Inode: identity.Inode, UID: identity.UID}
 }
 
+// Only an explicitly tagged fault-test executable installs this entry.
+var diagnosticExhaustionTestEntry func() bool
+
 func TestMain(m *testing.M) {
+	if diagnosticExhaustionTestEntry != nil && diagnosticExhaustionTestEntry() {
+		return
+	}
 	if len(os.Args) == 3 && os.Args[1] == fifoKeeperMode {
 		os.Exit(runOutputFIFOKeeper(os.Args[2:]))
 	}

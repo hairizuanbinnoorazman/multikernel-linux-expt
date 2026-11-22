@@ -192,3 +192,25 @@ OS processes; this does not increase the worker's existing queue limits.
 
 The [default stderr transport](diagnostic-stderr.md) also survives reader loss
 without SIGPIPE termination, using one private CLOEXEC descriptor per in-flight write.
+
+## Instrumented worker qualification
+
+An explicitly tagged Go test executable can consume the default sink's actual
+allowance before entering the production worker. Build it with `go test -c
+-tags=diagnostic_exhaustion_worker` for the shim package. Its synthetic preload
+does not change the cap, guest transport, monitors, task journals or lifecycle
+code. A worker writes an exclusive mode-0600 private fixture receipt before
+production entry; existing files, symlinks and hard links refuse replacement.
+A worker restart therefore cannot silently reuse that receipt.
+
+This entry exists only in `_test.go` files. Ordinary `go build`, including a
+build given the same tag, excludes it. Version/info discovery does not exhaust
+the sink; test flags retain the normal test runner. The explicit
+`--diagnostic-exhaustion-probe` command qualifies preload/receipt behavior only.
+It is not proof of a child lifecycle.
+
+This executable is an instrumented fault fixture. It must not replace a normal
+trial packet's shim or inherit that packet's acceptance. A real-child trial must
+explicitly admit the variant, bind its binary/source and worker receipts, and
+verify the complete Docker build lifecycle plus cleanup and restoration. That
+integration and execution remain pending.
