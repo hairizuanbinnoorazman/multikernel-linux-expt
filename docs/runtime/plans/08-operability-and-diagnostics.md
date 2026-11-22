@@ -91,6 +91,18 @@ available capacity independently. This closes candidate generation/parser
 validation only; new-source runtime enforcement, loss/peak accounting and full
 G7/G8 remain open.
 
+The [running deployment-generated logging proof](../../../evidence/runtime-20261122/g8-deployment-logging-live/README.md)
+extends that result at source `5cab2889`: the actual merger candidate is consumed
+by a private native daemon, retains default `runc`, and produces two rotated
+files totaling 1,859,924 bytes for both inherited and explicit policies. Nineteen
+staged controls pass without skips. Independent verification proves source/
+configuration receipts, exact successful epoch, zero daemon exits, empty scratch,
+primary/image separation and preservation, then removes only the empty own unit.
+Sealing retains 78 artifacts/two absences and 155 native metadata entries without
+reading native backing or workload log bodies. This closes the native deployment
+policy lifecycle; new-source child integration, loss/peak accounting and full
+G7/G8 remain open.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete

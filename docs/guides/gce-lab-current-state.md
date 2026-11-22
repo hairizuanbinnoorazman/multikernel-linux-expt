@@ -56,3 +56,13 @@ started. Preserve both private stage directories
 in subsequent retention inventories. The first collector refusal remains
 retained; candidate generation does not grant runtime enforcement or full-gate
 acceptance.
+
+The [running deployment-policy proof](../../evidence/runtime-20261122/g8-deployment-logging-live/README.md)
+qualifies source `5cab2889` on this same boot with nineteen controls, exact
+merger-candidate consumption and two native rotation cases. Independent checks
+verify primary preservation, private daemon zero exits and successful empty-unit
+cleanup. Its private stage `g8-deployment-logging-live-5cab2889` adds
+`cold-retention.json` (78 artifacts/two absences) and
+`native-state-metadata.json` (155 entries, backing/log bodies unread).
+Include both in later admission/restoration checks. This native trial starts no
+child, changes no primary daemon, and does not change current primary authority.

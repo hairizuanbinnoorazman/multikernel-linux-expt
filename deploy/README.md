@@ -188,6 +188,11 @@ Nonblocking logging can discard messages when its buffer fills. The trial's
 metadata bound is a sampled storage check, not a peak-space or delivery guarantee.
 This option does not qualify the full G8 isolation gate.
 
+The [native GCE consumption proof](../evidence/runtime-20261122/g8-deployment-logging-live/README.md)
+checks an actual merger-generated configuration on a running private daemon,
+both inherited/explicit policy rotation and clean shutdown. Its source and
+native scope remain separate from actual-child qualification.
+
 `--remove` removes only the runtime registration and preserves logging policy.
 Restore the exact previous file to roll back the policy, then restart on the
 idle qualification host and recreate affected containers.
