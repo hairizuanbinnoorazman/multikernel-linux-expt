@@ -10,12 +10,14 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
+	taskapi "github.com/containerd/containerd/api/runtime/task/v2"
 	tasktypes "github.com/containerd/containerd/api/types/task"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/agent"
 	"github.com/hairizuan/multikernel-linux-expt/runtime/protocol"
@@ -35,10 +37,15 @@ func TestFinalOutputAccountingProducer(t *testing.T) {
 }
 
 func TestFinalOutputAccountingNativeOwningClientDurableExit(t *testing.T) {
-	testNativeFinalAccounting(t, false)
+	testNativeFinalAccounting(t, false, false)
 }
-func TestOutputDispositionNativeFIFOConsumer(t *testing.T) { testNativeFinalAccounting(t, true) }
-func testNativeFinalAccounting(t *testing.T, fifo bool) {
+func TestOutputDispositionNativeFIFOConsumer(t *testing.T) { testNativeFinalAccounting(t, true, false) }
+func TestCompletedOutputNativeRealExecDelete(t *testing.T) { testNativeFinalAccounting(t, true, true) }
+func testNativeFinalAccounting(t *testing.T, fifo, completed bool) {
+	processID, execID := "init", ""
+	if completed {
+		processID, execID = "native-exec", "native-exec"
+	}
 	guest := privateTestDirectory(t)
 	if err := os.Mkdir(filepath.Join(guest, "rootfs"), 0700); err != nil {
 		t.Fatal(err)
@@ -60,17 +67,17 @@ func testNativeFinalAccounting(t *testing.T, fifo bool) {
 		t.Fatal(err)
 	}
 	manager := agent.NewManager(true)
-	if err = manager.Create("init", guest); err != nil {
+	if err = manager.Create(processID, guest); err != nil {
 		t.Fatal(err)
 	}
-	if err = manager.Start("init"); err != nil {
+	if err = manager.Start(processID); err != nil {
 		t.Fatal(err)
 	}
-	state, err := manager.Wait("init")
+	state, err := manager.Wait(processID)
 	if err != nil || state.ExitCode != 37 {
 		t.Fatal("managed producer exit differs", err)
 	}
-	defer manager.Delete("init")
+	defer manager.Delete(processID)
 	// The unit scratch directory can exceed the Unix pathname limit. Use a
 	// short private directory, including when TMPDIR is a long lab path.
 	socketDir, err := os.MkdirTemp("/tmp", "mk-accounting-")
@@ -99,7 +106,7 @@ func testNativeFinalAccounting(t *testing.T, fifo bool) {
 	if err = os.Mkdir(filepath.Join(bundle, ".multikernel"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	p := &process{pid: uint32(state.PID), status: tasktypes.Status_RUNNING, done: make(chan struct{})}
+	p := &process{id: execID, pid: uint32(state.PID), status: tasktypes.Status_RUNNING, done: make(chan struct{})}
 	var received chan int64
 	if fifo {
 		p.stdout = filepath.Join(bundle, "stdout.fifo")
@@ -133,23 +140,31 @@ func testNativeFinalAccounting(t *testing.T, fifo bool) {
 
 	s := &service{id: "task", namespace: "tests", bundle: bundle, agent: client, ioCallTimeout: time.Second, processes: map[string]*process{"": p}, sandbox: protocol.Sandbox{ID: sandboxID("tests", "task"), Generation: server.Generation}, publisher: &fakePublisher{}, events: eventJournal{SchemaVersion: 1, NextSequence: 1}}
 	defer s.closeBundleIdentity()
+	if completed {
+		s.processes = map[string]*process{"": {status: tasktypes.Status_RUNNING}, execID: p}
+	}
 	if err = s.negotiateAgentCapabilities(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if !s.agentOutputAccounting.Load() {
 		t.Fatal("optional accounting was not negotiated")
 	}
-	go s.waitProcess("init", "", p)
+	go s.waitProcess(processID, execID, p)
 	select {
 	case <-p.done:
 	case <-ctx.Done():
 		t.Fatal("owning monitor did not complete")
 	}
 	saved, found, err := loadPersistedRecovery(filepath.Join(bundle, ".multikernel/sandbox.json"), "tests", "task")
-	if err != nil || !found || len(saved.Processes) != 1 {
+	if err != nil || !found || len(saved.Processes) < 1 {
 		t.Fatal("durable stopped report unavailable", err)
 	}
-	value := saved.Processes[0]
+	var value persistedProcess
+	for _, entry := range saved.Processes {
+		if entry.ID == execID {
+			value = entry
+		}
+	}
 	if value.Status != tasktypes.Status_STOPPED || value.Exit != 37 || !value.ExitEventQueued || value.FinalOutputAccounting == nil || value.FinalOutputAccounting.State != "validated" {
 		t.Fatal("exit and accounting not committed together")
 	}
@@ -175,6 +190,36 @@ func testNativeFinalAccounting(t *testing.T, fifo bool) {
 		t.Log("fifo_consumer_bytes=4194304 durable_written=4194304 replay_exposure=0 guest_dropped=17 stderr_no_destination=14")
 	} else if value.OutputDisposition.Stdout.NoDestinationBytes != 4194304 || value.OutputDisposition.Stderr.NoDestinationBytes != 14 {
 		t.Fatal("unconfigured streams not counted")
+	}
+	if completed {
+		if _, err = s.Delete(ctx, &taskapi.DeleteRequest{ID: "task", ExecID: execID}); err != nil {
+			t.Fatal("real guest exec deletion failed", err)
+		}
+		var inspection completedOutputInspection
+		if binary := os.Getenv("MK_COMPLETED_OUTPUT_INSPECTOR"); binary != "" {
+			callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			raw, err := exec.CommandContext(callCtx, binary, "--inspect-completed-output", "--bundle", bundle, "--namespace", "tests", "--task", "task").Output()
+			cancel()
+			if err != nil || len(raw) > completedOutputInspectionLimit || protocol.StrictDecode(raw, &inspection) != nil {
+				t.Fatal("compiled inspector failed")
+			}
+		} else {
+			inspection = observeCompletedOutput(bundle, "tests", "task")
+		}
+		if inspection.Status != "observed" || inspection.Tail == nil || inspection.Tail.DeletedCount != 1 || len(inspection.Tail.Records) != 1 || inspection.Tail.Records[0].ID != execID || inspection.Tail.Records[0].PID != uint32(state.PID) || inspection.Tail.Records[0].Exit != 37 || inspection.Tail.Records[0].OutputDisposition.Stdout.WrittenBytes != 4194304 || inspection.Tail.Records[0].FinalOutputAccounting.Report.Stdout.DroppedBytes != 17 {
+			t.Fatal("deleted real exec lost final inspection")
+		}
+		if _, exists := s.processes[execID]; exists {
+			t.Fatal("deleted exec still live in shim")
+		}
+		if _, err := manager.State(processID); err == nil {
+			t.Fatal("deleted exec still managed by guest")
+		}
+		var caps guestCapabilities
+		if err = client.CallContext(ctx, "Capabilities", map[string]any{}, &caps); err != nil {
+			t.Fatal("inspection invalidated owning client")
+		}
+		t.Log("real_guest_exec_deleted=true tail_records=1 sequence=1 exit=37 written=4194304 guest_drop=17 owning_client_preserved=true")
 	}
 	t.Log("owning_checked_peer=true durable_exit=37 stdout_observed=4194321 acknowledged=4194304 dropped=17 retained_peak=4194304 stderr_acknowledged=14")
 }

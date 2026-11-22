@@ -28,6 +28,7 @@ STAGE_LOCATION=os.environ.get('MK_MODULE_TRIAL_STAGE_LOCATION','storage')
 WORK=stage_path(REVISION,STAGE_LOCATION)
 RECORD_FAULT=os.environ.get('MK_MODULE_TRIAL_RECORD_FAULT','0');assert RECORD_FAULT in ['0','1','fifo','crash']
 SCENARIO=os.environ.get('MK_MODULE_TRIAL_SCENARIO','pressure');scenario_flag(SCENARIO)
+CHILD_OUTPUT_ACCOUNTING=os.environ.get('MK_MODULE_TRIAL_CHILD_OUTPUT_ACCOUNTING','0');assert CHILD_OUTPUT_ACCOUNTING in ['0','1'] and (CHILD_OUTPUT_ACCOUNTING=='0' or SCENARIO=='logging')
 DIAGNOSTIC_EXHAUSTION=os.environ.get('MK_MODULE_TRIAL_DIAGNOSTIC_EXHAUSTION','0');assert DIAGNOSTIC_EXHAUSTION in ['0','1'] and (DIAGNOSTIC_EXHAUSTION=='0' or SCENARIO=='logging')
 ENGINE_OBSERVATION=os.environ.get('MK_MODULE_TRIAL_ENGINE_OBSERVATION','0');assert ENGINE_OBSERVATION in ['0','1'] and (ENGINE_OBSERVATION=='0' or SCENARIO=='pressure' and RECORD_FAULT=='0')
 AGGREGATE_DOCKER_HEALTH=os.environ.get('MK_MODULE_TRIAL_AGGREGATE_DOCKER_HEALTH','0');assert AGGREGATE_DOCKER_HEALTH in ['0','1'] and (AGGREGATE_DOCKER_HEALTH=='0' or ENGINE_OBSERVATION=='1')
@@ -129,7 +130,7 @@ try:
     else:
         run(['/sbin/rmmod','mk_transport']);removed=True;record('original-unloaded')
         run(['/sbin/insmod',candidate]);assert loaded()==NEW;record('candidate-loaded')
-    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else scenario_flag(SCENARIO),'--harden-services']+(['--engine-observation'] if ENGINE_OBSERVATION=='1' else [])+(['--aggregate-docker-health'] if AGGREGATE_DOCKER_HEALTH=='1' else [])+(['--diagnostic-exhaustion-worker'] if DIAGNOSTIC_EXHAUSTION=='1' else []))
+    run(['systemd-run','--unit='+pressure,'--property=Type=exec','--property=RemainAfterExit=yes','--property=PrivateMounts=yes','--property=KillMode=process','--property=BindPaths='+str(WORK/'tmp')+':/tmp','--property=RuntimeMaxSec=1200','--setenv=MK_TEST_UNIT='+pressure,'--setenv=MK_TRIAL_PRIVATE_TMP=1','--setenv=MK_TRIAL_HELPER_VARIANT='+helper_selection['helper_variant'],'/usr/bin/python3',WORK/'source/scripts/test-runtime-docker-profile-live.py',WORK,WORK/'source','--storage-export-crash' if RECORD_FAULT=='crash' else '--storage-record-fifo' if RECORD_FAULT=='fifo' else '--storage-record-loss' if RECORD_FAULT=='1' else scenario_flag(SCENARIO),'--harden-services']+(['--engine-observation'] if ENGINE_OBSERVATION=='1' else [])+(['--aggregate-docker-health'] if AGGREGATE_DOCKER_HEALTH=='1' else [])+(['--diagnostic-exhaustion-worker'] if DIAGNOSTIC_EXHAUSTION=='1' else [])+(['--child-output-accounting'] if CHILD_OUTPUT_ACCOUNTING=='1' else []))
     deadline=time.monotonic()+1230;invocation=None
     while True:
         observed=show(pressure,'InvocationID','MainPID','ActiveState','SubState','Result','ExecMainStatus')
@@ -157,6 +158,9 @@ try:
         elif SCENARIO=='logging':
             from runtime_child_log_checkpoint import inspect_fixture_logging
             record('child-log-pressure-checkpoint-qualified',child_log_pressure_checkpoint=inspect_fixture_logging(WORK,BOOT,invocation))
+            if CHILD_OUTPUT_ACCOUNTING=='1':
+                from runtime_child_output_accounting import inspect_fixture as inspect_output_accounting
+                record('child-output-accounting-qualified',child_output_accounting_checkpoint=inspect_output_accounting(WORK,BOOT,invocation))
             if DIAGNOSTIC_EXHAUSTION=='1':
                 from runtime_diagnostic_exhaustion_worker import inspect_fixture_exhaustion
                 record('diagnostic-exhaustion-checkpoint-qualified',diagnostic_exhaustion_checkpoint=inspect_fixture_exhaustion(WORK,BOOT,invocation))

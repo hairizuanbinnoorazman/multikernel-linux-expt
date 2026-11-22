@@ -36,7 +36,7 @@ from runtime_trial_command import capture as capture_owned_command
 from runtime_bounded_command import bounded_command
 assert 3<=len(sys.argv)<=7, 'usage: SCRIPT PROTECTED_WORK_DIRECTORY PROTECTED_SOURCE_ROOT [SCENARIO] [--harden-services] [--engine-observation] [--aggregate-docker-health]'
 flags=sys.argv[3:]
-assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--child-log-pressure','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health','--diagnostic-exhaustion-worker'}
+assert len(flags)==len(set(flags)) and set(flags)<={'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--harden-services','--concurrent','--child-log-pressure','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash','--engine-observation','--aggregate-docker-health','--diagnostic-exhaustion-worker','--child-output-accounting'}
 assert len(set(flags)&{'--restart-runtime','--crash-runtime','--crash-during-build','--crash-during-io','--concurrent','--child-log-pressure','--storage-pressure','--storage-record-loss','--storage-record-fifo','--storage-export-crash'})<=1
 native_export_crash='--storage-export-crash' in flags
 export_crash_observed=False
@@ -50,6 +50,8 @@ restart_runtime='--restart-runtime' in flags or crash_runtime
 harden_services='--harden-services' in flags
 concurrent='--concurrent' in flags
 child_log_pressure='--child-log-pressure' in flags
+child_output_accounting='--child-output-accounting' in flags
+assert not child_output_accounting or child_log_pressure, 'output accounting requires the held logging scenario'
 diagnostic_exhaustion='--diagnostic-exhaustion-worker' in flags
 assert not diagnostic_exhaustion or child_log_pressure, 'diagnostic exhaustion requires the logging scenario'
 engine_observation='--engine-observation' in flags
@@ -242,7 +244,7 @@ try:
   shutil.copyfile(private/'a-workload.stdout',private/'workload.stdout');shutil.copyfile(private/'a-workload.stderr',private/'workload.stderr')
  elif child_log_pressure:
   from runtime_child_log_pressure import qualify as qualify_child_log_pressure
-  observed=qualify_child_log_pressure(cli,private,boot,os.environ['INVOCATION_ID'],diagnostic_exhaustion=diagnostic_exhaustion)
+  observed=qualify_child_log_pressure(cli,private,boot,os.environ['INVOCATION_ID'],diagnostic_exhaustion=diagnostic_exhaustion,output_accounting=child_output_accounting)
  else:
   with (private/'workload.stdout').open('wb') as out,(private/'workload.stderr').open('wb') as err:
    if restart_runtime:
@@ -733,6 +735,8 @@ r['native_record_fault_tested']=native_record_fault
 if native_record_fault:r['native_record_fault_checkpoint_sha256']=sha(work/'native-record-fault-checkpoint.json')
 r['diagnostic_exhaustion_tested']=diagnostic_exhaustion
 if diagnostic_exhaustion:r['diagnostic_exhaustion_sha256']=sha(private/'diagnostic-exhaustion-checkpoint.json')
+r['child_output_accounting_tested']=child_output_accounting
+if child_output_accounting:r['child_output_accounting_sha256']=sha(private/'child-output-accounting.json')
 r['child_log_pressure_tested']=child_log_pressure
 if child_log_pressure:r['child_log_pressure_sha256']=sha(private/'child-log-pressure.json')
 r['concurrent_guest_builds_tested']=concurrent

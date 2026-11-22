@@ -118,6 +118,26 @@ An observed private snapshot does not attest to a live worker, child kernel or
 Docker delivery. Caller-side trial/source/epoch and live identity checks remain
 necessary before using it as evidence.
 
+The held logging trial has a separate opt-in finite-exec checkpoint. The parent
+requires `MK_MODULE_TRIAL_CHILD_OUTPUT_ACCOUNTING=1` with the logging scenario;
+the workload uses `--child-output-accounting`, and independent audit must request
+`--require-child-output-accounting`. Missing or mismatched scope refuses. The
+probe runs after the complete nested build matrix while the child is retained.
+It emits exactly 8,192 zero stdout bytes and 17 fixed stderr bytes, then exits 37.
+The existing 30-second command bound applies. A separate five-second observation
+window and at most 25 polls await Docker's ordinary exec deletion.
+
+Before/after private snapshots must share the container, sandbox generation,
+bundle identity and live worker binding, and show exactly one new retained exec.
+The unchanged tail prefix, continuous sequence, final guest reports, logical
+dispositions and received bytes must agree. Guest loss, host drops, unknown
+prefixes, pending intents, replay exposure, exhaustion and numeric aliases refuse
+qualification. Recomputed receipt checks bind the observations to the existing
+child build/logging checkpoint, source executable, boot and workload invocation.
+This qualifies only that finite probe when actually run; preparation/native tests
+do not establish actual-child success. The full log writer, Docker logger
+retention/loss and worker-fault mixtures need separate accounting evidence.
+
 This covers guest-buffer and logical host-disposition accounting. Actual-child
 integration, worker recovery under real faults, Docker logger rotation/loss and payload/heap/RSS peaks require
 separate evidence. Full G7/G8 and end-to-end loss/peak accounting remain open.

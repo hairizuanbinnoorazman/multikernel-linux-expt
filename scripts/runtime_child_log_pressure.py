@@ -46,7 +46,7 @@ def wait_for_writer(probe,deadline):
     raise ValueError('child log writer did not complete within deadline')
 
 
-def qualify(cli,private,boot,invocation,diagnostic_exhaustion=False):
+def qualify(cli,private,boot,invocation,diagnostic_exhaustion=False,output_accounting=False):
     # Imports stay lazy: the concurrency checkpoint imports its own fixture.
     from runtime_concurrency_checkpoint import matrix
     name='g8-materialization'
@@ -80,6 +80,9 @@ def qualify(cli,private,boot,invocation,diagnostic_exhaustion=False):
     assert engine['KernelVersion']==profile['kernel_release'] and engine['ServerVersion']=='29.9.0' and 'name=rootless' in engine['SecurityOptions']
     baseline=json.loads((private/'primary-docker-before.json').read_text());primary=observe(image);unchanged(baseline,primary);assert primary['child_image_absent']
     (private/'log-primary.json').write_text(json.dumps(primary,sort_keys=True)+'\n')
+    if output_accounting:
+        from runtime_child_output_accounting import qualify as qualify_output
+        qualify_output(cli,private,boot,invocation)
     if diagnostic_exhaustion:capture_worker(private,build,boot,'before-release')
     command(['kill','--signal=USR1',name],'log-release')
     assert command(['wait',name],'log-wait',timeout=60).stdout==b'0\n'
