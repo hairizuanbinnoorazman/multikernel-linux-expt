@@ -10,6 +10,15 @@ a preserved inventory refusal corrected without a workload rerun. Cold
 restoration of that new seal and actual-child exhaustion remain unqualified;
 full G7/G8 remain open.
 
+The [instrumented worker preparation](../../../evidence/runtime-20261122/g8-diagnostic-test-worker/README.md)
+adds a test-only entry that exhausts the real default sink before production
+worker entry. Ordinary and tagged shim race suites pass. Source `19c993a2`
+provides an explicitly labelled eight-binary packet, verifies revision/hash
+identity and the native preload probe, and refuses that packet in ordinary
+live-trial/audit admission. GCE primary and retained evidence revalidation passes;
+receipt-bound real-child admission/execution is still pending. No actual-child
+exhaustion or further G7/G8 closure is claimed by this preparation.
+
 ## Aggregate Docker-mode observations (2026-11-08)
 
 Current qualification (2026-11-21): the
