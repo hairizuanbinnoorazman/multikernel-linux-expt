@@ -2,6 +2,8 @@
 """Actual attach expressions and kernel file caps; no Docker workload is run."""
 import ast,json,os,pathlib,resource,subprocess,sys,tempfile,unittest
 import runtime_trial_output as subject
+import runtime_deployment_logging as deployment
+from unittest.mock import patch
 
 ROOT=pathlib.Path(__file__).resolve().parent
 
@@ -61,15 +63,46 @@ class TrialOutput(unittest.TestCase):
 
     def test_actual_private_daemon_config_and_create_flags_agree(self):
         tree=ast.parse((ROOT/'test-runtime-docker-profile-live.py').read_text());private=pathlib.Path('/synthetic/private')
-        config_calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and isinstance(n.func.value,ast.Name) and n.func.value.id=='dc' and n.func.attr=='write_text']
+        config_calls=[n.value for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='dc' for t in n.targets)]
         self.assertEqual(len(config_calls),1)
-        namespace=dict(json=json,private=private,sock=private/'containerd.sock',dsock=private/'docker.sock',logging_config=subject.logging_config)
-        config=json.loads(eval(compile(ast.Expression(config_calls[0].args[0]),'<private-daemon-config>','eval'),namespace))
-        expected=subject.logging_config()
-        self.assertEqual({key:config[key] for key in expected},expected)
-        create=[n.value for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='created' for t in n.targets)]
-        self.assertEqual(len(create),1)
-        argv=eval(compile(ast.Expression(create[0].args[0]),'<private-create-command>','eval'),dict(cli=['/synthetic/docker'],private=private,workload=['/bin/true'],logging_arguments=subject.logging_arguments))
+        with tempfile.TemporaryDirectory() as directory:
+            work=pathlib.Path(directory);private=work/'integration';private.mkdir(mode=0o700)
+            source=work/'source/scripts';source.mkdir(parents=True,mode=0o700)
+            for name in ['merge-runtime-docker-config.py','runtime_docker_logging_policy.py']:
+                (source/name).write_bytes((ROOT/name).read_bytes());(source/name).chmod(0o500)
+            (work/'build.json').write_text(json.dumps(dict(source_commit='a'*40)))
+            captured=[];actual=deployment.capture
+            def command(argv,*args):
+                captured.append(argv)
+                if '/usr/bin/dockerd' in argv:
+                    self.assertEqual(argv[-4:],['/usr/bin/dockerd','--validate','--config-file',str(private/'docker.json')])
+                    # Installed-parser behavior has its separate GCE proof.
+                    return subprocess.CompletedProcess(argv,0,b'configuration OK\n',b'')
+                return actual(argv,*args)
+            with patch.object(deployment,'capture',command):
+                path=eval(compile(ast.Expression(config_calls[0]),'<private-daemon-config>','eval'),dict(prepare_deployment_logging=deployment.prepare,work=work))
+            self.assertEqual(len(captured),2)
+            self.assertEqual(captured[0][-1],'--enable-bounded-logging')
+            config=json.loads(path.read_text());expected=subject.logging_config()
+            self.assertEqual({key:config[key] for key in expected},expected)
+            self.assertEqual(config['default-runtime'],'runc')
+            self.assertEqual(path.stat().st_mode&0o777,0o600)
+        assignments=[n.value for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='create_argv' for t in n.targets)]
+        self.assertEqual(len(assignments),2)
+        expressions=[n.value for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='created' for t in n.targets)]
+        self.assertEqual(len(expressions),1)
+        self.assertIsInstance(expressions[0].args[0],ast.Name)
+        self.assertEqual(expressions[0].args[0].id,'create_argv')
+        for inherited in [False,True]:
+            namespace=dict(cli=['/usr/bin/docker','--host','unix://'+str(private/'docker.sock')],private=private,workload=['/bin/true'],logging_arguments=subject.logging_arguments,child_log_pressure=inherited,inherited_create_argv=deployment.inherited_create_argv)
+            argv=eval(compile(ast.Expression(assignments[0]),'<explicit-create-command>','eval'),namespace)
+            if inherited:
+                argv=eval(compile(ast.Expression(assignments[1]),'<inherited-create-command>','eval'),namespace)
+                self.assertEqual(argv,deployment.inherited_create_argv(private,['/bin/true']))
+                self.assertFalse(any(arg.startswith(('--log-driver','--log-opt')) for arg in argv))
+            else:
+                explicit=argv
+        argv=explicit
         index=argv.index('--log-driver');kind=argv[index+1]
         options=dict(argv[i+1].split('=',1) for i,value in enumerate(argv) if value=='--log-opt')
         subject.require_logging(dict(Type=kind,Config=options))
