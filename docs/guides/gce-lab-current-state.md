@@ -1,5 +1,17 @@
 # Current verified lab state
 
+The [owning shim final-accounting checkpoint](../../evidence/runtime-20261122/g8-host-final-output-accounting/README.md)
+qualifies source `3f8de5a7` in a bounded native GCE run. The negotiated owning
+client durably commits validated guest counters alongside independently verified
+exit 37: stdout input 4,194,321, acknowledged 4,194,304, exact drop 17 and retained
+peak 4,194,304 bytes. Identity/offset and unavailable/unsupported controls pass.
+The successful unit is stopped, cgroup/scratch are absent, and 14 artifacts/two
+absences are sealed and reverified in the same boot. A preceding fixture socket-
+path refusal retains 14 artifacts/five absences and is not accepted as success.
+The earlier native seal, primary baseline and historical sets remain preserved.
+These new seals have not undergone cold restoration. Actual-child accounting,
+FIFO delivery, Docker log loss and RSS qualification remain open.
+
 The [guest output-accounting checkpoint](../../evidence/runtime-20261122/g8-output-byte-accounting/README.md)
 qualifies source `221d77e5` in a separate bounded native GCE run: stdout input
 4,194,321 bytes, retained-payload peak 4,194,304 bytes and exact drop 17.
@@ -7,7 +19,7 @@ Authenticated counter-only observation, pending/concurrent conservation and
 overflow/refusal controls pass. Its successful unit is stopped and 17 artifacts/
 two absences are sealed and reverified in the same boot. Current primary and
 earlier retained sets are preserved. That new seal has not undergone cold
-restoration; actual-child accounting, host consumption and Docker loss/RSS
+restoration; that source precedes host consumption, actual-child accounting and Docker loss/RSS
 qualification remain open. The following actual-child proof retains its own
 earlier source identity.
 

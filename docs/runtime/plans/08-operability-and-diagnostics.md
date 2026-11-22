@@ -1,5 +1,20 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [owning shim final-accounting proof](../../../evidence/runtime-20261122/g8-host-final-output-accounting/README.md)
+qualifies source `3f8de5a7` through a bounded native GCE run and independent
+exact-unit/source audit. One owning checked client negotiates support, drains the
+real producer and commits validated guest counters with verified exit 37:
+stdout input 4,194,321, acknowledgement 4,194,304, exact drop 17, retained peak
+4,194,304 bytes. Recovery validates counters against identity, stopped state and
+offsets; unsupported/unavailable reports never imply zero loss or prevent the
+separate verified exit. Targeted/full shim races and required production-source
+checks pass. The preceding socket-path fixture refusal is preserved, the
+corrected successful unit is stopped, and its 14-artifact/two-absence seal and
+earlier sets pass same-boot verification. This closes native host consumption
+and persistence of guest-buffer counters. Cold restoration of new seals,
+actual-child accounting, FIFO disposition/replay, Docker loss/RSS, broader fault
+coverage and full G7/G8 remain open.
+
 The [guest output-accounting primitive](../../../evidence/runtime-20261122/g8-output-byte-accounting/README.md)
 qualifies source `221d77e5` locally and in a bounded native GCE run. The optional
 authenticated RPC reports exact observed/acknowledged/pending/buffered/dropped
@@ -8,8 +23,8 @@ exits 37 with stdout input 4,194,321 bytes, retained peak 4,194,304 and drop 17;
 pending/concurrent conservation and overflow/refusal controls pass. Independent
 unit/source audit, successful stop, cgroup/scratch removal and same-boot
 17-artifact/two-absence retention pass. Agent/protocol and shim race suites plus
-required checks pass, with five environment-dependent cases skipped. Host
-consumption/persistence, actual-child accounting, cold restoration of this new
+required checks pass, with five environment-dependent cases skipped. That source
+precedes host consumption/persistence. Actual-child accounting, cold restoration of that new
 seal, Docker-log loss and RSS peaks remain open. This closes only the native
 guest-buffer accounting checkpoint; full G7/G8 remain open.
 
