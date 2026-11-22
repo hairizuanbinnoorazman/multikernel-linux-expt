@@ -122,6 +122,18 @@ loss/peak accounting, broader producers/readiness/fault mixtures and full G7/G8
 remain open. No nested virtualization is used; arbitrary child-kernel compromise
 still shares primary trust.
 
+The [shared diagnostic lifetime-budget proof](../../../evidence/runtime-20261122/g8-diagnostic-lifetime-budget/README.md)
+qualifies source `7803b554` against the fast-reader/fresh-monitor bypass. The
+previous source sends 2,607,763 bytes for 10,000 fresh monitors through an
+acknowledged real OS pipe; candidate sends 1,048,430 bytes and refuses 5,977
+records under the shared 1 MiB reservation ceiling. Bounded CAS admission,
+no-refund semantics, counter overflow refusal and typed producer sharing pass
+native controls. Exact GCE unit success, primary/current retention preservation,
+empty scratch and own cgroup cleanup qualify. Targeted/full shim race and required
+checks pass. Twenty-five artifacts/one absence are sealed and independently
+rechecked. This closes the native diagnostic-volume checkpoint; new-source child
+compatibility, broader producer/fault coverage and full G7/G8 stay open.
+
 The [v9/v3 contract](../contracts/aggregate-docker-health.md) adds opt-in node-wide
 Docker observations using a private current target snapshot. It requires exact
 coverage of every running owner, two engine sample sets bracketed by complete

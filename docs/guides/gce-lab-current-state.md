@@ -63,6 +63,21 @@ historical sets, and the prior native stage
 `g8-deployment-logging-fbddde6d` and `g8-deployment-logging-fbddde6d-v2`
 remain retained. Historical refusals keep their original scopes.
 
+The [native diagnostic-budget proof](../../evidence/runtime-20261122/g8-diagnostic-lifetime-budget/README.md)
+then qualifies source `7803b554` on this boot without loading a module or starting
+a child. Its exact successful unit is stopped and the cgroup absent; source-bound
+real-pipe comparisons, concurrent/boundary/shared-producer controls and primary
+preservation pass. Retain `g8-diag-budget-7803b55/before-cold-retention.json`
+(25 artifacts/one absence) in subsequent admission/restoration checks. Revalidate
+that additional seal with:
+
+```sh
+python3 evidence/runtime-20261122/g8-diagnostic-lifetime-budget/run-current-gce.py current-native-gce.py
+```
+
+New-source actual child compatibility remains unqualified. The complete qualified
+child packet/baseline above continues to refer to source `b166f294`.
+
 Loss/peak accounting, broader producer coverage, readiness, fault mixtures and
 full G7/G8 remain open. Direct child kernels use no nested virtualization and
 share primary trust after arbitrary child-kernel compromise. See the

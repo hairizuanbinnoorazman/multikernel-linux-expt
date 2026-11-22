@@ -51,6 +51,11 @@ further best-effort diagnostics. A new process has a new budget; this is not a
 host-wide or sandbox-wide lifetime quota. Task stdout/stderr retains its separate
 output/logging policy.
 
+The [source-bound native comparison](../../../evidence/runtime-20261122/g8-diagnostic-lifetime-budget/README.md)
+proves the prior fast-reader bypass and the new lifetime cap on GCE, alongside
+concurrency/boundary/producer-sharing controls and the full shim race suite.
+Actual child compatibility at this new source remains a separate checkpoint.
+
 Each worker lazily creates one sink goroutine with a 64-record queue. Encoded
 records, including newline, are capped at 1024 bytes. A blocked writer can hold
 one additional in-flight record; queued record payload is at most 64 KiB.
