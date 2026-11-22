@@ -1,5 +1,16 @@
 # Current verified lab state
 
+The [guest output-accounting checkpoint](../../evidence/runtime-20261122/g8-output-byte-accounting/README.md)
+qualifies source `221d77e5` in a separate bounded native GCE run: stdout input
+4,194,321 bytes, retained-payload peak 4,194,304 bytes and exact drop 17.
+Authenticated counter-only observation, pending/concurrent conservation and
+overflow/refusal controls pass. Its successful unit is stopped and 17 artifacts/
+two absences are sealed and reverified in the same boot. Current primary and
+earlier retained sets are preserved. That new seal has not undergone cold
+restoration; actual-child accounting, host consumption and Docker loss/RSS
+qualification remain open. The following actual-child proof retains its own
+earlier source identity.
+
 The [latest instrumented exhaustion proof](../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
 qualifies source `c836df51` for the complete real-child nested Docker matrix with
 the host worker's diagnostic allowance exhausted before production entry.

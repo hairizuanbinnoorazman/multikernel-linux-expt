@@ -1,5 +1,18 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [guest output-accounting primitive](../../../evidence/runtime-20261122/g8-output-byte-accounting/README.md)
+qualifies source `221d77e5` locally and in a bounded native GCE run. The optional
+authenticated RPC reports exact observed/acknowledged/pending/buffered/dropped
+bytes and retained-payload peaks without output contents. A managed producer
+exits 37 with stdout input 4,194,321 bytes, retained peak 4,194,304 and drop 17;
+pending/concurrent conservation and overflow/refusal controls pass. Independent
+unit/source audit, successful stop, cgroup/scratch removal and same-boot
+17-artifact/two-absence retention pass. Agent/protocol and shim race suites plus
+required checks pass, with five environment-dependent cases skipped. Host
+consumption/persistence, actual-child accounting, cold restoration of this new
+seal, Docker-log loss and RSS peaks remain open. This closes only the native
+guest-buffer accounting checkpoint; full G7/G8 remain open.
+
 The [receipt-bound instrumented exhaustion lifecycle](../../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
 now qualifies source `c836df51` through actual child execution and independent
 cold restoration. Twelve exact staged programs pass without skips, including 75
