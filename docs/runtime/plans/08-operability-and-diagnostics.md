@@ -1,5 +1,16 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [worker-replacement output checkpoint preparation](../../../evidence/runtime-20261123/g8-child-output-recovery/README.md)
+at `110dddb7` now wires explicit workload/parent/audit scope, live unit/source/
+bundle/parent/cgroup-bound pidfds, exact stopped-drain counters and a subsequent
+complete child build matrix with original-archive/primary separation checks.
+Seven native fault-control groups and six checkpoint groups pass, including 34
+recomputed-receipt attacks, early/late collection refusal and frozen-clock poll
+caps. Required checks pass with five environment-dependent skips. Complete normal
+eight-binary GCE staging, five labels, bootstrap/argument approval and all primary/
+idle/history guards pass. Protected native preflight precedes any module traffic;
+actual-child fault/lifecycle/restoration and full G7/G8 remain open.
+
 The [stopped-drain provenance preparation](../../../evidence/runtime-20261123/g8-recovery-drain-provenance/README.md)
 at `acb53c42` records initial output offsets/intents after validated stopped-guest
 reconstruction, before the normal monitor drains and commits completion. Native

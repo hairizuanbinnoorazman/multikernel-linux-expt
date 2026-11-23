@@ -1,9 +1,15 @@
 # Current verified lab state
 
-Latest recovery preparation `acb53c42` adds [stopped-drain provenance](../../evidence/runtime-20261123/g8-recovery-drain-provenance/README.md)
-and separate counter validation for a future real-child worker fault. Local
-controls pass; that candidate has not executed on GCE. Its read-only lab recheck
-preserves all current and historical sets and the idle primary baseline.
+Latest recovery preparation `110dddb7` adds the [explicit worker-replacement
+checkpoint](../../evidence/runtime-20261123/g8-child-output-recovery/README.md),
+building on [stopped-drain provenance](../../evidence/runtime-20261123/g8-recovery-drain-provenance/README.md).
+Seven native fault-control groups and six checkpoint groups pass, with 34
+recomputed-receipt refusals and required checks. Complete normal production-packet
+staging passes on GCE, including all eight hashes, five labels, normal bootstrap
+approval, the recovery argument set and primary/idle/all-history preservation.
+Protected native preflight is required before actual-child admission. The
+candidate module and child have not started for this source; actual-child fault
+qualification remains open.
 
 The latest qualified native GCE code is the [exited-guest worker-recovery fix](../../evidence/runtime-20261123/g8-recovered-output/README.md)
 at `2f4ba5a2`. Its committed-source native GCE controls kill the monitor at three
