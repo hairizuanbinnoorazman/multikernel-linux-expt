@@ -331,6 +331,10 @@ func (s *service) waitProcess(agentID, execID string, p *process) {
 		}
 	}
 	finalAccounting := s.collectFinalOutputAccounting(agentID, pid, p.stdoutOffset, p.stderrOffset)
+	if p.recoveredOutputDrain != nil {
+		initial := *p.recoveredOutputDrain
+		finalAccounting.RecoveryDrain = &initial
+	}
 	now := time.Now().UTC()
 	for {
 		s.mu.Lock()

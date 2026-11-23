@@ -27,6 +27,13 @@ def buffer(value):
     if (value['limit_bytes']!=4<<20 or not value['buffered_bytes']<=value['buffered_peak_bytes']<=min(4<<20,value['observed_bytes']) or value['truncated']!=(value['dropped_bytes']!=0) or value['observed_bytes']!=sum(value[k] for k in ['acknowledged_bytes','buffered_bytes','pending_bytes','dropped_bytes'])):raise ValueError('output buffer does not conserve bytes')
 
 
+def recovery_drain(value,stdout,stderr):
+    if type(value) is not dict or set(value)!={'stdout_offset','stderr_offset','stdout_in_flight_bytes','stderr_in_flight_bytes'}:raise ValueError('recovery drain fields differ')
+    for stream,offset in [('stdout',stdout),('stderr',stderr)]:
+        initial=number(value[stream+'_offset']);intent=number(value[stream+'_in_flight_bytes'])
+        if initial>offset or intent>min(4096,U64-initial):raise ValueError('recovery drain counters differ')
+
+
 def record(value):
     if type(value) is not dict or not RECORD_FIELDS<=set(value)<=RECORD_FIELDS|{'final_output_accounting','output_disposition'}:raise ValueError('completed record fields differ')
     for key in RECORD_FIELDS-{'id'}:number(value[key])
@@ -35,10 +42,12 @@ def record(value):
     if 'final_output_accounting' in value:
         final=value['final_output_accounting']
         if type(final) is not dict:raise ValueError('invalid final accounting')
+        fields=set(final)-{'recovery_drain'}
+        if 'recovery_drain' in final:recovery_drain(final['recovery_drain'],value['stdout_offset'],value['stderr_offset'])
         if final.get('state') in ['unsupported','unavailable']:
-            if set(final)!={'state'} or value['status']!=3:raise ValueError('unavailable report fabricated counters')
+            if fields!={'state'} or value['status']!=3:raise ValueError('unavailable report fabricated counters')
         elif final.get('state')=='validated':
-            if set(final)!={'state','report'} or value['status']!=3:raise ValueError('final report fields differ')
+            if fields!={'state','report'} or value['status']!=3:raise ValueError('final report fields differ')
             report=final['report']
             if type(report) is not dict or set(report)!={'version','id','pid','status','stdout','stderr'}:raise ValueError('guest report fields differ')
             if number(report['version'])!=1 or report['id']!=value['id'] or number(report['pid'])!=value['pid'] or not value['pid'] or report['status']!='STOPPED':raise ValueError('guest report selector differs')
@@ -79,6 +88,15 @@ def snapshot(data,container):
 
 
 def qualify_pair(before_data,after_data,container,stdout,stderr,status):
+    return _qualify_pair(before_data,after_data,container,stdout,stderr,status,False)
+
+
+def qualify_recovered_pair(before_data,after_data,container,stdout,stderr,status):
+    """Counter subcheck only; caller must separately prove worker replacement."""
+    return _qualify_pair(before_data,after_data,container,stdout,stderr,status,True)
+
+
+def _qualify_pair(before_data,after_data,container,stdout,stderr,status,recovered):
     if type(status) is not int or status!=37 or stdout!=b'\0'*STDOUT_BYTES or stderr!=STDERR:raise ValueError('finite child output differs')
     before=snapshot(before_data,container);after=snapshot(after_data,container)
     equal({k:before[k] for k in FRAME_FIELDS-{'status','code'}},{k:after[k] for k in FRAME_FIELDS-{'status','code'}})
@@ -89,10 +107,16 @@ def qualify_pair(before_data,after_data,container,stdout,stderr,status):
     latest=new['records'][-1]
     if not re.fullmatch('[a-f0-9]{64}',latest['id']) or latest['id'] in {r['id'] for r in old['records']} or latest['status']!=3 or not latest['pid'] or latest['exit']!=37:raise ValueError('probe completion differs')
     if latest.get('final_output_accounting',{}).get('state')!='validated' or 'output_disposition' not in latest:raise ValueError('probe accounting is unavailable')
+    if recovered:
+        expected=dict(stdout_offset=0,stderr_offset=0,stdout_in_flight_bytes=0,stderr_in_flight_bytes=0)
+        if latest['final_output_accounting'].get('recovery_drain')!=expected:raise ValueError('recovery did not begin with the complete undelivered probe')
+    elif 'recovery_drain' in latest['final_output_accounting']:raise ValueError('ordinary finite probe unexpectedly recovered a stopped guest')
     for stream,size in [('stdout',STDOUT_BYTES),('stderr',len(STDERR))]:
         b=latest['final_output_accounting']['report'][stream];d=latest['output_disposition'][stream]
         if latest[stream+'_offset']!=size or b['observed_bytes']!=size or b['dropped_bytes'] or d['written_bytes']!=size or any(d[k] for k in ['no_destination_bytes','pressure_dropped_bytes','unknown_prefix_bytes','in_flight_bytes','replay_exposure_bytes']) or d['exposure_exhausted']:raise ValueError('probe loss or uncertainty differs')
-    return dict(version=1,scope='held-child-finite-exec-output-accounting',stdout_observed_bytes=STDOUT_BYTES,stdout_received_bytes=STDOUT_BYTES,stderr_observed_bytes=len(STDERR),stderr_received_bytes=len(STDERR),exit_status=37,guest_dropped_bytes=0,host_pressure_dropped_bytes=0,replay_exposure_bytes=0,deleted_exec_retained=True,owning_agent_session_preserved=True,docker_log_retention_qualified=False,full_g7_g8_qualified=False,cleanup_qualified=False)
+    view=dict(version=1,scope='held-child-finite-exec-output-accounting',stdout_observed_bytes=STDOUT_BYTES,stdout_received_bytes=STDOUT_BYTES,stderr_observed_bytes=len(STDERR),stderr_received_bytes=len(STDERR),exit_status=37,guest_dropped_bytes=0,host_pressure_dropped_bytes=0,replay_exposure_bytes=0,deleted_exec_retained=True,owning_agent_session_preserved=True,docker_log_retention_qualified=False,full_g7_g8_qualified=False,cleanup_qualified=False)
+    if recovered:view.update(scope='held-child-recovered-exec-output-accounting',stopped_guest_drain_observed=True,initial_output_offsets_and_intents_zero=True,worker_replacement_qualified=False)
+    return view
 
 
 def digest(data):return hashlib.sha256(data).hexdigest()

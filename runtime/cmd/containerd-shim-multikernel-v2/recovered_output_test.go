@@ -415,5 +415,31 @@ func testRecoveredStoppedOutput(t *testing.T, mode string) {
 	if final.FinalOutputAccounting.Report.Stdout.DroppedBytes != 0 || final.FinalOutputAccounting.Report.Stdout.ObservedBytes != 8192 || final.FinalOutputAccounting.Report.Stderr.ObservedBytes != 17 {
 		t.Fatal("guest accounting differs")
 	}
+	if final.FinalOutputAccounting.RecoveryDrain == nil || *final.FinalOutputAccounting.RecoveryDrain != (recoveredOutputDrain{StdoutInFlightBytes: 4096, StderrInFlightBytes: 17}) || r.Stderr.ReplayExposureBytes != 17 {
+		t.Fatal("stopped-guest recovery provenance differs from the pre-kill record")
+	}
 	t.Logf("mode=%s guest_stdout=8192 guest_stderr=17 physical_stdout=%d replay_exposure=4096 unresolved_intent=0 exit=37 worker_sigkill=true", mode, len(stdout))
+	t.Log("recovered_stopped_drain=true initial_stdout_offset=0 initial_stderr_offset=0 initial_stdout_intent=4096 initial_stderr_intent=17 stderr_replay_exposure=17")
+}
+
+func TestRecoveredOutputDrainStrictAndSnapshotSafe(t *testing.T) {
+	for _, drain := range []recoveredOutputDrain{{StdoutOffset: 8}, {StderrOffset: 1}, {StdoutInFlightBytes: 4097}, {StderrInFlightBytes: 4097}, {StdoutOffset: ^uint64(0), StdoutInFlightBytes: 1}} {
+		if drain.validate(7, 0) == nil {
+			t.Fatal("forged recovery provenance accepted")
+		}
+	}
+	if (recoveredOutputDrain{StdoutOffset: ^uint64(0), StdoutInFlightBytes: 1}).validate(^uint64(0), 0) == nil {
+		t.Fatal("recovery provenance overflow accepted")
+	}
+	p := completedAccountingProcess("probe")
+	p.finalOutputAccounting.RecoveryDrain = &recoveredOutputDrain{StdoutOffset: 3, StdoutInFlightBytes: 4}
+	tail := (*completedOutputAccounting)(nil).append("probe", p)
+	// Subsequent mutable process state cannot rewrite retained provenance.
+	p.finalOutputAccounting.RecoveryDrain.StdoutOffset = 999
+	if tail.Records[0].FinalOutputAccounting.RecoveryDrain.StdoutOffset != 3 {
+		t.Fatal("retained recovery provenance aliases the removed process")
+	}
+	if err := tail.validate(); err != nil {
+		t.Fatal(err)
+	}
 }

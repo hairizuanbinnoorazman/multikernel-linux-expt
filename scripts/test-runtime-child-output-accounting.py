@@ -41,6 +41,44 @@ class OutputTests(unittest.TestCase):
         after['tail']['deleted_count']=1;after['tail']['evicted_count']=0;after['tail']['records']=[after['tail']['records'][-1]];after['tail']['records'][0]['sequence']=1
         self.qualify(before,after)
 
+    def test_recovered_drain_metadata_is_strict_and_separately_scoped(self):
+        before,after=frames('b'*64)
+        final=after['tail']['records'][-1]['final_output_accounting']
+        drain=dict(stdout_offset=0,stderr_offset=0,stdout_in_flight_bytes=4096,stderr_in_flight_bytes=0)
+        final['recovery_drain']=drain
+        output.snapshot(encoded(after),'b'*64)
+        with self.assertRaises(ValueError):self.qualify(before,after)
+
+        for mode in ['boolean-offset','float-intent','large-intent','offset-after-final','stderr-after-final','overflow','extra','null']:
+            changed=copy.deepcopy(after);d=changed['tail']['records'][-1]['final_output_accounting']['recovery_drain']
+            if mode=='boolean-offset':d['stdout_offset']=False
+            elif mode=='float-intent':d['stdout_in_flight_bytes']=0.0
+            elif mode=='large-intent':d['stdout_in_flight_bytes']=4097
+            elif mode=='offset-after-final':d['stdout_offset']=8193
+            elif mode=='stderr-after-final':d['stderr_offset']=18
+            elif mode=='overflow':d['stdout_offset']=output.U64;d['stdout_in_flight_bytes']=1
+            elif mode=='extra':d['token']='private'
+            elif mode=='null':changed['tail']['records'][-1]['final_output_accounting']['recovery_drain']=None
+            with self.subTest(mode=mode),self.assertRaises(ValueError):output.snapshot(encoded(changed),'b'*64)
+        final.clear();final.update(state='unavailable',recovery_drain=drain)
+        output.snapshot(encoded(after),'b'*64)
+        with self.assertRaises(ValueError):self.qualify(before,after)
+
+    def test_recovered_probe_counters_require_full_undelivered_origin(self):
+        before,after=frames('b'*64)
+        def qualify():return output.qualify_recovered_pair(encoded(before),encoded(after),'b'*64,b'\0'*8192,output.STDERR,37)
+        with self.assertRaises(ValueError):qualify()
+        final=after['tail']['records'][-1]['final_output_accounting']
+        final['recovery_drain']=dict(stdout_offset=0,stderr_offset=0,stdout_in_flight_bytes=0,stderr_in_flight_bytes=0)
+        view=qualify();self.assertEqual(view['scope'],'held-child-recovered-exec-output-accounting')
+        self.assertTrue(view['stopped_guest_drain_observed']);self.assertFalse(view['worker_replacement_qualified'])
+        self.assertFalse(view['full_g7_g8_qualified'])
+        with self.assertRaises(ValueError):self.qualify(before,after)
+        for key in final['recovery_drain']:
+            final['recovery_drain'][key]=1
+            with self.subTest(key=key),self.assertRaises(ValueError):qualify()
+            final['recovery_drain'][key]=0
+
     def test_counter_identity_loss_unknown_and_numeric_attacks_refuse(self):
         def changes(mode,before,after):
             r=after['tail']['records'][-1];b=r['final_output_accounting']['report']['stdout'];d=r['output_disposition']['stdout']

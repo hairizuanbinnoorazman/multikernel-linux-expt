@@ -169,6 +169,9 @@ func testNativeFinalAccounting(t *testing.T, fifo, completed bool) {
 		t.Fatal("exit and accounting not committed together")
 	}
 	report := value.FinalOutputAccounting.Report
+	if value.FinalOutputAccounting.RecoveryDrain != nil {
+		t.Fatal("ordinary monitor fabricated stopped-guest recovery provenance")
+	}
 	if report.Stdout.ObservedBytes != 4194321 || report.Stdout.AcknowledgedBytes != 4194304 || report.Stdout.DroppedBytes != 17 || report.Stdout.BufferedPeakBytes != 4194304 || report.Stderr.AcknowledgedBytes != 14 || value.StdoutOffset != 4194304 || value.StderrOffset != 14 {
 		t.Fatal("final conservation differs")
 	}

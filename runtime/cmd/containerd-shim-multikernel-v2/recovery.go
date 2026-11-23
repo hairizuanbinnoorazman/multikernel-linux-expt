@@ -499,6 +499,11 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			// remaining offsets, final accounting and independently checked exit.
 			// Its existing intent resolution preserves crash replay uncertainty.
 			p.pid = pid
+			p.recoveredOutputDrain = &recoveredOutputDrain{StdoutOffset: p.stdoutOffset, StderrOffset: p.stderrOffset}
+			if p.outputDisposition != nil {
+				p.recoveredOutputDrain.StdoutInFlightBytes = p.outputDisposition.Stdout.InFlightBytes
+				p.recoveredOutputDrain.StderrInFlightBytes = p.outputDisposition.Stderr.InFlightBytes
+			}
 			if err = s.openProcessOutput(ctx, p); err != nil {
 				return fmt.Errorf("recover stopped process %q output: %w", saved.ID, err)
 			}

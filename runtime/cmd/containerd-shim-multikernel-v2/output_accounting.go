@@ -12,8 +12,31 @@ import (
 // This record qualifies guest-buffer counters only. It does not qualify host
 // delivery, logger retention, process incarnation, or lifecycle authority.
 type finalOutputAccounting struct {
-	State  string                            `json:"state"`
-	Report *protocol.ProcessOutputAccounting `json:"report,omitempty"`
+	State         string                            `json:"state"`
+	Report        *protocol.ProcessOutputAccounting `json:"report,omitempty"`
+	RecoveryDrain *recoveredOutputDrain             `json:"recovery_drain,omitempty"`
+}
+
+// The publishing monitor observed a validated stopped guest during worker
+// reconstruction. These initial counters are diagnostic provenance, never
+// process-incarnation attestation or permission to recover/delete a sandbox.
+type recoveredOutputDrain struct {
+	StdoutOffset        uint64 `json:"stdout_offset"`
+	StderrOffset        uint64 `json:"stderr_offset"`
+	StdoutInFlightBytes uint64 `json:"stdout_in_flight_bytes"`
+	StderrInFlightBytes uint64 `json:"stderr_in_flight_bytes"`
+}
+
+func (r recoveredOutputDrain) validate(stdout, stderr uint64) error {
+	for _, stream := range []struct{ initial, final, intent uint64 }{
+		{r.StdoutOffset, stdout, r.StdoutInFlightBytes},
+		{r.StderrOffset, stderr, r.StderrInFlightBytes},
+	} {
+		if stream.initial > stream.final || stream.intent > processOutputChunk || stream.intent > ^uint64(0)-stream.initial {
+			return errors.New("invalid recovered output drain counters")
+		}
+	}
+	return nil
 }
 
 func (r *finalOutputAccounting) validate(id string, pid uint32, status tasktypes.Status, stdout, stderr uint64) error {
@@ -22,6 +45,11 @@ func (r *finalOutputAccounting) validate(id string, pid uint32, status tasktypes
 	} // Older recovery records made no observation.
 	if status != tasktypes.Status_STOPPED {
 		return errors.New("final output accounting requires stopped recovery state")
+	}
+	if r.RecoveryDrain != nil {
+		if err := r.RecoveryDrain.validate(stdout, stderr); err != nil {
+			return err
+		}
 	}
 	switch r.State {
 	case "unsupported", "unavailable":

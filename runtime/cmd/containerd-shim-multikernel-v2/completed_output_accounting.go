@@ -82,6 +82,10 @@ func (r *completedOutputAccounting) append(id string, p *process) *completedOutp
 			report := *snapshot.Report
 			snapshot.Report = &report
 		}
+		if snapshot.RecoveryDrain != nil {
+			drain := *snapshot.RecoveryDrain
+			snapshot.RecoveryDrain = &drain
+		}
 	}
 	if p.outputDisposition != nil {
 		snapshot := *p.outputDisposition

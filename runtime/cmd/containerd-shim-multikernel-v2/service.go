@@ -88,6 +88,7 @@ func requireCapabilitySet(observed, required []string, name string) error {
 type process struct {
 	outputDisposition              *processOutputDisposition
 	finalOutputAccounting          *finalOutputAccounting
+	recoveredOutputDrain           *recoveredOutputDrain
 	id, stdin, stdout, stderr      string
 	stdinIdentity                  processIOIdentity
 	stdoutIdentity                 processIOIdentity

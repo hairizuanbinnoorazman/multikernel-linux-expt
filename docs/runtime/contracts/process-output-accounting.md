@@ -61,6 +61,18 @@ output, final accounting and a separately checked exit commit through the monito
 Unfinished write intents retain their conservative replay exposure; draining after
 a crash does not establish exactly-once physical delivery. Output-path replacement
 refuses recovery rather than discarding the tail to publish an early exit.
+The final record optionally carries `recovery_drain` with the stdout/stderr
+offsets and bounded in-flight byte counts observed after that stopped guest's
+wait identity was validated. Initial offsets cannot exceed final offsets, and
+intents cannot exceed 4,096 bytes or overflow their initial offset. The marker
+describes this publishing worker's reconstruction; it does not attest to process
+incarnation or grant recovery/cleanup authority. Ordinary monitors omit it, and
+absence in older records remains unobserved. Unsupported/unavailable guest
+accounting may retain the marker but still cannot qualify loss. Deleted-exec
+retention copies the marker by value. The ordinary finite-exec trial refuses a
+new recovered-drain marker rather than promoting a fault run into its ordinary
+scope; an actual-child recovery checkpoint must bind the changed worker and
+qualify that separate path.
 Already persisted stopped records keep their original accounting; legacy records
 with no field remain unobserved. Existing stopped reports are validated
 against the persisted process and offsets; they grant no new lifecycle authority.
