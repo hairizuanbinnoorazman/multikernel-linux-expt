@@ -1,71 +1,53 @@
 # Current verified lab state
 
-The [host output-disposition checkpoint](../../evidence/runtime-20261122/g8-host-output-disposition/README.md)
-qualifies source `81fd9a0a` in a bounded native GCE run. A real FIFO reader consumes
-4,194,304 bytes, matching committed complete writes; guest-buffer drop is 17,
-replay exposure is zero for that finite-writer case, and verified exit is 37.
-Pressure/unconfigured discards, partial retry, failed offset publication, durable
-intent ordering, legacy unknown prefixes and overflow controls pass. Independent
-exact-unit/source audit, successful unit stop and cgroup/scratch removal pass.
-Fourteen artifacts/two absences are sealed and reverified in the same boot,
-alongside preceding native/refused cases and the unchanged primary baseline.
-Required checks and full shim races pass; five environment-dependent cases skip.
-Actual-child integration, real worker faults, Docker retention/loss, RSS and cold
-restoration of the new seals remain open.
+The [real-child finite-exec accounting proof](../../evidence/runtime-20261122/g8-child-output-accounting/README.md)
+qualifies source `6a735215`. Host Docker selects the direct child; the complete
+nested Docker build matrix passes. A held-child exec produces and delivers
+8,192 stdout bytes and 17 stderr bytes, exits 37, and has zero guest drops, host
+pressure drops and replay exposure. Before/after snapshots bind the source,
+worker, bundle, unchanged tail prefix and one newly deleted exec. Five identity
+refusals and ordinary-scope refusal pass. The counter-only recovery tail retains
+at most 16 completed execs; missing or exhausted history cannot qualify zero loss.
 
-The [owning shim final-accounting checkpoint](../../evidence/runtime-20261122/g8-host-final-output-accounting/README.md)
-qualifies source `3f8de5a7` in a bounded native GCE run. The negotiated owning
-client durably commits validated guest counters alongside independently verified
-exit 37: stdout input 4,194,321, acknowledged 4,194,304, exact drop 17 and retained
-peak 4,194,304 bytes. Identity/offset and unavailable/unsupported controls pass.
-The successful unit is stopped, cgroup/scratch are absent, and 14 artifacts/two
-absences are sealed and reverified in the same boot. A preceding fixture socket-
-path refusal retains 14 artifacts/five absences and is not accepted as success.
-The earlier native seal, primary baseline and historical sets remain preserved.
-These new seals have not undergone cold restoration. Actual-child accounting,
-FIFO delivery, Docker log loss and RSS qualification remain open.
+Independent cold restoration passes after one authorized reset of the same
+instance: 379 artifacts and 140 absences in four bounded manifests, plus two
+approved static inputs, remain preserved. Four native daemon logs and historical
+native backing trees use metadata-only verification. Earlier actual-child and
+native/refused seals also survive, including the 329-artifact/118-absence
+instrumented case, the 17-artifact guest-buffer case, both 14-artifact final-
+accounting generations and the 14-artifact disposition case. Archived acceptance
+uses the original boot; old completion refuses the new boot and grants no PID,
+cleanup or reuse authority.
 
-The [guest output-accounting checkpoint](../../evidence/runtime-20261122/g8-output-byte-accounting/README.md)
-qualifies source `221d77e5` in a separate bounded native GCE run: stdout input
-4,194,321 bytes, retained-payload peak 4,194,304 bytes and exact drop 17.
-Authenticated counter-only observation, pending/concurrent conservation and
-overflow/refusal controls pass. Its successful unit is stopped and 17 artifacts/
-two absences are sealed and reverified in the same boot. Current primary and
-earlier retained sets are preserved. That new seal has not undergone cold
-restoration; that source precedes host consumption, actual-child accounting and Docker loss/RSS
-qualification remain open. The following actual-child proof retains its own
-earlier source identity.
+The original transport is idle, all CPUs/pool/children/refs/VSOCK resources are
+returned, and a fresh primary baseline is stable. Primary files and persistent
+Docker state are preserved. The 200 GiB filesystem retains its 5% reserve and
+running-daemon binding. A [current read-only observation](../../evidence/runtime-20261122/g8-child-output-accounting/current-status.json)
+rechecks the fresh baseline, seals, metadata-only logs, approved inputs, full
+packet/eight binary hashes and capacity. The unchanged 8 GiB staging floor has
+space available; full builder-peak admission remains separate. Source identities,
+private paths, invocation/boot IDs and authority records remain in the lab.
 
-The [latest instrumented exhaustion proof](../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)
-qualifies source `c836df51` for the complete real-child nested Docker matrix with
-the host worker's diagnostic allowance exhausted before production entry.
-Independent live audit and cold restoration pass. The same worker/receipt and
-exact executable are bound across the held matrix; the finite 16 MiB writer,
-logging bounds, primary separation, native release and resource return qualify.
+The first native preflight refused its sandbox's read-only mount view before
+running any test. Nine artifacts/five absences preserve that refusal. The
+corrected generation retains sandbox protections, checks immutable inputs inside
+it, and performs full host-storage/primary/history admission outside its mount
+namespace. Twelve staged Python programs and six native Go groups pass without
+skips, including the actual compiled inspector after a real native exec deletion.
+Local full shim races and required checks pass, with five environment-dependent
+repository cases skipped.
 
-The original transport/resources are idle and a fresh primary baseline is stable.
-The durable 200 GiB filesystem retains its 5% reserve. Current retention covers
-329 artifacts/118 absences in three manifests, plus the native 15-artifact/one-
-absence seal, two refused pretraffic generations of 59 artifacts/five absences
-each, the earlier 307-artifact/118-absence child case and historical/native sets.
-Old completion refuses the new boot; archived proof retains its original epoch.
+The separate 16 MiB log writer exits 0; two retained log files total 1,797,083
+bytes within the 2,131,072-byte metadata bound. This does not qualify whole-writer
+or Docker logger loss accounting. Real worker faults, broader producer coverage,
+readiness, peak RSS and full G7/G8 remain open. Earlier proof keeps its own source
+identity: [instrumented exhaustion](../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md),
+[native dispositions](../../evidence/runtime-20261122/g8-host-output-disposition/README.md),
+[final guest counters](../../evidence/runtime-20261122/g8-host-final-output-accounting/README.md)
+and [guest buffers](../../evidence/runtime-20261122/g8-output-byte-accounting/README.md).
 
-The frozen instrumented packet has eight verified binaries and five revision
-labels. A [fresh current observation](../../evidence/runtime-20261122/g8-diagnostic-child-binding/current-status.json)
-rechecks the new baseline and seals; the unchanged 8 GiB staging floor has capacity
-available. Full builder peak admission remains separate. It is a fault fixture and has not been installed as a production runtime.
-The [ordinary child compatibility proof](../../evidence/runtime-20261122/g8-diagnostic-budget-child/README.md)
-retains its separate source identity. Public reporting contains flags and selected
-counters; environment identifiers, private paths and authority records remain
-in the lab.
-
-Authorized operators must revalidate the current private baseline, exact
-source/binary identities, retained sets and idle resources before admission.
-A restart or state change requires fresh verification. Historical completion,
-process identifiers and old units grant no present execution, cleanup or reuse
-authority. Earlier observers keep their original boot pins.
-
-Workload-log loss/peak accounting, broader producer/fault coverage, readiness and
-full G7/G8 remain open. Direct children use no nested virtualization and share
-primary trust after arbitrary kernel compromise. See the
-[lab runbook](gce-lab-runbook.md) and [runtime plans](../runtime/plans/README.md).
+Authorized operators must revalidate the current private baseline, exact source/
+binary identities, retained sets and idle resources before admission. Restart or
+state change requires fresh verification. Direct children require no nested
+virtualization and share primary trust after arbitrary kernel compromise. See
+the [lab runbook](gce-lab-runbook.md) and [runtime plans](../runtime/plans/README.md).

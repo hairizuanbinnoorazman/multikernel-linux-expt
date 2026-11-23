@@ -1,5 +1,26 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [real-child finite-exec accounting lifecycle](../../../evidence/runtime-20261122/g8-child-output-accounting/README.md)
+qualifies source `6a735215` through the complete nested Docker matrix and
+independent cold restoration. The held exec delivers exactly 8,192 stdout and
+17 stderr bytes, exits 37, and has zero guest/host drops or replay exposure.
+Source/worker/bundle, unchanged retained prefix and one deleted exec bind the
+counter proof; the private tail is bounded to 16 records. Five altered identity
+controls and ordinary-scope promotion refuse. Twelve staged Python programs and
+six native Go groups pass without skips, including the compiled inspector; local
+required checks and full shim races pass with five environment-dependent skips.
+The read-only-mount preflight refusal is preserved as nine artifacts/five absences.
+Host admission checks remain outside the test sandbox's mount view.
+
+One authorized idle-instance reset preserves 379 artifacts/140 absences in four
+manifests, approved inputs, metadata-only daemon logs, prior actual-child and
+native/refused sets. Archived proof remains in its original boot; old completion
+refuses the new boot. Original idle transport/resources, primary files/persistent
+Docker and a fresh baseline plus 200 GiB/5% reserve requalify. This closes the
+finite-exec output-accounting/restoration subcase. Whole-writer and Docker logger
+loss, real worker-fault mixtures, broader producers/readiness, RSS and full G7/G8
+remain open.
+
 The [native host-disposition proof](../../../evidence/runtime-20261122/g8-host-output-disposition/README.md)
 qualifies source `81fd9a0a`: durable offsets partition into complete writes,
 unconfigured discards, pressure drops and legacy unknown prefixes. Payload-free
@@ -12,7 +33,8 @@ Independent exact-unit/source GCE audit, successful stop, cgroup/scratch removal
 and same-boot 14-artifact/two-absence preservation qualify alongside earlier
 retained sets. This closes native logical disposition accounting and the finite
 FIFO consumer subcase. Actual-child accounting, real worker faults, Docker
-retention/loss, RSS, cold restoration of new seals and full G7/G8 remain open.
+retention/loss, RSS and full G7/G8 remain open. Its native seals now survive the
+later real-child cold restoration above.
 
 The [owning shim final-accounting proof](../../../evidence/runtime-20261122/g8-host-final-output-accounting/README.md)
 qualifies source `3f8de5a7` through a bounded native GCE run and independent
@@ -25,9 +47,9 @@ separate verified exit. Targeted/full shim races and required production-source
 checks pass. The preceding socket-path fixture refusal is preserved, the
 corrected successful unit is stopped, and its 14-artifact/two-absence seal and
 earlier sets pass same-boot verification. This closes native host consumption
-and persistence of guest-buffer counters. Cold restoration of new seals,
-actual-child accounting, FIFO disposition/replay, Docker loss/RSS, broader fault
-coverage and full G7/G8 remain open.
+and persistence of guest-buffer counters. Those native/refused seals now survive
+the later real-child cold restoration above. Broader accounting, Docker loss/RSS,
+fault coverage and full G7/G8 remain open.
 
 The [guest output-accounting primitive](../../../evidence/runtime-20261122/g8-output-byte-accounting/README.md)
 qualifies source `221d77e5` locally and in a bounded native GCE run. The optional
@@ -38,8 +60,8 @@ pending/concurrent conservation and overflow/refusal controls pass. Independent
 unit/source audit, successful stop, cgroup/scratch removal and same-boot
 17-artifact/two-absence retention pass. Agent/protocol and shim race suites plus
 required checks pass, with five environment-dependent cases skipped. That source
-precedes host consumption/persistence. Actual-child accounting, cold restoration of that new
-seal, Docker-log loss and RSS peaks remain open. This closes only the native
+precedes host consumption/persistence; its seal now survives the later real-child
+cold restoration above. Broader accounting, Docker-log loss and RSS peaks remain open. This closes only the native
 guest-buffer accounting checkpoint; full G7/G8 remain open.
 
 The [receipt-bound instrumented exhaustion lifecycle](../../../evidence/runtime-20261122/g8-diagnostic-child-binding/README.md)

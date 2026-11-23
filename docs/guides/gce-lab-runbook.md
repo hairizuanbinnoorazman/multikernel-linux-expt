@@ -9,6 +9,13 @@ The [current verified lab state](gce-lab-current-state.md) records the latest
 primary baseline and its read-only observer. Historical experiments below retain
 their original scopes and epochs.
 
+For current runtime preflights, run host storage/primary/history admission from
+the host mount namespace before and after the sandboxed tests. A read-only test
+mount view cannot establish the host storage mount contract. Verify immutable
+packet inputs inside the sandbox and retain its protections; the
+[accounting preflight record](../../evidence/runtime-20261122/g8-child-output-accounting/README.md)
+includes the preserved refusal and corrected generation.
+
 ## Guide map
 
 - [Current status and experiment outcome](#status)
@@ -46,8 +53,10 @@ persistent-root objective; see the
 
 ## Status
 
-Research and implementation began on 2026-08-28. The final experimental VM was
-deleted after the mediated-storage work; the retained storage disk is detached.
+This section records the historical August 2026 bring-up. That experimental VM
+was deleted after the mediated-storage work; its retained storage disk was
+detached. Current runtime trials use the existing lab described in the
+[current verified state](gce-lab-current-state.md).
 
 | Item | Status |
 | --- | --- |
@@ -75,7 +84,7 @@ deleted after the mediated-storage work; the retained storage disk is detached.
 | `n2-standard-16` | Available in `asia-southeast1-b` |
 | Ubuntu image | `ubuntu-2604-resolute-amd64-v20260821` |
 
-The project's default VPC currently has ingress rules that expose SSH, RDP,
+The August 2026 audit recorded default VPC ingress rules exposing SSH, RDP,
 HTTP, TCP port 3000, and ICMP to `0.0.0.0/0`. Tighten those rules or use an IAP
 access design before giving the test VM an external IP.
 
@@ -116,7 +125,8 @@ the [post-deletion GCE inventory](../../evidence/daxfs-20260828/resource-cleanup
 
 ## Reproduce the verified path
 
-No laboratory VM currently exists. The root `Makefile` wraps fresh VM creation,
+The following recipe reproduces the historical bring-up on a fresh VM. The
+root `Makefile` wraps fresh VM creation,
 source provisioning, host verification, the two-child smoke test, cleanup, log
 collection, and the ext4 disk topology audit. Review its variables and the
 network warning above before creating billable resources:
