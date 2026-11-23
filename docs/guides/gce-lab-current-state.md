@@ -1,9 +1,14 @@
 # Current verified lab state
 
-The latest code checkpoint is the [exited-guest worker-recovery fix](../../evidence/runtime-20261123/g8-recovered-output/README.md)
+Latest recovery preparation `acb53c42` adds [stopped-drain provenance](../../evidence/runtime-20261123/g8-recovery-drain-provenance/README.md)
+and separate counter validation for a future real-child worker fault. Local
+controls pass; that candidate has not executed on GCE. Its read-only lab recheck
+preserves all current and historical sets and the idle primary baseline.
+
+The latest qualified native GCE code is the [exited-guest worker-recovery fix](../../evidence/runtime-20261123/g8-recovered-output/README.md)
 at `2f4ba5a2`. Its committed-source native GCE controls kill the monitor at three
 write boundaries, then verify remaining output drains before completion: 8,192
-stdout bytes, 17 stderr bytes, exit 37 and a conservative 4,096-byte replay bound.
+stdout bytes, 17 stderr bytes, exit 37 and a conservative 4,096-byte stdout replay bound.
 Missing stdin does not prevent drain; replaced output identity and mismatched
 wait PID refuse. All six cases and four existing recovery groups pass without
 skips. The successful unit is stopped, scratch/cgroup removed, and 22 artifacts/

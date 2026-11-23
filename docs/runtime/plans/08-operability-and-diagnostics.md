@@ -1,10 +1,21 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [stopped-drain provenance preparation](../../../evidence/runtime-20261123/g8-recovery-drain-provenance/README.md)
+at `acb53c42` records initial output offsets/intents after validated stopped-guest
+reconstruction, before the normal monitor drains and commits completion. Native
+SIGKILL controls establish zero initial offsets, stdout intent/exposure 4,096 and
+stderr intent/exposure 17; both intents precede the first stdout write. Ordinary
+monitors omit this marker, retained tails copy it, and invalid/overflowing counters
+refuse. Full shim races and eight Python groups pass. Ordinary finite-exec scope
+refuses recovered origin; a separate strict counter subcheck leaves worker
+replacement explicitly unqualified. Prior idle GCE state and all seals remain
+preserved. Actual-child fault injection/lifecycle and full G7/G8 remain open.
+
 The [exited-guest worker-recovery fix](../../../evidence/runtime-20261123/g8-recovered-output/README.md)
 at source `2f4ba5a2` drains remaining output before publishing completion. Native
 real-agent/SIGKILL controls reproduce prior loss at three write boundaries, then
 deliver all 8,192 stdout/17 stderr bytes and exit 37 with the corrected recovery.
-Each crash retains the conservative 4,096-byte replay bound. Missing stdin does
+Each crash retains the conservative 4,096-byte stdout replay bound. Missing stdin does
 not prevent drain; changed output identity and mismatched wait PID refuse without
 starting output/network workers or changing durable process state. Full shim
 races and required checks pass, with five environment-dependent skips. Exact-
