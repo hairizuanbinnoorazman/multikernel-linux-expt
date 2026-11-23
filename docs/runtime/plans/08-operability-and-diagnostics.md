@@ -1,5 +1,15 @@
 # Plan 08: Operability, diagnostics, and maintainability
 
+The [exited-guest worker-recovery fix](../../../evidence/runtime-20261123/g8-recovered-output/README.md)
+at source `2f4ba5a2` drains remaining output before publishing completion. Native
+real-agent/SIGKILL controls reproduce prior loss at three write boundaries, then
+deliver all 8,192 stdout/17 stderr bytes and exit 37 with the corrected recovery.
+Each crash retains the conservative 4,096-byte replay bound. Missing stdin does
+not prevent drain; changed output identity and mismatched wait PID refuse without
+starting output/network workers or changing durable process state. Full shim
+races and required checks pass, with five environment-dependent skips. GCE and
+actual-child fault qualification remain separate; full G7/G8 stay open.
+
 The [real-child finite-exec accounting lifecycle](../../../evidence/runtime-20261122/g8-child-output-accounting/README.md)
 qualifies source `6a735215` through the complete nested Docker matrix and
 independent cold restoration. The held exec delivers exactly 8,192 stdout and
