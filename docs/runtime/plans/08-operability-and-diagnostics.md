@@ -7,8 +7,13 @@ deliver all 8,192 stdout/17 stderr bytes and exit 37 with the corrected recovery
 Each crash retains the conservative 4,096-byte replay bound. Missing stdin does
 not prevent drain; changed output identity and mismatched wait PID refuse without
 starting output/network workers or changing durable process state. Full shim
-races and required checks pass, with five environment-dependent skips. GCE and
-actual-child fault qualification remain separate; full G7/G8 stay open.
+races and required checks pass, with five environment-dependent skips. Exact-
+source native GCE qualification independently passes all six cases and four
+existing recovery groups without skips. The successful unit is stopped, scratch/
+cgroup removed, primary/idle resources/history preserved, and 22 artifacts/two
+absences sealed in the same boot. Two collector refusals remain preserved; the
+workload is not rerun. This closes the native drain/replay checkpoint. Actual-child
+fault qualification and full G7/G8 stay open.
 
 The [real-child finite-exec accounting lifecycle](../../../evidence/runtime-20261122/g8-child-output-accounting/README.md)
 qualifies source `6a735215` through the complete nested Docker matrix and

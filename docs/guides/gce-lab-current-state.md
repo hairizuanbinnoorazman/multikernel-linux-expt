@@ -1,5 +1,20 @@
 # Current verified lab state
 
+The latest code checkpoint is the [exited-guest worker-recovery fix](../../evidence/runtime-20261123/g8-recovered-output/README.md)
+at `2f4ba5a2`. Its committed-source native GCE controls kill the monitor at three
+write boundaries, then verify remaining output drains before completion: 8,192
+stdout bytes, 17 stderr bytes, exit 37 and a conservative 4,096-byte replay bound.
+Missing stdin does not prevent drain; replaced output identity and mismatched
+wait PID refuse. All six cases and four existing recovery groups pass without
+skips. The successful unit is stopped, scratch/cgroup removed, and 22 artifacts/
+two absences are sealed. Two collector refusals are preserved without rerunning
+the native workload. A [fresh read-only observation](../../evidence/runtime-20261123/g8-recovered-output/current-status.json)
+rechecks this seal, the inactive unit, original idle transport/resources, primary
+baseline, 200 GiB/5% reserve and all prior seals/metadata-only history.
+This is native fault proof;
+actual-child fault qualification of this source remains open. The latest actual-
+child lifecycle remains the separately scoped `6a735215` proof below.
+
 The [real-child finite-exec accounting proof](../../evidence/runtime-20261122/g8-child-output-accounting/README.md)
 qualifies source `6a735215`. Host Docker selects the direct child; the complete
 nested Docker build matrix passes. A held-child exec produces and delivers
