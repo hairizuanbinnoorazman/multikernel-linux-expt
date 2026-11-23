@@ -425,6 +425,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 	type recoveredProcess struct {
 		agentID string
 		process *process
+		stdin   bool
 	}
 	type recoveredSignalAcknowledgement struct {
 		agentID, operationID string
@@ -488,27 +489,20 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 			if err = s.callAgentWithReconnectContext(ctx, "WaitProcess", map[string]string{"ID": agentID}, &state); err != nil {
 				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
 			}
-			var pid, exit uint32
-			pid, exit, err = stoppedGuestProcess(state, agentID, p.pid)
+			var pid uint32
+			pid, _, err = stoppedGuestProcess(state, agentID, p.pid)
 			if err != nil {
 				return fmt.Errorf("recover stopped process %q wait state: %w", saved.ID, err)
 			}
-			// Recovery did not drain output through the monitor: never qualify
-			// final buffer accounting from a stopped state alone.
-			p.finalOutputAccounting = &finalOutputAccounting{State: "unavailable"}
-			p.status, p.pid, p.exit, p.stdinPending = tasktypes.Status_STOPPED, pid, exit, nil
-			if p.pendingSignalOperation != "" {
-				p.pendingSignalAcknowledgement = true
-				signalAcknowledgements = append(signalAcknowledgements, recoveredSignalAcknowledgement{
-					agentID: agentID, operationID: p.pendingSignalOperation, process: p, signal: p.pendingSignal,
-				})
+			// Guest exit does not mean the owning monitor drained the streams.
+			// Keep the durable nonterminal state until that monitor commits the
+			// remaining offsets, final accounting and independently checked exit.
+			// Its existing intent resolution preserves crash replay uncertainty.
+			p.pid = pid
+			if err = s.openProcessOutput(ctx, p); err != nil {
+				return fmt.Errorf("recover stopped process %q output: %w", saved.ID, err)
 			}
-			p.exited = time.Now().UTC()
-			if err = s.publishExit(ctx, p.id, p); err != nil {
-				return fmt.Errorf("recover stopped process %q exit event: %w", saved.ID, err)
-			}
-			p.exitEventQueued = true
-			close(p.done)
+			running = append(running, recoveredProcess{agentID: agentID, process: p})
 			continue
 		}
 		guestPID, pidErr := runningGuestProcess(state, agentID)
@@ -537,14 +531,7 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 		if err = s.openProcessIO(ctx, p); err != nil {
 			return fmt.Errorf("recover process %q I/O: %w", saved.ID, err)
 		}
-		running = append(running, recoveredProcess{agentID: agentID, process: p})
-	}
-	if s.netEndpoint.Generation != "" {
-		s.startNetworkPump()
-	}
-	for _, item := range running {
-		go s.pumpStdin(item.agentID, item.process)
-		go s.waitProcess(item.agentID, item.process.id, item.process)
+		running = append(running, recoveredProcess{agentID: agentID, process: p, stdin: true})
 	}
 	if err = s.persistRecovery(); err != nil {
 		return fmt.Errorf("persist reconstructed process state: %w", err)
@@ -566,6 +553,18 @@ func (s *service) recoverExisting(ctx context.Context) (retErr error) {
 		}
 	}
 	recovered = true
+	if s.netEndpoint.Generation != "" {
+		s.startNetworkPump()
+	}
+	// Publish reconstruction and finish synchronous signal reconciliation before
+	// monitors can mutate process state or persist their own output/exit records.
+	// On refusal the deferred cleanup must never race a newly started monitor.
+	for _, item := range running {
+		if item.stdin {
+			go s.pumpStdin(item.agentID, item.process)
+		}
+		go s.waitProcess(item.agentID, item.process.id, item.process)
+	}
 	return nil
 }
 

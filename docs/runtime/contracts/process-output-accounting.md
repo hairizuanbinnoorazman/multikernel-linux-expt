@@ -53,9 +53,16 @@ destinations and FIFO replay do not become delivery evidence.
 An older agent records `unsupported`; an advertised but unavailable, exhausted
 or invalid report records `unavailable`. Neither carries a report or implies
 zero loss. Failure of optional observation does not block the separately verified
-exit transition. Recovery that discovers a newly stopped guest without draining
-its streams records `unavailable`. Legacy recovery records with no field remain
-unobserved. Existing stopped reports survive reconstruction and are validated
+exit transition. Recovery that discovers a newly stopped guest validates its
+wait identity, reopens only the bound output destinations and starts the ordinary
+drain monitor after durable reconstruction. It does not reopen stdin, resize or
+signal that exited guest. The saved process remains nonterminal until remaining
+output, final accounting and a separately checked exit commit through the monitor.
+Unfinished write intents retain their conservative replay exposure; draining after
+a crash does not establish exactly-once physical delivery. Output-path replacement
+refuses recovery rather than discarding the tail to publish an early exit.
+Already persisted stopped records keep their original accounting; legacy records
+with no field remain unobserved. Existing stopped reports are validated
 against the persisted process and offsets; they grant no new lifecycle authority.
 The optional fields extend recovery schema 4; older strict readers refuse such
 records and must not be used for a downgrade while they exist.

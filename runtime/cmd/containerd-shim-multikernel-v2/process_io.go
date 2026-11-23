@@ -288,6 +288,22 @@ func runOutputFIFOKeeper(arguments []string) int {
 }
 
 func (s *service) openProcessIO(ctx context.Context, p *process) (err error) {
+	if err = s.openProcessOutput(ctx, p); err != nil {
+		return err
+	}
+	if p.stdin != "" {
+		p.stdinReader, err = openKnownProcessIOPath(ctx, p.stdin, unix.O_RDONLY|unix.O_NONBLOCK, p.stdinIdentity)
+		if err != nil {
+			closeProcessIO(p)
+			return fmt.Errorf("open stdin: %w", err)
+		}
+	}
+	return nil
+}
+
+// An exited guest can still own unread output. Recovery reopens only its
+// output destinations; it must not resume stdin or resize/signal that guest.
+func (s *service) openProcessOutput(ctx context.Context, p *process) (err error) {
 	p.stdoutWriter, p.stdoutGuard, err = openOutput(ctx, p.stdout, p.stdoutIdentity)
 	if err != nil {
 		return fmt.Errorf("open stdout: %w", err)
@@ -297,13 +313,6 @@ func (s *service) openProcessIO(ctx context.Context, p *process) (err error) {
 		if err != nil {
 			closeProcessIO(p)
 			return fmt.Errorf("open stderr: %w", err)
-		}
-	}
-	if p.stdin != "" {
-		p.stdinReader, err = openKnownProcessIOPath(ctx, p.stdin, unix.O_RDONLY|unix.O_NONBLOCK, p.stdinIdentity)
-		if err != nil {
-			closeProcessIO(p)
-			return fmt.Errorf("open stdin: %w", err)
 		}
 	}
 	return nil
