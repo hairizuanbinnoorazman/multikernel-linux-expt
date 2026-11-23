@@ -95,7 +95,10 @@ def audit(args):
     scenario=getattr(args,'scenario','pressure');scenario_flag(scenario)
     require_output_accounting=getattr(args,'require_child_output_accounting',False)
     if type(require_output_accounting) is not bool or require_output_accounting and scenario!='logging':raise ValueError('output accounting audit scenario differs')
+    require_output_recovery=getattr(args,'require_child_output_recovery',False)
+    if type(require_output_recovery) is not bool or require_output_recovery and (scenario!='logging' or require_output_accounting):raise ValueError('output recovery requires separate logging scope')
     require_exhaustion=getattr(args,'require_diagnostic_exhaustion',False)
+    if require_output_recovery and require_exhaustion:raise ValueError('worker replacement requires ordinary production worker')
     if type(require_exhaustion) is not bool or require_exhaustion and scenario!='logging':raise ValueError('diagnostic exhaustion audit scenario differs')
     require_engine=getattr(args,'require_engine_observation',False) or getattr(args,'require_aggregate_docker_health',False)
     if require_engine and scenario!='pressure':raise ValueError('engine observation requires pressure scenario')
@@ -178,6 +181,7 @@ def audit(args):
         raise ValueError('trial scenario differs from caller authority')
     if receipt.get('concurrent_guest_builds_tested') is not (scenario=='concurrent'):
         raise ValueError('concurrent scenario differs from caller authority')
+    if receipt.get('child_output_recovery_tested',False) is not require_output_recovery:raise ValueError('output recovery scope differs from caller authority')
     if receipt.get('child_output_accounting_tested',False) is not require_output_accounting:raise ValueError('output accounting scope differs from caller authority')
     if receipt.get('diagnostic_exhaustion_tested',False) is not require_exhaustion:raise ValueError('diagnostic exhaustion scope differs from caller authority')
     if receipt.get('child_log_pressure_tested',False) is not (scenario=='logging'):raise ValueError('logging scenario differs from caller authority')
@@ -289,6 +293,9 @@ def audit(args):
         if (parent.get('scenario')!='logging' or parent.get('child_log_pressure_checkpoint')!=logging or parent['boot_id']!=boot or parent['parent_scope']['InvocationID']!=args.parent_invocation or parent['pressure_invocation']!=args.workload_invocation or parent.get('candidate_quiescent') is not True or parent.get('primary_unchanged') is not True or parent.get('cold_restore_required') is not True):
             raise ValueError('parent logging checkpoint differs from exact lifecycle')
         if require_exhaustion and parent.get('diagnostic_exhaustion_checkpoint')!=exhaustion:raise ValueError('parent exhaustion checkpoint differs')
+        if require_output_recovery:
+            from runtime_child_output_recovery import inspect_fixture as inspect_output_recovery
+            if parent.get('child_output_recovery_checkpoint')!=inspect_output_recovery(work,boot,args.workload_invocation):raise ValueError('parent output recovery checkpoint differs')
         if require_output_accounting:
             from runtime_child_output_accounting import inspect_fixture as inspect_output_accounting
             if parent.get('child_output_accounting_checkpoint')!=inspect_output_accounting(work,boot,args.workload_invocation):raise ValueError('parent output accounting checkpoint differs')
@@ -388,6 +395,7 @@ def audit(args):
                 child_build_and_log_rotation_qualified=scenario=='logging',
                 real_child_diagnostic_exhaustion_qualified=require_exhaustion,
                 real_child_finite_exec_output_accounting_qualified=require_output_accounting,
+                real_child_output_recovery_qualified=require_output_recovery,
                 diagnostic_three_hold_receipts_requalified=scenario=='pressure', primary_docker_and_network_preserved=True,
                 native_release_offline_check_and_resource_return=True, cold_restoration_qualified=False,
                 raw_private_payloads_exported=False, full_g7_closed=False, full_g8_closed=False,
@@ -399,6 +407,7 @@ def main():
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--require-engine-observation',action='store_true')
     parser.add_argument('--require-child-output-accounting',action='store_true')
+    parser.add_argument('--require-child-output-recovery',action='store_true')
     parser.add_argument('--require-diagnostic-exhaustion',action='store_true')
     parser.add_argument('--require-aggregate-docker-health',action='store_true')
     parser.add_argument('--scenario',choices=['pressure','runtime-restart','runtime-crash','runtime-crash-during-build','runtime-crash-during-io','concurrent','logging'],default='pressure')

@@ -1,5 +1,5 @@
 """Detached, current-agent child builds and metadata-only host log rotation."""
-import hashlib,json,re,subprocess,time
+import hashlib,json,os,re,subprocess,time
 from pathlib import Path
 from runtime_trial_command import capture
 from runtime_docker_log_rotation import qualify_rotation
@@ -46,7 +46,8 @@ def wait_for_writer(probe,deadline):
     raise ValueError('child log writer did not complete within deadline')
 
 
-def qualify(cli,private,boot,invocation,diagnostic_exhaustion=False,output_accounting=False):
+def qualify(cli,private,boot,invocation,diagnostic_exhaustion=False,output_accounting=False,output_recovery=False):
+    if any(type(flag) is not bool for flag in [diagnostic_exhaustion,output_accounting,output_recovery]) or output_recovery and (diagnostic_exhaustion or output_accounting):raise ValueError('output recovery requires separate explicit fault scope')
     # Imports stay lazy: the concurrency checkpoint imports its own fixture.
     from runtime_concurrency_checkpoint import matrix
     name='g8-materialization'
@@ -83,6 +84,10 @@ def qualify(cli,private,boot,invocation,diagnostic_exhaustion=False,output_accou
     if output_accounting:
         from runtime_child_output_accounting import qualify as qualify_output
         qualify_output(cli,private,boot,invocation)
+    if output_recovery:
+        if diagnostic_exhaustion or output_accounting:raise ValueError('output recovery requires a separate fault scope')
+        from runtime_child_output_recovery import qualify as qualify_recovery
+        qualify_recovery(cli,private,boot,invocation,os.environ['MK_TEST_UNIT'])
     if diagnostic_exhaustion:capture_worker(private,build,boot,'before-release')
     command(['kill','--signal=USR1',name],'log-release')
     assert command(['wait',name],'log-wait',timeout=60).stdout==b'0\n'

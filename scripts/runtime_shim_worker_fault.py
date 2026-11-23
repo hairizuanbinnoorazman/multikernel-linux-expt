@@ -30,6 +30,8 @@ class WorkerFault:
         self.worker_fd=self.supervisor_fd=None
         self.worker_stopped=self.supervisor_stopped=False
         self.bound=False
+        self.worker_killed=False
+        self.entered=False
 
     def _scope(self):
         # Reject a historical boot/epoch before reading any target PID or
@@ -78,6 +80,8 @@ class WorkerFault:
         return worker,supervisor
 
     def __enter__(self):
+        if self.entered:raise ValueError('worker fault controller cannot be reused')
+        self.entered=True
         try:
             self.cgroup=self._scope()
             require_production(self.build)
@@ -134,7 +138,20 @@ class WorkerFault:
         signal.pidfd_send_signal(self.supervisor_fd,signal.SIGCONT)
         self.supervisor_stopped=False
         self.bound=False
+        self.worker_killed=True
         return dict(signal='SIGKILL',pidfd_exit_observed=True,source_bundle_parent_and_cgroup_bound=True,supervisor_resumed=True,historical_receipt_authority=False)
+
+    def observe_replacement(self,binding):
+        """Read-only live observation after the successful fault, never authority."""
+        if not self.worker_killed or self._scope()!=self.cgroup:raise ValueError('replacement lacks a successful live fault')
+        bundle,current=observe_worker(self.private,self.build,self.boot)
+        equal(current,{key:value for key,value in binding.items() if key!='phase'})
+        worker=process_state(current['worker_pid']);supervisor=self._supervisor(self.supervisor_pid)
+        if bundle!=self.bundle or current['worker_pid']==self.worker_pid or worker['parent']!=self.supervisor_pid or supervisor['start']!=self.supervisor_start:raise ValueError('replacement worker parent or incarnation differs')
+        for pid in [current['worker_pid'],self.supervisor_pid]:
+            if (Path('/proc')/str(pid)/'cgroup').read_bytes()!=self.cgroup:raise ValueError('replacement worker scope differs')
+        if time.monotonic_ns()>=self.deadline:raise ValueError('replacement worker observation was late')
+        return dict(version=1,scope='live-replacement-worker-parent',supervisor_pid=self.supervisor_pid,supervisor_start_ticks=self.supervisor_start,worker_pid=current['worker_pid'],worker_start_ticks=current['worker_start_ticks'],same_source_bundle_and_cgroup=True)
 
     def close(self):
         errors=[]

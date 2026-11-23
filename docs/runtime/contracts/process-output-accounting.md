@@ -74,19 +74,6 @@ new recovered-drain marker rather than promoting a fault run into its ordinary
 scope; an actual-child recovery checkpoint must bind the changed worker and
 qualify that separate path.
 
-The lab's `runtime_shim_worker_fault.WorkerFault` is a scoped injector primitive,
-not a recovery or cleanup command. Its caller must be the exact live disposable
-workload unit's main process and invocation, in that unit's private cgroup/mount
-scope. Historical boot/epoch and wrong unit scope refuse before target lookup.
-Fresh source/bundle/marker/parent/incarnation observations bind the worker and
-supervisor to pidfds; every fault rechecks the live scope and identities. There
-is no numeric-PID signal fallback or archive-to-authority handoff. It temporarily
-stops the supervisor and worker, kills only that held worker, observes its pidfd
-exit under the caller's deadline and resumes the bound supervisor. Context exit
-attempts to resume both bound processes even after timeout, late observation or
-another resume error. This primitive alone does not qualify an actual-child
-fault: the complete trial still needs bounded producer/counter capture, a
-changed live worker, full lifecycle evidence and independent epoch-bound audit.
 Already persisted stopped records keep their original accounting; legacy records
 with no field remain unobserved. Existing stopped reports are validated
 against the persisted process and offsets; they grant no new lifecycle authority.
@@ -171,6 +158,48 @@ This qualifies only that finite probe when actually run; preparation/native test
 do not establish actual-child success. The full log writer, Docker logger
 retention/loss and worker-fault mixtures need separate accounting evidence.
 
+## Worker-recovery trial
+
+The lab's `runtime_shim_worker_fault.WorkerFault` is a scoped injector primitive,
+not a recovery or cleanup command. Its caller must be the exact live disposable
+workload unit's main process and invocation, in that unit's private cgroup/mount
+scope. Historical boot/epoch and wrong unit scope refuse before target lookup.
+Fresh source/bundle/marker/parent/incarnation observations bind the worker and
+supervisor to pidfds; every fault rechecks the live scope and identities. There
+is no numeric-PID signal fallback or archive-to-authority handoff. It temporarily
+stops the supervisor and worker, kills only that held worker, observes its pidfd
+exit under the caller's deadline and resumes the bound supervisor. Context exit
+attempts to resume both bound processes even after timeout, late observation or
+another resume error. This primitive alone does not qualify an actual-child
+fault: the complete trial still needs bounded producer/counter capture, a
+changed live worker, full lifecycle evidence and independent epoch-bound audit.
+
+That separate fixture is selected with parent
+`MK_MODULE_TRIAL_CHILD_OUTPUT_RECOVERY=1`, workload `--child-output-recovery`,
+and independent audit `--require-child-output-recovery`. It requires the logging
+scenario, a production packet and no ordinary-output, diagnostic-exhaustion or
+storage-record fault scope. Live unit admission precedes even read-only worker
+lookup. Its fixed attached exec sleeps ten seconds, then emits 8,192 zero stdout
+bytes/17 fixed stderr bytes and exits 37. A recorded RUNNING exec with zero
+offsets/intents must be the sole new exec before both host processes are held.
+The bounded twelve-second hold does not establish guest completion: the retained
+final record must prove stopped-guest reconstruction with zero initial offsets
+and intents, exact received/guest/host counts and no drops or replay exposure.
+
+The fault, attached command and replacement observation share thirty seconds;
+accounting gets at most twenty-five polls under a five-second window clipped to
+that same deadline. Failed or early probe collection refuses before pausing;
+late captures and frozen-clock poll exhaustion cannot qualify. A fresh live
+observation must bind the changed worker to the same supervisor incarnation,
+bundle, source and cgroup. Another complete nested Docker build then runs within
+the existing 180-second rebuild bound. The previous image archive is retained
+and checked, and primary Docker must remain unchanged with the rebuilt image
+absent. The original trial's outer workload/parent deadlines remain unchanged.
+The checkpoint and independent auditor bind all selected private captures to
+the exact source/boot/workload invocation. Archived verification neither looks
+up PIDs nor instantiates fault authority. Preparation controls alone establish
+none of the actual-child execution, normal resource return or cold restoration
+requirements; those still need the real lifecycle and independent evidence.
 This covers guest-buffer and logical host-disposition accounting. Actual-child
 integration, worker recovery under real faults, Docker logger rotation/loss and payload/heap/RSS peaks require
 separate evidence. Full G7/G8 and end-to-end loss/peak accounting remain open.

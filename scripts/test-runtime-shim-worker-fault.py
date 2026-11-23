@@ -28,6 +28,8 @@ child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)'])
 pathlib.Path('.multikernel-worker.pid').write_text(str(child.pid)+'\\n')
 status=child.wait()
 pathlib.Path('child-status').write_text(str(status))
+replacement=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)'])
+pathlib.Path('.multikernel-worker.pid').write_text(str(replacement.pid)+'\\n')
 time.sleep(60)
 """
         supervisor=subprocess.Popen([str(executable),'-c',program],cwd=bundle,start_new_session=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -83,11 +85,20 @@ class WorkerFaultTests(unittest.TestCase):
                     self.assertEqual(fault.process_state(guard.worker_pid)['state'],'T')
                     proof=guard.kill_worker();self.assertTrue(proof['pidfd_exit_observed']);self.assertTrue(proof['supervisor_resumed'])
                     with self.assertRaises(ValueError):guard.kill_worker()
+                    with self.assertRaises(ValueError):guard.__enter__()
                 deadline=time.monotonic()+3
                 while not (bundle/'child-status').exists() and time.monotonic()<deadline:time.sleep(.01)
                 self.assertEqual((bundle/'child-status').read_text(),'-9')
                 self.assertIsNone(canary.poll());self.assertIsNone(supervisor.poll())
                 self.assertIsNone(guard.worker_fd);self.assertIsNone(guard.supervisor_fd)
+                deadline=time.monotonic()+3
+                while int((bundle/'.multikernel-worker.pid').read_text())==guard.worker_pid and time.monotonic()<deadline:time.sleep(.01)
+                _,binding=fault.observe_worker(private,build,BOOT);binding['phase']='after'
+                replacement=guard.observe_replacement(binding)
+                self.assertEqual(replacement['supervisor_pid'],supervisor.pid)
+                self.assertNotEqual(replacement['worker_pid'],guard.worker_pid)
+                guard.supervisor_start+=1
+                with self.assertRaises(ValueError):guard.observe_replacement(binding)
 
     def test_native_exception_after_pause_resumes_both_bound_processes(self):
         with owned_helpers() as (private,build,bundle,supervisor,canary):
