@@ -73,6 +73,20 @@ retention copies the marker by value. The ordinary finite-exec trial refuses a
 new recovered-drain marker rather than promoting a fault run into its ordinary
 scope; an actual-child recovery checkpoint must bind the changed worker and
 qualify that separate path.
+
+The lab's `runtime_shim_worker_fault.WorkerFault` is a scoped injector primitive,
+not a recovery or cleanup command. Its caller must be the exact live disposable
+workload unit's main process and invocation, in that unit's private cgroup/mount
+scope. Historical boot/epoch and wrong unit scope refuse before target lookup.
+Fresh source/bundle/marker/parent/incarnation observations bind the worker and
+supervisor to pidfds; every fault rechecks the live scope and identities. There
+is no numeric-PID signal fallback or archive-to-authority handoff. It temporarily
+stops the supervisor and worker, kills only that held worker, observes its pidfd
+exit under the caller's deadline and resumes the bound supervisor. Context exit
+attempts to resume both bound processes even after timeout, late observation or
+another resume error. This primitive alone does not qualify an actual-child
+fault: the complete trial still needs bounded producer/counter capture, a
+changed live worker, full lifecycle evidence and independent epoch-bound audit.
 Already persisted stopped records keep their original accounting; legacy records
 with no field remain unobserved. Existing stopped reports are validated
 against the persisted process and offsets; they grant no new lifecycle authority.

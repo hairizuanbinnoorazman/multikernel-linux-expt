@@ -127,7 +127,16 @@ def write(private,name,data):
 
 
 def worker_binding(private,build,boot,phase):
-    if phase not in ['before','after'] or Path('/proc/sys/kernel/random/boot_id').read_text().strip()!=boot:raise ValueError('output worker observation epoch differs')
+    if phase not in ['before','after']:raise ValueError('output worker observation phase differs')
+    bundle,value=observe_worker(private,build,boot)
+    value['phase']=phase
+    write(private,'child-output-'+phase+'-worker.json',(json.dumps(value,sort_keys=True)+'\n').encode())
+    return bundle,value
+
+
+def observe_worker(private,build,boot):
+    """Read-only binding; not permission to signal a worker from a saved record."""
+    if Path('/proc/sys/kernel/random/boot_id').read_text().strip()!=boot:raise ValueError('output worker observation epoch differs')
     container=read_fixture_artifact(private,'create.stdout',128).decode().strip()
     if not re.fullmatch('[a-f0-9]{64}',container) or not re.fullmatch('[a-f0-9]{40}',build['source_commit']):raise ValueError('output worker source differs')
     bundle=private/'containerd-state/io.containerd.runtime.v2.task/moby'/container
@@ -149,8 +158,7 @@ def worker_binding(private,build,boot,phase):
     if actual!=build['binaries']['containerd-shim-multikernel-v2']:raise ValueError('output worker binary hash differs')
     identity=bundle.lstat();cwd=(proc/'cwd').stat()
     if not stat.S_ISDIR(identity.st_mode) or stat.S_IMODE(identity.st_mode)!=0o700 or identity.st_uid!=os.geteuid() or (identity.st_dev,identity.st_ino,identity.st_uid)!=(cwd.st_dev,cwd.st_ino,cwd.st_uid) or start()!=ticks or read_fixture_artifact(bundle,'.multikernel-worker.pid',64)!=marker:raise ValueError('output worker changed during observation')
-    value=dict(version=1,scope='held-child-output-worker-binding',phase=phase,boot_id=boot,source_commit=build['source_commit'],container_id=container,worker_pid=pid,worker_start_ticks=ticks,bundle_identity=dict(device=identity.st_dev,inode=identity.st_ino,uid=identity.st_uid),executable_sha256=actual)
-    write(private,'child-output-'+phase+'-worker.json',(json.dumps(value,sort_keys=True)+'\n').encode())
+    value=dict(version=1,scope='held-child-output-worker-binding',boot_id=boot,source_commit=build['source_commit'],container_id=container,worker_pid=pid,worker_start_ticks=ticks,bundle_identity=dict(device=identity.st_dev,inode=identity.st_ino,uid=identity.st_uid),executable_sha256=actual)
     return bundle,value
 
 
